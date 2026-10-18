@@ -30,7 +30,8 @@ question, `small` (420) for a prompt with a field or a short list, `medium`
 (520) for a pane around one group, `large` (820) for settings, the conflict
 resolver or any pane with more than one group. Before `large`, ask
 whether the content wants a page. Height follows the content; only the body
-scrolls.
+scrolls, with a hairline under the header once it's scrolled down and over the
+footer while there is more below.
 
 **`alert` only when the question has to be answered.** Credentials, and
 anything that destroys work. Every other modal closes on Escape and on the
