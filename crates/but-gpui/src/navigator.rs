@@ -109,7 +109,9 @@ enum Row {
     /// The end of a branch's commits unfolded, which folds them again.
     Fewer(ProjectId, String),
     /// A commit an operation is still making, by its title.
-    Pending(SharedString),
+    /// A commit a mutation is making, by its title, and whether it's been long enough to
+    /// show it's still on its way.
+    Pending(SharedString, bool),
     /// Where a commit of the project being dragged lands in a new branch of its own.
     NewBranch(ProjectId),
     /// After a stack, while one of the project's branches is dragged: where it lands below
@@ -496,7 +498,8 @@ impl Navigator {
             }
             rows.open();
             let pending = |at: &dyn Fn(&NewAt) -> bool| {
-                (store.new_commits(id, at).into_iter()).map(Row::Pending)
+                (store.new_commits(id, at).into_iter())
+                    .map(|(title, slow)| Row::Pending(title, slow))
             };
             rows.extend(pending(
                 &|at| matches!(at, NewAt::Top(ref_name) if *ref_name == branch.ref_name),
@@ -884,13 +887,14 @@ impl Navigator {
                 })
                 .child(div().flex_1().min_w(px(0.)).child(text.clone()))
                 .into_any_element(),
-            Some(Row::Pending(title)) => h_flex()
+            // As made at once; dimmed, with an ellipsis, only once it's taking a while.
+            Some(Row::Pending(title, slow)) => h_flex()
                 .min_h(px(ROW_HEIGHT))
                 .mx(px(3.))
                 .pl(px(38.))
                 .pr(px(12.))
                 .gap(px(10.))
-                .opacity(0.5)
+                .when(*slow, |el| el.opacity(0.5))
                 .child(small_icon(Icon::Commit).text_color(theme.blue))
                 .child(
                     div()
@@ -900,7 +904,9 @@ impl Navigator {
                         .when(title.is_empty(), |el| el.italic())
                         .child(commit_title(title)),
                 )
-                .child(div().text_size(px(11.)).text_color(theme.text_2).child("…"))
+                .when(*slow, |el| {
+                    el.child(div().text_size(px(11.)).text_color(theme.text_2).child("…"))
+                })
                 .into_any_element(),
             Some(Row::ProjectsHeading(title, listed, total)) => {
                 self.projects_heading(title, *listed, *total, theme, cx)

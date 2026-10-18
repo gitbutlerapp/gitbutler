@@ -18,6 +18,10 @@ use crate::backend::{
 /// How long a mutation runs before the status bar says how long it's taking.
 pub const SLOW: Duration = Duration::from_millis(800);
 
+/// How long a commit a mutation makes shows as made before it dims, to say the mutation is
+/// still running: one done sooner never looks pending.
+const PENDING_AFTER: Duration = Duration::from_millis(400);
+
 /// What a running or queued operation takes away, hidden until the reload after it shows
 /// the result, and the commit it makes, shown as a stand-in meanwhile. Nothing here predicts
 /// what git will do; the reload always has the last word.
@@ -237,6 +241,8 @@ pub(super) struct Queued {
     captured: HashMap<CommitId, String>,
     /// The selection it moved off what it takes away, back if it fails.
     moved: Option<Selection>,
+    /// When it was asked for, which its stand-ins count from.
+    asked: Instant,
     start: Start,
 }
 
@@ -248,6 +254,7 @@ pub(super) struct Running {
     label: SharedString,
     overlay: Overlay,
     started: Instant,
+    asked: Instant,
     /// It finished and waits for its reload. The next load to start ends it when it lands.
     settling: bool,
     /// Reloads asked for while it ran, which the reload after it reads too.
@@ -714,12 +721,21 @@ impl Store {
         }
         let id = project.clone();
         let start_label = label.clone();
+        // Drawn again when the commit it makes, if any, is due to dim.
+        if overlay.new_commit.is_some() {
+            cx.spawn(async move |this, cx| {
+                cx.background_executor().timer(PENDING_AFTER).await;
+                this.update(cx, |_, cx| cx.notify()).ok();
+            })
+            .detach();
+        }
         self.queue.push_back(Queued {
             project: project.clone(),
             label,
             overlay,
             captured,
             moved,
+            asked: Instant::now(),
             start: Box::new(move |store, remap, cx| {
                 store.start(&id, start_label, op, done, remap, cx)
             }),
@@ -752,6 +768,7 @@ impl Store {
                     label: next.label,
                     overlay: next.overlay,
                     started: Instant::now(),
+                    asked: next.asked,
                     settling: false,
                     deferred: Reload::default(),
                     moved: next.moved,
@@ -945,10 +962,18 @@ impl Store {
     }
 
     fn overlays<'a>(&'a self, project: &'a ProjectId) -> impl Iterator<Item = &'a Overlay> {
+        self.overlays_asked(project).map(|(overlay, _)| overlay)
+    }
+
+    /// [`Self::overlays`], each with when its mutation was asked for.
+    fn overlays_asked<'a>(
+        &'a self,
+        project: &'a ProjectId,
+    ) -> impl Iterator<Item = (&'a Overlay, Instant)> {
         let queued = self.queue.iter().filter(move |q| q.project == *project);
-        (self.running.get(project).map(|r| &r.overlay))
+        (self.running.get(project).map(|r| (&r.overlay, r.asked)))
             .into_iter()
-            .chain(queued.map(|q| &q.overlay))
+            .chain(queued.map(|q| (&q.overlay, q.asked)))
     }
 
     pub fn hides_commit(&self, project: &ProjectId, key: &str) -> bool {
@@ -1017,16 +1042,17 @@ impl Store {
             .any(|o| (o.commit_files.get(commit)).is_some_and(|files| files.contains(path)))
     }
 
-    /// The titles of commits pending mutations will make where `at` says.
+    /// The titles of commits pending mutations will make where `at` says, each with whether
+    /// it's been on its way long enough to show it's still pending.
     pub fn new_commits(
         &self,
         project: &ProjectId,
         at: impl Fn(&NewAt) -> bool,
-    ) -> Vec<SharedString> {
-        self.overlays(project)
-            .filter_map(|o| o.new_commit.as_ref())
-            .filter(|(place, _)| at(place))
-            .map(|(_, title)| title.clone())
+    ) -> Vec<(SharedString, bool)> {
+        self.overlays_asked(project)
+            .filter_map(|(o, asked)| Some((o.new_commit.as_ref()?, asked)))
+            .filter(|((place, _), _)| at(place))
+            .map(|((_, title), asked)| (title.clone(), asked.elapsed() >= PENDING_AFTER))
             .collect()
     }
 
