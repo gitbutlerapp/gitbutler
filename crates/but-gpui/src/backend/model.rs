@@ -140,9 +140,9 @@ impl Workspace {
             .map_or(&[], |(stack, at)| &stack.branches[at..])
     }
 
-    /// Whether pushing `ref_name` has commits to send.
+    /// Whether pushing `ref_name` has commits to send. An unnamed branch has no ref to push.
     pub fn can_push(&self, ref_name: &str) -> bool {
-        self.pushed_with(ref_name).iter().any(Branch::can_push)
+        !ref_name.is_empty() && self.pushed_with(ref_name).iter().any(Branch::can_push)
     }
 
     /// How many commits only the remote has that pushing `ref_name` drops: a forced push
