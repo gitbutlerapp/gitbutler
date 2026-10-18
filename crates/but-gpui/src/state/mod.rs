@@ -531,6 +531,11 @@ impl Store {
     }
 
     pub fn set_cut(&mut self, cut: Option<Cut>, cx: &mut Context<Self>) {
+        // The snackbar saying a cut is ready to paste is wrong once it's pasted or let go.
+        if cut.is_none() && self.cut.is_some() {
+            (self.toasts)
+                .retain(|toast| !matches!(toast.notice, Notice::Snackbar { undo: None, .. }));
+        }
         self.cut = cut;
         cx.notify();
     }
