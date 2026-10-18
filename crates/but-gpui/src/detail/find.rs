@@ -87,6 +87,14 @@ impl Detail {
         cx.notify();
     }
 
+    /// Find `text` in the diff, as typing it in the find bar does.
+    pub(super) fn find_text(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_find(window, cx);
+        if let Some(find) = &self.find {
+            (find.input).update(cx, |input, cx| input.set_text(text, cx));
+        }
+    }
+
     pub(super) fn close_find(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.find = None;
         window.focus(&self.focus, cx);
