@@ -876,9 +876,11 @@ impl Detail {
                     .gap(px(6.))
                     .child(
                         // Every line of them, said shorter, so a narrow pane cuts at most the
-                        // noun of a big count, rather than its second number.
+                        // noun of a big count, rather than its second number. The narrowest
+                        // list has room for nothing but "Al…", so says nothing.
                         faint(
                             match workspace.uncommitted.len() {
+                                _ if self.files_width(window, cx) < 280. => String::new(),
                                 total if whole && total > 1 => {
                                     format!("All {}", plural(total, "file"))
                                 }
@@ -938,6 +940,7 @@ impl Detail {
         let key = shortcut(&PickCommitTarget, cx);
         h_flex()
             .id("commit-target")
+            .min_w(px(0.))
             .h(px(22.))
             .px(px(8.))
             .gap(px(4.))
@@ -947,7 +950,7 @@ impl Detail {
             .font_family(theme.mono_font.clone())
             .text_color(theme.blue)
             .child(small_icon(Icon::Branch).text_color(theme.blue))
-            .child(label)
+            .child(div().min_w(px(0.)).truncate().child(label))
             .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
             .tooltip(move |_, cx| {
                 Tooltip::with_key("Pick the branch to commit to".into(), key.clone(), cx)
