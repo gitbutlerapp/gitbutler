@@ -513,7 +513,7 @@ impl AppView {
                         Overlay::remote(),
                         move |path, _| reviews::merge(path, number, method),
                         move |store, (), cx| {
-                            store.snack("Merged. Update to bring it into your workspace", cx);
+                            store.snack("Merged, Update brings it into your workspace", cx);
                             store.refresh_forge(&refreshed);
                         },
                         cx,

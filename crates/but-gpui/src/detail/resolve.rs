@@ -521,16 +521,16 @@ impl Detail {
                     let message = match (outcome.remaining, outcome.emptied, next) {
                         (0, true, _) => {
                             store.follow(&rewritten, cx);
-                            "Resolved. Nothing of the commit's change is left".into()
+                            "Resolved, with nothing of the commit's change left".into()
                         }
                         // On to the stack's next conflicted commit, rebuilt on this one.
                         (0, false, Some((next, title))) => {
                             store.select(Some(Selection::Commit(shown, next)), cx);
-                            format!("Resolved. Next: {title}")
+                            format!("Resolved, on to {title}")
                         }
                         (0, false, None) => {
                             store.follow(&rewritten, cx);
-                            "Resolved. No conflicts left".into()
+                            "Resolved, no conflicts left".into()
                         }
                         (left, ..) => {
                             store.follow(&rewritten, cx);
