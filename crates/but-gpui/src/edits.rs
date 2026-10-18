@@ -226,20 +226,20 @@ impl AppView {
         }
         let name = short_ref(&ref_name).to_owned();
         self.confirm_then(
-            format!("Make {name} the remote's version?"),
-            "Its commits the remote doesn't have are dropped. You can undo this with ⌘Z.",
-            "Take the remote's",
+            format!("Replace {name} with the remote's version?"),
+            "This drops its commits the remote doesn't have. You can undo this with ⌘Z.",
+            "Replace",
             window,
             cx,
             move |this, cx| {
                 this.store.update(cx, |store, cx| {
                     store.run(
                         &project,
-                        "Take the remote's version",
+                        "Replace with the remote's version",
                         Overlay::default(),
                         move |path, _| backend::pull_remote(path, &ref_name, true),
                         move |store, (), cx| {
-                            store.snack_undoable(format!("{name} is the remote's now"), cx)
+                            store.snack_undoable(format!("{name} now matches the remote"), cx)
                         },
                         cx,
                     )

@@ -72,7 +72,10 @@ const COMMANDS: &[(&str, &dyn Action)] = &[
         &crate::edits::MoveToNewBranch,
     ),
     ("Pull from the remote", &crate::edits::PullRemote),
-    ("Take the remote's version", &crate::edits::TakeRemote),
+    (
+        "Replace with the remote's version",
+        &crate::edits::TakeRemote,
+    ),
     ("New branch below", &NewBranchBelow),
     ("New branch ending here", &NewBranchHere),
     ("Unstack branch", &Unstack),

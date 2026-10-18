@@ -224,7 +224,7 @@ fn integrate_remote(
     anyhow::ensure!(
         theirs || !rewritten_here,
         "The remote has older versions of commits rewritten here, which pulling would bring \
-         back. Take the remote's version, or push this branch's to replace them."
+         back. Replace the branch with the remote's version, or push this one over it."
     );
     let mut guard = ctx.exclusive_worktree_access();
     but_api::branch::apply_branch_integration_with_perm(
