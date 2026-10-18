@@ -332,7 +332,49 @@ impl Navigator {
                     .separated(),
                 ]
             }
-            Selection::Branches(_) | Selection::History(_) | Selection::Stack(..) => Vec::new(),
+            Selection::Stack(project, bottom) => {
+                let key = (project.clone(), bottom.clone());
+                let mut items = vec![match self.folded_stacks.contains(&key) {
+                    true => action("Show branches", &Expand),
+                    false => action("Hide branches", &Collapse),
+                }];
+                let (Some(workspace), None) = (store.workspace(project), store.worktree_of(target))
+                else {
+                    return items;
+                };
+                // Through its top branch, which takes the ones below it along.
+                let Some(top) = workspace.lane(bottom).and_then(<[_]>::first) else {
+                    return items;
+                };
+                let top = &top.ref_name;
+                if workspace.can_push(top) && workspace.push_refused(top).is_none() {
+                    items.push(
+                        action(
+                            match workspace.needs_force(top) {
+                                true => "Force push stack",
+                                false => "Push stack",
+                            },
+                            &Push,
+                        )
+                        .separated(),
+                    );
+                }
+                if let Some(target) = workspace.target.as_ref()
+                    && BranchEdits::of(workspace, top).land == Some(true)
+                {
+                    items.push(MenuItem::action(
+                        format!("Land the stack on {}…", target.name),
+                        &crate::edits::LandBranch,
+                        cx,
+                    ));
+                }
+                items.push(action("New branch on top…", &NewBranchOnTop).separated());
+                if workspace.managed {
+                    items.push(action("Unapply stack", &UnapplyStack));
+                }
+                items
+            }
+            Selection::Branches(_) | Selection::History(_) => Vec::new(),
         }
     }
 }
