@@ -483,15 +483,23 @@ pub fn drag_preview(
     label: SharedString,
 ) -> impl Fn(&Cut, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static {
     move |payload, _, _, cx| {
-        store.update(cx, |store, _| store.dragging = Some(payload.clone()));
+        store.update(cx, |store, cx| {
+            store.dragging = Some(payload.clone());
+            cx.notify()
+        });
         let preview = cx.new(|_| DragPreview {
             label: label.clone(),
             payload: payload.clone(),
         });
-        // GPUI drops the preview when the drag ends, dropped or not.
+        // GPUI drops the preview when the drag ends, dropped or not. Let go over a row that
+        // won't take it, nothing else redraws the navigator, which would keep showing the
+        // drag until the next change.
         let store = store.clone();
         cx.observe_release(&preview, move |_, cx| {
-            store.update(cx, |store, _| store.dragging = None);
+            store.update(cx, |store, cx| {
+                store.dragging = None;
+                cx.notify()
+            });
         })
         .detach();
         preview

@@ -321,6 +321,15 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 window.dispatch_event(mouse_up(left, to, modifiers, 1), cx);
             }
         }
+        "release" => {
+            // Let go of a drag held by `drag … hold` where the pointer is, with no move first,
+            // as a hand does.
+            let [x, y] = numbers()?[..] else {
+                bail!("release takes x y");
+            };
+            let at = point(px(x), px(y));
+            window.dispatch_event(mouse_up(MouseButton::Left, at, Modifiers::default(), 1), cx);
+        }
         "drop" => {
             // Finish a drag left held by `drag … hold`, after frames have run.
             let [x, y] = numbers()?[..] else {
