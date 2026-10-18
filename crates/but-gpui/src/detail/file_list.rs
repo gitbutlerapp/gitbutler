@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, ElementId, MouseButton, MouseDownEvent, Pixels,
-    Point, SharedString, Stateful, StyledText, Toggled, div, img, prelude::*, px,
+    Point, ScrollStrategy, SharedString, Stateful, StyledText, Toggled, div, img, prelude::*, px,
 };
 
 use super::file_tree::{self, TreeRow};
@@ -222,6 +222,28 @@ impl Detail {
             FileSource::Uncommitted(_) => &self.uncommitted_files,
             FileSource::Diff => &self.diff_files,
         };
+        // The list follows the cursor to another file, as j and ↓ move it, or to the folded
+        // directory the file is in.
+        let cursor = self
+            .cursor_path()
+            .filter(|path| paths.contains(&path.as_str()));
+        let cursor_row = cursor.as_deref().and_then(|cursor| {
+            rows.iter().position(|row| match row {
+                TreeRow::File { pos, .. } => paths[*pos] == cursor,
+                TreeRow::Dir {
+                    path,
+                    collapsed: true,
+                    ..
+                } => (cursor.strip_prefix(path.as_str())).is_some_and(|rest| rest.starts_with('/')),
+                TreeRow::Dir { .. } => false,
+            })
+        });
+        if *self.listed_cursor.borrow() != cursor
+            && let Some(row) = cursor_row
+        {
+            scroll.scroll_to_item(row, ScrollStrategy::Nearest);
+            *self.listed_cursor.borrow_mut() = cursor;
+        }
         side_list(
             id,
             rows.len(),
@@ -229,7 +251,9 @@ impl Detail {
             "files-scrollbar",
             cx,
             move |this, ix, theme, cx| match rows.get(ix)? {
-                dir @ TreeRow::Dir { .. } => this.render_dir_row(dir, &source, theme, cx),
+                dir @ TreeRow::Dir { .. } => {
+                    this.render_dir_row(dir, cursor_row == Some(ix), &source, theme, cx)
+                }
                 TreeRow::File { pos, depth } => {
                     let depth = tree.then_some(*depth);
                     this.render_source_file(&source, index[*pos], depth, theme, cx)
@@ -394,6 +418,7 @@ impl Detail {
     fn render_dir_row(
         &self,
         row: &TreeRow,
+        holds_cursor: bool,
         source: &FileSource,
         theme: &Theme,
         cx: &Context<Self>,
@@ -408,45 +433,49 @@ impl Detail {
         else {
             return None;
         };
-        let row = file_row(ElementId::Name(format!("dir-{path}").into()), false, theme)
-            .when(depth > 0, |el| el.child(steps(depth, theme)))
-            .child(
-                div().w(px(STEP)).flex_none().flex().justify_center().child(
-                    small_icon(if collapsed {
-                        Icon::ChevronRight
-                    } else {
-                        Icon::ChevronDown
-                    })
-                    .text_color(theme.text_3),
-                ),
-            )
-            // In colour, as ui-react's FolderIcon draws it.
-            .child(
-                img(Icon::FolderFill.path())
-                    .flex_none()
-                    .w(px(16.))
-                    .h(px(13.)),
-            )
-            .child(div().flex_1().min_w(px(0.)).truncate().child(name))
-            .when(collapsed, |el| el.child(faint(files.to_string(), theme)))
-            .on_mouse_down(
-                MouseButton::Right,
-                cx.listener({
-                    let (source, path) = (source.clone(), path.clone());
-                    move |this, event: &MouseDownEvent, _, cx| {
-                        if let Some(payload) = this.folder_payload(&source, &path, cx) {
-                            // A folder: no one file to open.
-                            this.changes_menu(payload, None, event.position, cx)
-                        }
+        let row = file_row(
+            ElementId::Name(format!("dir-{path}").into()),
+            holds_cursor,
+            theme,
+        )
+        .when(depth > 0, |el| el.child(steps(depth, theme)))
+        .child(
+            div().w(px(STEP)).flex_none().flex().justify_center().child(
+                small_icon(if collapsed {
+                    Icon::ChevronRight
+                } else {
+                    Icon::ChevronDown
+                })
+                .text_color(theme.text_3),
+            ),
+        )
+        // In colour, as ui-react's FolderIcon draws it.
+        .child(
+            img(Icon::FolderFill.path())
+                .flex_none()
+                .w(px(16.))
+                .h(px(13.)),
+        )
+        .child(div().flex_1().min_w(px(0.)).truncate().child(name))
+        .when(collapsed, |el| el.child(faint(files.to_string(), theme)))
+        .on_mouse_down(
+            MouseButton::Right,
+            cx.listener({
+                let (source, path) = (source.clone(), path.clone());
+                move |this, event: &MouseDownEvent, _, cx| {
+                    if let Some(payload) = this.folder_payload(&source, &path, cx) {
+                        // A folder: no one file to open.
+                        this.changes_menu(payload, None, event.position, cx)
                     }
-                }),
-            )
-            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                if !this.collapsed_dirs.remove(&path) {
-                    this.collapsed_dirs.insert(path.clone());
                 }
-                cx.notify();
-            }));
+            }),
+        )
+        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+            if !this.collapsed_dirs.remove(&path) {
+                this.collapsed_dirs.insert(path.clone());
+            }
+            cx.notify();
+        }));
         Some(row.into_any_element())
     }
 
