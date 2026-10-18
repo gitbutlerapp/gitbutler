@@ -89,6 +89,9 @@ The Help menu links the docs, the release notes and where to report an issue, sh
 | ⌥⌘↩ | while committing: amend the newest commit of the target branch instead |
 | ⇧⌘B | while committing: pick the branch to commit to |
 | ⌘Z, ⇧⌘Z | undo, redo; in a text field, the typing |
+
+Text fields take the keys of the platform's own: on macOS the Cocoa text system's (⌘A selects all, ⌥ moves and deletes by word, ⌘ by line, and ⌃A ⌃E ⌃B ⌃F ⌃P ⌃N ⌃D ⌃H ⌃K as in Emacs), on Linux and Windows Ctrl for select all, the clipboard, undo and words, with Ctrl-Y to redo.
+
 | ⌘X, ⌘V | cut the selection (in the changes, the file under the cursor), paste it onto the selected row (⌥⌘V squashes a commit instead of moving it, ⇧⌘V puts it below) |
 | ⌘N | new branch |
 | ⌥⇧F, ⌥⇧R | fetch, update from the target |
