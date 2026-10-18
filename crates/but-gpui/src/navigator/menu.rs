@@ -336,8 +336,8 @@ impl Navigator {
                 items
             }
             Selection::Worktree(project, name) => {
-                let Some(worktree) = (store.workspace(project))
-                    .and_then(|ws| ws.worktrees.iter().find(|w| w.name == *name))
+                let Some(worktree) =
+                    (store.workspace(project)).and_then(|ws| ws.find_worktree(name))
                 else {
                     return Vec::new();
                 };

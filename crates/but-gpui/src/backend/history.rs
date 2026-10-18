@@ -96,9 +96,8 @@ pub fn take_snapshot(path: &Path) -> Result<()> {
 }
 
 /// Restore the workspace to before the last operation, or with `redo` restore what the
-/// last undo took back. Returns what that operation was, or `None` when there's nothing to
-/// undo or redo.
-/// Undo or redo the latest operation, unless it's one of `kept`.
+/// last undo took back, refusing when that operation is one of `kept`. Returns what it was,
+/// or `None` when there's nothing to undo or redo.
 pub fn undo(path: &Path, redo: bool, kept: &HashSet<SnapshotId>) -> Result<Option<&'static str>> {
     let mut ctx = open(path)?;
     let (snapshot, kind) = if redo {

@@ -14,7 +14,7 @@ use crate::app::{
     UncommitSelection,
 };
 use crate::backend::{self, Branch, Commit, CommitId, Destination, Selected, Workspace, short_ref};
-use crate::state::{Cut, Overlay, ProjectId, Remap, Selection, Store};
+use crate::state::{Cut, Overlay, ProjectId, Remap, Rereads, Selection, Store};
 
 actions!(
     edits,
@@ -663,7 +663,7 @@ impl AppView {
         };
         let run = move |this: &mut AppView, changes: Vec<Selected>, cx: &mut Context<AppView>| {
             let overlay = Overlay {
-                files_only: true,
+                rereads: Rereads::Files,
                 files_in: worktree.clone(),
                 ..Overlay::files(&changes)
             };
@@ -711,7 +711,7 @@ impl AppView {
             let at = store.new_at(&project, &to);
             let overlay = Overlay {
                 new_commit: at.map(|at| (at, SharedString::default())),
-                commits_only: true,
+                rereads: Rereads::Commits,
                 ..Overlay::default()
             };
             store.run(
@@ -1001,7 +1001,7 @@ impl AppView {
         let (id, message) = (commit.id, backend::wrapped_message(&commit.message));
         let overlay = Overlay {
             reworded: Some((commit.key.clone(), message.clone())),
-            commits_only: true,
+            rereads: Rereads::Commits,
             ..Overlay::default()
         };
         self.store.update(cx, |store, cx| {

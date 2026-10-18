@@ -14,7 +14,7 @@ use super::{Detail, FilterFiles, keeps_path};
 use crate::app::AppView;
 use crate::backend::{self, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
-use crate::state::{Cut, Overlay, ProjectId, Selection};
+use crate::state::{Cut, Overlay, ProjectId, Rereads, Selection};
 use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
@@ -295,10 +295,7 @@ impl Detail {
             FileSource::Uncommitted(project) => {
                 let store = self.store.read(cx);
                 let file = store.workspace(project)?.uncommitted.get(pos)?;
-                let whole = Selected {
-                    file: file.clone(),
-                    hunks: None,
-                };
+                let whole = Selected::whole(file);
                 let extras = FileRow {
                     diff_ix: (self.worktree_diff())
                         .and_then(|diff| diff.files.iter().position(|f| f.file.path == file.path)),
@@ -398,10 +395,7 @@ impl Detail {
         (self.shown_files().into_iter())
             .filter_map(|ix| diff.files.get(ix))
             .filter(|f| picks.contains(f.file.path.as_str()))
-            .map(|f| Selected {
-                file: f.file.clone(),
-                hunks: None,
-            })
+            .map(|f| Selected::whole(&f.file))
             .collect()
     }
 
@@ -493,10 +487,6 @@ impl Detail {
         let terms = self.filter_terms(cx);
         let under = |path: &str| path.starts_with(&prefix) && keeps_path(&terms, path);
         let store = self.store.read(cx);
-        let whole = |file: &FileChange| Selected {
-            file: file.clone(),
-            hunks: None,
-        };
         let cut = match source {
             FileSource::Uncommitted(project) => Cut::Files {
                 project: project.clone(),
@@ -504,14 +494,14 @@ impl Detail {
                 worktree: None,
                 files: (store.workspace(project)?.uncommitted.iter())
                     .filter(|f| under(&f.path) && !store.hides_file(project, None, &f.path))
-                    .map(whole)
+                    .map(Selected::whole)
                     .collect(),
             },
             FileSource::Diff => {
                 let files = (self.diff.as_ref()?.files.iter())
                     .map(|f| &f.file)
                     .filter(|f| under(&f.path))
-                    .map(whole)
+                    .map(Selected::whole)
                     .collect();
                 self.owned_cut(files, cx)?
             }
@@ -918,7 +908,7 @@ impl Detail {
                                     &project,
                                     "Mark resolved",
                                     Overlay {
-                                        files_only: true,
+                                        rereads: Rereads::Files,
                                         ..Overlay::default()
                                     },
                                     move |path, _| backend::mark_resolved(path, files),
@@ -980,7 +970,7 @@ impl Detail {
         let root = match &worktree {
             None => store.path(&project),
             Some(name) => (store.workspace(&project))
-                .and_then(|ws| ws.worktrees.iter().find(|w| w.name == *name))
+                .and_then(|ws| ws.find_worktree(name))
                 .map(|w| w.path.clone()),
         };
         if let [file] = &*files

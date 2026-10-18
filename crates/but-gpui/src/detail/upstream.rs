@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
 
 use super::Detail;
-use super::panes::{list_heading, meta_row, side_header, side_list, title_text};
+use super::panes::{list_heading, meta_item, meta_row, side_header, side_list, title_text};
 use crate::backend::upstream::{self, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, Forge};
 use crate::state::{Overlay, ProjectId, Selection};
@@ -266,10 +266,8 @@ impl Detail {
                     .child(crate::ui::short_path(&entry.project.path)),
             )
             .child(
-                h_flex()
+                meta_item(Icon::Refresh, theme)
                     .flex_none()
-                    .gap(px(4.))
-                    .child(small_icon(Icon::Refresh).text_color(theme.text_3))
                     .child(match fetch {
                         Some(None) => "No remote to fetch from".into(),
                         Some(Some((Some(at), _))) => match relative_time(at).as_str() {
@@ -290,8 +288,7 @@ impl Detail {
             )
             .child(meta);
         let target = Selection::Project(project.clone());
-        let menu = h_flex().h(px(22.)).child(self.row_menu_button(target, cx));
-        self.page_header(main, menu, theme)
+        self.page_header(main, target, None, theme, cx)
     }
 
     pub(super) fn render_upstream_side(

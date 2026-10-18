@@ -373,8 +373,8 @@ impl Store {
         }
     }
 
-    /// Load `id` again: all of it, or unless `reload` is full, just the uncommitted files it
-    /// names on top of the commits already shown, which skips walking the commit graph.
+    /// Load `id` again: all of it; or its commits and branches, keeping the files shown but
+    /// for those `reload` names; or just those files, on top of the commits shown.
     pub(super) fn load(&mut self, id: &ProjectId, reload: Reload, cx: &mut Context<Self>) {
         let Some(entry) = self.project_mut(id) else {
             self.settled(id, cx);
@@ -391,10 +391,13 @@ impl Store {
             cx.notify();
         }
         // Loads of one project don't overlap, so what's shown is still current.
-        let shown = entry.workspace.as_ref().filter(|_| !reload.full);
-        let kept = (shown.filter(|_| reload.commits))
-            .map(|shown| backend::Kept::from(shown, reload.main, &reload.linked));
-        let shown = shown.filter(|_| !reload.commits).cloned();
+        let (shown, kept) = match entry.workspace.as_ref().filter(|_| !reload.full) {
+            Some(shown) if reload.commits => (
+                None,
+                backend::Kept::from(shown, reload.main, &reload.linked),
+            ),
+            shown => (shown.cloned(), backend::Kept::default()),
+        };
         let path = entry.project.path.clone();
         let id = id.clone();
         // Started after the mutation finished, so it sees what the mutation did.
@@ -404,7 +407,7 @@ impl Store {
                 Some(shown) => {
                     backend::reload_uncommitted(&path, shown, reload.main, &reload.linked)
                 }
-                None => backend::load_workspace(&path, kept.unwrap_or_default()),
+                None => backend::load_workspace(&path, kept),
             })
             .await;
             this.update(cx, |store, cx| {
@@ -527,12 +530,7 @@ impl Store {
                     files,
                     ..
                 } => {
-                    let uncommitted = match worktree {
-                        None => Some(&workspace.uncommitted),
-                        Some(name) => (workspace.worktrees.iter())
-                            .find(|w| w.name == *name)
-                            .map(|w| &w.uncommitted),
-                    };
+                    let uncommitted = workspace.uncommitted_in(worktree.as_deref());
                     uncommitted.is_some_and(|uncommitted| {
                         (files.iter()).all(|f| uncommitted.iter().any(|u| u.path == f.file.path))
                     })

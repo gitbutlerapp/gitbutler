@@ -537,11 +537,9 @@ impl Detail {
             )
             .when_some(self.signers.get(&id).copied().flatten(), |el, signer| {
                 el.child(
-                    h_flex()
+                    meta_item(Icon::Lock, theme)
                         .id("commit-signed")
-                        .gap(px(4.))
                         .text_color(theme.text_3)
-                        .child(small_icon(Icon::Lock).text_color(theme.text_3))
                         .child("Signed")
                         .tooltip(Tooltip::text(format!("Signed with {signer}, not verified"))),
                 )
@@ -572,22 +570,30 @@ impl Detail {
             })
             .child(meta);
         let target = Selection::Commit(project.clone(), id);
-        let menu = h_flex()
-            .h(px(22.))
-            .gap(px(8.))
-            .children(super::resolve::apply_button(
-                self,
-                cx.entity().downgrade(),
-                cx,
-            ))
-            .child(self.row_menu_button(target, cx));
-        self.page_header(main, menu, theme)
+        let apply = super::resolve::apply_button(self, cx.entity().downgrade(), cx);
+        self.page_header(main, target, apply, theme, cx)
     }
 
-    /// The header across a commit's, branch's or stack's page, over its files and its diff:
-    /// `main` beside `menu`, as but.dev lays them out, so stepping between them moves
-    /// nothing below.
-    pub(super) fn page_header(&self, main: Div, menu: Div, theme: &Theme) -> AnyElement {
+    /// The header across a page, over its files and its diff: `main` beside `extra`, if
+    /// any, and a ⋯ with what right-clicking `target`'s row offers, for when the navigator is
+    /// out of reach; as but.dev lays them out, so stepping between pages moves nothing below.
+    pub(super) fn page_header(
+        &self,
+        main: Div,
+        target: Selection,
+        extra: Option<AnyElement>,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let menu = icon_button("page-menu", Icon::Kebab).on_click(cx.listener(
+            move |this, event: &ClickEvent, _, cx| {
+                let position = event.position();
+                (this.app)
+                    .update(cx, |app, cx| app.open_row_menu(&target, position, cx))
+                    .ok();
+            },
+        ));
+        let menu = h_flex().h(px(22.)).gap(px(8.)).children(extra).child(menu);
         // The diff beside the files starts below this, however tall it's drawn.
         let (height, app) = (self.header_height.clone(), self.app.clone());
         let measure = gpui::canvas(
@@ -619,23 +625,6 @@ impl Detail {
             .into_any_element()
     }
 
-    /// What right-clicking `target`'s row offers, behind a ⋯, for when the navigator is out
-    /// of reach.
-    pub(super) fn row_menu_button(
-        &self,
-        target: Selection,
-        cx: &Context<Self>,
-    ) -> impl IntoElement {
-        icon_button("page-menu", Icon::Kebab).on_click(cx.listener(
-            move |this, event: &ClickEvent, _, cx| {
-                let position = event.position();
-                (this.app)
-                    .update(cx, |app, cx| app.open_row_menu(&target, position, cx))
-                    .ok();
-            },
-        ))
-    }
-
     /// A branch's header: its name, how many commits it has, where they stand against its
     /// remote, and any conflicted.
     pub(super) fn render_branch_header(
@@ -663,19 +652,12 @@ impl Detail {
         let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
         let meta = meta_row(theme).map(|el| match branch.commits.len() {
             0 => el.child(
-                h_flex()
-                    .gap(px(4.))
+                meta_item(Icon::Commit, theme)
                     .text_color(theme.text_3)
-                    .child(small_icon(Icon::Commit).text_color(theme.text_3))
                     .child("No commits"),
             ),
             n => el
-                .child(
-                    h_flex()
-                        .gap(px(4.))
-                        .child(small_icon(Icon::Commit).text_color(theme.text_3))
-                        .child(plural(n, "commit")),
-                )
+                .child(meta_item(Icon::Commit, theme).child(plural(n, "commit")))
                 .child(div().text_color(color).child(state))
                 .when(conflicted > 0, |el| {
                     el.child(
@@ -690,8 +672,7 @@ impl Detail {
             .child(page_title(Icon::Branch, theme).child(title_text(name.to_owned())))
             .child(meta);
         let target = Selection::Branch(project.clone(), ref_name.to_owned());
-        let menu = h_flex().h(px(22.)).child(self.row_menu_button(target, cx));
-        self.page_header(main, menu, theme)
+        self.page_header(main, target, None, theme, cx)
     }
 
     /// A stack's header: how many branches it has, which, and their commits.
@@ -711,20 +692,13 @@ impl Detail {
             .collect();
         let commits = branches.iter().map(|branch| branch.commits.len()).sum();
         let meta = meta_row(theme)
+            .child(meta_item(Icon::Commit, theme).child(match commits {
+                0 => "No commits".to_owned(),
+                n => plural(n, "commit"),
+            }))
             .child(
-                h_flex()
-                    .gap(px(4.))
-                    .child(small_icon(Icon::Commit).text_color(theme.text_3))
-                    .child(match commits {
-                        0 => "No commits".to_owned(),
-                        n => plural(n, "commit"),
-                    }),
-            )
-            .child(
-                h_flex()
+                meta_item(Icon::Branch, theme)
                     .min_w(px(0.))
-                    .gap(px(4.))
-                    .child(small_icon(Icon::Branch).text_color(theme.text_3))
                     .child(div().min_w(px(0.)).truncate().child(names.join(" ← "))),
             );
         let title = format!("Stack of {}", names.len());
@@ -733,8 +707,7 @@ impl Detail {
             .child(page_title(Icon::Stack, theme).child(title_text(title)))
             .child(meta);
         let target = Selection::Stack(project.clone(), bottom.to_owned());
-        let menu = h_flex().h(px(22.)).child(self.row_menu_button(target, cx));
-        self.page_header(main, menu, theme)
+        self.page_header(main, target, None, theme, cx)
     }
 
     /// The box editing a commit's message, with how to save or leave it.
@@ -977,6 +950,13 @@ pub(super) fn meta_row(theme: &Theme) -> Div {
         .gap(px(12.))
         .text_size(px(13.))
         .text_color(theme.text_2)
+}
+
+/// One of a header's facts in its `meta_row`: its quiet glyph, then what's added after.
+pub(super) fn meta_item(glyph: Icon, theme: &Theme) -> Div {
+    h_flex()
+        .gap(px(4.))
+        .child(small_icon(glyph).text_color(theme.text_3))
 }
 
 /// The block at the top of a side panel, saying what's selected.
