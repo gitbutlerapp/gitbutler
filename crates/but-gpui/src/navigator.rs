@@ -351,12 +351,6 @@ impl Navigator {
                 if workspace.stacks.is_empty() {
                     rows.push(Row::Note("No branches yet".into(), false));
                 }
-                // Outside the workspace there's nowhere to put a branch of its own.
-                if workspace.managed
-                    && matches!(&store.dragging, Some(Cut::Commit(project, _)) if project == id)
-                {
-                    rows.push(Row::NewBranch(id.clone()));
-                }
             }
             if headed {
                 rows.close();
@@ -380,6 +374,18 @@ impl Navigator {
                         }
                     }
                 }
+            }
+            // After the worktrees, so a drag starting in one doesn't push its rows down. Outside
+            // the workspace there's nowhere to put a branch of its own.
+            if workspace.managed
+                && matches!(&store.dragging, Some(Cut::Commit(project, _)) if project == id)
+            {
+                rows.push(Row::NewBranch(id.clone()));
+            }
+            // The pages are another kind of row than the worktrees', so a line rules them off,
+            // as the last worktree's does when there are linked ones.
+            if !matches!(rows.rows.last(), Some(Row::WorktreeDivider)) {
+                rows.push(Row::WorktreeDivider);
             }
             rows.push(Row::Item(Selection::Branches(id.clone())));
             rows.push(Row::Item(Selection::History(id.clone())));
@@ -1688,11 +1694,7 @@ impl Navigator {
         match self.rows.get(ix) {
             Some(Row::Item(Selection::Uncommitted(_))) if next == self.insets.get(ix) => matches!(
                 self.rows.get(ix + 1),
-                Some(
-                    Row::Item(Selection::Stack(..) | Selection::Branch(..))
-                        | Row::Note(..)
-                        | Row::NewBranch(_)
-                )
+                Some(Row::Item(Selection::Stack(..) | Selection::Branch(..)) | Row::Note(..))
             ),
             _ => next.is_some_and(|next| *next > self.insets[ix]),
         }
