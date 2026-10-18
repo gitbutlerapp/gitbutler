@@ -92,7 +92,7 @@ The Help menu links the docs, the release notes and where to report an issue, sh
 | ⌘X, ⌘V | cut the selection (in the changes, the file under the cursor), paste it onto the selected row (⌥⌘V squashes a commit instead of moving it, ⇧⌘V puts it below) |
 | ⌘N | new branch |
 | ⌥⇧F, ⌥⇧R | fetch, update from the target |
-| ⌘R, ⌘O | reload, add a project |
+| ⌘O | add a project |
 | ⌘, | settings |
 | ⌘F, ⌘G, ⇧⌘G | find in the diff, next match, previous match |
 | ⌥Z, ⌘B | wrap long lines in diffs or stop, show them side by side or one above the other |

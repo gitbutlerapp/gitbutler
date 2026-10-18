@@ -359,12 +359,6 @@ impl Store {
         }
     }
 
-    pub fn reload_all(&mut self, cx: &mut Context<Self>) {
-        for id in self.expanded_ids() {
-            self.reload(&id, cx);
-        }
-    }
-
     /// Load `id` again: all of it, or unless `reload` is full, just the uncommitted files it
     /// names on top of the commits already shown, which skips walking the commit graph.
     pub(super) fn load(&mut self, id: &ProjectId, reload: Reload, cx: &mut Context<Self>) {

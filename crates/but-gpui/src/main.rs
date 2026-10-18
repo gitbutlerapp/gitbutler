@@ -122,7 +122,6 @@ fn main() {
                 Menu::new("File").items([
                     MenuItem::action("Add Project…", app::AddProject),
                     MenuItem::action("Clone Repository…", projects::CloneRepository),
-                    MenuItem::action("Reload", app::Refresh),
                 ]),
                 Menu::new("Window").items([
                     MenuItem::action("Minimize", app::Minimize),

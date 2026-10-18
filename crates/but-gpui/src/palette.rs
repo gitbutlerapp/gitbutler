@@ -9,8 +9,8 @@ use gpui::{
 use crate::app::{
     AddProject, AppView, CopySelection, CutSelection, DeleteSelection, Fetch, FocusChanges,
     FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest, PasteHere, Push, Quit, Redo,
-    Refresh, RenameSelection, StartCommit, ToggleFileTree, ToggleNavigator, UncommitSelection,
-    Undo, UpdateFromTarget,
+    RenameSelection, StartCommit, ToggleFileTree, ToggleNavigator, UncommitSelection, Undo,
+    UpdateFromTarget,
 };
 use crate::detail::{
     DiscardFile, DiscardHunk, NextFile, NextHunk, PreviousFile, PreviousHunk, ToggleFold,
@@ -106,7 +106,6 @@ const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Resolve conflicts", &crate::detail::ResolveConflicts),
     ("Open in editor", &crate::open_in::OpenInEditor),
     ("Open in terminal", &crate::open_in::OpenInTerminal),
-    ("Reload", &Refresh),
     ("Quit", &Quit),
 ];
 
