@@ -75,8 +75,12 @@ enum Row {
     ProjectsHeading(&'static str, usize, usize),
     /// Projects past the fold, and how many.
     MoreProjects(usize),
+    /// The end of the projects unfolded, which folds them again.
+    FewerProjects,
     /// A branch's commits folded away, and how many.
     More(ProjectId, String, usize),
+    /// The end of a branch's commits unfolded, which folds them again.
+    Fewer(ProjectId, String),
     /// A commit an operation is still making, by its title.
     Pending(SharedString),
     /// Where a commit of the project being dragged lands in a new branch of its own.
@@ -155,10 +159,11 @@ pub struct Navigator {
     projects_unfolded: bool,
     /// Whether the pointer is over the navigator.
     pointer_over: bool,
-    /// A workspace loaded since the rows were last built. What it changed came from
-    /// outside, like an agent's commit, so the row under the pointer holds still; what
-    /// the user folds or does moves the rows as usual.
-    loaded: bool,
+    /// The row under the pointer holds still through the next change to the rows: one a
+    /// workspace's load made, as an agent's commit, or "Show fewer" folding what's above it,
+    /// which would leave the list scrolled past the fold. What else the user folds or does
+    /// moves the rows as usual.
+    hold_still: bool,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -173,7 +178,7 @@ impl Navigator {
             cx.observe(&store, |_, _, cx| cx.notify()),
             cx.subscribe(&store, |this, _, event, _| match event {
                 StoreEvent::SelectionChanged => this.reveal_selection = true,
-                StoreEvent::Loaded(_) => this.loaded = true,
+                StoreEvent::Loaded(_) => this.hold_still = true,
                 _ => {}
             }),
             // Dragging the uncommitted changes carries the checked ones.
@@ -193,7 +198,7 @@ impl Navigator {
             projects_filter: None,
             projects_unfolded: false,
             pointer_over: false,
-            loaded: false,
+            hold_still: false,
             _subscriptions: subscriptions,
         }
     }
@@ -243,10 +248,11 @@ impl Navigator {
                         }
                         _ => None,
                     };
-                    let shown = if self.unfolded_branches.contains(&key) {
-                        branch.commits.len()
-                    } else {
-                        FOLD_AFTER.max(selected_at.map_or(0, |at| at + 1))
+                    let unfolded = self.unfolded_branches.contains(&key);
+                    let fold_at = FOLD_AFTER.max(selected_at.map_or(0, |at| at + 1));
+                    let shown = match unfolded {
+                        true => branch.commits.len(),
+                        false => fold_at,
                     };
                     let closed = self.closed_branches.contains(&key) && selected_at.is_none();
                     rows.push(Row::Item(Selection::Branch(key.0, key.1)));
@@ -271,6 +277,8 @@ impl Navigator {
                     if branch.commits.len() > shown {
                         let hidden = branch.commits.len() - shown;
                         rows.push(Row::More(id.clone(), branch.ref_name.clone(), hidden));
+                    } else if unfolded && branch.commits.len() > fold_at {
+                        rows.push(Row::Fewer(id.clone(), branch.ref_name.clone()));
                     }
                 }
                 if let Some(dragged @ Cut::Branch(..)) = &store.dragging
@@ -348,10 +356,12 @@ impl Navigator {
             return rows;
         }
         // Past the fold, but never past the selected project.
-        let shown = match self.projects_unfolded || !terms.is_empty() {
+        let fold_at = FOLD_AFTER
+            .max((listed.iter().position(|(entry, _)| selected(entry))).map_or(0, |at| at + 1));
+        let unfolded = self.projects_unfolded || !terms.is_empty();
+        let shown = match unfolded {
             true => listed.len(),
-            false => FOLD_AFTER
-                .max((listed.iter().position(|(entry, _)| selected(entry))).map_or(0, |at| at + 1)),
+            false => fold_at,
         };
         rows.extend(
             (listed.iter().take(shown))
@@ -359,6 +369,8 @@ impl Navigator {
         );
         if listed.len() > shown {
             rows.push(Row::MoreProjects(listed.len() - shown));
+        } else if self.projects_unfolded && terms.is_empty() && listed.len() > fold_at {
+            rows.push(Row::FewerProjects);
         }
         // A filter that matches nothing says what it looked for.
         if listed.is_empty() && !others.is_empty() {
@@ -557,13 +569,13 @@ impl Navigator {
         // scrolled, the row under the pointer stays where it is.
         let top = self.list.logical_scroll_top();
         let at_top = top.item_ix == 0 && top.offset_in_item == px(0.);
-        let hovered = (std::mem::take(&mut self.loaded) && !at_top)
+        let hovered = (std::mem::take(&mut self.hold_still) && !at_top)
             .then(|| self.hovered_row(window))
             .flatten();
         // The hovered row's index before and after, and how far below the top it is.
         let anchor = hovered.and_then(|(old_ix, offset)| {
             let new_ix = (0..rows.len())
-                .filter(|&ix| rows[ix] == self.rows[old_ix])
+                .filter(|&ix| same_place(&self.rows[old_ix], &rows[ix]))
                 .min_by_key(|ix| ix.abs_diff(old_ix))?;
             Some((old_ix, new_ix, offset))
         });
@@ -652,17 +664,19 @@ impl Navigator {
             Some(Row::ProjectsHeading(title, listed, total)) => {
                 self.projects_heading(title, *listed, *total, theme, cx)
             }
-            Some(Row::MoreProjects(hidden)) => h_flex()
-                .id(("more-projects", ix))
-                .h(px(24.))
-                // Under the projects' names.
-                .pl(px(35.))
-                .text_size(px(12.))
-                .text_color(theme.text_2)
-                .hover(|el| el.text_color(theme.text_1))
+            // Under the projects' names.
+            Some(Row::MoreProjects(hidden)) => fold_row(("more-projects", ix), 35., theme)
                 .child(format!("{hidden} more"))
                 .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
                     this.projects_unfolded = true;
+                    cx.notify();
+                }))
+                .into_any_element(),
+            Some(Row::FewerProjects) => fold_row(("fewer-projects", ix), 35., theme)
+                .child("Show fewer")
+                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                    this.projects_unfolded = false;
+                    this.hold_still = true;
                     cx.notify();
                 }))
                 .into_any_element(),
@@ -717,16 +731,21 @@ impl Navigator {
             }
             Some(Row::More(project, ref_name, hidden)) => {
                 let key = (project.clone(), ref_name.clone());
-                h_flex()
-                    .id(("more", ix))
-                    .h(px(24.))
-                    .pl(px(36.))
-                    .text_size(px(12.))
-                    .text_color(theme.text_2)
-                    .hover(|el| el.text_color(theme.text_1))
+                fold_row(("more", ix), 36., theme)
                     .child(format!("{hidden} more"))
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                         this.unfolded_branches.insert(key.clone());
+                        cx.notify();
+                    }))
+                    .into_any_element()
+            }
+            Some(Row::Fewer(project, ref_name)) => {
+                let key = (project.clone(), ref_name.clone());
+                fold_row(("fewer", ix), 36., theme)
+                    .child("Show fewer")
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        this.unfolded_branches.remove(&key);
+                        this.hold_still = true;
                         cx.notify();
                     }))
                     .into_any_element()
@@ -1613,6 +1632,28 @@ fn splice(list: &ListState, old: &[Row], new: &[Row], at: usize) -> bool {
 
 /// A worktree with nothing uncommitted, so not active either, that hasn't moved in
 /// [`INACTIVE_AFTER`]. One with no reflog to date it stays listed.
+/// A row that unfolds a list, "N more", or folds it again, "Show fewer", `indent` in to line
+/// up with the list's titles.
+fn fold_row(id: impl Into<ElementId>, indent: f32, theme: &Theme) -> Stateful<Div> {
+    h_flex()
+        .id(id)
+        .h(px(24.))
+        .pl(px(indent))
+        .text_size(px(12.))
+        .text_color(theme.text_2)
+        .hover(|el| el.text_color(theme.text_1))
+}
+
+/// Whether `new` stands where `old` did, to keep it under the pointer: the same row, or the
+/// other side of a fold, as "Show fewer" becomes "N more".
+fn same_place(old: &Row, new: &Row) -> bool {
+    match (old, new) {
+        (Row::Fewer(project, ref_name), Row::More(p, r, _)) => project == p && ref_name == r,
+        (Row::FewerProjects, Row::MoreProjects(_)) => true,
+        _ => old == new,
+    }
+}
+
 /// When `entry` was last active: what Git last recorded in it, or what its loaded workspace
 /// shows since, as files an agent is writing.
 fn last_active(entry: &ProjectEntry) -> Option<i64> {
