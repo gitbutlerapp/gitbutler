@@ -196,7 +196,6 @@ pub(super) mod function {
                 successful_rebase,
                 &workspace,
                 source,
-                anchor,
                 subject_branch_name,
                 relative_to,
                 side,
@@ -271,7 +270,6 @@ pub(super) mod function {
         successful_rebase: SuccessfulRebase<'ws, 'meta, M>,
         workspace: &but_graph::Workspace,
         source: SegmentInLane<'_>,
-        anchor: Anchor<'_>,
         subject_branch_name: &FullNameRef,
         relative_to: RelativeTo,
         side: InsertSide,
@@ -281,15 +279,6 @@ pub(super) mod function {
         };
 
         let (source_lane, subject_segment) = source;
-        if let Lane::Worktree(worktree) = anchor.lane
-            && subject_segment.commits.is_empty()
-        {
-            bail!(
-                "Cannot place empty branch '{}' in worktree '{}': branches can't be ordered in worktrees yet",
-                subject_branch_name.shorten(),
-                worktree.name
-            );
-        }
 
         let mut editor = successful_rebase.into_editor();
         let target_selector = relative_to
