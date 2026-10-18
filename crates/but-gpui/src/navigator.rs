@@ -142,6 +142,8 @@ struct RowStyle<'a> {
     solid: bool,
     cut: bool,
     inset: f32,
+    /// The rows above and below are picked with it: see [`crate::ui::joined`].
+    joined: (bool, bool),
 }
 
 impl RowStyle<'_> {
@@ -159,6 +161,7 @@ impl RowStyle<'_> {
                     .border_dashed()
                     .border_color(theme.pop)
             })
+            .map(|el| crate::ui::joined(el, self.joined, self.solid, theme))
     }
 
     fn muted(&self) -> Hsla {
@@ -960,8 +963,17 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
-        let selected = store.selection.as_ref() == Some(item)
-            || matches!(item, Selection::Commit(_, id) if store.picked.contains(id));
+        let lit = |item: &Selection| {
+            store.selection.as_ref() == Some(item)
+                || matches!(item, Selection::Commit(_, id) if store.picked.contains(id))
+        };
+        let selected = lit(item);
+        // Picked commits next to each other join up.
+        let lit_at = |ix: usize| matches!(self.rows.get(ix), Some(Row::Item(other)) if lit(other));
+        let joined = match selected && !store.picked.is_empty() {
+            true => (ix > 0 && lit_at(ix - 1), lit_at(ix + 1)),
+            false => (false, false),
+        };
         let cut = match (&store.cut, item) {
             (Some(Cut::Branch(p, r)), Selection::Branch(project, ref_name)) => {
                 p == project && r == ref_name
@@ -978,6 +990,7 @@ impl Navigator {
             solid: selected && self.focus.contains_focused(window, cx),
             cut,
             inset,
+            joined,
         };
         let el = match item {
             Selection::Project(id) => self.project_row(item, id, style, cx),
