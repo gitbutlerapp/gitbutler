@@ -1439,10 +1439,13 @@ impl Detail {
         }
     }
 
-    /// How far below the breadcrumbs the diff starts: under a commit's header, when there's one.
+    /// How far below the breadcrumbs the diff starts: under a commit's, branch's or stack's
+    /// header, when there's one.
     pub fn view_header_height(&self, cx: &App) -> f32 {
         match self.selection(cx) {
-            Some(Selection::Commit(..)) => self.header_height.get(),
+            Some(Selection::Commit(..) | Selection::Branch(..) | Selection::Stack(..)) => {
+                self.header_height.get()
+            }
             _ => 0.,
         }
     }
@@ -1504,10 +1507,17 @@ impl Render for Detail {
                     },
                 };
                 let width = self.files_width(window, cx);
-                // A commit's header runs across the page, over its files and its diff.
+                // A commit's, branch's or stack's header runs across the page, over its files
+                // and its diff, as but.dev's does.
                 let header = match selection {
                     Selection::Commit(project, id) => {
                         Some(self.render_commit_header(project, *id, &theme, cx))
+                    }
+                    Selection::Branch(project, ref_name) => {
+                        Some(self.render_branch_header(project, ref_name, &theme, cx))
+                    }
+                    Selection::Stack(project, bottom) => {
+                        Some(self.render_stack_header(project, bottom, &theme, cx))
                     }
                     _ => None,
                 };
