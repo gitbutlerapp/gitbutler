@@ -204,6 +204,9 @@ impl Detail {
                     .flat_map(|(ix, (crumb, target))| {
                         let sep = (ix > 0)
                             .then(|| div().text_color(theme.text_3).child("/").into_any_element());
+                        // Shrinking by length as well as width, long crumbs give way first and
+                        // short ones, like the project's name or a commit's ID, stay whole.
+                        let shrink = crumb.chars().count() as f32;
                         let el = match target.filter(|_| ix != last) {
                             Some(target) => {
                                 let app = self.app.clone();
@@ -213,6 +216,10 @@ impl Detail {
                                     .hover(|el| el.underline().text_color(theme.text_1))
                                     .text_color(theme.text_2)
                                     .truncate()
+                                    .map(|mut el| {
+                                        el.style().flex_shrink = Some(shrink);
+                                        el
+                                    })
                                     .child(crumb)
                                     .on_click(move |_, window, cx| {
                                         (app.update(cx, |app, cx| {
@@ -226,6 +233,10 @@ impl Detail {
                                 .font_weight(gpui::FontWeight::SEMIBOLD)
                                 .text_color(theme.text_1)
                                 .truncate()
+                                .map(|mut el| {
+                                    el.style().flex_shrink = Some(shrink);
+                                    el
+                                })
                                 .child(crumb)
                                 .into_any_element(),
                         };
