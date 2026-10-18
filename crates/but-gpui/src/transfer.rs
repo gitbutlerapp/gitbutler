@@ -26,9 +26,11 @@ pub enum Transfer {
         id: CommitId,
         into: CommitId,
     },
+    /// Uncommitted files of the main checkout, or of the linked `worktree`, into a commit.
     Amend {
         into: CommitId,
         files: Arc<[Selected]>,
+        worktree: Option<Arc<str>>,
     },
     MoveFiles {
         from: CommitId,
@@ -55,6 +57,13 @@ pub enum Transfer {
         branch: String,
         files: Arc<[Selected]>,
     },
+    /// Uncommitted files the composer can't take, a linked worktree's or bound for one,
+    /// committed on a branch with no message yet, as Lite does.
+    CommitOnBranch {
+        branch: String,
+        files: Arc<[Selected]>,
+        worktree: Option<Arc<str>>,
+    },
 }
 
 impl Transfer {
@@ -74,21 +83,17 @@ impl Transfer {
         if matches!(target, Selection::Branch(_, branch) if branch.is_empty()) {
             return None;
         }
-        // A linked worktree's branches and commits change there: nothing lands on them or
-        // moves off them from here, though a copy of a commit can.
+        // A linked worktree's branches and commits change there: they don't move, and
+        // nothing but files lands on them from here.
         let source = match payload {
-            Cut::Commit(project, id)
-            | Cut::Files {
-                project,
-                from: Some(id),
-                ..
-            } => Some(Selection::Commit(project.clone(), *id)),
+            Cut::Commit(project, id) => Some(Selection::Commit(project.clone(), *id)),
             Cut::Branch(project, ref_name) => {
                 Some(Selection::Branch(project.clone(), ref_name.clone()))
             }
-            Cut::CherryPick(..) | Cut::Files { from: None, .. } => None,
+            Cut::CherryPick(..) | Cut::Files { .. } => None,
         };
-        if store.worktree_of(target).is_some()
+        let files = matches!(payload, Cut::Files { .. });
+        if (!files && store.worktree_of(target).is_some())
             || source.is_some_and(|source| store.worktree_of(&source).is_some())
         {
             return None;
@@ -189,19 +194,48 @@ impl Transfer {
                     onto: onto.clone(),
                 }
             }
-            (Cut::Files { from, files, .. }, target) => match (*from, target) {
+            (
+                Cut::Files {
+                    project,
+                    from,
+                    worktree,
+                    files,
+                },
+                target,
+            ) => match (*from, target) {
                 (None, Selection::Commit(_, into)) => Transfer::Amend {
                     into: *into,
                     files: files.clone(),
+                    worktree: worktree.clone(),
                 },
-                (None, Selection::Branch(_, branch)) => Transfer::StageOnBranch {
+                // The composer commits the main checkout's files to the workspace's branches.
+                (None, Selection::Branch(_, branch))
+                    if worktree.is_none() && store.worktree_of(target).is_none() =>
+                {
+                    Transfer::StageOnBranch {
+                        branch: branch.clone(),
+                        files: files.clone(),
+                    }
+                }
+                (None, Selection::Branch(_, branch)) => Transfer::CommitOnBranch {
                     branch: branch.clone(),
                     files: files.clone(),
+                    worktree: worktree.clone(),
                 },
-                (Some(from), Selection::Uncommitted(_)) => Transfer::UncommitFiles {
-                    from,
-                    files: files.clone(),
-                },
+                // Files uncommitted stay in the checkout of the commit they leave.
+                (Some(from), Selection::Uncommitted(_) | Selection::Worktree(..))
+                    if (store.worktree_of(&Selection::Commit(project.clone(), from)))
+                        .map(|worktree| &worktree.name)
+                        == match target {
+                            Selection::Worktree(_, name) => Some(name),
+                            _ => None,
+                        } =>
+                {
+                    Transfer::UncommitFiles {
+                        from,
+                        files: files.clone(),
+                    }
+                }
                 (Some(from), Selection::Commit(_, to)) if from != *to => Transfer::MoveFiles {
                     from,
                     to: *to,
@@ -244,6 +278,7 @@ impl Transfer {
             Transfer::Amend { .. } => "Amend",
             Transfer::MoveFiles { .. } => "Move into",
             Transfer::StageOnBranch { .. } => "Start a commit here",
+            Transfer::CommitOnBranch { .. } => "Commit here",
         }
     }
 
@@ -261,6 +296,9 @@ impl Transfer {
             Transfer::StageOnBranch { branch, .. } => {
                 format!("Start a commit on {}", short_ref(branch)).into()
             }
+            Transfer::CommitOnBranch { branch, .. } => {
+                format!("Commit to {}", short_ref(branch)).into()
+            }
         }
     }
 
@@ -272,6 +310,15 @@ impl Transfer {
         cx: &mut Context<Store>,
     ) -> Option<(String, Arc<[Selected]>)> {
         let label = self.describe();
+        // The oplog snapshots only the main checkout, so undoing what moves a linked
+        // worktree's changes would lose them.
+        let in_worktree = |id| store.in_worktree(project, id);
+        let undoable = match &self {
+            Transfer::UncommitFiles { from, .. } => !in_worktree(*from),
+            Transfer::MoveFiles { from, to, .. } => !in_worktree(*from) && !in_worktree(*to),
+            Transfer::CommitOnBranch { .. } => false,
+            _ => true,
+        };
         match self {
             Transfer::Uncommit(id) => store.uncommit(project, vec![id], cx),
             Transfer::UncommitFiles { from, files } => store.run(
@@ -279,9 +326,9 @@ impl Transfer {
                 label,
                 Overlay::commit_files(store.key_of(project, from), files.iter()),
                 move |path, remap| backend::uncommit_files(path, remap.get(from)?, &files),
-                |store, rewritten, cx| {
+                move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
-                    store.snack_undoable("Moved to uncommitted changes", cx)
+                    store.snack_after(undoable, "Moved to uncommitted changes", cx)
                 },
                 cx,
             ),
@@ -344,7 +391,11 @@ impl Transfer {
                 },
                 cx,
             ),
-            Transfer::Amend { into, files } => store.amend(project, into, files, |_, _| {}, cx),
+            Transfer::Amend {
+                into,
+                files,
+                worktree,
+            } => store.amend(project, into, files, worktree, |_, _| {}, cx),
             Transfer::MoveFiles { from, to, files } => store.run(
                 project,
                 label,
@@ -352,13 +403,36 @@ impl Transfer {
                 move |path, remap| {
                     backend::move_files(path, remap.get(from)?, remap.get(to)?, &files)
                 },
-                |store, rewritten, cx| {
+                move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
-                    store.snack_undoable("Changes moved", cx)
+                    store.snack_after(undoable, "Changes moved", cx)
                 },
                 cx,
             ),
             Transfer::StageOnBranch { branch, files } => return Some((branch, files)),
+            Transfer::CommitOnBranch {
+                branch,
+                files,
+                worktree,
+            } => {
+                let selected = project.clone();
+                store.run(
+                    project,
+                    label,
+                    Overlay::default(),
+                    move |path, _| {
+                        let to = Destination::Branch(branch);
+                        backend::commit(path, &to, &files, worktree.as_deref(), "", false)
+                    },
+                    move |store, (id, left_out, _), cx| {
+                        store.select(Some(Selection::Commit(selected, id)), cx);
+                        store.keep_last_snapshot();
+                        let done = "Committed. Double-click its title to write a message";
+                        store.report_left_out(done, &left_out, cx)
+                    },
+                    cx,
+                )
+            }
         }
         None
     }

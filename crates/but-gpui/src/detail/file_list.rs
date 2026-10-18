@@ -1,8 +1,6 @@
 //! The file lists beside the diff: uncommitted files, or the loaded diff's, flat or as a
 //! tree, with what right-clicking them offers.
 
-use std::sync::Arc;
-
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, ElementId, MouseButton, MouseDownEvent, Pixels,
     Point, ScrollStrategy, SharedString, Stateful, Toggled, div, img, prelude::*, px,
@@ -12,7 +10,7 @@ use super::file_tree::{self, TreeRow};
 use super::panes::side_list;
 use super::{Detail, FilterFiles, keeps_path};
 use crate::app::AppView;
-use crate::backend::{self, CommitId, DiffSource, FileChange, FileDiff, HunkKey, Selected};
+use crate::backend::{self, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
 use crate::state::{Cut, Overlay, ProjectId, Selection};
 use crate::theme::Theme;
@@ -31,16 +29,6 @@ enum FileSource {
     Diff,
 }
 
-/// What right-clicking a file or hunk offers, and for which changes.
-#[derive(Clone)]
-pub(super) enum FileMenu {
-    /// Changes as they'd be cut, to move or take out: see [`Detail::changes_menu`].
-    Cut(Cut),
-    /// Changes of the linked worktree with this name. They don't move into the workspace,
-    /// so they can only be thrown away.
-    Linked(ProjectId, Arc<str>, Vec<Selected>),
-}
-
 /// What a file row shows besides the file itself.
 #[derive(Default)]
 struct FileRow {
@@ -49,8 +37,8 @@ struct FileRow {
     diff_ix: Option<usize>,
     /// Shown while composing a commit.
     checkbox: Option<Toggled>,
-    /// What right-clicking the row offers. Changes it can cut, it drags as well.
-    menu: Option<FileMenu>,
+    /// The changes right-clicking or dragging the row takes: see [`Detail::changes_menu`].
+    menu: Option<Cut>,
     /// How deep the file sits in a tree; it then shows only its name.
     depth: Option<usize>,
     /// Picked with other files, which its menu and a drag take along.
@@ -237,7 +225,7 @@ impl Detail {
             scroll.scroll_to_item(row, ScrollStrategy::Nearest);
             *self.listed_cursor.borrow_mut() = cursor;
         }
-        let picked = self.picked_menu(cx);
+        let picked = self.picked_cut(cx);
         side_list(
             id,
             rows.len(),
@@ -268,7 +256,7 @@ impl Detail {
         source: &FileSource,
         pos: usize,
         depth: Option<usize>,
-        picked: Option<&FileMenu>,
+        picked: Option<&Cut>,
         solid: bool,
         theme: &Theme,
         cx: &Context<Self>,
@@ -289,11 +277,12 @@ impl Detail {
                     checkbox: self.composing.then(|| self.checks.file_check(&file.path)),
                     picked: picked.is_some(),
                     menu: picked.unwrap_or_else(|| {
-                        Some(FileMenu::Cut(Cut::Files {
+                        Some(Cut::Files {
                             project: project.clone(),
                             from: None,
+                            worktree: None,
                             files: vec![whole].into(),
-                        }))
+                        })
                     }),
                     depth,
                 };
@@ -306,7 +295,7 @@ impl Detail {
                 let extras = FileRow {
                     diff_ix: Some(pos),
                     picked: picked.is_some(),
-                    menu: picked.unwrap_or_else(|| self.diff_file_menu(pos, None, cx)),
+                    menu: picked.unwrap_or_else(|| self.diff_cut(pos, None, cx)),
                     depth,
                     ..Default::default()
                 };
@@ -315,23 +304,29 @@ impl Detail {
         }
     }
 
-    /// The project the loaded diff's changes can be moved or taken out of, with the commit
-    /// they're in, or `None` when they're uncommitted. A branch's diff spans commits, a
-    /// linked worktree's changes and commits change only there, and a commit of the target's
-    /// history, on the project page, isn't the workspace's to change: those have no owner.
-    pub(super) fn diff_owner(&self, cx: &App) -> Option<(ProjectId, Option<CommitId>)> {
+    /// `files` of the loaded diff as they'd be cut, to move or take out of where they are:
+    /// a commit listed in the navigator, or a checkout's uncommitted changes. A branch's diff
+    /// spans commits, and a commit of the target's history, on the project page, isn't the
+    /// workspace's to change: their files aren't cut.
+    fn owned_cut(&self, files: Vec<Selected>, cx: &App) -> Option<Cut> {
         let key = &self.diff.as_ref()?.key;
-        let from = match key.source {
-            DiffSource::Worktree => None,
+        let (from, worktree) = match &key.source {
+            DiffSource::Worktree => (None, None),
+            DiffSource::Linked(name) => (None, Some(name.clone())),
             DiffSource::Commit(id)
                 if (self.store.read(cx).workspace(&key.project))
-                    .is_some_and(|ws| ws.own_commits().any(|commit| commit.id == id)) =>
+                    .is_some_and(|ws| ws.commits().any(|commit| commit.id == *id)) =>
             {
-                Some(id)
+                (Some(*id), None)
             }
             _ => return None,
         };
-        Some((key.project.clone(), from))
+        Some(Cut::Files {
+            project: key.project.clone(),
+            from,
+            worktree,
+            files: files.into(),
+        })
     }
 
     /// The picked uncommitted files, or the one under the cursor, to cut, as the diff's other
@@ -344,11 +339,7 @@ impl Detail {
             d.key.source == DiffSource::Worktree && Some(&d.key.project) == project.as_ref()
         });
         if uncommitted && !self.file_picks.is_empty() {
-            return Some(Cut::Files {
-                project: project?,
-                from: None,
-                files: self.picked_changes().into(),
-            });
+            return self.owned_cut(self.picked_changes(), cx);
         }
         (uncommitted && self.shown_files().contains(&self.cursor.file))
             .then(|| self.diff_cut(self.cursor.file, None, cx))
@@ -362,58 +353,16 @@ impl Detail {
         hunks: Option<Vec<HunkKey>>,
         cx: &App,
     ) -> Option<Cut> {
-        let (project, from) = self.diff_owner(cx)?;
         let file = self.diff.as_ref()?.files.get(file)?.file.clone();
-        Some(Cut::Files {
-            project,
-            from,
-            files: vec![Selected { file, hunks }].into(),
-        })
+        self.owned_cut(vec![Selected { file, hunks }], cx)
     }
 
-    /// What right-clicking the loaded diff's file at `file`, or `hunks` of it, offers. A
-    /// linked worktree's changes don't move into the workspace, so they can only be thrown
-    /// away.
-    pub(super) fn diff_file_menu(
-        &self,
-        file: usize,
-        hunks: Option<Vec<HunkKey>>,
-        cx: &App,
-    ) -> Option<FileMenu> {
-        let diff = self.diff.as_ref()?;
-        match diff.key.linked() {
-            Some(worktree) => {
-                let file = diff.files.get(file)?.file.clone();
-                let change = Selected { file, hunks };
-                Some(FileMenu::Linked(
-                    diff.key.project.clone(),
-                    worktree,
-                    vec![change],
-                ))
-            }
-            None => self.diff_cut(file, hunks, cx).map(FileMenu::Cut),
-        }
-    }
-
-    /// What right-clicking or dragging any of the picked files offers, for all of them.
-    fn picked_menu(&self, cx: &App) -> Option<FileMenu> {
+    /// What right-clicking or dragging any of the picked files takes: all of them.
+    fn picked_cut(&self, cx: &App) -> Option<Cut> {
         if self.file_picks.is_empty() {
             return None;
         }
-        let diff = self.diff.as_ref()?;
-        let files = self.picked_changes();
-        match diff.key.linked() {
-            Some(worktree) => Some(FileMenu::Linked(diff.key.project.clone(), worktree, files)),
-            None => {
-                let (project, from) = self.diff_owner(cx)?;
-                let files = files.into();
-                Some(FileMenu::Cut(Cut::Files {
-                    project,
-                    from,
-                    files,
-                }))
-            }
-        }
+        self.owned_cut(self.picked_changes(), cx)
     }
 
     /// The loaded diff's picked files, whole, in its order: not those it doesn't show.
@@ -519,34 +468,30 @@ impl Detail {
         let terms = self.filter_terms(cx);
         let under = |path: &str| path.starts_with(&prefix) && keeps_path(&terms, path);
         let store = self.store.read(cx);
-        let (project, from, files): (_, _, Vec<FileChange>) = match source {
-            FileSource::Uncommitted(project) => (
-                project.clone(),
-                None,
-                (store.workspace(project)?.uncommitted.iter())
+        let whole = |file: &FileChange| Selected {
+            file: file.clone(),
+            hunks: None,
+        };
+        let cut = match source {
+            FileSource::Uncommitted(project) => Cut::Files {
+                project: project.clone(),
+                from: None,
+                worktree: None,
+                files: (store.workspace(project)?.uncommitted.iter())
                     .filter(|f| under(&f.path) && !store.hides_file(project, &f.path))
-                    .cloned()
+                    .map(whole)
                     .collect(),
-            ),
+            },
             FileSource::Diff => {
-                let (project, from) = self.diff_owner(cx)?;
                 let files = (self.diff.as_ref()?.files.iter())
                     .map(|f| &f.file)
                     .filter(|f| under(&f.path))
-                    .cloned()
+                    .map(whole)
                     .collect();
-                (project, from, files)
+                self.owned_cut(files, cx)?
             }
         };
-        let files: Vec<Selected> = files
-            .into_iter()
-            .map(|file| Selected { file, hunks: None })
-            .collect();
-        (!files.is_empty()).then(|| Cut::Files {
-            project,
-            from,
-            files: files.into(),
-        })
+        matches!(&cut, Cut::Files { files, .. } if !files.is_empty()).then_some(cut)
     }
 
     fn render_dir_row(
@@ -863,17 +808,20 @@ impl Detail {
         // A file partly checked drags as its checked hunks and lines. Not at all while
         // they're unknown, rather than as all of it.
         let dragged = match &extras.menu {
-            Some(FileMenu::Cut(Cut::Files { project, from, .. }))
-                if !picked && extras.checkbox == Some(Toggled::Mixed) =>
-            {
+            Some(Cut::Files {
+                project,
+                from,
+                worktree,
+                ..
+            }) if !picked && extras.checkbox == Some(Toggled::Mixed) => {
                 (self.selected_change(file)).map(|change| Cut::Files {
                     project: project.clone(),
                     from: *from,
+                    worktree: worktree.clone(),
                     files: vec![change].into(),
                 })
             }
-            Some(FileMenu::Cut(cut)) => Some(cut.clone()),
-            _ => None,
+            menu => menu.clone(),
         };
         if let Some(dragged) = dragged {
             let label: SharedString = dragged.describe().into();
@@ -897,29 +845,16 @@ impl Detail {
         row.into_any_element()
     }
 
-    /// Open `menu` at `position`, with `line` where an editor should open the file.
+    /// The menu for `menu`'s files or hunk at `position`, with `line` where an editor should
+    /// open the file.
     pub(super) fn file_menu(
         &mut self,
-        menu: FileMenu,
+        menu: Cut,
         line: Option<u32>,
         position: Point<Pixels>,
         cx: &mut Context<Self>,
     ) {
-        match menu {
-            FileMenu::Cut(payload) => self.changes_menu(payload, Some(line), position, cx),
-            FileMenu::Linked(project, worktree, changes) => {
-                let items = vec![
-                    MenuItem::new("Discard changes…", move |this, window, cx| {
-                        let (worktree, changes) = (Some(worktree.clone()), changes.clone());
-                        this.discard(project.clone(), worktree, changes, window, cx)
-                    })
-                    .danger(),
-                ];
-                self.app
-                    .update(cx, |app, cx| app.open_menu(position, items, cx))
-                    .ok();
-            }
-        }
+        self.changes_menu(menu, Some(line), position, cx)
     }
 
     /// What right-clicking files, a folder or a hunk offers: moving them, taking them out,
@@ -935,6 +870,7 @@ impl Detail {
         let Cut::Files {
             project,
             from,
+            worktree,
             files,
         } = payload.clone()
         else {
@@ -956,7 +892,8 @@ impl Detail {
                     .filter(|f| f.file.conflicted)
                     .map(|f| f.file.path.clone())
                     .collect();
-                if !conflicted.is_empty() {
+                // `mark_resolved` works in the main checkout.
+                if !conflicted.is_empty() && worktree.is_none() {
                     let project = project.clone();
                     let editing = (self.store.read(cx).workspace(&project))
                         .is_some_and(|ws| ws.editing.is_some());
@@ -984,16 +921,23 @@ impl Detail {
                         }),
                     );
                 }
-                let (project, files) = (project.clone(), files.clone());
+                let (project, worktree, files) = (project.clone(), worktree.clone(), files.clone());
                 items.push(
                     MenuItem::new("Discard changes…", move |this, window, cx| {
-                        this.discard(project.clone(), None, files.to_vec(), window, cx)
+                        let (project, worktree) = (project.clone(), worktree.clone());
+                        this.discard(project, worktree, files.to_vec(), window, cx)
                     })
                     .danger(),
                 );
             }
             Some(commit) => {
-                let uncommitted = Selection::Uncommitted(project.clone());
+                // A linked worktree's commit uncommits into that worktree.
+                let uncommitted = match (self.store.read(cx))
+                    .worktree_of(&Selection::Commit(project.clone(), commit))
+                {
+                    Some(worktree) => Selection::Worktree(project.clone(), worktree.name.clone()),
+                    None => Selection::Uncommitted(project.clone()),
+                };
                 let (split_project, split_files) = (project.clone(), files.clone());
                 let (drop_project, drop_files) = (project.clone(), files.clone());
                 items.extend([
@@ -1019,9 +963,17 @@ impl Detail {
                 ]);
             }
         }
+        // A linked worktree's files are in its own folder.
+        let store = self.store.read(cx);
+        let root = match &worktree {
+            None => store.path(&project),
+            Some(name) => (store.workspace(&project))
+                .and_then(|ws| ws.worktrees.iter().find(|w| w.name == *name))
+                .map(|w| w.path.clone()),
+        };
         if let [file] = &*files
             && let Some(line) = line
-            && let Some(root) = self.store.read(cx).path(&project)
+            && let Some(root) = root
         {
             let relative = file.file.path.clone();
             let absolute = root.join(&relative);
@@ -1031,7 +983,8 @@ impl Detail {
             items.extend([
                 MenuItem::new(label, move |this, _, cx| {
                     let file = Some(open_file.clone());
-                    this.open_in_editor(&open_project, None, file, line, position, cx)
+                    let worktree = worktree.clone();
+                    this.open_in_editor(&open_project, worktree, file, line, position, cx)
                 })
                 .separated(),
                 MenuItem::new("Copy path", move |this, _, cx| {

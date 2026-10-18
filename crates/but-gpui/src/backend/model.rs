@@ -126,12 +126,6 @@ impl Workspace {
         (self.branches()).chain(self.worktrees.iter().flat_map(|wt| &wt.branches))
     }
 
-    /// The commits of its own branches, which edits change. A linked worktree's are left
-    /// out, so an edit naming one of them fails rather than change it.
-    pub fn own_commits(&self) -> impl Iterator<Item = &Commit> {
-        self.branches().flat_map(|branch| &branch.commits)
-    }
-
     /// Every commit shown, its linked worktrees' too.
     pub fn commits(&self) -> impl Iterator<Item = &Commit> {
         self.shown_branches().flat_map(|branch| &branch.commits)
@@ -277,7 +271,7 @@ pub struct Branch {
 }
 
 /// An entry in a project's operation log, which Undo restores.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SnapshotId(pub(crate) gix::ObjectId);
 
 /// A branch's pull request, as the forge cache last saw it.

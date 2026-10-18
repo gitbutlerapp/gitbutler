@@ -1,9 +1,10 @@
 //! The operation log: what GitButler did to a project, newest first, each with the
 //! snapshot taken just before, to look at and to restore.
 
+use std::collections::HashSet;
 use std::path::Path;
 
-use anyhow::{Context as _, Result};
+use anyhow::{Context as _, Result, bail};
 use but_api::legacy::oplog::{self, RestoreKind};
 use but_oplog::legacy::OperationKind;
 
@@ -97,7 +98,8 @@ pub fn take_snapshot(path: &Path) -> Result<()> {
 /// Restore the workspace to before the last operation, or with `redo` restore what the
 /// last undo took back. Returns what that operation was, or `None` when there's nothing to
 /// undo or redo.
-pub fn undo(path: &Path, redo: bool) -> Result<Option<&'static str>> {
+/// Undo or redo the latest operation, unless it's one of `kept`.
+pub fn undo(path: &Path, redo: bool, kept: &HashSet<SnapshotId>) -> Result<Option<&'static str>> {
     let mut ctx = open(path)?;
     let (snapshot, kind) = if redo {
         let snapshot = oplog::get_redo_target_snapshot(&ctx)?;
@@ -109,6 +111,12 @@ pub fn undo(path: &Path, redo: bool) -> Result<Option<&'static str>> {
     let Some(snapshot) = snapshot else {
         return Ok(None);
     };
+    if kept.contains(&SnapshotId(snapshot.commit_id)) {
+        bail!(
+            "It moved changes of a linked worktree, which undo can't put back there. \
+             Move them back by hand instead."
+        );
+    }
     let title = snapshot
         .details
         .map(|details| operation_title(details.operation));
