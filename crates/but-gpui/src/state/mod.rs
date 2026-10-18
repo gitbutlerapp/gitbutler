@@ -333,6 +333,15 @@ impl Store {
     /// The linked worktree whose branches `selection`, a branch or a commit, is on, and not
     /// the workspace's too. Its agent works on them there, so nothing here changes them.
     pub fn worktree_of(&self, selection: &Selection) -> Option<&Worktree> {
+        // A stack is where its bottom branch is.
+        let bottom;
+        let selection = match selection {
+            Selection::Stack(project, ref_name) => {
+                bottom = Selection::Branch(project.clone(), ref_name.clone());
+                &bottom
+            }
+            _ => selection,
+        };
         let workspace = self.workspace(selection.project())?;
         if workspace.branches().any(|branch| selection.on(branch)) {
             return None;

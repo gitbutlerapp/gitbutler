@@ -252,6 +252,21 @@ impl AppView {
                     el.on_action(cx.listener(Self::land_branch))
                 })
             }
+            // Through its top branch: landing it lands the whole stack, and unapplying any
+            // branch takes the whole stack out.
+            Some(Selection::Stack(project, bottom)) => {
+                let Some(workspace) = store.workspace(project) else {
+                    return el;
+                };
+                let top = workspace.lane(bottom).and_then(<[_]>::first);
+                let lands = top.is_some_and(|top| {
+                    BranchEdits::of(workspace, &top.ref_name).land == Some(true)
+                });
+                el.when(lands, |el| el.on_action(cx.listener(Self::land_branch)))
+                    .when(workspace.managed, |el| {
+                        el.on_action(cx.listener(Self::unapply_stack))
+                    })
+            }
             _ => el,
         }
     }
@@ -317,20 +332,25 @@ impl AppView {
         Some((project, commit.id))
     }
 
-    /// The selected branch, when it has a name.
+    /// The selected branch, or a selected stack's top one, when it has a name.
     fn selected_named_branch(&self, cx: &App) -> Option<(ProjectId, String)> {
-        match self.store.read(cx).selection.clone()? {
-            Selection::Branch(project, ref_name) if !ref_name.is_empty() => {
-                Some((project, ref_name))
+        match self.store.read(cx).selection.as_ref()? {
+            Selection::Branch(..) | Selection::Stack(..) => {
+                (self.branch_of_selection(cx)).filter(|(_, ref_name)| !ref_name.is_empty())
             }
             _ => None,
         }
     }
 
-    /// The selected branch, or the branch holding the selected commit, named or not.
+    /// The selected branch, or the branch holding the selected commit, named or not. A
+    /// stack acts through its top branch, which takes the ones below it along.
     fn branch_of_selection(&self, cx: &App) -> Option<(ProjectId, String)> {
         let selection = self.selection(cx)?;
-        let branch = self.store.read(cx).branch_for(&selection)?;
+        let store = self.store.read(cx);
+        let branch = match &selection {
+            Selection::Stack(project, bottom) => store.workspace(project)?.lane(bottom)?.first()?,
+            _ => store.branch_for(&selection)?,
+        };
         Some((selection.project().clone(), branch.ref_name.clone()))
     }
 
