@@ -105,6 +105,13 @@ impl Navigator {
                         MenuItem::new("Reveal in Finder", move |_, _, cx| cx.reveal_path(&path)),
                     ]);
                 }
+                let settings_project = project.clone();
+                items.push(
+                    MenuItem::new("Project settings…", move |this, window, cx| {
+                        this.open_project_settings(settings_project.clone(), window, cx)
+                    })
+                    .separated(),
+                );
                 items
             }
             Selection::Uncommitted(project) => {
