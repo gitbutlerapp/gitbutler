@@ -78,7 +78,11 @@ impl Detail {
                     actions.extend(self.mark_all_reviewed(cx));
                 }
                 Selection::Branch(_, ref_name) => {
-                    crumbs.push((short_ref(ref_name).to_owned().into(), None));
+                    let name = match ref_name.is_empty() {
+                        true => "Unnamed branch",
+                        false => short_ref(ref_name),
+                    };
+                    crumbs.push((name.to_owned().into(), None));
                     // An unnamed branch has no ref to open a pull request from.
                     let review = workspace
                         .and_then(|ws| ws.find_branch(ref_name))
