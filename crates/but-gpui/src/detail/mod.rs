@@ -1209,14 +1209,14 @@ impl Detail {
         // Fold it now, so the scroll below lands on the next file's header.
         self.rebuild_rows(cx);
         if !reviewed {
-            // Like Zed's keep-and-next: move on to the next file still wanting a look.
+            // Like Zed's keep-and-next: move on to the next file still wanting a look, going
+            // round to the top for one passed over.
             let store = self.store.read(cx);
             let shown = self.shown_files();
             let next = self.diff.as_ref().and_then(|diff| {
-                diff.files
-                    .iter()
-                    .enumerate()
-                    .skip(file_ix + 1)
+                let files = diff.files.iter().enumerate();
+                (files.clone().skip(file_ix + 1))
+                    .chain(files.take(file_ix))
                     .filter(|(ix, _)| shown.binary_search(ix).is_ok())
                     .find(|(_, f)| store.review(&project, &f.file) != Review::Reviewed)
                     .map(|(ix, _)| ix)
