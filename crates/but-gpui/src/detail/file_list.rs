@@ -305,6 +305,19 @@ impl Detail {
         Some((key.project.clone(), from))
     }
 
+    /// The uncommitted file under the cursor, to cut, as the diff's other keys act on it.
+    pub fn cursor_cut(&self, cx: &App) -> Option<Cut> {
+        // Right after selecting Uncommitted changes, the diff can still be the last one, a
+        // commit's or another project's.
+        let project = self.selected_project(cx);
+        let uncommitted = (self.diff.as_ref()).is_some_and(|d| {
+            d.key.source == DiffSource::Worktree && Some(&d.key.project) == project.as_ref()
+        });
+        (uncommitted && self.shown_files().contains(&self.cursor.file))
+            .then(|| self.diff_cut(self.cursor.file, None, cx))
+            .flatten()
+    }
+
     /// The loaded diff's file at `file`, or `hunks` of it, to drag or cut.
     pub(super) fn diff_cut(
         &self,

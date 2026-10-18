@@ -307,13 +307,21 @@ impl AppView {
         .detach();
     }
 
-    fn cut_selection(&mut self, _: &CutSelection, _: &mut Window, cx: &mut Context<Self>) {
+    fn cut_selection(&mut self, _: &CutSelection, window: &mut Window, cx: &mut Context<Self>) {
         let cut = match self.selection(cx) {
             Some(Selection::Commit(..)) => {
                 (self.single_commit(cx)).map(|(project, id)| Cut::Commit(project, id))
             }
             Some(Selection::Branch(project, ref_name)) if !ref_name.is_empty() => {
                 Some(Cut::Branch(project, ref_name))
+            }
+            // From the diff, the file under the cursor, as ⌘⌫ discards it; from the navigator
+            // or the composer, what's checked.
+            Some(Selection::Uncommitted(_))
+                if self.detail.read(cx).is_focused(window, cx)
+                    && !self.detail.read(cx).composing() =>
+            {
+                self.detail.read(cx).cursor_cut(cx)
             }
             Some(Selection::Uncommitted(project)) => {
                 let files = self.detail.read(cx).selected_changes(cx);
