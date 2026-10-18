@@ -15,7 +15,6 @@ mod panes;
 mod pull_request;
 mod resolve;
 mod upstream;
-mod worktree;
 
 pub use diff_view::DiffPane;
 pub use resolve::ResolveConflicts;
@@ -259,6 +258,8 @@ pub struct Detail {
     rewording: Option<(Entity<TextInput>, Subscription)>,
     /// The project the checks and commit target above belong to.
     checks_project: Option<ProjectId>,
+    /// The linked worktree whose files the checks are of, or `None` for the project's own.
+    checks_worktree: Option<Arc<str>>,
     /// The commit message box is open; until then there are no checkboxes.
     composing: bool,
     /// Where the focus was when writing a commit message started, to go back to after.
@@ -339,10 +340,18 @@ impl Detail {
                         this.reset_view();
                     }
                     let project = this.selected_project(cx);
+                    let checkout = this.selected_checkout(cx).map(|(_, worktree)| worktree);
                     if this.checks_project != project {
                         this.checks_project = project;
+                        this.checks_worktree = checkout.flatten();
                         this.close_composer(cx);
                         this.commit_target = None;
+                    } else if let Some(worktree) = checkout
+                        && worktree != this.checks_worktree
+                    {
+                        // Checks are of one checkout's files, which another's share paths with.
+                        this.checks_worktree = worktree;
+                        this.close_composer(cx);
                     }
                     this.reload_page(true, cx);
                     this.refresh_diff(true, cx);
@@ -352,8 +361,9 @@ impl Detail {
                         this.reload_page(false, cx);
                         // A reload that didn't touch the files shown, like the forge poll's,
                         // shouldn't re-highlight them.
-                        let unchanged = (this.store.read(cx).workspace(project))
-                            .is_some_and(|ws| this.shows_worktree(&ws.uncommitted));
+                        let unchanged = (this.worktree_diff())
+                            .and_then(|diff| diff.key.uncommitted(this.store.read(cx)))
+                            .is_some_and(|files| this.shows_worktree(files));
                         if !unchanged {
                             this.refresh_diff(false, cx);
                         }
@@ -457,6 +467,7 @@ impl Detail {
             sideways: HashMap::new(),
             rewording: None,
             checks_project: None,
+            checks_worktree: None,
             composing: false,
             composer_back: None,
             message_scroll,
@@ -500,6 +511,16 @@ impl Detail {
 
     fn selected_project(&self, cx: &App) -> Option<ProjectId> {
         self.selection(cx).map(|s| s.project().clone())
+    }
+
+    /// The checkout whose uncommitted changes are shown, which the composer commits: the
+    /// project's own (`None`) or a linked worktree, by name.
+    pub fn selected_checkout(&self, cx: &App) -> Option<(ProjectId, Option<Arc<str>>)> {
+        match self.selection(cx)? {
+            Selection::Uncommitted(project) => Some((project, None)),
+            Selection::Worktree(project, name) => Some((project, Some(name))),
+            _ => None,
+        }
     }
 
     /// The commit `project` is editing, if `but resolve` has one checked out.
@@ -860,7 +881,7 @@ impl Detail {
             self.list.scroll_to(top);
             self.cursor = self.cursor_in(&files);
         }
-        if key.source == DiffSource::Worktree {
+        if key.checkout() == Some(self.checks_worktree.as_deref()) {
             self.checks.reconcile(&files);
         }
         if self.diff.as_ref().is_none_or(|diff| diff.rows != rows) {
@@ -895,16 +916,21 @@ impl Detail {
         self.diff_error = None;
     }
 
-    /// What dragging `project`'s uncommitted changes carries: the checked files and hunks
-    /// when they're shown here, otherwise all of them.
-    pub fn files_to_move(&self, project: &ProjectId, cx: &App) -> Vec<Selected> {
-        if self.selection(cx) == Some(Selection::Uncommitted(project.clone())) {
+    /// What dragging the uncommitted changes of `project`'s checkout `worktree` carries: the
+    /// checked files and hunks when they're shown here, otherwise all of them.
+    pub fn files_to_move(
+        &self,
+        project: &ProjectId,
+        worktree: Option<Arc<str>>,
+        cx: &App,
+    ) -> Vec<Selected> {
+        if self.selected_checkout(cx) == Some((project.clone(), worktree.clone())) {
             return self.selected_changes(cx);
         }
         let store = self.store.read(cx);
-        let files = store
-            .workspace(project)
-            .map_or(&[][..], |ws| &ws.uncommitted);
+        let files = (store.workspace(project))
+            .and_then(|ws| ws.uncommitted_in(worktree.as_deref()))
+            .unwrap_or_default();
         files.iter().map(Selected::whole).collect()
     }
 
@@ -1326,10 +1352,10 @@ impl Detail {
         }
     }
 
-    /// The loaded diff when it's of the project's own uncommitted changes, the ones the
-    /// composer commits.
+    /// The loaded diff when it's of a checkout's uncommitted changes, the ones the composer
+    /// commits: the project's own or a linked worktree's.
     fn worktree_diff(&self) -> Option<&LoadedDiff> {
-        (self.diff.as_ref()).filter(|diff| diff.key.source == DiffSource::Worktree)
+        (self.diff.as_ref()).filter(|diff| diff.key.checkout().is_some())
     }
 
     /// Whether the loaded diff is the worktree's and shows exactly `files` as they are now.
@@ -1378,8 +1404,13 @@ impl Detail {
     pub fn shows_footer(&self, cx: &App) -> bool {
         let store = self.store.read(cx);
         !self.files_hidden
-            && matches!(&store.selection, Some(Selection::Uncommitted(project))
-            if store.workspace(project).is_some_and(|ws| !ws.uncommitted.is_empty()))
+            && self
+                .selected_checkout(cx)
+                .is_some_and(|(project, worktree)| {
+                    (store.workspace(&project))
+                        .and_then(|ws| ws.uncommitted_in(worktree.as_deref()))
+                        .is_some_and(|files| !files.is_empty())
+                })
     }
 
     /// The commit composer is open.
@@ -1566,7 +1597,7 @@ impl Render for Detail {
             Some(selection) => {
                 let side = match selection {
                     Selection::Uncommitted(project) => {
-                        self.render_uncommitted_side(project, &theme, window, cx)
+                        self.render_uncommitted_side(project, None, &theme, window, cx)
                     }
                     Selection::Commit(project, id) => {
                         self.render_commit_side(project, *id, &theme, cx)
@@ -1576,7 +1607,7 @@ impl Render for Detail {
                     }
                     Selection::History(project) => self.render_history_side(project, &theme, cx),
                     Selection::Worktree(project, name) => {
-                        self.render_worktree_side(project, name, &theme, cx)
+                        self.render_uncommitted_side(project, Some(name), &theme, window, cx)
                     }
                     Selection::Stack(project, bottom) => {
                         self.render_stack_side(project, bottom, &theme, cx)

@@ -275,35 +275,6 @@ impl Detail {
         self.show_picked(cx);
     }
 
-    /// Open the Branches page on `ref_name`.
-    pub(super) fn show_other_branch(
-        &mut self,
-        project: &ProjectId,
-        ref_name: String,
-        cx: &mut Context<Self>,
-    ) {
-        match &mut self.branches {
-            Some(branches) if branches.project == *project => {
-                branches.selected = Some(ref_name);
-                branches.commit = None;
-            }
-            // Kept as the selection when the page lists its branches.
-            _ => {
-                self.branches = Some(Branches {
-                    project: project.clone(),
-                    seen: None,
-                    list: Vec::new(),
-                    selected: Some(ref_name),
-                    commits: None,
-                    commit: None,
-                })
-            }
-        }
-        let shown = Selection::Branches(project.clone());
-        self.store
-            .update(cx, |store, cx| store.select(Some(shown), cx));
-    }
-
     fn select_branch_commit(&mut self, id: CommitId, cx: &mut Context<Self>) {
         if let Some(branches) = &mut self.branches {
             branches.commit = Some(id);

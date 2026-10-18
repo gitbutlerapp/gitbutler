@@ -107,10 +107,12 @@ impl AppView {
         let typing = window.focused(cx).is_some_and(|focused| {
             !detail.owns_focus(&focused) && focused != self.focus_handle(cx)
         });
-        let main = matches!(store.selection, Some(Selection::Uncommitted(_)));
-        // A linked worktree's changes discard as the main checkout's do.
-        let uncommitted = main || matches!(store.selection, Some(Selection::Worktree(..)));
-        let hints: Vec<(&dyn Action, &str)> = if main && detail.composing() {
+        // A linked worktree's changes commit and discard as the main checkout's do.
+        let uncommitted = matches!(
+            store.selection,
+            Some(Selection::Uncommitted(_) | Selection::Worktree(..))
+        );
+        let hints: Vec<(&dyn Action, &str)> = if uncommitted && detail.composing() {
             let amend = detail
                 .can_amend(cx)
                 .then_some((&AmendTop as &dyn Action, "amend"));

@@ -15,7 +15,7 @@ use gpui::{
 
 use crate::app::{AddProject, AppView, Collapse, Confirm, Expand, SelectNext, SelectPrevious};
 use crate::backend::{
-    Branch, CommitId, CommitState, FileChange, PushState, Selected, Workspace, Worktree, short_ref,
+    Branch, CommitId, CommitState, FileChange, PushState, Workspace, Worktree, short_ref,
 };
 use crate::detail::{ChecksChanged, Detail};
 use crate::overlays::MenuItem;
@@ -740,7 +740,7 @@ impl Navigator {
                 self.store
                     .update(cx, |store, cx| store.set_expanded(&id, !expanded, cx));
             }
-            Some(Selection::Uncommitted(_)) => {
+            Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
                 self.detail
                     .update(cx, |detail, cx| detail.focus_message(window, cx));
             }
@@ -1581,14 +1581,11 @@ impl Navigator {
                     }
                 }))
             });
-        // The main worktree's checked files, or all of a linked worktree's.
+        // The worktree's checked files while it's shown, else all of them.
         let drags = !uncommitted.is_empty();
         Some(
             row.when(drags, |el| {
-                let files = match name {
-                    None => self.detail.read(cx).files_to_move(id, cx),
-                    Some(_) => (uncommitted.iter()).map(Selected::whole).collect(),
-                };
+                let files = self.detail.read(cx).files_to_move(id, name.clone(), cx);
                 let label: SharedString = match files.len() {
                     1 => files[0].file.path.clone().into(),
                     n => format!("{n} files").into(),

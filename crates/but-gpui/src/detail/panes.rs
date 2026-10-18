@@ -2,6 +2,7 @@
 //! and the actions that fit it.
 
 use std::ops::Range;
+use std::sync::Arc;
 
 use gpui::{
     AnyElement, ClickEvent, Context, Div, Entity, SharedString, UniformListScrollHandle, Window,
@@ -360,11 +361,13 @@ impl Detail {
         ]
     }
 
-    /// What an agent left uncommitted, laid out to read first. The commit box
-    /// stays closed until asked for, and only then do checkboxes appear.
+    /// What an agent left uncommitted in the project's own checkout or the linked
+    /// `worktree`, laid out to read first. The commit box stays closed until asked for, and
+    /// only then do checkboxes appear.
     pub(super) fn render_uncommitted_side(
         &self,
         project: &ProjectId,
+        worktree: Option<&Arc<str>>,
         theme: &Theme,
         window: &mut Window,
         cx: &Context<Self>,
@@ -373,9 +376,26 @@ impl Detail {
         let Some(workspace) = store.workspace(project) else {
             return empty_state(None, "Loading…", "", theme, cx);
         };
+        let (files, git_operation) = match worktree.map(|name| workspace.find_worktree(name)) {
+            None => (&workspace.uncommitted, workspace.git_operation),
+            Some(Some(worktree)) => (&worktree.uncommitted, worktree.git_operation),
+            Some(None) => {
+                return empty_state(
+                    Some(Illustration::Papers),
+                    "Worktree not found",
+                    "",
+                    theme,
+                    cx,
+                );
+            }
+        };
         let footer = if !self.composing {
             let target = self.effective_target(project, cx);
-            let target = target.as_deref().map_or("a new branch", short_ref);
+            let target = match (target.as_deref(), worktree) {
+                (Some(target), _) => format!("Commit to {}", short_ref(target)),
+                (None, None) => "Commit to a new branch".to_owned(),
+                (None, Some(_)) => "No branch checked out".to_owned(),
+            };
             h_flex()
                 .flex_none()
                 .h(px(super::FOOTER_HEIGHT))
@@ -390,7 +410,7 @@ impl Detail {
                         .truncate()
                         .text_size(px(12.))
                         .text_color(theme.text_3)
-                        .child(format!("Commit to {target}")),
+                        .child(target),
                 )
                 .child(
                     button("open-composer", "Commit…")
@@ -402,22 +422,21 @@ impl Detail {
                 )
                 .into_any_element()
         } else {
-            self.render_composer(project, theme, window, cx)
+            self.render_composer(project, files, theme, window, cx)
         };
 
         let banner = self.conflict_banner(cx.entity().downgrade(), cx);
         // Committing here while Git is partway through something leaves it there.
-        let unfinished = (workspace.git_operation).map(|op| unfinished_banner(op, theme));
+        let unfinished = git_operation.map(|op| unfinished_banner(op, theme));
+        // A commit being edited, in the main checkout, is finished from the header, not
+        // committed.
+        let editing = worktree.is_none() && workspace.editing.is_some();
         v_flex()
             .size_full()
             .children(unfinished)
             .children(banner.map(|banner| side_header(theme).child(banner)))
-            .child(self.render_uncommitted_files(project, &workspace.uncommitted, theme, cx))
-            // A commit being edited is finished from the header, not committed.
-            .when(
-                !workspace.uncommitted.is_empty() && workspace.editing.is_none(),
-                |el| el.child(footer),
-            )
+            .child(self.render_uncommitted_files(project, worktree, files, theme, cx))
+            .when(!files.is_empty() && !editing, |el| el.child(footer))
             .into_any_element()
     }
 
