@@ -80,11 +80,13 @@ impl Detail {
                 Selection::Branch(_, ref_name) => {
                     crumbs.push((short_ref(ref_name).to_owned().into(), None));
                     // An unnamed branch has no ref to open a pull request from.
-                    let can_create = !ref_name.is_empty()
-                        && workspace
-                            .and_then(|ws| ws.find_branch(ref_name))
-                            .is_some_and(|b| b.review.is_none() && !b.commits.is_empty())
-                        && crate::pr::on_forge(store, selection);
+                    let review = workspace
+                        .and_then(|ws| ws.find_branch(ref_name))
+                        .filter(|b| !ref_name.is_empty() && !b.commits.is_empty())
+                        .filter(|_| crate::pr::on_forge(store, selection))
+                        .map(|b| b.review.as_ref().map(|r| r.state));
+                    let can_create = review == Some(None);
+                    let can_merge = review == Some(Some(crate::backend::ReviewState::Open));
                     let pushable = workspace.filter(|ws| ws.can_push(ref_name));
                     let pushing = store.pushing(selection.project(), ref_name);
                     let busy = pushing.then_some("Wait for the push to finish");
@@ -120,6 +122,12 @@ impl Detail {
                             )
                             .icon(Icon::Pr)
                             .dispatch(&crate::pr::CreatePullRequest),
+                        ),
+                        None if can_merge => Some(
+                            button("merge-pr", "Merge")
+                                .icon(Icon::BranchMerge)
+                                .disabled_because(pushable.map(|_| crate::pr::PUSH_BEFORE_MERGE))
+                                .dispatch(&crate::pr::MergePullRequest),
                         ),
                         None => None,
                     };
