@@ -400,7 +400,13 @@ fn change_scale(added: u32, removed: u32, theme: &Theme) -> Option<gpui::Div> {
 
 /// The header at the top of the card of file `ix`, as Lite and but.dev draw it: the fold
 /// chevron, the file's mark, name and folder, and the lines it changed.
-pub fn file_header(ix: usize, file: &FileDiff, theme: &Theme, decor: HeaderDecor) -> AnyElement {
+pub fn file_header(
+    ix: usize,
+    file: &FileDiff,
+    theme: &Theme,
+    decor: HeaderDecor,
+    cx: &App,
+) -> AnyElement {
     let (name, dir) = split_path(&file.file.path);
     let (added, removed) = file.stats();
     let chevron = if decor.folded {
@@ -440,7 +446,7 @@ pub fn file_header(ix: usize, file: &FileDiff, theme: &Theme, decor: HeaderDecor
                 .min_w(px(0.))
                 .gap(px(6.))
                 .overflow_hidden()
-                .child(file_icon(&file.file.path))
+                .child(file_icon(&file.file.path, cx))
                 .child(
                     div()
                         .flex_none()

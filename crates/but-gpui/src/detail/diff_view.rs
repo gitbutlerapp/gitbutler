@@ -573,6 +573,7 @@ impl Detail {
                         folded: last,
                         ..Default::default()
                     },
+                    cx,
                 );
                 padded
                     .id(("file-header", ix))
