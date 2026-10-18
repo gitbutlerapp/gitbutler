@@ -27,6 +27,8 @@ dev-script = ["gpui/test-support", "gpui_platform/test-support"]
 gpui = { git = "https://github.com/zed-industries/zed", rev = "28d0a3547f16b9609b301b48ab363bfca649c864" }
 gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "28d0a3547f16b9609b301b48ab363bfca649c864", features = ["font-kit"] }
 syntect = { version = "5.3.0", default-features = false, features = ["default-fancy"] }
+# bat's syntaxes on top of syntect's, for TypeScript, Svelte, TOML and the like, as the CLI's.
+two-face = { version = "0.5.2", default-features = false, features = ["syntect-fancy"] }
 # Decodes a diff's images, shrunk to the size they're shown at.
 image = { version = "0.25.1", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
 # Text drawn as the web apps draw it (see `main`), and scripted runs kept out of App Nap.

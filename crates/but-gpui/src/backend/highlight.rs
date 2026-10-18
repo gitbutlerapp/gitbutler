@@ -1,8 +1,9 @@
 //! Syntax highlighting for diff lines.
 //!
 //! Lines are tagged with a handful of token kinds rather than colours, so the UI can
-//! colour them from its own light or dark palette. syntect does the parsing; its theme
-//! here only maps scopes to token kinds, smuggled through the red channel.
+//! colour them from its own light or dark palette. syntect does the parsing, with bat's
+//! syntaxes from `two-face`, which add TypeScript, Svelte, TOML and more to syntect's own;
+//! its theme here only maps scopes to token kinds, smuggled through the red channel.
 
 use std::ops::Range;
 use std::str::FromStr as _;
@@ -52,7 +53,7 @@ const TOKENS: [(Token, &str); 7] = [
 
 fn syntaxes() -> &'static SyntaxSet {
     static SET: OnceLock<SyntaxSet> = OnceLock::new();
-    SET.get_or_init(SyntaxSet::load_defaults_newlines)
+    SET.get_or_init(two_face::syntax::extra_newlines)
 }
 
 fn theme() -> &'static Theme {
@@ -92,6 +93,13 @@ impl Highlighter {
         let set = syntaxes();
         let name = path.rsplit('/').next().unwrap_or(path);
         let extension = name.rsplit_once('.').map_or(name, |(_, ext)| ext);
+        // Extensions no syntax claims, read as one that has a syntax.
+        let extension = match extension {
+            "mjs" | "cjs" => "js",
+            "jsonc" | "hjson" => "json",
+            "mdx" => "md",
+            other => other,
+        };
         let syntax = set
             .find_syntax_by_extension(extension)
             .or_else(|| set.find_syntax_by_extension(name))?;
@@ -128,5 +136,20 @@ impl Highlighter {
             }
         }
         spans
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Highlighter;
+
+    #[test]
+    fn the_repositorys_own_file_types_are_highlighted() {
+        for path in [
+            "a.rs", "a.ts", "a.tsx", "a.svelte", "a.js", "a.mjs", "a.cjs", "a.css", "a.scss",
+            "a.json", "a.jsonc", "a.toml", "a.yml", "a.md", "a.mdx", "a.sh", "a.html",
+        ] {
+            assert!(Highlighter::for_path(path).is_some(), "{path} has a syntax");
+        }
     }
 }

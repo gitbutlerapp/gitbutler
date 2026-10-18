@@ -123,15 +123,24 @@ pub fn load_diff(
         .map(|file| (file.file.path.as_str(), file))
         .collect();
     // Only the first `annotate` files are highlighted and given scope names; the rest stay
-    // plain unless reused.
-    let first = annotate.unwrap_or(usize::MAX);
+    // plain unless reused. Those first files are what shows first, so a long one waits too.
+    let (first, limit) = match annotate {
+        Some(first) => (first, FIRST_HIGHLIGHT_LIMIT),
+        None => (usize::MAX, HIGHLIGHT_LIMIT),
+    };
     let repo = repo.into_sync();
     let diffs = parallel_map(
         changes,
         || repo.to_thread_local(),
         |repo, index, file| {
             let previous = previous.get(file.path.as_str()).copied();
-            load_file(repo, file, context_lines, previous, index < first)
+            load_file(
+                repo,
+                file,
+                context_lines,
+                previous,
+                (index < first).then_some(limit),
+            )
         },
     )
     .into_iter()
@@ -374,13 +383,14 @@ fn annotate_conflict(path: &str, conflict: &mut Conflict) {
 }
 
 /// One file's diff, reused from `previous` when its patch is the same, else parsed and,
-/// when `annotate`, highlighted and given scope names.
+/// with `annotate`, highlighted and given scope names while it changes no more lines than
+/// that.
 fn load_file(
     repo: &gix::Repository,
     file: FileChange,
     context_lines: u32,
     previous: Option<&FileDiff>,
-    annotate: bool,
+    annotate: Option<u32>,
 ) -> Result<FileDiff> {
     // An uncommitted file last written at the same moment, against the same base, has the
     // same patch, so it isn't computed again, much as git skips files whose stat is unchanged.
@@ -390,7 +400,7 @@ fn load_file(
             && old.file.kind == file.kind
             && old.file.previous_path == file.previous_path
             && old.file.base() == file.base()
-            && (old.annotated || !annotate)
+            && (old.annotated || annotate.is_none())
             // Conflicts replace the diff, which a file resolved since needs back.
             && old.conflicts().is_empty()
     }) {
@@ -423,7 +433,7 @@ fn load_file(
     let mut body = match patch {
         None => DiffBody::Empty,
         // Images are decoded with the highlighting, so a long diff's first files show sooner.
-        Some(but_core::UnifiedPatch::Binary) if annotate => {
+        Some(but_core::UnifiedPatch::Binary) if annotate.is_some() => {
             image_body(repo, &file).unwrap_or(DiffBody::Binary)
         }
         Some(but_core::UnifiedPatch::Binary) => DiffBody::Binary,
@@ -446,14 +456,13 @@ fn load_file(
             }
         }
     };
-    if annotate
-        && let DiffBody::Hunks {
-            hunks,
-            added,
-            removed,
-            ..
-        } = &mut body
-        && *added + *removed <= HIGHLIGHT_LIMIT
+    let lines = match &body {
+        DiffBody::Hunks { added, removed, .. } => added + removed,
+        _ => 0,
+    };
+    if let Some(limit) = annotate
+        && let DiffBody::Hunks { hunks, .. } = &mut body
+        && lines <= limit
     {
         for hunk in hunks.iter_mut() {
             annotate::emphasize(hunk);
@@ -468,8 +477,10 @@ fn load_file(
             annotate::label_scopes(hunks, &old, &new, &file.path);
         }
     }
-    // Only lines and images are filled in later; other bodies are as they'll stay.
-    let annotated = annotate || !matches!(body, DiffBody::Hunks { .. } | DiffBody::Binary);
+    // Only lines and images are filled in later, a file the first files' limit left plain
+    // among them; other bodies are as they'll stay.
+    let annotated = annotate.is_some_and(|limit| lines <= limit || limit >= HIGHLIGHT_LIMIT)
+        || !matches!(body, DiffBody::Hunks { .. } | DiffBody::Binary);
     Ok(FileDiff {
         file,
         body,
@@ -717,6 +728,11 @@ fn widest(hunks: &[Hunk]) -> [u32; 2] {
 
 /// Files with more changed lines than this aren't highlighted, to keep big diffs fast.
 const HIGHLIGHT_LIMIT: u32 = 4000;
+
+/// Among the files that show first, those with more changed lines than this are highlighted
+/// with the rest, a moment later, so a long one doesn't hold up the diff. TypeScript takes
+/// about 80µs a line to highlight.
+const FIRST_HIGHLIGHT_LIMIT: u32 = 500;
 
 /// Lines longer than this, as in minified files, are cut short: shaping and highlighting
 /// them costs far more than anyone reads.
