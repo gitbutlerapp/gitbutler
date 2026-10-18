@@ -11,7 +11,6 @@ use gpui::{
     Subscription, WeakEntity, Window, div, list, prelude::*, px,
 };
 
-use super::file_list::FileMenu;
 use super::{
     Cursor, Detail, DiscardHunk, LoadedDiff, TextPoint, ToggleFiles, TogglePlainLines, ToggleSplit,
     ToggleWrap,
@@ -21,7 +20,7 @@ use crate::backend::{
     self, Branch, ChangeKind, DiffBody, DiffLine, DiffSource, FileDiff, LineKind, PushState,
     Selected,
 };
-use crate::state::{Prefs, ProjectId, Selection};
+use crate::state::{Cut, Prefs, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::illustration::Illustration;
@@ -596,7 +595,7 @@ impl Detail {
         let last = diff::ends_card(&diff.rows, ix);
         let worktree = self.worktree_diff().is_some();
         let store = self.store.read(cx);
-        let menu = |menu: Option<FileMenu>, line: Option<u32>, entity: WeakEntity<Detail>| {
+        let menu = |menu: Option<Cut>, line: Option<u32>, entity: WeakEntity<Detail>| {
             move |event: &gpui::MouseDownEvent, _: &mut Window, cx: &mut App| {
                 if let Some(menu) = menu.clone() {
                     entity
@@ -614,7 +613,7 @@ impl Detail {
                 let whole = self.whole_button(ix, file, &diff.files[file], entity.clone());
                 let toggle = entity.clone();
                 // What right-clicking the header offers, behind a ⋯ as well.
-                let header_menu = self.diff_file_menu(file, None, cx);
+                let header_menu = self.diff_cut(file, None, cx);
                 let more = header_menu.clone().map(|menu| {
                     let entity = entity.clone();
                     icon_button(("file-more", ix), Icon::Kebab)
@@ -728,11 +727,7 @@ impl Detail {
                     .child(header)
                     .on_mouse_down(
                         MouseButton::Right,
-                        menu(
-                            self.diff_file_menu(file, Some(vec![key]), cx),
-                            Some(line),
-                            entity,
-                        ),
+                        menu(carried.clone(), Some(line), entity),
                     )
                     .when(unmodified > 0, |el| {
                         el.tooltip(Tooltip::text("Show the whole file")).on_click(

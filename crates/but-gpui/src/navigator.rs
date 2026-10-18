@@ -15,7 +15,7 @@ use gpui::{
 
 use crate::app::{AddProject, AppView, Collapse, Confirm, Expand, SelectNext, SelectPrevious};
 use crate::backend::{
-    Branch, CommitId, CommitState, FileChange, PushState, Workspace, Worktree, short_ref,
+    Branch, CommitId, CommitState, FileChange, PushState, Selected, Workspace, Worktree, short_ref,
 };
 use crate::detail::{ChecksChanged, Detail};
 use crate::overlays::MenuItem;
@@ -1492,11 +1492,19 @@ impl Navigator {
                     }
                 }))
             });
-        // Only the main worktree's files go to the workspace's branches.
-        let drags = name.is_none() && !uncommitted.is_empty();
+        // The main worktree's checked files, or all of a linked worktree's.
+        let drags = !uncommitted.is_empty();
         Some(
             row.when(drags, |el| {
-                let files = self.detail.read(cx).files_to_move(id, cx);
+                let files = match name {
+                    None => self.detail.read(cx).files_to_move(id, cx),
+                    Some(_) => (uncommitted.iter())
+                        .map(|file| Selected {
+                            file: file.clone(),
+                            hunks: None,
+                        })
+                        .collect(),
+                };
                 let label: SharedString = match files.len() {
                     1 => files[0].file.path.clone().into(),
                     n => format!("{n} files").into(),
@@ -1504,6 +1512,7 @@ impl Navigator {
                 let payload = Cut::Files {
                     project: id.clone(),
                     from: None,
+                    worktree: name.clone(),
                     files: files.into(),
                 };
                 el.on_drag(payload, drag_preview(self.store.clone(), label))

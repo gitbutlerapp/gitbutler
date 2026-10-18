@@ -582,6 +582,7 @@ impl Detail {
                         path,
                         &Destination::Branch(branch.clone()),
                         &files,
+                        None,
                         &message,
                         run_hooks,
                     )?;
@@ -704,7 +705,7 @@ impl Detail {
             })
         };
         (self.store).update(cx, |store, cx| {
-            store.amend(&project, into, files.into(), landed, cx)
+            store.amend(&project, into, files.into(), None, landed, cx)
         });
     }
 

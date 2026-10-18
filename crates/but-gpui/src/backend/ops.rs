@@ -69,12 +69,24 @@ fn unmerged<'a>(repo: &gix::Repository, selected: &'a [Selected]) -> Result<Vec<
         .collect())
 }
 
-/// Refuse conflicted files, which would go in markers and all.
-fn refuse_conflicted(ctx: &but_ctx::Context, selected: &[Selected]) -> Result<()> {
-    if let Some(path) = unmerged(&*ctx.repo.get()?, selected)?.first() {
+/// Refuse conflicted files of the main checkout, or of the linked `worktree`, which would go
+/// in markers and all.
+fn refuse_conflicted(
+    ctx: &but_ctx::Context,
+    worktree: Option<&str>,
+    selected: &[Selected],
+) -> Result<()> {
+    if let Some(path) = unmerged(&checkout(ctx, worktree)?, selected)?.first() {
         bail!("Mark {path} resolved first: it still has conflicts");
     }
     Ok(())
+}
+
+/// Where changes are read from: the main checkout, or the linked `worktree`.
+fn changes_source(worktree: Option<&str>) -> ChangesSource {
+    worktree.map_or(ChangesSource::Head, |name| {
+        ChangesSource::Worktree(name.to_owned())
+    })
 }
 
 /// Whole files, or just some of their hunks.
@@ -161,12 +173,15 @@ pub fn commit(
     path: &Path,
     destination: &Destination,
     selected: &[Selected],
+    worktree: Option<&str>,
     message: &str,
     run_hooks: bool,
 ) -> Result<(CommitId, LeftOut, Option<String>)> {
     let mut ctx = open(path)?;
     refuse_unborn(&ctx)?;
-    refuse_conflicted(&ctx, selected)?;
+    refuse_conflicted(&ctx, worktree, selected)?;
+    // The hooks run in the main checkout, not where a linked worktree's changes are.
+    let run_hooks = run_hooks && worktree.is_none();
     let changes = selected_specs(selected);
     if changes.is_empty() {
         bail!("Nothing to commit");
@@ -190,7 +205,7 @@ pub fn commit(
             relative_to,
             side,
             changes,
-            ChangesSource::Head,
+            changes_source(worktree),
             message,
             DryRun::No,
             guard.write_permission(),
@@ -374,17 +389,20 @@ pub fn remove_branch(path: &Path, ref_name: &str) -> Result<()> {
     Ok(())
 }
 
-/// Add the `selected` changes to `commit`. With `run_hooks`, pre-commit runs first and can
-/// refuse, and post-commit runs after, as the desktop app does; what a failed post-commit
-/// printed comes back as the third value.
+/// Add the `selected` changes of the main checkout, or of the linked `worktree`, to
+/// `commit`. With `run_hooks`, pre-commit runs first and can refuse, and post-commit runs
+/// after, as the desktop app does; what a failed post-commit printed comes back as the
+/// third value.
 pub fn amend(
     path: &Path,
     commit: CommitId,
     selected: &[Selected],
+    worktree: Option<&str>,
     run_hooks: bool,
 ) -> Result<(Rewritten, LeftOut, Option<String>)> {
     let mut ctx = open(path)?;
-    refuse_conflicted(&ctx, selected)?;
+    refuse_conflicted(&ctx, worktree, selected)?;
+    let run_hooks = run_hooks && worktree.is_none();
     let changes = selected_specs(selected);
     if run_hooks {
         pre_commit(&ctx, &changes)?;
@@ -393,7 +411,7 @@ pub fn amend(
         &mut ctx,
         commit.0,
         changes,
-        ChangesSource::Head,
+        changes_source(worktree),
         DryRun::No,
     )?;
     let left_out = left_out(&outcome.rejected_specs);
@@ -772,7 +790,7 @@ mod tests {
             file: files[0].clone(),
             hunks: None,
         };
-        let refused = amend(path, head, std::slice::from_ref(&whole), false).unwrap_err();
+        let refused = amend(path, head, std::slice::from_ref(&whole), None, false).unwrap_err();
         assert!(
             refused.to_string().contains("resolved first"),
             "the markers would go in: {refused:#}"
@@ -939,7 +957,7 @@ mod tests {
             file: diff[0].file.clone(),
             hunks: Some(vec![hunks[0].key]),
         };
-        amend(path, head, &[first_hunk], false).unwrap();
+        amend(path, head, &[first_hunk], None, false).unwrap();
 
         let amended = git(path, &["show", "HEAD:file"]);
         assert!(amended.starts_with("first edit\n"), "{amended}");
@@ -972,7 +990,7 @@ mod tests {
         let first = git(path, &["rev-parse", "HEAD"]);
 
         hook("pre-commit", "echo 'lint failed'; exit 1");
-        let refused = commit(path, &main, &changes(), "Two", true).unwrap_err();
+        let refused = commit(path, &main, &changes(), None, "Two", true).unwrap_err();
         assert!(
             format!("{refused:#}").contains("lint failed"),
             "the error is what the hook printed: {refused:#}"
@@ -991,7 +1009,7 @@ mod tests {
         hook("pre-commit", "exit 0");
         hook("commit-msg", "echo 'Two, checked' > \"$1\"");
         hook("post-commit", "echo 'notify failed'; exit 1");
-        let (_, _, hook_failed) = commit(path, &main, &changes(), "Two", true).unwrap();
+        let (_, _, hook_failed) = commit(path, &main, &changes(), None, "Two", true).unwrap();
         assert_eq!(
             git(path, &["log", "-1", "--format=%s"]).trim(),
             "Two, checked",
@@ -1055,7 +1073,7 @@ mod tests {
         assert_eq!(name_branch(path, top, "named").unwrap(), "refs/heads/named");
         assert_eq!(branch_at_top(path).as_deref(), Some("refs/heads/named"));
 
-        crate::backend::history::undo(path, false).unwrap();
+        crate::backend::history::undo(path, false, &Default::default()).unwrap();
         assert_eq!(
             branch_at_top(path).as_deref(),
             Some(""),

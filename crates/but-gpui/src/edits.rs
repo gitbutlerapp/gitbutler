@@ -1028,6 +1028,7 @@ impl AppView {
     ) {
         let selected = project.clone();
         self.store.update(cx, |store, cx| {
+            let undoable = !store.in_worktree(&project, commit);
             store.run(
                 &project,
                 "Split commit",
@@ -1036,7 +1037,7 @@ impl AppView {
                 move |store, (rewritten, new), cx| {
                     store.follow(&rewritten, cx);
                     store.select(Some(Selection::Commit(selected, new)), cx);
-                    store.snack_undoable("Split into a new commit", cx)
+                    store.snack_after(undoable, "Split into a new commit", cx)
                 },
                 cx,
             )
@@ -1057,9 +1058,17 @@ impl AppView {
             [file] => file.file.path.clone(),
             files => format!("{} files", files.len()),
         };
+        // The oplog can't bring back a linked worktree's files.
+        let undoable = !self.store.read(cx).in_worktree(&project, commit);
+        let detail = match undoable {
+            true => {
+                "The commit, and the ones after it, lose the change. You can undo this with ⌘Z."
+            }
+            false => "The commit, and the ones after it, lose the change. This can't be undone.",
+        };
         self.confirm_then(
             format!("Discard {what} from commit {}?", commit.short()),
-            "The commit, and the ones after it, lose the change. You can undo this with ⌘Z.",
+            detail,
             "Discard",
             window,
             cx,
@@ -1072,9 +1081,9 @@ impl AppView {
                         move |path, remap| {
                             backend::discard_from_commit(path, remap.get(commit)?, &files)
                         },
-                        |store, rewritten, cx| {
+                        move |store, rewritten, cx| {
                             store.follow(&rewritten, cx);
-                            store.snack_undoable("Discarded from the commit", cx)
+                            store.snack_after(undoable, "Discarded from the commit", cx)
                         },
                         cx,
                     )

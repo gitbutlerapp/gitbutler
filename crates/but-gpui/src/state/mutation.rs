@@ -122,11 +122,24 @@ impl Remap {
         captured: &HashMap<CommitId, String>,
         now: impl IntoIterator<Item = (&'a str, CommitId)>,
     ) -> Self {
-        let now: HashMap<&str, CommitId> = now.into_iter().collect();
+        // A key two commits share, as a linked worktree's copy of a commit can, doesn't say
+        // which one a rewritten commit became.
+        let mut by_key: HashMap<&str, Option<CommitId>> = HashMap::new();
+        let mut ids = HashSet::new();
+        for (key, id) in now {
+            ids.insert(id);
+            (by_key.entry(key))
+                .and_modify(|found| *found = None)
+                .or_insert(Some(id));
+        }
         Self(
             captured
                 .iter()
-                .filter_map(|(id, key)| Some((*id, *now.get(key.as_str())?)))
+                .filter_map(|(id, key)| match ids.contains(id) {
+                    // Still there: nothing rewrote it.
+                    true => Some((*id, *id)),
+                    false => Some((*id, (*by_key.get(key.as_str())?)?)),
+                })
                 .collect(),
         )
     }
@@ -193,11 +206,15 @@ impl Store {
         } else {
             ("Undo", "Undone", "Nothing to undo")
         };
+        let kept = self.kept_snapshots.clone();
         self.run(
             project,
             label,
             Overlay::default(),
-            move |path, _| backend::history::undo(path, redo),
+            move |path, _| {
+                let kept = kept.lock().expect("not poisoned").clone();
+                backend::history::undo(path, redo, &kept)
+            },
             move |store, undone, cx| match undone {
                 Some(operation) => store.snack(format!("{done}: {operation}"), cx),
                 None => store.snack(nothing, cx),
@@ -494,15 +511,23 @@ impl Store {
     }
 
     /// Add uncommitted `files` to commit `into`, then call `then` once that worked.
+    /// Amend `into` with `files` of the main checkout, or of the linked `worktree`.
     pub fn amend(
         &mut self,
         project: &ProjectId,
         into: CommitId,
         files: Arc<[Selected]>,
+        worktree: Option<Arc<str>>,
         then: impl FnOnce(&mut Store, &mut Context<Store>) + 'static,
         cx: &mut Context<Self>,
     ) {
         let run_hooks = self.runs_hooks(project);
+        let undoable = worktree.is_none() && !self.in_worktree(project, into);
+        // The overlay hides the main checkout's files.
+        let overlay = match worktree {
+            None => Overlay::files(files.iter()),
+            Some(_) => Overlay::default(),
+        };
         // Which commit, as it's often not on screen.
         let amended = (self.find_commit(project, into)).map_or("Amended".into(), |(_, commit)| {
             format!("Amended \"{}\"", crate::ui::commit_title(&commit.title))
@@ -510,10 +535,16 @@ impl Store {
         self.run(
             project,
             format!("Amend {}", into.short()),
-            Overlay::files(files.iter()),
-            move |path, remap| backend::amend(path, remap.get(into)?, &files, run_hooks),
+            overlay,
+            move |path, remap| {
+                let into = remap.get(into)?;
+                backend::amend(path, into, &files, worktree.as_deref(), run_hooks)
+            },
             move |store, (rewritten, left_out, hook_failed), cx| {
                 store.follow(&rewritten, cx);
+                if !undoable {
+                    store.keep_last_snapshot();
+                }
                 store.report_left_out(&amended, &left_out, cx);
                 if let Some(output) = hook_failed {
                     store.error("Amended, but the post-commit hook failed", output, cx);
@@ -575,7 +606,7 @@ impl Store {
     ) {
         let label = label.into();
         let captured = self.workspace(project).map_or_else(HashMap::new, |ws| {
-            ws.own_commits()
+            ws.commits()
                 .map(|commit| (commit.id, commit.key.clone()))
                 .collect()
         });
@@ -607,7 +638,7 @@ impl Store {
             let now = self
                 .workspace(&next.project)
                 .into_iter()
-                .flat_map(|ws| ws.own_commits());
+                .flat_map(|ws| ws.commits());
             let remap = Remap::new(
                 &next.captured,
                 now.map(|commit| (commit.key.as_str(), commit.id)),
@@ -967,6 +998,21 @@ mod tests {
         assert!(
             remap.get(id(9)).is_err(),
             "an id never captured has nothing to follow"
+        );
+    }
+
+    #[test]
+    fn remap_follows_no_key_two_commits_share() {
+        let captured = HashMap::from([(id(1), "a".to_owned()), (id(2), "a".to_owned())]);
+        let remap = Remap::new(&captured, [("a", id(2)), ("a", id(13))]);
+        assert!(
+            remap.get(id(1)).is_err(),
+            "1 was rewritten, and either commit with its key could be what it became"
+        );
+        assert_eq!(
+            remap.get(id(2)).unwrap(),
+            id(2),
+            "2 is still there as it was"
         );
     }
 }

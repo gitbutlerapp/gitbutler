@@ -3,7 +3,7 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use futures::channel::mpsc;
@@ -84,6 +84,9 @@ pub enum Cut {
     Files {
         project: ProjectId,
         from: Option<CommitId>,
+        /// The linked worktree uncommitted files are in, or `None` for the main checkout's
+        /// and for a commit's.
+        worktree: Option<Arc<str>>,
         /// Shared, since every row a drag passes over works out what a drop would do.
         files: Arc<[Selected]>,
     },
@@ -216,6 +219,10 @@ pub struct Store {
     queue: VecDeque<Queued>,
     /// The oplog entry the last mutation recorded, which the Undo offered for it restores.
     last_snapshot: Option<(ProjectId, SnapshotId)>,
+    /// Oplog entries of mutations that moved a linked worktree's changes, which ⌘Z doesn't
+    /// take back: the oplog snapshots only the main checkout, so it would lose them. Shared
+    /// with a queued undo, which reads it once it runs, after what ran before it is kept.
+    kept_snapshots: Arc<Mutex<HashSet<SnapshotId>>>,
     next_toast: usize,
     seen: Seen,
     /// The commits each project had before the app's last operation on it. Commits that
@@ -273,6 +280,7 @@ impl Store {
             busy_ticker: Task::ready(()),
             queue: VecDeque::new(),
             last_snapshot: None,
+            kept_snapshots: Arc::default(),
             next_toast: 0,
             seen: saved.seen,
             widths: saved.widths,
@@ -473,6 +481,36 @@ impl Store {
             },
             cx,
         );
+    }
+
+    /// A snackbar for the mutation that just ran, offering to undo it when it's `undoable`.
+    /// Otherwise ⌘Z won't take it back either.
+    pub fn snack_after(
+        &mut self,
+        undoable: bool,
+        message: impl Into<SharedString>,
+        cx: &mut Context<Self>,
+    ) {
+        if !undoable {
+            self.keep_last_snapshot();
+        }
+        self.snack_undoable(message, cx)
+    }
+
+    /// Keep ⌘Z, and the snackbar's Undo, from taking back the mutation that just ran: it
+    /// moved a linked worktree's changes, which the oplog can't bring back.
+    pub fn keep_last_snapshot(&mut self) {
+        if let Some((_, snapshot)) = self.last_snapshot.take() {
+            (self.kept_snapshots.lock())
+                .expect("not poisoned")
+                .insert(snapshot);
+        }
+    }
+
+    /// Whether `id` of `project` is a linked worktree's commit.
+    pub fn in_worktree(&self, project: &ProjectId, id: CommitId) -> bool {
+        self.worktree_of(&Selection::Commit(project.clone(), id))
+            .is_some()
     }
 
     /// A snackbar offering to undo the mutation that just ran.

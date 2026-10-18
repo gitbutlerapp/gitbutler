@@ -321,6 +321,7 @@ impl AppView {
                 (!files.is_empty()).then_some(Cut::Files {
                     project,
                     from: None,
+                    worktree: None,
                     files: files.into(),
                 })
             }

@@ -505,9 +505,21 @@ impl Store {
                 // Uncommitted files go when one of them is no longer uncommitted, and a
                 // branch when it's gone, as when renamed.
                 Cut::Files {
-                    from: None, files, ..
-                } => (files.iter())
-                    .all(|f| (workspace.uncommitted.iter()).any(|u| u.path == f.file.path)),
+                    from: None,
+                    worktree,
+                    files,
+                    ..
+                } => {
+                    let uncommitted = match worktree {
+                        None => Some(&workspace.uncommitted),
+                        Some(name) => (workspace.worktrees.iter())
+                            .find(|w| w.name == *name)
+                            .map(|w| &w.uncommitted),
+                    };
+                    uncommitted.is_some_and(|uncommitted| {
+                        (files.iter()).all(|f| uncommitted.iter().any(|u| u.path == f.file.path))
+                    })
+                }
                 Cut::Branch(_, ref_name) => workspace.find_branch(ref_name).is_some(),
             };
             self.cut = kept.then_some(cut);
