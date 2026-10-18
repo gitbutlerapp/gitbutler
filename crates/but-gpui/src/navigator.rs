@@ -297,16 +297,16 @@ impl Navigator {
             if workspace.editing.is_some() {
                 continue;
             }
-            // With linked worktrees, the main one and each linked one are a section, its
-            // uncommitted changes the heading that folds the rest; without, the project is its
-            // one worktree.
+            // The main worktree's heading folds its branches away; with linked worktrees each is
+            // a section too, and the branches step in under their headings. Alone, they don't:
+            // the heading lines up with them, and they with the project.
             let headed = !workspace.worktrees.is_empty();
             let selection = store.selection.as_ref().filter(|s| s.project() == id);
             if headed {
                 rows.inset = NEST;
             }
             let main_selected = selection.is_some_and(|s| within(s, workspace.branches()));
-            if !headed || self.worktree_open(id, None, main_selected) {
+            if self.worktree_open(id, None, main_selected) {
                 for stack in &workspace.stacks {
                     self.lane_rows(store, id, &stack.branches, &mut rows);
                     if let Some(dragged @ Cut::Branch(..)) = &store.dragging
@@ -1227,13 +1227,13 @@ impl Navigator {
                 .aria_label(entry.project.name.clone())
                 .aria_expanded(expanded)
                 .h(px(if expanded { 32. } else { ROW_HEIGHT }))
-                .pl(px(4.))
-                // The chevron and the emoji stand 4 points apart, so the emoji sits over the
-                // worktree icons below and the name over theirs.
+                .pl(px(11.))
+                // The eye over the chevrons of the rows below and the emoji, 5 points on,
+                // over their icons, so the name sits over theirs.
                 .child(
                     h_flex()
                         .flex_none()
-                        .gap(px(4.))
+                        .gap(px(5.))
                         .child(
                             // Whether the app watches the project, as an open one is loaded and
                             // kept current, and under the pointer what a click makes it.
@@ -1439,7 +1439,7 @@ impl Navigator {
     /// A worktree's heading, which selects its uncommitted changes: the main one's for
     /// [`Selection::Uncommitted`], a linked one's for [`Selection::Worktree`]. With linked
     /// worktrees, a chevron or a double-click folds its branches; folded, it also counts their
-    /// unpushed commits. Without, the main one's branches sit beside it, and nothing folds.
+    /// unpushed commits. Without, the main one's branches sit beside it, and still fold.
     fn worktree_heading(
         &self,
         ix: usize,
@@ -1469,7 +1469,6 @@ impl Navigator {
         let unpushed_n = unpushed(branches.iter().copied());
         let unread = (branches.iter().flat_map(|branch| &branch.commits))
             .any(|commit| store.is_unread(id, commit));
-        let headed = !workspace.worktrees.is_empty();
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
         // Written to in the last two minutes, likely by the agent working in it.
@@ -1479,10 +1478,11 @@ impl Navigator {
             false => theme.text_3,
         };
         // As a branch's: a chevron, or a dot with no branches to fold.
+        // As wide as a branch's, so the two line up.
         let step = div()
             .id(("worktree-fold", ix))
             .flex_none()
-            .w(px(12.))
+            .w(px(14.))
             .flex()
             .justify_center();
         let step = match branches.is_empty() {
@@ -1504,14 +1504,15 @@ impl Navigator {
                 }))
             }
         };
-        // Alone, its glyph takes the chevron's place, still over its branches' chevrons.
+        // In as far as a branch is, so its chevron and icon line up with theirs.
         let row = style
             .row(
                 format!("worktree-{id}-{}", name.as_deref().unwrap_or("")),
-                if headed { 0. } else { 6. },
+                6.,
             )
             .aria_label(label.clone())
-            .when(headed, |el| el.aria_expanded(open).child(step))
+            .aria_expanded(open)
+            .child(step)
             .child(
                 icon(match name {
                     Some(_) => Icon::FolderCopy,
@@ -1530,7 +1531,7 @@ impl Navigator {
                     .child(label),
             )
             .children(change_counts(uncommitted, style))
-            .when(headed && !open, |el| {
+            .when(!open, |el| {
                 el.children(meta_count(
                     Icon::ArrowUp,
                     unpushed_n,
@@ -1548,7 +1549,7 @@ impl Navigator {
                 )
             })
             .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
-            .when(headed && !branches.is_empty(), |el| {
+            .when(!branches.is_empty(), |el| {
                 let (project, name) = (id.clone(), name.clone());
                 el.on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
                     if event.click_count() == 2 {
@@ -1619,8 +1620,21 @@ impl Navigator {
     }
 
     /// Whether row `ix` heads rows stepped in under it that show: an open worktree or stack.
+    /// The main worktree's branches, alone, aren't stepped in: its heading is open while
+    /// they, or the note that there are none, follow it.
     fn section_open(&self, ix: usize) -> bool {
-        (self.insets.get(ix + 1)).is_some_and(|next| *next > self.insets[ix])
+        let next = self.insets.get(ix + 1);
+        match self.rows.get(ix) {
+            Some(Row::Item(Selection::Uncommitted(_))) if next == self.insets.get(ix) => matches!(
+                self.rows.get(ix + 1),
+                Some(
+                    Row::Item(Selection::Stack(..) | Selection::Branch(..))
+                        | Row::Note(..)
+                        | Row::NewBranch(_)
+                )
+            ),
+            _ => next.is_some_and(|next| *next > self.insets[ix]),
+        }
     }
 
     /// Over a stack of two or more branches, as ui-react's StackCaption: a chevron, its
