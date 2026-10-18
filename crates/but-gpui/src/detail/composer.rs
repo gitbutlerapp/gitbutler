@@ -323,6 +323,15 @@ impl Detail {
     }
 
     pub fn focus_message(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // The composer sits under the changes; with none, as when an agent committed them
+        // all while it was open, there's nowhere to write.
+        if let Some(Selection::Uncommitted(project)) = self.selection(cx)
+            && (self.store.read(cx).workspace(&project)).is_some_and(|ws| ws.uncommitted.is_empty())
+        {
+            self.store
+                .update(cx, |store, cx| store.snack("No changes to commit", cx));
+            return;
+        }
         // A file a merge left conflicted can't be committed until it's marked resolved, so
         // it starts out of the commit.
         if !self.composing
