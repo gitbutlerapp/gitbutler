@@ -1483,8 +1483,8 @@ impl Render for Navigator {
                             .p(px(20.))
                             .gap(px(6.))
                             .text_color(theme.text_2)
-                            .child("No projects yet.")
-                            .child("Add a Git repository with ⌘O."),
+                            .child("No projects yet")
+                            .child("Add a Git repository with ⌘O"),
                     )
                 } else {
                     let rows = list(
