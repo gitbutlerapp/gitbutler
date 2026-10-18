@@ -451,6 +451,26 @@ impl Store {
         );
     }
 
+    /// Delete linked worktree `name` from disk, with `force` even with uncommitted changes,
+    /// which are lost. Its branch stays. Undo can't bring the folder back.
+    pub fn delete_worktree(
+        &mut self,
+        project: &ProjectId,
+        name: Arc<str>,
+        force: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let done = format!("Deleted {name}");
+        self.run(
+            project,
+            "Delete worktree",
+            Overlay::default(),
+            move |path, _| backend::worktrees::remove(path, &name, force),
+            move |store, (), cx| store.snack(done, cx),
+            cx,
+        );
+    }
+
     /// Move commit `id` into a new branch of its own, and select that branch.
     pub fn move_to_new_branch(
         &mut self,
