@@ -386,6 +386,11 @@ impl AppView {
     }
 
     fn cancel(&mut self, _: &Cancel, window: &mut Window, cx: &mut Context<Self>) {
+        // Let go of a drag without dropping it, as macOS does. Left to GPUI, the drag stays
+        // up and the next release drops nothing, as a key press stops it seeing the pointer.
+        if cx.stop_active_drag(window) {
+            return;
+        }
         if self.modal.is_some() {
             return self.close_modal(window, cx);
         }

@@ -510,7 +510,12 @@ impl TextInput {
         cx.emit(InputEvent::Submit);
     }
 
-    fn cancel(&mut self, _: &Cancel, _: &mut Window, cx: &mut Context<Self>) {
+    fn cancel(&mut self, _: &Cancel, window: &mut Window, cx: &mut Context<Self>) {
+        // A drag started where pressing doesn't take focus, as a diff line's grip, lets go
+        // here, as it does wherever else Escape goes.
+        if cx.stop_active_drag(window) {
+            return;
+        }
         cx.emit(InputEvent::Cancel);
     }
 

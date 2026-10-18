@@ -9,8 +9,8 @@ use std::time::{Duration, UNIX_EPOCH};
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, DragMoveEvent, ElementId, Entity, FocusHandle,
     Focusable, Hsla, KeyBinding, ListAlignment, ListOffset, ListState, Modifiers, MouseButton,
-    MouseDownEvent, Pixels, SharedString, Stateful, Subscription, WeakEntity, Window, actions,
-    deferred, div, list, prelude::*, px,
+    MouseDownEvent, Pixels, ScrollWheelEvent, SharedString, Stateful, Subscription, WeakEntity,
+    Window, actions, deferred, div, list, prelude::*, px,
 };
 
 use crate::app::{AddProject, AppView, Collapse, Confirm, Expand, SelectNext, SelectPrevious};
@@ -2520,6 +2520,15 @@ impl Render for Navigator {
                     el.child(scrolled(rows, "navigator-scrollbar", scroll, &theme))
                 }
             })
+            // Scrolling moves the rows from under a pointer that stays put, so where a drag
+            // would land goes until the pointer moves again, rather than stay on a row that
+            // isn't under it.
+            .on_scroll_wheel(cx.listener(|this, _: &ScrollWheelEvent, _, cx| {
+                if cx.has_active_drag() && this.store.read(cx).drop_at.is_some() {
+                    this.store.update(cx, |store, _| store.drop_at = None);
+                    cx.notify();
+                }
+            }))
             .child(resize_handle(Pane::Navigator, self.store.clone(), &theme))
     }
 }
