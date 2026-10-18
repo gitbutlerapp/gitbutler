@@ -22,7 +22,8 @@ pub fn bind_keys(cx: &mut App) {
     // The bar is drawn by `DiffPane`, outside the detail's key context.
     let diff = Some("Detail || FindBar");
     cx.bind_keys([
-        KeyBinding::new("cmd-f", FindInDiff, diff),
+        // From the navigator too, which has nothing to find in. The app passes it on.
+        KeyBinding::new("cmd-f", FindInDiff, Some("Navigator || Detail || FindBar")),
         KeyBinding::new("enter", FindNext, field),
         KeyBinding::new("shift-enter", FindPrevious, field),
         KeyBinding::new("cmd-g", FindNext, diff),
@@ -63,7 +64,7 @@ fn search(files: &[FileDiff], query: &str) -> Vec<(LineId, Range<usize>)> {
 }
 
 impl Detail {
-    pub(super) fn open_find(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub fn open_find(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(find) = &self.find {
             let input = find.input.clone();
             input.update(cx, |input, cx| input.select_all_text(cx));

@@ -83,10 +83,19 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("space", PageDown, c),
         KeyBinding::new("pageup", PageUp, c),
         KeyBinding::new("shift-space", PageUp, c),
-        KeyBinding::new("alt-z", ToggleWrap, c),
-        KeyBinding::new("cmd-b", ToggleSplit, c),
         KeyBinding::new("f", ToggleFiles, c),
         KeyBinding::new("/", FilterFiles, c),
+        // From the navigator too: they change how every diff shows. The app passes them on.
+        KeyBinding::new(
+            "alt-z",
+            ToggleWrap,
+            Some("(Navigator || Detail) && !TextInput"),
+        ),
+        KeyBinding::new(
+            "cmd-b",
+            ToggleSplit,
+            Some("(Navigator || Detail) && !TextInput"),
+        ),
         // Works while typing the message too, as the composer's other key does.
         KeyBinding::new("alt-cmd-enter", AmendTop, Some("Detail")),
         KeyBinding::new("cmd-shift-b", composer::PickCommitTarget, Some("Detail")),
