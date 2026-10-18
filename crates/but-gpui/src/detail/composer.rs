@@ -445,6 +445,11 @@ impl Detail {
                 InputEvent::Submit => {
                     let message = input.read(cx).text().trim().to_owned();
                     this.rewording = None;
+                    // The commit as it is now, should an agent have rewritten it meanwhile.
+                    let id = match this.selection(cx) {
+                        Some(Selection::Commit(_, now)) => now,
+                        _ => id,
+                    };
                     let project = project.clone();
                     this.store.update(cx, |store, cx| {
                         store.run(
