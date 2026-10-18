@@ -94,6 +94,8 @@ The Help menu links the docs, the release notes and where to report an issue, sh
 | ⌥⇧F, ⌥⇧R | fetch, update from the target |
 | ⌘R, ⌘O | reload, add a project |
 | ⌘, | settings |
+| ⌘F, ⌘G, ⇧⌘G | find in the diff, next match, previous match |
+| ⌥Z, ⌘B | wrap long lines in diffs or stop, show them side by side or one above the other |
 
 | In the navigator | |
 |---|---|
@@ -114,9 +116,6 @@ The Help menu links the docs, the release notes and where to report an issue, sh
 | z | fold or unfold the file |
 | e | open the file in your editor, at the hunk |
 | ⌥⌘Z, ⌘⌫ | discard the hunk, discard the file |
-| ⌘F, ⌘G, ⇧⌘G | find in the diff, next match, previous match |
-| ⌥Z | wrap long lines, or stop |
-| ⌘B | side by side, or one above the other |
 | 1, 2, 3 | on a conflicted commit: keep the new base's lines, the commit's, or both |
 | ↩, A | on a conflicted commit: edit what the conflict keeps, have AI suggest a merge |
 | ⌘↩ | on a conflicted commit: apply what's picked |

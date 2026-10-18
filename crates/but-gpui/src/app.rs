@@ -624,6 +624,19 @@ impl Render for AppView {
             .on_action(cx.listener(Self::update_selected_project))
             .on_action(cx.listener(Self::toggle_navigator))
             .on_action(cx.listener(Self::command_palette))
+            // The diff's own keys, pressed with the focus elsewhere, like the navigator.
+            .on_action(cx.listener(|this, _: &crate::detail::ToggleSplit, _, cx| {
+                this.detail.update(cx, |detail, cx| detail.toggle_split(cx))
+            }))
+            .on_action(cx.listener(|this, _: &crate::detail::ToggleWrap, _, cx| {
+                this.detail.update(cx, |detail, cx| detail.toggle_wrap(cx))
+            }))
+            .on_action(
+                cx.listener(|this, _: &crate::detail::FindInDiff, window, cx| {
+                    this.detail
+                        .update(cx, |detail, cx| detail.open_find(window, cx))
+                }),
+            )
             .size_full()
             .flex()
             .flex_col()
