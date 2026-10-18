@@ -462,6 +462,11 @@ impl Navigator {
             }
             None => splice(&self.list, &self.rows, &rows, 0),
         };
+        // The first rows count as added above the top, which would leave the list scrolled
+        // to their end.
+        if self.rows.is_empty() && changed {
+            self.list.scroll_to(ListOffset::default());
+        }
         self.rows = rows;
         if changed {
             // Rows not drawn yet count as one row tall. The clone shares the list's state.
