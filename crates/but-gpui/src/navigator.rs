@@ -1732,6 +1732,24 @@ impl Navigator {
                         .text_color(style.meta(theme.blue))
                         .child(branch.name.clone()),
                 )
+                // As ui-react's empty MetaCount, the quietest meta, ahead of any counts.
+                .when(branch.commits.is_empty(), |el| {
+                    let quiet = match style.solid {
+                        true => style.muted(),
+                        false => theme.text_3,
+                    };
+                    el.child(
+                        h_flex()
+                            .id(ElementId::Name(format!("empty-{id}-{ref_name}").into()))
+                            .flex_none()
+                            .gap(px(3.))
+                            .text_size(px(11.))
+                            .text_color(quiet)
+                            .child(small_icon(Icon::Commit).text_color(quiet).opacity(0.7))
+                            .child("empty")
+                            .tooltip(Tooltip::text("No commits yet")),
+                    )
+                })
                 // As in t3code: the number in the state's colour, then one glyph for CI.
                 .when_some(branch.review.as_ref(), |el, review| {
                     el.child(
@@ -1780,9 +1798,6 @@ impl Navigator {
                     style.meta(theme.blue),
                     plural(unpushed, "unpushed commit"),
                 ))
-                .when(branch.commits.is_empty(), |el| {
-                    el.child(faint("no commits yet", theme))
-                })
                 .when(store.pushing(id, ref_name), |el| {
                     el.child(faint("pushing", theme))
                 })
