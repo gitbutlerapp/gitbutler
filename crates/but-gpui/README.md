@@ -111,6 +111,7 @@ The Help menu links the docs, the release notes and where to report an issue, sh
 | In the changes | |
 |---|---|
 | ↑ ↓ | previous or next hunk |
+| Space ⇧Space, PageDown PageUp | a page down or up |
 | j k | next or previous file |
 | ⌘Y | mark the file reviewed and go to the next one |
 | z | fold or unfold the file |
