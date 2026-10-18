@@ -8,8 +8,8 @@ use gpui::{
 
 use crate::app::{
     AddProject, AppView, CopySelection, CutSelection, DeleteSelection, Fetch, FocusChanges,
-    FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest, PasteHere, Push, Quit, Redo,
-    RenameSelection, StartCommit, ToggleFileTree, ToggleNavigator, UncommitSelection, Undo,
+    FocusDiff, FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest, PasteHere, Push, Quit,
+    Redo, RenameSelection, StartCommit, ToggleFileTree, ToggleNavigator, UncommitSelection, Undo,
     UpdateFromTarget,
 };
 use crate::detail::{
@@ -88,7 +88,8 @@ const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Paste here", &PasteHere),
     ("Toggle navigator", &ToggleNavigator),
     ("Go to navigator", &FocusNavigator),
-    ("Go to changes", &FocusChanges),
+    ("Go to files", &FocusChanges),
+    ("Go to diff", &FocusDiff),
     ("Add project…", &AddProject),
     ("Clone a repository…", &crate::projects::CloneRepository),
     ("Settings", &crate::settings::OpenSettings),

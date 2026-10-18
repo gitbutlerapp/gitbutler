@@ -80,6 +80,7 @@ impl Render for DiffPane {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx).clone();
         let drawn = self.detail.update(cx, |detail, cx| {
+            detail.follow_scroll(cx);
             (
                 detail.focus.clone(),
                 detail.render_diff_tools(&theme, cx),
@@ -90,8 +91,14 @@ impl Render for DiffPane {
         let Ok((focus, tools, diff, find)) = drawn else {
             return v_flex();
         };
+        // A press in the diff, as on its scrollbar, hands the cursor back to its scroll;
+        // what was pressed may then place it again.
+        let unpin = self.detail.clone();
         v_flex()
             .size_full()
+            .capture_any_mouse_down(move |_, _, cx| {
+                (unpin.update(cx, |detail, _| detail.pinned = false)).ok();
+            })
             // Keys go to the detail, as when the diff was drawn inside it.
             .on_mouse_down(MouseButton::Left, move |_, window, cx| {
                 window.focus(&focus, cx)
@@ -254,10 +261,10 @@ impl Detail {
             .and_then(|diff| diff.rows.get(row))
             .copied()
         {
-            self.cursor = Cursor {
+            self.place_cursor(Cursor {
                 file,
                 hunk: Some(hunk),
-            };
+            });
         }
         window.focus(&self.focus, cx);
         cx.notify();
@@ -733,10 +740,10 @@ impl Detail {
                     .on_mouse_down(MouseButton::Left, move |_, _, cx| {
                         entity
                             .update(cx, |detail, cx| {
-                                detail.cursor = Cursor {
+                                detail.place_cursor(Cursor {
                                     file,
                                     hunk: Some(hunk),
-                                };
+                                });
                                 cx.notify();
                             })
                             .ok();

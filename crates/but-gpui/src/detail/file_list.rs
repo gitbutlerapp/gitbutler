@@ -247,9 +247,9 @@ impl Detail {
                 }
                 TreeRow::File { pos, depth } => {
                     let depth = tree.then_some(*depth);
-                    // The current file is solid while the files and the diff hold the focus,
-                    // as the navigator's selection is while it does.
-                    let solid = this.focus.is_focused(window);
+                    // The current file is solid while the list holds the focus, as the
+                    // navigator's selection is while it does.
+                    let solid = this.files_focus.is_focused(window);
                     this.render_source_file(&source, index[*pos], depth, solid, theme, cx)
                 }
             },

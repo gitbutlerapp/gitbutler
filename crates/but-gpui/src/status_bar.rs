@@ -4,8 +4,7 @@
 use gpui::{Action, AnyElement, Context, Focusable as _, Window, div, prelude::*, px};
 
 use crate::app::{
-    AppView, CommandPalette, CutSelection, FocusChanges, PasteHere, StartCommit, ToggleNavigator,
-    Undo,
+    AppView, CommandPalette, CutSelection, FocusDiff, PasteHere, StartCommit, ToggleNavigator, Undo,
 };
 use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
 use crate::state::{SLOW, Selection};
@@ -89,7 +88,7 @@ impl AppView {
         let detail_focused = detail.is_focused(window, cx);
         // A text field has focus, where keys type rather than act.
         let typing = window.focused(cx).is_some_and(|focused| {
-            focused != detail.focus_handle(cx) && focused != self.focus_handle(cx)
+            !detail.owns_focus(&focused) && focused != self.focus_handle(cx)
         });
         let main = matches!(store.selection, Some(Selection::Uncommitted(_)));
         // A linked worktree's changes discard as the main checkout's do.
@@ -104,9 +103,11 @@ impl AppView {
                 .collect()
         } else if !typing && !detail_focused && detail.shows_conflicts() {
             // Picking takes the keys of the diff, so it needs the focus.
-            vec![(&FocusChanges, "pick conflicts")]
+            vec![(&FocusDiff, "pick conflicts")]
         } else if typing || (detail_focused && !detail.has_files()) || store.selection.is_none() {
             Vec::new()
+        } else if detail.files_focused(window) {
+            vec![(&NextFile, "next file")]
         } else if detail_focused && uncommitted {
             vec![
                 (&NextFile, "next file"),
