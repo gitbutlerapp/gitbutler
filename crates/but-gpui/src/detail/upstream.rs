@@ -156,7 +156,10 @@ impl Detail {
     fn upstream_fingerprint(&self, project: &ProjectId, cx: &Context<Self>) -> u64 {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        if let Some(workspace) = self.store.read(cx).workspace(project) {
+        let store = self.store.read(cx);
+        // A fetch that brought nothing in still changes when the page says it fetched.
+        store.fetched_at(project).hash(&mut hasher);
+        if let Some(workspace) = store.workspace(project) {
             workspace
                 .target
                 .as_ref()

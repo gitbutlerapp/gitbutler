@@ -55,6 +55,11 @@ impl Store {
         })
     }
 
+    /// When the app last fetched `id`.
+    pub fn fetched_at(&self, id: &ProjectId) -> Option<Instant> {
+        self.fetched.get(id).copied()
+    }
+
     fn due_for_fetch(&self, interval: Duration) -> Vec<(ProjectId, PathBuf)> {
         self.projects
             .iter()
