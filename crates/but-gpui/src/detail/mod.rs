@@ -155,6 +155,9 @@ impl DiffKey {
 /// How long a diff loads before the pane says it's loading.
 const SHOW_LOADING: Duration = Duration::from_millis(150);
 
+/// How tall the uncommitted changes' commit footer is, and the composer's row of buttons.
+pub const FOOTER_HEIGHT: f32 = 44.;
+
 struct LoadedDiff {
     key: DiffKey,
     files: Arc<Vec<FileDiff>>,
@@ -1107,6 +1110,15 @@ impl Detail {
             self.commit_target = Some(to.to_owned());
             cx.notify();
         }
+    }
+
+    /// Whether the uncommitted changes' commit footer, or the composer that takes its place,
+    /// is at the bottom of the page, where a snackbar would cover its buttons.
+    pub fn shows_footer(&self, cx: &App) -> bool {
+        let store = self.store.read(cx);
+        !self.files_hidden
+            && matches!(&store.selection, Some(Selection::Uncommitted(project))
+            if store.workspace(project).is_some_and(|ws| !ws.uncommitted.is_empty()))
     }
 
     /// The commit composer is open.

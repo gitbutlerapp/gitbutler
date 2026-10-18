@@ -635,9 +635,14 @@ impl AppView {
                     .children(errors),
             )
             .children(snackbar.map(|snackbar| {
+                // Lifted above the commit footer's buttons, as the design system's hosts do.
+                let footer = match self.detail.read(cx).shows_footer(cx) {
+                    true => crate::detail::FOOTER_HEIGHT,
+                    false => 0.,
+                };
                 h_flex()
                     .absolute()
-                    .bottom(px(STATUS_BAR_HEIGHT + 16.))
+                    .bottom(px(STATUS_BAR_HEIGHT + footer + 16.))
                     .left_0()
                     .right_0()
                     .justify_center()
