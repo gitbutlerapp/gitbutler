@@ -409,7 +409,7 @@ fn load_file(
     let patch = file
         .change
         .unified_patch_with_filter(repo, context_lines, &mut filter)?;
-    let fingerprint = fingerprint(&patch);
+    let fingerprint = fingerprint(&file, &patch);
     if let Some(old) = (previous.filter(|old| old.fingerprint == fingerprint && old.annotated))
         .filter(|old| old.conflicts().is_empty())
     {
@@ -422,7 +422,11 @@ fn load_file(
     }
     let mut body = match patch {
         None => DiffBody::Empty,
-        Some(but_core::UnifiedPatch::Binary) => image_body(repo, &file).unwrap_or(DiffBody::Binary),
+        // Images are decoded with the highlighting, so a long diff's first files show sooner.
+        Some(but_core::UnifiedPatch::Binary) if annotate => {
+            image_body(repo, &file).unwrap_or(DiffBody::Binary)
+        }
+        Some(but_core::UnifiedPatch::Binary) => DiffBody::Binary,
         Some(but_core::UnifiedPatch::TooLarge { size_in_bytes }) => DiffBody::TooLarge {
             bytes: size_in_bytes,
         },
@@ -464,46 +468,90 @@ fn load_file(
             annotate::label_scopes(hunks, &old, &new, &file.path);
         }
     }
+    // Only lines and images are filled in later; other bodies are as they'll stay.
+    let annotated = annotate || !matches!(body, DiffBody::Hunks { .. } | DiffBody::Binary);
     Ok(FileDiff {
         file,
         body,
         fingerprint,
-        annotated: annotate,
+        annotated,
     })
+}
+
+/// `bytes` decoded as `format` and shrunk to the most a diff shows of it, once for the
+/// images seen last: one keeps its id, so the GPU texture gpui makes for it the first time
+/// it's drawn serves later diffs too. Decoded here rather than by gpui as it's drawn: an
+/// image gpui is still decoding stays blank in the cached diff until something else redraws
+/// it.
+fn decoded(format: image::ImageFormat, bytes: &[u8]) -> Option<Arc<gpui::RenderImage>> {
+    use std::hash::{Hash as _, Hasher as _};
+    use std::sync::{LazyLock, Mutex};
+    // At most 2.8 MB each.
+    const KEPT: usize = 64;
+    type Kept = std::collections::VecDeque<(u64, Arc<gpui::RenderImage>)>;
+    static DECODED: LazyLock<Mutex<Kept>> = LazyLock::new(Default::default);
+    let mut hasher = std::hash::DefaultHasher::new();
+    bytes.hash(&mut hasher);
+    let key = hasher.finish();
+    if let Some((_, found)) = DECODED.lock().ok()?.iter().find(|(k, _)| *k == key) {
+        return Some(found.clone());
+    }
+    let mut image = image::load_from_memory_with_format(bytes, format).ok()?;
+    // A diff draws an image at most 220 points tall, 440 pixels on a Retina screen, and half
+    // the pane wide; more pixels would only cost memory.
+    if image.width() > 1600 || image.height() > 440 {
+        image = image.thumbnail(1600, 440);
+    }
+    let mut buffer = image.into_rgba8();
+    // gpui draws BGRA.
+    for pixel in buffer.as_chunks_mut::<4>().0 {
+        pixel.swap(0, 2);
+    }
+    let render = Arc::new(gpui::RenderImage::new([image::Frame::new(buffer)]));
+    let mut decoded = DECODED.lock().ok()?;
+    if decoded.len() == KEPT {
+        decoded.pop_front();
+    }
+    decoded.push_back((key, render.clone()));
+    Some(render)
 }
 
 /// Images bigger than this show as a binary file, rather than spend the memory.
 const IMAGE_LIMIT: usize = 20_000_000;
 
-/// Both sides of an image file, when `file` is one GPUI can draw.
+/// Both sides of an image file, when `file` is one that can be drawn. A side that's there
+/// but can't be decoded makes it a binary file, rather than one added or deleted.
 fn image_body(repo: &gix::Repository, file: &FileChange) -> Option<DiffBody> {
-    use gpui::ImageFormat as F;
+    use image::ImageFormat as F;
     let extension = file.path.rsplit_once('.')?.1.to_ascii_lowercase();
     let format = match extension.as_str() {
         "png" => F::Png,
         "jpg" | "jpeg" => F::Jpeg,
         "gif" => F::Gif,
-        "webp" => F::Webp,
+        "webp" => F::WebP,
         "bmp" => F::Bmp,
         "tif" | "tiff" => F::Tiff,
         _ => return None,
     };
-    let bytes = |state: but_core::ChangeState, path: &str| -> Option<Vec<u8>> {
+    let side = |state: but_core::ChangeState, path: &str| {
         let data = read_side(repo, state, path).ok()?;
-        (data.len() <= IMAGE_LIMIT).then_some(data)
+        (data.len() <= IMAGE_LIMIT)
+            .then(|| decoded(format, &data))
+            .flatten()
     };
-    let image = |data: Vec<u8>| std::sync::Arc::new(gpui::Image::from_bytes(format, data));
     let status = &file.change.status;
-    let before = status
-        .previous_state_and_path()
-        .and_then(|(state, old_path)| {
+    let before = match status.previous_state_and_path() {
+        Some((state, old_path)) => {
             let path = old_path.map_or_else(|| file.path.clone(), |p| p.to_string());
-            bytes(state, &path).map(image)
-        });
-    let after = status
-        .state()
-        .and_then(|state| bytes(state, &file.path).map(image));
-    (before.is_some() || after.is_some()).then_some(DiffBody::Image { before, after })
+            Some(side(state, &path)?)
+        }
+        None => None,
+    };
+    let after = match status.state() {
+        Some(state) => Some(side(state, &file.path)?),
+        None => None,
+    };
+    Some(DiffBody::Image { before, after })
 }
 
 /// The new side of `file` as diff lines, numbered on that side, for showing the unchanged
@@ -599,7 +647,6 @@ fn parallel_map<T: Send, S, R: Send>(
     results.into_iter().map(|(_, result)| result).collect()
 }
 
-/// A hash of a file's patch, hunk headers included, so two equal ones have the same lines.
 /// Whether `commit` is a root or its first parent is in the repository, which a shallow
 /// clone's oldest commits' aren't.
 fn first_parent_here(repo: &gix::Repository, commit: gix::ObjectId) -> Result<bool> {
@@ -607,9 +654,17 @@ fn first_parent_here(repo: &gix::Repository, commit: gix::ObjectId) -> Result<bo
     Ok(parent.is_none_or(|parent| repo.has_object(parent)))
 }
 
-fn fingerprint(patch: &Option<but_core::UnifiedPatch>) -> u64 {
+/// A hash of a file's patch, hunk headers included, so two equal ones have the same lines.
+fn fingerprint(file: &FileChange, patch: &Option<but_core::UnifiedPatch>) -> u64 {
     use std::hash::{Hash as _, Hasher as _};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    // Bytes that aren't diffed, as an image's, go by what the file is and when it was written.
+    if !matches!(patch, Some(but_core::UnifiedPatch::Patch { .. })) {
+        (file.change.status.state())
+            .map(|state| state.id)
+            .hash(&mut hasher);
+        file.modified.hash(&mut hasher);
+    }
     match patch {
         Some(but_core::UnifiedPatch::Patch { hunks, .. }) => {
             hunks.iter().for_each(|hunk| hunk.diff.hash(&mut hasher))

@@ -994,13 +994,13 @@ fn ground(color: Hsla) -> HighlightStyle {
 
 /// An image's two sides next to each other, each at most a few lines tall.
 fn image_row(
-    before: Option<std::sync::Arc<gpui::Image>>,
-    after: Option<std::sync::Arc<gpui::Image>>,
+    before: Option<std::sync::Arc<gpui::RenderImage>>,
+    after: Option<std::sync::Arc<gpui::RenderImage>>,
     theme: &Theme,
 ) -> gpui::Div {
     let side = |label: &'static str,
                 missing: &'static str,
-                image: Option<std::sync::Arc<gpui::Image>>,
+                image: Option<std::sync::Arc<gpui::RenderImage>>,
                 tint: gpui::Hsla| {
         v_flex()
             .flex_1()
