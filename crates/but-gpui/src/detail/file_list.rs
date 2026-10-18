@@ -196,13 +196,11 @@ impl Detail {
                 .diff
                 .as_ref()
                 .map(|diff| {
+                    let leaving = diff.key.leaving(store);
                     diff.files
                         .iter()
                         .enumerate()
-                        .filter(|(_, f)| {
-                            keeps_path(&terms, &f.file.path)
-                                && !diff.key.leaving(store, &f.file.path)
-                        })
+                        .filter(|(_, f)| keeps_path(&terms, &f.file.path) && !leaving(&f.file.path))
                         .map(|(pos, f)| (pos, f.file.path.as_str()))
                         .unzip()
                 })
@@ -241,9 +239,10 @@ impl Detail {
             scroll.scroll_to_item(row, ScrollStrategy::Nearest);
             *self.listed_cursor.borrow_mut() = cursor;
         }
-        let picked = self.picked_cut(cx);
         // Which rows are picked, while some are, so picked files next to each other join up.
         let picks: HashSet<&str> = self.file_picks.iter().map(String::as_str).collect();
+        // A picked file's menu is all the picks'.
+        let picked = (!picks.is_empty()).then(|| self.picked_cut(cx)).flatten();
         let lit: Vec<bool> = match picks.is_empty() {
             true => Vec::new(),
             false => (rows.iter())
@@ -268,32 +267,30 @@ impl Detail {
                             true => (ix > 0 && lit(ix - 1), lit(ix + 1)),
                             false => (false, false),
                         },
+                        picked: lit(ix),
+                        menu: picked.clone().filter(|_| lit(ix)),
                         ..Default::default()
                     };
                     // The current file is solid while the list holds the focus, as the
                     // navigator's selection is while it does.
                     let solid = this.files_focus.is_focused(window);
-                    let (pos, picked) = (index[*pos], picked.as_ref());
-                    this.render_source_file(&source, pos, row, picked, solid, theme, cx)
+                    this.render_source_file(&source, index[*pos], row, solid, theme, cx)
                 }
             },
         )
     }
 
     /// The `pos`th file of `source`, with what its list shows beside it, beyond where it sits
-    /// in the list, `row`. A picked file's menu is `picked`, all the picks'.
-    #[allow(clippy::too_many_arguments)]
+    /// in the list and whether it's picked, `row`. Its menu is its own unless `row` has one.
     fn render_source_file(
         &self,
         source: &FileSource,
         pos: usize,
         row: FileRow,
-        picked: Option<&Cut>,
         solid: bool,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
-        let pick = |path: &String| self.file_picks.contains(path).then(|| picked.cloned());
         match source {
             FileSource::Uncommitted(project) => {
                 let store = self.store.read(cx);
@@ -302,13 +299,11 @@ impl Detail {
                     file: file.clone(),
                     hunks: None,
                 };
-                let picked = pick(&file.path);
                 let extras = FileRow {
                     diff_ix: (self.worktree_diff())
                         .and_then(|diff| diff.files.iter().position(|f| f.file.path == file.path)),
                     checkbox: self.composing.then(|| self.checks.file_check(&file.path)),
-                    picked: picked.is_some(),
-                    menu: picked.unwrap_or_else(|| {
+                    menu: row.menu.or_else(|| {
                         Some(Cut::Files {
                             project: project.clone(),
                             from: None,
@@ -323,11 +318,9 @@ impl Detail {
             FileSource::Diff => {
                 let diff = self.diff.as_ref()?;
                 let file = diff.files.get(pos)?;
-                let picked = pick(&file.file.path);
                 let extras = FileRow {
                     diff_ix: Some(pos),
-                    picked: picked.is_some(),
-                    menu: picked.unwrap_or_else(|| self.diff_cut(pos, None, cx)),
+                    menu: row.menu.or_else(|| self.diff_cut(pos, None, cx)),
                     ..row
                 };
                 Some(self.render_file_row(pos, &file.file, extras, solid, theme, cx))
@@ -401,9 +394,10 @@ impl Detail {
         let Some(diff) = &self.diff else {
             return Vec::new();
         };
+        let picks: HashSet<&str> = self.file_picks.iter().map(String::as_str).collect();
         (self.shown_files().into_iter())
             .filter_map(|ix| diff.files.get(ix))
-            .filter(|f| self.file_picks.contains(&f.file.path))
+            .filter(|f| picks.contains(f.file.path.as_str()))
             .map(|f| Selected {
                 file: f.file.clone(),
                 hunks: None,
@@ -732,7 +726,7 @@ impl Detail {
                 .child(small_icon(Icon::Kebab).text_color(muted))
                 .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
                     cx.stop_propagation();
-                    this.file_menu(menu.clone(), None, event.position(), cx)
+                    this.changes_menu(menu.clone(), Some(None), event.position(), cx)
                 }))
         });
         let has_menu = more.is_some();
@@ -868,23 +862,11 @@ impl Detail {
                     if !picked {
                         this.clear_file_picks(cx);
                     }
-                    this.file_menu(menu.clone(), None, event.position, cx)
+                    this.changes_menu(menu.clone(), Some(None), event.position, cx)
                 }),
             );
         }
         row.into_any_element()
-    }
-
-    /// The menu for `menu`'s files or hunk at `position`, with `line` where an editor should
-    /// open the file.
-    pub(super) fn file_menu(
-        &mut self,
-        menu: Cut,
-        line: Option<u32>,
-        position: Point<Pixels>,
-        cx: &mut Context<Self>,
-    ) {
-        self.changes_menu(menu, Some(line), position, cx)
     }
 
     /// What right-clicking files, a folder or a hunk offers: moving them, taking them out,

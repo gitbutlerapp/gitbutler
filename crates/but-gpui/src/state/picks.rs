@@ -2,6 +2,8 @@
 //! off macOS) picks an item or drops it, and ⇧-click and ⇧-arrows pick the run from where the
 //! last other click left off, growing or shrinking it as they go.
 
+use std::collections::HashSet;
+use std::hash::Hash;
 use std::ops::Deref;
 
 /// What's picked in one list, in the order picked. Empty unless two or more are; the list's
@@ -33,7 +35,7 @@ impl<T> Deref for Picks<T> {
     }
 }
 
-impl<T: Clone + PartialEq> Picks<T> {
+impl<T: Clone + Eq + Hash> Picks<T> {
     /// Pick `item` along with the `cursor`, or drop it when it's picked. Returns where the
     /// cursor goes: to `item` when it's now picked, else to the last pick.
     pub fn toggle(&mut self, cursor: &T, item: &T) -> T {
@@ -67,8 +69,9 @@ impl<T: Clone + PartialEq> Picks<T> {
             .clone();
         let (from, to) = (at(&anchor)?, at(item)?);
         let mut picked = self.kept.clone();
+        let mut seen: HashSet<T> = picked.iter().cloned().collect();
         for it in &order[from.min(to)..=from.max(to)] {
-            if !picked.contains(it) {
+            if seen.insert(it.clone()) {
                 picked.push(it.clone());
             }
         }
