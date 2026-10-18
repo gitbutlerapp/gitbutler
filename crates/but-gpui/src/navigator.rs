@@ -122,19 +122,39 @@ enum Row {
 }
 
 /// The rows as they're built, each with how far in it sits: a worktree's section and a
-/// stack's branches step in from what holds them.
+/// stack's branches step in from what holds them. Each also has the guides it draws, as
+/// but.dev's sidebar does: a line down from under the chevron of each row it's under.
 #[derive(Default)]
 struct Rows {
     rows: Vec<Row>,
     insets: Vec<f32>,
+    guides: Vec<Vec<f32>>,
     /// What the rows pushed next sit in by.
     inset: f32,
+    /// Where the guides of the rows pushed next run.
+    open: Vec<f32>,
 }
+
+/// Where a chevron's middle sits in a row set in by nothing: the row's margin and padding,
+/// the indent of a row with a chevron, and half the chevron's step.
+const GUIDE_AT: f32 = 3. + 8. + 6. + 7.;
 
 impl Rows {
     fn push(&mut self, row: Row) {
         self.rows.push(row);
         self.insets.push(self.inset);
+        self.guides.push(self.open.clone());
+    }
+
+    /// Set the rows pushed until [`Self::close`] under the row just pushed, a guide running
+    /// down beside them from under its chevron.
+    fn open(&mut self) {
+        let under = self.insets.last().copied().unwrap_or_default();
+        self.open.push(GUIDE_AT + under);
+    }
+
+    fn close(&mut self) {
+        self.open.pop();
     }
 }
 
@@ -202,6 +222,8 @@ pub struct Navigator {
     rows: Vec<Row>,
     /// How far in each row sits.
     insets: Vec<f32>,
+    /// Where each row's guides run.
+    guides: Vec<Vec<f32>>,
     list: ListState,
     /// The selection changed: scroll to it once the rows are up to date.
     reveal_selection: bool,
@@ -255,6 +277,7 @@ impl Navigator {
             focus: cx.focus_handle(),
             rows: Vec::new(),
             insets: Vec::new(),
+            guides: Vec::new(),
             list: ListState::new(0, ListAlignment::Top, px(56.)),
             reveal_selection: false,
             unfolded_branches: HashSet::new(),
@@ -305,6 +328,7 @@ impl Navigator {
             let headed = !workspace.worktrees.is_empty();
             let selection = store.selection.as_ref().filter(|s| s.project() == id);
             if headed {
+                rows.open();
                 rows.inset = NEST;
             }
             let main_selected = selection.is_some_and(|s| within(s, workspace.branches()));
@@ -335,6 +359,7 @@ impl Navigator {
                 }
             }
             if headed {
+                rows.close();
                 rows.inset = 0.;
                 rows.push(Row::WorktreeDivider);
                 let on_branches =
@@ -431,6 +456,7 @@ impl Navigator {
     /// with its commits, up to the fold, unless it's closed.
     fn lane_rows(&self, store: &Store, id: &ProjectId, branches: &[Branch], rows: &mut Rows) {
         let base = rows.inset;
+        let stacked = branches.len() > 1;
         if let [_, .., bottom] = branches {
             let key = (id.clone(), bottom.ref_name.clone());
             let selected = (store.selection.as_ref())
@@ -439,6 +465,7 @@ impl Navigator {
             if self.folded_stacks.contains(&key) && !selected {
                 return;
             }
+            rows.open();
             rows.inset = base + STACK_STEP;
         }
         for branch in branches {
@@ -461,6 +488,7 @@ impl Navigator {
             if closed {
                 continue;
             }
+            rows.open();
             let pending = |at: &dyn Fn(&NewAt) -> bool| {
                 (store.new_commits(id, at).into_iter()).map(Row::Pending)
             };
@@ -493,6 +521,10 @@ impl Navigator {
             } else if unfolded && count > fold_at {
                 rows.push(Row::Fewer(id.clone(), branch.ref_name.clone()));
             }
+            rows.close();
+        }
+        if stacked {
+            rows.close();
         }
         rows.inset = base;
     }
@@ -510,9 +542,11 @@ impl Navigator {
         let name = worktree.name.clone();
         rows.push(Row::Item(Selection::Worktree(id.clone(), name.clone())));
         if self.worktree_open(id, Some(&name), selected) {
+            rows.open();
             rows.inset = NEST;
             self.lane_rows(store, id, &worktree.branches, rows);
             rows.inset = 0.;
+            rows.close();
         }
         rows.push(Row::WorktreeDivider);
     }
@@ -968,18 +1002,31 @@ impl Navigator {
             .rows
             .get(ix + 1)
             .is_none_or(|next| matches!(next, Row::Gap));
+        // A guide for each row it's under, joining those of the rows above and below into
+        // one line, as but.dev's sidebar draws them.
+        let guides = (self.guides.get(ix).into_iter().flatten()).map(|at| {
+            div()
+                .absolute()
+                .top_0()
+                .bottom_0()
+                .left(px(*at))
+                .w(px(1.))
+                .bg(theme.text_2.opacity(0.2))
+        });
         // Padded, not margined: a list lays its rows out from their left edge.
         div()
             .px(px(10.))
             .child(
                 div()
+                    .relative()
                     .bg(theme.bg_1)
                     .border_color(theme.border_3)
                     .border_l_1()
                     .border_r_1()
                     .when(first, |el| el.border_t_1().rounded_t(px(6.)).pt(px(3.)))
                     .when(last, |el| el.border_b_1().rounded_b(px(6.)).pb(px(3.)))
-                    .child(el),
+                    .child(el)
+                    .children(guides),
             )
             .into_any_element()
     }
@@ -2440,8 +2487,14 @@ impl Focusable for Navigator {
 
 impl Render for Navigator {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let Rows { rows, insets, .. } = self.build_rows(cx);
+        let Rows {
+            rows,
+            insets,
+            guides,
+            ..
+        } = self.build_rows(cx);
         self.insets = insets;
+        self.guides = guides;
         self.sync_list(rows, window, cx);
         let theme = Theme::get(cx).clone();
         let store = self.store.read(cx);
