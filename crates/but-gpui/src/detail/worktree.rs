@@ -7,7 +7,7 @@ use super::Detail;
 use super::panes::{side_header, unfinished_banner};
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
-use crate::ui::{Icon, Tooltip, empty_state, faint, h_flex, icon, plural, v_flex};
+use crate::ui::{Icon, Tooltip, empty_state, faint, h_flex, icon, plural, short_path, v_flex};
 
 impl Detail {
     pub(super) fn render_worktree_side(
@@ -79,7 +79,7 @@ impl Detail {
                             .children(branch)
                             .child(format!("· {files_count} uncommitted")),
                     )
-                    .child(faint(worktree.path.display().to_string(), theme).truncate()),
+                    .child(faint(short_path(&worktree.path), theme).truncate()),
             )
             .children(
                 worktree

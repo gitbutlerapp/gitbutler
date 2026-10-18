@@ -640,6 +640,19 @@ pub fn plural(n: usize, word: &str) -> String {
     }
 }
 
+/// `path` as shown, with the home folder as `~`, so one cut short keeps more of its end.
+pub fn short_path(path: &std::path::Path) -> String {
+    let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+    match home.and_then(|home| {
+        path.strip_prefix(home)
+            .ok()
+            .map(|rest| rest.display().to_string())
+    }) {
+        Some(rest) => format!("~/{rest}"),
+        None => path.display().to_string(),
+    }
+}
+
 /// What to show of an error: Git's own complaints when it ran Git, like "fatal: Could not
 /// read from remote repository.", as the rest repeats the command it ran; else its first
 /// lines, without the codes libgit2 appends ("; class=Index (10); code=Locked (-14)").
