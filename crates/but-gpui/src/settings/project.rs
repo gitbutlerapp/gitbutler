@@ -14,10 +14,14 @@ use crate::ui::{ButtonStyle, button, h_flex, muted, switch};
 impl SettingsView {
     /// Show `project`'s settings in the Project section, loading them.
     pub(super) fn show_project(&mut self, project: Option<ProjectId>, cx: &mut Context<Self>) {
-        self.project = project.clone();
+        // Reloading the same project keeps what the field holds: a new name reaches the
+        // store only once the project list is read again.
+        if self.project != project {
+            self.project = project.clone();
+            self.reset_name(cx);
+        }
         self.project_settings = None;
         self.signing = None;
-        self.reset_name(cx);
         let Some(project) = project else {
             return;
         };
