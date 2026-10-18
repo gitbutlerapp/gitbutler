@@ -3,13 +3,11 @@
 
 use gpui::{Action, AnyElement, Context, Focusable as _, Window, div, prelude::*, px};
 
-use crate::app::{
-    AppView, CommandPalette, CutSelection, FocusDiff, PasteHere, StartCommit, ToggleNavigator, Undo,
-};
+use crate::app::{AppView, CommandPalette, CutSelection, FocusDiff, PasteHere, StartCommit, Undo};
 use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
 use crate::state::{SLOW, Selection};
 use crate::theme::Theme;
-use crate::ui::{Icon, STATUS_BAR_HEIGHT, h_flex, icon_button, keycap, shortcut, small_icon};
+use crate::ui::{Icon, STATUS_BAR_HEIGHT, h_flex, keycap, shortcut, small_icon};
 
 impl AppView {
     pub fn render_status_bar(
@@ -127,21 +125,13 @@ impl AppView {
         h_flex()
             .flex_none()
             .h(px(STATUS_BAR_HEIGHT))
-            .px(px(6.))
+            .px(px(12.))
             .gap(px(10.))
             .border_t_1()
             .border_color(theme.border_3)
             .bg(theme.bg_2)
             .text_size(px(12.))
             .text_color(theme.text_2)
-            .child(
-                icon_button("toggle-navigator", Icon::Sidebar)
-                    .small()
-                    .tooltip_with_key("Toggle navigator", shortcut(&ToggleNavigator, cx))
-                    .on_click(cx.listener(|this, _, window, cx| {
-                        this.toggle_navigator(&ToggleNavigator, window, cx)
-                    })),
-            )
             .child(div().flex_1().min_w(px(0.)).truncate().child(state))
             .children(hints.into_iter().filter_map(|(action, label)| {
                 let keys = shortcut(action, cx)?;
