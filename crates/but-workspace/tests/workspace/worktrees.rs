@@ -963,11 +963,11 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
         but_testsupport::graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on cad9051
-├── ≡📙:A on cad9051 {1}
+├── ≡📙:A on cad9051 {[..]}
 │   └── 📙:A
 │       ├── ·19f4fc0 (🏘️)
 │       └── ·0a62dfe (🏘️)
-├── ≡📙:B on cad9051 {2}
+├── ≡📙:B on cad9051 {[..]}
 │   └── 📙:B
 │       └── ·5881e28 (🏘️)
 ├── 📁wt-at on 19f4fc0 (🏘️)
@@ -1023,11 +1023,11 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
         but_testsupport::graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on cad9051
-├── ≡📙:A on cad9051 {1}
+├── ≡📙:A on cad9051 {[..]}
 │   └── 📙:A
 │       ├── ·19f4fc0 (🏘️)
 │       └── ·0a62dfe (🏘️)
-├── ≡📙:B on cad9051 {2}
+├── ≡📙:B on cad9051 {[..]}
 │   └── 📙:B
 │       └── ·5881e28 (🏘️)
 ├── 📁wt-at on 19f4fc0 (🏘️)
@@ -1072,44 +1072,233 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
             ),
         "worktree lanes have no applied stack to record the new branch in"
     );
+    Ok(())
+}
 
-    for (anchor, what) in [
-        (
-            Anchor::AtCommit {
-                commit_id: repo.rev_parse_single("mid")?.detach(),
-                position: Above,
-            },
-            "the tip of a branch",
-        ),
-        (
-            Anchor::at_segment(crate::utils::r("refs/heads/below-pushed"), Above),
-            "above a branch",
-        ),
-        (
-            Anchor::at_segment(crate::utils::r("refs/heads/mid"), Below),
-            "below a branch, onto a detached HEAD",
-        ),
-    ] {
-        let mut ws = ws.clone();
-        let err = crate::utils::create_reference(
+#[test]
+fn branches_can_be_ordered_in_worktree_lanes() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
+    let mut meta = but_meta::BranchOrderMetadata::from_paths(
+        repo.path().join("virtual-branches.toml"),
+        repo.path(),
+    )?;
+    let mut db = but_testsupport::in_memory_db();
+    db.worktree_meta_mut().mark_adopted()?;
+    let r = crate::utils::r;
+    let mut create = |new_ref: &str, anchor: Anchor<'_>, worktree: &str| -> Result<String> {
+        let mut ws = workspace_with_worktree_tips(&repo, &meta)?;
+        let preview = crate::utils::create_reference(
             &repo,
             &mut ws,
             &mut meta,
             &mut db,
-            crate::utils::r("refs/heads/refused"),
+            r(new_ref),
             anchor,
             None,
-        )
-        .expect_err(what);
-        assert!(
-            err.to_string()
-                .contains("branches can't be ordered in worktrees yet"),
-            "{what}: {err}"
+        )?;
+        let lane = worktree_lane(&workspace_with_worktree_tips(&repo, &meta)?, worktree);
+        assert_eq!(
+            worktree_lane(&preview, worktree),
+            lane,
+            "the editor previews the lane that is read back"
         );
-    }
-    assert!(
-        repo.try_find_reference("refs/heads/refused")?.is_none(),
-        "refusals leave no reference behind"
+        let head = std::fs::read_to_string(
+            repo.common_dir()
+                .join("worktrees")
+                .join(worktree)
+                .join("HEAD"),
+        )?;
+        let head = head.trim().trim_start_matches("ref: ");
+        let order = meta
+            .branch_stack_order(r(head))?
+            .unwrap_or_default()
+            .iter()
+            .map(|name| name.shorten().to_string())
+            .collect::<Vec<_>>()
+            .join(" > ");
+        Ok(format!("{head}: {order}\n{lane}"))
+    };
+
+    // Above the checked-out branch, the new branch becomes the worktree's checkout.
+    snapbox::assert_data_eq!(
+        create(
+            "refs/heads/above-wt",
+            Anchor::at_segment(r("refs/heads/wt-below"), Above),
+            "wt-below"
+        )?,
+        snapbox::str![[r#"
+refs/heads/above-wt: above-wt > wt-below
+├── 📁wt-below on d4d66e2
+│   ├── :above-wt[📁wt-below]
+│   └── :wt-below
+│       └── ·53aafe9
+
+"#]]
+    );
+    // Below the checked-out branch, at the same commit.
+    snapbox::assert_data_eq!(
+        create(
+            "refs/heads/below-wt",
+            Anchor::at_reference(r("refs/heads/wt-outside"), Below),
+            "wt-outside"
+        )?,
+        snapbox::str![[r#"
+refs/heads/wt-outside: wt-outside > below-wt
+├── 📁wt-outside on cad9051
+│   ├── :wt-outside[📁]
+│   └── :below-wt
+│       └── ·4fcfc93
+
+"#]]
+    );
+    // Below a branch owning commits, onto the commit a detached worktree has checked out.
+    snapbox::assert_data_eq!(
+        create(
+            "refs/heads/onto-detached",
+            Anchor::at_segment(r("refs/heads/mid"), Below),
+            "wt-top"
+        )?,
+        snapbox::str![[r#"
+refs/heads/top: top > mid > onto-detached
+└── 📁wt-top on 0bc05bf (🏘️)
+    ├── :top[📁wt-top]
+    │   └── ·d175c00
+    ├── :mid
+    │   └── ·b743926
+    └── :onto-detached
+
+"#]]
+    );
+    // Below a branch that isn't checked out, at the same commit.
+    snapbox::assert_data_eq!(
+        create(
+            "refs/heads/below-mid",
+            Anchor::at_reference(r("refs/heads/mid"), Below),
+            "wt-top"
+        )?,
+        snapbox::str![[r#"
+refs/heads/top: top > mid > below-mid > onto-detached
+└── 📁wt-top on 0bc05bf (🏘️)
+    ├── :top[📁wt-top]
+    │   └── ·d175c00
+    ├── :mid
+    ├── :below-mid
+    │   └── ·b743926
+    └── :onto-detached
+
+"#]]
+    );
+    // Below the worktree's commits, onto a workspace commit that stays in its stack.
+    snapbox::assert_data_eq!(
+        create(
+            "refs/heads/below-inside",
+            Anchor::at_segment(r("refs/heads/wt-inside"), Below),
+            "wt-inside"
+        )?,
+        snapbox::str![[r#"
+refs/heads/wt-inside: wt-inside > below-inside
+├── 📁wt-inside on 0a62dfe (🏘️)
+│   ├── :wt-inside[📁]
+│   │   └── ·6a13321
+│   └── :below-inside
+
+"#]]
+    );
+    // Ordering branches in worktree lanes leaves the workspace stacks as they were.
+    snapbox::assert_data_eq!(
+        stacks(&workspace_with_worktree_tips(&repo, &meta)?),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on cad9051
+├── ≡📙:B on cad9051 {[..]}
+│   └── 📙:B
+│       └── ·5881e28 (🏘️)
+├── ≡📙:A on cad9051 {[..]}
+│   └── 📙:A
+│       ├── ·19f4fc0 (🏘️)
+│       └── ·0a62dfe (🏘️)
+
+"#]]
     );
     Ok(())
+}
+
+#[test]
+fn worktree_orders_leave_branches_claimed_elsewhere_alone() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
+    but_testsupport::invoke_bash_at_dir(
+        "git worktree add -q -b on-a wt-on-a A && git -C wt-on-a commit -q --allow-empty -m on-A",
+        repo.workdir().expect("fixture has a working directory"),
+    );
+    let mut stacks_meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+        repo.path().join("virtual-branches.toml"),
+    )?;
+    add_stack(&mut stacks_meta, 1, "A", StackState::InWorkspace);
+    add_stack(&mut stacks_meta, 2, "B", StackState::InWorkspace);
+    stacks_meta.write_unreconciled()?;
+    let mut meta = but_meta::BranchOrderMetadata::from_paths(stacks_meta.path(), repo.path())?;
+    let r = |name: &str| crate::utils::r(name).to_owned();
+    // Stale orders reaching into the stack `A` and into the branch `wt-inside` has checked out.
+    meta.set_branch_stack_order(&[r("refs/heads/on-a"), r("refs/heads/A")])?;
+    meta.set_branch_stack_order(&[r("refs/heads/wt-stacked"), r("refs/heads/wt-inside")])?;
+    let ws = workspace_with_worktree_tips(&repo, &meta)?;
+
+    // `A` stays the workspace stack it is listed as.
+    snapbox::assert_data_eq!(
+        stacks(&ws),
+        snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on cad9051
+├── ≡📙:A on cad9051 {1}
+│   └── 📙:A
+│       ├── ·19f4fc0 (🏘️)
+│       └── ·0a62dfe (🏘️)
+├── ≡📙:B on cad9051 {2}
+│   └── 📙:B
+│       └── ·5881e28 (🏘️)
+
+"#]]
+    );
+    // Each worktree lane holds only its own branch.
+    snapbox::assert_data_eq!(
+        worktree_lane(&ws, "wt-on-a")
+            + &worktree_lane(&ws, "wt-stacked")
+            + &worktree_lane(&ws, "wt-inside"),
+        snapbox::str![[r#"
+├── 📁wt-on-a on 19f4fc0 (🏘️)
+│   └── :on-a[📁wt-on-a]
+│       └── ·d9ed4f1
+├── 📁wt-stacked on 6a13321 (🏘️)
+│   └── :wt-stacked[📁]
+│       └── ·fc6f8f5
+├── 📁wt-inside on 0a62dfe (🏘️)
+│   └── :wt-inside[📁]
+│       └── ·6a13321
+
+"#]]
+    );
+    Ok(())
+}
+
+fn worktree_lane(ws: &but_graph::Workspace, worktree: &str) -> String {
+    let graph = but_testsupport::graph_workspace(ws).to_string();
+    let is_lane_header = |line: &str| line.starts_with("├── 📁") || line.starts_with("└── 📁");
+    let header = |line: &str| {
+        line.split_once("📁")
+            .is_some_and(|(_, rest)| rest.split(' ').next() == Some(worktree))
+    };
+    graph
+        .lines()
+        .skip_while(|line| !(is_lane_header(line) && header(line)))
+        .enumerate()
+        .take_while(|(idx, line)| *idx == 0 || !is_lane_header(line))
+        .map(|(_, line)| format!("{line}\n"))
+        .collect()
+}
+
+fn stacks(ws: &but_graph::Workspace) -> String {
+    let graph = but_testsupport::graph_workspace(ws).to_string();
+    graph
+        .lines()
+        .take_while(|line| !line.starts_with("├── 📁") && !line.starts_with("└── 📁"))
+        .map(|line| format!("{line}\n"))
+        .collect()
 }

@@ -118,7 +118,7 @@ pub(super) mod function {
         let rebase = editor.rebase()?;
         let workspace = rebase.overlayed_graph()?.into_workspace()?;
         let editor = rebase.into_editor();
-        let placement = placement(&editor, &workspace, ref_name, anchor.into())?;
+        let placement = placement(&editor, &workspace, anchor.into())?;
         let mut editor = ensure_workspace_commit(editor)?.into_editor();
         let workspace_commit = editor.workspace_commit();
         let reference = Step::new_reference(ref_name.to_owned());
@@ -143,29 +143,7 @@ pub(super) mod function {
                 editor.insert(target, reference, side)?;
             }
         }
-        let rebase = editor.rebase()?;
-        let target = rebase.reference_target(ref_name)?;
-        if starts_worktree_segment(&workspace, target) {
-            bail_precondition!(
-                "Cannot place '{}' at {target}: a worktree branch or checkout already points there, \
-                 and branches can't be ordered in worktrees yet",
-                ref_name.shorten()
-            );
-        }
-        Ok(rebase)
-    }
-
-    fn starts_worktree_segment(workspace: &but_graph::Workspace, id: gix::ObjectId) -> bool {
-        workspace
-            .worktrees
-            .iter()
-            .flat_map(|worktree| &worktree.segments)
-            .any(|segment| {
-                segment
-                    .commits
-                    .first()
-                    .is_some_and(|commit| commit.id == id)
-            })
+        editor.rebase()
     }
 
     pub(in crate::branch) fn ensure_name_is_available<M: RefMetadata>(
@@ -205,7 +183,6 @@ pub(super) mod function {
     fn placement<M: RefMetadata>(
         editor: &Editor<'_, '_, M>,
         workspace: &but_graph::Workspace,
-        new_ref: &gix::refs::FullNameRef,
         anchor: Option<Anchor<'_>>,
     ) -> anyhow::Result<Placement> {
         let independent = || {
@@ -243,14 +220,14 @@ pub(super) mod function {
                     position: position @ Position::Above,
                 },
             ) => Placement::Relative {
-                target: select_anchor(editor, workspace, new_ref, &ref_name)?,
+                target: select_anchor(editor, &ref_name)?,
                 side: side(position),
             },
             Some(Anchor::AtSegment {
                 ref_name,
                 position: Position::Below,
             }) => {
-                let anchor = select_anchor(editor, workspace, new_ref, &ref_name)?;
+                let anchor = select_anchor(editor, &ref_name)?;
                 let oldest_commit = workspace
                     .try_find_segment_by_refname(&ref_name)?
                     .commits
@@ -273,21 +250,8 @@ pub(super) mod function {
 
     fn select_anchor<M: RefMetadata>(
         editor: &Editor<'_, '_, M>,
-        workspace: &but_graph::Workspace,
-        new_ref: &gix::refs::FullNameRef,
         anchor: &gix::refs::FullNameRef,
     ) -> anyhow::Result<Selector> {
-        if workspace
-            .find_segment_and_stack_by_refname(anchor)
-            .is_none()
-            && workspace.refname_is_segment(anchor)
-        {
-            bail_precondition!(
-                "Cannot place '{}' relative to worktree branch '{}': branches can't be ordered in worktrees yet",
-                new_ref.shorten(),
-                anchor.shorten()
-            );
-        }
         match editor.try_select_reference(anchor) {
             Some(selector) => Ok(selector),
             None => bail_precondition!(
