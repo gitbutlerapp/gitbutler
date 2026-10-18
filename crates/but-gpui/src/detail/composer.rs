@@ -518,8 +518,13 @@ impl Detail {
         }
         let files = self.changes_not_pending(&project, cx);
         if files.is_empty() {
-            self.store
-                .update(cx, |store, cx| store.snack("Nothing checked to commit", cx));
+            // Changes checked but none left are what an operation still running is taking,
+            // most likely the last commit.
+            let why = match self.selected_changes(cx).is_empty() {
+                true => "Nothing checked to commit",
+                false => "Wait for the running operation to finish",
+            };
+            self.store.update(cx, |store, cx| store.snack(why, cx));
             return;
         }
         let target = self.effective_target(&project, cx);
