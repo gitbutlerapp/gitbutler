@@ -636,27 +636,44 @@ impl AppView {
 
     /// Settings, at Accounts: where a forge account gets connected.
     pub fn open_accounts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.open_settings(&OpenSettings, window, cx);
-        if let Some(view) = self.modal_view::<SettingsView>() {
-            view.update(cx, |view, cx| {
-                view.section = Section::Accounts;
-                cx.notify();
-            });
-        }
+        self.open_settings_at(None, Section::Accounts, window, cx)
+    }
+
+    /// Settings, at Project, for `project`.
+    pub fn open_project_settings(
+        &mut self,
+        project: ProjectId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.open_settings_at(Some(project), Section::Project, window, cx)
     }
 
     pub fn open_settings(&mut self, _: &OpenSettings, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_settings_at(None, Section::General, window, cx)
+    }
+
+    /// Settings, at `section`, for `project`, or else the selected project or the first.
+    fn open_settings_at(
+        &mut self,
+        project: Option<ProjectId>,
+        section: Section,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let store = self.store.clone();
-        let project = {
+        let project = project.or_else(|| {
             let store = store.read(cx);
-            store
-                .selection
-                .as_ref()
+            (store.selection.as_ref())
                 .map(|s| s.project().clone())
                 .or_else(|| store.projects.first().map(|entry| entry.id.clone()))
-        };
+        });
         let app = cx.entity().downgrade();
-        let view = cx.new(|cx| SettingsView::new(store, app, project, window, cx));
+        let view = cx.new(|cx| {
+            let mut view = SettingsView::new(store, app, project, window, cx);
+            view.section = section;
+            view
+        });
         self.open_modal(view, window, cx);
     }
 }
