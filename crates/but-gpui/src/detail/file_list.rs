@@ -627,8 +627,6 @@ impl Detail {
         }
         let stats =
             (diffs.iter().map(FileDiff::stats)).fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr));
-        let tree = self.store.read(cx).file_tree;
-        let store = self.store.clone();
         header_row()
             .child(files_heading(paths.count(), stats, theme))
             .child(div().flex_1())
@@ -639,16 +637,28 @@ impl Detail {
                     .on_click(cx.listener(|this, _, window, cx| this.open_filter(window, cx))),
             )
             .child(
-                icon_button(
-                    "file-tree",
-                    if tree { Icon::List } else { Icon::FolderTree },
-                )
-                .small()
-                .tooltip(if tree { "Show as list" } else { "Show as tree" })
-                .on_click(move |_, _, cx| {
-                    store.update(cx, |store, cx| store.set_file_tree(!tree, cx));
-                }),
+                icon_button("file-view", Icon::Kebab)
+                    .small()
+                    .tooltip("View options")
+                    .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
+                        this.view_menu(event.position(), cx)
+                    })),
             )
+    }
+
+    /// The file list's ⋯ menu, as but.dev's: the files as a list or as a tree.
+    fn view_menu(&self, position: Point<Pixels>, cx: &mut Context<Self>) {
+        let tree = self.store.read(cx).file_tree;
+        let show = |label: &str, as_tree: bool| {
+            MenuItem::new(label.to_owned(), move |this, _, cx| {
+                (this.store).update(cx, |store, cx| store.set_file_tree(as_tree, cx))
+            })
+            .ticked(tree == as_tree)
+        };
+        let items = vec![show("As list", false).under("View"), show("As tree", true)];
+        (self.app)
+            .update(cx, |app, cx| app.open_menu(position, items, cx))
+            .ok();
     }
 
     fn render_file_row(
