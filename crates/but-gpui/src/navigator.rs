@@ -34,6 +34,10 @@ mod menu;
 /// How far a worktree's rows sit in from its heading.
 const NEST: f32 = 14.;
 
+/// How far a stack's branches sit in from its caption: one of ui-react's SidebarRow steps
+/// and the gap after it, so their chevrons line up under the caption's glyph.
+const STACK_STEP: f32 = 22.;
+
 /// Commits shown per branch before folding the rest into "N more".
 const FOLD_AFTER: usize = 8;
 
@@ -69,9 +73,9 @@ enum Row {
     /// A project, its uncommitted changes, a branch or a commit.
     Item(Selection),
     Note(SharedString, bool),
-    /// Above a stack of more than one branch: the project, how many branches, and the refs
-    /// of those with commits to hide.
-    StackCaption(ProjectId, usize, Vec<String>),
+    /// Above a stack of more than one branch, which folds it: the project, the stack's bottom
+    /// branch, which names it, and how many branches it has.
+    StackCaption(ProjectId, String, usize),
     /// Over the projects not expanded: what it calls them, how many it lists, and how many
     /// there are, filters aside.
     ProjectsHeading(&'static str, usize, usize),
@@ -99,15 +103,38 @@ enum Row {
     WorktreeDivider,
 }
 
+/// The rows as they're built, each with how far in it sits: a worktree's section and a
+/// stack's branches step in from what holds them.
+#[derive(Default)]
+struct Rows {
+    rows: Vec<Row>,
+    insets: Vec<f32>,
+    /// What the rows pushed next sit in by.
+    inset: f32,
+}
+
+impl Rows {
+    fn push(&mut self, row: Row) {
+        self.rows.push(row);
+        self.insets.push(self.inset);
+    }
+}
+
+impl Extend<Row> for Rows {
+    fn extend<I: IntoIterator<Item = Row>>(&mut self, rows: I) {
+        rows.into_iter().for_each(|row| self.push(row));
+    }
+}
+
 /// How an item row draws: `solid` is the selection while the navigator has focus, `cut` is
-/// the row waiting for ⌘V, and `nested` sits in a worktree's section.
+/// the row waiting for ⌘V, and `inset` is how far in its section or stack sets it.
 #[derive(Clone, Copy)]
 struct RowStyle<'a> {
     theme: &'a Theme,
     selected: bool,
     solid: bool,
     cut: bool,
-    nested: bool,
+    inset: f32,
 }
 
 impl RowStyle<'_> {
@@ -115,7 +142,7 @@ impl RowStyle<'_> {
         let theme = self.theme;
         list_row(ElementId::Name(id.into()), self.selected, theme)
             .mx(px(3.))
-            .pl(px(8. + indent + if self.nested { NEST } else { 0. }))
+            .pl(px(8. + indent + self.inset))
             .when(self.solid, |el| {
                 el.bg(theme.fill_gray).text_color(theme.text_inverted)
             })
@@ -152,6 +179,8 @@ pub struct Navigator {
     focus: FocusHandle,
     /// The rows as last drawn, which the list draws as they scroll into view.
     rows: Vec<Row>,
+    /// How far in each row sits.
+    insets: Vec<f32>,
     list: ListState,
     /// The selection changed: scroll to it once the rows are up to date.
     reveal_selection: bool,
@@ -163,6 +192,8 @@ pub struct Navigator {
     shown_inactive: HashSet<ProjectId>,
     /// Worktrees showing only their heading, the main one by `None`.
     folded_worktrees: HashSet<(ProjectId, Option<Arc<str>>)>,
+    /// Stacks showing only their caption, by their bottom branch.
+    folded_stacks: HashSet<(ProjectId, String)>,
     /// The filter over the projects not expanded, while it's open.
     projects_filter: Option<(Entity<TextInput>, Subscription)>,
     /// The projects not expanded show all of them rather than the first few.
@@ -200,12 +231,14 @@ impl Navigator {
             detail,
             focus: cx.focus_handle(),
             rows: Vec::new(),
+            insets: Vec::new(),
             list: ListState::new(0, ListAlignment::Top, px(56.)),
             reveal_selection: false,
             unfolded_branches: HashSet::new(),
             closed_branches: HashSet::new(),
             shown_inactive: HashSet::new(),
             folded_worktrees: HashSet::new(),
+            folded_stacks: HashSet::new(),
             projects_filter: None,
             projects_unfolded: false,
             pointer_over: false,
@@ -216,11 +249,12 @@ impl Navigator {
 
     /// Rows of every card, with a gap between two cards. Expanded projects get a card
     /// each; the collapsed ones share one compact card at the end.
-    fn build_rows(&self, cx: &App) -> Vec<Row> {
+    fn build_rows(&self, cx: &App) -> Rows {
         let store = self.store.read(cx);
-        let mut rows = Vec::new();
+        let mut rows = Rows::default();
         for entry in store.projects.iter().filter(|entry| entry.expanded) {
-            if !rows.is_empty() {
+            rows.inset = 0.;
+            if !rows.rows.is_empty() {
                 rows.push(Row::Gap);
             }
             let id = &entry.id;
@@ -241,6 +275,7 @@ impl Navigator {
             let selection = store.selection.as_ref().filter(|s| s.project() == id);
             if headed {
                 rows.push(Row::WorktreeHeading(id.clone(), None));
+                rows.inset = NEST;
             }
             let main_selected = selection.is_some_and(|s| section_holds(workspace, None, s));
             if !headed || self.worktree_open(id, None, main_selected) {
@@ -272,6 +307,7 @@ impl Navigator {
                 }
             }
             if headed {
+                rows.inset = 0.;
                 rows.push(Row::WorktreeDivider);
                 let holds_selected =
                     |wt: &Worktree| selection.is_some_and(|s| worktree_holds(s, wt));
@@ -295,11 +331,12 @@ impl Navigator {
         }
         // The rest share one card under a heading that also adds projects, so it's there
         // when every project is expanded too.
-        let title = match rows.is_empty() {
+        rows.inset = 0.;
+        let title = match rows.rows.is_empty() {
             true => "All projects",
             false => "More projects",
         };
-        if !rows.is_empty() {
+        if !rows.rows.is_empty() {
             rows.push(Row::Gap);
         }
         let others: Vec<&ProjectEntry> = (store.projects.iter())
@@ -359,18 +396,24 @@ impl Navigator {
         rows
     }
 
-    /// A stack's or a linked worktree's branches: a caption over two or more, then each
-    /// branch with its commits, up to the fold, unless it's closed.
-    fn lane_rows(&self, store: &Store, id: &ProjectId, branches: &[Branch], rows: &mut Vec<Row>) {
-        if branches.len() > 1 {
-            let refs = (branches.iter())
-                .filter(|b| !b.commits.is_empty())
-                .map(|b| b.ref_name.clone());
+    /// A stack's or a linked worktree's branches: over two or more a caption, which folds
+    /// them away unless the selection's in them, and they step in under it; then each branch
+    /// with its commits, up to the fold, unless it's closed.
+    fn lane_rows(&self, store: &Store, id: &ProjectId, branches: &[Branch], rows: &mut Rows) {
+        let base = rows.inset;
+        if let [_, .., bottom] = branches {
+            let key = (id.clone(), bottom.ref_name.clone());
+            let selected = (store.selection.as_ref())
+                .is_some_and(|s| s.project() == id && branches.iter().any(|b| s.on(b)));
             rows.push(Row::StackCaption(
-                id.clone(),
+                key.0.clone(),
+                key.1.clone(),
                 branches.len(),
-                refs.collect(),
             ));
+            if self.folded_stacks.contains(&key) && !selected {
+                return;
+            }
+            rows.inset = base + STACK_STEP;
         }
         for branch in branches {
             let key = (id.clone(), branch.ref_name.clone());
@@ -414,6 +457,7 @@ impl Navigator {
                 rows.push(Row::Fewer(id.clone(), branch.ref_name.clone()));
             }
         }
+        rows.inset = base;
     }
 
     /// A linked worktree's heading and, unless it's folded without the selection in it, its
@@ -424,18 +468,20 @@ impl Navigator {
         id: &ProjectId,
         worktree: &Worktree,
         selected: bool,
-        rows: &mut Vec<Row>,
+        rows: &mut Rows,
     ) {
         rows.push(Row::WorktreeHeading(
             id.clone(),
             Some(worktree.name.clone()),
         ));
         if self.worktree_open(id, Some(&worktree.name), selected) {
+            rows.inset = NEST;
             rows.push(Row::Item(Selection::Worktree(
                 id.clone(),
                 worktree.name.clone(),
             )));
             self.lane_rows(store, id, &worktree.branches, rows);
+            rows.inset = 0.;
         }
         rows.push(Row::WorktreeDivider);
     }
@@ -563,19 +609,6 @@ impl Navigator {
         }
     }
 
-    /// Close every branch of a stack to its row, or open them all when they all are.
-    fn toggle_stack(&mut self, keys: &[(ProjectId, String)], cx: &mut Context<Self>) {
-        let closed = keys.iter().all(|key| self.closed_branches.contains(key));
-        for key in keys {
-            if closed {
-                self.closed_branches.remove(key);
-            } else {
-                self.closed_branches.insert(key.clone());
-            }
-        }
-        cx.notify();
-    }
-
     /// Step out the way a tree does: a commit to its branch, an open branch closed, and
     /// anything else up to its project.
     fn collapse(&mut self, _: &Collapse, window: &mut Window, cx: &mut Context<Self>) {
@@ -695,10 +728,10 @@ impl Navigator {
     /// The row at `ix` of the list, drawn inside its card.
     fn render_row(&self, ix: usize, window: &Window, cx: &Context<Self>) -> AnyElement {
         let theme = Theme::get(cx);
-        let nested = self.nested(ix);
+        let inset = self.insets.get(ix).copied().unwrap_or_default();
         let el = match self.rows.get(ix) {
             None | Some(Row::Gap) => return div().h(px(10.)).into_any_element(),
-            Some(Row::Item(item)) => self.render_item(item, nested, window, theme, cx),
+            Some(Row::Item(item)) => self.render_item(item, inset, window, theme, cx),
             Some(Row::WorktreeHeading(project, name)) => {
                 self.worktree_heading(ix, project, name.as_ref(), theme, cx)
             }
@@ -764,23 +797,8 @@ impl Navigator {
                     }))
                     .into_any_element()
             }
-            Some(Row::StackCaption(project, n, refs)) => {
-                let keys: Vec<(ProjectId, String)> =
-                    refs.iter().map(|r| (project.clone(), r.clone())).collect();
-                h_flex()
-                    .id(("stack", ix))
-                    .h(px(22.))
-                    .pl(px(14.))
-                    .gap(px(6.))
-                    .text_size(px(11.))
-                    .text_color(theme.text_3)
-                    .cursor_pointer()
-                    .hover(|el| el.text_color(theme.text_2))
-                    .tooltip(Tooltip::text("Hide or show the stack's commits"))
-                    .child(small_icon(Icon::Stack).text_color(theme.text_3))
-                    .child(format!("Stack of {n}"))
-                    .on_click(cx.listener(move |this, _, _, cx| this.toggle_stack(&keys, cx)))
-                    .into_any_element()
+            Some(Row::StackCaption(project, bottom, n)) => {
+                self.stack_caption(ix, project, bottom, *n, theme, cx)
             }
             // Both drop zones are padded, not margined: a margin collapses through the card's
             // ground.
@@ -855,8 +873,8 @@ impl Navigator {
             }
         };
         // Items step in by their style, keeping the highlight full width; the rest as a whole.
-        let el = match nested && !matches!(self.rows[ix], Row::Item(_)) {
-            true => div().pl(px(NEST)).child(el).into_any_element(),
+        let el = match inset > 0. && !matches!(self.rows[ix], Row::Item(_)) {
+            true => div().pl(px(inset)).child(el).into_any_element(),
             false => el,
         };
         let first = ix == 0 || matches!(self.rows[ix - 1], Row::Gap);
@@ -883,7 +901,7 @@ impl Navigator {
     fn render_item(
         &self,
         item: &Selection,
-        nested: bool,
+        inset: f32,
         window: &Window,
         theme: &Theme,
         cx: &Context<Self>,
@@ -906,7 +924,7 @@ impl Navigator {
             selected,
             solid: selected && self.focus.contains_focused(window, cx),
             cut,
-            nested,
+            inset,
         };
         let el = match item {
             Selection::Project(id) => self.project_row(item, id, style, cx),
@@ -1496,16 +1514,90 @@ impl Navigator {
             .into_any_element()
     }
 
-    /// Whether row `ix` sits in a worktree's section, under its heading.
-    fn nested(&self, ix: usize) -> bool {
-        (self.rows[..ix].iter().rev())
-            .find(|row| {
-                matches!(
-                    row,
-                    Row::WorktreeHeading(..) | Row::WorktreeDivider | Row::Gap
-                )
+    /// Over a stack of two or more branches, as ui-react's StackCaption: a chevron, its
+    /// glyph and how many. A click on it folds the branches away, and folded, it says how many
+    /// commits they have to push and when they last changed.
+    fn stack_caption(
+        &self,
+        ix: usize,
+        project: &ProjectId,
+        bottom: &str,
+        n: usize,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let store = self.store.read(cx);
+        let branches = (store.workspace(project))
+            .and_then(|ws| lane_of(ws, bottom))
+            .unwrap_or_default();
+        // Open even when folded while the selection's in it.
+        let open = (self.insets.get(ix + 1)).is_some_and(|next| *next > self.insets[ix]);
+        let names: Vec<&str> = branches.iter().map(|branch| branch.name.as_str()).collect();
+        let unpushed_n = unpushed(branches.iter());
+        let latest = (branches.iter().flat_map(|branch| &branch.commits))
+            .map(|commit| commit.time)
+            .max();
+        let key = (project.clone(), bottom.to_owned());
+        h_flex()
+            .id(("stack", ix))
+            .h(px(ROW_HEIGHT))
+            .mx(px(3.))
+            .pl(px(14.))
+            .pr(px(8.))
+            .gap(px(8.))
+            .rounded(px(4.))
+            .cursor_pointer()
+            .hover(|el| el.bg(theme.hover()))
+            .child(
+                div().w(px(14.)).flex().justify_center().child(
+                    small_icon(match open {
+                        true => Icon::ChevronDown,
+                        false => Icon::ChevronRight,
+                    })
+                    .text_color(theme.text_3),
+                ),
+            )
+            .child(icon(Icon::Stack).text_color(theme.text_3))
+            .child(
+                div()
+                    .id(("stack-name", ix))
+                    .flex_1()
+                    .min_w(px(0.))
+                    .truncate()
+                    .text_size(px(12.))
+                    .text_color(theme.text_2)
+                    .tooltip(Tooltip::text(format!("Stack: {}", names.join(" ← "))))
+                    .child(format!("Stack of {n}")),
+            )
+            .when(!open, |el| {
+                el.children(meta_count(
+                    Icon::ArrowUp,
+                    unpushed_n,
+                    theme.blue,
+                    plural(unpushed_n, "unpushed commit"),
+                ))
+                .children(latest.map(|at| faint(relative_time(at), theme).text_size(px(11.))))
             })
-            .is_some_and(|row| matches!(row, Row::WorktreeHeading(..)))
+            // Folding what holds the selection takes it up to the project, as a worktree's
+            // heading does.
+            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                if !open {
+                    this.folded_stacks.remove(&key);
+                    return cx.notify();
+                }
+                this.folded_stacks.insert(key.clone());
+                let store = this.store.read(cx);
+                let inside = (store.selection.as_ref())
+                    .zip(store.workspace(&key.0).and_then(|ws| lane_of(ws, &key.1)))
+                    .is_some_and(|(s, lane)| {
+                        s.project() == &key.0 && lane.iter().any(|branch| s.on(branch))
+                    });
+                match inside {
+                    true => this.select(Selection::Project(key.0.clone()), window, cx),
+                    false => cx.notify(),
+                }
+            }))
+            .into_any_element()
     }
 
     fn branch_row(
@@ -1947,6 +2039,17 @@ fn section_holds(workspace: &Workspace, name: Option<&Arc<str>>, selection: &Sel
     }
 }
 
+/// The branches of the stack, or linked worktree's lane, whose bottom branch is `bottom`.
+fn lane_of<'a>(workspace: &'a Workspace, bottom: &str) -> Option<&'a [Branch]> {
+    (workspace.stacks.iter().map(|stack| &stack.branches[..]))
+        .chain(workspace.worktrees.iter().map(|wt| &wt.branches[..]))
+        .find(|branches| {
+            branches
+                .last()
+                .is_some_and(|branch| branch.ref_name == bottom)
+        })
+}
+
 /// How many of `branches`' commits are only local.
 fn unpushed<'a>(branches: impl Iterator<Item = &'a Branch>) -> usize {
     (branches.flat_map(|branch| &branch.commits))
@@ -2032,7 +2135,8 @@ impl Focusable for Navigator {
 
 impl Render for Navigator {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let rows = self.build_rows(cx);
+        let Rows { rows, insets, .. } = self.build_rows(cx);
+        self.insets = insets;
         self.sync_list(rows, window, cx);
         let theme = Theme::get(cx).clone();
         let store = self.store.read(cx);
