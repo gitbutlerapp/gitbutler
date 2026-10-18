@@ -8,8 +8,8 @@ use std::ops::Range;
 use std::time::Duration;
 
 use gpui::{
-    App, Bounds, ClipboardItem, Context, CursorStyle, ElementId, ElementInputHandler, Entity,
-    EntityInputHandler, EventEmitter, FocusHandle, Focusable, GlobalElementId, KeyBinding,
+    App, Bounds, ClipboardItem, ContentMask, Context, CursorStyle, ElementId, ElementInputHandler,
+    Entity, EntityInputHandler, EventEmitter, FocusHandle, Focusable, GlobalElementId, KeyBinding,
     LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point,
     Role, ScrollHandle, SharedString, Style, Task, TextRun, UTF16Selection, UnderlineStyle, Window,
     WrappedLine, actions, div, fill, point, prelude::*, px, relative, size,
@@ -122,6 +122,8 @@ pub struct TextInput {
     wanted_height: Option<Pixels>,
     /// The box that scrolls a long text, and the selection it last scrolled to show.
     scroll: Option<(ScrollHandle, Range<usize>)>,
+    /// How far a single line longer than the field is slid left, to keep the caret in it.
+    scroll_x: Pixels,
     is_selecting: bool,
     cursor_visible: bool,
     blink: Task<()>,
@@ -148,6 +150,7 @@ impl TextInput {
             last_bounds: None,
             last_line_height: px(18.),
             scroll: None,
+            scroll_x: px(0.),
             wanted_height: None,
             is_selecting: false,
             cursor_visible: true,
@@ -685,6 +688,7 @@ struct Prepaint {
     line_height: Pixels,
     cursor: Option<PaintQuad>,
     selections: Vec<PaintQuad>,
+    scroll_x: Pixels,
 }
 
 impl IntoElement for TextElement {
@@ -825,12 +829,25 @@ impl Element for TextElement {
             }
         };
 
+        // A single line longer than the field slides sideways, as little as keeps the caret
+        // in it.
+        let scroll_x = match (input.multiline, lines.first()) {
+            (false, Some((_, line))) => {
+                let room = bounds.size.width - px(2.);
+                let caret = position(cursor_offset).map_or(px(0.), |at| at.x);
+                let slack = (line.size(line_height).width - room).max(px(0.));
+                (input.scroll_x.max(caret - room).min(caret)).clamp(px(0.), slack)
+            }
+            _ => px(0.),
+        };
+        let origin = bounds.origin - point(scroll_x, px(0.));
+
         let mut selections = Vec::new();
         let mut cursor = None;
         if selected.is_empty() {
             if caret_visible && let Some(at) = position(cursor_offset) {
                 cursor = Some(fill(
-                    Bounds::new(bounds.origin + at, size(px(1.5), line_height)),
+                    Bounds::new(origin + at, size(px(1.5), line_height)),
                     theme.pop,
                 ));
             }
@@ -847,8 +864,8 @@ impl Element for TextElement {
                 };
                 selections.push(fill(
                     Bounds::from_corners(
-                        bounds.origin + point(left, row_top),
-                        bounds.origin + point(right.max(left + px(4.)), row_top + line_height),
+                        origin + point(left, row_top),
+                        origin + point(right.max(left + px(4.)), row_top + line_height),
                     ),
                     selection_color,
                 ));
@@ -871,6 +888,7 @@ impl Element for TextElement {
             line_height,
             cursor,
             selections,
+            scroll_x,
         }
     }
 
@@ -884,32 +902,40 @@ impl Element for TextElement {
         window: &mut Window,
         cx: &mut App,
     ) {
+        // The text as slid sideways, which mouse positions and the IME go by too.
+        let scroll_x = prepaint.scroll_x;
+        let text_bounds = Bounds::new(
+            bounds.origin - point(scroll_x, px(0.)),
+            size(bounds.size.width + scroll_x, bounds.size.height),
+        );
         let focus_handle = self.input.read(cx).focus_handle.clone();
         window.handle_input(
             &focus_handle,
-            ElementInputHandler::new(bounds, self.input.clone()),
+            ElementInputHandler::new(text_bounds, self.input.clone()),
             cx,
         );
-        for selection in prepaint.selections.drain(..) {
-            window.paint_quad(selection);
-        }
+        window.with_content_mask(Some(ContentMask { bounds }), |window| {
+            for selection in prepaint.selections.drain(..) {
+                window.paint_quad(selection);
+            }
+            let mut y = bounds.top();
+            for (_, line) in &prepaint.lines {
+                line.paint(
+                    point(text_bounds.left(), y),
+                    prepaint.line_height,
+                    gpui::TextAlign::Left,
+                    Some(text_bounds),
+                    window,
+                    cx,
+                )
+                .ok();
+                y += row_height(line, prepaint.line_height);
+            }
+            if let Some(cursor) = prepaint.cursor.take() {
+                window.paint_quad(cursor);
+            }
+        });
         let line_height = prepaint.line_height;
-        let mut y = bounds.top();
-        for (_, line) in &prepaint.lines {
-            line.paint(
-                point(bounds.left(), y),
-                line_height,
-                gpui::TextAlign::Left,
-                Some(bounds),
-                window,
-                cx,
-            )
-            .ok();
-            y += row_height(line, line_height);
-        }
-        if let Some(cursor) = prepaint.cursor.take() {
-            window.paint_quad(cursor);
-        }
         let lines = std::mem::take(&mut prepaint.lines);
         self.input.update(cx, |input, _cx| {
             // Once the caret moved, scroll the box just enough to show it.
@@ -938,7 +964,8 @@ impl Element for TextElement {
                 }
             }
             input.last_layout = lines;
-            input.last_bounds = Some(bounds);
+            input.last_bounds = Some(text_bounds);
+            input.scroll_x = scroll_x;
             input.last_line_height = line_height;
         });
     }
