@@ -381,19 +381,27 @@ impl Detail {
             CommitState::Integrated => (format!("in {target}"), theme.text_2),
         };
         let sha = commit.id.0.to_string();
+        // A long title wraps rather than hiding its end: it's shown nowhere else.
         let title = h_flex()
             .id("commit-title")
-            .h(px(22.))
+            .items_start()
             .gap(px(8.))
-            .child(icon(Icon::Commit).text_color(theme.text_1))
+            .child(
+                div()
+                    .h(px(22.))
+                    .flex()
+                    .items_center()
+                    .child(icon(Icon::Commit).text_color(theme.text_1)),
+            )
             .child(
                 h_flex()
+                    .items_start()
                     .min_w(px(0.))
                     .gap(px(6.))
                     .child(
                         div()
                             .min_w(px(0.))
-                            .truncate()
+                            .line_height(px(22.))
                             .text_size(px(16.))
                             .font_weight(gpui::FontWeight::SEMIBOLD)
                             .child(commit_title(&commit.title)),
