@@ -421,6 +421,8 @@ impl Detail {
             input.set_text(message, cx);
             input
         });
+        // Back where editing started, like the navigator, when it's done.
+        let back = window.focused(cx).unwrap_or(self.focus.clone());
         let subscription = cx.subscribe_in(
             &input,
             window,
@@ -442,11 +444,11 @@ impl Detail {
                             cx,
                         )
                     });
-                    window.focus(&this.focus, cx);
+                    window.focus(&back, cx);
                 }
                 InputEvent::Cancel => {
                     this.rewording = None;
-                    window.focus(&this.focus, cx);
+                    window.focus(&back, cx);
                     cx.notify();
                 }
                 InputEvent::Changed => {}
