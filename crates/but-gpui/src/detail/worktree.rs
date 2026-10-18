@@ -19,8 +19,7 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
-        let Some(worktree) = (store.workspace(project))
-            .and_then(|ws| ws.worktrees.iter().find(|w| &*w.name == name))
+        let Some(worktree) = (store.workspace(project)).and_then(|ws| ws.find_worktree(name))
         else {
             return empty_state(
                 Some(Illustration::Papers),

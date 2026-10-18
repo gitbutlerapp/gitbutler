@@ -787,10 +787,7 @@ mod tests {
         );
         assert!(files[0].conflicted, "its index entry is unmerged");
 
-        let whole = Selected {
-            file: files[0].clone(),
-            hunks: None,
-        };
+        let whole = Selected::whole(&files[0]);
         let refused = amend(path, head, std::slice::from_ref(&whole), None, false).unwrap_err();
         assert!(
             refused.to_string().contains("resolved first"),
@@ -817,10 +814,7 @@ mod tests {
             refused.to_string().contains("has conflicts"),
             "part of it would leave the rest resolved, markers and all: {refused:#}"
         );
-        let whole = Selected {
-            file: files[0].clone(),
-            hunks: None,
-        };
+        let whole = Selected::whole(&files[0]);
         discard(path, None, &[whole]).unwrap();
         assert_eq!(
             std::fs::read_to_string(path.join("file")).unwrap(),
@@ -871,10 +865,7 @@ mod tests {
 
         let source = DiffSource::Linked("agent".into());
         let diff = load_diff(path, source, None, None, None).unwrap();
-        let whole = Selected {
-            file: diff[0].file.clone(),
-            hunks: None,
-        };
+        let whole = Selected::whole(&diff[0].file);
         discard(path, Some("agent"), &[whole]).unwrap();
         assert_eq!(
             std::fs::read_to_string(linked.join("file")).unwrap(),
@@ -981,12 +972,7 @@ mod tests {
             std::fs::write(&file, format!("#!/bin/sh\n{script}\n")).unwrap();
             std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755)).unwrap();
         };
-        let changes = || {
-            vec![Selected {
-                file: uncommitted(path)[0].clone(),
-                hunks: None,
-            }]
-        };
+        let changes = || vec![Selected::whole(&uncommitted(path)[0])];
         let main = Destination::Branch("refs/heads/main".into());
         let first = git(path, &["rev-parse", "HEAD"]);
 

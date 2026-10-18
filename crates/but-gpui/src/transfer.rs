@@ -175,9 +175,7 @@ impl Transfer {
             }
             (Cut::Branch(_, branch), Selection::Worktree(_, name)) => Transfer::BranchBelow {
                 branch: branch.clone(),
-                commit: (workspace.worktrees.iter())
-                    .find(|worktree| worktree.name == *name)?
-                    .lane_end()?,
+                commit: workspace.find_worktree(name)?.lane_end()?,
             },
             (Cut::Branch(_, branch), Selection::Branch(_, onto)) if branch != onto => {
                 // Already right on top of it.

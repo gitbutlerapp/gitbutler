@@ -44,12 +44,8 @@ pub struct Overlay {
     pub reworded: Option<(String, String)>,
     /// The branch (full ref) it renames, and its new name.
     pub renamed: Option<(String, String)>,
-    /// It changes only the uncommitted files of the checkout they're in, so the reload after
-    /// it reads just those.
-    pub files_only: bool,
-    /// It changes only commits and branches, leaving every checkout's files as they are, so
-    /// the reload after it doesn't read those again.
-    pub commits_only: bool,
+    /// What it changes, which the reload after it reads again.
+    pub rereads: Rereads,
     /// The branch (full ref) it pushes, with the ones below it.
     pub pushes: Option<String>,
     /// It opens a pull request for the branch it pushes.
@@ -57,6 +53,18 @@ pub struct Overlay {
     /// It only talks to the remote or the forge and moves refs, leaving the worktree and
     /// the commits alone, so reloads the watcher starts meanwhile go ahead.
     pub remote_only: bool,
+}
+
+/// What an operation changes, for the reload after it to read again.
+#[derive(Default, Clone, Copy)]
+pub enum Rereads {
+    /// Commits, branches and every checkout's files.
+    #[default]
+    All,
+    /// Only the uncommitted files of the checkout `files_in` names, or of the main one.
+    Files,
+    /// Only commits and branches, leaving every checkout's files as they are.
+    Commits,
 }
 
 /// Where a commit an operation makes shows until it's loaded.
@@ -574,8 +582,8 @@ impl Store {
         );
     }
 
-    /// Add uncommitted `files` to commit `into`, then call `then` once that worked.
-    /// Amend `into` with `files` of the main checkout, or of the linked `worktree`.
+    /// Amend commit `into` with uncommitted `files` of the main checkout, or of the linked
+    /// `worktree`, then call `then` once that worked.
     pub fn amend(
         &mut self,
         project: &ProjectId,
@@ -805,12 +813,11 @@ impl Store {
                 if let Some(running) = store.running.get_mut(&project) {
                     running.settling = true;
                     moved = running.moved.take();
-                    if running.overlay.files_only {
-                        reload = Reload::files(running.overlay.files_in.clone());
-                    }
-                    if running.overlay.commits_only {
-                        reload = Reload::commits();
-                    }
+                    reload = match running.overlay.rereads {
+                        Rereads::All => Reload::full(),
+                        Rereads::Files => Reload::files(running.overlay.files_in.clone()),
+                        Rereads::Commits => Reload::commits(),
+                    };
                     reload.merge(std::mem::take(&mut running.deferred));
                 }
                 // Set here rather than at the start, so a load the watcher started

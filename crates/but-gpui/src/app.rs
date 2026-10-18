@@ -498,7 +498,7 @@ impl AppView {
             }
             Selection::Worktree(project, name) => {
                 let workspace = self.store.read(cx).workspace(&project)?;
-                let worktree = workspace.worktrees.iter().find(|w| w.name == name)?;
+                let worktree = workspace.find_worktree(&name)?;
                 Some(worktree.path.display().to_string())
             }
             Selection::Uncommitted(_)

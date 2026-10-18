@@ -15,7 +15,7 @@ use super::{Detail, DiffSource};
 use crate::app::AppView;
 use crate::backend::conflicts::{self, Keep};
 use crate::backend::{self, CommitId, Conflict, Workspace, ai};
-use crate::state::{Overlay, ProjectId, Selection};
+use crate::state::{Overlay, ProjectId, Rereads, Selection};
 use crate::theme::Theme;
 use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
 use crate::ui::diff::{DiffRow, Layout, OnToggle};
@@ -495,7 +495,7 @@ impl Detail {
                         &project,
                         "Resolve",
                         Overlay {
-                            files_only: true,
+                            rereads: Rereads::Files,
                             files_in: worktree.clone(),
                             ..Overlay::default()
                         },

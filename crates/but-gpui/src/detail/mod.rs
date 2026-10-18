@@ -129,14 +129,9 @@ impl DiffKey {
     /// The uncommitted files this diff follows, as the store has them: the project's
     /// own checkout's, or a linked worktree's. `None` for a diff of commits.
     fn uncommitted<'a>(&self, store: &'a Store) -> Option<&'a [FileChange]> {
-        let workspace = store.workspace(&self.project)?;
-        match &self.source {
-            DiffSource::Worktree => Some(&workspace.uncommitted),
-            DiffSource::Linked(name) => (workspace.worktrees.iter())
-                .find(|worktree| worktree.name == *name)
-                .map(|worktree| &worktree.uncommitted[..]),
-            _ => None,
-        }
+        store
+            .workspace(&self.project)?
+            .uncommitted_in(self.checkout()?)
     }
 
     /// The checkout whose uncommitted files this diff is: the main one (`Some(None)`) or a
@@ -893,13 +888,7 @@ impl Detail {
         let files = store
             .workspace(project)
             .map_or(&[][..], |ws| &ws.uncommitted);
-        files
-            .iter()
-            .map(|file| Selected {
-                file: file.clone(),
-                hunks: None,
-            })
-            .collect()
+        files.iter().map(Selected::whole).collect()
     }
 
     /// Focus the diff.
@@ -1403,8 +1392,7 @@ impl Detail {
 
     /// The path of the file under the cursor, in any diff.
     pub fn cursor_path(&self) -> Option<String> {
-        let diff = self.diff.as_ref()?;
-        Some(diff.files.get(self.cursor.file)?.file.path.clone())
+        self.diff_path(self.cursor.file)
     }
 
     /// The indexes of the files the diff shows, in ascending order for the binary searches
@@ -1420,12 +1408,7 @@ impl Detail {
     }
 
     pub fn toggle_fold(&mut self, file_ix: usize, cx: &mut Context<Self>) {
-        let Some(path) = self
-            .diff
-            .as_ref()
-            .and_then(|diff| diff.files.get(file_ix))
-            .map(|f| f.file.path.clone())
-        else {
+        let Some(path) = self.diff_path(file_ix) else {
             return;
         };
         if !self.folded.remove(&path) {
@@ -1521,8 +1504,8 @@ impl Detail {
         }
     }
 
-    /// How far below the breadcrumbs the diff starts: under a commit's, branch's or stack's
-    /// header, when there's one.
+    /// How far below the breadcrumbs the diff starts: under the page's header, for the pages
+    /// the render's `header` gives one.
     pub fn view_header_height(&self, cx: &App) -> f32 {
         match self.selection(cx) {
             Some(
@@ -1592,8 +1575,8 @@ impl Render for Detail {
                     },
                 };
                 let width = self.files_width(window, cx);
-                // A commit's, branch's or stack's header runs across the page, over its files
-                // and its diff, as but.dev's does.
+                // A page's header runs across it, over its files and its diff, as but.dev's
+                // does. `view_header_height` lists the same pages.
                 let header = match selection {
                     Selection::Commit(project, id) => {
                         Some(self.render_commit_header(project, *id, &theme, cx))

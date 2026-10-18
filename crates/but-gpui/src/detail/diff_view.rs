@@ -942,10 +942,7 @@ impl Detail {
 
     /// Show every line of `file`, or only its hunks again.
     pub(super) fn toggle_whole(&mut self, file: usize, cx: &mut Context<Self>) {
-        let Some(path) = (self.diff.as_ref())
-            .and_then(|diff| diff.files.get(file))
-            .map(|f| f.file.path.clone())
-        else {
+        let Some(path) = self.diff_path(file) else {
             return;
         };
         if self.whole.remove(&path).is_none() {

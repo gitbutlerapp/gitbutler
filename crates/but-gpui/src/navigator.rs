@@ -1480,8 +1480,7 @@ impl Navigator {
             Selection::Worktree(_, name) => Some(name.clone()),
             _ => None,
         };
-        let worktree =
-            (name.as_ref()).and_then(|name| workspace.worktrees.iter().find(|wt| wt.name == *name));
+        let worktree = (name.as_ref()).and_then(|name| workspace.find_worktree(name));
         let (label, path, uncommitted) = match worktree {
             Some(wt) => (wt.name.to_string(), &wt.path, &wt.uncommitted),
             None => (
@@ -1588,12 +1587,7 @@ impl Navigator {
             row.when(drags, |el| {
                 let files = match name {
                     None => self.detail.read(cx).files_to_move(id, cx),
-                    Some(_) => (uncommitted.iter())
-                        .map(|file| Selected {
-                            file: file.clone(),
-                            hunks: None,
-                        })
-                        .collect(),
+                    Some(_) => (uncommitted.iter()).map(Selected::whole).collect(),
                 };
                 let label: SharedString = match files.len() {
                     1 => files[0].file.path.clone().into(),
@@ -2259,9 +2253,9 @@ fn parent(store: &Store, selection: &Selection) -> Option<Selection> {
 fn section_branches<'a>(workspace: &'a Workspace, name: Option<&Arc<str>>) -> Vec<&'a Branch> {
     match name {
         None => workspace.branches().collect(),
-        Some(name) => (workspace.worktrees.iter())
-            .find(|wt| wt.name == *name)
-            .map_or_else(Vec::new, |wt| wt.branches.iter().collect()),
+        Some(name) => {
+            (workspace.find_worktree(name)).map_or_else(Vec::new, |wt| wt.branches.iter().collect())
+        }
     }
 }
 

@@ -146,6 +146,20 @@ impl Workspace {
             .find(|branch| branch.ref_name == ref_name)
     }
 
+    pub fn find_worktree(&self, name: &str) -> Option<&Worktree> {
+        self.worktrees
+            .iter()
+            .find(|worktree| &*worktree.name == name)
+    }
+
+    /// The uncommitted files of the linked worktree `name`, or of the main checkout.
+    pub fn uncommitted_in(&self, name: Option<&str>) -> Option<&[FileChange]> {
+        match name {
+            None => Some(&self.uncommitted),
+            Some(name) => Some(&self.find_worktree(name)?.uncommitted),
+        }
+    }
+
     /// The branches of each stack, then of each linked worktree's lane, top first.
     pub fn lanes(&self) -> impl Iterator<Item = &[Branch]> {
         (self.stacks.iter().map(|stack| &stack.branches[..]))
@@ -658,6 +672,16 @@ pub struct Selected {
     pub file: FileChange,
     /// `None` takes the whole file.
     pub hunks: Option<Vec<HunkKey>>,
+}
+
+impl Selected {
+    /// All of `file`.
+    pub fn whole(file: &FileChange) -> Self {
+        Self {
+            file: file.clone(),
+            hunks: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
