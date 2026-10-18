@@ -197,6 +197,8 @@ pub struct Store {
     added: Option<ProjectId>,
     /// What the pointer is dragging. Only meaningful while GPUI has a drag active.
     pub dragging: Option<Cut>,
+    /// The row the drag is over and where on it a drop lands, when it takes the drop.
+    pub drop_at: Option<(Selection, crate::transfer::Place)>,
     /// Pane widths the user dragged away from their defaults.
     widths: HashMap<Pane, f32>,
     /// Where the window is, saved for the next launch.
@@ -278,6 +280,7 @@ impl Store {
             followed: None,
             added: None,
             dragging: None,
+            drop_at: None,
             toasts: Vec::new(),
             account: account::Account::default(),
             running: HashMap::new(),

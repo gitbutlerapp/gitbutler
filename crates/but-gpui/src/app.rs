@@ -2,8 +2,8 @@
 //! and the actions that work anywhere in the window. `overlays.rs` draws what opens above.
 
 use gpui::{
-    AnyView, App, ClipboardItem, Context, Entity, FocusHandle, Focusable, KeyBinding, Modifiers,
-    PromptLevel, Role, StyleRefinement, Subscription, Window, actions, div, prelude::*, px,
+    AnyView, App, ClipboardItem, Context, Entity, FocusHandle, Focusable, KeyBinding, PromptLevel,
+    Role, StyleRefinement, Subscription, Window, actions, div, prelude::*, px,
 };
 
 use crate::backend::{self, short_ref};
@@ -14,7 +14,7 @@ use crate::palette::Palette;
 use crate::projects::pick_folder;
 use crate::state::{Cut, Pane, ProjectId, Selection, Store};
 use crate::theme::Theme;
-use crate::transfer::Transfer;
+use crate::transfer::{Place, Transfer};
 use crate::ui::{HEADER_HEIGHT, resize_pane};
 
 actions!(
@@ -345,7 +345,8 @@ impl AppView {
         else {
             return;
         };
-        self.transfer(&cut, &target, window.modifiers(), window, cx);
+        let place = Place::from_keys(window.modifiers(), &cut, &target);
+        self.transfer(&cut, &target, place, window, cx);
     }
 
     pub fn cut(&mut self, cut: Cut, cx: &mut Context<Self>) {
@@ -361,11 +362,11 @@ impl AppView {
         &mut self,
         payload: &Cut,
         target: &Selection,
-        held: Modifiers,
+        place: Place,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(transfer) = Transfer::resolve(payload, target, held, self.store.read(cx)) else {
+        let Some(transfer) = Transfer::resolve(payload, target, place, self.store.read(cx)) else {
             self.store
                 .update(cx, |store, cx| store.snack("That can't go there", cx));
             return;
