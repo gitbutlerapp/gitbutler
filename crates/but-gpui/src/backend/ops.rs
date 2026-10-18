@@ -142,6 +142,15 @@ fn post_commit(ctx: &but_ctx::Context) -> Option<String> {
     }
 }
 
+/// GitButler's branches and commits build on a commit; core's own error for a repository
+/// without one names its internals.
+fn refuse_unborn(ctx: &but_ctx::Context) -> Result<()> {
+    if ctx.repo.get()?.head()?.is_unborn() {
+        bail!("The repository has no commits yet. Make the first one with Git.");
+    }
+    Ok(())
+}
+
 /// Commit the `selected` uncommitted changes to `destination`. With `run_hooks`, the
 /// repository's hooks run in Git's order. pre-commit and commit-msg run first, and either
 /// refuses the commit by failing; commit-msg can also rewrite the message. post-commit runs
@@ -156,6 +165,7 @@ pub fn commit(
     run_hooks: bool,
 ) -> Result<(CommitId, LeftOut, Option<String>)> {
     let mut ctx = open(path)?;
+    refuse_unborn(&ctx)?;
     refuse_conflicted(&ctx, selected)?;
     let changes = selected_specs(selected);
     if changes.is_empty() {
@@ -200,6 +210,7 @@ pub fn commit(
 pub fn create_branch(path: &Path, name: Option<&str>) -> Result<String> {
     use but_api::branch::json::BranchCreatePlacement as Placement;
     let mut ctx = open(path)?;
+    refuse_unborn(&ctx)?;
     let name = match name.map(str::trim).filter(|name| !name.is_empty()) {
         Some(name) => name.to_owned(),
         None => but_api::branch::branch_canned_name(&ctx)?,
