@@ -293,7 +293,7 @@ impl Detail {
             let target = target.as_deref().map_or("a new branch", short_ref);
             h_flex()
                 .flex_none()
-                .h(px(44.))
+                .h(px(super::FOOTER_HEIGHT))
                 .px(px(12.))
                 .gap(px(8.))
                 .border_t_1()
