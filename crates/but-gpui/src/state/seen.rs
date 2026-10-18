@@ -4,8 +4,10 @@ use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
+use gpui::Context;
+
 use super::{ProjectId, Store};
-use crate::backend::{Commit, Workspace};
+use crate::backend::{Commit, CommitId, Workspace};
 
 /// What the user has looked at, so new work by agents stands out. Per project id.
 #[derive(Default, Clone, Serialize, Deserialize)]
@@ -20,6 +22,22 @@ impl Store {
             .commits
             .get(project)
             .is_some_and(|seen| !seen.contains(&commit.key))
+    }
+
+    /// Count `ids` of `project` as seen, as opening them does.
+    pub fn mark_read(
+        &mut self,
+        project: &ProjectId,
+        ids: impl IntoIterator<Item = CommitId>,
+        cx: &mut Context<Self>,
+    ) {
+        let keys: Vec<String> = (ids.into_iter())
+            .filter_map(|id| self.key_of(project, id))
+            .collect();
+        let seen = self.seen.commits.entry(project.to_string()).or_default();
+        seen.extend(keys);
+        self.save_soon(cx);
+        cx.notify();
     }
 
     /// Bring what's been seen of `id` up to date with the `workspace` it just loaded: what's

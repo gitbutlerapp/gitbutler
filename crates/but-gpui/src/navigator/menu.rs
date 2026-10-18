@@ -7,34 +7,51 @@ use crate::app::{
     Collapse, CopySelection, CutSelection, DeleteSelection, Expand, Fetch, NewBranchOnTop,
     OpenPullRequest, Push, RenameSelection, StartCommit, UncommitSelection, UpdateFromTarget,
 };
+use crate::backend::CommitId;
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, BranchEdits, CherryPick, CommitEdits, CopyChangeId,
     CopyMessage, MoveToNewBranch, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage,
     SquashAll, SquashPicked, TakeRemote, UnapplyStack, Unstack,
 };
 use crate::overlays::MenuItem;
-use crate::state::Selection;
+use crate::state::{ProjectId, Selection};
 use crate::ui::plural;
+
+/// An item marking `unread`, commits of `project`, read.
+fn mark_read(label: &str, project: &ProjectId, unread: Vec<CommitId>) -> MenuItem {
+    let project = project.clone();
+    MenuItem::new(label.to_owned(), move |this, _, cx| {
+        let unread = unread.clone();
+        (this.store).update(cx, |store, cx| store.mark_read(&project, unread, cx))
+    })
+}
 
 impl Navigator {
     /// What right-clicking `target` offers. Right-clicking selects the row first, so the
     /// items run the same actions as their keys. A branch with commits starts with hiding
-    /// or showing them.
+    /// or showing them, and marking its unread ones read.
     pub(crate) fn menu_items(&self, target: &Selection, cx: &App) -> Vec<MenuItem> {
         let mut items = self.row_actions(target, cx);
+        let store = self.store.read(cx);
         if let Selection::Branch(project, ref_name) = target
-            && let Some(first) = items.first_mut()
-            && (self.store.read(cx).branch_for(target)).is_some_and(|b| !b.commits.is_empty())
+            && let Some(branch) = store.branch_for(target).filter(|b| !b.commits.is_empty())
         {
-            first.separated = true;
             let key = (project.clone(), ref_name.clone());
-            items.insert(
-                0,
-                match self.closed_branches.contains(&key) {
-                    true => MenuItem::action("Show commits", &Expand, cx),
-                    false => MenuItem::action("Hide commits", &Collapse, cx),
-                },
-            );
+            let mut view = vec![match self.closed_branches.contains(&key) {
+                true => MenuItem::action("Show commits", &Expand, cx),
+                false => MenuItem::action("Hide commits", &Collapse, cx),
+            }];
+            let unread: Vec<CommitId> = (branch.commits.iter())
+                .filter(|commit| store.is_unread(project, commit))
+                .map(|commit| commit.id)
+                .collect();
+            if !unread.is_empty() {
+                view.push(mark_read("Mark all as read", project, unread));
+            }
+            if let Some(first) = items.first_mut() {
+                first.separated = true;
+            }
+            items.splice(0..0, view);
         }
         items
     }
@@ -254,6 +271,15 @@ impl Navigator {
                     &UncommitSelection,
                     cx,
                 ));
+                // A run picks commits without opening them, as clicking one does.
+                let unread: Vec<CommitId> = (store.workspace(project).into_iter())
+                    .flat_map(|ws| ws.commits())
+                    .filter(|c| store.picked.contains(&c.id) && store.is_unread(project, c))
+                    .map(|c| c.id)
+                    .collect();
+                if !unread.is_empty() {
+                    items.push(mark_read("Mark as read", project, unread).separated());
+                }
                 items
             }
             Selection::Commit(project, id) => {
