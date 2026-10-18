@@ -233,7 +233,7 @@ impl Detail {
                     .font_family(theme.mono_font.clone())
                     .text_color(theme.text_2)
                     .truncate()
-                    .child(entry.project.path.display().to_string()),
+                    .child(crate::ui::short_path(&entry.project.path)),
             )
             .child(
                 h_flex()
