@@ -10,8 +10,7 @@ use std::sync::Arc;
 use gpui::{App, Context, Div, Entity, SharedString, Window, actions, prelude::*};
 
 use crate::app::{
-    AppView, CutSelection, DeleteSelection, NewBranchOnTop, Push, RenameSelection,
-    UncommitSelection,
+    AppView, DeleteSelection, NewBranchOnTop, Push, RenameSelection, UncommitSelection,
 };
 use crate::backend::{self, Branch, Commit, CommitId, Destination, Selected, Workspace, short_ref};
 use crate::state::{Cut, Overlay, ProjectId, Remap, Rereads, Selection, Store};
@@ -67,7 +66,6 @@ fn elsewhere(el: Div, store: &Entity<Store>) -> Div {
         .on_action(refuse::<RenameSelection>(store))
         .on_action(refuse::<NewBranchOnTop>(store))
         .on_action(refuse::<UncommitSelection>(store))
-        .on_action(refuse::<CutSelection>(store))
         .on_action(refuse::<Push>(store))
 }
 
@@ -144,8 +142,8 @@ impl AppView {
     /// on top and uncommit are always there; the rest only where the selection lets them do
     /// something, which is also what the palette offers.
     pub fn edit_actions(&self, el: Div, cx: &mut Context<Self>) -> Div {
-        // A linked worktree's branches and commits change in it: from here they're copied,
-        // and what would change them says where to.
+        // A linked worktree's branches and commits change in it: from here they're cut,
+        // dragged and copied, and the other edits say where to make them.
         let store = self.store.read(cx);
         if let Some(selection) =
             (store.selection.as_ref()).filter(|s| store.worktree_of(s).is_some())

@@ -1968,17 +1968,13 @@ impl Navigator {
                         cx.notify();
                     }
                 }))
-                // A linked worktree's branches stay where its agent works on them.
-                .when(
-                    !ref_name.is_empty() && store.worktree_of(item).is_none(),
-                    |el| {
-                        let payload = Cut::Branch(id.clone(), ref_name.to_owned());
-                        el.on_drag(
-                            payload,
-                            drag_preview(self.store.clone(), branch.name.clone().into()),
-                        )
-                    },
-                )
+                .when(!ref_name.is_empty(), |el| {
+                    let payload = Cut::Branch(id.clone(), ref_name.to_owned());
+                    el.on_drag(
+                        payload,
+                        drag_preview(self.store.clone(), branch.name.clone().into()),
+                    )
+                })
                 .into_any_element(),
         )
     }
@@ -2034,9 +2030,7 @@ impl Navigator {
                 // Selected but on its way out.
                 .when(store.hides_commit(id, &commit.key), |el| el.opacity(0.5))
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
-                .when(store.worktree_of(item).is_none(), |el| {
-                    el.on_drag(payload, drag_preview(self.store.clone(), label))
-                })
+                .on_drag(payload, drag_preview(self.store.clone(), label))
                 .into_any_element(),
         )
     }
