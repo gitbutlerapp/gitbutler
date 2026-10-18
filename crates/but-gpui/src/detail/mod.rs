@@ -290,12 +290,12 @@ impl Detail {
         let subscriptions = vec![
             cx.subscribe(&store, |this, _, event, cx| match event {
                 StoreEvent::SelectionChanged => {
-                    // The message being edited was of the commit as it was.
-                    this.rewording = None;
-                    // A commit an operation rewrote is still the one being looked at.
+                    // A commit an operation rewrote is still the one being looked at, and a
+                    // message being edited for it stays.
                     let followed =
                         (this.key_for_selection(cx)).is_some_and(|key| this.follows(&key, cx));
                     if !followed {
+                        this.rewording = None;
                         this.message_open = false;
                         this.reset_view();
                     }
