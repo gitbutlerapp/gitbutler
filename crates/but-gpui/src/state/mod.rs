@@ -230,8 +230,8 @@ pub struct Store {
     queue: VecDeque<Queued>,
     /// The oplog entry the last mutation recorded, which the Undo offered for it restores.
     last_snapshot: Option<(ProjectId, SnapshotId)>,
-    /// Oplog entries of mutations that moved a linked worktree's changes, which ⌘Z doesn't
-    /// take back: the oplog snapshots only the main checkout, so it would lose them. Shared
+    /// Oplog entries of mutations that changed more than the oplog snapshots (a linked
+    /// worktree, a branch outside the workspace), which ⌘Z doesn't take back. Shared
     /// with a queued undo, which reads it once it runs, after what ran before it is kept.
     kept_snapshots: Arc<Mutex<HashSet<SnapshotId>>>,
     next_toast: usize,
@@ -508,7 +508,7 @@ impl Store {
     }
 
     /// Keep ⌘Z, and the snackbar's Undo, from taking back the mutation that just ran: it
-    /// moved a linked worktree's changes, which the oplog can't bring back.
+    /// changed what the oplog can't bring back, as a linked worktree.
     pub fn keep_last_snapshot(&mut self) {
         if let Some((_, snapshot)) = self.last_snapshot.take() {
             (self.kept_snapshots.lock())

@@ -13,7 +13,7 @@ use gpui::{
 
 use crate::app::AppView;
 use crate::backend::{self, short_ref};
-use crate::state::{Notice, Overlay, ProjectId, Remap, Rereads, Store};
+use crate::state::{Notice, Overlay, ProjectId, Remap, Store};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -196,7 +196,6 @@ impl AppView {
                     renamed: (renaming.clone())
                         .filter(|from| !from.is_empty())
                         .map(|from| (from, branch_name(&name).unwrap_or(name.clone()))),
-                    rereads: Rereads::Commits,
                     ..Overlay::default()
                 };
                 this.store.update(cx, |store, cx| {

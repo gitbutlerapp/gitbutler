@@ -711,7 +711,6 @@ impl AppView {
             let at = store.new_at(&project, &to);
             let overlay = Overlay {
                 new_commit: at.map(|at| (at, SharedString::default())),
-                rereads: Rereads::Commits,
                 ..Overlay::default()
             };
             store.run(
@@ -1003,7 +1002,6 @@ impl AppView {
         let undoable = !self.in_worktree_lane(cx);
         let overlay = Overlay {
             reworded: Some((commit.key.clone(), message.clone())),
-            rereads: Rereads::Commits,
             ..Overlay::default()
         };
         self.store.update(cx, |store, cx| {

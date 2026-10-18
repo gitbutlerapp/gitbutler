@@ -112,8 +112,8 @@ pub fn undo(path: &Path, redo: bool, kept: &HashSet<SnapshotId>) -> Result<Optio
     };
     if kept.contains(&SnapshotId(snapshot.commit_id)) {
         bail!(
-            "It changed a linked worktree, which undo can't restore, as GitButler's \
-             history only records the main checkout. Change it back by hand instead."
+            "GitButler's history records only the workspace and the main checkout, not linked \
+             worktrees or branches outside it. Change it back by hand instead."
         );
     }
     let title = snapshot

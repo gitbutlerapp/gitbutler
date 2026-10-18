@@ -38,7 +38,8 @@ impl Reload {
         }
     }
 
-    /// The commits and branches, after an operation that changed only them.
+    /// The commits and branches, after an operation on them, and the files of the checkouts
+    /// whose `HEAD` tree it changed.
     pub(super) fn commits() -> Self {
         Self {
             commits: true,
