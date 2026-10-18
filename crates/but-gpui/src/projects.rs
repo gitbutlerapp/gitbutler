@@ -43,13 +43,17 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         let input = cx.new(|cx| TextInput::new("https://github.com/owner/repo.git", false, cx));
+        let check = |_: &AppView, url: &str, _: &gpui::App| match clone_name(url) {
+            Some(_) => None,
+            None => Some("Enter the repository's URL".into()),
+        };
         self.open_prompt(
             "Clone a repository",
             Some("Next, pick the folder to clone it into.".into()),
             "Choose folder…",
             input,
             None,
-            None,
+            Some(Box::new(check)),
             window,
             cx,
             |this, url, _, cx| {
