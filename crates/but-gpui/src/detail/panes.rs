@@ -20,8 +20,8 @@ use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, empty_state,
-    faint, h_flex, icon, icon_button, local_time, muted, plural, section_label, shortcut,
-    small_icon, v_flex,
+    faint, h_flex, icon, icon_button, local_time, plural, section_label, shortcut, small_icon,
+    v_flex,
 };
 
 impl Detail {
@@ -462,30 +462,14 @@ impl Detail {
         };
         let sha = commit.id.0.to_string();
         // A long title wraps rather than hiding its end: it's shown nowhere else.
-        let title = h_flex()
+        let title = page_title(Icon::Commit, theme)
             .id("commit-title")
-            .items_start()
-            .gap(px(8.))
-            .child(
-                div()
-                    .h(px(22.))
-                    .flex()
-                    .items_center()
-                    .child(icon(Icon::Commit).text_color(theme.text_1)),
-            )
             .child(
                 h_flex()
                     .items_start()
                     .min_w(px(0.))
                     .gap(px(6.))
-                    .child(
-                        div()
-                            .min_w(px(0.))
-                            .line_height(px(22.))
-                            .text_size(px(16.))
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .child(commit_title(&commit.title)),
-                    )
+                    .child(title_text(commit_title(&commit.title)))
                     .when(!body.is_empty(), |el| {
                         let open = self.message_open;
                         el.child(
@@ -509,11 +493,7 @@ impl Detail {
                     this.start_reword(window, cx)
                 }
             }));
-        let meta = h_flex()
-            .h(px(20.))
-            .gap(px(12.))
-            .text_size(px(13.))
-            .text_color(theme.text_2)
+        let meta = meta_row(theme)
             .child(
                 h_flex()
                     .gap(px(6.))
@@ -576,7 +556,6 @@ impl Detail {
                     }),
             })
             .child(meta);
-        // What right-clicking the commit's row offers, for when the navigator is out of reach.
         let target = Selection::Commit(project.clone(), id);
         let menu = h_flex()
             .h(px(22.))
@@ -586,16 +565,14 @@ impl Detail {
                 cx.entity().downgrade(),
                 cx,
             ))
-            .child(
-                icon_button("commit-menu", Icon::Kebab).on_click(cx.listener(
-                    move |this, event: &ClickEvent, _, cx| {
-                        let position = event.position();
-                        (this.app)
-                            .update(cx, |app, cx| app.open_row_menu(&target, position, cx))
-                            .ok();
-                    },
-                )),
-            );
+            .child(self.row_menu_button(target, cx));
+        self.page_header(main, menu, theme)
+    }
+
+    /// The header across a commit's, branch's or stack's page, over its files and its diff:
+    /// `main` beside `menu`, as but.dev lays them out, so stepping between them moves
+    /// nothing below.
+    fn page_header(&self, main: Div, menu: Div, theme: &Theme) -> AnyElement {
         // The diff beside the files starts below this, however tall it's drawn.
         let (height, app) = (self.header_height.clone(), self.app.clone());
         let measure = gpui::canvas(
@@ -625,6 +602,121 @@ impl Detail {
             .child(menu)
             .child(measure)
             .into_any_element()
+    }
+
+    /// What right-clicking `target`'s row offers, behind a ⋯, for when the navigator is out
+    /// of reach.
+    fn row_menu_button(&self, target: Selection, cx: &Context<Self>) -> impl IntoElement {
+        icon_button("page-menu", Icon::Kebab).on_click(cx.listener(
+            move |this, event: &ClickEvent, _, cx| {
+                let position = event.position();
+                (this.app)
+                    .update(cx, |app, cx| app.open_row_menu(&target, position, cx))
+                    .ok();
+            },
+        ))
+    }
+
+    /// A branch's header: its name, how many commits it has, where they stand against its
+    /// remote, and any conflicted.
+    pub(super) fn render_branch_header(
+        &self,
+        project: &ProjectId,
+        ref_name: &str,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let store = self.store.read(cx);
+        let Some((ws, branch)) =
+            (store.workspace(project)).and_then(|ws| Some((ws, ws.find_branch(ref_name)?)))
+        else {
+            return div().into_any_element();
+        };
+        let target = ws.target.as_ref().map_or("the target", |t| t.name.as_str());
+        let (state, color) = match branch.push {
+            PushState::NothingToPush => ("on the remote".to_owned(), theme.safe),
+            PushState::Unpushed => ("not pushed".to_owned(), theme.blue),
+            PushState::NeedsForce => ("rewritten, needs a force push".to_owned(), theme.blue),
+            PushState::NeverPushed => ("never pushed".to_owned(), theme.blue),
+            PushState::Integrated => (format!("in {target}"), theme.text_2),
+        };
+        let name = match ref_name.is_empty() {
+            true => "Unnamed branch",
+            false => branch.name.as_str(),
+        };
+        let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
+        let meta = meta_row(theme).map(|el| match branch.commits.len() {
+            0 => el.child(
+                h_flex()
+                    .gap(px(4.))
+                    .text_color(theme.text_3)
+                    .child(small_icon(Icon::Commit).text_color(theme.text_3))
+                    .child("No commits"),
+            ),
+            n => el
+                .child(
+                    h_flex()
+                        .gap(px(4.))
+                        .child(small_icon(Icon::Commit).text_color(theme.text_3))
+                        .child(plural(n, "commit")),
+                )
+                .child(div().text_color(color).child(state))
+                .when(conflicted > 0, |el| {
+                    el.child(
+                        div()
+                            .text_color(theme.danger)
+                            .child(format!("{conflicted} conflicted")),
+                    )
+                }),
+        });
+        let main = v_flex()
+            .gap(px(10.))
+            .child(page_title(Icon::Branch, theme).child(title_text(name.to_owned())))
+            .child(meta);
+        let target = Selection::Branch(project.clone(), ref_name.to_owned());
+        let menu = h_flex().h(px(22.)).child(self.row_menu_button(target, cx));
+        self.page_header(main, menu, theme)
+    }
+
+    /// A stack's header: how many branches it has, which, and their commits.
+    pub(super) fn render_stack_header(
+        &self,
+        project: &ProjectId,
+        bottom: &str,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let store = self.store.read(cx);
+        let Some(branches) = store.workspace(project).and_then(|ws| ws.lane(bottom)) else {
+            return div().into_any_element();
+        };
+        let names: Vec<&str> = branches.iter().map(|branch| branch.name.as_str()).collect();
+        let commits = branches.iter().map(|branch| branch.commits.len()).sum();
+        let meta = meta_row(theme)
+            .child(
+                h_flex()
+                    .gap(px(4.))
+                    .child(small_icon(Icon::Commit).text_color(theme.text_3))
+                    .child(match commits {
+                        0 => "No commits".to_owned(),
+                        n => plural(n, "commit"),
+                    }),
+            )
+            .child(
+                h_flex()
+                    .min_w(px(0.))
+                    .gap(px(4.))
+                    .child(small_icon(Icon::Branch).text_color(theme.text_3))
+                    .child(div().min_w(px(0.)).truncate().child(names.join(" ← "))),
+            );
+        let title = format!("Stack of {}", names.len());
+        let main = v_flex()
+            .gap(px(10.))
+            .child(page_title(Icon::Stack, theme).child(title_text(title)))
+            .child(meta);
+        let target = Selection::Stack(project.clone(), bottom.to_owned());
+        let menu = h_flex().h(px(22.)).child(self.row_menu_button(target, cx));
+        self.page_header(main, menu, theme)
     }
 
     /// The box editing a commit's message, with how to save or leave it.
@@ -686,14 +778,6 @@ impl Detail {
                 cx,
             );
         };
-        let target = ws.target.as_ref().map_or("the target", |t| t.name.as_str());
-        let push = match branch.push {
-            PushState::NothingToPush => "Up to date with its remote".to_owned(),
-            PushState::Unpushed => "Has unpushed commits".to_owned(),
-            PushState::NeedsForce => "Rewritten, needs a force push".to_owned(),
-            PushState::NeverPushed => "Not pushed yet".to_owned(),
-            PushState::Integrated => format!("In {target}"),
-        };
         let files = self.render_diff_file_list(theme, cx);
         // Resolving the oldest conflict first, even in a branch below, rebases the rest onto
         // its result. Commits list newest first, and a stack's branches top first.
@@ -733,32 +817,10 @@ impl Detail {
                 theme,
             )
         });
+        // What the branch is heads its page: here, only what's to do about it.
         v_flex()
             .size_full()
-            .child(
-                side_header(theme)
-                    .child(
-                        h_flex()
-                            .gap(px(8.))
-                            .child(icon(Icon::Branch).text_color(theme.text_2))
-                            .child(
-                                div()
-                                    .font_family(theme.mono_font.clone())
-                                    .text_size(px(14.))
-                                    .text_color(theme.blue)
-                                    .truncate()
-                                    .child(branch.name.clone()),
-                            ),
-                    )
-                    .child(muted(
-                        match branch.commits.len() {
-                            0 => "No commits yet".to_owned(),
-                            n => format!("{} · {push}", plural(n, "commit")),
-                        },
-                        theme,
-                    ))
-                    .children(resolve_oldest),
-            )
+            .children(resolve_oldest.map(|banner| side_header(theme).child(banner)))
             .when_some(branch.review.as_ref(), |el, review| {
                 el.child(render_review(review, theme, cx))
             })
@@ -784,39 +846,15 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
-        let Some(branches) = store.workspace(project).and_then(|ws| ws.lane(bottom)) else {
+        if store
+            .workspace(project)
+            .and_then(|ws| ws.lane(bottom))
+            .is_none()
+        {
             return empty_state(Some(Illustration::Papers), "Stack not found", "", theme, cx);
-        };
-        let names: Vec<&str> = branches.iter().map(|branch| branch.name.as_str()).collect();
-        let commits = branches.iter().map(|branch| branch.commits.len()).sum();
-        let files = self.render_diff_file_list(theme, cx);
-        v_flex()
-            .size_full()
-            .child(
-                side_header(theme)
-                    .child(
-                        h_flex()
-                            .gap(px(8.))
-                            .child(icon(Icon::Stack).text_color(theme.text_2))
-                            .child(
-                                div()
-                                    .font_family(theme.mono_font.clone())
-                                    .text_size(px(14.))
-                                    .text_color(theme.blue)
-                                    .truncate()
-                                    .child(names.join(" ← ")),
-                            ),
-                    )
-                    .child(muted(
-                        match commits {
-                            0 => "No commits yet".to_owned(),
-                            n => format!("{} across {} branches", plural(n, "commit"), names.len()),
-                        },
-                        theme,
-                    )),
-            )
-            .child(files)
-            .into_any_element()
+        }
+        // Its header says what the stack is; here, its files.
+        self.render_diff_file_list(theme, cx)
     }
 }
 
@@ -891,6 +929,37 @@ pub(super) type Crumb = (SharedString, Option<Selection>);
 
 /// How tall a commit's header across the page is with its message closed, until it's drawn.
 pub(super) const COMMIT_HEADER_HEIGHT: f32 = 85.;
+
+/// The title row of a page's header: `icon`, then the title, which a caller adds, wrapping
+/// rather than hiding its end.
+fn page_title(icon_name: Icon, theme: &Theme) -> Div {
+    h_flex().items_start().gap(px(8.)).child(
+        div()
+            .h(px(22.))
+            .flex()
+            .items_center()
+            .child(icon(icon_name).text_color(theme.text_1)),
+    )
+}
+
+/// A page's title, as its header sets it.
+fn title_text(text: impl IntoElement) -> Div {
+    div()
+        .min_w(px(0.))
+        .line_height(px(22.))
+        .text_size(px(16.))
+        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .child(text)
+}
+
+/// The line under a page's title saying what it is.
+fn meta_row(theme: &Theme) -> Div {
+    h_flex()
+        .h(px(20.))
+        .gap(px(12.))
+        .text_size(px(13.))
+        .text_color(theme.text_2)
+}
 
 /// The block at the top of a side panel, saying what's selected.
 pub(super) fn side_header(theme: &Theme) -> Div {
