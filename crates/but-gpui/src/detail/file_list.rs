@@ -450,7 +450,7 @@ impl Detail {
         self.file_picks.len()
     }
 
-    fn diff_path(&self, file: usize) -> Option<String> {
+    pub(super) fn diff_path(&self, file: usize) -> Option<String> {
         Some(self.diff.as_ref()?.files.get(file)?.file.path.clone())
     }
 

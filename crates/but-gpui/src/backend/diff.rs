@@ -175,6 +175,7 @@ fn add_conflicts(ctx: &but_ctx::Context, commit: CommitId, diffs: &mut Vec<FileD
                     body: DiffBody::Empty,
                     fingerprint: 0,
                     annotated: true,
+                    drawing: None,
                 });
                 diffs.len() - 1
             }
@@ -409,6 +410,7 @@ fn load_file(
             body: old.body.clone(),
             fingerprint: old.fingerprint,
             annotated: old.annotated,
+            drawing: old.drawing.clone(),
         });
     }
     let mut filter = but_core::unified_diff::filter_from_state(
@@ -428,6 +430,7 @@ fn load_file(
             body: old.body.clone(),
             fingerprint,
             annotated: true,
+            drawing: old.drawing.clone(),
         });
     }
     let mut body = match patch {
@@ -481,20 +484,27 @@ fn load_file(
     // among them; other bodies are as they'll stay.
     let annotated = annotate.is_some_and(|limit| lines <= limit || limit >= HIGHLIGHT_LIMIT)
         || !matches!(body, DiffBody::Hunks { .. } | DiffBody::Binary);
+    // An SVG is drawn as images are decoded, with the highlighting.
+    let drawing = (annotate.is_some() && matches!(body, DiffBody::Hunks { .. } | DiffBody::Binary))
+        .then(|| svg_drawing(repo, &file))
+        .flatten();
     Ok(FileDiff {
         file,
         body,
         fingerprint,
         annotated,
+        drawing,
     })
 }
 
-/// `bytes` decoded as `format` and shrunk to the most a diff shows of it, once for the
-/// images seen last: one keeps its id, so the GPU texture gpui makes for it the first time
-/// it's drawn serves later diffs too. Decoded here rather than by gpui as it's drawn: an
-/// image gpui is still decoding stays blank in the cached diff until something else redraws
-/// it.
-fn decoded(format: image::ImageFormat, bytes: &[u8]) -> Option<Arc<gpui::RenderImage>> {
+/// `bytes` turned into an image by `decode`, once for the images seen last: one keeps its
+/// id, so the GPU texture gpui makes for it the first time it's drawn serves later diffs
+/// too. Decoded here rather than by gpui as it's drawn: an image gpui is still decoding
+/// stays blank in the cached diff until something else redraws it.
+fn decoded(
+    bytes: &[u8],
+    decode: impl FnOnce(&[u8]) -> Option<Arc<gpui::RenderImage>>,
+) -> Option<Arc<gpui::RenderImage>> {
     use std::hash::{Hash as _, Hasher as _};
     use std::sync::{LazyLock, Mutex};
     // At most 2.8 MB each.
@@ -507,6 +517,17 @@ fn decoded(format: image::ImageFormat, bytes: &[u8]) -> Option<Arc<gpui::RenderI
     if let Some((_, found)) = DECODED.lock().ok()?.iter().find(|(k, _)| *k == key) {
         return Some(found.clone());
     }
+    let render = decode(bytes)?;
+    let mut decoded = DECODED.lock().ok()?;
+    if decoded.len() == KEPT {
+        decoded.pop_front();
+    }
+    decoded.push_back((key, render.clone()));
+    Some(render)
+}
+
+/// `bytes` decoded as `format` and shrunk to the most a diff shows of it.
+fn raster(format: image::ImageFormat, bytes: &[u8]) -> Option<Arc<gpui::RenderImage>> {
     let mut image = image::load_from_memory_with_format(bytes, format).ok()?;
     // A diff draws an image at most 220 points tall, 440 pixels on a Retina screen, and half
     // the pane wide; more pixels would only cost memory.
@@ -518,13 +539,72 @@ fn decoded(format: image::ImageFormat, bytes: &[u8]) -> Option<Arc<gpui::RenderI
     for pixel in buffer.as_chunks_mut::<4>().0 {
         pixel.swap(0, 2);
     }
-    let render = Arc::new(gpui::RenderImage::new([image::Frame::new(buffer)]));
-    let mut decoded = DECODED.lock().ok()?;
-    if decoded.len() == KEPT {
-        decoded.pop_front();
+    Some(Arc::new(gpui::RenderImage::new([image::Frame::new(
+        buffer,
+    )])))
+}
+
+/// `bytes` drawn as gpui draws an SVG, sharp on a Retina screen. It keeps its own size
+/// within what a diff shows of an image, 800 points wide and 220 tall, but grows to 64
+/// points across at least: an icon is the usual SVG, and too small to compare as it is.
+fn draw_svg(bytes: &[u8]) -> Option<Arc<gpui::RenderImage>> {
+    let renderer = gpui::SvgRenderer::new(Arc::new(()));
+    let svg = renderer.parse_svg(bytes).ok()?;
+    // gpui doesn't say how big an SVG is, but drawing it at a sixteenth does: at twice that
+    // for the screen, each pixel stands for eight points of it. One too small to draw so
+    // counts as eight points.
+    let (width, height) = match renderer.render_parsed(&svg, 1. / 16.) {
+        Ok(probe) => {
+            let size = probe.size(0);
+            let points = |pixels: gpui::DevicePixels| i32::from(pixels).max(1) as f32 * 8.;
+            (points(size.width), points(size.height))
+        }
+        Err(_) => (8., 8.),
+    };
+    let scale = (64. / width.max(height))
+        .max(1.)
+        .min(800. / width)
+        .min(220. / height);
+    renderer.render_parsed(&svg, scale).ok()
+}
+
+/// SVGs bigger than this show as text, rather than spend the time drawing them.
+const SVG_LIMIT: usize = 1_000_000;
+
+/// Both sides of `file` drawn, when it's an SVG that draws.
+fn svg_drawing(repo: &gix::Repository, file: &FileChange) -> Option<super::Drawing> {
+    if !file.path.to_ascii_lowercase().ends_with(".svg") {
+        return None;
     }
-    decoded.push_back((key, render.clone()));
-    Some(render)
+    let (before, after) = both_sides(file, |state, path| {
+        let data = read_side(repo, state, path).ok()?;
+        (data.len() <= SVG_LIMIT)
+            .then(|| decoded(&data, draw_svg))
+            .flatten()
+    })?;
+    Some(super::Drawing { before, after })
+}
+
+/// What `side` makes of each of `file`'s sides, the old one at its old path: none before
+/// for an added file, none after for a deleted one, and `None` when a side that's there
+/// makes nothing.
+fn both_sides<T>(
+    file: &FileChange,
+    side: impl Fn(but_core::ChangeState, &str) -> Option<T>,
+) -> Option<(Option<T>, Option<T>)> {
+    let status = &file.change.status;
+    let before = match status.previous_state_and_path() {
+        Some((state, old_path)) => {
+            let path = old_path.map_or_else(|| file.path.clone(), |p| p.to_string());
+            Some(side(state, &path)?)
+        }
+        None => None,
+    };
+    let after = match status.state() {
+        Some(state) => Some(side(state, &file.path)?),
+        None => None,
+    };
+    Some((before, after))
 }
 
 /// Images bigger than this show as a binary file, rather than spend the memory.
@@ -544,24 +624,12 @@ fn image_body(repo: &gix::Repository, file: &FileChange) -> Option<DiffBody> {
         "tif" | "tiff" => F::Tiff,
         _ => return None,
     };
-    let side = |state: but_core::ChangeState, path: &str| {
+    let (before, after) = both_sides(file, |state, path| {
         let data = read_side(repo, state, path).ok()?;
         (data.len() <= IMAGE_LIMIT)
-            .then(|| decoded(format, &data))
+            .then(|| decoded(&data, |bytes| raster(format, bytes)))
             .flatten()
-    };
-    let status = &file.change.status;
-    let before = match status.previous_state_and_path() {
-        Some((state, old_path)) => {
-            let path = old_path.map_or_else(|| file.path.clone(), |p| p.to_string());
-            Some(side(state, &path)?)
-        }
-        None => None,
-    };
-    let after = match status.state() {
-        Some(state) => Some(side(state, &file.path)?),
-        None => None,
-    };
+    })?;
     Some(DiffBody::Image { before, after })
 }
 

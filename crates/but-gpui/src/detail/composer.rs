@@ -1130,6 +1130,7 @@ mod tests {
             },
             fingerprint: 0,
             annotated: true,
+            drawing: None,
         };
         let mut checks = Checks::default();
         let picked = hunk(key(10, 2), "    new();");

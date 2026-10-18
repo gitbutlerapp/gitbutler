@@ -475,6 +475,16 @@ pub struct FileDiff {
     /// Highlighted and given scope names. A load can leave files past the first few
     /// plain, for a later one to fill in.
     pub annotated: bool,
+    /// An SVG's two sides drawn, shown in place of its lines unless those are asked for.
+    pub drawing: Option<Drawing>,
+}
+
+/// An SVG file's sides drawn as images are shown; a side is missing for an added or
+/// deleted file.
+#[derive(Debug, Clone)]
+pub struct Drawing {
+    pub before: Option<std::sync::Arc<gpui::RenderImage>>,
+    pub after: Option<std::sync::Arc<gpui::RenderImage>>,
 }
 
 impl FileDiff {

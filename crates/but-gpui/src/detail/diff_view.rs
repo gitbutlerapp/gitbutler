@@ -17,8 +17,8 @@ use super::{
 };
 use crate::app::AppView;
 use crate::backend::{
-    self, Branch, ChangeKind, DiffBody, DiffLine, DiffSource, FileDiff, LineKind, PushState,
-    Selected,
+    self, Branch, ChangeKind, DiffBody, DiffLine, DiffSource, Drawing, FileDiff, LineKind,
+    PushState, Selected,
 };
 use crate::overlays::MenuItem;
 use crate::state::{Cut, Prefs, ProjectId, Selection};
@@ -612,6 +612,7 @@ impl Detail {
         match row {
             DiffRow::File(file) => {
                 let whole = self.whole_button(ix, file, &diff.files[file], entity.clone());
+                let drawn = self.drawing_button(ix, file, &diff.files[file], entity.clone());
                 let toggle = entity.clone();
                 // What right-clicking the header offers, behind a ⋯ as well.
                 let header_menu = self.diff_cut(file, None, cx);
@@ -630,7 +631,10 @@ impl Detail {
                 let trailing = h_flex()
                     .flex_none()
                     .gap(px(4.))
+                    // The toggle last but one: showing text adds the whole-file button, which
+                    // mustn't move it from under the pointer.
                     .children(whole)
+                    .children(drawn)
                     .children(more);
                 let header = diff::file_header(
                     file,
@@ -847,7 +851,10 @@ impl Detail {
                 padded.child(element).into_any_element()
             }
             DiffRow::Note(file) => padded
-                .child(diff::note(&diff.files[file], theme))
+                .child(match self.drawing_of(&diff.files[file]) {
+                    Some(drawn) => diff::drawing(drawn.before.clone(), drawn.after.clone(), theme),
+                    None => diff::note(&diff.files[file], theme),
+                })
                 .into_any_element(),
             DiffRow::Gap => padded.h(px(10.)).into_any_element(),
         }
@@ -864,6 +871,7 @@ impl Detail {
         entity: WeakEntity<Detail>,
     ) -> Option<AnyElement> {
         let has_context = matches!(file_diff.body, DiffBody::Hunks { .. })
+            && self.drawing_of(file_diff).is_none()
             && matches!(
                 file_diff.file.kind,
                 ChangeKind::Modified | ChangeKind::Renamed
@@ -888,6 +896,48 @@ impl Detail {
                 })
                 .into_any_element(),
         )
+    }
+
+    /// On an SVG's header: show its lines rather than its drawing, or the drawing again.
+    fn drawing_button(
+        &self,
+        ix: usize,
+        file: usize,
+        file_diff: &FileDiff,
+        entity: WeakEntity<Detail>,
+    ) -> Option<AnyElement> {
+        file_diff.drawing.as_ref()?;
+        let text = self.svg_text.contains(&file_diff.file.path);
+        Some(
+            icon_button(("drawing", ix), Icon::TextCode)
+                .small()
+                .selected(text)
+                .tooltip(if text {
+                    "Show the drawing"
+                } else {
+                    "Show as text"
+                })
+                .on_click(move |_, _, cx| {
+                    (entity.update(cx, |detail, cx| detail.toggle_drawing(file, cx))).ok();
+                })
+                .into_any_element(),
+        )
+    }
+
+    /// The drawing `file` shows in place of its lines: an SVG's, unless it's shown as text.
+    pub(super) fn drawing_of<'a>(&self, file: &'a FileDiff) -> Option<&'a Drawing> {
+        (file.drawing.as_ref()).filter(|_| !self.svg_text.contains(&file.file.path))
+    }
+
+    /// Show `file`'s lines rather than its drawing, or the drawing again.
+    fn toggle_drawing(&mut self, file: usize, cx: &mut Context<Self>) {
+        let Some(path) = self.diff_path(file) else {
+            return;
+        };
+        if !self.svg_text.remove(&path) {
+            self.svg_text.insert(path);
+        }
+        self.rebuild_rows(cx);
     }
 
     /// Show every line of `file`, or only its hunks again.
