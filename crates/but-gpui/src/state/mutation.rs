@@ -103,6 +103,15 @@ impl Overlay {
 
 const FETCH: &str = "Fetch";
 const UPDATE: &str = "Update";
+/// What runs while a commit is checked out for editing: fetching, which leaves the worktree
+/// alone, and what resolves the commit and ends the edit.
+const WHILE_EDITING: [&str; 5] = [
+    FETCH,
+    "Resolve",
+    "Mark resolved",
+    "Finish editing",
+    "Cancel editing",
+];
 
 /// The commits an operation captured, found again by key when it runs, as operations queued
 /// before it may have rewritten them.
@@ -210,6 +219,44 @@ impl Store {
             Overlay::default(),
             move |path, _| backend::history::undo_snapshot(path, snapshot),
             |store, operation, cx| store.snack(format!("Undone: {operation}"), cx),
+            cx,
+        );
+    }
+
+    /// Commit the edited commit as its files are now, and go back to the workspace.
+    pub fn finish_editing(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        self.run(
+            project,
+            "Finish editing",
+            Overlay::default(),
+            |path, _| backend::edit::finish(path),
+            |store, (), cx| store.snack("Finished editing", cx),
+            cx,
+        );
+    }
+
+    /// Go back to the workspace leaving the edited commit as it was; unless `force`, asking
+    /// first when that drops what changed.
+    pub fn cancel_editing(&mut self, project: &ProjectId, force: bool, cx: &mut Context<Self>) {
+        let again = project.clone();
+        self.run(
+            project,
+            "Cancel editing",
+            Overlay::default(),
+            move |path, _| backend::edit::cancel(path, force),
+            move |store, left, cx| match left {
+                true => store.snack("Stopped editing, the commit is as it was", cx),
+                // A conflicted commit's files always differ, markers and all, from the commit
+                // as git can store it, so this can't tell whether anything was done to them.
+                false => store.error_with_retry(
+                    "Cancelling drops the files as they are",
+                    "The commit stays as it was, conflicts and all. What was done to its files \
+                     since it was checked out, resolving included, is lost.",
+                    "Cancel anyway",
+                    move |store, cx| store.cancel_editing(&again, true, cx),
+                    cx,
+                ),
+            },
             cx,
         );
     }
@@ -592,16 +639,14 @@ impl Store {
         remap: Remap,
         cx: &mut Context<Self>,
     ) {
-        // While `but resolve` has a commit checked out, only fetching runs: it leaves the
-        // worktree alone.
         let editing = self
             .workspace(project)
             .is_some_and(|ws| ws.editing.is_some());
-        let refused = editing && label.as_ref() != FETCH;
+        let refused = editing && !WHILE_EDITING.contains(&label.as_ref());
         let path = self.path(project).filter(|_| !refused);
         let Some(path) = path else {
             if refused {
-                self.snack("Run `but resolve finish` or `but resolve cancel` first", cx);
+                self.snack("Finish or cancel editing the commit first", cx);
             }
             // `start_next` goes on to this project's next operation.
             self.running.remove(project);

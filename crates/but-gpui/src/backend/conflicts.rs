@@ -66,7 +66,8 @@ pub fn resolve(
 /// Resolve conflicts a merge left in uncommitted files of the checkout `worktree` names, or
 /// the main one, each by its file and id: what's kept replaces the conflict's markers, and a
 /// file with none left is marked resolved. Returns how many files were. Recorded for undo
-/// first in the main checkout, as discarding is; the oplog can't restore a linked worktree.
+/// first in the main checkout, as discarding is; the oplog can't restore a linked worktree,
+/// nor a commit checked out for editing.
 pub fn resolve_markers(
     path: &Path,
     worktree: Option<&str>,
@@ -74,6 +75,8 @@ pub fn resolve_markers(
 ) -> Result<usize> {
     use but_oplog::legacy::{OperationKind, SnapshotDetails};
     let mut ctx = open(path)?;
+    // Asked before taking the worktree, as asking takes it too.
+    let editing = super::edit::editing(&ctx)?.is_some();
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
     let repo = checkout(&ctx, worktree)?;
@@ -81,7 +84,7 @@ pub fn resolve_markers(
         .workdir()
         .context("The checkout has no files")?
         .to_owned();
-    if worktree.is_none() {
+    if worktree.is_none() && !editing {
         let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
             &ctx,
             SnapshotDetails::new(OperationKind::ResolveConflicts),
