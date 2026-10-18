@@ -79,7 +79,13 @@ impl Detail {
                             .children(branch)
                             .child(format!("· {files_count} uncommitted")),
                     )
-                    .child(faint(short_path(&worktree.path), theme).truncate()),
+                    // Cut in the middle, keeping the folder's own name at its end.
+                    .child(
+                        faint(short_path(&worktree.path), theme)
+                            .overflow_hidden()
+                            .whitespace_nowrap()
+                            .text_ellipsis_middle(),
+                    ),
             )
             .children(
                 worktree
