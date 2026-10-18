@@ -852,11 +852,14 @@ impl Navigator {
                                 .tooltip(Tooltip::text("Changed in the last 2 minutes")),
                         )
                     } else {
+                        let age = relative_time(at);
                         el.child(
                             div()
+                                .id(ElementId::Name(format!("quiet-{id}").into()))
                                 .text_size(px(11.))
                                 .text_color(style.muted())
-                                .child(relative_time(at)),
+                                .tooltip(Tooltip::text(format!("Last changed {age} ago")))
+                                .child(age),
                         )
                     }
                 })
