@@ -12,7 +12,7 @@ use super::Detail;
 use super::pull_request::render_review;
 use crate::app::StartCommit;
 use crate::backend::{self, CommitState, FileChange, PushState, short_ref};
-use crate::state::{ProjectId, Review, Selection};
+use crate::state::{ProjectId, Review, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::person::person_avatar;
 use crate::ui::scrollbar::{Scroll, scrolled};
@@ -253,7 +253,13 @@ impl Detail {
         let scope = key.review_scope()?;
         let store = self.store.read(cx);
         let files = key.uncommitted(store)?;
-        if store.unreviewed(&scope, files) == 0 {
+        // With the file filter open, all is all it shows.
+        let (terms, in_scope) = (self.filter_terms(cx), scope.clone());
+        let unreviewed = move |store: &Store, file: &FileChange| {
+            super::keeps_path(&terms, &file.path)
+                && store.review(&in_scope, file) != Review::Reviewed
+        };
+        if !files.iter().any(|file| unreviewed(store, file)) {
             return None;
         }
         let store = self.store.clone();
@@ -265,7 +271,7 @@ impl Detail {
                     store.update(cx, |store, cx| {
                         let files: Vec<FileChange> = (key.uncommitted(store).unwrap_or_default())
                             .iter()
-                            .filter(|f| store.review(&scope, f) != Review::Reviewed)
+                            .filter(|file| unreviewed(store, file))
                             .cloned()
                             .collect();
                         store.set_reviewed(&scope, &files, true, cx)
