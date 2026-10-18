@@ -678,7 +678,7 @@ fn render_incoming(
                         .min_w(px(0.))
                         .text_color(theme.warn)
                         .child(format!(
-                            "{} on the remote, not here",
+                            "{} only on the remote",
                             plural(titles.len(), "commit")
                         )),
                 )
