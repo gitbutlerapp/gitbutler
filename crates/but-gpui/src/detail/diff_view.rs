@@ -299,7 +299,7 @@ impl Detail {
         };
         if diff.files.is_empty() {
             let (title, detail) = match diff.key.source {
-                DiffSource::Worktree => (
+                DiffSource::Worktree | DiffSource::Linked(_) => (
                     "No uncommitted changes",
                     "Edits show up here as soon as they're saved",
                 ),
