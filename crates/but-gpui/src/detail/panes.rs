@@ -48,17 +48,19 @@ impl Detail {
                         .and_then(|ws| ws.target.as_ref())
                         .filter(|target| target.needs_update)
                         .map(|target| target.name.clone());
-                    actions.push(
-                        button("fetch", "Fetch")
-                            .icon(Icon::Refresh)
-                            .style(ButtonStyle::Ghost)
-                            .tooltip_with_key(
-                                "Fetch from the project's remotes",
-                                shortcut(&crate::app::Fetch, cx),
-                            )
-                            .dispatch(&crate::app::Fetch)
-                            .into_any_element(),
-                    );
+                    if !self.no_remote(&entry.id) {
+                        actions.push(
+                            button("fetch", "Fetch")
+                                .icon(Icon::Refresh)
+                                .style(ButtonStyle::Ghost)
+                                .tooltip_with_key(
+                                    "Fetch from the project's remotes",
+                                    shortcut(&crate::app::Fetch, cx),
+                                )
+                                .dispatch(&crate::app::Fetch)
+                                .into_any_element(),
+                        );
+                    }
                     if let Some(target) = needs_update {
                         actions.push(
                             button("update", format!("Update from {target}"))

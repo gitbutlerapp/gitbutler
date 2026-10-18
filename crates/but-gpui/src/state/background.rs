@@ -36,7 +36,7 @@ impl Store {
                     let reloaded = this.update(cx, |store, cx| {
                         store.fetched.insert(project.clone(), Instant::now());
                         match fetched {
-                            Ok(()) => store.fetch_failed.remove(&project),
+                            Ok(_) => store.fetch_failed.remove(&project),
                             Err(_) => store.fetch_failed.insert(project.clone(), Instant::now()),
                         };
                         // What a fetch changes is in the git directory, which the watcher

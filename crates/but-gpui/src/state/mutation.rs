@@ -221,10 +221,16 @@ impl Store {
             FETCH,
             Overlay::remote(),
             |path, _| backend::fetch(path),
-            move |store, (), cx| {
+            move |store, any_remote, cx| {
                 store.fetch_failed.remove(&fetched);
                 store.fetched.insert(fetched, Instant::now());
-                store.snack("Fetched", cx)
+                store.snack(
+                    match any_remote {
+                        true => "Fetched",
+                        false => "No remote to fetch from",
+                    },
+                    cx,
+                )
             },
             cx,
         );

@@ -61,9 +61,12 @@ pub fn target_commits(
 }
 
 /// When the project last fetched, in seconds since the epoch, and why the last attempt
-/// failed if it did.
-pub fn fetch_status(path: &Path) -> Result<(Option<i64>, Option<String>)> {
+/// failed if it did. `None` when it has no remote to fetch from.
+pub fn fetch_status(path: &Path) -> Result<Option<(Option<i64>, Option<String>)>> {
     let ctx = open(path)?;
+    if ctx.repo.get()?.remote_names().is_empty() {
+        return Ok(None);
+    }
     let status = but_api::workspace::workspace_fetch_status(&ctx)?;
     // A fetch in a terminal counts too: Git notes every fetch in FETCH_HEAD, one for each
     // worktree, as an agent fetching in its own leaves one there.
@@ -86,7 +89,7 @@ pub fn fetch_status(path: &Path) -> Result<(Option<i64>, Option<String>)> {
     // An error from before a later fetch elsewhere is stale.
     let attempted = status.last_attempted_ms.map(|ms| (ms / 1000) as i64);
     let error = status.last_error.filter(|_| fetch_head <= attempted);
-    Ok((fetched.max(fetch_head), error))
+    Ok(Some((fetched.max(fetch_head), error)))
 }
 
 /// Push `ref_name` and the branches below it, forced when one of them was rewritten since it
@@ -328,9 +331,14 @@ fn integrate_upstream(
     but_api::workspace::workspace_integrate_upstream_with_perm(ctx, updates, dry_run, perm)
 }
 
-pub fn fetch(path: &Path) -> Result<()> {
+/// Fetch from the project's remotes. `false` when it has none to fetch from.
+pub fn fetch(path: &Path) -> Result<bool> {
     let mut ctx = open(path)?;
-    but_api::workspace::workspace_fetch_from_remotes(&mut ctx, Some("fetch".into()))
+    if ctx.repo.get()?.remote_names().is_empty() {
+        return Ok(false);
+    }
+    but_api::workspace::workspace_fetch_from_remotes(&mut ctx, Some("fetch".into()))?;
+    Ok(true)
 }
 
 /// Put `branch` (a short name), or with `whole_stack` it and every branch below it,

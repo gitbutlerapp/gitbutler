@@ -29,10 +29,9 @@ pub(super) struct Upstream {
     commits: Vec<TargetCommit>,
     more: bool,
     selected: Option<CommitId>,
-    /// When the project last fetched successfully.
-    fetched: Option<i64>,
-    /// Why the last fetch failed.
-    fetch_error: Option<String>,
+    /// When the project last fetched successfully, and why the last fetch failed; `None`
+    /// when it has no remote to fetch from.
+    fetch: Option<(Option<i64>, Option<String>)>,
     /// The forge the project is on, when no account for it is connected.
     unconnected_forge: Option<Forge>,
     /// What the list was loaded for, and when.
@@ -97,8 +96,7 @@ impl Detail {
             })
             .await;
             this.update(cx, |this, cx| {
-                let ((commits, has_more), (fetched, fetch_error), unconnected_forge) = match result
-                {
+                let ((commits, has_more), fetch, unconnected_forge) = match result {
                     Ok(loaded) => loaded,
                     // Paging further back keeps what's listed.
                     Err(err) if after.is_some() => {
@@ -113,8 +111,7 @@ impl Detail {
                             commits: Vec::new(),
                             more: false,
                             selected: None,
-                            fetched: None,
-                            fetch_error: None,
+                            fetch: Some((None, None)),
                             unconnected_forge: None,
                             seen: (seen, Instant::now()),
                             failed: Some(format!("{err:#}")),
@@ -140,8 +137,7 @@ impl Detail {
                     commits: list,
                     more,
                     selected,
-                    fetched,
-                    fetch_error,
+                    fetch,
                     unconnected_forge,
                     seen: (seen, Instant::now()),
                     failed: None,
@@ -174,6 +170,12 @@ impl Detail {
 
     fn upstream_for(&self, project: &ProjectId) -> Option<&Upstream> {
         self.upstream.as_ref().filter(|u| u.project == *project)
+    }
+
+    /// Whether the project's page found it has no remote to fetch from.
+    pub(super) fn no_remote(&self, project: &ProjectId) -> bool {
+        self.upstream_for(project)
+            .is_some_and(|u| u.fetch.is_none())
     }
 
     pub(super) fn upstream_source(&self, project: &ProjectId) -> Option<DiffSource> {
@@ -228,8 +230,8 @@ impl Detail {
             .and_then(|ws| ws.target.as_ref())
             .map(|t| t.name.clone());
         let upstream = self.upstream_for(project);
-        let fetched = upstream.and_then(|u| u.fetched);
-        let fetch_error = upstream.and_then(|u| u.fetch_error.clone());
+        let fetch = upstream.map(|u| u.fetch.clone());
+        let fetch_error = upstream.and_then(|u| u.fetch.as_ref()?.1.clone());
         let about = side_header(theme)
             .text_size(px(12.))
             .child(
@@ -244,12 +246,13 @@ impl Detail {
                     .gap(px(6.))
                     .text_color(theme.text_2)
                     .child(small_icon(Icon::Refresh).text_color(theme.text_2))
-                    .child(match fetched {
-                        Some(at) => match relative_time(at).as_str() {
+                    .child(match fetch {
+                        Some(None) => "No remote to fetch from".into(),
+                        Some(Some((Some(at), _))) => match relative_time(at).as_str() {
                             "now" => "Fetched just now".into(),
                             ago => format!("Fetched {ago} ago"),
                         },
-                        None => "Not fetched yet".into(),
+                        _ => "Not fetched yet".into(),
                     }),
             )
             .children(fetch_error.map(|err| {
