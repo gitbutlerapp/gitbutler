@@ -1324,24 +1324,31 @@ impl Navigator {
                 })
                 .when(expanded && needs_update, |el| {
                     let project = id.clone();
+                    let updating = store.updating(id);
                     // Pressing it leaves the selection where it is, as pressing the row wouldn't.
                     el.child(
                         div()
                             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                             .child(
-                                button(ElementId::Name(format!("update-{id}").into()), "Update")
-                                    .small()
-                                    .style(ButtonStyle::Gray)
-                                    .inverted(style.solid)
-                                    .tooltip("Rebase your branches onto the target's new commits")
-                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                button(
+                                    ElementId::Name(format!("update-{id}").into()),
+                                    if updating { "Updating…" } else { "Update" },
+                                )
+                                .small()
+                                .style(ButtonStyle::Gray)
+                                .inverted(style.solid)
+                                .disabled_because(updating.then_some("Updating already"))
+                                .tooltip("Rebase your branches onto the target's new commits")
+                                .on_click(cx.listener(
+                                    move |this, _, _, cx| {
                                         let project = project.clone();
                                         this.app
                                             .update(cx, |app, cx| {
                                                 app.update_from_target(project, cx)
                                             })
                                             .ok();
-                                    })),
+                                    },
+                                )),
                             ),
                     )
                 })
