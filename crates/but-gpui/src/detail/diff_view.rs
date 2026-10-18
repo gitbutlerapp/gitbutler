@@ -7,8 +7,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    Action, AnyElement, App, ClickEvent, Context, Entity, MouseButton, Pixels, SharedString,
-    Subscription, WeakEntity, Window, div, list, prelude::*, px,
+    Action, AnyElement, App, ClickEvent, Context, Entity, MouseButton, MouseDownEvent, Pixels,
+    Point, SharedString, Subscription, WeakEntity, Window, div, list, prelude::*, px,
 };
 
 use super::{
@@ -20,6 +20,7 @@ use crate::backend::{
     self, Branch, ChangeKind, DiffBody, DiffLine, DiffSource, FileDiff, LineKind, PushState,
     Selected,
 };
+use crate::overlays::MenuItem;
 use crate::state::{Cut, Prefs, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
@@ -751,6 +752,7 @@ impl Detail {
                 let Some(text) = self.line_at(ix) else {
                     return padded.into_any_element();
                 };
+                let menu = line_menu(ix, entity.clone());
                 let place = (file, hunk, line);
                 let (excluded, toggle) = self.line_check(diff, place, &entity);
                 let decor = LineDecor {
@@ -762,7 +764,10 @@ impl Detail {
                 };
                 let layout = self.layout(&diff.files[file], &store.prefs);
                 let element = diff::line_row(text, place, last, theme, &layout, decor);
-                padded.child(element).into_any_element()
+                padded
+                    .child(element)
+                    .on_mouse_down(MouseButton::Right, menu)
+                    .into_any_element()
             }
             DiffRow::Pair {
                 file,
@@ -815,6 +820,7 @@ impl Detail {
                 let Some(line) = self.line_at(ix) else {
                     return padded.into_any_element();
                 };
+                let menu = line_menu(ix, entity.clone());
                 let decor = LineDecor {
                     select: Some(line_select(ix, entity)),
                     selected: self.selected_in_row(ix),
@@ -823,7 +829,10 @@ impl Detail {
                 let layout = self.layout(&diff.files[file], &store.prefs);
                 let element =
                     diff::context_row(line, file, (old, new), last, theme, &layout, decor);
-                padded.child(element).into_any_element()
+                padded
+                    .child(element)
+                    .on_mouse_down(MouseButton::Right, menu)
+                    .into_any_element()
             }
             DiffRow::Conflict {
                 file,
@@ -984,6 +993,83 @@ impl Detail {
                 .ok();
         });
         (excluded, Some(toggle))
+    }
+}
+
+/// Right-clicking the line at row `ix`: see [`Detail::line_menu`].
+fn line_menu(
+    ix: usize,
+    entity: WeakEntity<Detail>,
+) -> impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static {
+    move |event, window, cx| {
+        (entity.update(cx, |detail, cx| {
+            detail.line_menu(ix, event.position, window, cx)
+        }))
+        .ok();
+    }
+}
+
+impl Detail {
+    /// What right-clicking the line at `row` offers. Across selected text: copying it,
+    /// finding it when it's on one line, and opening the file at the line. Otherwise what
+    /// right-clicking its hunk's header does, or its file's for an unchanged line.
+    fn line_menu(
+        &mut self,
+        row: usize,
+        position: Point<Pixels>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(diff) = &self.diff else {
+            return;
+        };
+        let (file, hunk) = match diff.rows.get(row) {
+            Some(DiffRow::Line { file, hunk, .. }) => (*file, Some(*hunk)),
+            Some(DiffRow::Context { file, .. }) => (*file, None),
+            _ => return,
+        };
+        let line = self.line_at(row).and_then(|line| line.new.or(line.old));
+        let selected = (self.text_range())
+            .filter(|(start, end)| (start.0..=end.0).contains(&row))
+            .and_then(|_| self.selected_text());
+        let Some(text) = selected else {
+            let key = hunk.and_then(|hunk| Some(diff.files[file].hunks().get(hunk)?.key));
+            self.clear_text_selection(cx);
+            if let Some(menu) = self.diff_cut(file, key.map(|key| vec![key]), cx) {
+                self.file_menu(menu, line, position, cx);
+            }
+            return;
+        };
+        let (project, worktree) = (diff.key.project.clone(), diff.key.linked());
+        let path = diff.files[file].file.path.clone();
+        // Copy acts where the focus is: on the diff's selection.
+        window.focus(&self.focus, cx);
+        let mut items = vec![MenuItem::action("Copy", &crate::app::CopySelection, cx)];
+        let query = text.trim();
+        if !query.is_empty() && !query.contains('\n') {
+            let shown: String = match query.chars().count() > 40 {
+                true => query.chars().take(39).chain(['…']).collect(),
+                false => query.to_owned(),
+            };
+            let (query, entity) = (query.to_owned(), cx.entity().downgrade());
+            items.push(MenuItem::new(
+                format!("Find \"{shown}\""),
+                move |_, window, cx| {
+                    (entity.update(cx, |detail, cx| detail.find_text(&query, window, cx))).ok();
+                },
+            ));
+        }
+        let label = crate::open_in::editor_label(self.store.read(cx));
+        items.push(
+            MenuItem::new(label, move |this, _, cx| {
+                let (file, worktree) = (Some(path.clone()), worktree.clone());
+                this.open_in_editor(&project, worktree, file, line, position, cx)
+            })
+            .separated(),
+        );
+        (self.app)
+            .update(cx, |app, cx| app.open_menu(position, items, cx))
+            .ok();
     }
 }
 
