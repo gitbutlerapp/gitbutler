@@ -834,7 +834,20 @@ impl AppView {
         let Some((project, ref_name)) = self.selected_named_branch(cx) else {
             return;
         };
-        let name = short_ref(&ref_name).to_owned();
+        // The whole stack goes, so the snackbar counts the other branches in it.
+        let stack = (self.store.read(cx).workspace(&project))
+            .and_then(|ws| ws.stack_of(&ref_name))
+            .map(|(stack, _)| stack.branches.len())
+            .unwrap_or(1);
+        let name = match stack {
+            1 => short_ref(&ref_name).to_owned(),
+            2 => format!("{} and the other branch in its stack", short_ref(&ref_name)),
+            n => format!(
+                "{} and the {} other branches in its stack",
+                short_ref(&ref_name),
+                n - 1
+            ),
+        };
         self.store.update(cx, |store, cx| {
             store.run(
                 &project,
