@@ -20,8 +20,7 @@ use crate::theme::{Appearance, CodeSize, Theme};
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, Icon, button, dropdown, faint, field, h_flex, icon_button, list_row, muted,
-    switch, v_flex,
+    ButtonStyle, button, dropdown, faint, field, h_flex, list_row, muted, switch, v_flex,
 };
 
 actions!(settings, [OpenSettings]);
@@ -130,7 +129,7 @@ impl SettingsView {
     ) -> Self {
         let search = cx.new(|cx| TextInput::new("Search settings", false, cx));
         let name = cx.new(|cx| TextInput::new("Project name", false, cx));
-        let ai = ai::Ai::new(cx);
+        let ai = ai::Ai::new(window, cx);
         let subscriptions = vec![
             cx.subscribe_in(&search, window, |this, search, event, _, cx| match event {
                 InputEvent::Changed => {
@@ -146,10 +145,13 @@ impl SettingsView {
             }),
             // The target and the project's name show what the store has.
             cx.observe(&store, |_, _, cx| cx.notify()),
-            cx.subscribe(&name, |this, _, event, cx| match event {
+            cx.subscribe_in(&name, window, |this, _, event, window, cx| match event {
                 InputEvent::Submit => this.save_name(cx),
                 InputEvent::Changed => cx.notify(),
-                InputEvent::Cancel => this.reset_name(cx),
+                InputEvent::Cancel => {
+                    this.reset_name(cx);
+                    this.back_to_search(window, cx);
+                }
             }),
         ];
         let mut view = Self {
@@ -438,6 +440,11 @@ impl SettingsView {
         ]
     }
 
+    /// Escape in a field puts it back and goes to the search box, where Escape closes.
+    fn back_to_search(&self, window: &mut Window, cx: &mut Context<Self>) {
+        window.focus(&self.search.focus_handle(cx), cx);
+    }
+
     fn section_rows(&self, section: Section, window: &Window, cx: &Context<Self>) -> Vec<Row> {
         match section {
             Section::General => self.general_rows(cx),
@@ -587,12 +594,7 @@ impl Render for SettingsView {
                                     .font_weight(gpui::FontWeight::SEMIBOLD)
                                     .child(title),
                             )
-                            .children(pick_project)
-                            .child(
-                                icon_button("close-settings", Icon::Cross)
-                                    .tooltip_with_key("Close", Some("esc".into()))
-                                    .on_click(cx.listener(|_, _, _, cx| cx.emit(DismissEvent))),
-                            ),
+                            .children(pick_project),
                     )
                     .child(
                         v_flex()
