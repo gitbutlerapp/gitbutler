@@ -2289,9 +2289,18 @@ impl Render for Navigator {
         let project_count = store.projects.len();
         let empty = store.projects_loaded && project_count == 0;
 
+        // Once the cards scroll under it, a rule along its bottom, as but.dev draws one, and
+        // level with the location bar's: the same height and border, from the window's top.
+        let top = self.list.logical_scroll_top();
+        let under = top.item_ix > 0 || top.offset_in_item > px(0.);
         let header = h_flex()
             .h(px(HEADER_HEIGHT))
             .flex_none()
+            .border_b_1()
+            .border_color(match under {
+                true => theme.border_3,
+                false => gpui::transparent_black(),
+            })
             .pl(px(84.))
             .pr(px(8.))
             .gap(px(6.))
