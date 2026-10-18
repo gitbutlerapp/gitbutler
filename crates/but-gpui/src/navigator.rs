@@ -733,9 +733,9 @@ impl Navigator {
             Some(Row::Pending(title)) => h_flex()
                 .min_h(px(ROW_HEIGHT))
                 .mx(px(3.))
-                .pl(px(28.))
+                .pl(px(38.))
                 .pr(px(12.))
-                .gap(px(6.))
+                .gap(px(10.))
                 .opacity(0.5)
                 .child(small_icon(Icon::Commit).text_color(theme.blue))
                 .child(div().flex_1().min_w(px(0.)).truncate().child(title.clone()))
@@ -816,7 +816,7 @@ impl Navigator {
             Some(Row::More(project, ref_name, hidden)) => {
                 let key = (project.clone(), ref_name.clone());
                 // The glyph under the commits' glyphs, the words under their titles.
-                fold_row(("more", ix), Icon::Kebab, 31., 51., theme)
+                fold_row(("more", ix), Icon::Kebab, 41., 63., theme)
                     .child(format!("{hidden} more"))
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                         this.unfolded_branches.insert(key.clone());
@@ -826,7 +826,7 @@ impl Navigator {
             }
             Some(Row::Fewer(project, ref_name)) => {
                 let key = (project.clone(), ref_name.clone());
-                fold_row(("fewer", ix), Icon::ChevronUp, 31., 51., theme)
+                fold_row(("fewer", ix), Icon::ChevronUp, 41., 63., theme)
                     .child("Show fewer")
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                         this.unfolded_branches.remove(&key);
@@ -1532,10 +1532,63 @@ impl Navigator {
         };
         let key = (id.clone(), ref_name.to_owned());
         let closed = self.closed_branches.contains(&key) && !branch.commits.is_empty();
+        // A selected commit keeps its branch open.
+        let holds_selected = matches!(&store.selection, Some(Selection::Commit(p, c))
+            if p == id && branch.commits.iter().any(|commit| commit.id == *c));
+        let open = !closed || holds_selected;
+        // As ui-react's SidebarRow: a chevron in a step of its own folds the commits away; a
+        // branch without any has a dot there, keeping it in line with those that fold.
+        let step_color = match style.solid {
+            true => style.muted(),
+            false => theme.text_3,
+        };
+        let step = div()
+            .id(ElementId::Name(format!("fold-{id}-{ref_name}").into()))
+            .flex_none()
+            .w(px(14.))
+            .h(px(16.))
+            .flex()
+            .items_center()
+            .justify_center();
+        let step = match branch.commits.is_empty() {
+            true => step.child(small_icon(Icon::BulletDisc).text_color(step_color)),
+            false => {
+                let fold_key = key.clone();
+                step.rounded(px(3.))
+                    .hover(|el| el.bg(theme.hover()))
+                    .child(
+                        small_icon(match open {
+                            true => Icon::ChevronDown,
+                            false => Icon::ChevronRight,
+                        })
+                        .text_color(step_color),
+                    )
+                    // Folding the branch doesn't select it.
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                        cx.stop_propagation();
+                        if !open {
+                            this.closed_branches.remove(&fold_key);
+                            return cx.notify();
+                        }
+                        this.closed_branches.insert(fold_key.clone());
+                        // Folding it over its selected commit takes the selection up to it,
+                        // as ← does.
+                        match holds_selected {
+                            true => {
+                                let (project, ref_name) = fold_key.clone();
+                                this.select(Selection::Branch(project, ref_name), window, cx)
+                            }
+                            false => cx.notify(),
+                        }
+                    }))
+            }
+        };
         Some(
             style
                 .row(format!("branch-{id}-{ref_name}"), 6.)
                 .aria_label(format!("Branch {}", branch.name))
+                .child(step)
                 .child(icon(glyph).text_color(style.meta(glyph_color)))
                 .child(
                     div()
@@ -1667,7 +1720,9 @@ impl Navigator {
         let unread = store.is_unread(id, commit);
         Some(
             style
-                .row(format!("commit-{id}-{}", commit_id.0), 20.)
+                // Under its branch's glyph, its title under the branch's name.
+                .row(format!("commit-{id}-{}", commit_id.0), 30.)
+                .gap(px(10.))
                 .aria_label(label.clone())
                 .child(small_icon(glyph).text_color(style.meta(color)))
                 .child(

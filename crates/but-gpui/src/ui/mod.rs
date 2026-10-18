@@ -55,6 +55,7 @@ icons! {
     ArrowUp => "arrow-up",
     Branch => "branch",
     BranchMerge => "branch-merge",
+    BulletDisc => "bullet-disc",
     ChevronDown => "chevron-down",
     ChevronUp => "chevron-up",
     ChevronRight => "chevron-right",
