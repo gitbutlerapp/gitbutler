@@ -578,6 +578,11 @@ impl Focusable for AppView {
 
 impl Render for AppView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let covered = self.menu.is_some()
+            || self.prompt.is_some()
+            || self.palette.is_some()
+            || self.modal.is_some();
+        crate::ui::Covered::note(covered, window, cx);
         let theme = Theme::get(cx).clone();
         div()
             .id("root")

@@ -13,8 +13,8 @@ use std::borrow::Cow;
 
 use gpui::{
     Action, AnyElement, App, AssetSource, ClickEvent, CursorStyle, Div, DragMoveEvent, ElementId,
-    EmptyView, Entity, Hsla, Role, SharedString, Stateful, Svg, Toggled, Window, div, prelude::*,
-    px, svg,
+    EmptyView, Entity, Hsla, Pixels, Point, Role, SharedString, Stateful, Svg, Toggled, Window,
+    div, prelude::*, px, svg,
 };
 
 use crate::state::{Pane, Store};
@@ -497,11 +497,45 @@ impl RenderOnce for Button {
 pub struct Tooltip {
     text: SharedString,
     key: Option<SharedString>,
+    /// When it first showed: what had covered the window by then, and where the pointer was.
+    shown: Option<(u64, Point<Pixels>)>,
+}
+
+/// What covers the window, as a menu, picker, prompt or modal does: how many times something
+/// came to, and where the pointer was when the one up now came. A tooltip gpui showed for an
+/// element under it, or was about to, as a click opened it, stays until the pointer leaves the
+/// element; this tells the tooltip to hide meanwhile.
+#[derive(Default)]
+pub struct Covered {
+    times: u64,
+    at: Option<Point<Pixels>>,
+}
+
+impl gpui::Global for Covered {}
+
+impl Covered {
+    /// Note whether something covers the window now.
+    pub fn note(covered: bool, window: &Window, cx: &mut App) {
+        let state = cx.default_global::<Covered>();
+        match (covered, state.at) {
+            (true, None) => {
+                state.times += 1;
+                state.at = Some(window.mouse_position());
+            }
+            (false, Some(_)) => state.at = None,
+            _ => {}
+        }
+    }
 }
 
 impl Tooltip {
     pub fn with_key(text: SharedString, key: Option<SharedString>, cx: &mut App) -> gpui::AnyView {
-        cx.new(|_| Tooltip { text, key }).into()
+        cx.new(|_| Tooltip {
+            text,
+            key,
+            shown: None,
+        })
+        .into()
     }
 
     /// A tooltip of just `text`, for an element's `tooltip`.
@@ -514,9 +548,17 @@ impl Tooltip {
 }
 
 impl Render for Tooltip {
-    fn render(&mut self, _window: &mut Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
+        let (times, at) = cx
+            .try_global::<Covered>()
+            .map_or((0, None), |c| (c.times, c.at));
+        let shown = *self.shown.get_or_insert((times, window.mouse_position()));
+        // An element's under what covers the window when its tooltip showed before that came,
+        // or since without the pointer moving onto something on top.
+        let under = at.is_some_and(|at| shown.0 != times || shown.1 == at);
         let theme = Theme::get(cx);
         popover(theme)
+            .when(under, |el| el.invisible())
             .flex_row()
             .items_center()
             .mt(px(4.))
