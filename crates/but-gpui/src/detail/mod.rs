@@ -1130,9 +1130,9 @@ impl Detail {
         }
     }
 
-    /// Commit to `branch` of `project` next when it was made with the composer open.
+    /// Commit to `branch` of `project` next: a branch just made is where its commits go.
     pub fn branch_created(&mut self, project: &ProjectId, branch: String, cx: &mut Context<Self>) {
-        if self.composing && self.checks_project.as_ref() == Some(project) {
+        if self.checks_project.as_ref() == Some(project) {
             self.commit_target = Some(branch);
             cx.notify();
         }

@@ -425,6 +425,7 @@ impl AppView {
             self.prompt_new_branch(
                 project,
                 "New branch on top",
+                true,
                 window,
                 cx,
                 move |path, _, name| backend::create_dependent_branch(path, &below, name),
@@ -432,22 +433,25 @@ impl AppView {
         }
     }
 
-    /// Ask for a branch name and make the branch with `op`, then select it. With the composer
-    /// open, it's what the next commit goes to.
+    /// Ask for a branch name and make the branch with `op`, then select it. One made on top
+    /// (`on_top`) is what the next commit goes to; one splitting a stack isn't.
     pub(crate) fn prompt_new_branch(
         &mut self,
         project: ProjectId,
         title: &str,
+        on_top: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
         op: impl FnOnce(&Path, &Remap, &str) -> anyhow::Result<String> + Send + 'static,
     ) {
         let (selected, detail) = (project.clone(), self.detail.downgrade());
         let done = move |store: &mut Store, branch: String, cx: &mut Context<Store>| {
-            (detail.update(cx, |detail, cx| {
-                detail.branch_created(&selected, branch.clone(), cx)
-            }))
-            .ok();
+            if on_top {
+                (detail.update(cx, |detail, cx| {
+                    detail.branch_created(&selected, branch.clone(), cx)
+                }))
+                .ok();
+            }
             store.select(Some(Selection::Branch(selected, branch)), cx)
         };
         self.prompt_branch(project, title, "", window, cx, op, done);
@@ -778,9 +782,16 @@ impl AppView {
             return;
         };
         let title = format!("New branch below {}", short_ref(&ref_name));
-        self.prompt_new_branch(project, &title, window, cx, move |path, remap, name| {
-            backend::create_branch_at_commit(path, remap.get(oldest)?, true, name)
-        });
+        self.prompt_new_branch(
+            project,
+            &title,
+            false,
+            window,
+            cx,
+            move |path, remap, name| {
+                backend::create_branch_at_commit(path, remap.get(oldest)?, true, name)
+            },
+        );
     }
 
     /// Split the selected commit's branch: a new branch ending at it takes it and the
@@ -791,9 +802,16 @@ impl AppView {
         };
         let id = commit.id;
         let title = format!("New branch ending at {}", id.short());
-        self.prompt_new_branch(project, &title, window, cx, move |path, remap, name| {
-            backend::create_branch_at_commit(path, remap.get(id)?, false, name)
-        });
+        self.prompt_new_branch(
+            project,
+            &title,
+            false,
+            window,
+            cx,
+            move |path, remap, name| {
+                backend::create_branch_at_commit(path, remap.get(id)?, false, name)
+            },
+        );
     }
 
     fn unstack(&mut self, _: &Unstack, _: &mut Window, cx: &mut Context<Self>) {
