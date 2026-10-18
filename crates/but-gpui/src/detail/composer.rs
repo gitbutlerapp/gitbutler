@@ -793,11 +793,14 @@ impl Detail {
         let Some(workspace) = store.workspace(project) else {
             return div().into_any_element();
         };
-        let checked = workspace
-            .uncommitted
-            .iter()
-            .filter(|f| self.checks.file_check(&f.path) != Toggled::False)
-            .count();
+        let (checked, whole) = (workspace.uncommitted.iter())
+            .map(|f| self.checks.file_check(&f.path))
+            .fold((0, true), |(checked, whole), check| {
+                (
+                    checked + usize::from(check != Toggled::False),
+                    whole && check == Toggled::True,
+                )
+            });
         let target = self.effective_target(project, cx);
         let message_focused = self.message.focus_handle(cx).is_focused(window);
         v_flex()
@@ -872,11 +875,15 @@ impl Detail {
                 h_flex()
                     .gap(px(6.))
                     .child(
+                        // Every line of them, said shorter, so a narrow pane cuts at most the
+                        // noun of a big count, rather than its second number.
                         faint(
-                            format!(
-                                "{checked} of {}",
-                                plural(workspace.uncommitted.len(), "file")
-                            ),
+                            match workspace.uncommitted.len() {
+                                total if whole && total > 1 => {
+                                    format!("All {}", plural(total, "file"))
+                                }
+                                total => format!("{checked} of {}", plural(total, "file")),
+                            },
                             theme,
                         )
                         .flex_1()
