@@ -101,6 +101,8 @@ impl Detail {
                     commits,
                     commit,
                 });
+                // The filter may hide what's selected now.
+                this.select_shown_branch(cx);
                 this.load_branch_commits(cx);
                 this.refresh_diff(false, cx);
                 cx.notify();
@@ -248,18 +250,19 @@ impl Detail {
         {
             return;
         }
+        // With none shown, none is selected, and nothing shows beside the list either.
         let first = rows.iter().find_map(|row| match row {
             Row::Branch(ix) => Some(branches.list[*ix].ref_name.clone()),
             _ => None,
         });
-        if let Some(first) = first {
+        if first != branches.selected {
             self.select_other_branch(first, cx);
         }
     }
 
-    fn select_other_branch(&mut self, ref_name: String, cx: &mut Context<Self>) {
+    fn select_other_branch(&mut self, ref_name: Option<String>, cx: &mut Context<Self>) {
         if let Some(branches) = &mut self.branches {
-            branches.selected = Some(ref_name);
+            branches.selected = ref_name;
             branches.commit = None;
         }
         self.load_branch_commits(cx);
@@ -420,9 +423,10 @@ impl Detail {
         let rows = self.branch_rows(branches, cx);
         let list = if rows.is_empty() {
             let empty = if branches.list.is_empty() {
-                "Every branch is applied"
+                "Every branch is applied".to_owned()
             } else {
-                "No branches match"
+                let filter = self.branch_filter.read(cx).text();
+                format!("No branches match \"{}\"", filter.trim())
             };
             div()
                 .flex_1()
@@ -510,7 +514,7 @@ impl Detail {
                                     el.child(faint(relative_time(time), theme).flex_none())
                                 })
                                 .on_click(cx.listener(move |this, _, _, cx| {
-                                    this.select_other_branch(ref_name.clone(), cx)
+                                    this.select_other_branch(Some(ref_name.clone()), cx)
                                 }))
                                 .into_any_element()
                         }
