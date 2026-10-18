@@ -277,7 +277,7 @@ impl AppView {
         }) else {
             return;
         };
-        self.prompt_new_branch(project, "New branch", window, cx, |path, _, name| {
+        self.prompt_new_branch(project, "New branch", true, window, cx, |path, _, name| {
             backend::create_branch(path, Some(name))
         });
     }
