@@ -76,6 +76,9 @@ pub fn load_diff(
             Some(files) => files,
             None => worktree_files(&repo)?,
         },
+        // At the edge of a shallow clone a commit's parent isn't here; Git shows it as a
+        // root then, everything in it added.
+        DiffSource::Commit(id) if !first_parent_here(&repo, id.0)? => tree_changes(None, id.0)?,
         DiffSource::Commit(id) => {
             let details =
                 but_api::diff::commit_details(&ctx, id.0, but_api::diff::ComputeLineStats::No)?;
@@ -90,7 +93,8 @@ pub fn load_diff(
                 .find_commit(oldest.0)?
                 .parent_ids()
                 .next()
-                .map(|id| id.detach());
+                .map(|id| id.detach())
+                .filter(|id| repo.has_object(id));
             tree_changes(base, newest.0)?
         }
         DiffSource::Branch { tip, .. } => {
@@ -596,6 +600,13 @@ fn parallel_map<T: Send, S, R: Send>(
 }
 
 /// A hash of a file's patch, hunk headers included, so two equal ones have the same lines.
+/// Whether `commit` is a root or its first parent is in the repository, which a shallow
+/// clone's oldest commits' aren't.
+fn first_parent_here(repo: &gix::Repository, commit: gix::ObjectId) -> Result<bool> {
+    let parent = repo.find_commit(commit)?.parent_ids().next();
+    Ok(parent.is_none_or(|parent| repo.has_object(parent)))
+}
+
 fn fingerprint(patch: &Option<but_core::UnifiedPatch>) -> u64 {
     use std::hash::{Hash as _, Hasher as _};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
