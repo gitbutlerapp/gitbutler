@@ -1,7 +1,6 @@
 //! The diff column: every changed file as a card, built row by row so only what's on
-//! screen is laid out. Uncommitted files carry review controls, and their hunks a Discard
-//! button while under the cursor or the pointer, as in Zed's agent review, a linked
-//! worktree's too.
+//! screen is laid out. Uncommitted hunks carry a Discard button while under the cursor or
+//! the pointer, as in Zed's agent review, a linked worktree's too.
 
 use std::ops::Range;
 use std::rc::Rc;
@@ -9,19 +8,19 @@ use std::sync::Arc;
 
 use gpui::{
     Action, AnyElement, App, ClickEvent, Context, Entity, MouseButton, Pixels, Subscription,
-    Toggled, WeakEntity, Window, div, list, prelude::*, px,
+    WeakEntity, Window, div, list, prelude::*, px,
 };
 
 use super::file_list::FileMenu;
 use super::{
-    Cursor, Detail, DiscardHunk, LoadedDiff, TextPoint, ToggleFiles, TogglePlainLines,
-    ToggleReviewed, ToggleSplit, ToggleWrap,
+    Cursor, Detail, DiscardHunk, LoadedDiff, TextPoint, ToggleFiles, TogglePlainLines, ToggleSplit,
+    ToggleWrap,
 };
 use crate::app::AppView;
 use crate::backend::{
     self, ChangeKind, DiffBody, DiffLine, DiffSource, FileDiff, LineKind, Selected,
 };
-use crate::state::{Pane, Prefs, ProjectId, Review};
+use crate::state::{Prefs, ProjectId};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::scrollbar::{Scroll, scrollbar};
@@ -84,7 +83,7 @@ impl Render for DiffPane {
             (
                 detail.focus.clone(),
                 detail.render_diff_tools(&theme, cx),
-                detail.render_diff(window, &theme, cx),
+                detail.render_diff(&theme, cx),
                 detail.render_find(window, &theme, cx),
             )
         });
@@ -281,12 +280,7 @@ impl Detail {
         had
     }
 
-    pub(super) fn render_diff(
-        &self,
-        window: &Window,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> AnyElement {
+    pub(super) fn render_diff(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
         let ground = || div().flex_1().min_w(px(0.)).h_full().bg(theme.bg_1);
         if let Some(err) = &self.diff_error {
             let message = empty_state("Couldn't load the diff", err.clone(), theme);
@@ -322,8 +316,6 @@ impl Detail {
                 .into_any_element();
         }
         let entity = cx.entity().downgrade();
-        // A narrow pane keeps its room for file names, not the review label.
-        let labelled = self.diff_width(window, cx) >= 480.;
         // A copy of the header of the file at the top, while the file scrolls under it. It's
         // clipped to the list, so the next file can push it out the top.
         let sticky = self.sticky_header(diff).map(|(ix, lift)| {
@@ -345,7 +337,7 @@ impl Detail {
                         // rounded corners.
                         .bg(theme.bg_1)
                         .block_mouse_except_scroll()
-                        .child(self.render_diff_row(ix, labelled, entity.clone(), cx)),
+                        .child(self.render_diff_row(ix, entity.clone(), cx)),
                 )
         });
         let scrollbar = scrollbar("diff-scrollbar", Scroll::List(self.list.clone()), theme);
@@ -371,7 +363,7 @@ impl Detail {
                             let Some(detail) = entity.upgrade() else {
                                 return div().into_any_element();
                             };
-                            (detail.read(cx)).render_diff_row(ix, labelled, detail.downgrade(), cx)
+                            (detail.read(cx)).render_diff_row(ix, detail.downgrade(), cx)
                         })
                         .size_full(),
                     )
@@ -379,18 +371,6 @@ impl Detail {
                     .children(scrollbar),
             )
             .into_any_element()
-    }
-
-    /// How wide the diff is drawn: the window less the panes beside it.
-    fn diff_width(&self, window: &Window, cx: &App) -> f32 {
-        let window = window.viewport_size().width.into();
-        let (navigator, files) = (!self.beside_traffic_lights, !self.files_hidden);
-        let store = self.store.read(cx);
-        let beside = |pane, shown| match shown {
-            true => store.fitted_width(pane, window, navigator, files),
-            false => 0.,
-        };
-        window - beside(Pane::Navigator, navigator) - beside(Pane::Files, files)
     }
 
     /// The bar over the diff, as but.dev's: the file list's toggle, which counts the files and
@@ -533,13 +513,7 @@ impl Detail {
         Some((header, lift))
     }
 
-    fn render_diff_row(
-        &self,
-        ix: usize,
-        labelled: bool,
-        entity: WeakEntity<Detail>,
-        cx: &App,
-    ) -> AnyElement {
+    fn render_diff_row(&self, ix: usize, entity: WeakEntity<Detail>, cx: &App) -> AnyElement {
         let theme = Theme::get(cx);
         let Some(diff) = self.diff.as_ref().filter(|diff| ix < diff.rows.len()) else {
             return div().into_any_element();
@@ -564,8 +538,6 @@ impl Detail {
         let padded = div().w_full().px(px(12.));
         match row {
             DiffRow::File(file) => {
-                let review = (diff.key.review_scope())
-                    .map(|scope| store.review(&scope, &diff.files[file].file));
                 let whole = self.whole_button(ix, file, &diff.files[file], entity.clone());
                 let toggle = entity.clone();
                 // What right-clicking the header offers, behind a ⋯ as well.
@@ -586,9 +558,6 @@ impl Detail {
                     .flex_none()
                     .gap(px(4.))
                     .children(whole)
-                    .children(
-                        review.map(|review| review_button(ix, file, review, labelled, entity, cx)),
-                    )
                     .children(more);
                 let header = diff::file_header(
                     file,
@@ -967,54 +936,6 @@ fn line_select(ix: usize, entity: WeakEntity<Detail>) -> LineSelect {
                 .ok();
         }),
     }
-}
-
-/// Lite's three-state review toggle on a file header.
-fn review_button(
-    ix: usize,
-    file: usize,
-    review: Review,
-    labelled: bool,
-    entity: WeakEntity<Detail>,
-    cx: &App,
-) -> AnyElement {
-    let theme = Theme::get(cx);
-    let (check, label) = match review {
-        Review::Reviewed => (Toggled::True, "Reviewed"),
-        Review::Changed => (Toggled::Mixed, "Needs review"),
-        Review::NotReviewed => (Toggled::False, "Not reviewed"),
-    };
-    let key = shortcut(&ToggleReviewed, cx);
-    h_flex()
-        .id(("review", ix))
-        .flex_none()
-        .h(px(22.))
-        .px(px(6.))
-        .gap(px(6.))
-        .rounded(px(4.))
-        .text_size(px(12.))
-        .text_color(if review == Review::Changed {
-            theme.warn
-        } else {
-            theme.text_2
-        })
-        .hover(|el| el.bg(theme.hover()))
-        .child(checkbox(("review-check", ix), check, theme))
-        .when(labelled, |el| el.child(label))
-        .tooltip(move |_, cx| {
-            let text = match review {
-                Review::Reviewed => "Mark not reviewed",
-                _ => "Mark reviewed and go to the next file",
-            };
-            crate::ui::Tooltip::with_key(text.into(), key.clone(), cx)
-        })
-        .on_click(move |_, _, cx| {
-            cx.stop_propagation();
-            entity
-                .update(cx, |detail, cx| detail.toggle_reviewed_file(file, cx))
-                .ok();
-        })
-        .into_any_element()
 }
 
 /// Discard for an uncommitted hunk, of the main checkout or of the `linked` worktree, shown

@@ -7,7 +7,7 @@ use crate::app::{
     AppView, CommandPalette, CutSelection, FocusChanges, PasteHere, StartCommit, ToggleNavigator,
     Undo,
 };
-use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk, ToggleReviewed};
+use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
 use crate::state::{SLOW, Selection};
 use crate::theme::Theme;
 use crate::ui::{Icon, STATUS_BAR_HEIGHT, h_flex, icon_button, keycap, shortcut, small_icon};
@@ -92,7 +92,7 @@ impl AppView {
             focused != detail.focus_handle(cx) && focused != self.focus_handle(cx)
         });
         let main = matches!(store.selection, Some(Selection::Uncommitted(_)));
-        // A linked worktree's changes review and discard as the main checkout's do.
+        // A linked worktree's changes discard as the main checkout's do.
         let uncommitted = main || matches!(store.selection, Some(Selection::Worktree(..)));
         let hints: Vec<(&dyn Action, &str)> = if main && detail.composing() {
             let amend = detail
@@ -109,8 +109,8 @@ impl AppView {
             Vec::new()
         } else if detail_focused && uncommitted {
             vec![
+                (&NextFile, "next file"),
                 (&NextHunk, "next hunk"),
-                (&ToggleReviewed, "reviewed"),
                 (&DiscardHunk, "discard hunk"),
             ]
         } else if detail_focused {

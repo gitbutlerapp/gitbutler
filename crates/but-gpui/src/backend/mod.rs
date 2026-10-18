@@ -236,7 +236,6 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
         tracing::warn!("couldn't list the linked worktrees: {err:#}");
         None
     });
-    let worktrees_listed = listed.is_some();
     let (mut worktrees, archived_worktrees) = listed.unwrap_or_default();
     for worktree in &mut worktrees {
         let lane = (info.worktrees.iter()).find(|lane| lane.name == worktree.name.as_ref());
@@ -280,7 +279,6 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
         editing: None,
         worktrees,
         archived_worktrees,
-        worktrees_listed,
         refs,
     })
 }

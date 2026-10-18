@@ -27,7 +27,6 @@ use mutation::{Queued, Running};
 pub use saved::{Pane, Prefs, saved_window_place};
 use saved::{Restored, Saved};
 use seen::Seen;
-pub use seen::{Review, worktree_review_scope};
 
 pub type ProjectId = SharedString;
 
@@ -123,8 +122,6 @@ pub enum StoreEvent {
     /// A project's workspace was (re)loaded.
     Loaded(ProjectId),
     SelectionChanged,
-    /// Files of a project were marked reviewed or not, which folds or unfolds them.
-    Reviewed(ProjectId),
     /// An operation on a project was queued, started or finished, which hides or shows
     /// what it takes away.
     Pending(ProjectId),

@@ -14,12 +14,12 @@ use super::{Detail, FilterFiles, keeps_path};
 use crate::app::AppView;
 use crate::backend::{self, CommitId, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
-use crate::state::{Cut, Overlay, ProjectId, Review, Selection};
+use crate::state::{Cut, Overlay, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
 use crate::ui::{
-    Icon, checkbox, dot, faint, h_flex, icon_button, list_row, muted, relative_time, shortcut,
+    Icon, checkbox, faint, h_flex, icon_button, list_row, muted, relative_time, shortcut,
     small_icon, v_flex,
 };
 
@@ -49,8 +49,6 @@ struct FileRow {
     diff_ix: Option<usize>,
     /// Shown while composing a commit.
     checkbox: Option<Toggled>,
-    /// Shown for uncommitted files.
-    review: Option<Review>,
     /// What right-clicking the row offers. Changes it can cut, it drags as well.
     menu: Option<FileMenu>,
     /// How deep the file sits in a tree; it then shows only its name.
@@ -121,8 +119,7 @@ fn header_row() -> Div {
 }
 
 impl Detail {
-    /// The uncommitted `files` of `project`, under how many there are, their line counts
-    /// and how many still want a look.
+    /// The uncommitted `files` of `project`, under how many there are and their line counts.
     pub(super) fn render_uncommitted_files(
         &self,
         project: &ProjectId,
@@ -136,13 +133,7 @@ impl Detail {
             cx,
         );
         let diffs = self.worktree_diff().map_or(&[][..], |diff| &diff.files[..]);
-        let header = self.list_header(
-            files.iter().map(|f| f.path.as_str()),
-            diffs,
-            self.store.read(cx).unreviewed(project, files),
-            theme,
-            cx,
-        );
+        let header = self.list_header(files.iter().map(|f| f.path.as_str()), diffs, theme, cx);
         v_flex()
             .flex_1()
             .min_h(px(0.))
@@ -167,7 +158,7 @@ impl Detail {
         };
         let rows = self.file_list("diff-files", FileSource::Diff, cx);
         let paths = diff.files.iter().map(|f| f.file.path.as_str());
-        let header = self.list_header(paths, &diff.files, 0, theme, cx);
+        let header = self.list_header(paths, &diff.files, theme, cx);
         v_flex()
             .flex_1()
             .min_h(px(0.))
@@ -287,7 +278,6 @@ impl Detail {
                     diff_ix: (self.worktree_diff())
                         .and_then(|diff| diff.files.iter().position(|f| f.file.path == file.path)),
                     checkbox: self.composing.then(|| self.checks.file_check(&file.path)),
-                    review: Some(store.review(project, file)),
                     menu: Some(FileMenu::Cut(Cut::Files {
                         project: project.clone(),
                         from: None,
@@ -300,12 +290,8 @@ impl Detail {
             FileSource::Diff => {
                 let diff = self.diff.as_ref()?;
                 let file = diff.files.get(pos)?;
-                // A linked worktree's files are reviewed too.
-                let review = (diff.key.review_scope())
-                    .map(|scope| self.store.read(cx).review(&scope, &file.file));
                 let extras = FileRow {
                     diff_ix: Some(pos),
-                    review,
                     menu: self.diff_file_menu(pos, None, cx),
                     depth,
                     ..Default::default()
@@ -484,14 +470,13 @@ impl Detail {
         Some(row.into_any_element())
     }
 
-    /// A file list's header: how many `paths` it has, the lines `diffs` add and remove, how
-    /// many files are still `to_review`, and ways to filter it or show it as a tree. While
-    /// the filter is open: the filter, how many of `paths` it keeps, and a way to close it.
+    /// A file list's header: how many `paths` it has, the lines `diffs` add and remove, and
+    /// ways to filter it or show it as a tree. While the filter is open: the filter, how many
+    /// of `paths` it keeps, and a way to close it.
     fn list_header<'a>(
         &self,
         paths: impl Iterator<Item = &'a str>,
         diffs: &[FileDiff],
-        to_review: usize,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Div {
@@ -528,13 +513,6 @@ impl Detail {
         let store = self.store.clone();
         header_row()
             .child(files_heading(paths.count(), stats, theme))
-            .when(to_review > 0, |el| {
-                el.child(
-                    div()
-                        .text_color(theme.warn)
-                        .child(format!("{to_review} to review")),
-                )
-            })
             .child(div().flex_1())
             .child(
                 icon_button("filter-files", Icon::Search)
@@ -575,17 +553,12 @@ impl Detail {
             true => theme.text_inverted.opacity(0.7),
             false => theme.text_2,
         };
-        let reviewed = extras.review == Some(Review::Reviewed);
         // In a tree a file sits under its directory, which names its path.
         let dir = if extras.depth.is_some() { "" } else { dir };
-        // A reviewed file is done with, so what the row says about it recedes.
-        let fade = |el: Div| el.when(reviewed, |el| el.opacity(0.5));
         // While composing, the checkbox takes the icon's place once it's checked, or while
         // the pointer is on the row.
         let lead = match extras.checkbox {
-            None => (file_icon(&file.path, cx))
-                .when(reviewed, |el| el.opacity(0.5))
-                .into_any_element(),
+            None => file_icon(&file.path, cx).into_any_element(),
             Some(check) => {
                 let on = check != Toggled::False;
                 let path = path.clone();
@@ -647,10 +620,9 @@ impl Detail {
             .when(has_menu && !current, |el| {
                 el.group_hover(ROW_GROUP, |s| s.invisible())
             })
-            .map(|el| match (file.conflicted, reviewed) {
-                (true, _) => el.child(small_icon(Icon::Warning).text_color(theme.danger)),
-                (false, true) => el.child(small_icon(Icon::Tick).text_color(theme.pop)),
-                (false, false) => el
+            .map(|el| match file.conflicted {
+                true => el.child(small_icon(Icon::Warning).text_color(theme.danger)),
+                false => el
                     .text_size(px(11.))
                     .font_weight(gpui::FontWeight::SEMIBOLD)
                     .text_color(diff::change_color(file.kind, theme))
@@ -682,7 +654,7 @@ impl Detail {
             .child(lead)
             // The name whole where it fits, then its folder dimmed and cut in the middle, as the
             // folder's end tells two files of one name apart.
-            .child(fade(
+            .child(
                 h_flex()
                     .flex_1()
                     .min_w(px(0.))
@@ -705,9 +677,9 @@ impl Detail {
                                 .child(dir.to_owned()),
                         )
                     }),
-            ))
+            )
             .when_some(stats, |el, (added, removed)| {
-                el.child(fade(diff::stats(added, removed, theme)))
+                el.child(diff::stats(added, removed, theme))
             })
             // When it last changed, faint, for watching what an agent touches.
             .children(
@@ -720,9 +692,6 @@ impl Detail {
                             .when(solid, |el| el.text_color(muted))
                     }),
             )
-            .when(extras.review == Some(Review::Changed), |el| {
-                el.child(dot(theme.warn))
-            })
             .child(end)
             .when_some(diff_ix, |el, diff_ix| {
                 el.on_mouse_down(
@@ -852,21 +821,13 @@ impl Detail {
                         }),
                     );
                 }
-                let (review_project, review_files) = (project.clone(), files.clone());
                 let (project, files) = (project.clone(), files.clone());
-                items.extend([
-                    MenuItem::new("Mark reviewed", move |this, _, cx| {
-                        let changes: Vec<FileChange> =
-                            review_files.iter().map(|f| f.file.clone()).collect();
-                        this.store.update(cx, |store, cx| {
-                            store.set_reviewed(&review_project, &changes, true, cx)
-                        })
-                    }),
+                items.push(
                     MenuItem::new("Discard changes…", move |this, window, cx| {
                         this.discard(project.clone(), None, files.to_vec(), window, cx)
                     })
                     .danger(),
-                ]);
+                );
             }
             Some(commit) => {
                 let uncommitted = Selection::Uncommitted(project.clone());

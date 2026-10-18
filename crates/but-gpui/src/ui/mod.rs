@@ -66,7 +66,6 @@ icons! {
     CollapseVertical => "collapse-vertical",
     Cross => "cross",
     ExpandVertical => "expand-vertical",
-    Eye => "eye",
     File => "file",
     FileDiff => "file-diff",
     FilesSidebar => "files-sidebar",

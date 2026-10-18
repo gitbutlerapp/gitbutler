@@ -56,7 +56,7 @@ actions!(
     ]
 );
 
-/// Keys follow GitButler Lite where it has one, and Zed for reviewing changes.
+/// Keys follow GitButler Lite where it has one, and Zed's agent review for discarding a hunk.
 pub fn bind_keys(cx: &mut App) {
     let nav = Some("Navigator && !TextInput");
     let workspace = Some("Workspace && !TextInput");
