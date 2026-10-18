@@ -49,6 +49,17 @@ impl AppView {
                 .child("paste here")
                 .child(keycap("esc", &theme))
                 .into_any_element()
+        } else if !store.picked.is_empty() {
+            // Only the navigator's highlight shows them otherwise.
+            h_flex()
+                .gap(px(6.))
+                .child(div().text_color(theme.pop).child(format!(
+                    "{} picked",
+                    crate::ui::plural(store.picked.len(), "commit")
+                )))
+                .child("right-click to squash or uncommit them")
+                .child(keycap("esc", &theme))
+                .into_any_element()
         } else {
             // The selected project's standing against its target.
             let summary = store.selection.as_ref().and_then(|selection| {
