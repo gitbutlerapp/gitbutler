@@ -163,7 +163,10 @@ impl Navigator {
                     };
                     items.push(action(label, &Push));
                 }
-                if workspace.can_pull(ref_name) {
+                // What reaches past a linked worktree, like its remote or a pull request, is
+                // done in it.
+                let linked = store.worktree_of(target).is_some();
+                if workspace.can_pull(ref_name) && !linked {
                     items.extend([
                         MenuItem::action(
                             format!(
@@ -184,12 +187,7 @@ impl Navigator {
                         }),
                     ]);
                 }
-                // A linked worktree's branch changes there: from here, it's only copied.
-                if store.worktree_of(target).is_some() {
-                    items.push(action("Copy name", &CopySelection).separated());
-                    return items;
-                }
-                if crate::pr::on_forge(store, target) && !ref_name.is_empty() {
+                if crate::pr::on_forge(store, target) && !ref_name.is_empty() && !linked {
                     use crate::backend::ReviewState as S;
                     match branch.review.as_ref().map(|r| r.state) {
                         None if !branch.commits.is_empty() => items.push(action(
@@ -203,17 +201,21 @@ impl Navigator {
                     }
                 }
                 if ref_name.is_empty() {
-                    if !branch.commits.is_empty() {
+                    if !branch.commits.is_empty() && !linked {
                         items.push(action("Name branch…", &RenameSelection).separated());
                     }
                     return items;
                 }
                 let edits = BranchEdits::of(workspace, ref_name);
-                items.push(action("New branch on top…", &NewBranchOnTop).separated());
+                // A linked worktree's branches can't be ordered yet.
+                if !linked {
+                    items.push(action("New branch on top…", &NewBranchOnTop).separated());
+                }
                 if edits.new_below {
                     items.push(action("New branch below…", &NewBranchBelow));
                 }
-                items.push(action("Add empty commit", &AddEmptyCommitAbove));
+                let empty = action("Add empty commit", &AddEmptyCommitAbove);
+                items.push(if linked { empty.separated() } else { empty });
                 if edits.squash_all {
                     items.push(action("Squash all commits", &SquashAll));
                 }
@@ -230,7 +232,7 @@ impl Navigator {
                     items.push(MenuItem::action(label, &crate::edits::LandBranch, cx));
                 }
                 // Only the workspace has stacks to take out of it.
-                if workspace.managed {
+                if workspace.managed && !linked {
                     items.push(action(
                         if edits.stacked {
                             "Unapply stack"
@@ -243,8 +245,10 @@ impl Navigator {
                 items.extend([
                     action("Rename…", &RenameSelection).separated(),
                     action("Copy name", &CopySelection),
-                    action("Delete branch…", &DeleteSelection).danger(),
                 ]);
+                if !linked {
+                    items.push(action("Delete branch…", &DeleteSelection).danger());
+                }
                 items
             }
             Selection::Commit(project, id) if store.picked.contains(id) => {
@@ -287,20 +291,10 @@ impl Navigator {
                     return Vec::new();
                 };
                 let edits = CommitEdits::of(branch, commit);
-                // A linked worktree's commit changes there: from here, it's only copied.
-                if store.worktree_of(target).is_some() {
-                    let mut items = vec![
-                        action("Cherry-pick", &CherryPick),
-                        action("Copy commit ID", &CopySelection).separated(),
-                    ];
-                    if edits.change_id {
-                        items.push(action("Copy change ID", &CopyChangeId));
-                    }
-                    items.push(action("Copy message", &CopyMessage));
-                    return items;
-                }
+                // A linked worktree's commits stay in it, and their conflicts resolve there.
+                let linked = store.worktree_of(target).is_some();
                 let mut items = Vec::new();
-                if commit.conflicted {
+                if commit.conflicted && !linked {
                     items.push(action(
                         "Resolve conflicts…",
                         &crate::detail::ResolveConflicts,
@@ -318,7 +312,7 @@ impl Navigator {
                     action("Add empty commit above", &AddEmptyCommitAbove),
                     action("Add empty commit below", &AddEmptyCommitBelow),
                 ]);
-                if edits.new_branch_here {
+                if edits.new_branch_here && !linked {
                     items.push(action("New branch ending here…", &NewBranchHere));
                 }
                 items.extend([
@@ -391,8 +385,7 @@ impl Navigator {
                     true => action("Show branches", &Expand),
                     false => action("Hide branches", &Collapse),
                 }];
-                let (Some(workspace), None) = (store.workspace(project), store.worktree_of(target))
-                else {
+                let Some(workspace) = store.workspace(project) else {
                     return items;
                 };
                 // Through its top branch, which takes the ones below it along.
@@ -421,9 +414,11 @@ impl Navigator {
                         cx,
                     ));
                 }
-                items.push(action("New branch on top…", &NewBranchOnTop).separated());
-                if workspace.managed {
-                    items.push(action("Unapply stack", &UnapplyStack));
+                if store.worktree_of(target).is_none() {
+                    items.push(action("New branch on top…", &NewBranchOnTop).separated());
+                    if workspace.managed {
+                        items.push(action("Unapply stack", &UnapplyStack));
+                    }
                 }
                 items
             }

@@ -457,11 +457,8 @@ impl Store {
         range: Option<Vec<CommitId>>,
         cx: &mut Context<Self>,
     ) {
-        // A linked worktree's commit, changed only there, isn't one to pick along.
         let at = match &self.selection {
-            Some(s @ Selection::Commit(p, at)) if p == project && self.worktree_of(s).is_none() => {
-                *at
-            }
+            Some(Selection::Commit(p, at)) if p == project => *at,
             _ => return self.select(Some(Selection::Commit(project.clone(), id)), cx),
         };
         // Taken out while selecting, which lets picks go.

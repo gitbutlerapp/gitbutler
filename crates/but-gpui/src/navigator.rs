@@ -609,16 +609,14 @@ impl Navigator {
     }
 
     /// Step `delta` commits from the selected one, picking the run as ⇧-click does. Off a
-    /// commit, or on a linked worktree's, it's a plain step.
+    /// commit, it's a plain step.
     fn pick_step(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         let (project, id) = match &store.selection {
-            Some(item @ Selection::Commit(project, id)) if store.worktree_of(item).is_none() => {
-                (project.clone(), *id)
-            }
+            Some(Selection::Commit(project, id)) => (project.clone(), *id),
             _ => return self.step(delta, window, cx),
         };
-        let order = self.commit_order(&project, cx);
+        let order = self.commit_order(&project);
         let next = (order.iter().position(|commit| *commit == id))
             .and_then(|at| order.get(at.checked_add_signed(delta)?).copied());
         if let Some(next) = next {
@@ -627,16 +625,11 @@ impl Navigator {
     }
 
     /// The commits of `project` that can be picked together, as shown: not those folded
-    /// away, nor a linked worktree's, which change only there.
-    fn commit_order(&self, project: &ProjectId, cx: &App) -> Vec<CommitId> {
-        let store = self.store.read(cx);
+    /// away.
+    fn commit_order(&self, project: &ProjectId) -> Vec<CommitId> {
         (self.rows.iter())
             .filter_map(|row| match row {
-                Row::Item(item @ Selection::Commit(p, commit))
-                    if p == project && store.worktree_of(item).is_none() =>
-                {
-                    Some(*commit)
-                }
+                Row::Item(Selection::Commit(p, commit)) if p == project => Some(*commit),
                 _ => None,
             })
             .collect()
@@ -1064,11 +1057,8 @@ impl Navigator {
         cx.listener(move |this, event: &MouseDownEvent, window, cx| {
             let (toggle, shift) = (event.modifiers.secondary(), event.modifiers.shift);
             match &item {
-                // A linked worktree's commits change there, so they aren't picked to change.
-                Selection::Commit(project, id)
-                    if (toggle || shift) && this.store.read(cx).worktree_of(&item).is_none() =>
-                {
-                    let range = shift.then(|| this.commit_order(project, cx));
+                Selection::Commit(project, id) if toggle || shift => {
+                    let range = shift.then(|| this.commit_order(project));
                     this.store
                         .update(cx, |store, cx| store.pick(project, *id, range, cx));
                     window.focus(&this.focus, cx);

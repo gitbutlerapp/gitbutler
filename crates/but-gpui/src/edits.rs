@@ -48,25 +48,13 @@ fn needs_rewrap(message: &str) -> bool {
         .any(|line| line.chars().count() > WRAP_AT)
 }
 
-/// In place of the edits that change the selection, a note saying where to make them.
-fn elsewhere(el: Div, store: &Entity<Store>) -> Div {
-    fn refuse<A: gpui::Action>(
-        store: &Entity<Store>,
-    ) -> impl Fn(&A, &mut Window, &mut App) + 'static {
-        let store = store.clone();
-        move |_, _, cx| {
-            store.update(cx, |store, cx| {
-                if let Some(selection) = store.selection.clone() {
-                    store.changes_elsewhere(&selection, cx);
-                }
-            })
-        }
-    }
-    el.on_action(refuse::<DeleteSelection>(store))
-        .on_action(refuse::<RenameSelection>(store))
-        .on_action(refuse::<NewBranchOnTop>(store))
-        .on_action(refuse::<UncommitSelection>(store))
-        .on_action(refuse::<Push>(store))
+/// Say where to make the selected change instead, when the selection is on a linked
+/// worktree's branches: whether it was refused.
+fn refused_here(store: &Entity<Store>, cx: &mut App) -> bool {
+    store.update(cx, |store, cx| {
+        let selection = store.selection.clone();
+        selection.is_some_and(|selection| store.changes_elsewhere(&selection, cx))
+    })
 }
 
 /// Whether `ref_name` can land, and if so whether with the branches below it: the bottom
@@ -101,14 +89,16 @@ pub struct BranchEdits {
 
 impl BranchEdits {
     pub fn of(workspace: &Workspace, ref_name: &str) -> Self {
-        let Some((stack, at)) = workspace.stack_of(ref_name) else {
+        let Some((lane, at)) = workspace.lane_of(ref_name) else {
             return Self::default();
         };
-        let commits = stack.branches[at].commits.len();
+        let commits = lane[at].commits.len();
+        // A linked worktree's lane can't take new branches or come apart yet.
+        let stack = workspace.stack_of(ref_name).is_some();
         Self {
-            new_below: commits > 0,
+            new_below: stack && commits > 0,
             squash_all: commits > 1,
-            stacked: stack.branches.len() > 1,
+            stacked: stack && lane.len() > 1,
             land: land_scope(workspace, ref_name).filter(|_| workspace.target.is_some()),
         }
     }
@@ -142,35 +132,21 @@ impl AppView {
     /// on top and uncommit are always there; the rest only where the selection lets them do
     /// something, which is also what the palette offers.
     pub fn edit_actions(&self, el: Div, cx: &mut Context<Self>) -> Div {
-        // A linked worktree's branches and commits change in it: from here they're cut,
-        // dragged and copied, and the other edits say where to make them.
+        // A linked worktree's branches and commits are edited here as yours are, apart from
+        // what reaches past the worktree, like pushing, landing or moving them out of it.
         let store = self.store.read(cx);
-        if let Some(selection) =
-            (store.selection.as_ref()).filter(|s| store.worktree_of(s).is_some())
-        {
-            let commit = match selection {
-                Selection::Commit(project, id) => store.find_commit(project, *id),
-                _ => None,
-            };
-            let change_id = commit.is_some_and(|(_, commit)| commit.has_change_id());
-            return elsewhere(el, &self.store)
-                .when(commit.is_some(), |el| {
-                    el.on_action(cx.listener(Self::cherry_pick)).on_action(
-                        cx.listener(|this, _: &CopyMessage, _, cx| this.copy_commit(false, cx)),
-                    )
-                })
-                .when(change_id, |el| {
-                    el.on_action(
-                        cx.listener(|this, _: &CopyChangeId, _, cx| this.copy_commit(true, cx)),
-                    )
-                });
-        }
+        let linked = (store.selection.as_ref()).is_some_and(|s| store.worktree_of(s).is_some());
         let el = el
             .on_action(cx.listener(Self::delete_selection))
             .on_action(cx.listener(Self::rename_selection))
             .on_action(cx.listener(Self::new_branch_on_top))
-            .on_action(cx.listener(Self::uncommit_selection));
-        let store = self.store.read(cx);
+            .on_action(cx.listener(Self::uncommit_selection))
+            .when(linked, |el| {
+                let store = self.store.clone();
+                el.on_action(move |_: &Push, _, cx| {
+                    refused_here(&store, cx);
+                })
+            });
         let picked = store.picked.len() > 1;
         match &store.selection {
             Some(Selection::Commit(project, id)) => {
@@ -203,7 +179,7 @@ impl AppView {
                     });
                 }))
                 .when(picked, |el| el.on_action(cx.listener(Self::squash_picked)))
-                .when(edits.new_branch_here, |el| {
+                .when(edits.new_branch_here && !linked, |el| {
                     el.on_action(cx.listener(Self::new_branch_here))
                 })
                 .when(edits.rewrap, |el| {
@@ -220,7 +196,7 @@ impl AppView {
                 let Some(workspace) = store.workspace(project) else {
                     return el;
                 };
-                let el = el.when(workspace.can_pull(ref_name), |el| {
+                let el = el.when(!linked && workspace.can_pull(ref_name), |el| {
                     el.on_action(cx.listener(|this, _: &PullRemote, window, cx| {
                         this.pull_remote(false, window, cx)
                     }))
@@ -244,7 +220,7 @@ impl AppView {
                 })
                 .when(edits.stacked, |el| el.on_action(cx.listener(Self::unstack)))
                 // Outside the workspace there are no stacks to take out of it.
-                .when(workspace.managed, |el| {
+                .when(workspace.managed && !linked, |el| {
                     el.on_action(cx.listener(Self::unapply_stack))
                 })
                 .when(edits.land.is_some(), |el| {
@@ -262,7 +238,7 @@ impl AppView {
                     BranchEdits::of(workspace, &top.ref_name).land == Some(true)
                 });
                 el.when(lands, |el| el.on_action(cx.listener(Self::land_branch)))
-                    .when(workspace.managed, |el| {
+                    .when(workspace.managed && !linked, |el| {
                         el.on_action(cx.listener(Self::unapply_stack))
                     })
             }
@@ -329,6 +305,13 @@ impl AppView {
         }
         let (project, commit) = self.selected_commit(cx)?;
         Some((project, commit.id))
+    }
+
+    /// Whether the selection is on a linked worktree's branches, whose edits the oplog can't
+    /// take back: it snapshots only the main checkout.
+    fn in_worktree_lane(&self, cx: &App) -> bool {
+        let store = self.store.read(cx);
+        (store.selection.as_ref()).is_some_and(|s| store.worktree_of(s).is_some())
     }
 
     /// The selected branch, or a selected stack's top one, when it has a name.
@@ -420,7 +403,9 @@ impl AppView {
                 }
             }
             Some(Selection::Branch(project, ref_name)) => {
-                self.remove_branch(project, ref_name, window, cx)
+                if !refused_here(&self.store, cx) {
+                    self.remove_branch(project, ref_name, window, cx)
+                }
             }
             Some(Selection::Uncommitted(project)) => {
                 let changes = self.detail.read(cx).selected_changes(cx);
@@ -437,7 +422,11 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         match self.selection(cx) {
+            // A linked worktree's unnamed branch is named there, where its HEAD is.
+            Some(Selection::Branch(_, ref_name))
+                if ref_name.is_empty() && refused_here(&self.store, cx) => {}
             Some(Selection::Branch(project, ref_name)) => {
+                let undoable = !self.in_worktree_lane(cx);
                 // An unnamed branch has no ref to rename, so it gets one at its newest commit.
                 let unnamed_top = (self.store.read(cx).workspace(&project))
                     .filter(|_| ref_name.is_empty())
@@ -461,6 +450,9 @@ impl AppView {
                     move |store, to, cx| {
                         (detail.update(cx, |detail, cx| detail.branch_renamed(&from, &to, cx)))
                             .ok();
+                        if !undoable {
+                            store.keep_last_snapshot();
+                        }
                         store.select(Some(Selection::Branch(selected, to)), cx)
                     },
                 )
@@ -478,6 +470,10 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // A linked worktree's branches can't be ordered yet, so new ones start there.
+        if refused_here(&self.store, cx) {
+            return;
+        }
         if let Some((project, below)) = self
             .branch_of_selection(cx)
             .filter(|(_, ref_name)| !ref_name.is_empty())
@@ -595,9 +591,14 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let undoable = !self.store.read(cx).in_worktree(&project, id);
+        let detail = match undoable {
+            true => "Its changes are dropped. You can undo this with ⌘Z.",
+            false => "Its changes are dropped from the worktree too. This can't be undone.",
+        };
         self.confirm_then(
             format!("Discard commit {}?", id.short()),
-            "Its changes are dropped. You can undo this with ⌘Z.",
+            detail,
             "Discard",
             window,
             cx,
@@ -609,7 +610,7 @@ impl AppView {
                         "Discard commit",
                         Overlay::commits(store.key_of(&project, id)),
                         move |path, remap| backend::discard_commit(path, remap.get(id)?),
-                        |store, (), cx| store.snack_undoable("Commit discarded", cx),
+                        move |store, (), cx| store.snack_after(undoable, "Commit discarded", cx),
                         cx,
                     )
                 });
@@ -704,6 +705,7 @@ impl AppView {
         };
         let (project, to) = at;
         let selected = project.clone();
+        let undoable = !self.in_worktree_lane(cx);
         self.store.update(cx, |store, cx| {
             // It shows where it goes right away, dimmed until it's there.
             let at = store.new_at(&project, &to);
@@ -719,7 +721,7 @@ impl AppView {
                 move |path, remap| backend::insert_empty_commit(path, &remap.destination(to)?),
                 move |store, id, cx| {
                     store.select(Some(Selection::Commit(selected, id)), cx);
-                    store.snack_undoable("Empty commit added", cx)
+                    store.snack_after(undoable, "Empty commit added", cx)
                 },
                 cx,
             )
@@ -803,6 +805,7 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         self.store.update(cx, |store, cx| {
+            let undoable = !(rest.iter().chain([&into])).any(|id| store.in_worktree(&project, *id));
             store.run(
                 &project,
                 label,
@@ -814,9 +817,9 @@ impl AppView {
                         .collect::<anyhow::Result<Vec<_>>>()?;
                     backend::squash(path, &rest, remap.get(into)?)
                 },
-                |store, rewritten, cx| {
+                move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
-                    store.snack_undoable("Squashed into one commit", cx)
+                    store.snack_after(undoable, "Squashed into one commit", cx)
                 },
                 cx,
             )
@@ -997,6 +1000,7 @@ impl AppView {
             return;
         };
         let (id, message) = (commit.id, backend::wrapped_message(&commit.message));
+        let undoable = !self.in_worktree_lane(cx);
         let overlay = Overlay {
             reworded: Some((commit.key.clone(), message.clone())),
             rereads: Rereads::Commits,
@@ -1008,9 +1012,9 @@ impl AppView {
                 "Rewrap message",
                 overlay,
                 move |path, remap| backend::reword(path, remap.get(id)?, &message),
-                |store, rewritten, cx| {
+                move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
-                    store.snack_undoable("Message rewrapped", cx)
+                    store.snack_after(undoable, "Message rewrapped", cx)
                 },
                 cx,
             )
