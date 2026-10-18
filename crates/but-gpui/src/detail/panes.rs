@@ -572,7 +572,7 @@ impl Detail {
     /// The header across a commit's, branch's or stack's page, over its files and its diff:
     /// `main` beside `menu`, as but.dev lays them out, so stepping between them moves
     /// nothing below.
-    fn page_header(&self, main: Div, menu: Div, theme: &Theme) -> AnyElement {
+    pub(super) fn page_header(&self, main: Div, menu: Div, theme: &Theme) -> AnyElement {
         // The diff beside the files starts below this, however tall it's drawn.
         let (height, app) = (self.header_height.clone(), self.app.clone());
         let measure = gpui::canvas(
@@ -606,7 +606,11 @@ impl Detail {
 
     /// What right-clicking `target`'s row offers, behind a ⋯, for when the navigator is out
     /// of reach.
-    fn row_menu_button(&self, target: Selection, cx: &Context<Self>) -> impl IntoElement {
+    pub(super) fn row_menu_button(
+        &self,
+        target: Selection,
+        cx: &Context<Self>,
+    ) -> impl IntoElement {
         icon_button("page-menu", Icon::Kebab).on_click(cx.listener(
             move |this, event: &ClickEvent, _, cx| {
                 let position = event.position();
@@ -943,7 +947,7 @@ fn page_title(icon_name: Icon, theme: &Theme) -> Div {
 }
 
 /// A page's title, as its header sets it.
-fn title_text(text: impl IntoElement) -> Div {
+pub(super) fn title_text(text: impl IntoElement) -> Div {
     div()
         .min_w(px(0.))
         .line_height(px(22.))
@@ -953,7 +957,7 @@ fn title_text(text: impl IntoElement) -> Div {
 }
 
 /// The line under a page's title saying what it is.
-fn meta_row(theme: &Theme) -> Div {
+pub(super) fn meta_row(theme: &Theme) -> Div {
     h_flex()
         .h(px(20.))
         .gap(px(12.))

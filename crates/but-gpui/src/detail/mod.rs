@@ -1443,9 +1443,12 @@ impl Detail {
     /// header, when there's one.
     pub fn view_header_height(&self, cx: &App) -> f32 {
         match self.selection(cx) {
-            Some(Selection::Commit(..) | Selection::Branch(..) | Selection::Stack(..)) => {
-                self.header_height.get()
-            }
+            Some(
+                Selection::Commit(..)
+                | Selection::Branch(..)
+                | Selection::Stack(..)
+                | Selection::Project(..),
+            ) => self.header_height.get(),
             _ => 0.,
         }
     }
@@ -1518,6 +1521,9 @@ impl Render for Detail {
                     }
                     Selection::Stack(project, bottom) => {
                         Some(self.render_stack_header(project, bottom, &theme, cx))
+                    }
+                    Selection::Project(project) => {
+                        Some(self.render_project_header(project, &theme, cx))
                     }
                     _ => None,
                 };

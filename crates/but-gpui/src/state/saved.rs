@@ -77,6 +77,13 @@ impl Store {
         self.prefs.land_directly.contains(project.as_ref())
     }
 
+    pub fn project_icon(&self, project: &super::ProjectId) -> Option<&str> {
+        self.prefs
+            .project_icons
+            .get(project.as_ref())
+            .map(String::as_str)
+    }
+
     pub fn set_prefs(&mut self, update: impl FnOnce(&mut Prefs), cx: &mut Context<Self>) {
         update(&mut self.prefs);
         self.save_soon(cx);
@@ -230,6 +237,9 @@ pub struct Prefs {
     pub run_hooks: HashSet<String>,
     /// Projects, by id, whose branches offer Land in place of Create pull request.
     pub land_directly: HashSet<String>,
+    /// The emoji each project shows before its name in the navigator, by id, as but.dev
+    /// lets a repository have one.
+    pub project_icons: HashMap<String, String>,
     /// The navigator's other projects go by when they were last active rather than by name.
     pub projects_by_activity: bool,
     /// The navigator's other projects leave out those not active in the last 7 days.

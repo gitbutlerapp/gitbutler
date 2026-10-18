@@ -1215,31 +1215,48 @@ impl Navigator {
                 .aria_expanded(expanded)
                 .h(px(if expanded { 32. } else { ROW_HEIGHT }))
                 .pl(px(4.))
+                // The chevron and the emoji stand 4 points apart, so the emoji sits over the
+                // worktree icons below and the name over theirs.
                 .child(
-                    div()
-                        .id(ElementId::Name(format!("chevron-{id}").into()))
+                    h_flex()
                         .flex_none()
-                        .size(px(20.))
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .rounded(px(4.))
-                        .hover(|el| el.bg(theme.hover()))
+                        .gap(px(4.))
                         .child(
-                            small_icon(if expanded {
-                                Icon::ChevronDown
-                            } else {
-                                Icon::ChevronRight
-                            })
-                            .text_color(style.muted()),
+                            div()
+                                .id(ElementId::Name(format!("chevron-{id}").into()))
+                                .flex_none()
+                                .size(px(20.))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .rounded(px(4.))
+                                .hover(|el| el.bg(theme.hover()))
+                                .child(
+                                    small_icon(if expanded {
+                                        Icon::ChevronDown
+                                    } else {
+                                        Icon::ChevronRight
+                                    })
+                                    .text_color(style.muted()),
+                                )
+                                // Folding the project doesn't select it.
+                                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                    cx.stop_propagation();
+                                    this.store.update(cx, |store, cx| {
+                                        store.set_expanded(&chevron_id, !expanded, cx)
+                                    });
+                                })),
                         )
-                        // Folding the project doesn't select it.
-                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                            cx.stop_propagation();
-                            this.store.update(cx, |store, cx| {
-                                store.set_expanded(&chevron_id, !expanded, cx)
-                            });
+                        .children(store.project_icon(id).map(|emoji| {
+                            // In an icon's 16 points, a little smaller than the text.
+                            div()
+                                .flex_none()
+                                .w(px(16.))
+                                .flex()
+                                .justify_center()
+                                .text_size(px(13.))
+                                .child(emoji.to_owned())
                         })),
                 )
                 .child(
