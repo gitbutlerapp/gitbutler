@@ -339,6 +339,8 @@ impl Detail {
             self.composer_back = window.focused(cx).filter(|focused| *focused != message);
         }
         self.composing = true;
+        // The composer sits under the file list, so a hidden list comes back with it.
+        self.files_hidden = false;
         window.focus(&message, cx);
         cx.notify();
     }
