@@ -12,7 +12,7 @@ use gpui::{
 use super::conflict::{self, Part};
 use super::file_icons::file_icon;
 use super::{Icon, h_flex, plural, small_icon, v_flex};
-use crate::backend::{ChangeKind, Conflict, DiffBody, DiffLine, FileDiff, Hunk, LineKind};
+use crate::backend::{ChangeKind, Conflict, DiffBody, DiffLine, FileDiff, Hunk, LineKind, Picture};
 use crate::theme::Theme;
 
 pub const FILE_HEADER_HEIGHT: f32 = 38.;
@@ -590,11 +590,7 @@ fn conflicted_badge(theme: &Theme) -> gpui::Div {
 }
 
 /// An image's two sides, or an SVG's drawn, in the file's card.
-pub fn drawing(
-    before: Option<std::sync::Arc<gpui::RenderImage>>,
-    after: Option<std::sync::Arc<gpui::RenderImage>>,
-    theme: &Theme,
-) -> AnyElement {
+pub fn drawing(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> AnyElement {
     card(image_row(before, after, theme), theme).into_any_element()
 }
 
@@ -1012,50 +1008,54 @@ fn ground(color: Hsla) -> HighlightStyle {
 }
 
 /// An image's two sides next to each other, each at most a few lines tall.
-fn image_row(
-    before: Option<std::sync::Arc<gpui::RenderImage>>,
-    after: Option<std::sync::Arc<gpui::RenderImage>>,
-    theme: &Theme,
-) -> gpui::Div {
-    let side = |label: &'static str,
-                missing: &'static str,
-                image: Option<std::sync::Arc<gpui::RenderImage>>,
-                tint: gpui::Hsla| {
-        v_flex()
-            .flex_1()
-            .min_w(px(0.))
-            .gap(px(6.))
-            .items_center()
-            .child(
-                div()
-                    .text_size(px(11.))
-                    .text_color(theme.text_2)
-                    .child(label),
-            )
-            .child(match image {
-                Some(image) => div()
-                    .max_w_full()
-                    .p(px(6.))
-                    .rounded(px(4.))
-                    .border_1()
-                    .border_color(tint)
-                    .child(
-                        gpui::img(image)
-                            .max_w_full()
-                            .max_h(px(220.))
-                            .object_fit(gpui::ObjectFit::Contain),
-                    )
-                    .into_any_element(),
-                None => div()
-                    .h(px(60.))
-                    .flex()
-                    .items_center()
-                    .text_size(px(12.))
-                    .text_color(theme.text_3)
-                    .child(missing)
-                    .into_any_element(),
-            })
-    };
+fn image_row(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> gpui::Div {
+    let side =
+        |label: &'static str, missing: &'static str, image: Option<Picture>, tint: gpui::Hsla| {
+            v_flex()
+                .flex_1()
+                .min_w(px(0.))
+                .gap(px(6.))
+                .items_center()
+                .child(
+                    div()
+                        .text_size(px(11.))
+                        .text_color(theme.text_2)
+                        .child(label),
+                )
+                .child(match image {
+                    Some(picture) => {
+                        // The frame hugs the image: at its own size but no taller than 220
+                        // points, and narrower as the pane is, its height following its width.
+                        // gpui's img alone keeps its height as the pane squeezes its width.
+                        let ratio = picture.width / picture.height;
+                        let width = picture.width.min(220. * ratio);
+                        // Its padding and border, on both sides.
+                        const AROUND: f32 = 14.;
+                        div()
+                            .w_full()
+                            .max_w(px(width + AROUND))
+                            .p(px(6.))
+                            .rounded(px(4.))
+                            .border_1()
+                            .border_color(tint)
+                            .child(
+                                div()
+                                    .w_full()
+                                    .aspect_ratio(ratio)
+                                    .child(gpui::img(picture.image).size_full()),
+                            )
+                            .into_any_element()
+                    }
+                    None => div()
+                        .h(px(60.))
+                        .flex()
+                        .items_center()
+                        .text_size(px(12.))
+                        .text_color(theme.text_3)
+                        .child(missing)
+                        .into_any_element(),
+                })
+        };
     h_flex()
         .items_start()
         .gap(px(16.))

@@ -9,7 +9,7 @@ use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
 
 use super::{
-    CommitId, Conflict, DiffBody, DiffLine, FileChange, FileDiff, Hunk, HunkKey, LineKind,
+    CommitId, Conflict, DiffBody, DiffLine, FileChange, FileDiff, Hunk, HunkKey, LineKind, Picture,
     SnapshotId, annotate, checkout, columns, file_change, highlight, markers, open, worktree_files,
 };
 
@@ -501,15 +501,12 @@ fn load_file(
 /// id, so the GPU texture gpui makes for it the first time it's drawn serves later diffs
 /// too. Decoded here rather than by gpui as it's drawn: an image gpui is still decoding
 /// stays blank in the cached diff until something else redraws it.
-fn decoded(
-    bytes: &[u8],
-    decode: impl FnOnce(&[u8]) -> Option<Arc<gpui::RenderImage>>,
-) -> Option<Arc<gpui::RenderImage>> {
+fn decoded(bytes: &[u8], decode: impl FnOnce(&[u8]) -> Option<Picture>) -> Option<Picture> {
     use std::hash::{Hash as _, Hasher as _};
     use std::sync::{LazyLock, Mutex};
     // At most 2.8 MB each.
     const KEPT: usize = 64;
-    type Kept = std::collections::VecDeque<(u64, Arc<gpui::RenderImage>)>;
+    type Kept = std::collections::VecDeque<(u64, Picture)>;
     static DECODED: LazyLock<Mutex<Kept>> = LazyLock::new(Default::default);
     let mut hasher = std::hash::DefaultHasher::new();
     bytes.hash(&mut hasher);
@@ -527,7 +524,7 @@ fn decoded(
 }
 
 /// `bytes` decoded as `format` and shrunk to the most a diff shows of it.
-fn raster(format: image::ImageFormat, bytes: &[u8]) -> Option<Arc<gpui::RenderImage>> {
+fn raster(format: image::ImageFormat, bytes: &[u8]) -> Option<Picture> {
     let mut image = image::load_from_memory_with_format(bytes, format).ok()?;
     // A diff draws an image at most 220 points tall, 440 pixels on a Retina screen, and half
     // the pane wide; more pixels would only cost memory.
@@ -539,15 +536,20 @@ fn raster(format: image::ImageFormat, bytes: &[u8]) -> Option<Arc<gpui::RenderIm
     for pixel in buffer.as_chunks_mut::<4>().0 {
         pixel.swap(0, 2);
     }
-    Some(Arc::new(gpui::RenderImage::new([image::Frame::new(
-        buffer,
-    )])))
+    // gpui draws a decoded image a point a pixel.
+    let (width, height) = (buffer.width() as f32, buffer.height() as f32);
+    let image = Arc::new(gpui::RenderImage::new([image::Frame::new(buffer)]));
+    Some(Picture {
+        image,
+        width,
+        height,
+    })
 }
 
 /// `bytes` drawn as gpui draws an SVG, sharp on a Retina screen. It keeps its own size
 /// within what a diff shows of an image, 800 points wide and 220 tall, but grows to 64
 /// points across at least: an icon is the usual SVG, and too small to compare as it is.
-fn draw_svg(bytes: &[u8]) -> Option<Arc<gpui::RenderImage>> {
+fn draw_svg(bytes: &[u8]) -> Option<Picture> {
     let renderer = gpui::SvgRenderer::new(Arc::new(()));
     let svg = renderer.parse_svg(bytes).ok()?;
     // gpui doesn't say how big an SVG is, but drawing it at a sixteenth does: at twice that
@@ -565,7 +567,14 @@ fn draw_svg(bytes: &[u8]) -> Option<Arc<gpui::RenderImage>> {
         .max(1.)
         .min(800. / width)
         .min(220. / height);
-    renderer.render_parsed(&svg, scale).ok()
+    let image = renderer.render_parsed(&svg, scale).ok()?;
+    // Drawn at twice its size in points, for the screen.
+    let size = image.size(0);
+    Some(Picture {
+        width: i32::from(size.width) as f32 / 2.,
+        height: i32::from(size.height) as f32 / 2.,
+        image,
+    })
 }
 
 /// SVGs bigger than this show as text, rather than spend the time drawing them.
