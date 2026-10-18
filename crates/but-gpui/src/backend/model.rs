@@ -483,8 +483,16 @@ pub struct FileDiff {
 /// deleted file.
 #[derive(Debug, Clone)]
 pub struct Drawing {
-    pub before: Option<std::sync::Arc<gpui::RenderImage>>,
-    pub after: Option<std::sync::Arc<gpui::RenderImage>>,
+    pub before: Option<Picture>,
+    pub after: Option<Picture>,
+}
+
+/// An image a diff shows, decoded or drawn, and the size it's drawn at, in points.
+#[derive(Debug, Clone)]
+pub struct Picture {
+    pub image: std::sync::Arc<gpui::RenderImage>,
+    pub width: f32,
+    pub height: f32,
 }
 
 impl FileDiff {
@@ -534,8 +542,8 @@ pub enum DiffBody {
     Binary,
     /// An image, shown before and after; a side is missing for an added or deleted file.
     Image {
-        before: Option<std::sync::Arc<gpui::RenderImage>>,
-        after: Option<std::sync::Arc<gpui::RenderImage>>,
+        before: Option<Picture>,
+        after: Option<Picture>,
     },
     TooLarge {
         bytes: u64,
