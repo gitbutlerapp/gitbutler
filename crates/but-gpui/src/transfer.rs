@@ -66,21 +66,48 @@ pub enum Transfer {
     },
 }
 
+/// Where on its target a drop or paste lands. Only a commit tells all three apart: above or
+/// below it, or squashed into it. Anything else takes what lands on it, or with ⇧ a branch
+/// goes below another.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Place {
+    Above,
+    Into,
+    Below,
+}
+
+impl Place {
+    /// Where a paste of `payload` with `held` lands on `target`: a commit, or a copy of one,
+    /// goes above a commit, below it with ⇧, or into it with ⌥, and files go into it; into
+    /// anything else, or below a branch with ⇧.
+    pub fn from_keys(held: Modifiers, payload: &Cut, target: &Selection) -> Self {
+        let commit = matches!(payload, Cut::Commit(..) | Cut::CherryPick(..));
+        match target {
+            Selection::Commit(..) if held.alt || !commit => Place::Into,
+            Selection::Commit(..) if !held.shift => Place::Above,
+            _ if held.shift => Place::Below,
+            _ => Place::Into,
+        }
+    }
+}
+
 impl Transfer {
-    /// What `payload` does when it lands on `target`, if anything. A commit landing on
-    /// another goes above it; with ⌥ held it squashes into it instead, and with ⇧ it goes
-    /// below it. A branch landing on another stacks on it, and with ⇧ goes below it.
-    pub fn resolve(
-        payload: &Cut,
-        target: &Selection,
-        held: Modifiers,
-        store: &Store,
-    ) -> Option<Self> {
+    /// What `payload` does when it lands on `target` at `place`, if anything. A commit landing
+    /// on another goes above or below it, or squashes into it. A branch landing on another
+    /// stacks on it, or goes below it.
+    pub fn resolve(payload: &Cut, target: &Selection, place: Place, store: &Store) -> Option<Self> {
         if payload.project() != target.project() {
             return None;
         }
         // An unnamed branch has no ref to put things on or stack onto.
         if matches!(target, Selection::Branch(_, branch) if branch.is_empty()) {
+            return None;
+        }
+        // Only a commit, or a copy of one, goes above or below another; the rest go into it.
+        if matches!(target, Selection::Commit(..))
+            && place != Place::Into
+            && !matches!(payload, Cut::Commit(..) | Cut::CherryPick(..))
+        {
             return None;
         }
         // A branch moves among its own: a linked worktree's within its lane, the workspace's
@@ -118,28 +145,27 @@ impl Transfer {
                 }
             }
             (Cut::Commit(_, id), Selection::Commit(_, target_id)) if id != target_id => {
-                if held.alt {
-                    return Some(Transfer::Squash {
-                        id: *id,
-                        into: *target_id,
-                    });
-                }
                 // Already right above it, or right below.
                 let next = |after: CommitId| {
                     let (branch, _) = workspace.find_commit(after)?;
                     let mut commits = branch.commits.iter().skip_while(|c| c.id != after);
                     commits.nth(1).map(|c| c.id)
                 };
-                let (already, to) = if held.shift {
-                    (
+                let (already, to) = match place {
+                    Place::Into => {
+                        return Some(Transfer::Squash {
+                            id: *id,
+                            into: *target_id,
+                        });
+                    }
+                    Place::Below => (
                         next(*target_id) == Some(*id),
                         Destination::BelowCommit(*target_id),
-                    )
-                } else {
-                    (
+                    ),
+                    Place::Above => (
                         next(*id) == Some(*target_id),
                         Destination::AboveCommit(*target_id),
-                    )
+                    ),
                 };
                 if already {
                     return None;
@@ -153,15 +179,15 @@ impl Transfer {
             (Cut::CherryPick(_, id), Selection::Commit(_, target_id)) if id != target_id => {
                 Transfer::CherryPick {
                     id: *id,
-                    to: if held.shift {
-                        Destination::BelowCommit(*target_id)
-                    } else {
-                        Destination::AboveCommit(*target_id)
+                    to: match place {
+                        Place::Above => Destination::AboveCommit(*target_id),
+                        Place::Below => Destination::BelowCommit(*target_id),
+                        Place::Into => return None,
                     },
                 }
             }
             (Cut::Branch(_, branch), Selection::Branch(_, above))
-                if held.shift && branch != above =>
+                if place == Place::Below && branch != above =>
             {
                 let (lane, at) = workspace.lane_of(above)?;
                 // Already right below it.
@@ -235,7 +261,7 @@ impl Transfer {
         })
     }
 
-    /// What a drop does, said from the target row's point of view.
+    /// What a drop does, said in the drag's pill: the row under the pointer shows where.
     pub fn verb(&self) -> &'static str {
         match self {
             Transfer::Uncommit(_) | Transfer::UncommitFiles { .. } => "Uncommit",
@@ -243,23 +269,12 @@ impl Transfer {
                 to: Destination::Branch(_),
                 ..
             } => "Move to top",
-            Transfer::MoveCommit {
-                to: Destination::AboveCommit(_),
-                ..
-            } => "Move above",
-            Transfer::MoveCommit {
-                to: Destination::BelowCommit(_),
-                ..
-            } => "Move below",
+            Transfer::MoveCommit { .. } => "Move here",
             Transfer::CherryPick {
                 to: Destination::Branch(_),
                 ..
             } => "Cherry-pick to top",
-            Transfer::CherryPick {
-                to: Destination::BelowCommit(_),
-                ..
-            } => "Cherry-pick below",
-            Transfer::CherryPick { .. } => "Cherry-pick above",
+            Transfer::CherryPick { .. } => "Cherry-pick here",
             Transfer::StackBranch { .. } => "Stack on top",
             Transfer::BranchBelow { .. } => "Move below",
             Transfer::Squash { .. } => "Squash into",
@@ -482,7 +497,7 @@ pub fn drag_preview(
     store: Entity<Store>,
     label: SharedString,
 ) -> impl Fn(&Cut, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static {
-    move |payload, _, _, cx| {
+    move |payload, offset, _, cx| {
         store.update(cx, |store, cx| {
             store.dragging = Some(payload.clone());
             cx.notify()
@@ -490,6 +505,8 @@ pub fn drag_preview(
         let preview = cx.new(|_| DragPreview {
             label: label.clone(),
             payload: payload.clone(),
+            store: store.clone(),
+            offset,
         });
         // GPUI drops the preview when the drag ends, dropped or not. Let go over a row that
         // won't take it, nothing else redraws the navigator, which would keep showing the
@@ -498,6 +515,7 @@ pub fn drag_preview(
         cx.observe_release(&preview, move |_, cx| {
             store.update(cx, |store, cx| {
                 store.dragging = None;
+                store.drop_at = None;
                 cx.notify()
             });
         })
@@ -506,24 +524,26 @@ pub fn drag_preview(
     }
 }
 
-/// The pill that follows the pointer while dragging, and what it carries.
+/// The pill that follows the pointer while dragging, what it carries, and what letting go
+/// there does.
 pub struct DragPreview {
     pub label: SharedString,
     pub payload: Cut,
+    store: Entity<Store>,
+    /// Where the pointer pressed the dragged row, which GPUI draws the pill from.
+    offset: Point<Pixels>,
 }
 
 impl Render for DragPreview {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
-        let held = window.modifiers();
-        let hint = match &self.payload {
-            Cut::Commit(..) if held.alt => Some("Squash"),
-            Cut::Commit(..) | Cut::CherryPick(..) if held.shift => Some("Below"),
-            Cut::Commit(..) => Some("⌥ squash · ⇧ below"),
-            Cut::CherryPick(..) => Some("⇧ below"),
-            Cut::Branch(..) | Cut::Files { .. } => None,
-        };
-        popover(theme)
+        let store = self.store.read(cx);
+        let hint = (store.drop_at.as_ref()).and_then(|(target, place)| {
+            Transfer::resolve(&self.payload, target, *place, store).map(|t| t.verb())
+        });
+        // Below and right of the pointer, as a tooltip sits, clear of the row it's over and
+        // the line or outline that row shows.
+        let pill = popover(theme)
             .flex_row()
             .items_center()
             .gap(px(8.))
@@ -545,6 +565,38 @@ impl Render for DragPreview {
             .child(div().truncate().child(self.label.clone()))
             .when_some(hint, |el, hint| {
                 el.child(div().flex_none().text_color(theme.text_2).child(hint))
-            })
+            });
+        div()
+            .pl(self.offset.x + px(14.))
+            .pt(self.offset.y + px(16.))
+            .child(pill)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_paste_on_a_commit_puts_files_into_it_and_commits_above_it() {
+        let (project, id) = (ProjectId::from("p"), CommitId(gix::ObjectId::from([1; 20])));
+        let commit = Selection::Commit(project.clone(), id);
+        let files = Cut::Files {
+            project: project.clone(),
+            from: None,
+            worktree: None,
+            files: Arc::from([]),
+        };
+        let held = Modifiers::default();
+        assert_eq!(
+            Place::from_keys(held, &files, &commit),
+            Place::Into,
+            "files amend the commit, as only commits go above or below one"
+        );
+        assert_eq!(
+            Place::from_keys(held, &Cut::Commit(project, Arc::from([id])), &commit),
+            Place::Above,
+            "a commit goes above it"
+        );
     }
 }

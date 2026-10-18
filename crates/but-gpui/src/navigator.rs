@@ -7,10 +7,10 @@ use std::sync::Arc;
 use std::time::{Duration, UNIX_EPOCH};
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, FocusHandle, Focusable, Hsla,
-    KeyBinding, ListAlignment, ListOffset, ListState, Modifiers, MouseButton, MouseDownEvent,
-    Pixels, SharedString, Stateful, Subscription, WeakEntity, Window, actions, div, list,
-    prelude::*, px,
+    AnyElement, App, ClickEvent, Context, Div, DragMoveEvent, ElementId, Entity, FocusHandle,
+    Focusable, Hsla, KeyBinding, ListAlignment, ListOffset, ListState, Modifiers, MouseButton,
+    MouseDownEvent, Pixels, SharedString, Stateful, Subscription, WeakEntity, Window, actions,
+    deferred, div, list, prelude::*, px,
 };
 
 use crate::app::{AddProject, AppView, Collapse, Confirm, Expand, SelectNext, SelectPrevious};
@@ -23,7 +23,7 @@ use crate::state::{
     Cut, NewAt, Pane, Prefs, ProjectEntry, ProjectId, Selection, Store, StoreEvent,
 };
 use crate::theme::Theme;
-use crate::transfer::{Transfer, drag_preview};
+use crate::transfer::{Place, Transfer, drag_preview};
 use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -319,7 +319,7 @@ impl Navigator {
                         && let Some(last) = stack.branches.last()
                     {
                         let below = Selection::Branch(id.clone(), last.ref_name.clone());
-                        if Transfer::resolve(dragged, &below, Modifiers::shift(), store).is_some() {
+                        if Transfer::resolve(dragged, &below, Place::Below, store).is_some() {
                             rows.push(Row::LaneEnd(id.clone(), last.ref_name.clone()));
                         }
                     }
@@ -910,7 +910,7 @@ impl Navigator {
                         let below = Selection::Branch(project.clone(), ref_name.clone());
                         this.app
                             .update(cx, |app, cx| {
-                                app.transfer(payload, &below, Modifiers::shift(), window, cx)
+                                app.transfer(payload, &below, Place::Below, window, cx)
                             })
                             .ok();
                     }));
@@ -2025,9 +2025,10 @@ impl Navigator {
         )
     }
 
-    /// Make a row accept drags it has a meaning for, and offer its right-click menu.
-    /// While something is cut or dragged, the row says what landing there would do, or
-    /// steps back when it would do nothing.
+    /// Make a row take what's dragged or cut where it has a meaning for it, and offer its
+    /// right-click menu. While dragging, the row under the pointer shows where letting go
+    /// lands: a line above or below a commit, or an outline around what it goes into. While
+    /// something is cut, the selected row shows where ⌘V puts it. Rows it can't go on step back.
     fn drop_target(
         &self,
         el: AnyElement,
@@ -2037,83 +2038,97 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
+        let dragging = cx.has_active_drag();
         // What a drop or a paste would carry: the drag while there is one, else the cut.
-        let pending = if cx.has_active_drag() {
-            store.dragging.as_ref()
-        } else {
-            store.cut.as_ref()
+        let pending = match dragging {
+            true => store.dragging.as_ref(),
+            false => store.cut.as_ref(),
         };
-        let held = window.modifiers();
-        let verdict = pending
-            .map(|payload| Transfer::resolve(payload, &target, held, store).map(|t| t.verb()));
-        let store = self.store.clone();
-        let can_drop_target = target.clone();
-        let menu_target = target.clone();
-        let paste_target = target.clone();
+        let lands = |place: Place| {
+            pending
+                .is_some_and(|payload| Transfer::resolve(payload, &target, place, store).is_some())
+        };
+        let landing = match dragging {
+            true => (store.drop_at.as_ref())
+                .filter(|(at, _)| *at == target)
+                .map(|(_, place)| *place),
+            false => (pending.filter(|_| store.selection.as_ref() == Some(&target)))
+                .map(|cut| Place::from_keys(window.modifiers(), cut, &target)),
+        }
+        .filter(|place| lands(*place));
+        let steps_back = pending.is_some()
+            && ![Place::Above, Place::Into, Place::Below]
+                .into_iter()
+                .any(lands);
         let highlight = theme.pop;
+        let (store, move_target, can_drop_target, menu_target) = (
+            self.store.clone(),
+            target.clone(),
+            target.clone(),
+            target.clone(),
+        );
         div()
             .relative()
             .rounded(px(4.))
             .child(el)
-            .when(matches!(verdict, Some(None)), |el| el.opacity(0.35))
-            .when_some(verdict.flatten(), |el, verb| {
-                el.child(
+            .when(steps_back, |el| el.opacity(0.35))
+            .map(|el| match landing {
+                Some(Place::Into) => el.child(
                     div()
                         .absolute()
-                        .top_0()
-                        .bottom_0()
-                        .right(px(11.))
-                        .flex()
-                        .items_center()
-                        .child(
-                            div()
-                                .id(ElementId::Name(format!("paste-{paste_target:?}").into()))
-                                .cursor_pointer()
-                                // Opaque, as the row's own text sits under it.
-                                .hover(|el| el.bg(theme.bg_1.blend(highlight.opacity(0.14))))
-                                // It reads as a button, so it pastes, as ⌘V on the row does,
-                                // without pressing the row under it, which would select or
-                                // pick it, or start dragging it.
-                                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                                .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                                    let Some(cut) = this.store.read(cx).cut.clone() else {
-                                        return;
-                                    };
-                                    let (target, held) = (paste_target.clone(), window.modifiers());
-                                    (this.app.update(cx, |app, cx| {
-                                        app.transfer(&cut, &target, held, window, cx)
-                                    }))
-                                    .ok();
-                                }))
-                                .px(px(6.))
-                                .py(px(1.))
-                                .rounded(px(4.))
-                                .bg(theme.bg_1)
-                                .border_1()
-                                .border_color(highlight.opacity(0.6))
-                                .text_size(px(11.))
-                                .text_color(highlight)
-                                .child(verb),
-                        ),
-                )
+                        .inset_0()
+                        .rounded(px(4.))
+                        .border_1()
+                        .border_color(highlight)
+                        .bg(highlight.opacity(0.14)),
+                ),
+                // Painted last, as the next row's slice of the card would cover what of it
+                // crosses into that row.
+                Some(place) => el.child(deferred(insertion_line(place == Place::Above, highlight))),
+                None => el,
             })
-            .can_drop(move |payload, window, cx| {
-                payload.downcast_ref::<Cut>().is_some_and(|payload| {
-                    let held = window.modifiers();
-                    Transfer::resolve(payload, &can_drop_target, held, store.read(cx)).is_some()
+            // Every row hears every move of a drag: the one under the pointer says where on
+            // it a drop lands, and the one it leaves lets go of it.
+            .on_drag_move(
+                cx.listener(move |this, event: &DragMoveEvent<Cut>, window, cx| {
+                    let (at, bounds) = (event.event.position, event.bounds);
+                    let store = this.store.read(cx);
+                    let next = if bounds.contains(&at) {
+                        let payload = event.drag(cx);
+                        let y = (at.y - bounds.top()) / bounds.size.height;
+                        let place = place_at(payload, &move_target, y, window.modifiers());
+                        (Transfer::resolve(payload, &move_target, place, store))
+                            .map(|_| (move_target.clone(), place))
+                    } else if store
+                        .drop_at
+                        .as_ref()
+                        .is_some_and(|(t, _)| *t == move_target)
+                    {
+                        None
+                    } else {
+                        return;
+                    };
+                    if store.drop_at != next {
+                        this.store.update(cx, |store, _| store.drop_at = next);
+                    }
+                }),
+            )
+            .can_drop(move |payload, _, cx| {
+                let store = store.read(cx);
+                (payload.downcast_ref::<Cut>()).is_some_and(|payload| {
+                    (store.drop_at.as_ref()).is_some_and(|(at, place)| {
+                        *at == can_drop_target
+                            && Transfer::resolve(payload, at, *place, store).is_some()
+                    })
                 })
             })
-            .drag_over::<Cut>(move |style, _, _, _| {
-                style
-                    .bg(highlight.opacity(0.14))
-                    .border_1()
-                    .border_color(highlight)
-            })
             .on_drop(cx.listener(move |this, payload: &Cut, window, cx| {
-                let held = window.modifiers();
-                this.app
+                let Some((_, place)) = this.store.read(cx).drop_at.clone() else {
+                    return;
+                };
+                (this.app)
                     .update(cx, |app, cx| {
-                        app.transfer(payload, &target, held, window, cx)
+                        app.transfer(payload, &target, place, window, cx)
                     })
                     .ok();
             }))
@@ -2320,6 +2335,46 @@ fn meta_count(glyph: Icon, n: usize, color: Hsla, tip: String) -> Option<Statefu
             .child(n.to_string())
             .tooltip(Tooltip::text(tip))
     })
+}
+
+/// Where on `target` a drop of `payload` at `y`, from 0 at its top to 1 at its bottom,
+/// lands. A commit dragged onto another goes above it in the top quarter, below it in the
+/// bottom one, and into it between; a copy of one, which can't go into another, splits it in
+/// halves. Anything else goes into its target, or with ⇧ a branch below another.
+fn place_at(payload: &Cut, target: &Selection, y: f32, held: Modifiers) -> Place {
+    match (payload, target) {
+        (Cut::Commit(..), Selection::Commit(..)) if y < 0.25 => Place::Above,
+        (Cut::Commit(..), Selection::Commit(..)) if y > 0.75 => Place::Below,
+        (Cut::CherryPick(..), Selection::Commit(..)) if y < 0.5 => Place::Above,
+        (Cut::CherryPick(..), Selection::Commit(..)) => Place::Below,
+        _ if held.shift && !matches!(target, Selection::Commit(..)) => Place::Below,
+        _ => Place::Into,
+    }
+}
+
+/// The line a drop lands on, along the row's top edge or its bottom one, so the rows either
+/// side of a gap draw it in the same place.
+fn insertion_line(above: bool, color: Hsla) -> Div {
+    let line = div()
+        .absolute()
+        .left(px(10.))
+        .right(px(6.))
+        .h(px(2.))
+        .rounded_full()
+        .bg(color)
+        .child(
+            div()
+                .absolute()
+                .left(px(-4.))
+                .top(px(-2.))
+                .size(px(6.))
+                .rounded_full()
+                .bg(color),
+        );
+    match above {
+        true => line.top(px(-1.)),
+        false => line.bottom(px(-1.)),
+    }
 }
 
 /// A dashed box to drop a dragged row on, lit while one is over it.
