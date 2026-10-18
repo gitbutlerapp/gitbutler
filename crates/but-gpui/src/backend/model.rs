@@ -163,9 +163,17 @@ impl Workspace {
         }
     }
 
-    /// Whether pushing `ref_name` would push a conflicted commit.
-    pub fn pushes_conflicts(&self, ref_name: &str) -> bool {
-        (self.pushed_with(ref_name).iter()).any(|b| b.commits.iter().any(|c| c.conflicted))
+    /// Why `ref_name` can't be pushed yet, though it has commits to send: pushing goes to
+    /// the target's remote, and a conflicted commit would go along.
+    pub fn push_refused(&self, ref_name: &str) -> Option<&'static str> {
+        let pushed = self.pushed_with(ref_name);
+        if self.target.is_none() {
+            Some("Pick the project's target branch first")
+        } else if (pushed.iter()).any(|b| b.commits.iter().any(|c| c.conflicted)) {
+            Some("Resolve the conflicted commits first")
+        } else {
+            None
+        }
     }
 
     /// Whether pushing `ref_name` has to force: it or a branch below it was rewritten since
