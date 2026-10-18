@@ -791,6 +791,8 @@ impl Detail {
 
     fn open_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.filtering = true;
+        // Its field heads the file list, so a hidden list comes back with it.
+        self.files_hidden = false;
         self.file_filter
             .update(cx, |input, cx| input.select_all_text(cx));
         window.focus(&self.file_filter.focus_handle(cx), cx);
