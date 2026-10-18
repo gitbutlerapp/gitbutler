@@ -4,7 +4,8 @@
 use gpui::{Action, AnyElement, Context, Focusable as _, Window, div, prelude::*, px};
 
 use crate::app::{
-    AppView, CommandPalette, CutSelection, PasteHere, StartCommit, ToggleNavigator, Undo,
+    AppView, CommandPalette, CutSelection, FocusChanges, PasteHere, StartCommit, ToggleNavigator,
+    Undo,
 };
 use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk, ToggleReviewed};
 use crate::state::{SLOW, Selection};
@@ -84,6 +85,9 @@ impl AppView {
         let uncommitted = main || matches!(store.selection, Some(Selection::Worktree(..)));
         let hints: Vec<(&dyn Action, &str)> = if main && detail.composing() {
             vec![(&StartCommit, "commit"), (&AmendTop, "amend")]
+        } else if !typing && !detail_focused && detail.shows_conflicts() {
+            // Picking takes the keys of the diff, so it needs the focus.
+            vec![(&FocusChanges, "pick conflicts")]
         } else if typing || (detail_focused && !detail.has_files()) || store.selection.is_none() {
             Vec::new()
         } else if detail_focused && uncommitted {

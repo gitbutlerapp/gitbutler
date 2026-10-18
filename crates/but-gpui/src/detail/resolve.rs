@@ -101,6 +101,11 @@ impl Detail {
         }
     }
 
+    /// Whether the diff shown has conflicts to pick.
+    pub fn shows_conflicts(&self) -> bool {
+        self.conflicts().next().is_some()
+    }
+
     /// The key context of the detail: with conflicts to pick, and with picks to apply.
     pub(super) fn key_context(&self) -> &'static str {
         match (self.conflicts().next(), self.resolving.keeping.is_empty()) {
