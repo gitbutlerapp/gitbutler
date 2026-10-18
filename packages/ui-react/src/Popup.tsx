@@ -235,7 +235,8 @@ export const ModalHeader: FC<
 /**
  * What a modal asks about: fields, a list of the things it acts on, a note. Stacks its children
  * apart and scrolls when the modal outgrows the window, while {@link ModalHeader} and
- * {@link ModalFooter} stay in place.
+ * {@link ModalFooter} stay in place. While it scrolls, a hairline marks each edge it runs past:
+ * under the header once it's scrolled down, over the footer while there is more below.
  *
  * @public
  * @import import { Modal, ModalBody, ModalFooter, ModalHeader } from "@gitbutler/ui-react/Popup.tsx";
