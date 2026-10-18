@@ -52,10 +52,18 @@ const ACTIVE_WITHIN: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 
 actions!(
     navigator,
-    [SelectFirst, SelectLast, PreviousSection, NextSection]
+    [
+        SelectFirst,
+        SelectLast,
+        PreviousSection,
+        NextSection,
+        PickPrevious,
+        PickNext
+    ]
 );
 
-/// Jumps through the tree, as in Lite: to either end, and between branches and projects.
+/// Jumps through the tree: to either end, and between branches and projects. ⇧ with an arrow
+/// picks commits, as ⇧-click does.
 pub fn bind_keys(cx: &mut App) {
     let nav = Some("Navigator && !TextInput");
     cx.bind_keys([
@@ -63,8 +71,10 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("home", SelectFirst, nav),
         KeyBinding::new("shift-g", SelectLast, nav),
         KeyBinding::new("end", SelectLast, nav),
-        KeyBinding::new("shift-up", PreviousSection, nav),
-        KeyBinding::new("shift-down", NextSection, nav),
+        KeyBinding::new("alt-up", PreviousSection, nav),
+        KeyBinding::new("alt-down", NextSection, nav),
+        KeyBinding::new("shift-up", PickPrevious, nav),
+        KeyBinding::new("shift-down", PickNext, nav),
     ]);
 }
 
@@ -565,6 +575,40 @@ impl Navigator {
         self.select(next, window, cx);
     }
 
+    /// Step `delta` commits from the selected one, picking the run as ⇧-click does. Off a
+    /// commit, or on a linked worktree's, it's a plain step.
+    fn pick_step(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        let (project, id) = match &store.selection {
+            Some(item @ Selection::Commit(project, id)) if store.worktree_of(item).is_none() => {
+                (project.clone(), *id)
+            }
+            _ => return self.step(delta, window, cx),
+        };
+        let order = self.commit_order(&project, cx);
+        let next = (order.iter().position(|commit| *commit == id))
+            .and_then(|at| order.get(at.checked_add_signed(delta)?).copied());
+        if let Some(next) = next {
+            (self.store).update(cx, |store, cx| store.pick(&project, next, Some(order), cx));
+        }
+    }
+
+    /// The commits of `project` that can be picked together, as shown: not those folded
+    /// away, nor a linked worktree's, which change only there.
+    fn commit_order(&self, project: &ProjectId, cx: &App) -> Vec<CommitId> {
+        let store = self.store.read(cx);
+        (self.rows.iter())
+            .filter_map(|row| match row {
+                Row::Item(item @ Selection::Commit(p, commit))
+                    if p == project && store.worktree_of(item).is_none() =>
+                {
+                    Some(*commit)
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
     /// Select the first item before (`forward` false) or after the selection that starts a
     /// section: a project or a branch.
     fn jump_section(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
@@ -959,8 +1003,8 @@ impl Navigator {
         }
     }
 
-    /// Select `item` on press, as native lists do: a click waits for the release. ⌘ or ⇧
-    /// picks commits along with the selected one.
+    /// Select `item` on press, as native lists do: a click waits for the release. ⌘ (ctrl off
+    /// macOS) or ⇧ picks commits along with the selected one.
     fn select_on_press(
         &self,
         item: &Selection,
@@ -968,23 +1012,13 @@ impl Navigator {
     ) -> impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static {
         let item = item.clone();
         cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-            let (platform, shift) = (event.modifiers.platform, event.modifiers.shift);
+            let (toggle, shift) = (event.modifiers.secondary(), event.modifiers.shift);
             match &item {
                 // A linked worktree's commits change there, so they aren't picked to change.
                 Selection::Commit(project, id)
-                    if (platform || shift) && this.store.read(cx).worktree_of(&item).is_none() =>
+                    if (toggle || shift) && this.store.read(cx).worktree_of(&item).is_none() =>
                 {
-                    // A run of commits takes the ones shown, not those folded away.
-                    let range = shift.then(|| {
-                        (this.rows.iter())
-                            .filter_map(|row| match row {
-                                Row::Item(Selection::Commit(p, commit)) if p == project => {
-                                    Some(*commit)
-                                }
-                                _ => None,
-                            })
-                            .collect()
-                    });
+                    let range = shift.then(|| this.commit_order(project, cx));
                     this.store
                         .update(cx, |store, cx| store.pick(project, *id, range, cx));
                     window.focus(&this.focus, cx);
@@ -2291,6 +2325,10 @@ impl Render for Navigator {
                     this.step(isize::MAX / 2, window, cx)
                 }),
             )
+            .on_action(
+                cx.listener(|this, _: &PickPrevious, window, cx| this.pick_step(-1, window, cx)),
+            )
+            .on_action(cx.listener(|this, _: &PickNext, window, cx| this.pick_step(1, window, cx)))
             .on_action(cx.listener(|this, _: &PreviousSection, window, cx| {
                 this.jump_section(false, window, cx)
             }))

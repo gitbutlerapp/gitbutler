@@ -18,12 +18,14 @@ mod account;
 mod background;
 mod load;
 mod mutation;
+mod picks;
 mod saved;
 mod seen;
 
 use load::{Change, Reload};
 pub use mutation::{Overlay, Remap, SLOW};
 use mutation::{Queued, Running};
+pub use picks::Picks;
 pub use saved::{Pane, Prefs, saved_window_place};
 use saved::{Restored, Saved};
 use seen::Seen;
@@ -178,9 +180,9 @@ pub struct Store {
     pub projects_loaded: bool,
     pub selection: Option<Selection>,
     pub cut: Option<Cut>,
-    /// Commits picked along with the selected one (⌘- or ⇧-click) to squash or uncommit
-    /// together: two or more, or none, all in the selected commit's project.
-    pub picked: Vec<CommitId>,
+    /// Commits picked along with the selected one (⌘- or ⇧-click, ⇧-arrows) to squash or
+    /// uncommit together: two or more, or none, all in the selected commit's project.
+    pub picked: Picks<CommitId>,
     /// The commit the selection was on and the one it moved to, when it last moved because
     /// an operation rewrote the commit.
     followed: Option<(CommitId, CommitId)>,
@@ -261,7 +263,7 @@ impl Store {
             projects_loaded: false,
             selection: None,
             cut: None,
-            picked: Vec::new(),
+            picked: Picks::default(),
             followed: None,
             added: None,
             dragging: None,
@@ -433,8 +435,9 @@ impl Store {
     }
 
     /// ⌘-click picks `id` along with the selected commit, or drops it from the picks;
-    /// ⇧-click picks every commit from the selected one to `id` in `range`, the commits in
-    /// the order they're shown. The clicked commit becomes the selection while it's picked.
+    /// ⇧-click and ⇧-arrows pick the run of commits to `id` in `range`, the commits as
+    /// they're shown, from where the last other click left off. The clicked commit becomes
+    /// the selection while it's picked.
     pub fn pick(
         &mut self,
         project: &ProjectId,
@@ -449,39 +452,16 @@ impl Store {
             }
             _ => return self.select(Some(Selection::Commit(project.clone(), id)), cx),
         };
-        let mut picked = std::mem::take(&mut self.picked);
-        if picked.is_empty() {
-            picked.push(at);
-        }
-        if let Some(order) = range {
-            let (Some(from), Some(to)) = (
-                order.iter().position(|c| *c == at),
-                order.iter().position(|c| *c == id),
-            ) else {
-                // `at` alone, pushed above, isn't a pick.
-                if picked.len() > 1 {
-                    self.picked = picked;
-                }
-                return;
-            };
-            for commit in &order[from.min(to)..=from.max(to)] {
-                if !picked.contains(commit) {
-                    picked.push(*commit);
-                }
-            }
-        } else if let Some(ix) = picked.iter().position(|c| *c == id) {
-            picked.remove(ix);
-        } else {
-            picked.push(id);
-        }
-        let next = match picked.contains(&id) {
-            true => id,
-            false => picked.last().copied().unwrap_or(at),
+        // Taken out while selecting, which lets picks go.
+        let mut picks = std::mem::take(&mut self.picked);
+        let next = match range {
+            Some(order) => picks.run(&order, &at, &id),
+            None => Some(picks.toggle(&at, &id)),
         };
-        self.select(Some(Selection::Commit(project.clone(), next)), cx);
-        if picked.len() > 1 {
-            self.picked = picked;
+        if let Some(next) = next {
+            self.select(Some(Selection::Commit(project.clone(), next)), cx);
         }
+        self.picked = picks;
         cx.notify();
     }
 

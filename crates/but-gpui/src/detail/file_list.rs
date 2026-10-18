@@ -36,9 +36,9 @@ enum FileSource {
 pub(super) enum FileMenu {
     /// Changes as they'd be cut, to move or take out: see [`Detail::changes_menu`].
     Cut(Cut),
-    /// A change of the linked worktree with this name. It doesn't move into the workspace,
-    /// so it can only be thrown away.
-    Linked(ProjectId, Arc<str>, Selected),
+    /// Changes of the linked worktree with this name. They don't move into the workspace,
+    /// so they can only be thrown away.
+    Linked(ProjectId, Arc<str>, Vec<Selected>),
 }
 
 /// What a file row shows besides the file itself.
@@ -53,6 +53,8 @@ struct FileRow {
     menu: Option<FileMenu>,
     /// How deep the file sits in a tree; it then shows only its name.
     depth: Option<usize>,
+    /// Picked with other files, which its menu and a drag take along.
+    picked: bool,
 }
 
 /// How far each level of a file tree steps in.
@@ -235,6 +237,7 @@ impl Detail {
             scroll.scroll_to_item(row, ScrollStrategy::Nearest);
             *self.listed_cursor.borrow_mut() = cursor;
         }
+        let picked = self.picked_menu(cx);
         side_list(
             id,
             rows.len(),
@@ -250,22 +253,27 @@ impl Detail {
                     // The current file is solid while the list holds the focus, as the
                     // navigator's selection is while it does.
                     let solid = this.files_focus.is_focused(window);
-                    this.render_source_file(&source, index[*pos], depth, solid, theme, cx)
+                    let (pos, picked) = (index[*pos], picked.as_ref());
+                    this.render_source_file(&source, pos, depth, picked, solid, theme, cx)
                 }
             },
         )
     }
 
-    /// The `pos`th file of `source`, with what its list shows beside it.
+    /// The `pos`th file of `source`, with what its list shows beside it. A picked file's
+    /// menu is `picked`, all the picks'.
+    #[allow(clippy::too_many_arguments)]
     fn render_source_file(
         &self,
         source: &FileSource,
         pos: usize,
         depth: Option<usize>,
+        picked: Option<&FileMenu>,
         solid: bool,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
+        let pick = |path: &String| self.file_picks.contains(path).then(|| picked.cloned());
         match source {
             FileSource::Uncommitted(project) => {
                 let store = self.store.read(cx);
@@ -274,15 +282,19 @@ impl Detail {
                     file: file.clone(),
                     hunks: None,
                 };
+                let picked = pick(&file.path);
                 let extras = FileRow {
                     diff_ix: (self.worktree_diff())
                         .and_then(|diff| diff.files.iter().position(|f| f.file.path == file.path)),
                     checkbox: self.composing.then(|| self.checks.file_check(&file.path)),
-                    menu: Some(FileMenu::Cut(Cut::Files {
-                        project: project.clone(),
-                        from: None,
-                        files: vec![whole].into(),
-                    })),
+                    picked: picked.is_some(),
+                    menu: picked.unwrap_or_else(|| {
+                        Some(FileMenu::Cut(Cut::Files {
+                            project: project.clone(),
+                            from: None,
+                            files: vec![whole].into(),
+                        }))
+                    }),
                     depth,
                 };
                 Some(self.render_file_row(pos, file, extras, solid, theme, cx))
@@ -290,9 +302,11 @@ impl Detail {
             FileSource::Diff => {
                 let diff = self.diff.as_ref()?;
                 let file = diff.files.get(pos)?;
+                let picked = pick(&file.file.path);
                 let extras = FileRow {
                     diff_ix: Some(pos),
-                    menu: self.diff_file_menu(pos, None, cx),
+                    picked: picked.is_some(),
+                    menu: picked.unwrap_or_else(|| self.diff_file_menu(pos, None, cx)),
                     depth,
                     ..Default::default()
                 };
@@ -320,7 +334,8 @@ impl Detail {
         Some((key.project.clone(), from))
     }
 
-    /// The uncommitted file under the cursor, to cut, as the diff's other keys act on it.
+    /// The picked uncommitted files, or the one under the cursor, to cut, as the diff's other
+    /// keys act on them.
     pub fn cursor_cut(&self, cx: &App) -> Option<Cut> {
         // Right after selecting Uncommitted changes, the diff can still be the last one, a
         // commit's or another project's.
@@ -328,6 +343,13 @@ impl Detail {
         let uncommitted = (self.diff.as_ref()).is_some_and(|d| {
             d.key.source == DiffSource::Worktree && Some(&d.key.project) == project.as_ref()
         });
+        if uncommitted && !self.file_picks.is_empty() {
+            return Some(Cut::Files {
+                project: project?,
+                from: None,
+                files: self.picked_changes().into(),
+            });
+        }
         (uncommitted && self.shown_files().contains(&self.cursor.file))
             .then(|| self.diff_cut(self.cursor.file, None, cx))
             .flatten()
@@ -363,10 +385,131 @@ impl Detail {
             Some(worktree) => {
                 let file = diff.files.get(file)?.file.clone();
                 let change = Selected { file, hunks };
-                Some(FileMenu::Linked(diff.key.project.clone(), worktree, change))
+                Some(FileMenu::Linked(
+                    diff.key.project.clone(),
+                    worktree,
+                    vec![change],
+                ))
             }
             None => self.diff_cut(file, hunks, cx).map(FileMenu::Cut),
         }
+    }
+
+    /// What right-clicking or dragging any of the picked files offers, for all of them.
+    fn picked_menu(&self, cx: &App) -> Option<FileMenu> {
+        if self.file_picks.is_empty() {
+            return None;
+        }
+        let diff = self.diff.as_ref()?;
+        let files = self.picked_changes();
+        match diff.key.linked() {
+            Some(worktree) => Some(FileMenu::Linked(diff.key.project.clone(), worktree, files)),
+            None => {
+                let (project, from) = self.diff_owner(cx)?;
+                let files = files.into();
+                Some(FileMenu::Cut(Cut::Files {
+                    project,
+                    from,
+                    files,
+                }))
+            }
+        }
+    }
+
+    /// The loaded diff's picked files, whole, in its order: not those it doesn't show.
+    pub(super) fn picked_changes(&self) -> Vec<Selected> {
+        let Some(diff) = &self.diff else {
+            return Vec::new();
+        };
+        (self.shown_files().into_iter())
+            .filter_map(|ix| diff.files.get(ix))
+            .filter(|f| self.file_picks.contains(&f.file.path))
+            .map(|f| Selected {
+                file: f.file.clone(),
+                hunks: None,
+            })
+            .collect()
+    }
+
+    /// ⌘-click (`run` false) or ⇧-click on the loaded diff's file at `file`.
+    fn pick_file(&mut self, file: usize, run: bool, cx: &mut Context<Self>) {
+        let Some(path) = self.diff_path(file) else {
+            return;
+        };
+        let order = self.listed_paths(cx);
+        // A cursor the list doesn't show, as when a filter hides it, isn't picked along.
+        let cursor = (self.cursor_path())
+            .filter(|cursor| order.contains(cursor))
+            .unwrap_or_else(|| path.clone());
+        let next = match run {
+            true => self.file_picks.run(&order, &cursor, &path),
+            false => Some(self.file_picks.toggle(&cursor, &path)),
+        };
+        self.picked_file(next, cx);
+    }
+
+    /// Step `delta` files from the cursor, picking the run as ⇧-click does.
+    pub(super) fn pick_step(&mut self, delta: isize, cx: &mut Context<Self>) {
+        let next = self
+            .file_step(delta, cx)
+            .and_then(|file| self.diff_path(file));
+        let (Some(cursor), Some(next)) = (self.cursor_path(), next) else {
+            return;
+        };
+        let next = self.file_picks.run(&self.listed_paths(cx), &cursor, &next);
+        self.picked_file(next, cx);
+    }
+
+    pub(super) fn pick_all_files(&mut self, cx: &mut Context<Self>) {
+        self.file_picks.all(&self.listed_paths(cx));
+        self.picked_file(None, cx);
+    }
+
+    /// After a pick, bring the cursor to `next`. Picks are of one list at a time, so commits
+    /// picked in the navigator go.
+    fn picked_file(&mut self, next: Option<String>, cx: &mut Context<Self>) {
+        if !self.file_picks.is_empty() && !self.store.read(cx).picked.is_empty() {
+            self.store.update(cx, |store, cx| {
+                store.picked.clear();
+                cx.notify()
+            });
+        }
+        let file = next.and_then(|next| {
+            (self.diff.as_ref())?
+                .files
+                .iter()
+                .position(|f| f.file.path == next)
+        });
+        if let Some(file) = file {
+            self.scroll_to_file(file, cx);
+        }
+        cx.notify();
+    }
+
+    /// Let the picked files go. Whether any were.
+    pub fn clear_file_picks(&mut self, cx: &mut Context<Self>) -> bool {
+        let had = !self.file_picks.is_empty();
+        if had {
+            self.file_picks.clear();
+            cx.notify();
+        }
+        had
+    }
+
+    /// How many files are picked.
+    pub fn picked_files(&self) -> usize {
+        self.file_picks.len()
+    }
+
+    fn diff_path(&self, file: usize) -> Option<String> {
+        Some(self.diff.as_ref()?.files.get(file)?.file.path.clone())
+    }
+
+    /// The paths of the files the list shows, in its order.
+    fn listed_paths(&self, cx: &App) -> Vec<String> {
+        (self.listed_files(cx).into_iter())
+            .filter_map(|file| self.diff_path(file))
+            .collect()
     }
 
     /// The files under the folder `dir` in `source`, to act on together.
@@ -547,7 +690,8 @@ impl Detail {
         let diff_ix = extras.diff_ix;
         let stats = (diff_ix.and_then(|ix| self.diff.as_ref()?.files.get(ix))).map(FileDiff::stats);
         let current = diff_ix == Some(self.cursor.file);
-        let solid = current && solid;
+        let picked = extras.picked;
+        let solid = (current || picked) && solid;
         // On the solid ground, as ui-react's FileList inverts a selected row's contents.
         let muted = match solid {
             true => theme.text_inverted.opacity(0.7),
@@ -638,7 +782,7 @@ impl Detail {
             .justify_center()
             .child(mark)
             .children(more);
-        let mut row = file_row(("file", ix), current, theme)
+        let mut row = file_row(("file", ix), current || picked, theme)
             .when(solid, |el| {
                 el.bg(theme.fill_gray).text_color(theme.text_inverted)
             })
@@ -694,18 +838,33 @@ impl Detail {
             )
             .child(end)
             .when_some(diff_ix, |el, diff_ix| {
+                // ⌘ (ctrl off macOS) or ⇧ picks files. A plain press on a picked file keeps
+                // the picks, for dragging them, until it's let go as a click.
                 el.on_mouse_down(
                     MouseButton::Left,
-                    cx.listener(move |this, _: &MouseDownEvent, _, cx| {
+                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                        let (toggle, shift) = (event.modifiers.secondary(), event.modifiers.shift);
+                        if toggle || shift {
+                            return this.pick_file(diff_ix, shift, cx);
+                        }
+                        if !picked {
+                            this.clear_file_picks(cx);
+                        }
                         this.scroll_to_file(diff_ix, cx)
                     }),
                 )
+                .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
+                    let held = event.modifiers();
+                    if picked && !held.secondary() && !held.shift {
+                        this.clear_file_picks(cx);
+                    }
+                }))
             });
         // A file partly checked drags as its checked hunks and lines. Not at all while
         // they're unknown, rather than as all of it.
         let dragged = match &extras.menu {
             Some(FileMenu::Cut(Cut::Files { project, from, .. }))
-                if extras.checkbox == Some(Toggled::Mixed) =>
+                if !picked && extras.checkbox == Some(Toggled::Mixed) =>
             {
                 (self.selected_change(file)).map(|change| Cut::Files {
                     project: project.clone(),
@@ -717,7 +876,7 @@ impl Detail {
             _ => None,
         };
         if let Some(dragged) = dragged {
-            let label: SharedString = file.path.clone().into();
+            let label: SharedString = dragged.describe().into();
             row = row.on_drag(
                 dragged,
                 crate::transfer::drag_preview(self.store.clone(), label),
@@ -727,6 +886,10 @@ impl Detail {
             row = row.on_mouse_down(
                 MouseButton::Right,
                 cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                    // A file not picked is the menu's alone.
+                    if !picked {
+                        this.clear_file_picks(cx);
+                    }
                     this.file_menu(menu.clone(), None, event.position, cx)
                 }),
             );
@@ -744,10 +907,10 @@ impl Detail {
     ) {
         match menu {
             FileMenu::Cut(payload) => self.changes_menu(payload, Some(line), position, cx),
-            FileMenu::Linked(project, worktree, change) => {
+            FileMenu::Linked(project, worktree, changes) => {
                 let items = vec![
                     MenuItem::new("Discard changes…", move |this, window, cx| {
-                        let (worktree, changes) = (Some(worktree.clone()), vec![change.clone()]);
+                        let (worktree, changes) = (Some(worktree.clone()), changes.clone());
                         this.discard(project.clone(), worktree, changes, window, cx)
                     })
                     .danger(),

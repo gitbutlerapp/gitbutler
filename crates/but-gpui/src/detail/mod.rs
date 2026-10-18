@@ -35,7 +35,7 @@ use gpui::{
 use crate::app::{AddProject, AppView};
 use crate::backend::edit::Editing;
 use crate::backend::{self, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected};
-use crate::state::{Pane, ProjectId, Selection, Store, StoreEvent};
+use crate::state::{Pane, Picks, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -49,6 +49,9 @@ actions!(
     [
         NextFile,
         PreviousFile,
+        PickNextFile,
+        PickPreviousFile,
+        PickAllFiles,
         NextHunk,
         PreviousHunk,
         DiscardHunk,
@@ -66,13 +69,17 @@ actions!(
 );
 
 /// Discarding a hunk follows Zed's agent review, whose cmd-alt-z rejects one. Moving between
-/// files and hunks follows Lite; in the file list, as in but.dev's, ↑ and ↓ step through files.
+/// files and hunks follows Lite; in the file list, as in but.dev's, ↑ and ↓ step through files,
+/// and with ⇧ pick them, as in Finder.
 pub fn bind_keys(cx: &mut App) {
     let c = Some("Detail && !TextInput");
     let files = Some("Files && !TextInput");
     cx.bind_keys([
         KeyBinding::new("down", NextFile, files),
         KeyBinding::new("up", PreviousFile, files),
+        KeyBinding::new("shift-down", PickNextFile, files),
+        KeyBinding::new("shift-up", PickPreviousFile, files),
+        KeyBinding::new("secondary-a", PickAllFiles, files),
         KeyBinding::new("j", NextFile, c),
         KeyBinding::new("k", PreviousFile, c),
         KeyBinding::new("down", NextHunk, c),
@@ -207,6 +214,8 @@ pub struct Detail {
     filtering: bool,
     /// Files shown whole, by path, with their lines once read.
     whole: HashMap<String, Option<FileLines>>,
+    /// Files picked in the file list, by path, to act on together.
+    file_picks: Picks<String>,
     /// Files whose lines are being read, one read each at a time.
     whole_reading: HashSet<String>,
     /// What signed each commit previewed, like "an SSH key", or `None` when nothing did or
@@ -397,6 +406,7 @@ impl Detail {
             filtering: false,
             whole: HashMap::new(),
             whole_reading: HashSet::new(),
+            file_picks: Picks::default(),
             signers: HashMap::new(),
             sideways: HashMap::new(),
             rewording: None,
@@ -503,6 +513,7 @@ impl Detail {
     /// new selection, or another item picked on the same page.
     fn reset_view(&mut self) {
         self.text_selection = None;
+        self.file_picks.clear();
         self.cursor = Cursor::default();
         self.folded.clear();
     }
@@ -763,6 +774,10 @@ impl Detail {
             })
             .map(|(ix, _)| ix)
             .collect();
+        if !self.file_picks.is_empty() {
+            let paths: HashSet<&str> = files.iter().map(|f| f.file.path.as_str()).collect();
+            (self.file_picks).follow(|path| paths.contains(path.as_str()).then(|| path.clone()));
+        }
         self.diff = Some(LoadedDiff {
             key,
             files,
@@ -1069,8 +1084,33 @@ impl Detail {
         self.diff.as_ref()?.rows.iter().position(wanted)
     }
 
-    /// Step `delta` files through the ones shown.
+    /// Step `delta` files through the ones shown, letting picks go.
     fn move_file(&mut self, delta: isize, cx: &mut Context<Self>) {
+        if let Some(file) = self.file_step(delta, cx) {
+            self.file_picks.clear();
+            self.scroll_to_file(file, cx);
+        }
+    }
+
+    /// The file `delta` files from the cursor, through the ones shown.
+    fn file_step(&self, delta: isize, cx: &App) -> Option<usize> {
+        let shown = self.listed_files(cx);
+        if shown.is_empty() {
+            return None;
+        }
+        // From a file that isn't shown, the next shown one counts as a step.
+        let at = shown.partition_point(|file| *file < self.cursor.file) as isize;
+        let at = if shown.contains(&self.cursor.file) || delta < 0 {
+            at
+        } else {
+            at - 1
+        };
+        Some(shown[(at + delta).clamp(0, shown.len() as isize - 1) as usize])
+    }
+
+    /// The files the file list shows, in its order: not those a filter or a pending
+    /// operation hides, nor, in the tree, those of a directory folded shut.
+    fn listed_files(&self, cx: &App) -> Vec<usize> {
         // Not into a directory folded shut in the tree, whose files the list doesn't show.
         let folded_away = |file: &usize| {
             let path = (self.diff.as_ref()).and_then(|diff| diff.files.get(*file));
@@ -1086,18 +1126,7 @@ impl Detail {
         if tree {
             shown.retain(|file| !folded_away(file));
         }
-        if shown.is_empty() {
-            return;
-        }
-        // From a file that isn't shown, the next shown one counts as a step.
-        let at = shown.partition_point(|file| *file < self.cursor.file) as isize;
-        let at = if shown.contains(&self.cursor.file) || delta < 0 {
-            at
-        } else {
-            at - 1
-        };
-        let file = shown[(at + delta).clamp(0, shown.len() as isize - 1) as usize];
-        self.scroll_to_file(file, cx);
+        shown
     }
 
     fn move_hunk(&mut self, forward: bool, cx: &mut Context<Self>) {
@@ -1363,6 +1392,20 @@ impl Detail {
             .ok();
     }
 
+    /// Discard the picked files of a diff of uncommitted changes.
+    fn discard_picked(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(diff) = (self.diff.as_ref()).filter(|diff| diff.key.source.live()) else {
+            return;
+        };
+        let (project, worktree) = (diff.key.project.clone(), diff.key.linked());
+        let changes = self.picked_changes();
+        self.app
+            .update(cx, |app, cx| {
+                app.discard(project, worktree, changes, window, cx)
+            })
+            .ok();
+    }
+
     /// Bring diff row `row` into view: left where it is when it's on screen, else scrolled to
     /// just below the top. gpui's own reveal goes by estimated heights, and past rows not
     /// drawn yet, like a file header or an image, it stops short.
@@ -1502,6 +1545,9 @@ impl Render for Detail {
             .track_focus(&self.focus)
             .on_action(cx.listener(|this, _: &NextFile, _, cx| this.move_file(1, cx)))
             .on_action(cx.listener(|this, _: &PreviousFile, _, cx| this.move_file(-1, cx)))
+            .on_action(cx.listener(|this, _: &PickNextFile, _, cx| this.pick_step(1, cx)))
+            .on_action(cx.listener(|this, _: &PickPreviousFile, _, cx| this.pick_step(-1, cx)))
+            .on_action(cx.listener(|this, _: &PickAllFiles, _, cx| this.pick_all_files(cx)))
             .on_action(cx.listener(|this, _: &NextHunk, _, cx| this.move_hunk(true, cx)))
             .on_action(cx.listener(|this, _: &PreviousHunk, _, cx| this.move_hunk(false, cx)))
             .on_action(cx.listener(|this, _: &DiscardHunk, window, cx| {
@@ -1510,7 +1556,10 @@ impl Render for Detail {
                 }
             }))
             .on_action(cx.listener(|this, _: &DiscardFile, window, cx| {
-                this.discard(this.cursor.file, None, window, cx)
+                match this.file_picks.is_empty() {
+                    true => this.discard(this.cursor.file, None, window, cx),
+                    false => this.discard_picked(window, cx),
+                }
             }))
             .on_action(
                 cx.listener(|this, _: &ToggleFold, _, cx| this.toggle_fold(this.cursor.file, cx)),
