@@ -602,16 +602,22 @@ impl AppView {
                                 h_flex()
                                     .gap(px(6.))
                                     .justify_end()
-                                    .child(
-                                        button(("copy-error", id), "Copy error message")
-                                            .small()
-                                            .style(ButtonStyle::Ghost)
-                                            .on_click(move |_, _, cx| {
-                                                cx.write_to_clipboard(
-                                                    gpui::ClipboardItem::new_string(copied.clone()),
-                                                )
-                                            }),
-                                    )
+                                    // At most one action beside Dismiss: a card with a way
+                                    // forward is advice, with no raw error to copy.
+                                    .when(retry.is_none(), |el| {
+                                        el.child(
+                                            button(("copy-error", id), "Copy error message")
+                                                .small()
+                                                .style(ButtonStyle::Ghost)
+                                                .on_click(move |_, _, cx| {
+                                                    cx.write_to_clipboard(
+                                                        gpui::ClipboardItem::new_string(
+                                                            copied.clone(),
+                                                        ),
+                                                    )
+                                                }),
+                                        )
+                                    })
                                     .child(
                                         button(("dismiss", id), "Dismiss")
                                             .small()
