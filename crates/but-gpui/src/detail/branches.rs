@@ -439,7 +439,7 @@ impl Detail {
                 &self.branches_scroll,
                 "branches-scrollbar",
                 cx,
-                move |this, ix, theme, cx| {
+                move |this, ix, theme, _, cx| {
                     let branches = this.branches.as_ref()?;
                     Some(match rows.get(ix)? {
                         Row::Heading(heading) => list_heading(*heading, theme),

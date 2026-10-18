@@ -250,13 +250,16 @@ impl Detail {
             scroll,
             "files-scrollbar",
             cx,
-            move |this, ix, theme, cx| match rows.get(ix)? {
+            move |this, ix, theme, window, cx| match rows.get(ix)? {
                 dir @ TreeRow::Dir { .. } => {
                     this.render_dir_row(dir, cursor_row == Some(ix), &source, theme, cx)
                 }
                 TreeRow::File { pos, depth } => {
                     let depth = tree.then_some(*depth);
-                    this.render_source_file(&source, index[*pos], depth, theme, cx)
+                    // The current file is solid while the files and the diff hold the focus,
+                    // as the navigator's selection is while it does.
+                    let solid = this.focus.is_focused(window);
+                    this.render_source_file(&source, index[*pos], depth, solid, theme, cx)
                 }
             },
         )
@@ -268,6 +271,7 @@ impl Detail {
         source: &FileSource,
         pos: usize,
         depth: Option<usize>,
+        solid: bool,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
@@ -291,7 +295,7 @@ impl Detail {
                     })),
                     depth,
                 };
-                Some(self.render_file_row(pos, file, extras, theme, cx))
+                Some(self.render_file_row(pos, file, extras, solid, theme, cx))
             }
             FileSource::Diff => {
                 let diff = self.diff.as_ref()?;
@@ -306,7 +310,7 @@ impl Detail {
                     depth,
                     ..Default::default()
                 };
-                Some(self.render_file_row(pos, &file.file, extras, theme, cx))
+                Some(self.render_file_row(pos, &file.file, extras, solid, theme, cx))
             }
         }
     }
@@ -556,6 +560,7 @@ impl Detail {
         ix: usize,
         file: &FileChange,
         extras: FileRow,
+        solid: bool,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
@@ -564,6 +569,12 @@ impl Detail {
         let diff_ix = extras.diff_ix;
         let stats = (diff_ix.and_then(|ix| self.diff.as_ref()?.files.get(ix))).map(FileDiff::stats);
         let current = diff_ix == Some(self.cursor.file);
+        let solid = current && solid;
+        // On the solid ground, as ui-react's FileList inverts a selected row's contents.
+        let muted = match solid {
+            true => theme.text_inverted.opacity(0.7),
+            false => theme.text_2,
+        };
         let reviewed = extras.review == Some(Review::Reviewed);
         // In a tree a file sits under its directory, which names its path.
         let dir = if extras.depth.is_some() { "" } else { dir };
@@ -617,11 +628,14 @@ impl Detail {
                 .justify_center()
                 .rounded(px(4.))
                 .cursor_pointer()
-                .hover(|el| el.bg(theme.hover()))
+                .hover(|el| match solid {
+                    true => el.bg(theme.text_inverted.opacity(0.1)),
+                    false => el.bg(theme.hover()),
+                })
                 .when(!current, |el| {
                     el.invisible().group_hover(ROW_GROUP, |s| s.visible())
                 })
-                .child(small_icon(Icon::Kebab).text_color(theme.text_2))
+                .child(small_icon(Icon::Kebab).text_color(muted))
                 .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
                     cx.stop_propagation();
                     this.file_menu(menu.clone(), None, event.position(), cx)
@@ -653,6 +667,9 @@ impl Detail {
             .child(mark)
             .children(more);
         let mut row = file_row(("file", ix), current, theme)
+            .when(solid, |el| {
+                el.bg(theme.fill_gray).text_color(theme.text_inverted)
+            })
             .aria_label(file.path.clone())
             .aria_description(file.kind.word())
             .group(ROW_GROUP)
@@ -684,7 +701,7 @@ impl Detail {
                                 .overflow_hidden()
                                 .whitespace_nowrap()
                                 .text_ellipsis_middle()
-                                .text_color(theme.text_2)
+                                .text_color(muted)
                                 .child(dir.to_owned()),
                         )
                     }),
@@ -697,7 +714,11 @@ impl Detail {
                 (!file.conflicted)
                     .then_some(file.modified)
                     .flatten()
-                    .map(|ms| faint(relative_time(ms / 1000), theme).text_size(px(11.))),
+                    .map(|ms| {
+                        faint(relative_time(ms / 1000), theme)
+                            .text_size(px(11.))
+                            .when(solid, |el| el.text_color(muted))
+                    }),
             )
             .when(extras.review == Some(Review::Changed), |el| {
                 el.child(dot(theme.warn))

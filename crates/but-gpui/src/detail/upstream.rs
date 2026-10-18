@@ -426,7 +426,7 @@ impl Detail {
                     &self.upstream_scroll,
                     "target-scrollbar",
                     cx,
-                    move |this, ix, theme, cx| {
+                    move |this, ix, theme, _, cx| {
                         let upstream = this.upstream.as_ref()?;
                         Some(match rows.get(ix)? {
                             Row::Heading(heading) => list_heading(heading.clone(), theme),

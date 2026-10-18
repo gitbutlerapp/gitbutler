@@ -850,15 +850,15 @@ pub(super) fn side_list(
     scroll: &UniformListScrollHandle,
     scrollbar: &'static str,
     cx: &Context<Detail>,
-    row: impl Fn(&Detail, usize, &Theme, &Context<Detail>) -> Option<AnyElement> + 'static,
+    row: impl Fn(&Detail, usize, &Theme, &Window, &Context<Detail>) -> Option<AnyElement> + 'static,
 ) -> Div {
     let list = uniform_list(
         id,
         count,
-        cx.processor(move |this, range: Range<usize>, _, cx| {
+        cx.processor(move |this, range: Range<usize>, window, cx| {
             let theme = Theme::get(cx);
             range
-                .filter_map(|ix| row(this, ix, theme, cx))
+                .filter_map(|ix| row(this, ix, theme, window, cx))
                 // A list item is as wide as its content unless something stretches it.
                 .map(|row| div().w_full().child(row))
                 .collect::<Vec<_>>()
