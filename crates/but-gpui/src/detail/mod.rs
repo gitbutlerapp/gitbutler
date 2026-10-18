@@ -215,6 +215,8 @@ pub struct Detail {
     checks_project: Option<ProjectId>,
     /// The commit message box is open; until then there are no checkboxes.
     composing: bool,
+    /// Where the focus was when writing a commit message started, to go back to after.
+    composer_back: Option<FocusHandle>,
     cursor: Cursor,
     /// Whether the selected commit's message shows its body, not just its title.
     message_open: bool,
@@ -340,10 +342,7 @@ impl Detail {
             ),
             cx.subscribe_in(&message, window, |this, _, event, window, cx| match event {
                 InputEvent::Submit => this.commit(window, cx),
-                InputEvent::Cancel => {
-                    this.close_composer(cx);
-                    window.focus(&this.focus, cx);
-                }
+                InputEvent::Cancel => this.leave_composer(window, cx),
                 // The input draws itself; nothing here shows the message, and notifying
                 // would redraw the diff on every keystroke.
                 InputEvent::Changed => {}
@@ -384,6 +383,7 @@ impl Detail {
             rewording: None,
             checks_project: None,
             composing: false,
+            composer_back: None,
             cursor: Cursor::default(),
             message_open: false,
             header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),
