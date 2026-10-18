@@ -4,7 +4,7 @@
 use gpui::{AnyElement, ClickEvent, Context, div, prelude::*, px};
 
 use super::Detail;
-use super::panes::side_header;
+use super::panes::{side_header, unfinished_banner};
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::{Icon, Tooltip, empty_state, faint, h_flex, icon, plural, v_flex};
@@ -80,6 +80,11 @@ impl Detail {
                             .child(format!("· {files_count} uncommitted")),
                     )
                     .child(faint(worktree.path.display().to_string(), theme).truncate()),
+            )
+            .children(
+                worktree
+                    .git_operation
+                    .map(|op| unfinished_banner(op, theme)),
             )
             .children(
                 (self.conflict_banner(cx.entity().downgrade(), cx))

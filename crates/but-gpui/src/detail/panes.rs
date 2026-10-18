@@ -311,8 +311,11 @@ impl Detail {
         };
 
         let banner = self.conflict_banner(cx.entity().downgrade(), cx);
+        // Committing here while Git is partway through something leaves it there.
+        let unfinished = (workspace.git_operation).map(|op| unfinished_banner(op, theme));
         v_flex()
             .size_full()
+            .children(unfinished)
             .children(banner.map(|banner| side_header(theme).child(banner)))
             .child(self.render_uncommitted_files(project, &workspace.uncommitted, theme, cx))
             .when(!workspace.uncommitted.is_empty(), |el| el.child(footer))
@@ -739,6 +742,17 @@ pub(super) fn side_header(theme: &Theme) -> Div {
         .gap(px(6.))
         .border_b_1()
         .border_color(theme.border_3)
+}
+
+/// Says a checkout is stopped partway through Git's `op`, which committing there leaves
+/// as it is.
+pub(super) fn unfinished_banner(op: &str, theme: &Theme) -> Div {
+    side_header(theme).child(super::resolve::warn_banner(
+        format!("Git is partway through {op}"),
+        format!("Finish it in a terminal with `{op} --continue`, or stop it with `{op} --abort`."),
+        None,
+        theme,
+    ))
 }
 
 /// One of the lists beside the diff, drawn only as far as it's on screen, with a

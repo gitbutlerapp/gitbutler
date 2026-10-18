@@ -41,6 +41,9 @@ pub struct Workspace {
     /// The branch checked out instead of the workspace, by its short name. The stacks leave
     /// it out when it's the target's own branch, as in a new project.
     pub checked_out: Option<String>,
+    /// The Git command a rebase, merge, cherry-pick or revert that stopped partway was
+    /// started with, like `git rebase`, to finish it with.
+    pub git_operation: Option<&'static str>,
     /// The commit checked out to edit, while the project is in edit mode. There are no
     /// stacks to show then.
     pub editing: Option<super::edit::Editing>,
@@ -89,6 +92,8 @@ pub struct Worktree {
     /// under the worktree's branches. `None` when that branch has no commits of its own.
     pub lane_end: Option<CommitId>,
     pub uncommitted: Vec<FileChange>,
+    /// The Git command it's stopped partway through, like `git rebase`.
+    pub git_operation: Option<&'static str>,
     /// When it or its branch last moved, as a commit or checkout does, in seconds since the
     /// epoch, from their reflogs.
     pub updated_at: Option<i64>,

@@ -166,7 +166,7 @@ fn checkout(ctx: &Context, worktree: Option<&str>) -> Result<gix::Repository> {
 pub fn load_workspace(path: &Path) -> Result<Workspace> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
-    let (uncommitted, managed, checked_out, refs) = {
+    let (uncommitted, managed, checked_out, refs, git_operation) = {
         let repo = ctx.repo.get()?;
         let head = repo.head_name()?;
         let managed =
@@ -174,16 +174,20 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
         let checked_out = head
             .filter(|_| !managed)
             .map(|name| name.shorten().to_string());
+        let files = worktree_files(&repo)?;
         (
-            worktree_files(&repo)?,
+            files,
             managed,
             checked_out,
             refs_fingerprint(&repo)?,
+            git_operation(&repo),
         )
     };
     if let Some(editing) = edit::editing(&ctx)? {
         return Ok(Workspace {
             uncommitted,
+            git_operation,
+            refs,
             editing: Some(editing),
             ..Default::default()
         });
@@ -234,11 +238,25 @@ pub fn load_workspace(path: &Path) -> Result<Workspace> {
         uncommitted,
         managed,
         checked_out,
+        git_operation,
         editing: None,
         worktrees,
         archived_worktrees,
         worktrees_listed,
         refs,
+    })
+}
+
+/// The Git command `repo`'s checkout is stopped partway through, waiting for `--continue`.
+fn git_operation(repo: &gix::Repository) -> Option<&'static str> {
+    use gix::state::InProgress as P;
+    repo.state().and_then(|state| match state {
+        P::Rebase | P::RebaseInteractive | P::ApplyMailboxRebase => Some("git rebase"),
+        P::Merge => Some("git merge"),
+        P::CherryPick | P::CherryPickSequence => Some("git cherry-pick"),
+        P::Revert | P::RevertSequence => Some("git revert"),
+        P::ApplyMailbox => Some("git am"),
+        P::Bisect => None,
     })
 }
 
