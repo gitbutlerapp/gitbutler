@@ -1,0 +1,178 @@
+.control {
+	--segment-height: var(--size-control);
+	--segment-padding-inline: 10px;
+	--segment-gap: 6px;
+	--segment-icon-size: 16px;
+
+	display: inline-flex;
+	position: relative;
+	align-items: center;
+	/* The picked segment fills the track's height, so the two share a corner. */
+	border-radius: var(--radius-control);
+	background-color: var(--bg-2);
+
+	/* The raised ground under the picked segment: one per control, placed by the component from
+	   the segment's box, so it can slide to the next. */
+	&[data-picked]::before {
+		box-sizing: border-box;
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: var(--picked-width);
+		height: 100%;
+		translate: var(--picked-left) 0;
+		border: 1px solid var(--border-control);
+		border-radius: var(--radius-control);
+		background-color: var(--bg-1);
+		content: "";
+	}
+
+	/* Only once placed, so a control doesn't slide in as it first appears. */
+	&[data-sliding]::before {
+		transition:
+			translate var(--transition-medium) ease-out,
+			width var(--transition-medium) ease-out;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.control[data-sliding]::before {
+		transition: none;
+	}
+}
+
+.small {
+	/* Between the 20px and 28px controls: a count's badge needs 4px around it. */
+	--segment-height: 24px;
+	--segment-padding-inline: 8px;
+	--segment-gap: 4px;
+	--segment-icon-size: 14px;
+}
+
+.segment {
+	display: inline-flex;
+	position: relative;
+	column-gap: var(--segment-gap);
+	align-items: center;
+	justify-content: center;
+	height: var(--segment-height);
+	/* The picked ground's border lies over this one, and takes 1px of the inset. */
+	padding-inline: calc(var(--segment-padding-inline) - 1px);
+	border: 1px solid transparent;
+	border-radius: var(--radius-control);
+	color: var(--text-1);
+	white-space: nowrap;
+	cursor: var(--control-cursor);
+	transition:
+		var(--transition-button),
+		border-color var(--transition-fast);
+
+	/* The hover ground: the segment's own box, growing a little as it fades in. Under the
+	   pointer only, never on the picked segment, which has the raised ground. */
+	&::before {
+		position: absolute;
+		/* Out over the border, so the ground fills the segment edge to edge. */
+		inset: -1px;
+		scale: 0.92;
+		border-radius: var(--radius-control);
+		background-color: var(--bg-hover);
+		content: "";
+		opacity: 0;
+		transition:
+			opacity var(--transition-fast) ease-out,
+			scale var(--transition-fast) ease-out;
+	}
+
+	&:hover:not([data-pressed], [data-disabled])::before {
+		scale: 1;
+		opacity: 1;
+	}
+
+	/* Positioned, so the icon, label and count paint above the ground. */
+	& > * {
+		position: relative;
+	}
+
+	/* The divider on the seam before this segment: a short line, gone beside the picked segment,
+	   where the raised ground already draws the edge, and beside a hovered one. */
+	& + &::after {
+		position: absolute;
+		top: 50%;
+		left: -1px;
+		width: 1px;
+		height: 12px;
+		translate: -50% -50%;
+		background-color: var(--border-2);
+		content: "";
+		transition: opacity var(--transition-medium) ease-out;
+	}
+
+	&:is([data-pressed], :hover:not([data-disabled]))::after,
+	&:is([data-pressed], :hover:not([data-disabled])) + &::after {
+		opacity: 0;
+	}
+
+	&[data-pressed] {
+		cursor: default;
+	}
+
+	&[data-disabled] {
+		cursor: default;
+		opacity: 0.5;
+	}
+
+	&:focus-visible {
+		outline: var(--focus-ring);
+	}
+}
+
+/* Unpicked segments are quieter; the pointer brings one up to the picked strength. */
+.icon {
+	display: flex;
+	opacity: 0.6;
+	transition: opacity var(--transition-fast);
+
+	& > svg {
+		width: var(--segment-icon-size);
+		height: var(--segment-icon-size);
+	}
+
+	.segment[data-pressed] & {
+		opacity: 0.7;
+	}
+
+	.segment:hover:not([data-pressed], [data-disabled]) & {
+		opacity: 0.8;
+	}
+
+	/* The segment's own half strength is enough. */
+	.segment[data-disabled] & {
+		opacity: 1;
+	}
+}
+
+.label {
+	display: inline-flex;
+	column-gap: 3px;
+	align-items: center;
+}
+
+.text {
+	opacity: 0.7;
+	transition: opacity var(--transition-fast);
+
+	:is(.segment[data-pressed], .segment:hover:not([data-disabled]), .segment[data-disabled]) & {
+		opacity: 0.9;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.segment::before {
+		scale: 1;
+		transition: opacity var(--transition-fast);
+	}
+
+	.segment::after {
+		transition: none;
+	}
+}

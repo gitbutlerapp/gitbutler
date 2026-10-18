@@ -36,7 +36,6 @@ import {
 import * as md from "@gitbutler/ui-react/markdown-editing.ts";
 import { applyToTextarea } from "@gitbutler/ui-react/markdown-textarea.ts";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
-import { Toggle, ToggleGroup } from "@base-ui/react";
 import { Badge, type BadgeVariant } from "@gitbutler/ui-react/Badge.tsx";
 import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { Clamped } from "#ui/components/Clamped.tsx";
@@ -48,7 +47,7 @@ import { Markdown } from "#ui/components/Markdown.tsx";
 import { MarkdownAttachments } from "#ui/components/MarkdownAttachments.tsx";
 import { useMentionSuggestions } from "#ui/components/MentionSuggestions.tsx";
 import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
-import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
+import { Segment, SegmentedControl } from "@gitbutler/ui-react/SegmentedControl.tsx";
 import { ScrollArea } from "@gitbutler/ui-react/ScrollArea.tsx";
 import {
 	groupReactors,
@@ -1345,25 +1344,11 @@ export const PullRequestComments: FC<{ projectId: string; review: ForgeReview }>
 			<RegisterFreshItems source="conversation" items={freshItems} />
 			<div className={styles.activityHeader}>
 				<h3 className={classes("text-15", "text-semibold")}>Activity</h3>
-				<ToggleGroup
-					render={<ToggleGroupStyles />}
-					value={[feed]}
-					onValueChange={(value: Array<ActivityFeed>) => {
-						const head = value[0];
-						if (head !== undefined) setFeed(head);
-					}}
-					aria-label="Activity feed"
-				>
-					<Toggle render={<ToggleStyles />} value={"human" satisfies ActivityFeed}>
-						Humans
-					</Toggle>
-					<Toggle render={<ToggleStyles />} value={"agents" satisfies ActivityFeed}>
-						Agents
-					</Toggle>
-					<Toggle render={<ToggleStyles />} value={"timeline" satisfies ActivityFeed}>
-						Timeline
-					</Toggle>
-				</ToggleGroup>
+				<SegmentedControl value={feed} onValueChange={setFeed} aria-label="Activity feed">
+					<Segment value={"human" satisfies ActivityFeed}>Humans</Segment>
+					<Segment value={"agents" satisfies ActivityFeed}>Agents</Segment>
+					<Segment value={"timeline" satisfies ActivityFeed}>Timeline</Segment>
+				</SegmentedControl>
 			</div>
 			<Composer
 				avatarUrl={ownForgeAvatar(items, currentLogin) ?? profile?.picture}

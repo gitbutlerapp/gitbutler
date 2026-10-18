@@ -20,11 +20,11 @@ import { ConflictIcon } from "@gitbutler/ui-react/ConflictIcon.tsx";
 import { Button } from "@gitbutler/ui-react/Button.tsx";
 import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
-import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
+import { Segment, SegmentedControl } from "@gitbutler/ui-react/SegmentedControl.tsx";
 import { authorTooltip, commitIsDiverged, commitTitle, shortCommitId } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import type { BranchIntegrationStrategy, FullRefName } from "@gitbutler/but-sdk";
-import { Dialog, Toggle, ToggleGroup } from "@base-ui/react";
+import { Dialog } from "@base-ui/react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { type FC, useState } from "react";
 import { Row, RowCheckbox, RowLabel, RowLabelContainer } from "./Row.tsx";
@@ -425,26 +425,18 @@ const BranchUpdatePanel: FC<{
 					</p>
 				</div>
 
-				<ToggleGroup
-					render={<ToggleGroupStyles />}
-					value={[choice]}
-					onValueChange={(value: Array<Choice>) => {
-						const head = value[0];
-						if (head !== undefined) pickChoice(head);
-					}}
+				<SegmentedControl
+					value={choice}
+					onValueChange={pickChoice}
 					aria-label="How to resolve the divergence"
 				>
-					<Toggle render={<ToggleStyles />} value="mine">
-						Keep mine
-					</Toggle>
+					<Segment value="mine">Keep mine</Segment>
 					{/* Always in the row, so the three answers read as one set. */}
-					<Toggle render={<ToggleStyles />} value="combine" disabled={additions === 0}>
+					<Segment value="combine" disabled={additions === 0}>
 						Combine both
-					</Toggle>
-					<Toggle render={<ToggleStyles />} value="theirs">
-						Take theirs
-					</Toggle>
-				</ToggleGroup>
+					</Segment>
+					<Segment value="theirs">Take theirs</Segment>
+				</SegmentedControl>
 
 				<div className={styles.viewRow}>
 					{edits.length > 0 && (
