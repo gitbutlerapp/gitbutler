@@ -192,7 +192,11 @@ impl Detail {
             rows.extend(incoming.into_iter().map(Row::Commit));
         }
         if !rest.is_empty() {
-            rows.push(Row::Heading("In your workspace".into()));
+            let heading = match rows.is_empty() {
+                true => format!("On {target}"),
+                false => format!("Earlier on {target}"),
+            };
+            rows.push(Row::Heading(heading));
             rows.extend(rest.into_iter().map(Row::Commit));
         }
         if upstream.more {
@@ -279,7 +283,7 @@ impl Detail {
                 (entry.workspace.as_ref())
                     .filter(|ws| !ws.managed && ws.editing.is_none() && ws.target.is_some())
                     .map(|ws| {
-                        // Until Git finishes, the workspace is no place to go back to.
+                        // Until Git finishes, switching to the workspace has to wait.
                         let text = match (&ws.checked_out, ws.git_operation) {
                             (_, Some(op)) => format!(
                                 "Git is partway through {op}. Finish it in a terminal with \
@@ -304,20 +308,20 @@ impl Detail {
                             .child(div().text_color(theme.text_1).child(text))
                             .when(ws.git_operation.is_none(), |el| {
                                 el.child(
-                                    crate::ui::button("switch-back", "Back to workspace")
+                                    crate::ui::button("switch-back", "Switch to the workspace")
                                         .small()
                                         .on_click(cx.listener(move |this, _, _, cx| {
                                             this.store.update(cx, |store, cx| {
                                                 store.run(
                                                     &project,
-                                                    "Back to workspace",
+                                                    "Switch to the workspace",
                                                     Overlay::default(),
                                                     |path, _| {
                                                         backend::switch_back_to_workspace(path)
                                                     },
                                                     |store, (), cx| {
                                                         store.snack(
-                                                            "Back in the GitButler workspace",
+                                                            "Switched to the GitButler workspace",
                                                             cx,
                                                         )
                                                     },
