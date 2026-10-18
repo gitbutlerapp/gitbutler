@@ -453,10 +453,13 @@ pub fn file_header(
                         .text_color(theme.text_1)
                         .child(name.to_owned()),
                 )
+                // Cut in the middle, as the folder's end tells two files of one name apart.
                 .child(
                     div()
                         .min_w(px(0.))
-                        .truncate()
+                        .overflow_hidden()
+                        .whitespace_nowrap()
+                        .text_ellipsis_middle()
                         .text_color(theme.text_3)
                         .child(match &file.file.previous_path {
                             Some(previous) => format!("{dir}  ← {previous}"),
