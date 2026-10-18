@@ -7,6 +7,7 @@ use super::Detail;
 use super::panes::{side_header, unfinished_banner};
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
+use crate::ui::illustration::Illustration;
 use crate::ui::{Icon, Tooltip, empty_state, faint, h_flex, icon, plural, short_path, v_flex};
 
 impl Detail {
@@ -21,7 +22,13 @@ impl Detail {
         let Some(worktree) = (store.workspace(project))
             .and_then(|ws| ws.worktrees.iter().find(|w| &*w.name == name))
         else {
-            return empty_state("Worktree not found", "", theme);
+            return empty_state(
+                Some(Illustration::Papers),
+                "Worktree not found",
+                "",
+                theme,
+                cx,
+            );
         };
         let files = self.render_diff_file_list(theme, cx);
         // Its branch links to its commits: in the navigator when they're listed there, as its

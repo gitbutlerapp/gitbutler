@@ -23,6 +23,7 @@ use crate::backend::{
 use crate::state::{Prefs, ProjectId};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
+use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, button, checkbox, empty_state, h_flex, icon, icon_button, shortcut,
@@ -290,7 +291,13 @@ impl Detail {
     pub(super) fn render_diff(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
         let ground = || div().flex_1().min_w(px(0.)).h_full().bg(theme.bg_1);
         if let Some(err) = &self.diff_error {
-            let message = empty_state("Couldn't load the diff", err.clone(), theme);
+            let message = empty_state(
+                Some(Illustration::Papers),
+                "Couldn't load the diff",
+                err.clone(),
+                theme,
+                cx,
+            );
             return ground().child(message).into_any_element();
         }
         let Some(diff) = self.shown_diff() else {
@@ -300,26 +307,35 @@ impl Detail {
                 ""
             };
             return ground()
-                .child(empty_state(title, "", theme))
+                .child(empty_state(None, title, "", theme, cx))
                 .into_any_element();
         };
         if diff.files.is_empty() {
-            let (title, detail) = match diff.key.source {
+            // A clean worktree is good news, as but.dev greets it; a commit with nothing in
+            // it is a list with nothing in it.
+            let (drawing, title, detail) = match diff.key.source {
                 DiffSource::Worktree | DiffSource::Linked(_) => (
+                    Illustration::Waving,
                     "No uncommitted changes",
                     "Edits show up here as soon as they're saved",
                 ),
-                _ => ("No changes", ""),
+                _ => (Illustration::Cactus, "No changes", ""),
             };
             return ground()
-                .child(empty_state(title, detail, theme))
+                .child(empty_state(Some(drawing), title, detail, theme, cx))
                 .into_any_element();
         }
         if diff.rows.is_empty() && self.filtering {
             let filter = self.file_filter.read(cx).text();
             let title = format!("No files match \"{}\"", filter.trim());
             return ground()
-                .child(empty_state(title, "Escape shows them all again", theme))
+                .child(empty_state(
+                    Some(Illustration::Papers),
+                    title,
+                    "Escape shows them all again",
+                    theme,
+                    cx,
+                ))
                 .into_any_element();
         }
         let entity = cx.entity().downgrade();

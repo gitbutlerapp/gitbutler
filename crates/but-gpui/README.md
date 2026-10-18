@@ -136,7 +136,7 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 - `src/navigator.rs` (its menus in `navigator/menu.rs`) and `src/detail/` (its file lists in `file_list.rs`) are the two halves of the window; `src/transfer.rs` decides what a drop or paste does, so both input methods agree. `build.rs` compiles in the file-type icons from `packages/ui-react`, and `src/ui/file_icons.rs` reads that package's map to pick one, so they match Lite and but.dev.
 - `src/edits.rs`, `src/pr.rs`, `src/detail/resolve.rs` and `src/projects.rs` hold the actions on commits and branches, pull requests, conflicts and projects; `src/settings/` is the Settings window.
 - `src/palette.rs` is the command palette, `src/overlays.rs` the menus, prompts, modals and snackbars above the window, and `src/status_bar.rs` the strip along the bottom.
-- `src/ui` has the small components GPUI doesn't ship: buttons, a text field, a scrollbar and diff rows.
+- `src/ui` has the small components GPUI doesn't ship: buttons, a text field, a scrollbar, diff rows, and the empty states with ui-react's drawings, read from `packages/ui-react` and coloured for the theme.
 
 It is a member of the main workspace, so `cargo check --workspace` catches `but-api` changes that break it. GPUI is a git dependency on Zed that brings around 900 crates and needs Rust 1.98. Only macOS builds the client. Elsewhere GPUI needs system libraries the workspace's Linux and Windows CI don't install, so `main` is a stub there and GPUI isn't compiled. Nothing else in the workspace depends on this crate.
 

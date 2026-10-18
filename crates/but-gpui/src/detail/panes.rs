@@ -14,6 +14,7 @@ use crate::app::StartCommit;
 use crate::backend::{self, CommitState, PushState, short_ref};
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
+use crate::ui::illustration::Illustration;
 use crate::ui::person::person_avatar;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -339,7 +340,7 @@ impl Detail {
     ) -> AnyElement {
         let store = self.store.read(cx);
         let Some(workspace) = store.workspace(project) else {
-            return empty_state("Loading…", "", theme);
+            return empty_state(None, "Loading…", "", theme, cx);
         };
         let footer = if !self.composing {
             let target = self.effective_target(project, cx);
@@ -398,7 +399,13 @@ impl Detail {
     ) -> AnyElement {
         let store = self.store.read(cx);
         let Some((_, commit)) = store.find_commit(project, id) else {
-            return empty_state("Commit not found", "", theme);
+            return empty_state(
+                Some(Illustration::Papers),
+                "Commit not found",
+                "",
+                theme,
+                cx,
+            );
         };
         let files = self.render_diff_file_list(theme, cx);
         let banner = commit
@@ -643,7 +650,13 @@ impl Detail {
         let Some((ws, branch)) =
             (store.workspace(project)).and_then(|ws| Some((ws, ws.find_branch(ref_name)?)))
         else {
-            return empty_state("Branch not found", "", theme);
+            return empty_state(
+                Some(Illustration::Papers),
+                "Branch not found",
+                "",
+                theme,
+                cx,
+            );
         };
         let target = ws.target.as_ref().map_or("the target", |t| t.name.as_str());
         let push = match branch.push {
@@ -744,7 +757,7 @@ impl Detail {
     ) -> AnyElement {
         let store = self.store.read(cx);
         let Some(branches) = store.workspace(project).and_then(|ws| ws.lane(bottom)) else {
-            return empty_state("Stack not found", "", theme);
+            return empty_state(Some(Illustration::Papers), "Stack not found", "", theme, cx);
         };
         let names: Vec<&str> = branches.iter().map(|branch| branch.name.as_str()).collect();
         let commits = branches.iter().map(|branch| branch.commits.len()).sum();
