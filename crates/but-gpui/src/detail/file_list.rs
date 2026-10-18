@@ -64,18 +64,27 @@ fn file_row(id: impl Into<ElementId>, selected: bool, theme: &Theme) -> Stateful
         .text_size(px(13.))
 }
 
-/// A tree row's indent: a step per level, each with a guide that joins the rows above and
-/// below into one line down its directory.
-fn steps(depth: usize, theme: &Theme) -> Div {
-    h_flex().flex_none().h_full().children((0..depth).map(|_| {
+/// A tree row's indent, as ui-react's FileListItem draws it: a step per level, each with a
+/// guide that joins the rows above and below into one line down its directory, and a
+/// directory's `chevron` in a step of its own. A file's icon so sits under its directory's.
+fn steps(depth: usize, chevron: Option<gpui::Svg>, theme: &Theme) -> Div {
+    let step = || {
         div()
             .w(px(STEP))
             .h_full()
             .flex_none()
             .flex()
             .justify_center()
-            .child(div().w(px(1.)).h_full().bg(theme.text_2.opacity(0.2)))
-    }))
+    };
+    h_flex()
+        .flex_none()
+        .h_full()
+        .gap(px(4.))
+        .children(
+            (0..depth)
+                .map(|_| step().child(div().w(px(1.)).h_full().bg(theme.text_2.opacity(0.2)))),
+        )
+        .children(chevron.map(|chevron| step().items_center().child(chevron)))
 }
 
 /// The panel's heading: Files, how many, and their lines added and removed.
@@ -536,9 +545,9 @@ impl Detail {
             holds_cursor,
             theme,
         )
-        .when(depth > 0, |el| el.child(steps(depth, theme)))
-        .child(
-            div().w(px(STEP)).flex_none().flex().justify_center().child(
+        .child(steps(
+            depth,
+            Some(
                 small_icon(if collapsed {
                     Icon::ChevronRight
                 } else {
@@ -546,13 +555,15 @@ impl Detail {
                 })
                 .text_color(theme.text_3),
             ),
-        )
-        // In colour, as ui-react's FolderIcon draws it.
+            theme,
+        ))
+        // In colour and at its own 17 by 14 points, as ui-react's FolderIcon draws it, in the
+        // box a file's icon has, which it runs a little past.
         .child(
-            img(Icon::FolderFill.path())
+            div()
                 .flex_none()
-                .w(px(16.))
-                .h(px(13.)),
+                .size(px(14.))
+                .child(img(Icon::FolderFill.path()).w(px(17.)).h(px(14.))),
         )
         .child(div().flex_1().min_w(px(0.)).truncate().child(name))
         .when(collapsed, |el| el.child(faint(files.to_string(), theme)))
@@ -754,7 +765,7 @@ impl Detail {
                 extras
                     .depth
                     .filter(|&d| d > 0)
-                    .map(|depth| steps(depth, theme)),
+                    .map(|depth| steps(depth, None, theme)),
             )
             .child(lead)
             // The name whole where it fits, then its folder dimmed and cut in the middle, as the
