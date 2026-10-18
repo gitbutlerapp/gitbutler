@@ -523,6 +523,17 @@ impl Detail {
                         this.app.update(cx, |app, cx| app.copy_text(sha, cx)).ok();
                     })),
             )
+            .when_some(self.signers.get(&id).copied().flatten(), |el, signer| {
+                el.child(
+                    h_flex()
+                        .id("commit-signed")
+                        .gap(px(4.))
+                        .text_color(theme.text_3)
+                        .child(small_icon(Icon::Lock).text_color(theme.text_3))
+                        .child("Signed")
+                        .tooltip(Tooltip::text(format!("Signed with {signer}, not verified"))),
+                )
+            })
             .child(div().text_color(color).child(state))
             .when(commit.conflicted, |el| {
                 el.child(div().text_color(theme.danger).child("conflicted"))

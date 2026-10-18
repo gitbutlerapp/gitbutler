@@ -377,6 +377,24 @@ fn commit_from(local: &but_workspace::ref_info::LocalCommit) -> Commit {
     }
 }
 
+/// What signed commit `id`, like "an SSH key", or `None` when it isn't signed. The signature
+/// isn't checked: that takes the signer's public keys, which only the user's tools know.
+pub fn commit_signer(path: &Path, id: CommitId) -> Result<Option<&'static str>> {
+    use gix::objs::signature::Format;
+    let ctx = open(path)?;
+    let repo = ctx.repo.get()?;
+    let commit = repo.find_commit(id.0)?;
+    let signature = commit.signature()?;
+    Ok(
+        signature.map(|(signature, _)| match Format::from_signature(&signature) {
+            Some(Format::OpenPgp) => "a GPG key",
+            Some(Format::Ssh) => "an SSH key",
+            Some(Format::X509) => "an X.509 certificate",
+            None => "a key",
+        }),
+    )
+}
+
 /// The first line of a commit message or comment, without the whitespace around it.
 fn title(message: &[u8]) -> String {
     let line = message.lines().next().unwrap_or_default();
