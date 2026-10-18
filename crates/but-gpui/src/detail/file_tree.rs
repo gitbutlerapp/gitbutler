@@ -1,6 +1,7 @@
 //! Changed files as a tree of their directories. A directory holding nothing but one other
 //! directory merges with it into one row (`src/backend`), as in Zed's project panel.
 
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashSet};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -46,6 +47,22 @@ pub fn tree_rows(paths: &[&str], collapsed: &HashSet<String>) -> Vec<TreeRow> {
     let mut rows = Vec::new();
     walk(&root, "", 0, collapsed, &mut rows);
     rows
+}
+
+/// How the tree lists two paths: where they part, a directory before a file, then each by
+/// name, as [`tree_rows`] lists them.
+pub fn tree_order(a: &str, b: &str) -> Ordering {
+    let (mut a, mut b) = (a.split('/').peekable(), b.split('/').peekable());
+    loop {
+        let (Some(x), Some(y)) = (a.next(), b.next()) else {
+            return Ordering::Equal;
+        };
+        let (x_dir, y_dir) = (a.peek().is_some(), b.peek().is_some());
+        if x == y && x_dir && y_dir {
+            continue;
+        }
+        return y_dir.cmp(&x_dir).then_with(|| x.cmp(y));
+    }
 }
 
 fn walk(
@@ -125,6 +142,29 @@ mod tests {
                 TreeRow::File { pos: 0, depth: 0 },
             ],
             "`src` keeps two children so it stays; `ui` holds only `diff` so they merge; files sort by name after directories"
+        );
+    }
+
+    #[test]
+    fn sorting_by_tree_order_lists_files_as_the_tree_does() {
+        let mut paths = vec![
+            "README.md",
+            "src/backend/mod.rs",
+            "a-root.txt",
+            "src/zeta/z.rs",
+            "src/checkout.rs",
+            "Cargo.toml",
+        ];
+        let listed: Vec<&str> = (tree_rows(&paths, &HashSet::new()).into_iter())
+            .filter_map(|row| match row {
+                TreeRow::File { pos, .. } => Some(paths[pos]),
+                TreeRow::Dir { .. } => None,
+            })
+            .collect();
+        paths.sort_by(|a, b| tree_order(a, b));
+        assert_eq!(
+            paths, listed,
+            "a diff in tree order steps through its files as the list shows them"
         );
     }
 
