@@ -17,13 +17,9 @@ path = "src/main.rs"
 [lints]
 workspace = true
 
-# `image` is only there to give the dev script's screenshots PNG support; nothing names it.
-[package.metadata.cargo-machete]
-ignored = ["image"]
-
 [features]
 ## Scripted input and frame screenshots for development, see `src/dev.rs`.
-dev-script = ["gpui/test-support", "gpui_platform/test-support", "dep:image"]
+dev-script = ["gpui/test-support", "gpui_platform/test-support"]
 
 # Only macOS builds the client for now: elsewhere GPUI needs system libraries the
 # workspace's Linux and Windows CI don't install, so those get a stub `main`.
@@ -31,7 +27,8 @@ dev-script = ["gpui/test-support", "gpui_platform/test-support", "dep:image"]
 gpui = { git = "https://github.com/zed-industries/zed", rev = "28d0a3547f16b9609b301b48ab363bfca649c864" }
 gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "28d0a3547f16b9609b301b48ab363bfca649c864", features = ["font-kit"] }
 syntect = { version = "5.3.0", default-features = false, features = ["default-fancy"] }
-image = { version = "0.25.1", default-features = false, features = ["png"], optional = true }
+# Decodes a diff's images, shrunk to the size they're shown at.
+image = { version = "0.25.1", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
 # Text drawn as the web apps draw it (see `main`), and scripted runs kept out of App Nap.
 objc2 = "0.6.4"
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSDictionary", "NSObject", "NSProcessInfo", "NSString", "NSUserDefaults", "NSValue"] }

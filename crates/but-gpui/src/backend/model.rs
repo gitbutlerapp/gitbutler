@@ -464,8 +464,8 @@ pub enum DiffBody {
     Binary,
     /// An image, shown before and after; a side is missing for an added or deleted file.
     Image {
-        before: Option<std::sync::Arc<gpui::Image>>,
-        after: Option<std::sync::Arc<gpui::Image>>,
+        before: Option<std::sync::Arc<gpui::RenderImage>>,
+        after: Option<std::sync::Arc<gpui::RenderImage>>,
     },
     TooLarge {
         bytes: u64,
