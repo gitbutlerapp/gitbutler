@@ -69,6 +69,9 @@ struct Delete {
 
 const CONTEXT: &str = "TextInput";
 
+/// The keys every platform's text fields share, then each platform's own: on macOS the Cocoa
+/// text system's, ⌘ for lines and ⌥ for words with Emacs's ⌃ keys; elsewhere Ctrl for words.
+/// `secondary` is ⌘ on macOS and Ctrl elsewhere.
 pub fn bind_keys(cx: &mut App) {
     use Target::*;
     let c = Some(CONTEXT);
@@ -78,38 +81,72 @@ pub fn bind_keys(cx: &mut App) {
     cx.bind_keys([
         delete("backspace", Left),
         delete("delete", Right),
-        delete("alt-backspace", WordLeft),
-        delete("cmd-backspace", LineStart),
         go("left", Left),
         go("right", Right),
         go("up", Up),
         go("down", Down),
-        go("alt-left", WordLeft),
-        go("alt-right", WordRight),
         go("home", LineStart),
         go("end", LineEnd),
-        go("cmd-left", LineStart),
-        go("cmd-right", LineEnd),
-        go("cmd-up", Start),
-        go("cmd-down", End),
         extend("shift-left", Left),
         extend("shift-right", Right),
         extend("shift-up", Up),
         extend("shift-down", Down),
+        extend("shift-home", LineStart),
+        extend("shift-end", LineEnd),
+        KeyBinding::new("secondary-a", SelectAll, c),
+        KeyBinding::new("enter", Newline, c),
+        KeyBinding::new("shift-enter", Newline, c),
+        KeyBinding::new("secondary-enter", Submit, c),
+        KeyBinding::new("escape", Cancel, c),
+        KeyBinding::new("secondary-v", Paste, c),
+        KeyBinding::new("secondary-c", Copy, c),
+        KeyBinding::new("secondary-x", Cut, c),
+        KeyBinding::new("secondary-z", Undo, c),
+        KeyBinding::new("secondary-shift-z", Redo, c),
+    ]);
+    #[cfg(target_os = "macos")]
+    cx.bind_keys([
+        delete("alt-backspace", WordLeft),
+        delete("alt-delete", WordRight),
+        delete("cmd-backspace", LineStart),
+        delete("cmd-delete", LineEnd),
+        delete("ctrl-h", Left),
+        delete("ctrl-d", Right),
+        delete("ctrl-k", LineEnd),
+        go("alt-left", WordLeft),
+        go("alt-right", WordRight),
+        go("cmd-left", LineStart),
+        go("cmd-right", LineEnd),
+        go("cmd-up", Start),
+        go("cmd-down", End),
+        go("ctrl-a", LineStart),
+        go("ctrl-e", LineEnd),
+        go("ctrl-b", Left),
+        go("ctrl-f", Right),
+        go("ctrl-p", Up),
+        go("ctrl-n", Down),
         extend("alt-shift-left", WordLeft),
         extend("alt-shift-right", WordRight),
         extend("cmd-shift-left", LineStart),
         extend("cmd-shift-right", LineEnd),
-        KeyBinding::new("cmd-a", SelectAll, c),
-        KeyBinding::new("enter", Newline, c),
-        KeyBinding::new("shift-enter", Newline, c),
-        KeyBinding::new("cmd-enter", Submit, c),
-        KeyBinding::new("escape", Cancel, c),
-        KeyBinding::new("cmd-v", Paste, c),
-        KeyBinding::new("cmd-c", Copy, c),
-        KeyBinding::new("cmd-x", Cut, c),
-        KeyBinding::new("cmd-z", Undo, c),
-        KeyBinding::new("cmd-shift-z", Redo, c),
+        extend("cmd-shift-up", Start),
+        extend("cmd-shift-down", End),
+        extend("ctrl-shift-a", LineStart),
+        extend("ctrl-shift-e", LineEnd),
+    ]);
+    #[cfg(not(target_os = "macos"))]
+    cx.bind_keys([
+        delete("ctrl-backspace", WordLeft),
+        delete("ctrl-delete", WordRight),
+        go("ctrl-left", WordLeft),
+        go("ctrl-right", WordRight),
+        go("ctrl-home", Start),
+        go("ctrl-end", End),
+        extend("ctrl-shift-left", WordLeft),
+        extend("ctrl-shift-right", WordRight),
+        extend("ctrl-shift-home", Start),
+        extend("ctrl-shift-end", End),
+        KeyBinding::new("ctrl-y", Redo, c),
     ]);
 }
 
