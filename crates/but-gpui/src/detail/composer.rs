@@ -808,6 +808,7 @@ impl Detail {
                             .min_h(px(84.))
                             .max_h(px(260.))
                             .overflow_y_scroll()
+                            .track_scroll(&self.message_scroll)
                             .pl(px(10.))
                             // Clear of the AI button in the corner.
                             .pr(px(30.))

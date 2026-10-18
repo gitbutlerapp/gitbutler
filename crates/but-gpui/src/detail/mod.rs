@@ -220,6 +220,8 @@ pub struct Detail {
     composing: bool,
     /// Where the focus was when writing a commit message started, to go back to after.
     composer_back: Option<FocusHandle>,
+    /// What scrolls the commit message box, which keeps the caret in view.
+    message_scroll: ScrollHandle,
     cursor: Cursor,
     /// Whether the selected commit's message shows its body, not just its title.
     message_open: bool,
@@ -276,7 +278,10 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let message = cx.new(|cx| TextInput::new("Commit message", true, cx));
+        let message_scroll = ScrollHandle::new();
+        let message = cx.new(|cx| {
+            TextInput::new("Commit message", true, cx).scrolled_by(message_scroll.clone())
+        });
         let branch_filter = cx.new(|cx| TextInput::new("Filter branches", false, cx));
         let file_filter = cx.new(|cx| TextInput::new("Filter files", false, cx));
         let subscriptions = vec![
@@ -387,6 +392,7 @@ impl Detail {
             checks_project: None,
             composing: false,
             composer_back: None,
+            message_scroll,
             cursor: Cursor::default(),
             message_open: false,
             header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),
