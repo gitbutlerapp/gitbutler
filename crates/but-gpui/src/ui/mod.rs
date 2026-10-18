@@ -89,6 +89,7 @@ icons! {
     Hash => "hash",
     Kebab => "kebab",
     Link => "link",
+    Lock => "lock",
     List => "list",
     Plus => "plus",
     Pr => "pr",

@@ -209,6 +209,9 @@ pub struct Detail {
     whole: HashMap<String, Option<FileLines>>,
     /// Files whose lines are being read, one read each at a time.
     whole_reading: HashSet<String>,
+    /// What signed each commit previewed, like "an SSH key", or `None` when nothing did or
+    /// it's still being read. A commit never changes, so neither does its signature.
+    signers: HashMap<backend::CommitId, Option<&'static str>>,
     /// How far each file's lines are scrolled sideways, by path: the old side's and the new
     /// side's, which a unified diff scrolls.
     sideways: HashMap<String, [ScrollHandle; 2]>,
@@ -394,6 +397,7 @@ impl Detail {
             filtering: false,
             whole: HashMap::new(),
             whole_reading: HashSet::new(),
+            signers: HashMap::new(),
             sideways: HashMap::new(),
             rewording: None,
             checks_project: None,
@@ -586,6 +590,29 @@ impl Detail {
         self.spawn_load(key, path, worktree, previous, delay, cx);
     }
 
+    /// Read what signed commit `id`, for its header, once.
+    fn read_signer(&mut self, id: backend::CommitId, path: PathBuf, cx: &mut Context<Self>) {
+        if self.signers.contains_key(&id) {
+            return;
+        }
+        self.signers.insert(id, None);
+        cx.spawn(async move |this, cx| {
+            let signer = backend::run(move || backend::commit_signer(&path, id)).await;
+            let signer = signer
+                .inspect_err(|err| tracing::warn!("{err:#}"))
+                .ok()
+                .flatten();
+            if signer.is_some() {
+                this.update(cx, |this, cx| {
+                    this.signers.insert(id, signer);
+                    cx.notify()
+                })
+                .ok();
+            }
+        })
+        .detach();
+    }
+
     /// Load `key`'s diff after `delay`: first with only the files likely on screen
     /// highlighted, to show it soon, then with all of them.
     fn spawn_load(
@@ -601,6 +628,10 @@ impl Detail {
         self._load = cx.spawn(async move |this, cx| {
             if !delay.is_zero() {
                 cx.background_executor().timer(delay).await;
+            }
+            // Who signed it is read for the commit landed on, not each one a held key passes.
+            if let DiffSource::Commit(id) = source {
+                (this.update(cx, |this, cx| this.read_signer(id, path.clone(), cx))).ok();
             }
             // About a screen's worth: the rest follow highlighted a moment later.
             const FIRST: usize = 6;
