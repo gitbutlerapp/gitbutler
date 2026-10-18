@@ -448,7 +448,7 @@ impl Detail {
         let main = v_flex()
             .gap(px(10.))
             .map(|el| match &self.rewording {
-                Some((input, _)) => el.child(self.reword_editor(input, theme, cx)),
+                Some((input, _)) => el.child(self.reword_editor(input, theme)),
                 None => el
                     .child(title)
                     // Further off the lines around it than they stand from each other.
@@ -518,12 +518,7 @@ impl Detail {
     }
 
     /// The box editing a commit's message, with how to save or leave it.
-    fn reword_editor(
-        &self,
-        input: &Entity<TextInput>,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> AnyElement {
+    fn reword_editor(&self, input: &Entity<TextInput>, theme: &Theme) -> AnyElement {
         v_flex()
             .gap(px(8.))
             .child(
@@ -541,14 +536,14 @@ impl Detail {
                     .gap(px(8.))
                     .justify_end()
                     .child(faint("⌘↩ to save, esc to cancel", theme).flex_1())
-                    .child(
+                    .child({
+                        let input = input.clone();
                         button("cancel-reword", "Cancel")
                             .small()
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                this.rewording = None;
-                                cx.notify();
-                            })),
-                    )
+                            .on_click(move |_, _, cx| {
+                                input.update(cx, |_, cx| cx.emit(InputEvent::Cancel))
+                            })
+                    })
                     .child({
                         let input = input.clone();
                         button("save-reword", "Save")
