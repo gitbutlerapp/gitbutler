@@ -69,7 +69,7 @@ Branch rows show a pull request's state (open, draft, merged or closed) and numb
 
 ⌘F finds text in the diff, marking every match and stepping through them with Enter and ⇧Enter, unfolding a folded file to reach one. / (or the magnifier above the file list) filters the file list and the diff to paths with every word typed in them; Escape clears it. Long lines scroll sideways, a file's lines together and each side on its own in a side-by-side diff, unless wrapping is on (the wrap button over the diff, ⌥Z, or Settings); the button beside it draws changed lines without their green and red ground. Split over the diff (⌘B) shows diffs side by side, the old lines beside the new, and Unified one above the other. The button at the diff's top left hides the file list (f), and counts the files and their lines while the list is hidden; ⌘↩ and / bring it back, as the composer and the filter sit in it.
 
-While a file scrolls, its header stays at the top of the diff until the next file pushes it off. Lists and diffs show a scrollbar while the pointer is over them; drag its thumb, or press the track to jump. Text in a diff selects like text anywhere: drag across lines, double-click a word, triple-click a line, shift-click to extend, and ⌘C copies it. A file row has its type's icon, its name with the folder dimmed, its line counts and a letter for added, modified, deleted or renamed, in design-core's change-status colours; folders have ui-react's teal folder. File lists can show a tree of folders instead of a flat list, with the button beside the file count; folders holding nothing but one folder merge into one row (`src/backend`). The diff then lists its files in the tree's order, so j and k step through them as the list shows them, past folders folded shut. Right-click a folder to cut, discard or uncommit everything under it.
+While a file scrolls, its header stays at the top of the diff until the next file pushes it off, and the file list marks that file as the current one, as but.dev's does; a file picked with a key or a click stays current until you scroll. Lists and diffs show a scrollbar while the pointer is over them; drag its thumb, or press the track to jump. Text in a diff selects like text anywhere: drag across lines, double-click a word, triple-click a line, shift-click to extend, and ⌘C copies it. A file row has its type's icon, its name with the folder dimmed, its line counts and a letter for added, modified, deleted or renamed, in design-core's change-status colours; folders have ui-react's teal folder. File lists can show a tree of folders instead of a flat list, with the button beside the file count; folders holding nothing but one folder merge into one row (`src/backend`). The diff then lists its files in the tree's order, so j and k step through them as the list shows them, past folders folded shut. Right-click a folder to cut, discard or uncommit everything under it.
 
 While something is cut or dragged, every row it could land on says what landing there would do ("Amend", "Move above", "Squash into" with ⌥ held, "Move below" with ⇧), and the rest step back. A commit selected in the app stays selected when an agent rewords or rebases it, as long as it keeps its change ID.
 
@@ -83,7 +83,7 @@ The Help menu links the docs, the release notes and where to report an issue, sh
 |---|---|
 | ⌘K | command palette (⌘⇧P works too); ↑ ↓ or ⌃P ⌃N move through it |
 | ⌘P | go to a branch by name, in any expanded project |
-| ⌘1, ⌘2 | focus the navigator, focus the changes |
+| ⌘1, ⌘2, ⌘3 | focus the navigator, the file list (or the diff while it's hidden), the diff |
 | . | show or hide the navigator |
 | ⌘↩ | write the commit message, or commit once it's written |
 | ⌥⌘↩ | while committing: amend the newest commit of the target branch instead |
@@ -108,7 +108,11 @@ The Help menu links the docs, the release notes and where to report an issue, sh
 | ⌘⌫ | discard the selected commit or delete the selected branch |
 | ⌥⌘⌫ | uncommit the selected commit |
 
-| In the changes | |
+| In the file list | |
+|---|---|
+| ↑ ↓ or j k | previous or next file, which the diff scrolls to |
+
+| In the diff | |
 |---|---|
 | ↑ ↓ | previous or next hunk |
 | Space ⇧Space, PageDown PageUp | a page down or up |

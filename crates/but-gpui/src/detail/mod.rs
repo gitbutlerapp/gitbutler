@@ -66,10 +66,13 @@ actions!(
 );
 
 /// Discarding a hunk follows Zed's agent review, whose cmd-alt-z rejects one. Moving between
-/// files and hunks follows Lite.
+/// files and hunks follows Lite; in the file list, as in but.dev's, ↑ and ↓ step through files.
 pub fn bind_keys(cx: &mut App) {
     let c = Some("Detail && !TextInput");
+    let files = Some("Files && !TextInput");
     cx.bind_keys([
+        KeyBinding::new("down", NextFile, files),
+        KeyBinding::new("up", PreviousFile, files),
         KeyBinding::new("j", NextFile, c),
         KeyBinding::new("k", PreviousFile, c),
         KeyBinding::new("down", NextHunk, c),
@@ -168,6 +171,11 @@ pub struct Detail {
     /// For what the window owns: focus, menus, and prompts that ask first.
     app: WeakEntity<AppView>,
     focus: FocusHandle,
+    /// The file list's own, where ↑ and ↓ step through the files.
+    files_focus: FocusHandle,
+    /// The cursor was put where it is on purpose, by a key or a click: scrolling the diff
+    /// moves it again only once the user scrolls.
+    pinned: bool,
     diff: Option<LoadedDiff>,
     diff_error: Option<SharedString>,
     loading: Option<DiffKey>,
@@ -326,7 +334,7 @@ impl Detail {
                         if let Some(&file) = shown.first()
                             && !shown.contains(&this.cursor.file)
                         {
-                            this.cursor = Cursor { file, hunk: None };
+                            this.place_cursor(Cursor { file, hunk: None });
                         }
                     }
                     InputEvent::Submit => window.focus(&this.focus, cx),
@@ -364,6 +372,8 @@ impl Detail {
             store,
             app,
             focus: cx.focus_handle(),
+            files_focus: cx.focus_handle(),
+            pinned: false,
             diff: None,
             diff_error: None,
             loading: None,
@@ -415,6 +425,11 @@ impl Detail {
             beside_traffic_lights: false,
             _subscriptions: subscriptions,
         };
+        // A wheel scroll is the user's, after which the cursor follows the diff again.
+        let this = cx.weak_entity();
+        detail.list.set_scroll_handler(move |_, _, cx| {
+            (this.update(cx, |detail, _| detail.pinned = false)).ok();
+        });
         detail.refresh_diff(true, cx);
         detail
     }
@@ -750,9 +765,54 @@ impl Detail {
             .collect()
     }
 
+    /// Focus the diff.
     pub fn focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         window.focus(&self.focus, cx);
         cx.notify();
+    }
+
+    /// Focus the file list, or the diff while the list is hidden.
+    pub fn focus_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        match self.files_hidden {
+            true => window.focus(&self.focus, cx),
+            false => window.focus(&self.files_focus, cx),
+        }
+        cx.notify();
+    }
+
+    /// Whether `handle` is one of the detail's own, the diff's or the file list's, rather
+    /// than a text field's.
+    pub fn owns_focus(&self, handle: &FocusHandle) -> bool {
+        *handle == self.focus || *handle == self.files_focus
+    }
+
+    /// Whether the file list holds the focus.
+    pub fn files_focused(&self, window: &Window) -> bool {
+        self.files_focus.is_focused(window)
+    }
+
+    /// Put the cursor at `cursor` on purpose, as a key or a click does: scrolling the diff
+    /// moves it again only once the user scrolls.
+    fn place_cursor(&mut self, cursor: Cursor) {
+        self.cursor = cursor;
+        self.pinned = true;
+    }
+
+    /// While the user scrolls the diff, the file at its top, the one its sticky header names,
+    /// is the current one, and the file list marks it, as in but.dev.
+    pub(super) fn follow_scroll(&mut self, cx: &mut Context<Self>) {
+        let Some(diff) = self.diff.as_ref().filter(|_| !self.pinned) else {
+            return;
+        };
+        let top = self.list.logical_scroll_top().item_ix;
+        let Some(file) = (diff.rows.get(top..)).and_then(|rows| rows.iter().find_map(|r| r.file()))
+        else {
+            return;
+        };
+        if file != self.cursor.file {
+            self.cursor = Cursor { file, hunk: None };
+            cx.notify();
+        }
     }
 
     pub fn is_focused(&self, window: &Window, cx: &App) -> bool {
@@ -841,6 +901,7 @@ impl Detail {
 
     /// Scroll the diff by most of a screen, keeping a few lines in view for context.
     fn page(&mut self, direction: f32, cx: &mut Context<Self>) {
+        self.pinned = false;
         let height = self.list.viewport_bounds().size.height;
         self.list.scroll_by(height * 0.85 * direction);
         cx.notify();
@@ -1034,10 +1095,10 @@ impl Detail {
             })
         };
         if let Some(&(file, hunk, row)) = next {
-            self.cursor = Cursor {
+            self.place_cursor(Cursor {
                 file,
                 hunk: Some(hunk),
-            };
+            });
             self.reveal_row(row);
             cx.notify();
         }
@@ -1099,7 +1160,7 @@ impl Detail {
             .filter(|(_, hunk)| hunk.is_some() == file_shown)
             .collect();
         if let Some(&(file, hunk)) = places.iter().find(|place| **place > at).or(places.last()) {
-            self.cursor = Cursor { file, hunk };
+            self.place_cursor(Cursor { file, hunk });
         }
     }
 
@@ -1224,10 +1285,10 @@ impl Detail {
         if !self.folded.remove(&path) {
             self.folded.insert(path);
         }
-        self.cursor = Cursor {
+        self.place_cursor(Cursor {
             file: file_ix,
             hunk: None,
-        };
+        });
         self.rebuild_rows(cx);
     }
 
@@ -1240,10 +1301,10 @@ impl Detail {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.cursor = Cursor {
+        self.place_cursor(Cursor {
             file: file_ix,
             hunk,
-        };
+        });
         let Some(diff) = (self.diff.as_ref()).filter(|diff| diff.key.source.live()) else {
             return;
         };
@@ -1287,10 +1348,10 @@ impl Detail {
     }
 
     fn scroll_to_file(&mut self, file_ix: usize, cx: &mut Context<Self>) {
-        self.cursor = Cursor {
+        self.place_cursor(Cursor {
             file: file_ix,
             hunk: None,
-        };
+        });
         if let Some(row) = self.row_of(|row| matches!(row, DiffRow::File(ix) if *ix == file_ix)) {
             self.list.scroll_to(ListOffset {
                 item_ix: row,
@@ -1383,6 +1444,8 @@ impl Render for Detail {
                                 .h_full()
                                 .border_r_1()
                                 .border_color(theme.border_3)
+                                .track_focus(&self.files_focus)
+                                .key_context("Files")
                                 .child(side)
                                 .child(resize_handle(Pane::Files, self.store.clone(), &theme)),
                         )
@@ -1425,8 +1488,12 @@ impl Render for Detail {
             .on_action(
                 cx.listener(|this, _: &FilterFiles, window, cx| this.open_filter(window, cx)),
             )
-            .on_action(cx.listener(|this, _: &ToggleFiles, _, cx| {
+            .on_action(cx.listener(|this, _: &ToggleFiles, window, cx| {
                 this.files_hidden = !this.files_hidden;
+                // Keys go on to the diff once the list they went to is gone.
+                if this.files_hidden && this.files_focus.is_focused(window) {
+                    window.focus(&this.focus, cx);
+                }
                 cx.notify();
             }))
             .on_action(

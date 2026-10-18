@@ -50,6 +50,7 @@ actions!(
         Push,
         FocusNavigator,
         FocusChanges,
+        FocusDiff,
         StartCommit,
         ToggleNavigator,
         CommandPalette,
@@ -74,6 +75,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("cmd-k", CommandPalette, None),
         KeyBinding::new("cmd-1", FocusNavigator, None),
         KeyBinding::new("cmd-2", FocusChanges, None),
+        KeyBinding::new("cmd-3", FocusDiff, None),
         KeyBinding::new("cmd-enter", StartCommit, workspace),
         KeyBinding::new("cmd-z", Undo, workspace),
         KeyBinding::new("cmd-shift-z", Redo, workspace),
@@ -421,7 +423,13 @@ impl AppView {
         }
     }
 
+    /// The file list, or the diff while the list is hidden.
     fn focus_changes(&mut self, _: &FocusChanges, window: &mut Window, cx: &mut Context<Self>) {
+        self.detail
+            .update(cx, |detail, cx| detail.focus_files(window, cx));
+    }
+
+    fn focus_diff(&mut self, _: &FocusDiff, window: &mut Window, cx: &mut Context<Self>) {
         self.detail
             .update(cx, |detail, cx| detail.focus(window, cx));
     }
@@ -625,6 +633,7 @@ impl Render for AppView {
             .on_action(cx.listener(Self::cancel))
             .on_action(cx.listener(Self::focus_navigator))
             .on_action(cx.listener(Self::focus_changes))
+            .on_action(cx.listener(Self::focus_diff))
             .on_action(cx.listener(Self::start_commit))
             .on_action(cx.listener(Self::update_selected_project))
             .on_action(cx.listener(Self::toggle_navigator))
