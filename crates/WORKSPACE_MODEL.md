@@ -134,6 +134,8 @@ Important graph editor concepts:
 
 Materializing also records how local branches stack, read off the step graph by `SuccessfulRebase::branch_stacks()`: the workspace stacks when `HEAD` is on the workspace reference above a workspace commit, and the branch stack order of `HEAD` otherwise and of every linked worktree. `overlayed_graph()` previews with the same stacks. A branch a linked worktree has checked out stacks with that worktree, and the workspace stacks are rebuilt rather than reconciled, keeping only a stack's id and position. An operation that needs something else in metadata still writes it after materializing.
 
+`but-graph` reads a linked worktree's branch stack order back when it forks the worktree's checked-out branch out of the lanes: the branches the order puts at one commit become a chain of empty segments resting on that commit, and the worktree's first-parent path into the commit runs through them. They never own commits. The order only claims what the editor would give the worktree: branches on the worktree's own first-parent path that no checkout has checked out and that the entrypoint's metadata doesn't stack. A stale order thus can't take a branch from another lane, and the workspace stacks stay as they are.
+
 The graph editor is not merely “a rebase command.” It is the in-memory graph mutation layer for history and ref-placement rewrites. It is currently created from a mutable workspace projection, so projection may be involved in editor setup even when the mutation decision should be graph-shaped.
 
 ### What the editor borrows
