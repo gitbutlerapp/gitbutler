@@ -940,10 +940,9 @@ impl Navigator {
         let el = match item {
             Selection::Project(id) => self.project_row(item, id, style, cx),
             Selection::Uncommitted(id)
-                if (store.workspace(id)).is_some_and(|ws| ws.worktrees.is_empty())
-                    || store.workspace(id).is_some_and(|ws| ws.editing.is_some()) =>
+                if store.workspace(id).is_some_and(|ws| ws.editing.is_some()) =>
             {
-                Some(self.uncommitted_row(item, id, style, cx))
+                Some(self.editing_row(item, id, style, cx))
             }
             Selection::Uncommitted(_) | Selection::Worktree(..) => {
                 self.worktree_heading(ix, item, style, cx)
@@ -1313,8 +1312,9 @@ impl Navigator {
             .into_any_element()
     }
 
-    /// The project's uncommitted changes, when it has no linked worktrees to head them.
-    fn uncommitted_row(
+    /// The commit being edited, whose files are listed where the uncommitted ones are, and
+    /// go nowhere else until it's finished.
+    fn editing_row(
         &self,
         item: &Selection,
         id: &ProjectId,
@@ -1322,66 +1322,27 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
-        let theme = style.theme;
-        let uncommitted = store.workspace(id).map_or(&[][..], |ws| &ws.uncommitted);
-        let editing = store.workspace(id).is_some_and(|ws| ws.editing.is_some());
-        let n = uncommitted.len();
-        let label = match (editing, n) {
-            (true, _) => "Editing a commit",
-            (false, 0) => "No uncommitted changes",
-            (false, _) => "Uncommitted changes",
-        };
-        let row = style
+        let files = store.workspace(id).map_or(&[][..], |ws| &ws.uncommitted);
+        style
             .row(format!("uncommitted-{id}"), 6.)
-            .aria_label(label)
-            .child(icon(Icon::Diff).text_color(if n > 0 {
-                style.meta(theme.warn)
-            } else {
-                style.muted()
-            }))
+            .aria_label("Editing a commit")
+            .child(icon(Icon::Diff).text_color(style.meta(style.theme.warn)))
             .child(
                 div()
                     .flex_1()
                     .min_w(px(0.))
                     .truncate()
-                    .when(n == 0 && !editing, |el| el.text_color(style.muted()))
-                    .child(label),
+                    .child("Editing a commit"),
             )
-            .children(change_counts(store, id, uncommitted, style))
-            .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx));
-        // The commit being edited's files go nowhere else until it's finished.
-        match editing {
-            true => row.into_any_element(),
-            false => self.drags_changes(row, id, n, cx).into_any_element(),
-        }
-    }
-
-    /// `row`, dragging the project's uncommitted changes checked, when it has any.
-    fn drags_changes(
-        &self,
-        row: Stateful<Div>,
-        id: &ProjectId,
-        n: usize,
-        cx: &Context<Self>,
-    ) -> Stateful<Div> {
-        row.when(n > 0, |el| {
-            let files = self.detail.read(cx).files_to_move(id, cx);
-            let label: SharedString = match files.len() {
-                1 => files[0].file.path.clone().into(),
-                n => format!("{n} files").into(),
-            };
-            let payload = Cut::Files {
-                project: id.clone(),
-                from: None,
-                files: files.into(),
-            };
-            el.on_drag(payload, drag_preview(self.store.clone(), label))
-        })
+            .children(change_counts(store, id, files, style))
+            .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+            .into_any_element()
     }
 
     /// A worktree's heading, which selects its uncommitted changes: the main one's for
-    /// [`Selection::Uncommitted`], a linked one's for [`Selection::Worktree`]. A chevron, or a
-    /// double-click, folds its branches; folded, it also counts their unpushed commits.
+    /// [`Selection::Uncommitted`], a linked one's for [`Selection::Worktree`]. With linked
+    /// worktrees, a chevron or a double-click folds its branches; folded, it also counts their
+    /// unpushed commits. Without, the main one's branches sit beside it, and nothing folds.
     fn worktree_heading(
         &self,
         ix: usize,
@@ -1417,6 +1378,7 @@ impl Navigator {
         let unpushed_n = unpushed(branches.iter().copied());
         let unread = (branches.iter().flat_map(|branch| &branch.commits))
             .any(|commit| store.is_unread(id, commit));
+        let headed = !workspace.worktrees.is_empty();
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
         // Written to in the last two minutes, likely by the agent working in it.
@@ -1451,14 +1413,14 @@ impl Navigator {
                 }))
             }
         };
+        // Alone, its glyph takes the chevron's place, still over its branches' chevrons.
         let row = style
             .row(
                 format!("worktree-{id}-{}", name.as_deref().unwrap_or("")),
-                0.,
+                if headed { 0. } else { 6. },
             )
             .aria_label(label.clone())
-            .aria_expanded(open)
-            .child(step)
+            .when(headed, |el| el.aria_expanded(open).child(step))
             .child(
                 icon(match name {
                     Some(_) => Icon::FolderCopy,
@@ -1477,7 +1439,7 @@ impl Navigator {
                     .child(label),
             )
             .children(change_counts(store, &scope, uncommitted, style))
-            .when(!open, |el| {
+            .when(headed && !open, |el| {
                 el.children(meta_count(
                     Icon::ArrowUp,
                     unpushed_n,
@@ -1495,7 +1457,7 @@ impl Navigator {
                 )
             })
             .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
-            .when(!branches.is_empty(), |el| {
+            .when(headed && !branches.is_empty(), |el| {
                 let (project, name) = (id.clone(), name.clone());
                 el.on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
                     if event.click_count() == 2 {
@@ -1504,10 +1466,23 @@ impl Navigator {
                 }))
             });
         // Only the main worktree's files go to the workspace's branches.
-        Some(match name {
-            Some(_) => row.into_any_element(),
-            None => (self.drags_changes(row, id, uncommitted.len(), cx)).into_any_element(),
-        })
+        let drags = name.is_none() && !uncommitted.is_empty();
+        Some(
+            row.when(drags, |el| {
+                let files = self.detail.read(cx).files_to_move(id, cx);
+                let label: SharedString = match files.len() {
+                    1 => files[0].file.path.clone().into(),
+                    n => format!("{n} files").into(),
+                };
+                let payload = Cut::Files {
+                    project: id.clone(),
+                    from: None,
+                    files: files.into(),
+                };
+                el.on_drag(payload, drag_preview(self.store.clone(), label))
+            })
+            .into_any_element(),
+        )
     }
 
     /// Fold worktree `name`'s branches, the main one's for `None`, or unfold them. Folding
