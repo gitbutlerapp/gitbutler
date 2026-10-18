@@ -823,7 +823,10 @@ impl Detail {
     /// same row, or its file's header when that row went away.
     fn keep_place(&self, rows: &[DiffRow], files: &[FileDiff]) -> ListOffset {
         let top = self.list.logical_scroll_top();
-        let Some(diff) = &self.diff else {
+        // At the very top, what's added above shows: a file a merge left conflicted lists
+        // first.
+        let at_top = top.item_ix == 0 && top.offset_in_item == px(0.);
+        let Some(diff) = self.diff.as_ref().filter(|_| !at_top) else {
             return top;
         };
         // Gaps all look alike, so a gap at the top is found by the row after it.
