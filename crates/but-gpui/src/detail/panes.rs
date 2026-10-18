@@ -355,10 +355,12 @@ impl Detail {
         let body = (commit.message.split_once('\n'))
             .map(|(_, body)| body.trim().to_owned())
             .unwrap_or_default();
+        let target = (store.workspace(project).and_then(|ws| ws.target.as_ref()))
+            .map_or("the target", |t| t.name.as_str());
         let (state, color) = match commit.state {
-            CommitState::Local => ("not pushed", theme.blue),
-            CommitState::Pushed => ("on the remote", theme.safe),
-            CommitState::Integrated => ("integrated", theme.text_2),
+            CommitState::Local => ("not pushed".to_owned(), theme.blue),
+            CommitState::Pushed => ("on the remote".to_owned(), theme.safe),
+            CommitState::Integrated => (format!("in {target}"), theme.text_2),
         };
         let sha = commit.id.0.to_string();
         let title = h_flex()
@@ -566,12 +568,13 @@ impl Detail {
         else {
             return empty_state("Branch not found", "", theme);
         };
+        let target = ws.target.as_ref().map_or("the target", |t| t.name.as_str());
         let push = match branch.push {
-            PushState::NothingToPush => "Up to date with its remote",
-            PushState::Unpushed => "Has unpushed commits",
-            PushState::NeedsForce => "Rewritten, needs a force push",
-            PushState::NeverPushed => "Not pushed yet",
-            PushState::Integrated => "Integrated",
+            PushState::NothingToPush => "Up to date with its remote".to_owned(),
+            PushState::Unpushed => "Has unpushed commits".to_owned(),
+            PushState::NeedsForce => "Rewritten, needs a force push".to_owned(),
+            PushState::NeverPushed => "Not pushed yet".to_owned(),
+            PushState::Integrated => format!("In {target}"),
         };
         let files = self.render_diff_file_list(theme, cx);
         // Resolving the oldest conflict first, even in a branch below, rebases the rest onto

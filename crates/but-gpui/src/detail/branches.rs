@@ -476,7 +476,11 @@ impl Detail {
                             let branch = &branches.list[*branch_ix];
                             let selected = branches.selected.as_ref() == Some(&branch.ref_name);
                             let ref_name = branch.ref_name.clone();
-                            let merged = branch.ahead == Some(0);
+                            let merged = (branch.ahead == Some(0)).then(|| {
+                                let ws = this.store.read(cx).workspace(&branches.project);
+                                let target = ws.and_then(|ws| ws.target.as_ref());
+                                format!("in {}", target.map_or("the target", |t| &t.name))
+                            });
                             list_row(("other-branch", ix), selected, theme)
                                 .child(small_icon(Icon::Branch).text_color(theme.text_2))
                                 .child(
@@ -486,7 +490,11 @@ impl Detail {
                                         .truncate()
                                         .font_family(theme.mono_font.clone())
                                         .text_size(px(12.))
-                                        .text_color(if merged { theme.text_2 } else { theme.blue })
+                                        .text_color(if merged.is_some() {
+                                            theme.text_2
+                                        } else {
+                                            theme.blue
+                                        })
                                         .child(SharedString::from(branch.name.clone())),
                                 )
                                 .when_some(branch.review, |el, (number, _)| {
@@ -497,7 +505,7 @@ impl Detail {
                                             .child(format!("#{number}")),
                                     )
                                 })
-                                .when(merged, |el| el.child(faint("in target", theme)))
+                                .when_some(merged, |el, merged| el.child(faint(merged, theme)))
                                 .when_some(branch.time, |el, time| {
                                     el.child(faint(relative_time(time), theme).flex_none())
                                 })
@@ -533,8 +541,11 @@ impl Detail {
         crumbs.push((branch.name.clone().into(), None));
         let local = branch.local;
         // Who made it and how far ahead it is.
+        let target = (self.store.read(cx).workspace(project))
+            .and_then(|ws| ws.target.as_ref())
+            .map_or("the target".to_owned(), |t| t.name.clone());
         let ahead = match branch.ahead {
-            Some(0) => "already in the target".to_owned(),
+            Some(0) => format!("already in {target}"),
             Some(n) => plural(n, "commit"),
             None => String::new(),
         };
