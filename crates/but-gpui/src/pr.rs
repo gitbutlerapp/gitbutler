@@ -2,8 +2,8 @@
 //! merging one that's open.
 
 use gpui::{
-    App, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle, Focusable, PromptLevel,
-    SharedString, Stateful, Task, Window, actions, div, prelude::*, px,
+    App, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle, Focusable, MouseButton,
+    PromptLevel, ScrollHandle, SharedString, Stateful, Task, Window, actions, div, prelude::*, px,
 };
 
 use crate::app::AppView;
@@ -28,6 +28,8 @@ pub struct ReviewView {
     branch: String,
     title: Entity<TextInput>,
     body: Entity<TextInput>,
+    /// What scrolls the description's box, which keeps the caret in view.
+    body_scroll: ScrollHandle,
     /// The branch it would merge into, once known.
     target: Option<String>,
     draft: bool,
@@ -56,7 +58,10 @@ impl ReviewView {
         cx: &mut Context<Self>,
     ) -> Self {
         let title = cx.new(|cx| TextInput::new("Title", false, cx));
-        let body = cx.new(|cx| TextInput::new("What it changes, and why", true, cx));
+        let body_scroll = ScrollHandle::new();
+        let body = cx.new(|cx| {
+            TextInput::new("What it changes, and why", true, cx).scrolled_by(body_scroll.clone())
+        });
         for input in [&title, &body] {
             cx.subscribe_in(input, window, |this, _, event, _, cx| match event {
                 InputEvent::Submit => this.submit(cx),
@@ -123,6 +128,7 @@ impl ReviewView {
             branch,
             title,
             body,
+            body_scroll,
             target: None,
             draft: false,
             writing: None,
@@ -263,9 +269,14 @@ impl Render for ReviewView {
                 }
             });
         let field = |input: &Entity<TextInput>, tall: bool| {
-            let focused = input.focus_handle(cx).is_focused(window);
+            let handle = input.focus_handle(cx);
+            let focused = handle.is_focused(window);
             div()
                 .id(if tall { "pr-body" } else { "pr-title" })
+                // Anywhere in the box writes in it, not just on its lines.
+                .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+                    window.focus(&handle, cx)
+                })
                 .px(px(10.))
                 .py(px(7.))
                 .rounded(px(6.))
@@ -274,7 +285,9 @@ impl Render for ReviewView {
                 .text_size(px(13.))
                 .line_height(px(19.))
                 .when(tall, |el| {
-                    el.min_h(px(180.)).max_h(px(320.)).overflow_y_scroll()
+                    (el.min_h(px(180.)).max_h(px(320.)))
+                        .overflow_y_scroll()
+                        .track_scroll(&self.body_scroll)
                 })
                 .child(input.clone())
         };
