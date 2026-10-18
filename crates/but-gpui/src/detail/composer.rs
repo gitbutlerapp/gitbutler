@@ -572,6 +572,11 @@ impl Detail {
             .is_some_and(|target| !self.store.read(cx).new_commits(project, &target).is_empty())
     }
 
+    /// Whether Amend has a commit to add to, as the status bar says.
+    pub fn can_amend(&self, cx: &App) -> bool {
+        (self.selected_project(cx)).is_some_and(|project| self.amend_target(&project, cx).is_some())
+    }
+
     /// The newest commit on the branch new commits go to, which Amend adds to.
     fn amend_target(&self, project: &ProjectId, cx: &App) -> Option<(CommitId, String)> {
         if self.commit_pending(project, cx) {

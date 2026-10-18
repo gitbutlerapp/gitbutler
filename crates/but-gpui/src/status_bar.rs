@@ -84,7 +84,13 @@ impl AppView {
         // A linked worktree's changes review and discard as the main checkout's do.
         let uncommitted = main || matches!(store.selection, Some(Selection::Worktree(..)));
         let hints: Vec<(&dyn Action, &str)> = if main && detail.composing() {
-            vec![(&StartCommit, "commit"), (&AmendTop, "amend")]
+            let amend = detail
+                .can_amend(cx)
+                .then_some((&AmendTop as &dyn Action, "amend"));
+            [(&StartCommit as &dyn Action, "commit")]
+                .into_iter()
+                .chain(amend)
+                .collect()
         } else if !typing && !detail_focused && detail.shows_conflicts() {
             // Picking takes the keys of the diff, so it needs the focus.
             vec![(&FocusChanges, "pick conflicts")]
