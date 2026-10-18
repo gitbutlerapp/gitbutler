@@ -59,8 +59,21 @@ fn draw_text_unsmoothed() {
     unsafe { NSUserDefaults::standardUserDefaults().registerDefaults(&defaults) };
 }
 
+/// Sign in, and use the account, on GitButler's production server, where people's accounts
+/// are, rather than the staging one `gitbutler-user` takes a build from source to want.
+/// Either of the variables it reads still names another.
+#[cfg(target_os = "macos")]
+fn use_production_server() {
+    const SERVER: [&str; 2] = ["GITBUTLER_API_URL", "PUBLIC_API_BASE_URL"];
+    if SERVER.iter().all(|key| std::env::var_os(key).is_none()) {
+        // SAFETY: first thing in `main`, before any other thread could read the environment.
+        unsafe { std::env::set_var(SERVER[0], "https://app.gitbutler.com") };
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn main() {
+    use_production_server();
     #[cfg(feature = "dev-script")]
     dev::mark_launch();
     use gpui::{
