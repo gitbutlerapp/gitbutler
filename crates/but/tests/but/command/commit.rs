@@ -4192,10 +4192,10 @@ Created commit nuy on branch 'wt-lower'
     );
 }
 
-/// Below a lower worktree branch means a new branch there, like below a stack's branch, which
-/// worktrees can't order yet - rather than the tip of the worktree's checkout.
+/// Below a lower worktree branch means a new branch there, like below a stack's branch, ordered
+/// within the worktree's lane rather than at the tip of the worktree's checkout.
 #[test]
-fn commit_below_a_lower_worktree_branch_is_refused() {
+fn commit_below_a_lower_worktree_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
     enable_worktree_manipulation(&env);
@@ -4203,28 +4203,61 @@ fn commit_below_a_lower_worktree_branch_is_refused() {
     crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "A");
     env.file("main.txt", "from the main checkout\n");
 
-    env.but("commit --below wt-lower -m 'nope'")
+    env.but("commit --below wt-lower -m 'below the lower branch'")
         .assert()
-        .stderr_eq(snapbox::str![[r#"
-Error: Cannot place 'a-branch-1' relative to worktree branch 'wt-lower': branches can't be ordered in worktrees yet
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit szp on new branch 'a-branch-1'
 
-"#]])
-        .stdout_eq(snapbox::str![""]);
+"#]]);
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   b963596 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
-* | d3e2ba3 (B) add B
-| | * 3b0b265 (wt-inside) add W2
-| | * 580bef0 (wt-lower) add W
+| * d3e2ba3 (B) add B
+| | * 74136d7 (wt-inside) add W2
+| | * 49b730a (wt-lower) add W
+| | * dd4ddaf (a-branch-1) below the lower branch
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
-* 0dc3733 (origin/main, origin/HEAD, main) add M
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
 "#]]
     );
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-inside} (no changes)
+┊┊├┄ wt [wt-inside]
+┊┊●   ntk add W2
+┊┊│
+┊┊├┄ lo [wt-lower]
+┊┊●   nsn add W
+┊┊│
+┊┊├┄ br [a-branch-1]
+┊┊●   szp below the lower branch
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
 }
 
 #[test]

@@ -5011,6 +5011,91 @@ Hint: run `but help` for all commands
     );
 }
 
+/// A branch below a worktree's checkout that tracks the target is still the worktree's own branch,
+/// so the worktree is left on it when its checked-out branch moves out.
+#[test]
+fn move_a_worktrees_checked_out_branch_off_a_branch_tracking_the_target() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = crate::command::util::add_worktree_with_lower_branch(&env, "wt-inside", "main");
+    env.invoke_git("branch --set-upstream-to origin/main wt-lower");
+
+    env.but("move wt-inside -b B").assert().success();
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+*   6507a15 (gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * c019586 (wt-inside) add W2
+| * d3e2ba3 (B) add B
+* | 9477ae7 (A) add A
+|/  
+| * a483238 (HEAD -> wt-lower) add W
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
+/// An empty branch ordered below a worktree's checkout stays the worktree's branch even when it
+/// tracks the target and points at it, so the worktree is left on it.
+#[test]
+fn move_a_worktrees_checked_out_branch_off_an_empty_branch_tracking_the_target() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = crate::command::util::add_worktree_with_commit(&env, "wt-inside", "main");
+    env.but("branch new wt-lower --below wt-inside")
+        .assert()
+        .success();
+    env.invoke_git("branch --set-upstream-to origin/main wt-lower");
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┊╭┄ wt:@ [uncommitted] {wt-inside} (no changes)
+┊├┄ wt [wt-inside]
+┊●   swk add W
+┊│
+┊├┄ lo [wt-lower] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move wt-inside -b B").assert().success();
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt_dir).unwrap(),
+        snapbox::str![[r#"
+*   b15e646 (gitbutler/workspace) GitButler Workspace Commit
+|/  
+| * 1038d1a (wt-inside) add W
+| * d3e2ba3 (B) add B
+* | 9477ae7 (A) add A
+|/  
+* 0dc3733 (HEAD -> wt-lower, origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
+    );
+}
+
 #[test]
 fn moving_changes_to_new_branch_with_message() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
@@ -5507,9 +5592,9 @@ Moved lrm to the tip of branch 'wt-lower'
     );
 }
 
-/// Below a lower worktree branch means a new branch there, which worktrees can't order yet.
+/// Below a lower worktree branch means a new branch there, ordered within the worktree's lane.
 #[test]
-fn move_commit_below_a_lower_worktree_branch_is_refused() {
+fn move_commit_below_a_lower_worktree_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
     enable_worktree_manipulation(&env);
@@ -5518,27 +5603,58 @@ fn move_commit_below_a_lower_worktree_branch_is_refused() {
 
     env.but("move lrm --below wt-lower")
         .assert()
-        .stderr_eq(snapbox::str![[r#"
-Error: Cannot place 'a-branch-1' relative to worktree branch 'wt-lower': branches can't be ordered in worktrees yet
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Moved lrm to new branch 'a-branch-1' below branch 'wt-lower'
 
-"#]])
-        .stdout_eq(snapbox::str![""]);
+"#]]);
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-*   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   372e55d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |\  
-* | d3e2ba3 (B) add B
-| | * 3b0b265 (wt-inside) add W2
-| | * 580bef0 (wt-lower) add W
+| | * d4f76d7 (wt-inside) add W2
+| | * 60eaa7b (wt-lower) add W
+| | * e776549 (a-branch-1) add B
 | |/  
-| * 9477ae7 (A) add A
+|/|   
+* | 9477ae7 (A) add A
 |/  
-* 0dc3733 (origin/main, origin/HEAD, main) add M
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target, B) add M
 
 "#]]
         .raw()
     );
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-inside} (no changes)
+┊┊├┄ wt [wt-inside]
+┊┊●   ntk add W2
+┊┊│
+┊┊├┄ lo [wt-lower]
+┊┊●   nsn add W
+┊┊│
+┊┊├┄ br [a-branch-1]
+┊┊●   lrm add B
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
 }
 
 /// A branch below a worktree's checkout is a stacking target like any workspace branch: the

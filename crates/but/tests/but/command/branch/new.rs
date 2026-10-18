@@ -1695,18 +1695,37 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    // A new branch can't share a commit with a worktree's branch until worktrees can order them.
+    // A new branch above a worktree's checkout becomes the worktree's checkout.
     env.but("branch new wt-upper --above wt-feature")
         .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Error: failed to create reference. anchor=AtSegment { ref_name: FullNameRef("refs/heads/wt-feature"), position: Above }; new_ref=FullName("refs/heads/wt-upper")
+        .success();
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ wt [wt-upper] (no commits)
+┊┊│
+┊┊├┄ at [wt-feature]
+┊┊●   luv add W2
+┊┊│
+┊┊├┄ lo [wt-lower]
+┊┊●   nsn add W
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
 
-Caused by:
-    Cannot place 'wt-upper' relative to worktree branch 'wt-feature': branches can't be ordered in worktrees yet
+Hint: run `but help` for all commands
 
-"#]])
-        .stdout_eq(str![]);
+"#]]);
+    assert_eq!(
+        env.invoke_git(&format!("-C {} symbolic-ref HEAD", wt.display())),
+        "refs/heads/wt-upper",
+        "the worktree follows its new top branch"
+    );
 }
 
 #[test]
