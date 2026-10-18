@@ -149,7 +149,7 @@ impl Navigator {
                             &PullRemote,
                             cx,
                         ),
-                        action("Take the remote's version…", &TakeRemote),
+                        action("Replace with the remote's version…", &TakeRemote),
                     ]);
                 }
                 if let Some(url) = branch.review.as_ref().and_then(|r| r.url.clone()) {
