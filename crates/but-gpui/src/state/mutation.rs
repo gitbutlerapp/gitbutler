@@ -278,7 +278,11 @@ impl Store {
         );
     }
 
+    /// Fetch `project`'s remotes, unless a fetch already waits or runs.
     pub fn fetch(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        if self.fetching(project) {
+            return;
+        }
         let fetched = project.clone();
         self.run(
             project,
@@ -358,10 +362,16 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let name = short_ref(&ref_name).to_owned();
+        // A second pull of the branch while one waits would find nothing left to bring in.
+        // A confirmed one comes from the card that shows once its pull has finished.
+        let label = format!("Pull {name}");
+        if !confirmed && self.pending(project, &label) {
+            return;
+        }
         let pulled = project.clone();
         self.run(
             project,
-            "Pull from the remote",
+            label,
             Overlay::default(),
             {
                 let ref_name = ref_name.clone();
@@ -801,14 +811,24 @@ impl Store {
         self.running.len().saturating_sub(1) + self.queue.len()
     }
 
-    /// Whether an update from the target waits or runs on `project`.
-    fn updating(&self, project: &ProjectId) -> bool {
+    /// Whether an operation called `label` waits or runs for `project`: for one a repeat of
+    /// which would do nothing more, so it isn't queued again.
+    fn pending(&self, project: &ProjectId, label: &str) -> bool {
         let running = self.running.get(project).map(|r| &r.label);
         let queued = (self.queue.iter()).filter(|q| q.project == *project);
         running
             .into_iter()
             .chain(queued.map(|q| &q.label))
-            .any(|label| label == UPDATE)
+            .any(|pending| pending == label)
+    }
+
+    /// Whether an update from the target waits or runs on `project`.
+    pub fn updating(&self, project: &ProjectId) -> bool {
+        self.pending(project, UPDATE)
+    }
+
+    pub fn fetching(&self, project: &ProjectId) -> bool {
+        self.pending(project, FETCH)
     }
 
     fn overlays<'a>(&'a self, project: &'a ProjectId) -> impl Iterator<Item = &'a Overlay> {

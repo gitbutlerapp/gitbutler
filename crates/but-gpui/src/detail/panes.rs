@@ -63,11 +63,15 @@ impl Detail {
                         .and_then(|ws| ws.target.as_ref())
                         .filter(|target| target.needs_update)
                         .map(|target| target.name.clone());
+                    // Busy while one waits or runs, as pressing again would only queue more.
+                    let (fetching, updating) =
+                        (store.fetching(&entry.id), store.updating(&entry.id));
                     if !self.no_remote(&entry.id) {
                         actions.push(
-                            button("fetch", "Fetch")
+                            button("fetch", if fetching { "Fetching…" } else { "Fetch" })
                                 .icon(Icon::Refresh)
                                 .style(ButtonStyle::Ghost)
+                                .disabled_because(fetching.then_some("Fetching already"))
                                 .tooltip_with_key(
                                     "Fetch from the project's remotes",
                                     shortcut(&crate::app::Fetch, cx),
@@ -78,15 +82,22 @@ impl Detail {
                     }
                     if let Some(target) = needs_update {
                         actions.push(
-                            button("update", format!("Update from {target}"))
-                                .icon(Icon::ArrowDown)
-                                .style(ButtonStyle::Pop)
-                                .tooltip_with_key(
-                                    "Rebase your branches onto the target's new commits",
-                                    shortcut(&crate::app::UpdateFromTarget, cx),
-                                )
-                                .dispatch(&crate::app::UpdateFromTarget)
-                                .into_any_element(),
+                            button(
+                                "update",
+                                match updating {
+                                    true => "Updating…".to_owned(),
+                                    false => format!("Update from {target}"),
+                                },
+                            )
+                            .icon(Icon::ArrowDown)
+                            .style(ButtonStyle::Pop)
+                            .disabled_because(updating.then_some("Updating already"))
+                            .tooltip_with_key(
+                                "Rebase your branches onto the target's new commits",
+                                shortcut(&crate::app::UpdateFromTarget, cx),
+                            )
+                            .dispatch(&crate::app::UpdateFromTarget)
+                            .into_any_element(),
                         );
                     }
                 }
