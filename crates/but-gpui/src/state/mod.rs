@@ -23,7 +23,7 @@ mod saved;
 mod seen;
 
 use load::{Change, Reload};
-pub use mutation::{Overlay, Remap, SLOW};
+pub use mutation::{NewAt, Overlay, Remap, SLOW};
 use mutation::{Queued, Running};
 pub use picks::Picks;
 pub use saved::{Pane, Prefs, saved_window_place};

@@ -19,7 +19,9 @@ use crate::backend::{
 };
 use crate::detail::{ChecksChanged, Detail};
 use crate::overlays::MenuItem;
-use crate::state::{Cut, Pane, Prefs, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
+use crate::state::{
+    Cut, NewAt, Pane, Prefs, ProjectEntry, ProjectId, Selection, Store, StoreEvent,
+};
 use crate::theme::Theme;
 use crate::transfer::{Transfer, drag_preview};
 use crate::ui::illustration::Illustration;
@@ -454,20 +456,28 @@ impl Navigator {
             if closed {
                 continue;
             }
-            rows.extend(
-                store
-                    .new_commits(id, &branch.ref_name)
-                    .into_iter()
-                    .map(Row::Pending),
-            );
-            // Commits a pending operation takes away go, unless selected.
+            let pending = |at: &dyn Fn(&NewAt) -> bool| {
+                (store.new_commits(id, at).into_iter()).map(Row::Pending)
+            };
+            rows.extend(pending(
+                &|at| matches!(at, NewAt::Top(ref_name) if *ref_name == branch.ref_name),
+            ));
+            // Commits a pending operation takes away go, unless selected; ones it makes show
+            // where they go.
             rows.extend(
                 (branch.commits.iter().enumerate())
                     .filter(|&(at, commit)| {
                         !store.hides_commit(id, &commit.key) || selected_at == Some(at)
                     })
                     .take(shown)
-                    .map(|(_, commit)| Row::Item(Selection::Commit(id.clone(), commit.id))),
+                    .flat_map(|(_, commit)| {
+                        let item = Row::Item(Selection::Commit(id.clone(), commit.id));
+                        (pending(&|at| matches!(at, NewAt::Above(key) if *key == commit.key)))
+                            .chain([item])
+                            .chain(pending(
+                                &|at| matches!(at, NewAt::Below(key) if *key == commit.key),
+                            ))
+                    }),
             );
             if branch.commits.len() > shown {
                 let hidden = branch.commits.len() - shown;
@@ -841,7 +851,14 @@ impl Navigator {
                 .gap(px(10.))
                 .opacity(0.5)
                 .child(small_icon(Icon::Commit).text_color(theme.blue))
-                .child(div().flex_1().min_w(px(0.)).truncate().child(title.clone()))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .truncate()
+                        .when(title.is_empty(), |el| el.italic())
+                        .child(commit_title(title)),
+                )
                 .child(div().text_size(px(11.)).text_color(theme.text_2).child("…"))
                 .into_any_element(),
             Some(Row::ProjectsHeading(title, listed, total)) => {
@@ -1655,7 +1672,9 @@ impl Navigator {
         let branches = store.workspace(id)?.lane(bottom)?;
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
-        let names: Vec<&str> = branches.iter().map(|branch| branch.name.as_str()).collect();
+        let names: Vec<&str> = (branches.iter())
+            .map(|branch| store.name_of(id, branch))
+            .collect();
         let unpushed_n = unpushed(branches.iter());
         let latest = (branches.iter().flat_map(|branch| &branch.commits))
             .map(|commit| commit.time)
@@ -1773,6 +1792,7 @@ impl Navigator {
         let store = self.store.read(cx);
         let theme = style.theme;
         let branch = store.branch_for(item)?;
+        let name = store.name_of(id, branch);
         let unpushed = branch
             .commits
             .iter()
@@ -1841,7 +1861,7 @@ impl Navigator {
         Some(
             style
                 .row(format!("branch-{id}-{ref_name}"), 6.)
-                .aria_label(format!("Branch {}", branch.name))
+                .aria_label(format!("Branch {name}"))
                 .child(step)
                 .child(icon(glyph).text_color(style.meta(glyph_color)))
                 .child(
@@ -1852,7 +1872,7 @@ impl Navigator {
                         .font_family(theme.mono_font.clone())
                         .text_size(px(12.))
                         .text_color(style.meta(theme.blue))
-                        .child(branch.name.clone()),
+                        .child(name.to_owned()),
                 )
                 // As ui-react's empty MetaCount, the quietest meta, ahead of any counts.
                 .when(branch.commits.is_empty(), |el| {
@@ -1985,7 +2005,8 @@ impl Navigator {
             }
         };
         let payload = Cut::Commit(id.clone(), *commit_id);
-        let label: SharedString = commit.title.clone().into();
+        let (title, _) = store.message_of(id, commit);
+        let label: SharedString = title.to_owned().into();
         let unread = store.is_unread(id, commit);
         Some(
             style
@@ -1999,11 +2020,9 @@ impl Navigator {
                         .flex_1()
                         .min_w(px(0.))
                         .truncate()
-                        .when(commit.title.is_empty(), |el| {
-                            el.italic().text_color(style.muted())
-                        })
+                        .when(title.is_empty(), |el| el.italic().text_color(style.muted()))
                         .when(unread, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
-                        .child(commit_title(&commit.title)),
+                        .child(commit_title(title)),
                 )
                 .when(unread, |el| el.child(dot(style.meta(theme.pop))))
                 .child(

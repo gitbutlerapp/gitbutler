@@ -137,19 +137,20 @@ impl AppView {
     }
 
     /// Ask for a branch name, then run `op` with it and hand `done` the full ref name of the
-    /// branch it returns. With an `initial` name the branch is being renamed; without one,
-    /// created.
+    /// branch it returns. With the branch it's `renaming` (a full ref, empty for one without
+    /// a name yet), that branch is being named; without one, created.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn prompt_branch(
         &mut self,
         project: ProjectId,
         title: &str,
-        initial: &str,
+        renaming: Option<String>,
         window: &mut Window,
         cx: &mut Context<Self>,
         op: impl FnOnce(&Path, &Remap, &str) -> Result<String> + Send + 'static,
         done: impl FnOnce(&mut Store, String, &mut Context<Store>) + 'static,
     ) {
+        let initial = renaming.as_deref().map_or("", short_ref);
         let confirm = if initial.is_empty() {
             "Create"
         } else {
@@ -189,11 +190,20 @@ impl AppView {
                     return;
                 }
                 let name = name.trim().to_owned();
+                // Making or naming a branch only writes refs. An unnamed branch has no ref
+                // to tell it from another unnamed one, so its new name waits for the reload.
+                let overlay = Overlay {
+                    renamed: (renaming.clone())
+                        .filter(|from| !from.is_empty())
+                        .map(|from| (from, branch_name(&name).unwrap_or(name.clone()))),
+                    commits_only: true,
+                    ..Overlay::default()
+                };
                 this.store.update(cx, |store, cx| {
                     store.run(
                         &project,
                         label,
-                        Overlay::default(),
+                        overlay,
                         move |path, remap| op(path, remap, &name),
                         done,
                         cx,

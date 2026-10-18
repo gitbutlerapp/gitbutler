@@ -111,10 +111,12 @@ impl Detail {
                         None => crumbs.push(("Main worktree".into(), None)),
                     }
                 }
-                Selection::Branch(_, ref_name) => {
-                    let name = match ref_name.is_empty() {
-                        true => "Unnamed branch",
-                        false => short_ref(ref_name),
+                Selection::Branch(project, ref_name) => {
+                    let branch = workspace.and_then(|ws| ws.find_branch(ref_name));
+                    let name = match branch {
+                        Some(branch) => store.name_of(project, branch),
+                        None if ref_name.is_empty() => "Unnamed branch",
+                        None => short_ref(ref_name),
                     };
                     crumbs.push(heading(selection));
                     crumbs.push((name.to_owned().into(), None));
@@ -224,7 +226,8 @@ impl Detail {
                         let branch_selection =
                             Selection::Branch(project.clone(), branch.ref_name.clone());
                         crumbs.push(heading(selection));
-                        crumbs.push((branch.name.clone().into(), Some(branch_selection)));
+                        let name = store.name_of(project, branch).to_owned();
+                        crumbs.push((name.into(), Some(branch_selection)));
                         crumbs.push((commit.id.short().into(), None));
                     }
                 }
@@ -461,7 +464,8 @@ impl Detail {
         let Some((_, commit)) = store.find_commit(project, id) else {
             return div().into_any_element();
         };
-        let body = (commit.message.split_once('\n'))
+        let (title, message) = store.message_of(project, commit);
+        let body = (message.split_once('\n'))
             .map(|(_, body)| body.trim().to_owned())
             .unwrap_or_default();
         let target = (store.workspace(project).and_then(|ws| ws.target.as_ref()))
@@ -480,7 +484,7 @@ impl Detail {
                     .items_start()
                     .min_w(px(0.))
                     .gap(px(6.))
-                    .child(title_text(commit_title(&commit.title)))
+                    .child(title_text(commit_title(title)))
                     .when(!body.is_empty(), |el| {
                         let open = self.message_open;
                         el.child(
@@ -655,10 +659,7 @@ impl Detail {
             PushState::NeverPushed => ("never pushed".to_owned(), theme.blue),
             PushState::Integrated => (format!("in {target}"), theme.text_2),
         };
-        let name = match ref_name.is_empty() {
-            true => "Unnamed branch",
-            false => branch.name.as_str(),
-        };
+        let name = store.name_of(project, branch);
         let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
         let meta = meta_row(theme).map(|el| match branch.commits.len() {
             0 => el.child(
@@ -705,7 +706,9 @@ impl Detail {
         let Some(branches) = store.workspace(project).and_then(|ws| ws.lane(bottom)) else {
             return div().into_any_element();
         };
-        let names: Vec<&str> = branches.iter().map(|branch| branch.name.as_str()).collect();
+        let names: Vec<&str> = (branches.iter())
+            .map(|branch| store.name_of(project, branch))
+            .collect();
         let commits = branches.iter().map(|branch| branch.commits.len()).sum();
         let meta = meta_row(theme)
             .child(

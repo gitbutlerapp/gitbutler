@@ -14,7 +14,7 @@ use crate::backend::{
     LineKind, PushState, Selected, ai, short_ref,
 };
 use crate::palette::Choice;
-use crate::state::{Overlay, ProjectId, Selection, Store};
+use crate::state::{NewAt, Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -452,8 +452,10 @@ impl Detail {
         let Selection::Commit(project, id) = selection else {
             return;
         };
-        let Some(message) = (self.store.read(cx).find_commit(&project, id))
-            .map(|(_, commit)| commit.message.clone())
+        let store = self.store.read(cx);
+        // A rewording still running is where the next one starts.
+        let Some(message) = (store.find_commit(&project, id))
+            .map(|(_, commit)| store.message_of(&project, commit).1.to_owned())
         else {
             return;
         };
@@ -478,10 +480,16 @@ impl Detail {
                     };
                     let project = project.clone();
                     this.store.update(cx, |store, cx| {
+                        let reworded = store.key_of(&project, id).map(|key| (key, message.clone()));
+                        let overlay = Overlay {
+                            reworded,
+                            commits_only: true,
+                            ..Overlay::default()
+                        };
                         store.run(
                             &project,
                             "Edit message",
-                            Overlay::default(),
+                            overlay,
                             move |path, remap| backend::reword(path, remap.get(id)?, &message),
                             |store, rewritten, cx| {
                                 store.follow(&rewritten, cx);
@@ -564,7 +572,7 @@ impl Detail {
         let overlay = Overlay {
             new_commit: target.clone().map(|branch| {
                 let title = message.lines().next().unwrap_or_default().to_owned();
-                (branch, title.into())
+                (NewAt::Top(branch), title.into())
             }),
             ..Overlay::files(&files)
         };
@@ -630,8 +638,13 @@ impl Detail {
     /// Whether a commit to the branch new commits go to is still pending, so the newest
     /// commit shown there isn't the newest.
     fn commit_pending(&self, project: &ProjectId, cx: &App) -> bool {
-        (self.effective_target(project, cx))
-            .is_some_and(|target| !self.store.read(cx).new_commits(project, &target).is_empty())
+        (self.effective_target(project, cx)).is_some_and(|target| {
+            let pending = self.store.read(cx).new_commits(
+                project,
+                |at| matches!(at, NewAt::Top(branch) if *branch == target),
+            );
+            !pending.is_empty()
+        })
     }
 
     /// Whether Amend has a commit to add to, as the status bar says.
@@ -1022,7 +1035,7 @@ impl Detail {
             this.prompt_branch(
                 project,
                 "New branch",
-                "",
+                None,
                 window,
                 cx,
                 |path, _, name| backend::create_branch(path, Some(name)),

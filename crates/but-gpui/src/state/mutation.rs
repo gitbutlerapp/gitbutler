@@ -11,7 +11,9 @@ use gpui::{Context, SharedString, Task};
 
 use super::{ProjectId, Reload, Selection, Store, StoreEvent};
 use crate::backend::upstream::{UpdateConflicts, UpdateOutcome};
-use crate::backend::{self, CommitId, Destination, HunkKey, Selected, SnapshotId, short_ref};
+use crate::backend::{
+    self, Branch, Commit, CommitId, Destination, HunkKey, Selected, SnapshotId, short_ref,
+};
 
 /// How long a mutation runs before the status bar says how long it's taking.
 pub const SLOW: Duration = Duration::from_millis(800);
@@ -29,10 +31,17 @@ pub struct Overlay {
     pub hunks: HashMap<String, Vec<HunkKey>>,
     /// Files leaving a commit whole, by path, under the commit's key.
     pub commit_files: HashMap<String, HashSet<String>>,
-    /// The branch (full ref) a new commit goes on top of, and its title.
-    pub new_commit: Option<(String, SharedString)>,
+    /// Where a new commit goes, and its title.
+    pub new_commit: Option<(NewAt, SharedString)>,
+    /// The commit (by key) it gives a new message, and the message.
+    pub reworded: Option<(String, String)>,
+    /// The branch (full ref) it renames, and its new name.
+    pub renamed: Option<(String, String)>,
     /// It changes only uncommitted files, so the reload after it reads just those.
     pub files_only: bool,
+    /// It changes only commits and branches, leaving every checkout's files as they are, so
+    /// the reload after it doesn't read those again.
+    pub commits_only: bool,
     /// The branch (full ref) it pushes, with the ones below it.
     pub pushes: Option<String>,
     /// It opens a pull request for the branch it pushes.
@@ -40,6 +49,16 @@ pub struct Overlay {
     /// It only talks to the remote or the forge and moves refs, leaving the worktree and
     /// the commits alone, so reloads the watcher starts meanwhile go ahead.
     pub remote_only: bool,
+}
+
+/// Where a commit an operation makes shows until it's loaded.
+pub enum NewAt {
+    /// On top of this branch (a full ref).
+    Top(String),
+    /// Right above the commit with this key.
+    Above(String),
+    /// Right below the commit with this key.
+    Below(String),
 }
 
 impl Overlay {
@@ -734,13 +753,16 @@ impl Store {
             })
             .await;
             this.update(cx, |store, cx| {
-                // The reload after it reads just the uncommitted files if that's all it
-                // changed, and what was asked for while it ran.
+                // The reload after it reads just the uncommitted files, or just the commits
+                // and branches, if that's all it changed, and what was asked for while it ran.
                 let mut reload = Reload::full();
                 if let Some(running) = store.running.get_mut(&project) {
                     running.settling = true;
                     if running.overlay.files_only {
                         reload = Reload::files();
+                    }
+                    if running.overlay.commits_only {
+                        reload = Reload::commits();
                     }
                     reload.merge(std::mem::take(&mut running.deferred));
                 }
@@ -857,13 +879,40 @@ impl Store {
             .any(|o| (o.commit_files.get(commit)).is_some_and(|files| files.contains(path)))
     }
 
-    /// The titles of commits pending mutations will make on top of `ref_name`.
-    pub fn new_commits(&self, project: &ProjectId, ref_name: &str) -> Vec<SharedString> {
+    /// The titles of commits pending mutations will make where `at` says.
+    pub fn new_commits(
+        &self,
+        project: &ProjectId,
+        at: impl Fn(&NewAt) -> bool,
+    ) -> Vec<SharedString> {
         self.overlays(project)
             .filter_map(|o| o.new_commit.as_ref())
-            .filter(|(branch, _)| branch == ref_name)
+            .filter(|(place, _)| at(place))
             .map(|(_, title)| title.clone())
             .collect()
+    }
+
+    /// `commit`'s title and message, as the last pending mutation to reword it leaves them.
+    pub fn message_of<'a>(
+        &'a self,
+        project: &'a ProjectId,
+        commit: &'a Commit,
+    ) -> (&'a str, &'a str) {
+        let reworded = (self.overlays(project).filter_map(|o| o.reworded.as_ref()))
+            .filter(|(key, _)| *key == commit.key)
+            .last();
+        match reworded {
+            Some((_, message)) => (message.lines().next().unwrap_or_default().trim(), message),
+            None => (&commit.title, &commit.message),
+        }
+    }
+
+    /// `branch`'s name, as the last pending mutation to rename it leaves it.
+    pub fn name_of<'a>(&'a self, project: &'a ProjectId, branch: &'a Branch) -> &'a str {
+        let renamed = (self.overlays(project).filter_map(|o| o.renamed.as_ref()))
+            .filter(|(ref_name, _)| *ref_name == branch.ref_name)
+            .last();
+        renamed.map_or(&branch.name, |(_, name)| name)
     }
 
     /// Whether a pending operation pushes `ref_name`, on its own or to open its pull request.

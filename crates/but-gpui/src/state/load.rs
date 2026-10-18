@@ -16,12 +16,14 @@ use crate::backend::{self, CommitId, Project, Workspace};
 /// worktree they're in, by name, unless they're the main checkout's.
 pub(super) type Change = (ProjectId, bool, Option<Arc<str>>);
 
-/// What a reload reads again: everything, or just the uncommitted files of the checkouts
-/// that changed.
+/// What a reload reads again: everything, the commits and branches, or just the uncommitted
+/// files of the checkouts that changed.
 #[derive(Debug, Default)]
 pub(super) struct Reload {
     /// The commits and branches too, as after a change in a git directory.
     full: bool,
+    /// The commits and branches, keeping the files shown but for the ones asked for below.
+    commits: bool,
     /// The main checkout's files.
     main: bool,
     /// These linked worktrees' files.
@@ -32,6 +34,14 @@ impl Reload {
     pub(super) fn full() -> Self {
         Self {
             full: true,
+            ..Self::default()
+        }
+    }
+
+    /// The commits and branches, after an operation that changed only them.
+    pub(super) fn commits() -> Self {
+        Self {
+            commits: true,
             ..Self::default()
         }
     }
@@ -58,6 +68,7 @@ impl Reload {
 
     pub(super) fn merge(&mut self, other: Reload) {
         self.full |= other.full;
+        self.commits |= other.commits;
         self.main |= other.main;
         self.linked.extend(other.linked);
     }
@@ -376,8 +387,11 @@ impl Store {
         if entry.workspace.is_none() {
             cx.notify();
         }
-        // Loads of one project don't overlap, so these commits are still current.
-        let shown = (!reload.full).then(|| entry.workspace.clone()).flatten();
+        // Loads of one project don't overlap, so what's shown is still current.
+        let shown = entry.workspace.as_ref().filter(|_| !reload.full);
+        let kept = (shown.filter(|_| reload.commits))
+            .map(|shown| backend::Kept::from(shown, reload.main, &reload.linked));
+        let shown = shown.filter(|_| !reload.commits).cloned();
         let path = entry.project.path.clone();
         let id = id.clone();
         // Started after the mutation finished, so it sees what the mutation did.
@@ -387,7 +401,7 @@ impl Store {
                 Some(shown) => {
                     backend::reload_uncommitted(&path, shown, reload.main, &reload.linked)
                 }
-                None => backend::load_workspace(&path),
+                None => backend::load_workspace(&path, kept.unwrap_or_default()),
             })
             .await;
             this.update(cx, |store, cx| {

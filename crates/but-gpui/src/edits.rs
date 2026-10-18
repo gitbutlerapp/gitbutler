@@ -6,14 +6,14 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use gpui::{App, Context, Div, Entity, Window, actions, prelude::*};
+use gpui::{App, Context, Div, Entity, SharedString, Window, actions, prelude::*};
 
 use crate::app::{
     AppView, CutSelection, DeleteSelection, NewBranchOnTop, Push, RenameSelection,
     UncommitSelection,
 };
 use crate::backend::{self, Branch, Commit, CommitId, Destination, Selected, Workspace, short_ref};
-use crate::state::{Cut, Overlay, ProjectId, Remap, Selection, Store};
+use crate::state::{Cut, NewAt, Overlay, ProjectId, Remap, Selection, Store};
 
 actions!(
     edits,
@@ -439,7 +439,6 @@ impl AppView {
     ) {
         match self.selection(cx) {
             Some(Selection::Branch(project, ref_name)) => {
-                let current = short_ref(&ref_name).to_owned();
                 // An unnamed branch has no ref to rename, so it gets one at its newest commit.
                 let unnamed_top = (self.store.read(cx).workspace(&project))
                     .filter(|_| ref_name.is_empty())
@@ -453,7 +452,7 @@ impl AppView {
                 self.prompt_branch(
                     project,
                     title,
-                    &current,
+                    Some(ref_name.clone()),
                     window,
                     cx,
                     move |path, remap, name| match unnamed_top {
@@ -516,7 +515,7 @@ impl AppView {
             }
             store.select(Some(Selection::Branch(selected, branch)), cx)
         };
-        self.prompt_branch(project, title, "", window, cx, op, done);
+        self.prompt_branch(project, title, None, window, cx, op, done);
     }
 
     fn uncommit_selection(
@@ -712,10 +711,21 @@ impl AppView {
         let (project, to) = at;
         let selected = project.clone();
         self.store.update(cx, |store, cx| {
+            // It shows where it goes right away, dimmed until it's there.
+            let at = match &to {
+                Destination::Branch(ref_name) => Some(NewAt::Top(ref_name.clone())),
+                Destination::AboveCommit(id) => store.key_of(&project, *id).map(NewAt::Above),
+                Destination::BelowCommit(id) => store.key_of(&project, *id).map(NewAt::Below),
+            };
+            let overlay = Overlay {
+                new_commit: at.map(|at| (at, SharedString::default())),
+                commits_only: true,
+                ..Overlay::default()
+            };
             store.run(
                 &project,
                 "Add empty commit",
-                Overlay::default(),
+                overlay,
                 move |path, remap| backend::insert_empty_commit(path, &remap.destination(to)?),
                 move |store, id, cx| {
                     store.select(Some(Selection::Commit(selected, id)), cx);
@@ -990,11 +1000,16 @@ impl AppView {
             return;
         };
         let (id, message) = (commit.id, backend::wrapped_message(&commit.message));
+        let overlay = Overlay {
+            reworded: Some((commit.key.clone(), message.clone())),
+            commits_only: true,
+            ..Overlay::default()
+        };
         self.store.update(cx, |store, cx| {
             store.run(
                 &project,
                 "Rewrap message",
-                Overlay::default(),
+                overlay,
                 move |path, remap| backend::reword(path, remap.get(id)?, &message),
                 |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
