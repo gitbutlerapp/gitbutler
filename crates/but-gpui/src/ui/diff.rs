@@ -137,9 +137,11 @@ pub fn ends_card(rows: &[DiffRow], ix: usize) -> bool {
 /// files and hunks `hidden` and `hidden_hunk` say are hidden left out, and the files `whole`
 /// gives the length of shown with every unchanged line. With `split`, a hunk's lines pair up
 /// side by side. A file's conflicts sit among its hunks by line, laid out as `view` says.
+#[allow(clippy::too_many_arguments)]
 pub fn rows(
     files: &[FileDiff],
     folded: impl Fn(&FileDiff) -> bool,
+    drawn: impl Fn(&FileDiff) -> bool,
     hidden: impl Fn(&FileDiff) -> bool,
     hidden_hunk: impl Fn(&FileDiff, &Hunk) -> bool,
     whole: impl Fn(&FileDiff) -> Option<u32>,
@@ -154,6 +156,11 @@ pub fn rows(
         rows.push(DiffRow::File(file_ix));
         if folded(file) {
             rows.push(DiffRow::Gap);
+            continue;
+        }
+        // An SVG drawn rather than shown as text.
+        if drawn(file) {
+            rows.push(DiffRow::Note(file_ix));
             continue;
         }
         match &file.body {
@@ -582,13 +589,21 @@ fn conflicted_badge(theme: &Theme) -> gpui::Div {
         .child("Conflicted")
 }
 
+/// An image's two sides, or an SVG's drawn, in the file's card.
+pub fn drawing(
+    before: Option<std::sync::Arc<gpui::RenderImage>>,
+    after: Option<std::sync::Arc<gpui::RenderImage>>,
+    theme: &Theme,
+) -> AnyElement {
+    card(image_row(before, after, theme), theme).into_any_element()
+}
+
 /// In place of the lines of a file without any to show: an image's two sides, or why
 /// there's nothing.
 pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
     let text = match &file.body {
         DiffBody::Image { before, after } => {
-            let images = image_row(before.clone(), after.clone(), theme);
-            return card(images, theme).into_any_element();
+            return drawing(before.clone(), after.clone(), theme);
         }
         DiffBody::Binary => "Binary file".to_owned(),
         DiffBody::TooLarge { bytes } => {

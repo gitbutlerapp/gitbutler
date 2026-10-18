@@ -214,6 +214,8 @@ pub struct Detail {
     filtering: bool,
     /// Files shown whole, by path, with their lines once read.
     whole: HashMap<String, Option<FileLines>>,
+    /// SVG files shown as text rather than drawn, by path.
+    svg_text: HashSet<String>,
     /// Files picked in the file list, by path, to act on together.
     file_picks: Picks<String>,
     /// Files whose lines are being read, one read each at a time.
@@ -407,6 +409,7 @@ impl Detail {
             whole: HashMap::new(),
             whole_reading: HashSet::new(),
             file_picks: Picks::default(),
+            svg_text: HashSet::new(),
             signers: HashMap::new(),
             sideways: HashMap::new(),
             rewording: None,
@@ -878,6 +881,7 @@ impl Detail {
         diff::rows(
             files,
             |file| self.folded.contains(&file.file.path),
+            |file| self.drawing_of(file).is_some(),
             |file| {
                 let path = &file.file.path;
                 (worktree && store.hides_file(&key.project, path))

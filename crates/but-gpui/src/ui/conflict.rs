@@ -646,6 +646,7 @@ mod tests {
             },
             fingerprint: 0,
             annotated: true,
+            drawing: None,
         }
     }
 
@@ -663,7 +664,16 @@ mod tests {
         let files = [file()];
         let none = |_: &FileDiff| false;
         let open = |_: &Conflict| View::default();
-        let shown = rows(&files, none, none, |_, _| false, |_| None, false, open);
+        let shown = rows(
+            &files,
+            none,
+            none,
+            none,
+            |_, _| false,
+            |_| None,
+            false,
+            open,
+        );
         let first_bar = shown.iter().position(|row| {
             matches!(
                 row,
@@ -714,7 +724,16 @@ mod tests {
             settled: true,
             ancestor: false,
         };
-        let shown = rows(&files, none, none, |_, _| false, |_| None, false, settled);
+        let shown = rows(
+            &files,
+            none,
+            none,
+            none,
+            |_, _| false,
+            |_| None,
+            false,
+            settled,
+        );
         assert_eq!(
             parts(&shown, 0),
             [Part::Bar, Part::Before(0), Part::Result, Part::After(0)],
@@ -722,6 +741,7 @@ mod tests {
         );
         let whole = rows(
             &files,
+            none,
             none,
             none,
             |_, _| false,

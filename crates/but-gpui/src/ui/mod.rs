@@ -101,6 +101,7 @@ icons! {
     SidebarNarrow => "sidebar-narrow",
     Stack => "stack",
     TextBlock => "text-block",
+    TextCode => "text-code",
     TextWrap => "text-wrap",
     Tick => "tick",
     Warning => "warning";
