@@ -198,6 +198,9 @@ pub struct Detail {
     /// Where the uncommitted file list and a commit's or branch's file list are scrolled.
     uncommitted_files: UniformListScrollHandle,
     diff_files: UniformListScrollHandle,
+    /// The cursor's file the file list last scrolled to show, so it follows the cursor's
+    /// moves but not its own scrolling.
+    listed_cursor: std::cell::RefCell<Option<String>>,
     message: Entity<TextInput>,
     /// The branch (full ref) new commits go to; `None` creates a branch.
     commit_target: Option<String>,
@@ -380,6 +383,7 @@ impl Detail {
             list: ListState::new(0, ListAlignment::Top, px(40.)),
             uncommitted_files: UniformListScrollHandle::new(),
             diff_files: UniformListScrollHandle::new(),
+            listed_cursor: Default::default(),
             message,
             commit_target: None,
             checks: Default::default(),
