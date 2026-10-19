@@ -373,8 +373,11 @@ impl AppView {
                     cx.listener(|this, _, window, cx| this.close_modal(window, cx)),
                 )
                 .child(
+                    // At most most of the window: the modal inside can't say so itself, as
+                    // this box is only as wide as the modal.
                     div()
                         .flex()
+                        .max_w(relative(0.92))
                         .max_h(relative(0.88))
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .child(view.clone()),
