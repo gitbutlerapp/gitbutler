@@ -391,8 +391,11 @@ impl Detail {
                     if this.selected_project(cx).as_ref() == Some(project) {
                         this.reload_page(false, cx);
                         // A reload that didn't touch the files shown, like the forge poll's,
-                        // shouldn't re-highlight them.
+                        // shouldn't re-highlight them. Files of another checkout, left on
+                        // screen until this project loaded, aren't the ones shown.
+                        let key = this.key_for_selection(cx);
                         let unchanged = (this.worktree_diff())
+                            .filter(|diff| key.as_ref() == Some(&diff.key))
                             .and_then(|diff| diff.key.uncommitted(this.store.read(cx)))
                             .is_some_and(|files| this.shows_worktree(files));
                         if !unchanged {
