@@ -147,7 +147,7 @@ impl AppView {
         let app = cx.entity().downgrade();
         let detail = cx.new(|cx| Detail::new(store.clone(), app.clone(), window, cx));
         let diff = cx.new(|cx| DiffPane::new(&detail, window, cx));
-        let navigator = cx.new(|cx| Navigator::new(app, store.clone(), detail.clone(), cx));
+        let navigator = cx.new(|cx| Navigator::new(app, store.clone(), detail.clone(), window, cx));
         window.focus(&navigator.focus_handle(cx), cx);
         let subscriptions = vec![
             cx.observe(&store, |_, _, cx| cx.notify()),
