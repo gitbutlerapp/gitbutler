@@ -7,10 +7,13 @@
 //! wait 500                # milliseconds
 //! key cmd-shift-n         # a keystroke, as in key bindings
 //! type hello world        # text, one keystroke per character
-//! move 120 300            # window coordinates in logical pixels
+//! move 120 300            # window coordinates in logical pixels; with the button held
+//!                         # after `press` or `drag … hold`, a drag's move
 //! click 120 300           # also dclick and tclick; append `cmd`, `alt` or `shift` to
 //!                         # hold them
 //! rclick 120 300
+//! press 120 300           # press the left button there and keep it down, so `move`s
+//!                         # drag with frames between them, as a hand does
 //! drag 120 300 120 500    # append `cmd`, `alt` or `shift` to hold them on letting go, and
 //!                         # `hold` to keep the button down
 //! drop 120 500            # let go of a held drag there
@@ -28,6 +31,7 @@
 //! ```
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -41,6 +45,9 @@ use gpui::{
 use crate::app::AppView;
 
 static LAUNCHED: OnceLock<Instant> = OnceLock::new();
+
+/// Whether the left button is down between commands, after `press` or `drag … hold`.
+static PRESSED: AtomicBool = AtomicBool::new(false);
 
 /// Since when the UI thread's longest busy stretch is being kept, and how long it was. Nothing
 /// can be drawn while that thread is busy, so at 120Hz no stretch should pass 8.3ms.
@@ -272,7 +279,19 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 bail!("move takes x y");
             };
             let at = point(px(x), px(y));
-            window.dispatch_event(mouse_move(at, None, Modifiers::default()), cx);
+            let pressed = PRESSED.load(Ordering::Relaxed).then_some(MouseButton::Left);
+            window.dispatch_event(mouse_move(at, pressed, Modifiers::default()), cx);
+        }
+        "press" => {
+            let [x, y] = numbers()?[..] else {
+                bail!("press takes x y");
+            };
+            let at = point(px(x), px(y));
+            window.dispatch_event(
+                mouse_down(MouseButton::Left, at, Modifiers::default(), 1),
+                cx,
+            );
+            PRESSED.store(true, Ordering::Relaxed);
         }
         "scroll" => {
             let (x, y, dy, dx) = match numbers()?[..] {
@@ -329,7 +348,9 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 };
                 window.dispatch_event(mouse_move(at, Some(left), modifiers), cx);
             }
-            if !held("hold") {
+            if held("hold") {
+                PRESSED.store(true, Ordering::Relaxed);
+            } else {
                 window.dispatch_event(mouse_up(left, to, modifiers, 1), cx);
             }
         }
@@ -341,6 +362,7 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             };
             let at = point(px(x), px(y));
             window.dispatch_event(mouse_up(MouseButton::Left, at, Modifiers::default(), 1), cx);
+            PRESSED.store(false, Ordering::Relaxed);
         }
         "drop" => {
             // Finish a drag left held by `drag … hold`, after frames have run.
@@ -350,6 +372,7 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             let (at, left) = (point(px(x), px(y)), MouseButton::Left);
             window.dispatch_event(mouse_move(at, Some(left), Modifiers::default()), cx);
             window.dispatch_event(mouse_up(left, at, Modifiers::default(), 1), cx);
+            PRESSED.store(false, Ordering::Relaxed);
         }
         // What the system's folder picker would hand Add a repository.
         "add" => {
