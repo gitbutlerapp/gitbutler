@@ -67,7 +67,8 @@ impl Detail {
                     // Busy while one waits or runs, as pressing again would only queue more.
                     let (fetching, updating) =
                         (store.fetching(&entry.id), store.updating(&entry.id));
-                    if !self.no_remote(&entry.id) {
+                    // A folder that's gone has nothing to fetch into.
+                    if !self.no_remote(&entry.id) && entry.project.path.exists() {
                         actions.push(
                             button("fetch", if fetching { "Fetching…" } else { "Fetch" })
                                 .icon(Icon::Refresh)
