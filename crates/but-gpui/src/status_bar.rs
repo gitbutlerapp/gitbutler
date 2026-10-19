@@ -128,13 +128,19 @@ impl AppView {
         } else if detail.files_focused(window) {
             vec![(&NextFile, "next file")]
         } else if detail_focused && uncommitted {
-            vec![
-                (&NextHunk, "next hunk"),
-                (&CutSelection, "cut hunk"),
-                (&DiscardHunk, "discard hunk"),
+            // ⌘X takes what's picked, or the hunk or file under the cursor, and on a file's
+            // header there's no hunk for ⌥⌘Z.
+            let discard =
+                (detail.on_hunk()).then_some((&DiscardHunk as &dyn Action, "discard hunk"));
+            [
+                (&NextHunk as &dyn Action, "next hunk"),
+                (&CutSelection, "cut"),
             ]
+            .into_iter()
+            .chain(discard)
+            .collect()
         } else if detail_focused && detail.cursor_cut(cx).is_some() {
-            vec![(&NextHunk, "next hunk"), (&CutSelection, "cut hunk")]
+            vec![(&NextHunk, "next hunk"), (&CutSelection, "cut")]
         } else if detail_focused {
             vec![(&NextFile, "next file"), (&NextHunk, "next hunk")]
         } else {

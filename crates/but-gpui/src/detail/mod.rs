@@ -1430,6 +1430,11 @@ impl Detail {
         self.composing
     }
 
+    /// Whether the diff's cursor is on a hunk, rather than a file's header, for ⌥⌘Z to discard.
+    pub fn on_hunk(&self) -> bool {
+        self.cursor.hunk.is_some()
+    }
+
     /// Whether there's a file shown for the diff's keys to act on, not one the filter hides.
     pub fn has_files(&self) -> bool {
         (self.shown_diff())
