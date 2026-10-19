@@ -293,6 +293,7 @@ impl Store {
         self.order_projects(&order);
         if expanded {
             self.open_project(id, cx);
+            self.read_mesh();
         } else if self
             .selection
             .as_ref()

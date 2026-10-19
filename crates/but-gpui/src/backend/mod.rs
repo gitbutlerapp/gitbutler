@@ -12,6 +12,7 @@ pub mod edit;
 mod highlight;
 pub mod history;
 mod markers;
+pub mod mesh;
 pub mod model;
 mod ops;
 pub mod reviews;

@@ -17,12 +17,14 @@ use crate::backend::{
 mod account;
 mod background;
 mod load;
+mod mesh;
 mod mutation;
 mod picks;
 mod saved;
 mod seen;
 
 use load::{Change, Reload};
+pub use mesh::MeshState;
 pub use mutation::{NewAt, Overlay, Remap, Rereads, SLOW};
 use mutation::{Queued, Running};
 pub use picks::Picks;
@@ -46,6 +48,8 @@ pub enum Selection {
     Worktree(ProjectId, Arc<str>),
     /// A stack of two or more branches, by its bottom branch, and what they change together.
     Stack(ProjectId, String),
+    /// The project's checkout on another machine, by the mesh's id for it.
+    Machine(ProjectId, Arc<str>),
 }
 
 impl Selection {
@@ -58,7 +62,8 @@ impl Selection {
             | Selection::Branches(project)
             | Selection::History(project)
             | Selection::Worktree(project, _)
-            | Selection::Stack(project, _) => project,
+            | Selection::Stack(project, _)
+            | Selection::Machine(project, _) => project,
         }
     }
 
@@ -224,6 +229,11 @@ pub struct Store {
     /// The version the desktop app's update feed offers, newer than this build, when the
     /// desktop app's binary started this client.
     pub newer_version: Option<String>,
+    /// The user's other machines, and what they have of the watched projects.
+    pub mesh: mesh::Mesh,
+    /// Asks the mesh's poll to read it again now.
+    mesh_requests: mpsc::UnboundedSender<()>,
+    _mesh_poll: Task<()>,
     /// Each project's mutation in flight. A project's mutations run one at a time, each
     /// until the reload after it lands, so the next one sees what it did; projects don't
     /// wait on each other.
@@ -284,6 +294,7 @@ impl Store {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let (changes, changed) = mpsc::unbounded();
         let (forge_requests, requested) = mpsc::unbounded();
+        let (mesh_requests, mesh_asked) = mpsc::unbounded();
         let saved = Saved::load();
         let mut store = Self {
             projects: Vec::new(),
@@ -298,6 +309,9 @@ impl Store {
             toasts: Vec::new(),
             account: account::Account::default(),
             newer_version: None,
+            mesh: mesh::Mesh::default(),
+            mesh_requests,
+            _mesh_poll: Self::poll_mesh(mesh_asked, cx),
             running: HashMap::new(),
             busy_ticker: Task::ready(()),
             queue: VecDeque::new(),
@@ -408,7 +422,8 @@ impl Store {
             | Selection::Branches(_)
             | Selection::History(_)
             | Selection::Worktree(..)
-            | Selection::Stack(..) => None,
+            | Selection::Stack(..)
+            | Selection::Machine(..) => None,
         }
     }
 
@@ -439,6 +454,8 @@ impl Store {
             Selection::Commit(_, id) => workspace.find_commit(*id).is_some(),
             Selection::Worktree(_, name) => workspace.worktrees.iter().any(|w| w.name == *name),
             Selection::Stack(_, bottom) => workspace.lane(bottom).is_some_and(|b| b.len() > 1),
+            // Another machine's, which the mesh's reads keep track of.
+            Selection::Machine(..) => true,
         };
         if !still_there {
             self.select(

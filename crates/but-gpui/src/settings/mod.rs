@@ -546,7 +546,10 @@ impl SettingsView {
     fn page_cards(&self, page: Page, window: &Window, cx: &Context<Self>) -> Vec<Card> {
         let cards = match page {
             Page::General => vec![
-                Card::new(None, vec![self.gitbutler_row(window, cx)]),
+                Card::new(
+                    None,
+                    vec![self.gitbutler_row(window, cx), self.mesh_row(cx)],
+                ),
                 Card::new(None, self.program_rows(cx)),
             ],
             Page::Appearance => self.appearance_cards(cx),

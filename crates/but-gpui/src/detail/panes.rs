@@ -216,6 +216,11 @@ impl Detail {
                 Selection::Worktree(_, name) => {
                     crumbs.push((name.to_string().into(), None));
                 }
+                Selection::Machine(project, id) => {
+                    if let Some(checkout) = store.mesh_checkout(project, id) {
+                        crumbs.push((checkout.label().into(), None));
+                    }
+                }
                 Selection::Stack(_, bottom) => {
                     let n = workspace
                         .and_then(|ws| ws.lane(bottom))

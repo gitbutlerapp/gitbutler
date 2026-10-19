@@ -11,6 +11,8 @@ mod find;
 pub use find::FindInDiff;
 mod history;
 mod lines;
+mod machine;
+pub(crate) use machine::branch_glyph;
 mod panes;
 mod pull_request;
 mod resolve;
@@ -594,6 +596,8 @@ impl Detail {
             Selection::Branches(project) => self.branches_source(project)?,
             Selection::Uncommitted(_) => DiffSource::Worktree,
             Selection::Worktree(_, name) => DiffSource::Linked(name.clone()),
+            // Another machine's diffs are on that machine.
+            Selection::Machine(..) => return None,
             Selection::Commit(_, id) => DiffSource::Commit(*id),
             Selection::Branch(project, ref_name) => {
                 let branch = store.workspace(project)?.find_branch(ref_name)?;
@@ -1699,6 +1703,8 @@ impl Render for Detail {
                 &theme,
                 cx,
             ),
+            // A page of its own, with no diff beside it.
+            Some(Selection::Machine(project, id)) => self.render_machine(project, id, &theme, cx),
             Some(selection) => {
                 let side = match selection {
                     Selection::Uncommitted(project) => {
@@ -1717,6 +1723,8 @@ impl Render for Detail {
                     Selection::Stack(project, bottom) => {
                         self.render_stack_side(project, bottom, &theme, cx)
                     }
+                    // Drawn as a whole page above.
+                    Selection::Machine(..) => div().into_any_element(),
                     Selection::Branches(project) => {
                         self.render_branches_side(project, &theme, window, cx)
                     }

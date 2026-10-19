@@ -36,6 +36,7 @@ use crate::ui::{
 
 mod account;
 mod menu;
+mod mesh;
 
 /// How far a worktree's rows sit in from its heading.
 const NEST: f32 = 14.;
@@ -121,6 +122,11 @@ enum Row {
     Inactive(ProjectId, usize),
     /// The line after a worktree's section.
     WorktreeDivider,
+    /// Over a project's checkouts on other machines.
+    MeshHeading,
+    /// A branch of a project's checkout on another machine: the checkout by the mesh's id,
+    /// and the branch by name.
+    MeshBranch(ProjectId, Arc<str>, String),
 }
 
 /// The rows as they're built, each with how far in it sits: a worktree's section and a
@@ -260,6 +266,8 @@ pub struct Navigator {
     folded_worktrees: HashSet<(ProjectId, Option<Arc<str>>)>,
     /// Stacks showing only their caption, by their bottom branch.
     folded_stacks: HashSet<(ProjectId, String)>,
+    /// Checkouts on other machines showing only their heading, by the mesh's id.
+    folded_machines: HashSet<(ProjectId, Arc<str>)>,
     /// The filter in the header, over every project's rows.
     filter: Entity<TextInput>,
     /// The first item the filter found, which Enter in it selects.
@@ -344,6 +352,7 @@ impl Navigator {
             shown_inactive: HashSet::new(),
             folded_worktrees: HashSet::new(),
             folded_stacks: HashSet::new(),
+            folded_machines: HashSet::new(),
             filter,
             first_hit: None,
             projects_unfolded: false,
@@ -441,6 +450,7 @@ impl Navigator {
                     }
                 }
             }
+            self.mesh_rows(store, id, &mut rows);
             // After the worktrees, so a drag starting in one doesn't push its rows down. Outside
             // the workspace there's nowhere to put a branch of its own.
             if workspace.managed
@@ -566,6 +576,7 @@ impl Navigator {
                     }
                 }
             }
+            self.filtered_mesh_rows(store, id, terms, own, &mut rows);
             if rows.rows.len() == project_end && !hit(0, own) {
                 rows.truncate(start);
             }
@@ -902,6 +913,10 @@ impl Navigator {
                 self.folded_stacks.remove(&(project, bottom));
                 cx.notify();
             }
+            Some(Selection::Machine(project, id)) => {
+                self.folded_machines.remove(&(project, id));
+                cx.notify();
+            }
             _ => {}
         }
     }
@@ -942,6 +957,14 @@ impl Navigator {
             }
             Some(Selection::Stack(project, bottom)) if folds => {
                 self.toggle_stack(&project, &bottom, true, window, cx)
+            }
+            Some(Selection::Machine(project, id))
+                if !self.folded_machines.contains(&(project.clone(), id.clone()))
+                    && matches!(self.rows.get(self.rows.iter().position(
+                        |row| matches!(row, Row::Item(Selection::Machine(p, i)) if *p == project && *i == id)
+                    ).map_or(usize::MAX, |ix| ix + 1)), Some(Row::MeshBranch(..))) =>
+            {
+                self.toggle_machine((project, id), true, window, cx)
             }
             // Jump up, like closing a folder in a tree.
             Some(selection) => {
@@ -1092,6 +1115,10 @@ impl Navigator {
                     el.child(div().text_size(px(11.)).text_color(theme.text_2).child("…"))
                 })
                 .into_any_element(),
+            Some(Row::MeshHeading) => self.mesh_heading(theme),
+            Some(Row::MeshBranch(project, id, name)) => {
+                self.mesh_branch_row(ix, project, id, name, theme, cx)
+            }
             Some(Row::ProjectsHeading(title, listed, total)) => {
                 self.projects_heading(title, *listed, *total, theme, cx)
             }
@@ -1302,6 +1329,7 @@ impl Navigator {
                 Some(self.page_row(item, Icon::Clock, label, None, style, cx))
             }
             Selection::Stack(id, bottom) => self.stack_row(ix, item, id, bottom, style, cx),
+            Selection::Machine(..) => self.machine_row(ix, item, style, cx),
         };
         match el {
             Some(el) => self.drop_target(el, item.clone(), window, theme, cx),

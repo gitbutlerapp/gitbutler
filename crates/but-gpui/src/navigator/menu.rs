@@ -513,6 +513,7 @@ impl Navigator {
                 }
                 items
             }
+            Selection::Machine(project, id) => self.machine_menu(project, id, cx),
             Selection::Branches(_) | Selection::History(_) => Vec::new(),
         }
     }
