@@ -438,6 +438,8 @@ fn commit_from(local: &but_workspace::ref_info::LocalCommit) -> Commit {
             R::Integrated(_) => CommitState::Integrated,
         },
         conflicted: inner.has_conflicts,
+        parent: inner.parent_ids.first().copied().map(CommitId),
+        tree: inner.tree_id,
     }
 }
 

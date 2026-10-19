@@ -400,6 +400,10 @@ pub struct Commit {
     pub time: i64,
     pub state: CommitState,
     pub conflicted: bool,
+    /// Its first parent and its tree: rewritten on the same parent with another tree, it
+    /// was amended, rather than only rebased.
+    pub parent: Option<CommitId>,
+    pub tree: gix::ObjectId,
 }
 
 impl Commit {
@@ -922,6 +926,8 @@ mod tests {
             time: 0,
             state: CommitState::Local,
             conflicted: false,
+            parent: None,
+            tree: id,
         };
         assert!(
             !commit(made.to_string()).has_change_id(),
