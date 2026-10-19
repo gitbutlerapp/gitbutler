@@ -1120,9 +1120,12 @@ impl Navigator {
             Selection::Branch(id, ref_name) => self.branch_row(item, id, ref_name, style, cx),
             Selection::Commit(id, commit_id) => self.commit_row(item, id, commit_id, style, cx),
             Selection::Branches(_) => {
-                Some(self.page_row(item, Icon::Branch, "Branches", style, cx))
+                let tip = Some("Branches not applied in your workspace");
+                Some(self.page_row(item, Icon::Branch, "Branches", tip, style, cx))
             }
-            Selection::History(_) => Some(self.page_row(item, Icon::Clock, "History", style, cx)),
+            Selection::History(_) => {
+                Some(self.page_row(item, Icon::Clock, "History", None, style, cx))
+            }
             Selection::Stack(id, bottom) => self.stack_row(ix, item, id, bottom, style, cx),
         };
         match el {
@@ -1502,6 +1505,7 @@ impl Navigator {
         item: &Selection,
         glyph: Icon,
         label: &'static str,
+        tip: Option<&'static str>,
         style: RowStyle,
         cx: &Context<Self>,
     ) -> AnyElement {
@@ -1510,6 +1514,7 @@ impl Navigator {
             .text_color(style.muted())
             .child(icon(glyph).text_color(style.muted()))
             .child(div().flex_1().child(label))
+            .when_some(tip, |el, tip| el.tooltip(Tooltip::text(tip)))
             .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
             .into_any_element()
     }
