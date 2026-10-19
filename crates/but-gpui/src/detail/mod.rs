@@ -1500,6 +1500,21 @@ impl Detail {
         (self.store.read(cx)).fitted_width(Pane::Files, window, !self.beside_traffic_lights, true)
     }
 
+    /// Where the diff's cursor is, as an editor's status bar says the line: the file under
+    /// it, that file's place among the ones shown, and its hunk.
+    pub fn cursor_place(&self) -> Option<(String, String)> {
+        let diff = self.shown_diff()?;
+        let file = diff.files.get(self.cursor.file)?;
+        let shown = self.shown_files();
+        let at = shown.binary_search(&self.cursor.file).ok()? + 1;
+        let mut place = format!("file {at} of {}", shown.len());
+        let hunks = file.hunks().len();
+        if let Some(hunk) = self.cursor.hunk.filter(|hunk| *hunk < hunks) {
+            place.push_str(&format!(" · hunk {} of {hunks}", hunk + 1));
+        }
+        Some((file.file.path.clone(), place))
+    }
+
     /// The path of the file under the cursor, in any diff.
     pub fn cursor_path(&self) -> Option<String> {
         self.diff_path(self.cursor.file)
