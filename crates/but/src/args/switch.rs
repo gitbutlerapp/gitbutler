@@ -6,6 +6,9 @@ use crate::args::atoms::CliIdArg;
 
 /// Switch to a local branch or the GitButler workspace.
 ///
+/// Runs Git's `post-checkout` hooks after a successful switch. Hook failure
+/// reports an error but leaves the checkout in place.
+///
 /// ## Examples
 ///
 /// Switch to a branch:
