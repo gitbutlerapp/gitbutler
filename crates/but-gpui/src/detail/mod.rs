@@ -435,12 +435,23 @@ impl Detail {
                 // would redraw the diff on every keystroke.
                 InputEvent::Changed => {}
             }),
-            cx.subscribe(&branch_filter, |this, _, event, cx| {
-                if let InputEvent::Changed = event {
-                    this.select_shown_branch(cx);
-                    cx.notify()
-                }
-            }),
+            // Esc empties it, then leaves it, as the navigator's filter does.
+            cx.subscribe_in(
+                &branch_filter,
+                window,
+                |this, input, event, window, cx| match event {
+                    InputEvent::Changed => {
+                        this.select_shown_branch(cx);
+                        cx.notify()
+                    }
+                    // Back to the list, which takes the arrow keys.
+                    InputEvent::Cancel if input.read(cx).text().is_empty() => {
+                        window.focus(&this.side_focus, cx)
+                    }
+                    InputEvent::Cancel => input.update(cx, |input, cx| input.set_text("", cx)),
+                    InputEvent::Submit => {}
+                },
+            ),
             // What the side panel shows comes from the store, and the diff's files go in the
             // file list's order, as the keys step through them.
             cx.observe(&store, |this, store, cx| {
