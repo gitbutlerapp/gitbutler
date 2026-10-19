@@ -42,6 +42,10 @@ pub struct DiffPane {
     shown: Option<Arc<Vec<FileDiff>>>,
     /// Waiting for that frame: until it comes, what changes is drawn then.
     deferred: bool,
+    /// Where the diff was scrolled to when drawn last. gpui settles a scroll asked for past
+    /// the end only as it lays the list out, after the sticky header was worked out, so
+    /// a change draws once more.
+    top: (usize, Pixels),
     _observe: Subscription,
 }
 
@@ -51,6 +55,7 @@ impl DiffPane {
             detail: detail.downgrade(),
             shown: None,
             deferred: false,
+            top: (0, px(0.)),
             // Whatever changes the detail can change the diff; scrolling only notifies this.
             _observe: cx.observe_in(detail, window, |this, detail, window, cx| {
                 if this.deferred {
@@ -84,16 +89,22 @@ impl Render for DiffPane {
         let theme = Theme::get(cx).clone();
         let drawn = self.detail.update(cx, |detail, cx| {
             detail.follow_scroll(cx);
+            let top = detail.list.logical_scroll_top();
             (
+                (top.item_ix, top.offset_in_item),
                 detail.focus.clone(),
                 detail.render_diff_tools(&theme, cx),
                 detail.render_diff(&theme, cx),
                 detail.render_find(window, &theme, cx),
             )
         });
-        let Ok((focus, tools, diff, find)) = drawn else {
+        let Ok((top, focus, tools, diff, find)) = drawn else {
             return v_flex();
         };
+        if top != self.top {
+            self.top = top;
+            window.request_animation_frame();
+        }
         // A press in the diff, as on its scrollbar, hands the cursor back to its scroll;
         // what was pressed may then place it again.
         let unpin = self.detail.clone();
