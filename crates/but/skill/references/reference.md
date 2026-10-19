@@ -83,6 +83,11 @@ working after the commit is amended or rebased.
 
 ## Branching
 
+### `but switch <branch>`
+
+Switch to a local branch, or use `but switch --workspace` to return to the GitButler workspace. Runs Git's `post-checkout` hooks after switching, honoring `core.hooksPath`. Hook failure reports an error but leaves the checkout in place. Switching to the workspace when already there does not run hooks.
+
+
 ### `but branch`
 
 List all branches (default when no subcommand).

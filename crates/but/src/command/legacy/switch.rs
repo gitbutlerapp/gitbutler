@@ -89,7 +89,8 @@ pub fn run(
     perm: &mut RepoExclusive,
     operation: SwitchOperation,
 ) -> anyhow::Result<SwitchOutcome> {
-    match operation {
+    let old_head = ctx.repo.get()?.head_id()?.detach();
+    let outcome: anyhow::Result<_> = match operation {
         SwitchOperation::Workspace => {
             let workspace_exists = {
                 let repo = ctx.repo.get()?;
@@ -116,7 +117,23 @@ pub fn run(
 
             Ok(SwitchOutcome::Branch { branch })
         }
+    };
+    let outcome = outcome?;
+    if !matches!(outcome, SwitchOutcome::AlreadyOnWorkspace) {
+        // Checkout is already complete: hook failure must not roll it back.
+        let hook_result = {
+            let repo = ctx.repo.get()?;
+            but_core::hooks::post_checkout(
+                repo.workdir().context("Checkout requires a worktree")?,
+                old_head,
+                repo.head_id()?.detach(),
+            )
+        };
+        // Hooks can modify repository state, including when they fail.
+        ctx.reload_repo_and_invalidate_workspace(perm)?;
+        hook_result?;
     }
+    Ok(outcome)
 }
 
 pub enum SwitchOperation {
