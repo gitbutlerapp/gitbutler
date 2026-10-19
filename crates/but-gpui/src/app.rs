@@ -161,6 +161,7 @@ impl AppView {
             // The CLI and GitButler's other apps add and remove projects too, and folders move.
             cx.observe_window_activation(window, |this, window, cx| {
                 if window.is_window_active() {
+                    show_cursor_again(window);
                     this.store.update(cx, |store, cx| {
                         store.load_projects(cx);
                         store.recheck_folders(cx);
@@ -804,5 +805,29 @@ fn copied(text: &str) -> String {
         0 | 1 if text.chars().count() <= 64 => format!("Copied {text}"),
         0 | 1 => "Copied the selection".to_owned(),
         lines => format!("Copied {lines} lines"),
+    }
+}
+
+/// Have AppKit show the window's cursor again. GPUI tells it only when the cursor it wants
+/// changes, so one left by another app or by the window's edge stays on screen when the window
+/// becomes key with the pointer already over it, and its own cursor wanted there is the same.
+fn show_cursor_again(window: &Window) {
+    use objc2::{msg_send, runtime::AnyObject};
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+    let Ok(handle) = HasWindowHandle::window_handle(window) else {
+        return;
+    };
+    let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
+        return;
+    };
+    let view = handle.ns_view.as_ptr().cast::<AnyObject>();
+    // SAFETY: `view` is the window's live NSView, used on the main thread, and
+    // `invalidateCursorRectsForView:` only asks AppKit to set its cursor rects again.
+    unsafe {
+        let ns_window: *mut AnyObject = msg_send![view, window];
+        if !ns_window.is_null() {
+            let _: () = msg_send![ns_window, invalidateCursorRectsForView: view];
+        }
     }
 }
