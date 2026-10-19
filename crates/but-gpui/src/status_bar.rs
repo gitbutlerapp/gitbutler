@@ -3,11 +3,14 @@
 
 use gpui::{Action, AnyElement, Context, Focusable as _, Window, div, prelude::*, px};
 
-use crate::app::{AppView, CommandPalette, CutSelection, FocusDiff, PasteHere, StartCommit, Undo};
+use crate::app::{
+    AppView, CommandPalette, CutSelection, Fetch, FocusDiff, OpenPullRequest, PasteHere, Push,
+    RenameSelection, StartCommit, UncommitSelection, Undo, UpdateFromTarget,
+};
 use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
 use crate::state::{SLOW, Selection};
 use crate::theme::Theme;
-use crate::ui::{Icon, STATUS_BAR_HEIGHT, h_flex, keycap, shortcut, small_icon};
+use crate::ui::{Icon, STATUS_BAR_HEIGHT, h_flex, relative_time, shortcut, small_icon};
 
 impl AppView {
     pub fn render_status_bar(
@@ -43,9 +46,9 @@ impl AppView {
                 .min_w(px(0.))
                 .child(div().text_color(theme.pop).child(cut.verb()))
                 .child(div().truncate().child(cut.describe()))
-                .children(shortcut(&PasteHere, cx).map(|keys| keycap(&keys, &theme)))
+                .children(shortcut(&PasteHere, cx).map(|keys| key(&keys, &theme)))
                 .child("paste here")
-                .child(keycap("esc", &theme))
+                .child(key("esc", &theme))
                 .into_any_element()
         } else if !store.picked.is_empty() {
             // Only the navigator's highlight shows them otherwise.
@@ -56,7 +59,7 @@ impl AppView {
                     crate::ui::plural(store.picked.len(), "commit")
                 )))
                 .child("drag them together, or right-click to squash or uncommit them")
-                .child(keycap("esc", &theme))
+                .child(key("esc", &theme))
                 .into_any_element()
         } else if detail.picked_line_count() > 0 {
             h_flex()
@@ -66,7 +69,7 @@ impl AppView {
                     crate::ui::plural(detail.picked_line_count(), "line")
                 )))
                 .child("drag a grip or right-click to move them")
-                .child(keycap("esc", &theme))
+                .child(key("esc", &theme))
                 .into_any_element()
         } else if detail.picked_files() > 0 {
             h_flex()
@@ -75,15 +78,35 @@ impl AppView {
                     "{} selected",
                     crate::ui::plural(detail.picked_files(), "file")
                 )))
-                .child(keycap("esc", &theme))
+                .child(key("esc", &theme))
+                .into_any_element()
+        } else if let Some((path, place)) = (detail.is_focused(window, cx)
+            && !detail.showing_review(cx))
+        .then(|| detail.cursor_place())
+        .flatten()
+        {
+            // In the diff or the lists beside it, where the cursor is, as an editor's status
+            // bar names the file and the line.
+            h_flex()
+                .gap(px(6.))
+                .min_w(px(0.))
+                .child(div().min_w(px(0.)).truncate().child(path))
+                .child(div().flex_none().text_color(theme.text_3).child(place))
                 .into_any_element()
         } else {
-            // The selected project's standing against its target.
+            // The selected project's standing against its target, and how fresh that is.
             let summary = store.selection.as_ref().and_then(|selection| {
                 let entry = store.project(selection.project())?;
                 let target = entry.workspace.as_ref()?.target.as_ref()?;
+                let fetched = (store.fetched_at(&entry.id)).map(|at| {
+                    let at = crate::ui::now() - at.elapsed().as_secs() as i64;
+                    match relative_time(at).as_str() {
+                        "now" => " · fetched just now".to_owned(),
+                        ago => format!(" · fetched {ago} ago"),
+                    }
+                });
                 // A stack can be on an older target commit, as one just applied can.
-                Some(match target.behind {
+                let standing = match target.behind {
                     0 if target.needs_update => {
                         format!(
                             "{} · some branches are behind {}",
@@ -97,7 +120,8 @@ impl AppView {
                         crate::ui::plural(n, "commit"),
                         target.name
                     ),
-                })
+                };
+                Some(standing + fetched.as_deref().unwrap_or_default())
             });
             div().children(summary).into_any_element()
         };
@@ -147,11 +171,41 @@ impl AppView {
         } else if detail_focused {
             vec![(&NextFile, "next file"), (&NextHunk, "next hunk")]
         } else {
-            vec![
-                (&CutSelection, "cut"),
-                (&PasteHere, "paste"),
-                (&Undo, "undo"),
-            ]
+            // In the navigator, the keys for what's selected; what's cut says its own.
+            let mut hints: Vec<(&dyn Action, &str)> = match &store.selection {
+                Some(Selection::Project(project)) => {
+                    let behind = (store.workspace(project))
+                        .and_then(|ws| ws.target.as_ref())
+                        .is_some_and(|target| target.needs_update);
+                    [(&Fetch as &dyn Action, "fetch")]
+                        .into_iter()
+                        .chain(behind.then_some((&UpdateFromTarget as &dyn Action, "update")))
+                        .collect()
+                }
+                Some(Selection::Branch(project, ref_name)) => {
+                    let workspace = store.workspace(project);
+                    let push = workspace.is_some_and(|ws| {
+                        ws.can_push(ref_name) && ws.push_refused(ref_name).is_none()
+                    });
+                    let review = (workspace.and_then(|ws| ws.find_branch(ref_name)))
+                        .is_some_and(|branch| branch.review.is_some());
+                    (push.then_some((&Push as &dyn Action, "push")).into_iter())
+                        .chain(review.then_some((&OpenPullRequest as &dyn Action, "pull request")))
+                        .chain([(&RenameSelection as &dyn Action, "rename")])
+                        .collect()
+                }
+                Some(Selection::Commit(..)) => vec![
+                    (&CutSelection, "cut"),
+                    (&RenameSelection, "edit message"),
+                    (&UncommitSelection, "uncommit"),
+                ],
+                Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
+                    vec![(&StartCommit, "commit")]
+                }
+                _ => Vec::new(),
+            };
+            hints.push((&Undo, "undo"));
+            hints
         };
 
         h_flex()
@@ -167,13 +221,7 @@ impl AppView {
             .child(div().flex_1().min_w(px(0.)).truncate().child(state))
             .children(hints.into_iter().filter_map(|(action, label)| {
                 let keys = shortcut(action, cx)?;
-                Some(
-                    h_flex()
-                        .flex_none()
-                        .gap(px(4.))
-                        .child(keycap(&keys, &theme))
-                        .child(label),
-                )
+                Some(hint(&keys, label, &theme))
             }))
             .child(
                 h_flex()
@@ -184,12 +232,30 @@ impl AppView {
                     .h(px(22.))
                     .rounded(px(4.))
                     .hover(|el| el.bg(theme.hover()))
-                    .child(keycap(
+                    .child(hint(
                         shortcut(&CommandPalette, cx).as_deref().unwrap_or("⌘K"),
+                        "Commands",
                         &theme,
                     ))
-                    .child("Commands")
                     .on_click(|_, window, cx| window.dispatch_action(Box::new(CommandPalette), cx)),
             )
     }
+}
+
+/// A key as the bar names it: plain, not a keycap, so the hints read as help rather than
+/// buttons.
+fn key(keys: &str, theme: &Theme) -> gpui::Div {
+    div()
+        .flex_none()
+        .text_color(theme.text_2)
+        .child(keys.to_owned())
+}
+
+/// A key and what it does, the words a step quieter than the key.
+fn hint(keys: &str, label: &str, theme: &Theme) -> gpui::Div {
+    h_flex()
+        .flex_none()
+        .gap(px(4.))
+        .child(key(keys, theme))
+        .child(div().text_color(theme.text_3).child(label.to_owned()))
 }
