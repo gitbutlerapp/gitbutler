@@ -1230,13 +1230,20 @@ fn commit_counts(branches: &[(String, usize)]) -> String {
 }
 
 /// What a failed operation's card says: the engine's own words, except where those name a
-/// commit the user never saw.
+/// commit the user never saw, or leave out what the engine did about it.
 fn failure_detail(err: &anyhow::Error) -> String {
     match err.downcast_ref::<but_error::Code>() {
         Some(but_error::Code::ConflictedCommitCheckout) => {
             "That would leave the checked-out commit conflicted, which Git can't check out."
                 .to_owned()
         }
+        // The engine turns signing off for the project then, and the next commit would
+        // quietly go unsigned.
+        Some(but_error::Code::CommitSigningFailed) => format!(
+            "Signing it failed, which turns commit signing off for this project unless it's \
+             on in your global Git config. Check Sign commits in Project settings.\n{}",
+            err.root_cause()
+        ),
         _ => format!("{err:#}"),
     }
 }
@@ -1253,6 +1260,11 @@ mod tests {
         assert!(
             failure_detail(&err).starts_with("That would leave the checked-out commit"),
             "the engine's code is found under the context it adds"
+        );
+        let err = anyhow::anyhow!(but_error::Code::CommitSigningFailed).context("Signing failed");
+        assert!(
+            failure_detail(&err).contains("turns commit signing off"),
+            "the engine turned signing off, which the next commit would otherwise not show"
         );
     }
 
