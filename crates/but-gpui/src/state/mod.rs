@@ -292,7 +292,12 @@ impl Store {
             busy_ticker: Task::ready(()),
             queue: VecDeque::new(),
             last_snapshot: None,
-            kept_snapshots: Arc::default(),
+            kept_snapshots: Arc::new(Mutex::new(
+                (saved.kept_snapshots.iter())
+                    .filter_map(|id| gix::ObjectId::from_hex(id.as_bytes()).ok())
+                    .map(SnapshotId)
+                    .collect(),
+            )),
             next_toast: 0,
             seen: saved.seen,
             widths: saved.widths,

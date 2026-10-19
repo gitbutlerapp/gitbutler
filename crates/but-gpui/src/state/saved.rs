@@ -67,6 +67,12 @@ impl Store {
             file_sort: self.file_sort,
             window: self.window.clone(),
             prefs: self.prefs.clone(),
+            kept_snapshots: {
+                let kept = self.kept_snapshots.lock().expect("not poisoned");
+                let mut ids: Vec<String> = kept.iter().map(|id| id.0.to_string()).collect();
+                ids.sort();
+                ids
+            },
         }
     }
 
@@ -231,6 +237,9 @@ pub(super) struct Saved {
     pub(super) file_sort: FileSort,
     pub(super) window: Option<WindowPlace>,
     pub(super) prefs: Prefs,
+    /// The oplog entries ⌘Z mustn't take back, as the oplog can't restore all they changed,
+    /// which stays so after a restart.
+    pub(super) kept_snapshots: Vec<String>,
 }
 
 /// Choices from Settings, and how the navigator lists projects, that only this app keeps;
