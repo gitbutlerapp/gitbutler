@@ -6,7 +6,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use anyhow::{Context as _, Result};
+use anyhow::{Context as _, Result, bail};
 use gpui::{Context, SharedString, Task};
 
 use super::{ProjectId, Reload, Selection, Store, StoreEvent};
@@ -215,6 +215,16 @@ impl Remap {
             .get(&id)
             .copied()
             .context("A commit changed before this could run. Try again.")
+    }
+
+    /// `id`, as [`Self::get`] has it, for taking `files` out of: some of a file goes by line
+    /// numbers that rewriting the commit may have moved, so a rewritten one is refused.
+    pub fn taken_from(&self, id: CommitId, files: &[Selected]) -> Result<CommitId> {
+        let now = self.get(id)?;
+        if now != id && files.iter().any(|f| f.hunks.is_some()) {
+            bail!("A commit changed before this could run. Try again.");
+        }
+        Ok(now)
     }
 
     /// Each of `ids`, as [`Self::get`] has it.
