@@ -13,8 +13,8 @@ use gpui::{Context, SharedString, Task};
 use super::{ProjectId, Reload, Selection, Store, StoreEvent};
 use crate::backend::upstream::{UpdateConflicts, UpdateOutcome};
 use crate::backend::{
-    self, Branch, Commit, CommitId, Destination, HunkKey, Review, ReviewState, Selected,
-    SnapshotId, short_ref,
+    self, Branch, Commit, CommitId, Destination, FileChange, HunkKey, Review, ReviewState,
+    Selected, SnapshotId, short_ref,
 };
 
 /// How long a mutation runs before the status bar says how long it's taking.
@@ -1097,6 +1097,24 @@ impl Store {
     pub fn hides_branch(&self, project: &ProjectId, ref_name: &str) -> bool {
         self.overlays(project)
             .any(|o| o.branches.contains(ref_name))
+    }
+
+    /// A checkout's uncommitted `files` without those a pending operation is taking.
+    pub fn uncommitted_shown<'a>(
+        &self,
+        project: &ProjectId,
+        checkout: Option<&str>,
+        files: &'a [FileChange],
+    ) -> Cow<'a, [FileChange]> {
+        // Looked up once rather than for every file: this runs on every frame the row is drawn.
+        let taking: Vec<&Overlay> = (self.overlays(project))
+            .filter(|o| o.files_in.as_deref() == checkout && !o.files.is_empty())
+            .collect();
+        let hidden = |file: &FileChange| taking.iter().any(|o| o.files.contains(&file.path));
+        match !taking.is_empty() && files.iter().any(hidden) {
+            false => Cow::Borrowed(files),
+            true => Cow::Owned(files.iter().filter(|f| !hidden(f)).cloned().collect()),
+        }
     }
 
     /// A stack's `branches` as they'll be once those being deleted have gone: each one's
