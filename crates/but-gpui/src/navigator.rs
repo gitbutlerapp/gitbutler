@@ -1769,17 +1769,46 @@ impl Navigator {
                 })
                 .text_color(style.muted()),
             )
+            // Its own width, so the quiet "uncommitted" gives way before the name does.
             .child(
                 div()
                     .id(("worktree-name", ix))
-                    .flex_1()
+                    .flex_grow(1.)
                     .min_w(px(0.))
                     .truncate()
                     .font_weight(gpui::FontWeight::MEDIUM)
                     .tooltip(Tooltip::text(path.display().to_string()))
                     .child(label),
             )
-            .children(change_counts(uncommitted, style))
+            // As a branch says it's empty, the quietest meta ahead of the line counts. Laid
+            // out from the right, so in a narrow navigator it's what wraps out of sight first.
+            .child(
+                h_flex()
+                    .flex_row_reverse()
+                    .flex_wrap()
+                    .flex_shrink(1000.)
+                    .min_w(px(0.))
+                    .h(px(16.))
+                    .overflow_hidden()
+                    .gap(px(8.))
+                    .children(
+                        change_counts(uncommitted, style)
+                            .collect::<Vec<_>>()
+                            .into_iter()
+                            .rev(),
+                    )
+                    .when(!uncommitted.is_empty(), |el| {
+                        el.child(
+                            div()
+                                .text_size(px(11.))
+                                .text_color(match style.solid {
+                                    true => style.muted(),
+                                    false => theme.text_3,
+                                })
+                                .child("uncommitted"),
+                        )
+                    }),
+            )
             .when(!open, |el| {
                 el.children(meta_count(
                     Icon::ArrowUp,
