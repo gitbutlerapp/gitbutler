@@ -59,7 +59,8 @@ impl Detail {
                 }
             };
             match selection {
-                Selection::Project(_) => {
+                Selection::Project(project) => {
+                    self.upstream_crumbs(project, &mut crumbs, cx);
                     let needs_update = workspace
                         .and_then(|ws| ws.target.as_ref())
                         .filter(|target| target.needs_update)
