@@ -461,6 +461,14 @@ impl Store {
                 .or_default()
                 .insert(key);
         }
+        // An unwatched project's page reads it once, unwatched, so it can say whether the
+        // target moved on and update it.
+        if let Some(Selection::Project(project)) = &selection
+            && self.project(project).is_some_and(|entry| !entry.expanded)
+        {
+            let project = project.clone();
+            self.load(&project, Reload::full(), cx);
+        }
         self.selection = selection;
         self.save_soon(cx);
         cx.emit(StoreEvent::SelectionChanged);
