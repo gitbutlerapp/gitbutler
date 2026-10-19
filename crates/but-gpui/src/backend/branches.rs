@@ -25,8 +25,16 @@ pub struct OtherBranch {
     /// Commits of its own, down to the branch it's stacked on or where it forked, when known.
     pub own_commits: Option<usize>,
     pub tip: CommitId,
-    /// Its pull request's number, state and title, as the forge cache has them.
-    pub review: Option<(u64, ReviewState, String)>,
+    pub review: Option<BranchReview>,
+}
+
+/// A branch's pull request, as the forge cache has it.
+#[derive(Debug, Clone)]
+pub struct BranchReview {
+    pub number: u64,
+    pub state: ReviewState,
+    pub title: String,
+    pub url: String,
 }
 
 /// Every branch the workspace doesn't have applied, newest first; not the target.
@@ -54,9 +62,11 @@ pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
                 ahead: branch.commits_ahead_of_target,
                 own_commits: branch.commit_count,
                 tip: CommitId(branch.tip),
-                review: listed.review.map(|review| {
-                    let state = review_state(&review);
-                    (review.number as u64, state, review.title)
+                review: listed.review.map(|review| BranchReview {
+                    number: review.number as u64,
+                    state: review_state(&review),
+                    title: review.title,
+                    url: review.html_url,
                 }),
             }
         })

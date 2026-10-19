@@ -5,6 +5,7 @@ use gpui::{AnyElement, ClickEvent, Context, SharedString, Window, div, prelude::
 
 use super::Detail;
 use super::panes::{side_list, side_row};
+use crate::app::{SelectNext, SelectPrevious};
 use crate::backend::history::Operation;
 use crate::backend::{self, DiffSource, SnapshotId};
 use crate::state::{Overlay, ProjectId};
@@ -114,6 +115,24 @@ impl Detail {
             history.selected = Some(id);
         }
         self.show_picked(cx);
+    }
+
+    /// ↓ or ↑ (`delta`) in the list: the next or previous operation, kept in view.
+    fn step_history(&mut self, delta: isize, cx: &mut Context<Self>) {
+        let Some(history) = &self.history else {
+            return;
+        };
+        let at = (history.operations.iter()).position(|op| Some(op.id) == history.selected);
+        let next = at.map_or(0, |at| at as isize + delta);
+        let Some(op) = usize::try_from(next)
+            .ok()
+            .and_then(|ix| history.operations.get(ix))
+        else {
+            return;
+        };
+        let (id, ix) = (op.id, next as usize);
+        self.select_operation(id, cx);
+        (self.history_scroll).scroll_to_item(ix, gpui::ScrollStrategy::Nearest);
     }
 
     /// The header's actions for the page: taking a snapshot, and restoring to before the
@@ -273,6 +292,9 @@ impl Detail {
         )
         .pt(px(6.))
         .track_focus(&self.side_focus)
+        .key_context("SideList")
+        .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.step_history(1, cx)))
+        .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.step_history(-1, cx)))
         .into_any_element()
     }
 }

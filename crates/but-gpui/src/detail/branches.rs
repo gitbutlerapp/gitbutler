@@ -1,7 +1,8 @@
 //! The Branches page: branches outside the workspace, local ones first, then the ones only a
 //! remote has, each with what it would bring in, ready to apply or delete.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use gpui::{
     AnyElement, ClickEvent, Context, Focusable as _, MouseButton, MouseDownEvent, Pixels, Point,
@@ -10,6 +11,7 @@ use gpui::{
 
 use super::Detail;
 use super::panes::{Crumb, list_heading, side_list, side_row};
+use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::branches::{self, ApplyOutcome, BranchCommit, OtherBranch};
 use crate::backend::{self, CommitId, DiffSource};
 use crate::overlays::MenuItem;
@@ -30,9 +32,12 @@ pub(super) struct Branches {
     list: Vec<OtherBranch>,
     /// The selected branch, by ref.
     selected: Option<String>,
-    /// The selected branch's commits, by what they were loaded for.
-    commits: Option<(Loaded, Vec<BranchCommit>)>,
-    /// One of those commits, to see on its own and to copy into the workspace.
+    /// The branches whose commits show under them, by ref: folded until opened, as the
+    /// navigator's are.
+    open: HashSet<String>,
+    /// Open branches' commits, by ref and what they were loaded for.
+    commits: HashMap<String, (Loaded, Vec<BranchCommit>)>,
+    /// One of the selected branch's commits, to see on its own and to copy into the workspace.
     commit: Option<CommitId>,
 }
 
@@ -47,12 +52,12 @@ impl Branches {
 /// some of its commits on the target without moving its tip.
 type Loaded = (CommitId, Option<usize>);
 
-/// A row of the list: a group's heading, a branch by index into the list, or a commit of
-/// the selected branch.
+/// A row of the list: a group's heading, a branch by index into the list, or a commit of an
+/// open one, by the branch's index and its own.
 enum Row {
     Heading(&'static str),
     Branch(usize),
-    Commit(usize),
+    Commit(usize, usize),
 }
 
 impl Detail {
@@ -93,20 +98,29 @@ impl Detail {
                 let selected = (previous.as_ref().and_then(|b| b.selected.clone()))
                     .filter(|ref_name| list.iter().any(|b| b.ref_name == *ref_name))
                     .or_else(|| first.map(|b| b.ref_name.clone()));
-                // What was loaded for the selected branch, as long as it stays selected.
-                let (commits, commit) = (previous.filter(|b| b.selected == selected))
-                    .map_or((None, None), |b| (b.commits, b.commit));
+                // Which branches were open and their commits, of those still listed, and the
+                // selected commit while its branch stays selected.
+                let listed = |ref_name: &String| list.iter().any(|b| b.ref_name == *ref_name);
+                let (open, commits, commit) = match previous {
+                    Some(b) => (
+                        b.open.into_iter().filter(|r| listed(r)).collect(),
+                        b.commits.into_iter().filter(|(r, _)| listed(r)).collect(),
+                        b.commit.filter(|_| b.selected == selected),
+                    ),
+                    None => Default::default(),
+                };
                 this.branches = Some(Branches {
                     project,
                     seen: Some(seen),
                     list,
                     selected,
+                    open,
                     commits,
                     commit,
                 });
                 // The filter may hide what's selected now.
                 this.select_shown_branch(cx);
-                this.load_branch_commits(cx);
+                this.load_open_commits(cx);
                 this.refresh_diff(false, cx);
                 cx.notify();
             })
@@ -148,61 +162,86 @@ impl Detail {
 
     fn selected_branch_commit_title(&self, project: &ProjectId) -> Option<String> {
         let branches = self.branches_for(project)?;
-        let (_, commits) = branches.commits.as_ref()?;
+        let (_, commits) = branches.commits.get(branches.selected.as_ref()?)?;
         let commit = commits.iter().find(|c| Some(c.id) == branches.commit)?;
         Some(commit.title.clone())
     }
 
-    /// Load the selected branch's commits, unless they're loaded for it as it is already. A
-    /// selected commit the branch no longer has is let go.
-    fn load_branch_commits(&mut self, cx: &mut Context<Self>) {
+    /// Load the open branches' commits that aren't loaded for them as they are now. A selected
+    /// commit its branch no longer has is let go.
+    fn load_open_commits(&mut self, cx: &mut Context<Self>) {
         let Some(branches) = &self.branches else {
             return;
         };
-        let Some(branch) = branches.selected_branch() else {
+        let wanted: Vec<(String, Loaded)> = (branches.list.iter())
+            .filter(|b| branches.open.contains(&b.ref_name))
+            .map(|b| (b.ref_name.clone(), (b.tip, b.ahead)))
+            .filter(|(r, key)| (branches.commits.get(r)).is_none_or(|(loaded, _)| loaded != key))
+            .collect();
+        let Some(path) = self
+            .store
+            .read(cx)
+            .path(&branches.project)
+            .filter(|_| !wanted.is_empty())
+        else {
             return;
         };
-        let key = (branch.tip, branch.ahead);
-        if branches
-            .commits
-            .as_ref()
-            .is_some_and(|(loaded, _)| *loaded == key)
-        {
-            return;
-        }
-        let Some(path) = self.store.read(cx).path(&branches.project) else {
-            return;
-        };
-        let ref_name = branch.ref_name.clone();
         self._branch_commits_load = cx.spawn(async move |this, cx| {
-            let result = backend::run(move || branches::branch_commits(&path, &ref_name)).await;
+            let loaded = backend::run(move || {
+                Ok(wanted
+                    .into_iter()
+                    .map(|(r, key)| {
+                        let commits = branches::branch_commits(&path, &r);
+                        (r, key, commits)
+                    })
+                    .collect::<Vec<_>>())
+            })
+            .await;
             this.update(cx, |this, cx| {
-                let commits = match result {
-                    Ok(commits) => commits,
-                    // Left unloaded, to try again when the branch is next selected.
-                    Err(err) => {
-                        return tracing::warn!("couldn't list the branch's commits: {err:#}");
-                    }
-                };
-                // Unless another branch was selected meanwhile, or this one moved.
-                let Some(branches) = (this.branches.as_mut())
-                    .filter(|b| b.selected_branch().is_some_and(|b| (b.tip, b.ahead) == key))
-                else {
+                let (Ok(loaded), Some(branches)) = (loaded, this.branches.as_mut()) else {
                     return;
                 };
-                let kept = branches
-                    .commit
-                    .filter(|id| commits.iter().any(|c| c.id == *id));
-                let dropped = branches.commit.is_some() && kept.is_none();
-                branches.commit = kept;
-                branches.commits = Some((key, commits));
-                if dropped {
+                for (r, key, commits) in loaded {
+                    // Unless the branch moved meanwhile; one that failed is tried again when
+                    // it's next opened.
+                    let current =
+                        (branches.list.iter()).any(|b| b.ref_name == r && (b.tip, b.ahead) == key);
+                    match commits {
+                        Ok(commits) if current => {
+                            branches.commits.insert(r, (key, commits));
+                        }
+                        Ok(_) => {}
+                        Err(err) => tracing::warn!("couldn't list the branch's commits: {err:#}"),
+                    }
+                }
+                let gone = (branches.commit.zip(branches.selected.as_ref()))
+                    .and_then(|(id, r)| Some((id, &branches.commits.get(r)?.1)))
+                    .is_some_and(|(id, commits)| commits.iter().all(|c| c.id != id));
+                if gone {
+                    branches.commit = None;
                     this.refresh_diff(true, cx);
                 }
                 cx.notify();
             })
             .ok();
         });
+    }
+
+    /// Show a branch's commits under it, or fold them away, as a navigator branch does.
+    /// Folding it over its selected commit selects the branch.
+    fn toggle_branch(&mut self, ref_name: &str, cx: &mut Context<Self>) {
+        let Some(branches) = &mut self.branches else {
+            return;
+        };
+        if branches.open.insert(ref_name.to_owned()) {
+            self.load_open_commits(cx);
+        } else {
+            branches.open.remove(ref_name);
+            if branches.selected.as_deref() == Some(ref_name) && branches.commit.take().is_some() {
+                self.show_picked(cx);
+            }
+        }
+        cx.notify();
     }
 
     /// The branches the filter keeps, local ones first, under headings.
@@ -219,7 +258,7 @@ impl Detail {
                 && (query.is_empty()
                     || branch.name.to_lowercase().contains(&query)
                     || (branch.review.as_ref())
-                        .is_some_and(|(.., title)| title.to_lowercase().contains(&query))
+                        .is_some_and(|review| review.title.to_lowercase().contains(&query))
                     || branch
                         .author
                         .as_ref()
@@ -236,11 +275,11 @@ impl Detail {
                     rows.push(Row::Branch(ix));
                     let branch = &branches.list[ix];
                     // By its tip only, so the rows stay while a fetch has them reload.
-                    if branches.selected.as_ref() == Some(&branch.ref_name)
-                        && let Some(((tip, _), commits)) = &branches.commits
+                    if branches.open.contains(&branch.ref_name)
+                        && let Some(((tip, _), commits)) = branches.commits.get(&branch.ref_name)
                         && *tip == branch.tip
                     {
-                        rows.extend((0..commits.len()).map(Row::Commit));
+                        rows.extend((0..commits.len()).map(|commit| Row::Commit(ix, commit)));
                     }
                 }
             }
@@ -277,26 +316,168 @@ impl Detail {
             branches.selected = ref_name;
             branches.commit = None;
         }
-        self.load_branch_commits(cx);
         self.show_picked(cx);
     }
 
-    fn select_branch_commit(&mut self, id: CommitId, cx: &mut Context<Self>) {
+    /// Select commit `id` of the branch `ref_name`, which it's listed under.
+    fn select_branch_commit(&mut self, ref_name: &str, id: CommitId, cx: &mut Context<Self>) {
         if let Some(branches) = &mut self.branches {
+            branches.selected = Some(ref_name.to_owned());
             branches.commit = Some(id);
         }
         self.show_picked(cx);
     }
 
-    /// Select commit `id` and offer to copy it into the workspace, or its ID.
+    /// ↓ or ↑ (`delta`) in the list: the next or previous branch or commit shown, kept in view.
+    fn step_branches(&mut self, delta: isize, cx: &mut Context<Self>) {
+        let Some(branches) = &self.branches else {
+            return;
+        };
+        let rows = self.branch_rows(branches, cx);
+        let at = rows.iter().position(|row| is_selected(branches, row));
+        let next = match at {
+            Some(at) => (0..rows.len() as isize)
+                .map(|step| at as isize + delta * (step + 1))
+                .take_while(|ix| (0..rows.len() as isize).contains(ix))
+                .map(|ix| ix as usize)
+                .find(|ix| !matches!(rows[*ix], Row::Heading(_))),
+            None => rows.iter().position(|row| !matches!(row, Row::Heading(_))),
+        };
+        if let Some(next) = next {
+            self.select_branch_row(&rows[next], cx);
+            (self.branches_scroll).scroll_to_item(next, gpui::ScrollStrategy::Nearest);
+        }
+    }
+
+    /// → in the list: open the selected branch, or step into its commits when it's open.
+    /// ← folds it, or steps from one of its commits back up to it.
+    fn fold_branches(&mut self, open: bool, cx: &mut Context<Self>) {
+        let Some(branches) = &self.branches else {
+            return;
+        };
+        let Some(branch) = branches.selected_branch() else {
+            return;
+        };
+        let ref_name = branch.ref_name.clone();
+        let is_open = branches.open.contains(&ref_name);
+        match (open, branches.commit.is_some(), is_open) {
+            (true, false, false) if branch.ahead != Some(0) => self.toggle_branch(&ref_name, cx),
+            (true, false, true) => self.step_branches(1, cx),
+            (false, true, _) => self.select_other_branch(Some(ref_name), cx),
+            (false, false, true) => self.toggle_branch(&ref_name, cx),
+            _ => {}
+        }
+    }
+
+    fn select_branch_row(&mut self, row: &Row, cx: &mut Context<Self>) {
+        let Some(branches) = &self.branches else {
+            return;
+        };
+        match *row {
+            Row::Heading(_) => {}
+            Row::Branch(ix) => {
+                let ref_name = branches.list[ix].ref_name.clone();
+                self.select_other_branch(Some(ref_name), cx)
+            }
+            Row::Commit(ix, commit) => {
+                let ref_name = branches.list[ix].ref_name.clone();
+                let Some((_, commits)) = branches.commits.get(&ref_name) else {
+                    return;
+                };
+                let id = commits[commit].id;
+                self.select_branch_commit(&ref_name, id, cx)
+            }
+        }
+    }
+
+    /// Select a branch and offer what its header does, and its pull request and name.
+    fn branch_menu(
+        &mut self,
+        project: &ProjectId,
+        ref_name: &str,
+        at: Point<Pixels>,
+        cx: &mut Context<Self>,
+    ) {
+        self.select_other_branch(Some(ref_name.to_owned()), cx);
+        let Some(branch) = self.selected_other_branch(project) else {
+            return;
+        };
+        let mut items = Vec::new();
+        let worktree = self.checked_out_in(project, branch, cx);
+        let p = project.clone();
+        items.push(match worktree.clone() {
+            Some(name) => MenuItem::new("Open worktree", move |app, _, cx| {
+                let shown = Selection::Worktree(p.clone(), name.clone());
+                app.store
+                    .update(cx, |store, cx| store.select(Some(shown), cx))
+            }),
+            None => MenuItem::new("Apply", move |app, _, cx| {
+                app.detail
+                    .update(cx, |detail, cx| detail.apply_branch(&p, cx))
+            }),
+        });
+        if let Some(url) = (branch.review.as_ref())
+            .map(|r| r.url.clone())
+            .filter(|u| !u.is_empty())
+        {
+            items.push(MenuItem::new("Open pull request", move |_, _, cx| {
+                cx.open_url(&url)
+            }));
+        }
+        let name = branch.name.clone();
+        items.push(
+            MenuItem::new("Copy name", move |app, _, cx| {
+                app.copy_text(name.clone(), cx)
+            })
+            .separated(),
+        );
+        if branch.local && worktree.is_none() {
+            let p = project.clone();
+            items.push(
+                // Once the menu's done with the app, which asking to confirm updates too.
+                MenuItem::new("Delete branch…", move |app, window, cx| {
+                    let (detail, p) = (app.detail.clone(), p.clone());
+                    window.defer(cx, move |window, cx| {
+                        detail.update(cx, |detail, cx| detail.delete_other_branch(&p, window, cx))
+                    })
+                })
+                .danger()
+                .separated(),
+            );
+        }
+        self.app
+            .update(cx, |app, cx| app.open_menu(at, items, cx))
+            .ok();
+    }
+
+    /// The linked worktree that has `branch` checked out, if one does: applying or deleting it
+    /// would pull it out from under that worktree.
+    fn checked_out_in(
+        &self,
+        project: &ProjectId,
+        branch: &OtherBranch,
+        cx: &Context<Self>,
+    ) -> Option<Arc<str>> {
+        let ws = self
+            .store
+            .read(cx)
+            .workspace(project)
+            .filter(|_| branch.local)?;
+        (ws.worktrees.iter())
+            .find(|w| w.branch.as_deref() == Some(branch.name.as_str()))
+            .map(|worktree| worktree.name.clone())
+    }
+
+    /// Select commit `id` of `ref_name` and offer to copy it into the workspace, or its ID.
     fn branch_commit_menu(
         &mut self,
         project: &ProjectId,
+        ref_name: &str,
         id: CommitId,
         at: Point<Pixels>,
         cx: &mut Context<Self>,
     ) {
-        self.select_branch_commit(id, cx);
+        self.select_branch_commit(ref_name, id, cx);
         let project = project.clone();
         let items = vec![
             MenuItem::new("Cherry-pick", move |app, _, cx| {
@@ -465,17 +646,20 @@ impl Detail {
                     let solid = this.side_focus.is_focused(window);
                     Some(match rows.get(ix)? {
                         Row::Heading(heading) => list_heading(*heading, theme),
-                        Row::Commit(commit_ix) => {
-                            let (_, commits) = branches.commits.as_ref()?;
+                        row @ Row::Commit(branch_ix, commit_ix) => {
+                            let ref_name = branches.list[*branch_ix].ref_name.clone();
+                            let (_, commits) = branches.commits.get(&ref_name)?;
                             let commit = commits.get(*commit_ix)?;
                             let id = commit.id;
                             let label: SharedString = commit.title.clone().into();
                             let project = branches.project.clone();
                             let payload = Cut::CherryPick(project.clone(), id);
-                            let selected = branches.commit == Some(id);
+                            let selected = is_selected(branches, row);
                             let on = selected && solid;
+                            let menu_ref = ref_name.clone();
                             side_row(("other-commit", ix), selected, solid, theme)
-                                .pl(px(30.))
+                                // Its glyph under its branch's, its title under the name.
+                                .pl(px(24.))
                                 .aria_label(label.clone())
                                 .child(small_icon(Icon::Commit).text_color(match on {
                                     true => theme.text_inverted,
@@ -492,21 +676,22 @@ impl Detail {
                                 .child(quiet(faint(relative_time(commit.time), theme), on, theme))
                                 .on_click(cx.listener(move |this, _, window, cx| {
                                     window.focus(&this.side_focus, cx);
-                                    this.select_branch_commit(id, cx)
+                                    this.select_branch_commit(&ref_name, id, cx)
                                 }))
                                 .on_mouse_down(
                                     MouseButton::Right,
-                                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                                    cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                                        window.focus(&this.side_focus, cx);
                                         let at = event.position;
-                                        this.branch_commit_menu(&project, id, at, cx)
+                                        this.branch_commit_menu(&project, &menu_ref, id, at, cx)
                                     }),
                                 )
                                 .on_drag(payload, drag_preview(this.store.clone(), label))
                                 .into_any_element()
                         }
-                        Row::Branch(branch_ix) => {
+                        row @ Row::Branch(branch_ix) => {
                             let branch = &branches.list[*branch_ix];
-                            let selected = branches.selected.as_ref() == Some(&branch.ref_name);
+                            let selected = is_selected(branches, row);
                             let ref_name = branch.ref_name.clone();
                             let merged = (branch.ahead == Some(0)).then(|| {
                                 let ws = this.store.read(cx).workspace(&branches.project);
@@ -516,20 +701,58 @@ impl Detail {
                             // As the navigator names it: a pull request by its title, the
                             // branch's name and number on hover.
                             let (glyph, glyph_color) = match &branch.review {
-                                Some((_, state, _)) => review::state_glyph(*state, theme),
+                                Some(review) => review::state_glyph(review.state, theme),
                                 None => (Icon::Branch, theme.text_2),
                             };
                             let on = selected && solid;
                             let ink = |color| if on { theme.text_inverted } else { color };
+                            // As in the navigator: a chevron folds its commits away, and a
+                            // branch with none to show has a dot there instead.
+                            let step = div()
+                                .id(("other-branch-fold", ix))
+                                .flex_none()
+                                .w(px(14.))
+                                .h(px(16.))
+                                .flex()
+                                .items_center()
+                                .justify_center();
+                            let step = match branch.ahead == Some(0) {
+                                true => step.child(
+                                    small_icon(Icon::BulletDisc).text_color(ink(theme.text_3)),
+                                ),
+                                false => {
+                                    let open = branches.open.contains(&ref_name);
+                                    let fold = ref_name.clone();
+                                    step.rounded(px(3.))
+                                        .hover(|el| el.bg(theme.hover()))
+                                        .child(
+                                            small_icon(match open {
+                                                true => Icon::ChevronDown,
+                                                false => Icon::ChevronRight,
+                                            })
+                                            .text_color(ink(theme.text_3)),
+                                        )
+                                        // Folding the branch doesn't select it.
+                                        .on_mouse_down(MouseButton::Left, |_, _, cx| {
+                                            cx.stop_propagation()
+                                        })
+                                        .on_click(cx.listener(
+                                            move |this, _: &ClickEvent, _, cx| {
+                                                cx.stop_propagation();
+                                                this.toggle_branch(&fold, cx)
+                                            },
+                                        ))
+                                }
+                            };
                             let name = div()
                                 .id(("other-branch-name", ix))
                                 .flex_1()
                                 .min_w(px(0.))
                                 .truncate();
                             let name = match &branch.review {
-                                Some((_, state, title)) if !title.is_empty() => name
-                                    .text_color(ink(review::title_color(*state, theme)))
-                                    .child(SharedString::from(title.clone())),
+                                Some(review) if !review.title.is_empty() => name
+                                    .text_color(ink(review::title_color(review.state, theme)))
+                                    .child(SharedString::from(review.title.clone())),
                                 _ => name
                                     .font_family(theme.mono_font.clone())
                                     .text_size(px(12.))
@@ -541,8 +764,11 @@ impl Detail {
                                     .child(SharedString::from(branch.name.clone())),
                             };
                             let tip = (branch.review.as_ref())
-                                .map(|(number, ..)| format!("{} · #{number}", branch.name));
+                                .map(|review| format!("{} · #{}", branch.name, review.number));
+                            let (project, menu_ref) = (branches.project.clone(), ref_name.clone());
                             side_row(("other-branch", ix), selected, solid, theme)
+                                .pl(px(2.))
+                                .child(step)
                                 .child(small_icon(glyph).text_color(ink(glyph_color)))
                                 .child(
                                     name.when_some(tip, |el, tip| el.tooltip(Tooltip::text(tip))),
@@ -553,10 +779,25 @@ impl Detail {
                                 .when_some(branch.time, |el, time| {
                                     el.child(quiet(faint(relative_time(time), theme), on, theme))
                                 })
-                                .on_click(cx.listener(move |this, _, window, cx| {
-                                    window.focus(&this.side_focus, cx);
-                                    this.select_other_branch(Some(ref_name.clone()), cx)
-                                }))
+                                // Double-clicking folds it or opens it, as with a folder.
+                                .on_click(cx.listener(
+                                    move |this, event: &ClickEvent, window, cx| {
+                                        window.focus(&this.side_focus, cx);
+                                        match event.click_count() {
+                                            2 => this.toggle_branch(&ref_name, cx),
+                                            _ => {
+                                                this.select_other_branch(Some(ref_name.clone()), cx)
+                                            }
+                                        }
+                                    },
+                                ))
+                                .on_mouse_down(
+                                    MouseButton::Right,
+                                    cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                                        window.focus(&this.side_focus, cx);
+                                        this.branch_menu(&project, &menu_ref, event.position, cx)
+                                    }),
+                                )
                                 .into_any_element()
                         }
                     })
@@ -566,6 +807,11 @@ impl Detail {
         v_flex()
             .size_full()
             .track_focus(&self.side_focus)
+            .key_context("SideList")
+            .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.step_branches(1, cx)))
+            .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.step_branches(-1, cx)))
+            .on_action(cx.listener(|this, _: &Expand, _, cx| this.fold_branches(true, cx)))
+            .on_action(cx.listener(|this, _: &Collapse, _, cx| this.fold_branches(false, cx)))
             .child(filter)
             .child(list)
             .into_any_element()
@@ -640,14 +886,7 @@ impl Detail {
                     .into_any_element(),
             );
         }
-        // A linked worktree has it checked out: deleting or applying it would pull it out
-        // from under that worktree.
-        let worktree = (self.store.read(cx).workspace(project).filter(|_| local))
-            .and_then(|ws| {
-                (ws.worktrees.iter()).find(|w| w.branch.as_deref() == Some(branch.name.as_str()))
-            })
-            .map(|worktree| worktree.name.clone());
-        if let Some(name) = worktree {
+        if let Some(name) = self.checked_out_in(project, branch, cx) {
             let shown = Selection::Worktree(project.clone(), name);
             let store = self.store.clone();
             actions.push(
@@ -684,8 +923,23 @@ impl Detail {
         }
     }
 }
+
 /// Faint meta text, in the selection's ink on a solid one.
 fn quiet(el: gpui::Div, on: bool, theme: &Theme) -> gpui::Div {
     el.flex_none()
         .when(on, |el| el.text_color(theme.text_inverted.opacity(0.7)))
+}
+
+/// Whether `row` is what's selected: the selected commit, or else the selected branch.
+fn is_selected(branches: &Branches, row: &Row) -> bool {
+    let selected = |ix: usize| branches.selected.as_ref() == Some(&branches.list[ix].ref_name);
+    match *row {
+        Row::Heading(_) => false,
+        Row::Branch(ix) => selected(ix) && branches.commit.is_none(),
+        Row::Commit(ix, commit) => {
+            let commits = branches.commits.get(&branches.list[ix].ref_name);
+            selected(ix)
+                && commits.and_then(|(_, c)| c.get(commit)).map(|c| c.id) == branches.commit
+        }
+    }
 }
