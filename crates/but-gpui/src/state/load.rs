@@ -304,15 +304,24 @@ impl Store {
         cx.notify();
     }
 
-    /// Move watched project `id` to where watched project `to` is, the ones between moving
-    /// over by one.
-    pub fn move_watched(&mut self, id: &ProjectId, to: &ProjectId, cx: &mut Context<Self>) {
+    /// Move watched project `id` before watched project `before`, or after the others.
+    pub fn move_watched(
+        &mut self,
+        id: &ProjectId,
+        before: Option<&ProjectId>,
+        cx: &mut Context<Self>,
+    ) {
         let mut order = self.expanded_ids();
-        let at = |id: &ProjectId| order.iter().position(|other| other == id);
-        let (Some(from), Some(at)) = (at(id), at(to)) else {
+        let Some(from) = order.iter().position(|other| other == id) else {
             return;
         };
+        if before == Some(id) {
+            return;
+        }
         let id = order.remove(from);
+        let at = before
+            .and_then(|before| order.iter().position(|other| other == before))
+            .unwrap_or(order.len());
         order.insert(at, id);
         self.order_projects(&order);
         self.save_soon(cx);

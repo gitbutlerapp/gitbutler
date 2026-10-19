@@ -119,22 +119,22 @@ impl Navigator {
                     action("Watch", &Expand)
                 }];
                 if expanded {
-                    // Its card swaps places with the watched one's above or below.
+                    // Its card swaps places with the watched one's above or below: it goes
+                    // before the one above, or before the one after the one below.
                     let watched: Vec<&ProjectId> = (store.projects.iter())
                         .filter(|entry| entry.expanded)
                         .map(|entry| &entry.id)
                         .collect();
-                    let at = watched.iter().position(|id| *id == project);
-                    let next_to = |step| {
-                        at.and_then(|at| at.checked_add_signed(step))
-                            .and_then(|at| watched.get(at))
-                    };
-                    for (label, to) in [("Move up", next_to(-1)), ("Move down", next_to(1))] {
-                        if let Some(&to) = to {
-                            let (id, to) = (project.clone(), to.clone());
+                    let at = watched.iter().position(|id| *id == project).unwrap_or(0);
+                    let up = at.checked_sub(1).map(|above| Some(watched[above]));
+                    let down = (at + 1 < watched.len()).then(|| watched.get(at + 2).copied());
+                    for (label, before) in [("Move up", up), ("Move down", down)] {
+                        if let Some(before) = before {
+                            let (id, before) = (project.clone(), before.cloned());
                             items.push(MenuItem::new(label, move |this, _, cx| {
-                                (this.store)
-                                    .update(cx, |store, cx| store.move_watched(&id, &to, cx))
+                                (this.store).update(cx, |store, cx| {
+                                    store.move_watched(&id, before.as_ref(), cx)
+                                })
                             }));
                         }
                     }
