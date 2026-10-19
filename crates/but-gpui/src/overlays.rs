@@ -472,6 +472,7 @@ impl AppView {
                 .justify_center()
                 .items_start()
                 .pt(px(120.))
+                .occlude()
                 .on_mouse_down(
                     MouseButton::Left,
                     cx.listener(|this, _, window, cx| {
