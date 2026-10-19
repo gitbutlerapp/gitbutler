@@ -407,9 +407,7 @@ impl AppView {
                 }
             }
             Some(Selection::Branch(project, ref_name)) => {
-                if !refused_here(&self.store, cx) {
-                    self.remove_branch(project, ref_name, window, cx)
-                }
+                self.remove_branch(project, ref_name, window, cx)
             }
             Some(Selection::Uncommitted(project)) => {
                 let changes = self.detail.read(cx).selected_changes(cx);
@@ -542,29 +540,39 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         let name = short_ref(&ref_name).to_owned();
-        let Some((stack, at)) =
-            (self.store.read(cx).workspace(&project)).and_then(|ws| ws.stack_of(&ref_name))
+        let store = self.store.read(cx);
+        let Some((lane, at)) = (store.workspace(&project)).and_then(|ws| ws.lane_of(&ref_name))
         else {
             return;
         };
+        // A linked worktree keeps the branch it has checked out; the ones stacked under it
+        // can go, their commits joining it.
+        let selection = Selection::Branch(project.clone(), ref_name.clone());
+        let linked = store.worktree_of(&selection).is_some();
+        if at == 0 && linked {
+            let message = format!("{name} is checked out in a worktree, which keeps it");
+            return self.store.update(cx, |store, cx| store.snack(message, cx));
+        }
         // Only the ref goes. Its commits stay in the stack, which needs another named branch
         // to hold them: the one above, or below when there's none above.
         let named = |b: &&Branch| !b.ref_name.is_empty();
-        if stack.branches.iter().filter(named).count() < 2
-            && stack.branches.iter().any(|b| !b.commits.is_empty())
-        {
+        if lane.iter().filter(named).count() < 2 && lane.iter().any(|b| !b.commits.is_empty()) {
             let message = format!(
                 "To delete {name} and its commits, unapply it, then delete it from Branches"
             );
             return self.store.update(cx, |store, cx| store.snack(message, cx));
         }
-        let above = at.checked_sub(1).map(|ix| &stack.branches[ix]);
-        let detail = match above.filter(named).or(stack.branches.get(at + 1)) {
-            Some(next) if !stack.branches[at].commits.is_empty() => format!(
-                "Its commits stay, as part of {}. You can undo this with ⌘Z.",
-                next.name
-            ),
-            _ => "You can undo this with ⌘Z.".to_owned(),
+        // The oplog doesn't keep a linked worktree's branches, so it can't bring one back.
+        let undo = match linked {
+            true => "This can't be undone.",
+            false => "You can undo this with ⌘Z.",
+        };
+        let above = at.checked_sub(1).map(|ix| &lane[ix]);
+        let detail = match above.filter(named).or(lane.get(at + 1)) {
+            Some(next) if !lane[at].commits.is_empty() => {
+                format!("Its commits stay, as part of {}. {undo}", next.name)
+            }
+            _ => undo.to_owned(),
         };
         self.confirm_then(
             format!("Delete branch {name}?"),
@@ -583,7 +591,13 @@ impl AppView {
                             ..Overlay::default()
                         },
                         move |path, _| backend::remove_branch(path, &ref_name),
-                        |store, (), cx| store.snack_undoable("Branch deleted", cx),
+                        move |store, (), cx| match linked {
+                            true => {
+                                store.keep_last_snapshot();
+                                store.snack("Branch deleted", cx)
+                            }
+                            false => store.snack_undoable("Branch deleted", cx),
+                        },
                         cx,
                     )
                 });
