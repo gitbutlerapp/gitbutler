@@ -14,9 +14,13 @@ use crate::theme::Theme;
 use crate::ui::review as ui_review;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, button, faint, h_flex, icon, local_time, muted, relative_time,
+    ButtonStyle, Icon, Tooltip, button, faint, h_flex, icon, local_time, muted, now, relative_time,
     shortcut, small_icon, v_flex,
 };
+
+/// How old, in seconds, what the pull request tab shows can get before a failed refresh
+/// warns about it.
+const STALE_AFTER: i64 = 30 * 60;
 
 impl Detail {
     /// The selected branch's pull request, if it has one.
@@ -107,7 +111,10 @@ impl Detail {
                 store.update(cx, |store, _| store.refresh_forge(&project))
             }
         };
-        let fresh = (!failed).then(|| {
+        // A failed refresh is worth a warning only once what shows has aged; until then the
+        // button to check again is enough.
+        let stale = failed && synced.is_none_or(|at| now() - at > STALE_AFTER);
+        let fresh = (!stale).then(|| {
             button(
                 "review-check",
                 match synced {
@@ -123,8 +130,7 @@ impl Detail {
             .disabled_because(checking.then_some("Asking already"))
             .on_click(ask.clone())
         });
-        // What shows is what the forge said last; say so when asking again failed.
-        let stale = failed.then(|| {
+        let stale = stale.then(|| {
             warn_banner(
                 match synced {
                     Some(at) => format!("Showing what {forge} said {}", ago(at)),
