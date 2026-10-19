@@ -19,6 +19,7 @@ use crate::state::{Cut, Overlay, Prefs, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::illustration::Illustration;
+use crate::ui::person::person_avatar;
 use crate::ui::{
     ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, empty_state, faint, field, h_flex, icon_button,
     muted, plural, relative_time, review, small_icon, v_flex,
@@ -855,6 +856,19 @@ impl Detail {
                                 )
                                 .when_some(merged, |el, merged| {
                                     el.child(quiet(faint(merged, theme), on, theme))
+                                })
+                                // Who made its newest commit, to pick out a teammate's at a
+                                // glance; their name on hover.
+                                .when_some(branch.author.as_ref(), |el, author| {
+                                    el.child(
+                                        div()
+                                            .id(("other-branch-author", ix))
+                                            .flex_none()
+                                            .child(person_avatar(author, 14., theme))
+                                            .tooltip(Tooltip::text(format!(
+                                                "Last commit by {author}"
+                                            ))),
+                                    )
                                 })
                                 .when_some(branch.time, |el, time| {
                                     el.child(quiet(faint(relative_time(time), theme), on, theme))
