@@ -330,7 +330,7 @@ impl Store {
     }
 
     /// List the watched projects as `order` has them, and the others by name.
-    fn order_projects(&mut self, order: &[ProjectId]) {
+    pub(super) fn order_projects(&mut self, order: &[ProjectId]) {
         let at = |entry: &ProjectEntry| order.iter().position(|id| *id == entry.id);
         self.projects.sort_by(|a, b| {
             let name = |entry: &ProjectEntry| entry.project.name.to_lowercase();

@@ -28,7 +28,7 @@ pub use mesh::MeshState;
 pub use mutation::{NewAt, Overlay, Remap, Rereads, SLOW};
 use mutation::{Queued, Running};
 pub use picks::Picks;
-pub use saved::{FileSort, Pane, Prefs, saved_window_place};
+pub use saved::{FileSort, Pane, Prefs, WatchedOrder, saved_window_place};
 use saved::{Restored, Saved};
 use seen::Seen;
 
@@ -454,6 +454,40 @@ impl Store {
         if folded && inside {
             self.select(Some(Selection::Project(id.clone())), cx);
         }
+    }
+
+    /// Fold every watched project's card to its row, or with `folded` false open them all.
+    /// The selection goes up to its project when a fold hides it.
+    pub fn fold_all(&mut self, folded: bool, cx: &mut Context<Self>) {
+        let watched = self.expanded_ids();
+        self.set_prefs(
+            |prefs| match folded {
+                true => (prefs.folded_projects).extend(watched.iter().map(|id| id.to_string())),
+                false => prefs.folded_projects.clear(),
+            },
+            cx,
+        );
+        if folded
+            && let Some(project) = self.selection.as_ref().map(|s| s.project().clone())
+            && watched.contains(&project)
+        {
+            self.select(Some(Selection::Project(project)), cx);
+        }
+    }
+
+    /// Put the watched projects in `order`. Going back to [`WatchedOrder::Manual`] keeps
+    /// them as `shown`, so nothing moves until one's moved by hand.
+    pub fn set_watched_order(
+        &mut self,
+        order: WatchedOrder,
+        shown: Vec<ProjectId>,
+        cx: &mut Context<Self>,
+    ) {
+        if order == WatchedOrder::Manual && self.prefs.watched_order != order {
+            self.order_projects(&shown);
+            self.save_soon(cx);
+        }
+        self.set_prefs(|prefs| prefs.watched_order = order, cx);
     }
 
     /// The projects open in the navigator.

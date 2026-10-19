@@ -15,7 +15,7 @@ use crate::edits::{
     SquashAll, SquashPicked, TakeRemote, UnapplyStack, Unstack,
 };
 use crate::overlays::MenuItem;
-use crate::state::{ProjectId, Selection, Store};
+use crate::state::{ProjectId, Selection, Store, WatchedOrder};
 use crate::ui::{plural, quoted};
 
 /// An item marking `ids`, commits of `project`, read, or with `read` false unread.
@@ -128,14 +128,17 @@ impl Navigator {
                     let at = watched.iter().position(|id| *id == project).unwrap_or(0);
                     let up = at.checked_sub(1).map(|above| Some(watched[above]));
                     let down = (at + 1 < watched.len()).then(|| watched.get(at + 2).copied());
-                    for (label, before) in [("Move up", up), ("Move down", down)] {
-                        if let Some(before) = before {
-                            let (id, before) = (project.clone(), before.cloned());
-                            items.push(MenuItem::new(label, move |this, _, cx| {
-                                (this.store).update(cx, |store, cx| {
-                                    store.move_watched(&id, before.as_ref(), cx)
-                                })
-                            }));
+                    // Only the manual order moves by hand.
+                    if store.prefs.watched_order == WatchedOrder::Manual {
+                        for (label, before) in [("Move up", up), ("Move down", down)] {
+                            if let Some(before) = before {
+                                let (id, before) = (project.clone(), before.cloned());
+                                items.push(MenuItem::new(label, move |this, _, cx| {
+                                    (this.store).update(cx, |store, cx| {
+                                        store.move_watched(&id, before.as_ref(), cx)
+                                    })
+                                }));
+                            }
                         }
                     }
                     let mut branch = new_branch_items(store, project, cx);
