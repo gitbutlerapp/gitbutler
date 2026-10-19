@@ -62,44 +62,51 @@ pub(super) fn review(
     name: &str,
     push: PushState,
 ) -> Review {
-    let found = cached.get(&number);
     let cache_only = Some(but_forge::CacheConfig::CacheOnly);
     let checks = forge::list_ci_checks_for_ref(ctx, name, cache_only).unwrap_or_default();
-    Review {
-        number,
-        title: found.map(|review| review.title.clone()).unwrap_or_default(),
-        state: match found {
-            // A merged pull request drops out of the open ones the forge lists.
-            _ if push == PushState::Integrated => ReviewState::Merged,
-            Some(review) => review_state(review),
-            None => ReviewState::Open,
+    let mut review = match cached.get(&number) {
+        Some(found) => from_cache(found),
+        None => Review {
+            number,
+            ..Review::default()
         },
-        url: found.map(|review| review.html_url.clone()),
-        checks: (!checks.is_empty()).then(|| summarize_checks(&checks)),
-        check_runs: check_runs(&checks),
-        labels: (found.iter().flat_map(|review| &review.labels))
+    };
+    // A merged pull request drops out of the open ones the forge lists.
+    if push == PushState::Integrated {
+        review.state = ReviewState::Merged;
+    }
+    review.checks = (!checks.is_empty()).then(|| summarize_checks(&checks));
+    review.check_runs = check_runs(&checks);
+    review
+}
+
+/// A pull request as the forge cache has it, without its CI checks.
+pub(super) fn from_cache(found: &but_forge::ForgeReview) -> Review {
+    Review {
+        number: found.number as u64,
+        title: found.title.clone(),
+        state: review_state(found),
+        url: Some(found.html_url.clone()),
+        checks: None,
+        check_runs: Vec::new(),
+        labels: (found.labels.iter())
             .map(|label| label.name.clone())
             .collect(),
-        reviewers: (found.iter().flat_map(|review| &review.reviewers))
+        reviewers: (found.reviewers.iter())
             .filter(|user| !user.is_bot)
             .map(|user| user.login.clone())
             .collect(),
-        author: found
-            .and_then(|review| review.author.as_ref())
-            .map(|user| user.login.clone()),
-        target_branch: found.map(|r| r.target_branch.clone()).unwrap_or_default(),
-        body: (found.and_then(|review| review.body.clone())).unwrap_or_default(),
-        updated_at: (found.and_then(|review| review.modified_at.as_deref()))
+        author: found.author.as_ref().map(|user| user.login.clone()),
+        target_branch: found.target_branch.clone(),
+        body: found.body.clone().unwrap_or_default(),
+        updated_at: (found.modified_at.as_deref())
             .and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok())
             .map(|at| at.timestamp()),
-        synced_at: found
-            .and_then(|review| {
-                review
-                    .last_sync_at
-                    .and_local_timezone(chrono::Local)
-                    .single()
-            })
-            .map(|at| at.timestamp()),
+        synced_at: (found
+            .last_sync_at
+            .and_local_timezone(chrono::Local)
+            .single())
+        .map(|at| at.timestamp()),
     }
 }
 

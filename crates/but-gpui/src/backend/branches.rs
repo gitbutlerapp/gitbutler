@@ -8,8 +8,8 @@ use bstr::ByteSlice;
 use but_branches::ListedStackStatus;
 
 use super::ops::full_name;
-use super::reviews::review_state;
-use super::{CommitId, ReviewState, open, title};
+use super::reviews::from_cache;
+use super::{CommitId, Review, open, title};
 
 #[derive(Debug, Clone)]
 pub struct OtherBranch {
@@ -27,16 +27,9 @@ pub struct OtherBranch {
     /// Which of the listed stacks it's in, so a stack's branches stay together.
     pub stack: usize,
     pub tip: CommitId,
-    pub review: Option<BranchReview>,
-}
-
-/// A branch's pull request, as the forge cache has it.
-#[derive(Debug, Clone)]
-pub struct BranchReview {
-    pub number: u64,
-    pub state: ReviewState,
-    pub title: String,
-    pub url: String,
+    /// Its pull request, without CI checks: the app asks the forge about those only for the
+    /// workspace's branches, so the cache's would be stale.
+    pub review: Option<Review>,
 }
 
 /// Every branch the workspace doesn't have applied, newest first, a stack's branches together
@@ -67,12 +60,7 @@ pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
                 own_commits: branch.commit_count,
                 stack,
                 tip: CommitId(branch.tip),
-                review: listed.review.map(|review| BranchReview {
-                    number: review.number as u64,
-                    state: review_state(&review),
-                    title: review.title,
-                    url: review.html_url,
-                }),
+                review: listed.review.as_ref().map(from_cache),
             }
         })
         .collect())

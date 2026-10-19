@@ -133,9 +133,9 @@ impl AppView {
         let detail = self.detail.read(cx);
         let has_diff = store.selection.is_some() && !detail.showing_review(cx);
         let width = window.viewport_size().width.into();
-        has_diff.then(|| match detail.files_hidden {
-            true => 0.,
-            false => store.fitted_width(Pane::Files, width, self.navigator_open, true),
+        has_diff.then(|| match detail.files_shown(cx) {
+            false => 0.,
+            true => store.fitted_width(Pane::Files, width, self.navigator_open, true),
         })
     }
 
@@ -701,7 +701,7 @@ impl Render for AppView {
                     .map(|el| self.edit_actions(el, cx))
                     .on_drag_move(resize_pane(Pane::Navigator, self.store.clone()))
                     .when(self.navigator_open, |el| {
-                        let files = !self.detail.read(cx).files_hidden;
+                        let files = self.detail.read(cx).files_shown(cx);
                         let width = self.store.read(cx).fitted_width(
                             Pane::Navigator,
                             window.viewport_size().width.into(),

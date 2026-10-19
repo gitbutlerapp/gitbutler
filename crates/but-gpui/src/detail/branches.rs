@@ -147,7 +147,7 @@ impl Detail {
         self.branches.as_ref().filter(|b| b.project == *project)
     }
 
-    fn selected_other_branch(&self, project: &ProjectId) -> Option<&OtherBranch> {
+    pub(super) fn selected_other_branch(&self, project: &ProjectId) -> Option<&OtherBranch> {
         self.branches_for(project)?.selected_branch()
     }
 
@@ -453,10 +453,7 @@ impl Detail {
                     .update(cx, |detail, cx| detail.apply_branch(&p, cx))
             }),
         });
-        if let Some(url) = (branch.review.as_ref())
-            .map(|r| r.url.clone())
-            .filter(|u| !u.is_empty())
-        {
+        if let Some(url) = (branch.review.as_ref()).and_then(|r| r.url.clone()) {
             items.push(MenuItem::new("Open pull request", move |_, _, cx| {
                 cx.open_url(&url)
             }));
