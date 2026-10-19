@@ -461,24 +461,32 @@ impl Detail {
             // The page lists what it read, whether or not the project is expanded and loaded.
             Some(upstream) if upstream.commits.is_empty() => {
                 let project = project.clone();
+                // A target the remote renamed or deleted is said so, not as if never picked.
+                let lost = (entry.workspace.as_ref()).and_then(|ws| ws.lost_target.clone());
+                let (title, detail) = match lost {
+                    Some(name) => (
+                        format!("{name} is gone"),
+                        "The remote no longer has it. Pick the branch your work goes into now",
+                    ),
+                    None => (
+                        "No target branch".to_owned(),
+                        "Pick the branch your work goes into, like origin/main",
+                    ),
+                };
                 v_flex()
                     .flex_1()
                     .items_center()
                     .justify_center()
                     .gap(px(4.))
+                    .px(px(16.))
+                    .text_center()
                     .child(
                         div()
                             .text_size(px(14.))
                             .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .child("No target branch"),
+                            .child(title),
                     )
-                    .child(
-                        muted(
-                            "Pick the branch your work goes into, like origin/main",
-                            theme,
-                        )
-                        .mb(px(8.)),
-                    )
+                    .child(muted(detail, theme).mb(px(8.)))
                     .child(
                         crate::ui::button("pick-target", "Choose a target branch…").on_click(
                             cx.listener(move |this, _, window, cx| {
