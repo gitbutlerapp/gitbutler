@@ -4,8 +4,9 @@ use gpui::App;
 
 use super::Navigator;
 use crate::app::{
-    Collapse, CopySelection, CutSelection, DeleteSelection, Expand, Fetch, NewBranchOnTop,
-    OpenPullRequest, Push, RenameSelection, StartCommit, UncommitSelection, UpdateFromTarget,
+    Collapse, CopySelection, CutSelection, DeleteSelection, Expand, Fetch, NewBranch,
+    NewBranchOnTop, OpenPullRequest, Push, RenameSelection, StartCommit, UncommitSelection,
+    UpdateFromTarget,
 };
 use crate::backend::{Commit, CommitId};
 use crate::edits::{
@@ -46,6 +47,32 @@ fn read_marks<'a>(
     if let Some(first) = items.first_mut() {
         first.separated = true;
     }
+    items
+}
+
+/// Starting a branch from a project or its main worktree: one more in the workspace, beside
+/// the others, while there is one; or one of its own, switched to, leaving the workspace, as
+/// an agent's single-branch work starts.
+fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuItem> {
+    let managed = store.workspace(project).is_some_and(|ws| ws.managed);
+    let project = project.clone();
+    let mut items = Vec::new();
+    if managed {
+        items.push(MenuItem::action("New branch in workspace…", &NewBranch, cx));
+    }
+    items.push(MenuItem::new(
+        "New branch and switch to it…",
+        move |app, window, cx| {
+            app.prompt_new_branch(
+                project.clone(),
+                "New branch and switch to it",
+                false,
+                window,
+                cx,
+                |path, _, name| crate::backend::switch_to_new_branch(path, Some(name)),
+            )
+        },
+    ));
     items
 }
 
@@ -92,7 +119,8 @@ impl Navigator {
                     action("Watch", &Expand)
                 }];
                 if expanded {
-                    items.push(action("Fetch", &Fetch));
+                    items.extend(new_branch_items(store, project, cx));
+                    items.push(action("Fetch", &Fetch).separated());
                     if let Some(target) = (store.workspace(project))
                         .and_then(|ws| ws.target.as_ref())
                         .filter(|target| target.needs_update)
@@ -155,21 +183,23 @@ impl Navigator {
                 items
             }
             Selection::Uncommitted(project) => {
+                let mut items = new_branch_items(store, project, cx);
                 if store
                     .workspace(project)
                     .is_none_or(|ws| ws.uncommitted.is_empty())
                 {
-                    return Vec::new();
+                    return items;
                 }
                 // Only the composer checks files; without it, discarding takes them all.
                 let discard = match self.detail.read(cx).composing() {
                     true => "Discard checked changes…",
                     false => "Discard all changes…",
                 };
-                vec![
-                    action("Commit…", &StartCommit),
+                items.extend([
+                    action("Commit…", &StartCommit).separated(),
                     action(discard, &DeleteSelection).danger(),
-                ]
+                ]);
+                items
             }
             Selection::Branch(project, ref_name) => {
                 let mut items = Vec::new();

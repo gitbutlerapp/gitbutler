@@ -449,11 +449,18 @@ impl Detail {
                 app.store
                     .update(cx, |store, cx| store.select(Some(shown), cx))
             }),
-            None => MenuItem::new("Apply", move |app, _, cx| {
+            None => MenuItem::new("Apply to workspace", move |app, _, cx| {
                 app.detail
                     .update(cx, |detail, cx| detail.apply_branch(&p, cx))
             }),
         });
+        if worktree.is_none() {
+            let p = project.clone();
+            items.push(MenuItem::new("Switch to branch", move |app, _, cx| {
+                app.detail
+                    .update(cx, |detail, cx| detail.switch_to_branch(&p, cx))
+            }));
+        }
         if let Some(url) = (branch.review.as_ref()).and_then(|r| r.url.clone()) {
             items.push(MenuItem::new("Open pull request", move |_, _, cx| {
                 cx.open_url(&url)
@@ -563,6 +570,28 @@ impl Detail {
                         format!("It conflicts with {}", stacks.join(", ")),
                         cx,
                     ),
+                },
+                cx,
+            )
+        });
+    }
+
+    /// Leave the workspace for just the selected branch, checked out on its own.
+    fn switch_to_branch(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        let Some(branch) = self.selected_other_branch(project) else {
+            return;
+        };
+        let (ref_name, name) = (branch.ref_name.clone(), branch.name.clone());
+        let selected = project.clone();
+        self.store.update(cx, |store, cx| {
+            store.run(
+                project,
+                format!("Switch to {name}"),
+                Overlay::default(),
+                move |path, _| backend::switch_to_branch(path, &ref_name),
+                move |store, local, cx| {
+                    store.select(Some(Selection::Branch(selected, local)), cx);
+                    store.snack_undoable(format!("Switched to {name}"), cx)
                 },
                 cx,
             )
@@ -1004,9 +1033,22 @@ impl Detail {
                         .into_any_element(),
                 );
             }
+            let switched = project.clone();
+            actions.push(
+                button("switch-to-branch", "Switch to branch")
+                    .style(ButtonStyle::Ghost)
+                    .tooltip(
+                        "Leave the workspace and work on just this branch. Switch to the \
+                         workspace, on the project's page, brings the others back.",
+                    )
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        this.switch_to_branch(&switched, cx)
+                    }))
+                    .into_any_element(),
+            );
             let project = project.clone();
             actions.push(
-                button("apply-branch", "Apply")
+                button("apply-branch", "Apply to workspace")
                     .style(ButtonStyle::Pop)
                     .tooltip("Add it to the workspace, beside your other branches")
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {

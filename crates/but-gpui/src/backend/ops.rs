@@ -279,6 +279,34 @@ pub fn create_branch(path: &Path, name: Option<&str>) -> Result<String> {
     Ok(ref_name.to_string())
 }
 
+/// Make branch `name` at the target, or one with a made-up name, and switch to it on its own,
+/// leaving the workspace, as Lite's New Branch and Switch to It does. Returns its full name.
+pub fn switch_to_new_branch(path: &Path, name: Option<&str>) -> Result<String> {
+    let mut ctx = open(path)?;
+    let name = match name.map(str::trim).filter(|name| !name.is_empty()) {
+        Some(name) => name.to_owned(),
+        None => but_api::branch::branch_canned_name(&ctx)?,
+    };
+    let ref_name = branch_ref(&name)?;
+    but_api::branch::branch_checkout_new(&mut ctx, Some(name))?;
+    Ok(ref_name.to_string())
+}
+
+/// Switch to `ref_name` (a full ref name) on its own, leaving the workspace; one only a
+/// remote has gets its local branch first. Returns the local branch's full name.
+pub fn switch_to_branch(path: &Path, ref_name: &str) -> Result<String> {
+    let mut ctx = open(path)?;
+    let name = full_name(ref_name)?;
+    let local = match name.category() {
+        Some(gix::refs::Category::RemoteBranch) => {
+            but_workspace::branch::local_tracking_branch(&*ctx.repo.get()?, name.as_ref())?
+        }
+        _ => name.clone(),
+    };
+    but_api::branch::branch_checkout(&mut ctx, name)?;
+    Ok(local.to_string())
+}
+
 /// Stack a new branch on top of `below` (a full ref name).
 pub fn create_dependent_branch(path: &Path, below: &str, name: &str) -> Result<String> {
     let relative_to = but_api::commit::json::RelativeTo::Reference(full_name(below)?);
