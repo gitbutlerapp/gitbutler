@@ -1,5 +1,7 @@
 <script lang="ts">
 	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
+	import { t } from "$lib/i18n";
+
 	import { UPDATER_SERVICE, type InstallStatus } from "$lib/updater/updater";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, Modal, Markdown } from "@gitbutler/ui-svelte";
@@ -99,27 +101,27 @@
 
 		<h4 class="text-13 text-semibold update-banner__status">
 			{#if status === "Up-to-date"}
-				You are up-to-date!
+				{t("you-are-up-to-date")}
 			{:else if status === "Downloading"}
-				Downloading update…
+				{t("downloading-update")}
 			{:else if status === "Downloaded"}
-				Update downloaded
+				{t("update-downloaded")}
 			{:else if status === "Installing"}
-				Installing update…
+				{t("installing-update")}
 			{:else if status === "Done"}
-				Install complete
+				{t("install-complete")}
 			{:else if status === "Checking"}
-				Checking for update…
+				{t("checking-for-update")}
 			{:else if status === "Error"}
-				Error occurred
+				{t("error-occurred")}
 			{:else if version}
-				New version available
+				{t("new-version-available")}
 			{/if}
 		</h4>
 
 		<div class="buttons">
 			{#if releaseNotes}
-				<Button kind="outline" onclick={handleOpenModal}>Release notes</Button>
+				<Button kind="outline" onclick={handleOpenModal}>{t("release-notes")}</Button>
 			{/if}
 			{#if !inFlatpak}
 				<div class="status-section">
@@ -136,7 +138,8 @@
 									await updaterService.downloadAndInstall();
 								}}
 							>
-								Update to {version}
+								{t("update-to")}
+								{version}
 							</Button>
 						{:else if status === "Up-to-date"}
 							<Button
@@ -147,7 +150,7 @@
 									updaterService.dismiss();
 								}}
 							>
-								Got it!
+								{t("got-it")}
 							</Button>
 						{:else if status === "Done"}
 							<Button
@@ -172,12 +175,14 @@
 			<div class="p-16">
 				{#if loadingReleases}
 					<div class="loading-state">
-						<p class="text-12">Loading releases...</p>
+						<p class="text-12">{t("loading-releases")}</p>
 					</div>
 				{:else}
 					<div class="release-notes-header">
 						<h3 class="text-15 text-bold">
-							<span class="text-12 m-r-4">📒</span> Release Notes - {displayVersion}
+							<span class="text-12 m-r-4">📒</span>
+							{t("release-notes-2")}
+							{displayVersion}
 						</h3>
 
 						<div class="flex gap-2">

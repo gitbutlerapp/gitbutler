@@ -21,6 +21,9 @@ pub mod legacy;
 /// Functions for GitHub authentication.
 pub mod github;
 
+/// Functions for Gitee authentication.
+pub mod gitee;
+
 /// Functions for GitLab authentication.
 pub mod gitlab;
 

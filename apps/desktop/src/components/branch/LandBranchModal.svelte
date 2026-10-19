@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { showError } from "$lib/error/showError";
+	import { t } from "$lib/i18n";
+
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { AsyncButton, Button, Modal, chipToasts } from "@gitbutler/ui-svelte";
@@ -64,10 +66,12 @@
 <Modal bind:this={modalEl} width="small" title={wholeStack ? "Land stack" : "Land branch"}>
 	<p>
 		{#if wholeStack}
-			This lands <strong>{branchName}</strong> and everything below it in its stack{lowerListLabel}
-			directly onto {targetLabel}. It cannot be undone.
+			{t("this-lands")} <strong>{branchName}</strong> and everything below it in its stack{lowerListLabel}
+			directly onto {targetLabel}{t("it-cannot-be-undone")}
 		{:else}
-			This lands <strong>{branchName}</strong> directly onto {targetLabel}. It cannot be undone.
+			{t("this-lands")} <strong>{branchName}</strong> directly onto {targetLabel}{t(
+				"it-cannot-be-undone",
+			)}
 		{/if}
 	</p>
 	{#snippet controls(close)}

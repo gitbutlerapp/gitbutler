@@ -10,6 +10,7 @@
 	import SettingsModalLayout from "$components/settings/SettingsModalLayout.svelte";
 	import TelemetrySettings from "$components/settings/TelemetrySettings.svelte";
 	import { URL_SERVICE } from "$lib/backend/url";
+	import { t } from "$lib/i18n";
 	import { generalSettingsPages } from "$lib/settings/generalSettingsPages";
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -33,7 +34,7 @@
 </script>
 
 <SettingsModalLayout
-	title="Global settings"
+	title={t("global-settings")}
 	pages={generalSettingsPages}
 	selectedId={currentSelectedId}
 	isAdmin={userService.user?.role === "admin"}
@@ -60,10 +61,10 @@
 			{:else if currentPage.id === "organizations"}
 				<OrganisationSettings />
 			{:else}
-				Settings page {currentPage.id} not Found.
+				{t("settings-page")} {currentPage.id} {t("not-found")}
 			{/if}
 		{:else}
-			Settings page {currentSelectedId} not Found.
+			{t("settings-page")} {currentSelectedId} {t("not-found")}
 		{/if}
 	{/snippet}
 
@@ -84,7 +85,7 @@
 				onclick={async () => await urlService.openExternalUrl("https://discord.gg/MmFkmaJ42D")}
 			>
 				<Icon name="discord" />
-				<span class="text-13 text-bold">Our Discord</span>
+				<span class="text-13 text-bold">{t("our-discord")}</span>
 				<div class="text-13 open-link-icon">↗</div>
 			</button>
 		</div>

@@ -1,5 +1,7 @@
 <script lang="ts">
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
+	import { t } from "$lib/i18n";
+
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Toggle, Select, SelectItem, TestId } from "@gitbutler/ui-svelte";
@@ -51,7 +53,7 @@
 		{#if templates && templates.length > 0}
 			<div class="pr-template__wrap">
 				<label class="pr-template__toggle" for="pr-template-toggle">
-					<span class="text-13 text-semibold">Use template</span>
+					<span class="text-13 text-semibold">{t("use-template")}</span>
 					<Toggle
 						testId={TestId.ReviewTemplateToggle}
 						small

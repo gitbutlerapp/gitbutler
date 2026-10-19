@@ -4,6 +4,7 @@
 	import FileListItems from "$components/files/FileListItems.svelte";
 	import FileListProvider from "$components/files/FileListProvider.svelte";
 	import emptyFolderSvg from "$lib/assets/empty-state/empty-folder.svg?raw";
+	import { t } from "$lib/i18n";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { readStableSelectionKey, stableSelectionKey, type SelectionId } from "$lib/selection/key";
 	import { inject } from "@gitbutler/core/context";
@@ -91,7 +92,7 @@
 					e.stopPropagation();
 					folded = !folded;
 				}}
-				aria-label="Toggle file list"
+				aria-label={t("toggle-file-list")}
 				aria-expanded={!folded}
 			>
 				<Icon name="chevron-down" />
@@ -115,7 +116,7 @@
 					bottomMargin={20}
 				>
 					{#snippet caption()}
-						No files changed
+						{t("no-files-changed")}
 					{/snippet}
 				</EmptyStatePlaceholder>
 			{:else}

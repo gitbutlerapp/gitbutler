@@ -3,6 +3,7 @@
 	import { BACKEND } from "$lib/backend";
 	import { FILE_SERVICE } from "$lib/files/fileService";
 	import { GIT_SERVICE } from "$lib/git/gitService";
+	import { t } from "$lib/i18n";
 	import { SHORTCUT_SERVICE } from "$lib/shortcuts/shortcutService";
 	import { DATA_SHARING_SERVICE } from "$lib/support/dataSharing";
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
@@ -162,14 +163,13 @@
 >
 	<div class="content-wrapper">
 		<p class="content-wrapper__help-text text-13 text-body">
-			If you are having trouble, please share your project and logs with the GitButler team. We will
-			review it for you and help identify how we can help resolve the issue.
+			{t("if-you-are-having-trouble-please-share-your-project-and-logs")}
 		</p>
 
 		{#if !userService.user}
 			<EmailTextbox
 				label="Email"
-				placeholder="Provide an email so that we can get back to you"
+				placeholder={t("provide-an-email-so-that-we-can-get-back-to-you")}
 				bind:value={emailInputValue}
 				required
 				autocomplete={false}
@@ -181,7 +181,7 @@
 
 		<Textarea
 			label="Comments"
-			placeholder="Provide any steps necessary to reproduce the problem."
+			placeholder={t("provide-any-steps-necessary-to-reproduce-the-problem")}
 			spellcheck
 			id="comments"
 			minRows={6}
@@ -190,27 +190,26 @@
 		/>
 
 		<div class="content-wrapper__section">
-			<span class="text-16 text-semibold"> Share logs </span>
+			<span class="text-16 text-semibold"> {t("share-logs")} </span>
 			<span class="content-wrapper__help-text text-13 text-body">
-				We personally ensure all information you share with us will be reviewed internally only and
-				discarded post-resolution
+				{t("we-personally-ensure-all-information-you-share-with-us-will-")}
 			</span>
 		</div>
 
 		<div class="content-wrapper__checkbox-group">
 			<div class="content-wrapper__checkbox">
 				<Checkbox name="logs" bind:checked={sendLogs} />
-				<label class="text-13" for="logs">Share logs</label>
+				<label class="text-13" for="logs">{t("share-logs")}</label>
 			</div>
 
 			{#if projectId}
 				<div class="content-wrapper__checkbox">
 					<Checkbox name="project-repository" bind:checked={sendProjectRepository} />
-					<label class="text-13" for="project-repository">Share project repository</label>
+					<label class="text-13" for="project-repository">{t("share-project-repository")}</label>
 				</div>
 				<div class="content-wrapper__checkbox">
 					<Checkbox name="graph" bind:checked={sendGraph} />
-					<label class="text-13" for="graph">Share anonymized commit-graph</label>
+					<label class="text-13" for="graph">{t("share-anonymized-commit-graph")}</label>
 				</div>
 			{/if}
 		</div>
@@ -220,7 +219,7 @@
 	{#snippet controls()}
 		<Button kind="outline" type="reset" onclick={close}>Close</Button>
 		<Button disabled={!sendLogs && !sendProjectRepository && !sendGraph} style="pop" type="submit"
-			>Share with GitButler</Button
+			>{t("share-with-gitbutler")}</Button
 		>
 	{/snippet}
 </Modal>

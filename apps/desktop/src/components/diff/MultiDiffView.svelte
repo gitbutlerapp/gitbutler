@@ -17,6 +17,7 @@
 	import { computeChangeStatus } from "$lib/files/fileStatus";
 	import { isExecutableStatus } from "$lib/hunks/change";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
+	import { t } from "$lib/i18n";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { readKey, stableSelectionKey as idKey, type SelectionId } from "$lib/selection/key";
 	import { ScrollSelectionLock } from "$lib/selection/scrollSelectionLock.svelte";
@@ -116,7 +117,7 @@
 		kind="ghost"
 		icon="pop-out-bottom-right"
 		size="tag"
-		tooltip="Pop out diff view"
+		tooltip={t("pop-out-diff-view")}
 		onclick={openFloatingDiff}
 	/>
 {/snippet}
@@ -206,7 +207,7 @@
 				kind="ghost"
 				icon="pop-out-bottom-right"
 				size="tag"
-				tooltip="Pop out diff view"
+				tooltip={t("pop-out-diff-view")}
 				onclick={openFloatingDiff}
 			/>
 			<Button kind="ghost" icon="cross" size="tag" onclick={onclose} />

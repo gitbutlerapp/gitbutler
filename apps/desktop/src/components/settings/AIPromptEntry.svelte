@@ -1,6 +1,7 @@
 <script lang="ts">
 	import AIPromptBubble from "$components/shared/AIPromptBubble.svelte";
 	import { MessageRole, type UserPrompt } from "$lib/ai/types";
+	import { t } from "$lib/i18n";
 	import { Button, Icon, Textbox } from "@gitbutler/ui-svelte";
 
 	interface Props {
@@ -155,7 +156,7 @@
 				{#if editing}
 					<Button kind="outline" onclick={() => cancel()}>Cancel</Button>
 					<Button disabled={errorMessages.length > 0} style="pop" onclick={() => save()}
-						>Save Changes</Button
+						>{t("save-changes")}</Button
 					>
 				{:else}
 					<Button
@@ -166,7 +167,9 @@
 						}}
 						icon="bin">Delete</Button
 					>
-					<Button kind="outline" icon="edit" onclick={() => (editing = true)}>Edit prompt</Button>
+					<Button kind="outline" icon="edit" onclick={() => (editing = true)}
+						>{t("edit-prompt")}</Button
+					>
 				{/if}
 			</div>
 		{/if}

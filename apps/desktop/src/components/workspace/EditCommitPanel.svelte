@@ -9,6 +9,7 @@
 	import { conflictEntryHint } from "$lib/files/conflictEntryPresence";
 	import { FILE_SERVICE } from "$lib/files/fileService";
 	import { computeChangeStatus } from "$lib/files/fileStatus";
+	import { t } from "$lib/i18n";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { vscodePath } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
@@ -195,13 +196,11 @@
 	title="Are you sure you want to abort edit mode?"
 >
 	<p>
-		There are changes that differ from the commit you started editing. Aborting edit mode now will
-		remove those changes.
+		{t("there-are-changes-that-differ-from-the-commit-you-started-ed")}
 	</p>
 	<br />
 	<p class="clr-text-2">
-		If you want to keep the changes but place them elsewhere, you can save and exit and then
-		reorganize the changes via drag and drop.
+		{t("if-you-want-to-keep-the-changes-but-place-them-elsewhere-you")}
 	</p>
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
@@ -210,7 +209,7 @@
 			action={async () => {
 				await abort(true);
 				close();
-			}}>Abort Edit Mode</AsyncButton
+			}}>{t("abort-edit-mode")}</AsyncButton
 		>
 	{/snippet}
 </Modal>
@@ -220,12 +219,12 @@
 		{#snippet children(project)}
 			<div class="editmode__container">
 				<h2 class="editmode__title text-18 text-body text-bold">
-					You are editing commit <span class="code-string">
+					{t("you-are-editing-commit")}
+					<span class="code-string">
 						{editModeMetadata.commitOid.slice(0, 7)}
 					</span>
 					<InfoButton title="Edit Mode">
-						Edit Mode lets you modify an existing commit in isolation or resolve conflicts. Any
-						changes made, including new files, will be added to the selected commit.
+						{t("edit-mode-lets-you-modify-an-existing-commit-in-isolation-or")}
 					</InfoButton>
 				</h2>
 
@@ -264,7 +263,7 @@
 
 					<div bind:this={filesList} class="card files">
 						<div class="header" class:show-border={isCommitListScrolled}>
-							<h3 class="text-15 text-semibold">Commit files</h3>
+							<h3 class="text-15 text-semibold">{t("commit-files")}</h3>
 							<Badge>{files.length}</Badge>
 						</div>
 						<ScrollableContainer
@@ -297,9 +296,9 @@
 				</div>
 
 				<p class="text-12 text-body editmode__helptext">
-					⚠ Please don't make any commits while in edit mode.
+					{t("please-don-t-make-any-commits-while-in-edit-mode")}
 					<br />
-					To exit edit mode, use the provided actions.
+					{t("to-exit-edit-mode-use-the-provided-actions")}
 				</p>
 
 				<div class="editmode__actions">
@@ -314,7 +313,7 @@
 									? "Open the conflicted file in your editor"
 									: "Open all files with conflicts in your editor"}
 							>
-								Open conflicted files
+								{t("open-conflicted-files")}
 							</Button>
 						{/if}
 					</div>
@@ -342,7 +341,7 @@
 						disabled={loading}
 						{loading}
 					>
-						Save changes and exit
+						{t("save-changes-and-exit")}
 					</Button>
 				</div>
 			</div>
@@ -370,12 +369,11 @@
 	}}
 >
 	<p class="text-13 text-body helper-text">
-		There are still some files that look to be conflicted. Are you sure that you want to save and
-		exit?
+		{t("there-are-still-some-files-that-look-to-be-conflicted-are-yo")}
 	</p>
 	{#snippet controls(close)}
 		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
-		<Button style="danger" type="submit" {loading}>Save and exit</Button>
+		<Button style="danger" type="submit" {loading}>{t("save-and-exit")}</Button>
 	{/snippet}
 </Modal>
 

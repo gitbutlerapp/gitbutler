@@ -3,6 +3,7 @@
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { classify } from "$lib/error/errorClassification";
 	import { parseError } from "$lib/error/parser";
+	import { t } from "$lib/i18n";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, Icon, InfoMessage, Link } from "@gitbutler/ui-svelte";
@@ -75,11 +76,11 @@
 			>
 				{#snippet title()}
 					{#if loading}
-						Checking git credentials …
+						{t("checking-git-credentials")}
 					{:else if errors > 0}
-						There was a problem with your credentials
+						{t("there-was-a-problem-with-your-credentials")}
 					{:else}
-						All checks passed successfully
+						{t("all-checks-passed-successfully")}
 					{/if}
 				{/snippet}
 
@@ -109,13 +110,13 @@
 					{#if errors > 0}
 						<div class="text-12 text-body help-text" transition:slide>
 							<span>
-								Try another setting and test again?
+								{t("try-another-setting-and-test-again")}
 								<br />
-								Consult our
+								{t("consult-our")}
 								<Link href="https://docs.gitbutler.com/troubleshooting/fetch-push">
-									fetch / push guide
+									{t("fetch-push-guide")}
 								</Link>
-								for help fixing this problem.
+								{t("for-help-fixing-this-problem")}
 							</span>
 						</div>
 					{/if}
@@ -125,15 +126,15 @@
 	{/if}
 	<Button style="pop" wide icon="tick" {loading} {disabled} onclick={checkCredentials}>
 		{#if loading || checks?.length === 0}
-			Test credentials
+			{t("test-credentials")}
 		{:else}
-			Re-test credentials
+			{t("re-test-credentials")}
 		{/if}
 	</Button>
 	<SectionCardDisclaimer>
-		To test the push command, we create an empty branch and promptly remove it after the check. <Link
-			href="https://docs.gitbutler.com/troubleshooting/fetch-push">Read more</Link
-		> about authentication methods.
+		{t("to-test-the-push-command-we-create-an-empty-branch-and-promp")}
+		<Link href="https://docs.gitbutler.com/troubleshooting/fetch-push">{t("read-more")}</Link>
+		{t("about-authentication-methods")}
 	</SectionCardDisclaimer>
 </div>
 

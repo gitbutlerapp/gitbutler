@@ -1,8 +1,9 @@
+import { t } from "$lib/i18n";
 import { type IconName } from "@gitbutler/ui-svelte";
 
 interface SettingsPage {
 	id: string;
-	label: string;
+	label: () => string;
 	icon: IconName;
 	adminOnly?: boolean;
 }
@@ -10,47 +11,47 @@ interface SettingsPage {
 export const generalSettingsPages = [
 	{
 		id: "general",
-		label: "General",
+		label: () => t("general"),
 		icon: "settings",
 	},
 	{
 		id: "appearance",
-		label: "Appearance",
+		label: () => t("appearance"),
 		icon: "appearance",
 	},
 	{
 		id: "lanes-and-branches",
-		label: "Lanes & branches",
+		label: () => t("lanes-branches"),
 		icon: "lanes",
 	},
 	{
 		id: "git",
-		label: "Git stuff",
+		label: () => t("git-stuff"),
 		icon: "git",
 	},
 	{
 		id: "integrations",
-		label: "Integrations",
+		label: () => t("integrations"),
 		icon: "puzzle",
 	},
 	{
 		id: "ai",
-		label: "AI Options",
+		label: () => t("ai-options"),
 		icon: "ai",
 	},
 	{
 		id: "telemetry",
-		label: "Telemetry",
+		label: () => t("telemetry"),
 		icon: "chart-bar-x",
 	},
 	{
 		id: "experimental",
-		label: "Experimental",
+		label: () => t("experimental"),
 		icon: "lab",
 	},
 	{
 		id: "organizations",
-		label: "Organizations",
+		label: () => t("organizations"),
 		icon: "factory",
 		adminOnly: true,
 	},

@@ -14,6 +14,7 @@
 	import { useForgeAuth } from "$lib/forge/forgeAuth.svelte";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { LISTING_SERVICE } from "$lib/forge/listingService.svelte";
+	import { t } from "$lib/i18n";
 	import { debounce } from "$lib/utils/debounce";
 	import { inject } from "@gitbutler/core/context";
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
@@ -154,6 +155,7 @@
 		gitlab: "GitLab",
 		bitbucket: "Bitbucket",
 		azure: "Azure DevOps",
+		gitee: "Gitee",
 	};
 
 	// Increased from 180 to accommodate longer contextual messages
@@ -203,7 +205,7 @@
 					oninput={debounceSearchInput}
 					class="search-input text-13"
 					type="text"
-					placeholder="Search branches"
+					placeholder={t("search-branches")}
 					onkeydown={handleSearchKeyDown}
 				/>
 			</div>
@@ -247,7 +249,7 @@
 		{:else}
 			<EmptyStatePlaceholder image={noBranchesSvg} width={180} bottomMargin={48}>
 				{#snippet caption()}
-					No branches<br />match your filter
+					{t("no-branches")}<br />match your filter
 				{/snippet}
 			</EmptyStatePlaceholder>
 		{/if}
@@ -256,9 +258,9 @@
 			<EmptyStatePlaceholder image={noBranchesSvg} width={EMPTY_STATE_WIDTH} bottomMargin={48}>
 				{#snippet title()}
 					{#if selectedOption === "local"}
-						No local branches found
+						{t("no-local-branches-found")}
 					{:else}
-						No branches or {reviewUnitAbbr}s found
+						{t("no-branches-or")} {reviewUnitAbbr}s found
 					{/if}
 				{/snippet}
 				{#snippet caption()}
@@ -266,14 +268,15 @@
 						No {reviewUnitAbbr}s found {#if baseBranch}
 							from <strong>{baseBranch.remoteName}</strong>{/if}.
 					{:else if selectedOption === "local"}
-						Create a new branch or fetch from your remote.
+						{t("create-a-new-branch-or-fetch-from-your-remote")}
 					{:else if baseBranch}
-						Branches and {reviewUnitAbbr}s from
+						{t("branches-and")}
+						{reviewUnitAbbr}s from
 						<strong>{baseBranch.remoteName}/{baseBranch.shortName}</strong>
-						will appear here.
+						{t("will-appear-here")}
 					{/if}
 					{#if shouldShowAuthMessage}
-						Authenticate with {forgeName} to see {reviewUnitAbbr}s.
+						{t("authenticate-with")} {forgeName} to see {reviewUnitAbbr}s.
 					{/if}
 				{/snippet}
 			</EmptyStatePlaceholder>

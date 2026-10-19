@@ -8,6 +8,7 @@
 	import { PR_SERVICE } from "$lib/forge/prService.svelte";
 	import { REPO_SERVICE } from "$lib/forge/repoService.svelte";
 	import { createPollBackoff } from "$lib/forge/shared/pollErrorBackoff.svelte";
+	import { t } from "$lib/i18n";
 	import { inject } from "@gitbutler/core/context";
 	import {
 		Button,
@@ -200,21 +201,21 @@
 			>
 				<ContextMenuSection>
 					<ContextMenuItem
-						label="Open in browser"
+						label={t("open-in-browser")}
 						onclick={() => {
 							contextMenuOpen = false;
 							urlService.openExternalUrl(pr.htmlUrl);
 						}}
 					/>
 					<ContextMenuItem
-						label="Copy link"
+						label={t("copy-link")}
 						onclick={() => {
 							contextMenuOpen = false;
 							clipboardService.write(pr.htmlUrl, { message: `${abbr} link copied` });
 						}}
 					/>
 					<ContextMenuItem
-						label="Refetch status"
+						label={t("refetch-status")}
 						onclick={() => {
 							contextMenuOpen = false;
 							prService.fetch(projectId, pr.number, { forceRefetch: true });
@@ -238,14 +239,14 @@
 				{#if hasChecks}
 					<ContextMenuSection>
 						<ContextMenuItem
-							label="Open checks"
+							label={t("open-checks")}
 							onclick={() => {
 								contextMenuOpen = false;
 								urlService.openExternalUrl(`${pr.htmlUrl}/checks`);
 							}}
 						/>
 						<ContextMenuItem
-							label="Copy checks"
+							label={t("copy-checks")}
 							onclick={() => {
 								contextMenuOpen = false;
 								clipboardService.write(`${pr.htmlUrl}/checks`, { message: "Checks link copied" });
@@ -310,7 +311,7 @@
 							/>
 						</div>
 					{:else}
-						<span class="label italic">No reviewers</span>
+						<span class="label italic">{t("no-reviewers")}</span>
 					{/if}
 				</div>
 				<span class="separator">•</span>

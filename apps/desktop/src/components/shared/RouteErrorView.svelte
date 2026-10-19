@@ -2,6 +2,7 @@
 	import IllustrationSplitLayout from "$components/shared/IllustrationSplitLayout.svelte";
 	import ProjectSwitcher from "$components/shared/ProjectSwitcher.svelte";
 	import loadErrorSvg from "$lib/assets/illustrations/load-error.svg?raw";
+	import { t } from "$lib/i18n";
 	import { InfoMessage } from "@gitbutler/ui-svelte";
 
 	interface Props {
@@ -14,7 +15,9 @@
 
 <IllustrationSplitLayout img={loadErrorSvg}>
 	<div class="problem__container">
-		<h2 class="problem__title text-18 text-body text-bold">There was a problem loading the app</h2>
+		<h2 class="problem__title text-18 text-body text-bold">
+			{t("there-was-a-problem-loading-the-app")}
+		</h2>
 
 		<InfoMessage filled outlined={false} style="danger" icon="info">
 			{#snippet content()}

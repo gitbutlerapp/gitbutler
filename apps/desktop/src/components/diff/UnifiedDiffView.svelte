@@ -13,6 +13,7 @@
 	import { HunkDropDataV3 } from "$lib/dragging/draggables";
 	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
 	import { canBePartiallySelected, getLineLocks, hunkHeaderEquals } from "$lib/hunks/hunk";
+	import { t } from "$lib/i18n";
 	import { type SelectionId } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
@@ -208,7 +209,7 @@
 			<div class="hunk-placehoder">
 				<EmptyStatePlaceholder image={binarySvg} gap={12} topBottomPadding={34}>
 					{#snippet caption()}
-						Was not able to load the diff
+						{t("was-not-able-to-load-the-diff")}
 					{/snippet}
 				</EmptyStatePlaceholder>
 			</div>
@@ -330,7 +331,7 @@
 						<div class="hunk-placehoder">
 							<EmptyStatePlaceholder image={emptyFileSvg} gap={12} topBottomPadding={34}>
 								{#snippet caption()}
-									It’s empty ¯\_(ツ゚)_/¯
+									{t("it-s-empty")}
 								{/snippet}
 							</EmptyStatePlaceholder>
 						</div>
@@ -338,7 +339,7 @@
 						<div class="hunk-placehoder">
 							<EmptyStatePlaceholder gap={12} topBottomPadding={34}>
 								{#snippet caption()}
-									Loading diff…
+									{t("loading-diff")}
 								{/snippet}
 							</EmptyStatePlaceholder>
 						</div>
@@ -349,7 +350,7 @@
 			<div class="hunk-placehoder">
 				<EmptyStatePlaceholder image={tooLargeSvg} gap={12} topBottomPadding={34}>
 					{#snippet caption()}
-						Too large to display
+						{t("too-large-to-display")}
 					{/snippet}
 				</EmptyStatePlaceholder>
 			</div>
@@ -360,7 +361,7 @@
 				<div class="hunk-placehoder">
 					<EmptyStatePlaceholder image={binarySvg} gap={12} topBottomPadding={34}>
 						{#snippet caption()}
-							Binary! Not for human eyes
+							{t("binary-not-for-human-eyes")}
 						{/snippet}
 					</EmptyStatePlaceholder>
 				</div>

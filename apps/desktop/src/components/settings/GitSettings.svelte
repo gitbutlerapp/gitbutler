@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
+	import { t } from "$lib/i18n";
+
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { inject } from "@gitbutler/core/context";
 	import { CardGroup, Link, Select, SelectItem, Toggle } from "@gitbutler/ui-svelte";
@@ -50,15 +52,14 @@
 
 <CardGroup.Item standalone labelFor="committerSigning">
 	{#snippet title()}
-		Credit GitButler as the committer
+		{t("credit-gitbutler-as-the-committer")}
 	{/snippet}
 	{#snippet caption()}
-		By default, everything in the GitButler client is free to use. You can opt in to crediting us as
-		the committer in your virtual branch commits to help spread the word.
+		{t("by-default-everything-in-the-gitbutler-client-is-free-to-use")}
 		<Link
 			href="https://github.com/gitbutlerapp/gitbutler-docs/blob/d81a23779302c55f8b20c75bf7842082815b4702/content/docs/features/virtual-branches/committer-mark.mdx"
 		>
-			Learn more
+			{t("learn-more")}
 		</Link>
 	{/snippet}
 	{#snippet actions()}
@@ -68,7 +69,7 @@
 
 <CardGroup.Item standalone labelFor="fetchFrequency" alignment="center">
 	{#snippet title()}
-		Auto-fetch frequency
+		{t("auto-fetch-frequency")}
 	{/snippet}
 	{#snippet actions()}
 		<Select

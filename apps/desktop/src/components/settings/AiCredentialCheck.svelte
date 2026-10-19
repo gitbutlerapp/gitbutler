@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { AI_SERVICE, type DiffInput } from "$lib/ai/service";
 	import { ModelKind } from "$lib/ai/types";
+	import { t } from "$lib/i18n";
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, InfoMessage, Link } from "@gitbutler/ui-svelte";
@@ -196,11 +197,11 @@
 			>
 				{#snippet title()}
 					{#if error}
-						AI credential check failed
+						{t("ai-credential-check-failed")}
 					{:else if result}
-						AI credential check passed
+						{t("ai-credential-check-passed")}
 					{:else if isStreaming}
-						AI is responding...
+						{t("ai-is-responding")}
 					{/if}
 				{/snippet}
 
@@ -208,24 +209,24 @@
 					<div class="result-content" transition:slide={{ duration: 250 }}>
 						{#if error}
 							{#if (modelKind === ModelKind.OpenAI || modelKind === ModelKind.Anthropic) && isUsingButlerAPI && !userService.user}
-								<span> Please sign in to use GitButler's AI API. </span>
+								<span> {t("please-sign-in-to-use-gitbutler-s-ai-api")} </span>
 							{:else if modelKind === ModelKind.OpenAI || modelKind === ModelKind.Anthropic}
-								<span> Please check your API key or try GitButler's API. </span>
+								<span> {t("please-check-your-api-key-or-try-gitbutler-s-api")} </span>
 							{:else if modelKind === ModelKind.Ollama}
 								<span>
-									Please check your Ollama endpoint and model configuration.
+									{t("please-check-your-ollama-endpoint-and-model-configuration")}
 									<br />
-									Make sure Ollama is running locally and accessible.
+									{t("make-sure-ollama-is-running-locally-and-accessible")}
 
-									<Link href="https://ollama.ai">Learn more</Link>
+									<Link href="https://ollama.ai">{t("learn-more")}</Link>
 								</span>
 							{:else if modelKind === ModelKind.LMStudio}
 								<span>
-									Please check your LM Studio configuration.
+									{t("please-check-your-lm-studio-configuration")}
 									<br />
-									Make sure LM Studio is running locally and accessible.
+									{t("make-sure-lm-studio-is-running-locally-and-accessible")}
 
-									<Link href="https://lmstudio.ai">Learn more</Link>
+									<Link href="https://lmstudio.ai">{t("learn-more")}</Link>
 								</span>
 							{/if}
 						{:else}
@@ -247,24 +248,24 @@
 		{#if testing || isStreaming}
 			{isStreaming ? "AI is responding..." : "Testing AI connection..."}
 		{:else if error}
-			Try again
+			{t("try-again")}
 		{:else if result}
-			Test again
+			{t("test-again")}
 		{:else}
-			Test AI connection
+			{t("test-ai-connection")}
 		{/if}
 	</Button>
 
 	{#if showDebug && debugInfo}
 		<div class="debug-info text-12 text-body">
-			<p><span class="text-bold">Debug info</span>:</p>
+			<p><span class="text-bold">{t("debug-info")}</span>:</p>
 			<p>{debugInfo}</p>
 		</div>
 	{/if}
 
 	{#if showSampleDiff}
 		<div class="debug-info text-12 text-body">
-			<p class="text-bold">Sample diff:</p>
+			<p class="text-bold">{t("sample-diff")}</p>
 			<pre class="debug-info__code">{testDiff[0]?.diff}</pre>
 		</div>
 	{/if}

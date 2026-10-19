@@ -1,4 +1,6 @@
 <script lang="ts" module>
+	import { t } from "$lib/i18n";
+
 	import type { DiffHunk } from "@gitbutler/but-sdk";
 	export interface HunkContextItem {
 		hunk: DiffHunk;
@@ -175,7 +177,7 @@
 				<ContextMenuSection>
 					<ContextMenuItem
 						testId={TestId.HunkContextMenu_DiscardChange}
-						label="Discard change"
+						label={t("discard-change")}
 						icon="bin"
 						onclick={() => {
 							discardHunk(item);
@@ -199,7 +201,7 @@
 				<ContextMenuSection>
 					<ContextMenuItem
 						testId={TestId.HunkContextMenu_UncommitChange}
-						label="Uncommit change"
+						label={t("uncommit-change")}
 						icon="commit-undo"
 						onclick={async () => {
 							uncommitHunk(item);
@@ -236,7 +238,7 @@
 				<ContextMenuSection>
 					<ContextMenuItem
 						testId={TestId.HunkContextMenu_SelectAll}
-						label="Select all"
+						label={t("select-all")}
 						icon="select-all"
 						onclick={() => {
 							selectAllHunkLines(item.hunk);
@@ -245,7 +247,7 @@
 					/>
 					<ContextMenuItem
 						testId={TestId.HunkContextMenu_UnselectAll}
-						label="Unselect all"
+						label={t("unselect-all")}
 						icon="select-all-remove"
 						onclick={() => {
 							unselectAllHunkLines(item.hunk);
@@ -254,7 +256,7 @@
 					/>
 					<ContextMenuItem
 						testId={TestId.HunkContextMenu_InvertSelection}
-						label="Invert selection"
+						label={t("invert-selection")}
 						icon="select-all-inverse"
 						onclick={() => {
 							invertHunkSelection(item.hunk);
@@ -264,7 +266,7 @@
 				</ContextMenuSection>
 			{/if}
 		{:else}
-			<p class="text-12 text-semibold clr-text-2">Malformed item (·•᷄‎ࡇ•᷅ )</p>
+			<p class="text-12 text-semibold clr-text-2">{t("malformed-item")}</p>
 		{/if}
 	</ContextMenu>
 {/if}

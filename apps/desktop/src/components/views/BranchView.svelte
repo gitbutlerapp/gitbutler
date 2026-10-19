@@ -9,6 +9,7 @@
 	import newBranchSmolSVG from "$lib/assets/empty-state/new-branch-smol.svg?raw";
 	import { commitCommittedAt, commitStateSubject } from "$lib/branches/v3";
 	import { findEarliestConflict } from "$lib/commits/utils";
+	import { t } from "$lib/i18n";
 	import { editPatch } from "$lib/mode/editPatchUtils";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
@@ -120,7 +121,7 @@
 				kind="ghost"
 				icon="pop-out-bottom-right"
 				size="tag"
-				tooltip="Pop out diff view"
+				tooltip={t("pop-out-diff-view")}
 				onclick={onpopout}
 			/>
 		{/if}
@@ -207,10 +208,11 @@
 			<div class="branch-view__empty-state__image">
 				{@html newBranchSmolSVG}
 			</div>
-			<h3 class="text-16 text-semibold branch-view__empty-state__title">This is a new branch</h3>
+			<h3 class="text-16 text-semibold branch-view__empty-state__title">
+				{t("this-is-a-new-branch")}
+			</h3>
 			<p class="text-13 text-body branch-view__empty-state__description">
-				Commit your changes here. You can stack additional branches or apply them independently. You
-				can also drag and drop files to start a new commit.
+				{t("commit-your-changes-here-you-can-stack-additional-branches-o")}
 			</p>
 		</div>
 	{/if}
