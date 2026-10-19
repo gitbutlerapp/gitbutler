@@ -2,13 +2,17 @@
 //! the files the selected operation changed in the diff beside it, and a way back to before
 //! any of them.
 
-use gpui::{AnyElement, ClickEvent, Context, SharedString, Window, div, prelude::*, px};
+use gpui::{
+    AnyElement, ClickEvent, Context, MouseButton, MouseDownEvent, Pixels, Point, SharedString,
+    Window, div, prelude::*, px,
+};
 
 use super::Detail;
 use super::panes::{list_heading, side_list, side_row};
 use crate::app::{SelectNext, SelectPrevious};
 use crate::backend::history::Operation;
 use crate::backend::{self, DiffSource, SnapshotId};
+use crate::overlays::MenuItem;
 use crate::state::{Overlay, ProjectId};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
@@ -297,6 +301,36 @@ impl Detail {
             .ok();
     }
 
+    /// Select operation `id` and offer what its page's header does for it, and its ID.
+    fn operation_menu(
+        &mut self,
+        project: &ProjectId,
+        id: SnapshotId,
+        at: Point<Pixels>,
+        cx: &mut Context<Self>,
+    ) {
+        self.select_operation(id, cx);
+        let project = project.clone();
+        let items = vec![
+            // Once the menu's done with the app, which asking to confirm updates too.
+            MenuItem::new("Restore to before this…", move |app, window, cx| {
+                let (detail, project) = (app.detail.clone(), project.clone());
+                window.defer(cx, move |window, cx| {
+                    detail.update(cx, |detail, cx| {
+                        detail.restore_selected(&project, window, cx)
+                    })
+                })
+            }),
+            MenuItem::new("Copy snapshot ID", move |app, _, cx| {
+                app.copy_text(id.0.to_string(), cx)
+            })
+            .separated(),
+        ];
+        self.app
+            .update(cx, |app, cx| app.open_menu(at, items, cx))
+            .ok();
+    }
+
     /// Record how the project is now, to come back to later.
     fn take_snapshot(&self, project: &ProjectId, cx: &mut Context<Self>) {
         self.store.update(cx, |store, cx| {
@@ -385,6 +419,13 @@ impl Detail {
                                 window.focus(&this.side_focus, cx);
                                 this.select_operation(id, cx)
                             }))
+                            .on_mouse_down(MouseButton::Right, {
+                                let project = history.project.clone();
+                                cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                                    window.focus(&this.side_focus, cx);
+                                    this.operation_menu(&project, id, event.position, cx)
+                                })
+                            })
                     }
                     Row::More => {
                         let project = history.project.clone();
