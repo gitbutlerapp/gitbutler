@@ -236,7 +236,8 @@ impl SettingsView {
             ),
             Row::new(
                 "Run Git hooks",
-                "Runs the repository's pre-commit, commit-msg, post-commit and pre-push hooks.",
+                "Runs the repository's pre-commit, commit-msg, post-commit and pre-push hooks \
+                 in the main checkout. A linked worktree's commits don't run them.",
                 hooks,
             ),
             Row::new(
