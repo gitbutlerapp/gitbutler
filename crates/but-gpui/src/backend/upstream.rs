@@ -20,6 +20,8 @@ pub struct TargetCommit {
     pub title: String,
     /// Seconds since the epoch.
     pub time: i64,
+    /// Who wrote it, by name.
+    pub author: String,
     /// The pull request it landed, without CI checks.
     pub review: Option<Review>,
     /// The workspace doesn't have it yet.
@@ -49,6 +51,7 @@ pub fn target_commits(
                 id: CommitId(commit.id),
                 title: title(&commit.message),
                 time: (commit.committed_at / 1000) as i64,
+                author: commit.author.name,
                 review: target.review.map(|review| {
                     let mut found = match cached.get(&(review.number as u64)) {
                         Some(found) => from_cache(found),

@@ -13,6 +13,7 @@ use crate::backend::{self, CommitId, DiffSource, Forge, Review};
 use crate::state::{Overlay, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
+use crate::ui::person::person_avatar;
 use crate::ui::{
     Icon, Tooltip, error_summary, faint, h_flex, icon, list_row, muted, plural, relative_time,
     small_icon, v_flex,
@@ -582,6 +583,18 @@ impl Detail {
                                             .when_some(tip, |el, tip| {
                                                 el.tooltip(Tooltip::text(tip))
                                             }),
+                                    )
+                                    // Who wrote it, as on the Branches page; their name on
+                                    // hover.
+                                    .child(
+                                        div()
+                                            .id(("target-commit-author", ix))
+                                            .flex_none()
+                                            .child(person_avatar(&commit.author, 14., theme))
+                                            .tooltip(Tooltip::text(format!(
+                                                "Authored by {}",
+                                                commit.author
+                                            ))),
                                     )
                                     .child(faint(relative_time(commit.time), theme).flex_none())
                                     .on_click(cx.listener(move |this, _, _, cx| {
