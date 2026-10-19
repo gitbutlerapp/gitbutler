@@ -53,7 +53,7 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 
 ## Non-Negotiable Rules
 
-1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`. The only exception is selecting a side of a conflicted submodule in resolution mode (see Resolve conflicted commits). If the user says a `git` write command, translate it to `but` and run that. Running from a linked worktree shows the same workspace and IDs as the main worktree, and `@` still means the main worktree's changes; a bare `but commit` or `but diff` takes that worktree's changes, and `<worktree>:@` names them from anywhere. `but setup` refuses to run from a worktree.
+1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`. The only exception is selecting a side of a conflicted submodule in resolution mode (see Resolve conflicted commits). If the user says a `git` write command, translate it to `but` and run that. Running from a linked worktree shows the same workspace and IDs as the main worktree, and `@` still means the main worktree's changes; a bare `but commit` or `but diff` takes that worktree's changes, and `<worktree>:@` names them from anywhere.
 2. Mutation commands print their result without appending workspace status. Add `--status-after` only when the next step needs resulting workspace IDs or details; otherwise trust the mutation result and do not run a verification status/diff.
 3. Branches marked `(merged upstream)` have landed; start new work on another branch. That marker alone does not mean `but pull` removes them: run `but pull --check` first. `but pull` removes only branches listed `[integrated]` ("has been integrated upstream and removed locally") and rebases the rest, which stay applied. To clear a landed branch that stays applied, use `but unapply <branch>` (acts on its whole stack; `but apply <branch>` restores it) rather than `but discard`. `push` and mutations (`commit`, `amend`, `squash`, `uncommit`, `reword`, `move`) refuse landed branches and commits, `absorb` skips them with a notice, and `commit` skips them when picking a default target.
 4. In non-interactive CLI workflows, do not narrate progress between routine commands. Execute the needed `but` commands and give a concise final summary.
@@ -61,12 +61,14 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 
 ## Command Patterns
 
+- Initialize a Git repository: `but init` (current directory) or `but -C <path> init`. Non-interactive; creates no commits, remotes, or GitButler workspace. Existing repositories are left unchanged.
+
 - Commit: `but commit -b <branch> -m "<msg>" <id> <id>` — `-b <branch>` creates the branch if it does not exist
 - Commit everything uncommitted: `but commit -b <branch> -m "<msg>"` (omit the IDs)
 - Several commits from one diff: chain `but commit` calls with `&&` (commits stack oldest-first)
 - Commit at a specific history position: `--above <commit-or-branch>` or `--below <commit-or-branch>` (mutually exclusive). With a branch target, add `-b <new-name>` to name the new branch; otherwise its name is generated. The name must not already exist. Do not combine `-b` (even without a name) with commit/worktree targets.
 - Targeting is **required** when more than one **stack** is applied; without it `but commit` fails with "Unclear where to commit. Found more than one stack". Several branches stacked together count as one stack — an untargeted commit then silently lands on the stack's top branch, so pass `-b` whenever the branch matters.
-- Always pass `-m "<msg>"` (or `--no-message`) to `but commit`, and to `but squash` whenever its sources are commits or branches unless the target is `@` — those compose a new message; without a flag an agent run keeps whatever the command composed (empty for `but commit`, the joined source messages for `but squash`) and a terminal opens an editor. Squash sources that are uncommitted or committed changes reuse the target's message and need no flag; squashing into `@` rejects message flags outright.
+- Always pass `-m "<msg>"` (or `-F -` with a heredoc, `-F <file>` with a file outside the repository, or `--no-message`) to `but commit`, and to `but squash` whenever its sources are commits or branches unless the target is `@` — those compose a new message; without a flag an agent run keeps whatever the command composed (empty for `but commit`, the joined source messages for `but squash`) and a terminal opens an editor. Squash sources that are uncommitted or committed changes reuse the target's message and need no flag; squashing into `@` rejects message flags outright.
 - Amend: `but amend -t <commit-or-branch> <file-or-hunk-id> <file-or-hunk-id>` — a branch target resolves to its newest commit
 - Uncommit: `but uncommit <commit-id>` (whole commit), `but uncommit <branch>` (all commits and remove branch), `but uncommit <commit-id>:<file-id>` (committed file), or `but uncommit <commit-id>:<file-id>:<hunk-id>` (committed hunk); committed files and hunks may be mixed, but all must come from one commit
 - Insert empty commit: `but commit --empty -b <branch> -m "<msg>"`
@@ -75,7 +77,7 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 - Move committed changes into an existing commit or `@`: `but squash <commit-id>:<file-id> -t <commit-id-or-@>` for a committed file; `but squash <commit-id>:<file-id>:<hunk-id> -t <commit-id-or-@>` for a committed hunk; all sources must come from one commit
 - Move committed changes into a new commit at a chosen position: `but move <commit-id>:<file-id> --above <commit-or-branch> -m "<msg>"` for a committed file; `but move <commit-id>:<file-id>:<hunk-id> --above <commit-or-branch> -m "<msg>"` for a committed hunk (`--below`, `--branch`, and `--unstack` also work)
 - Split selected committed changes into a new commit immediately above their source: `but split <committed-file-or-hunk-id> [<committed-file-or-hunk-id>...] -m "<msg>"`
-- For `but split` and committed-change `but move`, use `-m/--message` to name the new commit directly; repeated `-m` values are joined with blank lines. Omitting it creates an empty-message commit without opening an editor. `but move -m` rejects whole-commit and branch sources.
+- For `but split` and committed-change `but move`, use `-m/--message` to name the new commit directly; repeated `-m` values are joined with blank lines. For a multiline message, pass `-F -` with a heredoc, or `-F <file>` with a file outside the repository, instead of `-m`. Omitting both creates an empty-message commit without opening an editor. `but move -m` and `-F` reject whole-commit and branch sources.
 - Squash a whole branch into one commit: `but squash <branch> -m "<msg>"` (no `-t`)
 - Uncommit and remove a branch: `but uncommit <branch>`
 - Reorder commits: `but move <commit-id> --below <commit-id>` (`--above` for the other direction; **commit IDs**, not branch names)
@@ -87,7 +89,7 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 - Discard: `but discard <id> [<id>...]` — accepts branches, commits, committed changes, uncommitted changes, or `@` for all uncommitted changes
 - Push: `but push <top-branch>` — pushes the selected branch and its ancestors; to update a stack, select its top branch once and never loop. Bare `but push` pushes all unpushed work when run non-interactively — one push per stack (its topmost unpushed branch, ancestors included), so output has one entry per stack, not per branch. It exits non-zero if any stack failed; stacks that already pushed stay pushed, and rerunning after fixing the failure is safe (up-to-date stacks are skipped)
 - Pull (update workspace from the target): `but pull` — the output reports the result; `but pull --check` previews without updating when a preview is actually needed
-- Create PR: `but pr new <branch-name> [-m "Title..."] [-F pr_message.txt] [-t] [--draft]` — auto-pushes first; do not run `but push` before it
+- Create PR: `but pr new <branch-name> [-m "Title..."] [-F - | -F <file>] [-t] [--draft]` — auto-pushes first; do not run `but push` before it
 
 ## Task Recipes
 
@@ -160,7 +162,7 @@ To make one existing branch depend on another: `but move <child-branch-name> --a
 
 ### Create or manage pull requests
 
-`but pr new <branch-name>` pushes the selected branch and its ancestors, then creates the PR in one step — no prior `but push`. Provide `-F pr_message.txt`, `-t`, or `-m` with real newlines (zsh/bash: `-m $'Title\n\nBody'`) so no editor opens. If forge auth is missing, run `but config forge auth`.
+`but pr new <branch-name>` pushes the selected branch and its ancestors, then creates the PR in one step — no prior `but push`. Provide `-F -` with a heredoc or `-F <file>` (first line is the title), `-t`, or `-m` with real newlines (zsh/bash: `-m $'Title\n\nBody'`) so no editor opens. Do not write the message to a file inside the repository: the next `but commit` would commit it. If forge auth is missing, run `but config forge auth`.
 
 If you do create a PR for a stacked branch, use `but pr` — not `gh pr create` (only `but pr` sets PR bases and stack metadata; `gh pr create` breaks that). To publish a whole stack: `but pr new <top-branch-name> -t`. Manage with `but pr auto-merge|set-draft|set-ready <selector>`; selectors can be a branch name, current branch/stack CLI ID, or numeric review ID. See `but skill reference` for details.
 

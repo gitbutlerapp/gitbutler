@@ -109,7 +109,7 @@ pub trait DiffLineWriter {
         })
     }
 
-    #[expect(dead_code)]
+    #[cfg_attr(feature = "legacy", expect(dead_code))]
     fn write_non_selectable_text(&mut self, line: Line<'static>) -> anyhow::Result<()> {
         self.write(DetailsLine::Text {
             id: None,
@@ -961,7 +961,6 @@ fn render_tree_changes_with_id(
                 let mut id_gen = id_gen.scoped("hunks");
                 let hunk_id = id_gen.new_id(0);
 
-                // TODO need cli ID for TUI selection to work
                 render_hunk_path_header(
                     hunk_id,
                     None,

@@ -9,8 +9,7 @@
 
 import { forgeInfoOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
-import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
-import { Toggle, ToggleGroup } from "@base-ui/react";
+import { Segment, SegmentedControl } from "@gitbutler/ui-react/SegmentedControl.tsx";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import { RelativeTime } from "@gitbutler/ui-react/RelativeTime.tsx";
 import { classes } from "@gitbutler/ui-react/classes.ts";
@@ -153,27 +152,27 @@ export const NotificationBell: FC<{ projectId: string }> = ({ projectId }) => {
 				<span className={classes("text-12", "text-semibold")}>Notifications</span>
 			</div>
 			<div className={styles.switcher}>
-				<ToggleGroup
-					render={<ToggleGroupStyles />}
+				<SegmentedControl
+					size="small"
 					aria-label="Notification type"
-					value={[tab]}
-					onValueChange={([next]) => {
-						if (next !== undefined) setTab(next);
-					}}
+					value={tab}
+					onValueChange={setTab}
 				>
-					<Toggle
-						render={<ToggleStyles size="small" />}
+					<Segment
 						value={"humans" satisfies NotificationType}
+						count={humanUnseen > 0 ? humanUnseen : undefined}
+						aria-label={humanUnseen > 0 ? `Humans (${humanUnseen})` : undefined}
 					>
-						Humans{humanUnseen > 0 && ` (${humanUnseen})`}
-					</Toggle>
-					<Toggle
-						render={<ToggleStyles size="small" />}
+						Humans
+					</Segment>
+					<Segment
 						value={"agents" satisfies NotificationType}
+						count={agentUnseen > 0 ? agentUnseen : undefined}
+						aria-label={agentUnseen > 0 ? `Agents (${agentUnseen})` : undefined}
 					>
-						Agents{agentUnseen > 0 && ` (${agentUnseen})`}
-					</Toggle>
-				</ToggleGroup>
+						Agents
+					</Segment>
+				</SegmentedControl>
 				{tabUnseen > 0 && (
 					<button
 						className={classes("text-12", styles.markAll)}

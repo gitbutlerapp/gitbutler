@@ -55,7 +55,7 @@ Committed hunks:  mzm:uvw:2e4         (<commit-id>:<file-id>:<hunk-id>, shown by
 Stacks:           m0, n0              (auto-generated, 2–3 chars)
 ```
 
-**ID lengths:** When an agent is detected, shortened change-ID, file, and hunk prefixes have a three-character minimum; SHA prefixes and branch/worktree IDs can be shorter.
+**ID lengths:** When an agent is detected, shortened change-ID, file, and hunk prefixes have a four-character minimum; SHA prefixes and branch/worktree IDs can be shorter.
 
 **Reading status output:** the first token on each line is that line's ID. Verbose commit lines append an informational `(sha …)` after the timestamp — it changes on every amend; do not pass it to commands.
 
@@ -88,14 +88,18 @@ nothing, and `but unapply` refuses it — remove the worktree instead. `<worktre
 scopes a filename to it — `@:<path>` keeps meaning the main worktree. A filename dirty in several
 worktrees at once is ambiguous; the error suggests the scoped forms. A worktree file ID or
 `<worktree>:@` works as a `but commit` change and a `but amend` or `but squash`
-source: the change lands on the target and leaves that worktree's uncommitted area. Without a
-target flag, worktree changes commit to the tip of the worktree's own branch; an explicit target
+source: the change lands on the target and leaves that worktree's uncommitted area. `but discard`
+on one discards it in that worktree, and isn't recorded in the oplog, so `but undo` can't bring
+it back. Without a target flag, worktree changes commit to the tip of the worktree's own branch; an explicit target
 commit or branch does not have to be the worktree's own. One operation reads from one worktree
 at a time — a selection mixing worktrees is refused. A worktree's branches are also targets:
 `but commit`, `but move`, and `but pick` with `-b <branch>` place the commit on that branch's tip,
 and `--below <checked-out-branch-id>` on the tip of the branch the worktree has checked out
 (`--above` it is refused — that is its uncommitted area). A new branch can't be placed above or
-below a worktree's branch yet, as worktrees can't order branches. A worktree's own commits carry ordinary commit IDs: `reword`, `move`,
+below a worktree's branch yet, as worktrees can't order branches. `but move <branch> --above <branch>`
+moves an existing branch between a worktree's lane and the workspace, in either direction. A branch
+stacked onto the one a worktree has checked out becomes its checked-out branch; moving the checked-out
+branch away leaves the worktree on the branch below it, or detached on the commit it was based on. A worktree's own commits carry ordinary commit IDs: `reword`, `move`,
 `squash`, and `pick` accept them, and the worktree's branch and checkout follow the rewrite.
 `but reword <branch> -m <name>` renames a worktree's branch, and a checkout on it follows the new name.
 Uncommitting one lands in that worktree's uncommitted area, so `squash -t` names it by the
@@ -104,9 +108,9 @@ IDs are the same whichever checkout `but` runs in, and `@` always means the main
 area. Only what a command falls back to when no location is named depends on it: run from
 inside a linked worktree, a bare `but commit` and `but diff`, and `but amend`/`but squash`
 with `-t` but no sources, take that worktree's changes, while `but commit --empty` and `but pick`
-without a target go on its branch. `but discard`, `but absorb`, and `but branch new` without
-`--above`/`--below` refuse there instead of acting on the main worktree, and every such default
-is refused in a worktree GitButler doesn't manage (the flag is off, it is archived, or its `HEAD`
+without a target go on its branch, and a bare `but discard` discards that worktree's changes.
+`but absorb` and `but branch new` without `--above`/`--below` refuse there instead of acting on
+the main worktree, and every such default is refused in a worktree GitButler doesn't manage (the flag is off, it is archived, or its `HEAD`
 is unusable).
 
 ## Parallel vs Stacked Branches

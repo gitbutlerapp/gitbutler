@@ -42,18 +42,7 @@ impl Sandbox {
     pub fn open_or_init_scenario_with_target_and_default_settings(name: &str) -> Sandbox {
         let inner =
             but_testsupport::Sandbox::open_or_init_scenario_with_target_and_default_settings(name);
-        let this = Sandbox { inner };
-        this.run_but_init_if_needed();
-        this
-    }
-
-    fn run_but_init_if_needed(&self) {
-        // New code does everything lazily and can open any repository without extra step, so no need for `but setup`.
-        if cfg!(feature = "legacy") {
-            // Needs setup, as it's not single-branch compatible, must have legacy project added so legacy commands can find it.
-            // This isn't needed at all when modernisation is complete.
-            self.but("setup").assert().success();
-        }
+        Sandbox { inner }
     }
 
     /// Open a repository without any additional setup and default application settings.
@@ -63,17 +52,13 @@ impl Sandbox {
         }
     }
 
-    /// Provide a scenario with `name` for writing, and `but setup` already invoked to add the project,
-    /// with a target added.
+    /// Provide a scenario with `name` for writing, with a target added.
     ///
     /// Prefer to use [`Self::open_scenario_with_target_and_default_settings()`] instead for less side-effects
-    /// TODO: we shouldn't have to add the project for interaction - it's only useful for listing.
     /// TODO: there should be no need for the target.
     pub fn init_scenario_with_target_and_default_settings(name: &str) -> Sandbox {
         let inner = but_testsupport::Sandbox::init_scenario_with_target_and_default_settings(name);
-        let this = Sandbox { inner };
-        this.run_but_init_if_needed();
-        this
+        Sandbox { inner }
     }
 
     /// Provide a scenario with `name` for writing, with target added.
@@ -88,9 +73,7 @@ impl Sandbox {
     pub fn init_scenario_with_target_and_default_settings_slow(name: &str) -> Sandbox {
         let inner =
             but_testsupport::Sandbox::init_scenario_with_target_and_default_settings_slow(name);
-        let this = Sandbox { inner };
-        this.run_but_init_if_needed();
-        this
+        Sandbox { inner }
     }
 }
 
@@ -178,6 +161,14 @@ impl Sandbox {
     pub fn home_dir(&self) -> PathBuf {
         self.app_data_dir().join("home")
     }
+
+    /// The working directory of a linked worktree.
+    pub fn linked_worktree_root(&self, worktree_name: &str) -> PathBuf {
+        self.home_dir()
+            .join(".gitbutler-worktrees")
+            .join(self.projects_root().file_name().unwrap())
+            .join(worktree_name)
+    }
 }
 
 pub trait CommandExt {
@@ -185,8 +176,13 @@ pub trait CommandExt {
     /// asserting with [snapbox::cmd::OutputAssert::stdout_eq] against an SVG
     /// file.
     fn with_color_for_svg(self) -> Self;
+
     /// Change the environment to allow passing `--json`.
     fn allow_json(self) -> Self;
+
+    /// Run this command as if an agent had run it.
+    #[expect(clippy::wrong_self_convention)]
+    fn as_agent(self) -> Self;
 }
 
 impl CommandExt for snapbox::cmd::Command {
@@ -197,6 +193,10 @@ impl CommandExt for snapbox::cmd::Command {
 
     fn allow_json(self) -> Self {
         self.env_remove("BUT_OUTPUT_FORMAT")
+    }
+
+    fn as_agent(self) -> Self {
+        self.env("AI_AGENT", "codex")
     }
 }
 

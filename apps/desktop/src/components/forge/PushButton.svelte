@@ -9,6 +9,7 @@
 	import { t } from "$lib/i18n";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { branchHasConflicts, branchHasUnpushedCommits } from "$lib/stacks/stack";
+	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -60,9 +61,10 @@
 	const projectResponse = $derived(projectsService.getProject(projectId));
 	const isGerritMode = $derived(projectResponse.response?.gerrit_mode ?? false);
 	const runHooks = $derived(projectRunCommitHooks(projectId));
-
-	// Component is read-only when stackId is undefined
-	const isReadOnly = $derived(!stackId);
+	const controller = getStackContext();
+	const isReadOnly = $derived(controller.isReadOnly);
+	// Hooks run in the main checkout, so a worktree's branch is pushed without them.
+	const runPushHooks = $derived($runHooks && !controller.worktree);
 
 	const [pushStack, pushQuery] = stackService.pushStack;
 
@@ -99,7 +101,7 @@
 		skipForcePushProtection: boolean;
 		gerritFlags: GerritPushFlag[];
 	}) {
-		if (!stackId) return;
+		if (isReadOnly) return;
 
 		const { withForce, skipForcePushProtection, gerritFlags } = args;
 		try {
@@ -109,7 +111,7 @@
 				withForce,
 				skipForcePushProtection,
 				branch: branchName,
-				runHooks: $runHooks,
+				runHooks: runPushHooks,
 				pushOpts: gerritFlags,
 			});
 

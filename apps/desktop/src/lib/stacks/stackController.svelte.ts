@@ -16,11 +16,17 @@ import {
 	type SelectionId,
 	type SelectedFile,
 } from "$lib/selection/key";
+import { syncUncommittedChanges } from "$lib/selection/syncUncommittedChanges.svelte";
+import {
+	UNCOMMITTED_SERVICE,
+	type UncommittedService,
+} from "$lib/selection/uncommittedService.svelte";
 import { UI_STATE } from "$lib/state/uiState.svelte";
 import { inject } from "@gitbutler/core/context";
 import { getContext, setContext } from "svelte";
 import type { FileSelectionManager } from "$lib/selection/fileSelectionManager.svelte";
 import type { ProjectSettingsPageId } from "$lib/state/uiState.svelte";
+import type { Worktree } from "@gitbutler/but-sdk";
 
 const STACK_CTX = Symbol("StackController");
 
@@ -44,6 +50,8 @@ export class StackController {
 	private getProjectId: () => string;
 	private getStackId: () => string | undefined;
 	private getLaneId: () => string;
+	private getWorktree: () => Worktree | undefined;
+	private uncommittedService = inject(UNCOMMITTED_SERVICE);
 
 	active = $state(false);
 	visibleRange = $state<{ start: number; end: number } | undefined>();
@@ -58,12 +66,19 @@ export class StackController {
 		projectId: () => string;
 		stackId: () => string | undefined;
 		laneId: () => string;
+		/** Set for a linked worktree's lane, which has no stack id. */
+		worktree?: () => Worktree | undefined;
 	}) {
 		this.uiState = inject(UI_STATE);
 		this.fileSelection = inject(FILE_SELECTION_MANAGER);
 		this.getProjectId = params.projectId;
 		this.getStackId = params.stackId;
 		this.getLaneId = params.laneId;
+		this.getWorktree = params.worktree ?? (() => undefined);
+
+		// The layout syncs the main checkout's changes; a worktree lane syncs its own.
+		const worktreeName = this.getWorktree()?.name;
+		if (worktreeName !== undefined) syncUncommittedChanges(params.projectId, worktreeName);
 
 		$effect(() => {
 			const store = this.focusedFileStore;
@@ -100,8 +115,26 @@ export class StackController {
 		return this.getLaneId();
 	}
 
+	/**
+	 * The linked worktree this lane shows. Its files live in another checkout,
+	 * so it never falls back to the main checkout's unassigned changes.
+	 */
+	get worktree(): Worktree | undefined {
+		return this.getWorktree();
+	}
+
+	/**
+	 * The branchless lane, which has neither a stack nor a worktree. A
+	 * worktree's branches are written by name, so they need no stack id.
+	 */
 	get isReadOnly(): boolean {
-		return !this.stackId;
+		return !this.stackId && !this.worktree;
+	}
+
+	/** The tooltip of an action the lane can't take, since it is read-only. */
+	get readOnlyTooltip(): string | undefined {
+		if (this.isReadOnly) return "Read-only mode";
+		return undefined;
 	}
 
 	get laneState() {
@@ -153,13 +186,16 @@ export class StackController {
 	}
 
 	get isCommitting(): boolean {
-		return this.exclusiveAction?.type === "commit" && this.exclusiveAction.stackId === this.stackId;
+		const action = this.exclusiveAction;
+		return (
+			action?.type === "commit" &&
+			action.stackId === this.stackId &&
+			action.worktree === this.worktree?.name
+		);
 	}
 
 	get dimmed(): boolean {
-		return (
-			this.exclusiveAction?.type === "commit" && this.exclusiveAction?.stackId !== this.stackId
-		);
+		return this.exclusiveAction?.type === "commit" && !this.isCommitting;
 	}
 
 	private get stackBusyState() {
@@ -178,15 +214,40 @@ export class StackController {
 
 	get activeSelectionId(): SelectionId | undefined {
 		if (this.commitId) {
-			return createCommitSelection({ commitId: this.commitId, stackId: this.stackId });
+			return this.commitSelection(this.commitId);
 		} else if (this.branchName) {
-			return createBranchSelection({
-				stackId: this.stackId,
-				branchName: this.branchName,
-				remote: undefined,
-			});
+			return this.branchSelection(this.branchName);
 		}
-		return createWorktreeSelection({ stackId: this.stackId });
+		return this.uncommittedSelectionId;
+	}
+
+	/** The selection of a commit's files in this lane. */
+	commitSelection(commitId: string): SelectionId {
+		return createCommitSelection({
+			commitId,
+			stackId: this.stackId,
+			worktree: this.worktree?.name,
+		});
+	}
+
+	/** The selection of a branch's files in this lane. */
+	branchSelection(branchName: string): SelectionId {
+		return createBranchSelection({
+			stackId: this.stackId,
+			branchName,
+			remote: undefined,
+			worktree: this.worktree?.name,
+		});
+	}
+
+	/** The uncommitted changes of this lane's checkout: its worktree's, or the main one's. */
+	get uncommitted(): UncommittedService {
+		return this.uncommittedService.at(this.worktree?.name);
+	}
+
+	/** The selection of this lane's uncommitted files. */
+	get uncommittedSelectionId(): SelectionId {
+		return createWorktreeSelection({ stackId: this.stackId, worktree: this.worktree?.name });
 	}
 
 	get focusedFileStore() {
@@ -201,7 +262,7 @@ export class StackController {
 	}
 
 	private get stagedFileGroup() {
-		return this.fileSelection.getById(createWorktreeSelection({ stackId: this.stackId }));
+		return this.fileSelection.getById(this.uncommittedSelectionId);
 	}
 
 	get stagedFocusedFileStore() {
@@ -236,7 +297,7 @@ export class StackController {
 	}
 
 	clearWorktreeSelection(): void {
-		this.fileSelection.clear({ type: "worktree", stackId: this.stackId });
+		this.fileSelection.clear(this.uncommittedSelectionId);
 	}
 
 	openProjectSettingsModal(selectedId?: ProjectSettingsPageId): void {

@@ -12,16 +12,15 @@ use but_error::bail_precondition;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{
-        Editor, LookupStep, Selector, Step,
-        merge_commit_changes::MergeCommitChangesOutcome,
-        mutate::{SegmentDelimiter, SelectorSet},
+        Editor, Selector, Step, merge_commit_changes::MergeCommitChangesOutcome,
+        mutate::SegmentDelimiter,
     },
 };
 
+use crate::divergence::TargetCommitRelation;
 use crate::graph_manipulation::{
     already_connected_parent_for_step, connect_parent_step, disconnect_selector_from_all_parents,
 };
-use crate::{divergence::TargetCommitRelation, graph_manipulation::determine_parent_selector};
 
 use super::{InteractiveIntegrationStep, display::relation_for};
 
@@ -297,6 +296,7 @@ fn prepare_squash_step_for_editor<M: RefMetadata>(
         .repo()
         .merge_base_octopus(ordered_commit_ids.iter().copied())
         .context("failed to compute squash merge-base")?
+        .context("Could not find a merge-base for the commits to squash")?
         .detach();
 
     let tip_commit_id = *ordered_commit_ids
@@ -400,7 +400,7 @@ fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
     for step in steps.iter().rev() {
         match step {
             PreparedIntegrationStep::Pick { commit_id, .. } => {
-                disconnect_and_make_mutable_if_existing(editor, *commit_id)?;
+                detach_first_parent_and_make_mutable_if_existing(editor, *commit_id)?;
                 out.push(*commit_id);
             }
             PreparedIntegrationStep::Merge { commit_id } => {
@@ -433,33 +433,29 @@ fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
     Ok(out)
 }
 
-/// Disconnects and makes mutable the step corresponding to `commit_id`, if it exists.
-fn disconnect_and_make_mutable_if_existing<M: RefMetadata>(
+/// Detaches the first-parent edge of the step for `commit_id` and makes it mutable, if it exists.
+///
+/// The chain rebuild supplies the new first parent. Edges with an order above 0 are the
+/// commit's other parents and stay, so a reused merge keeps the history it merges. The
+/// first-parent edge may already be gone when the integrated segment was detached from it.
+fn detach_first_parent_and_make_mutable_if_existing<M: RefMetadata>(
     editor: &mut Editor<'_, '_, M>,
     commit_id: gix::ObjectId,
 ) -> Result<()> {
     if let Some(existing) = editor.try_select_commit(commit_id) {
-        let parents_to_disconnect = determine_parent_selector(editor, existing)?;
-        editor.disconnect_segment_from(
-            SegmentDelimiter {
-                child: existing,
-                parent: existing,
-            },
-            SelectorSet::None,
-            parents_to_disconnect,
-            true,
-        )?;
+        for (parent, order) in editor.direct_parents(existing)? {
+            if order == 0 {
+                editor.remove_edges(existing, parent)?;
+            }
+        }
 
         // The integration rebuilds this commit onto new parents, so it must be
         // cherry-picked. Reused upstream commits live in immutable segments
         // (they aren't reachable from HEAD), so force them mutable here.
-        let mut step = editor.lookup_step(existing)?;
-        if let Step::Pick(pick) = &mut step
-            && !pick.mutable
-        {
+        editor.update_pick(existing, |_editor, mut pick| {
             pick.mutable = true;
-            editor.replace(existing, step)?;
-        }
+            Ok(pick)
+        })?;
         return Ok(());
     }
 

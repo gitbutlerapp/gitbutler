@@ -18,6 +18,8 @@ const ages = [
 ] as const;
 
 const meta = preview.meta({
+	title: "Content & status/RelativeTime",
+	id: "components-relativetime",
 	component: RelativeTime,
 	args: {
 		timestamp: now - 26 * minute,

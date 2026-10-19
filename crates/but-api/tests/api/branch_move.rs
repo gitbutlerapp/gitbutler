@@ -7,6 +7,21 @@ use crate::support::{
     repo_with_feature_branch, write_file,
 };
 
+fn move_branch_above(
+    ctx: &mut but_ctx::Context,
+    subject: &gix::refs::FullNameRef,
+    target: &gix::refs::FullNameRef,
+    dry_run: DryRun,
+) -> anyhow::Result<but_api::branch::MoveBranchResult> {
+    but_api::branch::move_branch(
+        ctx,
+        subject,
+        but_rebase::graph_rebase::mutate::RelativeTo::Reference(target.to_owned()),
+        but_rebase::graph_rebase::mutate::InsertSide::Above,
+        dry_run,
+    )
+}
+
 fn context_with_three_branch_stack_options(
     empty_top_branch: bool,
 ) -> anyhow::Result<(but_ctx::Context, tempfile::TempDir)> {
@@ -104,8 +119,7 @@ fn move_non_empty_branch_dry_run_previews_new_tip_without_mutating_repository() 
         .branch_stack_order(target.as_ref())?
         .expect("branch order is configured");
 
-    let result =
-        but_api::branch::move_branch(&mut ctx, subject.as_ref(), target.as_ref(), DryRun::Yes)?;
+    let result = move_branch_above(&mut ctx, subject.as_ref(), target.as_ref(), DryRun::Yes)?;
 
     assert_workspace_ref(&result.workspace, "refs/heads/B");
     #[cfg(not(feature = "graph-workspace"))]
@@ -131,8 +145,7 @@ fn move_checked_out_top_branch_down_checks_out_new_top() -> anyhow::Result<()> {
     let target: gix::refs::FullName = "refs/heads/A".try_into()?;
     let new_tip: gix::refs::FullName = "refs/heads/B".try_into()?;
 
-    let result =
-        but_api::branch::move_branch(&mut ctx, subject.as_ref(), target.as_ref(), DryRun::No)?;
+    let result = move_branch_above(&mut ctx, subject.as_ref(), target.as_ref(), DryRun::No)?;
 
     assert_workspace_ref(&result.workspace, "refs/heads/B");
     #[cfg(not(feature = "graph-workspace"))]
@@ -165,8 +178,7 @@ fn move_checked_out_top_branch_down_dry_run_does_not_persist_order() -> anyhow::
         .branch_stack_order(subject.as_ref())?
         .expect("branch order is configured");
 
-    let result =
-        but_api::branch::move_branch(&mut ctx, subject.as_ref(), target.as_ref(), DryRun::Yes)?;
+    let result = move_branch_above(&mut ctx, subject.as_ref(), target.as_ref(), DryRun::Yes)?;
 
     assert_workspace_ref(&result.workspace, "refs/heads/B");
     #[cfg(not(feature = "graph-workspace"))]
@@ -196,8 +208,7 @@ fn successful_branch_move_returns_and_persists_reordered_stack() -> anyhow::Resu
     let target: gix::refs::FullName = "refs/heads/B".try_into()?;
     let tip: gix::refs::FullName = "refs/heads/C".try_into()?;
 
-    let result =
-        but_api::branch::move_branch(&mut ctx, subject.as_ref(), target.as_ref(), DryRun::No)?;
+    let result = move_branch_above(&mut ctx, subject.as_ref(), target.as_ref(), DryRun::No)?;
 
     assert_workspace_ref(&result.workspace, "refs/heads/C");
     #[cfg(not(feature = "graph-workspace"))]
@@ -234,8 +245,7 @@ fn move_empty_top_branch_below_middle_preserves_commit_ownership() -> anyhow::Re
     );
 
     // The branch dropzone below B targets A, making the requested order B, C, A (tip to base).
-    let result =
-        but_api::branch::move_branch(&mut ctx, empty_top.as_ref(), bottom.as_ref(), DryRun::No)?;
+    let result = move_branch_above(&mut ctx, empty_top.as_ref(), bottom.as_ref(), DryRun::No)?;
 
     assert_workspace_ref(&result.workspace, "refs/heads/B");
     #[cfg(not(feature = "graph-workspace"))]
@@ -283,8 +293,7 @@ fn move_empty_branch_dry_run_previews_new_order_without_persisting_it() -> anyho
         .expect("branch order is configured");
     let oplog_head_before = ctx.oplog_head()?;
 
-    let result =
-        but_api::branch::move_branch(&mut ctx, middle.as_ref(), tip.as_ref(), DryRun::Yes)?;
+    let result = move_branch_above(&mut ctx, middle.as_ref(), tip.as_ref(), DryRun::Yes)?;
 
     assert_workspace_ref(&result.workspace, "refs/heads/middle");
     #[cfg(not(feature = "graph-workspace"))]
@@ -326,7 +335,7 @@ fn metadata_only_branch_move_can_be_undone_and_redone() -> anyhow::Result<()> {
         .branch_stack_order(tip.as_ref())?
         .expect("branch order is configured");
 
-    but_api::branch::move_branch(&mut ctx, middle.as_ref(), tip.as_ref(), DryRun::No)?;
+    move_branch_above(&mut ctx, middle.as_ref(), tip.as_ref(), DryRun::No)?;
     let order_after = ctx
         .meta()?
         .branch_stack_order(middle.as_ref())?

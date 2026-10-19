@@ -19,7 +19,7 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfirmDefault {
     Yes,
-    #[expect(dead_code)]
+    #[cfg_attr(feature = "legacy", expect(dead_code))]
     No,
 }
 
@@ -766,6 +766,10 @@ impl OutputChannel {
     /// Provide a handle to receive a serde-serializable value to write to stdout.
     pub fn for_json(&mut self) -> Option<&mut Self> {
         self.format.is_json().then_some(self)
+    }
+
+    pub fn is_agent(&mut self) -> bool {
+        self.format.is_agent()
     }
 
     /// A convenience function to create a progress channel that only writes when the output format permits progress.

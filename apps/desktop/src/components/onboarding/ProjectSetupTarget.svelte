@@ -7,9 +7,7 @@
 	import { projectLandDirectly } from "$lib/config/config";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { classify, type ClassifiedError } from "$lib/error/errorClassification";
-	import { t } from "$lib/i18n";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
-	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { combineResults } from "$lib/state/helpers";
 	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { unique } from "$lib/utils/array";
@@ -18,7 +16,6 @@
 		Button,
 		CardGroup,
 		Checkbox,
-		Icon,
 		InfoMessage,
 		Link,
 		Select,
@@ -26,7 +23,6 @@
 		TestId,
 		Toggle,
 	} from "@gitbutler/ui-svelte";
-	import { slide } from "svelte/transition";
 	import type { RemoteBranchInfo } from "$lib/baseBranch/baseBranch";
 
 	interface Props {
@@ -42,7 +38,6 @@
 
 	const posthog = inject(POSTHOG_WRAPPER);
 	const gitConfig = inject(GIT_CONFIG_SERVICE);
-	const settingsStore = inject(SETTINGS_SERVICE).appSettings;
 
 	const gbConfig = $derived(gitConfig.gbConfig(projectId));
 	const gerritMode = $derived(gbConfig.response?.gitbutlerGerritMode ?? false);
@@ -52,7 +47,6 @@
 	let loading = $state<boolean>(false);
 	let targetWasSet = $state(false);
 	let targetError = $state<ClassifiedError>();
-	let showMoreInfo = $state<boolean>(false);
 
 	// split all the branches by the first '/' and gather the unique remote names
 	// then turn remotes into an array of objects with a 'name' and 'value' key
@@ -108,7 +102,7 @@
 <div class="project-setup">
 	<div class="stack-v gap-4">
 		<ProjectNameLabel {projectName} />
-		<h1 class="text-serif-42">{t("configure-your")} <i>workspace</i></h1>
+		<h1 class="text-serif-42">Configure your <i>workspace</i></h1>
 	</div>
 
 	<div class="project-setup__fields">
@@ -121,7 +115,7 @@
 				onselect={(value) => {
 					selectedBranch = { name: value };
 				}}
-				label={t("target-branch")}
+				label="Target branch"
 				searchable
 			>
 				{#snippet itemSnippet({ item, highlighted })}
@@ -132,11 +126,10 @@
 			</Select>
 
 			<p class="text-12 text-body project-setup__field-caption">
-				{t("your-main-production-branch-typically")} <code class="code-string">origin/master</code>
-				or
+				Your main "production" branch, typically <code class="code-string">origin/master</code> or
 				<code class="code-string">upstream/main</code>.
 				<br />
-				<Link href="https://docs.gitbutler.com/overview#target-branch">{t("learn-more")}</Link>
+				<Link href="https://docs.gitbutler.com/overview#target-branch">Learn more</Link>
 			</p>
 		</div>
 
@@ -159,7 +152,8 @@
 				</Select>
 
 				<p class="text-12 text-body clr-text-2">
-					{t("you-have-branches-from-multiple-remotes-if-you-want-to-speci")}
+					You have branches from multiple remotes. If you want to specify a remote for creating
+					branches that is different from the remote that your target branch is on, change it here.
 				</p>
 			</div>
 		{/if}
@@ -179,14 +173,14 @@
 							{@html gerritLogoSvg}
 						{/snippet}
 						{#snippet title()}
-							{t("enable-gerrit-project")}
+							Enable Gerrit project
 						{/snippet}
 						{#snippet caption()}
-							{t("it-looks-like-this-project-might-be-a-gerrit-project")}
+							It looks like this project might be a Gerrit project.
 							<br />
-							{t("do-you-want-to-enable-gerrit-mode")}
+							Do you want to enable Gerrit mode?
 							<br />
-							{t("you-can-adjust-this-later-in-the-project-settings-if-needed")}
+							You can adjust this later in the project settings if needed.
 						{/snippet}
 						{#snippet actions()}
 							<Toggle
@@ -205,64 +199,8 @@
 
 	<label for="landDirectly" class="land-directly">
 		<Checkbox name="landDirectly" small bind:checked={$landDirectly} />
-		<span class="text-12 clr-text-2">{t("push-to-main-skip-pull-requests-mode")}</span>
+		<span class="text-12 clr-text-2">Push to main / Skip pull requests mode</span>
 	</label>
-
-	<!-- With the singleBranch feature flag, setting the target only updates project
-	     metadata and the user stays on their current branch, so don't promise a
-	     switch to gitbutler/workspace. -->
-	{#if !$settingsStore?.featureFlags.singleBranch}
-		<div
-			class="project-setup__info"
-			role="presentation"
-			onclick={() => (showMoreInfo = !showMoreInfo)}
-		>
-			<div class="project-setup__fold-icon" class:rotate-icon={showMoreInfo}>
-				<Icon name="chevron-right" />
-			</div>
-
-			<div class="stack-v gap-6 full-width">
-				<div class="project-setup__info__title">
-					<svg
-						width="16"
-						height="13"
-						viewBox="0 0 16 13"
-						fill="none"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						<path
-							d="M2 12L3.5 7.5M14 12L12.5 7.5M12.5 7.5L11 3H5L3.5 7.5M12.5 7.5H3.5"
-							stroke="#D96842"
-							stroke-width="1.5"
-						/>
-						<path
-							d="M1.24142 3H14.7586C14.8477 3 14.8923 2.89229 14.8293 2.82929L13.0293 1.02929C13.0105 1.01054 12.9851 1 12.9586 1H3.04142C3.0149 1 2.98946 1.01054 2.97071 1.02929L1.17071 2.82929C1.10771 2.89229 1.15233 3 1.24142 3Z"
-							fill="#FF9774"
-							stroke="#FF9774"
-							stroke-width="1.5"
-						/>
-					</svg>
-
-					<h3 class="text-13 text-body text-semibold">
-						{t("gitbutler-switches-your-active-branch-to")}
-						<span class="text-bold">gitbutler/workspace</span>
-					</h3>
-				</div>
-
-				{#if showMoreInfo}
-					<p class="text-12 text-body" transition:slide={{ duration: 200 }}>
-						{t("in-order-to-support-working-on-multiple-branches-simultaneou")}
-						<span class="text-bold">gitbutler/workspace</span>{t(
-							"you-can-always-switch-back-and-forth-as-needed-between-norma",
-						)}
-						<Link href="https://docs.gitbutler.com/features/branch-management/integration-branch"
-							>{t("learn-more")}</Link
-						>
-					</p>
-				{/if}
-			</div>
-		</div>
-	{/if}
 
 	{#if targetError}
 		{@const error = targetError}
@@ -324,48 +262,5 @@
 		justify-content: flex-end;
 		width: 100%;
 		gap: 8px;
-	}
-
-	/* BANNER */
-	.project-setup__info {
-		display: flex;
-		padding: 14px 16px;
-		gap: 8px;
-		border-radius: var(--radius-m);
-		background-color: var(--bg-mute);
-		cursor: pointer;
-
-		&:hover {
-			& .project-setup__fold-icon {
-				color: var(--text-2);
-			}
-		}
-	}
-
-	.project-setup__info__title {
-		display: inline;
-		width: 100%;
-		gap: 8px;
-
-		svg {
-			display: inline;
-			margin-right: 8px;
-			float: left;
-			transform: translateY(4px);
-		}
-	}
-
-	.project-setup__fold-icon {
-		display: flex;
-		align-self: flex-start;
-		padding-top: 2px;
-		color: var(--text-3);
-		transition:
-			transform var(--transition-medium),
-			color var(--transition-fast);
-
-		&.rotate-icon {
-			transform: rotate(90deg);
-		}
 	}
 </style>

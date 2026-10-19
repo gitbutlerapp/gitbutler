@@ -1,5 +1,4 @@
 import preview from "#storybook/preview";
-import { Toggle, ToggleGroup } from "@base-ui/react";
 import { Avatar } from "./Avatar.tsx";
 import { Badge } from "./Badge.tsx";
 import { Button } from "./Button.tsx";
@@ -9,16 +8,19 @@ import { EntityAvatar } from "./EntityAvatar.tsx";
 import { machinePictures } from "./story-assets/machines.ts";
 import { Icon } from "./Icon.tsx";
 import { SwitchButton } from "./SwitchButton.tsx";
-import { ToggleGroupStyles, ToggleStyles } from "./ToggleGroup.tsx";
-import { ViewHeader, ViewHeaderDivider } from "./ViewHeader.tsx";
+import { Tab, Tabs } from "./Tabs.tsx";
+import { ViewHeader, ViewHeaderButton, ViewHeaderDivider } from "./ViewHeader.tsx";
+import { MetaCount } from "./MetaCount.tsx";
 import type { FC } from "react";
 
 const meta = preview.meta({
+	title: "Preview/ViewHeader",
+	id: "components-viewheader",
 	component: ViewHeader,
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client?node-id=5611-127048",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2800-14127",
 		},
 	},
 	decorators: [
@@ -35,21 +37,26 @@ const BranchTabs: FC<{ tab?: "diff" | "pr"; prDisabled?: boolean }> = ({
 	tab = "diff",
 	prDisabled = false,
 }) => (
-	<ToggleGroup render={<ToggleGroupStyles />} defaultValue={[tab]} aria-label="Branch tab">
-		<Toggle render={<ToggleStyles />} value="diff">
+	<Tabs defaultValue={tab} aria-label="Branch tab">
+		<Tab value="diff" icon={<Icon name="diff" />}>
 			Diff
-		</Toggle>
-		<Toggle render={<ToggleStyles />} value="pr" disabled={prDisabled}>
+		</Tab>
+		<Tab value="pr" icon={<Icon name="pr" />} disabled={prDisabled}>
 			{prDisabled ? "No pull request" : "Pull Request"}
-		</Toggle>
-	</ToggleGroup>
+		</Tab>
+	</Tabs>
 );
 
-const CommitFilter: FC = () => (
-	<Button>
-		<Icon name="commit" />
-		All 4 commits
-	</Button>
+/** but.dev's branch tabs, then the commit filter after a divider. */
+const BranchTabsAndFilter: FC = () => (
+	<>
+		<BranchTabs />
+		<ViewHeaderDivider />
+		<Button>
+			<Icon name="commit" />
+			All 4 commits
+		</Button>
+	</>
 );
 
 const copyToClipboard = (value: string) => void navigator.clipboard.writeText(value);
@@ -76,7 +83,7 @@ const CommitAuthorLine: FC = () => (
 	</>
 );
 
-/** A commit's message body, as the toggle after its title unfolds it. */
+/** A commit's message body, as Full message unfolds it. */
 const CommitBody: FC = () => (
 	<p className="text-monospace text-body" style={{ fontSize: 12, whiteSpace: "pre-wrap" }}>
 		{`Search took the query as typed, so a stray quote or a backslash broke the
@@ -87,13 +94,13 @@ empty one returns nothing instead of every document.`}
 
 const SendAndMenu: FC = () => (
 	<>
-		<Button>
-			Send
-			<Icon name="arrow-right" />
-		</Button>
-		<Button iconOnly aria-label="More">
+		<ViewHeaderButton>
+			Send to
+			<Icon name="arrow-corner-up-right" />
+		</ViewHeaderButton>
+		<ViewHeaderButton variant="ghost" iconOnly aria-label="More">
 			<Icon name="kebab" />
-		</Button>
+		</ViewHeaderButton>
 	</>
 );
 
@@ -108,17 +115,85 @@ export const Default = meta.story({
 	},
 });
 
-/** An applied branch on the Diff tab: its tabs, a divider and the commit filter. No buttons. */
+/** An applied branch on the Diff tab: its tabs. No buttons. */
 export const Branch = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2801-14125",
+		},
+	},
 	args: {
 		icon: "branch",
 		title: "feature/JIRA-404-search-filters",
 		meta: branchMeta,
-		toolbar: (
+		toolbar: <BranchTabs />,
+	},
+});
+
+/**
+ * but.dev's branch header without tabs: its buttons at the end, centred on the title block, the
+ * meta line spelling out each count, each led by its glyph.
+ */
+export const SpelledOut = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=3178-47285",
+		},
+	},
+	args: {
+		icon: "branch",
+		title: "ios-push-handoff",
+		meta: (
 			<>
-				<BranchTabs />
-				<ViewHeaderDivider />
-				<CommitFilter />
+				<MetaCount type="unpushed">4 unpushed</MetaCount>
+				<MetaCount type="behind">3 behind</MetaCount>
+			</>
+		),
+		actions: (
+			<>
+				<ViewHeaderButton>
+					Update
+					<Icon name="arrow-down" />
+				</ViewHeaderButton>
+				<ViewHeaderButton>
+					Send to
+					<Icon name="arrow-corner-up-right" />
+				</ViewHeaderButton>
+				<ViewHeaderButton variant="ghost" iconOnly aria-label="More">
+					<Icon name="kebab" />
+				</ViewHeaderButton>
+			</>
+		),
+	},
+});
+
+/**
+ * but.dev's branch: its tabs and the commit filter make the toolbar, and its buttons stand beside
+ * the title, the pull request's Auto-merge first.
+ */
+export const BranchWithButtons = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=3249-48559",
+		},
+	},
+	args: {
+		icon: "branch",
+		title: "ios-push-handoff",
+		meta: (
+			<>
+				<MetaCount type="commits">3 commits ahead</MetaCount>
+				<MetaCount type="agent-working">Agent working 12m</MetaCount>
+			</>
+		),
+		toolbar: <BranchTabsAndFilter />,
+		actions: (
+			<>
+				<SwitchButton label="Auto-merge" variant="outline" />
+				<SendAndMenu />
 			</>
 		),
 	},
@@ -142,20 +217,13 @@ export const BranchFullWindow = meta.story({
 		icon: "branch",
 		title: "feature/JIRA-404-search-filters",
 		meta: branchMeta,
-		toolbar: (
-			<>
-				<BranchTabs />
-				<ViewHeaderDivider />
-				<CommitFilter />
-			</>
-		),
+		toolbar: <BranchTabs />,
 	},
 });
 
 /**
- * The Pull Request tab: the commit filter leaves with the diff, and the pull request's own
- * toolbar takes the end. Ghosts for Edit and the menu, an outline switch for Auto-merge since it
- * holds state, and Merge as the surface's one pop.
+ * The Pull Request tab: the pull request's own buttons end the tab row. Ghosts for Edit and the menu, an outline switch for Auto-merge since
+ * it holds state, and Merge as the surface's one pop.
  */
 export const BranchPullRequestTab = meta.story({
 	args: {
@@ -165,17 +233,17 @@ export const BranchPullRequestTab = meta.story({
 		toolbar: <BranchTabs tab="pr" />,
 		actions: (
 			<>
-				<Button variant="ghost">
+				<ViewHeaderButton variant="ghost">
 					Edit
 					<Icon name="edit" />
-				</Button>
+				</ViewHeaderButton>
 				<SwitchButton label="Auto-merge" variant="outline" />
 				<DropdownButton variant="pop" menuLabel="Merge options" onMenuTrigger={() => {}}>
 					Merge
 				</DropdownButton>
-				<Button variant="ghost" iconOnly aria-label="Pull request menu">
+				<ViewHeaderButton variant="ghost" iconOnly aria-label="Pull request menu">
 					<Icon name="kebab" />
-				</Button>
+				</ViewHeaderButton>
 			</>
 		),
 	},
@@ -183,17 +251,29 @@ export const BranchPullRequestTab = meta.story({
 
 /** A branch outside the workspace: no review, so the tab says why, and Apply is its action. */
 export const BranchNotApplied = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2801-14379",
+		},
+	},
 	args: {
 		icon: "branch",
 		title: "debug-this-nightmare",
 		meta: "3 commits ahead of origin/master",
 		toolbar: <BranchTabs prDisabled />,
-		actions: <Button variant="gray">Apply to workspace</Button>,
+		actions: <ViewHeaderButton variant="gray">Apply to workspace</ViewHeaderButton>,
 	},
 });
 
 /** No tabs, so no toolbar: the author line ends the header. */
 export const Commit = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2801-14583",
+		},
+	},
 	args: {
 		icon: "commit",
 		title: "fix: sanitize user input in search query",
@@ -204,6 +284,12 @@ export const Commit = meta.story({
 
 /** A commit whose review has landed: its tabs lead the author line rather than take a row. */
 export const CommitLandedReview = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2801-14697",
+		},
+	},
 	args: {
 		icon: "commit",
 		title: "Add test file 18 to collection",
@@ -215,6 +301,12 @@ export const CommitLandedReview = meta.story({
 
 /** A conflicted commit: the badge keeps its size while the subject gives way. */
 export const CommitConflicted = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2801-14907",
+		},
+	},
 	args: {
 		icon: "commit",
 		title: (
@@ -228,32 +320,14 @@ export const CommitConflicted = meta.story({
 	},
 });
 
-/**
- * but.dev's commit, stepping through a branch's commits. No toolbar, so the buttons sit level
- * with the author line.
- */
-export const CommitWithPicker = meta.story({
-	args: {
-		icon: "commit",
-		title: "fix: sanitize user input in search query",
-		meta: <CommitAuthorLine />,
-		children: <CommitBody />,
-		actions: (
-			<>
-				<Button iconOnly aria-label="Previous commit">
-					<Icon name="arrow-left" />
-				</Button>
-				<Button>1 of 4</Button>
-				<Button iconOnly aria-label="Next commit">
-					<Icon name="arrow-right" />
-				</Button>
-			</>
-		),
-	},
-});
-
 /** A clean worktree: the title alone. */
 export const Uncommitted = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2801-15185",
+		},
+	},
 	args: {
 		icon: "file-diff",
 		title: "Uncommitted",
@@ -262,6 +336,12 @@ export const Uncommitted = meta.story({
 
 /** but.dev's repository checkout: what it holds besides commits, and where to send it. */
 export const Worktree = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2801-15276",
+		},
+	},
 	args: {
 		icon: "folder",
 		title: "gitbutler",
@@ -272,6 +352,12 @@ export const Worktree = meta.story({
 
 /** but.dev's machine: an entity, so it wears the picture of its kind as its avatar. */
 export const Machine = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2801-15368",
+		},
+	},
 	args: {
 		avatar: <EntityAvatar value={{ _tag: "Picture", src: machinePictures[0].src }} />,
 		title: "pave--macbook-pro",
@@ -282,22 +368,22 @@ export const Machine = meta.story({
 
 /** but.dev's cloud session: an avatar, the branch's tabs, and Send to… as the surface's pop. */
 export const CloudSession = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2801-15458",
+		},
+	},
 	args: {
 		avatar: <EntityAvatar value={{ _tag: "Emoji", emoji: "☁️" }} />,
 		title: "Panel incoming commits count",
 		meta: "Claude Code · started from your phone · works on feature/JIRA-404-search-filters · 4 commits · 3 uncommitted",
-		toolbar: (
-			<>
-				<BranchTabs />
-				<ViewHeaderDivider />
-				<CommitFilter />
-			</>
-		),
+		toolbar: <BranchTabs />,
 		actions: (
-			<Button variant="pop">
+			<ViewHeaderButton variant="pop">
 				<Icon name="arrow-right" />
 				Send to…
-			</Button>
+			</ViewHeaderButton>
 		),
 	},
 });

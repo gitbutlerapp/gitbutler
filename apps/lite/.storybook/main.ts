@@ -12,8 +12,11 @@ export default defineMain({
 		"../../../packages/ui-react/design/components/*.mdx",
 		"../../../packages/ui-react/design/patterns/*.mdx",
 		"../ui/src/**/*.stories.tsx",
-		// The library's stories keep the "components/" titles, and so the story
-		// ids, they had while they lived in ui/src/components.
+		// The library's stories are shelved by what the components are for, the same groups as
+		// ⚛️ Core's component pages: each stories file names its group in `title`
+		// ("Overlays/Menu", under this prefix) and keeps the `id` it had before the groups
+		// ("components-menu"), so story URLs, Chromatic baselines and docs-show calls hold. Lite's own
+		// components take "Lite/" the same way.
 		{
 			directory: "../../../packages/ui-react/src",
 			files: "**/*.stories.tsx",

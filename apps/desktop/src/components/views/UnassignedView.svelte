@@ -33,7 +33,10 @@
 	const projectState = $derived(uiState.project(projectId));
 	const unassignedSidebarFolded = $derived(uiState.global.unassignedSidebarFolded);
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
-	const isCommitting = $derived(exclusiveAction?.type === "commit");
+	// A linked worktree's commit takes nothing from the main checkout.
+	const isCommitting = $derived(
+		exclusiveAction?.type === "commit" && exclusiveAction.worktree === undefined,
+	);
 
 	const treeChanges = $derived(uncommittedService.changesByStackId(null));
 	const treeChangesCount = $derived(treeChanges.current.length);

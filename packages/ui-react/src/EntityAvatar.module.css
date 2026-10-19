@@ -6,17 +6,17 @@
 	color: var(--text-1);
 }
 
-.small {
-	width: 28px;
-	height: 28px;
+.title {
+	width: 24px;
+	height: 24px;
 
 	.glyph {
-		width: 18px;
+		width: 16px;
 	}
 
 	.emoji {
 		/* stylelint-disable-next-line declaration-property-value-allowed-list -- An emoji here is a picture, sized as the avatar it stands in for, not text on the type scale. */
-		font-size: 20px;
+		font-size: 16px;
 	}
 }
 
@@ -51,9 +51,10 @@
 
 /* Each fill runs from the hue's 70 step down to its 60, the same in light and dark: a picture
    keeps its colours whatever the theme. */
+/* Teal into purple, as ⚛️ Core draws it, so the first fill is not only a lighter green. */
 .pop {
 	--avatar-top: var(--clr-pop-70);
-	--avatar-bottom: var(--clr-pop-60);
+	--avatar-bottom: var(--clr-purple-60);
 }
 
 .safe {
@@ -116,6 +117,10 @@
 .trigger {
 	border-radius: var(--radius-md);
 
+	&.titleTrigger {
+		border-radius: var(--radius-control);
+	}
+
 	&[data-popup-open] {
 		background-color: var(--bg-hover);
 	}
@@ -125,18 +130,22 @@
 	border-radius: var(--radius-sm);
 }
 
-.smallOptions,
+.titleOptions,
 .regularOptions {
 	display: grid;
 	min-inline-size: 0;
 	margin: 0;
-	padding: 0;
+	padding: 4px;
 	border: none;
 }
 
-.smallOptions {
-	grid-template-columns: repeat(7, 28px);
-	gap: 2px;
+.titleOptions {
+	grid-template-columns: repeat(7, 24px);
+	gap: 4px;
+
+	.option {
+		border-radius: var(--radius-control);
+	}
 }
 
 .regularOptions {
@@ -150,6 +159,6 @@
 
 /* Five rows show, the rest scroll: enough to choose from without the picker outgrowing the
    avatar it opened from. */
-.smallArea {
-	max-height: calc(5 * 28px + 4 * 2px);
+.titleArea {
+	max-height: calc(5 * 24px + 4 * 4px + 2 * 4px);
 }

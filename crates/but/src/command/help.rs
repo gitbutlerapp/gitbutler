@@ -163,6 +163,7 @@ pub(crate) fn grouped_subcommands(cmd: &clap::Command) -> IndexMap<Group, Vec<&c
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Redo => Group::OperationHistory,
 
+                SubcommandDiscriminant::Init => Group::OtherCommands,
                 SubcommandDiscriminant::Gui => Group::OtherCommands,
                 SubcommandDiscriminant::Update => Group::OtherCommands,
                 SubcommandDiscriminant::Alias => Group::OtherCommands,
@@ -173,8 +174,6 @@ pub(crate) fn grouped_subcommands(cmd: &clap::Command) -> IndexMap<Group, Vec<&c
                 SubcommandDiscriminant::Help => Group::OtherCommands,
                 SubcommandDiscriminant::Completions => Group::OtherCommands,
 
-                #[cfg(feature = "legacy")]
-                SubcommandDiscriminant::Setup => Group::OtherCommands,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Teardown => Group::OtherCommands,
                 #[cfg(feature = "legacy")]
@@ -195,7 +194,7 @@ pub(crate) fn grouped_subcommands(cmd: &clap::Command) -> IndexMap<Group, Vec<&c
                 SubcommandDiscriminant::Actions => continue,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Fetch => continue,
-                SubcommandDiscriminant::AgentLog => continue,
+                SubcommandDiscriminant::AgentLog | SubcommandDiscriminant::Setup => continue,
             };
             groups.entry(group).or_default().push(*clap_subcommand);
         } else {
@@ -415,11 +414,11 @@ Operation History:
 Server Interactions:
   merge        Merge a branch directly onto the target branch, bypassing review
   push         Push changes in a branch to remote
-  pull         Update all applied branches onto the latest target branch
+  pull         Update applied branches and worktrees onto the latest target
   pr           Commands for creating and managing reviews on a forge, e.g. Git…
 
 Other Commands:
-  setup        Set up a GitButler project from the git repository in the curre…
+  init         Create an empty Git repository in the current directory
   teardown     Exit GitButler mode and return to normal Git workflow
   gui          Open the GitButler GUI for the current project
   tui          Open a live terminal workspace for branches, commits, changes, …
@@ -447,7 +446,6 @@ Options:
 Environment variables:
   BUT_OUTPUT_FORMAT  Sets the output format when --json is not passed. Options:…
   BUT_PAGER  Sets the pager for large outputs. [default: less]
-  BUT_THEME  Sets the theme for but. Options: dark, light. [default: detected f…
 ...
 
 "#]]
@@ -500,6 +498,7 @@ Branching and Committing:
   worktree     Manage worktrees (experimental, requires the worktreeManipulati…
 
 Other Commands:
+  init         Create an empty Git repository in the current directory
   gui          Open the GitButler GUI for the current project
   update       Manage GitButler CLI and app updates
   alias        Manage command aliases
@@ -525,7 +524,6 @@ Options:
 Environment variables:
   BUT_OUTPUT_FORMAT  Sets the output format when --json is not passed. Options:…
   BUT_PAGER  Sets the pager for large outputs. [default: less]
-  BUT_THEME  Sets the theme for but. Options: dark, light. [default: detected f…
 ...
 
 "#]]

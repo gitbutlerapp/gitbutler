@@ -186,7 +186,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// Build the topological skeleton of the projection (stacks, above-workspace,
     /// workspace commit) with an empty [`GraphWorkspace::reference_status`].
     fn graph_workspace_topology(&self) -> Result<GraphWorkspace> {
-        let Some(entrypoint_ix) = self.head_index() else {
+        let Some(entrypoint_ix) = self.head().map(|head| head.id) else {
             return Ok(GraphWorkspace::empty());
         };
 
@@ -196,11 +196,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         //   If we find a workspace commit, we have stacks that reach the full history.
         //   If we don't find a workspace commit, all commits from HEAD are considered above the workspace.
 
-        let ws_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
-        let on_workspace = matches!(
-            &self.graph[entrypoint_ix],
-            Step::Reference { refname, .. } if *refname == ws_ref
-        );
+        let on_workspace = self.workspace_reference().is_some();
 
         let target_ix = self.target_selector().map(|s| s.id);
         let revision = self.history.current_revision();
@@ -210,13 +206,11 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                 all_until_optional_limit(&self.graph, entrypoint_ix, target_ix);
 
             // The workspace commit, if present, lives somewhere in `HEAD ^target`.
-            let workspace_commit = head_not_target_commit.nodes.iter().copied().find_map(|ix| {
-                let Step::Pick(Pick { id, .. }) = &self.graph[ix] else {
-                    return None;
-                };
-                let gix_commit = self.repo.find_commit(*id).ok()?;
-                is_managed_workspace_by_message(gix_commit.message_raw().ok()?).then_some(ix)
-            });
+            let workspace_commit = head_not_target_commit
+                .nodes
+                .iter()
+                .copied()
+                .find(|ix| is_workspace_commit(&self.graph, &self.repo, *ix));
 
             if let Some(workspace_commit_ix) = workspace_commit {
                 let (above_workspace, stacks) = divide_workspace_into_stacks(
@@ -258,16 +252,44 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         }
     }
 
-    /// The entrypoint (`HEAD`) reference node, or `None` if HEAD isn't on a ref.
-    fn head_index(&self) -> Option<StepGraphIndex> {
+    /// The step `HEAD` checks out, or `None` if the editor recorded no `HEAD` checkout.
+    pub fn head(&self) -> Option<Selector> {
         self.checkouts.iter().find_map(|checkout| match checkout {
-            Checkout::Head { selector, .. } => self
-                .history
-                .normalize_selector(*selector)
-                .ok()
-                .map(|s| s.id),
+            Checkout::Head { selector, .. } => self.history.normalize_selector(*selector).ok(),
             Checkout::Worktree { .. } => None,
         })
+    }
+
+    /// The step the linked worktree named `worktree_name` checks out, or `None` if the editor
+    /// recorded no checkout for it.
+    pub fn worktree_head(&self, worktree_name: &gix::bstr::BStr) -> Option<Selector> {
+        self.checkouts.iter().find_map(|checkout| match checkout {
+            Checkout::Worktree {
+                worktree_name: name,
+                selector,
+                ..
+            } if name == worktree_name => self.history.normalize_selector(*selector).ok(),
+            Checkout::Head { .. } | Checkout::Worktree { .. } => None,
+        })
+    }
+
+    /// The workspace reference, if `HEAD` is on it.
+    pub fn workspace_reference(&self) -> Option<Selector> {
+        let head = self.head()?;
+        matches!(
+            &self.graph[head.id],
+            Step::Reference { refname, .. } if refname.as_bstr() == WORKSPACE_REF_NAME
+        )
+        .then_some(head)
+    }
+
+    /// The workspace commit beneath the [workspace reference](Self::workspace_reference), if any.
+    pub fn workspace_commit(&self) -> Option<Selector> {
+        let head = self.workspace_reference()?;
+        let target = self.target_selector().map(|s| s.id);
+        traverse::all_until_optional_limit(&self.graph, head.id, target)
+            .find(|ix| is_workspace_commit(&self.graph, &self.repo, *ix))
+            .map(|ix| self.new_selector(ix))
     }
 
     /// The target commit's node, if a target is configured and present.
@@ -630,6 +652,21 @@ fn combined_push_status<K: Copy + Eq + std::hash::Hash>(
         }
     }
     own
+}
+
+pub(crate) fn is_workspace_commit(
+    graph: &StepGraph,
+    repo: &gix::Repository,
+    ix: StepGraphIndex,
+) -> bool {
+    let Step::Pick(Pick { id, .. }) = &graph[ix] else {
+        return false;
+    };
+    repo.find_commit(*id).is_ok_and(|commit| {
+        commit
+            .message_raw()
+            .is_ok_and(is_managed_workspace_by_message)
+    })
 }
 
 /// All steps in `start ^limit`, or everything reachable from `start` when there

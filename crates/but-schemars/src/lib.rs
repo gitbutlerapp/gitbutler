@@ -395,8 +395,6 @@ pub struct ApiFnEntry {
     pub params: &'static [&'static str],
     /// Repository-relative path to the Rust function carrying `#[but_api]`.
     pub source_file: &'static str,
-    /// Line of the Rust function carrying `#[but_api]`.
-    pub source_line: u32,
     /// The cache tags this read's result is made of, declared with
     /// `#[but_api(provides = [Reviews, ..])]`.
     ///

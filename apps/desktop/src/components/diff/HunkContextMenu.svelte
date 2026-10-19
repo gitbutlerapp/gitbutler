@@ -16,9 +16,11 @@
 
 <script lang="ts">
 	import { getEditorUri, URL_SERVICE } from "$lib/backend/url";
+	import { FILE_SERVICE } from "$lib/files/fileService";
 	import { isDiffHunk, lineIdsToHunkHeaders } from "$lib/hunks/hunk";
+	import { laneIdOf } from "$lib/linkedWorktrees/lane";
 	import { vscodePath } from "$lib/project/project";
-	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { type SelectionId } from "$lib/selection/key";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -32,6 +34,8 @@
 		change: TreeChange;
 		stackId?: string;
 		commitId?: string;
+		/** What the change was selected from, which tells the checkout it lives in. */
+		selectionId: SelectionId;
 		discardable: boolean;
 		selectable: boolean;
 		selectAllHunkLines: (hunk: DiffHunk) => void;
@@ -45,6 +49,7 @@
 		change,
 		stackId,
 		commitId,
+		selectionId,
 		discardable,
 		selectable,
 		selectAllHunkLines,
@@ -54,8 +59,8 @@
 
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
-	const projectService = inject(PROJECTS_SERVICE);
 	const urlService = inject(URL_SERVICE);
+	const fileService = inject(FILE_SERVICE);
 
 	const defaultCodeEditor = uiState.global.defaultCodeEditor;
 
@@ -91,6 +96,7 @@
 					hunkHeaders: isWholeFileChange ? [] : [item.hunk],
 				},
 			],
+			worktree: selectionId.worktree,
 		});
 	}
 
@@ -110,11 +116,15 @@
 					hunkHeaders: lineIdsToHunkHeaders(item.selectedLines, item.hunk.diff, "discard"),
 				},
 			],
+			worktree: selectionId.worktree,
 		});
 	}
 
+	// A worktree's commits are uncommitted into its own checkout.
+	const laneId = $derived(laneIdOf({ stackId, worktree: selectionId.worktree }));
+
 	async function uncommitHunk(item: HunkContextItem) {
-		if (!(stackId && commitId)) return;
+		if (!(laneId && commitId)) return;
 
 		const previousPathBytes =
 			change.status.type === "Rename" ? change.status.subject.previousPathBytes : null;
@@ -126,7 +136,7 @@
 
 		await stackService.uncommitChanges({
 			projectId,
-			stackId,
+			laneId,
 			commitId,
 			changes: [
 				{
@@ -187,7 +197,7 @@
 					{/if}
 				</ContextMenuSection>
 			{/if}
-			{#if stackId && commitId}
+			{#if laneId && commitId}
 				<ContextMenuSection>
 					<ContextMenuItem
 						testId={TestId.HunkContextMenu_UncommitChange}
@@ -206,18 +216,19 @@
 					label="Open in {defaultCodeEditor.current.displayName}"
 					icon="open-in-ide"
 					onclick={async () => {
-						const project = await projectService.fetchProject(projectId);
-						if (project?.path) {
-							// Use specific line number if available, otherwise use hunk start line
-							const lineNumber =
-								item.beforeLineNumber ?? item.afterLineNumber ?? item.hunk.newStart;
-							const path = getEditorUri({
-								schemeId: defaultCodeEditor.current.schemeIdentifer,
-								path: [vscodePath(project.path), filePath],
-								line: lineNumber,
-							});
-							urlService.openExternalUrl(path);
-						}
+						const absolutePath = await fileService.workdirPath(
+							projectId,
+							selectionId.worktree,
+							filePath,
+						);
+						// Use specific line number if available, otherwise use hunk start line
+						const lineNumber = item.beforeLineNumber ?? item.afterLineNumber ?? item.hunk.newStart;
+						const path = getEditorUri({
+							schemeId: defaultCodeEditor.current.schemeIdentifer,
+							path: [vscodePath(absolutePath)],
+							line: lineNumber,
+						});
+						urlService.openExternalUrl(path);
 						menuOpen = false;
 					}}
 				/>

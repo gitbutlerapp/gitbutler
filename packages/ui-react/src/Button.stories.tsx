@@ -4,6 +4,8 @@ import { Icon } from "./Icon.tsx";
 import React from "react";
 
 const meta = preview.meta({
+	title: "Actions/Button",
+	id: "components-button",
 	component: Button,
 });
 

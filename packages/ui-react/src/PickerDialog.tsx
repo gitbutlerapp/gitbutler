@@ -45,6 +45,7 @@ type VirtualizedListAreaProps<T> = {
 	nothingToListLabel: string;
 	/** What the rows are filtered on, so the empty state can say whether anything was searched for. */
 	query: string;
+	onClearSearch: () => void;
 	getItemKey: (item: T) => string;
 	getItemLabel: (item: T) => string;
 	getItemType: (item: T, group: PickerDialogGroup<T>) => ReactNode;
@@ -63,6 +64,7 @@ const VirtualizedListArea = <T,>({
 	highlightedItemIndex,
 	onSelectItem,
 	query,
+	onClearSearch,
 	statusLabel,
 	virtualizerRef,
 }: VirtualizedListAreaProps<T>) => {
@@ -207,6 +209,7 @@ const VirtualizedListArea = <T,>({
 							query={query}
 							nothingFound={nothingFoundLabel}
 							nothingToList={nothingToListLabel}
+							onClearSearch={onClearSearch}
 						/>
 					) : null}
 				</Autocomplete.Empty>
@@ -332,6 +335,7 @@ export const PickerDialog = <T,>({
 	const [highlightedItemIndex, setHighlightedItemIndex] = useState<number | null>(null);
 	const [inputValue, setInputValue] = useState("");
 	const deferredInputValue = useDeferredValue(inputValue);
+	const clearSearch = () => setInputValue("");
 
 	return (
 		<Modal
@@ -373,16 +377,7 @@ export const PickerDialog = <T,>({
 				<PopupSearch
 					placeholder={placeholder}
 					aria-label={placeholder}
-					onClear={
-						inputValue === ""
-							? undefined
-							: () => {
-									setInputValue("");
-									// Clearing by pointer leaves the caret nowhere, and the picker is
-									// a field the next keystroke is meant to reach.
-									inputRef.current?.focus();
-								}
-					}
+					onClear={inputValue === "" ? undefined : clearSearch}
 					render={
 						// The key handling reaches for Base UI's own event extensions, so it belongs on
 						// the autocomplete's input rather than on the row that dresses it.
@@ -430,6 +425,7 @@ export const PickerDialog = <T,>({
 					highlightedItemIndex={highlightedItemIndex}
 					onSelectItem={onSelectItem}
 					query={deferredInputValue}
+					onClearSearch={clearSearch}
 					statusLabel={statusLabel}
 					virtualizerRef={virtualizerRef}
 				/>

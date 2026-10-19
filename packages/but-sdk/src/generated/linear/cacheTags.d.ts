@@ -55,6 +55,7 @@ export declare const apiInvalidates: {
 	readonly addReviewLabels: readonly ["Reviews"];
 	readonly addReviewReaction: readonly ["ReviewReactions"];
 	readonly addSubmissionReaction: readonly ["ReviewSubmissions"];
+	readonly branchNameSegment: readonly ["Branches", "Workspace"];
 	readonly branchRemove: readonly ["Branches", "Workspace"];
 	readonly branchRename: readonly ["Branches", "Workspace"];
 	readonly createReviewComment: readonly ["ReviewComments"];
@@ -98,6 +99,7 @@ export declare const watcherInvalidates: {
 	readonly gitActivity: readonly ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "Worktrees", "AbsorptionPlan", "Comments"];
 	readonly gitFetch: readonly ["Branches", "TargetCommits", "FetchStatus", "Reviews"];
 	readonly gitHead: readonly ["OperatingMode"];
+	readonly linkedWorktreeChanges: readonly ["Diffs", "WorktreeChanges"];
 	readonly workspaceActivity: readonly ["Branches", "TargetCommits", "Workspace", "Commits", "Diffs", "WorktreeChanges", "Worktrees", "AbsorptionPlan", "Comments"];
 	readonly worktreeChanges: readonly ["Diffs", "WorktreeChanges", "AbsorptionPlan", "Comments"];
 };

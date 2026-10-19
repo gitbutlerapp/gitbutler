@@ -80,6 +80,7 @@ beforeEach(async () => {
 				target: {
 					remoteTrackingRef: { displayName: "main", remoteName: "origin", fullNameBytes: [] },
 					isCurrent: false,
+					hasLanesBehind: false,
 					commitsAhead: 1,
 				},
 			} as unknown as RefInfo),

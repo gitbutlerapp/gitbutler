@@ -68,16 +68,21 @@
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 
 	const isCommitting = $derived(
-		exclusiveAction?.type === "commit" && selectionId.type === "worktree",
+		exclusiveAction?.type === "commit" &&
+			selectionId.type === "worktree" &&
+			exclusiveAction.worktree === selectionId.worktree,
 	);
 
 	const isUncommittedChange = $derived(selectionId.type === "worktree");
+	// Dependencies work on the main checkout only.
+	const inMainCheckout = $derived(selectionId.worktree === undefined);
 
-	const uncommittedService = inject(UNCOMMITTED_SERVICE);
+	const uncommittedServices = inject(UNCOMMITTED_SERVICE);
+	const uncommittedService = $derived(uncommittedServices.at(selectionId.worktree));
 	const dependencyService = inject(DEPENDENCY_SERVICE);
 
 	const fileDependenciesQuery = $derived(
-		selectionId.type === "worktree"
+		isUncommittedChange && inMainCheckout
 			? dependencyService.fileDependencies(projectId, change.path, stackId)
 			: undefined,
 	);
@@ -260,6 +265,8 @@
 								"inlineUnifiedDiffs",
 							)}
 							onLineClick={(p) => {
+								// Only uncommitted lines can be selected for a commit.
+								if (!isUncommittedChange) return;
 								if (!canBePartiallySelected(diff.subject)) {
 									uncommittedService.checkHunk(stackId || null, change.path, hunk);
 								}
@@ -368,6 +375,7 @@
 			{change}
 			{stackId}
 			{commitId}
+			{selectionId}
 			discardable={isUncommittedChange}
 			{selectable}
 			{selectAllHunkLines}

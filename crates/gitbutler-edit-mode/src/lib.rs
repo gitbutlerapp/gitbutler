@@ -13,7 +13,7 @@ use but_ctx::{
     access::{RepoExclusive, RepoShared},
 };
 use but_oxidize::{ObjectIdExt as _, gix_to_git2_index};
-use but_rebase::graph_rebase::{Editor, Pick, Step};
+use but_rebase::graph_rebase::{Editor, Pick};
 use git2::build::CheckoutBuilder;
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr};
 use gitbutler_operating_modes::{
@@ -251,10 +251,12 @@ pub(crate) fn enter_edit_mode(
     // Fail before writing anything if the index is already locked, as checkout would only
     // notice after refs and HEAD were moved. The probe is released so checkout can take it.
     drop(
-        gix::lock::File::acquire_to_update_resource_following_symlinks(
+        gix::lock::File::acquire(
             repo.index_path(),
             gix::lock::acquire::Fail::Immediately,
             None,
+            0,
+            Some(&gix::lock::acquire::resolve_symlink),
         )
         .context("Repository index is locked by another process")?,
     );
@@ -374,12 +376,13 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     let (target_selector, _commit) =
         editor.find_selectable_commit(edit_mode_metadata.commit_oid)?;
 
-    let mut pick = Pick::new_pick(new_commit_oid);
-    // Do not replace new_commit_oid's parents with the parents of
-    // edit_mode_metadata.commit_oid
-    pick.preserved_parents = Some(decoded_head_commit.parents().collect());
-
-    editor.replace(target_selector, Step::Pick(pick))?;
+    editor.update_pick(target_selector, |_editor, _pick| {
+        let mut pick = Pick::new_pick(new_commit_oid);
+        // Do not replace new_commit_oid's parents with the parents of
+        // edit_mode_metadata.commit_oid
+        pick.preserved_parents = Some(decoded_head_commit.parents().collect());
+        Ok(pick)
+    })?;
     let outcome = editor.rebase()?;
     // HEAD is EDIT_BRANCH_REF and we do not need to re-checkout it (we
     // are checking out WORKSPACE_BRANCH_REF after this). As for needing to

@@ -4,6 +4,8 @@ import { Logo, type LogoName } from "./Logo.tsx";
 const names = ["github", "gitlab", "bitbucket"] satisfies Array<LogoName>;
 
 const meta = preview.meta({
+	title: "Icons/Logo",
+	id: "components-logo",
 	component: Logo,
 	argTypes: {
 		name: { control: "inline-radio", options: names },

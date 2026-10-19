@@ -29,7 +29,9 @@ impl InvokedFrom {
         let repo = gix::discover(directory)?;
         let name = repo
             .worktree()
-            .and_then(|worktree| worktree.id().map(ToOwned::to_owned));
+            .map(|worktree| worktree.id().map(|id| id.map(ToOwned::to_owned)))
+            .transpose()?
+            .flatten();
         Ok(name.map_or(Self::MainWorktree, Self::LinkedWorktree))
     }
 

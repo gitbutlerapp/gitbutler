@@ -1,6 +1,7 @@
 <!--
 	Compound child that renders the left panel of a stack view.
-	Contains: worktree changes, start commit button, and branch list.
+	Contains: worktree changes, start commit button, and branch list. In a
+	linked worktree's lane these are that worktree's files and commit box.
 	Reads shared state from StackController via context.
 
 	Usage:
@@ -13,32 +14,51 @@
 	import WorktreeChanges from "$components/files/WorktreeChanges.svelte";
 	import Resizer from "$components/shared/Resizer.svelte";
 	import SashLayer from "$components/shared/SashLayer.svelte";
+	import RemoveWorktreeModal from "$components/stack/RemoveWorktreeModal.svelte";
 	import StackDragHandle from "$components/stack/StackDragHandle.svelte";
 	import BranchList from "$components/views/BranchList.svelte";
+	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { stagingBehaviorFeature } from "$lib/config/uiFeatureFlags";
-	import { t } from "$lib/i18n";
+	import { FILE_SERVICE } from "$lib/files/fileService";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { createWorktreeSelection, type SelectionId } from "$lib/selection/key";
-	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { getStackContext } from "$lib/stacks/stackController.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, TestId } from "@gitbutler/ui-svelte";
+	import { Button, ContextMenuItem, ContextMenuSection, TestId } from "@gitbutler/ui-svelte";
 	import type { Segment } from "@gitbutler/but-sdk";
 
 	type Props = {
 		segments: Segment[];
 		topBranchName?: string;
 		onFoldStack?: () => void;
+		/** In a worktree's lane, the stack branch the worktree rests on. */
+		baseBranchName?: string;
 	};
 
-	const { segments, topBranchName, onFoldStack }: Props = $props();
+	const { segments, topBranchName, onFoldStack, baseBranchName }: Props = $props();
 
 	const controller = getStackContext();
-	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
+	const stackService = inject(STACK_SERVICE);
+	const fileService = inject(FILE_SERVICE);
+	const clipboardService = inject(CLIPBOARD_SERVICE);
 
+	let removeWorktreeModal = $state<RemoveWorktreeModal>();
+
+	const worktree = $derived(controller.worktree);
+	const topBranchNote = $derived.by(() => {
+		if (!worktree) return undefined;
+		if (!baseBranchName) return "worktree";
+		return `worktree on ${baseBranchName}`;
+	});
+	const uncommittedService = $derived(controller.uncommitted);
 	const changes = $derived(uncommittedService.changesByStackId(controller.stackId || null));
 	const startCommitVisible = $derived(uncommittedService.startCommitVisible(controller.stackId));
+	// A worktree without a branch commits onto its detached `HEAD`.
+	const canStartCommit = $derived(
+		!controller.isReadOnly && !controller.exclusiveAction && (!!topBranchName || !!worktree),
+	);
 
 	let dropzoneActivated = $state(false);
 	let dropzoneHovered = $state(false);
@@ -77,7 +97,7 @@
 			return;
 		}
 
-		const selectionId = createWorktreeSelection({});
+		const selectionId = createWorktreeSelection({ worktree: worktree?.name });
 		const selectedPaths = selectedPathsForSelection(selectionId);
 
 		if (selectedPaths.length > 0) {
@@ -121,11 +141,12 @@
 		}
 	}
 
-	function startCommit(branchName: string) {
+	function startCommit() {
 		controller.projectState.exclusiveAction.set({
 			type: "commit",
-			branchName,
+			branchName: topBranchName,
 			stackId: controller.stackId,
+			worktree: worktree?.name,
 		});
 
 		checkFilesForCommit();
@@ -139,7 +160,63 @@
 		disabled={controller.isCommitting}
 		onFold={onFoldStack}
 		branchName={topBranchName}
+		draggable={!worktree}
+		menu={worktree ? worktreeMenu : undefined}
 	/>
+
+	{#snippet worktreeMenu({ close }: { close: () => void })}
+		{#if worktree}
+			<ContextMenuSection>
+				<ContextMenuItem
+					label={fileService.showInFolderLabel}
+					icon="open-in-folder"
+					onclick={async () => {
+						close();
+						await fileService.showFileInFolder(controller.projectId, worktree.name, "");
+					}}
+				/>
+				<ContextMenuItem
+					label="Copy path"
+					icon="copy"
+					onclick={async () => {
+						close();
+						const path = await fileService.workdirPath(controller.projectId, worktree.name, "");
+						await clipboardService.write(path, { message: "Worktree path copied" });
+					}}
+				/>
+			</ContextMenuSection>
+			<ContextMenuSection>
+				<ContextMenuItem
+					label="Archive worktree"
+					icon="eject"
+					onclick={async () => {
+						close();
+						await stackService.setWorktreeArchived({
+							projectId: controller.projectId,
+							name: worktree.name,
+							archived: true,
+						});
+					}}
+				/>
+				<ContextMenuItem
+					label="Remove worktree…"
+					icon="bin"
+					onclick={() => {
+						close();
+						removeWorktreeModal?.show();
+					}}
+				/>
+			</ContextMenuSection>
+		{/if}
+	{/snippet}
+
+	{#if worktree}
+		<RemoveWorktreeModal
+			bind:this={removeWorktreeModal}
+			projectId={controller.projectId}
+			name={worktree.name}
+		/>
+	{/if}
 
 	<div
 		class="assignments-wrap"
@@ -154,9 +231,10 @@
 				class:dropzone-hovered={dropzoneHovered && changes.current.length === 0}
 			>
 				<WorktreeChanges
-					title="Staged"
+					title={worktree ? "Uncommitted" : "Staged"}
 					projectId={controller.projectId}
 					stackId={controller.stackId}
+					worktree={worktree?.name}
 					mode="assigned"
 					visibleRange={controller.visibleRange}
 					maxListHeight={stagedHeight}
@@ -176,7 +254,7 @@
 						{#if !controller.isCommitting}
 							<div class="assigned-changes-empty">
 								<p class="text-12 text-body assigned-changes-empty__text">
-									{t("drop-files-to-stage-or-commit-directly")}
+									{worktree ? "No uncommitted changes" : "Drop files to stage or commit directly"}
 								</p>
 							</div>
 						{/if}
@@ -190,7 +268,7 @@
 						minHeight={3}
 						maxHeight={stagedContentHeightRem}
 						unsetMaxHeight="40vh"
-						persistId="staged-changes-height-{controller.stackId ?? 'unassigned'}"
+						persistId="staged-changes-height-{controller.laneId}"
 						onWidth={(h) => (stagedHeight = `${h}rem`)}
 						onDblClick={() => (stagedHeight = "40vh")}
 					/>
@@ -207,22 +285,25 @@
 						style={changes.current.length > 0 ? "pop" : "gray"}
 						type="button"
 						wide
-						disabled={controller.isReadOnly || !topBranchName || !!controller.exclusiveAction}
-						tooltip={controller.isReadOnly ? "Read-only mode" : undefined}
-						onclick={() => {
-							if (topBranchName) startCommit(topBranchName);
-						}}
+						disabled={!canStartCommit}
+						tooltip={controller.readOnlyTooltip}
+						onclick={startCommit}
 					>
-						{t("start-a-commit")}
+						Start a commit…
 					</Button>
 				</div>
 			{:else if controller.isCommitting}
-				<NewCommitView projectId={controller.projectId} stackId={controller.stackId} />
+				<NewCommitView
+					projectId={controller.projectId}
+					stackId={controller.stackId}
+					{worktree}
+					laneId={controller.laneId}
+				/>
 			{/if}
 		{/if}
 	</div>
 
-	<BranchList {segments} />
+	<BranchList {segments} {topBranchNote} />
 </div>
 
 <style lang="postcss">

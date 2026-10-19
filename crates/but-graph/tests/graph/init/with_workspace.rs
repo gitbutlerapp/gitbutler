@@ -2821,17 +2821,18 @@ fn just_init_with_branches_complex() -> anyhow::Result<()> {
 ◎  A
 │ ◎  B
 ├─╯
-│ ◎  D
-├─╯
-│ ◎  E
-├─╯
-│ ◎  F
-├─╯
-│ ◎  📕gitbutler/workspace
-│ │ ◎  origin/main
-│ │ ◎  main[🌳] <> origin/main
-│ ├─╯
 │ ◎  👉C
+│ │ ◎  D
+├───╯
+│ │ ◎  E
+├───╯
+│ │ ◎  F
+├───╯
+│ │ ◎  📕gitbutler/workspace
+│ ├─╯
+│ │ ◎  origin/main
+│ ├─╯
+│ ◎  main[🌳] <> origin/main
 ├─╯
 ●  🏁·fafd9d0 (⌂|🏘|✓)
 "#]]
@@ -7386,13 +7387,14 @@ fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_dag(&graph),
         snapbox::str![[r#"
-◎  👉📕gitbutler/workspace[🌳]
-●  ·8926b15 (⌂|🏘)
-◎  main
-●  ·3686017 (⌂|🏘)
-◎  gitbutler/edit
-●  ·9725482 (⌂|🏘)
 ◎  gitbutler/target
+│ ◎  👉📕gitbutler/workspace[🌳]
+│ ●  ·8926b15 (⌂|🏘)
+│ ◎  main
+│ ●  ·3686017 (⌂|🏘)
+│ ◎  gitbutler/edit
+│ ●  ·9725482 (⌂|🏘)
+├─╯
 ●  🏁·fafd9d0 (⌂|🏘)
 "#]]
     );
@@ -7450,13 +7452,15 @@ fn special_branch_do_not_allow_overly_long_segments() -> anyhow::Result<()> {
 │                   └── ·e146f13 (⌂|🏘)
 │                       └── ►:3[3]:main <> origin/main
 │                           └── ·971953d (⌂|🏘|✓)
-│                               └── ►:2[4]:gitbutler/target <> origin/gitbutler/target
+│                               └── ►:2[4]:anon:
 │                                   ├── ·ce09734 (⌂|🏘|✓)
 │                                   └── 🏁·fafd9d0 (⌂|🏘|✓)
 ├── ►:1[0]:origin/gitbutler/target
-│   └── →:2: (gitbutler/target →:1:)
-└── ►:4[0]:origin/main
-    └── →:3: (main →:4:)
+│   └── →:2:
+├── ►:4[0]:origin/main
+│   └── →:3: (main →:4:)
+└── ►:7[0]:gitbutler/target <> origin/gitbutler/target
+    └── →:2:
 
 "#]]
     );

@@ -75,13 +75,11 @@ impl ChangeId {
             return None;
         }
 
-        bytes
-            .chunks_exact(2)
-            .map(|pair| {
-                Some(
-                    (reverse_hex_char_to_nibble(pair[0])? << 4)
-                        | reverse_hex_char_to_nibble(pair[1])?,
-                )
+        let (pairs, _) = bytes.as_chunks::<2>();
+        pairs
+            .iter()
+            .map(|&[high, low]| {
+                Some((reverse_hex_char_to_nibble(high)? << 4) | reverse_hex_char_to_nibble(low)?)
             })
             .collect()
     }

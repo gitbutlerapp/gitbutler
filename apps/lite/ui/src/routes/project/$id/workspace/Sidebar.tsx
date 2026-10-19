@@ -2,7 +2,7 @@ import { useWorkspaceIntegrateUpstream } from "#ui/api/mutations.ts";
 import { setPage, usePage } from "#ui/use-cursor.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { NotificationBell } from "#ui/review-inbox-bell.tsx";
-import { stackBottomRelativeTo } from "#ui/api/stack.ts";
+import { pullHasWork, rebaseAllUpdates } from "#ui/api/stack.ts";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
@@ -11,12 +11,12 @@ import { projectSlice } from "#ui/projects/state.ts";
 import { interfaceSlice } from "#ui/interface/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import type { AddressSpace } from "#ui/workspace/address-space.ts";
-import { Button, Toggle, ToggleGroup } from "@base-ui/react";
-import type { BottomUpdate, ProjectForFrontend } from "@gitbutler/but-sdk";
+import { Button } from "@base-ui/react";
+import type { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { Activity, type FC, useRef } from "react";
-import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
+import { Segment, SegmentedControl } from "@gitbutler/ui-react/SegmentedControl.tsx";
 import { WorkspaceLists } from "#ui/routes/project/$id/workspace/WorkspaceLists/WorkspaceLists.tsx";
 import type { Graph } from "#ui/routes/project/$id/workspace/Graph/usePlan.ts";
 import { BranchesList } from "#ui/routes/project/$id/workspace/BranchesList.tsx";
@@ -68,13 +68,6 @@ export const Sidebar: FC<{
 	);
 	const page = usePage();
 
-	const selectPage = (value: Array<PageId>) => {
-		const head = value[0];
-		if (head === undefined) return;
-
-		setPage(head);
-	};
-
 	const openApplyBranchPicker = () => {
 		dispatch(interfaceSlice.actions.openDialog({ dialog: { _tag: "ApplyBranchPicker" } }));
 	};
@@ -94,21 +87,18 @@ export const Sidebar: FC<{
 		useWorkspaceIntegrateUpstream();
 	const fetchFromRemotes = useFetchFromRemotes(projectId);
 	const updateWorkspace = () => {
-		const rebaseUpdates = (headInfo?.stacks ?? [])
-			.values()
-			.map(stackBottomRelativeTo)
-			.filter((relativeTo) => relativeTo != null)
-			.map((relativeTo): BottomUpdate => ({ kind: "rebase", selector: relativeTo }));
-
-		workspaceIntegrateUpstream({ projectId, updates: rebaseUpdates.toArray(), dryRun: false });
+		workspaceIntegrateUpstream({
+			projectId,
+			updates: headInfo ? rebaseAllUpdates(headInfo) : [],
+			dryRun: false,
+		});
 	};
 
-	// Only an update advances the stored target, so there is work to do exactly
-	// while it trails the target ref. Counting upstream commits misses the case
-	// where a lane already contains them.
+	// Counting upstream commits misses the case where a lane already contains them.
 	const canUpdateWorkspace =
 		noOperationPending &&
-		headInfo?.target?.isCurrent === false &&
+		headInfo?.target != null &&
+		pullHasWork(headInfo.target) &&
 		!isWorkspaceIntegrateUpstreamPending;
 	const canCreateBranch = newBranch.enabled;
 
@@ -199,29 +189,27 @@ export const Sidebar: FC<{
 					onOpenSettings={openSettings}
 				/>
 
-				<ToggleGroup
-					render={<ToggleGroupStyles />}
+				<SegmentedControl
+					className={styles.pages}
 					aria-label="Pages"
-					value={[page]}
-					onValueChange={selectPage}
+					value={page}
+					onValueChange={setPage}
 				>
-					<Toggle
-						render={<ToggleStyles />}
+					<Segment
 						value={"workspace" satisfies PageId}
 						aria-label="Workspace"
+						icon={<Icon name="workbench" />}
 					>
-						<Icon name="workbench" />
 						<span className={styles.tabLabel}>Workspace</span>
-					</Toggle>
-					<Toggle
-						render={<ToggleStyles />}
+					</Segment>
+					<Segment
 						value={"branches" satisfies PageId}
 						aria-label="Branches"
+						icon={<Icon name="branch" />}
 					>
-						<Icon name="branch" />
 						<span className={styles.tabLabel}>Branches</span>
-					</Toggle>
-				</ToggleGroup>
+					</Segment>
+				</SegmentedControl>
 			</div>
 
 			<Activity mode={page === "branches" ? "visible" : "hidden"}>

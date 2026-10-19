@@ -384,22 +384,199 @@ fn updated_at_is_the_newest_entry_of_the_head_and_branch_reflogs() -> Result<()>
 }
 
 #[test]
-fn remove_defers_to_git_for_dirty_checkouts() -> Result<()> {
+fn remove_refuses_dirty_checkouts_without_force() -> Result<()> {
     let (repo, _tmp) = writable_scenario_slow("worktree-listing");
     let path = repo
-        .worktree_proxy_by_id(BStr::new("wt-a"))
+        .worktree_proxy_by_id(BStr::new("wt-a"))?
         .expect("fixture worktree")
         .base()?;
 
-    let err = but_workspace::worktrees::remove(&repo, &path, false).unwrap_err();
+    let err = but_workspace::worktrees::remove(&repo, BStr::new("wt-a"), false).unwrap_err();
     assert!(err.to_string().contains("--force"), "{err}");
     assert!(path.is_dir(), "a refused removal leaves the checkout alone");
 
-    but_workspace::worktrees::remove(&repo, &path, true)?;
+    but_workspace::worktrees::remove(&repo, BStr::new("wt-a"), true)?;
     assert!(!path.exists());
     assert!(
-        repo.worktree_proxy_by_id(BStr::new("wt-a")).is_none(),
+        repo.worktree_proxy_by_id(BStr::new("wt-a"))?.is_none(),
         "the administrative files are gone too"
+    );
+    Ok(())
+}
+
+#[test]
+fn remove_overrides_a_lock_and_restores_it_when_removal_is_refused() -> Result<()> {
+    use but_testsupport::CommandExt as _;
+
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    for name in ["wt-a", "wt-detached"] {
+        but_testsupport::git(&repo)
+            .args(["worktree", "lock", "--reason", "kept", name])
+            .run();
+    }
+    let worktree = |name: &str| repo.worktree_proxy_by_id(BStr::new(name));
+
+    but_workspace::worktrees::remove(&repo, BStr::new("wt-detached"), false)?;
+    assert!(
+        worktree("wt-detached")?.is_none(),
+        "a lock does not keep a clean checkout from being removed"
+    );
+
+    let err = but_workspace::worktrees::remove(&repo, BStr::new("wt-a"), false).unwrap_err();
+    assert!(err.to_string().contains("--force"), "{err}");
+    assert_eq!(
+        worktree("wt-a")?
+            .expect("removal was refused")
+            .lock_reason(),
+        Some("kept".into()),
+        "a refused removal leaves the lock as it was"
+    );
+
+    but_workspace::worktrees::remove(&repo, BStr::new("wt-a"), true)?;
+    assert!(
+        worktree("wt-a")?.is_none(),
+        "a lock does not keep a dirty checkout from being removed forcibly"
+    );
+    Ok(())
+}
+
+#[test]
+fn remove_with_force_overrides_an_unreadable_lock() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let name = BStr::new("wt-a");
+    let worktree = repo.worktree_proxy_by_id(name)?.expect("fixture worktree");
+    // A directory is a lock marker whose reason cannot be read, on every platform.
+    std::fs::create_dir(worktree.git_dir().join("locked"))?;
+    assert!(worktree.is_locked(), "the lock marker is present");
+    assert!(
+        worktree.lock_reason().is_none(),
+        "the lock reason is unreadable"
+    );
+
+    but_workspace::worktrees::remove(&repo, name, true)?;
+    assert!(
+        repo.worktree_proxy_by_id(name)?.is_none(),
+        "forced removal overrides the lock without reading its reason"
+    );
+    Ok(())
+}
+
+#[test]
+#[ignore = "scheduling-sensitive removal stress; run explicitly with --ignored --nocapture"]
+fn remove_finishes_when_a_bounded_writer_adds_files_during_deletion() -> Result<()> {
+    use std::{
+        fs,
+        sync::atomic::{AtomicBool, Ordering},
+        time::{Duration, Instant},
+    };
+
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let path = repo.common_dir().join("concurrent-removal");
+    let branch = "refs/heads/concurrent-removal".try_into()?;
+    let name = but_workspace::worktrees::add(&repo, &path, branch, repo.head_id()?.detach())?;
+    let git_dir = repo
+        .worktree_proxy_by_id(name.as_bstr())?
+        .expect("registered worktree")
+        .git_dir()
+        .to_owned();
+    let marker = path.join("marker");
+    fs::write(&marker, b"watch for deletion")?;
+    // Keep deletion busy long enough for the writer to observe the marker disappearing.
+    for i in 0..1_000 {
+        fs::write(path.join(format!("padding-{i}")), b"padding")?;
+    }
+    let stop = AtomicBool::new(false);
+    let (removed, writes) = std::thread::scope(|scope| {
+        let writer = scope.spawn(|| -> Result<usize> {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while marker.exists() && !stop.load(Ordering::Relaxed) && Instant::now() < deadline {
+                std::thread::yield_now();
+            }
+            let mut writes = 0;
+            if !marker.exists() {
+                for i in 0..32 {
+                    match fs::write(path.join(format!("late-{i}")), b"late write") {
+                        Ok(()) => writes += 1,
+                        Err(err) if err.kind() == std::io::ErrorKind::NotFound => break,
+                        Err(err) => return Err(err.into()),
+                    }
+                }
+            }
+            Ok(writes)
+        });
+        let removed = but_workspace::worktrees::remove(&repo, name.as_bstr(), true);
+        stop.store(true, Ordering::Relaxed);
+        (removed, writer.join().expect("writer did not panic"))
+    });
+    let writes = writes?;
+    eprintln!(
+        "late writes={writes}, result={removed:?}, checkout={}, administration={}",
+        path.exists(),
+        git_dir.exists()
+    );
+    assert!(
+        writes > 0,
+        "the writer must overlap deletion for this stress test to be meaningful"
+    );
+    removed?;
+    assert!(
+        !path.exists() && !git_dir.exists(),
+        "both removal roots must disappear after the writer stops"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn add_runs_post_checkout_and_retains_the_worktree_if_the_hook_fails() -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let hooks = repo.common_dir().join("hooks");
+    std::fs::create_dir_all(&hooks)?;
+    let hook = hooks.join("post-checkout");
+    std::fs::write(
+        &hook,
+        br#"#!/bin/sh
+exit 1
+"#,
+    )?;
+    std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755))?;
+    let path = repo.common_dir().join("hook-worktree");
+    let base = repo.head_id()?.detach();
+    let err =
+        but_workspace::worktrees::add(&repo, &path, "refs/heads/hook-worktree".try_into()?, base)
+            .expect_err("hook failure is reported after checkout");
+    assert!(
+        err.to_string()
+            .contains("Worktree post-checkout hook failed (exit status: 1)"),
+        "the exit status explains failure even when the hook writes nothing to stderr: {err}"
+    );
+    assert!(
+        path.join(".git").is_file(),
+        "hook failure retains the completed worktree"
+    );
+    Ok(())
+}
+
+#[test]
+fn add_rejects_existing_branches_and_paths_before_changing_them() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let path = repo.common_dir().join("rejected-worktree");
+    let existing = "refs/heads/main".try_into()?;
+    assert!(
+        but_workspace::worktrees::add(&repo, &path, existing, repo.head_id()?.detach()).is_err(),
+        "an existing branch cannot be reset"
+    );
+    assert!(!path.exists(), "branch refusal leaves no checkout");
+    std::fs::create_dir(&path)?;
+    let new_branch = "refs/heads/rejected-worktree".try_into()?;
+    assert!(
+        but_workspace::worktrees::add(&repo, &path, new_branch, repo.head_id()?.detach()).is_err(),
+        "existing destination is rejected"
+    );
+    assert!(
+        repo.try_find_reference(new_branch)?.is_none(),
+        "destination refusal happens before branch creation"
     );
     Ok(())
 }
@@ -414,10 +591,10 @@ fn add_checks_out_a_new_branch_at_the_base_and_names_the_worktree_after_the_path
     let name = but_workspace::worktrees::add(&repo, &path, branch, base)?;
     assert_eq!(
         name, "wt-new",
-        "git names the worktree after the last path component"
+        "the worktree name comes from the last path component"
     );
     assert_eq!(
-        repo.worktree_proxy_by_id(name.as_bstr())
+        repo.worktree_proxy_by_id(name.as_bstr())?
             .expect("registered")
             .base()?,
         gix::path::realpath(&path)?
@@ -430,7 +607,325 @@ fn add_checks_out_a_new_branch_at_the_base_and_names_the_worktree_after_the_path
 
     let err = but_workspace::worktrees::add(&repo, &path, branch, base).unwrap_err();
     assert!(err.to_string().contains("already exists"), "{err}");
+    assert!(
+        err.is::<but_workspace::worktrees::DestinationExists>(),
+        "occupied destinations are safe to retry at a different path"
+    );
+
+    let other_path = path.with_file_name("other");
+    let err = but_workspace::worktrees::add(&repo, &other_path, branch, base).unwrap_err();
+    assert!(
+        !err.is::<but_workspace::worktrees::DestinationExists>(),
+        "an existing branch is not a retryable destination collision"
+    );
+    assert!(
+        !other_path.exists(),
+        "branch refusal leaves no checkout behind"
+    );
     Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn add_restores_new_directory_permissions_after_copying() -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let source = repo.workdir().expect("fixture has a working directory");
+    but_testsupport::invoke_bash_at_dir(
+        r#"
+        set -eu
+        mkdir existing
+        printf 'tracked\n' > existing/tracked
+        printf '/included/\n/existing/artifact\n' > .gitignore
+        git add .gitignore existing/tracked
+        git commit -qm 'Track existing directory and ignore artifacts'
+        mkdir -p included/nested
+        printf 'nested artifact\n' > included/nested/artifact
+        printf 'existing artifact\n' > existing/artifact
+        printf 'included/\nexisting/\n' > .worktreeinclude
+        "#,
+        source,
+    );
+    for (path, mode) in [
+        ("included", 0o700),
+        ("included/nested", 0o500),
+        ("existing", 0o500),
+    ] {
+        std::fs::set_permissions(source.join(path), std::fs::Permissions::from_mode(mode))?;
+    }
+    let destination = repo.common_dir().join("gb-wts/wt-directory-permissions");
+    let branch: &gix::refs::FullNameRef = "refs/heads/wt-directory-permissions".try_into()?;
+    let result =
+        but_workspace::worktrees::add(&repo, &destination, branch, repo.head_id()?.detach());
+    let modes: Vec<_> = ["included", "included/nested", "existing"]
+        .map(|path| {
+            std::fs::metadata(destination.join(path)).map(|meta| meta.permissions().mode() & 0o777)
+        })
+        .into_iter()
+        .collect();
+
+    // Restore write access before assertions so temporary directories can be cleaned up on failure.
+    for root in [source, destination.as_path()] {
+        for path in ["included", "included/nested", "existing"] {
+            let path = root.join(path);
+            if path.is_dir() {
+                std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700))?;
+            }
+        }
+    }
+    result?;
+    let modes = modes.into_iter().collect::<std::io::Result<Vec<_>>>()?;
+    assert_eq!(
+        modes[0], 0o700,
+        "intermediate new directories retain source permissions"
+    );
+    assert_eq!(
+        modes[1], 0o500,
+        "read-only permissions are restored after populating directory"
+    );
+    assert_ne!(
+        modes[2] & 0o200,
+        0,
+        "existing checkout directory must not inherit source's read-only mode"
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(destination.join("included/nested/artifact"))?,
+        "nested artifact\n"
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(destination.join("existing/artifact"))?,
+        "existing artifact\n"
+    );
+    Ok(())
+}
+
+#[test]
+fn add_does_not_copy_nested_destination_into_itself() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let source = repo.workdir().expect("fixture has a working directory");
+    but_testsupport::invoke_bash_at_dir(
+        r#"
+        set -eu
+        printf 'tracked contents\n' > tracked
+        printf '/included/\n' > .gitignore
+        git add tracked .gitignore
+        git commit -qm 'Track file and ignore nested worktree location'
+        mkdir included
+        printf 'source artifact\n' > included/artifact
+        printf 'included/new/tracked\nincluded/artifact\n' > .worktreeinclude
+        "#,
+        source,
+    );
+    let destination = source.join("included/new");
+    let branch: &gix::refs::FullNameRef = "refs/heads/wt-nested-destination".try_into()?;
+
+    // Nested destinations remain usable; only the destination subtree is excluded from copying.
+    but_workspace::worktrees::add(&repo, &destination, branch, repo.head_id()?.detach())?;
+
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(destination.join("tracked"))?,
+        "tracked contents\n"
+    );
+    // Select only a leaf from the nested checkout to expose self-copying without allowing
+    // an unfixed traversal to recurse indefinitely into its own output.
+    assert!(
+        !destination.join("included/new").exists(),
+        "source traversal must not copy files from the new checkout back into itself"
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(destination.join("included/artifact"))?,
+        "source artifact\n"
+    );
+    Ok(())
+}
+
+#[test]
+fn add_copies_only_ignored_directory_selected_by_untracked_worktreeinclude() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let source = repo.workdir().expect("fixture has a working directory");
+    but_testsupport::invoke_bash_at_dir(
+        r#"
+        printf '/included/\n/control/\n' > .gitignore
+        git add .gitignore
+        git commit -qm 'Ignore local artifact directories'
+        mkdir -p included/nested control
+        printf 'included artifact\n' > included/nested/artifact
+        printf 'control artifact\n' > control/artifact
+        printf '/included/\n' > .worktreeinclude
+        git check-ignore -q included/nested/artifact
+        git check-ignore -q control/artifact
+        "#,
+        source,
+    );
+    assert!(
+        repo.index()?
+            .entry_by_path(".worktreeinclude".into())
+            .is_none(),
+        "include configuration exists only in the source working directory, not its index"
+    );
+    let base = repo.head_id()?.detach();
+    assert!(
+        repo.find_commit(base)?
+            .tree()?
+            .lookup_entry_by_path(".worktreeinclude")?
+            .is_none(),
+        "include configuration is not part of the destination commit"
+    );
+    let destination = repo
+        .common_dir()
+        .join("gb-wts")
+        .join("wt-included-artifacts");
+    let branch: &gix::refs::FullNameRef = "refs/heads/wt-included-artifacts".try_into()?;
+
+    but_workspace::worktrees::add(&repo, &destination, branch, base)?;
+
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(destination.join(".gitignore"))?,
+        "/included/\n/control/\n"
+    );
+    but_testsupport::invoke_bash_at_dir(
+        "git check-ignore -q included/nested/artifact; git check-ignore -q control/artifact",
+        &destination,
+    );
+    assert!(
+        !destination.join(".worktreeinclude").exists(),
+        "untracked source configuration need not exist in the destination"
+    );
+    assert!(
+        !destination.join("control").exists(),
+        "being gitignored is insufficient: the control directory is not included"
+    );
+    assert!(
+        destination.join("included/nested/artifact").is_file(),
+        "source .worktreeinclude must copy selected ignored directory contents into the new worktree"
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(destination.join("included/nested/artifact"))?,
+        "included artifact\n"
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(source.join("included/nested/artifact"))?,
+        "included artifact\n"
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(source.join("control/artifact"))?,
+        "control artifact\n"
+    );
+    Ok(())
+}
+
+#[test]
+fn add_worktreeinclude_copies_only_destination_ignored_files_untracked_in_both_indexes() {
+    let (repo, _tmp) = writable_scenario_slow("worktree-listing");
+    let source = repo.workdir().expect("fixture has a working directory");
+    but_testsupport::invoke_bash_at_dir(
+        r#"
+        set -eu
+        mkdir included
+        printf '/included/ignored-untracked\n/included/source-tracked\n/included/destination-tracked\n' > .gitignore
+        printf 'destination committed contents\n' > included/destination-tracked
+        git add .gitignore
+        git add -f included/destination-tracked
+        git commit -qm 'Destination tracks one ignored file'
+        "#,
+        source,
+    );
+    let destination_base = repo.head_id().unwrap().detach();
+    but_testsupport::invoke_bash_at_dir(
+        r#"
+        set -eu
+        git rm --cached included/destination-tracked
+        printf 'source tracked contents\n' > included/source-tracked
+        git add -f included/source-tracked
+        git commit -qm 'Source tracks a different ignored file'
+        printf 'source contents must not overwrite destination\n' > included/destination-tracked
+        printf 'copy this artifact\n' > included/ignored-untracked
+        printf 'ordinary untracked contents\n' > included/not-ignored
+        printf '/included/\n' > .worktreeinclude
+        git check-ignore -q included/ignored-untracked
+        if git check-ignore -q included/not-ignored; then
+            echo 'included/not-ignored must not be ignored in source' >&2
+            exit 1
+        fi
+        git check-ignore --no-index -q included/source-tracked
+        git check-ignore --no-index -q included/destination-tracked
+        "#,
+        source,
+    );
+    let source_index = repo.index().unwrap();
+    for (path, tracked) in [
+        ("included/ignored-untracked", false),
+        ("included/not-ignored", false),
+        ("included/source-tracked", true),
+        ("included/destination-tracked", false),
+        (".worktreeinclude", false),
+    ] {
+        assert_eq!(
+            source_index.entry_by_path(path.into()).is_some(),
+            tracked,
+            "source tracking state for {path}"
+        );
+    }
+    let destination_tree = repo
+        .find_commit(destination_base)
+        .unwrap()
+        .tree_id()
+        .unwrap();
+    let destination_index = repo.index_from_tree(&destination_tree).unwrap();
+    for (path, tracked) in [
+        ("included/ignored-untracked", false),
+        ("included/not-ignored", false),
+        ("included/source-tracked", false),
+        ("included/destination-tracked", true),
+    ] {
+        assert_eq!(
+            destination_index.entry_by_path(path.into()).is_some(),
+            tracked,
+            "destination tracking state for {path}"
+        );
+    }
+    let destination = repo
+        .common_dir()
+        .join("gb-wts")
+        .join("wt-filtered-artifacts");
+    let branch: &gix::refs::FullNameRef = "refs/heads/wt-filtered-artifacts".try_into().unwrap();
+
+    but_workspace::worktrees::add(&repo, &destination, branch, destination_base).unwrap();
+
+    but_testsupport::invoke_bash_at_dir(
+        r#"
+        set -eu
+        git check-ignore --no-index -q included/ignored-untracked
+        if git check-ignore --no-index -q included/not-ignored; then
+            echo 'included/not-ignored must not be ignored in destination' >&2
+            exit 1
+        fi
+        git check-ignore --no-index -q included/source-tracked
+        git check-ignore --no-index -q included/destination-tracked
+        "#,
+        &destination,
+    );
+    assert!(
+        !destination.join("included/not-ignored").exists(),
+        "inclusion alone must not copy an ordinary untracked file"
+    );
+    assert!(
+        !destination.join("included/source-tracked").exists(),
+        "files tracked only in source must not be copied"
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(destination.join("included/destination-tracked")).unwrap(),
+        "destination committed contents\n"
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(destination.join("included/ignored-untracked")).unwrap(),
+        "copy this artifact\n"
+    );
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(source.join("included/destination-tracked")).unwrap(),
+        "source contents must not overwrite destination\n"
+    );
 }
 
 #[test]
@@ -488,16 +983,19 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
     );
 
     let p1 = repo.rev_parse_single("wt-pushed~1")?.detach();
-    let ws = but_workspace::branch::create_reference(
+    let mut db = but_testsupport::in_memory_db();
+    db.worktree_meta_mut().mark_adopted()?;
+    let mut ws = ws;
+    let ws = crate::utils::create_reference(
+        &repo,
+        &mut ws,
+        &mut meta,
+        &mut db,
         crate::utils::r("refs/heads/below-pushed"),
         Anchor::AtCommit {
             commit_id: p1,
             position: Above,
         },
-        &repo,
-        &ws,
-        &mut meta,
-        |_| unreachable!("worktree lanes have no stack"),
         None,
     )?;
     snapbox::assert_data_eq!(
@@ -531,7 +1029,7 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
 ├── 📁wt-pushed on cad9051
 │   ├── :wt-pushed[📁] <> origin/wt-pushed⇡1
 │   │   └── ·198b592
-│   └── 📙:below-pushed
+│   └── :below-pushed
 │       └── ❄88c9775
 ├── 📁wt-stacked on 6a13321 (🏘️)
 │   └── :wt-stacked[📁]
@@ -554,8 +1052,6 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
         "worktree lanes have no applied stack to record the new branch in"
     );
 
-    // Without metadata to order them, a new branch can't share a commit with a lane's branch or
-    // detached `HEAD`, which placing it relative to a branch always does.
     for (anchor, what) in [
         (
             Anchor::AtCommit {
@@ -573,13 +1069,14 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
             "below a branch, onto a detached HEAD",
         ),
     ] {
-        let err = but_workspace::branch::create_reference(
+        let mut ws = ws.clone();
+        let err = crate::utils::create_reference(
+            &repo,
+            &mut ws,
+            &mut meta,
+            &mut db,
             crate::utils::r("refs/heads/refused"),
             anchor,
-            &repo,
-            &ws,
-            &mut meta,
-            |_| unreachable!("worktree lanes have no stack"),
             None,
         )
         .expect_err(what);

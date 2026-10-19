@@ -1,41 +1,33 @@
+import type { App } from "../app.ts";
 import { expect, test } from "../test.ts";
+
+const fetchButtons = (app: App) => ({
+	docked: app
+		.getByRole("group", { name: "Docked upstream", includeHidden: true })
+		.getByRole("button", { name: "Fetch", exact: true, includeHidden: true }),
+	visible: app.page.locator("#sidebar-panel").getByRole("button", { name: "Fetch", exact: true }),
+});
 
 test.describe("hidden upstream toolbar", () => {
 	test.use({ scenario: "project-in-single-branch-three-branch-stack.sh" });
 
-	test("hides the docked fetch button while the upstream row is visible", async ({ appWindow }) => {
-		const sidebar = appWindow.locator("#sidebar-panel");
-		const docked = sidebar.locator('[class*="docked"]');
-		await expect(docked).toBeHidden();
-		await expect(
-			docked.getByRole("button", { name: "Fetch", exact: true, includeHidden: true }),
-		).toBeHidden();
-		await expect(sidebar.getByRole("button", { name: "Fetch", exact: true })).toHaveCount(1);
+	test("hides the docked fetch button while the upstream row is visible", async ({ app }) => {
+		await expect(fetchButtons(app).docked).toBeHidden();
+		await expect(fetchButtons(app).visible).toHaveCount(1);
 	});
 });
 
 test.describe("docked upstream toolbar", () => {
 	test.use({ scenario: "project-with-many-independent-stacks.sh" });
 
-	test("shows fetch with the docked row and hides both after scrolling to upstream", async ({
-		appWindow,
-	}) => {
-		const sidebar = appWindow.locator("#sidebar-panel");
-		const docked = sidebar.locator('[class*="docked"]');
-		const fetch = docked.getByRole("button", { name: "Fetch", exact: true, includeHidden: true });
-		await expect(fetch).toBeInViewport();
-		await appWindow
-			.getByRole("treeitem", { name: /^stack-\d+$/ })
-			.first()
-			.evaluate((row) => {
-				let scroller = row.parentElement;
-				while (scroller && !["auto", "scroll"].includes(getComputedStyle(scroller).overflowY))
-					scroller = scroller.parentElement;
-				if (!scroller) throw new Error("No workspace scroller");
-				scroller.scrollTop = scroller.scrollHeight;
-			});
-		await expect(docked).toBeHidden();
-		await expect(fetch).toBeHidden();
-		await expect(sidebar.getByRole("button", { name: "Fetch", exact: true })).toHaveCount(1);
+	test("shows fetch while docked", async ({ app }) => {
+		await expect(fetchButtons(app).docked).toBeInViewport();
+	});
+
+	test("hides it after scrolling to the upstream row", async ({ app }) => {
+		await app.listScroll(app.getByRole("treeitem", { name: /^stack-\d+$/ }).first(), "end");
+
+		await expect(fetchButtons(app).docked).toBeHidden();
+		await expect(fetchButtons(app).visible).toHaveCount(1);
 	});
 });

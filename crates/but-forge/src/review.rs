@@ -10,7 +10,7 @@ use but_utils::list_files;
 use chrono::Datelike;
 use serde::{Deserialize, Serialize};
 
-use crate::forge::ForgeName;
+use crate::{forge::ForgeName, resolve_account};
 
 pub const STACKING_FOOTER_BOUNDARY_TOP: &str = "<!-- GitButler Footer Boundary Top -->";
 pub const STACKING_FOOTER_BOUNDARY_BOTTOM: &str = "<!-- GitButler Footer Boundary Bottom -->";
@@ -108,31 +108,7 @@ pub fn get_review_template_functions(forge_name: &ForgeName) -> ReviewTemplateFu
             is_valid_review_template_path: is_valid_review_template_path_azure,
             supported_template_directories: &[SupportedTemplateDirectory::ForgeRoot],
         },
-        ForgeName::Gitee => ReviewTemplateFunctions {
-            // Gitee uses the same `PULL_REQUEST_TEMPLATE.md` convention as GitHub,
-            // at the repo root or under `.gitee/`. Not implemented yet — same
-            // placeholder as Bitbucket/Azure.
-            is_review_template: is_review_template_gitee,
-            get_root: get_gitee_directory_path,
-            is_valid_review_template_path: is_valid_review_template_path_gitee,
-            supported_template_directories: &[SupportedTemplateDirectory::ForgeRoot],
-        },
     }
-}
-
-fn get_gitee_directory_path(root_path: &path::Path) -> path::PathBuf {
-    // TODO: implement
-    root_path.to_path_buf()
-}
-
-fn is_review_template_gitee(_path_str: &str) -> bool {
-    // TODO: implement
-    false
-}
-
-fn is_valid_review_template_path_gitee(_path: &path::Path) -> bool {
-    // TODO: implement
-    false
 }
 
 fn get_github_directory_path(root_path: &path::Path) -> path::PathBuf {
@@ -482,91 +458,6 @@ impl From<but_gitlab::MergeRequest> for ForgeReview {
     }
 }
 
-impl From<but_gitee::GiteePullRequest> for ForgeReview {
-    fn from(pr: but_gitee::GiteePullRequest) -> Self {
-        let merged_at = pr.merged_at.clone();
-        let closed_at = pr.closed_at.clone();
-        ForgeReview {
-            html_url: pr.html_url,
-            number: pr.number,
-            title: pr.title,
-            body: pr.body,
-            author: pr.user.map(ForgeReviewUser::from),
-            labels: pr
-                .labels
-                .unwrap_or_default()
-                .into_iter()
-                .map(ForgeReviewLabel::from)
-                .collect(),
-            draft: pr.draft.unwrap_or(false),
-            source_branch: pr
-                .head
-                .as_ref()
-                .map(|h| h.ref_name.clone())
-                .unwrap_or_default(),
-            target_branch: pr
-                .base
-                .as_ref()
-                .map(|b| b.ref_name.clone())
-                .unwrap_or_default(),
-            sha: pr.head.as_ref().map(|h| h.sha.clone()).unwrap_or_default(),
-            integration_commit_shas: Default::default(),
-            created_at: Some(pr.created_at),
-            modified_at: pr.updated_at,
-            merged_at,
-            closed_at,
-            repository_ssh_url: pr
-                .base
-                .as_ref()
-                .and_then(|b| b.repo.as_ref())
-                .map(|r| format!("git@gitee.com:{}.git", r.full_name)),
-            repository_https_url: pr
-                .base
-                .as_ref()
-                .and_then(|b| b.repo.as_ref())
-                .map(|r| format!("https://gitee.com/{}.git", r.full_name)),
-            repo_owner: pr
-                .base
-                .as_ref()
-                .and_then(|b| b.repo.as_ref())
-                .map(|r| r.full_name.clone()),
-            head_repo_is_fork: pr
-                .head
-                .as_ref()
-                .and_then(|h| h.repo.as_ref())
-                .map(|r| r.fork)
-                .unwrap_or(false),
-            reviewers: Default::default(),
-            auto_merge_enabled: false,
-            unit_symbol: "#".to_string(),
-            last_sync_at: chrono::Local::now().naive_local(),
-        }
-    }
-}
-
-impl From<but_gitee::GiteeUser> for ForgeReviewUser {
-    fn from(user: but_gitee::GiteeUser) -> Self {
-        ForgeReviewUser {
-            id: user.id,
-            login: user.login,
-            name: user.name,
-            email: user.email,
-            avatar_url: user.avatar_url,
-            is_bot: false,
-        }
-    }
-}
-
-impl From<but_gitee::GiteeLabel> for ForgeReviewLabel {
-    fn from(label: but_gitee::GiteeLabel) -> Self {
-        ForgeReviewLabel {
-            name: label.name.unwrap_or_default(),
-            description: None,
-            color: label.color,
-        }
-    }
-}
-
 impl From<but_bitbucket::BitbucketPullRequest> for ForgeReview {
     fn from(pr: but_bitbucket::BitbucketPullRequest) -> Self {
         let merged_at = pr.merged_at();
@@ -765,6 +656,7 @@ fn list_recently_settled_reviews(
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
+    let preferred_forge_user = resolve_account(preferred_forge_user, forge_repo_info, storage)?;
     let reviews = match forge {
         ForgeName::GitHub => {
             let preferred_account = preferred_forge_user
@@ -845,36 +737,6 @@ fn list_recently_settled_reviews(
 
             prs.into_iter().map(ForgeReview::from).collect()
         }
-        ForgeName::Gitee => {
-            let preferred_account = preferred_forge_user
-                .as_ref()
-                .and_then(|user| user.gitee().cloned());
-            let owner = owner.clone();
-            let repo = repo.clone();
-            let storage = storage.clone();
-
-            let prs = std::thread::spawn(move || {
-                tokio::runtime::Runtime::new()
-                    .map_err(|e| {
-                        anyhow::anyhow!(
-                            "Failed to create a runtime for the settled-review sweep: {e}"
-                        )
-                    })?
-                    .block_on(but_gitee::list_all_prs(
-                        preferred_account.as_ref(),
-                        &owner,
-                        &repo,
-                        &storage,
-                    ))
-            })
-            .join()
-            .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
-
-            prs.into_iter()
-                .filter(|pr| pr.is_merged())
-                .map(ForgeReview::from)
-                .collect()
-        }
         _ => Vec::new(),
     };
     Ok(reviews)
@@ -920,16 +782,6 @@ impl From<but_gitlab::CredentialCheckResult> for ForgeAccountValidity {
     }
 }
 
-impl From<but_gitee::CredentialCheckResult> for ForgeAccountValidity {
-    fn from(value: but_gitee::CredentialCheckResult) -> Self {
-        match value {
-            but_gitee::CredentialCheckResult::Invalid => ForgeAccountValidity::Invalid,
-            but_gitee::CredentialCheckResult::NoCredentials => ForgeAccountValidity::NoCredentials,
-            but_gitee::CredentialCheckResult::Valid => ForgeAccountValidity::Valid,
-        }
-    }
-}
-
 impl From<but_bitbucket::CredentialCheckResult> for ForgeAccountValidity {
     fn from(value: but_bitbucket::CredentialCheckResult) -> Self {
         match value {
@@ -948,80 +800,27 @@ pub async fn check_forge_account_is_valid(
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     storage: &but_forge_storage::Controller,
 ) -> Result<ForgeAccountValidity> {
-    match forge_repo_info.forge {
-        ForgeName::GitHub => {
-            let preferred_account = match preferred_forge_user
-                .as_ref()
-                .and_then(|user| user.github().cloned())
-            {
-                Some(account) => account,
-                None => {
-                    let known_accounts = but_github::list_known_github_accounts(storage)?;
-                    match known_accounts.first() {
-                        Some(account) => account.clone(),
-                        None => {
-                            return Ok(ForgeAccountValidity::NoCredentials);
-                        }
-                    }
-                }
-            };
-
-            but_github::check_credentials(&preferred_account, storage)
-                .await
-                .map(Into::into)
-        }
-        ForgeName::GitLab => {
-            let preferred_account = match preferred_forge_user
-                .as_ref()
-                .and_then(|user| user.gitlab().cloned())
-            {
-                Some(account) => account,
-                None => {
-                    let known_accounts = but_gitlab::list_known_gitlab_accounts(storage)?;
-                    match known_accounts.first() {
-                        Some(account) => account.clone(),
-                        None => {
-                            return Ok(ForgeAccountValidity::NoCredentials);
-                        }
-                    }
-                }
-            };
-
-            but_gitlab::check_credentials(&preferred_account, storage)
-                .await
-                .map(Into::into)
-        }
-        ForgeName::Bitbucket => {
-            let preferred_account = match preferred_forge_user
-                .as_ref()
-                .and_then(|user| user.bitbucket().cloned())
-            {
-                Some(account) => account,
-                None => {
-                    let known_accounts = but_bitbucket::list_known_bitbucket_accounts(storage)?;
-                    match known_accounts.first() {
-                        Some(account) => account.clone(),
-                        None => {
-                            return Ok(ForgeAccountValidity::NoCredentials);
-                        }
-                    }
-                }
-            };
-
-            but_bitbucket::check_credentials(&preferred_account, storage)
-                .await
-                .map(Into::into)
-        }
-        ForgeName::Gitee => {
-            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitee());
-            but_gitee::check_credentials(preferred_account, storage)
-                .await
-                .map(Into::into)
-        }
-        _ => Err(Error::msg(format!(
-            "Checking reviews for forge {:?} is not implemented yet",
-            forge_repo_info.forge
-        ))),
+    let Some(account) = crate::find_forge_account(&preferred_forge_user, forge_repo_info, storage)?
+    else {
+        return if forge_repo_info.forge == ForgeName::Azure {
+            Err(Error::msg(format!(
+                "Checking reviews for forge {:?} is not implemented yet",
+                forge_repo_info.forge
+            )))
+        } else {
+            Ok(ForgeAccountValidity::NoCredentials)
+        };
+    };
+    match account {
+        crate::ForgeUser::GitHub(account) => but_github::check_credentials(&account, storage)
+            .await
+            .map(Into::into),
+        crate::ForgeUser::GitLab(account) => but_gitlab::check_credentials(&account, storage)
+            .await
+            .map(Into::into),
+        crate::ForgeUser::Bitbucket(account) => but_bitbucket::check_credentials(&account, storage)
+            .await
+            .map(Into::into),
     }
 }
 
@@ -1033,6 +832,7 @@ fn list_forge_reviews(
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
+    let preferred_forge_user = resolve_account(preferred_forge_user, forge_repo_info, storage)?;
     let reviews = match forge {
         ForgeName::GitHub => {
             let preferred_account = preferred_forge_user
@@ -1148,6 +948,7 @@ pub async fn list_forge_reviews_for_branch(
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
+    let preferred_forge_user = resolve_account(&preferred_forge_user, forge_repo_info, storage)?;
     match forge {
         ForgeName::GitHub => {
             let preferred_account = preferred_forge_user
@@ -1194,21 +995,6 @@ pub async fn list_forge_reviews_for_branch(
             )
             .await?;
             let prs = filter_bb_prs(prs, &filter);
-            Ok(prs.into_iter().map(ForgeReview::from).collect())
-        }
-        ForgeName::Gitee => {
-            let preferred_account = preferred_forge_user
-                .as_ref()
-                .and_then(|user| user.gitee().cloned());
-            let prs = but_gitee::list_prs_for_branch(
-                preferred_account.as_ref(),
-                owner,
-                repo,
-                branch,
-                storage,
-            )
-            .await?;
-            let prs = filter_gitee_prs(prs, &filter);
             Ok(prs.into_iter().map(ForgeReview::from).collect())
         }
         _ => Err(Error::msg(format!(
@@ -1332,49 +1118,6 @@ fn filter_bb_prs(
         .collect()
 }
 
-fn filter_gitee_prs(
-    prs: Vec<but_gitee::GiteePullRequest>,
-    filter: &ForgeReviewFilter,
-) -> Vec<but_gitee::GiteePullRequest> {
-    let now = chrono::Utc::now();
-    prs.into_iter()
-        .filter(|pr| {
-            if pr.merged_at.is_none() {
-                return false;
-            }
-            match filter {
-                ForgeReviewFilter::Today => {
-                    if let Some(merged_at_str) = &pr.merged_at
-                        && let Ok(merged_at) = chrono::DateTime::parse_from_rfc3339(merged_at_str)
-                    {
-                        return merged_at.date_naive() == now.date_naive();
-                    }
-                    false
-                }
-                ForgeReviewFilter::ThisWeek => {
-                    if let Some(merged_at_str) = &pr.merged_at
-                        && let Ok(merged_at) = chrono::DateTime::parse_from_rfc3339(merged_at_str)
-                    {
-                        let week_start = now
-                            - chrono::Duration::days(now.weekday().num_days_from_monday() as i64);
-                        return merged_at.date_naive() >= week_start.date_naive();
-                    }
-                    false
-                }
-                ForgeReviewFilter::ThisMonth => {
-                    if let Some(merged_at_str) = &pr.merged_at
-                        && let Ok(merged_at) = chrono::DateTime::parse_from_rfc3339(merged_at_str)
-                    {
-                        return merged_at.year() == now.year() && merged_at.month() == now.month();
-                    }
-                    false
-                }
-                ForgeReviewFilter::All => true,
-            }
-        })
-        .collect()
-}
-
 async fn get_forge_review_inner(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
@@ -1384,6 +1127,7 @@ async fn get_forge_review_inner(
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
+    let preferred_forge_user = resolve_account(preferred_forge_user, forge_repo_info, storage)?;
     match forge {
         ForgeName::GitHub => {
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
@@ -1519,6 +1263,8 @@ pub async fn list_repo_labels(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let labels =
                 but_github::pr::list_repo_labels(preferred_account, owner, repo, storage).await?;
@@ -1543,6 +1289,8 @@ pub async fn add_review_labels(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let labels = but_github::pr::add_labels(
                 preferred_account,
@@ -1574,6 +1322,8 @@ pub async fn remove_review_label(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             but_github::pr::remove_label(
                 preferred_account,
@@ -1602,6 +1352,8 @@ pub async fn list_reviewer_candidates(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let users =
                 but_github::pr::list_reviewer_candidates(preferred_account, owner, repo, storage)
@@ -1627,6 +1379,8 @@ pub async fn request_review(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             but_github::pr::request_reviewers(
                 preferred_account,
@@ -1657,6 +1411,8 @@ pub async fn withdraw_review_request(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             but_github::pr::remove_requested_reviewers(
                 preferred_account,
@@ -1728,6 +1484,8 @@ pub async fn update_review_comment(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let comment = but_github::pr::update_comment(
                 preferred_account,
@@ -1758,6 +1516,8 @@ pub async fn delete_review_comment(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             but_github::pr::delete_comment(preferred_account, owner, repo, comment_id, storage)
                 .await
@@ -1794,6 +1554,8 @@ pub async fn list_review_submissions(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let reviews = but_github::pr::list_pr_reviews(
                 preferred_account,
@@ -1837,6 +1599,8 @@ pub async fn list_review_comments(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let comments = but_github::pr::list_comments(
                 preferred_account,
@@ -1972,6 +1736,8 @@ pub async fn set_review_thread_resolved(
 ) -> Result<()> {
     match &forge_repo_info.forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             but_github::pr::set_review_thread_resolved(
                 preferred_account,
@@ -2001,6 +1767,8 @@ pub async fn create_review_thread_reply(
     let crate::forge::ForgeRepoInfo { forge, .. } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let comment = but_github::pr::create_review_thread_reply(
                 preferred_account,
@@ -2031,6 +1799,8 @@ pub async fn list_review_threads(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let threads = but_github::pr::list_review_threads(
                 preferred_account,
@@ -2087,6 +1857,8 @@ pub async fn list_review_reactions(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let reactions = but_github::pr::list_review_reactions(
                 preferred_account,
@@ -2115,6 +1887,8 @@ pub async fn list_comment_reactions(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let reactions = but_github::pr::list_comment_reactions(
                 preferred_account,
@@ -2145,6 +1919,8 @@ pub async fn add_review_reaction(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let reaction = but_github::pr::add_review_reaction(
                 preferred_account,
@@ -2176,6 +1952,8 @@ pub async fn remove_review_reaction(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             but_github::pr::remove_review_reaction(
                 preferred_account,
@@ -2207,6 +1985,8 @@ pub async fn add_submission_reaction(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let reaction = but_github::pr::add_pr_review_reaction(
                 preferred_account,
@@ -2241,6 +2021,8 @@ pub async fn remove_submission_reaction(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             but_github::pr::remove_pr_review_reaction(
                 preferred_account,
@@ -2272,6 +2054,8 @@ pub async fn add_comment_reaction(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let reaction = but_github::pr::add_comment_reaction(
                 preferred_account,
@@ -2303,6 +2087,8 @@ pub async fn remove_comment_reaction(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             but_github::pr::remove_comment_reaction(
                 preferred_account,
@@ -2366,6 +2152,8 @@ pub async fn list_review_timeline_events(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let events = but_github::pr::list_timeline_events(
                 preferred_account,
@@ -2413,6 +2201,8 @@ pub async fn create_review_comment(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let comment = but_github::pr::create_comment(
                 preferred_account,
@@ -2447,6 +2237,8 @@ pub async fn get_review_base_repo_url(
     } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
+            let preferred_forge_user =
+                resolve_account(preferred_forge_user, forge_repo_info, storage)?;
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let pr_number = review_number
                 .try_into()
@@ -2457,7 +2249,7 @@ pub async fn get_review_base_repo_url(
                 .context("Failed to fetch PR base repo URL")
         }
         // None tells the UI to fall back to a branch-name-only check.
-        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure | ForgeName::Gitee => Ok(None),
+        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure => Ok(None),
     }
 }
 
@@ -2473,6 +2265,7 @@ pub async fn get_review_merge_status(
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
+    let preferred_forge_user = resolve_account(preferred_forge_user, forge_repo_info, storage)?;
     match forge {
         ForgeName::GitHub => {
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
@@ -2636,6 +2429,19 @@ pub async fn update_review(
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
+    let has_metadata_update = title.is_some() || body.is_some() || target_base.is_some();
+    let should_decline = matches!(state, Some(ReviewState::Closed));
+    if *forge == ForgeName::Bitbucket {
+        if matches!(state, Some(ReviewState::Open)) {
+            return Err(anyhow::anyhow!(
+                "Bitbucket does not support reopening a declined pull request via the API."
+            ));
+        }
+        if !has_metadata_update && !should_decline {
+            return Ok(());
+        }
+    }
+    let preferred_forge_user = resolve_account(preferred_forge_user, forge_repo_info, storage)?;
     match forge {
         ForgeName::GitHub => {
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
@@ -2681,12 +2487,7 @@ pub async fn update_review(
             let preferred_account = preferred_forge_user
                 .as_ref()
                 .and_then(|user| user.bitbucket());
-            if matches!(state, Some(ReviewState::Open)) {
-                return Err(anyhow::anyhow!(
-                    "Bitbucket does not support reopening a declined pull request via the API."
-                ));
-            }
-            if title.is_some() || body.is_some() || target_base.is_some() {
+            if has_metadata_update {
                 let id = review_number
                     .try_into()
                     .context("PR: Failed to cast usize to i64, somehow")?;
@@ -2700,7 +2501,7 @@ pub async fn update_review(
                 };
                 but_bitbucket::pr::update(preferred_account, params, storage).await?;
             }
-            if matches!(state, Some(ReviewState::Closed)) {
+            if should_decline {
                 but_bitbucket::pr::decline(preferred_account, owner, repo, review_number, storage)
                     .await?;
             }
@@ -2750,6 +2551,7 @@ pub async fn merge_review(
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
+    let preferred_forge_user = resolve_account(preferred_forge_user, forge_repo_info, storage)?;
     match forge {
         ForgeName::GitHub => {
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
@@ -2817,6 +2619,12 @@ pub async fn set_review_auto_merge_state(
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
+    if *forge == ForgeName::Bitbucket {
+        return Err(Error::msg(
+            "Bitbucket Cloud does not support auto-merge for pull requests.",
+        ));
+    }
+    let preferred_forge_user = resolve_account(preferred_forge_user, forge_repo_info, storage)?;
 
     match forge {
         ForgeName::GitHub => {
@@ -2845,9 +2653,7 @@ pub async fn set_review_auto_merge_state(
             };
             but_gitlab::mr::set_auto_merge(preferred_account, params, storage).await
         }
-        ForgeName::Bitbucket => Err(Error::msg(
-            "Bitbucket Cloud does not support auto-merge for pull requests.",
-        )),
+
         _ => Err(Error::msg(format!(
             "Setting the auto-merge state of reviews for forge {forge:?} is not implemented yet.",
         ))),
@@ -2865,6 +2671,7 @@ pub async fn set_review_draftiness(
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
+    let preferred_forge_user = resolve_account(preferred_forge_user, forge_repo_info, storage)?;
 
     match forge {
         ForgeName::GitHub => {
@@ -2929,7 +2736,7 @@ fn github_head_owner_and_repo<'a>(
     forge_push_repo_info: &'a Option<crate::forge::ForgeRepoInfo>,
 ) -> (&'a str, Option<&'a str>) {
     if let Some(forge_push_repo_info) = forge_push_repo_info
-        && forge_push_repo_info != forge_repo_info
+        && !forge_push_repo_info.same_repository(forge_repo_info)
     {
         // If there's a push repo defined, it means we're handling a fork.
         // The head owner is the repository were we push the branches to (the fork) and
@@ -2949,7 +2756,8 @@ fn github_head_owner_and_repo<'a>(
 ///
 /// Some info on the push repo:
 /// If there's a push repository specified and it's different from the main repository,
-/// we assume we're opening a review from a fork.
+/// we assume we're opening a review from a fork. Both repositories must use the same
+/// forge provider and server.
 pub async fn create_forge_review(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
@@ -2957,9 +2765,28 @@ pub async fn create_forge_review(
     params: &CreateForgeReviewParams,
     storage: &but_forge_storage::Controller,
 ) -> Result<ForgeReview> {
+    if matches!(
+        forge_repo_info.forge,
+        ForgeName::GitHub | ForgeName::GitLab | ForgeName::Bitbucket
+    ) && let Some(push) = forge_push_repo_info
+        && !push.same_server(forge_repo_info)
+    {
+        anyhow::bail!("Review base and push repositories must use the same forge server.");
+    }
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
+    // Private SSH cannot constrain the API port. If the push URL supplies it, select
+    // against that URL so the one client used for both repositories matches it.
+    let account_repo = forge_push_repo_info
+        .as_ref()
+        .filter(|push| {
+            push.forge == *forge
+                && forge_repo_info.identity_port().is_none()
+                && push.identity_port().is_some()
+        })
+        .unwrap_or(forge_repo_info);
+    let preferred_forge_user = resolve_account(preferred_forge_user, account_repo, storage)?;
     match forge {
         ForgeName::GitHub => {
             let (head_owner, head_repo) =
@@ -3008,7 +2835,7 @@ pub async fn create_forge_review(
             // (`workspace/repo_slug`).
             let source_repo_full_name = forge_push_repo_info
                 .as_ref()
-                .filter(|push| *push != forge_repo_info)
+                .filter(|push| !push.same_repository(forge_repo_info))
                 .map(|push| format!("{}/{}", push.owner, push.repo));
 
             let pr_params = but_bitbucket::CreatePullRequestParams {
@@ -3022,25 +2849,6 @@ pub async fn create_forge_review(
                 draft: params.draft,
             };
             let pr = but_bitbucket::pr::create(preferred_account, pr_params, storage).await?;
-            Ok(ForgeReview::from(pr))
-        }
-        ForgeName::Gitee => {
-            let (head_owner, _head_repo) =
-                github_head_owner_and_repo(forge_repo_info, forge_push_repo_info);
-
-            let head = format!("{}:{}", head_owner, params.source_branch);
-            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitee());
-            let pr = but_gitee::create_pr(
-                preferred_account,
-                owner,
-                repo,
-                &head,
-                &params.target_branch,
-                &params.title,
-                &params.body,
-                storage,
-            )
-            .await?;
             Ok(ForgeReview::from(pr))
         }
         _ => Err(Error::msg(format!(
@@ -3149,6 +2957,7 @@ pub async fn prepare_review_target_updates(
         return Ok(Vec::new());
     }
 
+    let preferred_forge_user = resolve_account(preferred_forge_user, forge_repo_info, storage)?;
     let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
     let pr_numbers = reviews
         .iter()
@@ -3186,7 +2995,17 @@ pub async fn restore_native_stacks(
     stacks: &[Vec<i64>],
     storage: &but_forge_storage::Controller,
 ) -> Result<()> {
+    if stacks.is_empty() {
+        return Ok(());
+    }
+    if forge_repo_info.forge != ForgeName::GitHub {
+        anyhow::bail!(
+            "Restoring native stacks for forge {:?} is not implemented yet.",
+            forge_repo_info.forge
+        );
+    }
     let crate::forge::ForgeRepoInfo { owner, repo, .. } = forge_repo_info;
+    let preferred_forge_user = resolve_account(preferred_forge_user, forge_repo_info, storage)?;
     let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
     let mut errors = Vec::new();
     for pull_requests in stacks {
@@ -3447,6 +3266,10 @@ pub async fn sync_reviews(
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
+    if reviews.is_empty() && *forge != ForgeName::Azure {
+        return Ok(());
+    }
+    let preferred_forge_user = resolve_account(preferred_forge_user, forge_repo_info, storage)?;
 
     let mut errors: Vec<String> = Vec::new();
 
@@ -3957,49 +3780,6 @@ mod tests {
     }
 
     #[test]
-    fn missing_credentials_do_not_turn_a_stale_cache_into_an_empty_listing() {
-        let tmp = tempfile::tempdir().unwrap();
-        let mut db = but_db::DbHandle::new_in_directory(tmp.path()).unwrap();
-        // No accounts are stored, so client construction fails before any
-        // network request — the listing must not pretend the forge is empty.
-        let storage = but_forge_storage::Controller::from_path(tmp.path());
-        // `cached_review` stamps `last_sync_at` at the epoch, well past the
-        // fallback window, so the cached read attempts a live refresh.
-        db.forge_reviews_mut()
-            .unwrap()
-            .set_all(vec![cached_review(1, None, None).try_into().unwrap()])
-            .unwrap();
-
-        let reviews = list_forge_reviews_with_cache(
-            None,
-            &repo_info("owner", "repo"),
-            &storage,
-            &mut db,
-            Some(CacheConfig::CacheWithFallback {
-                max_age_seconds: 300,
-            }),
-        )
-        .unwrap();
-
-        let listed: Vec<i64> = reviews.iter().map(|review| review.number).collect();
-        assert_eq!(
-            listed,
-            vec![1],
-            "a failed credential lookup must serve the last known open reviews"
-        );
-        let persisted: Vec<i64> = crate::list_cached_forge_reviews(&db)
-            .unwrap()
-            .iter()
-            .map(|review| review.number)
-            .collect();
-        assert_eq!(
-            persisted,
-            vec![1],
-            "a failed credential lookup must not delete the last known open reviews"
-        );
-    }
-
-    #[test]
     fn only_outage_shaped_sync_failures_serve_the_stale_cache() {
         let not_authenticated =
             anyhow::anyhow!("no accounts").context(but_error::Context::new_static(
@@ -4044,66 +3824,147 @@ mod tests {
         assert_eq!(github_submission_state("APPROVED_WITH_COMMENTS"), None);
     }
 
-    #[test]
-    fn github_review_threads_map_side_and_outdated_anchor() {
-        let thread = |diff_side: &str, line: Option<i64>| but_github::PullRequestReviewThread {
-            id: "PRRT_1".to_string(),
-            is_resolved: true,
-            is_outdated: line.is_none(),
-            path: "src/lib.rs".to_string(),
-            line,
-            start_line: line,
-            original_line: Some(42),
-            diff_side: diff_side.to_string(),
-            comments: Vec::new(),
-        };
-
-        let current = ForgeReviewThread::from(thread("RIGHT", Some(17)));
-        assert_eq!(current.side, ForgeReviewThreadSide::New);
-        assert_eq!(current.line, Some(17));
-        assert!(
-            current.is_resolved,
-            "resolution carries over from the forge"
-        );
-
-        let outdated = ForgeReviewThread::from(thread("LEFT", None));
-        assert_eq!(outdated.side, ForgeReviewThreadSide::Old);
-        assert_eq!(
-            (outdated.line, outdated.original_line),
-            (None, Some(42)),
-            "an outdated thread keeps only where it was originally left"
-        );
-    }
-
-    #[test]
-    fn github_thread_comments_keep_their_review() {
-        let comment = but_github::PullRequestReviewThreadComment {
-            id: 1,
-            body: "@you take a look".to_string(),
-            author: None,
-            created_at: Some("2026-08-29T09:36:02Z".to_string()),
-            modified_at: None,
-            html_url: "https://example.invalid/c/1".to_string(),
-            diff_hunk: Some("@@ -1 +1 @@".to_string()),
-            review_id: Some(99),
-        };
-
-        let mapped = ForgeReviewThreadComment::from(comment);
-        assert_eq!(
-            mapped.review_id,
-            Some(99),
-            "the submission id is what files a thread under its verdict"
-        );
-        assert_eq!(mapped.body, "@you take a look");
-    }
-
     fn repo_info(owner: &str, repo: &str) -> crate::forge::ForgeRepoInfo {
         crate::forge::ForgeRepoInfo {
             forge: crate::forge::ForgeName::GitHub,
+            host: "github.com".to_string(),
+            port: None,
             owner: owner.to_string(),
             repo: repo.to_string(),
             protocol: "https".to_string(),
         }
+    }
+
+    fn review_params() -> CreateForgeReviewParams {
+        CreateForgeReviewParams {
+            title: "Review".into(),
+            body: "private description".into(),
+            source_branch: "topic".into(),
+            target_branch: "main".into(),
+            draft: false,
+        }
+    }
+
+    fn unusable_storage(tmp: &tempfile::TempDir) -> but_forge_storage::Controller {
+        let path = tmp.path().join("unusable-account-storage");
+        std::fs::write(&path, "not a directory").unwrap();
+        but_forge_storage::Controller::from_path(path)
+    }
+
+    #[test]
+    fn live_reviews_require_an_account_for_the_repository_host() -> Result<()> {
+        tokio::runtime::Runtime::new()?.block_on(async {
+            use crate::test_support::{accounts, assert_auth_error};
+            let (tmp, storage, accounts) = accounts();
+            for account in &accounts {
+                let mut repo = repo_info("owner", "repo");
+                repo.forge = account.forge_name();
+                repo.host = "forge.example.com".into();
+                for preferred in std::iter::once(None).chain(accounts.iter().cloned().map(Some)) {
+                    for error in [
+                        list_forge_reviews(&preferred, &repo, &storage).unwrap_err(),
+                        create_forge_review(&preferred, &repo, &None, &review_params(), &storage)
+                            .await
+                            .unwrap_err(),
+                    ] {
+                        assert_auth_error(error);
+                    }
+                    for payload in [
+                        ReviewUpdatePayload::new(Some(String::new()), None, None, None),
+                        ReviewUpdatePayload::new(None, Some(String::new()), None, None),
+                        ReviewUpdatePayload::new(None, None, None, Some("main".into())),
+                        ReviewUpdatePayload::new(None, None, Some(ReviewState::Closed), None),
+                        ReviewUpdatePayload::new(
+                            Some("Updated title".into()),
+                            None,
+                            Some(ReviewState::Closed),
+                            None,
+                        ),
+                    ] {
+                        assert_auth_error(
+                            update_review(&preferred, &repo, 1, payload, &storage)
+                                .await
+                                .unwrap_err(),
+                        );
+                    }
+                    if repo.forge != ForgeName::Bitbucket {
+                        assert_auth_error(
+                            update_review(
+                                &preferred,
+                                &repo,
+                                1,
+                                ReviewUpdatePayload::new(None, None, None, None),
+                                &storage,
+                            )
+                            .await
+                            .unwrap_err(),
+                        );
+                    }
+                    let validity = check_forge_account_is_valid(preferred, &repo, &storage).await?;
+                    assert!(
+                        matches!(validity, ForgeAccountValidity::NoCredentials),
+                        "never validate a different provider or host"
+                    );
+                }
+            }
+            let storage = unusable_storage(&tmp);
+            for forge in [ForgeName::GitHub, ForgeName::GitLab, ForgeName::Bitbucket] {
+                let mut base = repo_info("owner", "repo");
+                base.forge = forge;
+                base.host = "base.example.com".into();
+                let mut push = base.clone();
+                push.host = "push.example.com".into();
+                let error =
+                    create_forge_review(&None, &base, &Some(push), &review_params(), &storage)
+                        .await
+                        .unwrap_err();
+                assert!(
+                    error.to_string().contains("same forge server"),
+                    "cross-instance publishing must fail before reading account storage: {error:#}"
+                );
+            }
+            let azure = crate::derive_forge_repo_info(
+                "git@ssh.dev.azure.com:v3/org/project/repo.git",
+                None,
+            )
+            .unwrap();
+            let error = create_forge_review(
+                &None,
+                &azure,
+                &Some(repo_info("owner", "repo")),
+                &review_params(),
+                &storage,
+            )
+            .await
+            .unwrap_err();
+            assert_eq!(
+                error.to_string(),
+                "Creating reviews for forge Azure is not implemented yet.",
+                "unsupported publishing must not read the push provider's account storage"
+            );
+            let storage = but_forge_storage::Controller::from_path(tmp.path());
+            storage.add_gitlab_account(
+                &but_forge_storage::settings::GitLabAccount::SelfHosted {
+                    username: "alice".into(),
+                    host: "https://gitlab.private.example:8443/api/v4".into(),
+                    access_token_key: "unused-fork-token".into(),
+                },
+            )?;
+            let base =
+                crate::derive_forge_repo_info("git@gitlab.private.example:target/repo.git", None)
+                    .unwrap();
+            let push = crate::derive_forge_repo_info(
+                "https://gitlab.private.example:9443/fork/repo.git",
+                None,
+            )
+            .unwrap();
+            // The SSH base cannot constrain the port; the HTTP fork must reject the 8443 client.
+            let error = create_forge_review(&None, &base, &Some(push), &review_params(), &storage)
+                .await
+                .unwrap_err();
+            assert_auth_error(error);
+            Ok(())
+        })
     }
 
     #[test]
@@ -4119,75 +3980,50 @@ mod tests {
     #[test]
     fn test_github_head_owner_and_repo_with_fork_push_repo() {
         let forge_repo_info = repo_info("target-owner", "target-repo");
-        let forge_push_repo_info = Some(repo_info("fork-owner", "fork-repo"));
+        for (owner, repo) in [
+            ("fork-owner", "fork-repo"),
+            ("fork-owner", "target-repo"),
+            ("target-owner", "fork-repo"),
+        ] {
+            let forge_push_repo_info = Some(repo_info(owner, repo));
+            let (head_owner, head_repo) =
+                github_head_owner_and_repo(&forge_repo_info, &forge_push_repo_info);
 
-        let (head_owner, head_repo) =
-            github_head_owner_and_repo(&forge_repo_info, &forge_push_repo_info);
-
-        assert_eq!(head_owner, "fork-owner");
-        assert_eq!(head_repo, Some("fork-repo"));
+            assert_eq!(
+                (head_owner, head_repo),
+                (owner, Some(repo)),
+                "a different owner or repository requires fork head parameters"
+            );
+        }
     }
 
     #[test]
     fn test_github_head_owner_and_repo_with_equal_push_repo() {
-        let forge_repo_info = repo_info("target-owner", "target-repo");
-        let forge_push_repo_info = Some(repo_info("target-owner", "target-repo"));
+        let mut forge_repo_info = repo_info("target-owner", "target-repo");
+        forge_repo_info.host = "github.private.example".into();
+        forge_repo_info.port = Some(8443);
+        for (protocol, port) in [("https", Some(8443)), ("ssh", Some(2222))] {
+            let mut push = forge_repo_info.clone();
+            push.protocol = protocol.into();
+            push.port = port;
+            let forge_push_repo_info = Some(push);
+            let (head_owner, head_repo) =
+                github_head_owner_and_repo(&forge_repo_info, &forge_push_repo_info);
 
-        let (head_owner, head_repo) =
-            github_head_owner_and_repo(&forge_repo_info, &forge_push_repo_info);
-
-        assert_eq!(head_owner, "target-owner");
-        assert_eq!(head_repo, None);
-    }
-
-    #[test]
-    fn gitlab_review_preserves_source_project_clone_urls() {
-        let review = ForgeReview::from(but_gitlab::MergeRequest {
-            web_url: "https://gitlab.example/acme/widgets/-/merge_requests/42".into(),
-            iid: 42,
-            title: "Fork MR".into(),
-            description: None,
-            author: None,
-            labels: vec![],
-            draft: false,
-            source_branch: "fork-feature".into(),
-            target_branch: "main".into(),
-            sha: "1234567890abcdef1234567890abcdef12345678".into(),
-            integration_commit_shas: vec![],
-            created_at: None,
-            updated_at: None,
-            merged_at: None,
-            closed_at: None,
-            project_id: 10,
-            source_project_id: Some(20),
-            target_project_id: Some(10),
-            repository_ssh_url: Some("git@gitlab.example:contributor/widgets.git".into()),
-            repository_https_url: Some("https://gitlab.example/contributor/widgets.git".into()),
-            repo_owner: Some("contributor".into()),
-            source_project_is_fork: true,
-            assignees: vec![],
-            reviewers: vec![],
-            auto_merge_enabled: false,
-        });
-
+            assert_eq!(
+                (head_owner, head_repo),
+                ("target-owner", None),
+                "a private SSH port cannot distinguish API repositories or imply a fork"
+            );
+        }
+        let mut push = forge_repo_info.clone();
+        push.port = Some(9443);
+        let forge_push_repo_info = Some(push);
+        let (_, head_repo) = github_head_owner_and_repo(&forge_repo_info, &forge_push_repo_info);
         assert_eq!(
-            review.repository_https_url.as_deref(),
-            Some("https://gitlab.example/contributor/widgets.git"),
-            "GitLab review apply needs the source project HTTPS URL"
-        );
-        assert_eq!(
-            review.repository_ssh_url.as_deref(),
-            Some("git@gitlab.example:contributor/widgets.git"),
-            "GitLab review apply needs the source project SSH URL"
-        );
-        assert_eq!(
-            review.repo_owner.as_deref(),
-            Some("contributor"),
-            "GitLab fork remotes should be named from the source project namespace"
-        );
-        assert!(
-            review.head_repo_is_fork,
-            "GitLab fork MRs should preserve that the source project differs from the target"
+            head_repo,
+            Some("target-repo"),
+            "different known API ports must not identify the same repository"
         );
     }
 
@@ -4785,187 +4621,5 @@ mod tests {
             1,
             "synchronization repairs duplicate managed blocks"
         );
-    }
-
-    // --- compute_review_target_updates tests ---
-
-    fn heads(specs: &[(&str, Option<i64>)]) -> Vec<(String, Option<i64>)> {
-        specs
-            .iter()
-            .map(|(name, id)| (name.to_string(), *id))
-            .collect()
-    }
-
-    #[test]
-    fn target_updates_empty_stack() {
-        let result = compute_review_target_updates(&[], "main");
-        assert!(result.is_empty());
-    }
-
-    #[test]
-    fn target_updates_no_reviews() {
-        let h = heads(&[("branch-a", None), ("branch-b", None)]);
-        let result = compute_review_target_updates(&h, "main");
-        assert!(result.is_empty());
-    }
-
-    #[test]
-    fn target_updates_single_branch_with_review() {
-        let h = heads(&[("branch-a", Some(1))]);
-        let result = compute_review_target_updates(&h, "main");
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].number, 1);
-        assert_eq!(result[0].target_branch, "main");
-    }
-
-    #[test]
-    fn target_updates_stacked_reviews_point_to_parent() {
-        // bottom-to-top: branch-a -> branch-b -> branch-c
-        let h = heads(&[
-            ("branch-a", Some(1)),
-            ("branch-b", Some(2)),
-            ("branch-c", Some(3)),
-        ]);
-        let result = compute_review_target_updates(&h, "main");
-        assert_eq!(result.len(), 3);
-        assert_eq!(result[0].number, 1);
-        assert_eq!(result[0].target_branch, "main");
-        assert_eq!(result[1].number, 2);
-        assert_eq!(result[1].target_branch, "branch-a");
-        assert_eq!(result[2].number, 3);
-        assert_eq!(result[2].target_branch, "branch-b");
-    }
-
-    #[test]
-    fn target_updates_request_remote_description_hydration() {
-        let update: ForgeReviewUpdate = ForgeReviewTargetUpdate {
-            number: 42,
-            target_branch: "parent".to_string(),
-        }
-        .into();
-
-        assert!(
-            !update.update_description,
-            "target-only updates ask sync_reviews to hydrate the remote description"
-        );
-        assert_eq!(update.body, None);
-        assert_eq!(update.target_branch.as_deref(), Some("parent"));
-    }
-
-    #[test]
-    fn review_update_defaults_to_description_sync_when_field_is_omitted() {
-        let omitted: ForgeReviewUpdate = serde_json::from_value(serde_json::json!({
-            "number": 42,
-            "body": "Caller-provided description",
-            "unitSymbol": "#",
-            "targetBranch": null
-        }))
-        .expect("an update from an older caller should deserialize");
-        let explicit_false: ForgeReviewUpdate = serde_json::from_value(serde_json::json!({
-            "number": 42,
-            "body": null,
-            "updateDescription": false,
-            "unitSymbol": "",
-            "targetBranch": "parent"
-        }))
-        .expect("a target-only update should deserialize");
-
-        assert!(
-            omitted.update_description,
-            "older callers that omit the field should synchronize their provided description"
-        );
-        assert!(
-            !explicit_false.update_description,
-            "target-only callers should still be able to request remote hydration"
-        );
-    }
-
-    #[test]
-    fn target_updates_skips_branches_without_reviews() {
-        // branch-a has no review, so branch-b must target the trunk.
-        let h = heads(&[("branch-a", None), ("branch-b", Some(5))]);
-        let result = compute_review_target_updates(&h, "main");
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].number, 5);
-        assert_eq!(result[0].target_branch, "main");
-    }
-
-    #[test]
-    fn target_updates_gap_in_middle() {
-        // a(PR) -> b(no PR) -> c(PR): c should skip b and target a.
-        let h = heads(&[
-            ("branch-a", Some(1)),
-            ("branch-b", None),
-            ("branch-c", Some(3)),
-        ]);
-        let result = compute_review_target_updates(&h, "main");
-        assert_eq!(result.len(), 2);
-        assert_eq!(result[0].number, 1);
-        assert_eq!(result[0].target_branch, "main");
-        assert_eq!(result[1].number, 3);
-        assert_eq!(result[1].target_branch, "branch-a");
-    }
-
-    #[test]
-    fn forge_review_from_bitbucket_pull_request_maps_fields() {
-        let pr = but_bitbucket::BitbucketPullRequest {
-            html_url: "https://bitbucket.org/ws/repo/pull-requests/7".into(),
-            id: 7,
-            title: "Add feature".into(),
-            description: Some("body".into()),
-            state: "MERGED".into(),
-            draft: false,
-            source_branch: "feature".into(),
-            target_branch: "main".into(),
-            source_commit_hash: "deadbeef".into(),
-            merge_commit_hash: Some("cafef00d".into()),
-            created_on: Some("2026-06-01T00:00:00Z".into()),
-            updated_on: Some("2026-06-02T00:00:00Z".into()),
-            comment_count: 0,
-            author: Some(but_bitbucket::BitbucketUser {
-                id: 0,
-                username: "alice".into(),
-                name: Some("Alice".into()),
-                email: None,
-                avatar_url: Some("https://avatar".into()),
-                is_bot: false,
-            }),
-            reviewers: vec![but_bitbucket::BitbucketUser {
-                id: 0,
-                username: "bob".into(),
-                name: None,
-                email: None,
-                avatar_url: None,
-                is_bot: false,
-            }],
-            head_repo_is_fork: false,
-            repo_owner: None,
-        };
-
-        let review = ForgeReview::from(pr);
-
-        assert_eq!(review.number, 7);
-        assert_eq!(
-            review.html_url,
-            "https://bitbucket.org/ws/repo/pull-requests/7"
-        );
-        assert_eq!(review.title, "Add feature");
-        assert_eq!(review.body.as_deref(), Some("body"));
-        assert_eq!(review.source_branch, "feature");
-        assert_eq!(review.target_branch, "main");
-        assert_eq!(review.sha, "deadbeef");
-        assert_eq!(review.integration_commit_shas, vec!["cafef00d".to_string()]);
-        assert_eq!(review.merged_at.as_deref(), Some("2026-06-02T00:00:00Z"));
-        assert_eq!(review.closed_at, None);
-        assert!(review.labels.is_empty());
-        assert!(!review.draft);
-        assert!(!review.head_repo_is_fork);
-        assert_eq!(review.unit_symbol, "#");
-        assert_eq!(
-            review.author.as_ref().map(|a| a.login.as_str()),
-            Some("alice")
-        );
-        assert_eq!(review.reviewers.len(), 1);
-        assert_eq!(review.reviewers[0].login, "bob");
     }
 }

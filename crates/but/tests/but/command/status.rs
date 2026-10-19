@@ -178,9 +178,6 @@ fn common_base_omits_both_defaults_when_they_have_moved() {
 #[test]
 fn single_branch_mode_lazily_initializes_an_unregistered_repository() {
     let env = Sandbox::open_with_default_settings("one-fork");
-    env.but("config feature single-branch enable")
-        .assert()
-        .success();
 
     let status = status_json(&env);
     let project_meta = env.project_meta();
@@ -359,29 +356,6 @@ fn unborn() {
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: No target branch is configured and none could be inferred. Run `but config target <remote>/<branch>` to configure one.
-
-"#]]);
-}
-
-#[cfg(feature = "legacy")]
-#[test]
-fn disabled_single_branch_mode_requires_setup_for_unregistered_repository() {
-    let env = Sandbox::open_with_default_settings("one-fork");
-    env.but("config feature single-branch disable")
-        .assert()
-        .success()
-        .stderr_eq(snapbox::str![])
-        .stdout_eq(snapbox::str![[r#"
-✓ Feature flag single-branch is now disabled
-
-"#]]);
-
-    env.but("status")
-        .assert()
-        .failure()
-        .stdout_eq(snapbox::str![])
-        .stderr_eq(snapbox::str![[r#"
-Error: Setup required: No GitButler project found at . - run `but setup` to configure the project
 
 "#]]);
 }
@@ -638,6 +612,33 @@ fn long_file_cli_ids_are_aligned() {
 }
 
 #[test]
+fn commit_ids_are_aligned_within_a_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+
+    env.file("new-file", "first");
+    env.invoke_git("config --local gitbutler.testing.changeId 1234");
+    env.but("commit -b A -m first").assert().success();
+    env.file("new-file", "second");
+    env.invoke_git("config --local gitbutler.testing.changeId 1235");
+    env.but("commit -b A -m second").assert().success();
+
+    // The colliding change IDs need four characters, but the original commit needs three.
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┊●   1235 second
+┊●   1234 first
+┊●   tpm  add A
+...
+┊●   lrm add B
+...
+"#]]);
+}
+
+#[test]
 fn long_cli_ids() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("commits-with-same-prefix");
 
@@ -747,14 +748,8 @@ fn status_hint_clean_workspace() {
 
 #[test]
 fn status_hint_when_no_branches() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
-    // Keep the managed workspace: in single-branch mode unapply would check out a plain branch.
-    env.but("config feature single-branch disable")
-        .assert()
-        .success();
-    env.setup_metadata(&["A"]);
-
-    env.but("unapply A").assert().success();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.but("status")
         .with_color_for_svg()
@@ -1274,10 +1269,9 @@ Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove 
 /// - `origin/main` has two commits on top of `base`: `M1` and `M2`.
 /// - `B` forks from `M2` (the current `origin/main` tip) with one commit.
 ///
-/// The graph walk starts from the lowest common base (`base`), so B's stack
-/// includes `M1` and `M2`. Since both stacks are metadata-tracked they are
-/// not pruned — `M1` and `M2` appear in B's stack as integrated commits,
-/// to be cleaned up by `integrate_upstream`.
+/// The workspace base is the lowest common base (`base`), but B's lane ends at
+/// the local `main` on `M2`: it holds nothing beyond `origin/main`, so `M1` and
+/// `M2` are base for B rather than a `main` branch at the bottom of its stack.
 #[test]
 fn status_upstream_prunes_with_different_bases() {
     let env =
@@ -1301,10 +1295,6 @@ fn status_upstream_prunes_with_different_bases() {
 ┊
 ┊╭┄ h0 [B] [✓ upstream merges cleanly]
 ┊●   wxl B-change
-┊│
-┊├┄ ma [main] (merged upstream)
-┊●   upk M2
-┊●   tpp M1
 ├╯
 ┊
 ┊╭┄ (upstream: origin/main) 2 new commits
@@ -1314,7 +1304,6 @@ fn status_upstream_prunes_with_different_bases() {
 ├╯ efc9211 (common base) 2000-01-02 base
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
-Hint: branches marked `(merged upstream)` have landed; run `but pull` to remove them, or start new work on another branch
 
 "#]]);
 }
@@ -1455,7 +1444,7 @@ Hint: run `but help` for all commands
     // The first agent-detected invocation also delivers the skill-install
     // notice ahead of the graph (the sandbox home has no skill installed).
     env.but("status")
-        .env("AI_AGENT", "codex")
+        .as_agent()
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -2077,20 +2066,6 @@ Hint: run `but help` for all commands
         .stdout_eq(snapbox::file![
             "snapshots/status/linked-worktree-head.stdout.term.svg"
         ]);
-
-    // Setup registers the worktree it runs in, so it is refused here.
-    env.but("setup")
-        .current_dir(wt.join("wt-inside"))
-        .assert()
-        .failure()
-        .stdout_eq(snapbox::str![])
-        .stderr_eq(snapbox::str![[r#"
-Error: Failed to set up GitButler project.
-
-Caused by:
-    `but setup` cannot run from a linked worktree; run it from the main worktree at [..]
-
-"#]]);
 }
 
 #[test]

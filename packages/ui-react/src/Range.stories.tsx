@@ -2,6 +2,8 @@ import preview from "#storybook/preview";
 import { Range } from "./Range.tsx";
 
 const meta = preview.meta({
+	title: "Inputs/Range",
+	id: "components-range",
 	component: Range,
 	parameters: {
 		design: {

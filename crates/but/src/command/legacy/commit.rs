@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use anyhow::Context as _;
 use but_api::{
     WorkspaceState,
@@ -5,7 +7,6 @@ use but_api::{
 };
 use but_core::{
     DiffSpec, DryRun, RefMetadata,
-    ref_metadata::StackId,
     sync::{RepoExclusive, RepoExclusiveGuard},
 };
 use but_ctx::Context;
@@ -130,6 +131,7 @@ pub fn commit(
     mut out: IntermediateChannel<'_>,
     args: Platform,
     invoked_from: &InvokedFrom,
+    current_dir: &Path,
 ) -> CliResult<(CommitOutcome, WorkspaceState)> {
     let guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
@@ -145,6 +147,7 @@ pub fn commit(
             &head_info,
             &id_map,
             invoked_from,
+            current_dir,
         )?
     };
     Ok(run(
@@ -157,6 +160,7 @@ pub fn commit(
     )?)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn resolve(
     guard: RepoExclusiveGuard,
     ctx: &mut Context,
@@ -165,6 +169,7 @@ fn resolve(
     head_info: &RefInfo,
     id_map: &IdMap,
     invoked_from: &InvokedFrom,
+    current_dir: &Path,
 ) -> CliResult<(
     RepoExclusiveGuard,
     CommitOperation,
@@ -174,6 +179,7 @@ fn resolve(
     let Platform {
         no_message,
         message,
+        file,
         branch,
         empty,
         above,
@@ -183,14 +189,6 @@ fn resolve(
         allow_merged,
         switch,
     } = args;
-
-    if switch && !ctx.settings.feature_flags.single_branch {
-        return Err(
-            bad_input("`--switch` requires the `single-branch` feature to be enabled")
-                .hint("Enable the feature with `but config feature single-branch enable`")
-                .into(),
-        );
-    }
 
     let merged = MergedUpstream::new(&*ctx.repo.get()?, head_info, allow_merged);
 
@@ -297,7 +295,13 @@ fn resolve(
         })?
     };
 
-    let reword_op = CommitMessageSource::from_args(no_message, message, out.format())?;
+    let reword_op = CommitMessageSource::from_args(
+        no_message,
+        message,
+        file.as_ref(),
+        current_dir,
+        out.format(),
+    )?;
 
     Ok((guard, commit_op, commit_selection, reword_op))
 }
@@ -342,7 +346,7 @@ pub fn run(
 
     let changes = {
         let context_lines = ctx.settings.context_lines;
-        let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+        let repo = ctx.repo.get()?;
 
         // One repo per builder, which is also what keeps `reconcile_worktree_diff_specs`
         // from seeing a spec whose path is not among that checkout's changes.
@@ -560,6 +564,7 @@ pub fn route_commit_operation(
 
                 Ok(CommitOperation::CommitAt(CommitAtOperation { target }))
             } else {
+                reject_workspace_target(repo, ws, &cli_id, "to")?;
                 let branch = BranchArg(cli_id.0);
                 let branch_name = branch
                     .resolve_for_creation(repo, ws)
@@ -704,6 +709,25 @@ impl From<BadInput> for RouteCommitOperationError {
     }
 }
 
+fn reject_workspace_target(
+    repo: &gix::Repository,
+    ws: &but_graph::Workspace,
+    target: &CliIdArg,
+    position: &str,
+) -> CliResult<()> {
+    // Only replace the normal resolution error when this names the workspace target.
+    if let Ok(Some(reference)) = repo.try_find_reference(target.0.as_str())
+        && ws.is_branch_the_target_or_its_local_tracking_branch(reference.name())
+    {
+        return Err(bad_input(format!(
+            "Cannot commit {position} '{target}': it is the workspace target branch."
+        ))
+        .hint("Commit to a feature branch instead: `but commit -b <branch>` and merge with `but merge <branch>`.")
+        .into());
+    }
+    Ok(())
+}
+
 enum PickerItem<'a> {
     Branch(&'a FullName),
     NewStack,
@@ -737,7 +761,15 @@ fn route_commit_above_or_below(
         .resolve_in_workspace(repo, id_map, Purpose::Target, None)
         .hint(
             "Target must be an applied branch or commit. Run `but status` for applicable targets.",
-        )?;
+        )
+        .or_else(|err| {
+            let position = match side {
+                Side::Above => "above",
+                Side::Below => "below",
+            };
+            reject_workspace_target(repo, ws, &target, position)?;
+            Err(err)
+        })?;
     let target = match resolved {
         ResolvedCliIdArg::AnonymousSegment(segment) => {
             return Err(crate::args::atoms::anonymous_segment_error(&segment.id));
@@ -933,10 +965,10 @@ impl CommitToNewBranchOperation {
             .how_to_create_unstacked_reference()
         {
             HowToCreateUnstackedReference::Normally => {
-                tx.create_reference(new_ref.as_ref(), None, |_| StackId::generate(), Some(0))?;
+                tx.create_reference(new_ref.as_ref(), None, Some(0))?;
             }
             HowToCreateUnstackedReference::CreateRefAtAnchorThenCheckout(anchor) => {
-                tx.create_reference(new_ref.as_ref(), anchor, |_| StackId::generate(), Some(0))?;
+                tx.create_reference(new_ref.as_ref(), anchor, Some(0))?;
                 tx.checkout(new_ref.as_ref())?;
             }
             HowToCreateUnstackedReference::CreateRefAtCommitThenCheckout { target_commit_id } => {
@@ -1022,20 +1054,10 @@ impl CommitAtOperation {
                     .how_to_create_stacked_reference(name.as_ref(), *side)
                 {
                     HowToCreateStackedReference::Normally(anchor) => {
-                        tx.create_reference(
-                            new_branch_name.as_ref(),
-                            Some(anchor),
-                            |_| StackId::generate(),
-                            Some(0),
-                        )?;
+                        tx.create_reference(new_branch_name.as_ref(), Some(anchor), Some(0))?;
                     }
                     HowToCreateStackedReference::CreateRefAtAnchorThenCheckout(anchor) => {
-                        tx.create_reference(
-                            new_branch_name.as_ref(),
-                            Some(anchor),
-                            |_| StackId::generate(),
-                            Some(0),
-                        )?;
+                        tx.create_reference(new_branch_name.as_ref(), Some(anchor), Some(0))?;
                         tx.checkout(new_branch_name.as_ref())?;
                     }
                 }

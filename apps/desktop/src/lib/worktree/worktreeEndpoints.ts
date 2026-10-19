@@ -1,6 +1,7 @@
 import { showError } from "$lib/error/showError";
 import { shouldRaiseDependencyError, type DependencyError } from "$lib/hunks/dependencies";
 import { shouldRaiseHunkAssignmentError } from "$lib/hunks/hunk";
+import { checkoutOf } from "$lib/selection/key";
 import { hasBackendExtra } from "$lib/state/backendQuery";
 import { createSelectByIds } from "$lib/state/customSelectors";
 import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
@@ -19,21 +20,12 @@ import type {
 export function buildWorktreeEndpoints(build: BackendEndpointBuilder) {
 	return {
 		// ── Worktree Changes ────────────────────────────────────────
-		worktreeChanges: build.query<
-			{
-				changes: EntityState<TreeChange, string>;
-				rawChanges: TreeChange[];
-				ignoredChanges: IgnoredWorktreeChange[];
-				hunkAssignments: HunkAssignment[];
-				dependencies: HunkDependencies | undefined;
-				dependenciesError: DependencyError | undefined;
-			},
-			{ projectId: string }
-		>({
+		/** The uncommitted changes in the linked `worktree`, or in the main checkout. */
+		worktreeChanges: build.query<WorktreeData, { projectId: string; worktree?: string }>({
 			extraOptions: { command: "changes_in_worktree" },
-			query: (args) => ({
-				...args,
-				changesSource: { type: "head" },
+			query: ({ projectId, worktree }) => ({
+				projectId,
+				changesSource: checkoutOf({ worktree }),
 				computeDepsAndAssignments: true,
 			}),
 			providesTags: [providesList(ReduxTag.WorktreeChanges)],
@@ -42,22 +34,24 @@ export function buildWorktreeEndpoints(build: BackendEndpointBuilder) {
 					throw new Error("Redux dependency Backend not found!");
 				}
 				await lifecycleApi.cacheDataLoaded;
-				const unsubscribe = lifecycleApi.extra.backend.listen<WorktreeChanges>(
-					`project://${arg.projectId}/worktree_changes`,
-					(event) => {
-						lifecycleApi.updateCachedData(() => ({
-							changes: worktreeAdapter.addMany(
-								worktreeAdapter.getInitialState(),
-								event.payload.changes,
-							),
-							rawChanges: event.payload.changes,
-							ignoredChanges: event.payload.ignoredChanges,
-							hunkAssignments: event.payload.assignments,
-							dependencies: event.payload.dependencies ?? undefined,
-							dependenciesError: event.payload.dependenciesError ?? undefined,
-						}));
-					},
-				);
+				const { backend } = lifecycleApi.extra;
+				function update(changes: WorktreeChanges) {
+					lifecycleApi.updateCachedData(() => toWorktreeData(changes));
+				}
+				let unsubscribe: () => void;
+				if (arg.worktree === undefined) {
+					unsubscribe = backend.listen<WorktreeChanges>(
+						`project://${arg.projectId}/worktree_changes`,
+						(event) => update(event.payload),
+					);
+				} else {
+					unsubscribe = backend.listen<{ worktree: string; changes: WorktreeChanges }>(
+						`project://${arg.projectId}/linked_worktree_changes`,
+						(event) => {
+							if (event.payload.worktree === arg.worktree) update(event.payload.changes);
+						},
+					);
+				}
 				await lifecycleApi.cacheEntryRemoved;
 				unsubscribe();
 			},
@@ -80,21 +74,22 @@ export function buildWorktreeEndpoints(build: BackendEndpointBuilder) {
 					);
 				}
 
-				return {
-					changes: worktreeAdapter.addMany(worktreeAdapter.getInitialState(), response.changes),
-					rawChanges: response.changes,
-					ignoredChanges: response.ignoredChanges,
-					hunkAssignments: response.assignments,
-					dependencies: response.dependencies ?? undefined,
-					dependenciesError: response.dependenciesError ?? undefined,
-				};
+				return toWorktreeData(response);
 			},
 		}),
 
 		// ── Diff ────────────────────────────────────────────────────
-		getDiff: build.query<UnifiedDiff | null, { projectId: string; change: TreeChange }>({
-			extraOptions: { command: "tree_change_diffs" },
-			query: (args) => args,
+		/** An uncommitted change is read from the linked `worktree`'s files, or the main checkout's. */
+		getDiff: build.query<
+			UnifiedDiff | null,
+			{ projectId: string; change: TreeChange; worktree?: string }
+		>({
+			extraOptions: { command: "tree_change_diffs_from_source" },
+			query: ({ projectId, change, worktree }) => ({
+				projectId,
+				changesSource: checkoutOf({ worktree }),
+				change,
+			}),
 			providesTags: [providesList(ReduxTag.Diff)],
 		}),
 		assignHunk: build.mutation<void, { projectId: string; assignments: HunkAssignmentRequest[] }>({
@@ -111,6 +106,20 @@ export function buildWorktreeEndpoints(build: BackendEndpointBuilder) {
 			},
 			query: (args) => args,
 			invalidatesTags: [invalidatesList(ReduxTag.WorktreeChanges)],
+		}),
+
+		/**
+		 * The absolute path of `path` in the linked `worktree`, or in the main
+		 * checkout. A moved worktree refreshes the workspace view, and this with it.
+		 */
+		workdirPath: build.query<string, { projectId: string; worktree?: string; path: string }>({
+			extraOptions: { command: "workdir_path" },
+			query: ({ projectId, worktree, path }) => ({
+				projectId,
+				checkout: checkoutOf({ worktree }),
+				path,
+			}),
+			providesTags: [providesList(ReduxTag.Stacks)],
 		}),
 
 		// ── File Search ─────────────────────────────────────────────
@@ -131,3 +140,23 @@ export const worktreeSelectors = {
 	...worktreeAdapter.getSelectors(),
 	selectByIds: createSelectByIds<TreeChange>(),
 };
+
+type WorktreeData = {
+	changes: EntityState<TreeChange, string>;
+	rawChanges: TreeChange[];
+	ignoredChanges: IgnoredWorktreeChange[];
+	hunkAssignments: HunkAssignment[];
+	dependencies: HunkDependencies | undefined;
+	dependenciesError: DependencyError | undefined;
+};
+
+function toWorktreeData(response: WorktreeChanges): WorktreeData {
+	return {
+		changes: worktreeAdapter.addMany(worktreeAdapter.getInitialState(), response.changes),
+		rawChanges: response.changes,
+		ignoredChanges: response.ignoredChanges,
+		hunkAssignments: response.assignments,
+		dependencies: response.dependencies ?? undefined,
+		dependenciesError: response.dependenciesError ?? undefined,
+	};
+}

@@ -186,7 +186,7 @@ pub fn branch_land(
             // confirmation prompt. Reload so this check sees HEAD as it is now.
             ctx.reload_repo_and_invalidate_workspace(guard.write_permission())?;
             let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-            ensure_landable_checkout(&ws, ctx.settings.feature_flags.single_branch)?;
+            ensure_landable_checkout(&ws)?;
         }
         crate::legacy::virtual_branches::get_base_branch_data(ctx, guard.write_permission())?
             .ok_or_else(|| anyhow::anyhow!("No base branch configured"))?
@@ -387,24 +387,17 @@ pub fn branch_land(
     })
 }
 
-/// Refuse landing unless HEAD is the managed workspace or, with `single_branch_mode`, an ordinary
-/// checked-out branch. The reconcile after the land rewrites whatever HEAD points at, so a detached
-/// HEAD or edit mode must be refused before anything is published. Callers that confirm with the
+/// Refuse landing unless HEAD is the managed workspace or an ordinary checked-out branch.
+/// The reconcile after the land rewrites whatever HEAD points at, so a detached HEAD or edit mode
+/// must be refused before anything is published. Callers that confirm with the
 /// user run this first, so they never ask about a land that can't happen.
-pub fn ensure_landable_checkout(
-    ws: &but_graph::Workspace,
-    single_branch_mode: bool,
-) -> anyhow::Result<()> {
-    let single_branch_checkout = single_branch_mode
-        && ws.ref_name().is_some_and(|name| {
-            name.category() == Some(gix::refs::Category::LocalBranch)
-                && name.as_bstr() != gitbutler_operating_modes::EDIT_BRANCH_REF
-        });
+pub fn ensure_landable_checkout(ws: &but_graph::Workspace) -> anyhow::Result<()> {
+    let single_branch_checkout = ws.ref_name().is_some_and(|name| {
+        name.category() == Some(gix::refs::Category::LocalBranch)
+            && name.as_bstr() != gitbutler_operating_modes::EDIT_BRANCH_REF
+    });
     if !ws.kind.has_managed_ref() && !single_branch_checkout {
-        bail!(
-            "`but merge` requires the GitButler workspace or, in single-branch mode, a checked-out \
-             branch."
-        );
+        bail!("`but merge` requires the GitButler workspace or a checked-out branch.");
     }
     Ok(())
 }
@@ -615,6 +608,7 @@ fn current_workspace_state(ctx: &mut Context) -> anyhow::Result<WorkspaceState> 
         &mut meta,
         &repo,
         std::collections::BTreeMap::new(),
+        Vec::new(),
         &mut db,
     )
 }
@@ -645,12 +639,35 @@ fn merge_base_opt(
     a: gix::ObjectId,
     b: gix::ObjectId,
 ) -> anyhow::Result<Option<gix::ObjectId>> {
-    match repo.merge_base(a, b) {
-        Ok(id) => Ok(Some(id.detach())),
-        Err(gix::repository::merge_base::Error::FindMergeBase(_))
-        | Err(gix::repository::merge_base::Error::NotFound { .. }) => Ok(None),
-        Err(err) => Err(err.into()),
-    }
+    Ok(repo.merge_base(a, b)?.map(gix::Id::detach))
+}
+
+#[test]
+fn merge_base_distinguishes_unrelated_history_from_missing_objects() -> anyhow::Result<()> {
+    let tmp = tempfile::tempdir()?;
+    gix::init(tmp.path())?;
+    let repo = but_testsupport::open_repo(tmp.path())?;
+    let root = |name: &str| {
+        repo.commit(
+            name,
+            name,
+            repo.object_hash().empty_tree(),
+            std::iter::empty::<gix::ObjectId>(),
+        )
+        .map(gix::Id::detach)
+    };
+    let first = root("refs/heads/first")?;
+    let second = root("refs/heads/second")?;
+    assert_eq!(
+        merge_base_opt(&repo, first, second)?,
+        None,
+        "unrelated roots have no merge base"
+    );
+    assert!(
+        merge_base_opt(&repo, first, repo.object_hash().null()).is_err(),
+        "a missing object is a traversal failure, not unrelated history"
+    );
+    Ok(())
 }
 
 /// Whether `commit` is contained in the target tip — equal to it, or an ancestor of it (which

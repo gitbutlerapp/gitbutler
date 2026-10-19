@@ -14,7 +14,7 @@
 	const projectQuery = $derived(projectsService.getProject(projectId));
 
 	async function onHuskyHooksEnabledClick(project: Project, value: boolean) {
-		await projectsService.updateProject({ ...project, husky_hooks_enabled: value });
+		await projectsService.updateProject({ id: project.id, husky_hooks_enabled: value });
 	}
 </script>
 

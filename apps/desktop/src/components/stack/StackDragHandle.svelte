@@ -7,6 +7,7 @@
 	import { inject } from "@gitbutler/core/context";
 	import { ContextMenuItem, ContextMenuSection, Icon, KebabButton } from "@gitbutler/ui-svelte";
 	import type { Stack } from "$lib/stacks/stack";
+	import type { Snippet } from "svelte";
 
 	type Props = {
 		stackId?: string;
@@ -15,9 +16,13 @@
 		disabled?: boolean;
 		onFold?: () => void;
 		onOptionsClick?: () => void;
+		/** Whether dragging the handle reorders the lane among the stacks. */
+		draggable?: boolean;
+		/** Menu items in place of the stack's move and unapply items. */
+		menu?: Snippet<[{ close: () => void }]>;
 	};
 
-	let { stackId, projectId, disabled = false, onFold }: Props = $props();
+	let { stackId, projectId, disabled = false, onFold, draggable = true, menu }: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
 	const modeService = inject(MODE_SERVICE);
@@ -97,49 +102,55 @@
 	}
 </script>
 
-<div class="drag-handle-row" data-remove-from-panning data-drag-handle draggable="true">
+<div class="drag-handle-row" class:draggable data-remove-from-panning data-drag-handle {draggable}>
 	<CollapseStackButton {disabled} onClick={onFold} />
 
-	<div class="drag-handle-icon">
-		<Icon name="drag-horizontal" />
-	</div>
+	{#if draggable}
+		<div class="drag-handle-icon">
+			<Icon name="drag-horizontal" />
+		</div>
+	{/if}
 
 	<KebabButton minimal>
 		{#snippet contextMenu({ close })}
-			{#if isOpenWorkspace}
+			{#if menu}
+				{@render menu({ close })}
+			{:else}
+				{#if isOpenWorkspace}
+					<ContextMenuSection>
+						<ContextMenuItem
+							label={t("move-to-leftmost")}
+							icon="leftmost-lane"
+							disabled={!canMoveLeft}
+							onclick={() => {
+								moveStackLeft();
+								close();
+							}}
+						/>
+						<ContextMenuItem
+							label={t("move-to-rightmost")}
+							icon="rightmost-lane"
+							disabled={!canMoveRight}
+							onclick={() => {
+								moveStackRight();
+								close();
+							}}
+						/>
+					</ContextMenuSection>
+				{/if}
 				<ContextMenuSection>
 					<ContextMenuItem
-						label={t("move-to-leftmost")}
-						icon="leftmost-lane"
-						disabled={!canMoveLeft}
+						label={t("unapply-stack-2")}
+						icon="eject"
+						disabled={!isOpenWorkspace}
+						caption={!isOpenWorkspace ? "Only available in workspace mode" : undefined}
 						onclick={() => {
-							moveStackLeft();
-							close();
-						}}
-					/>
-					<ContextMenuItem
-						label={t("move-to-rightmost")}
-						icon="rightmost-lane"
-						disabled={!canMoveRight}
-						onclick={() => {
-							moveStackRight();
+							unapplyStack();
 							close();
 						}}
 					/>
 				</ContextMenuSection>
 			{/if}
-			<ContextMenuSection>
-				<ContextMenuItem
-					label={t("unapply-stack-2")}
-					icon="eject"
-					disabled={!isOpenWorkspace}
-					caption={!isOpenWorkspace ? "Only available in workspace mode" : undefined}
-					onclick={() => {
-						unapplyStack();
-						close();
-					}}
-				/>
-			</ContextMenuSection>
 		{/snippet}
 	</KebabButton>
 </div>
@@ -152,10 +163,13 @@
 		height: 28px;
 		margin: 0 -3px;
 		color: var(--text-3);
-		cursor: grab;
 		transition:
 			height var(--transition-medium),
 			color var(--transition-fast);
+	}
+
+	.drag-handle-row.draggable {
+		cursor: grab;
 	}
 
 	.drag-handle-icon {

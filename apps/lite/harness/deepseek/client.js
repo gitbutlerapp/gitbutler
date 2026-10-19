@@ -220,10 +220,9 @@ return {
 		// a no-op for now.
 		const openInProgramBrowser = async (payload) => {
 			const p = payload || {};
-			if (p.programId !== "vscode") return null;
-			const project = await ensureProject();
-			if (!project || typeof p.path !== "string") return null;
-			const absolute = await transport.invoke("pathJoin", project.path, p.path);
+			if (p.programId !== "vscode" || typeof p.path !== "string") return null;
+			const { projectId, checkout, path } = p;
+			const absolute = await transport.invoke("workdirPath", { projectId, checkout, path });
 			clickDeepLink("vscode://file/" + absolute + (p.lineNr != null ? ":" + p.lineNr : ""));
 			return null;
 		};

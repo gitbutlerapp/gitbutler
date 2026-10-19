@@ -3,6 +3,7 @@ use but_workspace::flatten_diff_specs;
 mod branch;
 mod branch_details;
 mod commit;
+mod editor_workspace;
 mod flatten_diff_specs;
 mod graph;
 mod init;

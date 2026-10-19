@@ -840,6 +840,7 @@ RefInfo {
         NodeIndex(4),
     ),
     ancestor_workspace_commit: None,
+    has_lanes_behind_target: true,
 }
 
 "#]]
@@ -3275,12 +3276,12 @@ RefInfo {
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            segment_index: NodeIndex(0),
+            segment_index: NodeIndex(3),
         },
     ),
     is_target_current: true,
     lower_bound: Some(
-        NodeIndex(0),
+        NodeIndex(3),
     ),
     ancestor_workspace_commit: None,
 }
@@ -3375,12 +3376,12 @@ RefInfo {
     target_commit: Some(
         TargetCommit {
             commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
-            segment_index: NodeIndex(0),
+            segment_index: NodeIndex(3),
         },
     ),
     is_target_current: true,
     lower_bound: Some(
-        NodeIndex(0),
+        NodeIndex(3),
     ),
     ancestor_workspace_commit: None,
 }
@@ -3547,6 +3548,23 @@ pub(crate) mod utils {
         })
     }
 
+    pub fn graph(
+        repo: &gix::Repository,
+        meta: &VirtualBranchesTomlMetadata,
+        db: &mut but_db::DbHandle,
+    ) -> anyhow::Result<but_graph::Graph> {
+        let project_meta = project_meta(repo)?;
+        but_graph::Graph::from_head(repo, meta, project_meta, db, Options::limited())
+    }
+
+    pub fn blank_project_meta_graph(
+        repo: &gix::Repository,
+        meta: &impl but_core::RefMetadata,
+        db: &mut but_db::DbHandle,
+    ) -> anyhow::Result<but_graph::Graph> {
+        but_graph::Graph::from_head(repo, meta, ProjectMeta::default(), db, Options::limited())
+    }
+
     pub fn named_writable_scenario_with_description(
         name: &str,
     ) -> anyhow::Result<(
@@ -3615,9 +3633,7 @@ pub(crate) mod utils {
             named_writable_scenario_with_args_and_description(name, args)?;
 
         init_meta(&mut meta);
-        let project_meta = project_meta(&repo)?;
-        let graph =
-            but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
+        let graph = graph(&repo, &meta, &mut db)?;
         Ok((tmp, graph, repo, meta, desc, db))
     }
 

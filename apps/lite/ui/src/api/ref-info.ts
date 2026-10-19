@@ -37,6 +37,8 @@ export type HeadInfoIndex = {
 	isApplied: (ref: Array<number>) => boolean;
 	branchContextByRefBytes: (ref: Array<number>) => (StackIndex & SegmentIndex) | undefined;
 	laneBranchByRefBytes: (ref: Array<number>) => LaneBranch | undefined;
+	/** The branch whose segment holds the commit, in a stack or a worktree lane. */
+	laneBranchByCommitId: (commitId: string) => LaneBranch | undefined;
 	commitContextByCommitId: (
 		commitId: string,
 	) => (StackIndex & SegmentIndex & CommitIndex) | undefined;
@@ -89,6 +91,7 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 	}
 
 	const laneBranchByRef = new Map<string, LaneBranch>();
+	const laneBranchByCommitId = new Map<string, LaneBranch>();
 	const downstackByCommitId = new Map<string, DownstackPushStatus>();
 	const indexLane = (
 		segments: Array<Segment>,
@@ -100,12 +103,9 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 			const downstack = assert(downstacks[segmentIndex]);
 			for (const commit of segment.commits) downstackByCommitId.set(commit.id, downstack);
 			if (segment.refName) {
-				laneBranchByRef.set(branchRefKey(segment.refName.fullNameBytes), {
-					segment,
-					laneSegments: segments,
-					downstack,
-					worktree,
-				});
+				const laneBranch: LaneBranch = { segment, laneSegments: segments, downstack, worktree };
+				laneBranchByRef.set(branchRefKey(segment.refName.fullNameBytes), laneBranch);
+				for (const commit of segment.commits) laneBranchByCommitId.set(commit.id, laneBranch);
 			}
 		}
 	};
@@ -123,6 +123,7 @@ const buildHeadInfoIndex = (headInfo: RefInfo): HeadInfoIndex => {
 		isApplied: (ref: Array<number>) => branchContextByRef.has(branchRefKey(ref)),
 		branchContextByRefBytes: (ref: Array<number>) => branchContextByRef.get(branchRefKey(ref)),
 		laneBranchByRefBytes: (ref: Array<number>) => laneBranchByRef.get(branchRefKey(ref)),
+		laneBranchByCommitId: (commitId: string) => laneBranchByCommitId.get(commitId),
 		commitContextByCommitId: (commitId: string) => commitContextByCommitId.get(commitId),
 		commitContextsByChangeId: (changeId: string) => commitContextsByChangeId.get(changeId),
 	};

@@ -54,7 +54,11 @@
 		branchColor: string;
 		iconName: BranchIconName;
 		stackId?: string;
+		/** The linked worktree whose lane the branch is in, if not a stack's. */
+		worktree?: string;
 		laneId: string;
+		/** Shown after the top branch's push status, e.g. which worktree it is checked out in. */
+		note?: string;
 		selected: boolean;
 		trackingBranch?: string;
 		isNewBranch?: boolean;
@@ -202,14 +206,14 @@
 				isCommitting={args.isCommitting}
 				{isCommitTarget}
 				commitId={args.baseCommit}
-				onCommitGoesHereClick={() => {
-					if (!args.stackId) return;
-					projectState.exclusiveAction.set({
-						type: "commit",
-						stackId: args.stackId,
-						branchName,
-					});
-				}}
+				onCommitGoesHereClick={args.stackId
+					? () =>
+							projectState.exclusiveAction.set({
+								type: "commit",
+								stackId: args.stackId,
+								branchName,
+							})
+					: undefined}
 				{updateBranchName}
 				{isUpdatingName}
 				failedMisserablyToUpdateBranchName={failedToUpdateName}
@@ -228,7 +232,7 @@
 					label: branchName,
 					pushStatus: args.pushStatus,
 					data:
-						args.type === "stack-branch" && args.stackId
+						args.type === "stack-branch" && (args.stackId || args.worktree)
 							? new BranchDropData(
 									args.stackId,
 									branchName,
@@ -237,6 +241,7 @@
 									args.numberOfCommits,
 									args.prNumber,
 									args.allOtherPrNumbersInStack,
+									args.worktree,
 								)
 							: undefined,
 				}}
@@ -250,6 +255,11 @@
 
 				{#snippet content()}
 					<BranchBadge pushStatus={args.pushStatus} unstyled />
+
+					{#if args.first && args.note}
+						<span class="branch-header__divider">•</span>
+						<span class="truncate">{args.note}</span>
+					{/if}
 
 					{#if args.reviewId || args.prNumber}
 						<span class="branch-header__divider">•</span>

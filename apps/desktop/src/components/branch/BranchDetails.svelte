@@ -57,7 +57,14 @@
 						{t("gitbutler-opens-the-earliest-commit-first-since-later-commit")}
 					</p>
 				</div>
-				<Button onclick={onResolveConflicts} style="danger">{t("start-resolving")}</Button>
+				<Button
+					onclick={onResolveConflicts}
+					style="danger"
+					disabled={!onResolveConflicts}
+					tooltip={onResolveConflicts
+						? undefined
+						: "Conflicts can only be resolved in a workspace branch"}>{t("start-resolving")}</Button
+				>
 			</div>
 		</div>
 	{/if}

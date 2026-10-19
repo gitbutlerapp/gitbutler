@@ -6,7 +6,10 @@ import { type RegisteredRouter, RouterProvider } from "@tanstack/react-router";
 import { type FC, StrictMode, useEffect } from "react";
 import { Provider } from "react-redux";
 import { store } from "#ui/store.ts";
+import { Snackbars } from "@gitbutler/ui-react/Snackbars.tsx";
 import { Toasts } from "@gitbutler/ui-react/Toasts.tsx";
+import { snackbarManager } from "#ui/snackbars.ts";
+import snackbarStyles from "#ui/snackbars.module.css";
 import { AskpassPromptDialog } from "#ui/AskpassPromptDialog.tsx";
 import { AppUpdater } from "./AppUpdater.tsx";
 import { guiSettingsQueryOptions } from "./api/queries.ts";
@@ -72,6 +75,7 @@ export const App: FC<{
 							</AppUpdater>
 							<AskpassPromptDialog />
 							<Toasts />
+							<Snackbars manager={snackbarManager} className={snackbarStyles.stack} />
 						</WorkerPoolContextProvider>
 					</Tooltip.Provider>
 				</Toast.Provider>

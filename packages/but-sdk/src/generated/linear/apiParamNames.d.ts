@@ -20,6 +20,7 @@ export declare const apiParamNames: {
 	readonly branchDiff: readonly ["projectId", "branch"];
 	readonly branchLand: readonly ["projectId", "branch", "noFf", "wholeStack"];
 	readonly branchList: readonly ["projectId"];
+	readonly branchNameSegment: readonly ["projectId", "checkout", "commitId", "newRef"];
 	readonly branchRemove: readonly ["projectId", "refName"];
 	readonly branchRename: readonly ["projectId", "refName", "newName"];
 	readonly changesInWorktree: readonly ["projectId", "changesSource", "computeDepsAndAssignments"];
@@ -53,7 +54,7 @@ export declare const apiParamNames: {
 	readonly deleteProject: readonly ["projectId"];
 	readonly deleteReviewComment: readonly ["projectId", "commentId"];
 	readonly deleteUser: readonly [];
-	readonly discardWorktreeChanges: readonly ["projectId", "worktreeChanges"];
+	readonly discardWorktreeChanges: readonly ["projectId", "changesSource", "worktreeChanges"];
 	readonly editChangesFromInitial: readonly ["projectId"];
 	readonly editInitialIndexState: readonly ["projectId"];
 	readonly enterEditMode: readonly ["projectId", "commitId", "stackId"];
@@ -110,9 +111,9 @@ export declare const apiParamNames: {
 	readonly listSnapshots: readonly ["projectId", "limit", "sha", "excludeKind", "includeKind"];
 	readonly loginAndPersist: readonly ["token"];
 	readonly mergeReview: readonly ["projectId", "reviewId", "mergeMethod"];
-	readonly moveBranch: readonly ["projectId", "subjectBranch", "targetBranch", "dryRun"];
+	readonly moveBranch: readonly ["projectId", "subjectBranch", "relativeTo", "side", "dryRun"];
 	readonly newReviewTarget: readonly ["projectId", "branch"];
-	readonly openInProgram: readonly ["projectId", "programId", "path", "lineNr"];
+	readonly openInProgram: readonly ["projectId", "programId", "checkout", "path", "lineNr"];
 	readonly openInTerminal: readonly ["terminalId", "path"];
 	readonly operatingMode: readonly ["projectId"];
 	readonly peelRestoreSnapshot: readonly ["projectId", "sha"];
@@ -136,6 +137,7 @@ export declare const apiParamNames: {
 	readonly setReviewTemplate: readonly ["projectId", "templatePath"];
 	readonly setReviewThreadResolved: readonly ["projectId", "threadId", "resolved"];
 	readonly setTargetRefAndInitProject: readonly ["projectId", "targetRef", "pushRemote"];
+	readonly showInFinder: readonly ["projectId", "checkout", "path"];
 	readonly storeBitbucketApiToken: readonly ["email", "accessToken"];
 	readonly storeGithubPat: readonly ["accessToken"];
 	readonly storeGitlabPat: readonly ["accessToken"];
@@ -152,6 +154,7 @@ export declare const apiParamNames: {
 	readonly uploadFile: readonly ["params"];
 	readonly warmCiChecksCache: readonly ["projectId"];
 	readonly withdrawReviewRequest: readonly ["projectId", "reviewId", "logins"];
+	readonly workdirPath: readonly ["projectId", "checkout", "path"];
 	readonly workspaceBranchAndAncestorsPush: readonly ["projectId", "withForce", "skipForcePushProtection", "branch", "runHooks", "pushOpts"];
 	readonly workspaceCheckout: readonly ["projectId"];
 	readonly workspaceFetchFromRemotes: readonly ["projectId", "action"];

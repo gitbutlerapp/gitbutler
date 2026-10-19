@@ -5,6 +5,8 @@ import {
 	useExecuteOperation,
 } from "#ui/operations/operation.ts";
 import { cancelPendingOperation } from "#ui/use-cursor.ts";
+import { headInfoQueryOptions } from "#ui/api/queries.ts";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import type { Address } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
@@ -13,6 +15,7 @@ import {
 	attachInstruction,
 	extractInstruction,
 } from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item";
+import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { useEffect, useEffectEvent, useRef } from "react";
 import { parseDragData } from "./DragData.ts";
@@ -48,12 +51,18 @@ export const useOperationDropTarget = ({
 	const dispatch = useAppDispatch();
 	const { mutate: executeOperation } = useExecuteOperation(projectId);
 	const dropRef = useRef<HTMLElement>(null);
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
 
 	const getData = useEffectEvent(({ input, element, source }: GetDataArgs) => {
 		const dragData = parseDragData(source.data);
 		if (!dragData) return {};
 
-		const { into, above, below } = getOperations(dragData.sources, target, "move");
+		const { into, above, below } = getOperations(dragData.sources, target, "move", {
+			headInfoIndex,
+		});
 		return attachInstruction(
 			{},
 			{
@@ -69,6 +78,11 @@ export const useOperationDropTarget = ({
 	});
 
 	const canDrop = useEffectEvent(() => enabled);
+	// An effect event, so the drop reads the current index without re-registering
+	// the target on every head info refresh.
+	const operationFor = useEffectEvent((sources: Array<Address>, placement: Placement) =>
+		getOperation({ sources, target, placement, kind: "move", context: { headInfoIndex } }),
+	);
 
 	useEffect(() => {
 		const element = dropRef.current;
@@ -112,14 +126,7 @@ export const useOperationDropTarget = ({
 				const dragData = parseDragData(args.source.data);
 				const placement = getPlacementFromData(args.self.data);
 				const operation =
-					dragData && placement !== null
-						? getOperation({
-								sources: dragData.sources,
-								target,
-								placement,
-								kind: "move",
-							})
-						: null;
+					dragData && placement !== null ? operationFor(dragData.sources, placement) : null;
 
 				if (!operation) {
 					cancelPendingOperation();

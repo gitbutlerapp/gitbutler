@@ -5,6 +5,8 @@ import { Tooltip } from "@base-ui/react";
 import { useState } from "react";
 
 const meta = preview.meta({
+	title: "Actions/DropdownButton",
+	id: "components-dropdownbutton",
 	component: DropdownButton,
 	parameters: {
 		design: {

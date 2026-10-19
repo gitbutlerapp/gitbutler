@@ -13,6 +13,11 @@
 	padding-block: var(--panel-padding-block);
 }
 
+/* The two pages share the panel's width, half each. */
+.pages > * {
+	flex: 1;
+}
+
 /* When the panel is too narrow to fit the tab labels, show icons only. */
 @container (max-width: 340px) {
 	.tabLabel {

@@ -13,7 +13,9 @@ import {
 	listProjectsQueryOptions,
 	operatingModeQueryOptions,
 	worktreeChangesQueryOptions,
+	headInfoQueryOptions,
 } from "#ui/api/queries.ts";
+import { getHeadInfoIndex } from "#ui/api/ref-info.ts";
 import { compareFilePaths } from "#ui/file-order.ts";
 import type { WorktreeChanges } from "@gitbutler/but-sdk";
 import { EditModePage } from "./EditModePage.tsx";
@@ -437,6 +439,10 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		absorptionPlanQuery?.data?.map(({ commitId }) => commitId),
 	);
 
+	const { data: headInfoIndex } = useQuery({
+		...headInfoQueryOptions(projectId),
+		select: getHeadInfoIndex,
+	});
 	const appliedAddressSpace = buildAppliedAddressSpace({
 		stacks: graph.stacks,
 		plan: graph.plan,
@@ -444,6 +450,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 		pendingOperation,
 		absorptionTargetCommitIds,
 		foldedSegments,
+		headInfoIndex,
 	});
 
 	const page = usePage();
@@ -632,7 +639,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 				{...selectionFocus}
 				id={layoutId}
 				className={styles.page}
-				// The gap between the panels is the grab area, not the panels' edges.
+				// The handle's own box is the grab area; see ResizeHandle's grab="after".
 				resizeTargetMinimumSize={{ coarse: 1, fine: 1 }}
 				defaultLayout={workspaceLayout.defaultLayout}
 				onLayoutChanged={workspaceLayout.onLayoutChanged}
@@ -650,7 +657,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 					>
 						{/* No reset key: the child is built inline, so its identity changes
 						    every render. Recovery here is the fallback's Retry button. */}
-						<ErrorBoundary>
+						<ErrorBoundary title="The sidebar couldn't be shown">
 							<Sidebar
 								projectId={projectId}
 								project={selectedProject}
@@ -665,7 +672,7 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 							/>
 						</ErrorBoundary>
 					</Panel>
-					<ResizeHandle gap />
+					<ResizeHandle grab="after" />
 				</Activity>
 
 				<Panel
@@ -682,7 +689,9 @@ const PageBody: FC<{ projectId: string }> = ({ projectId }) => {
 					{/* Keyed on the deferred view itself, not on the URL: the deferred
 					    value still holds the old view for a beat after navigating, so a
 					    URL key would clear the error onto the element that just threw. */}
-					<ErrorBoundary resetKeys={[deferredDetails]}>{deferredDetails}</ErrorBoundary>
+					<ErrorBoundary title="This view couldn't be shown" resetKeys={[deferredDetails]}>
+						{deferredDetails}
+					</ErrorBoundary>
 				</Panel>
 			</Group>
 
@@ -759,7 +768,7 @@ export const Page: FC = () => {
 	return (
 		<QueryErrorResetBoundary>
 			{({ reset }) => (
-				<ErrorBoundary onReset={reset}>
+				<ErrorBoundary title="The workspace couldn't be shown" onReset={reset}>
 					<PageBody projectId={projectId} />
 				</ErrorBoundary>
 			)}

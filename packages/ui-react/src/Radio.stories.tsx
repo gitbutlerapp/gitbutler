@@ -3,6 +3,8 @@ import { Radio } from "./Radio.tsx";
 import { RadioGroup } from "@base-ui/react";
 
 const meta = preview.meta({
+	title: "Inputs/Radio",
+	id: "components-radio",
 	component: Radio,
 	parameters: {
 		design: {

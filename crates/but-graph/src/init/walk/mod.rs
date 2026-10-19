@@ -302,6 +302,7 @@ fn split_connections(
                     .transpose()?,
                 dst_id: edge.weight.dst_id,
                 parent_order: edge.weight.parent_order,
+                workspace_parent_order: edge.weight.workspace_parent_order,
             },
         );
     }

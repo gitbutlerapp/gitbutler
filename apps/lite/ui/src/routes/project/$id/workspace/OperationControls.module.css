@@ -1,10 +1,8 @@
-.notice {
-	align-self: center;
-}
-
 .container {
 	z-index: 1;
 	position: fixed;
+	/* Snackbars stack above the toolbox while it is open; see snackbars.module.css. */
+	anchor-name: --operation-controls;
 	bottom: var(--panel-padding-block);
 	left: 50%;
 	max-width: min(calc(100% - (2 * var(--panel-padding-inline))), 640px);

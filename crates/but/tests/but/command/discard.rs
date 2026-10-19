@@ -1341,36 +1341,68 @@ Hint: Use `but worktree remove --force wt-feature` to remove it anyway
 }
 
 #[test]
-fn discarding_a_linked_worktrees_changes_is_refused() {
+fn discarding_a_linked_worktrees_changes_discards_them_in_that_worktree() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
     enable_worktree_manipulation(&env);
     env.but("status").assert().success();
     let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
     env.file("main.txt", "dirty in main\n");
+    let oplog = || env.but("oplog").output().unwrap().stdout;
+    let oplog_before = oplog();
 
+    // From inside the worktree, everything uncommitted there.
     env.but("discard")
         .current_dir(&wt_dir)
         .assert()
-        .failure()
-        .stdout_eq(snapbox::str![])
-        .stderr_eq(snapbox::str![[r#"
-Error: Cannot discard uncommitted changes in worktree wt-feature yet
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Discarded uncommitted changes from note.txt
 
 "#]]);
+    assert!(
+        !wt_dir.join("note.txt").exists(),
+        "the worktree's new file is discarded"
+    );
 
+    // Its uncommitted area, named from the main checkout.
+    std::fs::write(wt_dir.join("note.txt"), "again\n").unwrap();
     env.but("discard wt:@")
         .assert()
-        .failure()
-        .stdout_eq(snapbox::str![])
-        .stderr_eq(snapbox::str![[r#"
-Error: Bad input 'wt:@' for '<CHANGES>'
-
-Cannot discard uncommitted changes in worktree wt-feature yet
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Discarded uncommitted changes from note.txt
 
 "#]]);
+    assert!(
+        !wt_dir.join("note.txt").exists(),
+        "the worktree's uncommitted area is discarded"
+    );
 
-    // Neither checkout lost its changes.
+    // A single file of the worktree, by its ID.
+    std::fs::write(wt_dir.join("note.txt"), "once more\n").unwrap();
+    env.but("discard nl")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Discarded uncommitted changes from note.txt
+
+"#]]);
+    assert!(
+        !wt_dir.join("note.txt").exists(),
+        "the worktree's file is discarded by its ID"
+    );
+
+    assert_eq!(
+        oplog(),
+        oplog_before,
+        "the oplog can't restore a linked worktree, so its discards aren't recorded"
+    );
+
+    // The main checkout keeps its change throughout.
     env.but("status")
         .assert()
         .success()
@@ -1381,8 +1413,7 @@ Cannot discard uncommitted changes in worktree wt-feature yet
 ┊
 ┊╭┄ g0 [A]
 ┊┊
-┊┊╭┄ wt:@ [uncommitted] {wt-feature}
-┊┊┊   nl A note.txt
+┊┊╭┄ wt:@ [uncommitted] {wt-feature} (no changes)
 ┊┊├┄ wt [wt-feature] (no commits)
 ┊├╯
 ┊●   tpm add A
@@ -1904,4 +1935,30 @@ Hint: run `but help` for all commands
 Hint: run `but help` for all commands
 
 "#]]);
+}
+
+#[test]
+fn discarding_changes_from_two_checkouts_at_once_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main.txt", "dirty in main\n");
+
+    // A worktree file by its ID, then a main checkout path.
+    env.but("discard nl main.txt")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot use changes from worktree wt-feature and the uncommitted area together
+
+Hint: An operation can only take changes from one checkout at a time
+
+"#]]);
+    assert!(
+        wt_dir.join("note.txt").exists() && env.projects_root().join("main.txt").exists(),
+        "a selection spanning two checkouts discards nothing"
+    );
 }

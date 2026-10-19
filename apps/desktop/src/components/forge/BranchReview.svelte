@@ -5,7 +5,7 @@
 	import ReviewCreationControls from "$components/forge/ReviewCreationControls.svelte";
 	import StackedPullRequestCard from "$components/forge/StackedPullRequestCard.svelte";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
-	import { t } from "$lib/i18n";
+	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, Modal } from "@gitbutler/ui-svelte";
 	import type { Segment } from "@gitbutler/but-sdk";
@@ -42,6 +42,9 @@
 		reviewId,
 	}: Props = $props();
 
+	// A worktree's branch merges by name, so it needs no stack id.
+	const controller = getStackContext();
+
 	let canPublishReviewPlugin = $state<ReturnType<typeof CanPublishReviewPlugin>>();
 
 	const forgeInfoService = inject(FORGE_INFO_SERVICE);
@@ -76,11 +79,10 @@
 		}}
 	>
 		<p class="text-13 text-body helper-text">
-			{t("it-s-strongly-recommended-to-create")}
-			{reviewUnitName.toLowerCase()}{t("s-starting-with-the-branch-at-the-base-of-the-stack")}
+			It's strongly recommended to create {reviewUnitName.toLowerCase()}s starting with the branch
+			at the base of the stack.
 			<br />
-			{t("do-you-still-want-to-create-this")}
-			{reviewUnitName.toLowerCase()}?
+			Do you still want to create this {reviewUnitName.toLowerCase()}?
 		</p>
 		{#snippet controls(close)}
 			<Button kind="outline" onclick={close}>Cancel</Button>
@@ -119,10 +121,9 @@
 	<div class="branch-action">
 		{#if prNumber}
 			<div class="status-cards">
-				{#if prNumber && stackId}
+				{#if prNumber && !controller.isReadOnly}
 					<StackedPullRequestCard
 						{projectId}
-						{stackId}
 						{branchName}
 						{parent}
 						{child}

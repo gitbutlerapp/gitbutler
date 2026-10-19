@@ -12,7 +12,7 @@ Agent-focused reference for useful `but` commands.
 - [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `merge`
 - [Workspace Maintenance](#workspace-maintenance) - `clean`, `worktree`
 - [History & Undo](#history--undo) - `undo`, `oplog`
-- [Setup & Configuration](#setup--configuration) - `setup`, `teardown`, `config`, `update`, `skill`
+- [Configuration](#configuration) - `init`, `teardown`, `config`, `update`, `skill`
 - [Selected Options](#selected-options)
 
 ## Inspection (Understanding State)
@@ -186,6 +186,12 @@ Create a commit. Changes are positional CLI IDs; where the commit goes is a flag
 but commit -b <branch> -m "message"          # Commit ALL uncommitted changes of this checkout to branch
 but commit -b <branch> -m "message" <id> <id>  # Commit specific files or hunks by CLI ID
 but commit -b <branch> -m "msg" -m "body"    # Repeat -m; parts joined by a blank line
+but commit -b <branch> -F - <<'EOF'          # Multiline message from stdin; quotes and $ kept as written
+Subject
+
+Body
+EOF
+but commit -b <branch> -F <file>             # Message from a file outside the repository
 but commit --above <target> -m "message" <id>  # Place the commit above a commit or branch
 but commit --below <target> -m "message" <id>  # Place the commit below a commit or branch
 but commit --above <branch> -b <new-name> -m "message"  # Commit on a new named branch above it
@@ -201,7 +207,7 @@ but commit --empty -b <branch> -m "message"  # Insert an empty commit
 
 **Important:** `but commit -b <branch> -m "msg"` with no IDs commits ALL uncommitted changes. Pass IDs to commit only specific files or hunks.
 
-Running `but commit` from inside a worktree acts on the main workspace, exactly as from the main worktree: bare `but commit` takes the main worktree's changes, and `but commit <worktree>:@` takes that worktree's own changes. Worktrees require the experimental worktree flag. `but setup` refuses to run from a worktree.
+Running `but commit` from inside a worktree acts on the main workspace, exactly as from the main worktree: bare `but commit` takes the main worktree's changes, and `but commit <worktree>:@` takes that worktree's own changes. Worktrees require the experimental worktree flag.
 
 **Committing specific files or hunks:** Start with `but diff` for selective dirty commits, then pass CLI IDs as positional arguments:
 - **File IDs** from `but diff` or `but status -fv`: commits entire files
@@ -255,6 +261,8 @@ need no flag:
 
 ```bash
 -m "msg"                # New message; repeat -m to append paragraphs
+-F -                    # New message from stdin (heredoc); quotes and $ kept as written
+-F <file>               # New message from a file outside the repository
 --no-message            # No message
 -u, --use-target-message  # Keep the target's message, drop the sources'
 --use-source-message      # Keep the sources' message, drop the target's
@@ -305,28 +313,39 @@ branch may be moved at a time. Source order does not matter. For a branch source
 `--unstack` apply; `--below` and `-b <name>` require commit or committed-change sources. `--branch`
 with no value is equivalent to `--unstack`. With the experimental worktree flag on, `-b` also
 accepts a branch in a worktree's lane, moving commit or committed-change sources onto that
-branch's tip (nothing is created); a branch source is refused there.
+branch's tip (nothing is created). A branch source stacks on top of it, leaving the workspace for
+the worktree; stacked onto the branch the worktree has checked out (`--above` that branch or the
+worktree), it becomes what the worktree has checked out. A
+worktree's branches are branch sources too, and stacking one on a workspace branch brings it into
+the workspace. Moving the branch the worktree has checked out leaves the worktree on the branch
+below it, or detached on the commit it was based on when there is none.
 
 For commits or committed changes, add `-b <new-name>` to `--above <branch>`, `--below <branch>`,
 or `--unstack` to name the new branch; omit it for a generated name. This does not rename an
 existing branch: naming is not supported when stacking or unstacking a branch source.
 
 For committed-change sources, `-m/--message` sets the new commit's message; repeat `-m` to
-join paragraphs with blank lines. Without it, the new commit has an empty message and no editor
-opens. `-m` is rejected when moving whole commits or branches.
+join paragraphs with blank lines, or read it with `-F -` (stdin) or `-F <file>`. Without either,
+the new commit has an empty message and no editor opens. `-m` and `-F` are rejected when moving
+whole commits or branches.
 
 ### `but split <SOURCES>...`
 
 Move selected committed files/hunks into a new commit immediately above their source.
 Files and hunks may be mixed, but must come from one commit. Unselected changes and the original
 message stay in the source. Use `-m/--message` to set the new commit's message directly rather
-than rewording afterward. Repeated `-m` values are joined with blank lines; omitting it creates
-an empty-message commit without opening an editor.
+than rewording afterward, or `-F -` / `-F <file>` to read it. Repeated `-m` values are joined
+with blank lines; omitting both creates an empty-message commit without opening an editor.
 
 ```bash
 but diff <commit-id>                              # Read committed file/hunk IDs
 but split <commit-id>:<file-id> -m "Extract file"   # Split a file
 but split <commit-id>:<file-id>:<hunk-id> -m "Extract hunk" # Split a hunk
+but split <commit-id>:<file-id> -F - <<'EOF'        # Split a file, message from stdin
+Extract file
+
+Why it moved
+EOF
 ```
 
 ### `but uncommit <SOURCES>...`
@@ -382,7 +401,7 @@ When commits have conflicts (history-editing commands warn about newly conflicte
 
 ### `but resolve <commit>`
 
-Enter resolution mode for a conflicted commit.
+Enter resolution mode for a conflicted commit. Requires a GitButler workspace; when a branch is checked out, the error directs you to `but switch --workspace`. Agents can use `but resolve apply` instead to resolve conflicts without changing HEAD.
 
 ```bash
 but resolve <commit-id>
@@ -465,13 +484,18 @@ turn the completed Git push into a failure.
 
 ### `but pull`
 
-Update applied branches onto the latest target branch changes (usually `main`).
+Update applied branches and linked worktrees onto the latest target branch changes (usually `main`).
 Use this for "get latest from main" in a GitButler workspace.
 
 ```bash
-but pull                      # Fetch and rebase applied branches
+but pull                      # Fetch and rebase applied branches and linked worktrees
 but pull --check              # Dry-run preview: report what would happen, change nothing
+but pull --update=workspace   # Leave worktrees based on the target alone
+but pull --update=worktrees   # Rebase only the worktrees based on the target
 ```
+
+`--update` takes a comma-separated list and defaults to `worktrees,workspace`. A worktree based on
+an applied branch shares that branch's commits, so it is rebased with `workspace`.
 
 Run `but pull` directly for a straightforward update; its output reports the result and `but undo`
 reverts it. Use `--check` first when the user or repository policy requires a preview without
@@ -485,7 +509,12 @@ Create and manage pull requests.
 
 ```bash
 but pr new <branch-selector> -m "Title..."        # Push branch and create PR (recommended); first message line is title, rest is description
-but pr new <branch-selector> -F pr_message.txt    # Use file: first line is title, rest is description
+but pr new <branch-selector> -F - <<'EOF'         # From stdin: first line is title, rest is description
+Title
+
+Description
+EOF
+but pr new <branch-selector> -F <file>            # From a file outside the repository, same format
 but pr new <branch-selector> -t     # Use default content (commit message), skip prompts
 but pr new <branch-selector> --draft  # Create as draft
 but pr new <branch-selector> --no-hooks  # Bypass pre-push hooks (--no-verify also works)
@@ -607,26 +636,16 @@ Restore to a specific oplog snapshot.
 but oplog restore <snapshot-id>
 ```
 
-## Setup & Configuration
+## Configuration
 
-### `but setup`
+### `but init`
 
-Initialize GitButler in current git repository.
+Create an empty Git repository.
 
 ```bash
-but setup
-but setup --init              # Also initialize a new git repo if none exists
+but init                     # Initialize the current directory
+but -C path/to/repo init      # Create and initialize another directory
 ```
-
-Converts a regular Git repository to the managed GitButler workspace model. Use `--init` in
-non-interactive environments (CI/CD) to ensure a Git repository exists before setup. When the
-experimental single-branch feature is enabled, normal CLI use does not require this command: the
-repository is registered and its target is inferred lazily without checking out
-`gitbutler/workspace` or installing setup hooks.
-
-Rerunning `but setup` on an already-configured project also repairs a missing default target — for
-example if `virtual_branches.toml` was reset while the target survived in Git config — so it is the
-recovery path when target configuration looks broken.
 
 ### `but teardown`
 

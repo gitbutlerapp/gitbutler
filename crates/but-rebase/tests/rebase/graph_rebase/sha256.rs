@@ -155,7 +155,7 @@ Sha256
     a_obj.message = "A: SHA-256 reworded".into();
     let a_new = editor.new_commit(a_obj, DateMode::CommitterKeepAuthorKeep)?;
 
-    editor.replace(a_selector, Step::new_pick(a_new))?;
+    editor.amend_pick(a_selector, a_new)?;
 
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();

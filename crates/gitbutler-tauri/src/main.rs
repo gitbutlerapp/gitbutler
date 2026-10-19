@@ -14,7 +14,7 @@
 use anyhow::{Context, bail};
 use but_api::{
     bitbucket, branch, commit, diff, gitee, github, gitlab, land, legacy, open, platform, resolve,
-    workspace,
+    workspace, worktrees,
 };
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{
@@ -249,6 +249,7 @@ fn main() -> anyhow::Result<()> {
                 but_api::branch::tauri_branch_remove::branch_remove,
                 but_api::branch::tauri_branch_create::branch_create,
                 but_api::branch::tauri_branch_rename::branch_rename,
+                but_api::branch::tauri_branch_name_segment::branch_name_segment,
                 but_api::branch::tauri_branch_canned_name::branch_canned_name,
                 but_api::target_commits::tauri_workspace_target_commits::workspace_target_commits,
                 legacy::git::tauri_git_remote_branches::git_remote_branches,
@@ -318,6 +319,7 @@ fn main() -> anyhow::Result<()> {
                 open::tauri_open_url::open_url,
                 open::tauri_open_in_terminal::open_in_terminal,
                 open::tauri_show_in_finder::show_in_finder,
+                open::tauri_workdir_path::workdir_path,
                 open::terminal::tauri_get_terminal_options_for_platform::get_terminal_options_for_platform,
                 open::terminal::tauri_get_recommended_terminal_for_platform::get_recommended_terminal_for_platform,
                 legacy::forge::tauri_pr_templates::pr_templates,
@@ -349,7 +351,11 @@ fn main() -> anyhow::Result<()> {
                 legacy::absorb::tauri_absorption_plan::absorption_plan,
                 diff::tauri_changes_in_worktree::changes_in_worktree,
                 diff::tauri_tree_change_diffs::tree_change_diffs,
+                diff::tauri_tree_change_diffs_from_source::tree_change_diffs_from_source,
                 diff::tauri_assign_hunk::assign_hunk,
+                worktrees::tauri_worktree_set_archived::worktree_set_archived,
+                worktrees::tauri_worktree_remove::worktree_remove,
+                worktrees::tauri_worktree_new::worktree_new,
                 #[cfg(unix)]
                 legacy::workspace::tauri_show_graph_svg::show_graph_svg,
                 askpass::submit_prompt_response,

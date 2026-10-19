@@ -27,7 +27,7 @@
 						checked={project.omit_certificate_check}
 						onchange={async (value: boolean) => {
 							await projectsService.updateProject({
-								...project,
+								id: project.id,
 								omit_certificate_check: value,
 							});
 						}}

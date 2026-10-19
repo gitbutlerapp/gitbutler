@@ -17,7 +17,7 @@ import {
 	worktreeChangesFileParent,
 	type FileParent,
 } from "#ui/addresses.ts";
-import { useWorktreeRemove, useWorktreeSetArchived } from "#ui/api/mutations.ts";
+import { useCommitAmend, useWorktreeRemove, useWorktreeSetArchived } from "#ui/api/mutations.ts";
 import { assert } from "#ui/assert.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
 import {
@@ -39,6 +39,7 @@ import {
 	showNativeMenuFromTrigger,
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
+import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { recordedPullRequest } from "#ui/api/ref-info.ts";
 import { defaultSettings } from "#ui/settings.ts";
@@ -47,7 +48,7 @@ import {
 	emptyDownstackPushStatus,
 	type DownstackPushStatus,
 } from "#ui/segment.ts";
-import { useAppSelector } from "#ui/store.ts";
+import { useAppSelector, useAppStore } from "#ui/store.ts";
 import { setCursor, useIsCursorAt } from "#ui/use-cursor.ts";
 import { addressSpaceIncludes } from "#ui/workspace/address-space.ts";
 import type { Segment, TreeChange, Worktree } from "@gitbutler/but-sdk";
@@ -235,7 +236,7 @@ const useWorktreeMenuItems = (projectId: string, worktree: string): Array<Native
 		nativeMenuItem({
 			label: "Remove Worktree",
 			enabled: !isRemoving,
-			onSelect: () => remove({ projectId, name: worktree, force: false }),
+			onSelect: () => remove(worktree),
 		}),
 	];
 };
@@ -276,7 +277,44 @@ const WorktreeHeaderRow: FC<{ projectId: string; worktree: string; behind: numbe
 	);
 };
 
-const worktreeLane: BranchLane = { type: "worktree" };
+// The branch a worktree has checked out stays; a branch stacked under it can go.
+const checkedOutLane: BranchLane = { type: "worktree", canRemove: false };
+const lowerLane: BranchLane = { type: "worktree", canRemove: true };
+
+/**
+ * Amending a worktree's commit takes the worktree's own uncommitted files:
+ * the checked ones, or all of them when none are checked, like the workspace's.
+ */
+const useWorktreeAmend = (projectId: string, worktree: string) => {
+	const store = useAppStore();
+	const { data: worktreeChanges } = useQuery(worktreeChangesQueryOptions(projectId, worktree));
+	const { isPending, mutate: commitAmend } = useCommitAmend(projectId);
+	const canAmendCommit = !isPending && !!worktreeChanges && worktreeChanges.changes.length > 0;
+	const amendCommit = (commitId: string) => {
+		if (!worktreeChanges) return;
+		const checkedPaths = new Set(
+			projectSlice.selectors
+				.selectCheckedAddresses(store.getState(), projectId)
+				.flatMap((address) =>
+					address._tag === "File" &&
+					address.parent._tag === "UncommittedChanges" &&
+					address.parent.worktree === worktree
+						? [address.path]
+						: [],
+				),
+		);
+		commitAmend({
+			projectId,
+			commitId,
+			changes: worktreeChanges.changes
+				.filter((change) => checkedPaths.size === 0 || checkedPaths.has(change.path))
+				.map((change) => createDiffSpec(change, [])),
+			changesSource: { type: "worktree", subject: worktree },
+			dryRun: false,
+		});
+	};
+	return { canAmendCommit, amendCommit };
+};
 
 /**
  * One segment of a worktree's stack: its branch, drawn and acted on like a
@@ -286,21 +324,30 @@ const worktreeLane: BranchLane = { type: "worktree" };
 const WorktreeSegment: FC<{
 	projectId: string;
 	worktree: string;
+	/** The commit the worktree's `HEAD` is detached at, if it is. */
+	detachedHead: string | null;
 	segment: Segment;
 	worktrees: WorktreePlacement;
 	downstackPushStatus: DownstackPushStatus;
 	pushActivity: PushActivity;
 	below: ReadonlyMap<string, GraphSegmentStatus>;
 	behind: number;
+	lane: BranchLane;
+	canAmendCommit: boolean;
+	amendCommit: (commitId: string) => void;
 }> = ({
 	projectId,
 	worktree,
+	detachedHead,
 	segment,
 	worktrees,
 	downstackPushStatus,
 	pushActivity,
 	below,
 	behind,
+	lane,
+	canAmendCommit,
+	amendCommit,
 }) => {
 	const descriptionId = useId();
 	const { refName } = segment;
@@ -334,7 +381,7 @@ const WorktreeSegment: FC<{
 						descriptionId={descriptionId}
 						projectId={projectId}
 						refName={refName}
-						lane={worktreeLane}
+						lane={lane}
 						downstackPushStatus={downstackPushStatus}
 						pushActivity={pushActivity}
 						pushStatus={segment.pushStatus}
@@ -385,11 +432,12 @@ const WorktreeSegment: FC<{
 												projectId={projectId}
 												stackId={null}
 												checkCommit={noop}
-												amendCommit={noop}
-												canAmendCommit={false}
+												amendCommit={() => amendCommit(commit.id)}
+												canAmendCommit={canAmendCommit}
 												below={below.get(commit.id) ?? "LocalOnly"}
 												behind={behind}
 												worktree={worktree}
+												isDetachedHead={commit.id === detachedHead}
 												scrollSelectedIntoView={false}
 											/>
 										}
@@ -430,6 +478,7 @@ const WorktreeRows: FC<{
 	);
 	const pendingPushBranches = usePendingPushBranches(projectId);
 	const segmentPushActivities = pushActivities(worktree.segments, pendingPushBranches);
+	const { canAmendCommit, amendCommit } = useWorktreeAmend(projectId, worktree.name);
 	// The rail under a commit takes the colour of the next commit, across segments.
 	const commits = worktree.segments.flatMap((segment) => segment.commits);
 	const below = new Map(
@@ -456,12 +505,16 @@ const WorktreeRows: FC<{
 					}
 					projectId={projectId}
 					worktree={worktree.name}
+					detachedHead={worktree.refName === null ? worktree.head : null}
 					segment={segment}
 					worktrees={worktrees}
 					downstackPushStatus={assert(downstackPushStatuses[index])}
 					pushActivity={assert(segmentPushActivities[index])}
 					below={below}
 					behind={behind}
+					lane={index === 0 ? checkedOutLane : lowerLane}
+					canAmendCommit={canAmendCommit}
+					amendCommit={amendCommit}
 				/>
 			))}
 		</>

@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use but_api::WorkspaceState;
 use but_ctx::Context;
 use nonempty::NonEmpty;
@@ -22,13 +24,14 @@ pub fn split(
     ctx: &mut Context,
     mut out: IntermediateChannel<'_>,
     args: Platform,
+    current_dir: &Path,
 ) -> CliResult<(r#move::MoveOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
     let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
 
     let allow_merged = args.allow_merged;
-    let move_op = resolve(args, ctx, &id_map, &mut out)?;
+    let move_op = resolve(args, ctx, &id_map, &mut out, current_dir)?;
     r#move::ensure_not_touching_merged_upstream(
         &move_op,
         &MergedUpstream::from_ctx(ctx, allow_merged)?,
@@ -48,10 +51,12 @@ fn resolve(
     ctx: &Context,
     id_map: &IdMap,
     out: &mut IntermediateChannel<'_>,
+    current_dir: &Path,
 ) -> CliResult<MoveOperation> {
     let Platform {
         sources,
         message,
+        file,
         allow_merged: _,
     } = args;
 
@@ -120,7 +125,8 @@ fn resolve(
     let head_source_commit =
         head_source_commit.expect("BUG: Cannot possibly not have a head source commit here");
 
-    let reword = r#move::message_args_to_reword_operation(message, out)?;
+    let reword =
+        r#move::message_args_to_reword_operation(message, file.as_ref(), current_dir, out)?;
 
     Ok(MoveOperation::ChangesRelativeTo(
         MoveChangesRelativeToOperation {

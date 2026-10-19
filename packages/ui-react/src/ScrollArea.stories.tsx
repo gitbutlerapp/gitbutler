@@ -3,6 +3,8 @@ import { useState } from "react";
 import { ScrollArea, ScrollBars } from "./ScrollArea.tsx";
 
 const meta = preview.meta({
+	title: "Content & status/ScrollArea",
+	id: "components-scrollarea",
 	component: ScrollArea,
 	parameters: {
 		design: {

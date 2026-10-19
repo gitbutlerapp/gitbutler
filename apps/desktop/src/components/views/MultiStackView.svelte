@@ -18,7 +18,7 @@
 		onDragOver,
 	} from "$lib/dragging/reordering";
 	import { WorkspaceAutoPanner } from "$lib/dragging/workspaceAutoPanner";
-	import { t } from "$lib/i18n";
+	import { workspaceLanes, type Lane } from "$lib/linkedWorktrees/placement";
 	import { branchesPath } from "$lib/routes/routes.svelte";
 	import { type SelectionId } from "$lib/selection/key";
 	import { getStackBranchNames, type Stack } from "$lib/stacks/stack";
@@ -45,6 +45,7 @@
 	const stackService = inject(STACK_SERVICE);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
 
+	const worktreesQuery = $derived(stackService.worktrees(projectId));
 	// Persisted folded stacks state per project using pure $state + localStorage
 	const storageKey = $derived(`folded-stacks-${projectId}`);
 
@@ -74,14 +75,13 @@
 		foldedOverride = { key: storageKey, ids };
 	}
 
-	function unfoldStack(stackId: string | null | undefined): void {
-		if (!stackId) return;
-		writeFoldedStacks(foldedStackIds.filter((id) => id !== stackId));
+	function unfoldLane(laneId: string): void {
+		writeFoldedStacks(foldedStackIds.filter((id) => id !== laneId));
 	}
 
-	function foldStack(stackId: string | null | undefined): void {
-		if (!stackId || foldedStackIds.includes(stackId)) return;
-		writeFoldedStacks([...foldedStackIds, stackId]);
+	function foldLane(laneId: string): void {
+		if (foldedStackIds.includes(laneId)) return;
+		writeFoldedStacks([...foldedStackIds, laneId]);
 	}
 
 	let lanesScrollableEl = $state<HTMLDivElement>();
@@ -105,7 +105,9 @@
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const isDraftStackVisible = $derived(
-		exclusiveAction?.type === "commit" && exclusiveAction.stackId === undefined,
+		exclusiveAction?.type === "commit" &&
+			exclusiveAction.stackId === undefined &&
+			exclusiveAction.worktree === undefined,
 	);
 
 	const SHOW_PAGINATION_THRESHOLD = 1;
@@ -116,6 +118,7 @@
 	// To support visual reordering of stacks we need a copy of the array
 	// that can be mutated as the stack is being dragged around.
 	let mutableStacks = $state<Stack[]>([]);
+	const lanes = $derived(workspaceLanes(mutableStacks, worktreesQuery.response ?? []));
 
 	// Enable panning when a stack is being dragged.
 	let draggingStack = $state(false);
@@ -166,10 +169,42 @@
 	});
 </script>
 
+{#snippet lane({ laneId, stack, worktree, baseBranchName, index }: Lane)}
+	<div class="lane">
+		{#if foldedStackIds.includes(laneId)}
+			<FoldedStack
+				branchNames={getStackBranchNames(stack)}
+				draggable={!worktree}
+				onUnfold={() => unfoldLane(laneId)}
+			/>
+		{:else}
+			<ErrorBoundary title="Something went wrong in this stack">
+				<StackView
+					{projectId}
+					{stack}
+					{laneId}
+					{worktree}
+					{baseBranchName}
+					onFoldStack={() => foldLane(laneId)}
+					bind:clientWidth={laneWidths[index]}
+					bind:clientHeight={lineHeights[index]}
+					onVisible={(visible) => {
+						if (visible) {
+							visibleIndexes = [...visibleIndexes, index];
+						} else {
+							visibleIndexes = visibleIndexes.filter((i) => i !== index);
+						}
+					}}
+				/>
+			</ErrorBoundary>
+		{/if}
+	</div>
+{/snippet}
+
 {#if isNotEnoughHorzSpace}
 	<div class="pagination-container">
 		<MultiStackPagination
-			length={stacks.length}
+			length={lanes.count}
 			{visibleIndexes}
 			{isCreateNewVisible}
 			selectedBranchIndex={stacks.findIndex(() => {
@@ -179,7 +214,7 @@
 			})}
 			onPageClick={(index) => scrollToLane(lanesScrollableEl, index)}
 			onCreateNewClick={() => {
-				scrollToLane(lanesScrollableEl, stacks.length + 1);
+				scrollToLane(lanesScrollableEl, lanes.count + 1);
 			}}
 		/>
 	</div>
@@ -192,7 +227,7 @@
 	bind:this={lanesScrollableEl}
 	bind:clientWidth={lanesScrollableWidth}
 	bind:clientHeight={lanesScrollableHeight}
-	class:multi={stacks.length < SHOW_PAGINATION_THRESHOLD}
+	class:multi={lanes.count < SHOW_PAGINATION_THRESHOLD}
 	ondrop={() => {
 		stackService.updateStackOrder({
 			projectId,
@@ -234,10 +269,10 @@
 	with some feedback that enables the opacity to become a prop for
 	`StackView` instead of being set imperatively in the dragstart handler.
 	 -->
-			{#each mutableStacks as stack, i (stack.id)}
+			{#each lanes.groups as { stack, lanes: groupLanes } (stack.id)}
 				<div
 					bind:this={stackElements[stack.id || "branchless"]}
-					class="reorderable-stack dotted-pattern"
+					class="lane-group dotted-pattern"
 					role="presentation"
 					animate:flip={{ duration: draggingStack ? 200 : 0 }}
 					onmousedown={onReorderMouseDown}
@@ -262,30 +297,15 @@
 						onReorderEnd();
 					}}
 				>
-					{#if stack.id && foldedStackIds.includes(stack.id)}
-						<FoldedStack
-							branchNames={getStackBranchNames(stack)}
-							onUnfold={() => unfoldStack(stack.id)}
-						/>
-					{:else}
-						<ErrorBoundary title="Something went wrong in this stack">
-							<StackView
-								{projectId}
-								{stack}
-								laneId={stack.id || "banana"}
-								onFoldStack={() => foldStack(stack.id)}
-								bind:clientWidth={laneWidths[i]}
-								bind:clientHeight={lineHeights[i]}
-								onVisible={(visible) => {
-									if (visible) {
-										visibleIndexes = [...visibleIndexes, i];
-									} else {
-										visibleIndexes = visibleIndexes.filter((index) => index !== i);
-									}
-								}}
-							/>
-						</ErrorBoundary>
-					{/if}
+					{#each groupLanes as groupLane (groupLane.laneId)}
+						{@render lane(groupLane)}
+					{/each}
+				</div>
+			{/each}
+
+			{#each lanes.standalone as standaloneLane (standaloneLane.laneId)}
+				<div class="lane-group dotted-pattern">
+					{@render lane(standaloneLane)}
 				</div>
 			{/each}
 
@@ -298,17 +318,17 @@
 			>
 				{#snippet title()}
 					{#if stacks.length === 0}
-						{t("no-branches-in-workspace")}
+						No branches in Workspace
 					{/if}
 				{/snippet}
 				{#snippet description()}
 					{#if stacks.length === 0}
-						{t("drop-files-to-start-a-branch")}
+						Drop files to start a branch,
 						<br />
 						apply from the
 						<a
 							class="pointer-events underline-dotted clr-text-2 link-hover-2"
-							aria-label={t("branches-view")}
+							aria-label="Branches view"
 							href={branchesPath(projectId)}>branches view</a
 						>
 						↗
@@ -320,7 +340,7 @@
 							onclick={() => createBranchModal?.show()}>create a new branch</button
 						> +
 					{:else}
-						{t("drop-files-to-start-a-branch")}
+						Drop files to start a branch,
 						<br />
 						or
 						<button
@@ -372,11 +392,19 @@
 		bottom: 8px;
 	}
 
-	.reorderable-stack {
+	.lane {
+		display: flex;
+		height: 100%;
+
+		& + .lane {
+			border-left: 1px solid var(--border-2);
+		}
+	}
+
+	.lane-group {
 		display: flex;
 		z-index: var(--z-ground);
 		flex-shrink: 0;
-		flex-direction: column;
 		width: fit-content;
 		height: 100%;
 		background-color: var(--bg-2);

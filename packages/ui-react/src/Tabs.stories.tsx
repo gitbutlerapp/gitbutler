@@ -1,9 +1,12 @@
 import preview from "#storybook/preview";
 import { useState } from "react";
 import { Icon } from "./Icon.tsx";
+import { CiStatus } from "./MetaCount.tsx";
 import { Tab, Tabs } from "./Tabs.tsx";
 
 const meta = preview.meta({
+	title: "Actions/Tabs",
+	id: "components-tabs",
 	component: Tabs,
 	parameters: {
 		design: {
@@ -52,6 +55,31 @@ export const IconsAndCounts = meta.story({
 	),
 });
 
+/**
+ * A branch's pull request as its tab: the pull request glyph in its state's colour, its number,
+ * and its checks as `status`. When something in it needs the user, the count takes their place.
+ */
+export const PullRequest = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=3091-977",
+		},
+	},
+	render: () => (
+		<Tabs defaultValue="diff" aria-label="Branch">
+			<Tab value="diff">Diff</Tab>
+			<Tab
+				value="pr"
+				icon={<Icon name="pr" style={{ color: "var(--text-safe)" }} />}
+				status={<CiStatus status="working" />}
+			>
+				PR #512
+			</Tab>
+		</Tabs>
+	),
+});
+
 /** With `kbd`, the shortcut that selects each tab, faint after its label. */
 export const Shortcuts = meta.story({
 	render: () => (
@@ -70,8 +98,8 @@ export const Shortcuts = meta.story({
 });
 
 /**
- * In a pane's header, controlled by the pane. The header leaves 12px below the row, the underline's
- * 8px gap and its 4px, so the underline sits on the divider rather than across it.
+ * In a pane's header, controlled by the pane. The header leaves 10px below the row, the underline's
+ * 6px gap and its 4px, so the underline sits on the divider rather than across it.
  */
 export const InAHeader = meta.story({
 	render: function Render() {
@@ -81,7 +109,7 @@ export const InAHeader = meta.story({
 				<div
 					style={{
 						paddingInline: 12,
-						paddingBlock: "6px 12px",
+						paddingBlock: "6px 10px",
 						borderBlockEnd: "1px solid var(--border-2)",
 					}}
 				>

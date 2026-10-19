@@ -3,8 +3,9 @@
 	import dependentBranchSvg from "$components/stackTabs/assets/dependent-branch.svg?raw";
 	import newStackLefttSvg from "$components/stackTabs/assets/new-stack-left.svg?raw";
 	import newStackRightSvg from "$components/stackTabs/assets/new-stack-right.svg?raw";
+	import worktreeBranchSvg from "$components/stackTabs/assets/worktree-branch.svg?raw";
 	import { autoSelectBranchCreationFeature } from "$lib/config/uiFeatureFlags";
-	import { t } from "$lib/i18n";
+	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { getStackName } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -33,11 +34,19 @@
 	const stackService = inject(STACK_SERVICE);
 	const [createNewStack, stackCreation] = stackService.newStack;
 	const [createNewBranch, branchCreation] = stackService.branchCreate;
+	const [createWorktree, worktreeCreation] = stackService.newWorktree;
+	const settingsStore = inject(SETTINGS_SERVICE).appSettings;
+	const canCreateWorktree = $derived(!!$settingsStore?.featureFlags.worktreeManipulation);
+	// Room for a third option card.
+	const modalWidth = $derived.by(() => {
+		if (canCreateWorktree) return 740;
+		return 500;
+	});
 	const { openGeneralSettings } = useSettingsModal();
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName = $state<string>();
-	let createRefType = $state<"stack" | "dependent">("stack");
+	let createRefType = $state<"stack" | "dependent" | "worktree">("stack");
 	let selectedStackId = $state<string>();
 	let branchNameInput = $state<ReturnType<typeof BranchNameTextbox>>();
 
@@ -84,13 +93,12 @@
 		}
 	});
 
-	function handleOptionSelect(event: Event) {
-		const target = event.target as HTMLInputElement;
-		createRefType = target.id === "new-stack" ? "stack" : "dependent";
-	}
-
 	async function addNew() {
-		if (createRefType === "stack") {
+		if (createRefType === "worktree") {
+			if (!normalizedRefName) return;
+			await createWorktree({ projectId, newRef: `refs/heads/${normalizedRefName}` });
+			createRefModal?.close();
+		} else if (createRefType === "stack") {
 			await createNewStack({
 				projectId,
 				branch: {
@@ -131,7 +139,11 @@
 		selectedStackId = undefined;
 	}
 
-	const isAddingNew = $derived(stackCreation.current.isLoading || branchCreation.current.isLoading);
+	const isAddingNew = $derived(
+		stackCreation.current.isLoading ||
+			branchCreation.current.isLoading ||
+			worktreeCreation.current.isLoading,
+	);
 
 	export async function show(initialType?: "stack" | "dependent") {
 		createRefModal?.show();
@@ -152,11 +164,11 @@
 	}
 </script>
 
-<Modal bind:this={createRefModal} width={500} testId={TestId.CreateNewBranchModal}>
+<Modal bind:this={createRefModal} width={modalWidth} testId={TestId.CreateNewBranchModal}>
 	<div class="content-wrap">
 		<BranchNameTextbox
 			bind:this={branchNameInput}
-			label={t("new-branch")}
+			label="New branch"
 			id={ElementId.NewBranchNameInput}
 			value={createRefName}
 			autofocus
@@ -164,7 +176,7 @@
 			onvalidationchange={(isValid) => (isBranchNameValid = isValid)}
 		/>
 
-		<div class="options-wrap" role="radiogroup" aria-label={t("branch-type-selection")}>
+		<div class="options-wrap" role="radiogroup" aria-label="Branch type selection">
 			<!-- Option 1 -->
 			<label for="new-stack" class="radio-label" class:radio-selected={createRefType === "stack"}>
 				<div class="radio-btn">
@@ -172,14 +184,14 @@
 						checked={createRefType === "stack"}
 						name="create-new"
 						id="new-stack"
-						onchange={handleOptionSelect}
+						onchange={() => (createRefType = "stack")}
 					/>
 				</div>
 
 				<div class="radio-content">
-					<h3 class="text-14 text-bold text-body radio-title">{t("independent-branch")}</h3>
+					<h3 class="text-14 text-bold text-body radio-title">Independent branch</h3>
 					<p class="text-12 text-body radio-caption">
-						{t("create-an-independent-branch")}<br />{t("in-a-new-stack")}
+						Create an independent branch<br />in a new stack.
 					</p>
 
 					<div class="radio-illustration">
@@ -204,17 +216,17 @@
 						name="create-new"
 						id="new-dependent"
 						disabled={allStacks.length === 0}
-						onchange={handleOptionSelect}
+						onchange={() => (createRefType = "dependent")}
 					/>
 				</div>
 
 				<div class="radio-content">
-					<h3 class="text-14 text-bold text-body radio-title">{t("dependent-branch")}</h3>
+					<h3 class="text-14 text-bold text-body radio-title">Dependent branch</h3>
 					<p class="text-12 text-body radio-caption">
 						{#if allStacks.length === 0}
-							{t("create-a-branch-that-depends")}<br />{t("on-another-stack-none-available")}
+							Create a branch that depends<br />on another stack (none available).
 						{:else}
-							{t("create-a-branch-that-depends")}<br />{t("on-a-selected-stack")}
+							Create a branch that depends<br />on a selected stack.
 						{/if}
 					</p>
 
@@ -223,15 +235,42 @@
 					</div>
 				</div>
 			</label>
+			{#if canCreateWorktree}
+				<label
+					for="new-worktree"
+					class="radio-label"
+					class:radio-selected={createRefType === "worktree"}
+				>
+					<div class="radio-btn">
+						<RadioButton
+							checked={createRefType === "worktree"}
+							name="create-new"
+							id="new-worktree"
+							onchange={() => (createRefType = "worktree")}
+						/>
+					</div>
+
+					<div class="radio-content">
+						<h3 class="text-14 text-bold text-body radio-title">Worktree</h3>
+						<p class="text-12 text-body radio-caption">
+							Create a branch checked out<br />in its own folder.
+						</p>
+
+						<div class="radio-illustration">
+							{@html worktreeBranchSvg}
+						</div>
+					</div>
+				</label>
+			{/if}
 		</div>
 
 		{#if createRefType === "dependent"}
 			<Select
 				options={stackOptions}
 				value={selectedStackId}
-				label={t("add-to-stack")}
+				label="Add to stack"
 				disabled={stackOptions.length <= 1}
-				placeholder={t("select-a-stack")}
+				placeholder="Select a stack..."
 				onselect={(value) => (selectedStackId = value)}
 			>
 				{#snippet itemSnippet({ item, highlighted })}
@@ -247,9 +286,9 @@
 
 			<p>
 				{#if createRefType === "stack"}
-					{t("the-new-branch-will-be-applied-in-parallel-with-other-stacks")}
+					The new branch will be applied in parallel with other stacks in the workspace.
 					<br />
-					{t("adjust-branch-placement-and-preferences-in")}
+					Adjust branch placement and preferences in
 					<button
 						type="button"
 						class="settings-link underline-dotted"
@@ -258,14 +297,17 @@
 							openGeneralSettings("lanes-and-branches");
 						}}
 					>
-						{t("settings-lanes-branches")}
+						Settings → Lanes & branches
 					</button>
-				{:else}
-					{t("creates-a-branch-that-depends-on-a-selected-stack")}
+				{:else if createRefType === "worktree"}
+					The new branch starts at the target and is checked out in a linked worktree,
 					<br />
-					{t("a-stack-s-top-branches-also-have-a")}
-					<i class="create-dependent-icon"><Icon name="stack-plus" /></i>
-					{t("icon-to-create-dependent-branches")}
+					under ~/.gitbutler-worktrees. It shows as its own lane.
+				{:else}
+					Creates a branch that depends on a selected stack.
+					<br />
+					A stack's top branches also have a
+					<i class="create-dependent-icon"><Icon name="stack-plus" /></i> icon to create dependent branches.
 				{/if}
 			</p>
 		</div>
@@ -274,9 +316,9 @@
 	{#snippet controls(close)}
 		<div class="footer">
 			<span class="text-12 text-body footer-text"
-				>{t("see-more")}
-				<Link href="https://docs.gitbutler.com/features/branch-management/stacked-branches"
-					>{t("stacked-vs-independent")}</Link
+				>See more: <Link
+					href="https://docs.gitbutler.com/features/branch-management/stacked-branches"
+					>Stacked vs. Independent</Link
 				></span
 			>
 
@@ -290,7 +332,7 @@
 					loading={isAddingNew}
 					testId={TestId.ConfirmSubmit}
 				>
-					{t("create-branch")}
+					Create branch
 				</Button>
 			</div>
 		</div>

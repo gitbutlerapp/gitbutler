@@ -258,7 +258,7 @@ function setup(
 		[POSTHOG_WRAPPER._key, { setPostHogRepo: noop, captureOnboarding: noop }],
 		[PROJECTS_SERVICE._key, { projects: () => query([]), setActiveProject: async () => undefined }],
 		[FILE_SELECTION_MANAGER._key, { retain: noop }],
-		[UNCOMMITTED_SERVICE._key, { updateData: noop }],
+		[UNCOMMITTED_SERVICE._key, { at: () => ({ updateData: noop }) }],
 		[SETTINGS_SERVICE._key, { appSettings: writable({ fetch: { autoFetchIntervalMinutes: -1 } }) }],
 		[STACK_SERVICE._key, { invalidateStacksAndDetails: noop }],
 		[

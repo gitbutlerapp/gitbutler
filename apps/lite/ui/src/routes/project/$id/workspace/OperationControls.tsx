@@ -1,3 +1,4 @@
+import { snackbarManager } from "#ui/snackbars.ts";
 import { useAbsorb } from "#ui/api/mutations.ts";
 import {
 	cancelPendingOperation,
@@ -8,11 +9,10 @@ import {
 import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getHeadInfoIndex, type HeadInfoIndex } from "#ui/api/ref-info.ts";
 import { Button, type ButtonSize, type ButtonVariant } from "@gitbutler/ui-react/Button.tsx";
-import { Snackbar } from "@gitbutler/ui-react/Snackbar.tsx";
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import type { IconName } from "@gitbutler/ui-react/iconNames.ts";
 import { Kbd } from "@gitbutler/ui-react/Kbd.tsx";
-import { ToggleGroupStyles, ToggleStyles } from "@gitbutler/ui-react/ToggleGroup.tsx";
+import { Segment, SegmentedControl } from "@gitbutler/ui-react/SegmentedControl.tsx";
 import {
 	Toolbox,
 	ToolboxMeta,
@@ -37,7 +37,6 @@ import { isCommitFormKeyEvent } from "#ui/routes/project/$id/workspace/commitFor
 import { addressLabel, addressesLabel } from "#ui/routes/project/$id/workspace/addressLabel.ts";
 import { useCheckedActions } from "#ui/routes/project/$id/workspace/useCheckedActions.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { Toggle, ToggleGroup } from "@base-ui/react";
 import { useHotkeys, type UseHotkeyDefinition } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
@@ -51,9 +50,6 @@ import {
 } from "#ui/operations/pending-operation.ts";
 import type { FocusScope } from "#ui/focus-scopes.ts";
 import type { AddressSpace } from "#ui/workspace/address-space.ts";
-
-/** How long a notice stands before it takes itself away. */
-const NOTICE_TIMEOUT_MS = 5_000;
 
 const Container: FC<{ children: ReactNode }> = ({ children }) => (
 	<div className={styles.container}>
@@ -304,7 +300,8 @@ const AbsorbOperationControls: FC<{
 
 	// The plan answers where these changes belong. With no answer — because nothing owns them, or
 	// because working it out failed — there is nothing left to aim, and an operation that cannot be
-	// aimed must not hold the workspace open: it stands down and leaves a notice saying why.
+	// aimed must not hold the workspace open: it stands down and says why in a snackbar. The id makes
+	// a second run of this effect update that snackbar rather than raise another.
 	const refusal = isAbsorptionPlanPending
 		? null
 		: isAbsorptionPlanError
@@ -316,7 +313,8 @@ const AbsorbOperationControls: FC<{
 	useEffect(() => {
 		if (refusal === null) return;
 
-		dispatch(projectSlice.actions.refusePendingOperation({ projectId, notice: refusal }));
+		dispatch(projectSlice.actions.refusePendingOperation({ projectId }));
+		snackbarManager.add({ id: `absorb-refusal:${projectId}`, title: refusal, type: "danger" });
 	}, [dispatch, projectId, refusal]);
 
 	if (refusal !== null) return null;
@@ -378,48 +376,38 @@ const TransferTypeToggleGroup: FC<{
 		},
 	]);
 
-	const onValueChange = (value: Array<string>) => {
-		if (value.length === 0) return;
-		const nextPlacement = value[0] as Placement;
-
-		setPlacement(nextPlacement);
-	};
-
 	return (
-		<ToggleGroup
+		<SegmentedControl
 			aria-label="Placement"
-			value={[placement]}
-			onValueChange={onValueChange}
-			render={<ToggleGroupStyles />}
+			value={placement}
+			onValueChange={setPlacement}
 			onMouseDown={(event) => {
 				// Prevent stealing focus from the tree.
 				if (!event.defaultPrevented) event.preventDefault();
 			}}
 		>
-			<Toggle
-				render={<ToggleStyles />}
+			<Segment
 				value={"above" satisfies Placement}
 				disabled={!operations.above}
+				kbd={operationHotkeys.selectAbove.hotkey}
 			>
-				Above <Kbd hotkey={operationHotkeys.selectAbove.hotkey} variant="button" />
-			</Toggle>
-
-			<Toggle
-				render={<ToggleStyles />}
+				Above
+			</Segment>
+			<Segment
 				value={"into" satisfies Placement}
 				disabled={!operations.into}
+				kbd={operationHotkeys.selectInto.hotkey}
 			>
-				Into <Kbd hotkey={operationHotkeys.selectInto.hotkey} variant="button" />
-			</Toggle>
-
-			<Toggle
-				render={<ToggleStyles />}
+				Into
+			</Segment>
+			<Segment
 				value={"below" satisfies Placement}
 				disabled={!operations.below}
+				kbd={operationHotkeys.selectBelow.hotkey}
 			>
-				Below <Kbd hotkey={operationHotkeys.selectBelow.hotkey} variant="button" />
-			</Toggle>
-		</ToggleGroup>
+				Below
+			</Segment>
+		</SegmentedControl>
 	);
 };
 
@@ -445,30 +433,23 @@ const TransferKindToggleGroup: FC<{
 		},
 	]);
 
-	const onValueChange = (value: Array<string>) => {
-		if (value.length === 0) return;
-		setKind(value[0] as TransferKind);
-	};
-
 	return (
-		<ToggleGroup
+		<SegmentedControl
 			aria-label="Transfer kind"
-			value={[kind]}
-			onValueChange={onValueChange}
-			render={<ToggleGroupStyles />}
+			value={kind}
+			onValueChange={setKind}
 			onMouseDown={(evt) => {
 				// Prevent stealing focus from the tree.
 				if (!evt.defaultPrevented) evt.preventDefault();
 			}}
 		>
-			<Toggle render={<ToggleStyles />} value={"move" satisfies TransferKind}>
-				Move <Kbd hotkey={operationHotkeys.selectMove.hotkey} variant="button" />
-			</Toggle>
-
-			<Toggle render={<ToggleStyles />} value={"copy" satisfies TransferKind}>
-				Copy <Kbd hotkey={operationHotkeys.selectCopy.hotkey} variant="button" />
-			</Toggle>
-		</ToggleGroup>
+			<Segment value={"move" satisfies TransferKind} kbd={operationHotkeys.selectMove.hotkey}>
+				Move
+			</Segment>
+			<Segment value={"copy" satisfies TransferKind} kbd={operationHotkeys.selectCopy.hotkey}>
+				Copy
+			</Segment>
+		</SegmentedControl>
 	);
 };
 
@@ -544,7 +525,9 @@ const TransferKeyboardOperationControls: FC<{
 
 	const target = getTransferTarget(keyboardTransfer(transfer), selection, activeList);
 
-	const operations = target ? getOperations(transfer.sources, target, transfer.kind) : null;
+	const operations = target
+		? getOperations(transfer.sources, target, transfer.kind, { headInfoIndex })
+		: null;
 	const operation = operations?.[transfer.placement];
 	// Three disabled placements and a confirm that cannot be taken say only that something is
 	// wrong. When no placement resolves, the toolbox states the reason instead.
@@ -638,41 +621,18 @@ export const OperationControls: FC<{
 	const checkedAddressCount = useAppSelector((state) =>
 		projectSlice.selectors.selectCheckedAddressCount(state, projectId),
 	);
-	const notice = useAppSelector((state) => projectSlice.selectors.selectNotice(state, projectId));
-	const dispatch = useAppDispatch();
-	const clearNotice = () => dispatch(projectSlice.actions.clearNotice({ projectId }));
-
-	// A notice is the end of something, not a thing to attend to: it carries no way out of its own
-	// and leaves on a click or on its own, so the only close button on screen belongs to whatever
-	// the workspace still has in hand.
-	useEffect(() => {
-		if (notice === null) return;
-
-		const timer = setTimeout(
-			() => dispatch(projectSlice.actions.clearNotice({ projectId })),
-			NOTICE_TIMEOUT_MS,
-		);
-		return () => clearTimeout(timer);
-	}, [dispatch, notice, projectId]);
 
 	return Match.value(pendingOperation).pipe(
 		Match.tagsExhaustive({
 			None: () =>
-				(notice !== null || checkedAddressCount > 0) && (
+				checkedAddressCount > 0 && (
 					<div className={styles.container}>
 						<ToolboxStack>
-							{notice !== null && (
-								<Snackbar variant="danger" className={styles.notice} onClick={clearNotice}>
-									{notice}
-								</Snackbar>
-							)}
-							{checkedAddressCount > 0 && (
-								<CheckedAddressOperationControls
-									checkedAddressCount={checkedAddressCount}
-									projectId={projectId}
-									appliedAddressSpace={appliedAddressSpace}
-								/>
-							)}
+							<CheckedAddressOperationControls
+								checkedAddressCount={checkedAddressCount}
+								projectId={projectId}
+								appliedAddressSpace={appliedAddressSpace}
+							/>
 						</ToolboxStack>
 					</div>
 				),

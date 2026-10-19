@@ -204,7 +204,11 @@
 					{#if !allInOneDiff}
 						<!-- Single-file mode: show selected file with header -->
 						{#if selectedChange}
-							{@const diffQuery = diffService.getDiff(projectId, selectedChange)}
+							{@const diffQuery = diffService.getDiff(
+								projectId,
+								selectedChange,
+								selectionId.worktree,
+							)}
 							{@const diffResponse = diffQuery.response}
 							{@const lineChangesStat =
 								diffResponse?.type === "Patch"
@@ -296,7 +300,7 @@
 							}}
 						>
 							{#snippet template(change, index)}
-								{@const diffQuery = diffService.getDiff(projectId, change)}
+								{@const diffQuery = diffService.getDiff(projectId, change, selectionId.worktree)}
 								{@const diffData = diffQuery.response}
 								{@const isExecutable = isExecutableStatus(change.status)}
 								{@const patchData = diffData?.type === "Patch" ? diffData.subject : null}

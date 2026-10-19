@@ -1,10 +1,12 @@
 import { ConflictEntries, type ConflictEntriesObj } from "$lib/files/conflicts";
+import { checkoutOf } from "$lib/selection/key";
 import { normalizeReferenceSubject } from "$lib/stacks/commitMovePlacement";
 import {
 	transformWorkspaceDetails,
 	workspaceStackDetailTags,
 	type WorkspaceDetails,
 } from "$lib/stacks/headInfoAdapters";
+import { tauriBaseQuery } from "$lib/state/backendQuery";
 import { createSelectByIds, createSelectNth } from "$lib/state/customSelectors";
 import {
 	invalidatesItem,
@@ -50,6 +52,7 @@ import type {
 	RelativeTo,
 	RefInfo,
 	StackEntryNoOpt,
+	HeadAndMode,
 	BottomUpdate,
 	WorkspaceIntegrateUpstreamOutcome,
 	BranchCreatePlacement,
@@ -57,6 +60,7 @@ import type {
 	BranchRemoveResult,
 	UncommitChangesFromCommitsResult,
 	UncommitChangesSource,
+	NewWorktree,
 	BranchRenameResult,
 	PushResult,
 } from "@gitbutler/but-sdk";
@@ -66,15 +70,10 @@ export type BranchParams = {
 	order?: number;
 };
 
-export type CreateCommitRequest = {
-	message: string;
-	/** Undefined means that the backend will infer the parent to be the current head of stackBranchName */
-	parentId: string | undefined;
-	/** When true, insert below `parentId` instead of above it. */
-	insertBelow?: boolean;
-	stackBranchName: string;
-	worktreeChanges: DiffSpec[];
-	dryRun: boolean;
+/** Where a new commit goes: `side` of `relativeTo`. */
+export type CommitPlacement = {
+	relativeTo: RelativeTo;
+	side: "above" | "below";
 };
 
 export type CreateCommitRequestWorktreeChanges = DiffSpec;
@@ -146,10 +145,22 @@ export function normalizeCreateCommitOutcome(response: CommitCreateResult): Crea
 	};
 }
 
-export function toCommitCreatePlacement(args: CreateCommitRequest): {
-	relativeTo: RelativeTo;
-	side: "above" | "below";
-} {
+/** The paths a commit left out, with why. */
+export function rejectedChangesByPath(
+	outcome: CreateCommitOutcome,
+): Record<string, RejectionReason> {
+	return Object.fromEntries(outcome.rejectedChanges.map(({ path, reason }) => [path, reason]));
+}
+
+/**
+ * A stack commit goes on `parentId` when given, `insertBelow` it if asked, and
+ * otherwise on top of `stackBranchName`.
+ */
+export function toCommitCreatePlacement(args: {
+	stackBranchName: string;
+	parentId?: string;
+	insertBelow?: boolean;
+}): CommitPlacement {
 	if (args.parentId) {
 		return {
 			relativeTo: {
@@ -225,6 +236,34 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				return transformWorkspaceDetails(response);
 			},
 		}),
+		worktreeSetArchived: build.mutation<
+			void,
+			{ projectId: string; name: string; archived: boolean }
+		>({
+			extraOptions: {
+				command: "worktree_set_archived",
+				actionName: "Archive Worktree",
+			},
+			query: (args) => args,
+			invalidatesTags: [invalidatesList(ReduxTag.Stacks)],
+		}),
+		/** A linked worktree on the new branch `newRef`, starting at the workspace's base. */
+		worktreeNew: build.mutation<NewWorktree, { projectId: string; newRef: string }>({
+			extraOptions: {
+				command: "worktree_new",
+				actionName: "Create Worktree",
+			},
+			query: (args) => args,
+			invalidatesTags: [invalidatesList(ReduxTag.Stacks)],
+		}),
+		worktreeRemove: build.mutation<void, { projectId: string; name: string; force: boolean }>({
+			extraOptions: {
+				command: "worktree_remove",
+				actionName: "Remove Worktree",
+			},
+			query: (args) => args,
+			invalidatesTags: [invalidatesList(ReduxTag.Stacks)],
+		}),
 		workspaceIntegrateUpstream: build.mutation<
 			WorkspaceIntegrateUpstreamOutcome,
 			{ projectId: string; updates: BottomUpdate[]; dryRun: boolean }
@@ -253,11 +292,34 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				command: "create_virtual_branch",
 				actionName: "Create Stack",
 			},
-			query: (args) => args,
+			async queryFn(args, api, extraOptions) {
+				const project = { projectId: args.projectId };
+				const mode = await tauriBaseQuery(project, api, { command: "operating_mode" });
+				if (mode.error !== undefined) return { error: mode.error };
+
+				// Independent stacks need a managed workspace, regardless of whether the
+				// caller is the branch modal, commit drawer, or a drag-and-drop action.
+				if ((mode.data as HeadAndMode).operatingMode.type === "OutsideWorkspace") {
+					const switched = await tauriBaseQuery(project, api, {
+						command: "switch_back_to_workspace",
+					});
+					if (switched.error !== undefined) return { error: switched.error };
+				}
+
+				const created = await tauriBaseQuery(args, api, extraOptions);
+				if (created.error !== undefined) return { error: created.error };
+				return { data: created.data as StackEntryNoOpt };
+			},
 			invalidatesTags: (result, _error) => [
 				invalidatesItem(ReduxTag.StackDetails, result?.id || "undefined"),
+				invalidatesList(ReduxTag.StackDetails),
 				invalidatesList(ReduxTag.Stacks),
 				invalidatesList(ReduxTag.BranchListing),
+				invalidatesList(ReduxTag.HeadMetadata),
+				invalidatesList(ReduxTag.HeadSha),
+				invalidatesList(ReduxTag.WorktreeChanges),
+				invalidatesType(ReduxTag.ForgeProvider),
+				invalidatesType(ReduxTag.BaseBranchData),
 			],
 		}),
 		updateStackOrder: build.mutation<
@@ -320,7 +382,8 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			BranchPushResult,
 			{
 				projectId: string;
-				stackId: string;
+				/** Absent for a linked worktree's branch, which is pushed by name alone. */
+				stackId?: string;
 				withForce: boolean;
 				skipForcePushProtection: boolean;
 				branch: string;
@@ -342,27 +405,32 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				invalidatesList(ReduxTag.BranchListing),
 			],
 		}),
-		commitCreate: build.mutation<CreateCommitOutcome, { projectId: string } & CreateCommitRequest>({
+		/** Commit `changes` from `checkout`, the main one by default. */
+		commitCreate: build.mutation<
+			CreateCommitOutcome,
+			CommitPlacement & {
+				projectId: string;
+				changes: DiffSpec[];
+				/** The linked worktree whose changes are committed, the main checkout's when unset. */
+				worktree?: string;
+				message: string;
+			}
+		>({
 			extraOptions: {
 				command: "commit_create",
 				actionName: "Commit",
 			},
-			query: (args) => {
-				const { relativeTo, side } = toCommitCreatePlacement(args);
-				return {
-					projectId: args.projectId,
-					relativeTo,
-					side,
-					changes: args.worktreeChanges,
-					changesSource: { type: "head" },
-					message: args.message,
-					dryRun: args.dryRun,
-				};
-			},
+			query: ({ worktree, ...args }) => ({
+				...args,
+				changesSource: checkoutOf({ worktree }),
+				dryRun: false,
+			}),
 			transformResponse: normalizeCreateCommitOutcome,
+			// A worktree's new commit shows in its lane, which head_info provides.
 			invalidatesTags: [
 				invalidatesList(ReduxTag.WorktreeChanges),
 				invalidatesList(ReduxTag.HeadSha),
+				invalidatesList(ReduxTag.Stacks),
 			],
 		}),
 		commitDetails: build.query<
@@ -531,6 +599,8 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				projectId: string;
 				commitId: string;
 				worktreeChanges: DiffSpec[];
+				/** The linked worktree the changes are in, the main checkout when unset. */
+				worktree?: string;
 				dryRun: boolean;
 			}
 		>({
@@ -538,11 +608,11 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				command: "commit_amend",
 				actionName: "Amend Commit",
 			},
-			query: ({ projectId, commitId, worktreeChanges, dryRun }) => ({
+			query: ({ projectId, commitId, worktreeChanges, worktree, dryRun }) => ({
 				projectId,
 				commitId,
 				changes: worktreeChanges,
-				changesSource: { type: "head" },
+				changesSource: checkoutOf({ worktree }),
 				dryRun,
 			}),
 			transformResponse: normalizeCreateCommitOutcome,
@@ -589,12 +659,20 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			transformResponse: (response: CommitInsertBlankResult) => response.newCommit,
 			invalidatesTags: [invalidatesList(ReduxTag.HeadSha)],
 		}),
-		discardChanges: build.mutation<DiffSpec[], { projectId: string; worktreeChanges: DiffSpec[] }>({
+		discardChanges: build.mutation<
+			DiffSpec[],
+			{
+				projectId: string;
+				worktreeChanges: DiffSpec[];
+				/** The linked worktree the changes are in, the main checkout when unset. */
+				worktree?: string;
+			}
+		>({
 			extraOptions: {
 				command: "discard_worktree_changes",
 				actionName: "Discard Changes",
 			},
-			query: (args) => args,
+			query: ({ worktree, ...args }) => ({ ...args, changesSource: checkoutOf({ worktree }) }),
 			invalidatesTags: [invalidatesList(ReduxTag.WorktreeChanges)],
 		}),
 		commitMoveChangesBetween: build.mutation<
@@ -744,17 +822,19 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			{
 				projectId: string;
 				subjectBranch: string;
-				targetBranch: string;
+				relativeTo: RelativeTo;
+				side: InsertSide;
 			}
 		>({
 			extraOptions: {
 				command: "move_branch",
 				actionName: "Move Branch",
 			},
-			query: ({ projectId, subjectBranch, targetBranch }) => ({
+			query: ({ projectId, subjectBranch, relativeTo, side }) => ({
 				projectId,
 				subjectBranch,
-				targetBranch,
+				relativeTo,
+				side,
 				dryRun: false,
 			}),
 			invalidatesTags: [

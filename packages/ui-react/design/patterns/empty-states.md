@@ -4,6 +4,16 @@
 body line, and an actions slot. Its Figma description carries the same rules;
 change one and change the other.
 
+**Two variants: `default` for a panel, `tidy` for a popup.** Where the block
+stands in for a popup's rows — a picker or the command palette whose search
+found nothing — it takes `tidy`: 20 under the illustration, 6 between the
+lines, 12 above the actions, no counterweight, and `small` buttons. Its height
+follows the popup's width at 5:2, so a popup keeps its proportions however wide
+it opens instead of holding one fixed height. Usually it
+is just the line reporting the miss and an outline "Clear search", which is
+what `PopupEmpty` draws; the illustration, when there is room for one, still
+renders at 1:1.
+
 **It is for a surface that is empty, once the app knows it is.** Never a
 loading state. A surface that has content but can't act yet is not empty
 either; see [Blocked states](../patterns/blocked-states.md).
@@ -13,10 +23,10 @@ room — the branches tab — it takes the block: the title names the miss, the
 body quotes what missed (the search, the filters, or both), and the one action
 shows everything again, since the filters live in a native menu the block
 can't point at. A short strip keeps the line where its rows would be, next to
-the filter. A picker's list takes `PopupEmpty`: the `papers` drawing over one
-line reporting the miss, no title, the line closer under the drawing, no
-counterweight. A list empty before anything was typed gets the cactus and says
-what that means — "Nothing left to apply" — not "found". A dropdown no wider
+the filter. A picker's list takes `PopupEmpty`, the `tidy` block: one line
+reporting the miss and a small "Clear search" under it that puts the caret
+back in the search, no drawing and no title. A list empty before anything was typed gets the cactus and says what
+that means — "Nothing left to apply" — not "found", with nothing to clear. A dropdown no wider
 than its trigger, like the commit target combobox, keeps the plain line.
 
 **Never a stand-in that looks like content.** Gray avatar circles and text bars
@@ -68,8 +78,9 @@ highlighted.
 
 | Illustration | Size    | Means                                                                                   |
 | ------------ | ------- | --------------------------------------------------------------------------------------- |
-| `cactus`     | 96×82   | A list with nothing in it: no branches, no machines, nothing yet                        |
+| `cactus`     | 96×82   | A list with nothing in it: no branches, no commits, nothing yet                         |
 | `papers`     | 98×86   | Looked and found nothing, or a state the app can't name: a search, a filter, an address |
+| `sleep`      | 152×122 | Nothing connected: no machine has joined yet, or the one holding this is offline        |
 | `id-card`    | 130×100 | Signing in, accounts, identity                                                          |
 | `terminal`   | 79×59   | The command line                                                                        |
 | `waving`     | 186×215 | Good news in a large view: all good, nothing to do. Large views only                    |

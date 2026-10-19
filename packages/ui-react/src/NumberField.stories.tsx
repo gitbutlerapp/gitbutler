@@ -2,6 +2,8 @@ import preview from "#storybook/preview";
 import { NumberField } from "./NumberField.tsx";
 
 const meta = preview.meta({
+	title: "Inputs/NumberField",
+	id: "components-numberfield",
 	component: NumberField,
 	parameters: {
 		design: {

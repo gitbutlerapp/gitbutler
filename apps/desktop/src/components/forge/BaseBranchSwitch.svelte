@@ -1,8 +1,5 @@
 <script lang="ts">
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
-	import { t } from "$lib/i18n";
-
-	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, CardGroup, InfoMessage, Select, SelectItem } from "@gitbutler/ui-svelte";
@@ -11,11 +8,9 @@
 
 	const stackService = inject(STACK_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
-	const settingsStore = inject(SETTINGS_SERVICE).appSettings;
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
 	const baseBranch = $derived(baseBranchQuery.response);
 	const remoteBranchesQuery = $derived(baseBranchService.remoteBranches(projectId));
-	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
 	const [setBaseBranchTargetRef, targetRefSwitch] = baseBranchService.setTargetRef;
 
 	let selectedBranch = $derived(baseBranch?.branchName);
@@ -33,22 +28,11 @@
 			}));
 	}
 
-	const switching = $derived(
-		targetBranchSwitch.current.isLoading || targetRefSwitch.current.isLoading,
-	);
-	// With the singleBranch feature flag, only the target metadata is rewritten
-	// and no branch is checked out, so avoid claiming a branch switch.
-	const switchingLabel = $derived(
-		$settingsStore?.featureFlags.singleBranch ? "Updating target..." : "Switching branches...",
-	);
+	const switching = $derived(targetRefSwitch.current.isLoading);
 
 	async function switchTarget(branch: string, pushRemote?: string) {
-		if ($settingsStore?.featureFlags.singleBranch) {
-			// Only update the target; the user keeps working on their current branch.
-			await setBaseBranchTargetRef({ projectId, targetRef: `refs/remotes/${branch}`, pushRemote });
-		} else {
-			await setBaseBranchTarget({ projectId, branch, pushRemote });
-		}
+		// Only update the target; the user keeps working on their current branch.
+		await setBaseBranchTargetRef({ projectId, targetRef: `refs/remotes/${branch}`, pushRemote });
 	}
 
 	async function onSetBaseBranchClick() {
@@ -65,7 +49,7 @@
 {#if remoteBranchesQuery.result.isLoading}
 	<InfoMessage filled outlined={false} icon="info">
 		{#snippet content()}
-			{t("loading-remote-branches")}
+			Loading remote branches...
 		{/snippet}
 	</InfoMessage>
 {:else if remoteBranchesQuery.result.isSuccess}
@@ -75,10 +59,12 @@
 		<CardGroup>
 			<CardGroup.Item>
 				{#snippet title()}
-					{t("remote-configuration")}
+					Remote configuration
 				{/snippet}
 				{#snippet caption()}
-					{t("lets-you-choose-where-to-push-code-and-set-the-target-branch")}
+					Lets you choose where to push code and set the target branch for contributions. The target
+					branch is usually the "production" branch like 'origin/master' or 'upstream/main.' This
+					section helps ensure your code goes to the correct remote and branch for integration.
 				{/snippet}
 
 				<Select
@@ -89,7 +75,7 @@
 						selectedBranch = value;
 					}}
 					disabled={targetChangeDisabled}
-					label={t("current-target-branch")}
+					label="Current target branch"
 					searchable
 				>
 					{#snippet itemSnippet({ item, highlighted })}
@@ -108,7 +94,7 @@
 							selectedRemote = value;
 						}}
 						disabled={targetChangeDisabled}
-						label={t("create-branches-on-remote")}
+						label="Create branches on remote"
 					>
 						{#snippet itemSnippet({ item, highlighted })}
 							<SelectItem selected={item.value === selectedRemote} {highlighted}>
@@ -121,9 +107,8 @@
 				{#if targetChangeDisabled}
 					<InfoMessage filled outlined={false} icon="info">
 						{#snippet content()}
-							{t("you-have")}
-							{stackCount === 1 ? "1 active branch" : `${stackCount} active branches`}
-							{t("in-your-workspace-please-clear-the-workspace-before-switchin")}
+							You have {stackCount === 1 ? "1 active branch" : `${stackCount} active branches`} in your
+							workspace. Please clear the workspace before switching the base branch.
 						{/snippet}
 					</InfoMessage>
 				{:else}
@@ -136,7 +121,7 @@
 							selectedRemote === baseBranch?.pushRemoteName) ||
 							targetChangeDisabled}
 					>
-						{switching ? switchingLabel : "Update configuration"}
+						{switching ? "Updating target..." : "Update configuration"}
 					</Button>
 				{/if}
 			</CardGroup.Item>
@@ -145,7 +130,7 @@
 {:else if remoteBranchesQuery.result.isError}
 	<InfoMessage filled outlined={true} style="danger">
 		{#snippet title()}
-			{t("we-got-an-error-trying-to-list-your-remote-branches")}
+			We got an error trying to list your remote branches
 		{/snippet}
 	</InfoMessage>
 {/if}

@@ -202,8 +202,8 @@ pub fn changes_in_worktree(
 /// When dependency and assignment computation is turned off, hunk assignments and dependencies
 /// are not computed at all: `assignments` is empty and there are no `dependencies`.
 ///
-/// A linked worktree is not part of the workspace, so it has neither - the flag is
-/// ignored for it, and nothing is persisted.
+/// A linked worktree is not part of the workspace: its hunks all come back unassigned,
+/// it has no dependencies, and nothing is persisted.
 ///
 /// For lower-level implementation details, see
 /// [`but_core::diff::worktree_changes()`],
@@ -220,7 +220,16 @@ pub fn changes_in_worktree_with_perm(
     let context_lines = ctx.settings.context_lines;
 
     if let Some((_name, wt_repo)) = crate::worktrees::open_changes_source(ctx, &changes_source)? {
-        return Ok(worktree_changes_with_modification_times(&wt_repo)?.into());
+        let changes = worktree_changes_with_modification_times(&wt_repo)?;
+        if !compute_deps_and_assignments {
+            return Ok(changes.into());
+        }
+        let assignments =
+            but_hunk_assignment::unassigned(&wt_repo, changes.changes.clone(), context_lines);
+        return Ok(WorktreeChanges {
+            assignments,
+            ..changes.into()
+        });
     }
 
     if !compute_deps_and_assignments {

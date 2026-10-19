@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, path::Path};
 
 use anyhow::Context as _;
 use bstr::ByteSlice as _;
@@ -27,7 +27,10 @@ use crate::{
     CliError, CliResult, CliResultExt, IdMap,
     args::{
         OutputFormat,
-        atoms::{BranchArg, CliIdArg, Priority, Purpose, ResolvedCliIdArg, ResolvedCliIdArgRef},
+        atoms::{
+            BranchArg, CliIdArg, MessageFileArg, Priority, Purpose, ResolvedCliIdArg,
+            ResolvedCliIdArgRef,
+        },
         squash::Platform,
     },
     bad_input,
@@ -158,6 +161,7 @@ pub fn squash(
     out: IntermediateChannel<'_>,
     args: Platform,
     invoked_from: &InvokedFrom,
+    current_dir: &Path,
 ) -> CliResult<(SquashOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
@@ -166,7 +170,15 @@ pub fn squash(
     let merged = MergedUpstream::new(&*ctx.repo.get()?, &head_info, args.allow_merged);
 
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
-    let resolved_args = resolve_args(&repo, args, &id_map, &head_info, out.format(), invoked_from)?;
+    let resolved_args = resolve_args(
+        &repo,
+        args,
+        &id_map,
+        &head_info,
+        out.format(),
+        invoked_from,
+        current_dir,
+    )?;
     let resolved_args = resolved_args.as_ref();
 
     let squash_op = resolve(resolved_args, &ws, &repo, &merged)?;
@@ -184,12 +196,14 @@ fn resolve_args(
     head_info: &RefInfo,
     format: OutputFormat,
     invoked_from: &InvokedFrom,
+    current_dir: &Path,
 ) -> CliResult<ResolvedSquashArgs> {
     let Platform {
         target,
         sources,
         message,
         no_message,
+        file,
         use_target_message,
         use_source_message,
         // Consumed by the caller when building the `MergedUpstream` guard.
@@ -199,6 +213,8 @@ fn resolve_args(
     let reword = resolve_reword(
         message,
         no_message,
+        file.as_ref(),
+        current_dir,
         use_target_message,
         use_source_message,
         format,
@@ -255,7 +271,7 @@ fn resolve_args(
                         bad_input("--no-message cannot be used when uncommitting").into()
                     }
                     ResolveTargetError::MessageUnavailable => {
-                        bad_input("--message cannot be used when uncommitting").into()
+                        bad_input("--message and --file cannot be used when uncommitting").into()
                     }
                     ResolveTargetError::AnonymousSegment(id) => {
                         crate::args::atoms::anonymous_segment_error(&id)
@@ -1059,6 +1075,8 @@ pub fn resolve_squash_branch(
 fn resolve_reword(
     message: Option<Vec<String>>,
     no_message: bool,
+    file: Option<&MessageFileArg>,
+    current_dir: &Path,
     use_target_message: bool,
     use_source_message: bool,
     format: OutputFormat,
@@ -1069,7 +1087,11 @@ fn resolve_reword(
         Ok(HowToRewordTarget::UseSourceMessage)
     } else {
         Ok(HowToRewordTarget::Reword(CommitMessageSource::from_args(
-            no_message, message, format,
+            no_message,
+            message,
+            file,
+            current_dir,
+            format,
         )?))
     }
 }
@@ -1319,7 +1341,7 @@ pub fn run(
             source: _,
         }) => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+            let repo = ctx.repo.get()?;
             let mut builder =
                 DiffSpecBuilder::for_change_source(&source_repo, &repo, context_lines);
             for source in &sources {
@@ -1351,7 +1373,7 @@ pub fn run(
             source: _,
         } => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+            let repo = ctx.repo.get()?;
             let mut builder =
                 DiffSpecBuilder::for_change_source(&source_repo, &repo, context_lines);
             builder.push_changes_from_uncommitted_area()?;
@@ -1374,7 +1396,7 @@ pub fn run(
             reword,
         } => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+            let repo = ctx.repo.get()?;
             let mut builder = DiffSpecBuilder::new(&repo, context_lines);
             let mut tree_changes = None;
             for change in sources {
@@ -1444,7 +1466,7 @@ pub fn run(
         },
         SquashOperation::UncommitCommittedChanges(UncommitChangesOperation { source, sources }) => {
             let context_lines = ctx.settings.context_lines;
-            let (repo, ..) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+            let repo = ctx.repo.get()?;
             let mut builder = DiffSpecBuilder::new(&repo, context_lines);
             let mut tree_changes = None;
             for change in sources {
@@ -1558,6 +1580,12 @@ pub fn run(
                     DryRun::Yes,
                     perm,
                 )?;
+                // The implementation of `commit_uncommit_only_with_perm` requires a write lock on
+                // the workspace even in dry run mode. Ideally, we should change that function
+                // (or better, remove this whole `if` block and instead check for conflicts another
+                // way). For now, invalidate the workspace cache to enable future code to once
+                // again take locks.
+                ctx.invalidate_workspace_cache()?;
 
                 anyhow::ensure!(
                     !workspace.is_conflicted(),
@@ -1622,6 +1650,12 @@ pub fn run(
                         DryRun::Yes,
                         perm,
                     )?;
+                // The implementation of `commit_uncommit_changes_only_with_perm` requires a write lock on
+                // the workspace even in dry run mode. Ideally, we should change that function
+                // (or better, remove this whole `if` block and instead check for conflicts another
+                // way). For now, invalidate the workspace cache to enable future code to once
+                // again take locks.
+                ctx.invalidate_workspace_cache()?;
 
                 anyhow::ensure!(
                     !workspace.is_conflicted(),

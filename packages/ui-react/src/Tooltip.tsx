@@ -54,6 +54,7 @@ export type TooltipProps = Omit<BaseTooltip.Root.Props, "children"> & {
 	kbd?: string | HotkeySequence;
 	/** The focus scope the shortcut acts in; see `TooltipPopup`. */
 	kbdScope?: string;
+	/** Which side of the trigger it opens on. Below by default. */
 	side?: BaseTooltip.Positioner.Props["side"];
 	sideOffset?: number;
 };
@@ -72,7 +73,7 @@ export const Tooltip: FC<TooltipProps> = ({
 	children,
 	kbd,
 	kbdScope,
-	side,
+	side = "bottom",
 	sideOffset = 4,
 	...rootProps
 }) => (

@@ -2,6 +2,7 @@ import { useAddressSpace } from "./context.tsx";
 import { startKeyboardTransfer, setCursor, startInlineEdit } from "#ui/use-cursor.ts";
 import {
 	useBranchCreate,
+	useBranchNameSegment,
 	useCommitDiscard,
 	useCommitInsertBlank,
 	useCommitReword,
@@ -14,7 +15,7 @@ import { GraphSegment, type GraphSegmentStatus } from "#ui/components/GraphSegme
 import { Icon } from "@gitbutler/ui-react/Icon.tsx";
 import { Tooltip } from "@gitbutler/ui-react/Tooltip.tsx";
 import { commitBody, commitForgeUrl, commitIsDiverged, commitTitle } from "#ui/commit.ts";
-import { errorMessageForToast } from "#ui/errors.ts";
+import { addErrorToast } from "#ui/errors.ts";
 import {
 	changesHotkeys,
 	sidebarHotkeys,
@@ -65,6 +66,8 @@ export const CommitRow: FC<
 		 * outside the workspace, so the actions that rewrite it stay off.
 		 */
 		worktree?: string;
+		/** Whether `worktree` has its `HEAD` detached at this commit. */
+		isDetachedHead?: boolean;
 	} & ComponentProps<"div">
 > = ({
 	commit,
@@ -74,6 +77,7 @@ export const CommitRow: FC<
 	amendCommit,
 	canAmendCommit,
 	worktree,
+	isDetachedHead = false,
 	below,
 	behind,
 	...restProps
@@ -128,6 +132,8 @@ export const CommitRow: FC<
 	const { mutateAsync: commitReword } = useCommitReword();
 	const { mutate: enterEditMode } = useEnterEditMode(projectId);
 	const { mutate: branchCreate } = useBranchCreate();
+	const { isPending: isBranchNameSegmentPending, mutate: branchNameSegment } =
+		useBranchNameSegment();
 
 	const insertBlankCommit = (side: "above" | "below") => {
 		commitInsertBlank({
@@ -150,6 +156,22 @@ export const CommitRow: FC<
 						side,
 					},
 				},
+			},
+			{
+				onSuccess: (response) => {
+					setCursor("applied", branchAddress({ branchRef: response.newRef.fullNameBytes }));
+				},
+			},
+		);
+	};
+
+	const nameDetachedHead = (worktree: string) => {
+		branchNameSegment(
+			{
+				projectId,
+				checkout: { type: "worktree", subject: worktree },
+				commitId: commit.id,
+				newRef: null,
 			},
 			{
 				onSuccess: (response) => {
@@ -263,11 +285,9 @@ export const CommitRow: FC<
 					dryRun: false,
 				});
 			} catch (error) {
-				toastManager.add({
-					type: "error",
+				addErrorToast(toastManager, {
 					title: "Failed to reword commit",
-					description: errorMessageForToast(error),
-					priority: "high",
+					error,
 				});
 			}
 		});
@@ -282,7 +302,7 @@ export const CommitRow: FC<
 	const title = commitTitle(optimisticMessage);
 	const body = commitBody(optimisticMessage);
 
-	// Items that only read the commit, the whole menu of a commit outside the workspace.
+	// Items that only read the commit, shared by every menu.
 	const readOnlyMenuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: "Copy",
@@ -314,20 +334,44 @@ export const CommitRow: FC<
 			onSelect: openCommitInBrowser,
 		}),
 	];
+	const rewordItem = nativeMenuItem({
+		label: "Reword Commit",
+		enabled: !isCommitMessagePending,
+		// Advertising a hotkey defined elsewhere.
+		accelerator: toElectronAccelerator(sidebarHotkeys.rewordCommit.hotkey),
+		onSelect: startEditing,
+	});
+	const amendItem = nativeMenuItem({
+		label: "Amend Commit",
+		accelerator: toElectronAccelerator(changesHotkeys.amendCommit.hotkey),
+		enabled: noOperationPending && canAmendCommit,
+		onSelect: amendCommit,
+	});
+	const copyItem = nativeMenuItem({
+		label: "Copy Commit",
+		onSelect: copyCommit,
+		accelerator: toElectronAccelerator(sidebarHotkeys.copy.hotkey),
+	});
+	const cutItem = nativeMenuItem({
+		label: "Cut Commit",
+		onSelect: cutCommit,
+		accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
+	});
+	const deleteItem = nativeMenuItem({
+		label: "Delete Commit",
+		enabled: !isCommitDiscardPending,
+		accelerator: toElectronAccelerator(sidebarHotkeys.deleteCommit.hotkey),
+		onSelect: deleteCommit,
+	});
+	const uncommitItem = nativeMenuItem({
+		label: "Uncommit",
+		enabled: !isCommitUncommitPending,
+		accelerator: toElectronAccelerator(sidebarHotkeys.uncommitCommit.hotkey),
+		onSelect: uncommitCommit,
+	});
 	const workspaceMenuItems: Array<NativeMenuItem> = [
-		nativeMenuItem({
-			label: "Reword Commit",
-			enabled: !isCommitMessagePending,
-			// Advertising a hotkey defined elsewhere.
-			accelerator: toElectronAccelerator(sidebarHotkeys.rewordCommit.hotkey),
-			onSelect: startEditing,
-		}),
-		nativeMenuItem({
-			label: "Amend Commit",
-			accelerator: toElectronAccelerator(changesHotkeys.amendCommit.hotkey),
-			enabled: noOperationPending && canAmendCommit,
-			onSelect: amendCommit,
-		}),
+		rewordItem,
+		amendItem,
 		nativeMenuItem({
 			label: "Edit Commit",
 			enabled: noOperationPending && stackId !== null,
@@ -335,16 +379,8 @@ export const CommitRow: FC<
 				if (stackId !== null) enterEditMode({ projectId, commitId: commit.id, stackId });
 			},
 		}),
-		nativeMenuItem({
-			label: "Copy Commit",
-			onSelect: copyCommit,
-			accelerator: toElectronAccelerator(sidebarHotkeys.copy.hotkey),
-		}),
-		nativeMenuItem({
-			label: "Cut Commit",
-			onSelect: cutCommit,
-			accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
-		}),
+		copyItem,
+		cutItem,
 		nativeMenuSeparator,
 		...readOnlyMenuItems,
 		insertBlankCommitMenuItem(insertBlankCommit, "above"),
@@ -364,20 +400,35 @@ export const CommitRow: FC<
 			],
 		}),
 		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Delete Commit",
-			enabled: !isCommitDiscardPending,
-			accelerator: toElectronAccelerator(sidebarHotkeys.deleteCommit.hotkey),
-			onSelect: deleteCommit,
-		}),
-		nativeMenuItem({
-			label: "Uncommit",
-			enabled: !isCommitUncommitPending,
-			accelerator: toElectronAccelerator(sidebarHotkeys.uncommitCommit.hotkey),
-			onSelect: uncommitCommit,
-		}),
+		deleteItem,
+		uncommitItem,
 	];
-	const menuItems = inWorkspace ? workspaceMenuItems : readOnlyMenuItems;
+	// A worktree's commit takes the same rewrites, bar the two that need the
+	// workspace: edit mode runs in its checkout, and branches can't be ordered
+	// in worktrees yet. A detached worktree's commit can name its branch.
+	const worktreeMenuItems: Array<NativeMenuItem> = [
+		rewordItem,
+		amendItem,
+		copyItem,
+		cutItem,
+		nativeMenuSeparator,
+		...readOnlyMenuItems,
+		insertBlankCommitMenuItem(insertBlankCommit, "above"),
+		nativeMenuSeparator,
+		deleteItem,
+		uncommitItem,
+		...(worktree !== undefined && isDetachedHead
+			? [
+					nativeMenuSeparator,
+					nativeMenuItem({
+						label: "Name Branch",
+						enabled: noOperationPending && !isBranchNameSegmentPending,
+						onSelect: () => nameDetachedHead(worktree),
+					}),
+				]
+			: []),
+	];
+	const menuItems = inWorkspace ? workspaceMenuItems : worktreeMenuItems;
 
 	return (
 		<ItemRow
@@ -386,7 +437,7 @@ export const CommitRow: FC<
 			aria-describedby={isRewording ? undefined : descriptionId}
 			isChecked={isChecked}
 			isHighlighted={isDependency}
-			onDoubleClick={noOperationPending && inWorkspace ? startEditing : undefined}
+			onDoubleClick={noOperationPending ? startEditing : undefined}
 			onShiftSelect={
 				noOperationPending && canCheck
 					? () => checkCommit({ commitId: commit.id, shiftKey: true })

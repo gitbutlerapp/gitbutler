@@ -3,6 +3,8 @@ import { Checkbox } from "./Checkbox.tsx";
 import { useState } from "react";
 
 const meta = preview.meta({
+	title: "Inputs/Checkbox",
+	id: "components-checkbox",
 	component: Checkbox,
 	parameters: {
 		design: {

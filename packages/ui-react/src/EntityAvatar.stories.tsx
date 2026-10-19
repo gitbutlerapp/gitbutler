@@ -11,15 +11,17 @@ import {
 import { machinePictures } from "./story-assets/machines.ts";
 
 const meta = preview.meta({
+	title: "Content & status/EntityAvatar",
+	id: "components-entityavatar",
 	component: EntityAvatar,
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client?node-id=5612-128983",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2793-14027",
 		},
 	},
 	argTypes: {
-		size: { control: "radio", options: ["regular", "small"] },
+		size: { control: "radio", options: ["regular", "title"] },
 	},
 });
 
@@ -32,6 +34,12 @@ export const Default = meta.story({
 
 /** The glyph in each of its colours, an emoji and a machine's picture: every avatar is 38px. */
 export const Choices = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2793-14169",
+		},
+	},
 	render: () => (
 		<div style={{ display: "flex", gap: 8, alignItems: "center" }}>
 			{entityAvatarColours.map((colour) => (
@@ -64,6 +72,12 @@ const ProjectPicker = () => {
 
 /** A project's avatar: a colour for the glyph, or an emoji found by name. */
 export const PickingForAProject = meta.story({
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2793-14206",
+		},
+	},
 	render: () => <ProjectPicker />,
 });
 
@@ -87,7 +101,7 @@ export const PickingForAMachine = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client?node-id=5685-58547",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Core?node-id=2793-14336",
 		},
 	},
 	render: () => <MachinePicker />,

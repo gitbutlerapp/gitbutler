@@ -5,6 +5,8 @@ import { icons } from "./icons.ts";
 const iconNames = Array.from(icons.keys()).sort((a, b) => a.localeCompare(b));
 
 const meta = preview.type<{ args: { size: number } }>().meta({
+	title: "Icons/Icon",
+	id: "components-icon",
 	argTypes: {
 		size: {
 			control: { type: "range", min: 8, max: 128, step: 4 },

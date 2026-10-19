@@ -42,7 +42,6 @@
 	const baseReponse = $derived(projectId ? baseBranchService.baseBranch(projectId) : undefined);
 	const base = $derived(baseReponse?.response);
 	const settingsStore = $derived(settingsService.appSettings);
-	const singleBranchMode = $derived($settingsStore?.featureFlags.singleBranch ?? false);
 	const useCustomTitleBar = $derived(!($settingsStore?.ui.useNativeTitleBar ?? false));
 	const backend = inject(BACKEND);
 	const mode = $derived(modeService.mode(projectId));
@@ -175,7 +174,6 @@
 	class="chrome-header"
 	class:mac={isMac}
 	data-tauri-drag-region={useCustomTitleBar}
-	class:single-branch={singleBranchMode}
 	use:focusable
 >
 	<div class="chrome-left" data-tauri-drag-region={useCustomTitleBar}>
@@ -290,19 +288,17 @@
 					<span>Hold {newWindowModifierLabel} to open in a new window</span>
 				</div>
 			</Select>
-			{#if singleBranchMode}
-				<Tooltip text="Current branch">
-					<div class="chrome-current-branch" data-testid={TestId.ChromeHeaderCurrentBranch}>
-						<div class="chrome-current-branch__content">
-							<Icon name="branch" color="var(--text-2)" />
-							<span class="text-12 text-bold clr-text-2 truncate">{currentBranchName}</span>
-							{#if isNotInWorkspace}
-								<span class="text-12 text-bold clr-text-2 op-60"> read-only </span>
-							{/if}
-						</div>
+			<Tooltip text="Current branch">
+				<div class="chrome-current-branch" data-testid={TestId.ChromeHeaderCurrentBranch}>
+					<div class="chrome-current-branch__content">
+						<Icon name="branch" color="var(--text-2)" />
+						<span class="text-12 text-bold clr-text-2 truncate">{currentBranchName}</span>
+						{#if isNotInWorkspace}
+							<span class="text-12 text-bold clr-text-2 op-60"> read-only </span>
+						{/if}
 					</div>
-				</Tooltip>
-			{/if}
+				</div>
+			</Tooltip>
 		</div>
 
 		{#if currentMode && isNotInWorkspace}
@@ -356,7 +352,7 @@
 		overflow: hidden;
 	}
 
-	:global(.chrome-header.single-branch .project-selector-btn) {
+	:global(.chrome-header .project-selector-btn) {
 		border-top-right-radius: 0;
 		border-bottom-right-radius: 0;
 	}

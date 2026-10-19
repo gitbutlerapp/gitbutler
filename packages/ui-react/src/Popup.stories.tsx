@@ -1,12 +1,17 @@
 import preview from "#storybook/preview";
+import { Badge } from "./Badge.tsx";
 import { Button } from "./Button.tsx";
+import { FileList, FileListItem } from "./FileList.tsx";
 import { FolderIcon } from "./FolderIcon.tsx";
-import { Popup, PopupEmpty, PopupItem, PopupSearch, PopupSection } from "./Popup.tsx";
+import { Icon } from "./Icon.tsx";
+import { Dropdown, Popup, PopupEmpty, PopupItem, PopupSearch, PopupSection } from "./Popup.tsx";
 import { ProgramIcon } from "./ProgramIcon.tsx";
 import { Combobox } from "@base-ui/react";
 import { useDeferredValue, useState } from "react";
 
 const meta = preview.meta({
+	title: "Overlays/Popup",
+	id: "components-popup",
 	component: Popup,
 	parameters: {
 		design: {
@@ -136,6 +141,7 @@ export const SelectProject = meta.story({
 									query={deferredQuery}
 									nothingFound="No projects found"
 									nothingToList="No projects yet"
+									onClearSearch={() => setQuery("")}
 								/>
 							</Combobox.Empty>
 							<Combobox.List>
@@ -163,35 +169,108 @@ export const SelectProject = meta.story({
 	},
 });
 
-/** A search that matched nothing: the block a picker's list shows in place of its rows. */
+/** A search that matched nothing: the line a picker's list shows in place of its rows, and the way
+ * back to all of them. */
 export const NothingFound = meta.story({
 	parameters: {
 		design: {
 			type: "figma",
-			url: "https://www.figma.com/design/EBuHQGUcCaSw4Ln5uVpWkn/Client?node-id=4970-54978",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=3454-84770",
 		},
 	},
 	args: { style: { width: 420 } },
-	render: (args) => (
-		<Popup {...args}>
-			<PopupSearch placeholder="Search hotkeys..." aria-label="Search hotkeys" />
-			<PopupEmpty query="undo" nothingFound="No hotkeys found" nothingToList="No hotkeys to show" />
-		</Popup>
-	),
+	render: function NothingFound(args) {
+		const [query, setQuery] = useState("undo");
+		return (
+			<Popup {...args}>
+				<PopupSearch
+					placeholder="Search hotkeys..."
+					aria-label="Search hotkeys"
+					value={query}
+					onChange={(event) => setQuery(event.target.value)}
+					onClear={query === "" ? undefined : () => setQuery("")}
+				/>
+				<PopupEmpty
+					query={query}
+					nothingFound="No hotkeys found"
+					nothingToList="No hotkeys to show"
+					onClearSearch={() => setQuery("")}
+				/>
+			</Popup>
+		);
+	},
 });
 
 /** A list with nothing in it before anything was typed: the cactus and the other line, since
  * nothing was searched for. */
 export const NothingToList = meta.story({
 	args: { style: { width: 420 } },
-	render: (args) => (
-		<Popup {...args}>
-			<PopupSearch placeholder="Search for branches to apply..." aria-label="Search branches" />
-			<PopupEmpty
-				query=""
-				nothingFound="No available branches found"
-				nothingToList="Nothing left to apply"
-			/>
-		</Popup>
+	render: function NothingToList(args) {
+		const [query, setQuery] = useState("");
+		return (
+			<Popup {...args}>
+				<PopupSearch
+					placeholder="Search for branches to apply..."
+					aria-label="Search branches"
+					value={query}
+					onChange={(event) => setQuery(event.target.value)}
+					onClear={query === "" ? undefined : () => setQuery("")}
+				/>
+				<PopupEmpty
+					query={query}
+					nothingFound="No available branches found"
+					nothingToList="Nothing left to apply"
+					onClearSearch={() => setQuery("")}
+				/>
+			</Popup>
+		);
+	},
+});
+
+/**
+ * A dropdown that opens on hover too: the button stands for a list it keeps hidden, so resting on
+ * it shows the list without a click, and the pointer can move in to pick from it. A click is still
+ * the button's own. Opened by hover, the panel leaves focus on the page. The button already names
+ * and counts the files, so the list leads with a search instead of its own header.
+ */
+export const OpenOnHover = meta.story({
+	render: () => (
+		<Dropdown
+			openOnHover
+			style={{ width: 280 }}
+			trigger={
+				<Button variant="ghost" aria-label="Files, 3 files, +12, -3">
+					<Icon name="sidebar-narrow" />
+					<Badge variant="lightGray">3</Badge>
+				</Button>
+			}
+		>
+			<FileList
+				title="Files"
+				count={3}
+				header={<PopupSearch placeholder="Filter files" aria-label="Filter files" />}
+			>
+				<FileListItem
+					name="activity.rs"
+					directory="crates/mesh-server/src"
+					status="Modification"
+					added={8}
+					removed={2}
+				/>
+				<FileListItem
+					name="feed.rs"
+					directory="crates/mesh-server/src"
+					status="Modification"
+					added={3}
+					removed={1}
+				/>
+				<FileListItem
+					name="rebased.rs"
+					directory="crates/mesh-server/tests"
+					status="Addition"
+					added={1}
+				/>
+			</FileList>
+		</Dropdown>
 	),
 });

@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub enum CommandName {
     Init,
+    Setup,
     Absorb,
     Discard,
     Status,
@@ -66,7 +67,6 @@ pub enum CommandName {
     UpdateSuppress,
     UpdateInstall,
     Land,
-    Setup,
     Teardown,
     #[cfg(feature = "nightly")]
     Expand,

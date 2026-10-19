@@ -352,6 +352,7 @@ Ok(
             NodeIndex(7),
         ),
         ancestor_workspace_commit: None,
+        has_lanes_behind_target: true,
     },
 )
 
@@ -521,6 +522,7 @@ Ok(
             NodeIndex(4),
         ),
         ancestor_workspace_commit: None,
+        has_lanes_behind_target: true,
     },
 )
 

@@ -15,6 +15,8 @@ const figma = (nodeId: string) => ({
 });
 
 const meta = preview.meta({
+	title: "Overlays/Modal",
+	id: "components-modal",
 	component: Modal,
 	parameters: figma("2229-1566"),
 	args: {
@@ -82,6 +84,50 @@ export const Confirm = meta.story({
 					<List>
 						<ListItem marker={<FileIcon fileName="screenshot.png" />}>screenshot.png</ListItem>
 						<ListItem marker={<FileIcon fileName="pasted-image.png" />}>pasted-image.png</ListItem>
+					</List>
+				</ModalBody>
+				<ModalFooter>
+					<Button variant="ghost" onClick={() => setOpen(false)}>
+						Cancel
+					</Button>
+					<Button variant="gray" onClick={() => setOpen(false)}>
+						Upload
+					</Button>
+				</ModalFooter>
+			</Modal>
+		);
+	},
+});
+
+/**
+ * A confirmation whose list outgrows the window: only the body scrolls, and a hairline over the
+ * footer says there is more below, then one under the header once the list is scrolled down.
+ */
+export const LongList = meta.story({
+	render: function LongList() {
+		const [open, setOpen] = useState(true);
+		const files = Array.from(
+			{ length: 40 },
+			(_, i) => `screenshot-${String(i + 1).padStart(2, "0")}.png`,
+		);
+		return (
+			<Modal
+				size="small"
+				open={open}
+				onOpenChange={setOpen}
+				trigger={<Button>Upload files</Button>}
+			>
+				<ModalHeader
+					title={`Upload these ${files.length} files?`}
+					description="They go to gitbutler.com, and anyone with the link can open them."
+				/>
+				<ModalBody>
+					<List>
+						{files.map((file) => (
+							<ListItem key={file} marker={<FileIcon fileName={file} />}>
+								{file}
+							</ListItem>
+						))}
 					</List>
 				</ModalBody>
 				<ModalFooter>

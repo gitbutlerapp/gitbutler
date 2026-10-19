@@ -14,7 +14,7 @@ use axum::{
     response::IntoResponse,
     routing::{MethodRouter, any, post},
 };
-use but_api::{commit, diff, gitee, github, gitlab, json, legacy, open, platform, workspace};
+use but_api::{commit, diff, gitee, github, gitlab, json, legacy, open, platform, workspace, worktrees};
 use but_ctx::ProjectHandleOrLegacyProjectId;
 
 mod broadcaster;
@@ -446,6 +446,10 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             but_post(legacy::git::git_get_global_config_cmd),
         )
         .route("/tree_change_diffs", but_post(diff::tree_change_diffs_cmd))
+        .route(
+            "/tree_change_diffs_from_source",
+            but_post(diff::tree_change_diffs_from_source_cmd),
+        )
         .route("/get_workspace", but_post(workspace::get_workspace_cmd))
         .route(
             "/commit_details_with_line_stats",
@@ -517,6 +521,12 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             "/stash_into_branch",
             but_post(legacy::workspace::stash_into_branch_cmd),
         )
+        .route(
+            "/worktree_set_archived",
+            but_post(worktrees::worktree_set_archived_cmd),
+        )
+        .route("/worktree_remove", but_post(worktrees::worktree_remove_cmd))
+        .route("/worktree_new", but_post(worktrees::worktree_new_cmd))
         .route(
             "/workspace_branch_and_ancestors_push",
             but_post_async(legacy::workspace::workspace_branch_and_ancestors_push_cmd),
@@ -733,6 +743,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         .route("/open_url", but_post(open::open_url_cmd))
         .route("/open_in_terminal", but_post(open::open_in_terminal_cmd))
         .route("/show_in_finder", but_post(open::show_in_finder_cmd))
+        .route("/workdir_path", but_post(open::workdir_path_cmd))
         .route(
             "/get_terminal_options_for_platform",
             but_post(open::terminal::get_terminal_options_for_platform_cmd),

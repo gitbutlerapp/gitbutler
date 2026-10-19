@@ -311,7 +311,7 @@ fn worktree_changes_inner(
                 let kind = disk_kind_to_entry_kind(
                     disk_kind,
                     index_kind,
-                    work_dir.join(gix::path::from_bstr(rela_path.as_bstr())),
+                    work_dir.join(gix::path::from_bstr(rela_path.as_bstr())?),
                 )?;
                 (
                     Origin::IndexWorktree,
@@ -372,9 +372,8 @@ fn worktree_changes_inner(
             status::Item::IndexWorktree(index_worktree::Item::Rewrite {
                 source,
                 dirwalk_entry,
-                // This ID is usually null, but might be set if used for comparisons.
+                // `dirwalk_entry_id` is usually null, but might be set if used for comparisons.
                 // However, this wouldn't mean the object exists.
-                dirwalk_entry_id: _,
                 ..
             }) => {
                 let previous_path: BString = source.rela_path().into();
@@ -392,7 +391,7 @@ fn worktree_changes_inner(
                         kind: match disk_kind_to_entry_kind(
                             source_dirwalk_entry.disk_kind,
                             source_dirwalk_entry.index_kind,
-                            work_dir.join(gix::path::from_bstr(previous_path.as_bstr())),
+                            work_dir.join(gix::path::from_bstr(previous_path.as_bstr())?),
                         )? {
                             None => continue,
                             Some(kind) => kind,
@@ -405,7 +404,7 @@ fn worktree_changes_inner(
                     kind: match disk_kind_to_entry_kind(
                         dirwalk_entry.disk_kind,
                         dirwalk_entry.index_kind,
-                        work_dir.join(gix::path::from_bstr(dirwalk_entry.rela_path.as_bstr())),
+                        work_dir.join(gix::path::from_bstr(dirwalk_entry.rela_path.as_bstr())?),
                     )? {
                         None => continue,
                         Some(kind) => kind,
@@ -960,7 +959,7 @@ fn id_or_hash_from_worktree(
             std::fs::File::open(path)?,
             // TODO(gix): definitely use `ToCompoents` here to avoid these conversions.
             //            Whatever you do, it's never right, so must be abstract.
-            &gix::path::try_from_bstr(rela_path)?,
+            &gix::path::from_bstr(rela_path)?,
             index,
         )?;
         match to_git {

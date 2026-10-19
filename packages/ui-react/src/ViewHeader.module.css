@@ -5,8 +5,13 @@
 	display: flex;
 	row-gap: 16px;
 	flex-direction: column;
-	padding: 16px 14px 16px 16px;
+	padding: 16px;
 	border-bottom: 1px solid var(--border-section);
+
+	/* With tabs in the toolbar, their underline sits on the header's bottom edge. */
+	&:has(> .toolbar [role="tablist"]) {
+		padding-bottom: 10px;
+	}
 }
 
 .top {
@@ -16,12 +21,10 @@
 }
 
 /* Window controls are a regular button's 28px; centred on the title's line, they hang off it
-   evenly above and below rather than pushing the title down. They stand as far off the title as
-   an avatar does. */
+   evenly above and below rather than pushing the title down. */
 .leading {
 	display: flex;
 	flex-shrink: 0;
-	margin-inline-end: 8px;
 	margin-block: calc((1lh - 28px) / 2);
 	line-height: 18px;
 }
@@ -40,10 +43,35 @@
 	min-width: 0;
 }
 
+/* The same height on every view, with a leading control or without, so the title and the meta
+   line under it sit at the same height everywhere. */
 .titleLine {
+	display: flex;
+	column-gap: 10px;
+	align-items: center;
+	min-width: 0;
+	min-height: 22px;
+}
+
+/* The glyph for what it is, 8px from its name. */
+.name {
 	display: flex;
 	column-gap: 8px;
 	align-items: center;
+	min-width: 0;
+}
+
+/* The title and the button that unfolds a commit's body, which stays its size while the title
+   gives way. */
+.heading {
+	display: flex;
+	column-gap: 6px;
+	align-items: center;
+	min-width: 0;
+
+	> button {
+		flex-shrink: 0;
+	}
 }
 
 .title {
@@ -87,20 +115,15 @@
 	}
 }
 
-/* A small pill rather than a square: it reads as "more of this line", not as a control of its own. */
-.bodyToggle {
-	flex-shrink: 0;
-	width: 24px;
-	height: 14px;
-}
-
+/* Its parts lead with their glyphs, so the gap alone parts them: three or four times the room
+   inside a part. */
 .meta {
 	display: flex;
-	column-gap: 8px;
+	column-gap: 12px;
 	align-items: center;
 	min-width: 0;
 	overflow: hidden;
-	color: var(--text-3);
+	color: var(--text-2);
 	white-space: nowrap;
 
 	> * {
@@ -127,6 +150,11 @@
 	column-gap: 12px;
 	align-items: center;
 	min-width: 0;
+	min-height: 28px;
+}
+
+.metaSeparator {
+	color: var(--text-3);
 }
 
 .divider {
@@ -136,17 +164,14 @@
 	background-color: var(--border-2);
 }
 
-/* The end of whichever line is last: the toolbar's, or the title block's,
-   level with its bottom line. */
+/* The view's buttons, in the header's top corner, centred on the title's line: the line's height,
+   so a button taller than it hangs off it evenly above and below, whatever size it is. */
 .actions {
 	display: flex;
-	column-gap: 8px;
+	column-gap: var(--gap-buttons-compact);
 	flex-shrink: 0;
 	align-items: center;
-	align-self: flex-end;
+	align-self: flex-start;
+	height: 22px;
 	margin-inline-start: auto;
-}
-
-.toolbar > .actions {
-	align-self: center;
 }

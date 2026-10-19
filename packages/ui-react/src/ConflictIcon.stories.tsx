@@ -2,6 +2,8 @@ import preview from "#storybook/preview";
 import { ConflictIcon } from "./ConflictIcon.tsx";
 
 const meta = preview.meta({
+	title: "Content & status/ConflictIcon",
+	id: "components-conflicticon",
 	component: ConflictIcon,
 	parameters: {
 		design: {

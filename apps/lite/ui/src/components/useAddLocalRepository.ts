@@ -1,7 +1,7 @@
 import { Toast } from "@base-ui/react";
 import { useNavigate } from "@tanstack/react-router";
 import { useAddProject } from "#ui/api/mutations.ts";
-import { errorMessageForToast } from "#ui/errors.ts";
+import { addErrorToast } from "#ui/errors.ts";
 import { writeLastOpenedProject } from "#ui/project.ts";
 
 type AddProjectOutcome = Awaited<ReturnType<typeof window.lite.addProject>>;
@@ -41,10 +41,9 @@ export const useAddLocalRepository = () => {
 		try {
 			path = await window.lite.pickDirectory();
 		} catch (error) {
-			toastManager.add({
-				type: "error",
+			addErrorToast(toastManager, {
 				title: "Failed to open repository picker",
-				description: errorMessageForToast(error),
+				error,
 			});
 			return;
 		}

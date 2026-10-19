@@ -3,10 +3,6 @@
 use std::io;
 
 use anyhow::{Context as _, Result};
-use but_workspace::branch::{
-    OnWorkspaceMergeConflict,
-    apply::{WorkspaceMerge, WorkspaceReferenceNaming},
-};
 
 use crate::args::{ApplyArgs, Args, DebugWorkspaceArgs, UnapplyArgs};
 
@@ -20,7 +16,7 @@ pub(crate) fn apply(
     let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+    let (repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
     let branch = ref_name(&repo, &mutation_args.ref_name)?;
 
     let outcome = but_workspace::branch::apply(
@@ -29,18 +25,13 @@ pub(crate) fn apply(
         &repo,
         &mut meta,
         but_workspace::branch::apply::Options {
-            workspace_merge: WorkspaceMerge::MergeIfNeeded,
-            on_workspace_conflict: OnWorkspaceMergeConflict::AbortAndReportConflictingStacks,
-            workspace_reference_naming: WorkspaceReferenceNaming::Default,
-            order: None,
             new_stack_id: None,
             ..Default::default()
         },
     )?;
 
     writeln!(out, "{outcome:#?}")?;
-    *ws = outcome.workspace;
-    emit_after(&ws, &mutation_args.debug, err)
+    emit_after(&outcome.workspace, &mutation_args.debug, err)
 }
 
 /// Unapply a branch through `but-workspace`, bypassing app/API wiring.
@@ -53,7 +44,7 @@ pub(crate) fn unapply(
     let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+    let (repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
     let branch = ref_name(&repo, &mutation_args.ref_name)?;
 
     let outcome = but_workspace::branch::unapply(
@@ -67,8 +58,7 @@ pub(crate) fn unapply(
     )?;
 
     writeln!(out, "{outcome:#?}")?;
-    *ws = outcome.workspace.into_owned();
-    emit_after(&ws, &mutation_args.debug, err)
+    emit_after(&outcome.workspace, &mutation_args.debug, err)
 }
 
 pub(crate) fn emit_after(

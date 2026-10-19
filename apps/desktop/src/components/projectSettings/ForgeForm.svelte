@@ -35,7 +35,6 @@
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import { CardGroup, Select, SelectItem } from "@gitbutler/ui-svelte";
 
-	import type { Project } from "$lib/project/project";
 	import type {
 		BitbucketAccountIdentifier,
 		ForgeName,
@@ -111,14 +110,12 @@
 	function handleSelectionChange(selectedOption: ForgeSelection) {
 		if (!project) return;
 
-		const mutableProject: Project & { unset_forge_override?: boolean } = structuredClone(project);
-
-		if (selectedOption === "default") {
-			mutableProject.unset_forge_override = true;
-		} else {
-			mutableProject.forge_override = selectedOption;
-		}
-		projectsService.updateProject(mutableProject);
+		projectsService.updateProject({
+			id: project.id,
+			...(selectedOption === "default"
+				? { unset_forge_override: true }
+				: { forge_override: selectedOption }),
+		});
 	}
 
 	async function updatePreferredForgeUser(projectId: string, forgeUser: ForgeUser) {
@@ -165,7 +162,9 @@
 		{/snippet}
 
 		{#snippet caption()}
-			{#if determinedForgeType === "default"}
+			{#if selectedOption !== "default"}
+				A forge override is saved for this project. You can change or clear it below.
+			{:else if determinedForgeType === "default"}
 				{t("we-couldn-t-detect-which-forge-you-re-using")}
 				<br />
 				{t("to-enable-forge-integration-please-select-your-forge-from-th")}
@@ -180,7 +179,7 @@
 			{/if}
 		{/snippet}
 
-		{#if determinedForgeType === "default"}
+		{#if determinedForgeType === "default" || selectedOption !== "default"}
 			<Select
 				value={selectedOption}
 				options={FORGE_OPTIONS}

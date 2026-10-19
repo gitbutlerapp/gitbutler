@@ -4,6 +4,8 @@ import { Avatar, type AvatarSize } from "./Avatar.tsx";
 const sizes: Array<AvatarSize> = [14, 16, 18];
 
 const meta = preview.meta({
+	title: "Content & status/Avatar",
+	id: "components-avatar",
 	component: Avatar,
 	parameters: {
 		design: {

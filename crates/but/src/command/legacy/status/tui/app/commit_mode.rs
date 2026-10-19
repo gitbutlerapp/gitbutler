@@ -554,14 +554,7 @@ where
         .then(|| terminal_guard.suspend())
         .transpose()?;
 
-    let (
-        commit::CommitOutcome {
-            new_commit,
-            branch_name: _,
-            ..
-        },
-        _ws,
-    ) = commit::run(
+    let (commit::CommitOutcome { new_commit, .. }, _ws) = commit::run(
         ctx,
         &mut meta,
         guard.write_permission(),

@@ -3,7 +3,7 @@
 use crate::commit::DateMode;
 use anyhow::{Context as _, Result, bail};
 use but_core::{
-    RepositoryExt as _,
+    ChangeId, RepositoryExt as _,
     commit::{
         HEADERS_CONFLICTED_FIELD, Headers, SignCommit, TreeKind,
         conflict_entries_from_merge_outcome,
@@ -14,12 +14,24 @@ use gix::{objs::tree::EntryKind, prelude::ObjectIdExt as _};
 /// Describes the outcome of cherrypick.
 #[derive(Debug, Clone)]
 pub enum CherryPickOutcome {
-    /// Successfully cherry picked cleanly.
-    Commit(gix::ObjectId),
-    /// Successfully cherry picked and created a conflicted commit.
-    ConflictedCommit(gix::ObjectId),
+    /// Successfully cherry picked.
+    Commit {
+        /// The ID of the result.
+        id: gix::ObjectId,
+        /// The change ID of the result.
+        change_id: ChangeId,
+        /// Whether the result is conflicted.
+        conflicted: bool,
+    },
     /// No cherry pick was required since all the parents remained the same.
-    Identity(gix::ObjectId),
+    Identity {
+        /// The ID of the result.
+        id: gix::ObjectId,
+        /// The change ID of the result.
+        change_id: ChangeId,
+        /// Whether the result is conflicted.
+        conflicted: bool,
+    },
     /// Represents the cases where either the source or the target commits failed to
     /// merge cleanly.
     FailedToMergeBases {
@@ -113,7 +125,11 @@ pub fn cherry_pick(
 
     if ontos == target.parents.as_slice() && pick_mode != PickMode::Force {
         // We don't need to rebase
-        return Ok(CherryPickOutcome::Identity(target.id.detach()));
+        return Ok(CherryPickOutcome::Identity {
+            id: target.id.detach(),
+            change_id: target.change_id(),
+            conflicted: target.is_conflicted(),
+        });
     }
 
     let base_t = find_base_tree(&target, tree_merge_mode)?;
@@ -134,14 +150,22 @@ pub fn cherry_pick(
                 target.inner,
                 DateMode::CommitterUpdateAuthorKeep,
                 sign_commit,
-                Some(change_id),
+                Some(change_id.clone()),
             )?;
-            Ok(CherryPickOutcome::Commit(commit))
+            Ok(CherryPickOutcome::Commit {
+                id: commit,
+                change_id,
+                conflicted: false,
+            })
         }
         (MergeOutcome::NoCommit, MergeOutcome::NoCommit) => {
             // We shouldn't actually ever hit this because it should be handled
             // by the ontos & parents comparison or the PickMode::Force case.
-            Ok(CherryPickOutcome::Identity(target.id.detach()))
+            Ok(CherryPickOutcome::Identity {
+                id: target.id.detach(),
+                change_id: target.change_id(),
+                conflicted: target.is_conflicted(),
+            })
         }
         (MergeOutcome::Conflict { commits: bases }, MergeOutcome::Conflict { commits: ontos }) => {
             Ok(CherryPickOutcome::FailedToMergeBases {
@@ -196,7 +220,7 @@ pub fn cherry_pick(
 
             let conflict_kind = gix::merge::tree::TreatAsUnresolved::forced_resolution();
             if outcome.has_unresolved_conflicts(conflict_kind) {
-                let conflicted_commit = commit_from_conflicted_tree(
+                let (id, change_id) = commit_from_conflicted_tree(
                     ontos,
                     target,
                     tree_id,
@@ -207,13 +231,19 @@ pub fn cherry_pick(
                     target_t.detach(),
                     sign_commit,
                 )?;
-                Ok(CherryPickOutcome::ConflictedCommit(
-                    conflicted_commit.detach(),
-                ))
+                Ok(CherryPickOutcome::Commit {
+                    id,
+                    change_id,
+                    conflicted: true,
+                })
             } else {
-                Ok(CherryPickOutcome::Commit(
-                    commit_from_unconflicted_tree(ontos, target, tree_id, sign_commit)?.detach(),
-                ))
+                let (id, change_id) =
+                    commit_from_unconflicted_tree(ontos, target, tree_id, sign_commit)?;
+                Ok(CherryPickOutcome::Commit {
+                    id,
+                    change_id,
+                    conflicted: false,
+                })
             }
         }
     }
@@ -285,12 +315,16 @@ fn maybe_materialize_conflicted_onto_merge(
     let tree_id = outcome.tree.write()?;
     let conflict_kind = gix::merge::tree::TreatAsUnresolved::forced_resolution();
     if !outcome.has_unresolved_conflicts(conflict_kind) {
-        return Ok(Some(CherryPickOutcome::Commit(
-            commit_from_unconflicted_tree(ontos, target.clone(), tree_id, sign_commit)?.detach(),
-        )));
+        let (id, change_id) =
+            commit_from_unconflicted_tree(ontos, target.clone(), tree_id, sign_commit)?;
+        return Ok(Some(CherryPickOutcome::Commit {
+            id,
+            change_id,
+            conflicted: false,
+        }));
     }
 
-    let conflicted_commit = commit_from_conflicted_tree(
+    let (id, change_id) = commit_from_conflicted_tree(
         ontos,
         target.clone(),
         tree_id,
@@ -301,9 +335,11 @@ fn maybe_materialize_conflicted_onto_merge(
         theirs_tree_id,
         sign_commit,
     )?;
-    Ok(Some(CherryPickOutcome::ConflictedCommit(
-        conflicted_commit.detach(),
-    )))
+    Ok(Some(CherryPickOutcome::Commit {
+        id,
+        change_id,
+        conflicted: true,
+    }))
 }
 
 #[derive(Debug, Clone)]
@@ -406,15 +442,7 @@ fn merge_base(
     first: gix::ObjectId,
     second: gix::ObjectId,
 ) -> Result<Option<gix::ObjectId>> {
-    match repo.merge_base(first, second) {
-        Ok(oid) => Ok(Some(oid.detach())),
-        // It's very possible we'll see scenarios where there are two parents
-        // that have no common ancestor. We should handle that well by using the
-        // empty tree as the base.
-        Err(gix::repository::merge_base::Error::FindMergeBase(_))
-        | Err(gix::repository::merge_base::Error::NotFound { .. }) => Ok(None),
-        Err(e) => bail!(e),
-    }
+    Ok(repo.merge_base(first, second)?.map(gix::Id::detach))
 }
 
 fn peel_to_tree_or_empty(
@@ -450,7 +478,7 @@ fn commit_from_unconflicted_tree<'repo>(
     to_rebase: but_core::Commit<'repo>,
     resolved_tree_id: gix::Id<'repo>,
     sign_commit: SignCommit,
-) -> anyhow::Result<gix::Id<'repo>> {
+) -> anyhow::Result<(gix::ObjectId, ChangeId)> {
     let repo = to_rebase.id.repo;
 
     let change_id = to_rebase.change_id();
@@ -468,14 +496,16 @@ fn commit_from_unconflicted_tree<'repo>(
 
     new_commit.parents = parents.into();
 
-    Ok(crate::commit::create(
-        repo,
-        new_commit,
-        DateMode::CommitterUpdateAuthorKeep,
-        sign_commit,
-        Some(change_id),
-    )?
-    .attach(repo))
+    Ok((
+        crate::commit::create(
+            repo,
+            new_commit,
+            DateMode::CommitterUpdateAuthorKeep,
+            sign_commit,
+            Some(change_id.clone()),
+        )?,
+        change_id,
+    ))
 }
 
 #[expect(clippy::too_many_arguments)]
@@ -489,7 +519,7 @@ fn commit_from_conflicted_tree<'repo>(
     ours_tree_id: gix::ObjectId,
     theirs_tree_id: gix::ObjectId,
     sign_commit: SignCommit,
-) -> anyhow::Result<gix::Id<'repo>> {
+) -> anyhow::Result<(gix::ObjectId, ChangeId)> {
     let repo = resolved_tree_id.repo;
 
     let conflicted_files = conflict_entries_from_merge_outcome(
@@ -540,12 +570,14 @@ fn commit_from_conflicted_tree<'repo>(
     to_rebase.set_headers(&headers);
 
     let change_id = to_rebase.change_id();
-    Ok(crate::commit::create(
-        repo,
-        to_rebase.inner,
-        DateMode::CommitterUpdateAuthorKeep,
-        sign_commit,
-        Some(change_id),
-    )?
-    .attach(repo))
+    Ok((
+        crate::commit::create(
+            repo,
+            to_rebase.inner,
+            DateMode::CommitterUpdateAuthorKeep,
+            sign_commit,
+            Some(change_id.clone()),
+        )?,
+        change_id,
+    ))
 }

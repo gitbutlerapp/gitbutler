@@ -23,7 +23,6 @@
 	import { REORDER_DROPZONE_FACTORY } from "$lib/dragging/stackingReorderDropzoneManager";
 	import { useForgeAuth } from "$lib/forge/forgeAuth.svelte";
 	import { FORGE_INFO_SERVICE, prUrl } from "$lib/forge/forgeInfo.svelte";
-	import { createBranchSelection } from "$lib/selection/key";
 	import { precomputeStack, segmentContext } from "$lib/stacks/segmentContext";
 	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -37,9 +36,11 @@
 
 	type Props = {
 		segments: Segment[];
+		/** Shown on the top branch's card after its push status. */
+		topBranchNote?: string;
 	};
 
-	const { segments }: Props = $props();
+	const { segments, topBranchNote }: Props = $props();
 
 	const controller = getStackContext();
 	const stackService = inject(STACK_SERVICE);
@@ -49,6 +50,9 @@
 	const projectId = $derived(controller.projectId);
 	const stackId = $derived(controller.stackId);
 	const laneId = $derived(controller.laneId);
+	// A worktree's branches live outside the workspace: its files can't be
+	// dragged out or dropped in, and it can't be landed.
+	const inWorktree = $derived(!!controller.worktree);
 	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
 	const forgeInfo = $derived(forgeInfoQuery.response);
 	const auth = useForgeAuth(reactive(() => projectId));
@@ -95,6 +99,11 @@
 	// Compute stack-wide derived values once per render so the per-iteration
 	// segmentContext() call below stays O(1) instead of O(n) per index.
 	const stackPrecomputed = $derived(precomputeStack(segments));
+
+	// The zone under the lane's last branch anchors on that branch's last commit,
+	// so an empty bottom branch has none.
+	const lastSegment = $derived(segments.at(-1));
+	const lastCommit = $derived(lastSegment?.commits.at(-1));
 </script>
 
 <div class="branches-wrapper">
@@ -104,7 +113,9 @@
 		{@const branchReference = segment.refName
 			? new TextDecoder().decode(new Uint8Array(segment.refName.fullNameBytes))
 			: undefined}
-		{@const branchLabel = branchName ?? "Unnamed segment"}
+		<!-- A detached worktree's top segment has no branch, so it goes by the worktree's name. -->
+		{@const branchLabel =
+			branchName ?? ((i === 0 && controller.worktree?.name) || "Unnamed segment")}
 		{@const remoteTrackingBranch = segment.remoteTrackingRefName
 			? new TextDecoder().decode(new Uint8Array(segment.remoteTrackingRefName.fullNameBytes))
 			: undefined}
@@ -132,13 +143,15 @@
 			.map((s) => s.metadata?.review.pullRequest)
 			.filter((n): n is number => n !== undefined && n !== null)}
 		{@const isConflicted = segment.commits.some((commit) => commit.hasConflicts)}
-		{@const startCommittingDz = branchName
-			? new StartCommitDzHandler(projectId, stackId, branchName)
-			: undefined}
-		{#if stackId && branchName}
+		{@const startCommittingDz =
+			branchName && !inWorktree
+				? new StartCommitDzHandler(projectId, stackId, branchName)
+				: undefined}
+		{#if branchName && !controller.isReadOnly}
 			<BranchReorderDropzone
 				{projectId}
 				{stackId}
+				worktree={controller.worktree?.name}
 				{branchName}
 				{lineColor}
 				isCommitting={controller.isCommitting}
@@ -165,14 +178,10 @@
 							title="All Changes"
 							{projectId}
 							{stackId}
-							draggableFiles
+							draggableFiles={!inWorktree}
 							autoselect
 							foldedByDefault
-							selectionId={createBranchSelection({
-								stackId: stackId,
-								branchName,
-								remote: undefined,
-							})}
+							selectionId={controller.branchSelection(branchName)}
 							persistId={`branch-${branchName}`}
 							changes={result.changes}
 							stats={result.stats}
@@ -202,7 +211,7 @@
 					testId={TestId.BranchHeaderAddDependentBranchButton}
 					size="tag"
 					kind="outline"
-					tooltip={controller.isReadOnly ? "Read-only mode" : "Create new branch"}
+					tooltip={controller.stackId ? "Create new branch" : "Read-only mode"}
 					onclick={async () => {
 						addDependentBranchModalContext = {
 							projectId,
@@ -213,7 +222,7 @@
 						await tick();
 						addDependentBranchModal?.show();
 					}}
-					disabled={controller.isReadOnly}
+					disabled={!controller.stackId}
 				/>
 			{/if}
 
@@ -237,12 +246,14 @@
 							e.stopPropagation();
 							landBranchModal?.show(branchName, wholeStack ? { lowerBranches } : undefined);
 						}}
-						disabled={!!controller.exclusiveAction || blockedByConflicts}
-						tooltip={blockedByConflicts
-							? "Resolve conflicts before landing"
-							: wholeStack
-								? "Land the whole stack directly into the target branch"
-								: "Land directly into the target branch"}
+						disabled={!!controller.exclusiveAction || blockedByConflicts || inWorktree}
+						tooltip={inWorktree
+							? "Worktree branches can't be landed yet"
+							: blockedByConflicts
+								? "Resolve conflicts before landing"
+								: wholeStack
+									? "Land the whole stack directly into the target branch"
+									: "Land directly into the target branch"}
 						icon="branch-merge"
 					>
 						{wholeStack ? "Land stack" : "Land"}
@@ -263,7 +274,8 @@
 							});
 						}}
 						testId={TestId.CreateReviewButton}
-						disabled={!!controller.exclusiveAction}
+						disabled={!!controller.exclusiveAction || controller.isReadOnly}
+						tooltip={controller.readOnlyTooltip}
 						icon="pr-plus"
 					>
 						{`Create ${forgeInfo?.unit.abbr ?? "PR"}`}
@@ -326,7 +338,9 @@
 			{projectId}
 			{branchColor}
 			stackId={branchName ? stackId : undefined}
+			worktree={controller.worktree?.name}
 			{laneId}
+			note={topBranchNote}
 			branchName={branchLabel}
 			{lineColor}
 			{first}
@@ -350,7 +364,7 @@
 				? [stackingReorderDropzoneManager.top(branchName), startCommittingDz]
 				: []}
 			trackingBranch={remoteTrackingBranch}
-			readonly={!branchName || !!remoteTrackingBranch}
+			readonly={!branchName || !!remoteTrackingBranch || inWorktree}
 			disableClick={!branchName}
 			onclick={() => {
 				if (!branchName) return;
@@ -372,6 +386,21 @@
 			{/snippet}
 		</BranchCard>
 	{/each}
+	{#if lastSegment?.refName && lastCommit && !controller.isReadOnly}
+		<BranchReorderDropzone
+			{projectId}
+			{stackId}
+			worktree={controller.worktree?.name}
+			branchName={lastSegment.refName.displayName}
+			belowCommitId={lastCommit.id}
+			lineColor={getColorFromCommitState(
+				lastCommit.state.type,
+				lastCommit.state.type === "LocalAndRemote" && lastCommit.id !== lastCommit.state.subject,
+			)}
+			isCommitting={controller.isCommitting}
+			isLast
+		/>
+	{/if}
 </div>
 
 {#if addDependentBranchModalContext}

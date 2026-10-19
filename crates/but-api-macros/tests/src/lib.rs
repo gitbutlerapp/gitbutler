@@ -62,7 +62,7 @@ pub mod json {
     }
 
     impl FromStr for HexHash {
-        type Err = gix::hash::decode::Error;
+        type Err = gix::Error;
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
             let _ = gix::ObjectId::from_hex(s.as_bytes())?;

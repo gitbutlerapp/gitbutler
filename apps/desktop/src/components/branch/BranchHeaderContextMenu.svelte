@@ -359,7 +359,8 @@
 				{/if}
 			</ContextMenuSection>
 		{/if}
-		{#if stackId && branchName}
+		<!-- A worktree's branch has no stack id but is pushed by name, so it can get a PR. -->
+		{#if branchName && !controller.isReadOnly}
 			{#if $landDirectly}
 				{#if canPublishPR && !prNumber}
 					<ContextMenuSection>
@@ -367,7 +368,7 @@
 							label="Create {reviewUnitAbbr}"
 							icon="pr-plus"
 							testId={TestId.BranchHeaderContextMenu_CreatePR}
-							disabled={isReadOnly || isNewBranch}
+							disabled={isNewBranch}
 							onclick={() => {
 								controller.projectState.exclusiveAction.set({
 									type: "create-pr",
@@ -385,8 +386,12 @@
 						label="Land"
 						icon="branch-merge"
 						testId={TestId.BranchHeaderContextMenu_Land}
-						disabled={isReadOnly || isConflicted}
-						caption={isConflicted ? "Resolve conflicts before landing" : undefined}
+						disabled={!!controller.worktree || isConflicted}
+						caption={controller.worktree
+							? "Worktree branches can't be landed yet"
+							: isConflicted
+								? "Resolve conflicts before landing"
+								: undefined}
 						onclick={() => {
 							onLand?.(branchName);
 							close();

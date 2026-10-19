@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, path::Path};
 
 use bstr::ByteSlice;
 use but_api::{
@@ -18,7 +18,7 @@ use serde::Serialize;
 use crate::{
     CliResult, IdMap,
     args::{
-        atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose, ResolvedCliIdArg},
+        atoms::{BranchArg, BranchOrCommit, CliIdArg, MessageFileArg, Purpose, ResolvedCliIdArg},
         r#move::Platform,
     },
     bad_input,
@@ -32,8 +32,11 @@ use crate::{
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        diff_specs::DiffSpecBuilder, merged_upstream::MergedUpstream,
-        single_branch_mode::SingleBranchMode, targeting::Side, worktrees::worktree_tip_target,
+        diff_specs::DiffSpecBuilder,
+        merged_upstream::MergedUpstream,
+        single_branch_mode::SingleBranchMode,
+        targeting::Side,
+        worktrees::{worktree_branch, worktree_tip_target},
     },
 };
 
@@ -230,6 +233,7 @@ pub fn r#move(
     ctx: &mut Context,
     mut out: IntermediateChannel<'_>,
     args: Platform,
+    current_dir: &Path,
 ) -> CliResult<(MoveOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
@@ -237,14 +241,14 @@ pub fn r#move(
 
     let allow_merged = args.allow_merged;
     let switch = args.switch;
-    if switch && !ctx.settings.feature_flags.single_branch {
-        return Err(
-            bad_input("`--switch` requires the `single-branch` feature to be enabled")
-                .hint("Enable the feature with `but config feature single-branch enable`")
-                .into(),
-        );
-    }
-    let move_op = resolve(ctx, &mut out, guard.write_permission(), args, &id_map)?;
+    let move_op = resolve(
+        ctx,
+        &mut out,
+        guard.write_permission(),
+        args,
+        &id_map,
+        current_dir,
+    )?;
     ensure_not_touching_merged_upstream(&move_op, &MergedUpstream::from_ctx(ctx, allow_merged)?)?;
 
     Ok(run(
@@ -443,7 +447,11 @@ pub struct StackBranchOnOperation {
 
 impl StackBranchOnOperation {
     fn execute(self, tx: &mut Transaction<'_, '_, impl RefMetadata>) -> anyhow::Result<()> {
-        tx.stack_branch_on(self.source_branch.as_ref(), self.target_branch.as_ref())
+        tx.move_branch(
+            self.source_branch.as_ref(),
+            RelativeTo::Reference(self.target_branch),
+            Side::Above.into(),
+        )
     }
 }
 
@@ -537,6 +545,7 @@ fn resolve(
     perm: &mut RepoExclusive,
     args: Platform,
     id_map: &IdMap,
+    current_dir: &Path,
 ) -> CliResult<MoveOperation> {
     let Platform {
         above,
@@ -546,26 +555,28 @@ fn resolve(
         unstack,
         switch: _,
         message,
+        file,
         // Consumed by the caller when building the `MergedUpstream` guard.
         allow_merged: _,
     } = args;
 
     let context_lines = ctx.settings.context_lines;
-    let (repo, ws, _db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+    let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
 
     let resolved_sources = resolve_sources(&repo, context_lines, id_map, sources)?;
 
     match &resolved_sources {
         ResolvedSources::CommittedChanges(..) => {}
         ResolvedSources::Commits { .. } | ResolvedSources::Branch(..) => {
-            if message.is_some() {
+            if message.is_some() || file.is_some() {
                 return Err(bad_input(
-                    "`-m/--message` can only be used when moving committed changes",
+                    "`-m/--message` and `-F/--file` can only be used when moving committed changes",
                 )
                 .into());
             }
         }
     }
+    let reword = message_args_to_reword_operation(message, file.as_ref(), current_dir, out)?;
 
     match (branch, above, below, unstack) {
         (Some(Some(branch)), None, None, false) => {
@@ -586,21 +597,6 @@ fn resolve(
                             .arg_name("--branch")
                             .arg_value(branch.to_string())
                             .into());
-                    }
-                    // Stacking targets live in the workspace; refusing beats a misleading
-                    // "not found".
-                    if ws
-                        .find_segment_and_stack_by_refname(target.as_ref())
-                        .is_none()
-                        && ws.refname_is_segment(target.as_ref())
-                    {
-                        return Err(bad_input(format!(
-                            "Cannot stack a branch onto worktree branch {}",
-                            theme::Branch(&*branch.0)
-                        ))
-                        .arg_name("--branch")
-                        .arg_value(branch.to_string())
-                        .into());
                     }
                     Ok(MoveOperation::StackBranch(StackBranchOnOperation {
                         source_branch: source,
@@ -649,7 +645,7 @@ fn resolve(
                         source_commit,
                         changes,
                         target: MoveTarget::BranchTip { name },
-                        reword: message_args_to_reword_operation(message, out)?,
+                        reword,
                     },
                 )),
                 (
@@ -663,7 +659,7 @@ fn resolve(
                             source_commit,
                             changes,
                             branch_name: Some(branch_name),
-                            reword: message_args_to_reword_operation(message, out)?,
+                            reword,
                         },
                     ))
                 }
@@ -689,7 +685,7 @@ fn resolve(
                     source_commit,
                     changes,
                     branch_name: None,
-                    reword: message_args_to_reword_operation(message, out)?,
+                    reword,
                 }),
             ),
         },
@@ -700,8 +696,7 @@ fn resolve(
             resolved_sources,
             above,
             Side::Above,
-            out,
-            message,
+            reword,
             branch_name,
         ),
         (branch_name, None, Some(below), false) => create_move_above_or_below_op(
@@ -711,8 +706,7 @@ fn resolve(
             resolved_sources,
             below,
             Side::Below,
-            out,
-            message,
+            reword,
             branch_name,
         ),
         (branch_name, None, None, true) => match resolved_sources {
@@ -752,7 +746,7 @@ fn resolve(
                         source_commit,
                         changes,
                         branch_name,
-                        reword: message_args_to_reword_operation(message, out)?,
+                        reword,
                     },
                 ))
             }
@@ -763,9 +757,17 @@ fn resolve(
 
 pub fn message_args_to_reword_operation(
     message: Option<Vec<String>>,
+    file: Option<&MessageFileArg>,
+    current_dir: &Path,
     out: &mut IntermediateChannel<'_>,
 ) -> CliResult<CommitMessageSource> {
-    CommitMessageSource::from_args(message.is_none(), message, out.format())
+    CommitMessageSource::from_args(
+        message.is_none() && file.is_none(),
+        message,
+        file,
+        current_dir,
+        out.format(),
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -776,8 +778,7 @@ fn create_move_above_or_below_op(
     resolved_sources: ResolvedSources,
     unresolved_target: CliIdArg,
     side: Side,
-    out: &mut IntermediateChannel<'_>,
-    message: Option<Vec<String>>,
+    reword: CommitMessageSource,
     new_branch_name: Option<Option<CliIdArg>>,
 ) -> CliResult<MoveOperation> {
     let branch_flag_provided = new_branch_name.is_some();
@@ -787,8 +788,17 @@ fn create_move_above_or_below_op(
                 bad_input("Cannot use `-b/--branch` when moving relative to worktrees").into(),
             );
         }
-        MoveTarget::BranchTip {
-            name: worktree_tip_target(repo, name.as_ref(), side, &unresolved_target)?,
+        match (&resolved_sources, side) {
+            // Above what a worktree has checked out, a branch becomes its checkout.
+            (ResolvedSources::Branch(_), Side::Above) => MoveTarget::BranchBucket {
+                name: worktree_branch(repo, name.as_ref())
+                    .map_err(|err| bad_input(err.to_string()))?,
+                side,
+                new_branch_name: None,
+            },
+            _ => MoveTarget::BranchTip {
+                name: worktree_tip_target(repo, name.as_ref(), side, &unresolved_target)?,
+            },
         }
     } else {
         match unresolved_target
@@ -884,7 +894,7 @@ fn create_move_above_or_below_op(
                 changes,
                 source_commit,
                 target,
-                reword: message_args_to_reword_operation(message, out)?,
+                reword,
             }),
         ),
     }

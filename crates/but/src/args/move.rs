@@ -1,4 +1,4 @@
-use crate::args::atoms::{AllowMergedArg, CliIdArg};
+use crate::args::atoms::{AllowMergedArg, CliIdArg, MessageFileArg};
 
 /// Move commits and changes around.
 ///
@@ -61,6 +61,9 @@ pub struct Platform {
     /// If `BRANCH_OR_COMMIT` is a branch, the sources are placed on a new branch above the targeted
     /// branch.
     ///
+    /// If `BRANCH_OR_COMMIT` is a worktree, a branch source is stacked on the branch that worktree
+    /// has checked out and becomes its checked-out branch.
+    ///
     /// This target is applicable for all kinds of `<SOURCES>`.
     ///
     /// If moving commits or committed changes, use `--branch NAME` to name the new branch.
@@ -111,6 +114,10 @@ pub struct Platform {
     /// blank line in between. Without `-m`, the new commit will get an empty message.
     #[clap(short, long)]
     pub message: Option<Vec<String>>,
+
+    /// Read the new commit's message from `FILE`, or from stdin when `FILE` is `-`.
+    #[clap(short = 'F', long, value_name = "FILE", conflicts_with = "message")]
+    pub file: Option<MessageFileArg>,
 
     /// One or more sources to move, all of one kind: commits; committed files and hunks from one
     /// commit; or a single branch.

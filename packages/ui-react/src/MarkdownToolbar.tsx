@@ -124,7 +124,9 @@ export const MarkdownToolbar: FC<Props> = (p) => {
 						{index > 0 && <div aria-hidden className={styles.separator} />}
 						<div className={styles.group} data-group>
 							{group.map((button) => (
-								<Tooltip key={button.label} content={button.label}>
+								// Above, not the default below: the toolbar sits on the text
+								// being written, which a tooltip below would cover.
+								<Tooltip key={button.label} side="top" content={button.label}>
 									<Button
 										variant="ghost"
 										iconOnly

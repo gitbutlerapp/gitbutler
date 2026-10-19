@@ -1,152 +1,106 @@
-import { writeFileSync } from "node:fs";
-import path from "node:path";
+import type { Locator } from "@playwright/test";
 import { expect, test } from "../test.ts";
 
-test.describe("workspace focus", () => {
-	test.use({ scenario: "project-in-single-branch-three-branch-stack.sh" });
+test.use({ scenario: "project-in-single-branch-three-branch-stack.sh" });
 
-	test("dragging an uncommitted file retains the previewing panel's focus", async ({
-		appWindow,
-		testEnvironment,
-	}) => {
-		const clone = path.join(testEnvironment.workdir, "local-clone");
-		writeFileSync(path.join(clone, "added.txt"), "an uncommitted file\n");
-		await appWindow.reload();
-		await appWindow.getByRole("main").waitFor();
+const backgroundOf = (locator: Locator) =>
+	locator.evaluate((element) => getComputedStyle(element).backgroundColor);
 
-		const uncommittedFiles = appWindow.getByRole("tree", { name: "Uncommitted" });
-		const file = uncommittedFiles.getByRole("treeitem", { name: "Addition added.txt" });
-		await file.click();
+test.describe("an uncommitted file next to a previewed commit", () => {
+	test.beforeEach(async ({ app, repo }) => {
+		await repo.write("added.txt");
+		await app.uncommittedFile("added.txt").click();
+		await app.selectCommit("C: first commit");
+	});
 
-		const commit = appWindow.getByRole("treeitem", { name: "C: first commit" });
-		await commit.click();
-		await expect(commit).toHaveAttribute("aria-selected", "true");
-		await expect
-			.poll(() =>
-				appWindow.evaluate(() =>
-					document.activeElement?.closest("[data-focus-scope]")?.getAttribute("data-focus-scope"),
-				),
-			)
-			.toBe("sidebar");
-
+	test("dragging it keeps the commit preview and its focus", async ({ app }) => {
+		const file = app.uncommittedFile("added.txt");
+		const idle = await backgroundOf(file);
 		const box = await file.boundingBox();
 		if (box === null) throw new Error("Uncommitted file row has no bounding box");
 
-		await appWindow.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-		const selectionColor = await file.evaluate(
-			(element) => getComputedStyle(element).backgroundColor,
-		);
-		await appWindow.mouse.down();
+		await app.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+		await app.page.mouse.down();
 		try {
-			await expect
-				.poll(() => file.evaluate((element) => getComputedStyle(element).backgroundColor))
-				.toBe(selectionColor);
-			await appWindow.mouse.move(box.x + box.width / 2 + 20, box.y + box.height / 2, {
+			// Pressing to drag must not select the row.
+			await expect.poll(() => backgroundOf(file)).toBe(idle);
+			await app.page.mouse.move(box.x + box.width / 2 + 20, box.y + box.height / 2, {
 				steps: 10,
 			});
 		} finally {
-			await appWindow.mouse.up();
+			await app.page.mouse.up();
 		}
 
-		await expect.poll(() => new URL(appWindow.url()).searchParams.get("active")).toBeNull();
-		await expect
-			.poll(() =>
-				appWindow.evaluate(() =>
-					document.activeElement?.closest("[data-focus-scope]")?.getAttribute("data-focus-scope"),
-				),
-			)
-			.toBe("sidebar");
-
-		await uncommittedFiles.getByRole("checkbox", { name: "Check file added.txt" }).click();
-		await expect.poll(() => new URL(appWindow.url()).searchParams.get("active")).toBeNull();
-
-		await file.click();
-		await expect
-			.poll(() => new URL(appWindow.url()).searchParams.get("active"))
-			.toBe("uncommitted");
-		await expect
-			.poll(() =>
-				appWindow.evaluate(() =>
-					document.activeElement?.closest("[data-focus-scope]")?.getAttribute("data-focus-scope"),
-				),
-			)
-			.toBe("uncommitted-files");
+		await expect.poll(() => app.activeList()).toBe("applied");
+		await expect(app).toHaveFocusIn("sidebar");
 	});
 
-	test("only the focused details child uses focused selection styling", async ({ appWindow }) => {
-		await appWindow.getByRole("treeitem", { name: "C: first commit" }).click();
+	test("checking it keeps the commit preview", async ({ app }) => {
+		await app.fileCheckbox("added.txt").click();
 
-		const toggleFiles = appWindow.getByRole("button", { name: "Toggle files" });
-		if ((await toggleFiles.getAttribute("aria-pressed")) !== "true") await toggleFiles.click();
-
-		const sidebar = appWindow.locator('[data-focus-scope="sidebar"]:visible');
-		const files = appWindow.locator('[data-focus-scope="files"]');
-		const diff = appWindow.locator('[data-focus-scope="diff"]');
-		const selectedFile = files.locator('[role="treeitem"][aria-selected="true"]');
-		await expect(selectedFile).toBeVisible();
-
-		const selectedFileBackground = () =>
-			selectedFile.evaluate((element) => getComputedStyle(element).backgroundColor);
-
-		await diff.focus();
-		await appWindow.keyboard.press("2");
-		await expect(sidebar).toBeFocused();
-		let blurredBackground = "";
-		// Capture inside the successful poll so a virtualized row replacement cannot empty the baseline.
-		await expect
-			.poll(async () => (blurredBackground = await selectedFileBackground()))
-			.not.toBe("");
-		await files.focus();
-		await expect.poll(selectedFileBackground).not.toBe(blurredBackground);
-		await diff.focus();
-		await expect.poll(selectedFileBackground).toBe(blurredBackground);
+		await expect.poll(() => app.activeList()).toBe("applied");
 	});
 
-	test("cancelled drags restore the committed panel focus", async ({ appWindow }) => {
-		const commit = appWindow.getByRole("treeitem", { name: "C: first commit" });
-		await commit.click();
+	test("clicking it previews the file", async ({ app }) => {
+		await app.uncommittedFile("added.txt").click();
 
-		const toggleFiles = appWindow.getByRole("button", { name: "Toggle files" });
-		if ((await toggleFiles.getAttribute("aria-pressed")) !== "true") await toggleFiles.click();
+		await expect.poll(() => app.activeList()).toBe("uncommitted");
+		await expect(app).toHaveFocusIn("uncommitted-files");
+	});
+});
 
-		const files = appWindow.locator('[data-focus-scope="files"]');
-		await files.locator('[role="treeitem"]').first().click();
-
-		const nowhere = appWindow.locator("body");
-		const dragAndCancel = (source: typeof commit) =>
-			source.dragTo(nowhere, { targetPosition: { x: 1, y: 1 } });
-
-		const diffFileHeader = appWindow
-			.locator('[data-focus-scope="diff"] [draggable="true"]')
-			.first();
-		await dragAndCancel(diffFileHeader);
-		await dragAndCancel(commit);
-
-		await expect
-			.poll(() =>
-				appWindow.evaluate(() =>
-					document.activeElement?.closest("[data-focus-scope]")?.getAttribute("data-focus-scope"),
-				),
-			)
-			.toBe("files");
+test.describe("a selected commit's details", () => {
+	test.beforeEach(async ({ app }) => {
+		await app.selectCommit("C: first commit");
+		await app.showCommitFiles();
 	});
 
-	test("clears selection focus while a dialog owns focus", async ({ appWindow }) => {
-		const commit = appWindow.getByRole("treeitem", { name: "C: first commit" });
-		await commit.click();
-		const commitElement = await commit.elementHandle();
-		if (commitElement === null) throw new Error("Selected commit row has no element");
-		const commitBackground = () =>
-			commitElement.evaluate((element) => getComputedStyle(element).backgroundColor);
-		const focusedBackground = await commitBackground();
+	test("only the focused child uses focused selection styling", async ({ app }) => {
+		const selectedFile = app.focusScope("files").locator('[role="treeitem"][aria-selected="true"]');
+		await app.focusScope("diff").focus();
+		await app.press("2");
+		await expect(app.focusScope("sidebar").filter({ visible: true })).toBeFocused();
+		let blurred = "";
+		// Captured inside the poll so a virtualised row replacement cannot empty the baseline.
+		await expect.poll(async () => (blurred = await backgroundOf(selectedFile))).not.toBe("");
 
-		await appWindow.keyboard.press("ControlOrMeta+K");
-		await expect(appWindow.getByRole("dialog", { name: "Command palette" })).toBeVisible();
-		await expect(appWindow.locator("[data-selection-focused]")).toHaveCount(0);
-		await expect.poll(commitBackground).not.toBe(focusedBackground);
-
-		await appWindow.keyboard.press("Escape");
-		await expect(appWindow.getByRole("dialog", { name: "Command palette" })).not.toBeVisible();
-		await expect.poll(commitBackground).toBe(focusedBackground);
+		await app.focusScope("files").focus();
+		await expect.poll(() => backgroundOf(selectedFile)).not.toBe(blurred);
+		await app.focusScope("diff").focus();
+		await expect.poll(() => backgroundOf(selectedFile)).toBe(blurred);
 	});
+
+	test("cancelled drags restore the committed panel's focus", async ({ app }) => {
+		await app.focusScope("files").getByRole("treeitem").first().click();
+		const nowhere = app.page.locator("body");
+
+		for (const source of [
+			app.focusScope("diff").locator('[draggable="true"]').first(),
+			app.commit("C: first commit"),
+		])
+			await source.dragTo(nowhere, { targetPosition: { x: 1, y: 1 } });
+
+		await expect(app).toHaveFocusIn("files");
+	});
+});
+
+test("a dialog takes the selection's focus styling while it is open", async ({ app }) => {
+	await app.selectCommit("C: first commit");
+	const commit = await app.commit("C: first commit").elementHandle();
+	if (commit === null) throw new Error("Selected commit row has no element");
+	const focused = await commit.evaluate((element) => getComputedStyle(element).backgroundColor);
+	const palette = app.getByRole("dialog", { name: "Command palette" });
+
+	await app.press("ControlOrMeta+K");
+	await expect(palette).toBeVisible();
+	await expect(app.page.locator("[data-selection-focused]")).toHaveCount(0);
+	await expect
+		.poll(() => commit.evaluate((element) => getComputedStyle(element).backgroundColor))
+		.not.toBe(focused);
+
+	await app.press("Escape");
+	await expect(palette).toBeHidden();
+	await expect
+		.poll(() => commit.evaluate((element) => getComputedStyle(element).backgroundColor))
+		.toBe(focused);
 });

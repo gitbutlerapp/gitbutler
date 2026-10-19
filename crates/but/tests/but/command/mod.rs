@@ -30,6 +30,7 @@ mod external;
 mod format;
 mod gui;
 mod help;
+mod init;
 #[cfg(feature = "legacy")]
 mod merge;
 #[cfg(feature = "legacy")]
@@ -41,6 +42,8 @@ mod open;
 #[cfg(feature = "legacy")]
 mod pick;
 #[cfg(feature = "legacy")]
+mod pr;
+#[cfg(feature = "legacy")]
 mod pull;
 #[cfg(feature = "legacy")]
 mod push;
@@ -50,8 +53,6 @@ mod resolve;
 mod reword;
 #[cfg(feature = "legacy")]
 mod reword2;
-#[cfg(feature = "legacy")]
-mod setup;
 #[cfg(feature = "legacy")]
 mod sha256;
 mod skill;

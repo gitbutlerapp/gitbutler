@@ -5,7 +5,7 @@
  * and a virtualizing host (Lite's CodeView) both. A bar above the list lines
  * up with the cards by insetting its content by `inset` too.
  */
-export const diffFileSpacing = { top: 8, inset: 9, gap: 10, bottom: 12 } as const;
+export const diffFileSpacing = { top: 10, inset: 12, gap: 10, bottom: 12 } as const;
 
 /**
  * The height of a `DiffFileHeader` in its card, borders included. The card

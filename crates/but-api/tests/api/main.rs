@@ -5,12 +5,15 @@ mod branch_create;
 mod branch_land;
 mod branch_list;
 mod branch_move;
+mod branch_name_segment;
 mod branch_remove;
 mod branch_rename;
 mod changes_in_worktree;
 mod commit_cherry_pick;
 mod commit_range_diff;
 mod commit_uncommit;
+#[cfg(feature = "legacy")]
+mod discard_worktree_changes;
 #[cfg(feature = "legacy")]
 mod forge_info;
 #[cfg(all(feature = "legacy", not(feature = "graph-workspace")))]
@@ -23,4 +26,5 @@ mod resolve_ai;
 mod resolve_hunks;
 mod support;
 mod target_commits;
+mod workdir_path;
 mod worktrees;

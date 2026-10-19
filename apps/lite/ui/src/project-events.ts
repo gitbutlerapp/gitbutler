@@ -9,7 +9,7 @@
  */
 
 import { projectQueryKeys, type ProjectQueryKey } from "#ui/api/query-keys.ts";
-import { getReviewQueryOptions } from "#ui/api/queries.ts";
+import { getReviewQueryOptions, worktreeChangesQueryOptions } from "#ui/api/queries.ts";
 import { recordedPullRequest } from "#ui/api/ref-info.ts";
 import { invalidateTags, providedTag } from "#ui/api/tags.ts";
 import type { ForgeReview, WatcherEvent } from "@gitbutler/but-sdk";
@@ -55,6 +55,8 @@ const handledSeparately: Partial<Record<ProjectEvent, ReadonlySet<ProjectQueryKe
 	// Pushes instead: the event carries the new changes, so invalidating would
 	// spend a round trip fetching what is already in hand.
 	worktreeChanges: new Set(["changesInWorktree"]),
+	// Pushes instead, to the one worktree that changed: the others are as they were.
+	linkedWorktreeChanges: new Set(["changesInWorktree"]),
 	// Pushes instead: the event carries the new head and mode.
 	gitHead: new Set(["operatingMode"]),
 	// Invalidates later instead: re-reading before the review refresh lands
@@ -121,6 +123,13 @@ export const handleProjectEvent = (
 	if (payload.type === "worktreeChanges")
 		client.setQueryData([projectId, "changesInWorktree"], () => payload.subject.changes);
 
+	if (payload.type === "linkedWorktreeChanges") {
+		client.setQueryData(
+			worktreeChangesQueryOptions(projectId, payload.subject.worktree).queryKey,
+			() => payload.subject.changes,
+		);
+	}
+
 	if (payload.type === "gitHead")
 		client.setQueryData([projectId, "operatingMode"], () => payload.subject);
 
@@ -130,7 +139,7 @@ export const handleProjectEvent = (
 			// File edits cannot change blob-only diffs. Index events have no paths
 			// and must still refresh everything (e.g. staged attributes).
 			predicate:
-				payload.type === "worktreeChanges" &&
+				(payload.type === "worktreeChanges" || payload.type === "linkedWorktreeChanges") &&
 				Array.isArray(payload.subject.changedPaths) &&
 				payload.subject.changedPaths.length > 0
 					? ({ meta }) => meta?.readsWorktree !== false

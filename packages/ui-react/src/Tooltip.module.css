@@ -4,10 +4,33 @@
 	max-width: 240px;
 	padding: 6px 8px;
 	gap: 7px;
+	transform-origin: var(--transform-origin);
 	border-radius: var(--radius-control);
 	background-color: var(--bg-1);
 	box-shadow: var(--shadow-tooltip);
 	color: var(--text-1);
+	transition:
+		transform var(--transition-popup) var(--easing-popup),
+		opacity var(--transition-popup) var(--easing-popup);
+
+	&[data-starting-style],
+	&[data-ending-style] {
+		transform: scale(0.96);
+		opacity: 0;
+	}
+
+	/* Hovering along a row of buttons hands the tooltip from one to the next with no delay; Base UI
+	   marks that open as instant, and animating each hop would flicker. */
+	&[data-instant] {
+		transition: none;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		&[data-starting-style],
+		&[data-ending-style] {
+			transform: none;
+		}
+	}
 }
 
 /* Long content (branch or commit names) wraps instead of stretching the tooltip

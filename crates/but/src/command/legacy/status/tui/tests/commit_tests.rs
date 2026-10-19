@@ -184,7 +184,7 @@ fn commit_from_unstaged_changes_to_new_branch_enters_workspace_in_single_branch_
     snapbox::assert_data_eq!(
         tui.env().git_log(),
         str![[r#"
-*   bdcb20a (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+*   d1c613b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
 |/  
 | * 9477ae7 (A) add A
 * | 80b9bc6 (c-branch-1) 

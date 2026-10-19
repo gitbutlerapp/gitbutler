@@ -150,7 +150,10 @@ pub fn create_dirs_then_write<P: AsRef<Path>>(
 ) -> std::io::Result<()> {
     let mut temp_file = gix::tempfile::new(
         file_path.as_ref().parent().unwrap(),
-        ContainingDirectory::CreateAllRaceProof(Retries::default()),
+        ContainingDirectory::CreateAllRaceProof {
+            retries: Retries::default(),
+            shared_repository_permissions: 0,
+        },
         AutoRemove::Tempfile,
     )?;
     temp_file.write_all(contents.as_ref())?;

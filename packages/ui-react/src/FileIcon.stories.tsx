@@ -10,6 +10,8 @@ for (const [name, icon] of Object.entries(symbolFileNamesToIcons))
 	if (!samples.has(icon)) samples.set(icon, name);
 
 const meta = preview.meta({
+	title: "Icons/FileIcon",
+	id: "components-fileicon",
 	component: FileIcon,
 	args: {
 		fileName: "FileIcon.tsx",

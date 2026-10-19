@@ -75,8 +75,16 @@
 				});
 				break;
 			case "view":
-				projectState.exclusiveAction.set(undefined);
+				endEdit(commit.id);
 				break;
+		}
+	}
+
+	/** Only end this commit's edit; another lane may have its own commit or PR box open. */
+	function endEdit(commitId: string) {
+		const action = projectState.exclusiveAction.current;
+		if (action?.type === "edit-commit-message" && action.commitId === commitId) {
+			projectState.exclusiveAction.set(undefined);
 		}
 	}
 
@@ -102,10 +110,11 @@
 			return;
 		}
 
+		const editedCommitId = commit.id;
 		const newCommitId = await updateCommitMessage({
 			projectId,
 			stackId,
-			commitId: commit.id,
+			commitId: editedCommitId,
 			message: commitMessage,
 			dryRun: false,
 		});
@@ -113,7 +122,7 @@
 		if (stackId) {
 			uiState.lane(stackId).selection.set({ branchName, commitId: newCommitId, previewOpen: true });
 		}
-		setMode("view");
+		endEdit(editedCommitId);
 	}
 
 	async function handleUncommit() {

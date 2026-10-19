@@ -32,14 +32,14 @@ import {
 	PR_DESCRIPTION_SYSTEM_PROMPT,
 	splitGeneratedDescription,
 } from "#ui/pr-description-generation.ts";
-import { errorMessageForToast } from "#ui/errors.ts";
+import { addErrorToast } from "#ui/errors.ts";
 import { oversizedFile, toBase64, UPLOAD_SIZE_LIMIT } from "#ui/uploads.ts";
 import { resolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import {
 	discardChangesToastOptions,
 	rejectedChangesToastOptions,
 } from "#ui/operations/toastOptions.tsx";
-import { commitAddress, type Address, type FileParent } from "#ui/addresses.ts";
+import { changesSourceOf, commitAddress, type Address, type FileParent } from "#ui/addresses.ts";
 import { projectSlice } from "#ui/projects/state.ts";
 import { projectAiSettingsQueryOptions } from "#ui/project-ai-settings.ts";
 import { type AppDispatch, useAppDispatch } from "#ui/store.ts";
@@ -187,11 +187,9 @@ export const useApply = () => {
 							})().catch((error) => {
 								reportError(error);
 
-								toastManager.add({
-									type: "error",
+								addErrorToast(toastManager, {
 									title: "Failed to switch branch",
-									description: errorMessageForToast(error),
-									priority: "high",
+									error,
 								});
 							});
 						},
@@ -222,6 +220,17 @@ export const useBranchCreate = () => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
 		meta: { failureTitle: "Failed to create branch" },
+	});
+};
+
+export const useBranchNameSegment = () => {
+	const dispatch = useAppDispatch();
+	return useMutation({
+		mutationFn: window.lite.branchNameSegment,
+		onSuccess: async (response, input, _context, mutation) => {
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+		},
+		meta: { failureTitle: "Failed to name branch" },
 	});
 };
 
@@ -854,11 +863,9 @@ export const useSetReviewAutoMerge = (projectId: string) => {
 			void ctx.client.invalidateQueries({ queryKey: [input.projectId, "listReviews"] });
 			void ctx.client.invalidateQueries({ queryKey: [input.projectId, "getReview"] });
 
-			toastManager.add({
-				type: "error",
+			addErrorToast(toastManager, {
 				title: `Failed to ${input.enable ? "enable" : "disable"} pull request auto-merge`,
-				description: errorMessageForToast(error),
-				priority: "high",
+				error,
 			});
 		},
 	});
@@ -1167,8 +1174,12 @@ export const useDiscardFileChanges = ({
 				Commit: ({ commitId }) => {
 					commitDiscardChanges({ projectId, commitId, changes, dryRun: false });
 				},
-				UncommittedChanges: () => {
-					discardWorktreeChanges({ projectId, worktreeChanges: changes });
+				UncommittedChanges: (parent) => {
+					discardWorktreeChanges({
+						projectId,
+						changesSource: changesSourceOf(parent),
+						worktreeChanges: changes,
+					});
 				},
 				Branch: () => {},
 			}),
@@ -1190,11 +1201,9 @@ export const useDiscardFileChanges = ({
 		} catch (error) {
 			reportError(error);
 
-			toastManager.add({
-				type: "error",
+			addErrorToast(toastManager, {
 				title: "Failed to discard changes",
-				description: errorMessageForToast(error),
-				priority: "high",
+				error,
 			});
 		}
 	};
@@ -1339,11 +1348,9 @@ export const useWorkspaceIntegrateUpstream = () => {
 			else void mutation.client.invalidateQueries({ queryKey });
 		},
 		onError: (error, input) => {
-			toastManager.add({
-				type: "error",
+			addErrorToast(toastManager, {
 				title: `Failed to update stack${pluralRules.select(input.updates.length) === "one" ? "" : "s"}`,
-				description: errorMessageForToast(error),
-				priority: "high",
+				error,
 			});
 		},
 	});
@@ -1417,11 +1424,9 @@ export const useRestoreSnapshot = ({ projectId }: { projectId: string }) => {
 			});
 		},
 		onError: (error, input) => {
-			toastManager.add({
-				type: "error",
+			addErrorToast(toastManager, {
 				title: input._tag === "restore" ? "Failed to restore snapshot" : `Failed to ${input._tag}`,
-				description: errorMessageForToast(error),
-				priority: "high",
+				error,
 			});
 		},
 	});
@@ -1507,7 +1512,7 @@ export const useWorktreeSetArchived = (projectId: string) =>
 export const useWorktreeRemove = (projectId: string) =>
 	useMutation({
 		mutationKey: [projectId, "worktreeRemove"],
-		mutationFn: window.lite.worktreeRemove,
+		mutationFn: (name: string) => window.lite.worktreeRemove({ projectId, name, force: true }),
 		meta: { failureTitle: "Failed to remove the worktree" },
 	});
 

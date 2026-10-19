@@ -44,6 +44,8 @@ const SampleDiff = ({ lines = sampleLines }: { lines?: Array<Line> }) => (
 );
 
 const meta = preview.meta({
+	title: "Content & status/DiffFile",
+	id: "components-difffile",
 	component: DiffFile,
 	parameters: {
 		design: {

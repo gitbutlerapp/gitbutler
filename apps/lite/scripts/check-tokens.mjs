@@ -51,6 +51,11 @@ const KNOWN_RUNTIME = new Map([
 	["--active-tab-height", "@base-ui/react tabs indicator"],
 	["--active-tab-width", "@base-ui/react tabs indicator"],
 	["--active-tab-left", "@base-ui/react tabs indicator"],
+	// Base UI's toast root carries its place in the stack and the heights it measured.
+	["--toast-index", "@base-ui/react toast root"],
+	["--toast-height", "@base-ui/react toast root"],
+	["--toast-frontmost-height", "@base-ui/react toast root"],
+	["--toast-offset-y", "@base-ui/react toast root"],
 	// Shiki's dual-theme output carries both themes as inline style.
 	["--shiki-light", "shiki dual-theme inline style"],
 	["--shiki-dark", "shiki dual-theme inline style"],

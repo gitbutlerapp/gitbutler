@@ -123,7 +123,7 @@
 {/snippet}
 
 {#snippet changeItem(change: TreeChange, index?: number, highlight?: boolean)}
-	{@const diffQuery = diffService.getDiff(projectId, change)}
+	{@const diffQuery = diffService.getDiff(projectId, change, selectionId.worktree)}
 	{@const diffData = diffQuery.response}
 	{@const isExecutable = isExecutableStatus(change.status)}
 	{@const patchData = diffData?.type === "Patch" ? diffData.subject : null}

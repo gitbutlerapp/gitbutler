@@ -14,6 +14,7 @@ pub(crate) mod external;
 pub(crate) mod git_config;
 pub mod gui;
 pub mod help;
+pub mod init;
 pub mod mcp;
 pub mod onboarding;
 pub mod open;

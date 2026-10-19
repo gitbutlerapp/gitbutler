@@ -534,7 +534,7 @@ fn print_and_exit_non_zero<T: std::fmt::Display>(err: T) -> ! {
 enum DispatchOutcome {
     Return,
     ReturnWithOutcome(command::CommandOutcome),
-    ExitWithoutDestructors(anyhow::Result<()>),
+    ExitWithoutDestructors(CliResult<()>),
 }
 
 async fn match_subcommand(
@@ -566,6 +566,7 @@ async fn match_subcommand(
                 | Subcommands::Agent(_)
                 | Subcommands::Mcp(_)
                 | Subcommands::Help { .. }
+                | Subcommands::Setup { .. }
                 | Subcommands::Completions { .. }
                 | Subcommands::Metrics { .. }
                 | Subcommands::External(_)
@@ -677,6 +678,20 @@ async fn dispatch_subcommand(
         }
         Subcommands::Help { topic } => {
             command::help::print(out, topic)?;
+            return Ok(DispatchOutcome::Return);
+        }
+        Subcommands::Setup { init } => {
+            let message = "You no longer need to run `but setup`, you can just start using `but` with any Git repository.";
+            if init {
+                // As the user explicitly requested to initialize, we're making this an error as the
+                // expected task has not been performed.
+                return Err(bad_input(message)
+                    .hint("Run `but init` instead to initialize a repository.")
+                    .into());
+            }
+            if let Some(out) = out.for_human() {
+                writeln!(out, "{message}")?;
+            }
             return Ok(DispatchOutcome::Return);
         }
         Subcommands::Onboarding => {
@@ -803,41 +818,16 @@ async fn dispatch_subcommand(
             })
             .map(|()| DispatchOutcome::Return);
         }
+        Subcommands::Init(_) => {
+            let outcome = command::init::run(&args.current_dir)?;
+            out.print_cli_output(outcome)?;
+            return Ok(DispatchOutcome::Return);
+        }
         Subcommands::Edit { file } => {
             let path = args.current_dir.join(&file);
             return Ok(DispatchOutcome::ExitWithoutDestructors(
-                tui::editor::edit_file(&path),
+                tui::editor::edit_file(&path).map_err(Into::into),
             ));
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Setup { init } => {
-            let repo = match but_api::legacy::projects::add_project_best_effort(
-                args.current_dir.clone(),
-            )? {
-                gitbutler_project::AddProjectOutcome::Added(project)
-                | gitbutler_project::AddProjectOutcome::AlreadyExists(project) => {
-                    gix::open(project.git_dir())?
-                }
-                gitbutler_project::AddProjectOutcome::ReftableRefFormatUnsupported => {
-                    return Err(anyhow::anyhow!(
-                            "The repository at {} uses the currently unsupported reftable reference format.",
-                            args.current_dir.display()
-                        )
-                        .into());
-                }
-                _ => command::legacy::setup::find_or_initialize_repo(&args.current_dir, out, init)?,
-            };
-            let mut ctx = but_ctx::Context::from_repo_with_settings(repo, app_settings.clone())?;
-            let mut guard = ctx.exclusive_worktree_access();
-            return command::legacy::setup::repo(
-                &mut ctx,
-                &args.current_dir,
-                out,
-                guard.write_permission(),
-            )
-            .context("Failed to set up GitButler project.")
-            .map(|()| DispatchOutcome::Return)
-            .map_err(CliError::from);
         }
         #[cfg(feature = "nightly")]
         Subcommands::_Open { .. } => setup::init_ctx(
@@ -849,7 +839,9 @@ async fn dispatch_subcommand(
             out,
         ),
         #[cfg(feature = "nightly")]
-        Subcommands::_Expand { .. } => but_ctx::Context::discover(&args.current_dir),
+        Subcommands::_Expand { .. } => {
+            but_ctx::Context::discover(&args.current_dir).map_err(CliError::from)
+        }
         Subcommands::Branch(branch::Platform { ref cmd }) => setup::init_ctx(
             &args,
             match cmd {
@@ -939,7 +931,8 @@ async fn dispatch_subcommand(
     };
     let mut ctx = match ctx {
         Ok(ctx) => ctx,
-        Err(err) => return Err(CliError::Initialization(err)),
+        Err(CliError::Internal(err)) => return Err(CliError::Initialization(err)),
+        Err(err) => return Err(err),
     };
 
     // If `Some`, and if result is `Ok`, this is passed to
@@ -959,6 +952,8 @@ async fn dispatch_subcommand(
         | Subcommands::Update(..)
         | Subcommands::Help { .. }
         | Subcommands::Onboarding
+        | Subcommands::Setup { .. }
+        | Subcommands::Init(..)
         | Subcommands::Config(..)
         | Subcommands::Alias(..)
         | Subcommands::Skill(..)
@@ -967,10 +962,6 @@ async fn dispatch_subcommand(
         | Subcommands::Edit { .. }
         | Subcommands::AgentLog { .. }
         | Subcommands::External(..) => {
-            unreachable!("handled above")
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Setup { .. } => {
             unreachable!("handled above")
         }
         #[cfg(feature = "nightly")]
@@ -1147,7 +1138,9 @@ async fn dispatch_subcommand(
             None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Pull { check } => command::legacy::pull::handle(&mut ctx, out, check).await?,
+        Subcommands::Pull { check, update } => {
+            command::legacy::pull::handle(&mut ctx, out, check, &update).await?
+        }
         #[cfg(feature = "legacy")]
         Subcommands::Fetch => {
             use std::fmt::Write;
@@ -1159,7 +1152,13 @@ async fn dispatch_subcommand(
                     "Assuming you meant to check for upstream work, running `but pull --check`"
                 )
             )?;
-            command::legacy::pull::handle(&mut ctx, out, true).await?
+            command::legacy::pull::handle(
+                &mut ctx,
+                out,
+                true,
+                <args::PullUpdate as clap::ValueEnum>::value_variants(),
+            )
+            .await?
         }
         #[cfg(feature = "legacy")]
         Subcommands::Clean {
@@ -1172,7 +1171,13 @@ async fn dispatch_subcommand(
                 use std::fmt::Write;
                 let mut progress = out.progress_channel();
                 writeln!(progress, "Pulling latest...")?;
-                command::legacy::pull::handle(&mut ctx, out, false).await?;
+                command::legacy::pull::handle(
+                    &mut ctx,
+                    out,
+                    false,
+                    <args::PullUpdate as clap::ValueEnum>::value_variants(),
+                )
+                .await?;
                 writeln!(progress, "Pull complete.")?;
             }
             out.begin_status_after(status_after);
@@ -1257,7 +1262,8 @@ async fn dispatch_subcommand(
         #[cfg(feature = "legacy")]
         Subcommands::Show { commit, verbose } => {
             return Ok(DispatchOutcome::ExitWithoutDestructors(
-                command::legacy::show::show_commit(&mut ctx, out, &commit, verbose),
+                command::legacy::show::show_commit(&mut ctx, out, &commit, verbose)
+                    .map_err(Into::into),
             ));
         }
         #[cfg(feature = "legacy")]
@@ -1274,6 +1280,7 @@ async fn dispatch_subcommand(
                 IntermediateChannel::new(out),
                 commit_args,
                 &InvokedFrom::discover(&args.current_dir)?,
+                &args.current_dir,
             )?;
             let metrics_outcome = command::CommandOutcome::Commit(outcome.clone());
             out.print_cli_output(outcome)?;
@@ -1294,6 +1301,7 @@ async fn dispatch_subcommand(
                 IntermediateChannel::new(out),
                 squash_args,
                 &InvokedFrom::discover(&args.current_dir)?,
+                &args.current_dir,
             )?;
             out.print_cli_output(outcome)?;
             ws
@@ -1311,6 +1319,7 @@ async fn dispatch_subcommand(
                 &mut ctx,
                 IntermediateChannel::new(out),
                 move_args,
+                &args.current_dir,
             )?;
             out.print_cli_output(outcome)?;
             Some(ws)
@@ -1324,8 +1333,12 @@ async fn dispatch_subcommand(
             status_after_data = Some(status_after);
 
             newly_conflicted_data = Some(command::legacy::conflict_notice::snapshot(&ctx));
-            let (outcome, ws) =
-                command::legacy::split::split(&mut ctx, IntermediateChannel::new(out), split_args)?;
+            let (outcome, ws) = command::legacy::split::split(
+                &mut ctx,
+                IntermediateChannel::new(out),
+                split_args,
+                &args.current_dir,
+            )?;
             out.print_cli_output(outcome)?;
             Some(ws)
         }
@@ -1481,9 +1494,17 @@ async fn dispatch_subcommand(
             None
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Teardown { checkout_to } => {
-            command::legacy::teardown::teardown(&mut ctx, checkout_to, out)
-                .map_err(|err| err.context("Failed to teardown GitButler project."))?;
+        Subcommands::Teardown {
+            checkout_to,
+            remove_hooks,
+        } => {
+            if remove_hooks {
+                let outcome = command::legacy::teardown::remove_hooks(&mut ctx)?;
+                out.print_cli_output(outcome)?;
+            } else {
+                command::legacy::teardown::teardown(&mut ctx, checkout_to, out)
+                    .map_err(|err| err.context("Failed to teardown GitButler project."))?;
+            }
             None
         }
         #[cfg(feature = "legacy")]
@@ -1505,12 +1526,7 @@ async fn dispatch_subcommand(
                     let draft = top_level_draft || draft;
                     // Read message content from file or inline
                     let message_content = match &file {
-                        Some(path) => Some(std::fs::read_to_string(path).with_context(|| {
-                            format!(
-                                "Failed to read forge review message from file: {}",
-                                path.display()
-                            )
-                        })?),
+                        Some(file) => Some(file.read(&args.current_dir)?),
                         None => message.clone(),
                     };
                     // Parse early to fail fast on invalid content
@@ -1618,8 +1634,7 @@ async fn dispatch_subcommand(
             let status_after = args.status_after
                 && matches!(&cmd, Some(crate::args::resolve::Subcommands::Finish));
             out.begin_status_after(status_after);
-            let result = command::legacy::resolve::handle(&mut ctx, out, cmd, targets, ai)
-                .context("Failed to handle conflict resolution.");
+            let result = command::legacy::resolve::handle(&mut ctx, out, cmd, targets, ai);
             if result.is_ok() {
                 run_status_after_if_requested(
                     status_after,
@@ -1676,15 +1691,19 @@ async fn dispatch_subcommand(
             let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
             let result =
                 command::legacy::merge::handle(&mut ctx, out, &branch, yes, no_ff, whole_stack)
-                    .context("Failed to merge branch.");
-            if result.is_ok() {
+                    .context("Failed to merge branch.")
+                    .map_err(Into::into);
+            if let Ok(conflicted_commits) = result {
                 command::legacy::conflict_notice::report_newly_conflicted(
                     &ctx,
                     out,
                     conflicts_before,
+                    conflicted_commits,
                 );
+                return Ok(DispatchOutcome::ExitWithoutDestructors(Ok(())));
+            } else {
+                return Ok(DispatchOutcome::ExitWithoutDestructors(result.map(|_| ())));
             }
-            return Ok(DispatchOutcome::ExitWithoutDestructors(result));
         }
         #[cfg(feature = "legacy")]
         Subcommands::Pick(pick_args) => {
@@ -1745,14 +1764,18 @@ async fn dispatch_subcommand(
     };
 
     #[cfg(feature = "legacy")]
-    if let Some(ws) = ws
-        && ws.checkout_conflict_occurred
-    {
-        command::legacy::conflict_notice::report_checkout_conflict(out);
-    }
-    #[cfg(feature = "legacy")]
-    if let Some(conflicts_before) = newly_conflicted_data {
-        command::legacy::conflict_notice::report_newly_conflicted(&ctx, out, conflicts_before);
+    if let Some(ws) = ws {
+        if ws.checkout_conflict_occurred {
+            command::legacy::conflict_notice::report_checkout_conflict(out);
+        }
+        if let Some(conflicts_before) = newly_conflicted_data {
+            command::legacy::conflict_notice::report_newly_conflicted(
+                &ctx,
+                out,
+                conflicts_before,
+                ws.conflicted_commits,
+            );
+        }
     }
     #[cfg(feature = "legacy")]
     if let Some(status_after) = status_after_data {
@@ -1807,12 +1830,13 @@ fn run_agentlog_command(
 
 pub(crate) fn is_not_in_git_repository_error(err: &anyhow::Error) -> bool {
     matches!(
-        err.downcast_ref::<gix::discover::Error>(),
-        Some(gix::discover::Error::Discover(
+        err.downcast_ref::<gix::Error>()
+            .and_then(|err| err.downcast_any_ref::<gix::discover::upwards::Error>()),
+        Some(
             gix::discover::upwards::Error::NoGitRepository { .. }
                 | gix::discover::upwards::Error::NoGitRepositoryWithinCeiling { .. }
                 | gix::discover::upwards::Error::NoGitRepositoryWithinFs { .. }
-        ))
+        )
     )
 }
 
@@ -1872,6 +1896,11 @@ fn run_status_after(
     invoked_from: Option<InvokedFrom>,
 ) {
     use crate::command::legacy::status::StatusFlags;
+
+    if let Err(err) = ctx.invalidate_workspace_cache() {
+        eprintln!("warning: failed to write status after mutation: {err}");
+        return;
+    }
 
     let agent_skill_notice = (agent_skill_notices && out.format().is_json())
         .then(command::skill::agent_skill_update_notice)
@@ -1950,6 +1979,32 @@ pub use utils::detect_agent::ENVIRONMENT_VARIABLES as AGENT_ENVIRONMENT_VARIABLE
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn repository_discovery_errors_keep_their_classification() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let err = anyhow::Error::from(gix::discover(tmp.path()).unwrap_err())
+            .context("discovering the optional repository");
+        assert!(
+            is_not_in_git_repository_error(&err),
+            "missing repositories are recognized through both error wrappers"
+        );
+
+        let err = anyhow::Error::from(gix::Error::from_error(
+            gix::discover::upwards::Error::NoTrustedGitRepository {
+                path: tmp.path().into(),
+                candidate: tmp.path().into(),
+                required: gix::sec::Trust::Full,
+                trust: gix::sec::Trust::Reduced,
+            },
+        ))
+        .context("discovering the optional repository");
+        assert!(
+            !is_not_in_git_repository_error(&err),
+            "an untrusted repository must remain an error rather than being treated as an absent repository"
+        );
+        Ok(())
+    }
 
     fn os_args(args: &[&str]) -> Vec<OsString> {
         args.iter().map(|arg| OsString::from(*arg)).collect()

@@ -117,12 +117,12 @@
 
 :where(.danger) {
 	--button-border: none;
-	--button-bg: color-mix(in srgb, var(--scale-danger-80) 70%, transparent);
+	--button-bg: color-mix(in srgb, var(--scale-danger-80) 60%, transparent);
 	--button-fg: var(--text-danger);
 	/* A step up from the rest: red on its pink ground loses an icon at 0.7. */
 	--button-icon-opacity: 0.8;
 	--button-hover-icon-opacity: 0.9;
-	--button-hover-bg: color-mix(in srgb, var(--scale-danger-80) 80%, transparent);
+	--button-hover-bg: color-mix(in srgb, var(--scale-danger-80) 74%, transparent);
 }
 
 :where(.ghost) {

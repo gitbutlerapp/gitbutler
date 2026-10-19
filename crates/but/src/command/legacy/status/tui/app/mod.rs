@@ -10,7 +10,6 @@ use bstr::{BStr, BString, ByteSlice};
 use but_api::open::program::ProgramSpec;
 use but_ctx::Context;
 use crossterm::event::Event;
-use gitbutler_operating_modes::OperatingMode;
 use gix::refs::{Category, FullName};
 use nonempty::NonEmpty;
 use ratatui::prelude::*;
@@ -141,7 +140,6 @@ pub struct App {
     pub file_browser: Option<FileBrowser>,
     pub head_sha: String,
     pub clipboard: Clipboard,
-    pub operating_mode: OperatingMode,
     pub in_single_branch_mode: bool,
 }
 
@@ -242,6 +240,10 @@ impl Tui for App {
                 break;
             }
             for msg in messages.drain(..) {
+                // Fatal startup errors must bypass recoverable message error handling.
+                if let Message::FatalError(err) = msg {
+                    return Err(err);
+                }
                 if matches!(msg, Message::Reload(..)) {
                     if did_reload && cfg!(feature = "tui-profiling") && !cfg!(test) {
                         self.toasts
@@ -335,7 +337,6 @@ impl App {
         mut incoming_out_of_band_messages: Vec<Receiver<Message>>,
         head_sha: String,
         clipboard: Clipboard,
-        operating_mode: OperatingMode,
     ) -> CliResult<Self> {
         let initial_hunk = initial_target.as_ref().and_then(|target| match target {
             ResolvedCliIdArg::UncommittedHunkOrFile(hunk) if !hunk.is_entire_file => {
@@ -439,7 +440,6 @@ impl App {
             file_browser,
             head_sha,
             clipboard,
-            operating_mode,
             in_single_branch_mode: false,
         };
 
@@ -665,6 +665,7 @@ impl App {
             Message::Reload(select_after_reload, cause) => {
                 self.handle_reload(ctx, out, select_after_reload, cause)?
             }
+            Message::FatalError(err) => messages.push(Message::FatalError(err)),
             Message::ShowError(err) => self.handle_show_error(err, messages),
             Message::Commit(commit_message) => {
                 self.handle_commit(commit_message, ctx, terminal_guard, messages)?
@@ -1400,6 +1401,31 @@ impl App {
                     ));
                 }
             }
+            gitbutler_watcher::Change::LinkedWorktreeChanges { worktree, .. } => {
+                let details_selection_changed = self.is_details_visible
+                    && self.details.selection().is_some_and(|selection| {
+                        let source = match selection {
+                            CliId::UncommittedHunkOrFile(uncommitted) => &uncommitted.source,
+                            CliId::UncommittedArea { source, .. } => source,
+                            CliId::AnonymousSegment(..)
+                            | CliId::PathPrefix { .. }
+                            | CliId::CommittedFile { .. }
+                            | CliId::CommittedHunk { .. }
+                            | CliId::Branch(..)
+                            | CliId::Commit { .. }
+                            | CliId::Stack { .. } => return false,
+                        };
+                        source
+                            .worktree_name()
+                            .is_some_and(|name| name == worktree.as_str())
+                    });
+                messages.push(Message::Reload(
+                    None,
+                    ReloadCause::Watcher {
+                        details_selection_changed,
+                    },
+                ));
+            }
             gitbutler_watcher::Change::ExternalInvalidation { .. } => {
                 // The TUI keeps no forge caches; workspace changes reach it as activity.
             }
@@ -1483,13 +1509,8 @@ impl App {
             }
         }
 
-        let new_lines = operations::reload_legacy(
-            ctx,
-            out,
-            &self.operating_mode,
-            self.flags,
-            self.launch_options.clone(),
-        )?;
+        let new_lines =
+            operations::reload_legacy(ctx, out, self.flags, self.launch_options.clone())?;
         self.head_sha = operations::head_sha(ctx)?;
 
         self.cursor = match select_after_reload {

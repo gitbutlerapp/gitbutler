@@ -83,7 +83,7 @@ fn insert_single_node_segment_above() -> Result<()> {
         snapbox::str![[r#"
 
 └── 👉►:0[0]:main[🌳]
-    └── ·ee7f107 (⌂)
+    └── ·8e61669 (⌂)
         ├── ►:1[1]:A
         │   └── ·69221b4 (⌂)
         │       ├── ►:3[2]:B
@@ -92,6 +92,7 @@ fn insert_single_node_segment_above() -> Result<()> {
         │       │       └── ►:4[3]:anon:
         │       │           └── 🏁·8f0d338 (⌂) ►tags/base
         │       └── →:4:
+        ├── →:1: (A)
         └── ►:2[1]:C
             ├── ·930563a (⌂)
             ├── ·68a2fc3 (⌂)
@@ -106,8 +107,8 @@ fn insert_single_node_segment_above() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   ee7f107 (HEAD -> main) Merge branches 'A', 'B' and 'C'
-|\  
+*-. 8e61669 (HEAD -> main) Merge branches 'A', 'B' and 'C'
+|\ \
 | * 930563a (C) C: add another 10 lines to new file
 | * 68a2fc3 C: add 10 lines to new file
 | * 984fd1c C: new file with 10 lines
@@ -288,7 +289,7 @@ fn insert_multi_node_segment_above() -> Result<()> {
         snapbox::str![[r#"
 
 └── 👉►:0[0]:main[🌳]
-    └── ·61b2679 (⌂)
+    └── ·4411c89 (⌂)
         ├── ►:1[1]:anon:
         │   └── ·758c8a3 (⌂) ►A, ►B
         │       └── ►:3[2]:anon:
@@ -298,6 +299,7 @@ fn insert_multi_node_segment_above() -> Result<()> {
         │               │       └── ►:5[4]:anon:
         │               │           └── 🏁·8f0d338 (⌂) ►tags/base
         │               └── →:5:
+        ├── →:1:
         └── ►:2[1]:C
             ├── ·930563a (⌂)
             ├── ·68a2fc3 (⌂)
@@ -312,8 +314,8 @@ fn insert_multi_node_segment_above() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*   61b2679 (HEAD -> main) Merge branches 'A', 'B' and 'C'
-|\  
+*-. 4411c89 (HEAD -> main) Merge branches 'A', 'B' and 'C'
+|\ \
 | * 930563a (C) C: add another 10 lines to new file
 | * 68a2fc3 C: add 10 lines to new file
 | * 984fd1c C: new file with 10 lines
@@ -393,20 +395,22 @@ fn insert_multi_node_segment_below() -> Result<()> {
         snapbox::str![[r#"
 
 └── 👉►:0[0]:main[🌳]
-    └── ·4db28a9 (⌂)
+    └── ·59ce15a (⌂)
         ├── ►:1[1]:A
-        │   └── ·71dfc8f (⌂)
+        │   └── ·ba79e5f (⌂)
         │       └── ►:2[2]:B
-        │           ├── ·a748762 (⌂)
-        │           └── ·62e05ba (⌂)
+        │           └── ·9fc31cd (⌂)
         │               └── ►:4[3]:anon:
-        │                   └── 🏁·8f0d338 (⌂) ►tags/base
+        │                   └── ·d21ad66 (⌂)
+        │                       ├── ►:5[4]:anon:
+        │                       │   └── 🏁·8f0d338 (⌂) ►tags/base
+        │                       └── →:5:
         ├── →:2: (B)
         └── ►:3[1]:C
             ├── ·930563a (⌂)
             ├── ·68a2fc3 (⌂)
             └── ·984fd1c (⌂)
-                └── →:4:
+                └── →:5:
 
 "#]]
     );
@@ -416,15 +420,16 @@ fn insert_multi_node_segment_below() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-*-.   4db28a9 (HEAD -> main) Merge branches 'A', 'B' and 'C'
+*-.   59ce15a (HEAD -> main) Merge branches 'A', 'B' and 'C'
 |\ \  
 | | * 930563a (C) C: add another 10 lines to new file
 | | * 68a2fc3 C: add 10 lines to new file
 | | * 984fd1c C: new file with 10 lines
-* | | 71dfc8f (A) A: 10 lines on top
+* | | ba79e5f (A) A: 10 lines on top
 |/ /  
-* | a748762 (B) B: another 10 lines at the bottom
-* | 62e05ba B: 10 lines at the bottom
+* | 9fc31cd (B) B: another 10 lines at the bottom
+* | d21ad66 B: 10 lines at the bottom
+|\| 
 |/  
 * 8f0d338 (tag: base) base
 

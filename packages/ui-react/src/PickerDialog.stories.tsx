@@ -29,6 +29,8 @@ const groups: Array<PickerDialogGroup<Branch>> = [
 ];
 
 const meta = preview.meta({
+	title: "Overlays/PickerDialog",
+	id: "components-pickerdialog",
 	// The bare name, not `PickerDialog<Branch>`: the manifest resolves the component by it. The
 	// args' item is then `unknown`, so each callback names its type.
 	component: PickerDialog,

@@ -143,6 +143,33 @@
 	flex: 1 1 auto;
 }
 
+/* A hairline at each edge the body scrolls past: under the header once it's scrolled down, over
+   the footer while there is more below. The modal's own edges, so they span its whole width. */
+.modalBodyArea::before,
+.modalBodyArea::after {
+	z-index: 1;
+	position: absolute;
+	inset-inline: 0;
+	border-top: 1px solid var(--border-section);
+	content: "";
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var(--transition-fast);
+}
+
+.modalBodyArea::before {
+	top: 0;
+}
+
+.modalBodyArea::after {
+	bottom: 0;
+}
+
+.modalBodyArea[data-overflow-y-start]::before,
+.modalBodyArea[data-overflow-y-end]::after {
+	opacity: 1;
+}
+
 /* .modalPart's padding, restated for the viewport: its own place among the modal's parts is the
    area's. */
 .modalBody {
@@ -236,15 +263,11 @@
 	}
 }
 
-/* Holds the list's height where the rows would have been, so the popup does not collapse to the
-   search row with a line under it. The block centres in that height on its own geometry: the two
-   measures the block sizes for a panel are its custom properties, set here for a list. */
+/* Holds the list's place where the rows would have been, so the popup does not collapse to the
+   search row with a line under it. How tall comes from the tidy block, which follows the popup's
+   width; this only centres the block on its own geometry. */
 .empty {
-	--empty-state-gap: 18px;
-	--empty-state-counterweight: 0px;
-
 	justify-content: center;
-	min-height: 200px;
 }
 
 .section {
@@ -307,9 +330,10 @@
 	text-align: start;
 
 	/* `data-highlighted` is what Base UI's list primitives set as the keyboard walks them, so
-	   pointer and keyboard land on the same tint. */
+	   pointer and keyboard land on the same tint. A menu highlights a disabled row too; it still
+	   takes no tint. */
 	&:hover:not(:disabled, [data-disabled]),
-	&[data-highlighted] {
+	&[data-highlighted]:not([data-disabled]) {
 		background-color: var(--bg-hover);
 	}
 

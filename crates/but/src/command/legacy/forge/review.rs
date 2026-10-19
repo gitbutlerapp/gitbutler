@@ -253,7 +253,7 @@ pub fn set_review_template(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     if let Some(path) = template_path {
-        let message = format!("Set review template path to: {}", &path);
+        let message = format!("Set review template path to: {path}");
         but_api::legacy::forge::set_review_template(ctx, Some(path))?;
         if let Some(out) = out.for_human() {
             writeln!(out, "{message}")?;
@@ -290,7 +290,7 @@ pub fn set_review_template(
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("Could not determine selected review template"))?
         };
-        let message = format!("Set review template path to: {}", &selected_template);
+        let message = format!("Set review template path to: {selected_template}");
         but_api::legacy::forge::set_review_template(ctx, Some(selected_template.clone()))?;
         if let Some(out) = out.for_human() {
             writeln!(out, "{message}")?;
@@ -379,7 +379,13 @@ async fn ensure_forge_authentication(ctx: &mut Context) -> Result<(), anyhow::Er
         let remote_url = ctx
             .project_meta()?
             .remote_url_with_fallback(&*ctx.repo.get()?)?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url);
+        let forge_repo_info = but_forge::derive_forge_repo_info(
+            &remote_url,
+            ctx.legacy_project
+                .forge_override
+                .as_deref()
+                .and_then(but_forge::ForgeName::from_override_str),
+        );
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
             forge_repo_info,
@@ -782,7 +788,7 @@ fn print_new_pr_info(
         t.pr_number.paint(&review.unit_symbol),
         t.pr_number.paint(review.number.to_string())
     )?;
-    writeln!(out, "  {} {}", t.hint.paint("Title:"), &review.title)?;
+    writeln!(out, "  {} {}", t.hint.paint("Title:"), review.title)?;
     writeln!(
         out,
         "  {} {}",

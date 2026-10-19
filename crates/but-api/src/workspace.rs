@@ -10,7 +10,7 @@ use anyhow::Context as _;
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
 use but_core::{
-    DryRun, RefMetadata, extract_remote_name_and_short_name, is_workspace_ref_name,
+    DryRun, RefMetadata, extract_remote_name_and_short_name,
     sync::{RepoExclusive, RepoShared},
 };
 use but_error::AnyhowContextExt as _;
@@ -115,9 +115,8 @@ pub fn workspace_recreate_with_perm(
         Vec::new()
     } else {
         let mut meta = ctx.meta()?;
-        let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let (repo, mut ws, _) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
-        let mut skipped_missing_heads = false;
         let previously_applied_stack_heads: Vec<gix::refs::FullName> = {
             let workspace_ref: gix::refs::FullName = but_core::WORKSPACE_REF_NAME.try_into()?;
             let workspace_meta = meta.workspace(workspace_ref.as_ref())?;
@@ -130,7 +129,6 @@ pub fn workspace_recreate_with_perm(
                         existing_heads.push(branch.ref_name.clone());
                         break;
                     }
-                    skipped_missing_heads = true;
                 }
             }
             existing_heads
@@ -156,7 +154,7 @@ pub fn workspace_recreate_with_perm(
                 },
             )?;
             if outcome.status.persisted_mutation() {
-                *ws = outcome.workspace.clone();
+                ws = outcome.workspace;
             } else {
                 anyhow::bail!(
                     "BUG: failed to apply head ref ({head_name}). Failed with {:?}",
@@ -165,12 +163,8 @@ pub fn workspace_recreate_with_perm(
             }
         }
 
-        if previously_applied_stack_heads.is_empty() {
-            if skipped_missing_heads
-                && matches!(ws.kind, but_graph::workspace::WorkspaceKind::AdHoc)
-            {
-                // The old workspace commit still contains the deleted branches' work. Rebuild
-                // at the base rather than restoring that work as anonymous stacks.
+        let result = if previously_applied_stack_heads.is_empty() {
+            if matches!(ws.kind, but_graph::workspace::WorkspaceKind::AdHoc) {
                 let workspace_commit_id = create_empty_workspace_commit(&repo, &ws)?;
                 but_core::worktree::safe_checkout_from_head(
                     workspace_commit_id,
@@ -187,7 +181,7 @@ pub fn workspace_recreate_with_perm(
                     "Restore workspace without deleted branches",
                 )?;
             }
-            drop((repo, ws, db));
+            drop(repo);
             crate::branch::workspace_checkout_with_perm_only(ctx, perm)?;
             Vec::new()
         } else {
@@ -208,12 +202,17 @@ pub fn workspace_recreate_with_perm(
                 }
 
                 if apply_outcome.status.persisted_mutation() {
-                    *ws = apply_outcome.workspace.clone();
+                    ws = apply_outcome.workspace;
                 }
             }
+            drop(repo);
 
             conflicting_stacks
-        }
+        };
+
+        ctx.update_workspace_cache(ws);
+
+        result
     };
 
     if let Some(snapshot) = maybe_oplog_entry {
@@ -225,8 +224,14 @@ pub fn workspace_recreate_with_perm(
     }
     let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-    let workspace =
-        WorkspaceState::from_workspace_with_db(&ws, &mut meta, &repo, Default::default(), &mut db)?;
+    let workspace = WorkspaceState::from_workspace_with_db(
+        &ws,
+        &mut meta,
+        &repo,
+        Default::default(),
+        Vec::new(),
+        &mut db,
+    )?;
     Ok(WorkspaceRecreateResult {
         workspace,
         conflicting_stacks,
@@ -671,13 +676,14 @@ pub mod json {
     }
 }
 
-/// Build one rebase update for the bottom of every visible workspace stack.
-pub fn rebase_stack_bottoms(head_info: &but_workspace::RefInfo) -> Vec<BottomUpdate> {
-    head_info
-        .stacks
-        .iter()
-        .filter_map(|stack| {
-            let segment = stack.segments.last()?;
+/// Build one rebase update for the bottom of each of `lanes`, which must rest on the target.
+pub fn rebase_lane_bottoms<'a>(
+    lanes: impl IntoIterator<Item = but_workspace::ref_info::Lane<'a>>,
+) -> Vec<BottomUpdate> {
+    lanes
+        .into_iter()
+        .filter_map(|lane| {
+            let segment = lane.segments.last()?;
             let selector = match segment.commits.last() {
                 Some(commit) => RelativeTo::Commit(commit.id),
                 None => RelativeTo::Reference(segment.ref_info.as_ref()?.ref_name.clone()),
@@ -889,7 +895,6 @@ pub fn workspace_integrate_upstream_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
     let mut meta = ctx.meta()?;
-    let single_branch_mode = ctx.settings.feature_flags.single_branch;
     let (workspace_state, worktree_conflicts) = {
         let project_meta = ctx.project_meta()?;
         let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
@@ -906,9 +911,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
         let cached_target = ws.graph.project_meta.target_commit_id;
         let IntegrateUpstreamOutcome {
             mut rebase,
-            ws_meta,
             project_meta,
-            deleted_refs,
         } = but_workspace::integrate_upstream_with_hints(
             &mut ws,
             &mut meta,
@@ -917,14 +920,11 @@ pub fn workspace_integrate_upstream_only_with_perm(
             &mut db,
             updates,
             &review_hints,
-            single_branch_mode,
         )?;
         let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&rebase)?;
 
         if dry_run.into() {
-            let replaced_commits = rebase.history.commit_mappings();
-            let workspace_state =
-                WorkspaceState::from_rebase_preview(&mut rebase, replaced_commits)?;
+            let workspace_state = WorkspaceState::from_rebase_preview(&mut rebase)?;
             // The preview was projected against the new target; the cached workspace,
             // which the next caller of this context reuses, has not moved.
             rebase.project_meta_mut().target_commit_id = cached_target;
@@ -943,19 +943,6 @@ pub fn workspace_integrate_upstream_only_with_perm(
             project_meta.target_commit_id_or_err()?,
         ) {
             warn!(?err, "failed to fast-forward local target branch");
-        }
-
-        if let Some(ref_name) = materialized.workspace.ref_name()
-            && let Some(ws_meta) = ws_meta
-            && is_workspace_ref_name(ref_name)
-        {
-            let mut md = materialized.meta.workspace(ref_name)?;
-            *md = ws_meta;
-            materialized.meta.set_workspace(&md)?;
-        }
-        // Only discard metadata once the corresponding Git refs have been removed successfully.
-        for ref_name in deleted_refs {
-            materialized.meta.remove(ref_name.as_ref())?;
         }
 
         let workspace_state = WorkspaceState::from_materialized(materialized, &repo)?;
@@ -1253,7 +1240,10 @@ mod tests {
             .peel_to_id()?
             .detach();
         let current_head = repo.head_id()?.detach();
-        let expected_merge_base = repo.merge_base(current_head, target_tip)?.detach();
+        let expected_merge_base = repo
+            .merge_base(current_head, target_tip)?
+            .expect("the feature branch shares history with main")
+            .detach();
         assert_ne!(expected_merge_base, target_tip);
 
         let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();

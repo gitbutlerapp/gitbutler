@@ -433,6 +433,15 @@ pub struct Stack {
 }
 
 impl Stack {
+    /// The stack as a lane, which rests on the target.
+    pub fn lane(&self) -> ref_info::Lane<'_> {
+        ref_info::Lane {
+            segments: &self.segments,
+            rests_on: None,
+            worktree: None,
+        }
+    }
+
     /// Return the tip of the stack, which is either the first commit of the first segment or `None` if this is an unborn branch.
     pub fn tip(&self) -> Option<gix::ObjectId> {
         self.segments.first().and_then(|name| name.tip())
@@ -451,28 +460,6 @@ impl Stack {
         self.segments
             .first()
             .and_then(|name| name.ref_info.as_ref().map(|ri| &ri.ref_name))
-    }
-}
-
-/// What to do if the applied branch conflicts with the existing branches?
-#[derive(Default, Debug, Copy, Clone)]
-pub enum OnWorkspaceMergeConflict {
-    /// Provide additional information about the stack(s) that conflicted and the files involved in it,
-    /// and don't materialise the merge, but continue on best-effort basis to merge as many stacks as possible.
-    #[default]
-    AbortAndReportConflictingStacks,
-    /// Despite possible conflicts, materialise the result with the conflicting stacks un-merged and unreachable from the workspace commit.
-    /// Note that the metadata of these branches is still available.
-    MaterializeAndReportConflictingStacks,
-}
-
-impl OnWorkspaceMergeConflict {
-    /// Return `true` if we are supposed to abort on merge conflict.
-    pub fn should_abort(&self) -> bool {
-        matches!(
-            self,
-            OnWorkspaceMergeConflict::AbortAndReportConflictingStacks
-        )
     }
 }
 
@@ -645,6 +632,10 @@ pub use remove_reference::remove_reference;
 /// related types for creating a workspace reference.
 pub mod create_reference;
 pub use create_reference::function::create_reference;
+
+/// Naming an anonymous segment.
+pub mod name_segment;
+pub use name_segment::name_segment;
 
 /// Functions and types related to moving branches across stacks.
 pub mod move_branch;

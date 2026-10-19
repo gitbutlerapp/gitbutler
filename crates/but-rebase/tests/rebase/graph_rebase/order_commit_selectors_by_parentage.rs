@@ -1,6 +1,6 @@
 use anyhow::Result;
 use but_graph::Graph;
-use but_rebase::graph_rebase::{Editor, LookupStep, Step, mutate, testing::Testing as _};
+use but_rebase::graph_rebase::{Editor, LookupStep, mutate, testing::Testing as _};
 use but_testsupport::visualize_commit_graph_all;
 use snapbox::prelude::*;
 
@@ -444,7 +444,7 @@ fn orders_commit_present_in_editor_graph_even_if_workspace_projection_stale() ->
     let rewritten_a = repo.write_object(a_commit)?.detach();
 
     let a_selector = editor.select_commit(a)?;
-    editor.replace(a_selector, Step::new_pick(rewritten_a))?;
+    editor.amend_pick(a_selector, rewritten_a)?;
 
     let ordered = editor.order_commit_selectors_by_parentage([rewritten_a])?;
     let ordered_ids = short_ids(&editor, &ordered)?;

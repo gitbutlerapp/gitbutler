@@ -2,7 +2,7 @@
 
 #![deny(missing_docs)]
 
-use crate::args::atoms::{AllowMergedArg, CliIdArg};
+use crate::args::atoms::{AllowMergedArg, CliIdArg, MessageFileArg};
 
 /// Create a commit.
 ///
@@ -19,9 +19,9 @@ use crate::args::atoms::{AllowMergedArg, CliIdArg};
 /// `--above` and `--below` are mutually exclusive; combine either with `--branch` to name a new
 /// branch when targeting a branch.
 ///
-/// The commit is expected to have a commit message unless `--no-message` is provided. If neither of
-/// `--no-message` nor `--message` is provided, the user's preferred editor is opened to input a
-/// message.
+/// The commit is expected to have a commit message unless `--no-message` is provided. If none of
+/// `--no-message`, `--message` or `--file` is provided, the user's preferred editor is opened to
+/// input a message.
 ///
 /// For more details about CLI IDs, see `but help cli-ids`.
 #[derive(Debug, clap::Parser)]
@@ -30,14 +30,18 @@ pub struct Platform {
     /// The message to use for the commit.
     ///
     /// Can be supplied any amount of times, each value being appended to the preceding ones with a
-    /// blank line in between. Without `-m` or `--no-message`, a terminal opens the editor and a
-    /// non-interactive run commits with an empty message.
+    /// blank line in between. Without `-m`, `-F` or `--no-message`, a terminal opens the editor
+    /// and a non-interactive run commits with an empty message.
     #[clap(short, long, group = "commit_message")]
     pub message: Option<Vec<String>>,
 
     /// Create the commit without a message.
     #[clap(long, group = "commit_message")]
     pub no_message: bool,
+
+    /// Read the commit message from `FILE`, or from stdin when `FILE` is `-`.
+    #[clap(short = 'F', long, value_name = "FILE", group = "commit_message")]
+    pub file: Option<MessageFileArg>,
 
     /// Place the commit on the branch `BRANCH`.
     ///

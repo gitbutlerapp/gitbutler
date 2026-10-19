@@ -73,7 +73,7 @@ mod hex_hash {
         pub struct HexHashString(String);
 
         impl TryFrom<HexHashString> for gix::ObjectId {
-            type Error = gix::hash::decode::Error;
+            type Error = gix::Error;
 
             fn try_from(value: HexHashString) -> Result<Self, Self::Error> {
                 value.0.parse()

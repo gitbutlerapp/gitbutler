@@ -189,6 +189,43 @@ fn pre_push_hook_failure() -> anyhow::Result<()> {
 }
 
 #[test]
+fn pre_push_hook_failure_with_stderr_only() -> anyhow::Result<()> {
+    let test_project = RepoWithOrigin::default();
+
+    let repo = open_repo(test_project.local_repo.path())?;
+    let hooks_dir = repo.path().join("hooks");
+    fs::create_dir_all(&hooks_dir)?;
+    let hook_path = hooks_dir.join("pre-push");
+
+    fs::write(
+        &hook_path,
+        "#!/bin/sh\necho Run the tests before pushing >&2\nexit 1\n",
+    )?;
+
+    #[cfg(unix)]
+    fs::set_permissions(&hook_path, fs::Permissions::from_mode(0o755))?;
+
+    let result = pre_push(
+        &repo,
+        "origin",
+        "https://github.com/test/repo.git",
+        repo.head_id()?.detach(),
+        &gitbutler_reference::RemoteRefname::new("origin", "master"),
+        true,
+    );
+    match result.expect("success") {
+        HookResult::Failure(error_data) => {
+            assert_eq!(
+                error_data.error, "Run the tests before pushing\n",
+                "a hook that only writes to stderr has its message shown"
+            );
+        }
+        _ => panic!("Expected hook failure"),
+    }
+    Ok(())
+}
+
+#[test]
 fn pre_push_ignores_husky_core_hooks_path_when_disabled() -> anyhow::Result<()> {
     let test_project = RepoWithOrigin::default();
 
@@ -204,7 +241,7 @@ fn pre_push_ignores_husky_core_hooks_path_when_disabled() -> anyhow::Result<()> 
     fs::set_permissions(&hook_path, fs::Permissions::from_mode(0o755))?;
 
     repo.config_snapshot_mut()
-        .set_raw_value("core.hooksPath", gix::path::into_bstr(&hooks_dir).as_ref())?;
+        .set_raw_value("core.hooksPath", gix::path::into_bstr(&hooks_dir)?.as_ref())?;
 
     let result = pre_push(
         &repo,

@@ -3,15 +3,13 @@
 	import AbsorbPlanModal from "$components/stack/AbsorbPlanModal.svelte";
 	import DiscardChangesModal from "$components/workspace/DiscardChangesModal.svelte";
 	import StashIntoBranchModal from "$components/workspace/StashIntoBranchModal.svelte";
-	import { BACKEND } from "$lib/backend";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { getEditorUri, URL_SERVICE } from "$lib/backend/url";
 	import { changesToDiffSpec } from "$lib/commits/utils";
 	import { FILE_SERVICE } from "$lib/files/fileService";
 	import { isTreeChange } from "$lib/hunks/change";
-	import { t } from "$lib/i18n";
+	import { laneIdOf } from "$lib/linkedWorktrees/lane";
 	import { vscodePath } from "$lib/project/project";
-	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE, withStackBusy } from "$lib/state/uiState.svelte";
@@ -25,6 +23,7 @@
 		chipToasts,
 		TestId,
 	} from "@gitbutler/ui-svelte";
+	import { isDefined } from "@gitbutler/ui-svelte/utils/typeguards";
 	import type { SelectionId } from "$lib/selection/key";
 	import type { TreeChange } from "@gitbutler/but-sdk";
 
@@ -90,23 +89,12 @@
 	const fileService = inject(FILE_SERVICE);
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
-	const backend = inject(BACKEND);
 	const [, absorbingChanges] = stackService.absorb;
-	const projectService = inject(PROJECTS_SERVICE);
 
-	const isUncommitted = $derived(selectionId.type === "worktree");
-
-	// Platform-specific label for "Show in Finder/Explorer/File Manager"
-	const showInFolderLabel = (() => {
-		switch (backend.platformName) {
-			case "macos":
-				return "Show in Finder";
-			case "windows":
-				return "Show in Explorer";
-			default:
-				return "Show in File Manager";
-		}
-	})();
+	// Stashing and absorbing work on the main checkout only.
+	const inMainCheckout = $derived(
+		selectionId.type === "worktree" && selectionId.worktree === undefined,
+	);
 
 	let menuOpen = $state(false);
 	let menuTarget = $state<MouseEvent | HTMLElement>();
@@ -123,6 +111,11 @@
 		return item.changes.some((change) => {
 			return change.status.type === "Deletion";
 		});
+	}
+
+	/** The absolute path of `path` in the checkout holding the selected files. */
+	async function absolutePath(path: string): Promise<string> {
+		return await fileService.workdirPath(projectId, selectionId.worktree, path);
 	}
 
 	function getItemPath(item: ChangedFilesItem): string | null {
@@ -148,12 +141,16 @@
 		menuOpen = false;
 	}
 
-	async function uncommitChanges(stackId: string, commitId: string, changes: TreeChange[]) {
+	// A worktree's commits are uncommitted into its own checkout.
+	const laneId = $derived(laneIdOf({ stackId, worktree: selectionId.worktree }));
+
+	async function uncommitChanges(laneId: string, commitId: string, changes: TreeChange[]) {
 		menuOpen = false;
-		await withStackBusy(uiState, projectId, { commitId, stackIds: [stackId] }, async () => {
+		const stackIds = [stackId].filter(isDefined);
+		await withStackBusy(uiState, projectId, { commitId, stackIds }, async () => {
 			await stackService.uncommitChanges({
 				projectId,
-				stackId,
+				laneId,
 				commitId,
 				changes: changesToDiffSpec(changes),
 				dryRun: false,
@@ -186,7 +183,7 @@
 			{#if isConflictedFileItem(item)}
 				<ContextMenuSection>
 					<ContextMenuItem
-						label={t("mark-as-resolved")}
+						label="Mark as Resolved"
 						icon="tick"
 						onclick={() => {
 							menuOpen = false;
@@ -198,9 +195,9 @@
 			{#if item.changes.length > 0 && !editMode}
 				<ContextMenuSection>
 					{@const changes = item.changes}
-					{#if isUncommitted}
+					{#if selectionId.type === "worktree"}
 						<ContextMenuItem
-							label={t("discard-changes")}
+							label="Discard changes…"
 							testId={TestId.FileListItemContextMenu_DiscardChanges}
 							icon="bin"
 							onclick={() => {
@@ -208,8 +205,10 @@
 								menuOpen = false;
 							}}
 						/>
+					{/if}
+					{#if inMainCheckout}
 						<ContextMenuItem
-							label={t("stash-into-branch")}
+							label="Stash into branch…"
 							icon="branch-bottom-up-arrow"
 							onclick={() => {
 								stashModal.show(item);
@@ -217,7 +216,7 @@
 							}}
 						/>
 						<ContextMenuItem
-							label={t("absorb-changes")}
+							label="Absorb changes"
 							icon="commit-absorb"
 							testId={TestId.FileListItemContextMenu_Absorb}
 							onclick={() => {
@@ -227,12 +226,12 @@
 							disabled={absorbingChanges.current.isLoading}
 						/>
 					{/if}
-					{#if selectionId.type === "commit" && stackId && !editMode}
+					{#if selectionId.type === "commit" && laneId && !editMode}
 						{@const commitId = selectionId.commitId}
 						<ContextMenuItem
-							label={t("uncommit-changes")}
+							label="Uncommit changes"
 							icon="commit-undo"
-							onclick={async () => uncommitChanges(stackId, commitId, changes)}
+							onclick={async () => uncommitChanges(laneId, commitId, changes)}
 						/>
 					{/if}
 				</ContextMenuSection>
@@ -240,27 +239,21 @@
 
 			{#if itemPath}
 				<ContextMenuSection>
-					<ContextMenuItemSubmenu label={t("copy-path")} icon="copy">
+					<ContextMenuItemSubmenu label="Copy path" icon="copy">
 						{#snippet submenu(_sub)}
 							<ContextMenuSection>
 								<ContextMenuItem
-									label={t("copy-path")}
+									label="Copy path"
 									onclick={async () => {
 										menuOpen = false;
-										const project = await projectService.fetchProject(projectId);
-										const projectPath = project?.path;
-										if (projectPath) {
-											const absPath = await backend.joinPath(projectPath, itemPath);
-
-											await clipboardService.write(absPath, {
-												message: "Absolute path copied",
-												errorMessage: "Failed to copy absolute path",
-											});
-										}
+										await clipboardService.write(await absolutePath(itemPath), {
+											message: "Absolute path copied",
+											errorMessage: "Failed to copy absolute path",
+										});
 									}}
 								/>
 								<ContextMenuItem
-									label={t("copy-relative-path")}
+									label="Copy relative path"
 									onclick={async () => {
 										menuOpen = false;
 										await clipboardService.write(itemPath, {
@@ -287,16 +280,12 @@
 						onclick={async () => {
 							menuOpen = false;
 							try {
-								const project = await projectService.fetchProject(projectId);
-								const projectPath = project?.path;
-								if (projectPath) {
-									for (const relativePath of pathsToOpen) {
-										const path = getEditorUri({
-											schemeId: defaultCodeEditor.current.schemeIdentifer,
-											path: [vscodePath(projectPath), relativePath],
-										});
-										urlService.openExternalUrl(path);
-									}
+								for (const relativePath of pathsToOpen) {
+									const path = getEditorUri({
+										schemeId: defaultCodeEditor.current.schemeIdentifer,
+										path: [vscodePath(await absolutePath(relativePath))],
+									});
+									urlService.openExternalUrl(path);
 								}
 							} catch {
 								chipToasts.error("Failed to open in editor");
@@ -307,23 +296,18 @@
 				{/if}
 				{#if itemPath}
 					<ContextMenuItem
-						label={showInFolderLabel}
+						label={fileService.showInFolderLabel}
 						icon="open-in-folder"
 						onclick={async () => {
 							menuOpen = false;
-							const project = await projectService.fetchProject(projectId);
-							const projectPath = project?.path;
-							if (projectPath) {
-								const absPath = await backend.joinPath(projectPath, itemPath);
-								await fileService.showFileInFolder(absPath);
-							}
+							await fileService.showFileInFolder(projectId, selectionId.worktree, itemPath);
 						}}
 					/>
 				{/if}
 			</ContextMenuSection>
 		{:else}
 			<ContextMenuSection>
-				<p class="text-13">{t("woops-malformed-data")}</p>
+				<p class="text-13">'Woops! Malformed data :(</p>
 			</ContextMenuSection>
 		{/if}
 	</ContextMenu>

@@ -1,7 +1,5 @@
 //! Utilities around the step graph for internal use.
 
-use std::collections::HashSet;
-
 use petgraph::visit::EdgeRef as _;
 
 use crate::graph_rebase::{Step, StepGraph, StepGraphIndex};
@@ -27,11 +25,6 @@ pub(crate) fn collect_ordered_parents(
     potential_parent_edges.sort_by_key(|e| e.weight().order);
     potential_parent_edges.reverse();
 
-    let mut seen = potential_parent_edges
-        .iter()
-        .map(|e| e.target())
-        .collect::<HashSet<_>>();
-
     let mut parents = vec![];
 
     while let Some(candidate) = potential_parent_edges.pop() {
@@ -51,11 +44,7 @@ pub(crate) fn collect_ordered_parents(
         outgoings.sort_by_key(|e| e.weight().order);
         outgoings.reverse();
 
-        for edge in outgoings {
-            if seen.insert(edge.target()) {
-                potential_parent_edges.push(edge);
-            }
-        }
+        potential_parent_edges.extend(outgoings);
     }
 
     parents
@@ -139,6 +128,35 @@ mod test {
 
             let parents = collect_ordered_parents(&graph, a, OrderedParentKind::CommitOnly);
             assert_eq!(&parents, &[b, e, d, f]);
+
+            Ok(())
+        }
+
+        #[test]
+        fn repeated_parents_are_preserved() -> Result<()> {
+            let mut graph = StepGraph::new();
+            let a_id = gix::ObjectId::from_str("1000000000000000000000000000000000000000")?;
+            let a = graph.add_node(Step::new_pick(a_id));
+            let b_id = gix::ObjectId::from_str("2000000000000000000000000000000000000000")?;
+            let b = graph.add_node(Step::new_pick(b_id));
+            let r1 = graph.add_node(Step::new_reference("refs/heads/r1".try_into()?));
+            let r2 = graph.add_node(Step::new_reference("refs/heads/r2".try_into()?));
+            let none = graph.add_node(Step::None);
+
+            graph.add_edge(a, r1, Edge { order: 0 });
+            graph.add_edge(a, b, Edge { order: 1 });
+            graph.add_edge(a, none, Edge { order: 2 });
+            graph.add_edge(a, r2, Edge { order: 3 });
+            graph.add_edge(r1, b, Edge { order: 0 });
+            graph.add_edge(none, b, Edge { order: 0 });
+            graph.add_edge(r2, r1, Edge { order: 0 });
+
+            let parents = collect_ordered_parents(&graph, a, OrderedParentKind::CommitOnly);
+            assert_eq!(
+                &parents,
+                &[b, b, b, b],
+                "every parent edge of A resolves to B, so B is A's parent four times"
+            );
 
             Ok(())
         }

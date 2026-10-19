@@ -2,7 +2,7 @@
 
 #![deny(missing_docs)]
 
-use crate::args::atoms::{AllowMergedArg, CliIdArg};
+use crate::args::atoms::{AllowMergedArg, CliIdArg, MessageFileArg};
 
 /// Squash commits, branches, or changes.
 ///
@@ -38,6 +38,12 @@ pub struct Platform {
     /// This cannot be used when `TARGET` is the uncommitted area (`@`).
     #[clap(long, group = "commit_message")]
     pub no_message: bool,
+
+    /// Read the message for the new commit from `FILE`, or from stdin when `FILE` is `-`.
+    ///
+    /// This cannot be used when `TARGET` is the uncommitted area (`@`).
+    #[clap(short = 'F', long, value_name = "FILE", group = "commit_message")]
+    pub file: Option<MessageFileArg>,
 
     /// Use the message of the target.
     ///

@@ -1,31 +1,26 @@
 <script lang="ts">
 	import { fModeEnabled } from "$lib/config/uiFeatureFlags";
-	import { t } from "$lib/i18n";
-
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
-	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { CardGroup, Toggle } from "@gitbutler/ui-svelte";
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
-
-	const userService = inject(USER_SERVICE);
 </script>
 
 <p class="text-12 text-body experimental-settings__text">
-	{t("flags-for-features-in-development-or-beta-features-may-not-w")}
+	Flags for features in development or beta. Features may not work fully.
 	<br />
-	{t("use-at-your-own-risk")}
+	Use at your own risk.
 </p>
 
 <CardGroup>
 	<CardGroup.Item labelFor="f-mode">
 		{#snippet title()}
-			{t("f-mode-navigation")}
+			F Mode Navigation
 		{/snippet}
 		{#snippet caption()}
-			{t("enable-f-mode-for-quick-keyboard-navigation-to-buttons-using")}
+			Enable F mode for quick keyboard navigation to buttons using two-letter shortcuts.
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
@@ -36,33 +31,12 @@
 		{/snippet}
 	</CardGroup.Item>
 
-	{#if userService.user?.role === "admin"}
-		<CardGroup.Item labelFor="single-branch">
-			{#snippet title()}
-				{t("single-branch-mode")}
-			{/snippet}
-			{#snippet caption()}
-				{t("stay-in-the-workspace-view-when-leaving-the-gitbutler-worksp")}
-			{/snippet}
-			{#snippet actions()}
-				<Toggle
-					id="single-branch"
-					checked={$settingsStore?.featureFlags.singleBranch}
-					onclick={() =>
-						settingsService.updateFeatureFlags({
-							singleBranch: !$settingsStore?.featureFlags.singleBranch,
-						})}
-				/>
-			{/snippet}
-		</CardGroup.Item>
-	{/if}
-
 	<CardGroup.Item labelFor="worktree-manipulation">
 		{#snippet title()}
-			{t("worktree-manipulation")}
+			Worktree manipulation
 		{/snippet}
 		{#snippet caption()}
-			{t("enable-experimental-support-for-working-with-linked-git-work")}
+			Enable experimental support for working with linked git worktrees.
 		{/snippet}
 		{#snippet actions()}
 			<Toggle

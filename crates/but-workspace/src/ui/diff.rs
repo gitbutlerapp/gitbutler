@@ -24,6 +24,7 @@ pub fn changes_in_branch(
             // between all applicable targets and the workspace branches.
             repo.merge_base(tip, base)
                 .ok()
+                .flatten()
                 .map(|base| (tip, base.detach()))
         })
     };

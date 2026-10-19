@@ -7,7 +7,7 @@ use serde::Serialize;
 use crate::{
     CliError, CliResult, bad_input,
     theme::{self, Paint},
-    utils::{OutputChannel, shorten_object_id},
+    utils::{CliOutput, CliOutputHuman, OutputChannel, WriteWithUtils, shorten_object_id},
 };
 
 #[derive(Debug, Serialize)]
@@ -19,6 +19,54 @@ struct TeardownResult {
     /// installed and may keep affecting git operations.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     hook_warnings: Vec<String>,
+}
+
+/// Hook files and config are not covered by oplog snapshots, so this operation
+/// intentionally does not create a timeline entry.
+pub(crate) fn remove_hooks(ctx: &mut Context) -> anyhow::Result<RemoveHooksOutcome> {
+    use gitbutler_repo::managed_hooks::{HookInstallationResult, uninstall_managed_hooks};
+
+    let _guard = ctx.exclusive_worktree_access();
+    let repo = ctx.repo.get()?;
+    match uninstall_managed_hooks(&repo)? {
+        HookInstallationResult::Success
+        | HookInstallationResult::AlreadyConfigured
+        | HookInstallationResult::SkippedByConfig => Ok(RemoveHooksOutcome),
+        HookInstallationResult::PartialSuccess { warnings } => {
+            anyhow::bail!(
+                "Could not remove all GitButler-managed hooks:\n{}",
+                warnings.join("\n")
+            )
+        }
+    }
+}
+
+#[must_use]
+pub(crate) struct RemoveHooksOutcome;
+
+impl CliOutputHuman for RemoveHooksOutcome {
+    fn on_human(
+        self,
+        out: &mut dyn WriteWithUtils,
+        _agent: bool,
+        _theme: &'static theme::Theme,
+    ) -> anyhow::Result<()> {
+        writeln!(out, "Removed GitButler-managed hooks.")?;
+        Ok(())
+    }
+}
+
+impl CliOutput for RemoveHooksOutcome {
+    fn on_json(self) -> impl Serialize {
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Output {
+            removed_hooks: bool,
+        }
+        Output {
+            removed_hooks: true,
+        }
+    }
 }
 
 pub(crate) fn teardown(
@@ -264,9 +312,6 @@ pub(crate) fn teardown(
             t.hint
                 .paint(format!("You are now on branch: {target_branch_name}"))
         )?;
-        writeln!(out)?;
-        writeln!(out, "{}", t.info.paint("To return to GitButler mode, run:"))?;
-        writeln!(out, "  {}", t.command_suggestion.paint("but setup"))?;
         writeln!(out)?;
     }
 
