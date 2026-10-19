@@ -34,6 +34,9 @@ pub struct Project {
 pub struct Workspace {
     /// The branch everything integrates into, like `origin/main`.
     pub target: Option<Target>,
+    /// The target the project names but its repository no longer has, as when the remote
+    /// renamed or deleted it, by its short name.
+    pub lost_target: Option<String>,
     /// The forge that hosts the target, when there is one to make pull requests on.
     pub forge: Option<Forge>,
     pub stacks: Vec<Stack>,

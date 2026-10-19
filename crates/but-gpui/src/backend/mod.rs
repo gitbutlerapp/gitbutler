@@ -280,6 +280,10 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         behind: target.commits_ahead,
         needs_update: target.commits_ahead > 0 || stacks_behind,
     });
+    let lost_target = (target.is_none())
+        .then(|| ctx.project_meta().ok()?.target_ref)
+        .flatten()
+        .map(|name| name.shorten().to_string());
     let listed = worktrees::linked(&ctx, &mut linked).unwrap_or_else(|err| {
         tracing::warn!("couldn't list the linked worktrees: {err:#}");
         None
@@ -318,6 +322,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "loaded workspace");
     Ok(Workspace {
         target,
+        lost_target,
         forge: reviews::forge_of(&ctx),
         stacks,
         uncommitted,
