@@ -30,8 +30,8 @@ use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dot, empty_state,
-    faint, h_flex, icon, icon_button, just_now, list_row, plural, relative_time, resize_handle,
-    review, section_label, shortcut, small_icon, v_flex,
+    faint, field, h_flex, icon, icon_button, just_now, list_row, plural, relative_time,
+    resize_handle, review, section_label, shortcut, small_icon, v_flex,
 };
 
 mod account;
@@ -70,7 +70,8 @@ actions!(
         PreviousSection,
         NextSection,
         PickPrevious,
-        PickNext
+        PickNext,
+        FocusFilter
     ]
 );
 
@@ -87,6 +88,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("alt-down", NextSection, nav),
         KeyBinding::new("shift-up", PickPrevious, nav),
         KeyBinding::new("shift-down", PickNext, nav),
+        KeyBinding::new("/", FocusFilter, nav),
     ]);
 }
 
@@ -136,6 +138,8 @@ struct Rows {
     inset: f32,
     /// Where the guides of the rows pushed next run.
     open: Vec<f32>,
+    /// The first item the filter found, which Enter in it selects.
+    first_hit: Option<Selection>,
 }
 
 /// Where a chevron's middle sits in a row set in by nothing: the row's margin and padding,
@@ -158,6 +162,21 @@ impl Rows {
 
     fn close(&mut self) {
         self.open.pop();
+    }
+
+    /// Push `item`, the filter's first hit if it's `hit` and none came before it.
+    fn push_found(&mut self, item: Selection, hit: bool) {
+        if hit && self.first_hit.is_none() {
+            self.first_hit = Some(item.clone());
+        }
+        self.push(Row::Item(item));
+    }
+
+    /// Take back the rows pushed since there were `len`.
+    fn truncate(&mut self, len: usize) {
+        self.rows.truncate(len);
+        self.insets.truncate(len);
+        self.guides.truncate(len);
     }
 }
 
@@ -240,8 +259,10 @@ pub struct Navigator {
     folded_worktrees: HashSet<(ProjectId, Option<Arc<str>>)>,
     /// Stacks showing only their caption, by their bottom branch.
     folded_stacks: HashSet<(ProjectId, String)>,
-    /// The filter over the projects not expanded, while it's open.
-    projects_filter: Option<(Entity<TextInput>, Subscription)>,
+    /// The filter in the header, over every project's rows.
+    filter: Entity<TextInput>,
+    /// The first item the filter found, which Enter in it selects.
+    first_hit: Option<Selection>,
     /// The projects not expanded show all of them rather than the first few.
     projects_unfolded: bool,
     /// Whether the pointer is over the navigator.
@@ -261,9 +282,28 @@ impl Navigator {
         app: WeakEntity<AppView>,
         store: Entity<Store>,
         detail: Entity<Detail>,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        let filter = cx.new(|cx| TextInput::new("Filter", false, cx));
         let subscriptions = vec![
+            cx.subscribe_in(&filter, window, |this, input, event, window, cx| {
+                match event {
+                    InputEvent::Changed => this.filter_changed(cx),
+                    // Esc empties it, then leaves it.
+                    InputEvent::Cancel if input.read(cx).text().is_empty() => {
+                        this.focus_list(window, cx)
+                    }
+                    InputEvent::Cancel => {
+                        input.update(cx, |input, cx| input.set_text("", cx));
+                        this.filter_changed(cx);
+                    }
+                    InputEvent::Submit => match this.first_hit.clone() {
+                        Some(hit) => this.select(hit, window, cx),
+                        None => this.focus_list(window, cx),
+                    },
+                }
+            }),
             cx.observe(&store, |_, _, cx| cx.notify()),
             cx.subscribe(&store, |this, _, event, _| match event {
                 StoreEvent::SelectionChanged => this.reveal_selection = true,
@@ -288,7 +328,8 @@ impl Navigator {
             shown_inactive: HashSet::new(),
             folded_worktrees: HashSet::new(),
             folded_stacks: HashSet::new(),
-            projects_filter: None,
+            filter,
+            first_hit: None,
             projects_unfolded: false,
             pointer_over: false,
             watch_hovered: None,
@@ -300,6 +341,10 @@ impl Navigator {
     /// Rows of every card, with a gap between two cards. Expanded projects get a card
     /// each; the collapsed ones share one compact card at the end.
     fn build_rows(&self, cx: &App) -> Rows {
+        let terms = self.filter_terms(cx);
+        if !terms.is_empty() {
+            return self.build_filtered_rows(&terms, cx);
+        }
         let store = self.store.read(cx);
         let mut rows = Rows::default();
         for entry in store.projects.iter().filter(|entry| entry.expanded) {
@@ -414,7 +459,6 @@ impl Navigator {
             .filter(|entry| !entry.expanded)
             .collect();
         let prefs = &store.prefs;
-        let terms = self.filter_terms(cx);
         let selected = |entry: &ProjectEntry| {
             store.selection.as_ref() == Some(&Selection::Project(entry.id.clone()))
         };
@@ -423,25 +467,19 @@ impl Navigator {
             .filter(|(entry, at)| {
                 !prefs.active_projects_only || at.is_some_and(active_lately) || selected(entry)
             })
-            .filter(|(entry, _)| {
-                let name = entry.project.name.to_lowercase();
-                terms.iter().all(|term| name.contains(term.as_str()))
-            })
             .collect();
         // Stable, so projects active at the same moment stay by name.
         if prefs.projects_by_activity {
             listed.sort_by_key(|(_, at)| std::cmp::Reverse(*at));
         }
         rows.push(Row::ProjectsHeading(title, listed.len(), others.len()));
-        // A filter finds a project even in a folded list.
-        if prefs.projects_folded && terms.is_empty() {
+        if prefs.projects_folded {
             return rows;
         }
         // Past the fold, but never past the selected project.
         let fold_at = FOLD_AFTER
             .max((listed.iter().position(|(entry, _)| selected(entry))).map_or(0, |at| at + 1));
-        let unfolded = self.projects_unfolded || !terms.is_empty();
-        let shown = match unfolded {
+        let shown = match self.projects_unfolded {
             true => listed.len(),
             false => fold_at,
         };
@@ -451,20 +489,160 @@ impl Navigator {
         );
         if listed.len() > shown {
             rows.push(Row::MoreProjects(listed.len() - shown));
-        } else if self.projects_unfolded && terms.is_empty() && listed.len() > fold_at {
+        } else if self.projects_unfolded && listed.len() > fold_at {
             rows.push(Row::FewerProjects);
         }
-        // A filter that matches nothing says what it looked for.
         if listed.is_empty() && !others.is_empty() {
-            let miss = match self.projects_filter.as_ref() {
-                Some((input, _)) if !terms.is_empty() => {
-                    format!("No projects match \"{}\"", input.read(cx).text().trim())
-                }
-                _ => "None active in the last 7 days".to_owned(),
-            };
-            rows.push(Row::Note(miss.into(), false));
+            rows.push(Row::Note("None active in the last 7 days".into(), false));
         }
         rows
+    }
+
+    /// The rows while the filter has words in it: every project, worktree, branch and commit
+    /// that matches, under what holds it, folded or not. One matches when each word is in
+    /// its name or in the name of what holds it, and one at least is in its own, so "shop
+    /// cart" finds shop's cart branch, not all of shop. A branch matches by its name or its
+    /// pull request's title, a commit by its title, a project not expanded by its name.
+    fn build_filtered_rows(&self, terms: &[String], cx: &App) -> Rows {
+        let store = self.store.read(cx);
+        let hit = |held, own| matches(terms, held, own);
+        let mut rows = Rows::default();
+        for entry in store.projects.iter().filter(|entry| entry.expanded) {
+            let id = &entry.id;
+            let start = rows.rows.len();
+            rows.inset = 0.;
+            if start > 0 {
+                rows.push(Row::Gap);
+            }
+            let own = found(terms, &[&entry.project.name]);
+            rows.push_found(Selection::Project(id.clone()), hit(0, own));
+            let project_end = rows.rows.len();
+            let workspace = (entry.workspace.as_ref()).filter(|ws| ws.editing.is_none());
+            if let Some(workspace) = workspace {
+                // The main worktree's branches under its heading when there are linked ones.
+                let headed = !workspace.worktrees.is_empty();
+                let main = rows.rows.len();
+                if headed {
+                    rows.push(Row::Item(Selection::Uncommitted(id.clone())));
+                    rows.open();
+                    rows.inset = NEST;
+                }
+                let heading_end = rows.rows.len();
+                for stack in &workspace.stacks {
+                    self.filtered_lane(store, id, &stack.branches, terms, own, &mut rows);
+                }
+                if headed {
+                    rows.close();
+                    rows.inset = 0.;
+                    if rows.rows.len() == heading_end {
+                        rows.truncate(main);
+                    }
+                }
+                let worktrees =
+                    (workspace.worktrees.iter()).filter(|wt| !store.hides_worktree(id, &wt.name));
+                for wt in worktrees {
+                    let wt_start = rows.rows.len();
+                    let wt_own = found(terms, &[&wt.name]);
+                    let item = Selection::Worktree(id.clone(), wt.name.clone());
+                    rows.push_found(item, hit(own, wt_own));
+                    rows.open();
+                    rows.inset = NEST;
+                    self.filtered_lane(store, id, &wt.branches, terms, own | wt_own, &mut rows);
+                    rows.inset = 0.;
+                    rows.close();
+                    if rows.rows.len() == wt_start + 1 && !hit(own, wt_own) {
+                        rows.truncate(wt_start);
+                    }
+                }
+            }
+            if rows.rows.len() == project_end && !hit(0, own) {
+                rows.truncate(start);
+            }
+        }
+        let others = (store.projects.iter()).filter(|entry| !entry.expanded);
+        let total = others.clone().count();
+        let listed: Vec<_> = others
+            .filter(|entry| hit(0, found(terms, &[&entry.project.name])))
+            .collect();
+        rows.inset = 0.;
+        if !listed.is_empty() {
+            let title = match rows.rows.is_empty() {
+                true => "All projects",
+                false => "More projects",
+            };
+            if !rows.rows.is_empty() {
+                rows.push(Row::Gap);
+            }
+            rows.push(Row::ProjectsHeading(title, listed.len(), total));
+            for entry in listed {
+                rows.push_found(Selection::Project(entry.id.clone()), true);
+            }
+        }
+        if rows.rows.is_empty() {
+            rows.push(Row::Note("Nothing matches".into(), false));
+        }
+        rows
+    }
+
+    /// [`Self::lane_rows`] under the filter, with `held` the words found in what holds the
+    /// lane: the branches that match or have commits that do, with those commits, under
+    /// their stack's caption when there are two or more.
+    fn filtered_lane(
+        &self,
+        store: &Store,
+        id: &ProjectId,
+        branches: &[Branch],
+        terms: &[String],
+        held: u64,
+        rows: &mut Rows,
+    ) {
+        // A stack being unapplied leaves at once.
+        if (branches.iter()).any(|b| store.hides_branch(id, &b.ref_name)) {
+            return;
+        }
+        let (start, base) = (rows.rows.len(), rows.inset);
+        let stacked = branches.len() > 1;
+        if let [_, .., bottom] = branches {
+            rows.push(Row::Item(Selection::Stack(
+                id.clone(),
+                bottom.ref_name.clone(),
+            )));
+            rows.open();
+            rows.inset = base + STACK_STEP;
+        }
+        let caption_end = rows.rows.len();
+        for branch in branches {
+            let own = found(
+                terms,
+                &[store.name_of(id, branch), store.label_of(id, branch)],
+            );
+            let commits: Vec<_> = (branch.commits.iter())
+                .filter(|commit| {
+                    !store.hides_commit(id, &commit.key)
+                        && matches(terms, held | own, found(terms, &[&commit.title]))
+                })
+                .collect();
+            let branch_hit = matches(terms, held, own);
+            if !branch_hit && commits.is_empty() {
+                continue;
+            }
+            rows.push_found(
+                Selection::Branch(id.clone(), branch.ref_name.clone()),
+                branch_hit,
+            );
+            rows.open();
+            for commit in commits {
+                rows.push_found(Selection::Commit(id.clone(), commit.id), true);
+            }
+            rows.close();
+        }
+        if stacked {
+            rows.close();
+        }
+        rows.inset = base;
+        if rows.rows.len() == caption_end {
+            rows.truncate(start);
+        }
     }
 
     /// A stack's or a linked worktree's branches: over two or more a caption, which folds
@@ -577,55 +755,27 @@ impl Navigator {
                 .contains(&(project.clone(), name.cloned()))
     }
 
-    /// The words the projects filter looks for, each in a project's name.
+    /// The words the filter looks for, up to as many as [`found`] can tell apart.
     fn filter_terms(&self, cx: &App) -> Vec<String> {
-        (self.projects_filter.iter())
-            .flat_map(|(input, _)| {
-                input
-                    .read(cx)
-                    .text()
-                    .split_whitespace()
-                    .map(str::to_lowercase)
-            })
+        (self.filter.read(cx).text().split_whitespace())
+            .take(64)
+            .map(str::to_lowercase)
             .collect()
     }
 
-    /// Open the filter over the projects not expanded, or go back to it.
-    fn open_projects_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let input = match &self.projects_filter {
-            Some((input, _)) => input.clone(),
-            None => {
-                let input = cx.new(|cx| TextInput::new("Filter projects", false, cx));
-                let listen = cx.subscribe_in(&input, window, |this, _, event, window, cx| {
-                    match event {
-                        InputEvent::Changed => cx.notify(),
-                        InputEvent::Cancel => this.close_projects_filter(window, cx),
-                        // Enter goes to the first project it found.
-                        InputEvent::Submit => {
-                            let first = (this.rows.iter())
-                                .skip_while(|row| !matches!(row, Row::ProjectsHeading(..)))
-                                .find_map(|row| match row {
-                                    Row::Item(item @ Selection::Project(_)) => Some(item.clone()),
-                                    _ => None,
-                                });
-                            this.close_projects_filter(window, cx);
-                            if let Some(first) = first {
-                                this.select(first, window, cx);
-                            }
-                        }
-                    }
-                });
-                self.projects_filter = Some((input.clone(), listen));
-                input
-            }
-        };
-        window.focus(&input.focus_handle(cx), cx);
+    /// Give the rows the keys, the selection drawn solid again.
+    fn focus_list(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        window.focus(&self.focus, cx);
         cx.notify();
     }
 
-    fn close_projects_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.projects_filter = None;
-        window.focus(&self.focus, cx);
+    /// The filter's words changed: its rows show from the top, and once it's empty, the
+    /// selection shows where it is in the whole tree.
+    fn filter_changed(&mut self, cx: &mut Context<Self>) {
+        self.list.scroll_to(ListOffset::default());
+        if self.filter.read(cx).text().trim().is_empty() {
+            self.reveal_selection = true;
+        }
         cx.notify();
     }
 
@@ -1102,7 +1252,10 @@ impl Navigator {
         let style = RowStyle {
             theme,
             selected,
-            solid: selected && self.focus.contains_focused(window, cx),
+            // Not while typing in the filter, where the keys go to it.
+            solid: selected
+                && self.focus.contains_focused(window, cx)
+                && !self.filter.focus_handle(cx).is_focused(window),
             cut,
             inset,
             joined,
@@ -1183,22 +1336,6 @@ impl Navigator {
             true => total.to_string(),
             false => format!("{listed} of {total}"),
         };
-        if let Some((input, _)) = &self.projects_filter {
-            return row
-                .gap(px(6.))
-                .child(small_icon(Icon::Search).text_color(theme.text_3))
-                .child(div().flex_1().min_w(px(0.)).child(input.clone()))
-                .child(faint(count, theme).text_size(px(12.)).flex_none())
-                .child(
-                    icon_button("close-projects-filter", Icon::Cross)
-                        .small()
-                        .tooltip("Close the filter")
-                        .on_click(cx.listener(|this, _, window, cx| {
-                            this.close_projects_filter(window, cx)
-                        })),
-                )
-                .into_any_element();
-        }
         let folded = self.store.read(cx).prefs.projects_folded;
         let fold = h_flex()
             .id("projects-fold")
@@ -1229,18 +1366,6 @@ impl Navigator {
                 el.child(faint(count, theme).text_size(px(12.)))
             });
         row.child(fold)
-            .when(total > 0, |el| {
-                el.child(
-                    icon_button("filter-projects", Icon::Search)
-                        .small()
-                        .tooltip("Filter projects")
-                        .on_click(
-                            cx.listener(|this, _, window, cx| {
-                                this.open_projects_filter(window, cx)
-                            }),
-                        ),
-                )
-            })
             .child(
                 icon_button("add-project", Icon::Plus)
                     .small()
@@ -2570,15 +2695,18 @@ impl Render for Navigator {
             rows,
             insets,
             guides,
+            first_hit,
             ..
         } = self.build_rows(cx);
         self.insets = insets;
         self.guides = guides;
         self.sync_list(rows, window, cx);
         let theme = Theme::get(cx).clone();
+        self.first_hit = first_hit;
         let store = self.store.read(cx);
-        let project_count = store.projects.len();
-        let empty = store.projects_loaded && project_count == 0;
+        let empty = store.projects_loaded && store.projects.is_empty();
+        let filter_focused = self.filter.focus_handle(cx).is_focused(window);
+        let filtering = !self.filter.read(cx).text().is_empty();
 
         // Once the cards scroll under it, a rule along its bottom, as but.dev draws one, and
         // level with the location bar's: the same height and border, from the window's top.
@@ -2596,25 +2724,22 @@ impl Render for Navigator {
             .pr(px(8.))
             .gap(px(6.))
             .child(
-                div()
+                field(&self.filter, filter_focused, &theme)
+                    .flex_1()
                     .min_w(px(0.))
-                    .truncate()
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .text_size(px(14.))
-                    .child("Projects"),
+                    .py(px(3.)),
             )
-            .when(project_count > 0, |el| {
+            .when(filtering, |el| {
                 el.child(
-                    div()
-                        .px(px(6.))
-                        .rounded_full()
-                        .bg(theme.fill_gray.opacity(0.1))
-                        .text_size(px(11.))
-                        .text_color(theme.text_2)
-                        .child(project_count.to_string()),
+                    icon_button("clear-filter", Icon::Cross)
+                        .small()
+                        .tooltip("Clear the filter")
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.filter.update(cx, |input, cx| input.set_text("", cx));
+                            this.filter_changed(cx);
+                        })),
                 )
             })
-            .child(div().flex_1())
             .child(self.account(&theme, cx));
 
         v_flex()
@@ -2646,6 +2771,12 @@ impl Render for Navigator {
                     this.jump_section(true, window, cx)
                 }),
             )
+            .on_action(cx.listener(|this, _: &FocusFilter, window, cx| {
+                this.filter
+                    .update(cx, |input, cx| input.select_all_text(cx));
+                window.focus(&this.filter.focus_handle(cx), cx);
+                cx.notify();
+            }))
             .on_action(cx.listener(Self::expand))
             .on_action(cx.listener(Self::collapse))
             .on_action(cx.listener(Self::confirm))
@@ -2686,5 +2817,57 @@ impl Render for Navigator {
                 }
             }))
             .child(resize_handle(Pane::Navigator, self.store.clone(), &theme))
+    }
+}
+
+/// Which of `terms`, lowercase, any of `texts` holds, as bits by the term's place.
+fn found(terms: &[String], texts: &[&str]) -> u64 {
+    (terms.iter().enumerate())
+        .filter(|(_, term)| texts.iter().any(|text| holds(text, term)))
+        .fold(0, |bits, (ix, _)| bits | 1 << ix)
+}
+
+/// Whether a row whose own text has the terms in `own`, under rows with those in `held`,
+/// matches: every term found, and one at least in its own text.
+fn matches(terms: &[String], held: u64, own: u64) -> bool {
+    own != 0 && held | own == u64::MAX >> (64 - terms.len())
+}
+
+/// Whether `text` holds `term` (lowercase), in any case; without allocating for ASCII text,
+/// as most names and titles are, since the filter looks through every commit on each key.
+fn holds(text: &str, term: &str) -> bool {
+    match text.is_ascii() {
+        true => (text.as_bytes().windows(term.len()))
+            .any(|window| window.eq_ignore_ascii_case(term.as_bytes())),
+        false => text.to_lowercase().contains(term),
+    }
+}
+
+#[cfg(test)]
+mod filter_tests {
+    use super::{found, holds, matches};
+
+    #[test]
+    fn a_row_matches_with_what_holds_it() {
+        let terms = ["shop".to_owned(), "cart".to_owned()];
+        let project = found(&terms, &["shop"]);
+        assert!(
+            !matches(&terms, 0, project),
+            "the project alone lacks \"cart\""
+        );
+        let branch = found(&terms, &["feature/Cart"]);
+        assert!(
+            matches(&terms, project, branch),
+            "the branch has \"cart\", in any case, and its project \"shop\""
+        );
+        let commit = found(&terms, &["Keep items in order"]);
+        assert!(
+            !matches(&terms, project | branch, commit),
+            "a commit needs a word of its own, not only its branch's"
+        );
+        assert!(
+            holds("Über die Karte", "über"),
+            "non-ASCII text folds case too"
+        );
     }
 }
