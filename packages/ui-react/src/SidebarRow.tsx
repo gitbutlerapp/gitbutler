@@ -505,10 +505,10 @@ export const UncommittedItem: FC<
 /**
  * The caption over a stack of two or more branches: how many (`count`) and "Stack". Its branches
  * sit under it one level deeper, with no divider around the stack. It doesn't open; with `folded` a
- * click anywhere on it, as on its chevron, hides the stack's branches. Folded, the branch at the
- * stack's top (`tip`), which is the one that gets pushed, takes the word's place after the count,
- * and `meta` says what the hidden branches hold. Either way the caption stays muted, so it doesn't
- * read as one more branch. Its `menu` (push the stack, open its pull requests) shows under the
+ * click anywhere on it, as on its chevron, hides the stack's branches. Folded, "Stack" reads as a
+ * name and the branch at the stack's top (`tip`), the one that gets pushed, follows it, muted and
+ * giving way first; `meta` says what the hidden branches hold. Open, "Stack" steps back, since the
+ * tip is the row right under it. Its `menu` (push the stack, open its pull requests) shows under the
  * pointer.
  *
  * @import import { StackCaption } from "@gitbutler/ui-react/SidebarRow.tsx";
@@ -553,14 +553,22 @@ export const StackCaption: FC<
 						{count}
 					</Badge>
 					<Name
-						// A fresh name for each text: one the pointer measured keeps that run, and unfolding
-						// under the pointer would run "Stack" as far as the tip.
-						key={folded === true ? "tip" : "stack"}
 						tooltip={tooltip}
-						className={classes("text-14", "text-semibold", styles.name)}
+						className={classes(
+							"text-14",
+							"text-semibold",
+							styles.name,
+							styles.word,
+							folded === true && styles.wordFolded,
+						)}
 					>
-						{folded === true ? tip : "Stack"}
+						Stack
 					</Name>
+					{folded === true && (
+						<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
+							{tip}
+						</Name>
+					)}
 				</>
 			}
 		/>

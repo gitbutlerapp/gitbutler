@@ -464,6 +464,15 @@
 	}
 }
 
+/* "Stack" keeps its width; folded, it reads as a name, and the muted tip after it gives way. */
+.word {
+	flex-shrink: 0;
+}
+
+.wordFolded {
+	color: var(--text-1);
+}
+
 .more {
 	width: 100%;
 	border: none;
