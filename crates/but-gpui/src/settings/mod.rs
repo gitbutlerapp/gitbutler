@@ -140,6 +140,8 @@ pub struct SettingsView {
     terminals: Vec<Program>,
     fetch_interval: Option<u64>,
     worktrees: bool,
+    /// The desktop app opens this client at start: GitButler's `featureFlags.gpui`.
+    open_at_start: bool,
     accounts: accounts::Accounts,
     ai: ai::Ai,
     /// How the last signing test went, while it applies to the project shown.
@@ -203,6 +205,7 @@ impl SettingsView {
             terminals: Vec::new(),
             fetch_interval: None,
             worktrees: false,
+            open_at_start: false,
             accounts: Default::default(),
             ai,
             signing: None,
@@ -218,15 +221,17 @@ impl SettingsView {
                     backend::terminals(),
                     backend::fetch_interval(),
                     backend::worktrees_enabled(),
+                    backend::opens_at_start(),
                 ))
             })
             .await;
-            if let Ok((editors, terminals, fetch_interval, worktrees)) = loaded {
+            if let Ok((editors, terminals, fetch_interval, worktrees, open_at_start)) = loaded {
                 this.update(cx, |this, cx| {
                     this.editors = editors;
                     this.terminals = terminals;
                     this.fetch_interval = fetch_interval;
                     this.worktrees = worktrees;
+                    this.open_at_start = open_at_start;
                     cx.notify();
                 })
                 .ok();
@@ -490,6 +495,36 @@ impl SettingsView {
         )
     }
 
+    fn start_row(&self, cx: &Context<Self>) -> Row {
+        let theme = Theme::get(cx);
+        let start = switch("open-at-start", self.open_at_start, theme).on_click(cx.listener(
+            |this, _, _, cx| {
+                let on = !this.open_at_start;
+                this.open_at_start = on;
+                cx.notify();
+                cx.spawn(async move |this, cx| {
+                    let saved = crate::backend::run(move || backend::set_opens_at_start(on)).await;
+                    if let Err(err) = saved {
+                        this.update(cx, |this, cx| {
+                            this.open_at_start = !on;
+                            cx.notify();
+                            this.error("Couldn't change what opens at start", err, cx)
+                        })
+                        .ok();
+                    }
+                })
+                .detach();
+            },
+        ));
+        Row::new(
+            "Open this app at start",
+            "GitButler opens this app rather than its web app when it starts, as \
+             featureFlags.gpui in its settings.json says. Starting it with --gpui opens this app \
+             either way.",
+            start,
+        )
+    }
+
     /// Escape in a field puts it back and goes to the search box, where Escape closes.
     fn back_to_search(&self, window: &mut Window, cx: &mut Context<Self>) {
         window.focus(&self.search.focus_handle(cx), cx);
@@ -505,7 +540,14 @@ impl SettingsView {
             Page::Ai => vec![Card::new(None, self.ai_rows(window, cx))],
             Page::Git => vec![Card::new(None, vec![self.fetch_row(cx)])],
             Page::Integrations => self.integration_cards(window, cx),
-            Page::Experimental => vec![Card::new(None, vec![self.worktrees_row(cx)])],
+            Page::Experimental => {
+                // Only where the desktop app's binary has this client built in.
+                let start = cx
+                    .has_global::<crate::Embedded>()
+                    .then(|| self.start_row(cx));
+                let rows = std::iter::once(self.worktrees_row(cx)).chain(start);
+                vec![Card::new(None, rows.collect())]
+            }
             Page::Project | Page::ProjectGit => self.project_cards(page, window, cx),
         };
         // Nothing for a card with no rows yet, as before what it shows has loaded.

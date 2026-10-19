@@ -2784,6 +2784,7 @@ impl Render for Navigator {
                         })),
                 )
             })
+            .children(self.update_button(cx))
             .child(self.account(&theme, cx));
 
         v_flex()

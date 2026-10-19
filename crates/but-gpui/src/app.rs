@@ -278,6 +278,43 @@ impl AppView {
         });
     }
 
+    /// Install the version the desktop app's update feed offers: start the desktop app's web
+    /// client once, which installs it and starts again, and quit.
+    pub fn restart_to_update(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        let Some(version) = store.newer_version.clone() else {
+            return;
+        };
+        if store.unfinished() > 0 {
+            self.store.update(cx, |store, cx| {
+                store.snack("Wait for the running operations to finish", cx)
+            });
+            return;
+        }
+        let detail = "GitButler opens its web app to install it, then starts in this app if \
+                      Settings › Experimental › Open this app at start is on.";
+        self.confirm_then(
+            format!("Restart to update to GitButler {version}?"),
+            detail,
+            "Restart",
+            window,
+            cx,
+            |app, cx| {
+                let restarted = std::env::current_exe().and_then(|exe| {
+                    std::process::Command::new(exe)
+                        .env(crate::WEB_APP_ONCE, "1")
+                        .spawn()
+                });
+                match restarted {
+                    Ok(_) => cx.quit(),
+                    Err(err) => app.store.update(cx, |store, cx| {
+                        store.error("Couldn't restart GitButler", err.to_string(), cx)
+                    }),
+                }
+            },
+        );
+    }
+
     /// Ask with a native dialog before doing something destructive.
     pub fn confirm_then(
         &mut self,

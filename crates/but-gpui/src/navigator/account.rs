@@ -9,6 +9,24 @@ use crate::ui::person::person_avatar;
 use crate::ui::{ButtonStyle, button};
 
 impl Navigator {
+    /// New version, when the desktop app's update feed offers one. Not "Update", which a
+    /// project's row says for bringing in its target's new commits.
+    pub(super) fn update_button(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let version = self.store.read(cx).newer_version.clone()?;
+        Some(
+            button("update-app", "New version")
+                .small()
+                .style(ButtonStyle::Gray)
+                .tooltip(format!("Update to {version}"))
+                .on_click(cx.listener(|this, _, window, cx| {
+                    (this.app)
+                        .update(cx, |app, cx| app.restart_to_update(window, cx))
+                        .ok();
+                }))
+                .into_any_element(),
+        )
+    }
+
     pub(super) fn account(&self, theme: &Theme, cx: &mut Context<Self>) -> AnyElement {
         let account = &self.store.read(cx).account;
         let Some(user) = account.user.clone() else {

@@ -76,6 +76,23 @@ pub fn worktrees_enabled() -> bool {
 pub fn set_worktrees_enabled(on: bool) -> Result<()> {
     app_settings()?.update_feature_flags(but_settings::api::FeatureFlagsUpdate {
         worktree_manipulation: Some(on),
+        ..Default::default()
+    })
+}
+
+/// Whether the desktop app opens this client rather than its web app when it starts.
+pub fn opens_at_start() -> bool {
+    (app_settings().ok()).is_some_and(|settings| {
+        settings
+            .get()
+            .is_ok_and(|settings| settings.feature_flags.gpui)
+    })
+}
+
+pub fn set_opens_at_start(on: bool) -> Result<()> {
+    app_settings()?.update_feature_flags(but_settings::api::FeatureFlagsUpdate {
+        gpui: Some(on),
+        ..Default::default()
     })
 }
 
@@ -185,6 +202,22 @@ pub fn channel() -> &'static str {
         but_path::AppChannel::Nightly => "nightly",
         but_path::AppChannel::Dev => "development",
     }
+}
+
+/// The version the desktop app's update `feed` offers in place of this build's, or `None`
+/// when this build is the latest, which the feed says with no content.
+pub fn newer_version(feed: &str) -> Result<Option<String>> {
+    #[derive(serde::Deserialize)]
+    struct Release {
+        version: String,
+    }
+    super::runtime().handle().block_on(async {
+        let response = reqwest::get(feed).await?.error_for_status()?;
+        if response.status() == reqwest::StatusCode::NO_CONTENT {
+            return Ok(None);
+        }
+        Ok(Some(response.json::<Release>().await?.version))
+    })
 }
 
 /// GitButler's app settings as they are on disk now. Read afresh each time: the other apps

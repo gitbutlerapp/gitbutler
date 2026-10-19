@@ -54,10 +54,29 @@ fn draw_text_unsmoothed() {
     unsafe { NSUserDefaults::standardUserDefaults().registerDefaults(&defaults) };
 }
 
-/// Run the app until it quits: open its window on this thread, which must be the process's
-/// main thread, as macOS draws windows from there.
+/// What the desktop app's binary gives the client when it starts it instead of its web one.
 #[cfg(target_os = "macos")]
-pub fn run() {
+#[derive(Clone)]
+pub struct Embedded {
+    /// The desktop app's update feed for this build and version, which answers with a newer
+    /// version or with nothing; `None` when the build doesn't look for updates.
+    pub update_feed: Option<String>,
+    /// How often to ask the feed.
+    pub check_every: std::time::Duration,
+}
+
+#[cfg(target_os = "macos")]
+impl gpui::Global for Embedded {}
+
+/// Set when the client relaunches the desktop app to install an update: that launch opens
+/// the web app, which installs it, and takes the variable out before its own relaunch.
+pub const WEB_APP_ONCE: &str = "GITBUTLER_WEB_APP_ONCE";
+
+/// Run the app until it quits: open its window on this thread, which must be the process's
+/// main thread, as macOS draws windows from there. `embedded` when the desktop app's binary
+/// starts it.
+#[cfg(target_os = "macos")]
+pub fn run(embedded: Option<Embedded>) {
     #[cfg(feature = "dev-script")]
     dev::mark_launch();
     use gpui::{
@@ -84,6 +103,9 @@ pub fn run() {
             cx.text_system()
                 .add_fonts(ui::fonts())
                 .expect("the bundled fonts load");
+            if let Some(embedded) = embedded {
+                cx.set_global(embedded);
+            }
             cx.set_global(Theme::for_appearance(
                 theme::Appearance::System,
                 cx.window_appearance(),
