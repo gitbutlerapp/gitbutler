@@ -224,24 +224,7 @@ pub fn add(
         };
     }
     // Git's post-checkout hook runs after registration succeeds, and failure retains the worktree.
-    let output = std::process::Command::new(gix::path::env::exe_invocation())
-        .env_remove("GIT_DIR")
-        .env_remove("GIT_WORK_TREE")
-        .env_remove("GIT_INDEX_FILE")
-        .arg("-C")
-        .arg(path)
-        .args(["hook", "run", "--ignore-missing", "post-checkout", "--"])
-        .arg(repo.object_hash().null().to_string())
-        .arg(base.to_string())
-        .arg("1")
-        .output()
-        .context("Failed to run the worktree post-checkout hook")?;
-    anyhow::ensure!(
-        output.status.success(),
-        "Worktree post-checkout hook failed ({}): {}",
-        output.status,
-        String::from_utf8_lossy(&output.stderr).trim()
-    );
+    but_core::hooks::post_checkout(path, repo.object_hash().null(), base)?;
     if let Err(err) = handle_worktreeinclude(repo, &created) {
         // This is most likely not a fatal issue, the worktree checkout is almost certainly still
         // usable. So we only log the error.
