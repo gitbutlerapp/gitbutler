@@ -7,23 +7,46 @@ use crate::app::{
     Collapse, CopySelection, CutSelection, DeleteSelection, Expand, Fetch, NewBranchOnTop,
     OpenPullRequest, Push, RenameSelection, StartCommit, UncommitSelection, UpdateFromTarget,
 };
-use crate::backend::CommitId;
+use crate::backend::{Commit, CommitId};
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, BranchEdits, CherryPick, CommitEdits, CopyChangeId,
     CopyMessage, MoveToNewBranch, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage,
     SquashAll, SquashPicked, TakeRemote, UnapplyStack, Unstack,
 };
 use crate::overlays::MenuItem;
-use crate::state::{ProjectId, Selection};
+use crate::state::{ProjectId, Selection, Store};
 use crate::ui::{plural, quoted};
 
-/// An item marking `unread`, commits of `project`, read.
-fn mark_read(label: &str, project: &ProjectId, unread: Vec<CommitId>) -> MenuItem {
+/// An item marking `ids`, commits of `project`, read, or with `read` false unread.
+fn mark_read(label: &str, project: &ProjectId, ids: Vec<CommitId>, read: bool) -> MenuItem {
     let project = project.clone();
     MenuItem::new(label.to_owned(), move |this, _, cx| {
-        let unread = unread.clone();
-        (this.store).update(cx, |store, cx| store.mark_read(&project, unread, cx))
+        let ids = ids.clone();
+        (this.store).update(cx, |store, cx| store.mark_read(&project, ids, read, cx))
     })
+}
+
+/// Marking `commits` of `project` read, the ones that aren't, and unread, the ones that
+/// are: one item or the other, or both when some are each.
+fn read_marks<'a>(
+    store: &Store,
+    project: &ProjectId,
+    commits: impl IntoIterator<Item = &'a Commit>,
+) -> Vec<MenuItem> {
+    let (unread, read): (Vec<&Commit>, Vec<&Commit>) =
+        (commits.into_iter()).partition(|commit| store.is_unread(project, commit));
+    let ids = |commits: Vec<&Commit>| commits.iter().map(|commit| commit.id).collect();
+    let mut items = Vec::new();
+    if !unread.is_empty() {
+        items.push(mark_read("Mark as read", project, ids(unread), true));
+    }
+    if !read.is_empty() {
+        items.push(mark_read("Mark as unread", project, ids(read), false));
+    }
+    if let Some(first) = items.first_mut() {
+        first.separated = true;
+    }
+    items
 }
 
 impl Navigator {
@@ -46,7 +69,7 @@ impl Navigator {
                 .map(|commit| commit.id)
                 .collect();
             if !unread.is_empty() {
-                view.push(mark_read("Mark all as read", project, unread));
+                view.push(mark_read("Mark all as read", project, unread, true));
             }
             if let Some(first) = items.first_mut() {
                 first.separated = true;
@@ -279,14 +302,10 @@ impl Navigator {
                     cx,
                 ));
                 // A run picks commits without opening them, as clicking one does.
-                let unread: Vec<CommitId> = (store.workspace(project).into_iter())
+                let picked = (store.workspace(project).into_iter())
                     .flat_map(|ws| ws.commits())
-                    .filter(|c| store.picked.contains(&c.id) && store.is_unread(project, c))
-                    .map(|c| c.id)
-                    .collect();
-                if !unread.is_empty() {
-                    items.push(mark_read("Mark as read", project, unread).separated());
-                }
+                    .filter(|commit| store.picked.contains(&commit.id));
+                items.extend(read_marks(store, project, picked));
                 items
             }
             Selection::Commit(project, id) => {
@@ -325,8 +344,9 @@ impl Navigator {
                 if edits.change_id {
                     items.push(action("Copy change ID", &CopyChangeId));
                 }
+                items.push(action("Copy message", &CopyMessage));
+                items.extend(read_marks(store, project, [commit]));
                 items.extend([
-                    action("Copy message", &CopyMessage),
                     action("Uncommit", &UncommitSelection).separated(),
                     action("Discard commit…", &DeleteSelection).danger(),
                 ]);
