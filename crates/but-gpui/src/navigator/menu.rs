@@ -217,13 +217,16 @@ impl Navigator {
                     return items;
                 }
                 // Only the composer checks files; without it, discarding takes them all.
-                let discard = match self.detail.read(cx).composing() {
-                    true => "Discard checked changes…",
-                    false => "Discard all changes…",
+                let detail = self.detail.read(cx);
+                let what = match detail.composing() {
+                    true => "checked changes",
+                    false => "all changes",
                 };
+                let discard =
+                    crate::edits::discard_label(what, false, detail.selected_changes(cx).len());
                 items.extend([
                     action("Commit…", &StartCommit).separated(),
-                    action(discard, &DeleteSelection).danger(),
+                    MenuItem::action(discard, &DeleteSelection, cx).danger(),
                 ]);
                 items
             }

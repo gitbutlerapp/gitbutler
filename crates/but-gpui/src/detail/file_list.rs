@@ -910,9 +910,13 @@ impl Detail {
         row.on_mouse_down(
             MouseButton::Right,
             cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                // A file not picked is the menu's alone.
+                // A file not picked is the menu's alone, selected as a click selects it, so
+                // the menu doesn't look like the selected file's.
                 if !picked {
                     this.clear_file_picks(cx);
+                    if let Some(diff_ix) = diff_ix {
+                        this.scroll_to_file(diff_ix, cx);
+                    }
                 }
                 let at = At::File(path.clone(), None);
                 this.changes_menu(menu.clone(), at, event.position, cx)
@@ -1014,10 +1018,14 @@ impl Detail {
                     );
                 }
                 let (project, worktree, files) = (project.clone(), worktree.clone(), files.clone());
-                let discard = match what {
-                    "lines" | "hunk" => format!("Discard {what}…"),
-                    _ => "Discard changes…".to_owned(),
-                };
+                let discard = crate::edits::discard_label(
+                    match what {
+                        "lines" | "hunk" => what,
+                        _ => "changes",
+                    },
+                    worktree.is_some(),
+                    files.len(),
+                );
                 items.push(
                     MenuItem::new(discard, move |this, window, cx| {
                         let (project, worktree) = (project.clone(), worktree.clone());

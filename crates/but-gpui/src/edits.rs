@@ -57,6 +57,13 @@ fn refused_here(store: &Entity<Store>, cx: &mut App) -> bool {
     })
 }
 
+/// What discarding `count` changes is called, "…" when it asks first: in a linked worktree,
+/// or for more than one file, as [`AppView::discard`] does.
+pub fn discard_label(what: &str, linked: bool, count: usize) -> String {
+    let more = if linked || count > 1 { "…" } else { "" };
+    format!("Discard {what}{more}")
+}
+
 /// Whether `ref_name` can land, and if so whether with the branches below it: the bottom
 /// branch of a stack lands alone, the top one of a taller stack lands the whole stack.
 pub fn land_scope(workspace: &Workspace, ref_name: &str) -> Option<bool> {
