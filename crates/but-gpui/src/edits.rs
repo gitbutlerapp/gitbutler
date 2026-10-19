@@ -978,10 +978,13 @@ impl AppView {
         let Some(whole_stack) = land_scope(workspace, &ref_name) else {
             return;
         };
-        // What lands leaves at once: the whole stack, or the bottom branch and its commits.
+        // What lands leaves at once: the whole stack, each branch of it listed so a selection
+        // on any, or on its caption, moves off; or the bottom branch and its commits.
         let overlay = match whole_stack {
             true => Overlay {
-                branches: HashSet::from([ref_name.clone()]),
+                branches: (workspace.stack_of(&ref_name).into_iter())
+                    .flat_map(|(stack, _)| stack.branches.iter().map(|b| b.ref_name.clone()))
+                    .collect(),
                 ..Overlay::default()
             },
             false => Overlay {
