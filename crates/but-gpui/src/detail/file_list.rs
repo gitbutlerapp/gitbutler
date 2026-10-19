@@ -20,8 +20,8 @@ use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
 use crate::ui::{
-    Icon, checkbox, faint, h_flex, icon_button, list_row, muted, relative_time, shortcut,
-    small_icon, v_flex,
+    Icon, ROW_HEIGHT, checkbox, faint, h_flex, icon_button, list_row, muted, popover,
+    relative_time, shortcut, small_icon, v_flex,
 };
 
 /// Where a file list's files come from.
@@ -135,7 +135,7 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         let source = FileSource::Uncommitted(project.clone(), worktree.cloned());
-        let rows = self.file_list("uncommitted-files", source, cx);
+        let (rows, _) = self.file_list("uncommitted-files", source, cx);
         let diffs = self.worktree_diff().map_or(&[][..], |diff| &diff.files[..]);
         let header = self.list_header(files.iter().map(|f| f.path.as_str()), diffs, theme, cx);
         v_flex()
@@ -160,7 +160,7 @@ impl Detail {
                 .py(px(10.))
                 .into_any_element();
         };
-        let rows = self.file_list("diff-files", FileSource::Diff, cx);
+        let (rows, _) = self.file_list("diff-files", FileSource::Diff, cx);
         let paths = diff.files.iter().map(|f| f.file.path.as_str());
         let header = self.list_header(paths, &diff.files, theme, cx);
         v_flex()
@@ -171,9 +171,30 @@ impl Detail {
             .into_any_element()
     }
 
+    /// The files beside the diff, in the popover the files button opens on hover while
+    /// they aren't beside it: the uncommitted ones of a checkout's page, else the diff's.
+    /// A file picked in it scrolls the diff to it and leaves it open, to pick the next.
+    pub(super) fn render_files_popover(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+        let source = match &self.store.read(cx).selection {
+            Some(Selection::Uncommitted(project)) => FileSource::Uncommitted(project.clone(), None),
+            Some(Selection::Worktree(project, name)) => {
+                FileSource::Uncommitted(project.clone(), Some(name.clone()))
+            }
+            _ => FileSource::Diff,
+        };
+        let (rows, count) = self.file_list("popover-files", source, cx);
+        popover(theme)
+            .w(px(340.))
+            // The rows, the padding and the border.
+            .h(px((count as f32 * ROW_HEIGHT).min(400.) + 10.))
+            .py(px(4.))
+            .child(rows)
+            .into_any_element()
+    }
+
     /// A file list, flat or as a tree as the user chose, drawn only as far as it's on
-    /// screen: an agent can leave thousands of files.
-    fn file_list(&self, id: &'static str, source: FileSource, cx: &Context<Self>) -> Div {
+    /// screen: an agent can leave thousands of files. Also how many rows it has.
+    fn file_list(&self, id: &'static str, source: FileSource, cx: &Context<Self>) -> (Div, usize) {
         let store = self.store.read(cx);
         let tree = store.file_tree;
         let terms = self.filter_terms(cx);
@@ -253,9 +274,10 @@ impl Detail {
                 .map(|row| matches!(row, TreeRow::File { pos, .. } if picks.contains(paths[*pos])))
                 .collect(),
         };
-        side_list(
+        let count = rows.len();
+        let list = side_list(
             id,
-            rows.len(),
+            count,
             scroll,
             "files-scrollbar",
             cx,
@@ -281,7 +303,8 @@ impl Detail {
                     this.render_source_file(&source, index[*pos], row, solid, theme, cx)
                 }
             },
-        )
+        );
+        (list, count)
     }
 
     /// The `pos`th file of `source`, with what its list shows beside it, beyond where it sits

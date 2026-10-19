@@ -5,16 +5,18 @@
 use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::Instant;
 
 use gpui::{
     Action, AnyElement, App, ClickEvent, Context, CursorStyle, Entity, MouseButton, MouseDownEvent,
-    Pixels, Point, SharedString, Subscription, WeakEntity, Window, div, list, prelude::*, px,
+    Pixels, Point, SharedString, Subscription, WeakEntity, Window, anchored, deferred, div, list,
+    prelude::*, px,
 };
 
 use super::lines::Pick;
 use super::{
-    Cursor, Detail, DiscardHunk, LoadedDiff, TextPoint, ToggleFiles, TogglePlainLines, ToggleSplit,
-    ToggleWrap,
+    Cursor, Detail, DiscardHunk, FILES_POPOVER_DELAY, LoadedDiff, TextPoint, ToggleFiles,
+    TogglePlainLines, ToggleSplit, ToggleWrap,
 };
 use crate::app::AppView;
 use crate::backend::{
@@ -458,9 +460,34 @@ impl Detail {
         }
     }
 
+    /// The pointer came onto the files button, or left it. The popover of its files opens
+    /// once it rests there a moment, so passing over the button on the way elsewhere doesn't;
+    /// back on the button from the popover, it stays.
+    fn hover_files_button(&mut self, hovered: bool, cx: &mut Context<Self>) {
+        self.files_hover.0 = hovered.then(|| match self.files_popover_shown.get() {
+            true => Instant::now()
+                .checked_sub(FILES_POPOVER_DELAY)
+                .unwrap_or_else(Instant::now),
+            false => Instant::now(),
+        });
+        if hovered {
+            self._files_popover_delay = cx.spawn(async move |this, cx| {
+                cx.background_executor().timer(FILES_POPOVER_DELAY).await;
+                this.update(cx, |_, cx| cx.notify()).ok();
+            });
+        }
+        cx.notify();
+    }
+
     /// The bar over the diff, as but.dev's: the file list's toggle, which counts the files and
-    /// their lines while the list is hidden, then how long lines show and where the sides go.
-    pub(super) fn render_diff_tools(&self, theme: &Theme, cx: &App) -> Option<AnyElement> {
+    /// their lines while the list isn't beside the diff and lists them on hover, then how
+    /// long lines show and where the sides go. A page whose column is its own list has no
+    /// toggle, only the count and the list on hover.
+    pub(super) fn render_diff_tools(
+        &self,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
         let diff = self.shown_diff()?;
         let prefs = &self.store.read(cx).prefs;
         let (added, removed) = (diff.files.iter().map(FileDiff::stats))
@@ -472,9 +499,16 @@ impl Detail {
                 focus.dispatch_action(action, window, cx)
             }
         };
-        let hidden = self.files_hidden;
+        let toggles = !self.list_page(cx);
+        // The files aren't beside the diff: hidden, or a list page's own list is there.
+        let hidden = !toggles || self.files_hidden;
         let files_key = shortcut(&ToggleFiles, cx);
-        let files = h_flex()
+        let glyph = match (toggles, hidden) {
+            (false, _) => Icon::FileDiff,
+            (true, true) => Icon::SidebarNarrow,
+            (true, false) => Icon::FilesSidebar,
+        };
+        let toggle = h_flex()
             .id("diff-files")
             .flex_none()
             .h(px(28.))
@@ -482,14 +516,7 @@ impl Detail {
             .gap(px(6.))
             .rounded(px(4.))
             .hover(|el| el.bg(theme.hover()))
-            .child(
-                icon(if hidden {
-                    Icon::SidebarNarrow
-                } else {
-                    Icon::FilesSidebar
-                })
-                .text_color(theme.text_2),
-            )
+            .child(icon(glyph).text_color(theme.text_2))
             .when(hidden, |el| {
                 el.child(
                     div()
@@ -502,15 +529,40 @@ impl Detail {
                 )
                 .child(diff::stats(added, removed, theme))
             })
-            .tooltip(move |_, cx| {
-                let tip = if hidden {
-                    "Show the files"
-                } else {
-                    "Hide the files"
-                };
-                Tooltip::with_key(tip.into(), files_key.clone(), cx)
+            .on_hover(
+                cx.listener(|this, hovered: &bool, _, cx| this.hover_files_button(*hovered, cx)),
+            )
+            // Hidden, the list opens on hover, which says more than a tooltip would.
+            .when(toggles && !hidden, |el| {
+                el.tooltip(move |_, cx| {
+                    Tooltip::with_key("Hide the files".into(), files_key.clone(), cx)
+                })
             })
-            .on_click(act(&ToggleFiles));
+            .when(toggles, |el| el.on_click(act(&ToggleFiles)));
+        // Under the button, with a strip of its own above it that keeps it open on the way
+        // from the button to it.
+        let rested = (self.files_hover.0).is_some_and(|at| at.elapsed() >= FILES_POPOVER_DELAY);
+        let open = hidden && (rested || self.files_hover.1);
+        self.files_popover_shown.set(open);
+        let list = open.then(|| {
+            div().absolute().top(px(28.)).left_0().child(
+                deferred(
+                    anchored().snap_to_window_with_margin(px(8.)).child(
+                        div()
+                            .id("files-popover")
+                            .pt(px(4.))
+                            .occlude()
+                            .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
+                                this.files_hover.1 = *hovered;
+                                cx.notify();
+                            }))
+                            .child(self.render_files_popover(theme, cx)),
+                    ),
+                )
+                .with_priority(1),
+            )
+        });
+        let files = div().relative().child(toggle).children(list);
         let group = || toggle_group(theme);
         // A choice of the group, which `action` makes when `on` isn't already.
         let choice = |id: &'static str,
@@ -534,8 +586,7 @@ impl Detail {
                 .px(px(12.))
                 .gap(px(8.))
                 .bg(theme.bg_1)
-                // A list page's list always shows.
-                .when(!self.list_page(cx), |el| el.child(files))
+                .child(files)
                 .child(div().flex_1())
                 .child(
                     group()
