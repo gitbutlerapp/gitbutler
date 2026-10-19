@@ -1608,10 +1608,8 @@ impl Detail {
                 | Selection::Branch(..)
                 | Selection::Stack(..)
                 | Selection::Project(..),
-            ) => self.header_height.get(),
-            Some(Selection::Branches(_)) if self.selected_review(cx).is_some() => {
-                pull_request::TABS_HEIGHT
-            }
+            ) => self.header_height.get() + self.list_tabs_height(cx),
+            Some(Selection::Branches(_)) => self.list_tabs_height(cx),
             _ => 0.,
         }
     }
@@ -1704,30 +1702,12 @@ impl Render for Detail {
                     }
                     _ => None,
                 };
-                // Beside the Branches page's list, its branch's tabs when it has a pull
+                // Beside a list, the selected branch or commit's tabs when it has a pull
                 // request, over the pull request or the diff.
                 let beside = match selection {
-                    Selection::Branches(project) => self.selected_review(cx).map(|review| {
-                        v_flex()
-                            .flex_1()
-                            .h_full()
-                            .min_w(px(0.))
-                            .child(
-                                h_flex()
-                                    .flex_none()
-                                    .h(px(pull_request::TABS_HEIGHT))
-                                    .px(px(16.))
-                                    .items_end()
-                                    .border_b_1()
-                                    .border_color(theme.border_3)
-                                    .child(self.branch_tabs(review, &theme, cx)),
-                            )
-                            .child(match self.review_tab {
-                                true => self.render_review_tab(project, &theme, cx),
-                                false => div().flex_1().into_any_element(),
-                            })
-                            .into_any_element()
-                    }),
+                    Selection::Branches(project) | Selection::Project(project) => (self
+                        .selected_review(cx))
+                    .map(|review| self.render_list_tabs(project, review, &theme, cx)),
                     _ => None,
                 };
                 let files_shown = self.files_shown(cx);

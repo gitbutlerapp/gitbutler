@@ -11,7 +11,8 @@ use but_core::DryRun;
 use but_core::sync::RepoExclusive;
 
 use super::ops::{full_name, holds};
-use super::{CommitId, open, runtime, short_ref, title};
+use super::reviews::{cached_reviews, from_cache};
+use super::{CommitId, Review, ReviewState, open, runtime, short_ref, title};
 
 #[derive(Debug, Clone)]
 pub struct TargetCommit {
@@ -19,8 +20,8 @@ pub struct TargetCommit {
     pub title: String,
     /// Seconds since the epoch.
     pub time: i64,
-    /// The pull request it landed, as "#12" and its title.
-    pub review: Option<(String, String)>,
+    /// The pull request it landed, without CI checks.
+    pub review: Option<Review>,
     /// The workspace doesn't have it yet.
     pub incoming: bool,
 }
@@ -38,6 +39,7 @@ pub fn target_commits(
         after.map(|id| but_api::json::HexHash(id.0)),
         Some(limit),
     )?;
+    let cached = cached_reviews(&ctx);
     let commits = page
         .commits
         .into_iter()
@@ -48,10 +50,19 @@ pub fn target_commits(
                 title: title(&commit.message),
                 time: (commit.committed_at / 1000) as i64,
                 review: target.review.map(|review| {
-                    (
-                        format!("{}{}", review.unit_symbol, review.number),
-                        review.title,
-                    )
+                    let mut found = match cached.get(&(review.number as u64)) {
+                        Some(found) => from_cache(found),
+                        // Named by the merge commit's message, which the cache has no record of.
+                        None => Review {
+                            number: review.number as u64,
+                            title: review.title,
+                            url: Some(review.html_url),
+                            ..Review::default()
+                        },
+                    };
+                    // It landed, whatever the cache saw last.
+                    found.state = ReviewState::Merged;
+                    found
                 }),
                 incoming: !target.in_workspace,
             }
