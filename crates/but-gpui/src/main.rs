@@ -9,7 +9,7 @@ fn main() {
 #[cfg(target_os = "macos")]
 fn main() {
     use_production_server();
-    but_gpui::run();
+    but_gpui::run(None);
 }
 
 /// Sign in, and use the account, on GitButler's production server, where people's accounts

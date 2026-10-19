@@ -25,6 +25,16 @@ use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_log::{Target, TargetKind};
 
 fn main() -> anyhow::Result<()> {
+    // The native client relaunches this to install an update, which the web app does. Taken
+    // out of the environment, which the web app's own relaunch after installing passes on,
+    // so that relaunch opens what Settings say.
+    #[cfg(all(feature = "builtin-gpui", target_os = "macos"))]
+    let web_once = std::env::var_os(but_gpui::WEB_APP_ONCE).is_some();
+    #[cfg(all(feature = "builtin-gpui", target_os = "macos"))]
+    // SAFETY: first thing in `main`, before any other thread could read the environment.
+    unsafe {
+        std::env::remove_var(but_gpui::WEB_APP_ONCE)
+    };
     but_api::panic_capture::install_panic_hook();
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -74,8 +84,20 @@ fn main() -> anyhow::Result<()> {
     // The native client, on the same settings, accounts and keychain entries. It owns the main
     // thread until it quits, so it starts here, before Tauri does.
     #[cfg(all(feature = "builtin-gpui", target_os = "macos"))]
-    if std::env::args_os().any(|arg| arg == "--gpui") {
-        but_gpui::run();
+    if !web_once
+        && (std::env::args_os().any(|arg| arg == "--gpui")
+            || app_settings.get()?.feature_flags.gpui)
+    {
+        // It installs nothing itself: it asks the web app's update feed, as often as the web
+        // app would, and relaunches into the web app to install what it offers.
+        #[allow(deprecated)]
+        let interval = app_settings.get()?.ui.check_for_updates_interval_in_seconds;
+        but_gpui::run(Some(but_gpui::Embedded {
+            update_feed: (interval > 0)
+                .then(|| update_feed(&tauri_context))
+                .flatten(),
+            check_every: std::time::Duration::from_secs(interval),
+        }));
         return Ok(());
     }
 
@@ -493,4 +515,19 @@ fn inherit_interactive_login_shell_environment_if_not_launched_from_terminal() {
     } else {
         doit();
     }
+}
+
+/// The update feed the web app asks for this build: its updater's first endpoint, filled in
+/// as the updater fills it for this machine and version.
+#[cfg(all(feature = "builtin-gpui", target_os = "macos"))]
+fn update_feed(context: &tauri::Context<tauri::Wry>) -> Option<String> {
+    let updater = context.config().plugins.0.get("updater")?;
+    let endpoint = updater.get("endpoints")?.get(0)?.as_str()?;
+    let version = context.package_info().version.to_string();
+    Some(
+        endpoint
+            .replace("{{target}}", "darwin")
+            .replace("{{arch}}", std::env::consts::ARCH)
+            .replace("{{current_version}}", &version),
+    )
 }

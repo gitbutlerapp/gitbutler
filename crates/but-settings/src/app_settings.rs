@@ -48,6 +48,9 @@ pub struct FeatureFlags {
     pub tui_file_browser: bool,
     /// Enable experimental worktree manipulation support.
     pub worktree_manipulation: bool,
+    /// Open the experimental native client (GPUI) instead of the web app when GitButler
+    /// starts, on macOS builds that include it.
+    pub gpui: bool,
 }
 but_schemars::register_sdk_type!(FeatureFlags);
 

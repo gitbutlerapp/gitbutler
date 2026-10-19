@@ -221,6 +221,9 @@ pub struct Store {
     pub toasts: Vec<Toast>,
     /// Who is signed in to GitButler.
     pub account: account::Account,
+    /// The version the desktop app's update feed offers, newer than this build, when the
+    /// desktop app's binary started this client.
+    pub newer_version: Option<String>,
     /// Each project's mutation in flight. A project's mutations run one at a time, each
     /// until the reload after it lands, so the next one sees what it did; projects don't
     /// wait on each other.
@@ -253,6 +256,7 @@ pub struct Store {
     /// asks for works.
     fetch_failed: HashMap<ProjectId, Instant>,
     _auto_fetch: Task<()>,
+    _update_check: Task<()>,
     forge_requests: mpsc::UnboundedSender<ProjectId>,
     /// Projects waiting for a forge refresh, so each waits only once.
     forge_queued: HashSet<ProjectId>,
@@ -293,6 +297,7 @@ impl Store {
             drop_at: None,
             toasts: Vec::new(),
             account: account::Account::default(),
+            newer_version: None,
             running: HashMap::new(),
             busy_ticker: Task::ready(()),
             queue: VecDeque::new(),
@@ -335,6 +340,7 @@ impl Store {
             fetched: HashMap::new(),
             fetch_failed: HashMap::new(),
             _auto_fetch: Self::fetch_in_background(cx),
+            _update_check: Self::check_for_updates(cx),
         };
         store.load_projects(cx);
         store.load_account(cx);

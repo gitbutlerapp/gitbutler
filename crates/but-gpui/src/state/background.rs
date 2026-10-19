@@ -55,6 +55,39 @@ impl Store {
         })
     }
 
+    /// Ask the desktop app's update feed, as often as its settings say, whether there's a
+    /// newer version, when the desktop app's binary started this client. Quietly: a failed
+    /// check only logs, and the next one tries again.
+    pub(super) fn check_for_updates(cx: &mut Context<Self>) -> Task<()> {
+        let Some(crate::Embedded {
+            update_feed: Some(feed),
+            check_every,
+        }) = cx.try_global::<crate::Embedded>().cloned()
+        else {
+            return Task::ready(());
+        };
+        cx.spawn(async move |this, cx| {
+            loop {
+                let feed = feed.clone();
+                match backend::run(move || backend::settings::newer_version(&feed)).await {
+                    Ok(newer) => {
+                        let changed = this.update(cx, |store, cx| {
+                            if store.newer_version != newer {
+                                store.newer_version = newer;
+                                cx.notify();
+                            }
+                        });
+                        if changed.is_err() {
+                            return;
+                        }
+                    }
+                    Err(err) => tracing::warn!("couldn't check for updates: {err:#}"),
+                }
+                cx.background_executor().timer(check_every).await;
+            }
+        })
+    }
+
     /// When the app last fetched `id`.
     pub fn fetched_at(&self, id: &ProjectId) -> Option<Instant> {
         self.fetched.get(id).copied()
