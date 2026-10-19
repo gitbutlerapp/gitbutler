@@ -2112,7 +2112,10 @@ impl Navigator {
     ) -> Option<AnyElement> {
         let store = self.store.read(cx);
         let theme = style.theme;
-        let branches = store.workspace(id)?.lane(bottom)?;
+        // Find the stack by its bottom branch as drawn, after pending deletes.
+        let branches = (store.workspace(id)?.lanes())
+            .map(|lane| store.after_deletes(id, lane))
+            .find(|lane| lane.last().is_some_and(|branch| branch.ref_name == bottom))?;
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
         let names: Vec<&str> = (branches.iter())

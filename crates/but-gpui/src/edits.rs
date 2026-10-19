@@ -548,8 +548,16 @@ impl AppView {
     ) {
         let name = short_ref(&ref_name).to_owned();
         let store = self.store.read(cx);
-        let Some((lane, at)) = (store.workspace(&project)).and_then(|ws| ws.lane_of(&ref_name))
+        // An unnamed branch has no ref to delete, as its menu says by offering none.
+        let Some((lane, _)) = (store.workspace(&project))
+            .filter(|_| !ref_name.is_empty())
+            .and_then(|ws| ws.lane_of(&ref_name))
         else {
+            return;
+        };
+        // The lane as the deletes already asked for leave it, which this one follows.
+        let lane = store.after_deletes(&project, lane);
+        let Some(at) = lane.iter().position(|branch| branch.ref_name == ref_name) else {
             return;
         };
         // A linked worktree keeps the branch it has checked out; the ones stacked under it
