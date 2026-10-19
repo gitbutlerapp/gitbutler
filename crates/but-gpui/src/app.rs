@@ -573,9 +573,8 @@ impl AppView {
             self.store.update(cx, |store, cx| store.snack(message, cx));
             return;
         }
-        self.store.update(cx, |store, cx| {
-            store.update_from_target(&project, false, cx)
-        });
+        self.store
+            .update(cx, |store, cx| store.update_from_target(&project, None, cx));
     }
 
     pub fn toggle_navigator(
