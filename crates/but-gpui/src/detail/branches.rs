@@ -330,6 +330,10 @@ impl Detail {
                     ApplyOutcome::Applied | ApplyOutcome::AlreadyApplied => {
                         let local = format!("refs/heads/{name}");
                         store.select(Some(Selection::Branch(selected, local)), cx);
+                        // As when an agent applied it meanwhile.
+                        if matches!(applied, ApplyOutcome::AlreadyApplied) {
+                            return store.snack(format!("{name} is already applied"), cx);
+                        }
                         store.snack_undoable(format!("Applied {name}"), cx)
                     }
                     ApplyOutcome::Conflicts(stacks) => store.error(
