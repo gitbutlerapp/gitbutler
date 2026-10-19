@@ -84,22 +84,13 @@ pub fn resolve_markers(
         .workdir()
         .context("The checkout has no files")?
         .to_owned();
-    if worktree.is_none() && !editing {
-        let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
-            &ctx,
-            SnapshotDetails::new(OperationKind::ResolveConflicts),
-            perm.read_permission(),
-            DryRun::No,
-        );
-        if let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(&ctx, perm)) {
-            tracing::warn!(?err, "couldn't record the resolution for undo");
-        }
-    }
     let mut by_file: BTreeMap<String, Vec<(String, Keep)>> = BTreeMap::new();
     for (file, id, keep) in keep {
         by_file.entry(file).or_default().push((id, keep));
     }
-    let mut resolved = Vec::new();
+    // Every file's picks are found before any is written: a file changed since its conflicts
+    // were shown stops them all, rather than leave the ones before it half done.
+    let mut writes = Vec::new();
     for (file, picks) in by_file {
         let on_disk = workdir.join(&file);
         let text = std::fs::read_to_string(&on_disk)?;
@@ -119,8 +110,30 @@ pub fn resolve_markers(
             };
             kept.insert(ix, text);
         }
-        std::fs::write(&on_disk, markers::replace(&lines, &blocks, &kept))?;
-        if kept.len() == blocks.len() {
+        let whole = kept.len() == blocks.len();
+        writes.push((
+            file,
+            on_disk,
+            markers::replace(&lines, &blocks, &kept),
+            whole,
+        ));
+    }
+    // Recorded once the picks are found, so a refused Apply leaves nothing to undo.
+    if worktree.is_none() && !editing {
+        let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+            &ctx,
+            SnapshotDetails::new(OperationKind::ResolveConflicts),
+            perm.read_permission(),
+            DryRun::No,
+        );
+        if let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(&ctx, perm)) {
+            tracing::warn!(?err, "couldn't record the resolution for undo");
+        }
+    }
+    let mut resolved = Vec::new();
+    for (file, on_disk, text, whole) in writes {
+        std::fs::write(&on_disk, text)?;
+        if whole {
             resolved.push(file.into());
         }
     }
