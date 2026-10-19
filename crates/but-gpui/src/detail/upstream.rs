@@ -7,16 +7,22 @@ use std::time::{Duration, Instant};
 use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
 
 use super::Detail;
-use super::panes::{list_heading, meta_item, meta_row, side_header, side_list, title_text};
+use super::panes::{Crumb, list_heading, meta_item, meta_row, side_header, side_list, title_text};
 use crate::backend::upstream::{self, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, Forge};
 use crate::state::{Overlay, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
 use crate::ui::{
-    Icon, error_summary, faint, h_flex, icon, list_row, muted, plural, relative_time, small_icon,
-    v_flex,
+    Icon, Tooltip, error_summary, faint, h_flex, icon, list_row, muted, plural, relative_time,
+    small_icon, v_flex,
 };
+
+/// What a target commit is called: the pull request it landed, by its title, as Lite names
+/// it, or else the commit's own title.
+fn label(commit: &TargetCommit) -> &str {
+    (commit.review.as_ref()).map_or(&commit.title, |(_, title)| title)
+}
 
 /// How many target commits a page holds.
 const PAGE: u32 = 50;
@@ -204,6 +210,27 @@ impl Detail {
             rows.push(Row::More);
         }
         rows
+    }
+
+    /// The page's crumbs after the project's: the target and the commit of it selected.
+    pub(super) fn upstream_crumbs(
+        &self,
+        project: &ProjectId,
+        crumbs: &mut Vec<Crumb>,
+        cx: &Context<Self>,
+    ) {
+        let Some(upstream) = self.upstream_for(project) else {
+            return;
+        };
+        let Some(commit) = (upstream.commits.iter()).find(|c| Some(c.id) == upstream.selected)
+        else {
+            return;
+        };
+        let target = (self.store.read(cx).workspace(project))
+            .and_then(|ws| ws.target.as_ref())
+            .map_or("Target".to_owned(), |target| target.name.clone());
+        crumbs.push((target.into(), None));
+        crumbs.push((label(commit).to_owned().into(), None));
     }
 
     fn select_target_commit(&mut self, id: CommitId, cx: &mut Context<Self>) {
@@ -521,26 +548,32 @@ impl Detail {
                                 } else {
                                     theme.text_3
                                 };
+                                // One that landed a pull request by the request, as Lite
+                                // names it, its number, merge commit and ID on hover.
+                                let tip = (commit.review.as_ref()).map(|(number, _)| {
+                                    let short = id.short();
+                                    format!("{number} · {} · {short}", commit.title)
+                                });
+                                let mark = match commit.review {
+                                    Some(_) => Icon::BranchMerge,
+                                    None => Icon::Commit,
+                                };
                                 list_row(("target-commit", ix), selected, theme)
-                                    .child(small_icon(Icon::Commit).text_color(glyph))
+                                    .child(small_icon(mark).text_color(glyph))
                                     .child(
                                         div()
+                                            .id(("target-commit-title", ix))
                                             .flex_1()
                                             .min_w(px(0.))
                                             .truncate()
                                             .when(!commit.incoming, |el| {
                                                 el.text_color(theme.text_2)
                                             })
-                                            .child(SharedString::from(commit.title.clone())),
+                                            .child(SharedString::from(label(commit).to_owned()))
+                                            .when_some(tip, |el, tip| {
+                                                el.tooltip(Tooltip::text(tip))
+                                            }),
                                     )
-                                    .when_some(commit.review.as_ref(), |el, (number, _)| {
-                                        el.child(
-                                            div()
-                                                .text_size(px(11.))
-                                                .text_color(theme.text_2)
-                                                .child(SharedString::from(number.clone())),
-                                        )
-                                    })
                                     .child(faint(relative_time(commit.time), theme).flex_none())
                                     .on_click(cx.listener(move |this, _, _, cx| {
                                         this.select_target_commit(id, cx)
