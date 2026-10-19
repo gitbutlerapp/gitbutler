@@ -10,7 +10,7 @@ use gpui::{
 };
 
 use super::Detail;
-use super::panes::{Crumb, list_heading, side_list, side_row};
+use super::panes::{Crumb, side_list, side_row};
 use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::branches::{self, ApplyOutcome, BranchCommit, OtherBranch};
 use crate::backend::{self, CommitId, DiffSource};
@@ -20,8 +20,8 @@ use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::illustration::Illustration;
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, button, empty_state, faint, field, h_flex, icon_button, muted,
-    plural, relative_time, review, small_icon, v_flex,
+    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, empty_state, faint, field, h_flex, icon_button,
+    muted, plural, relative_time, review, small_icon, v_flex,
 };
 
 pub(super) struct Branches {
@@ -35,6 +35,8 @@ pub(super) struct Branches {
     /// The branches whose commits show under them, by ref: folded until opened, as the
     /// navigator's are.
     open: HashSet<String>,
+    /// The stacks whose branches are folded away under their caption, by their top branch.
+    folded: HashSet<String>,
     /// Open branches' commits, by ref and what they were loaded for.
     commits: HashMap<String, (Loaded, Vec<BranchCommit>)>,
     /// One of the selected branch's commits, to see on its own and to copy into the workspace.
@@ -52,12 +54,14 @@ impl Branches {
 /// some of its commits on the target without moving its tip.
 type Loaded = (CommitId, Option<usize>);
 
-/// A row of the list: a group's heading, a branch by index into the list, or a commit of an
-/// open one, by the branch's index and its own.
+/// A row of the list: a stack's caption, by its top branch's index, with how many of its
+/// branches show and whether they're folded away; a branch by index into the list; or a
+/// commit of an open one, by the branch's index and its own. A branch in a stack shown with
+/// others, and its commits, sit a step in (`stacked`).
 enum Row {
-    Heading(&'static str),
-    Branch(usize),
-    Commit(usize, usize),
+    Stack(usize, usize, bool),
+    Branch(usize, bool),
+    Commit(usize, usize, bool),
 }
 
 impl Detail {
@@ -93,17 +97,18 @@ impl Detail {
                     }
                 };
                 let previous = this.branches.take().filter(|b| b.project == project);
-                // Local branches list first, so the first of those when there is one.
-                let first = list.iter().find(|b| b.local).or(list.first());
+                // The newest, which the list shows first.
+                let first = list.first();
                 let selected = (previous.as_ref().and_then(|b| b.selected.clone()))
                     .filter(|ref_name| list.iter().any(|b| b.ref_name == *ref_name))
                     .or_else(|| first.map(|b| b.ref_name.clone()));
                 // Which branches were open and their commits, of those still listed, and the
                 // selected commit while its branch stays selected.
                 let listed = |ref_name: &String| list.iter().any(|b| b.ref_name == *ref_name);
-                let (open, commits, commit) = match previous {
+                let (open, folded, commits, commit) = match previous {
                     Some(b) => (
                         b.open.into_iter().filter(|r| listed(r)).collect(),
+                        b.folded.into_iter().filter(|r| listed(r)).collect(),
                         b.commits.into_iter().filter(|(r, _)| listed(r)).collect(),
                         b.commit.filter(|_| b.selected == selected),
                     ),
@@ -115,6 +120,7 @@ impl Detail {
                     list,
                     selected,
                     open,
+                    folded,
                     commits,
                     commit,
                 });
@@ -227,6 +233,16 @@ impl Detail {
         });
     }
 
+    /// Fold a stack's branches away under its caption, or show them again, by its top branch.
+    fn toggle_stack(&mut self, top: &str, cx: &mut Context<Self>) {
+        if let Some(branches) = &mut self.branches
+            && !branches.folded.remove(top)
+        {
+            branches.folded.insert(top.to_owned());
+        }
+        cx.notify();
+    }
+
     /// Show a branch's commits under it, or fold them away, as a navigator branch does.
     /// Folding it over its selected commit selects the branch.
     fn toggle_branch(&mut self, ref_name: &str, cx: &mut Context<Self>) {
@@ -246,6 +262,44 @@ impl Detail {
 
     /// The branches the filter keeps, local ones first, under headings.
     fn branch_rows(&self, branches: &Branches, cx: &Context<Self>) -> Vec<Row> {
+        let shown = self.shown_branches(branches, cx);
+        let mut rows = Vec::new();
+        // In the listing's order, as Lite has them: newest first, local and remote alike, a
+        // stack's branches together under a caption while more than one of them shows.
+        for stack in shown.chunk_by(|a, b| branches.list[*a].stack == branches.list[*b].stack) {
+            let stacked = stack.len() > 1;
+            if stacked {
+                let top = (branches.list.iter())
+                    .position(|b| b.stack == branches.list[stack[0]].stack)
+                    .unwrap_or(stack[0]);
+                let folded = branches.folded.contains(&branches.list[top].ref_name);
+                rows.push(Row::Stack(top, stack.len(), folded));
+                if folded {
+                    continue;
+                }
+            }
+            for &ix in stack {
+                rows.push(Row::Branch(ix, stacked));
+                let branch = &branches.list[ix];
+                // By its tip only, so the rows stay while a fetch has them reload. Only its
+                // own commits: a stacked branch's listing goes on through the ones below it.
+                if branches.open.contains(&branch.ref_name)
+                    && let Some(((tip, _), commits)) = branches.commits.get(&branch.ref_name)
+                    && *tip == branch.tip
+                {
+                    let own = branch
+                        .own_commits
+                        .unwrap_or(commits.len())
+                        .min(commits.len());
+                    rows.extend((0..own).map(|commit| Row::Commit(ix, commit, stacked)));
+                }
+            }
+        }
+        rows
+    }
+
+    /// The branches the filter keeps, by index into the list, folded away or not.
+    fn shown_branches(&self, branches: &Branches, cx: &Context<Self>) -> Vec<usize> {
         let query = self.branch_filter.read(cx).text().trim().to_lowercase();
         let store = self.store.read(cx);
         let prefs = &store.prefs;
@@ -264,27 +318,9 @@ impl Detail {
                         .as_ref()
                         .is_some_and(|author| author.to_lowercase().contains(&query)))
         };
-        let mut rows = Vec::new();
-        for (heading, local) in [("Local", true), ("Remote", false)] {
-            let group: Vec<usize> = (0..branches.list.len())
-                .filter(|ix| branches.list[*ix].local == local && keeps(&branches.list[*ix]))
-                .collect();
-            if !group.is_empty() {
-                rows.push(Row::Heading(heading));
-                for ix in group {
-                    rows.push(Row::Branch(ix));
-                    let branch = &branches.list[ix];
-                    // By its tip only, so the rows stay while a fetch has them reload.
-                    if branches.open.contains(&branch.ref_name)
-                        && let Some(((tip, _), commits)) = branches.commits.get(&branch.ref_name)
-                        && *tip == branch.tip
-                    {
-                        rows.extend((0..commits.len()).map(|commit| Row::Commit(ix, commit)));
-                    }
-                }
-            }
-        }
-        rows
+        (0..branches.list.len())
+            .filter(|ix| keeps(&branches.list[*ix]))
+            .collect()
     }
 
     /// Select the first branch the filter shows when it hides the selected one, so the diff
@@ -293,17 +329,16 @@ impl Detail {
         let Some(branches) = &self.branches else {
             return;
         };
-        let rows = self.branch_rows(branches, cx);
-        let shown = |ix: &usize| Some(&branches.list[*ix].ref_name) == branches.selected.as_ref();
-        if rows
-            .iter()
-            .any(|row| matches!(row, Row::Branch(ix) if shown(ix)))
-        {
+        // One folded away in its stack still counts.
+        let selected =
+            |ix: &usize| Some(&branches.list[*ix].ref_name) == branches.selected.as_ref();
+        if self.shown_branches(branches, cx).iter().any(selected) {
             return;
         }
+        let rows = self.branch_rows(branches, cx);
         // With none shown, none is selected, and nothing shows beside the list either.
         let first = rows.iter().find_map(|row| match row {
-            Row::Branch(ix) => Some(branches.list[*ix].ref_name.clone()),
+            Row::Branch(ix, _) => Some(branches.list[*ix].ref_name.clone()),
             _ => None,
         });
         if first != branches.selected {
@@ -340,8 +375,8 @@ impl Detail {
                 .map(|step| at as isize + delta * (step + 1))
                 .take_while(|ix| (0..rows.len() as isize).contains(ix))
                 .map(|ix| ix as usize)
-                .find(|ix| !matches!(rows[*ix], Row::Heading(_))),
-            None => rows.iter().position(|row| !matches!(row, Row::Heading(_))),
+                .find(|ix| !matches!(rows[*ix], Row::Stack(..))),
+            None => rows.iter().position(|row| !matches!(row, Row::Stack(..))),
         };
         if let Some(next) = next {
             self.select_branch_row(&rows[next], cx);
@@ -361,7 +396,9 @@ impl Detail {
         let ref_name = branch.ref_name.clone();
         let is_open = branches.open.contains(&ref_name);
         match (open, branches.commit.is_some(), is_open) {
-            (true, false, false) if branch.ahead != Some(0) => self.toggle_branch(&ref_name, cx),
+            (true, false, false) if branch.own_commits != Some(0) => {
+                self.toggle_branch(&ref_name, cx)
+            }
             (true, false, true) => self.step_branches(1, cx),
             (false, true, _) => self.select_other_branch(Some(ref_name), cx),
             (false, false, true) => self.toggle_branch(&ref_name, cx),
@@ -374,12 +411,12 @@ impl Detail {
             return;
         };
         match *row {
-            Row::Heading(_) => {}
-            Row::Branch(ix) => {
+            Row::Stack(..) => {}
+            Row::Branch(ix, _) => {
                 let ref_name = branches.list[ix].ref_name.clone();
                 self.select_other_branch(Some(ref_name), cx)
             }
-            Row::Commit(ix, commit) => {
+            Row::Commit(ix, commit, _) => {
                 let ref_name = branches.list[ix].ref_name.clone();
                 let Some((_, commits)) = branches.commits.get(&ref_name) else {
                     return;
@@ -645,8 +682,50 @@ impl Detail {
                     let branches = this.branches.as_ref()?;
                     let solid = this.side_focus.is_focused(window);
                     Some(match rows.get(ix)? {
-                        Row::Heading(heading) => list_heading(*heading, theme),
-                        row @ Row::Commit(branch_ix, commit_ix) => {
+                        // As the navigator's caption, its branches a step in under it. A
+                        // click folds them away; folded, it names its top branch.
+                        Row::Stack(top, count, folded) => {
+                            let top_ref = branches.list[*top].ref_name.clone();
+                            let chevron = match folded {
+                                true => Icon::ChevronRight,
+                                false => Icon::ChevronDown,
+                            };
+                            h_flex()
+                                .id(("stack-caption", ix))
+                                .h(px(ROW_HEIGHT))
+                                .mx(px(6.))
+                                .pl(px(2.))
+                                .pr(px(8.))
+                                .gap(px(8.))
+                                .rounded(px(4.))
+                                .hover(|el| el.bg(theme.hover()))
+                                .text_size(px(12.))
+                                .text_color(theme.text_2)
+                                .child(
+                                    div()
+                                        .flex_none()
+                                        .w(px(14.))
+                                        .flex()
+                                        .justify_center()
+                                        .child(small_icon(chevron).text_color(theme.text_3)),
+                                )
+                                .child(small_icon(Icon::Stack).text_color(theme.text_3))
+                                .child(div().flex_none().child(format!("Stack of {count}")))
+                                .when(*folded, |el| {
+                                    el.child(
+                                        div()
+                                            .min_w(px(0.))
+                                            .truncate()
+                                            .text_color(theme.text_1)
+                                            .child(label(&branches.list[*top]).to_owned()),
+                                    )
+                                })
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.toggle_stack(&top_ref, cx)
+                                }))
+                                .into_any_element()
+                        }
+                        row @ Row::Commit(branch_ix, commit_ix, stacked) => {
                             let ref_name = branches.list[*branch_ix].ref_name.clone();
                             let (_, commits) = branches.commits.get(&ref_name)?;
                             let commit = commits.get(*commit_ix)?;
@@ -659,7 +738,7 @@ impl Detail {
                             let menu_ref = ref_name.clone();
                             side_row(("other-commit", ix), selected, solid, theme)
                                 // Its glyph under its branch's, its title under the name.
-                                .pl(px(24.))
+                                .pl(px(if *stacked { 38. } else { 24. }))
                                 .aria_label(label.clone())
                                 .child(small_icon(Icon::Commit).text_color(match on {
                                     true => theme.text_inverted,
@@ -689,7 +768,7 @@ impl Detail {
                                 .on_drag(payload, drag_preview(this.store.clone(), label))
                                 .into_any_element()
                         }
-                        row @ Row::Branch(branch_ix) => {
+                        row @ Row::Branch(branch_ix, stacked) => {
                             let branch = &branches.list[*branch_ix];
                             let selected = is_selected(branches, row);
                             let ref_name = branch.ref_name.clone();
@@ -716,7 +795,7 @@ impl Detail {
                                 .flex()
                                 .items_center()
                                 .justify_center();
-                            let step = match branch.ahead == Some(0) {
+                            let step = match branch.own_commits == Some(0) {
                                 true => step.child(
                                     small_icon(Icon::BulletDisc).text_color(ink(theme.text_3)),
                                 ),
@@ -744,6 +823,9 @@ impl Detail {
                                         ))
                                 }
                             };
+                            let shown_name = (branch.ref_name.strip_prefix("refs/remotes/"))
+                                .filter(|_| !branch.local)
+                                .unwrap_or(&branch.name);
                             let name = div()
                                 .id(("other-branch-name", ix))
                                 .flex_1()
@@ -753,6 +835,7 @@ impl Detail {
                                 Some(review) if !review.title.is_empty() => name
                                     .text_color(ink(review::title_color(review.state, theme)))
                                     .child(SharedString::from(review.title.clone())),
+                                // A branch only a remote has, by the remote's name for it.
                                 _ => name
                                     .font_family(theme.mono_font.clone())
                                     .text_size(px(12.))
@@ -761,13 +844,13 @@ impl Detail {
                                     } else {
                                         theme.blue
                                     }))
-                                    .child(SharedString::from(branch.name.clone())),
+                                    .child(SharedString::from(shown_name.to_owned())),
                             };
                             let tip = (branch.review.as_ref())
-                                .map(|review| format!("{} · #{}", branch.name, review.number));
+                                .map(|review| format!("{shown_name} · #{}", review.number));
                             let (project, menu_ref) = (branches.project.clone(), ref_name.clone());
                             side_row(("other-branch", ix), selected, solid, theme)
-                                .pl(px(2.))
+                                .pl(px(if *stacked { 16. } else { 2. }))
                                 .child(step)
                                 .child(small_icon(glyph).text_color(ink(glyph_color)))
                                 .child(
@@ -934,12 +1017,20 @@ fn quiet(el: gpui::Div, on: bool, theme: &Theme) -> gpui::Div {
 fn is_selected(branches: &Branches, row: &Row) -> bool {
     let selected = |ix: usize| branches.selected.as_ref() == Some(&branches.list[ix].ref_name);
     match *row {
-        Row::Heading(_) => false,
-        Row::Branch(ix) => selected(ix) && branches.commit.is_none(),
-        Row::Commit(ix, commit) => {
+        Row::Stack(..) => false,
+        Row::Branch(ix, _) => selected(ix) && branches.commit.is_none(),
+        Row::Commit(ix, commit, _) => {
             let commits = branches.commits.get(&branches.list[ix].ref_name);
             selected(ix)
                 && commits.and_then(|(_, c)| c.get(commit)).map(|c| c.id) == branches.commit
         }
     }
+}
+
+/// What the list calls a branch: its pull request's title once known, else its name.
+fn label(branch: &OtherBranch) -> &str {
+    (branch.review.as_ref())
+        .map(|review| review.title.as_str())
+        .filter(|title| !title.is_empty())
+        .unwrap_or(&branch.name)
 }
