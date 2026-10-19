@@ -408,17 +408,18 @@ impl Store {
         );
     }
 
-    /// Rebase the project's branches onto its target's latest commits. Unless `confirmed`,
-    /// it does nothing while another update waits or runs, and stops short of leaving
-    /// anything conflicted that isn't now, with a card that offers to update anyway. The
-    /// card shows before its update has finished, so a confirmed one queues regardless.
+    /// Rebase the project's branches onto its target's latest commits. It stops short of
+    /// leaving anything conflicted that isn't now, with a card that offers to update anyway,
+    /// unless that's what was `accepted` there. Unless `accepted`, it does nothing while
+    /// another update waits or runs; the card shows before its update has finished, so an
+    /// accepted one queues regardless.
     pub fn update_from_target(
         &mut self,
         project: &ProjectId,
-        confirmed: bool,
+        accepted: Option<backend::upstream::UpdateConflicts>,
         cx: &mut Context<Self>,
     ) {
-        if !confirmed && self.updating(project) {
+        if accepted.is_none() && self.updating(project) {
             return;
         }
         let updated = project.clone();
@@ -426,7 +427,7 @@ impl Store {
             project,
             UPDATE,
             Overlay::default(),
-            move |path, _| backend::update_from_target(path, confirmed),
+            move |path, _| backend::update_from_target(path, accepted.as_ref()),
             move |store, outcome, cx| {
                 let target = (store.workspace(&updated).and_then(|ws| ws.target.as_ref()))
                     .map_or_else(|| "the target".to_owned(), |target| target.name.clone());
@@ -437,7 +438,9 @@ impl Store {
                             "Updating leaves conflicts",
                             update_conflicts_detail(&target, &found),
                             "Update anyway",
-                            move |store, cx| store.update_from_target(&again, true, cx),
+                            move |store, cx| {
+                                store.update_from_target(&again, Some(found.clone()), cx)
+                            },
                             cx,
                         )
                     }

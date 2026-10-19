@@ -311,25 +311,25 @@ pub enum UpdateOutcome {
 }
 
 /// Rebase every stack onto the target as it is now. Doesn't fetch first; see [`fetch()`].
-/// Unless `confirmed`, a dry run goes first, and when the rebase would leave anything
-/// conflicted that isn't now, it stops there.
-pub fn update_from_target(path: &Path, confirmed: bool) -> Result<UpdateOutcome> {
+/// A dry run goes first, and when the rebase would leave anything conflicted that isn't now,
+/// it stops there, unless that's what was `accepted`: a fetch since can bring more.
+pub fn update_from_target(
+    path: &Path,
+    accepted: Option<&UpdateConflicts>,
+) -> Result<UpdateOutcome> {
     let mut ctx = open(path)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
     // Held from the dry run through the update, so nothing lands in between.
     let mut guard = ctx.exclusive_worktree_access();
-    if !confirmed {
-        let preview = integrate_upstream(&mut ctx, &info, DryRun::Yes, guard.write_permission())?;
-        let branches = newly_conflicted(&info, &preview.workspace_state.conflicted_commits);
-        let files: Vec<String> = (preview.worktree_conflicts.iter())
+    let preview = integrate_upstream(&mut ctx, &info, DryRun::Yes, guard.write_permission())?;
+    let found = UpdateConflicts {
+        branches: newly_conflicted(&info, &preview.workspace_state.conflicted_commits),
+        files: (preview.worktree_conflicts.iter())
             .map(|path| path.to_str_lossy().into_owned())
-            .collect();
-        if !branches.is_empty() || !files.is_empty() {
-            return Ok(UpdateOutcome::WouldConflict(UpdateConflicts {
-                branches,
-                files,
-            }));
-        }
+            .collect(),
+    };
+    if (!found.branches.is_empty() || !found.files.is_empty()) && accepted != Some(&found) {
+        return Ok(UpdateOutcome::WouldConflict(found));
     }
     let updated = integrate_upstream(&mut ctx, &info, DryRun::No, guard.write_permission())?;
     let after = but_api::legacy::workspace::head_info(&ctx)?;
@@ -349,7 +349,7 @@ pub fn update_from_target(path: &Path, confirmed: bool) -> Result<UpdateOutcome>
 }
 
 /// What [`update_from_target()`] would leave conflicted that isn't now.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct UpdateConflicts {
     /// Branches (full refs), each with how many of its commits.
     pub branches: Vec<(String, usize)>,
