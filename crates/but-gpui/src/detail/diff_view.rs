@@ -815,10 +815,12 @@ impl Detail {
                 let halves = [half(left), half(right)];
                 let layout = self.layout(&diff.files[file], &store.prefs);
                 let pair = diff::pair_row(sides, halves, place, last, theme, &layout);
+                let menu = line_menu(ix, entity.clone());
                 // A click puts the cursor on the hunk, so its keys act on what was clicked.
                 let entity = entity.clone();
                 padded
                     .child(pair)
+                    .on_mouse_down(MouseButton::Right, menu)
                     .on_mouse_down(MouseButton::Left, move |_, _, cx| {
                         entity
                             .update(cx, |detail, cx| {
@@ -1191,27 +1193,48 @@ impl Detail {
         let Some(diff) = &self.diff else {
             return;
         };
-        let (file, hunk) = match diff.rows.get(row) {
-            Some(DiffRow::Line { file, hunk, .. }) => (*file, Some(*hunk)),
-            Some(DiffRow::Context { file, .. }) => (*file, None),
+        // Side by side, a row holds a line of each side: the one picked, else the new one.
+        let paired = match diff.rows.get(row) {
+            Some(&DiffRow::Pair {
+                file,
+                hunk,
+                left,
+                right,
+            }) => {
+                let key = diff.files[file].hunks().get(hunk).map(|h| h.key);
+                let path = &diff.files[file].file.path;
+                let picked = (key.into_iter())
+                    .flat_map(|key| [left, right].into_iter().flatten().map(move |l| (key, l)))
+                    .find(|(key, l)| self.line_picked(path, *key, *l))
+                    .map(|(_, l)| l);
+                picked.or(right).or(left).map(|line| (file, hunk, line))
+            }
+            _ => None,
+        };
+        let (file, hunk) = match (diff.rows.get(row), paired) {
+            (_, Some((file, hunk, _))) => (file, Some(hunk)),
+            (Some(DiffRow::Line { file, hunk, .. }), _) => (*file, Some(*hunk)),
+            (Some(DiffRow::Context { file, .. }), _) => (*file, None),
             _ => return,
         };
-        let line = self.line_at(row).and_then(|line| line.new.or(line.old));
+        let line_of = |(file, hunk, line): (usize, usize, usize)| {
+            let lines = diff.files[file].hunks().get(hunk).map(|h| &h.lines);
+            lines.and_then(|lines| lines.get(line))
+        };
+        let line =
+            (paired.and_then(line_of).or(self.line_at(row))).and_then(|line| line.new.or(line.old));
         let selected = (self.text_range())
             .filter(|(start, end)| (start.0..=end.0).contains(&row))
             .and_then(|_| self.selected_text());
         let Some(text) = selected else {
             // A changed line's run, or the picked lines when it's one of them, as its grip
             // takes; an unchanged one's hunk.
-            let changed = match diff.rows.get(row) {
-                Some(DiffRow::Line { file, hunk, line }) => {
-                    let lines = diff.files[*file].hunks().get(*hunk).map(|h| &h.lines);
-                    (lines.and_then(|lines| lines.get(*line)))
-                        .is_some_and(|line| line.kind != LineKind::Context)
-                        .then_some((*file, *hunk, *line))
-                }
-                _ => None,
+            let place = match diff.rows.get(row) {
+                Some(&DiffRow::Line { file, hunk, line }) => Some((file, hunk, line)),
+                _ => paired,
             };
+            let changed = place
+                .filter(|place| line_of(*place).is_some_and(|line| line.kind != LineKind::Context));
             let key = hunk.and_then(|hunk| Some(diff.files[file].hunks().get(hunk)?.key));
             let menu = match changed {
                 Some(place) => self.lines_cut(file, self.grip_takes(place), cx),
