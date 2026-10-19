@@ -1,7 +1,7 @@
 //! Modals. The window hosts one at a time over a dimmed backdrop; a modal closes by
 //! emitting `DismissEvent`.
 
-use gpui::{Div, Styled as _, px, relative};
+use gpui::{Div, Styled as _, px};
 
 use super::popover;
 use crate::theme::Theme;
@@ -15,15 +15,16 @@ pub enum ModalSize {
     Large,
 }
 
-/// The card a modal is drawn on, at most most of the window.
+/// The card a modal is drawn on, as wide as its size says but never wider than the window
+/// leaves it (see `render_modal`).
 pub fn modal(size: ModalSize, theme: &Theme) -> Div {
     let width = match size {
-        ModalSize::Medium => 640.,
+        ModalSize::Medium => 520.,
         ModalSize::Large => 820.,
     };
     popover(theme)
         .w(px(width))
-        .max_w(relative(0.92))
+        .max_w_full()
         .max_h_full()
         .rounded(px(10.))
         .overflow_hidden()
