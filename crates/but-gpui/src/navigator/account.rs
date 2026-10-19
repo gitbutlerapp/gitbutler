@@ -46,7 +46,9 @@ impl Navigator {
                         None => user.name.clone(),
                     };
                     let items = vec![
-                        MenuItem::new(identity, |app, window, cx| app.open_accounts(window, cx)),
+                        MenuItem::new(identity, |app, window, cx| {
+                            app.open_settings(&crate::settings::OpenSettings, window, cx)
+                        }),
                         MenuItem::new(format!("Sign out {who}"), |app, _, cx| {
                             app.store.update(cx, |store, cx| store.sign_out(cx))
                         })

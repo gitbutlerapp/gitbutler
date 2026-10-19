@@ -1,4 +1,4 @@
-//! The Accounts section: the GitButler account, and the forge accounts pull requests and
+//! Accounts: the GitButler account, on General, and on Integrations the forge accounts pull requests and
 //! CI go through, with ways to add one: GitHub's browser sign-in, or a token.
 
 use std::time::Duration;
@@ -8,7 +8,7 @@ use gpui::{
     prelude::*, px,
 };
 
-use super::{Row, SettingsView};
+use super::{Card, Row, SettingsView};
 use crate::backend::Forge;
 use crate::backend::accounts::{self, Account};
 use crate::backend::run;
@@ -227,9 +227,9 @@ impl SettingsView {
         .detach();
     }
 
-    pub(super) fn account_rows(&self, window: &Window, cx: &Context<Self>) -> Vec<Row> {
+    /// The GitButler account, which General leads with, as Lite's does.
+    pub(super) fn gitbutler_row(&self, window: &Window, cx: &Context<Self>) -> Row {
         let theme = Theme::get(cx);
-        let mut rows = Vec::new();
         let user = self.store.read(cx).account.user.as_ref();
         let gitbutler: AnyElement = match (user, &self.accounts.login) {
             (_, Some(input)) => token_field(input, None, window, theme, cx),
@@ -257,7 +257,13 @@ impl SettingsView {
             }
             (None, None) => "Sign in to use GitButler's AI key, with no key of your own.".into(),
         };
-        rows.push(Row::new("GitButler", description, gitbutler));
+        Row::new("GitButler", description, gitbutler)
+    }
+
+    /// Integrations: the forge accounts connected, then a way to add one.
+    pub(super) fn integration_cards(&self, window: &Window, cx: &Context<Self>) -> Vec<Card> {
+        let theme = Theme::get(cx);
+        let mut connected = Vec::new();
         for account in &self.accounts.list {
             let id = account.id.clone();
             let forget = button(
@@ -275,12 +281,13 @@ impl SettingsView {
                     cx,
                 )
             }));
-            rows.push(Row::new(
+            connected.push(Row::new(
                 account.forge.name(),
                 account.label.clone(),
                 forget,
             ));
         }
+        let mut rows = Vec::new();
         if let Some(code) = &self.accounts.github_code {
             let copied = code.clone();
             rows.push(Row::new(
@@ -351,7 +358,7 @@ impl SettingsView {
                 ));
             }
         }
-        rows
+        vec![Card::new(None, connected), Card::new(None, rows)]
     }
 }
 

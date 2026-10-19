@@ -1,5 +1,6 @@
-//! Settings: one large modal with the sections down the left and a search across all of
-//! them. Changes apply as they're made. What only this app uses is kept with its other
+//! Settings: one large modal laid out as Lite's, its pages down the left, the app's and then
+//! the project's, each a column of cards, with a search across all of them. Changes apply
+//! as they're made. What only this app uses is kept with its other
 //! state; fetching is GitButler's shared setting; a project's settings are its own.
 
 use gpui::{
@@ -20,7 +21,7 @@ use crate::theme::{Appearance, CodeSize, Theme};
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, button, dropdown, faint, field, h_flex, list_row, muted, switch, v_flex,
+    ButtonStyle, Icon, Tooltip, button, dropdown, field, h_flex, icon, muted, switch, v_flex,
 };
 
 actions!(settings, [OpenSettings]);
@@ -29,31 +30,67 @@ pub fn bind_keys(cx: &mut App) {
     cx.bind_keys([KeyBinding::new("cmd-,", OpenSettings, None)]);
 }
 
+/// A page of settings, in the sidebar's order, as Lite's has them: the app's, then the
+/// project's.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Section {
+enum Page {
     General,
-    Git,
+    Appearance,
     Ai,
-    Accounts,
+    Git,
+    Integrations,
+    Experimental,
     Project,
+    ProjectGit,
 }
 
-impl Section {
-    const ALL: [Section; 5] = [
-        Section::General,
-        Section::Git,
-        Section::Ai,
-        Section::Accounts,
-        Section::Project,
+impl Page {
+    const APP: [Page; 6] = [
+        Page::General,
+        Page::Appearance,
+        Page::Ai,
+        Page::Git,
+        Page::Integrations,
+        Page::Experimental,
     ];
+    const PROJECT: [Page; 2] = [Page::Project, Page::ProjectGit];
 
     fn title(self) -> &'static str {
         match self {
-            Section::General => "General",
-            Section::Git => "Git",
-            Section::Ai => "AI",
-            Section::Accounts => "Accounts",
-            Section::Project => "Project",
+            Page::General => "General",
+            Page::Appearance => "Appearance",
+            Page::Ai => "AI",
+            Page::Git | Page::ProjectGit => "Git",
+            Page::Integrations => "Integrations",
+            Page::Experimental => "Experimental",
+            Page::Project => "Project",
+        }
+    }
+
+    fn icon(self) -> Icon {
+        match self {
+            Page::General => Icon::Settings,
+            Page::Appearance => Icon::Contrast,
+            Page::Ai => Icon::Ai,
+            Page::Git | Page::ProjectGit => Icon::Pr,
+            Page::Integrations => Icon::Plug,
+            Page::Experimental => Icon::Lab,
+            Page::Project => Icon::Mixer,
+        }
+    }
+}
+
+/// A card of rows, one setting each, under a heading unless it's the page's first.
+struct Card {
+    heading: Option<SharedString>,
+    rows: Vec<Row>,
+}
+
+impl Card {
+    fn new(heading: Option<&'static str>, rows: Vec<Row>) -> Self {
+        Card {
+            heading: heading.map(SharedString::from),
+            rows,
         }
     }
 }
@@ -94,8 +131,8 @@ pub struct SettingsView {
     store: Entity<Store>,
     app: WeakEntity<AppView>,
     search: Entity<TextInput>,
-    section: Section,
-    /// The project the Project section is about.
+    page: Page,
+    /// The project the project's pages are about.
     project: Option<ProjectId>,
     project_settings: Option<ProjectSettings>,
     name: Entity<TextInput>,
@@ -133,7 +170,7 @@ impl SettingsView {
         let subscriptions = vec![
             cx.subscribe_in(&search, window, |this, search, event, _, cx| match event {
                 InputEvent::Changed => {
-                    // A search may match the AI section's rows, which load when needed.
+                    // A search may match the AI page's rows, which load when needed.
                     if !search.read(cx).text().trim().is_empty() {
                         this.ensure_ai(cx);
                     }
@@ -158,7 +195,7 @@ impl SettingsView {
             store,
             app,
             search,
-            section: Section::General,
+            page: Page::General,
             project: None,
             project_settings: None,
             name,
@@ -277,26 +314,9 @@ impl SettingsView {
             .into_any_element()
     }
 
-    fn general_rows(&self, cx: &Context<Self>) -> Vec<Row> {
-        let theme = Theme::get(cx);
+    /// Where files and the project open.
+    fn program_rows(&self, cx: &Context<Self>) -> Vec<Row> {
         let prefs = &self.store.read(cx).prefs;
-        let (store, app) = (self.store.clone(), self.app.clone());
-        let appearance = segmented(
-            "appearance",
-            [
-                (Appearance::System, "System"),
-                (Appearance::Light, "Light"),
-                (Appearance::Dark, "Dark"),
-            ],
-            prefs.appearance,
-            move |choice, window, cx| {
-                store.update(cx, |store, cx| {
-                    store.set_prefs(|prefs| prefs.appearance = choice, cx)
-                });
-                app.update(cx, |app, cx| app.apply_appearance(window, cx))
-                    .ok();
-            },
-        );
         let name_of = |programs: &[Program], id: Option<&String>, unset: &str| {
             id.and_then(|id| programs.iter().find(|(p, _)| p == id))
                 .map_or_else(|| unset.to_owned(), |(_, name)| name.clone())
@@ -324,6 +344,41 @@ impl SettingsView {
             },
             cx,
         );
+        vec![
+            Row::new(
+                "Editor",
+                "Where \"Open in editor\" opens files, at the line you're on.",
+                editor,
+            ),
+            Row::new(
+                "Terminal",
+                "Where \"Open in terminal\" opens the project.",
+                terminal,
+            ),
+        ]
+    }
+
+    /// The theme, then how diffs show.
+    fn appearance_cards(&self, cx: &Context<Self>) -> Vec<Card> {
+        let theme = Theme::get(cx);
+        let prefs = &self.store.read(cx).prefs;
+        let (store, app) = (self.store.clone(), self.app.clone());
+        let appearance = segmented(
+            "appearance",
+            [
+                (Appearance::System, "System"),
+                (Appearance::Light, "Light"),
+                (Appearance::Dark, "Dark"),
+            ],
+            prefs.appearance,
+            move |choice, window, cx| {
+                store.update(cx, |store, cx| {
+                    store.set_prefs(|prefs| prefs.appearance = choice, cx)
+                });
+                app.update(cx, |app, cx| app.apply_appearance(window, cx))
+                    .ok();
+            },
+        );
         let app = self.app.clone();
         let code = segmented(
             "code",
@@ -341,12 +396,12 @@ impl SettingsView {
                 .ok();
             },
         );
-        vec![
-            Row::new(
-                "Appearance",
-                "Light, dark, or whichever macOS is set to.",
-                appearance,
-            ),
+        let appearance = Row::new(
+            "Appearance",
+            "Light, dark, or whichever macOS is set to.",
+            appearance,
+        );
+        let diff = vec![
             Row::new("Code size", "How large code shows in diffs.", code),
             Row::new(
                 "Wrap long lines",
@@ -371,20 +426,14 @@ impl SettingsView {
                         .ok();
                 })),
             ),
-            Row::new(
-                "Editor",
-                "Where \"Open in editor\" opens files, at the line you're on.",
-                editor,
-            ),
-            Row::new(
-                "Terminal",
-                "Where \"Open in terminal\" opens the project.",
-                terminal,
-            ),
+        ];
+        vec![
+            Card::new(None, vec![appearance]),
+            Card::new(Some("Diff"), diff),
         ]
     }
 
-    fn git_rows(&self, cx: &Context<Self>) -> Vec<Row> {
+    fn fetch_row(&self, cx: &Context<Self>) -> Row {
         let control = self.choice(
             "fetch",
             interval_label(self.fetch_interval),
@@ -401,6 +450,15 @@ impl SettingsView {
             },
             cx,
         );
+        Row::new(
+            "Fetch automatically",
+            "Keeps the target and each branch's remote current, for every expanded project. \
+             GitButler's other apps share this.",
+            control,
+        )
+    }
+
+    fn worktrees_row(&self, cx: &Context<Self>) -> Row {
         let theme = Theme::get(cx);
         let worktrees =
             switch("worktrees", self.worktrees, theme).on_click(cx.listener(|this, _, _, cx| {
@@ -423,21 +481,13 @@ impl SettingsView {
                 })
                 .detach();
             }));
-        vec![
-            Row::new(
-                "Fetch automatically",
-                "Keeps the target and each branch's remote current, for every expanded project. \
-                 GitButler's other apps share this.",
-                control,
-            ),
-            Row::new(
-                "Linked worktrees",
-                "Experimental. Lists each project's linked worktrees, like the ones agents work \
-                 in, with their uncommitted changes. Worktrees that exist when this goes on start \
-                 archived: a project's menu shows them again. GitButler's other apps share this.",
-                worktrees,
-            ),
-        ]
+        Row::new(
+            "Linked worktrees",
+            "Lists each project's linked worktrees, like the ones agents work in, with their \
+             uncommitted changes. Worktrees that exist when this goes on start archived: a \
+             project's menu shows them again. GitButler's other apps share this.",
+            worktrees,
+        )
     }
 
     /// Escape in a field puts it back and goes to the search box, where Escape closes.
@@ -445,73 +495,178 @@ impl SettingsView {
         window.focus(&self.search.focus_handle(cx), cx);
     }
 
-    fn section_rows(&self, section: Section, window: &Window, cx: &Context<Self>) -> Vec<Row> {
-        match section {
-            Section::General => self.general_rows(cx),
-            Section::Git => self.git_rows(cx),
-            Section::Ai => self.ai_rows(window, cx),
-            Section::Accounts => self.account_rows(window, cx),
-            Section::Project => self.project_rows(window, cx),
+    fn page_cards(&self, page: Page, window: &Window, cx: &Context<Self>) -> Vec<Card> {
+        let cards = match page {
+            Page::General => vec![
+                Card::new(None, vec![self.gitbutler_row(window, cx)]),
+                Card::new(None, self.program_rows(cx)),
+            ],
+            Page::Appearance => self.appearance_cards(cx),
+            Page::Ai => vec![Card::new(None, self.ai_rows(window, cx))],
+            Page::Git => vec![Card::new(None, vec![self.fetch_row(cx)])],
+            Page::Integrations => self.integration_cards(window, cx),
+            Page::Experimental => vec![Card::new(None, vec![self.worktrees_row(cx)])],
+            Page::Project | Page::ProjectGit => self.project_cards(page, window, cx),
+        };
+        // Nothing for a card with no rows yet, as before what it shows has loaded.
+        cards
+            .into_iter()
+            .filter(|card| !card.rows.is_empty())
+            .collect()
+    }
+
+    /// The pages there are: the app's, and the project's when there's one.
+    fn pages(&self) -> impl Iterator<Item = Page> + use<> {
+        let project = self.project.is_some();
+        (Page::APP.into_iter()).chain(Page::PROJECT.into_iter().filter(move |_| project))
+    }
+
+    /// What a page is called where it isn't under its group's heading: a project's by the
+    /// project too.
+    fn page_name(&self, page: Page, cx: &App) -> String {
+        match (Page::PROJECT.contains(&page), self.project_name(cx)) {
+            (true, Some(name)) => format!("{name} › {}", page.title()),
+            _ => page.title().to_owned(),
         }
     }
 
-    /// The rows to show: the current section's, or with a `query` every row it matches, each
-    /// with the section it's in.
-    fn rows(
-        &self,
-        query: &str,
-        window: &Window,
-        cx: &Context<Self>,
-    ) -> Vec<(Option<Section>, Row)> {
+    /// The cards to show: the current page's, or with a `query` every row it matches, in
+    /// cards named by their page.
+    fn cards(&self, query: &str, window: &Window, cx: &Context<Self>) -> Vec<Card> {
         if query.is_empty() {
-            let rows = self.section_rows(self.section, window, cx);
-            return rows.into_iter().map(|row| (None, row)).collect();
+            return self.page_cards(self.page, window, cx);
         }
-        let matches = |section: Section, row: &Row| {
-            let text =
-                format!("{} {} {}", section.title(), row.title, row.description).to_lowercase();
-            query.split_whitespace().all(|word| text.contains(word))
-        };
-        Section::ALL
-            .into_iter()
-            .flat_map(|section| {
-                let rows = self.section_rows(section, window, cx);
-                rows.into_iter()
-                    .filter(move |row| matches(section, row))
-                    .map(move |row| (Some(section), row))
+        let pages: Vec<Page> = self.pages().collect();
+        (pages.into_iter())
+            .flat_map(|page| {
+                let cards = self.page_cards(page, window, cx);
+                cards.into_iter().map(move |card| (page, card))
+            })
+            .filter_map(|(page, card)| {
+                let heading = match &card.heading {
+                    Some(heading) => format!("{} › {heading}", self.page_name(page, cx)),
+                    None => self.page_name(page, cx),
+                };
+                let rows: Vec<Row> = (card.rows.into_iter())
+                    .filter(|row| {
+                        let text = format!("{heading} {} {}", row.title, row.description);
+                        let text = text.to_lowercase();
+                        query.split_whitespace().all(|word| text.contains(word))
+                    })
+                    .collect();
+                (!rows.is_empty()).then(|| Card {
+                    heading: Some(heading.into()),
+                    rows,
+                })
             })
             .collect()
     }
 
-    fn render_row(section: Option<Section>, row: Row, theme: &Theme) -> AnyElement {
+    /// A card as Lite's settings draw one: its heading outside it, then its rows divided by
+    /// hairlines.
+    fn render_card(card: Card, theme: &Theme) -> AnyElement {
+        v_flex()
+            .gap(px(8.))
+            .children(card.heading.map(|heading| {
+                div()
+                    .pl(px(16.))
+                    .text_size(px(12.))
+                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .text_color(theme.text_3)
+                    .child(heading)
+            }))
+            .child(
+                v_flex()
+                    .rounded(px(8.))
+                    .border_1()
+                    .border_color(theme.border_3)
+                    .bg(theme.bg_1)
+                    .overflow_hidden()
+                    .children(
+                        (card.rows.into_iter().enumerate())
+                            .map(|(ix, row)| Self::render_row(row, ix > 0, theme)),
+                    ),
+            )
+            .into_any_element()
+    }
+
+    /// One setting: its name over what it does, the control at the end; under a hairline
+    /// unless it's the card's first.
+    fn render_row(row: Row, divided: bool, theme: &Theme) -> AnyElement {
+        let hint = !row.description.is_empty();
         h_flex()
-            .gap(px(24.))
-            .py(px(14.))
-            .border_b_1()
-            .border_color(theme.border_3)
+            .p(px(16.))
+            .gap(px(16.))
+            // Against its name when there's a line under it, else on its line.
+            .map(|el| {
+                if hint {
+                    el.items_start()
+                } else {
+                    el.items_center()
+                }
+            })
+            .when(divided, |el| el.border_t_1().border_color(theme.border_3))
             .child(
                 v_flex()
                     .flex_1()
                     .min_w(px(0.))
-                    .gap(px(2.))
+                    .gap(px(6.))
                     .child(
-                        h_flex()
-                            .gap(px(6.))
-                            .children(
-                                section
-                                    .map(|section| faint(format!("{} ›", section.title()), theme)),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(13.))
-                                    .font_weight(gpui::FontWeight::MEDIUM)
-                                    .child(row.title),
-                            ),
+                        div()
+                            .text_size(px(15.))
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .text_color(theme.text_1)
+                            .child(row.title),
                     )
-                    .child(muted(row.description, theme)),
+                    .when(hint, |el| {
+                        el.child(
+                            div()
+                                .text_size(px(12.))
+                                .line_height(px(18.))
+                                .text_color(theme.text_2)
+                                .child(row.description),
+                        )
+                    }),
             )
-            .child(row.control)
+            .child(div().flex_none().child(row.control))
             .into_any_element()
+    }
+
+    /// A page's link in the sidebar, filled in while it's the one shown.
+    fn page_link(
+        &self,
+        page: Page,
+        searching: bool,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> impl IntoElement {
+        let selected = !searching && self.page == page;
+        let hover = theme.hover();
+        h_flex()
+            .id(SharedString::from(format!("{page:?}")))
+            .px(px(8.))
+            .py(px(6.))
+            .gap(px(10.))
+            .rounded(px(6.))
+            .text_size(px(13.))
+            .cursor_pointer()
+            .map(|el| match selected {
+                true => el.bg(theme.fill_gray).text_color(theme.text_inverted),
+                false => el.text_color(theme.text_1).hover(move |el| el.bg(hover)),
+            })
+            .child(icon(page.icon()).text_color(match selected {
+                true => theme.text_inverted.opacity(0.7),
+                false => theme.text_2,
+            }))
+            .child(page.title())
+            .on_click(cx.listener(move |this, _, _, cx| {
+                if page == Page::Ai {
+                    this.ensure_ai(cx);
+                }
+                this.page = page;
+                this.search.update(cx, |search, cx| search.set_text("", cx));
+                cx.notify();
+            }))
     }
 }
 
@@ -520,105 +675,112 @@ impl Render for SettingsView {
         let theme = Theme::get(cx).clone();
         let query = self.search.read(cx).text().trim().to_lowercase();
         let searching = !query.is_empty();
-        let rows = self.rows(&query, window, cx);
+        let cards = self.cards(&query, window, cx);
         let search_focused = self.search.focus_handle(cx).is_focused(window);
-        let sections = Section::ALL.into_iter().map(|section| {
-            let selected = !searching && self.section == section;
-            list_row(SharedString::from(section.title()), selected, &theme)
-                .mx_0()
-                .text_size(px(13.))
-                .child(section.title())
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    if section == Section::Ai {
-                        this.ensure_ai(cx);
-                    }
-                    this.section = section;
-                    this.search.update(cx, |search, cx| search.set_text("", cx));
-                    cx.notify();
-                }))
-        });
-        let title: SharedString = if searching {
-            "Search results".into()
-        } else if self.section == Section::Project {
-            match self.project_name(cx) {
-                Some(name) => format!("Project · {name}").into(),
-                None => "Project".into(),
-            }
-        } else {
-            self.section.title().into()
-        };
+        let app_links = Page::APP.map(|page| self.page_link(page, searching, &theme, cx));
+        // The project's pages, under its name, which picks another when there are more.
         let projects = &self.store.read(cx).projects;
-        let pick_project = (!searching && self.section == Section::Project && projects.len() > 1)
-            .then(|| {
-                self.choice(
-                    "pick-project",
-                    "Other project",
-                    (projects.iter()).map(|entry| (entry.id.clone(), entry.project.name.clone())),
-                    |this, id: ProjectId, cx| this.show_project(Some(id), cx),
-                    cx,
-                )
-            });
-        let empty = rows.is_empty();
+        let project = self.project_name(cx).map(|name| {
+            let others = projects.len() > 1;
+            let heading = h_flex()
+                .id("settings-project")
+                .px(px(8.))
+                .pb(px(8.))
+                .gap(px(10.))
+                .text_size(px(13.))
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_color(theme.text_3)
+                .child(icon(Icon::Folder).text_color(theme.text_2))
+                .child(div().flex_1().min_w(px(0.)).truncate().child(name))
+                .when(others, |el| {
+                    let items: Vec<MenuItem> = (projects.iter())
+                        .map(|entry| {
+                            let this = cx.entity().downgrade();
+                            let id = entry.id.clone();
+                            MenuItem::new(entry.project.name.clone(), move |_, _, cx| {
+                                this.update(cx, |this, cx| this.show_project(Some(id.clone()), cx))
+                                    .ok();
+                            })
+                        })
+                        .collect();
+                    el.cursor_pointer()
+                        .child(icon(Icon::ChevronDown).text_color(theme.text_3))
+                        .tooltip(Tooltip::text("Another project's settings"))
+                        .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
+                            this.open_menu(event, items.clone(), cx)
+                        }))
+                });
+            v_flex()
+                .mt(px(16.))
+                .pt(px(16.))
+                .px(px(12.))
+                .gap(px(3.))
+                .border_t_1()
+                .border_color(theme.border_3)
+                .child(heading)
+                .children(Page::PROJECT.map(|page| self.page_link(page, searching, &theme, cx)))
+        });
+        let empty = cards.is_empty();
+        let height = (f32::from(window.viewport_size().height) * 0.76).min(1000.);
         modal(ModalSize::Large, &theme)
             .id("settings")
-            .h(px(560.))
+            .h(px(height))
             .flex_row()
             .child(
                 v_flex()
-                    .w(px(200.))
+                    .id("settings-pages")
+                    .w(px(211.))
                     .flex_none()
                     .h_full()
-                    .p(px(10.))
-                    .gap(px(2.))
+                    .pb(px(12.))
+                    .overflow_y_scroll()
                     .bg(theme.bg_2)
-                    .border_r_1()
-                    .border_color(theme.border_3)
-                    .child(field(&self.search, search_focused, &theme).mb(px(8.)))
-                    .children(sections),
+                    .child(
+                        div()
+                            .px(px(20.))
+                            .pt(px(20.))
+                            .pb(px(10.))
+                            .text_size(px(16.))
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .text_color(theme.text_1)
+                            .child("Settings"),
+                    )
+                    .child(
+                        field(&self.search, search_focused, &theme)
+                            .mx(px(12.))
+                            .mb(px(10.)),
+                    )
+                    .child(v_flex().px(px(12.)).gap(px(3.)).children(app_links))
+                    .children(project),
             )
             .child(
                 v_flex()
+                    .id("settings-cards")
                     .flex_1()
                     .min_w(px(0.))
                     .h_full()
-                    .child(
-                        h_flex()
-                            .flex_none()
-                            .h(px(52.))
-                            .px(px(24.))
-                            .gap(px(8.))
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .text_size(px(15.))
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                                    .child(title),
-                            )
-                            .children(pick_project),
-                    )
+                    .overflow_y_scroll()
+                    .border_l_1()
+                    .border_color(theme.border_3)
+                    .bg(theme.bg_1)
                     .child(
                         v_flex()
-                            .id("settings-rows")
-                            .flex_1()
-                            .min_h(px(0.))
-                            .overflow_y_scroll()
-                            .px(px(24.))
+                            .p(px(20.))
+                            .gap(px(12.))
                             .when(empty, |el| {
-                                el.child(
-                                    div()
-                                        .pt(px(24.))
-                                        .text_size(px(13.))
-                                        .text_color(theme.text_2)
-                                        .child(if searching {
-                                            "No settings match"
-                                        } else {
-                                            "Loading…"
-                                        }),
-                                )
+                                el.child(muted(
+                                    if searching {
+                                        "No settings match"
+                                    } else {
+                                        "Loading…"
+                                    },
+                                    &theme,
+                                ))
                             })
                             .children(
-                                rows.into_iter()
-                                    .map(|(section, row)| Self::render_row(section, row, &theme)),
+                                cards
+                                    .into_iter()
+                                    .map(|card| Self::render_card(card, &theme)),
                             ),
                     ),
             )
@@ -626,17 +788,17 @@ impl Render for SettingsView {
 }
 
 impl AppView {
-    /// Settings, at Accounts, signing in to GitButler.
+    /// Settings, at General, signing in to GitButler.
     pub fn sign_in(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.open_accounts(window, cx);
+        self.open_settings_at(None, Page::General, window, cx);
         if let Some(view) = self.modal_view::<SettingsView>() {
             view.update(cx, |view, cx| view.log_in_to_gitbutler(window, cx));
         }
     }
 
-    /// Settings, at Accounts: where a forge account gets connected.
+    /// Settings, at Integrations: where a forge account gets connected.
     pub fn open_accounts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.open_settings_at(None, Section::Accounts, window, cx)
+        self.open_settings_at(None, Page::Integrations, window, cx)
     }
 
     /// Settings, at Project, for `project`.
@@ -646,18 +808,18 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.open_settings_at(Some(project), Section::Project, window, cx)
+        self.open_settings_at(Some(project), Page::Project, window, cx)
     }
 
     pub fn open_settings(&mut self, _: &OpenSettings, window: &mut Window, cx: &mut Context<Self>) {
-        self.open_settings_at(None, Section::General, window, cx)
+        self.open_settings_at(None, Page::General, window, cx)
     }
 
-    /// Settings, at `section`, for `project`, or else the selected project or the first.
+    /// Settings, at `page`, for `project`, or else the selected project or the first.
     fn open_settings_at(
         &mut self,
         project: Option<ProjectId>,
-        section: Section,
+        page: Page,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -671,7 +833,10 @@ impl AppView {
         let app = cx.entity().downgrade();
         let view = cx.new(|cx| {
             let mut view = SettingsView::new(store, app, project, window, cx);
-            view.section = section;
+            if page == Page::Ai {
+                view.ensure_ai(cx);
+            }
+            view.page = page;
             view
         });
         self.open_modal(view, window, cx);

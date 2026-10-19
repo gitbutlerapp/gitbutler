@@ -1,18 +1,18 @@
-//! The Project section: the selected project's name, target branch, force-push
+//! The project's pages: the selected project's name, target branch, force-push
 //! protection, commit signing and Git hooks, and removing it from GitButler.
 
 use std::collections::HashSet;
 
 use gpui::{App, ClickEvent, Context, DismissEvent, Window, div, prelude::*, px};
 
-use super::{Row, SettingsView, field_with_save};
+use super::{Card, Page, Row, SettingsView, field_with_save};
 use crate::backend::settings as backend;
 use crate::state::{Prefs, ProjectId};
 use crate::theme::Theme;
 use crate::ui::{ButtonStyle, button, h_flex, muted, switch};
 
 impl SettingsView {
-    /// Show `project`'s settings in the Project section, loading them.
+    /// Show `project`'s settings on its pages, loading them.
     pub(super) fn show_project(&mut self, project: Option<ProjectId>, cx: &mut Context<Self>) {
         // Reloading the same project keeps what the field holds: a new name reaches the
         // store only once the project list is read again.
@@ -73,7 +73,14 @@ impl SettingsView {
         );
     }
 
-    pub(super) fn project_rows(&self, window: &Window, cx: &Context<Self>) -> Vec<Row> {
+    /// The project's own pages: Project, with its name and target, and Git, with how it
+    /// pushes, commits and signs.
+    pub(super) fn project_cards(
+        &self,
+        page: Page,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> Vec<Card> {
         let theme = Theme::get(cx);
         let (Some(project), Some(settings)) = (&self.project, &self.project_settings) else {
             return Vec::new();
@@ -173,88 +180,96 @@ impl SettingsView {
             Ok(()) => div().text_color(theme.safe).child("Signing works"),
             Err(err) => div().text_color(theme.danger).child(err.clone()),
         });
-        vec![
-            Row::new(
-                "Name",
-                "What the project is called in the navigator.",
-                field_with_save(
-                    &self.name,
-                    name_changed,
-                    |this, _, cx| this.save_name(cx),
-                    window,
-                    cx,
-                ),
+        let name = Row::new(
+            "Name",
+            "What the project is called in the navigator.",
+            field_with_save(
+                &self.name,
+                name_changed,
+                |this, _, cx| this.save_name(cx),
+                window,
+                cx,
             ),
-            Row::new(
-                "Target branch",
-                if locked {
-                    "The branch your work goes into, and pull requests aim at. To change it, \
+        );
+        let target = Row::new(
+            "Target branch",
+            if locked {
+                "The branch your work goes into, and pull requests aim at. To change it, \
                      unapply every branch first."
-                } else {
-                    "The branch your work goes into, and pull requests aim at."
-                },
-                h_flex()
-                    .gap(px(8.))
-                    .child(
-                        muted(target.unwrap_or_else(|| "None".into()), theme)
-                            .font_family(theme.mono_font.clone()),
-                    )
-                    .child(
-                        button("change-target", "Change…")
-                            .small()
-                            .disabled_because(locked.then_some("Unapply every branch first"))
-                            .on_click(change_target),
-                    ),
-            ),
-            Row::new(
-                "Protect force pushes",
-                "A force push stops if someone else pushed to the branch since you last fetched, \
+            } else {
+                "The branch your work goes into, and pull requests aim at."
+            },
+            h_flex()
+                .gap(px(8.))
+                .child(
+                    muted(target.unwrap_or_else(|| "None".into()), theme)
+                        .font_family(theme.mono_font.clone()),
+                )
+                .child(
+                    button("change-target", "Change…")
+                        .small()
+                        .disabled_because(locked.then_some("Unapply every branch first"))
+                        .on_click(change_target),
+                ),
+        );
+        let force = Row::new(
+            "Protect force pushes",
+            "A force push stops if someone else pushed to the branch since you last fetched, \
                  rather than dropping their commits.",
-                switch("force-push", force, theme).on_click(protect),
-            ),
-            Row::new(
-                "Sign commits",
-                "Sign the commits GitButler makes, with the key and program your Git config names.",
-                h_flex()
-                    .gap(px(8.))
-                    .children(signing_note.map(|note| {
-                        div()
-                            .max_w(px(220.))
-                            .text_size(px(12.))
-                            .truncate()
-                            .child(note)
-                    }))
-                    .when(sign, |el| {
-                        el.child(
-                            button("test-signing", "Test")
-                                .small()
-                                .style(ButtonStyle::Ghost)
-                                .on_click(test_signing),
-                        )
-                    })
-                    .child(switch("sign", sign, theme).on_click(toggle_sign)),
-            ),
-            Row::new(
-                "Run Git hooks",
-                "Runs the repository's pre-commit, commit-msg, post-commit and pre-push hooks \
+            switch("force-push", force, theme).on_click(protect),
+        );
+        let sign = Row::new(
+            "Sign commits",
+            "Sign the commits GitButler makes, with the key and program your Git config names.",
+            h_flex()
+                .gap(px(8.))
+                .children(signing_note.map(|note| {
+                    div()
+                        .max_w(px(220.))
+                        .text_size(px(12.))
+                        .truncate()
+                        .child(note)
+                }))
+                .when(sign, |el| {
+                    el.child(
+                        button("test-signing", "Test")
+                            .small()
+                            .style(ButtonStyle::Ghost)
+                            .on_click(test_signing),
+                    )
+                })
+                .child(switch("sign", sign, theme).on_click(toggle_sign)),
+        );
+        let hooks = Row::new(
+            "Run Git hooks",
+            "Runs the repository's pre-commit, commit-msg, post-commit and pre-push hooks \
                  in the main checkout. A linked worktree's commits don't run them.",
-                hooks,
-            ),
-            Row::new(
-                "Land branches directly",
-                "A branch offers Land in place of Create pull request, putting it straight \
+            hooks,
+        );
+        let land = Row::new(
+            "Land branches directly",
+            "A branch offers Land in place of Create pull request, putting it straight \
                  onto the target and pushing that, with no pull request. Works without a forge.",
-                land,
-            ),
-            Row::new(
-                "Remove project",
-                "Takes it out of GitButler. The repository stays on disk as it is.",
-                button("remove-project", "Remove…")
-                    .small()
-                    .style(ButtonStyle::Danger)
-                    .on_click(remove),
-            ),
-        ]
+            land,
+        );
+        let remove = Row::new(
+            "Remove project",
+            "Takes it out of GitButler. The repository stays on disk as it is.",
+            button("remove-project", "Remove…")
+                .small()
+                .style(ButtonStyle::Danger)
+                .on_click(remove),
+        );
+        match page {
+            Page::Project => vec![
+                Card::new(None, vec![name, target]),
+                Card::new(None, vec![remove]),
+            ],
+            _ => vec![
+                Card::new(None, vec![force, hooks, land]),
+                Card::new(Some("Signing"), vec![sign]),
+            ],
+        }
     }
 
     fn remove_project(
