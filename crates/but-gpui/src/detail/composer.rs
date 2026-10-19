@@ -457,17 +457,20 @@ impl Detail {
                 let mut lines = HashMap::new();
                 for (path, picked) in keep.iter().filter_map(|(p, picked)| Some((*p, (*picked)?))) {
                     for hunk in file_hunks(&files, path) {
+                        if picked.contains(&hunk.key) {
+                            continue;
+                        }
+                        // Of a hunk only some of whose lines were taken, as lines dragged or
+                        // cut from the diff, those lines.
+                        let taken: BTreeSet<usize> = (hunk.lines.iter().enumerate())
+                            .filter(|(_, line)| picked.iter().any(|key| key.takes(hunk, line)))
+                            .map(|(ix, _)| ix)
+                            .collect();
                         let entry = (path.to_owned(), hunk.key);
-                        match self.checks.line_picks.get(&entry) {
-                            _ if picked.contains(&hunk.key) => {}
-                            Some(picks)
-                                if hunk.picked(&picks.0).iter().all(|k| picked.contains(k)) =>
-                            {
-                                lines.insert(entry, picks.clone());
-                            }
-                            _ => {
-                                out.insert(entry);
-                            }
+                        if taken.is_empty() {
+                            out.insert(entry);
+                        } else {
+                            lines.insert(entry, (taken, fingerprint(hunk)));
                         }
                     }
                 }
