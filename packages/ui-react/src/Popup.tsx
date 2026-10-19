@@ -281,6 +281,12 @@ export type DropdownProps = {
 	 * goes once they do with the pointer still outside.
 	 */
 	openOnHover?: boolean;
+	/**
+	 * How long the pointer rests on the trigger before an `openOnHover` dropdown opens, in ms:
+	 * long enough to pass over it on the way elsewhere, short enough to read as a glance.
+	 * @default 100
+	 */
+	delay?: number;
 	/** @default "bottom" */
 	side?: "top" | "bottom" | "left" | "right";
 	/** @default "start" */
@@ -307,6 +313,7 @@ export const Dropdown: FC<DropdownProps> = ({
 	onOpenChange,
 	trigger,
 	openOnHover = false,
+	delay = 100,
 	side = "bottom",
 	align = "start",
 	sideOffset = 4,
@@ -365,7 +372,7 @@ export const Dropdown: FC<DropdownProps> = ({
 				onOpenChange?.(next);
 			}}
 		>
-			<Popover.Trigger render={trigger} openOnHover={openOnHover} />
+			<Popover.Trigger render={trigger} openOnHover={openOnHover} delay={delay} />
 			<Popover.Portal>
 				<Popover.Positioner side={side} align={align} sideOffset={sideOffset}>
 					<Popup
