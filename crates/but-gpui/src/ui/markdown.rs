@@ -107,7 +107,8 @@ pub fn parse(markdown: &str) -> Vec<Block> {
     while !markdown.is_char_boundary(end) {
         end -= 1;
     }
-    let options = Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS;
+    let options =
+        Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS | Options::ENABLE_TABLES;
     let mut blocks = Vec::new();
     let mut current: Option<Block> = None;
     let mut style = Style::default();
@@ -118,6 +119,8 @@ pub fn parse(markdown: &str) -> Vec<Block> {
     let mut in_comment = false;
     let mut link: Option<(usize, Option<String>)> = None;
     let mut image: Option<(String, Option<String>)> = None;
+    // In a table row: whether it's the header, and how many of its cells came before.
+    let (mut in_head, mut cells) = (false, 0);
     let depth = |lists: &Vec<Option<u64>>, quotes: usize| (lists.len() + quotes).min(MAX_DEPTH);
 
     let open = |kind: Kind, lists: &Vec<Option<u64>>, quotes: usize, outermost: usize| Block {
@@ -236,12 +239,33 @@ pub fn parse(markdown: &str) -> Vec<Block> {
             Event::End(
                 TagEnd::Paragraph | TagEnd::Heading(_) | TagEnd::CodeBlock | TagEnd::Item,
             ) => close(&mut blocks, &mut current),
+            // Each table row is one line, its cells apart and the header bold, because
+            // columns can't line up in wrapped text.
+            Event::Start(row @ (Tag::TableHead | Tag::TableRow)) => {
+                close(&mut blocks, &mut current);
+                current = Some(open(Kind::Paragraph, &lists, quotes, outermost));
+                (in_head, cells) = (matches!(row, Tag::TableHead), 0);
+                style.bold = in_head;
+            }
+            // Every cell after the first, empty ones too, so the columns still line up.
+            Event::Start(Tag::TableCell) => {
+                if cells > 0
+                    && let Some(block) = &mut current
+                {
+                    push(block, " · ", style);
+                }
+                cells += 1;
+            }
+            Event::End(TagEnd::TableHead | TagEnd::TableRow) => {
+                (in_head, style.bold) = (false, false);
+                close(&mut blocks, &mut current);
+            }
             Event::Rule => {
                 close(&mut blocks, &mut current);
                 blocks.push(open(Kind::Rule, &lists, quotes, outermost));
             }
             Event::Start(Tag::Strong) => style.bold = true,
-            Event::End(TagEnd::Strong) => style.bold = false,
+            Event::End(TagEnd::Strong) => style.bold = in_head,
             Event::Start(Tag::Emphasis) => style.italic = true,
             Event::End(TagEnd::Emphasis) => style.italic = false,
             Event::Start(Tag::Strikethrough) => style.strike = true,
@@ -640,6 +664,38 @@ mod tests {
             text,
             ["Fixes a crash.", "More."],
             "only what was written shows"
+        );
+    }
+
+    #[test]
+    fn a_table_shows_a_row_a_line() {
+        let blocks = parse("| Step | Result |\n|---|---|\n| build | ok |\n| test | **failed** |\n");
+        assert_eq!(
+            texts(&blocks),
+            [
+                (&Kind::Paragraph, "Step · Result"),
+                (&Kind::Paragraph, "build · ok"),
+                (&Kind::Paragraph, "test · failed"),
+            ],
+            "each row on its own line, its cells apart, without the pipes"
+        );
+        assert!(
+            blocks[0].styles.iter().all(|(_, style)| style.bold),
+            "the header row stands out"
+        );
+        let blocks = parse("|  | **Before** | After |\n|---|---|---|\n| Speed | 1s | 2s |\n");
+        assert_eq!(
+            texts(&blocks),
+            [
+                (&Kind::Paragraph, " · Before · After"),
+                (&Kind::Paragraph, "Speed · 1s · 2s"),
+            ],
+            "an empty cell keeps its place, so the columns still line up"
+        );
+        let after = blocks[0].text.find("After").expect("in the header");
+        assert!(
+            (blocks[0].styles.iter()).any(|(range, style)| range.contains(&after) && style.bold),
+            "bold text in the header leaves the rest of it bold"
         );
     }
 
