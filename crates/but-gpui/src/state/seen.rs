@@ -24,18 +24,25 @@ impl Store {
             .is_some_and(|seen| !seen.contains(&commit.key))
     }
 
-    /// Count `ids` of `project` as seen, as opening them does.
+    /// Count `ids` of `project` as seen, as opening them does, or with `read` false as not
+    /// seen yet, to come back to.
     pub fn mark_read(
         &mut self,
         project: &ProjectId,
         ids: impl IntoIterator<Item = CommitId>,
+        read: bool,
         cx: &mut Context<Self>,
     ) {
         let keys: Vec<String> = (ids.into_iter())
             .filter_map(|id| self.key_of(project, id))
             .collect();
         let seen = self.seen.commits.entry(project.to_string()).or_default();
-        seen.extend(keys);
+        match read {
+            true => seen.extend(keys),
+            false => keys.iter().for_each(|key| {
+                seen.remove(key);
+            }),
+        }
         self.save_soon(cx);
         cx.notify();
     }
