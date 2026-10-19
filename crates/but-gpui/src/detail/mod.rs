@@ -256,8 +256,9 @@ pub struct Detail {
     /// How far each file's lines are scrolled sideways, by path: the old side's and the new
     /// side's, which a unified diff scrolls.
     sideways: HashMap<String, [ScrollHandle; 2]>,
-    /// The commit message being edited, with the subscription that saves it.
-    rewording: Option<(Entity<TextInput>, Subscription)>,
+    /// The commit message being edited, by the commit's change ID, with the subscription that
+    /// saves it. Looking at another commit keeps it, to pick up again on coming back.
+    rewording: Option<(String, Entity<TextInput>, Subscription)>,
     /// The project the checks and commit target above belong to.
     checks_project: Option<ProjectId>,
     /// The linked worktree whose files the checks are of, or `None` for the project's own.
@@ -332,12 +333,10 @@ impl Detail {
         let subscriptions = vec![
             cx.subscribe(&store, |this, _, event, cx| match event {
                 StoreEvent::SelectionChanged => {
-                    // A commit an operation rewrote is still the one being looked at, and a
-                    // message being edited for it stays.
+                    // A commit an operation rewrote is still the one being looked at.
                     let followed =
                         (this.key_for_selection(cx)).is_some_and(|key| this.follows(&key, cx));
                     if !followed {
-                        this.rewording = None;
                         this.message_open = false;
                         this.reset_view();
                     }
