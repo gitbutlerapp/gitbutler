@@ -23,7 +23,8 @@ pub struct OtherBranch {
     /// Commits it has that the target doesn't, when known.
     pub ahead: Option<usize>,
     pub tip: CommitId,
-    pub review: Option<(u64, ReviewState)>,
+    /// Its pull request's number, state and title, as the forge cache has them.
+    pub review: Option<(u64, ReviewState, String)>,
 }
 
 /// Every branch the workspace doesn't have applied, newest first; not the target.
@@ -50,9 +51,10 @@ pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
                 time: branch.updated_at_ms.map(|ms| ms / 1000),
                 ahead: branch.commits_ahead_of_target,
                 tip: CommitId(branch.tip),
-                review: listed
-                    .review
-                    .map(|review| (review.number as u64, review_state(&review))),
+                review: listed.review.map(|review| {
+                    let state = review_state(&review);
+                    (review.number as u64, state, review.title)
+                }),
             }
         })
         .collect())

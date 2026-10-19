@@ -333,7 +333,20 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         editing: None,
         worktrees,
         archived_worktrees,
-        refs,
+        refs: refs ^ reviews_fingerprint(&cached),
+    })
+}
+
+/// A hash of the pull requests the forge cache knows, so a refresh that learns of one, or
+/// of a new title or state, has the Branches page list them again.
+fn reviews_fingerprint(cached: &HashMap<u64, but_forge::ForgeReview>) -> u64 {
+    use std::hash::{Hash as _, Hasher as _};
+    // Order-free, as the map's order isn't fixed.
+    cached.values().fold(0, |sum, review| {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        let settled = (&review.merged_at, &review.closed_at);
+        (review.number, &review.title, review.draft, settled).hash(&mut hasher);
+        sum ^ hasher.finish()
     })
 }
 

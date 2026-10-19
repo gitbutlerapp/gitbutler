@@ -18,8 +18,8 @@ use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::illustration::Illustration;
 use crate::ui::{
-    ButtonStyle, Icon, button, empty_state, faint, field, list_row, muted, plural, relative_time,
-    small_icon, v_flex,
+    ButtonStyle, Icon, Tooltip, button, empty_state, faint, field, list_row, muted, plural,
+    relative_time, review, small_icon, v_flex,
 };
 
 pub(super) struct Branches {
@@ -214,6 +214,8 @@ impl Detail {
             !store.hides_branch(&branches.project, &branch.ref_name)
                 && (query.is_empty()
                     || branch.name.to_lowercase().contains(&query)
+                    || (branch.review.as_ref())
+                        .is_some_and(|(.., title)| title.to_lowercase().contains(&query))
                     || branch
                         .author
                         .as_ref()
@@ -483,30 +485,38 @@ impl Detail {
                                 let target = ws.and_then(|ws| ws.target.as_ref());
                                 format!("in {}", target.map_or("the target", |t| &t.name))
                             });
+                            // As the navigator names it: a pull request by its title, the
+                            // branch's name and number on hover.
+                            let (glyph, glyph_color) = match &branch.review {
+                                Some((_, state, _)) => review::state_glyph(*state, theme),
+                                None => (Icon::Branch, theme.text_2),
+                            };
+                            let name = div()
+                                .id(("other-branch-name", ix))
+                                .flex_1()
+                                .min_w(px(0.))
+                                .truncate();
+                            let name = match &branch.review {
+                                Some((_, state, title)) if !title.is_empty() => name
+                                    .text_color(review::title_color(*state, theme))
+                                    .child(SharedString::from(title.clone())),
+                                _ => name
+                                    .font_family(theme.mono_font.clone())
+                                    .text_size(px(12.))
+                                    .text_color(if merged.is_some() {
+                                        theme.text_2
+                                    } else {
+                                        theme.blue
+                                    })
+                                    .child(SharedString::from(branch.name.clone())),
+                            };
+                            let tip = (branch.review.as_ref())
+                                .map(|(number, ..)| format!("{} · #{number}", branch.name));
                             list_row(("other-branch", ix), selected, theme)
-                                .child(small_icon(Icon::Branch).text_color(theme.text_2))
+                                .child(small_icon(glyph).text_color(glyph_color))
                                 .child(
-                                    div()
-                                        .flex_1()
-                                        .min_w(px(0.))
-                                        .truncate()
-                                        .font_family(theme.mono_font.clone())
-                                        .text_size(px(12.))
-                                        .text_color(if merged.is_some() {
-                                            theme.text_2
-                                        } else {
-                                            theme.blue
-                                        })
-                                        .child(SharedString::from(branch.name.clone())),
+                                    name.when_some(tip, |el, tip| el.tooltip(Tooltip::text(tip))),
                                 )
-                                .when_some(branch.review, |el, (number, _)| {
-                                    el.child(
-                                        div()
-                                            .text_size(px(11.))
-                                            .text_color(theme.text_2)
-                                            .child(format!("#{number}")),
-                                    )
-                                })
                                 .when_some(merged, |el, merged| el.child(faint(merged, theme)))
                                 .when_some(branch.time, |el, time| {
                                     el.child(faint(relative_time(time), theme).flex_none())
