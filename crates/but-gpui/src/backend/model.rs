@@ -208,17 +208,15 @@ impl Workspace {
         !ref_name.is_empty() && self.pushed_with(ref_name).iter().any(Branch::can_push)
     }
 
-    /// How many commits only the remote has that pushing `ref_name` drops: a forced push
-    /// replaces what's there.
-    pub fn push_drops(&self, ref_name: &str) -> usize {
-        match self.needs_force(ref_name) {
-            false => 0,
-            true => self
-                .pushed_with(ref_name)
-                .iter()
-                .map(|b| b.incoming.len())
-                .sum(),
+    /// The commits only the remote has that pushing `ref_name` drops: a forced push replaces
+    /// what's there.
+    pub fn push_drops(&self, ref_name: &str) -> Vec<CommitId> {
+        if !self.needs_force(ref_name) {
+            return Vec::new();
         }
+        (self.pushed_with(ref_name).iter())
+            .flat_map(|b| b.incoming.iter().map(|(id, _)| *id))
+            .collect()
     }
 
     /// Why `ref_name` can't be pushed yet, though it has commits to send: pushing goes to
@@ -292,8 +290,8 @@ pub struct Branch {
     pub ref_name: String,
     /// Newest first.
     pub commits: Vec<Commit>,
-    /// The titles of the commits only the branch's remote has, newest first.
-    pub incoming: Vec<String>,
+    /// The commits only the branch's remote has, by ID and title, newest first.
+    pub incoming: Vec<(CommitId, String)>,
     pub push: PushState,
     pub review: Option<Review>,
 }

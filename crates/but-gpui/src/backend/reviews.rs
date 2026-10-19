@@ -217,7 +217,7 @@ pub fn publish(
 ) -> Result<Published> {
     // The pull request's head is the branch as the remote names it: what a push reports,
     // or for a branch pushed before, the remote branch it tracks.
-    let (pushed, push_sync_failed) = push(path, branch, true, run_hooks)?;
+    let (pushed, push_sync_failed) = push(path, branch, true, Some(&[]), run_hooks)?;
     let short = short_ref(branch).to_owned();
     let ctx = open(path)?;
     let pushed = match pushed {
