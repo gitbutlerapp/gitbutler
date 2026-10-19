@@ -511,12 +511,15 @@ impl Store {
     }
 
     /// Push `ref_name`, and with `protect` refuse to drop commits only the remote has: the
-    /// card that says so offers to push anyway.
+    /// card that says so offers to push anyway. Without it, a forced push goes past the
+    /// lease; with `drops`, the commits only the remote has that were shown, it stops at any
+    /// others there.
     pub fn push(
         &mut self,
         project: &ProjectId,
         ref_name: String,
         protect: bool,
+        drops: Option<Vec<CommitId>>,
         cx: &mut Context<Self>,
     ) {
         let name = short_ref(&ref_name).to_owned();
@@ -528,7 +531,13 @@ impl Store {
             Overlay::push(&ref_name, false),
             {
                 let ref_name = ref_name.clone();
-                move |path, _| match backend::push(path, &ref_name, protect, run_hooks) {
+                move |path, _| match backend::push(
+                    path,
+                    &ref_name,
+                    protect,
+                    drops.as_deref(),
+                    run_hooks,
+                ) {
                     Ok(_) => Ok(None),
                     Err(err) => backend::push_refusal(&err).map(Some).ok_or(err),
                 }
@@ -550,7 +559,7 @@ impl Store {
                     "Someone pushed since the last fetch, and pushing would drop their commits. \
                      Fetch to see them, or push anyway.",
                     "Push anyway",
-                    move |store, cx| store.push(&pushed, ref_name.clone(), false, cx),
+                    move |store, cx| store.push(&pushed, ref_name.clone(), false, None, cx),
                     cx,
                 );
             },

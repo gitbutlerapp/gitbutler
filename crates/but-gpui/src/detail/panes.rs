@@ -873,7 +873,7 @@ impl Detail {
 /// The commits only the branch's remote has, as an agent or a teammate pushed them, and
 /// a way to bring them in: `pull`, the branch's project and full ref, when it can.
 fn render_incoming(
-    titles: &[String],
+    incoming: &[(backend::CommitId, String)],
     pull: Option<(ProjectId, String)>,
     theme: &Theme,
     cx: &Context<Detail>,
@@ -897,7 +897,7 @@ fn render_incoming(
                         .text_color(theme.warn)
                         .child(format!(
                             "{} only on the remote",
-                            plural(titles.len(), "commit")
+                            plural(incoming.len(), "commit")
                         )),
                 )
                 .when_some(pull, |el, (project, ref_name)| {
@@ -920,7 +920,7 @@ fn render_incoming(
                     .child("Pulling into a branch with others stacked on it isn't possible yet."),
             )
         })
-        .children(titles.iter().map(|title| {
+        .children(incoming.iter().map(|(_, title)| {
             h_flex()
                 .gap(px(6.))
                 .text_color(theme.text_2)

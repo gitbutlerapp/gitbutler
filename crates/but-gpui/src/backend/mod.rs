@@ -395,7 +395,7 @@ fn branch_from(
         ref_name,
         commits: segment.commits.iter().map(commit_from).collect(),
         incoming: (segment.commits_on_remote.iter())
-            .map(|commit| title(&commit.message))
+            .map(|commit| (CommitId(commit.id), title(&commit.message)))
             .collect(),
         push,
         review,

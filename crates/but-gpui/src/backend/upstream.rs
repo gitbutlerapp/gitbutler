@@ -109,8 +109,36 @@ pub fn push(
     path: &Path,
     ref_name: &str,
     protect: bool,
+    drops: Option<&[CommitId]>,
     run_hooks: bool,
 ) -> Result<(Option<String>, Option<String>)> {
+    // Forced, as decided when it runs, the push goes past the lease, which would refuse to
+    // drop even the commits only the remote has that were shown. Unless pushing anyway, it
+    // fetches again first and stops if the remote moved, as a teammate's amend still matches
+    // the commit rewritten here, or has commits that weren't shown.
+    if let Some(shown) = drops {
+        let (info, tips) = with_remote_tips(path, ref_name)?;
+        if needs_force(&info, ref_name) {
+            fetch(path)?;
+            let (info, now) = with_remote_tips(path, ref_name)?;
+            if now != tips {
+                anyhow::bail!(
+                    "Someone pushed to {} since the last fetch, and forcing would replace it. \
+                     Check what's there before pushing again.",
+                    short_ref(ref_name)
+                );
+            }
+            if (pushed_with(&info, ref_name).flat_map(|segment| &segment.commits_on_remote))
+                .any(|commit| !shown.contains(&CommitId(commit.id)))
+            {
+                anyhow::bail!(
+                    "The remote has commits on {} that weren't shown, and forcing would drop \
+                     them. Push again to see them.",
+                    short_ref(ref_name)
+                );
+            }
+        }
+    }
     let ctx = open(path)?;
     // Decided when it runs, as an amend queued before it rewrites the branch.
     let info = but_api::legacy::workspace::head_info(&ctx)?;
@@ -162,6 +190,26 @@ fn needs_force(info: &but_workspace::RefInfo, ref_name: &str) -> bool {
     use but_core::ui::PushStatus;
     pushed_with(info, ref_name)
         .any(|segment| segment.push_status == PushStatus::UnpushedCommitsRequiringForce)
+}
+
+/// The workspace now, and where the remote-tracking branches of `ref_name` and the ones below
+/// it point.
+fn with_remote_tips(
+    path: &Path,
+    ref_name: &str,
+) -> Result<(but_workspace::RefInfo, Vec<Option<gix::ObjectId>>)> {
+    let ctx = open(path)?;
+    let info = but_api::legacy::workspace::head_info(&ctx)?;
+    let repo = ctx.repo.get()?;
+    let tips = pushed_with(&info, ref_name)
+        .map(|segment| {
+            (segment.remote_tracking_ref_name.as_ref())
+                .and_then(|name| repo.find_reference(name.as_ref()).ok())
+                .and_then(|mut tip| tip.peel_to_id().ok())
+                .map(|id| id.detach())
+        })
+        .collect();
+    Ok((info, tips))
 }
 
 /// `ref_name`'s branch and the ones below it in its stack, which pushing it pushes too.

@@ -365,29 +365,31 @@ impl AppView {
         if let Some(refused) = refused {
             return self.store.update(cx, |store, cx| store.snack(refused, cx));
         }
-        let (what, them) = match ws.push_drops(&ref_name) {
+        let drops = ws.push_drops(&ref_name);
+        let (what, them) = match drops.len() {
             0 => {
-                return self
-                    .store
-                    .update(cx, |store, cx| store.push(&project, ref_name, true, cx));
+                return self.store.update(cx, |store, cx| {
+                    store.push(&project, ref_name, true, Some(drops), cx)
+                });
             }
             1 => ("the commit".to_owned(), "it"),
             n => (format!("the {n} commits"), "them"),
         };
-        let drops = match ws.can_pull(&ref_name) {
+        let detail = match ws.can_pull(&ref_name) {
             true => format!("It drops {what} only the remote has. Pull first to keep {them}."),
             false => format!("It drops {what} only the remote has."),
         };
         // Asked here, as the project's own protection is off unless turned on.
         self.confirm_then(
             format!("Force push {}?", short_ref(&ref_name)),
-            &drops,
+            &detail,
             "Force push",
             window,
             cx,
             move |this, cx| {
-                this.store
-                    .update(cx, |store, cx| store.push(&project, ref_name, false, cx))
+                this.store.update(cx, |store, cx| {
+                    store.push(&project, ref_name, false, Some(drops), cx)
+                })
             },
         );
     }
