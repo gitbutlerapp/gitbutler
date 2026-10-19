@@ -813,14 +813,14 @@ pub fn relative_time(seconds: i64) -> String {
     }
 }
 
-/// How long ago `seconds` (since the epoch) was, faint, right-aligned in a slot as wide as the
-/// longest ("11mo"), so what sits before it lines up from row to row; empty without a time.
+/// How long ago `seconds` (since the epoch) was, faint, in a slot as wide as the longest
+/// ("11mo"), so what sits before it lines up from row to row; empty without a time. It starts
+/// at the slot's left, beside what comes before.
 pub fn age_column(seconds: Option<i64>, theme: &Theme) -> Div {
     faint(seconds.map(relative_time).unwrap_or_default(), theme)
         .flex_none()
         .w(px(30.))
         .whitespace_nowrap()
-        .text_right()
 }
 
 /// `seconds` (since the epoch) as the time here, the way but.dev dates a commit:
