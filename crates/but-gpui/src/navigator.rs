@@ -613,6 +613,7 @@ impl Navigator {
         if (branches.iter()).any(|b| store.hides_branch(id, &b.ref_name)) {
             return;
         }
+        let branches = &*store.after_deletes(id, branches);
         let (start, base) = (rows.rows.len(), rows.inset);
         let stacked = branches.len() > 1;
         if let [_, .., bottom] = branches {
@@ -662,6 +663,7 @@ impl Navigator {
     /// them away unless the selection's in them, and they step in under it; then each branch
     /// with its commits, up to the fold, unless it's closed.
     fn lane_rows(&self, store: &Store, id: &ProjectId, branches: &[Branch], rows: &mut Rows) {
+        let branches = &*store.after_deletes(id, branches);
         let base = rows.inset;
         let stacked = branches.len() > 1;
         if let [_, .., bottom] = branches {
