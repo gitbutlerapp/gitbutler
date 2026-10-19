@@ -127,6 +127,8 @@ impl Transfer {
             }
         }
         let workspace = store.workspace(target.project())?;
+        let conflicted =
+            |id: CommitId| workspace.find_commit(id).is_some_and(|(_, c)| c.conflicted);
         Some(match (payload, target) {
             (Cut::Commit(project, ids), Selection::Uncommitted(_) | Selection::Worktree(..))
                 if ids
@@ -236,7 +238,9 @@ impl Transfer {
                 },
                 target,
             ) => match (*from, target) {
-                (None, Selection::Commit(_, into)) => Transfer::Amend {
+                // The engine won't amend a conflicted commit, nor move changes in or out of one.
+                _ if from.is_some_and(conflicted) => return None,
+                (None, Selection::Commit(_, into)) if !conflicted(*into) => Transfer::Amend {
                     into: *into,
                     files: files.clone(),
                     worktree: worktree.clone(),
@@ -263,11 +267,13 @@ impl Transfer {
                         files: files.clone(),
                     }
                 }
-                (Some(from), Selection::Commit(_, to)) if from != *to => Transfer::MoveFiles {
-                    from,
-                    to: *to,
-                    files: files.clone(),
-                },
+                (Some(from), Selection::Commit(_, to)) if from != *to && !conflicted(*to) => {
+                    Transfer::MoveFiles {
+                        from,
+                        to: *to,
+                        files: files.clone(),
+                    }
+                }
                 _ => return None,
             },
             _ => return None,

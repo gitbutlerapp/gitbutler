@@ -727,7 +727,8 @@ impl Detail {
         }
         let target = self.effective_target(project, cx)?;
         let workspace = self.store.read(cx).workspace(project)?;
-        let top = workspace.find_branch(&target)?.commits.first()?;
+        // The engine won't amend a conflicted commit.
+        let top = (workspace.find_branch(&target)?.commits.first()).filter(|c| !c.conflicted)?;
         Some((top.id, top.title.clone()))
     }
 
