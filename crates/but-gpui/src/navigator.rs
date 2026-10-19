@@ -1062,7 +1062,7 @@ impl Navigator {
         let store = self.store.read(cx);
         let lit = |item: &Selection| {
             store.selection.as_ref() == Some(item)
-                || matches!(item, Selection::Commit(_, id) if store.picked.contains(id))
+                || matches!(item, Selection::Commit(project, id) if store.is_picked(project, *id))
         };
         let selected = lit(item);
         // Picked commits next to each other join up.
@@ -1134,7 +1134,7 @@ impl Navigator {
                         .update(cx, |store, cx| store.pick(project, *id, range, cx));
                     window.focus(&this.focus, cx);
                 }
-                Selection::Commit(_, id) if this.store.read(cx).among_picks(*id) => {
+                Selection::Commit(project, id) if this.store.read(cx).among_picks(project, *id) => {
                     window.focus(&this.focus, cx)
                 }
                 _ => this.select(item.clone(), window, cx),
@@ -2232,7 +2232,7 @@ impl Navigator {
                 cx.listener(move |this, event: &MouseDownEvent, window, cx| {
                     let items = this.menu_items(&menu_target, cx);
                     let picked = matches!(&menu_target,
-                        Selection::Commit(_, id) if this.store.read(cx).picked.contains(id));
+                        Selection::Commit(project, id) if this.store.read(cx).is_picked(project, *id));
                     if !items.is_empty() {
                         if picked {
                             // The picks' actions are the navigator's, dispatched from focus.

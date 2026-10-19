@@ -251,7 +251,7 @@ impl Navigator {
                 }
                 items
             }
-            Selection::Commit(project, id) if store.picked.contains(id) => {
+            Selection::Commit(project, id) if store.is_picked(project, *id) => {
                 let n = store.picked.len();
                 // Commits list newest first. The oldest can be in another stack or worktree
                 // than the one clicked, so it's named.
