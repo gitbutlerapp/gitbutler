@@ -2150,7 +2150,14 @@ impl Navigator {
             false => (pending.filter(|_| store.selection.as_ref() == Some(&target)))
                 .map(|cut| Place::from_keys(window.modifiers(), cut, &target)),
         }
-        .filter(|place| lands(*place));
+        .filter(|place| lands(*place))
+        // A branch goes below another under its last commit, rows further down, so a line
+        // under its heading would point at the wrong place: the heading is outlined, as the
+        // pill says where.
+        .map(|place| match target {
+            Selection::Branch(..) => Place::Into,
+            _ => place,
+        });
         let steps_back = pending.is_some()
             && ![Place::Above, Place::Into, Place::Below]
                 .into_iter()
