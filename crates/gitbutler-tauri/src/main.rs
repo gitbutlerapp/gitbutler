@@ -71,6 +71,14 @@ fn main() -> anyhow::Result<()> {
         AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), custom_settings)
             .expect("failed to create app settings");
 
+    // The native client, on the same settings, accounts and keychain entries. It owns the main
+    // thread until it quits, so it starts here, before Tauri does.
+    #[cfg(all(feature = "builtin-gpui", target_os = "macos"))]
+    if std::env::args_os().any(|arg| arg == "--gpui") {
+        but_gpui::run();
+        return Ok(());
+    }
+
     if let Ok(updated_csp) = csp_with_extras(
         tauri_context.config().app.security.csp.as_ref().cloned(),
         &app_settings,

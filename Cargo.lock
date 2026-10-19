@@ -4978,6 +4978,7 @@ dependencies = [
  "but-db",
  "but-error",
  "but-feedback",
+ "but-gpui",
  "but-path",
  "but-secret",
  "but-settings",
