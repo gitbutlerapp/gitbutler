@@ -176,6 +176,10 @@ pub enum Code {
     GitLabUnauthorized,
     /// GitLab returned HTTP 403 while validating a personal access token.
     GitLabForbidden,
+    /// Gitee returned HTTP 401 while validating a personal access token.
+    GiteeUnauthorized,
+    /// Gitee returned HTTP 403 while validating a personal access token.
+    GiteeForbidden,
     /// GitLab returned HTTP 404 while listing a project's open merge requests.
     GitLabProjectNotFound,
     /// Gitee returned HTTP 401 while validating a personal access token.
