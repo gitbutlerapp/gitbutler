@@ -464,6 +464,12 @@
 	}
 }
 
+/* "Stack" keeps its width, a step above the muted tip after it, which gives way. */
+.word {
+	flex-shrink: 0;
+	color: var(--text-2);
+}
+
 .more {
 	width: 100%;
 	border: none;
