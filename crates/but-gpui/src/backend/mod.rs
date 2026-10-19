@@ -480,13 +480,6 @@ fn worktree_files(repo: &gix::Repository) -> Result<Vec<FileChange>> {
     let changes = but_core::diff::worktree_changes(repo)?;
     // Status leaves out files with unresolved index conflicts; they're changes too.
     let conflicted = conflicted_changes(repo, &changes.ignored_changes)?;
-    // In milliseconds; a deleted file has none.
-    let modified = |path: &bstr::BStr| -> Option<i64> {
-        let path = repo.workdir()?.join(gix::path::from_bstr(path).ok()?);
-        let written = path.symlink_metadata().ok()?.modified().ok()?;
-        let since_epoch = written.duration_since(std::time::UNIX_EPOCH).ok()?;
-        i64::try_from(since_epoch.as_millis()).ok()
-    };
     let count = conflicted.len() + changes.changes.len() <= COUNT_LINES_UP_TO;
     let lines = |change: &but_core::TreeChange| match change.unified_patch(repo, 0) {
         Ok(Some(but_core::UnifiedPatch::Patch {
@@ -501,12 +494,21 @@ fn worktree_files(repo: &gix::Repository) -> Result<Vec<FileChange>> {
     Ok((conflicted.into_iter().map(|change| (change, true)))
         .chain(changes)
         .map(|(change, conflicted)| FileChange {
-            modified: modified(change.path.as_bstr()),
+            modified: written(repo, change.path.as_bstr()),
             conflicted,
             lines: count.then(|| lines(&change)).flatten(),
             ..file_change(change)
         })
         .collect())
+}
+
+/// When the file at `path` in `repo`'s checkout was last written, in milliseconds since the
+/// Unix epoch; a deleted file has none.
+fn written(repo: &gix::Repository, path: &bstr::BStr) -> Option<i64> {
+    let path = repo.workdir()?.join(gix::path::from_bstr(path).ok()?);
+    let written = path.symlink_metadata().ok()?.modified().ok()?;
+    let since_epoch = written.duration_since(std::time::UNIX_EPOCH).ok()?;
+    i64::try_from(since_epoch.as_millis()).ok()
 }
 
 /// The files Git's index still has conflicted, as changes from `HEAD` to what's on disk:

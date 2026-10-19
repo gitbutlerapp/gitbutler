@@ -10,7 +10,7 @@ use gpui::{Context, SharedString, Task};
 
 use super::{Cut, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
 use crate::backend::watch::Watcher;
-use crate::backend::{self, CommitId, Project, Workspace};
+use crate::backend::{self, CommitId, FileChange, Project, Selected, Workspace};
 
 /// A project whose files changed, whether that included its git directory, and the linked
 /// worktree they're in, by name, unless they're the main checkout's.
@@ -527,8 +527,9 @@ impl Store {
                 | Cut::Files {
                     from: Some(commit), ..
                 } => follow(*commit).map(|new| *commit = new).is_some(),
-                // Uncommitted files go when one of them is no longer uncommitted, and a
-                // branch when it's gone, as when renamed.
+                // Uncommitted files go when one of them is no longer uncommitted, and some of
+                // a file once it changed, as the lines picked may have moved under the pick;
+                // a branch goes when it's gone, as when renamed.
                 Cut::Files {
                     from: None,
                     worktree,
@@ -536,13 +537,26 @@ impl Store {
                     ..
                 } => {
                     let uncommitted = workspace.uncommitted_in(worktree.as_deref());
+                    let same = |f: &Selected, u: &FileChange| {
+                        f.hunks.is_none()
+                            || (u.modified, u.lines) == (f.file.modified, f.file.lines)
+                    };
                     uncommitted.is_some_and(|uncommitted| {
-                        (files.iter()).all(|f| uncommitted.iter().any(|u| u.path == f.file.path))
+                        (files.iter()).all(|f| {
+                            uncommitted
+                                .iter()
+                                .any(|u| u.path == f.file.path && same(f, u))
+                        })
                     })
                 }
                 Cut::Branch(_, ref_name) => workspace.find_branch(ref_name).is_some(),
             };
-            self.cut = kept.then_some(cut);
+            // Let go of one that changed out loud, rather than ⌘V doing nothing.
+            self.cut = Some(cut);
+            if !kept {
+                self.set_cut(None, cx);
+                self.snack("What was cut changed, so it was let go", cx);
+            }
         }
         // The file watcher learns which worktrees to watch when it starts, so one added,
         // shown again or archived starts it over. Edit mode lists none, so going in and out
