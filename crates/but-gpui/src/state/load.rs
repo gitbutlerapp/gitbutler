@@ -136,6 +136,16 @@ impl Store {
         // projects the user just added, which start closed.
         let restored = std::mem::take(&mut self.restored);
         let mut old: Vec<ProjectEntry> = std::mem::take(&mut self.projects);
+        // The watched keep the order they were in, the first listing the saved one.
+        let order: Vec<ProjectId> = (old.iter().filter(|entry| entry.expanded))
+            .map(|entry| entry.id.clone())
+            .chain(
+                restored
+                    .expanded
+                    .iter()
+                    .map(|id| ProjectId::from(id.as_str())),
+            )
+            .collect();
         // Projects to open if they're expanded: the new ones, and the ones whose folder
         // moved.
         let mut open = Vec::new();
@@ -156,7 +166,7 @@ impl Store {
                 }
                 open.push(id.clone());
                 ProjectEntry {
-                    expanded: restored.expanded.contains(id.as_ref()),
+                    expanded: restored.expanded.iter().any(|saved| saved == id.as_ref()),
                     id,
                     project,
                     workspace: None,
@@ -167,6 +177,7 @@ impl Store {
                 }
             })
             .collect();
+        self.order_projects(&order);
         let first_load = !self.projects_loaded;
         // A single project is always open, and one left closed, as after removing the
         // others, has nothing loaded or watched yet. Only when the list changed: reading it
@@ -270,20 +281,51 @@ impl Store {
             return;
         }
         entry.expanded = expanded;
+        if !expanded {
+            entry.watcher = None;
+        }
+        // Watched, it goes after the others watched; not, back among the rest by name.
+        let mut order = self.expanded_ids();
+        if expanded {
+            order.retain(|other| other != id);
+            order.push(id.clone());
+        }
+        self.order_projects(&order);
         if expanded {
             self.open_project(id, cx);
-        } else {
-            entry.watcher = None;
-            if self
-                .selection
-                .as_ref()
-                .is_some_and(|selection| selection.project() == id)
-            {
-                self.select(Some(Selection::Project(id.clone())), cx);
-            }
+        } else if self
+            .selection
+            .as_ref()
+            .is_some_and(|selection| selection.project() == id)
+        {
+            self.select(Some(Selection::Project(id.clone())), cx);
         }
         self.save_soon(cx);
         cx.notify();
+    }
+
+    /// Move watched project `id` to where watched project `to` is, the ones between moving
+    /// over by one.
+    pub fn move_watched(&mut self, id: &ProjectId, to: &ProjectId, cx: &mut Context<Self>) {
+        let mut order = self.expanded_ids();
+        let at = |id: &ProjectId| order.iter().position(|other| other == id);
+        let (Some(from), Some(at)) = (at(id), at(to)) else {
+            return;
+        };
+        let id = order.remove(from);
+        order.insert(at, id);
+        self.order_projects(&order);
+        self.save_soon(cx);
+        cx.notify();
+    }
+
+    /// List the watched projects as `order` has them, and the others by name.
+    fn order_projects(&mut self, order: &[ProjectId]) {
+        let at = |entry: &ProjectEntry| order.iter().position(|id| *id == entry.id);
+        self.projects.sort_by(|a, b| {
+            let name = |entry: &ProjectEntry| entry.project.name.to_lowercase();
+            at(a).cmp(&at(b)).then_with(|| name(a).cmp(&name(b)))
+        });
     }
 
     /// Watch and load every expanded project again, after a setting changed what they

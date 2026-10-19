@@ -24,7 +24,7 @@ use crate::state::{
     Cut, NewAt, Pane, Prefs, ProjectEntry, ProjectId, Selection, Store, StoreEvent,
 };
 use crate::theme::Theme;
-use crate::transfer::{Place, Transfer, drag_preview};
+use crate::transfer::{Place, Transfer, drag_pill, drag_preview};
 use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -273,6 +273,9 @@ pub struct Navigator {
     pointer_over: bool,
     /// The project whose watch button the pointer is on, which shows what a click makes it.
     watch_hovered: Option<ProjectId>,
+    /// The watched project whose card a dragged one would take the place of, while one is
+    /// over its heading.
+    project_drop: Option<ProjectId>,
     /// The row under the pointer holds still through the next change to the rows: one a
     /// workspace's load made, as an agent's commit, or "Show fewer" folding what's above it,
     /// which would leave the list scrolled past the fold. What else the user folds or does
@@ -346,6 +349,7 @@ impl Navigator {
             projects_unfolded: false,
             pointer_over: false,
             watch_hovered: None,
+            project_drop: None,
             hold_still: false,
             _subscriptions: subscriptions,
         }
@@ -1664,8 +1668,71 @@ impl Navigator {
                         });
                     }
                 }))
+                .when(expanded, |el| self.reorderable(el, id, entry, theme, cx))
                 .into_any_element(),
         )
+    }
+
+    /// Let a watched project's heading drag its card among the others, and take one dragged
+    /// onto it, outlined, into its card's place.
+    fn reorderable(
+        &self,
+        el: Stateful<Div>,
+        id: &ProjectId,
+        entry: &ProjectEntry,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Stateful<Div> {
+        let (name, navigator) = (entry.project.name.clone(), cx.entity().downgrade());
+        let (over, onto) = (id.clone(), id.clone());
+        el.relative()
+            .when(self.project_drop.as_ref() == Some(id), |el| {
+                el.child(
+                    div()
+                        .absolute()
+                        .inset_0()
+                        .rounded(px(4.))
+                        .border_1()
+                        .border_color(theme.pop)
+                        .bg(theme.pop.opacity(0.14)),
+                )
+            })
+            .on_drag(ProjectDrag(id.clone()), move |_, offset, _, cx| {
+                let pill = cx.new(|_| ProjectPill {
+                    name: name.clone().into(),
+                    offset,
+                });
+                // A drop anywhere else, or none, leaves the last card outlined otherwise.
+                let navigator = navigator.clone();
+                cx.observe_release(&pill, move |_, cx| {
+                    (navigator.update(cx, |this, cx| {
+                        this.project_drop = None;
+                        cx.notify()
+                    }))
+                    .ok();
+                })
+                .detach();
+                pill
+            })
+            .on_drag_move(
+                cx.listener(move |this, event: &DragMoveEvent<ProjectDrag>, _, cx| {
+                    let next = if event.bounds.contains(&event.event.position) {
+                        (event.drag(cx).0 != over).then(|| over.clone())
+                    } else if this.project_drop.as_ref() == Some(&over) {
+                        None
+                    } else {
+                        return;
+                    };
+                    if this.project_drop != next {
+                        this.project_drop = next;
+                        cx.notify();
+                    }
+                }),
+            )
+            .on_drop(cx.listener(move |this, drag: &ProjectDrag, _, cx| {
+                this.project_drop = None;
+                (this.store).update(cx, |store, cx| store.move_watched(&drag.0, &onto, cx));
+            }))
     }
 
     /// A quiet row at the end of a project that opens one of its pages.
@@ -2913,6 +2980,27 @@ fn holds(text: &str, term: &str) -> bool {
         true => (text.as_bytes().windows(term.len()))
             .any(|window| window.eq_ignore_ascii_case(term.as_bytes())),
         false => text.to_lowercase().contains(term),
+    }
+}
+
+/// A watched project's card being dragged, by its heading.
+struct ProjectDrag(ProjectId);
+
+/// What a dragged project card shows under the pointer.
+struct ProjectPill {
+    name: SharedString,
+    offset: gpui::Point<Pixels>,
+}
+
+impl Render for ProjectPill {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        drag_pill(
+            self.offset,
+            Icon::Eye,
+            self.name.clone(),
+            None,
+            Theme::get(cx),
+        )
     }
 }
 

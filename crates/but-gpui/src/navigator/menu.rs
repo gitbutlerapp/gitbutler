@@ -119,7 +119,30 @@ impl Navigator {
                     action("Watch", &Expand)
                 }];
                 if expanded {
-                    items.extend(new_branch_items(store, project, cx));
+                    // Its card swaps places with the watched one's above or below.
+                    let watched: Vec<&ProjectId> = (store.projects.iter())
+                        .filter(|entry| entry.expanded)
+                        .map(|entry| &entry.id)
+                        .collect();
+                    let at = watched.iter().position(|id| *id == project);
+                    let next_to = |step| {
+                        at.and_then(|at| at.checked_add_signed(step))
+                            .and_then(|at| watched.get(at))
+                    };
+                    for (label, to) in [("Move up", next_to(-1)), ("Move down", next_to(1))] {
+                        if let Some(&to) = to {
+                            let (id, to) = (project.clone(), to.clone());
+                            items.push(MenuItem::new(label, move |this, _, cx| {
+                                (this.store)
+                                    .update(cx, |store, cx| store.move_watched(&id, &to, cx))
+                            }));
+                        }
+                    }
+                    let mut branch = new_branch_items(store, project, cx);
+                    if let Some(first) = branch.first_mut() {
+                        first.separated = true;
+                    }
+                    items.extend(branch);
                     items.push(action("Fetch", &Fetch).separated());
                 }
                 // An unwatched project's too, once its page has read it.
