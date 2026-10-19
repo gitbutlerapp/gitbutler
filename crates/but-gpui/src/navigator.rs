@@ -1596,8 +1596,9 @@ impl Navigator {
                             }
                         }),
                 )
-                // An unwatched project's too, once its page has read it.
-                .when(needs_update, |el| {
+                // Only a watched project's: an unwatched one updates from its page or its menu,
+                // which keeps the list of the others quiet.
+                .when(expanded && needs_update, |el| {
                     let project = id.clone();
                     let updating = store.updating(id);
                     // Pressing it leaves the selection where it is, as pressing the row wouldn't.
