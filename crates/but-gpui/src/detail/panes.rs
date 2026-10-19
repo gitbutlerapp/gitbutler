@@ -568,10 +568,11 @@ impl Detail {
             .when(commit.conflicted, |el| {
                 el.child(div().text_color(theme.danger).child("conflicted"))
             });
+        let rewording = (self.rewording.as_ref()).filter(|(key, ..)| *key == commit.key);
         let main = v_flex()
             .gap(px(10.))
-            .map(|el| match &self.rewording {
-                Some((input, _)) => el.child(self.reword_editor(input, theme)),
+            .map(|el| match rewording {
+                Some((_, input, _)) => el.child(self.reword_editor(input, theme)),
                 None => el
                     .child(title)
                     // Further off the lines around it than they stand from each other.

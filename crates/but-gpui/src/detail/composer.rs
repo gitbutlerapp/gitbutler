@@ -458,9 +458,10 @@ impl Detail {
         // The oplog can't take back what rewrites a linked worktree's branch.
         let undoable = !store.in_worktree(&project, id);
         // A rewording still running is where the next one starts.
-        let Some(message) = (store.find_commit(&project, id))
-            .map(|(_, commit)| store.message_of(&project, commit).1.to_owned())
-        else {
+        let Some((key, message)) = (store.find_commit(&project, id)).map(|(_, commit)| {
+            let message = store.message_of(&project, commit).1.to_owned();
+            (commit.key.clone(), message)
+        }) else {
             return;
         };
         let input = cx.new(|cx| {
@@ -512,7 +513,7 @@ impl Detail {
             },
         );
         window.focus(&input.focus_handle(cx), cx);
-        self.rewording = Some((input, subscription));
+        self.rewording = Some((key, input, subscription));
         cx.notify();
     }
 
