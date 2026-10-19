@@ -136,8 +136,19 @@ impl Detail {
     ) -> AnyElement {
         let source = FileSource::Uncommitted(project.clone(), worktree.cloned());
         let (rows, _) = self.file_list("uncommitted-files", source, cx);
+        // Counted as listed: without the files a pending operation is taking.
+        let (store, checkout) = (self.store.read(cx), worktree.map(|w| &**w));
+        let shown = |path: &str| !store.hides_file(project, checkout, path);
         let diffs = self.worktree_diff().map_or(&[][..], |diff| &diff.files[..]);
-        let header = self.list_header(files.iter().map(|f| f.path.as_str()), diffs, theme, cx);
+        let header = self.list_header(
+            files
+                .iter()
+                .map(|f| f.path.as_str())
+                .filter(|path| shown(path)),
+            diffs.iter().filter(|diff| shown(&diff.file.path)),
+            theme,
+            cx,
+        );
         v_flex()
             .flex_1()
             .min_h(px(0.))
@@ -161,8 +172,13 @@ impl Detail {
                 .into_any_element();
         };
         let (rows, _) = self.file_list("diff-files", FileSource::Diff, cx);
-        let paths = diff.files.iter().map(|f| f.file.path.as_str());
-        let header = self.list_header(paths, &diff.files, theme, cx);
+        // Counted as listed: without the files a pending operation is taking out.
+        let leaving = diff.key.leaving(self.store.read(cx));
+        let paths = (diff.files.iter())
+            .map(|f| f.file.path.as_str())
+            .filter(|path| !leaving(path));
+        let diffs = diff.files.iter().filter(|f| !leaving(&f.file.path));
+        let header = self.list_header(paths, diffs, theme, cx);
         v_flex()
             .flex_1()
             .min_h(px(0.))
@@ -618,7 +634,7 @@ impl Detail {
     fn list_header<'a>(
         &self,
         paths: impl Iterator<Item = &'a str>,
-        diffs: &[FileDiff],
+        diffs: impl Iterator<Item = &'a FileDiff>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Div {
@@ -649,8 +665,7 @@ impl Detail {
                         .on_click(cx.listener(|this, _, window, cx| this.close_filter(window, cx))),
                 );
         }
-        let stats =
-            (diffs.iter().map(FileDiff::stats)).fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr));
+        let stats = (diffs.map(FileDiff::stats)).fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr));
         header_row()
             .child(files_heading(paths.count(), stats, theme))
             .child(div().flex_1())

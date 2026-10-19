@@ -1908,6 +1908,7 @@ impl Navigator {
                 &workspace.uncommitted,
             ),
         };
+        let uncommitted = store.uncommitted_shown(id, name.as_deref(), uncommitted);
         let branches = section_branches(workspace, name.as_ref());
         let unpushed_n = unpushed(branches.iter().copied());
         let unread = (branches.iter().flat_map(|branch| &branch.commits))
@@ -1986,7 +1987,7 @@ impl Navigator {
                     .overflow_hidden()
                     .gap(px(8.))
                     .children(
-                        change_counts(uncommitted, style)
+                        change_counts(&uncommitted, style)
                             .collect::<Vec<_>>()
                             .into_iter()
                             .rev(),
