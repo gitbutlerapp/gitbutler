@@ -11,6 +11,7 @@ use super::resolve::{banner_action, warn_banner};
 use crate::backend::{CheckRun, Forge, Review, ReviewState};
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
+use crate::ui::markdown;
 use crate::ui::review as ui_review;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
@@ -202,7 +203,7 @@ impl Detail {
                 theme,
             )
         });
-        let body = plain(&review.body);
+        let body = markdown::parse(&review.body);
         let doc = v_flex()
             .w_full()
             .max_w(px(760.))
@@ -218,10 +219,11 @@ impl Detail {
             ))
             .children(stale)
             .when(!body.is_empty(), |el| {
-                el.child(
-                    section("Description", None, theme)
-                        .child(div().text_size(px(13.)).line_height(px(20.)).child(body)),
-                )
+                el.child(section("Description", None, theme).child(markdown::render(
+                    &format!("review-{}", review.number),
+                    &body,
+                    theme,
+                )))
             })
             .when(!review.check_runs.is_empty(), |el| {
                 el.child(self.render_checks(review, theme, cx))
@@ -465,23 +467,6 @@ fn ago(seconds: i64) -> String {
     }
 }
 
-/// A description as written, less the HTML comments a template leaves in it.
-fn plain(body: &str) -> String {
-    let mut text = String::new();
-    let mut rest = body;
-    while let Some(start) = rest.find("<!--") {
-        text.push_str(&rest[..start]);
-        rest = (rest[start..].find("-->")).map_or("", |end| &rest[start + end + 3..]);
-    }
-    text.push_str(rest);
-    // Where a comment had a line of its own, a run of blank lines is left.
-    let mut text = text.replace("\r\n", "\n").trim().to_owned();
-    while text.contains("\n\n\n") {
-        text = text.replace("\n\n\n", "\n\n");
-    }
-    text
-}
-
 /// A tab of a page's header, underlined along the header's edge while `selected`.
 fn tab(id: &'static str, label: &'static str, selected: bool, theme: &Theme) -> Stateful<Div> {
     let hover = theme.text_1;
@@ -508,19 +493,4 @@ fn tab(id: &'static str, label: &'static str, selected: bool, theme: &Theme) -> 
                     .bg(theme.text_1),
             )
         })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::plain;
-
-    #[test]
-    fn plain_drops_template_comments() {
-        let body = "<!-- Describe the change -->\r\n\r\nFixes a crash.\n\n<!-- Screenshots -->\n\n\nMore.\n<!-- unclosed";
-        assert_eq!(
-            plain(body),
-            "Fixes a crash.\n\nMore.",
-            "comments go, and so do the blank lines they leave"
-        );
-    }
 }
