@@ -81,10 +81,27 @@ pub fn list(
     Ok((operations, more))
 }
 
-/// Put the project back to how it was before the operation `id` was taken for. The restore
-/// is itself recorded, so it can be undone.
-pub fn restore(path: &Path, id: SnapshotId) -> Result<()> {
+/// Why undo and restore refuse to take back one of the operations kept from them.
+const UNRECORDED: &str = "GitButler's history records only the workspace and the main \
+    checkout, not linked worktrees or branches outside it. Change it back by hand instead.";
+
+/// Put the project back to how it was before the operation `id` was taken for, refusing
+/// when that takes back one of `kept`, as undo does. The restore is itself recorded, so it
+/// can be undone.
+pub fn restore(path: &Path, id: SnapshotId, kept: &HashSet<SnapshotId>) -> Result<()> {
     let mut ctx = open(path)?;
+    // Each snapshot is made on the one before, so one taken since `id` has it as its base.
+    let repo = ctx.repo.get()?;
+    let since = |snapshot: &SnapshotId| {
+        snapshot.0 == id.0
+            || repo
+                .merge_base(id.0, snapshot.0)
+                .is_ok_and(|base| base.is_some_and(|b| b == id.0))
+    };
+    if kept.iter().any(since) {
+        bail!(UNRECORDED);
+    }
+    drop(repo);
     oplog::restore_snapshot_with_kind(&mut ctx, RestoreKind::ExplicitRestoreFromSnapshot, id.0)
 }
 
@@ -111,10 +128,7 @@ pub fn undo(path: &Path, redo: bool, kept: &HashSet<SnapshotId>) -> Result<Optio
         return Ok(None);
     };
     if kept.contains(&SnapshotId(snapshot.commit_id)) {
-        bail!(
-            "GitButler's history records only the workspace and the main checkout, not linked \
-             worktrees or branches outside it. Change it back by hand instead."
-        );
+        bail!(UNRECORDED);
     }
     let title = snapshot
         .details
