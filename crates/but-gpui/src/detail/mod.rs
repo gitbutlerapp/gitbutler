@@ -231,6 +231,9 @@ pub struct Detail {
     /// The branch (full ref) new commits go to; `None` creates a branch.
     commit_target: Option<String>,
     checks: composer::Checks,
+    /// The checks of the other checkouts looked at, by project and linked worktree, kept
+    /// for coming back to them.
+    other_checks: HashMap<(Option<ProjectId>, Option<Arc<str>>), composer::Checks>,
     /// Narrows the file list and the diff to the paths it matches, while `filtering`.
     file_filter: Entity<TextInput>,
     filtering: bool,
@@ -343,16 +346,13 @@ impl Detail {
                     let project = this.selected_project(cx);
                     let checkout = this.selected_checkout(cx).map(|(_, worktree)| worktree);
                     if this.checks_project != project {
-                        this.checks_project = project;
-                        this.checks_worktree = checkout.flatten();
-                        this.close_composer(cx);
+                        this.switch_checkout(project, checkout.flatten(), cx);
                         this.commit_target = None;
                     } else if let Some(worktree) = checkout
                         && worktree != this.checks_worktree
                     {
                         // Checks are of one checkout's files, which another's share paths with.
-                        this.checks_worktree = worktree;
-                        this.close_composer(cx);
+                        this.switch_checkout(project, worktree, cx);
                     }
                     this.reload_page(true, cx);
                     this.refresh_diff(true, cx);
@@ -457,6 +457,7 @@ impl Detail {
             message,
             commit_target: None,
             checks: Default::default(),
+            other_checks: HashMap::new(),
             file_filter,
             filtering: false,
             whole: HashMap::new(),
