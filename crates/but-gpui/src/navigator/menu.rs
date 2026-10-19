@@ -15,7 +15,7 @@ use crate::edits::{
 };
 use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Selection};
-use crate::ui::plural;
+use crate::ui::{plural, quoted};
 
 /// An item marking `unread`, commits of `project`, read.
 fn mark_read(label: &str, project: &ProjectId, unread: Vec<CommitId>) -> MenuItem {
@@ -253,17 +253,20 @@ impl Navigator {
             }
             Selection::Commit(project, id) if store.picked.contains(id) => {
                 let n = store.picked.len();
-                // Commits list newest first.
-                let oldest = (store.workspace(project))
+                // Commits list newest first. The oldest can be in another stack or worktree
+                // than the one clicked, so it's named.
+                let Some(oldest) = (store.workspace(project))
                     .and_then(|ws| ws.commits().filter(|c| store.picked.contains(&c.id)).last())
-                    .map(|c| c.id);
+                else {
+                    return Vec::new();
+                };
                 let mut items = vec![MenuItem::action(
-                    format!("Squash {n} commits"),
+                    format!("Squash {n} commits into {}", quoted(&oldest.title)),
                     &SquashPicked,
                     cx,
                 )];
                 // The other way round: the rest go into the one clicked, in its place.
-                if oldest != Some(*id) {
+                if oldest.id != *id {
                     let into = *id;
                     items.push(MenuItem::new(
                         format!("Squash {n} commits into this one"),
