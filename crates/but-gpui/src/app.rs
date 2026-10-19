@@ -595,14 +595,17 @@ impl AppView {
     }
 
     /// Show or hide the navigator. The details pane draws its own header, so it's told
-    /// what's around it. When the navigator goes, focus moves off it.
+    /// what's around it. When the navigator goes, focus moves off it, and it comes back with
+    /// it, as hiding it took it away.
     fn set_navigator(&mut self, navigator_open: bool, window: &mut Window, cx: &mut Context<Self>) {
         self.navigator_open = navigator_open;
         self.detail.update(cx, |detail, cx| {
             detail.beside_traffic_lights = !navigator_open;
             cx.notify();
         });
-        if self.navigator.focus_handle(cx).contains_focused(window, cx) {
+        if navigator_open {
+            window.focus(&self.navigator.focus_handle(cx), cx);
+        } else if self.navigator.focus_handle(cx).contains_focused(window, cx) {
             self.focus_main(window, cx);
         }
         cx.notify();
