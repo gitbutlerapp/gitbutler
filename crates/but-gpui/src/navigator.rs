@@ -2148,6 +2148,8 @@ impl Navigator {
                     }))
             }
         };
+        // As an unread commit's title stands out, so does its branch's name, folded or not.
+        let unread = (branch.commits.iter()).any(|commit| store.is_unread(id, commit));
         Some(
             style
                 .row(format!("branch-{id}-{ref_name}"), 6.)
@@ -2158,6 +2160,7 @@ impl Navigator {
                     branch_name(name, branch.review.as_ref(), &style)
                         .id(ElementId::Name(format!("name-{id}-{ref_name}").into()))
                         .flex_1()
+                        .when(unread, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
                         .when_some(tip, |el, tip| el.tooltip(Tooltip::text(tip))),
                 )
                 // As ui-react's empty MetaCount, the quietest meta, ahead of any counts.
@@ -2234,13 +2237,7 @@ impl Navigator {
                         plural(n, "commit"),
                     ))
                 })
-                .when(
-                    branch
-                        .commits
-                        .iter()
-                        .any(|commit| store.is_unread(id, commit)),
-                    |el| el.child(dot(style.meta(theme.pop))),
-                )
+                .when(unread, |el| el.child(dot(style.meta(theme.pop))))
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
                 // Double-clicking closes the branch to its row or opens it again, as with a
                 // folder.
