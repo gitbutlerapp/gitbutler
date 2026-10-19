@@ -77,8 +77,10 @@ icons! {
     Clock => "clock",
     Commit => "commit",
     CommitFill => "commit-fill",
+    Camera => "camera",
     Diff => "diff",
     DragVertical => "drag-vertical",
+    Edit => "edit",
     Eye => "eye",
     CollapseVertical => "collapse-vertical",
     Cross => "cross",
@@ -106,6 +108,7 @@ icons! {
     TextCode => "text-code",
     TextWrap => "text-wrap",
     Tick => "tick",
+    Undo => "undo",
     Warning => "warning";
     // ui-react's FolderIcon, a component with its gradient in CSS.
     own: FolderFill => "folder-fill",
@@ -807,9 +810,35 @@ pub fn relative_time(seconds: i64) -> String {
 /// `seconds` (since the epoch) as the time here, the way but.dev dates a commit:
 /// "16/10/2026, 21:04".
 pub fn local_time(seconds: i64) -> String {
+    local(seconds, "%d/%m/%Y, %H:%M")
+}
+
+/// `seconds` (since the epoch) in `format`, at the time here.
+fn local(seconds: i64, format: &'static str) -> String {
     let offset = gix::date::Time::now_local_or_utc().offset;
-    gix::date::Time::new(seconds, offset)
-        .format_or_unix(gix::date::time::CustomFormat::new("%d/%m/%Y, %H:%M"))
+    gix::date::Time::new(seconds, offset).format_or_unix(gix::date::time::CustomFormat::new(format))
+}
+
+/// The day `seconds` (since the epoch) fell on here, to tell one day's from another's.
+pub fn local_day(seconds: i64) -> String {
+    local(seconds, "%Y-%m-%d")
+}
+
+/// The day `seconds` fell on, as Tauri's history heads a day's operations: Today, Yesterday,
+/// or the weekday and date, with the year when it isn't this one.
+pub fn day_label(seconds: i64) -> String {
+    let today = now();
+    match local_day(seconds) {
+        day if day == local_day(today) => "Today".into(),
+        day if day == local_day(today - 86_400) => "Yesterday".into(),
+        _ if local(seconds, "%Y") == local(today, "%Y") => local(seconds, "%a, %-d %b"),
+        _ => local(seconds, "%a, %-d %b %Y"),
+    }
+}
+
+/// The time of day `seconds` fell on here, like 14:05.
+pub fn clock_time(seconds: i64) -> String {
+    local(seconds, "%H:%M")
 }
 
 /// A surface with nothing in it, as ui-react's EmptyState: a drawing picked by what the state
