@@ -121,16 +121,19 @@ impl Navigator {
                 if expanded {
                     items.extend(new_branch_items(store, project, cx));
                     items.push(action("Fetch", &Fetch).separated());
-                    if let Some(target) = (store.workspace(project))
-                        .and_then(|ws| ws.target.as_ref())
-                        .filter(|target| target.needs_update)
-                    {
-                        items.push(MenuItem::action(
-                            format!("Update from {}", target.name),
-                            &UpdateFromTarget,
-                            cx,
-                        ));
-                    }
+                }
+                // An unwatched project's too, once its page has read it.
+                if let Some(target) = (store.workspace(project))
+                    .and_then(|ws| ws.target.as_ref())
+                    .filter(|target| target.needs_update)
+                {
+                    let update = MenuItem::action(
+                        format!("Update from {}", target.name),
+                        &UpdateFromTarget,
+                        cx,
+                    );
+                    // With Fetch, else apart from Watch.
+                    items.push(if expanded { update } else { update.separated() });
                 }
                 let archived = (store.workspace(project))
                     .map_or_else(Vec::new, |ws| ws.archived_worktrees.clone());
