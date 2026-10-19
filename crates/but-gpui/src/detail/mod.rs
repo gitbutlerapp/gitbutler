@@ -33,7 +33,7 @@ use gpui::{
     Task, UniformListScrollHandle, WeakEntity, Window, actions, div, prelude::*, px,
 };
 
-use crate::app::{AddProject, AppView};
+use crate::app::{AddProject, AppView, Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::edit::Editing;
 use crate::backend::{self, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::state::{FileSort, Pane, Picks, ProjectId, Selection, Store, StoreEvent};
@@ -75,6 +75,7 @@ actions!(
 pub fn bind_keys(cx: &mut App) {
     let c = Some("Detail && !TextInput");
     let files = Some("Files && !TextInput");
+    let side = Some("SideList && !TextInput");
     cx.bind_keys([
         KeyBinding::new("down", NextFile, files),
         KeyBinding::new("up", PreviousFile, files),
@@ -105,6 +106,15 @@ pub fn bind_keys(cx: &mut App) {
             ToggleSplit,
             Some("(Navigator || Detail) && !TextInput"),
         ),
+        // The History and Branches lists step and fold as the navigator does.
+        KeyBinding::new("down", SelectNext, side),
+        KeyBinding::new("j", SelectNext, side),
+        KeyBinding::new("up", SelectPrevious, side),
+        KeyBinding::new("k", SelectPrevious, side),
+        KeyBinding::new("right", Expand, side),
+        KeyBinding::new("l", Expand, side),
+        KeyBinding::new("left", Collapse, side),
+        KeyBinding::new("h", Collapse, side),
         // Works while typing the message too, as the composer's other key does.
         KeyBinding::new("alt-cmd-enter", AmendTop, Some("Detail")),
         KeyBinding::new("cmd-shift-b", composer::PickCommitTarget, Some("Detail")),
