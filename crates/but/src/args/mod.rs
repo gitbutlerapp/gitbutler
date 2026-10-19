@@ -331,9 +331,9 @@ pub enum Subcommands {
     /// Merges the branch onto the configured target (for example `origin/master`) without going
     /// through a pull request — the "just push to the target" workflow. By default the target is
     /// fast-forwarded to the branch tip when possible (no merge commit); otherwise a merge commit
-    /// is created. For a local (`gb-local`) target the refs are moved locally; otherwise the result
-    /// is pushed to the remote. After merging, the remaining applied branches are reconciled onto
-    /// the moved target, just like `but pull`.
+    /// is created, or with `--ff-only` the merge is refused. For a local (`gb-local`) target the
+    /// refs are moved locally; otherwise the result is pushed to the remote. After merging, the
+    /// remaining applied branches are reconciled onto the moved target, just like `but pull`.
     ///
     /// Requires the GitButler workspace or, in single-branch mode, a checked-out branch. In
     /// single-branch mode, merging the checked-out branch checks out the target branch afterwards,
@@ -362,6 +362,12 @@ pub enum Subcommands {
     /// but merge my-feature-branch --no-ff
     /// ```
     ///
+    /// Merge a branch only if the target can be fast-forwarded to it:
+    ///
+    /// ```text
+    /// but merge my-feature-branch --ff-only
+    /// ```
+    ///
     /// Merge an entire stack by naming its top segment:
     ///
     /// ```text
@@ -377,8 +383,11 @@ pub enum Subcommands {
         #[clap(long)]
         yes: bool,
         /// Always create a merge commit, even when the branch can be fast-forwarded.
-        #[clap(long)]
+        #[clap(long, conflicts_with = "ff_only")]
         no_ff: bool,
+        /// Refuse to merge unless the target can be fast-forwarded to the branch tip.
+        #[clap(long)]
+        ff_only: bool,
         /// Merge the entire stack: BRANCH must be the top segment, and the segments below it are
         /// published to the target along with it.
         #[clap(long)]

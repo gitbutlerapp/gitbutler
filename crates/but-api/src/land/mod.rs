@@ -167,6 +167,9 @@ pub mod json {
 /// commits. HEAD must be the managed workspace or, in single-branch mode, the checked-out branch
 /// (see [`ensure_landable_checkout`]), and the target remote must be configured and non-triangular.
 ///
+/// `no_ff` always creates a merge commit; `ff_only` refuses to land unless the target can be
+/// fast-forwarded to the branch tip. Passing both is an error.
+///
 /// This fetches the target, lands the branch (fast-forward or signed merge commit, retrying when
 /// the target moves underneath us), then reconciles the remaining applied branches onto the moved
 /// target. The remote push is not undoable; see [`BranchLandResult::reconcile_skipped`] and the
@@ -177,8 +180,12 @@ pub fn branch_land(
     ctx: &mut Context,
     branch: String,
     no_ff: bool,
+    ff_only: bool,
     whole_stack: bool,
 ) -> anyhow::Result<BranchLandResult> {
+    if no_ff && ff_only {
+        bail!("Cannot land with both `no_ff` and `ff_only`");
+    }
     let base_branch = {
         let mut guard = ctx.exclusive_worktree_access();
         {
@@ -256,6 +263,7 @@ pub fn branch_land(
                 &fetch_remote_name,
                 &target_branch_name,
                 no_ff,
+                ff_only,
             )
         }?;
 

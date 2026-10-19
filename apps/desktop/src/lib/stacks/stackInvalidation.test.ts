@@ -106,6 +106,7 @@ test("integration refetches every surviving branch without refetching the remove
 			projectId,
 			branch: removed,
 			noFf: false,
+			ffOnly: false,
 			wholeStack: false,
 		}),
 	);

@@ -443,12 +443,14 @@ describe("buildStackEndpoints", () => {
 				projectId: "project-1",
 				branch: "feature",
 				noFf: false,
+				ffOnly: false,
 				wholeStack: true,
 			}),
 		).toEqual({
 			projectId: "project-1",
 			branch: "feature",
 			noFf: false,
+			ffOnly: false,
 			wholeStack: true,
 		});
 
@@ -466,6 +468,7 @@ describe("buildStackEndpoints", () => {
 					projectId: "project-1",
 					branch: "feature",
 					noFf: false,
+					ffOnly: false,
 					wholeStack: true,
 				},
 				undefined,

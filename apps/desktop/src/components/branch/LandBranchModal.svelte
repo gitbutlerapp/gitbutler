@@ -43,6 +43,7 @@
 				projectId,
 				branch: branchName,
 				noFf: false,
+				ffOnly: false,
 				wholeStack,
 			});
 			if (result.landed.type === "alreadyIntegrated") {

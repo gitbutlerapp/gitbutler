@@ -249,7 +249,7 @@ export declare function branchDiff(projectId: string, branch: string): Promise<T
  *
  * {@link ../../../../../crates/but-api/src/land/mod.rs}
  */
-export declare function branchLand(projectId: string, branch: string, noFf: boolean, wholeStack: boolean): Promise<BranchLandResult>
+export declare function branchLand(projectId: string, branch: string, noFf: boolean, ffOnly: boolean, wholeStack: boolean): Promise<BranchLandResult>
 
 /**
  * Lists all local and remote branches of the project, grouped into stacks where

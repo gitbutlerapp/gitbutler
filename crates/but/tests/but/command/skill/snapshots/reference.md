@@ -200,6 +200,7 @@ Merge a branch directly onto the target branch, bypassing review
 - `<BRANCH>` Branch ID or name to merge onto the target branch
 - `--yes` Skip the confirmation prompt
 - `--no-ff` Always create a merge commit, even when the branch can be fast-forwarded
+- `--ff-only` Refuse to merge unless the target can be fast-forwarded to the branch tip
 - `--whole-stack` Merge the entire stack: BRANCH must be the top segment, and the segments below it are published to the target along with it
 
 ### but push [BRANCH]
