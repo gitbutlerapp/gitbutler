@@ -135,20 +135,31 @@ pub fn push(
         if needs_force(&info, ref_name) {
             fetch(path)?;
             let (info, now) = with_remote_tips(path, ref_name)?;
+            // A stack pushes the branches below it too: the refusal names the one it's about.
+            let name = |segment: Option<&but_workspace::ref_info::Segment>| {
+                (segment.and_then(|segment| segment.ref_name())).map_or_else(
+                    || short_ref(ref_name).to_owned(),
+                    |n| n.shorten().to_string(),
+                )
+            };
             if now != tips {
+                let moved = name(
+                    (pushed_with(&info, ref_name).zip(tips.iter().zip(&now)))
+                        .find(|(_, (before, after))| before != after)
+                        .map(|(segment, _)| segment),
+                );
                 anyhow::bail!(
-                    "Someone pushed to {} since the last fetch, and forcing would replace it. \
-                     Check what's there before pushing again.",
-                    short_ref(ref_name)
+                    "Someone pushed to {moved} since the last fetch, and forcing would replace \
+                     it. Check what's there before pushing again."
                 );
             }
-            if (pushed_with(&info, ref_name).flat_map(|segment| &segment.commits_on_remote))
-                .any(|commit| !shown.contains(&CommitId(commit.id)))
-            {
+            if let Some(unseen) = pushed_with(&info, ref_name).find(|segment| {
+                (segment.commits_on_remote.iter()).any(|c| !shown.contains(&CommitId(c.id)))
+            }) {
                 anyhow::bail!(
                     "The remote has commits on {} that weren't shown, and forcing would drop \
                      them. Push again to see them.",
-                    short_ref(ref_name)
+                    name(Some(unseen))
                 );
             }
         }
