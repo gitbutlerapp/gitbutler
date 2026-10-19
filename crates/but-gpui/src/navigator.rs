@@ -7,10 +7,11 @@ use std::sync::Arc;
 use std::time::{Duration, UNIX_EPOCH};
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, DragMoveEvent, ElementId, Entity, FocusHandle,
-    Focusable, Hsla, KeyBinding, ListAlignment, ListOffset, ListState, Modifiers, MouseButton,
-    MouseDownEvent, Pixels, Point, ScrollWheelEvent, SharedString, Stateful, Subscription,
-    WeakEntity, Window, actions, deferred, div, list, prelude::*, px,
+    AnyElement, App, Bounds, ClickEvent, Context, Div, DragMoveEvent, ElementId, Entity,
+    FocusHandle, Focusable, Hsla, KeyBinding, ListAlignment, ListOffset, ListState, Modifiers,
+    MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, PlatformInput, Point, ScrollWheelEvent,
+    SharedString, Stateful, Subscription, Task, WeakEntity, Window, actions, deferred, div, list,
+    prelude::*, px,
 };
 
 use crate::app::{AddProject, AppView, Collapse, Confirm, Expand, SelectNext, SelectPrevious};
@@ -280,6 +281,10 @@ pub struct Navigator {
     /// which would leave the list scrolled past the fold. What else the user folds or does
     /// moves the rows as usual.
     hold_still: bool,
+    /// How far a frame the list scrolls while something dragged is near its top or bottom
+    /// edge, up when negative, and the task that scrolls it.
+    edge_scroll: f32,
+    edge_scrolling: Option<Task<()>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -350,6 +355,8 @@ impl Navigator {
             watch_hovered: None,
             project_drop: None,
             hold_still: false,
+            edge_scroll: 0.,
+            edge_scrolling: None,
             _subscriptions: subscriptions,
         }
     }
@@ -1693,6 +1700,71 @@ impl Navigator {
         )
     }
 
+    /// While something dragged is near the list's top or bottom edge, or past it, scroll the
+    /// list that way, faster the closer it gets, so it can reach rows out of view.
+    fn scroll_near_edge(
+        &mut self,
+        at: Point<Pixels>,
+        list: Bounds<Pixels>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        const EDGE: f32 = 48.;
+        const FASTEST: f32 = 16.;
+        let closeness = |gap: Pixels| 1. - (f32::from(gap) / EDGE).max(0.);
+        let (from_top, from_bottom) = (at.y - list.top(), list.bottom() - at.y);
+        self.edge_scroll = match at.x >= list.left() && at.x <= list.right() {
+            false => 0.,
+            true if from_top < px(EDGE) => -FASTEST * closeness(from_top),
+            true if from_bottom < px(EDGE) => FASTEST * closeness(from_bottom),
+            true => 0.,
+        };
+        if self.edge_scroll == 0. || self.edge_scrolling.is_some() {
+            return;
+        }
+        self.edge_scrolling = Some(cx.spawn_in(window, async move |this, cx| {
+            loop {
+                cx.background_executor()
+                    .timer(Duration::from_millis(16))
+                    .await;
+                let step = this.update_in(cx, |this, window, cx| {
+                    let speed = this.edge_scroll;
+                    if speed == 0. || !cx.has_active_drag() {
+                        return false;
+                    }
+                    let offset = -this.list.scroll_px_offset_for_scrollbar().y;
+                    let room = match speed < 0. {
+                        true => offset > px(0.),
+                        false => offset < this.list.max_offset_for_scrollbar().y,
+                    };
+                    if room {
+                        this.list.scroll_by(px(speed));
+                        cx.notify();
+                        // The rows moved under a pointer that stays put: once they're drawn
+                        // where they are now, have the drag land again where it is, as moving
+                        // the pointer would. A next frame's callbacks run before it's drawn,
+                        // so the frame after the one that draws them.
+                        window.on_next_frame(|window, _| {
+                            window.on_next_frame(|window, cx| {
+                                let event = MouseMoveEvent {
+                                    position: window.mouse_position(),
+                                    pressed_button: Some(MouseButton::Left),
+                                    modifiers: window.modifiers(),
+                                };
+                                window.dispatch_event(PlatformInput::MouseMove(event), cx);
+                            })
+                        });
+                    }
+                    true
+                });
+                if !step.unwrap_or(false) {
+                    break;
+                }
+            }
+            (this.update(cx, |this, _| this.edge_scrolling = None)).ok();
+        }));
+    }
+
     /// Let a watched project's heading drag its card among the others (see [`Self::card_drop`]).
     fn reorderable(
         &self,
@@ -2983,7 +3055,17 @@ impl Render for Navigator {
                     .pt(px(2.))
                     .pb(px(12.));
                     let scroll = Scroll::List(self.list.clone());
-                    el.child(scrolled(rows, "navigator-scrollbar", scroll, &theme))
+                    el.child(
+                        scrolled(rows, "navigator-scrollbar", scroll, &theme)
+                            .on_drag_move(cx.listener(|this, event: &DragMoveEvent<Cut>, w, cx| {
+                                this.scroll_near_edge(event.event.position, event.bounds, w, cx)
+                            }))
+                            .on_drag_move(cx.listener(
+                                |this, event: &DragMoveEvent<ProjectDrag>, w, cx| {
+                                    this.scroll_near_edge(event.event.position, event.bounds, w, cx)
+                                },
+                            )),
+                    )
                 }
             })
             // Scrolling moves the rows from under a pointer that stays put, so where a drag
