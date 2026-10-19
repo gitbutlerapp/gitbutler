@@ -957,6 +957,20 @@ impl AppView {
         let Some(whole_stack) = land_scope(workspace, &ref_name) else {
             return;
         };
+        // What lands leaves at once: the whole stack, or the bottom branch and its commits.
+        let overlay = match whole_stack {
+            true => Overlay {
+                branches: HashSet::from([ref_name.clone()]),
+                ..Overlay::default()
+            },
+            false => Overlay {
+                commits: (workspace.find_branch(&ref_name).into_iter())
+                    .flat_map(|branch| branch.commits.iter().map(|c| c.key.clone()))
+                    .collect(),
+                deleted_branches: HashSet::from([ref_name.clone()]),
+                ..Overlay::default()
+            },
+        };
         let name = short_ref(&ref_name).to_owned();
         let (what, whose) = match whole_stack {
             true => (format!("{name} and the branches below it"), "Their"),
@@ -985,7 +999,7 @@ impl AppView {
                     store.run(
                         &project,
                         label,
-                        Overlay::default(),
+                        overlay,
                         move |path, _| backend::land(path, &name, whole_stack),
                         move |store, update_needed, cx| {
                             let mut message = format!("Landed on {target}");
