@@ -525,7 +525,7 @@ impl Store {
     /// What moving commit `id` of `project` takes: the picked commits, in the order they're
     /// listed, when it's one of several, or else just it.
     pub fn with_picks(&self, project: &ProjectId, id: CommitId) -> Arc<[CommitId]> {
-        if !self.among_picks(id) {
+        if !self.among_picks(project, id) {
             return [id].into();
         }
         (self.workspace(project).into_iter())
@@ -535,9 +535,16 @@ impl Store {
             .collect()
     }
 
-    /// Whether commit `id` is one of several picked.
-    pub fn among_picks(&self, id: CommitId) -> bool {
-        self.picked.len() > 1 && self.picked.contains(&id)
+    /// Whether commit `id` of `project` is picked. Picks are the selected project's: another
+    /// project can have the same commits, as a second clone of a repository does.
+    pub fn is_picked(&self, project: &ProjectId, id: CommitId) -> bool {
+        (self.selection.as_ref()).is_some_and(|s| s.project() == project)
+            && self.picked.contains(&id)
+    }
+
+    /// Whether commit `id` of `project` is one of several picked.
+    pub fn among_picks(&self, project: &ProjectId, id: CommitId) -> bool {
+        self.picked.len() > 1 && self.is_picked(project, id)
     }
 
     /// Whether `id` of `project` is a linked worktree's commit.
