@@ -220,7 +220,7 @@ impl Detail {
                     crumbs.push((format!("Stack of {n}").into(), None));
                 }
                 Selection::History(project) => {
-                    crumbs.push(("History".into(), None));
+                    crumbs.push(("Operations history".into(), None));
                     self.history_header(project, &mut actions, cx);
                 }
                 Selection::Commit(project, id) => {

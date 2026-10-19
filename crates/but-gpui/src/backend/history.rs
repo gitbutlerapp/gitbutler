@@ -21,6 +21,8 @@ pub struct Operation {
     pub detail: Option<String>,
     /// When, in seconds since the epoch.
     pub time: i64,
+    /// What kind of operation, when the oplog says.
+    pub kind: Option<OperationKind>,
 }
 
 /// Up to `limit` operations older than `after`, or the newest ones; and whether more remain.
@@ -46,6 +48,7 @@ pub fn list(
                 (title.to_owned(), restored)
             };
             use OperationKind as K;
+            let kind = snapshot.details.as_ref().map(|details| details.operation);
             let (title, detail) = match snapshot.details {
                 Some(details) => match details.operation {
                     K::RestoreFromSnapshotViaUndo => restored("Undo"),
@@ -75,6 +78,7 @@ pub fn list(
                 title,
                 detail,
                 time: snapshot.created_at.seconds,
+                kind,
             }
         })
         .collect();

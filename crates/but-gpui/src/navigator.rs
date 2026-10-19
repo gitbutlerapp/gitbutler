@@ -1124,7 +1124,8 @@ impl Navigator {
                 Some(self.page_row(item, Icon::Branch, "Branches", tip, style, cx))
             }
             Selection::History(_) => {
-                Some(self.page_row(item, Icon::Clock, "History", None, style, cx))
+                let label = "Operations history";
+                Some(self.page_row(item, Icon::Clock, label, None, style, cx))
             }
             Selection::Stack(id, bottom) => self.stack_row(ix, item, id, bottom, style, cx),
         };
