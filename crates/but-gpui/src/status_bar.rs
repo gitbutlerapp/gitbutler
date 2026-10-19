@@ -123,7 +123,10 @@ impl AppView {
         } else if !typing && !detail_focused && detail.shows_conflicts() {
             // Picking takes the keys of the diff, so it needs the focus.
             vec![(&FocusDiff, "pick conflicts")]
-        } else if typing || (detail_focused && !detail.has_files()) || store.selection.is_none() {
+        } else if typing
+            || (detail_focused && (!detail.has_files() || detail.showing_review(cx)))
+            || store.selection.is_none()
+        {
             Vec::new()
         } else if detail.files_focused(window) {
             vec![(&NextFile, "next file")]

@@ -317,7 +317,7 @@ impl Detail {
             )
             .child(meta);
         let target = Selection::Project(project.clone());
-        self.page_header(main, target, None, theme, cx)
+        self.page_header(main, target, None, None, theme, cx)
     }
 
     pub(super) fn render_upstream_side(

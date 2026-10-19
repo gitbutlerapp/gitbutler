@@ -258,6 +258,11 @@ pub struct Store {
     forge_queued: HashSet<ProjectId>,
     /// Projects whose last forge refresh failed, which the minute poll leaves alone.
     forge_failed: HashSet<ProjectId>,
+    /// The project whose forge refresh is under way.
+    forge_checking: Option<ProjectId>,
+    /// When each project's forge refresh last worked, in seconds since the epoch. A refresh
+    /// that changes nothing reloads nothing, so the cache's own time on screen falls behind.
+    forge_synced: HashMap<ProjectId, i64>,
     _forge_worker: Task<()>,
 }
 
@@ -323,6 +328,8 @@ impl Store {
             forge_requests,
             forge_queued: HashSet::new(),
             forge_failed: HashSet::new(),
+            forge_checking: None,
+            forge_synced: HashMap::new(),
             _forge_worker: Self::forge_worker(requested, cx),
             _forge_poll: Self::poll_forge(cx),
             fetched: HashMap::new(),
