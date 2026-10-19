@@ -29,9 +29,9 @@ use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dot, empty_state,
-    faint, field, h_flex, icon, icon_button, just_now, list_row, plural, relative_time,
-    resize_handle, review, section_label, shortcut, small_icon, v_flex,
+    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, count_badge, dot,
+    empty_state, faint, field, h_flex, icon, icon_button, just_now, list_row, plural,
+    relative_time, resize_handle, review, section_label, shortcut, small_icon, v_flex,
 };
 
 mod account;
@@ -2054,27 +2054,40 @@ impl Navigator {
                 this.toggle_stack(&fold.0, &fold.1, open, window, cx);
             }));
         let fold = (id.clone(), bottom.to_owned());
+        // As ui-react's StackCaption: quiet, so it doesn't read as one more branch, with
+        // "Stack" a step above the rest.
+        let (word, quiet) = match style.solid {
+            true => (theme.text_inverted, style.muted()),
+            false => (theme.text_2, theme.text_3),
+        };
         Some(
             style
                 .row(format!("stack-{id}-{bottom}"), 6.)
-                .aria_label(label.clone())
+                .aria_label(label)
                 .aria_expanded(open)
                 .child(step)
-                .child(icon(Icon::Stack).text_color(style.muted()))
+                .child(icon(Icon::Stack).text_color(quiet))
                 .child(
                     h_flex()
                         .id(("stack-name", ix))
                         .flex_1()
                         .min_w(px(0.))
                         .gap(px(6.))
+                        .font_weight(gpui::FontWeight::SEMIBOLD)
                         .tooltip(Tooltip::text(format!("Stack: {}", names.join(" ← "))))
-                        .child(div().flex_none().text_color(style.muted()).child(label))
-                        // Folded, its top branch tells it from another stack as tall, named
-                        // as the branch rows name it; open, that row is right under it.
+                        .child(count_badge(branches.len(), theme).when(style.solid, |el| {
+                            el.bg(theme.text_inverted.opacity(0.15)).text_color(quiet)
+                        }))
+                        .child(div().flex_none().text_color(word).child("Stack"))
+                        // Folded, its top branch, the one that gets pushed, tells it from
+                        // another stack as tall, and gives way first; open, that row is right
+                        // under it.
                         .children(branches.first().filter(|_| !open).map(|top| {
-                            let review =
-                                (top.review.as_ref()).map(|r| (r, store.review_state(id, r)));
-                            branch_name(store.name_of(id, top), review, &style)
+                            div()
+                                .min_w(px(0.))
+                                .truncate()
+                                .text_color(quiet)
+                                .child(store.label_of(id, top).to_owned())
                         })),
                 )
                 .when(!open, |el| {

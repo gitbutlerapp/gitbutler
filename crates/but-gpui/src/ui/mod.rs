@@ -902,6 +902,18 @@ pub fn empty_state(
         .into_any_element()
 }
 
+/// How many, in a small grey pill, as ui-react's light grey `Badge`.
+pub fn count_badge(count: usize, theme: &Theme) -> Div {
+    div()
+        .flex_none()
+        .px(px(6.))
+        .rounded_full()
+        .bg(theme.fill_gray.opacity(0.1))
+        .text_size(px(11.))
+        .text_color(theme.text_2)
+        .child(count.to_string())
+}
+
 /// A strip along a pane's right edge: drag it to resize the pane, double-click to put it
 /// back. The pane needs `.relative()`, and an ancestor that starts where the pane does
 /// listens with [`resize_pane`].
