@@ -303,8 +303,12 @@ impl Store {
         cx.spawn(async move |this, cx| {
             let watch_id = id.clone();
             let watcher = backend::run(move || watch(&project, watch_id, changes)).await;
-            this.update(cx, |store, _| match (store.project_mut(&id), watcher) {
-                (Some(entry), Ok(watcher)) if entry.expanded => entry.watcher = Some(watcher),
+            this.update(cx, |store, cx| match (store.project_mut(&id), watcher) {
+                (Some(entry), Ok(watcher)) if entry.expanded => {
+                    entry.watcher = Some(watcher);
+                    // What the old watcher saw last it hadn't passed on yet, and dropped.
+                    store.load(&id, Reload::full(), cx);
+                }
                 (_, Err(err)) => tracing::warn!("couldn't watch {id} again: {err:#}"),
                 _ => {}
             })
