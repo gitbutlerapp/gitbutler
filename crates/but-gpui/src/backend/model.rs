@@ -61,8 +61,8 @@ pub struct Workspace {
     pub worktrees: Vec<Worktree>,
     /// The names of the worktrees archived, to bring back.
     pub archived_worktrees: Vec<std::sync::Arc<str>>,
-    /// A fingerprint of the repository's local and remote branches, which the Branches page
-    /// lists again when it changes.
+    /// A fingerprint of the repository's local and remote branches and of the pull requests
+    /// the forge cache knows, which the Branches page lists again when it changes.
     pub refs: u64,
 }
 

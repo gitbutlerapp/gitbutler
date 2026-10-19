@@ -2449,13 +2449,10 @@ fn branch_name(name: &str, review: Option<&Review>, style: &RowStyle) -> Div {
     let el = div().min_w(px(0.)).truncate();
     match review.filter(|review| !review.title.is_empty()) {
         Some(review) => el
-            .text_color(match review.state {
-                ReviewState::Open => style.meta(theme.text_1),
-                ReviewState::Draft => style.muted(),
-                ReviewState::Merged | ReviewState::Closed => match style.solid {
-                    true => style.muted(),
-                    false => theme.text_3,
-                },
+            .text_color(match style.solid {
+                true if review.state == ReviewState::Open => style.meta(theme.text_1),
+                true => style.muted(),
+                false => review::title_color(review.state, theme),
             })
             .child(review.title.clone()),
         None => el
