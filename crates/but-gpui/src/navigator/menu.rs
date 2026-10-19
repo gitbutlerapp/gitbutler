@@ -326,7 +326,10 @@ impl Navigator {
                     action("Rename…", &RenameSelection).separated(),
                     action("Copy name", &CopySelection),
                 ]);
-                if !linked {
+                // A linked worktree keeps the branch it has checked out, its lane's top one.
+                let checked_out =
+                    linked && workspace.lane_of(ref_name).is_some_and(|(_, at)| at == 0);
+                if !checked_out {
                     items.push(action("Delete branch…", &DeleteSelection).danger());
                 }
                 items
