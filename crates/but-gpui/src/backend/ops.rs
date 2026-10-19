@@ -14,7 +14,7 @@ use but_core::tree::create_tree::RejectionReason;
 use but_core::{DiffSpec, DryRun};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 
-use super::{ChangeKind, CommitId, Selected, checkout, open};
+use super::{ChangeKind, CommitId, Selected, checkout, open, written};
 
 /// Where a commit or a set of changes lands.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -76,8 +76,25 @@ fn refuse_conflicted(
     worktree: Option<&str>,
     selected: &[Selected],
 ) -> Result<()> {
-    if let Some(path) = unmerged(&checkout(ctx, worktree)?, selected)?.first() {
+    let repo = checkout(ctx, worktree)?;
+    if let Some(path) = unmerged(&repo, selected)?.first() {
         bail!("Mark {path} resolved first: it still has conflicts");
+    }
+    refuse_changed(&repo, selected)
+}
+
+/// Refuse some of an uncommitted file written to since its diff was read, as by an agent:
+/// its hunks and lines are placed by line numbers that an edit above or among them moves,
+/// and the engine would take whatever lies there now.
+fn refuse_changed(repo: &gix::Repository, selected: &[Selected]) -> Result<()> {
+    let changed = (selected.iter()).find(|part| {
+        part.hunks.is_some() && written(repo, part.file.path.as_str().into()) != part.file.modified
+    });
+    if let Some(part) = changed {
+        bail!(
+            "{} changed since the diff was shown; try again",
+            part.file.path
+        );
     }
     Ok(())
 }
@@ -620,6 +637,7 @@ pub fn discard(path: &Path, worktree: Option<&str>, selected: &[Selected]) -> Re
             part.file.path
         );
     }
+    refuse_changed(repo, selected)?;
     let conflicted: Vec<bstr::BString> = conflicted.into_iter().map(Into::into).collect();
     let specs = taken_specs(selected)?;
     // The snapshot is recorded before anything changes, as the but-api discard does: undo
@@ -637,7 +655,7 @@ pub fn discard(path: &Path, worktree: Option<&str>, selected: &[Selected]) -> Re
         }
     }
     let context_lines = ctx.settings.context_lines;
-    let specs = current_hunks(repo, specs, context_lines)?;
+    let specs = current_hunks(repo, selected, specs, context_lines)?;
     // Conflicted files go last: resolving one takes its conflict away, so a failure after
     // that would lose it, and a linked worktree has no snapshot to bring it back.
     let (conflicted_specs, rest): (Vec<_>, Vec<_>) =
@@ -662,65 +680,67 @@ pub fn discard(path: &Path, worktree: Option<&str>, selected: &[Selected]) -> Re
     Ok(())
 }
 
-/// `specs` with their hunks as the worktree has them now. A discard queued behind another
-/// in the same file has hunks from before that one moved the lines below it, so each is
-/// found again by the committed lines it changes, which that discard left alone. One that's
-/// gone has nothing left to discard, and a file left with none is skipped: no hunks would
-/// discard all of it.
+/// `specs`, the `selected` changes in that order, with their hunks as the worktree has them
+/// now, picked lines set against the hunk around them. Hunks go by line numbers, so a file
+/// whose hunks aren't where its diff had them, as when committing part of it since moved its
+/// base without writing it, asks to try again on the fresh diff.
 fn current_hunks(
     repo: &gix::Repository,
+    selected: &[Selected],
     specs: Vec<DiffSpec>,
     context_lines: u32,
 ) -> Result<Vec<DiffSpec>> {
     let changes = but_core::diff::worktree_changes(repo)?.changes;
     let mut current = Vec::new();
-    for mut spec in specs {
+    for (part, mut spec) in selected.iter().zip(specs) {
         if !spec.hunk_headers.is_empty() {
-            let patch = match changes.iter().find(|change| change.path == spec.path) {
-                Some(change) => change.unified_patch(repo, context_lines)?,
-                None => None,
-            };
-            let hunks = match patch {
+            let stale =
+                || anyhow::anyhow!("{} changed since the diff was shown; try again", spec.path);
+            let change = (changes.iter())
+                .find(|change| change.path == spec.path)
+                .filter(|change| super::file_change((*change).clone()).base() == part.file.base())
+                .ok_or_else(stale)?;
+            let hunks = match change.unified_patch(repo, context_lines)? {
                 Some(but_core::UnifiedPatch::Patch { hunks, .. }) => hunks,
                 _ => Vec::new(),
             };
             spec.hunk_headers = (spec.hunk_headers.iter())
-                .filter_map(|wanted| {
+                .map(|wanted| {
                     // Picked lines name one side only, as a commit takes them: a discard takes
                     // them out of the hunk around them, against its other side.
                     let within = |start: u32, lines: u32, outer: u32, outer_lines: u32| {
                         start >= outer && start + lines <= outer + outer_lines
                     };
-                    if wanted.old_lines == 0 {
-                        let hunk = (hunks.iter()).find(|h| {
-                            within(wanted.new_start, wanted.new_lines, h.new_start, h.new_lines)
-                        })?;
-                        return Some(but_core::HunkHeader {
-                            old_start: hunk.old_start,
-                            old_lines: hunk.old_lines,
-                            ..*wanted
-                        });
-                    }
-                    if wanted.new_lines == 0 {
-                        let hunk = (hunks.iter()).find(|h| {
-                            within(wanted.old_start, wanted.old_lines, h.old_start, h.old_lines)
-                        })?;
-                        return Some(but_core::HunkHeader {
-                            new_start: hunk.new_start,
-                            new_lines: hunk.new_lines,
-                            ..*wanted
-                        });
-                    }
-                    (hunks.iter())
-                        .find(|h| {
-                            h.old_start == wanted.old_start && h.old_lines == wanted.old_lines
-                        })
-                        .map(Into::into)
+                    let found = if wanted.old_lines == 0 {
+                        (hunks.iter())
+                            .find(|h| {
+                                within(wanted.new_start, wanted.new_lines, h.new_start, h.new_lines)
+                            })
+                            .map(|hunk| but_core::HunkHeader {
+                                old_start: hunk.old_start,
+                                old_lines: hunk.old_lines,
+                                ..*wanted
+                            })
+                    } else if wanted.new_lines == 0 {
+                        (hunks.iter())
+                            .find(|h| {
+                                within(wanted.old_start, wanted.old_lines, h.old_start, h.old_lines)
+                            })
+                            .map(|hunk| but_core::HunkHeader {
+                                new_start: hunk.new_start,
+                                new_lines: hunk.new_lines,
+                                ..*wanted
+                            })
+                    } else {
+                        (hunks.iter())
+                            .find(|h| {
+                                h.old_start == wanted.old_start && h.old_lines == wanted.old_lines
+                            })
+                            .map(Into::into)
+                    };
+                    found.ok_or_else(stale)
                 })
-                .collect();
-            if spec.hunk_headers.is_empty() {
-                continue;
-            }
+                .collect::<Result<_>>()?;
         }
         current.push(spec);
     }
@@ -1165,7 +1185,7 @@ mod tests {
     }
 
     #[test]
-    fn a_hunk_discard_queued_behind_another_finds_its_hunk_again() {
+    fn a_hunk_discard_queued_behind_another_in_its_file_asks_to_try_again() {
         let lines: Vec<String> = (1..=20).map(|n| format!("line {n}\n")).collect();
         let dir = repo_with(&lines.concat());
         let path = dir.path();
@@ -1189,13 +1209,63 @@ mod tests {
         };
         discard(path, None, &[hunk(0)]).unwrap();
         // Read before the first discard, which took two lines out above it.
-        discard(path, None, &[hunk(1)]).unwrap();
+        let err = discard(path, None, &[hunk(1)]).unwrap_err();
+        assert!(
+            err.to_string().contains("changed since the diff was shown"),
+            "its place in the file is from before the first discard: {err}"
+        );
+        let diff = load_diff(path, DiffSource::Worktree, None, None, None).unwrap();
+        let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
+            panic!("a text diff");
+        };
+        let fresh = Selected {
+            file: diff[0].file.clone(),
+            hunks: Some(vec![hunks[0].key]),
+        };
+        discard(path, None, &[fresh]).unwrap();
         assert_eq!(
             std::fs::read_to_string(path.join("file")).unwrap(),
             lines.concat(),
-            "each discard took back just its own hunk"
+            "tried again on the fresh diff, each discard took back just its own hunk"
         );
-        discard(path, None, &[hunk(1)]).expect("a hunk that's gone has nothing left to discard");
+    }
+
+    #[test]
+    fn a_hunk_discard_after_its_files_base_moved_asks_to_try_again() {
+        let lines: Vec<String> = (1..=20).map(|n| format!("line {n}\n")).collect();
+        let dir = repo_with(&lines.concat());
+        let path = dir.path();
+        let mut edited = lines.clone();
+        edited[1] = "two\n".into();
+        edited[18] = "nineteen\n".into();
+        std::fs::write(path.join("file"), edited.concat()).unwrap();
+        let diff = load_diff(path, DiffSource::Worktree, None, None, None).unwrap();
+        let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
+            panic!("a text diff");
+        };
+        let second = Selected {
+            file: diff[0].file.clone(),
+            hunks: Some(vec![hunks[1].key]),
+        };
+        // Commit the first edit alone, as committing part of the file does, without touching
+        // the file itself.
+        let mut first = lines.clone();
+        first[1] = "two\n".into();
+        std::fs::write(path.join("staged"), first.concat()).unwrap();
+        let blob = git(path, &["hash-object", "-w", "staged"]);
+        let entry = format!("100644,{},file", blob.trim());
+        git(path, &["update-index", "--cacheinfo", &entry]);
+        git(path, &["commit", "-q", "-m", "first edit"]);
+        let err = discard(path, None, &[second]).unwrap_err();
+        assert!(
+            err.to_string().contains("changed since the diff was shown"),
+            "its hunk was read against the file before the commit: {err}"
+        );
+        assert_eq!(
+            std::fs::read_to_string(path.join("file")).unwrap(),
+            edited.concat(),
+            "nothing was discarded"
+        );
     }
 
     /// The file of `repo_with` one line at a time, and the index of the line in its hunk
