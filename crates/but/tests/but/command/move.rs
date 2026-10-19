@@ -5854,6 +5854,94 @@ Hint: run `but help` for all commands
     );
 }
 
+/// Without an order naming it, an empty branch at a worktree's base merely rests on the target:
+/// it is no branch of the worktree's or any stack's, so the worktree is left detached.
+#[test]
+fn move_a_worktrees_checked_out_branch_off_an_unordered_empty_branch_at_the_target() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt = env.app_data_dir().join("worktrees").join("wt-inside");
+    env.invoke_bash(format!(
+        r#"git worktree add -q -b wt-base "{wt}" main
+        cd "{wt}" && git checkout -q -b wt-inside && echo change >wt-file.txt && git add wt-file.txt && git commit -q -m "add W""#,
+        wt = wt.display()
+    ));
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┊╭┄ wt:@ [uncommitted] {wt-inside} (no changes)
+┊├┄ wt [wt-inside]
+┊●   swk add W
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("move wt-inside -b B")
+        .assert()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Stacked branch 'wt-inside' on top of branch 'B'
+
+"#]]);
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ wt [wt-inside]
+┊●   swk add W
+┊│
+┊├┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┊╭┄ i0:@ [uncommitted] {wt-inside} (no changes)
+┊├┄ i0 (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all_from_dir(&wt).unwrap(),
+        snapbox::str![[r#"
+*   b15e646 (gitbutler/workspace) GitButler Workspace Commit
+|\  
+| * 1038d1a (wt-inside) add W
+| * d3e2ba3 (B) add B
+* | 9477ae7 (A) add A
+|/  
+* 0dc3733 (HEAD, origin/main, origin/HEAD, wt-base, main, gitbutler/target) add M
+
+"#]]
+        .raw()
+    );
+}
+
 /// With nothing below it in its worktree, the checked-out branch leaves the worktree detached
 /// on the commit it was based on.
 #[test]
@@ -6166,6 +6254,35 @@ fn message_file_isnt_allowed_when_moving_commits() {
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: `-m/--message` and `-F/--file` can only be used when moving committed changes
+
+"#]]);
+}
+
+/// A branch merely resting on the target is no stack's branch, so rewriting the stacks above it
+/// leaves it out of them.
+#[test]
+fn move_a_branch_above_a_branch_resting_on_the_target() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    env.but("status").assert().success();
+    env.invoke_git("branch stray main");
+    env.but("move B -b A").assert().success();
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [B]
+┊●   lrm add B
+┊│
+┊├┄ h0 [A]
+┊●   tpm add A
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
 
 "#]]);
 }
