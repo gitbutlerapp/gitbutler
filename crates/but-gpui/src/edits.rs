@@ -926,7 +926,7 @@ impl AppView {
                 "Unapply",
                 Overlay {
                     branches: stack,
-                    ..Overlay::default()
+                    ..Overlay::rewriting_main()
                 },
                 move |path, _| backend::unapply_stack(path, &ref_name),
                 move |store, (), cx| store.snack_undoable(format!("Unapplied {name}"), cx),

@@ -66,11 +66,15 @@ pub struct Overlay {
 #[derive(Default, Clone, Copy)]
 pub enum Rereads {
     /// Commits and branches, and the files of each checkout whose `HEAD` has another tree
-    /// by now, which is all an operation on commits writes: see [`backend::Kept`].
+    /// by now, which is all an operation on commits writes: see [`backend::Kept`]. When it
+    /// takes uncommitted files, the checkout `files_in` names too.
     #[default]
     Commits,
     /// Only the uncommitted files of the checkout `files_in` names, or of the main one.
     Files,
+    /// As [`Self::Commits`], and the main checkout's files whatever its `HEAD`, which
+    /// restoring from the oplog and leaving an edit can write under an unchanged tree.
+    CommitsAndMain,
 }
 
 /// Where a commit an operation makes shows until it's loaded.
@@ -97,6 +101,15 @@ impl Overlay {
     pub fn remote() -> Self {
         Self {
             remote_only: true,
+            ..Self::default()
+        }
+    }
+
+    /// For an operation that can rewrite the main checkout's files under its `HEAD`: see
+    /// [`Rereads::CommitsAndMain`].
+    pub fn rewriting_main() -> Self {
+        Self {
+            rereads: Rereads::CommitsAndMain,
             ..Self::default()
         }
     }
@@ -297,7 +310,7 @@ impl Store {
         self.run(
             project,
             label,
-            Overlay::default(),
+            Overlay::rewriting_main(),
             move |path, _| {
                 let kept = kept.lock().expect("not poisoned").clone();
                 backend::history::undo(path, redo, &kept)
@@ -317,7 +330,7 @@ impl Store {
         self.run(
             project,
             "Restore",
-            Overlay::default(),
+            Overlay::rewriting_main(),
             move |path, _| {
                 let kept = kept.lock().expect("not poisoned").clone();
                 backend::history::restore(path, snapshot, &kept)
@@ -337,7 +350,7 @@ impl Store {
         self.run(
             project,
             "Undo",
-            Overlay::default(),
+            Overlay::rewriting_main(),
             move |path, _| backend::history::undo_snapshot(path, snapshot),
             |store, operation, cx| store.snack(format!("Undone: {operation}"), cx),
             cx,
@@ -349,7 +362,7 @@ impl Store {
         self.run(
             project,
             "Finish editing",
-            Overlay::default(),
+            Overlay::rewriting_main(),
             |path, _| backend::edit::finish(path),
             |store, (), cx| store.snack("Finished editing", cx),
             cx,
@@ -363,7 +376,7 @@ impl Store {
         self.run(
             project,
             "Cancel editing",
-            Overlay::default(),
+            Overlay::rewriting_main(),
             move |path, _| backend::edit::cancel(path, force),
             move |store, left, cx| match left {
                 true => store.snack("Stopped editing, the commit is as it was", cx),
@@ -896,9 +909,24 @@ impl Store {
                 if let Some(running) = store.running.get_mut(&project) {
                     running.settling = true;
                     moved = running.moved.take();
-                    reload = match running.overlay.rereads {
+                    let overlay = &running.overlay;
+                    reload = match overlay.rereads {
+                        // Files taken out of a checkout leave it even when its `HEAD` stays
+                        // put, as a linked worktree's committed to a branch here do.
+                        Rereads::Commits
+                            if !overlay.files.is_empty() || !overlay.hunks.is_empty() =>
+                        {
+                            let mut reload = Reload::commits();
+                            reload.merge(Reload::files(overlay.files_in.clone()));
+                            reload
+                        }
                         Rereads::Commits => Reload::commits(),
-                        Rereads::Files => Reload::files(running.overlay.files_in.clone()),
+                        Rereads::Files => Reload::files(overlay.files_in.clone()),
+                        Rereads::CommitsAndMain => {
+                            let mut reload = Reload::commits();
+                            reload.merge(Reload::files(None));
+                            reload
+                        }
                     };
                     reload.merge(std::mem::take(&mut running.deferred));
                 }
