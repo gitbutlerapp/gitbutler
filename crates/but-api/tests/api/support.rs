@@ -2,6 +2,7 @@ use but_core::ref_metadata::ProjectMeta;
 use but_rebase::graph_rebase::mutate::InsertSide;
 use but_testsupport::gix_testtools::tempfile::TempDir;
 use but_testsupport::{CommandExt, git_at_dir, open_repo};
+use gitbutler_oplog::{OplogExt as _, RestoreKind};
 
 pub fn writable_scenario(name: &str) -> (gix::Repository, TempDir) {
     but_testsupport::writable_scenario(name)
@@ -135,6 +136,20 @@ pub fn persist_default_target(repo: &gix::Repository) -> anyhow::Result<gix::Obj
     }
     .persist(repo)?;
     Ok(target_commit_id)
+}
+
+/// Undo the last operation, as ⌘Z or `but undo` does.
+pub fn undo(ctx: &mut but_ctx::Context) -> anyhow::Result<()> {
+    let snapshot = ctx
+        .oplog_head()?
+        .expect("the operation records an undo step");
+    let mut guard = ctx.exclusive_worktree_access();
+    ctx.restore_snapshot(
+        snapshot,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+    Ok(())
 }
 
 pub fn repository_graph(repo: &gix::Repository) -> anyhow::Result<String> {
