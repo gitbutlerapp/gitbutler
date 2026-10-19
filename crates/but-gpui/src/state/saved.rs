@@ -273,6 +273,10 @@ pub struct Prefs {
     pub active_projects_only: bool,
     /// The navigator's other projects are folded away under their heading.
     pub projects_folded: bool,
+    /// The Branches page lists branches with no commits of their own too, as Lite's can.
+    pub branches_with_empty: bool,
+    /// The Branches page leaves out the branches only a remote has.
+    pub branches_local_only: bool,
 }
 
 /// Where the window was: the display it was on, and its left, top, width and height on that

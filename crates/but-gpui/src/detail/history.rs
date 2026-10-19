@@ -4,7 +4,7 @@
 use gpui::{AnyElement, ClickEvent, Context, SharedString, Window, div, prelude::*, px};
 
 use super::Detail;
-use super::panes::side_list;
+use super::panes::{side_list, side_row};
 use crate::backend::history::Operation;
 use crate::backend::{self, DiffSource, SnapshotId};
 use crate::state::{Overlay, ProjectId};
@@ -219,13 +219,14 @@ impl Detail {
             &self.history_scroll,
             "history-scrollbar",
             cx,
-            |this, ix, theme, _, cx| {
+            |this, ix, theme, window, cx| {
                 let history = this.history.as_ref()?;
                 let row = match history.operations.get(ix) {
                     Some(operation) => {
                         let selected = history.selected == Some(operation.id);
+                        let on = selected && this.side_focus.is_focused(window);
                         let id = operation.id;
-                        list_row(("operation", ix), selected, theme)
+                        side_row(("operation", ix), selected, on, theme)
                             .child(
                                 div()
                                     .flex_none()
@@ -237,13 +238,21 @@ impl Detail {
                                     .flex_1()
                                     .min_w(px(0.))
                                     .truncate()
-                                    .text_color(theme.text_2)
+                                    .text_color(match on {
+                                        true => theme.text_inverted.opacity(0.7),
+                                        false => theme.text_2,
+                                    })
                                     .children(operation.detail.clone()),
                             )
-                            .child(faint(relative_time(operation.time), theme).flex_none())
-                            .on_click(
-                                cx.listener(move |this, _, _, cx| this.select_operation(id, cx)),
+                            .child(
+                                faint(relative_time(operation.time), theme)
+                                    .flex_none()
+                                    .when(on, |el| el.text_color(theme.text_inverted.opacity(0.7))),
                             )
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                window.focus(&this.side_focus, cx);
+                                this.select_operation(id, cx)
+                            }))
                     }
                     None => {
                         let project = history.project.clone();
@@ -263,6 +272,7 @@ impl Detail {
             },
         )
         .pt(px(6.))
+        .track_focus(&self.side_focus)
         .into_any_element()
     }
 }
