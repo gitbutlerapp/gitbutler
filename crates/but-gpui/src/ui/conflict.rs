@@ -645,6 +645,8 @@ mod tests {
                     header: String::new(),
                     lines: vec![line(30)],
                     scope: Vec::new(),
+                    lead: Vec::new(),
+                    tail: Vec::new(),
                 }],
                 added: 0,
                 removed: 0,

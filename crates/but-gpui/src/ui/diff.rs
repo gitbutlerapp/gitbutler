@@ -200,6 +200,12 @@ pub fn rows(
                         file: file_ix,
                         hunk: hunk_ix,
                     });
+                    // The rest of its scope around it, unless the whole file is there or
+                    // conflicts sit among the lines.
+                    let scoped = total.is_none() && conflicts.is_empty();
+                    if scoped {
+                        scope_rows(&mut rows, file_ix, &hunk.lead);
+                    }
                     if split {
                         rows.extend(pair_lines(&hunk.lines).into_iter().map(|(left, right)| {
                             DiffRow::Pair {
@@ -218,6 +224,9 @@ pub fn rows(
                             hunk: hunk_ix,
                             line,
                         }));
+                    }
+                    if scoped {
+                        scope_rows(&mut rows, file_ix, &hunk.tail);
                     }
                 }
                 let ahead = hunks.last().map_or(0, |end| {
@@ -267,6 +276,17 @@ fn pair_lines(lines: &[DiffLine]) -> Vec<(Option<usize>, Option<usize>)> {
 }
 
 /// The unchanged new-side lines `lines`, numbered `ahead` lines further on than the old side.
+/// The unchanged lines a hunk shows of its scope, by their numbers on either side.
+fn scope_rows(rows: &mut Vec<DiffRow>, file: usize, lines: &[DiffLine]) {
+    rows.extend(lines.iter().filter_map(|line| {
+        Some(DiffRow::Context {
+            file,
+            old: line.old?,
+            new: line.new?,
+        })
+    }));
+}
+
 fn context_rows(rows: &mut Vec<DiffRow>, file: usize, lines: Range<u32>, ahead: i64) {
     rows.extend(lines.map(|new| DiffRow::Context {
         file,
@@ -520,13 +540,19 @@ pub fn file_header(
 }
 
 /// How many unchanged lines come between hunk `ix` of `hunks` and the hunk before it, or the
-/// file's start: the ones a file shown whole fills in there.
+/// file's start, past the lines their scopes show: the ones a file shown whole fills in there.
 pub fn unmodified_before(hunks: &[Hunk], ix: usize) -> u32 {
     let from = ix.checked_sub(1).map_or(1, |previous| {
-        let previous = hunks[previous].key.0;
-        previous.new_start + previous.new_lines
+        let (tail, previous) = (hunks[previous].tail.len() as u32, hunks[previous].key.0);
+        previous.new_start + previous.new_lines + tail
     });
-    hunks[ix].key.0.new_start.saturating_sub(from)
+    let lead = hunks[ix].lead.len() as u32;
+    hunks[ix]
+        .key
+        .0
+        .new_start
+        .saturating_sub(lead)
+        .saturating_sub(from)
 }
 
 /// Above a hunk's lines, as @pierre/diffs parts hunks: a grey box saying how many

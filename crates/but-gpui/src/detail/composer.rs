@@ -1202,6 +1202,8 @@ mod tests {
                 line(LineKind::Added, added),
             ],
             scope: Vec::new(),
+            lead: Vec::new(),
+            tail: Vec::new(),
         };
         let state = but_core::ChangeState {
             id: gix::ObjectId::null(gix::hash::Kind::Sha1),
