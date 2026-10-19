@@ -21,6 +21,7 @@
 	import { initI18n } from "$lib/bootstrap/i18n.svelte";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { fModeEnabled } from "$lib/config/uiFeatureFlags";
+	import { APP_LOCALES, localeForSystemLanguages, setLocale } from "$lib/i18n";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { TERMINAL_SERVICE } from "$lib/settings/terminalService";
 	import { createKeybind } from "$lib/shortcuts/hotkeys";
@@ -50,9 +51,19 @@
 	const uiState = inject(UI_STATE);
 	const terminalService = inject(TERMINAL_SERVICE);
 
+	let settingsRestored = $state(false);
 	clientState.initPersist().then(async () => {
+		settingsRestored = true;
 		await initUserSettings(uiState, backend.platformName, terminalService);
 		initI18n(uiState);
+	});
+
+	$effect(() => {
+		if (!settingsRestored) return;
+		const saved = uiState.global.locale.current;
+		setLocale(
+			APP_LOCALES.find(({ value }) => value === saved)?.value ?? localeForSystemLanguages(),
+		);
 	});
 
 	// =============================================================================

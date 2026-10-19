@@ -3,7 +3,7 @@ import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { type Reactive } from "@gitbutler/shared/storeUtils";
 import { createEntityAdapter, createSlice, type EntityState } from "@reduxjs/toolkit";
-import type { AppLocale } from "$lib/i18n/index";
+import type { AppLocale } from "$lib/i18n";
 import type { TerminalService } from "$lib/settings/terminalService";
 import type { AppDispatch } from "$lib/state/clientState.svelte";
 import type { ScrollbarVisilitySettings } from "@gitbutler/ui-svelte";
@@ -146,6 +146,8 @@ export type TerminalSettings = {
 };
 
 export type GlobalUiState = {
+	/** Undefined follows the system language. */
+	locale: AppLocale | undefined;
 	drawerHeight: number;
 	stackWidth: number;
 	detailsWidth: number;
@@ -192,7 +194,6 @@ export type GlobalUiState = {
 	svgAsImage: boolean;
 	syntaxThemeLight: string;
 	syntaxThemeDark: string;
-	locale: AppLocale;
 };
 
 export const UI_STATE = new InjectionToken<UiState>("UiState");
@@ -223,6 +224,7 @@ export class UiState {
 
 	/** Properties that are globally scoped. */
 	readonly global = this.buildGlobalProps<GlobalUiState>({
+		locale: undefined,
 		drawerHeight: 20,
 		stackWidth: 22.5,
 		detailsWidth: 32,
@@ -269,7 +271,6 @@ export class UiState {
 		svgAsImage: true,
 		syntaxThemeLight: "github-light",
 		syntaxThemeDark: "github-dark",
-		locale: "en",
 	});
 
 	/**
