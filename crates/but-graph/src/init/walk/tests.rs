@@ -117,3 +117,66 @@ fn gen_then_time_sort_is_deterministic_and_total_issue_12343() {
         );
     }
 }
+
+#[test]
+fn split_commit_into_segment_keeps_outgoing_edges_in_parent_order() {
+    use crate::{Commit, CommitFlags, Segment};
+
+    fn oid(byte: u8) -> gix::ObjectId {
+        gix::ObjectId::from_bytes_or_panic(&[byte; 20])
+    }
+    fn commit(id: gix::ObjectId, parent_ids: Vec<gix::ObjectId>) -> Commit {
+        Commit {
+            id,
+            parent_ids,
+            flags: CommitFlags::default(),
+            refs: Vec::new(),
+        }
+    }
+
+    let (top, merge, p1, p2) = (oid(1), oid(2), oid(3), oid(4));
+    let mut graph = Graph::default();
+    let src = graph.insert_segment(Segment {
+        commits: vec![commit(top, vec![merge]), commit(merge, vec![p1, p2])],
+        ..Default::default()
+    });
+    // Connect the parents of the merge commit in an order that doesn't match the parent order,
+    // like a traversal that reaches the second parent first would.
+    for (parent_order, id) in [(1, p2), (0, p1)] {
+        let parent = graph.insert_segment(Segment {
+            commits: vec![commit(id, Vec::new())],
+            ..Default::default()
+        });
+        graph.connect_segments_with_ids(
+            src,
+            Some(1),
+            Some(merge),
+            parent,
+            Some(0),
+            Some(id),
+            parent_order,
+        );
+    }
+    let parent_orders = |graph: &Graph, sidx: SegmentIndex| -> Vec<u32> {
+        graph
+            .edges_directed(sidx, Direction::Outgoing)
+            .map(|e| e.weight().parent_order)
+            .collect()
+    };
+    assert_eq!(
+        parent_orders(&graph, src),
+        [0, 1],
+        "the ordered insertion keeps traversal order equal to the parent order"
+    );
+
+    let mut queue = Queue::new_with_limit(None);
+    let mut seen = gix::revwalk::graph::IdMap::<SegmentIndex>::default();
+    let bottom = split_commit_into_segment(&mut graph, &mut queue, &mut seen, src, 1, None)
+        .expect("split at the merge commit succeeds");
+
+    assert_eq!(
+        parent_orders(&graph, bottom),
+        [0, 1],
+        "moving the edges to the segment that now holds the merge commit must keep their traversal order"
+    );
+}

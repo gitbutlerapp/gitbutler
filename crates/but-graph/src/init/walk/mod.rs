@@ -248,7 +248,9 @@ fn split_connections(
         graph.remove_edge(edge.id);
     }
 
-    for edge in edges {
+    // Petgraph traverses edges in reverse insertion order, so re-add them in reverse
+    // to keep the traversal order the edges were collected in.
+    for edge in edges.into_iter().rev() {
         let edge_src_sidx = if edge
             .weight
             .src_id
