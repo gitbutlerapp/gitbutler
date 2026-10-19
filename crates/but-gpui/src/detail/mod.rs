@@ -976,9 +976,9 @@ impl Detail {
 
     /// Focus the file list, or the diff while the list is hidden.
     pub fn focus_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        match self.files_hidden {
-            true => window.focus(&self.focus, cx),
-            false => window.focus(&self.files_focus, cx),
+        match self.files_shown(cx) {
+            false => window.focus(&self.focus, cx),
+            true => window.focus(&self.files_focus, cx),
         }
         cx.notify();
     }
@@ -1609,8 +1609,25 @@ impl Detail {
                 | Selection::Stack(..)
                 | Selection::Project(..),
             ) => self.header_height.get(),
+            Some(Selection::Branches(_)) if self.selected_review(cx).is_some() => {
+                pull_request::TABS_HEIGHT
+            }
             _ => 0.,
         }
+    }
+
+    /// Whether the column beside the diff shows. On a page whose column is its list
+    /// (Branches, Operations history, the project's) it always does: without the list,
+    /// nothing says what the diff is of.
+    pub fn files_shown(&self, cx: &App) -> bool {
+        !self.files_hidden || self.list_page(cx)
+    }
+
+    pub(super) fn list_page(&self, cx: &App) -> bool {
+        matches!(
+            self.store.read(cx).selection,
+            Some(Selection::Branches(_) | Selection::History(_) | Selection::Project(_))
+        )
     }
 }
 
@@ -1687,6 +1704,33 @@ impl Render for Detail {
                     }
                     _ => None,
                 };
+                // Beside the Branches page's list, its branch's tabs when it has a pull
+                // request, over the pull request or the diff.
+                let beside = match selection {
+                    Selection::Branches(project) => self.selected_review(cx).map(|review| {
+                        v_flex()
+                            .flex_1()
+                            .h_full()
+                            .min_w(px(0.))
+                            .child(
+                                h_flex()
+                                    .flex_none()
+                                    .h(px(pull_request::TABS_HEIGHT))
+                                    .px(px(16.))
+                                    .items_end()
+                                    .border_b_1()
+                                    .border_color(theme.border_3)
+                                    .child(self.branch_tabs(review, &theme, cx)),
+                            )
+                            .child(match self.review_tab {
+                                true => self.render_review_tab(project, &theme, cx),
+                                false => div().flex_1().into_any_element(),
+                            })
+                            .into_any_element()
+                    }),
+                    _ => None,
+                };
+                let files_shown = self.files_shown(cx);
                 let panes = match selection {
                     Selection::Branch(project, _) if self.showing_review(cx) => {
                         self.render_review_tab(project, &theme, cx)
@@ -1697,7 +1741,7 @@ impl Render for Detail {
                         .min_h(px(0.))
                         .items_start()
                         .on_drag_move(resize_pane(Pane::Files, self.store.clone()))
-                        .when(!self.files_hidden, |el| {
+                        .when(files_shown, |el| {
                             el.child(
                                 v_flex()
                                     .w(px(width))
@@ -1713,7 +1757,7 @@ impl Render for Detail {
                             )
                         })
                         // `DiffPane` draws the diff over this space.
-                        .child(div().flex_1())
+                        .child(beside.unwrap_or_else(|| div().flex_1().into_any_element()))
                         .into_any_element(),
                 };
                 v_flex()
@@ -1759,6 +1803,9 @@ impl Render for Detail {
                 cx.listener(|this, _: &FilterFiles, window, cx| this.open_filter(window, cx)),
             )
             .on_action(cx.listener(|this, _: &ToggleFiles, window, cx| {
+                if this.list_page(cx) {
+                    return;
+                }
                 this.files_hidden = !this.files_hidden;
                 // Keys go on to the diff once the list they went to is gone.
                 if this.files_hidden && this.files_focus.is_focused(window) {

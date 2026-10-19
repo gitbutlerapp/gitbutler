@@ -304,7 +304,7 @@ pub struct Branch {
 pub struct SnapshotId(pub(crate) gix::ObjectId);
 
 /// A branch's pull request, as the forge cache last saw it.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Review {
     pub number: u64,
     /// Empty until the forge has been asked about it.
@@ -344,8 +344,9 @@ pub struct CheckRun {
     pub completed_at: Option<i64>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum ReviewState {
+    #[default]
     Open,
     Draft,
     Merged,

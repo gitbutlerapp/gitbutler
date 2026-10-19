@@ -534,7 +534,8 @@ impl Detail {
                 .px(px(12.))
                 .gap(px(8.))
                 .bg(theme.bg_1)
-                .child(files)
+                // A list page's list always shows.
+                .when(!self.list_page(cx), |el| el.child(files))
                 .child(div().flex_1())
                 .child(
                     group()

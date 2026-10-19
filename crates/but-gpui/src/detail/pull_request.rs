@@ -18,22 +18,27 @@ use crate::ui::{
     shortcut, small_icon, v_flex,
 };
 
+/// How tall the Branches page's tabs are, over the diff beside its list.
+pub(super) const TABS_HEIGHT: f32 = 40.;
+
 /// How old, in seconds, what the pull request tab shows can get before a failed refresh
 /// warns about it.
 const STALE_AFTER: i64 = 30 * 60;
 
 impl Detail {
-    /// The selected branch's pull request, if it has one.
-    fn selected_review<'a>(&self, cx: &'a App) -> Option<&'a Review> {
+    /// The selected branch's pull request, if it has one: the branch page's, or the
+    /// Branches page's.
+    pub(super) fn selected_review<'a>(&'a self, cx: &'a App) -> Option<&'a Review> {
         let store = self.store.read(cx);
-        let Some(Selection::Branch(project, ref_name)) = &store.selection else {
-            return None;
-        };
-        store
-            .workspace(project)?
-            .find_branch(ref_name)?
-            .review
-            .as_ref()
+        match store.selection.as_ref()? {
+            Selection::Branch(project, ref_name) => store
+                .workspace(project)?
+                .find_branch(ref_name)?
+                .review
+                .as_ref(),
+            Selection::Branches(project) => self.selected_other_branch(project)?.review.as_ref(),
+            _ => None,
+        }
     }
 
     /// Whether the branch page shows its pull request in place of its changes. The tab
@@ -48,8 +53,14 @@ impl Detail {
             return;
         }
         self.review_tab = on;
-        // The file list isn't drawn beside the pull request.
-        window.focus(if on { &self.focus } else { &self.files_focus }, cx);
+        // The branch page's file list isn't drawn beside its pull request; the Branches
+        // page's list stays, and keeps the keys.
+        let focus = match (self.list_page(cx), on) {
+            (true, _) => &self.side_focus,
+            (false, true) => &self.focus,
+            (false, false) => &self.files_focus,
+        };
+        window.focus(focus, cx);
         cx.notify();
         // The window draws the diff beside the files, or doesn't.
         self.app.update(cx, |_, cx| cx.notify()).ok();
