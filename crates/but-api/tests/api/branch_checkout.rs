@@ -4,7 +4,7 @@ use snapbox::IntoData;
 use but_testsupport::{CommandExt, git_at_dir};
 
 use crate::support::{
-    assert_workspace_ref, repo_with_feature_branch, set_project_target_to_feature,
+    assert_workspace_ref, repo_with_feature_branch, set_project_target_to_feature, undo,
 };
 
 #[test]
@@ -169,6 +169,7 @@ fn checkout_rejects_refs_that_are_not_branches() -> anyhow::Result<()> {
 fn branch_checkout_new_creates_named_branch_at_target_and_checks_it_out() -> anyhow::Result<()> {
     let (repo, _tmp) = repo_with_feature_branch()?;
     let target_commit_id = set_project_target_to_feature(&repo)?;
+    let head_before = repo.head_name()?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
 
     let result = but_api::branch::branch_checkout_new(&mut ctx, Some("new branch".into()))?;
@@ -179,6 +180,19 @@ fn branch_checkout_new_creates_named_branch_at_target_and_checks_it_out() -> any
     let mut created = repo.find_reference("refs/heads/new-branch")?;
     assert_eq!(created.peel_to_id()?, target_commit_id);
     assert_workspace_ref(&result.workspace, "refs/heads/new-branch");
+    drop(repo);
+
+    undo(&mut ctx)?;
+    let repo = ctx.repo.get()?;
+    assert_eq!(
+        repo.head_name()?,
+        head_before,
+        "undo goes back to the branch switched from, rather than reverting the operation before"
+    );
+    assert!(
+        repo.try_find_reference("refs/heads/new-branch")?.is_none(),
+        "undo deletes the branch the switch made, so the name can be used again"
+    );
 
     Ok(())
 }
@@ -365,13 +379,13 @@ fn checkout_new_returns_head_info_matching_fresh_head_info() -> anyhow::Result<(
 
         snapbox::assert_data_eq!(
             crate::support::repository_graph(&repo)?,
-            snapbox::str![["
+            snapbox::str![[r#"
 * b720e1f (sibling) sibling
 | * edd8381 (feature) feature
 |/  
-* 5374caf (HEAD -> new-branch, origin/main, main) main
+* 5374caf (HEAD -> new-branch, origin/main, main, gitbutler/target) main
 
-"]]
+"#]]
         );
     }
 

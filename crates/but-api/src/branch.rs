@@ -1439,7 +1439,8 @@ pub fn branch_checkout(
 ///
 /// If `name` is provided, it is treated as a short branch name and normalized
 /// before creating `refs/heads/<name>`. If omitted, a unique canned branch name
-/// is generated. The resulting branch must not already exist.
+/// is generated. The resulting branch must not already exist. Records an oplog
+/// snapshot on success, which undo restores by deleting the branch again.
 #[but_api(napi, try_from = json::BranchCheckoutResult)]
 #[instrument(err(Debug))]
 pub fn branch_checkout_new(
@@ -1451,14 +1452,14 @@ pub fn branch_checkout_new(
 }
 
 /// Creates a new local branch at the selected project cutoff and checks it out under
-/// caller-held exclusive repository access.
+/// caller-held exclusive repository access, recording an oplog snapshot on success.
 pub fn branch_checkout_new_with_perm(
     ctx: &mut but_ctx::Context,
     name: Option<String>,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<BranchCheckoutResult> {
     let project_meta = ctx.project_meta()?;
-    let branch = {
+    let (branch, target_commit_id) = {
         let repo = ctx.repo.get()?;
         let target_commit_id = project_meta.resolve_target_commit(&repo)?;
         let branch = match name {
@@ -1472,18 +1473,31 @@ pub fn branch_checkout_new_with_perm(
             }
             None => unique_canned_refname(&repo)?,
         };
-
-        repo.reference(
+        (branch, target_commit_id)
+    };
+    // The snapshot lists the new branch so that undo deletes it again, as `branch_create` does.
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
+        ctx,
+        SnapshotDetails::new(OperationKind::SwitchBranch),
+        &[branch.as_ref()],
+        perm.read_permission(),
+        but_core::DryRun::No,
+    );
+    ctx.repo
+        .get()?
+        .reference(
             branch.as_ref(),
             target_commit_id,
             PreviousValue::MustNotExist,
             "branch checkout new",
         )
         .with_context(|| format!("Could not create branch '{}'", branch.as_bstr()))?;
-        branch
-    };
 
-    branch_checkout_with_perm_only(ctx, branch, perm)
+    let result = branch_checkout_with_perm_only(ctx, branch, perm)?;
+    if let Some(snapshot) = maybe_oplog_entry {
+        _ = snapshot.commit(ctx, perm);
+    }
+    Ok(result)
 }
 
 /// Switch to the workspace reference
