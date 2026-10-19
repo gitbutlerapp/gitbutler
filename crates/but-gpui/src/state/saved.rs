@@ -211,7 +211,7 @@ impl Pane {
 /// The part of the saved state that's only read at startup.
 #[derive(Default)]
 pub(super) struct Restored {
-    pub(super) expanded: HashSet<String>,
+    pub(super) expanded: Vec<String>,
     pub(super) selection: Option<String>,
 }
 
@@ -229,7 +229,8 @@ pub enum FileSort {
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
 pub(super) struct Saved {
-    pub(super) expanded: HashSet<String>,
+    /// The watched projects, in the order the navigator shows them.
+    pub(super) expanded: Vec<String>,
     pub(super) selection: Option<String>,
     pub(super) seen: Seen,
     pub(super) widths: HashMap<Pane, f32>,

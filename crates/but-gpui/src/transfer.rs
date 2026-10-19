@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use gpui::{
-    App, Context, Entity, Modifiers, Pixels, Point, SharedString, Window, div, prelude::*, px,
+    App, Context, Div, Entity, Modifiers, Pixels, Point, SharedString, Window, div, prelude::*, px,
 };
 
 use crate::backend::{self, CommitId, Destination, Selected, short_ref};
@@ -591,36 +591,46 @@ impl Render for DragPreview {
         let hint = (store.drop_at.as_ref()).and_then(|(target, place)| {
             Transfer::resolve(&self.payload, target, *place, store).map(|t| t.verb())
         });
-        // Below and right of the pointer, as a tooltip sits, clear of the row it's over and
-        // the line or outline that row shows.
-        let pill = popover(theme)
-            .flex_row()
-            .items_center()
-            .gap(px(8.))
-            .px(px(10.))
-            .h(px(28.))
-            .max_w(px(320.))
-            .border_color(theme.pop)
-            .font_family(theme.ui_font.clone())
-            .text_size(px(12.))
-            .text_color(theme.text_1)
-            .child(
-                small_icon(match self.payload {
-                    Cut::Commit(..) | Cut::CherryPick(..) => Icon::Commit,
-                    Cut::Branch(..) => Icon::Branch,
-                    Cut::Files { .. } => Icon::File,
-                })
-                .text_color(theme.pop),
-            )
-            .child(div().truncate().child(self.label.clone()))
-            .when_some(hint, |el, hint| {
-                el.child(div().flex_none().text_color(theme.text_2).child(hint))
-            });
-        div()
-            .pl(self.offset.x + px(14.))
-            .pt(self.offset.y + px(16.))
-            .child(pill)
+        let glyph = match self.payload {
+            Cut::Commit(..) | Cut::CherryPick(..) => Icon::Commit,
+            Cut::Branch(..) => Icon::Branch,
+            Cut::Files { .. } => Icon::File,
+        };
+        drag_pill(self.offset, glyph, self.label.clone(), hint, theme)
     }
+}
+
+/// What a dragged row shows under the pointer: a pill with its glyph, `label` and what
+/// letting go does there (`hint`), below and right of the pointer as a tooltip sits, clear of
+/// the row it's over and the line or outline that row shows. `offset` is where the pointer
+/// pressed the row, which GPUI draws from.
+pub fn drag_pill(
+    offset: Point<Pixels>,
+    glyph: Icon,
+    label: SharedString,
+    hint: Option<&'static str>,
+    theme: &Theme,
+) -> Div {
+    let pill = popover(theme)
+        .flex_row()
+        .items_center()
+        .gap(px(8.))
+        .px(px(10.))
+        .h(px(28.))
+        .max_w(px(320.))
+        .border_color(theme.pop)
+        .font_family(theme.ui_font.clone())
+        .text_size(px(12.))
+        .text_color(theme.text_1)
+        .child(small_icon(glyph).text_color(theme.pop))
+        .child(div().truncate().child(label))
+        .when_some(hint, |el, hint| {
+            el.child(div().flex_none().text_color(theme.text_2).child(hint))
+        });
+    div()
+        .pl(offset.x + px(14.))
+        .pt(offset.y + px(16.))
+        .child(pill)
 }
 
 #[cfg(test)]
