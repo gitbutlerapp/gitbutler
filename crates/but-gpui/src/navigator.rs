@@ -15,7 +15,8 @@ use gpui::{
 
 use crate::app::{AddProject, AppView, Collapse, Confirm, Expand, SelectNext, SelectPrevious};
 use crate::backend::{
-    Branch, CommitId, CommitState, FileChange, PushState, Workspace, Worktree, short_ref,
+    Branch, CommitId, CommitState, FileChange, PushState, Review, ReviewState, Workspace, Worktree,
+    short_ref,
 };
 use crate::detail::{ChecksChanged, Detail};
 use crate::overlays::MenuItem;
@@ -960,7 +961,14 @@ impl Navigator {
                 div().py(px(2.)).child(zone).into_any_element()
             }
             Some(Row::LaneEnd(project, ref_name)) => {
-                let label = format!("Move below {}", short_ref(ref_name));
+                let store = self.store.read(cx);
+                let named = (store
+                    .workspace(project)
+                    .and_then(|ws| ws.find_branch(ref_name)))
+                .map_or(short_ref(ref_name), |branch| {
+                    store.label_of(project, branch)
+                });
+                let label = format!("Move below {named}");
                 let (project, ref_name) = (project.clone(), ref_name.clone());
                 let zone = drop_zone(("lane-end-drop", ix), label, theme)
                     .h(px(24.))
@@ -1740,7 +1748,7 @@ impl Navigator {
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
         let names: Vec<&str> = (branches.iter())
-            .map(|branch| store.name_of(id, branch))
+            .map(|branch| store.label_of(id, branch))
             .collect();
         let unpushed_n = unpushed(branches.iter());
         let latest = (branches.iter().flat_map(|branch| &branch.commits))
@@ -1793,13 +1801,8 @@ impl Navigator {
                         .child(div().flex_none().text_color(style.muted()).child(label))
                         // Folded, its top branch tells it from another stack as tall, named
                         // as the branch rows name it; open, that row is right under it.
-                        .children(names.first().filter(|_| !open).map(|top| {
-                            div()
-                                .min_w(px(0.))
-                                .truncate()
-                                .font_family(theme.mono_font.clone())
-                                .text_color(style.meta(theme.blue))
-                                .child(top.to_string())
+                        .children(branches.first().filter(|_| !open).map(|top| {
+                            branch_name(store.name_of(id, top), top.review.as_ref(), &style)
                         })),
                 )
                 .when(!open, |el| {
@@ -1880,6 +1883,16 @@ impl Navigator {
             (None, PushState::Integrated) => (Icon::Tick, theme.safe),
             (None, _) => (Icon::Branch, style.muted()),
         };
+        // A pull request's title names the row (see `branch_name`); its branch's name, number
+        // and how CI stands are in the tooltip, and on the branch's page.
+        let tip = (branch.review.as_ref())
+            .filter(|review| !review.title.is_empty())
+            .map(|review| {
+                let checks = (review.checks)
+                    .map(|checks| format!(" · {}", review::checks_summary(checks, theme).2))
+                    .unwrap_or_default();
+                format!("{name} · #{}{checks}", review.number)
+            });
         let key = (id.clone(), ref_name.to_owned());
         let closed = self.closed_branches.contains(&key) && !branch.commits.is_empty();
         // A selected commit keeps its branch open.
@@ -1941,14 +1954,10 @@ impl Navigator {
                 .child(step)
                 .child(icon(glyph).text_color(style.meta(glyph_color)))
                 .child(
-                    div()
+                    branch_name(name, branch.review.as_ref(), &style)
+                        .id(ElementId::Name(format!("name-{id}-{ref_name}").into()))
                         .flex_1()
-                        .min_w(px(0.))
-                        .truncate()
-                        .font_family(theme.mono_font.clone())
-                        .text_size(px(12.))
-                        .text_color(style.meta(theme.blue))
-                        .child(name.to_owned()),
+                        .when_some(tip, |el, tip| el.tooltip(Tooltip::text(tip))),
                 )
                 // As ui-react's empty MetaCount, the quietest meta, ahead of any counts.
                 .when(branch.commits.is_empty(), |el| {
@@ -1968,15 +1977,10 @@ impl Navigator {
                             .tooltip(Tooltip::text("No commits yet")),
                     )
                 })
-                // As in t3code: the number in the state's colour, then one glyph for CI.
+                // CI only while it runs or after it failed: passing is the usual state.
                 .when_some(branch.review.as_ref(), |el, review| {
-                    el.child(
-                        div()
-                            .text_size(px(11.))
-                            .text_color(style.meta(glyph_color))
-                            .child(format!("#{}", review.number)),
-                    )
-                    .when_some(review.checks, |el, checks| {
+                    let unsettled = review.checks.filter(|c| c.running > 0 || c.failed > 0);
+                    el.when_some(unsettled, |el, checks| {
                         let (glyph, color, text) = review::checks_summary(checks, theme);
                         let tip = format!("{text}, click to check again");
                         let (store, project) = (self.store.clone(), id.clone());
@@ -2047,10 +2051,8 @@ impl Navigator {
                 }))
                 .when(!ref_name.is_empty(), |el| {
                     let payload = Cut::Branch(id.clone(), ref_name.to_owned());
-                    el.on_drag(
-                        payload,
-                        drag_preview(self.store.clone(), branch.name.clone().into()),
-                    )
+                    let label = store.label_of(id, branch).to_owned();
+                    el.on_drag(payload, drag_preview(self.store.clone(), label.into()))
                 })
                 .into_any_element(),
         )
@@ -2439,6 +2441,31 @@ fn is_inactive(worktree: &Worktree) -> bool {
         })
 }
 
+/// A branch as the navigator names it: its pull request's title once the forge cache has one,
+/// toned by the request's state, or else `name` in blue mono. Drawn from what the last load
+/// read, so no row waits on the network, and offline the cached title stays.
+fn branch_name(name: &str, review: Option<&Review>, style: &RowStyle) -> Div {
+    let theme = style.theme;
+    let el = div().min_w(px(0.)).truncate();
+    match review.filter(|review| !review.title.is_empty()) {
+        Some(review) => el
+            .text_color(match review.state {
+                ReviewState::Open => style.meta(theme.text_1),
+                ReviewState::Draft => style.muted(),
+                ReviewState::Merged | ReviewState::Closed => match style.solid {
+                    true => style.muted(),
+                    false => theme.text_3,
+                },
+            })
+            .child(review.title.clone()),
+        None => el
+            .font_family(theme.mono_font.clone())
+            .text_size(px(12.))
+            .text_color(style.meta(theme.blue))
+            .child(name.to_owned()),
+    }
+}
+
 /// A small count in a row's meta, coloured by meaning (amber waits on you, blue is
 /// unpushed), saying on hover what it counts; nothing at zero.
 fn meta_count(glyph: Icon, n: usize, color: Hsla, tip: String) -> Option<Stateful<Div>> {
@@ -2511,7 +2538,8 @@ fn drop_zone(id: impl Into<ElementId>, label: impl IntoElement, theme: &Theme) -
         .text_size(px(12.))
         .text_color(theme.text_2)
         .child(small_icon(Icon::Branch).text_color(theme.text_2))
-        .child(label)
+        // A pull request's title can be long.
+        .child(div().min_w(px(0.)).truncate().child(label))
         .drag_over::<Cut>(move |style, _, _, _| {
             style
                 .bg(highlight.opacity(0.14))
