@@ -459,20 +459,21 @@ impl Store {
     }
 
     /// Bring the commits only `ref_name`'s remote has into it, its own rebased on top.
-    /// Unless `confirmed`, it stops short of leaving commits conflicted that aren't now, and
-    /// the card saying so offers to pull anyway.
+    /// It stops short of leaving commits conflicted that aren't now, unless that's what was
+    /// `accepted` on the card saying so, which offers to pull anyway: a fetch since can
+    /// bring more.
     pub fn pull_remote(
         &mut self,
         project: &ProjectId,
         ref_name: String,
-        confirmed: bool,
+        accepted: Option<Vec<(String, usize)>>,
         cx: &mut Context<Self>,
     ) {
         let name = short_ref(&ref_name).to_owned();
         // A second pull of the branch while one waits would find nothing left to bring in.
-        // A confirmed one comes from the card that shows once its pull has finished.
+        // An accepted one comes from the card that shows once its pull has finished.
         let label = format!("Pull {name}");
-        if !confirmed && self.pending(project, &label) {
+        if accepted.is_none() && self.pending(project, &label) {
             return;
         }
         let pulled = project.clone();
@@ -483,11 +484,9 @@ impl Store {
             {
                 let ref_name = ref_name.clone();
                 move |path, _| {
-                    if !confirmed {
-                        let found = backend::pull_conflicts(path, &ref_name)?;
-                        if !found.is_empty() {
-                            return Ok(Some(found));
-                        }
+                    let found = backend::pull_conflicts(path, &ref_name)?;
+                    if !found.is_empty() && accepted.as_ref() != Some(&found) {
+                        return Ok(Some(found));
                     }
                     backend::pull_remote(path, &ref_name, false).map(|()| None)
                 }
@@ -505,7 +504,9 @@ impl Store {
                     "Pulling leaves conflicts",
                     detail,
                     "Pull anyway",
-                    move |store, cx| store.pull_remote(&pulled, ref_name.clone(), true, cx),
+                    move |store, cx| {
+                        store.pull_remote(&pulled, ref_name.clone(), Some(found.clone()), cx)
+                    },
                     cx,
                 )
             },

@@ -259,7 +259,7 @@ impl AppView {
         }
         if !theirs {
             return self.store.update(cx, |store, cx| {
-                store.pull_remote(&project, ref_name, false, cx)
+                store.pull_remote(&project, ref_name, None, cx)
             });
         }
         let name = short_ref(&ref_name).to_owned();

@@ -907,7 +907,7 @@ fn render_incoming(
                             .tooltip("Bring them in, with this branch's own commits on top")
                             .on_click(cx.listener(move |this, _, _, cx| {
                                 this.store.update(cx, |store, cx| {
-                                    store.pull_remote(&project, ref_name.clone(), false, cx)
+                                    store.pull_remote(&project, ref_name.clone(), None, cx)
                                 })
                             })),
                     )
