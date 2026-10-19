@@ -336,6 +336,10 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
  * one line, its state and actions right after its name, and the name gives way first. A merged or
  * closed request is done with: one muted line in either layout.
  *
+ * While an action on the branch runs, `busy` turns a spinner in its glyph's place, in the glyph's
+ * colour. A merge takes `pr` state `merged` as it starts, so the row reads as where it is heading;
+ * back to `open` if it is refused.
+ *
  * @import import { BranchItem } from "@gitbutler/ui-react/SidebarRow.tsx";
  */
 export const BranchItem: FC<
@@ -345,12 +349,14 @@ export const BranchItem: FC<
 		/** The branch's name, under a pull request's title in `rich`. */
 		branch?: string;
 		layout?: SidebarRowLayout;
+		/** An action on the branch is running: a spinner in place of the glyph. */
+		busy?: boolean;
 	} & RowProps
-> = ({ title, pr, branch, layout = "compact", tooltip, ...props }) => {
+> = ({ title, pr, branch, layout = "compact", busy = false, tooltip, ...props }) => {
 	const done = pr?.state === "merged" || pr?.state === "closed";
 	const glyph = (
 		<Icon
-			name={pr ? prGlyph[pr.state] : "branch"}
+			name={busy ? "spinner" : pr ? prGlyph[pr.state] : "branch"}
 			className={classes(styles.branchGlyph, pr && styles[pr.state])}
 		/>
 	);

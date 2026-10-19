@@ -1205,3 +1205,26 @@ export const ByRepository = meta.story({
 		</div>
 	),
 });
+
+/**
+ * A pull request merging from the branch's menu: the row takes the merged look as the merge starts,
+ * and `busy` turns a spinner in its glyph's place until it is done. Its checks step aside; what is
+ * still to push and its age stay.
+ */
+export const Merging = meta.story({
+	render: () => (
+		<BranchItem
+			title="fix: redact remote URLs in logs"
+			pr={{ number: 32, state: "merged" }}
+			busy
+			depth={1}
+			folded
+			meta={
+				<>
+					<MetaCount type="unpushed">3</MetaCount>
+					<MetaCount type="age">8m</MetaCount>
+				</>
+			}
+		/>
+	),
+});
