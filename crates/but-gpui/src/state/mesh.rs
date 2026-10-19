@@ -12,7 +12,7 @@ use futures::{FutureExt as _, StreamExt as _, channel::mpsc};
 use gpui::{Context, Task};
 
 use super::mutation::Overlay;
-use super::{ProjectId, Selection, Store};
+use super::{ProjectId, Selection, Store, StoreEvent};
 use crate::backend::{
     self,
     mesh::{Checkout, Connection},
@@ -156,6 +156,7 @@ impl Store {
         self.mesh
             .checkouts
             .insert(project.clone(), checkouts.into());
+        cx.emit(StoreEvent::MeshRead(project.clone()));
         // A checkout that's gone takes the selection back to its project.
         if let Some(Selection::Machine(p, id)) = &self.selection
             && *p == project

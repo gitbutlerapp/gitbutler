@@ -326,6 +326,14 @@ impl Detail {
             return ground().child(message).into_any_element();
         }
         let Some(diff) = self.shown_diff() else {
+            // Another machine's branch, until it's here.
+            if let Some(Selection::Machine(project, id)) = &self.store.read(cx).selection
+                && !self.loading.is_some()
+            {
+                let waiting = self.machine_waiting(project, id, cx);
+                let message = empty_state(None, "", waiting, theme, cx);
+                return ground().child(message).into_any_element();
+            }
             let message = match (self.loading.is_some(), self.nothing_committed(cx)) {
                 (true, _) => empty_state(None, "Loading diff…", "", theme, cx),
                 (false, Some(line)) => empty_state(Some(Illustration::Cactus), "", line, theme, cx),
