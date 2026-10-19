@@ -22,6 +22,8 @@ pub struct OtherBranch {
     pub time: Option<i64>,
     /// Commits it has that the target doesn't, when known.
     pub ahead: Option<usize>,
+    /// Commits of its own, down to the branch it's stacked on or where it forked, when known.
+    pub own_commits: Option<usize>,
     pub tip: CommitId,
     /// Its pull request's number, state and title, as the forge cache has them.
     pub review: Option<(u64, ReviewState, String)>,
@@ -50,6 +52,7 @@ pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
                     .map(|author| author.name.to_str_lossy().into_owned()),
                 time: branch.updated_at_ms.map(|ms| ms / 1000),
                 ahead: branch.commits_ahead_of_target,
+                own_commits: branch.commit_count,
                 tip: CommitId(branch.tip),
                 review: listed.review.map(|review| {
                     let state = review_state(&review);

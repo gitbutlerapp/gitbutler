@@ -202,6 +202,8 @@ pub struct Detail {
     focus: FocusHandle,
     /// The file list's own, where ↑ and ↓ step through the files.
     files_focus: FocusHandle,
+    /// The History or Branches page's list, which a click on one of its rows focuses.
+    side_focus: FocusHandle,
     /// The cursor was put where it is on purpose, by a key or a click: scrolling the diff
     /// moves it again only once the user scrolls.
     pinned: bool,
@@ -440,6 +442,7 @@ impl Detail {
             app,
             focus: cx.focus_handle(),
             files_focus: cx.focus_handle(),
+            side_focus: cx.focus_handle(),
             pinned: false,
             diff: None,
             diff_error: None,
@@ -962,10 +965,10 @@ impl Detail {
         cx.notify();
     }
 
-    /// Whether `handle` is one of the detail's own, the diff's or the file list's, rather
-    /// than a text field's.
+    /// Whether `handle` is one of the detail's own, the diff's or a list's, rather than a
+    /// text field's.
     pub fn owns_focus(&self, handle: &FocusHandle) -> bool {
-        *handle == self.focus || *handle == self.files_focus
+        *handle == self.focus || *handle == self.files_focus || *handle == self.side_focus
     }
 
     /// Whether the file list holds the focus.

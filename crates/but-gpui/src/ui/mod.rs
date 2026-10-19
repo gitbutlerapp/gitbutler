@@ -84,6 +84,7 @@ icons! {
     Cross => "cross",
     ExpandVertical => "expand-vertical",
     File => "file",
+    Filter => "filter",
     FileDiff => "file-diff",
     FilesSidebar => "files-sidebar",
     Folder => "folder",
