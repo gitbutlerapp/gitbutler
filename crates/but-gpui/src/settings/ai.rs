@@ -1,4 +1,4 @@
-//! The AI section: which provider writes commit messages and pull request descriptions,
+//! The AI page: which provider writes commit messages and pull request descriptions,
 //! with whose key, and which model. GitButler's other apps share it. It's read only when
 //! shown, as reading it checks the keychain for stored keys.
 
