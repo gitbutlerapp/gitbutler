@@ -179,6 +179,9 @@ impl DiffKey {
     }
 }
 
+/// How long the pointer rests on the files button before it lists the files.
+const FILES_POPOVER_DELAY: Duration = Duration::from_millis(100);
+
 /// How long a diff loads before the pane says it's loading.
 const SHOW_LOADING: Duration = Duration::from_millis(150);
 
@@ -324,6 +327,13 @@ pub struct Detail {
     _history_load: Task<()>,
     /// The file list beside the diff is hidden, for more room.
     pub files_hidden: bool,
+    /// Since when the pointer is on the files button over the diff, and whether it's on the
+    /// popover of the files the button opens, [`FILES_POPOVER_DELAY`] on, while they aren't
+    /// beside the diff.
+    files_hover: (Option<Instant>, bool),
+    /// Whether that popover was drawn last: back on the button from it, it stays open.
+    files_popover_shown: Cell<bool>,
+    _files_popover_delay: Task<()>,
     /// The header starts where the window's traffic lights are.
     pub beside_traffic_lights: bool,
     _subscriptions: Vec<Subscription>,
@@ -518,6 +528,9 @@ impl Detail {
             history_scroll: UniformListScrollHandle::new(),
             _history_load: Task::ready(()),
             files_hidden: false,
+            files_hover: (None, false),
+            files_popover_shown: Cell::new(false),
+            _files_popover_delay: Task::ready(()),
             beside_traffic_lights: false,
             _subscriptions: subscriptions,
         };
