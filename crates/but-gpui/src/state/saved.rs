@@ -225,6 +225,17 @@ pub enum FileSort {
     Modified,
 }
 
+/// The order the navigator's watched projects go in.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WatchedOrder {
+    /// As the user put them, by dragging their cards or Move up and Move down.
+    #[default]
+    Manual,
+    Name,
+    /// The one something last changed in first, as an agent at work.
+    Activity,
+}
+
 /// The little the app remembers between launches.
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -277,6 +288,8 @@ pub struct Prefs {
     /// Watched projects, by id, whose cards are folded to their row; they're still loaded and
     /// kept current.
     pub folded_projects: HashSet<String>,
+    /// The order the watched projects go in.
+    pub watched_order: WatchedOrder,
     /// The Branches page lists branches with no commits of their own too, as Lite's can.
     pub branches_with_empty: bool,
     /// The Branches page leaves out the branches only a remote has.

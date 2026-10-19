@@ -21,7 +21,7 @@ use crate::backend::{
 use crate::detail::{ChecksChanged, Detail};
 use crate::overlays::MenuItem;
 use crate::state::{
-    Cut, NewAt, Pane, Prefs, ProjectEntry, ProjectId, Selection, Store, StoreEvent,
+    Cut, NewAt, Pane, Prefs, ProjectEntry, ProjectId, Selection, Store, StoreEvent, WatchedOrder,
 };
 use crate::theme::Theme;
 use crate::transfer::{Place, Transfer, drag_pill, drag_preview};
@@ -37,6 +37,7 @@ use crate::ui::{
 mod account;
 mod menu;
 mod mesh;
+mod order;
 
 /// How far a worktree's rows sit in from its heading.
 const NEST: f32 = 14.;
@@ -375,7 +376,7 @@ impl Navigator {
         }
         let store = self.store.read(cx);
         let mut rows = Rows::default();
-        for entry in store.projects.iter().filter(|entry| entry.expanded) {
+        for entry in self.watched(store) {
             rows.inset = 0.;
             if !rows.rows.is_empty() {
                 rows.push(Row::Gap);
@@ -531,7 +532,7 @@ impl Navigator {
         let store = self.store.read(cx);
         let hit = |held, own| matches(terms, held, own);
         let mut rows = Rows::default();
-        for entry in store.projects.iter().filter(|entry| entry.expanded) {
+        for entry in self.watched(store) {
             let id = &entry.id;
             let start = rows.rows.len();
             rows.inset = 0.;
@@ -1238,6 +1239,7 @@ impl Navigator {
         });
         // A watched project's card, or the one after them, takes a dragged project card.
         let slot = match &self.rows[ix] {
+            _ if self.store.read(cx).prefs.watched_order != WatchedOrder::Manual => None,
             Row::Item(Selection::Project(id))
                 if self.store.read(cx).project(id).is_some_and(|p| p.expanded) =>
             {
@@ -1494,6 +1496,7 @@ impl Navigator {
         let expanded = entry.expanded;
         // A watched project whose card is folded to this row.
         let card_folded = expanded && store.project_folded(id);
+        let manual = store.prefs.watched_order == WatchedOrder::Manual;
         let hovered = self.watch_hovered.as_ref() == Some(id);
         // Folded, the row sums up the whole card; open, it leaves out what the rows under it
         // say: their uncommitted files, unpushed commits and worktrees.
@@ -1738,7 +1741,8 @@ impl Navigator {
                         });
                     }
                 }))
-                .when(expanded, |el| self.reorderable(el, id, entry, cx))
+                // Only the manual order moves by hand.
+                .when(expanded && manual, |el| self.reorderable(el, id, entry, cx))
                 .into_any_element(),
         )
     }
@@ -3041,6 +3045,7 @@ impl Render for Navigator {
                 )
             })
             .children(self.update_button(cx))
+            .child(self.view_button(cx))
             .child(self.account(&theme, cx));
 
         v_flex()
