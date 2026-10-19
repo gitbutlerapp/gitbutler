@@ -15,7 +15,7 @@ use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
 use crate::ui::person::person_avatar;
 use crate::ui::{
-    Icon, Tooltip, error_summary, faint, h_flex, icon, list_row, muted, plural, relative_time,
+    Icon, Tooltip, age_column, error_summary, h_flex, icon, list_row, muted, plural, relative_time,
     small_icon, v_flex,
 };
 
@@ -596,7 +596,7 @@ impl Detail {
                                                 commit.author
                                             ))),
                                     )
-                                    .child(faint(relative_time(commit.time), theme).flex_none())
+                                    .child(age_column(Some(commit.time), theme))
                                     .on_click(cx.listener(move |this, _, _, cx| {
                                         this.select_target_commit(id, cx)
                                     }))

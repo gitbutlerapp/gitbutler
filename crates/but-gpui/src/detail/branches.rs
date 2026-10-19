@@ -21,8 +21,8 @@ use crate::transfer::drag_preview;
 use crate::ui::illustration::Illustration;
 use crate::ui::person::person_avatar;
 use crate::ui::{
-    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, empty_state, faint, field, h_flex, icon_button,
-    muted, plural, relative_time, review, small_icon, v_flex,
+    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, age_column, button, empty_state, faint, field, h_flex,
+    icon_button, muted, plural, relative_time, review, small_icon, v_flex,
 };
 
 pub(super) struct Branches {
@@ -899,8 +899,10 @@ impl Detail {
                                             ))),
                                     )
                                 })
-                                .when_some(branch.time, |el, time| {
-                                    el.child(quiet(faint(relative_time(time), theme), on, theme))
+                                // Its slot kept for an author without a time, so the
+                                // avatars line up.
+                                .when(branch.time.is_some() || branch.author.is_some(), |el| {
+                                    el.child(quiet(age_column(branch.time, theme), on, theme))
                                 })
                                 // Double-clicking folds it or opens it, as with a folder.
                                 .on_click(cx.listener(

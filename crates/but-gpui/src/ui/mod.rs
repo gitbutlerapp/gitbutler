@@ -813,6 +813,16 @@ pub fn relative_time(seconds: i64) -> String {
     }
 }
 
+/// How long ago `seconds` (since the epoch) was, faint, right-aligned in a slot as wide as the
+/// longest ("11mo"), so what sits before it lines up from row to row; empty without a time.
+pub fn age_column(seconds: Option<i64>, theme: &Theme) -> Div {
+    faint(seconds.map(relative_time).unwrap_or_default(), theme)
+        .flex_none()
+        .w(px(30.))
+        .whitespace_nowrap()
+        .text_right()
+}
+
 /// `seconds` (since the epoch) as the time here, the way but.dev dates a commit:
 /// "16/10/2026, 21:04".
 pub fn local_time(seconds: i64) -> String {
