@@ -251,8 +251,12 @@ pub struct Navigator {
     reveal_selection: bool,
     /// Branches showing all their commits instead of the first few.
     unfolded_branches: HashSet<(ProjectId, String)>,
-    /// Branches showing none of their commits, unless one is selected.
-    closed_branches: HashSet<(ProjectId, String)>,
+    /// Branches folded or opened against how Settings say branches start: folded, unless
+    /// they say open. A branch with the selected commit shows its commits either way.
+    flipped_branches: HashSet<(ProjectId, String)>,
+    /// Whether branches start open, as the flips were made against. When Settings change
+    /// it, the flips go and every branch starts over.
+    branches_start_open: bool,
     /// Projects showing their inactive worktrees too.
     shown_inactive: HashSet<ProjectId>,
     /// Worktrees showing only their heading, the main one by `None`.
@@ -304,7 +308,14 @@ impl Navigator {
                     },
                 }
             }),
-            cx.observe(&store, |_, _, cx| cx.notify()),
+            cx.observe(&store, |this, store, cx| {
+                let start_open = store.read(cx).prefs.branches_start_open;
+                if this.branches_start_open != start_open {
+                    this.branches_start_open = start_open;
+                    this.flipped_branches.clear();
+                }
+                cx.notify()
+            }),
             cx.subscribe(&store, |this, _, event, _| match event {
                 StoreEvent::SelectionChanged => this.reveal_selection = true,
                 StoreEvent::Loaded(_) => this.hold_still = true,
@@ -313,6 +324,7 @@ impl Navigator {
             // Dragging the uncommitted changes carries the checked ones.
             cx.subscribe(&detail, |_, _, _: &ChecksChanged, cx| cx.notify()),
         ];
+        let branches_start_open = store.read(cx).prefs.branches_start_open;
         Self {
             app,
             store,
@@ -324,7 +336,8 @@ impl Navigator {
             list: ListState::new(0, ListAlignment::Top, px(56.)),
             reveal_selection: false,
             unfolded_branches: HashSet::new(),
-            closed_branches: HashSet::new(),
+            flipped_branches: HashSet::new(),
+            branches_start_open,
             shown_inactive: HashSet::new(),
             folded_worktrees: HashSet::new(),
             folded_stacks: HashSet::new(),
@@ -677,7 +690,8 @@ impl Navigator {
                 true => branch.commits.len(),
                 false => fold_at,
             };
-            let closed = self.closed_branches.contains(&key) && selected_at.is_none();
+            let closed =
+                !branch.commits.is_empty() && !self.branch_open(&key) && selected_at.is_none();
             rows.push(Row::Item(Selection::Branch(key.0, key.1)));
             if closed {
                 continue;
@@ -854,6 +868,18 @@ impl Navigator {
         }
     }
 
+    /// Whether `key`'s branch shows its commits: as Settings start branches, unless folded or
+    /// opened since.
+    fn branch_open(&self, key: &(ProjectId, String)) -> bool {
+        self.branches_start_open != self.flipped_branches.contains(key)
+    }
+
+    fn set_branch_open(&mut self, key: (ProjectId, String), open: bool) {
+        if self.branch_open(&key) != open {
+            toggle(&mut self.flipped_branches, key);
+        }
+    }
+
     fn expand(&mut self, _: &Expand, _: &mut Window, cx: &mut Context<Self>) {
         match self.store.read(cx).selection.clone() {
             Some(Selection::Project(id)) => {
@@ -861,7 +887,7 @@ impl Navigator {
                     .update(cx, |store, cx| store.set_expanded(&id, true, cx));
             }
             Some(Selection::Branch(project, ref_name)) => {
-                self.closed_branches.remove(&(project, ref_name));
+                self.set_branch_open((project, ref_name), true);
                 cx.notify();
             }
             Some(Selection::Uncommitted(project)) => {
@@ -887,7 +913,7 @@ impl Navigator {
         let selection = store.selection.clone();
         let closes = matches!(&selection, Some(item @ Selection::Branch(project, ref_name))
             if store.branch_for(item).is_some_and(|branch| !branch.commits.is_empty())
-                && !self.closed_branches.contains(&(project.clone(), ref_name.clone())));
+                && self.branch_open(&(project.clone(), ref_name.clone())));
         let folds = (self.rows.iter())
             .position(|row| matches!(row, Row::Item(item) if Some(item) == selection.as_ref()))
             .is_some_and(|ix| self.section_open(ix));
@@ -897,7 +923,7 @@ impl Navigator {
                     .update(cx, |store, cx| store.set_expanded(&id, false, cx));
             }
             Some(Selection::Branch(project, ref_name)) if closes => {
-                self.closed_branches.insert((project, ref_name));
+                self.set_branch_open((project, ref_name), false);
                 cx.notify();
             }
             Some(Selection::Commit(project, id)) => {
@@ -2069,7 +2095,7 @@ impl Navigator {
                 format!("{name} · #{}{checks}", review.number)
             });
         let key = (id.clone(), ref_name.to_owned());
-        let closed = self.closed_branches.contains(&key) && !branch.commits.is_empty();
+        let closed = !self.branch_open(&key) && !branch.commits.is_empty();
         // A selected commit keeps its branch open.
         let holds_selected = matches!(&store.selection, Some(Selection::Commit(p, c))
             if p == id && branch.commits.iter().any(|commit| commit.id == *c));
@@ -2106,10 +2132,10 @@ impl Navigator {
                     .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                         cx.stop_propagation();
                         if !open {
-                            this.closed_branches.remove(&fold_key);
+                            this.set_branch_open(fold_key.clone(), true);
                             return cx.notify();
                         }
-                        this.closed_branches.insert(fold_key.clone());
+                        this.set_branch_open(fold_key.clone(), false);
                         // Folding it over its selected commit takes the selection up to it,
                         // as ← does.
                         match holds_selected {
@@ -2220,7 +2246,7 @@ impl Navigator {
                 // folder.
                 .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
                     if event.click_count() == 2 {
-                        toggle(&mut this.closed_branches, key.clone());
+                        toggle(&mut this.flipped_branches, key.clone());
                         cx.notify();
                     }
                 }))
