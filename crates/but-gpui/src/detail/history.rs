@@ -172,16 +172,8 @@ impl Detail {
                     window,
                     cx,
                     move |app, cx| {
-                        app.store.update(cx, |store, cx| {
-                            store.run(
-                                &project,
-                                "Restore",
-                                Overlay::default(),
-                                move |path, _| backend::history::restore(path, id),
-                                |store, (), cx| store.snack_undoable("Restored", cx),
-                                cx,
-                            )
-                        })
+                        app.store
+                            .update(cx, |store, cx| store.restore(&project, id, cx))
                     },
                 )
             })

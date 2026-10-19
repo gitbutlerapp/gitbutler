@@ -300,6 +300,23 @@ impl Store {
         );
     }
 
+    /// Put `project` back to before the operation `snapshot` was taken for, unless that takes
+    /// back one kept from undo.
+    pub fn restore(&mut self, project: &ProjectId, snapshot: SnapshotId, cx: &mut Context<Self>) {
+        let kept = self.kept_snapshots.clone();
+        self.run(
+            project,
+            "Restore",
+            Overlay::default(),
+            move |path, _| {
+                let kept = kept.lock().expect("not poisoned").clone();
+                backend::history::restore(path, snapshot, &kept)
+            },
+            |store, (), cx| store.snack_undoable("Restored", cx),
+            cx,
+        );
+    }
+
     /// Undo the operation that recorded `snapshot`, as long as nothing came after it.
     pub fn undo_snapshot(
         &mut self,
