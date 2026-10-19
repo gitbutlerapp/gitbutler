@@ -1669,6 +1669,7 @@ dependencies = [
  "but-settings",
  "but-transaction",
  "but-workspace",
+ "chrono",
  "deltoids",
  "futures",
  "gitbutler-filemonitor",

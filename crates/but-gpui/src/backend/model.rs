@@ -313,12 +313,35 @@ pub struct Review {
     pub url: Option<String>,
     /// The CI checks on the branch, once any have been seen.
     pub checks: Option<Checks>,
-    /// The checks that failed: each one's name, and where to read why.
-    pub failed_checks: Vec<(String, String)>,
+    /// Each check, failed ones first, then those still running.
+    pub check_runs: Vec<CheckRun>,
     pub labels: Vec<String>,
     /// Who's been asked to review it, bots left out. GitHub lists only those who haven't
     /// reviewed yet; GitLab and Bitbucket keep the others.
     pub reviewers: Vec<String>,
+    pub author: Option<String>,
+    /// The branch it merges into, as the forge names it.
+    pub target_branch: String,
+    /// Its description, as written.
+    pub body: String,
+    /// When it last changed on the forge, in seconds since the epoch.
+    pub updated_at: Option<i64>,
+    /// When the forge was last asked about it, in seconds since the epoch.
+    pub synced_at: Option<i64>,
+}
+
+/// A CI check on a pull request's branch.
+#[derive(Debug, Clone)]
+pub struct CheckRun {
+    pub name: String,
+    /// Where to read its log.
+    pub url: String,
+    /// Whether it failed, once it finished.
+    pub failed: Option<bool>,
+    /// How it finished or how far it got, as the forge says: "success", "in progress".
+    pub status: String,
+    pub started_at: Option<i64>,
+    pub completed_at: Option<i64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

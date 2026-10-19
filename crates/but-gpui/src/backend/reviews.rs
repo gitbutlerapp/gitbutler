@@ -11,7 +11,9 @@ use but_ctx::Context;
 
 use super::ops::holds;
 use super::upstream::sync_failure;
-use super::{Checks, Forge, PushState, Review, ReviewState, open, push, runtime, short_ref};
+use super::{
+    CheckRun, Checks, Forge, PushState, Review, ReviewState, open, push, runtime, short_ref,
+};
 
 /// Which forge hosts the project, when its target's remote says so or the project picks
 /// one in its settings.
@@ -74,16 +76,7 @@ pub(super) fn review(
         },
         url: found.map(|review| review.html_url.clone()),
         checks: (!checks.is_empty()).then(|| summarize_checks(&checks)),
-        failed_checks: (checks.iter())
-            .filter(|check| check_failed(check) == Some(true))
-            .map(|check| {
-                let url = match check.html_url.as_str() {
-                    "" => check.details_url.clone(),
-                    url => url.to_owned(),
-                };
-                (check.name.clone(), url)
-            })
-            .collect(),
+        check_runs: check_runs(&checks),
         labels: (found.iter().flat_map(|review| &review.labels))
             .map(|label| label.name.clone())
             .collect(),
@@ -91,7 +84,66 @@ pub(super) fn review(
             .filter(|user| !user.is_bot)
             .map(|user| user.login.clone())
             .collect(),
+        author: found
+            .and_then(|review| review.author.as_ref())
+            .map(|user| user.login.clone()),
+        target_branch: found.map(|r| r.target_branch.clone()).unwrap_or_default(),
+        body: (found.and_then(|review| review.body.clone())).unwrap_or_default(),
+        updated_at: (found.and_then(|review| review.modified_at.as_deref()))
+            .and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok())
+            .map(|at| at.timestamp()),
+        synced_at: found
+            .and_then(|review| {
+                review
+                    .last_sync_at
+                    .and_local_timezone(chrono::Local)
+                    .single()
+            })
+            .map(|at| at.timestamp()),
     }
+}
+
+/// Each check, those that failed first, then those still running, then the rest, each
+/// group in the order the forge lists them.
+fn check_runs(checks: &[but_forge::CiCheck]) -> Vec<CheckRun> {
+    use but_forge::{CiConclusion as C, CiStatus as S};
+    let mut runs: Vec<_> = (checks.iter())
+        .map(|check| CheckRun {
+            name: check.name.clone(),
+            url: match check.html_url.as_str() {
+                "" => check.details_url.clone(),
+                url => url.to_owned(),
+            },
+            failed: check_failed(check),
+            status: match &check.status {
+                S::Complete { conclusion, .. } => match conclusion {
+                    C::Success => "success",
+                    C::Neutral => "neutral",
+                    C::Skipped => "skipped",
+                    C::Failure => "failure",
+                    C::TimedOut => "timed out",
+                    C::Cancelled => "cancelled",
+                    C::ActionRequired => "action required",
+                    C::Unknown => "finished",
+                },
+                S::InProgress => "in progress",
+                S::Queued => "queued",
+                S::Unknown => "waiting",
+            }
+            .to_owned(),
+            started_at: check.started_at.map(|at| at.timestamp()),
+            completed_at: match &check.status {
+                S::Complete { completed_at, .. } => completed_at.map(|at| at.timestamp()),
+                S::InProgress | S::Queued | S::Unknown => None,
+            },
+        })
+        .collect();
+    runs.sort_by_key(|run| match run.failed {
+        Some(true) => 0,
+        None => 1,
+        Some(false) => 2,
+    });
+    runs
 }
 
 pub(super) fn review_state(review: &but_forge::ForgeReview) -> ReviewState {

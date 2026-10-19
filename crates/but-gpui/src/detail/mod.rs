@@ -287,6 +287,11 @@ pub struct Detail {
     cursor: Cursor,
     /// Whether the selected commit's message shows its body, not just its title.
     message_open: bool,
+    /// Whether a branch with a pull request shows it in place of its changes.
+    review_tab: bool,
+    /// Whether the pull request's checks that passed are listed, not just counted.
+    passed_checks_open: bool,
+    review_scroll: ScrollHandle,
     /// How tall a commit's header across the page was drawn, which the diff starts below.
     header_height: Rc<Cell<f32>>,
     /// Directories folded shut in tree-shaped file lists, by path.
@@ -490,6 +495,9 @@ impl Detail {
             message_scroll,
             cursor: Cursor::default(),
             message_open: false,
+            review_tab: false,
+            passed_checks_open: false,
+            review_scroll: ScrollHandle::new(),
             header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),
             collapsed_dirs: HashSet::new(),
             text_selection: None,
@@ -1679,29 +1687,35 @@ impl Render for Detail {
                     }
                     _ => None,
                 };
-                let panes = h_flex()
-                    .w_full()
-                    .flex_1()
-                    .min_h(px(0.))
-                    .items_start()
-                    .on_drag_move(resize_pane(Pane::Files, self.store.clone()))
-                    .when(!self.files_hidden, |el| {
-                        el.child(
-                            v_flex()
-                                .w(px(width))
-                                .flex_none()
-                                .relative()
-                                .h_full()
-                                .border_r_1()
-                                .border_color(theme.border_3)
-                                .track_focus(&self.files_focus)
-                                .key_context("Files")
-                                .child(side)
-                                .child(resize_handle(Pane::Files, self.store.clone(), &theme)),
-                        )
-                    })
-                    // `DiffPane` draws the diff over this space.
-                    .child(div().flex_1());
+                let panes = match selection {
+                    Selection::Branch(project, _) if self.showing_review(cx) => {
+                        self.render_review_tab(project, &theme, cx)
+                    }
+                    _ => h_flex()
+                        .w_full()
+                        .flex_1()
+                        .min_h(px(0.))
+                        .items_start()
+                        .on_drag_move(resize_pane(Pane::Files, self.store.clone()))
+                        .when(!self.files_hidden, |el| {
+                            el.child(
+                                v_flex()
+                                    .w(px(width))
+                                    .flex_none()
+                                    .relative()
+                                    .h_full()
+                                    .border_r_1()
+                                    .border_color(theme.border_3)
+                                    .track_focus(&self.files_focus)
+                                    .key_context("Files")
+                                    .child(side)
+                                    .child(resize_handle(Pane::Files, self.store.clone(), &theme)),
+                            )
+                        })
+                        // `DiffPane` draws the diff over this space.
+                        .child(div().flex_1())
+                        .into_any_element(),
+                };
                 v_flex()
                     .size_full()
                     .children(header)

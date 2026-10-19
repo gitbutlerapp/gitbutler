@@ -10,7 +10,6 @@ use gpui::{
 };
 
 use super::Detail;
-use super::pull_request::render_review;
 use crate::app::StartCommit;
 use crate::backend::{self, CommitState, PushState, short_ref};
 use crate::state::{ProjectId, Selection};
@@ -593,17 +592,19 @@ impl Detail {
             .child(meta);
         let target = Selection::Commit(project.clone(), id);
         let apply = super::resolve::apply_button(self, cx.entity().downgrade(), cx);
-        self.page_header(main, target, apply, theme, cx)
+        self.page_header(main, target, apply, None, theme, cx)
     }
 
     /// The header across a page, over its files and its diff: `main` beside `extra`, if
     /// any, and a ⋯ with what right-clicking `target`'s row offers, for when the navigator is
     /// out of reach; as but.dev lays them out, so stepping between pages moves nothing below.
+    /// `tabs`, if any, run along its bottom edge.
     pub(super) fn page_header(
         &self,
         main: Div,
         target: Selection,
         extra: Option<AnyElement>,
+        tabs: Option<AnyElement>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
@@ -633,16 +634,23 @@ impl Detail {
         )
         .absolute()
         .size_full();
-        h_flex()
+        v_flex()
             .relative()
             .flex_none()
-            .items_start()
-            .gap(px(16.))
-            .p(px(16.))
+            .gap(px(10.))
+            .px(px(16.))
+            .pt(px(16.))
+            .pb(px(if tabs.is_some() { 0. } else { 16. }))
             .border_b_1()
             .border_color(theme.border_3)
-            .child(main.flex_1().min_w(px(0.)))
-            .child(menu)
+            .child(
+                h_flex()
+                    .items_start()
+                    .gap(px(16.))
+                    .child(main.flex_1().min_w(px(0.)))
+                    .child(menu),
+            )
+            .children(tabs)
             .child(measure)
             .into_any_element()
     }
@@ -694,7 +702,8 @@ impl Detail {
             .child(page_title(Icon::Branch, theme).child(title_text(name.to_owned())))
             .child(meta);
         let target = Selection::Branch(project.clone(), ref_name.to_owned());
-        self.page_header(main, target, None, theme, cx)
+        let tabs = (branch.review.as_ref()).map(|review| self.branch_tabs(review, theme, cx));
+        self.page_header(main, target, None, tabs, theme, cx)
     }
 
     /// A stack's header: how many branches it has, which, and their commits.
@@ -729,7 +738,7 @@ impl Detail {
             .child(page_title(Icon::Stack, theme).child(title_text(title)))
             .child(meta);
         let target = Selection::Stack(project.clone(), bottom.to_owned());
-        self.page_header(main, target, None, theme, cx)
+        self.page_header(main, target, None, None, theme, cx)
     }
 
     /// The box editing a commit's message, with how to save or leave it.
@@ -834,9 +843,6 @@ impl Detail {
         v_flex()
             .size_full()
             .children(resolve_oldest.map(|banner| side_header(theme).child(banner)))
-            .when_some(branch.review.as_ref(), |el, review| {
-                el.child(render_review(review, theme, cx))
-            })
             .when(!branch.incoming.is_empty(), |el| {
                 let pull = ws
                     .can_pull(ref_name)

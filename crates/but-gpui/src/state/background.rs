@@ -85,6 +85,21 @@ impl Store {
         }
     }
 
+    /// Whether `id`'s forge is being asked about its pull requests right now.
+    pub fn forge_checking(&self, id: &ProjectId) -> bool {
+        self.forge_checking.as_ref() == Some(id)
+    }
+
+    /// Whether asking `id`'s forge failed last time, so what shows of it may be old.
+    pub fn forge_failed(&self, id: &ProjectId) -> bool {
+        self.forge_failed.contains(id)
+    }
+
+    /// When asking `id`'s forge last worked in this run, in seconds since the epoch.
+    pub fn forge_synced(&self, id: &ProjectId) -> Option<i64> {
+        self.forge_synced.get(id).copied()
+    }
+
     /// Pull requests and CI change on the forge, where no watcher sees them: opening a
     /// project asks about them, and this asks again every minute.
     pub(super) fn poll_forge(cx: &mut Context<Self>) -> Task<()> {
@@ -127,12 +142,19 @@ impl Store {
                 let Some(path) = path else {
                     continue;
                 };
+                let Ok(()) = this.update(cx, |store, cx| {
+                    store.forge_checking = Some(id.clone());
+                    cx.notify();
+                }) else {
+                    return;
+                };
                 let reviews_path = path.clone();
                 let refreshed = backend::run(move || backend::refresh_reviews(&reviews_path)).await;
                 // The pull requests show without waiting for their checks.
                 let Ok(_) = this.update(cx, |store, cx| match &refreshed {
                     Ok(changed) => {
                         store.forge_failed.remove(&id);
+                        store.forge_synced.insert(id.clone(), crate::ui::now());
                         if *changed {
                             store.load_or_defer(&id, Reload::full(), cx);
                         }
@@ -143,15 +165,21 @@ impl Store {
                 }) else {
                     return;
                 };
-                if let Err(err) = refreshed {
-                    tracing::debug!(%id, "forge refresh failed: {err:#}");
-                    continue;
-                }
-                let checked = backend::run(move || backend::refresh_checks(&path)).await;
-                let reloaded = this.update(cx, |store, cx| match checked {
-                    Ok(true) => store.load_or_defer(&id, Reload::full(), cx),
-                    Ok(false) => {}
-                    Err(err) => tracing::debug!(%id, "CI refresh failed: {err:#}"),
+                let checked = match refreshed {
+                    Ok(_) => Some(backend::run(move || backend::refresh_checks(&path)).await),
+                    Err(err) => {
+                        tracing::debug!(%id, "forge refresh failed: {err:#}");
+                        None
+                    }
+                };
+                let reloaded = this.update(cx, |store, cx| {
+                    match checked {
+                        Some(Ok(true)) => store.load_or_defer(&id, Reload::full(), cx),
+                        Some(Ok(false)) | None => {}
+                        Some(Err(err)) => tracing::debug!(%id, "CI refresh failed: {err:#}"),
+                    }
+                    store.forge_checking = None;
+                    cx.notify();
                 });
                 if reloaded.is_err() {
                     return;

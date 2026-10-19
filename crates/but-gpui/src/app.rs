@@ -130,8 +130,8 @@ impl AppView {
     /// Where the diff starts beside the detail's file list, when the selection has a diff.
     fn diff_left(&self, window: &Window, cx: &App) -> Option<f32> {
         let store = self.store.read(cx);
-        let has_diff = store.selection.is_some();
         let detail = self.detail.read(cx);
+        let has_diff = store.selection.is_some() && !detail.showing_review(cx);
         let width = window.viewport_size().width.into();
         has_diff.then(|| match detail.files_hidden {
             true => 0.,

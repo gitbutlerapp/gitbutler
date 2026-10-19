@@ -712,7 +712,8 @@ pub fn dot(color: Hsla) -> Div {
     div().flex_none().size(px(6.)).rounded_full().bg(color)
 }
 
-fn now() -> i64 {
+/// Seconds since the epoch.
+pub fn now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)

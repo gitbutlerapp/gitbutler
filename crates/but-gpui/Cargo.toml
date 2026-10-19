@@ -46,6 +46,8 @@ tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 unicode-segmentation.workspace = true
 bstr.workspace = true
+# The forge cache's timestamps.
+chrono = { workspace = true, features = ["clock"] }
 gix = { workspace = true, features = ["sha1"] }
 reqwest.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
