@@ -2,6 +2,7 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::hash::{Hash as _, Hasher as _};
+use std::sync::Arc;
 
 use gpui::{
     AnyElement, AnyWindowHandle, App, Context, Focusable as _, Toggled, WeakEntity, Window,
@@ -71,6 +72,10 @@ impl Checks {
             Toggled::Mixed => self.line_picks[&(path.to_owned(), key)].0.contains(&line),
             check => check == Toggled::True,
         }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.unchecked.is_empty() && self.unchecked_hunks.is_empty() && self.line_picks.is_empty()
     }
 
     /// Put everything back in.
@@ -166,6 +171,30 @@ fn covers_same_lines(a: HunkKey, b: HunkKey) -> bool {
 }
 
 impl Detail {
+    /// Close the composer for `project`'s checkout `worktree` to show next. The checks of the
+    /// one left wait for coming back, as looking elsewhere shouldn't put back in what was
+    /// left out of the next commit.
+    pub(super) fn switch_checkout(
+        &mut self,
+        project: Option<ProjectId>,
+        worktree: Option<Arc<str>>,
+        cx: &mut Context<Self>,
+    ) {
+        let left = (self.checks_project.take(), self.checks_worktree.take());
+        let next = (self.other_checks)
+            .remove(&(project.clone(), worktree.clone()))
+            .unwrap_or_default();
+        let checks = std::mem::replace(&mut self.checks, next);
+        if !checks.is_empty() {
+            self.other_checks.insert(left, checks);
+        }
+        (self.checks_project, self.checks_worktree) = (project, worktree);
+        self.composing = false;
+        self.writing = None;
+        cx.emit(ChecksChanged);
+        cx.notify();
+    }
+
     pub(super) fn close_composer(&mut self, cx: &mut Context<Self>) {
         self.composing = false;
         // A message still being written would land in whatever the box shows next.
@@ -391,7 +420,13 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         self.commit_target = Some(branch);
-        if let Some(project) = self.selected_project(cx)
+        // The checks are the main checkout's from here: switched now, as the selection
+        // event that would do it comes after.
+        let project = self.selected_project(cx);
+        if (&self.checks_project, &self.checks_worktree) != (&project, &None) {
+            self.switch_checkout(project.clone(), None, cx);
+        }
+        if let Some(project) = project
             && let Some(workspace) = self.store.read(cx).workspace(&project)
         {
             let keep: HashMap<&str, Option<&[HunkKey]>> = files
@@ -583,7 +618,7 @@ impl Detail {
         let run_hooks = self.store.read(cx).runs_hooks(&project);
         let detail = cx.entity().downgrade();
         let window = window.window_handle();
-        let (finished, committed) = (project.clone(), message.clone());
+        let (finished, committed, from) = (project.clone(), message.clone(), worktree.clone());
         // The files leave the list and the commit shows on its branch right away.
         let overlay = Overlay {
             new_commit: target.clone().map(|branch| {
@@ -627,7 +662,7 @@ impl Detail {
                         }
                         if detail.message.read(cx).text().trim() == committed {
                             (detail.message).update(cx, |input, cx| input.set_text("", cx));
-                            detail.finish_composing(window, cx);
+                            detail.finish_composing(&from, window, cx);
                         }
                     });
                     // The oplog can't bring a linked worktree's changes back.
@@ -648,9 +683,20 @@ impl Detail {
         });
     }
 
-    /// Close the composer once what it committed landed. Focus stays in the pane if it was
-    /// in the message box, which goes away.
-    fn finish_composing(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// Close the composer once what it committed from the checkout `worktree` landed. Focus
+    /// stays in the pane if it was in the message box, which goes away. Moved on to another
+    /// checkout meanwhile, only the checks waiting for that one go.
+    fn finish_composing(
+        &mut self,
+        worktree: &Option<Arc<str>>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.checks_worktree != *worktree {
+            self.other_checks
+                .remove(&(self.checks_project.clone(), worktree.clone()));
+            return;
+        }
         match self.message.focus_handle(cx).is_focused(window) {
             true => self.leave_composer(window, cx),
             false => self.close_composer(cx),
@@ -735,11 +781,11 @@ impl Detail {
         }
         let detail = cx.entity().downgrade();
         let window = window.window_handle();
-        let finished = project.clone();
+        let (finished, from) = (project.clone(), worktree.clone());
         // The composer stays open until it lands, so a failed amend keeps the choices.
         let landed = move |_: &mut Store, cx: &mut Context<Store>| {
             after_landing(&detail, window, &finished, cx, |detail, window, cx| {
-                detail.finish_composing(window, cx)
+                detail.finish_composing(&from, window, cx)
             })
         };
         (self.store).update(cx, |store, cx| {
