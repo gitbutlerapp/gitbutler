@@ -79,7 +79,8 @@ pub fn land_scope(workspace: &Workspace, ref_name: &str) -> Option<bool> {
 pub struct BranchEdits {
     /// It has commits for a new branch below to keep.
     pub new_below: bool,
-    /// It has more than one commit to squash into one.
+    /// It has more than one commit to squash into one, and none conflicted, which the
+    /// engine won't squash.
     pub squash_all: bool,
     /// Other branches share its stack, so it can be unstacked.
     pub stacked: bool,
@@ -93,11 +94,12 @@ impl BranchEdits {
             return Self::default();
         };
         let commits = lane[at].commits.len();
+        let conflicted = lane[at].commits.iter().any(|c| c.conflicted);
         // A linked worktree's lane can't take new branches or come apart yet.
         let stack = workspace.stack_of(ref_name).is_some();
         Self {
             new_below: stack && commits > 0,
-            squash_all: commits > 1,
+            squash_all: commits > 1 && !conflicted,
             stacked: stack && lane.len() > 1,
             land: land_scope(workspace, ref_name).filter(|_| workspace.target.is_some()),
         }
