@@ -883,7 +883,7 @@ impl Store {
                         {
                             store.select(Some(moved), cx);
                         }
-                        store.error(format!("{label} failed"), format!("{err:#}"), cx)
+                        store.error(format!("{label} failed"), failure_detail(&err), cx)
                     }
                 }
                 store.load(&project, reload, cx);
@@ -1202,9 +1202,32 @@ fn commit_counts(branches: &[(String, usize)]) -> String {
     counts.join(", ")
 }
 
+/// What a failed operation's card says: the engine's own words, except where those name a
+/// commit the user never saw.
+fn failure_detail(err: &anyhow::Error) -> String {
+    match err.downcast_ref::<but_error::Code>() {
+        Some(but_error::Code::ConflictedCommitCheckout) => {
+            "That would leave the checked-out commit conflicted, which Git can't check out."
+                .to_owned()
+        }
+        _ => format!("{err:#}"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_refused_conflicted_checkout_says_why_without_a_hash() {
+        let err = anyhow::anyhow!(but_error::Code::ConflictedCommitCheckout)
+            .context("Refusing to check out conflicted commit 7c20f085")
+            .context("Moving the commit");
+        assert!(
+            failure_detail(&err).starts_with("That would leave the checked-out commit"),
+            "the engine's code is found under the context it adds"
+        );
+    }
 
     #[test]
     fn an_update_says_what_conflicted_and_what_landed() {
