@@ -8,7 +8,7 @@ use gpui::{AnyElement, App, ClickEvent, Context, Div, Stateful, Window, div, pre
 use super::Detail;
 use super::panes::title_text;
 use super::resolve::{banner_action, warn_banner};
-use crate::backend::{CheckRun, Forge, Review};
+use crate::backend::{CheckRun, Forge, Review, ReviewState};
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::review as ui_review;
@@ -18,16 +18,16 @@ use crate::ui::{
     shortcut, small_icon, v_flex,
 };
 
-/// How tall the Branches page's tabs are, over the diff beside its list.
-pub(super) const TABS_HEIGHT: f32 = 40.;
+/// How tall the tabs over the diff beside a list are.
+const TABS_HEIGHT: f32 = 40.;
 
 /// How old, in seconds, what the pull request tab shows can get before a failed refresh
 /// warns about it.
 const STALE_AFTER: i64 = 30 * 60;
 
 impl Detail {
-    /// The selected branch's pull request, if it has one: the branch page's, or the
-    /// Branches page's.
+    /// The selected branch's pull request, if it has one: the branch page's, the Branches
+    /// page's, or the one the project page's selected target commit landed.
     pub(super) fn selected_review<'a>(&'a self, cx: &'a App) -> Option<&'a Review> {
         let store = self.store.read(cx);
         match store.selection.as_ref()? {
@@ -37,6 +37,7 @@ impl Detail {
                 .review
                 .as_ref(),
             Selection::Branches(project) => self.selected_other_branch(project)?.review.as_ref(),
+            Selection::Project(project) => self.selected_target_review(project),
             _ => None,
         }
     }
@@ -53,22 +54,25 @@ impl Detail {
             return;
         }
         self.review_tab = on;
-        // The branch page's file list isn't drawn beside its pull request; the Branches
+        // The branch page's file list isn't drawn beside its pull request. The Branches
         // page's list stays, and keeps the keys.
-        let focus = match (self.list_page(cx), on) {
-            (true, _) => &self.side_focus,
-            (false, true) => &self.focus,
-            (false, false) => &self.files_focus,
+        let focus = match (&self.store.read(cx).selection, on) {
+            (Some(Selection::Branches(_)), _) => Some(self.side_focus.clone()),
+            (Some(Selection::Branch(..)), true) => Some(self.focus.clone()),
+            (Some(Selection::Branch(..)), false) => Some(self.files_focus.clone()),
+            _ => None,
         };
-        window.focus(focus, cx);
+        if let Some(focus) = focus {
+            window.focus(&focus, cx);
+        }
         cx.notify();
         // The window draws the diff beside the files, or doesn't.
         self.app.update(cx, |_, cx| cx.notify()).ok();
     }
 
-    /// The branch page's tabs: its changes, with how many files, and its pull request, with
-    /// a glyph while its checks fail or run.
-    pub(super) fn branch_tabs(
+    /// A branch or commit's tabs: its changes, with how many files, and its pull request,
+    /// with a glyph while its checks fail or run.
+    pub(super) fn review_tabs(
         &self,
         review: &Review,
         theme: &Theme,
@@ -99,6 +103,45 @@ impl Detail {
             .into_any_element()
     }
 
+    /// Beside the list of the Branches page or a project's page, the tabs of the selected
+    /// branch or commit with a pull request, over the pull request or the diff.
+    pub(super) fn render_list_tabs(
+        &self,
+        project: &ProjectId,
+        review: &Review,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        v_flex()
+            .flex_1()
+            .h_full()
+            .min_w(px(0.))
+            .child(
+                h_flex()
+                    .flex_none()
+                    .h(px(TABS_HEIGHT))
+                    .px(px(16.))
+                    .items_end()
+                    .border_b_1()
+                    .border_color(theme.border_3)
+                    .child(self.review_tabs(review, theme, cx)),
+            )
+            .child(match self.review_tab {
+                true => self.render_review_tab(project, theme, cx),
+                false => div().flex_1().into_any_element(),
+            })
+            .into_any_element()
+    }
+
+    /// How tall the tabs beside a list are, which the diff starts below: nothing when the
+    /// page has none.
+    pub(super) fn list_tabs_height(&self, cx: &App) -> f32 {
+        match self.list_page(cx) && self.selected_review(cx).is_some() {
+            true => TABS_HEIGHT,
+            false => 0.,
+        }
+    }
+
     /// The pull request tab: its title and facts, how fresh they are, its description and
     /// its checks.
     pub(super) fn render_review_tab(
@@ -125,7 +168,9 @@ impl Detail {
         // A failed refresh is worth a warning only once what shows has aged; until then the
         // button to check again is enough.
         let stale = failed && synced.is_none_or(|at| now() - at > STALE_AFTER);
-        let fresh = (!stale).then(|| {
+        // A merged or closed one is settled, and asking again is about the open ones.
+        let settled = matches!(review.state, ReviewState::Merged | ReviewState::Closed);
+        let fresh = (!stale && !settled).then(|| {
             button(
                 "review-check",
                 match synced {
@@ -141,7 +186,7 @@ impl Detail {
             .disabled_because(checking.then_some("Asking already"))
             .on_click(ask.clone())
         });
-        let stale = stale.then(|| {
+        let stale = (stale && !settled).then(|| {
             warn_banner(
                 match synced {
                     Some(at) => format!("Showing what {forge} said {}", ago(at)),

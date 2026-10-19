@@ -702,7 +702,7 @@ impl Detail {
             .child(page_title(Icon::Branch, theme).child(title_text(name.to_owned())))
             .child(meta);
         let target = Selection::Branch(project.clone(), ref_name.to_owned());
-        let tabs = (branch.review.as_ref()).map(|review| self.branch_tabs(review, theme, cx));
+        let tabs = (branch.review.as_ref()).map(|review| self.review_tabs(review, theme, cx));
         self.page_header(main, target, None, tabs, theme, cx)
     }
 

@@ -9,7 +9,7 @@ use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
 use super::Detail;
 use super::panes::{Crumb, list_heading, meta_item, meta_row, side_header, side_list, title_text};
 use crate::backend::upstream::{self, TargetCommit};
-use crate::backend::{self, CommitId, DiffSource, Forge};
+use crate::backend::{self, CommitId, DiffSource, Forge, Review};
 use crate::state::{Overlay, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
@@ -21,7 +21,9 @@ use crate::ui::{
 /// What a target commit is called: the pull request it landed, by its title, as Lite names
 /// it, or else the commit's own title.
 fn label(commit: &TargetCommit) -> &str {
-    (commit.review.as_ref()).map_or(&commit.title, |(_, title)| title)
+    (commit.review.as_ref())
+        .filter(|review| !review.title.is_empty())
+        .map_or(&commit.title, |review| &review.title)
 }
 
 /// How many target commits a page holds.
@@ -181,6 +183,13 @@ impl Detail {
     pub(super) fn no_remote(&self, project: &ProjectId) -> bool {
         self.upstream_for(project)
             .is_some_and(|u| u.fetch.is_none())
+    }
+
+    /// The pull request the selected target commit landed, if it landed one.
+    pub(super) fn selected_target_review(&self, project: &ProjectId) -> Option<&Review> {
+        let upstream = self.upstream_for(project)?;
+        let commit = (upstream.commits.iter()).find(|c| Some(c.id) == upstream.selected)?;
+        commit.review.as_ref()
     }
 
     pub(super) fn upstream_source(&self, project: &ProjectId) -> Option<DiffSource> {
@@ -550,9 +559,9 @@ impl Detail {
                                 };
                                 // One that landed a pull request by the request, as Lite
                                 // names it, its number, merge commit and ID on hover.
-                                let tip = (commit.review.as_ref()).map(|(number, _)| {
+                                let tip = (commit.review.as_ref()).map(|review| {
                                     let short = id.short();
-                                    format!("{number} · {} · {short}", commit.title)
+                                    format!("#{} · {} · {short}", review.number, commit.title)
                                 });
                                 let mark = match commit.review {
                                     Some(_) => Icon::BranchMerge,
