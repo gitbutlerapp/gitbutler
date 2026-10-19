@@ -139,10 +139,16 @@ impl Detail {
             DiffRow::Line {
                 file, hunk, line, ..
             } => diff.files.get(file)?.hunks().get(hunk)?.lines.get(line),
-            // An unchanged line of a file shown whole, from its new side.
+            // An unchanged line, from its new side: of the file shown whole, or else of the
+            // scope a hunk shows around it.
             DiffRow::Context { file, new, .. } => {
-                let (_, lines, _) = self.whole.get(&diff.files.get(file)?.file.path)?.as_ref()?;
-                lines.get((new as usize).checked_sub(1)?)
+                let file = diff.files.get(file)?;
+                match self.whole.get(&file.file.path) {
+                    Some(Some((_, lines, _))) => lines.get((new as usize).checked_sub(1)?),
+                    _ => (file.hunks().iter())
+                        .flat_map(|hunk| hunk.lead.iter().chain(&hunk.tail))
+                        .find(|line| line.new == Some(new)),
+                }
             }
             _ => None,
         }
@@ -170,7 +176,10 @@ impl Detail {
         };
         let last = hunks.last().map_or(0, |hunk| {
             let side = |number: fn(&DiffLine) -> Option<u32>| {
-                hunk.lines.iter().rev().find_map(number).unwrap_or(0)
+                (hunk.lines.iter().chain(&hunk.tail))
+                    .rev()
+                    .find_map(number)
+                    .unwrap_or(0)
             };
             side(|line| line.old).max(side(|line| line.new))
         });
@@ -774,10 +783,7 @@ impl Detail {
                         discard_button(ix, project, linked, change, current, self.app.clone(), cx)
                     });
                 // The lines before the hunk, unless the file shown whole has them above.
-                let shown = matches!(
-                    ix.checked_sub(1).map(|row| diff.rows[row]),
-                    Some(DiffRow::Context { .. })
-                );
+                let shown = matches!(self.whole.get(&diff.files[file].file.path), Some(Some(_)));
                 let unmodified = if shown {
                     0
                 } else {

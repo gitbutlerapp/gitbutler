@@ -372,6 +372,8 @@ fn annotate_conflict(path: &str, conflict: &mut Conflict) {
             })
             .collect(),
         scope: Vec::new(),
+        lead: Vec::new(),
+        tail: Vec::new(),
     };
     annotate::emphasize(&mut pair);
     let (base_emph, commit_emph) = pair.lines.split_at(new_base.len());
@@ -464,20 +466,25 @@ fn load_file(
         _ => 0,
     };
     if let Some(limit) = annotate
-        && let DiffBody::Hunks { hunks, .. } = &mut body
+        && let DiffBody::Hunks { hunks, widest, .. } = &mut body
         && lines <= limit
     {
+        // First, so the lines a scope adds around a hunk are highlighted with it, in order.
+        if let Some((old, new)) = scope_sides(&filter) {
+            annotate::label_scopes(hunks, &old, &new, &file.path);
+            *widest = self::widest(hunks);
+        }
         for hunk in hunks.iter_mut() {
             annotate::emphasize(hunk);
             let Some(mut highlighter) = highlight::Highlighter::for_path(&file.path) else {
                 continue;
             };
-            for line in &mut hunk.lines {
+            let Hunk {
+                lead, lines, tail, ..
+            } = hunk;
+            for line in lead.iter_mut().chain(lines).chain(tail) {
                 line.spans = highlighter.line(&line.text);
             }
-        }
-        if let Some((old, new)) = scope_sides(&filter) {
-            annotate::label_scopes(hunks, &old, &new, &file.path);
         }
     }
     // Only lines and images are filled in later, a file the first files' limit left plain
@@ -797,7 +804,9 @@ fn side_bytes(data: gix::diff::blob::platform::resource::Data<'_>) -> Option<&[u
 /// The widest line on each side of `hunks`, old then new, in [`columns`].
 fn widest(hunks: &[Hunk]) -> [u32; 2] {
     let mut widest = [0, 0];
-    for line in hunks.iter().flat_map(|hunk| &hunk.lines) {
+    let lines =
+        (hunks.iter()).flat_map(|hunk| hunk.lead.iter().chain(&hunk.lines).chain(&hunk.tail));
+    for line in lines {
         let columns = columns(&line.text);
         if line.kind != LineKind::Added {
             widest[0] = widest[0].max(columns);
@@ -871,5 +880,7 @@ fn parse_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
         header,
         lines,
         scope: Vec::new(),
+        lead: Vec::new(),
+        tail: Vec::new(),
     }
 }

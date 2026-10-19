@@ -689,6 +689,10 @@ pub struct Hunk {
     pub lines: Vec<DiffLine>,
     /// The scopes the hunk changes, outermost first, each as its first source line.
     pub scope: Vec<String>,
+    /// Unchanged lines before and after `lines`, out to the edges of the innermost scope it
+    /// changes, when that's only a few: shown, never acted on.
+    pub lead: Vec<DiffLine>,
+    pub tail: Vec<DiffLine>,
 }
 
 impl Hunk {
@@ -851,6 +855,8 @@ mod tests {
                 line(LineKind::Context, Some(3), Some(3)),
             ],
             scope: Vec::new(),
+            lead: Vec::new(),
+            tail: Vec::new(),
         };
         assert_eq!(
             hunk.picked_out(&BTreeSet::from([1, 2])),
@@ -898,6 +904,8 @@ mod tests {
                 line(LineKind::Context, Some(4), Some(4)),
             ],
             scope: Vec::new(),
+            lead: Vec::new(),
+            tail: Vec::new(),
         };
         let picks = BTreeSet::from([1, 2, 4]);
         assert_eq!(
