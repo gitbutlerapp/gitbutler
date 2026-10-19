@@ -224,39 +224,52 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
     let Kept { main, mut linked } = kept;
-    let (uncommitted, tree, managed, checked_out, refs, git_operation) = {
-        let repo = ctx.repo.get()?;
-        let head = repo.head_name()?;
-        let managed =
-            (head.as_ref()).is_some_and(|name| name.as_bstr() == but_core::WORKSPACE_REF_NAME);
-        let checked_out = head
-            .filter(|_| !managed)
-            .map(|name| name.shorten().to_string());
-        let tree = head_tree(&repo);
-        let files = match main {
-            Some((files, read_against)) if read_against == tree => files,
-            _ => worktree_files(&repo)?,
+    let repo = ctx.repo.get()?.clone();
+    let head = repo.head_name()?;
+    let managed =
+        (head.as_ref()).is_some_and(|name| name.as_bstr() == but_core::WORKSPACE_REF_NAME);
+    let checked_out = head
+        .filter(|_| !managed)
+        .map(|name| name.shorten().to_string());
+    let tree = head_tree(&repo);
+    let git_operation = git_operation(&repo);
+    // The uncommitted files and the refs are read beside the workspace's graph, which takes
+    // longest, rather than before it: on a large repository, cold from disk, they take
+    // hundreds of milliseconds.
+    let (side, view) = std::thread::scope(|scope| -> Result<_> {
+        let side = std::thread::Builder::new()
+            .stack_size(16 << 20)
+            .spawn_scoped(scope, move || -> Result<_> {
+                let files = match main {
+                    Some((files, read_against)) if read_against == tree => files,
+                    _ => worktree_files(&repo)?,
+                };
+                Ok((files, refs_fingerprint(&repo)?))
+            })?;
+        // While a commit is being edited, its files are all there is to show.
+        let view = match edit::editing(&ctx)? {
+            Some(editing) => Err(editing),
+            None => Ok(but_api::legacy::workspace::head_info(&ctx)?),
         };
-        (
-            files,
-            tree,
-            managed,
-            checked_out,
-            refs_fingerprint(&repo)?,
-            git_operation(&repo),
-        )
+        let side = side
+            .join()
+            .map_err(|_| anyhow::anyhow!("reading the uncommitted files panicked"))?;
+        Ok((side?, view))
+    })?;
+    let (uncommitted, refs) = side;
+    let info = match view {
+        Ok(info) => info,
+        Err(editing) => {
+            return Ok(Workspace {
+                uncommitted,
+                tree,
+                git_operation,
+                refs,
+                editing: Some(editing),
+                ..Default::default()
+            });
+        }
     };
-    if let Some(editing) = edit::editing(&ctx)? {
-        return Ok(Workspace {
-            uncommitted,
-            tree,
-            git_operation,
-            refs,
-            editing: Some(editing),
-            ..Default::default()
-        });
-    }
-    let info = but_api::legacy::workspace::head_info(&ctx)?;
 
     let cached = reviews::cached_reviews(&ctx);
     let stacks: Vec<Stack> = info

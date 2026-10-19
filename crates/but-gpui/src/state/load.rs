@@ -116,8 +116,11 @@ impl Store {
 
     pub fn load_projects(&mut self, cx: &mut Context<Self>) {
         let edits = self.project_edits;
+        // Started now rather than once the task first runs, which at launch is after the
+        // window's first frame.
+        let projects = backend::run(backend::list_projects);
         cx.spawn(async move |this, cx| {
-            let projects = backend::run(backend::list_projects).await;
+            let projects = projects.await;
             this.update(cx, |store, cx| match projects {
                 Ok(_) if store.project_edits != edits => {}
                 Ok(projects) => store.set_projects(projects, cx),
