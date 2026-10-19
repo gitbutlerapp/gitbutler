@@ -33,6 +33,14 @@ enum FileSource {
     Diff,
 }
 
+/// What a menu's path items are about.
+pub(super) enum At {
+    /// A file by its path, which an editor opens at the line when there's one.
+    File(String, Option<u32>),
+    /// A folder of a file list, by its path.
+    Folder(String),
+}
+
 /// What a file row shows besides the file itself.
 #[derive(Default)]
 struct FileRow {
@@ -598,10 +606,8 @@ impl Detail {
             cx.listener({
                 let (source, path) = (source.clone(), path.clone());
                 move |this, event: &MouseDownEvent, _, cx| {
-                    if let Some(payload) = this.folder_payload(&source, &path, cx) {
-                        // A folder: no one file to open.
-                        this.changes_menu(payload, None, event.position, cx)
-                    }
+                    let payload = this.folder_payload(&source, &path, cx);
+                    this.changes_menu(payload, At::Folder(path.clone()), event.position, cx)
                 }
             }),
         )
@@ -756,9 +762,11 @@ impl Detail {
                     .into_any_element()
             }
         };
-        // The ⋯ takes the mark's place while the pointer is on the row.
+        // The ⋯ takes the mark's place while the pointer is on the row: every file has its
+        // path to copy, even where nothing can change it.
         // A plain glyph rather than a button: a list draws it on every row.
-        let more = extras.menu.clone().map(|menu| {
+        let (menu, path) = (extras.menu.clone(), file.path.clone());
+        let more = {
             div()
                 .id(("file-menu", ix))
                 .absolute()
@@ -777,20 +785,21 @@ impl Detail {
                 .child(small_icon(Icon::Kebab).text_color(muted))
                 .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
                     cx.stop_propagation();
-                    this.changes_menu(menu.clone(), Some(None), event.position(), cx)
+                    let at = At::File(path.clone(), None);
+                    this.changes_menu(menu.clone(), at, event.position(), cx)
                 }))
-        });
-        let has_menu = more.is_some();
-        let mark = div()
-            .when(has_menu, |el| el.group_hover(ROW_GROUP, |s| s.invisible()))
-            .map(|el| match file.conflicted {
-                true => el.child(small_icon(Icon::Warning).text_color(theme.danger)),
-                false => el
-                    .text_size(px(11.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .text_color(diff::change_color(file.kind, theme))
-                    .child(file.kind.letter()),
-            });
+        };
+        let mark =
+            div()
+                .group_hover(ROW_GROUP, |s| s.invisible())
+                .map(|el| match file.conflicted {
+                    true => el.child(small_icon(Icon::Warning).text_color(theme.danger)),
+                    false => el
+                        .text_size(px(11.))
+                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .text_color(diff::change_color(file.kind, theme))
+                        .child(file.kind.letter()),
+                });
         let end = div()
             .relative()
             .flex_none()
@@ -800,7 +809,7 @@ impl Detail {
             .items_center()
             .justify_center()
             .child(mark)
-            .children(more);
+            .child(more);
         let mut row = file_row(("file", ix), current || picked, theme)
             .when(solid, |el| {
                 el.bg(theme.fill_gray).text_color(theme.text_inverted)
@@ -905,31 +914,58 @@ impl Detail {
                 self.drag_preview(label, false, cx.entity().downgrade()),
             );
         }
-        if let Some(menu) = extras.menu {
-            row = row.on_mouse_down(
-                MouseButton::Right,
-                cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                    // A file not picked is the menu's alone.
-                    if !picked {
-                        this.clear_file_picks(cx);
-                    }
-                    this.changes_menu(menu.clone(), Some(None), event.position, cx)
-                }),
-            );
-        }
-        row.into_any_element()
+        let (menu, path) = (extras.menu, file.path.clone());
+        row.on_mouse_down(
+            MouseButton::Right,
+            cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                // A file not picked is the menu's alone.
+                if !picked {
+                    this.clear_file_picks(cx);
+                }
+                let at = At::File(path.clone(), None);
+                this.changes_menu(menu.clone(), at, event.position, cx)
+            }),
+        )
+        .into_any_element()
     }
 
-    /// What right-clicking files, a folder or a hunk offers: moving them, taking them out,
-    /// and for a single file (`line` where an editor should open it) opening or copying
-    /// its path; a folder's menu has no `line`.
+    /// What right-clicking files, a folder, lines or a hunk offers: what can be done to the
+    /// changes in `payload`, when they're the workspace's to change, then opening, copying or
+    /// revealing the path `at`. A branch outside the workspace, or a commit of the target, has
+    /// only the second.
     pub(super) fn changes_menu(
         &mut self,
-        payload: Cut,
-        line: Option<Option<u32>>,
+        payload: Option<Cut>,
+        at: At,
         position: Point<Pixels>,
         cx: &mut Context<Self>,
     ) {
+        let (project, worktree) = match &payload {
+            Some(Cut::Files {
+                project, worktree, ..
+            }) => (project.clone(), worktree.clone()),
+            _ => match &self.diff {
+                Some(diff) => (diff.key.project.clone(), diff.key.linked()),
+                None => return,
+            },
+        };
+        let mut items = payload.map_or_else(Vec::new, |payload| self.change_items(payload, cx));
+        let mut paths = self
+            .path_items(&project, worktree, at, position, cx)
+            .into_iter();
+        // Apart from what changes them.
+        if let Some(first) = (!items.is_empty()).then(|| paths.next()).flatten() {
+            items.push(first.separated());
+        }
+        items.extend(paths);
+        self.app
+            .update(cx, |app, cx| app.open_menu(position, items, cx))
+            .ok();
+    }
+
+    /// What can be done to the changes in `payload` from a menu: cutting them, and moving,
+    /// taking out or discarding them.
+    fn change_items(&self, payload: Cut, cx: &mut Context<Self>) -> Vec<MenuItem> {
         let Cut::Files {
             project,
             from,
@@ -937,7 +973,7 @@ impl Detail {
             files,
         } = payload.clone()
         else {
-            return;
+            return Vec::new();
         };
         let hunk = files.iter().any(|f| f.hunks.is_some());
         let what = match (self.takes_lines(&files), hunk, files.len()) {
@@ -1032,43 +1068,61 @@ impl Detail {
                 ]);
             }
         }
+        items
+    }
+
+    /// Opening, copying or revealing the path `at` of `project`'s checkout, or of its linked
+    /// `worktree`. What isn't on disk, as a deleted file or one only a branch outside the
+    /// workspace has, can only have its path copied.
+    fn path_items(
+        &self,
+        project: &ProjectId,
+        worktree: Option<Arc<str>>,
+        at: At,
+        position: Point<Pixels>,
+        cx: &App,
+    ) -> Vec<MenuItem> {
         // A linked worktree's files are in its own folder.
         let store = self.store.read(cx);
         let root = match &worktree {
-            None => store.path(&project),
-            Some(name) => (store.workspace(&project))
+            None => store.path(project),
+            Some(name) => (store.workspace(project))
                 .and_then(|ws| ws.find_worktree(name))
                 .map(|w| w.path.clone()),
         };
-        if let [file] = &*files
-            && let Some(line) = line
-            && let Some(root) = root
-        {
-            let relative = file.file.path.clone();
-            let absolute = root.join(&relative);
-            let full = absolute.display().to_string();
+        let Some(root) = root else {
+            return Vec::new();
+        };
+        let (relative, line) = match at {
+            At::File(path, line) => (path, Some(line)),
+            At::Folder(path) => (path, None),
+        };
+        let absolute = root.join(&relative);
+        let full = absolute.display().to_string();
+        let on_disk = absolute.exists();
+        let mut items = Vec::new();
+        if let (Some(line), true) = (line, on_disk) {
             let (open_project, open_file) = (project.clone(), relative.clone());
-            let label = crate::open_in::editor_label(self.store.read(cx));
-            items.extend([
-                MenuItem::new(label, move |this, _, cx| {
-                    let file = Some(open_file.clone());
-                    let worktree = worktree.clone();
-                    this.open_in_editor(&open_project, worktree, file, line, position, cx)
-                })
-                .separated(),
-                MenuItem::new("Copy path", move |this, _, cx| {
-                    this.copy_text(relative.clone(), cx)
-                }),
-                MenuItem::new("Copy full path", move |this, _, cx| {
-                    this.copy_text(full.clone(), cx)
-                }),
-                MenuItem::new("Reveal in Finder", move |_, _, cx| {
-                    cx.reveal_path(&absolute)
-                }),
-            ]);
+            let label = crate::open_in::editor_label(store);
+            items.push(MenuItem::new(label, move |this, _, cx| {
+                let file = Some(open_file.clone());
+                let worktree = worktree.clone();
+                this.open_in_editor(&open_project, worktree, file, line, position, cx)
+            }));
         }
-        self.app
-            .update(cx, |app, cx| app.open_menu(position, items, cx))
-            .ok();
+        items.extend([
+            MenuItem::new("Copy path", move |this, _, cx| {
+                this.copy_text(relative.clone(), cx)
+            }),
+            MenuItem::new("Copy full path", move |this, _, cx| {
+                this.copy_text(full.clone(), cx)
+            }),
+        ]);
+        if on_disk {
+            items.push(MenuItem::new("Reveal in Finder", move |_, _, cx| {
+                cx.reveal_path(&absolute)
+            }));
+        }
+        items
     }
 }
