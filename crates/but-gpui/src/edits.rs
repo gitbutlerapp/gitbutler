@@ -578,7 +578,10 @@ impl AppView {
                     store.run(
                         &project,
                         "Delete branch",
-                        Overlay::default(),
+                        Overlay {
+                            deleted_branches: HashSet::from([ref_name.clone()]),
+                            ..Overlay::default()
+                        },
                         move |path, _| backend::remove_branch(path, &ref_name),
                         |store, (), cx| store.snack_undoable("Branch deleted", cx),
                         cx,

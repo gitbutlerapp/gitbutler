@@ -1,6 +1,7 @@
 //! Operations that change a project. A project's operations run one at a time, and the ones
 //! asked for meanwhile wait in a queue, their overlays hiding what they take away.
 
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
@@ -38,6 +39,8 @@ pub struct Overlay {
     pub files_in: Option<Arc<str>>,
     /// Branches leaving, by full ref, as a stack's do when it's unapplied.
     pub branches: HashSet<String>,
+    /// Branches deleted from their stack, by full ref: the ref goes, its commits stay.
+    pub deleted_branches: HashSet<String>,
     /// Linked worktrees leaving, by name.
     pub worktrees: HashSet<Arc<str>>,
     /// Files leaving a commit whole, by path, under the commit's key.
@@ -133,7 +136,14 @@ impl Overlay {
             Selection::Worktree(_, name) => Some(name),
             _ => store.worktree_of(selection).map(|wt| &wt.name),
         };
-        branch.is_some_and(|ref_name| self.branches.contains(ref_name))
+        let deleted = match selection {
+            Selection::Branch(_, ref_name) | Selection::Stack(_, ref_name) => {
+                self.deleted_branches.contains(ref_name)
+            }
+            _ => false,
+        };
+        deleted
+            || branch.is_some_and(|ref_name| self.branches.contains(ref_name))
             || worktree.is_some_and(|name| self.worktrees.contains(name))
     }
 
@@ -1084,6 +1094,33 @@ impl Store {
     pub fn hides_branch(&self, project: &ProjectId, ref_name: &str) -> bool {
         self.overlays(project)
             .any(|o| o.branches.contains(ref_name))
+    }
+
+    /// A stack's `branches` as they'll be once those being deleted have gone: each one's
+    /// commits join the named branch above, or the one below when there's none above.
+    pub fn after_deletes<'a>(
+        &self,
+        project: &ProjectId,
+        branches: &'a [Branch],
+    ) -> Cow<'a, [Branch]> {
+        let deleted =
+            |b: &Branch| (self.overlays(project)).any(|o| o.deleted_branches.contains(&b.ref_name));
+        if !branches.iter().any(deleted) {
+            return Cow::Borrowed(branches);
+        }
+        let (mut kept, mut carried) = (Vec::<Branch>::new(), Vec::new());
+        for branch in branches {
+            if !deleted(branch) {
+                let mut branch = branch.clone();
+                branch.commits.splice(0..0, carried.drain(..));
+                kept.push(branch);
+            } else if let Some(above) = kept.last_mut().filter(|b| !b.ref_name.is_empty()) {
+                above.commits.extend(branch.commits.iter().cloned());
+            } else {
+                carried.extend(branch.commits.iter().cloned());
+            }
+        }
+        Cow::Owned(kept)
     }
 
     pub fn hides_worktree(&self, project: &ProjectId, name: &str) -> bool {
