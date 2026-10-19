@@ -4,11 +4,12 @@
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, App, Context, Entity, Focusable as _, KeyBinding, Window, actions, prelude::*, px,
+    AnyElement, App, Context, Entity, Focusable as _, KeyBinding, Window, actions, point,
+    prelude::*, px,
 };
 
 use super::Detail;
-use crate::backend::FileDiff;
+use crate::backend::{self, FileDiff, LineKind};
 use crate::theme::Theme;
 use crate::ui::diff::DiffRow;
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -134,13 +135,14 @@ impl Detail {
         cx.notify();
     }
 
-    /// Scroll the current match into view, unfolding its file if need be.
+    /// Scroll the current match into view, unfolding its file if need be, and sideways when
+    /// it's past the edge of a long line.
     fn reveal_match(&mut self, cx: &mut Context<Self>) {
-        let Some((file, hunk, line)) = self
+        let Some(((file, hunk, line), range)) = self
             .find
             .as_ref()
             .and_then(|find| find.matches.get(find.current))
-            .map(|(line, _)| *line)
+            .cloned()
         else {
             return;
         };
@@ -151,6 +153,33 @@ impl Detail {
         }
         if let Some(ix) = self.row_of(same_line) {
             self.reveal_row(ix);
+        }
+        let prefs = &self.store.read(cx).prefs;
+        let diff_file = self.diff.as_ref().and_then(|diff| diff.files.get(file));
+        let (Some(diff_file), false) = (diff_file, prefs.wrap) else {
+            return;
+        };
+        let (Some(text), Some(scroll)) = (
+            diff_file.hunks().get(hunk).and_then(|h| h.lines.get(line)),
+            self.sideways.get(&diff_file.file.path),
+        ) else {
+            return;
+        };
+        // A unified diff scrolls both sides as the new one; split, a line on both sides
+        // scrolls both.
+        let sides: &[usize] = match (prefs.split, text.kind) {
+            (true, LineKind::Removed) => &[0],
+            (true, LineKind::Context) => &[0, 1],
+            _ => &[1],
+        };
+        let digit = crate::ui::diff::digit_width(Theme::get(cx));
+        let start = px(backend::columns(&text.text[..range.start]) as f32 * digit);
+        let end = start + px(backend::columns(&text.text[range]) as f32 * digit);
+        for handle in sides.iter().map(|side| &scroll[*side]) {
+            let (offset, width) = (-handle.offset().x, handle.bounds().size.width - px(8.));
+            if start < offset || end > offset + width {
+                handle.set_offset(point(-(start - px(4. * digit)).max(px(0.)), px(0.)));
+            }
         }
     }
 

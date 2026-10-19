@@ -697,7 +697,7 @@ pub(super) fn look(kind: LineKind, plain: bool, theme: &Theme) -> Look {
 }
 
 /// The width of a digit of code: Geist Mono's are 0.6em wide.
-pub(super) fn digit_width(theme: &Theme) -> f32 {
+pub fn digit_width(theme: &Theme) -> f32 {
     theme.code_text * 0.6
 }
 
