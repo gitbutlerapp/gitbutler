@@ -263,6 +263,9 @@ pub struct Detail {
     /// The grip under the pointer, by its file, hunk and line, and what it takes, by hunk
     /// and line index in order, outlined meanwhile.
     grip_over: Option<(find::LineId, Vec<(usize, usize)>)>,
+    /// The button is down on that grip, which keeps it, and its drag, until the drag starts
+    /// or the button comes up.
+    grip_held: bool,
     /// A press on a line's number began what the pointer's dragging over the numbers, which
     /// picks the run of lines it passes.
     picking_lines: bool,
@@ -493,6 +496,7 @@ impl Detail {
             file_picks: Picks::default(),
             line_picks: None,
             grip_over: None,
+            grip_held: false,
             picking_lines: false,
             svg_text: HashSet::new(),
             signers: HashMap::new(),

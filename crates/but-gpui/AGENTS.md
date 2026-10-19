@@ -71,6 +71,9 @@ so update it, shortcuts table included, with every change in behaviour.
   takes the keys from a list page. Hand focus back, and never to an element that isn't drawn.
 - A cached view redraws only on its own notify. `window.focus` doesn't notify it, and a drag let
   go over a target that refuses it ends without any redraw, so the navigator notifies on both.
+- GPUI calls an element unhovered once the pointer moves with the button down on it, and starts
+  a drag only past 2px. A drag handler attached only while hovered, as the line grip's is, is
+  gone by then unless the press keeps it (`grip_held`).
 - After a key press GPUI counts the pointer as over nothing until it moves, so a drop right after
   Escape is skipped. Escape during a drag calls `cx.stop_active_drag`, and a focused text field
   passes Escape on.
@@ -131,6 +134,7 @@ so update it, shortcuts table included, with every change in behaviour.
 - `drop` moves the pointer before letting go, and that move redraws. `release` lets go in place,
   which catches a drag end that forgets to redraw. `drag` presses and moves with no frame
   between; `press`, then `move`s a step apart, drags with frames between, as a hand does.
+  Make the first move 1px, as a hand's is: a bigger one starts the drag before hover changes.
 - Prompts use GPUI's fallback renderer, which clips long detail text and ignores Escape and Enter.
   Click its buttons, and check prompt copy in the code.
 - Enter in a message field adds a line, and ⌘↩ saves.

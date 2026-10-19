@@ -384,11 +384,11 @@ impl Detail {
             .capture_any_mouse_down(cx.listener(|this, _, _, _| this.selecting = false))
             .on_mouse_up(
                 MouseButton::Left,
-                cx.listener(|this, _, _, _| this.selecting = false),
+                cx.listener(|this, _, _, cx| this.let_go(cx)),
             )
             .on_mouse_up_out(
                 MouseButton::Left,
-                cx.listener(|this, _, _, _| this.selecting = false),
+                cx.listener(|this, _, _, cx| this.let_go(cx)),
             )
             .child(
                 div()
@@ -457,6 +457,16 @@ impl Detail {
                 format!("Nothing changed against {target}").into()
             }
             _ => "No changes".into(),
+        }
+    }
+
+    /// The button came up: what a press began ends. A grip held without being dragged lets
+    /// go of its outline too, which hovering it again brings back.
+    pub(super) fn let_go(&mut self, cx: &mut Context<Self>) {
+        self.selecting = false;
+        if std::mem::take(&mut self.grip_held) {
+            self.grip_over = None;
+            cx.notify();
         }
     }
 
@@ -1180,7 +1190,11 @@ impl Detail {
                 let pressed = entity.clone();
                 move |_, _, cx| {
                     cx.stop_propagation();
-                    (pressed.update(cx, |detail, _| detail.picking_lines = false)).ok();
+                    (pressed.update(cx, |detail, _| {
+                        detail.picking_lines = false;
+                        detail.grip_held = true;
+                    }))
+                    .ok();
                 }
             })
             .on_hover(move |hovered, _, cx| {
@@ -1191,7 +1205,10 @@ impl Detail {
                         .is_some_and(|(at, _)| *at == place);
                     match (*hovered, ours) {
                         (true, false) => detail.grip_over = Some((place, detail.grip_takes(place))),
-                        (false, true) => detail.grip_over = None,
+                        // GPUI calls a pressed element unhovered as soon as the pointer moves,
+                        // before it's moved far enough to start a drag. Letting go of the grip
+                        // then would take its drag away, so a held one stays.
+                        (false, true) if !detail.grip_held => detail.grip_over = None,
                         _ => return,
                     }
                     cx.notify();

@@ -150,9 +150,11 @@ impl Detail {
     ) -> impl Fn(&Cut, Point<Pixels>, &mut Window, &mut App) -> Entity<DragPreview> + 'static {
         let preview = crate::transfer::drag_preview(self.store.clone(), label);
         move |payload, offset, window, cx| {
-            // Nor does it pick the lines whose numbers it passes over.
+            // Nor does it pick the lines whose numbers it passes over, nor keep the grip it
+            // started from, which hears nothing more while dragging.
             (detail.update(cx, |detail, cx| {
                 detail.picking_lines = false;
+                detail.let_go(cx);
                 if !carries_picks {
                     detail.clear_line_picks(cx);
                 }
