@@ -13,6 +13,7 @@ use gpui::{
     prelude::*, px,
 };
 
+use super::file_list::At;
 use super::lines::Pick;
 use super::{
     Cursor, Detail, DiscardHunk, FILES_POPOVER_DELAY, LoadedDiff, TextPoint, ToggleFiles,
@@ -679,17 +680,18 @@ impl Detail {
         let last = diff::ends_card(&diff.rows, ix);
         let worktree = self.worktree_diff().is_some();
         let store = self.store.read(cx);
-        let menu = |menu: Option<Cut>, line: Option<u32>, entity: WeakEntity<Detail>| {
-            move |event: &gpui::MouseDownEvent, _: &mut Window, cx: &mut App| {
-                if let Some(menu) = menu.clone() {
-                    entity
-                        .update(cx, |detail, cx| {
-                            detail.changes_menu(menu, Some(line), event.position, cx)
-                        })
-                        .ok();
+        // Every file has its path to copy, even where nothing can change it.
+        let menu =
+            |menu: Option<Cut>, file: usize, line: Option<u32>, entity: WeakEntity<Detail>| {
+                let path = diff.files[file].file.path.clone();
+                move |event: &gpui::MouseDownEvent, _: &mut Window, cx: &mut App| {
+                    let at = At::File(path.clone(), line);
+                    (entity.update(cx, |detail, cx| {
+                        detail.changes_menu(menu.clone(), at, event.position, cx)
+                    }))
+                    .ok();
                 }
-            }
-        };
+            };
         // The margin between the cards and the sides of the pane.
         let padded = div().w_full().px(px(12.));
         match row {
@@ -699,18 +701,20 @@ impl Detail {
                 let toggle = entity.clone();
                 // What right-clicking the header offers, behind a ⋯ as well.
                 let header_menu = self.diff_cut(file, None, cx);
-                let more = header_menu.clone().map(|menu| {
-                    let entity = entity.clone();
+                let more = {
+                    let (menu, entity) = (header_menu.clone(), entity.clone());
+                    let path = diff.files[file].file.path.clone();
                     icon_button(("file-more", ix), Icon::Kebab)
                         .small()
                         .on_click(move |event, _, cx| {
                             let (menu, position) = (menu.clone(), event.position());
+                            let at = At::File(path.clone(), None);
                             (entity.update(cx, |detail, cx| {
-                                detail.changes_menu(menu, Some(None), position, cx)
+                                detail.changes_menu(menu, at, position, cx)
                             }))
                             .ok();
                         })
-                });
+                };
                 let trailing = h_flex()
                     .flex_none()
                     .gap(px(4.))
@@ -718,7 +722,7 @@ impl Detail {
                     // mustn't move it from under the pointer.
                     .children(whole)
                     .children(drawn)
-                    .children(more);
+                    .child(more);
                 let header = diff::file_header(
                     file,
                     &diff.files[file],
@@ -735,12 +739,10 @@ impl Detail {
                     .id(("file-header", ix))
                     .child(header)
                     .on_mouse_down(MouseButton::Left, press_off(entity.clone()))
-                    .when_some(header_menu, |el, header_menu| {
-                        el.on_mouse_down(
-                            MouseButton::Right,
-                            menu(Some(header_menu), None, toggle.clone()),
-                        )
-                    })
+                    .on_mouse_down(
+                        MouseButton::Right,
+                        menu(header_menu, file, None, toggle.clone()),
+                    )
                     .on_click(move |_, _, cx| {
                         toggle
                             .update(cx, |detail, cx| detail.toggle_fold(file, cx))
@@ -810,7 +812,7 @@ impl Detail {
                     .child(header)
                     .on_mouse_down(
                         MouseButton::Right,
-                        menu(carried.clone(), Some(line), entity),
+                        menu(carried.clone(), file, Some(line), entity),
                     )
                     .when(unmodified > 0, |el| {
                         el.tooltip(Tooltip::text("Show the whole file")).on_click(
@@ -1315,10 +1317,9 @@ impl Detail {
                 Some(place) => self.lines_cut(file, self.grip_takes(place), cx),
                 None => self.diff_cut(file, key.map(|key| vec![key]), cx),
             };
+            let at = At::File(diff.files[file].file.path.clone(), line);
             self.clear_text_selection(cx);
-            if let Some(menu) = menu {
-                self.changes_menu(menu, Some(line), position, cx);
-            }
+            self.changes_menu(menu, at, position, cx);
             return;
         };
         let (project, worktree) = (diff.key.project.clone(), diff.key.linked());
