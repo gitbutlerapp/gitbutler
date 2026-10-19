@@ -245,7 +245,8 @@ impl Navigator {
                 }
                 if crate::pr::on_forge(store, target) && !ref_name.is_empty() && !linked {
                     use crate::backend::ReviewState as S;
-                    match branch.review.as_ref().map(|r| r.state) {
+                    match (branch.review.as_ref()).map(|r| store.review_state(target.project(), r))
+                    {
                         None if !branch.commits.is_empty() => items.push(action(
                             "Create pull request…",
                             &crate::pr::CreatePullRequest,

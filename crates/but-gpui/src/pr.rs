@@ -433,14 +433,14 @@ impl AppView {
     /// branch, or the selected commit's branch: what the navigator's menu offers for it.
     pub fn pr_actions(&self, el: Stateful<Div>, cx: &mut Context<Self>) -> Stateful<Div> {
         let store = self.store.read(cx);
-        let Some(branch) = (store.selection.as_ref())
+        let Some((selection, branch)) = (store.selection.as_ref())
             .filter(|s| on_forge(store, s) && store.worktree_of(s).is_none())
-            .and_then(|s| store.branch_for(s))
-            .filter(|b| !b.ref_name.is_empty())
+            .and_then(|s| Some((s, store.branch_for(s)?)))
+            .filter(|(_, b)| !b.ref_name.is_empty())
         else {
             return el;
         };
-        match branch.review.as_ref().map(|r| r.state) {
+        match (branch.review.as_ref()).map(|r| store.review_state(selection.project(), r)) {
             None => el.when(!branch.commits.is_empty(), |el| {
                 el.on_action(cx.listener(Self::create_pull_request))
             }),
@@ -455,7 +455,10 @@ impl AppView {
         let store = self.store.read(cx);
         let selection = store.selection.clone()?;
         let branch = store.branch_for(&selection)?;
-        let review = branch.review.clone();
+        let review = branch.review.clone().map(|review| Review {
+            state: store.review_state(selection.project(), &review),
+            ..review
+        });
         Some((selection.project().clone(), branch.ref_name.clone(), review))
     }
 
@@ -521,16 +524,17 @@ impl AppView {
                 _ => return,
             };
             this.update(cx, |this, cx| {
-                let refreshed = project.clone();
                 this.store.update(cx, |store, cx| {
                     store.run(
                         &project,
                         "Merge pull request",
-                        Overlay::remote(),
+                        Overlay {
+                            merges: Some(number),
+                            ..Overlay::remote()
+                        },
                         move |path, _| reviews::merge(path, number, method),
-                        move |store, (), cx| {
-                            store.snack("Merged, Update brings it into your workspace", cx);
-                            store.refresh_forge(&refreshed);
+                        |store, (), cx| {
+                            store.snack("Merged, Update brings it into your workspace", cx)
                         },
                         cx,
                     )

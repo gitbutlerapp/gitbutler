@@ -170,7 +170,8 @@ impl Detail {
         // button to check again is enough.
         let stale = failed && synced.is_none_or(|at| now() - at > STALE_AFTER);
         // A merged or closed one is settled, and asking again is about the open ones.
-        let settled = matches!(review.state, ReviewState::Merged | ReviewState::Closed);
+        let state = store.review_state(project, review);
+        let settled = matches!(state, ReviewState::Merged | ReviewState::Closed);
         let fresh = (!stale && !settled).then(|| {
             button(
                 "review-check",
@@ -212,6 +213,7 @@ impl Detail {
             .gap(px(24.))
             .child(head(
                 review,
+                state,
                 forge,
                 fresh.map(IntoElement::into_any_element),
                 theme,
@@ -289,12 +291,13 @@ impl Detail {
 /// author, target, age and labels, and who's been asked to review it.
 fn head(
     review: &Review,
+    state: ReviewState,
     forge: &str,
     fresh: Option<AnyElement>,
     theme: &Theme,
     cx: &Context<Detail>,
 ) -> Div {
-    let (glyph, color) = ui_review::state_glyph(review.state, theme);
+    let (glyph, color) = ui_review::state_glyph(state, theme);
     let title = match review.title.as_str() {
         "" => format!("Pull request #{}", review.number),
         title => title.to_owned(),
@@ -305,7 +308,7 @@ fn head(
             .into_any_element(),
         div()
             .text_color(color)
-            .child(ui_review::state_label(review.state))
+            .child(ui_review::state_label(state))
             .into_any_element(),
     ];
     if let Some(author) = &review.author {
