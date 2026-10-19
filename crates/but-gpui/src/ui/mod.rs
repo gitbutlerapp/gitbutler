@@ -736,6 +736,14 @@ pub fn plural(n: usize, word: &str) -> String {
     }
 }
 
+/// `text` quoted in a menu item, cut to 40 characters.
+pub fn quoted(text: &str) -> String {
+    match text.chars().count() > 40 {
+        true => format!("\"{}…\"", text.chars().take(39).collect::<String>()),
+        false => format!("\"{text}\""),
+    }
+}
+
 /// `path` as shown, with the home folder as `~`, so one cut short keeps more of its end.
 pub fn short_path(path: &std::path::Path) -> String {
     let home = std::env::var_os("HOME").map(std::path::PathBuf::from);

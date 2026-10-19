@@ -1219,17 +1219,11 @@ impl Detail {
         let mut items = vec![MenuItem::action("Copy", &crate::app::CopySelection, cx)];
         let query = text.trim();
         if !query.is_empty() && !query.contains('\n') {
-            let shown: String = match query.chars().count() > 40 {
-                true => query.chars().take(39).chain(['…']).collect(),
-                false => query.to_owned(),
-            };
+            let label = format!("Find {}", crate::ui::quoted(query));
             let (query, entity) = (query.to_owned(), cx.entity().downgrade());
-            items.push(MenuItem::new(
-                format!("Find \"{shown}\""),
-                move |_, window, cx| {
-                    (entity.update(cx, |detail, cx| detail.find_text(&query, window, cx))).ok();
-                },
-            ));
+            items.push(MenuItem::new(label, move |_, window, cx| {
+                (entity.update(cx, |detail, cx| detail.find_text(&query, window, cx))).ok();
+            }));
         }
         let label = crate::open_in::editor_label(self.store.read(cx));
         items.push(
