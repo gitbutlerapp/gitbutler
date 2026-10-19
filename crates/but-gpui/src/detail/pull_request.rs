@@ -126,11 +126,11 @@ impl Detail {
         // What shows is what the forge said last; say so when asking again failed.
         let stale = failed.then(|| {
             warn_banner(
-                format!("Couldn't update from {forge}"),
                 match synced {
-                    Some(at) => format!("Showing what it said {}.", ago(at)),
-                    None => "Showing what it said last.".to_owned(),
+                    Some(at) => format!("Showing what {forge} said {}", ago(at)),
+                    None => format!("Showing what {forge} said last"),
                 },
+                format!("Couldn't update from {forge} just now."),
                 Some(
                     banner_action("review-retry", "Try again", theme)
                         .disabled_because(checking.then_some("Asking already"))
