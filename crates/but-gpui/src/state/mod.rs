@@ -427,6 +427,33 @@ impl Store {
         }
     }
 
+    /// Whether watched project `id`'s card shows only its row: it's folded, and the selection
+    /// isn't on something in it.
+    pub fn project_folded(&self, id: &ProjectId) -> bool {
+        self.prefs.folded_projects.contains(id.as_ref())
+            && !(self.selection.as_ref())
+                .is_some_and(|s| s.project() == id && !matches!(s, Selection::Project(_)))
+    }
+
+    /// Fold watched project `id`'s card to its row, or unfold it. Folding it over the selection
+    /// takes the selection up to the project, as the navigator's other folds do.
+    pub fn set_project_folded(&mut self, id: &ProjectId, folded: bool, cx: &mut Context<Self>) {
+        let inside = (self.selection.as_ref())
+            .is_some_and(|s| s.project() == id && !matches!(s, Selection::Project(_)));
+        self.set_prefs(
+            |prefs| {
+                match folded {
+                    true => prefs.folded_projects.insert(id.to_string()),
+                    false => prefs.folded_projects.remove(id.as_ref()),
+                };
+            },
+            cx,
+        );
+        if folded && inside {
+            self.select(Some(Selection::Project(id.clone())), cx);
+        }
+    }
+
     /// The projects open in the navigator.
     fn expanded_ids(&self) -> Vec<ProjectId> {
         (self.projects.iter())

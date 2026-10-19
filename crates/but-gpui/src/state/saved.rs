@@ -274,6 +274,9 @@ pub struct Prefs {
     pub active_projects_only: bool,
     /// The navigator's other projects are folded away under their heading.
     pub projects_folded: bool,
+    /// Watched projects, by id, whose cards are folded to their row; they're still loaded and
+    /// kept current.
+    pub folded_projects: HashSet<String>,
     /// The Branches page lists branches with no commits of their own too, as Lite's can.
     pub branches_with_empty: bool,
     /// The Branches page leaves out the branches only a remote has.

@@ -382,6 +382,9 @@ impl Navigator {
             }
             let id = &entry.id;
             rows.push(Row::Item(Selection::Project(id.clone())));
+            if store.project_folded(id) {
+                continue;
+            }
             let Some(workspace) = &entry.workspace else {
                 rows.push(match &entry.error {
                     Some(err) => Row::Note(err.clone(), true),
@@ -893,10 +896,13 @@ impl Navigator {
 
     fn expand(&mut self, _: &Expand, _: &mut Window, cx: &mut Context<Self>) {
         match self.store.read(cx).selection.clone() {
-            Some(Selection::Project(id)) => {
-                self.store
-                    .update(cx, |store, cx| store.set_expanded(&id, true, cx));
-            }
+            // A folded card opens; an unwatched project is watched.
+            Some(Selection::Project(id)) => self.store.update(cx, |store, cx| {
+                match store.prefs.folded_projects.contains(id.as_ref()) {
+                    true => store.set_project_folded(&id, false, cx),
+                    false => store.set_expanded(&id, true, cx),
+                }
+            }),
             Some(Selection::Branch(project, ref_name)) => {
                 self.set_branch_open((project, ref_name), true);
                 cx.notify();
@@ -933,10 +939,15 @@ impl Navigator {
             .position(|row| matches!(row, Row::Item(item) if Some(item) == selection.as_ref()))
             .is_some_and(|ix| self.section_open(ix));
         match selection {
-            Some(Selection::Project(id)) => {
-                self.store
-                    .update(cx, |store, cx| store.set_expanded(&id, false, cx));
-            }
+            // An open card folds; a folded one stops being watched.
+            Some(Selection::Project(id)) => self.store.update(cx, |store, cx| {
+                let open = store.project(&id).is_some_and(|p| p.expanded)
+                    && !store.prefs.folded_projects.contains(id.as_ref());
+                match open {
+                    true => store.set_project_folded(&id, true, cx),
+                    false => store.set_expanded(&id, false, cx),
+                }
+            }),
             Some(Selection::Branch(project, ref_name)) if closes => {
                 self.set_branch_open((project, ref_name), false);
                 cx.notify();
@@ -1481,11 +1492,13 @@ impl Navigator {
         let workspace = entry.workspace.as_ref();
         let (toggle_id, chevron_id) = (id.clone(), id.clone());
         let expanded = entry.expanded;
+        // A watched project whose card is folded to this row.
+        let card_folded = expanded && store.project_folded(id);
         let hovered = self.watch_hovered.as_ref() == Some(id);
         // Folded, the row sums up the whole card; open, it leaves out what the rows under it
         // say: their uncommitted files, unpushed commits and worktrees.
         let summary = workspace.filter(|ws| ws.editing.is_none()).map(|ws| {
-            let folded = |n: usize| if expanded { 0 } else { n };
+            let folded = |n: usize| if expanded && !card_folded { 0 } else { n };
             let in_worktrees = ws.worktrees.iter().map(|w| w.uncommitted.len());
             (
                 folded(ws.uncommitted.len() + in_worktrees.sum::<usize>()),
@@ -1677,11 +1690,51 @@ impl Navigator {
                             ),
                     )
                 })
+                // A watched project's card folds to this row, still watched.
+                .when(expanded, |el| {
+                    let project = id.clone();
+                    let step_color = match style.solid {
+                        true => style.muted(),
+                        false => theme.text_3,
+                    };
+                    el.child(
+                        div()
+                            .id(ElementId::Name(format!("fold-project-{id}").into()))
+                            .flex_none()
+                            .size(px(20.))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .rounded(px(4.))
+                            .hover(|el| el.bg(theme.hover()))
+                            .child(
+                                small_icon(match card_folded {
+                                    true => Icon::ChevronRight,
+                                    false => Icon::ChevronDown,
+                                })
+                                .text_color(step_color),
+                            )
+                            .tooltip(Tooltip::text(match card_folded {
+                                true => "Show the project",
+                                false => "Fold the project, still watching it",
+                            }))
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                                cx.stop_propagation();
+                                this.store.update(cx, |store, cx| {
+                                    store.set_project_folded(&project, !card_folded, cx)
+                                });
+                            })),
+                    )
+                })
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
                 .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
+                    // A watched project's card folds, as a folder does; another starts being
+                    // watched.
                     if event.click_count() == 2 {
-                        this.store.update(cx, |store, cx| {
-                            store.set_expanded(&toggle_id, !expanded, cx)
+                        this.store.update(cx, |store, cx| match expanded {
+                            true => store.set_project_folded(&toggle_id, !card_folded, cx),
+                            false => store.set_expanded(&toggle_id, true, cx),
                         });
                     }
                 }))
