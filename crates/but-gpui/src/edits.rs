@@ -1047,7 +1047,9 @@ impl AppView {
                 &project,
                 "Split commit",
                 Overlay::commit_files(store.key_of(&project, commit), files.iter()),
-                move |path, remap| backend::split_off(path, remap.get(commit)?, &files),
+                move |path, remap| {
+                    backend::split_off(path, remap.taken_from(commit, &files)?, &files)
+                },
                 move |store, (rewritten, new), cx| {
                     store.follow(&rewritten, cx);
                     store.select(Some(Selection::Commit(selected, new)), cx);
@@ -1093,7 +1095,11 @@ impl AppView {
                         "Discard from commit",
                         Overlay::commit_files(store.key_of(&project, commit), files.iter()),
                         move |path, remap| {
-                            backend::discard_from_commit(path, remap.get(commit)?, &files)
+                            backend::discard_from_commit(
+                                path,
+                                remap.taken_from(commit, &files)?,
+                                &files,
+                            )
                         },
                         move |store, rewritten, cx| {
                             store.follow(&rewritten, cx);

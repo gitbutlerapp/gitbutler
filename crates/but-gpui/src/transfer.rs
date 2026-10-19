@@ -370,7 +370,9 @@ impl Transfer {
                 project,
                 label,
                 Overlay::commit_files(store.key_of(project, from), files.iter()),
-                move |path, remap| backend::uncommit_files(path, remap.get(from)?, &files),
+                move |path, remap| {
+                    backend::uncommit_files(path, remap.taken_from(from, &files)?, &files)
+                },
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
                     store.snack_after(undoable, "Moved to uncommitted changes", cx)
@@ -458,7 +460,12 @@ impl Transfer {
                 label,
                 Overlay::commit_files(store.key_of(project, from), files.iter()),
                 move |path, remap| {
-                    backend::move_files(path, remap.get(from)?, remap.get(to)?, &files)
+                    backend::move_files(
+                        path,
+                        remap.taken_from(from, &files)?,
+                        remap.get(to)?,
+                        &files,
+                    )
                 },
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);

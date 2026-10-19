@@ -523,10 +523,17 @@ impl Store {
                         commits.iter().map(|commit| follow(*commit)).collect();
                     followed.map(|followed| *commits = followed).is_some()
                 }
-                Cut::CherryPick(_, commit)
-                | Cut::Files {
-                    from: Some(commit), ..
-                } => follow(*commit).map(|new| *commit = new).is_some(),
+                Cut::CherryPick(_, commit) => follow(*commit).map(|new| *commit = new).is_some(),
+                // Some of a commit's file goes once the commit is rewritten, as the lines
+                // picked may have moved with it.
+                Cut::Files {
+                    from: Some(commit),
+                    files,
+                    ..
+                } => follow(*commit)
+                    .filter(|new| new == commit || files.iter().all(|f| f.hunks.is_none()))
+                    .map(|new| *commit = new)
+                    .is_some(),
                 // Uncommitted files go when one of them is no longer uncommitted, and some of
                 // a file once it changed, as the lines picked may have moved under the pick;
                 // a branch goes when it's gone, as when renamed.
