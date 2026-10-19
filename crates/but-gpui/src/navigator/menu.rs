@@ -87,9 +87,9 @@ impl Navigator {
             && let Some(branch) = store.branch_for(target).filter(|b| !b.commits.is_empty())
         {
             let key = (project.clone(), ref_name.clone());
-            let mut view = vec![match self.closed_branches.contains(&key) {
-                true => MenuItem::action("Show commits", &Expand, cx),
-                false => MenuItem::action("Hide commits", &Collapse, cx),
+            let mut view = vec![match self.branch_open(&key) {
+                true => MenuItem::action("Hide commits", &Collapse, cx),
+                false => MenuItem::action("Show commits", &Expand, cx),
             }];
             let unread: Vec<CommitId> = (branch.commits.iter())
                 .filter(|commit| store.is_unread(project, commit))

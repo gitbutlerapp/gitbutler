@@ -432,8 +432,21 @@ impl SettingsView {
                 })),
             ),
         ];
+        let navigator = vec![Row::new(
+            "Show branches' commits",
+            "Branches in the navigator start with their commits listed. Off, each starts folded \
+             to one row, which → or its chevron opens.",
+            switch("branches-open", prefs.branches_start_open, theme).on_click(cx.listener(
+                |this, _, _, cx| {
+                    this.store.update(cx, |store, cx| {
+                        store.set_prefs(|prefs| prefs.branches_start_open ^= true, cx)
+                    });
+                },
+            )),
+        )];
         vec![
             Card::new(None, vec![appearance]),
+            Card::new(Some("Navigator"), navigator),
             Card::new(Some("Diff"), diff),
         ]
     }
