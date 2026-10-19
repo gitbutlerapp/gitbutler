@@ -1180,6 +1180,15 @@ impl Store {
         renamed.map_or(&branch.name, |(_, name)| name)
     }
 
+    /// What the navigator calls `branch`: its pull request's title once the forge cache has
+    /// one, else its name.
+    pub fn label_of<'a>(&'a self, project: &'a ProjectId, branch: &'a Branch) -> &'a str {
+        (branch.review.as_ref())
+            .map(|review| review.title.as_str())
+            .filter(|title| !title.is_empty())
+            .unwrap_or_else(|| self.name_of(project, branch))
+    }
+
     /// Whether a pending operation pushes `ref_name`, on its own or to open its pull request.
     pub fn pushing(&self, project: &ProjectId, ref_name: &str) -> bool {
         self.overlays(project)

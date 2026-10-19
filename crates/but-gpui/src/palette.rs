@@ -229,7 +229,7 @@ impl AppView {
         self.open_picker("Search commands", "Run", choices, window, cx);
     }
 
-    /// Pick a branch of any loaded project by name, and select it.
+    /// Pick a branch of any loaded project by name or pull request title, and select it.
     pub fn go_to_branch(&mut self, _: &GoToBranch, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         // Only expanded projects: a collapsed one's rows aren't drawn, or kept current.
@@ -247,13 +247,19 @@ impl AppView {
                     .map(move |branch| {
                         let selection =
                             Selection::Branch(entry.id.clone(), branch.ref_name.clone());
-                        let choice = Choice::new(branch.name.clone(), move |this, window, cx| {
+                        // As the navigator names it: a pull request by its title, its
+                        // branch's name beside it, where typing either finds it.
+                        let label = store.label_of(&entry.id, branch).to_owned();
+                        let name = (label != branch.name).then_some(branch.name.as_str());
+                        let project = several.then_some(entry.project.name.as_str());
+                        let detail = name.into_iter().chain(project).collect::<Vec<_>>();
+                        let detail = detail.join(" · ");
+                        let choice = Choice::new(label, move |this, window, cx| {
                             this.select(selection, window, cx)
                         });
-                        if several {
-                            choice.detail(entry.project.name.clone())
-                        } else {
-                            choice
+                        match detail.is_empty() {
+                            true => choice,
+                            false => choice.detail(detail),
                         }
                     })
             })
@@ -319,7 +325,12 @@ impl AppView {
             .choices
             .iter()
             .enumerate()
-            .filter_map(|(ix, choice)| score(&choice.label, &query).map(|score| (score, ix)))
+            .filter_map(|(ix, choice)| {
+                let detail = (choice.detail.as_ref()).and_then(|detail| score(detail, &query));
+                score(&choice.label, &query)
+                    .max(detail)
+                    .map(|score| (score, ix))
+            })
             .collect();
         // Stable, so equal scores keep the recent-first order.
         scored.sort_by_key(|(score, _)| -score);
