@@ -944,9 +944,13 @@ impl Navigator {
                 let project = project.clone();
                 let zone = drop_zone(("new-branch-drop", ix), "New branch", theme)
                     .h(px(30.))
+                    .on_drag_move(cx.listener(Self::over_zone))
                     .on_drop(cx.listener(move |this, payload: &Cut, _, cx| {
+                        // A row still lit says where the pill told the drop goes, as when the
+                        // zone slid under a pointer that didn't move.
                         if let Cut::Commit(from, ids) = payload
                             && *from == project
+                            && this.store.read(cx).drop_at.is_none()
                         {
                             let ids = ids.clone();
                             this.store
@@ -960,7 +964,11 @@ impl Navigator {
                 let (project, ref_name) = (project.clone(), ref_name.clone());
                 let zone = drop_zone(("lane-end-drop", ix), label, theme)
                     .h(px(24.))
+                    .on_drag_move(cx.listener(Self::over_zone))
                     .on_drop(cx.listener(move |this, payload: &Cut, window, cx| {
+                        if this.store.read(cx).drop_at.is_some() {
+                            return;
+                        }
                         let below = Selection::Branch(project.clone(), ref_name.clone());
                         this.app
                             .update(cx, |app, cx| {
@@ -2118,6 +2126,15 @@ impl Navigator {
                 .on_drag(payload, drag_preview(self.store.clone(), dragged))
                 .into_any_element(),
         )
+    }
+
+    /// A pointer moving over a drop zone drops there, so a row still lit lets go, even one a
+    /// reload took away, which no row would clear.
+    fn over_zone(&mut self, event: &DragMoveEvent<Cut>, _: &mut Window, cx: &mut Context<Self>) {
+        if event.bounds.contains(&event.event.position) && self.store.read(cx).drop_at.is_some() {
+            self.store.update(cx, |store, _| store.drop_at = None);
+            cx.notify();
+        }
     }
 
     /// Make a row take what's dragged or cut where it has a meaning for it, and offer its
