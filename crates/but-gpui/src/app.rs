@@ -131,7 +131,10 @@ impl AppView {
     fn diff_left(&self, window: &Window, cx: &App) -> Option<f32> {
         let store = self.store.read(cx);
         let detail = self.detail.read(cx);
-        let has_diff = store.selection.is_some() && !detail.showing_review(cx);
+        // Another machine's checkout has no diff here.
+        let has_diff = store.selection.is_some()
+            && !matches!(store.selection, Some(Selection::Machine(..)))
+            && !detail.showing_review(cx);
         let width = window.viewport_size().width.into();
         has_diff.then(|| match detail.files_shown(cx) {
             false => 0.,
@@ -561,6 +564,14 @@ impl AppView {
                 let worktree = workspace.find_worktree(&name)?;
                 Some(worktree.path.display().to_string())
             }
+            // Where it is on that machine.
+            Selection::Machine(project, id) => Some(
+                self.store
+                    .read(cx)
+                    .mesh_checkout(&project, &id)?
+                    .path
+                    .clone(),
+            ),
             Selection::Uncommitted(_)
             | Selection::Branches(_)
             | Selection::History(_)

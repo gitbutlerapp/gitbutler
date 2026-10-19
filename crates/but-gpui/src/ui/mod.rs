@@ -93,6 +93,7 @@ icons! {
     FilesSidebar => "files-sidebar",
     Folder => "folder",
     FolderCopy => "folder-copy",
+    Globe => "globe",
     Hash => "hash",
     Kebab => "kebab",
     Lab => "lab",
