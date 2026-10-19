@@ -351,7 +351,14 @@ impl Navigator {
                     }
                 }
                 if workspace.stacks.is_empty() {
-                    rows.push(Row::Note("No branches yet".into(), false));
+                    // Off the workspace, as after a plain `git checkout`, the branches are
+                    // still there, just not applied.
+                    let note = match (workspace.managed, &workspace.checked_out) {
+                        (true, _) => "No branches yet".into(),
+                        (false, Some(branch)) => format!("Working on {branch} directly").into(),
+                        (false, None) => "Working outside the workspace".into(),
+                    };
+                    rows.push(Row::Note(note, false));
                 }
             }
             if headed {
