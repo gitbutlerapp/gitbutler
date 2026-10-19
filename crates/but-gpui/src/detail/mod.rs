@@ -325,6 +325,9 @@ pub struct Detail {
     branch_filter: Entity<TextInput>,
     branches_scroll: UniformListScrollHandle,
     _branches_load: Task<()>,
+    /// Branches fetched from other machines, and the picks on their pages.
+    mesh: machine::MeshFetches,
+    _mesh_fetch: Task<()>,
     _branch_commits_load: Task<()>,
     /// The History page's operations, for the project it shows.
     history: Option<history::History>,
@@ -403,6 +406,15 @@ impl Detail {
                         if !unchanged {
                             this.refresh_diff(false, cx);
                         }
+                    }
+                }
+                StoreEvent::MeshRead(project) => {
+                    if let Some(Selection::Machine(p, id)) = this.selection(cx)
+                        && p == *project
+                    {
+                        this.load_machine(&p, &id, cx);
+                        this.refresh_diff(false, cx);
+                        cx.notify();
                     }
                 }
                 StoreEvent::Pending(project) => {
@@ -543,6 +555,8 @@ impl Detail {
             branch_filter,
             branches_scroll: UniformListScrollHandle::new(),
             _branches_load: Task::ready(()),
+            mesh: machine::MeshFetches::default(),
+            _mesh_fetch: Task::ready(()),
             _branch_commits_load: Task::ready(()),
             history: None,
             history_scroll: UniformListScrollHandle::new(),
@@ -596,8 +610,7 @@ impl Detail {
             Selection::Branches(project) => self.branches_source(project)?,
             Selection::Uncommitted(_) => DiffSource::Worktree,
             Selection::Worktree(_, name) => DiffSource::Linked(name.clone()),
-            // Another machine's diffs are on that machine.
-            Selection::Machine(..) => return None,
+            Selection::Machine(project, id) => self.machine_source(project, id)?,
             Selection::Commit(_, id) => DiffSource::Commit(*id),
             Selection::Branch(project, ref_name) => {
                 let branch = store.workspace(project)?.find_branch(ref_name)?;
@@ -632,6 +645,7 @@ impl Detail {
             Some(Selection::History(project)) => self.load_history(&project, false, cx),
             Some(Selection::Branches(project)) => self.load_branches(&project, force, cx),
             Some(Selection::Project(project)) => self.load_upstream(&project, false, force, cx),
+            Some(Selection::Machine(project, id)) => self.load_machine(&project, &id, cx),
             _ => {}
         }
     }
@@ -1677,7 +1691,12 @@ impl Detail {
     pub(super) fn list_page(&self, cx: &App) -> bool {
         matches!(
             self.store.read(cx).selection,
-            Some(Selection::Branches(_) | Selection::History(_) | Selection::Project(_))
+            Some(
+                Selection::Branches(_)
+                    | Selection::History(_)
+                    | Selection::Project(_)
+                    | Selection::Machine(..)
+            )
         )
     }
 }
@@ -1701,8 +1720,6 @@ impl Render for Detail {
                 &theme,
                 cx,
             ),
-            // A page of its own, with no diff beside it.
-            Some(Selection::Machine(project, id)) => self.render_machine(project, id, &theme, cx),
             Some(selection) => {
                 let side = match selection {
                     Selection::Uncommitted(project) => {
@@ -1721,8 +1738,9 @@ impl Render for Detail {
                     Selection::Stack(project, bottom) => {
                         self.render_stack_side(project, bottom, &theme, cx)
                     }
-                    // Drawn as a whole page above.
-                    Selection::Machine(..) => div().into_any_element(),
+                    Selection::Machine(project, id) => {
+                        self.render_machine_side(project, id, &theme, window, cx)
+                    }
                     Selection::Branches(project) => {
                         self.render_branches_side(project, &theme, window, cx)
                     }

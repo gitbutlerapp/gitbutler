@@ -10,6 +10,8 @@ use std::time::{Duration, Instant};
 use anyhow::{Context as _, Result, bail};
 use serde::Deserialize;
 
+use super::CommitId;
+
 /// How long a read of the mesh may take. The CLI waits on the server and the daemon, and a
 /// daemon that stopped answering leaves it waiting for minutes.
 const READ_TIMEOUT: Duration = Duration::from_secs(60);
@@ -74,6 +76,8 @@ pub struct Branch {
     /// Whether its tip commit is in this repository already.
     pub here: bool,
     pub status: BranchStatus,
+    /// Its newest commit, as that machine last reported it.
+    pub tip: Option<String>,
     /// Newest first.
     pub commits: Vec<Commit>,
     pub review_url: Option<String>,
@@ -277,6 +281,7 @@ fn parse_checkouts(out: &str) -> Result<Vec<Checkout>> {
         commits: Vec<CommitJson>,
         status: String,
         review_url: Option<String>,
+        tip: Option<String>,
     }
     #[derive(Deserialize)]
     struct CommitJson {
@@ -337,6 +342,7 @@ fn parse_checkouts(out: &str) -> Result<Vec<Checkout>> {
                             })
                             .collect(),
                         review_url: branch.review_url,
+                        tip: branch.tip,
                         name: branch.name,
                     }
                 })
@@ -401,6 +407,28 @@ pub fn apply(path: &Path, mesh_id: &str) -> Result<String> {
     let out = mesh(Some(path), &["apply", mesh_id, "--json"], LOGIN_TIMEOUT)?;
     let applied: Applied = serde_json::from_str(&out).unwrap_or(Applied { applied_as: None });
     Ok(applied.applied_as.unwrap_or_else(|| mesh_id.to_owned()))
+}
+
+/// Have branch `mesh_id` from another machine in the repository at `path`, its tip `reported`
+/// as that machine last reported it: already here, as a pushed branch fetched from its remote
+/// often is, or copied from the mesh, under a ref of the mesh's own; nothing is checked out or
+/// applied. Returns its tip here, which a copy can have moved past `reported`.
+pub fn fetch(path: &Path, mesh_id: &str, reported: Option<&str>) -> Result<CommitId> {
+    let reported = reported.and_then(|tip| gix::ObjectId::from_hex(tip.as_bytes()).ok());
+    if let Some(tip) = reported
+        && gix::open(path).is_ok_and(|repo| repo.has_object(tip))
+    {
+        return Ok(CommitId(tip));
+    }
+    #[derive(Deserialize)]
+    struct Fetched {
+        tip: String,
+    }
+    let out = mesh(Some(path), &["fetch", mesh_id, "--json"], LOGIN_TIMEOUT)?;
+    let fetched: Fetched = serde_json::from_str(&out).context("Couldn't read what was fetched")?;
+    let tip =
+        gix::ObjectId::from_hex(fetched.tip.as_bytes()).context("The mesh named no commit")?;
+    Ok(CommitId(tip))
 }
 
 /// Connect this machine to the mesh: the CLI opens the browser to approve it and waits, then

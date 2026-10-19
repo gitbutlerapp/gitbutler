@@ -236,6 +236,7 @@ impl Navigator {
         let unpushed = branch.commits.iter().filter(|c| !c.pushed).count();
         let page = Selection::Machine(project.clone(), id.clone());
         let menu = (page.clone(), name.to_owned());
+        let pick = (project.clone(), id.clone(), name.to_owned());
         gpui::div()
             .id(("mesh-branch", ix))
             .h(px(ROW_HEIGHT))
@@ -283,6 +284,10 @@ impl Navigator {
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(move |this, _: &MouseDownEvent, window, cx| {
+                    let (project, id, name) = &pick;
+                    (this.detail).update(cx, |detail, cx| {
+                        detail.pick_machine_branch(project, id, name, cx)
+                    });
                     this.select(page.clone(), window, cx)
                 }),
             )
