@@ -915,6 +915,8 @@ pub fn resize_handle(pane: Pane, store: Entity<Store>, theme: &Theme) -> impl In
         .w(px(5.))
         .group("resize-handle")
         .cursor(CursorStyle::ResizeLeftRight)
+        // Over the pane's scrollbar, which would otherwise take the press and the drag.
+        .block_mouse_except_scroll()
         // A line along the pane's last column of pixels, as but.dev marks it.
         .child(
             div()
