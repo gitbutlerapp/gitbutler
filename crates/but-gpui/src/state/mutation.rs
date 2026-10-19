@@ -1368,7 +1368,12 @@ fn failure_detail(err: &anyhow::Error) -> String {
              on in your global Git config. Check Sign commits in Project settings.\n{}",
             err.root_cause()
         ),
-        _ => format!("{err:#}"),
+        // A precondition says what stopped it in the user's words; the context wrapped
+        // around it names refs and hashes, which a short card fills up with.
+        _ => match err.downcast_ref::<but_error::Context>() {
+            Some(said) if said.code == but_error::Code::PreconditionFailed => said.to_string(),
+            _ => format!("{err:#}"),
+        },
     }
 }
 
@@ -1389,6 +1394,16 @@ mod tests {
         assert!(
             failure_detail(&err).contains("turns commit signing off"),
             "the engine turned signing off, which the next commit would otherwise not show"
+        );
+        let err = anyhow::anyhow!(
+            but_error::Context::new("Uncommitted files would be overwritten by checkout: \"a.rs\"")
+                .with_code(but_error::Code::PreconditionFailed)
+        )
+        .context("Could not safely check out 'refs/heads/b' from 1234 to 5678");
+        assert_eq!(
+            failure_detail(&err),
+            "Uncommitted files would be overwritten by checkout: \"a.rs\"",
+            "what the engine says stopped it, not the hashes of what it was doing"
         );
     }
 
