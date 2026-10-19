@@ -24,6 +24,8 @@ pub struct OtherBranch {
     pub ahead: Option<usize>,
     /// Commits of its own, down to the branch it's stacked on or where it forked, when known.
     pub own_commits: Option<usize>,
+    /// Which of the listed stacks it's in, so a stack's branches stay together.
+    pub stack: usize,
     pub tip: CommitId,
     pub review: Option<BranchReview>,
 }
@@ -37,7 +39,8 @@ pub struct BranchReview {
     pub url: String,
 }
 
-/// Every branch the workspace doesn't have applied, newest first; not the target.
+/// Every branch the workspace doesn't have applied, newest first, a stack's branches together
+/// from the top; not the target.
 pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
     let ctx = open(path)?;
     Ok(but_api::branch::branch_list(&ctx)?
@@ -48,8 +51,9 @@ pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
                 ListedStackStatus::Unapplied | ListedStackStatus::Standalone
             )
         })
-        .flat_map(|stack| stack.branches)
-        .map(|listed| {
+        .enumerate()
+        .flat_map(|(stack, listed)| listed.branches.into_iter().map(move |b| (stack, b)))
+        .map(|(stack, listed)| {
             let branch = listed.branch;
             OtherBranch {
                 ref_name: branch.ref_name.to_string(),
@@ -61,6 +65,7 @@ pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
                 time: branch.updated_at_ms.map(|ms| ms / 1000),
                 ahead: branch.commits_ahead_of_target,
                 own_commits: branch.commit_count,
+                stack,
                 tip: CommitId(branch.tip),
                 review: listed.review.map(|review| BranchReview {
                     number: review.number as u64,
