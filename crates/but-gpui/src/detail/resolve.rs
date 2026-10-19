@@ -20,7 +20,7 @@ use crate::theme::Theme;
 use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
 use crate::ui::diff::{DiffRow, Layout, OnToggle};
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{ButtonStyle, Icon, button, h_flex, plural, small_icon, v_flex};
+use crate::ui::{ButtonStyle, Icon, Tooltip, button, h_flex, plural, small_icon};
 
 actions!(
     resolve,
@@ -825,41 +825,34 @@ fn next_conflicted(workspace: &Workspace, commit: CommitId) -> Option<(CommitId,
     })
 }
 
-/// A condition on the warn ground, as ui-react's `Banner`: its line, a sentence under it, and
-/// the one fix.
+/// A condition on the warn ground, as ui-react's `Banner`: its line, beside the one fix.
+/// The sentence that explains it shows on hover, as the column it sits in is narrow.
 pub(super) fn warn_banner(
     title: impl Into<gpui::SharedString>,
     detail: impl Into<gpui::SharedString>,
     action: Option<AnyElement>,
     theme: &Theme,
-) -> gpui::Div {
+) -> gpui::Stateful<gpui::Div> {
+    let (title, detail) = (title.into(), detail.into());
     h_flex()
-        .items_start()
+        .id(title.clone())
         .gap(px(8.))
         .pl(px(10.))
         .pr(px(8.))
-        .py(px(8.))
+        .py(px(6.))
         .rounded(px(6.))
         .bg(theme.warn.opacity(0.1))
         .text_color(theme.warn)
+        .tooltip(Tooltip::text(detail))
+        .child(small_icon(Icon::Warning).text_color(theme.warn))
         .child(
             div()
-                .pt(px(3.))
-                .child(small_icon(Icon::Warning).text_color(theme.warn)),
-        )
-        .child(
-            v_flex()
                 .flex_1()
                 .min_w(px(0.))
-                .gap(px(4.))
-                .py(px(2.))
+                .truncate()
                 .text_size(px(13.))
-                .child(
-                    div()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
-                        .child(title.into()),
-                )
-                .child(div().text_size(px(12.)).child(detail.into())),
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .child(title),
         )
         .children(action)
 }

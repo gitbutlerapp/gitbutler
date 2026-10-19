@@ -816,10 +816,7 @@ impl Detail {
             let app = self.app.clone();
             let (project, id) = (project.clone(), commit.id);
             super::resolve::warn_banner(
-                match conflicted {
-                    1 => "A commit has conflicts".to_owned(),
-                    n => format!("{n} commits have conflicts"),
-                },
+                plural(conflicted, "conflicted commit"),
                 match holder.ref_name == ref_name {
                     true => {
                         "Start with the oldest: the ones above it are rebuilt on it.".to_owned()
