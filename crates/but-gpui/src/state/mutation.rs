@@ -13,7 +13,8 @@ use gpui::{Context, SharedString, Task};
 use super::{ProjectId, Reload, Selection, Store, StoreEvent};
 use crate::backend::upstream::{UpdateConflicts, UpdateOutcome};
 use crate::backend::{
-    self, Branch, Commit, CommitId, Destination, HunkKey, Selected, SnapshotId, short_ref,
+    self, Branch, Commit, CommitId, Destination, HunkKey, Review, ReviewState, Selected,
+    SnapshotId, short_ref,
 };
 
 /// How long a mutation runs before the status bar says how long it's taking.
@@ -56,6 +57,8 @@ pub struct Overlay {
     pub renamed: Option<(String, String)>,
     /// What it changes, which the reload after it reads again.
     pub rereads: Rereads,
+    /// The pull request, by number, it merges.
+    pub merges: Option<u64>,
     /// The branch (full ref) it pushes, with the ones below it.
     pub pushes: Option<String>,
     /// It opens a pull request for the branch it pushes.
@@ -1121,6 +1124,14 @@ impl Store {
             }
         }
         Cow::Owned(kept)
+    }
+
+    /// `review`'s state, merged already while its merge is pending.
+    pub fn review_state(&self, project: &ProjectId, review: &Review) -> ReviewState {
+        match (self.overlays(project)).any(|o| o.merges == Some(review.number)) {
+            true => ReviewState::Merged,
+            false => review.state,
+        }
     }
 
     pub fn hides_worktree(&self, project: &ProjectId, name: &str) -> bool {

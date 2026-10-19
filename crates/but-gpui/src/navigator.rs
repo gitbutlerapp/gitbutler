@@ -2005,7 +2005,9 @@ impl Navigator {
                         // Folded, its top branch tells it from another stack as tall, named
                         // as the branch rows name it; open, that row is right under it.
                         .children(branches.first().filter(|_| !open).map(|top| {
-                            branch_name(store.name_of(id, top), top.review.as_ref(), &style)
+                            let review =
+                                (top.review.as_ref()).map(|r| (r, store.review_state(id, r)));
+                            branch_name(store.name_of(id, top), review, &style)
                         })),
                 )
                 .when(!open, |el| {
@@ -2082,7 +2084,7 @@ impl Navigator {
             .count();
         let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
         let (glyph, glyph_color) = match (&branch.review, branch.push) {
-            (Some(review), _) => review::state_glyph(review.state, theme),
+            (Some(review), _) => review::state_glyph(store.review_state(id, review), theme),
             (None, PushState::Integrated) => (Icon::Tick, theme.safe),
             (None, _) => (Icon::Branch, style.muted()),
         };
@@ -2152,6 +2154,7 @@ impl Navigator {
         };
         // As an unread commit's title stands out, so does its branch's name, folded or not.
         let unread = (branch.commits.iter()).any(|commit| store.is_unread(id, commit));
+        let review = (branch.review.as_ref()).map(|r| (r, store.review_state(id, r)));
         Some(
             style
                 .row(format!("branch-{id}-{ref_name}"), 6.)
@@ -2159,7 +2162,7 @@ impl Navigator {
                 .child(step)
                 .child(icon(glyph).text_color(style.meta(glyph_color)))
                 .child(
-                    branch_name(name, branch.review.as_ref(), &style)
+                    branch_name(name, review, &style)
                         .id(ElementId::Name(format!("name-{id}-{ref_name}").into()))
                         .flex_1()
                         .when(unread, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
@@ -2644,15 +2647,15 @@ fn is_inactive(worktree: &Worktree) -> bool {
 /// A branch as the navigator names it: its pull request's title once the forge cache has one,
 /// toned by the request's state, or else `name` in blue mono. Drawn from what the last load
 /// read, so no row waits on the network, and offline the cached title stays.
-fn branch_name(name: &str, review: Option<&Review>, style: &RowStyle) -> Div {
+fn branch_name(name: &str, review: Option<(&Review, ReviewState)>, style: &RowStyle) -> Div {
     let theme = style.theme;
     let el = div().min_w(px(0.)).truncate();
-    match review.filter(|review| !review.title.is_empty()) {
-        Some(review) => el
+    match review.filter(|(review, _)| !review.title.is_empty()) {
+        Some((review, state)) => el
             .text_color(match style.solid {
-                true if review.state == ReviewState::Open => style.meta(theme.text_1),
+                true if state == ReviewState::Open => style.meta(theme.text_1),
                 true => style.muted(),
-                false => review::title_color(review.state, theme),
+                false => review::title_color(state, theme),
             })
             .child(review.title.clone()),
         None => el
