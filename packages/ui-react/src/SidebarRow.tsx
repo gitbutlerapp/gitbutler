@@ -503,36 +503,28 @@ export const UncommittedItem: FC<
 );
 
 /**
- * The label over a stack of two or more branches, "Stack of 2". It doesn't open; with `folded` a
- * click anywhere on it, as on its chevron, hides the stack's branches, and `meta` then says what
- * they hold. Its `menu` (push the stack, open its pull requests) shows under the pointer. `first`
- * is for a stack that opens right under its repository or worktree; otherwise it follows a
- * {@link WorktreeDivider} and sits tucked under it.
+ * The caption over a stack of two or more branches: how many (`count`) and "Stack". Its branches
+ * sit under it one level deeper, with no divider around the stack. It doesn't open; with `folded` a
+ * click anywhere on it, as on its chevron, hides the stack's branches. Folded, the branch at the
+ * stack's top (`tip`), which is the one that gets pushed, takes the word's place after the count,
+ * and `meta` says what the hidden branches hold. Either way the caption stays muted, so it doesn't
+ * read as one more branch. Its `menu` (push the stack, open its pull requests) shows under the
+ * pointer.
  *
  * @import import { StackCaption } from "@gitbutler/ui-react/SidebarRow.tsx";
  */
 export const StackCaption: FC<
-	{ label: string; first?: boolean } & Pick<
+	{ count: number; tip: string } & Pick<
 		RowProps,
 		"depth" | "folded" | "onToggleFolded" | "meta" | "menu" | "tooltip"
 	> &
 		ComponentProps<"div">
-> = ({
-	label,
-	first = false,
-	depth = 0,
-	folded,
-	onToggleFolded,
-	meta,
-	menu,
-	tooltip,
-	...props
-}) => {
+> = ({ count, tip, depth = 0, folded, onToggleFolded, meta, menu, tooltip, ...props }) => {
 	const folds = typeof folded === "boolean" && onToggleFolded !== undefined;
 	return (
 		<Row
 			{...props}
-			name={label}
+			name={`Stack of ${count}`}
 			layout="compact"
 			depth={depth}
 			folded={folded}
@@ -553,16 +545,23 @@ export const StackCaption: FC<
 					return;
 				onToggleFolded();
 			}}
-			rowClassName={classes(
-				styles.caption,
-				folds && styles.captionFolds,
-				!first && styles.captionTucked,
-			)}
+			rowClassName={classes(styles.caption, folds && styles.captionFolds)}
 			icon={<Icon name="stack" />}
 			label={
-				<Name tooltip={tooltip} className={classes("text-13", styles.name)}>
-					{label}
-				</Name>
+				<>
+					<Badge variant="lightGray" className={styles.badge}>
+						{count}
+					</Badge>
+					<Name
+						// A fresh name for each text: one the pointer measured keeps that run, and unfolding
+						// under the pointer would run "Stack" as far as the tip.
+						key={folded === true ? "tip" : "stack"}
+						tooltip={tooltip}
+						className={classes("text-14", "text-semibold", styles.name)}
+					>
+						{folded === true ? tip : "Stack"}
+					</Name>
+				</>
 			}
 		/>
 	);
@@ -601,8 +600,8 @@ export const MoreItem: FC<
 	});
 
 /**
- * The line between the worktrees of one repository, and around a stack of branches: before it
- * unless it comes first, after it unless it ends the list.
+ * The line between the worktrees of one repository. A stack needs none: its branches sit one level
+ * under its {@link StackCaption}.
  *
  * @import import { WorktreeDivider } from "@gitbutler/ui-react/SidebarRow.tsx";
  */
