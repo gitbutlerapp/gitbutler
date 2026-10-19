@@ -265,18 +265,20 @@ impl Detail {
                     .text_ellipsis_middle()
                     .child(crate::ui::short_path(&entry.project.path)),
             )
-            .child(
-                meta_item(Icon::Refresh, theme)
-                    .flex_none()
-                    .child(match fetch {
-                        Some(None) => "No remote to fetch from".into(),
-                        Some(Some((Some(at), _))) => match relative_time(at).as_str() {
-                            "now" => "Fetched just now".into(),
-                            ago => format!("Fetched {ago} ago"),
-                        },
-                        _ => "Not fetched yet".into(),
-                    }),
-            );
+            .when(entry.project.path.exists(), |el| {
+                el.child(
+                    meta_item(Icon::Refresh, theme)
+                        .flex_none()
+                        .child(match fetch {
+                            Some(None) => "No remote to fetch from".into(),
+                            Some(Some((Some(at), _))) => match relative_time(at).as_str() {
+                                "now" => "Fetched just now".into(),
+                                ago => format!("Fetched {ago} ago"),
+                            },
+                            _ => "Not fetched yet".into(),
+                        }),
+                )
+            });
         let main = v_flex()
             .gap(px(10.))
             .child(
@@ -442,7 +444,10 @@ impl Detail {
                             .child(div().flex_1().min_w(px(0.)).child(err))
                     }),
             );
+        let missing = !entry.project.path.exists();
         let list = match upstream {
+            // Its banner says so; reading its history fails with no more to say.
+            _ if missing => div().flex_1().into_any_element(),
             None => crate::ui::empty_state(None, "Loading…", "", theme, cx),
             Some(Upstream {
                 failed: Some(err), ..
