@@ -305,9 +305,13 @@ impl AppView {
             use futures::StreamExt as _;
             while let Some(prompt) = prompts.next().await {
                 let id = prompt.id;
+                // Git asks for an HTTPS username before its password, and the username shows.
+                let username = prompt.text.starts_with("Username for ");
                 let result = this.update_in(cx, |this, window, cx| {
-                    let input =
-                        cx.new(|cx| TextInput::new("Passphrase or password", false, cx).masked());
+                    let input = cx.new(|cx| match username {
+                        true => TextInput::new("Username", false, cx),
+                        false => TextInput::new("Passphrase or password", false, cx).masked(),
+                    });
                     this.open_prompt(
                         "Git needs your credentials",
                         Some(prompt.text),
