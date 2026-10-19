@@ -158,6 +158,19 @@ pub fn remove(repo: &gix::Repository, name: &BStr, force: bool) -> anyhow::Resul
     })
 }
 
+/// The destination was occupied before worktree creation made any changes.
+/// Callers may safely retry creation at a different path.
+#[derive(Debug)]
+pub struct DestinationExists(pub std::path::PathBuf);
+
+impl std::fmt::Display for DestinationExists {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "'{}' already exists", self.0.display())
+    }
+}
+
+impl std::error::Error for DestinationExists {}
+
 /// Create a linked worktree at `path` on the new branch `branch` starting at `base`, the way
 /// `git worktree add -b` does, which refuses an existing branch.
 ///
@@ -169,8 +182,10 @@ pub fn add(
     branch: &gix::refs::FullNameRef,
     base: gix::ObjectId,
 ) -> anyhow::Result<BString> {
-    if path.exists() {
-        bail!("'{}' already exists", path.display());
+    match path.symlink_metadata() {
+        Ok(_) => return Err(DestinationExists(path.to_owned()).into()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+        Err(err) => return Err(err.into()),
     }
     anyhow::ensure!(
         branch.category() == Some(gix::refs::Category::LocalBranch),

@@ -30,7 +30,8 @@ pub enum Subcommands {
     ///
     /// By default, the branch starts at the child-most commit any applied stack rests on, and is
     /// checked out under `~/.gitbutler-worktrees/<repo-dir-basename>/` in a directory
-    /// named by a slug of the branch name.
+    /// named by a slug of the branch name (or `wt` if the slug is empty). If that
+    /// directory is taken, retries up to five times with a random ASCII suffix.
     ///
     /// Worktree creation supports simple `.worktreeinclude` files with paths to files or
     /// directories. Untracked files are copied if any prefix of their path is in the

@@ -1799,8 +1799,9 @@ export declare function workspaceTargetCommits(projectId: string, from: string |
  *
  * The branch is `new_ref` or a canned name, and the checkout lives at
  * `~/.gitbutler-worktrees/<repo-dir-basename>/<slug>`, where the repository directory is
- * the main worktree and the slug of the short branch name also names the worktree.
- * This fails without a target to base the worktree on, and refuses an existing branch or directory.
+ * the main worktree. The slug is derived from the short branch name, falling back to `wt`
+ * if empty. If the directory is taken, creation retries up to five times with a random ASCII suffix.
+ * This fails without a target to base the worktree on, and refuses an existing branch.
  *
  * {@link ../../../../../crates/but-api/src/worktrees.rs}
  */
