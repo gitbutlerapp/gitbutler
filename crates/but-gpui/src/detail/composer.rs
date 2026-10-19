@@ -354,17 +354,13 @@ impl Detail {
     }
 
     pub fn focus_message(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        // The composer sits under the changes; with none, as when an agent committed them
-        // all while it was open, there's nowhere to write. A commit being edited isn't
-        // committed but finished, and a linked worktree with no branch has nowhere to commit.
+        // A commit being edited isn't committed but finished, and a linked worktree with no
+        // branch has nowhere to commit. With no changes, the commit is an empty one.
         if let Some((project, worktree)) = self.selected_checkout(cx)
             && let Some(workspace) = self.store.read(cx).workspace(&project)
         {
-            let files = workspace.uncommitted_in(worktree.as_deref());
             let refused = if worktree.is_none() && workspace.editing.is_some() {
                 Some("Finish or cancel editing the commit first")
-            } else if files.is_none_or(<[_]>::is_empty) {
-                Some("No changes to commit")
             } else if worktree.is_some() && self.effective_target(&project, cx).is_none() {
                 Some("Check out a branch in the worktree to commit")
             } else {
@@ -603,7 +599,11 @@ impl Detail {
             return;
         }
         let files = self.changes_not_pending(&project, cx);
-        if files.is_empty() {
+        // A checkout with no changes at all commits an empty commit.
+        let nothing_changed = (self.store.read(cx).workspace(&project))
+            .and_then(|ws| ws.uncommitted_in(worktree.as_deref()))
+            .is_none_or(<[_]>::is_empty);
+        if files.is_empty() && !nothing_changed {
             // Changes checked but none left are what an operation still running is taking,
             // most likely the last commit.
             let why = match self.selected_changes(cx).is_empty() {
@@ -996,6 +996,7 @@ impl Detail {
                         faint(
                             match files.len() {
                                 _ if self.files_width(window, cx) < 280. => String::new(),
+                                0 => "No changes".to_owned(),
                                 total if whole && total > 1 => {
                                     format!("All {}", plural(total, "file"))
                                 }
@@ -1037,8 +1038,18 @@ impl Detail {
                         button("commit", "Commit")
                             .small()
                             .style(ButtonStyle::Pop)
-                            .disabled_because((checked == 0).then_some("Check some changes first"))
-                            .tooltip_with_key("Commit the checked changes", Some("⌘↩".into()))
+                            .disabled_because(
+                                (checked == 0 && !files.is_empty())
+                                    .then_some("Check some changes first"),
+                            )
+                            .tooltip_with_key(
+                                if files.is_empty() {
+                                    "Make an empty commit"
+                                } else {
+                                    "Commit the checked changes"
+                                },
+                                Some("⌘↩".into()),
+                            )
                             .on_click(cx.listener(|this, _, window, cx| this.commit(window, cx))),
                     ),
             )

@@ -215,10 +215,8 @@ pub fn commit(
     refuse_conflicted(&ctx, worktree, selected)?;
     // The hooks run in the main checkout, not where a linked worktree's changes are.
     let run_hooks = run_hooks && worktree.is_none();
+    // No changes make an empty commit.
     let changes = selected_specs(selected);
-    if changes.is_empty() {
-        bail!("Nothing to commit");
-    }
     let mut message = message.to_owned();
     if run_hooks {
         pre_commit(&ctx, &changes)?;
@@ -1094,6 +1092,30 @@ mod tests {
         assert!(
             hook_failed.is_some_and(|output| output.contains("notify failed")),
             "post-commit's failure comes back to report"
+        );
+    }
+
+    #[test]
+    fn committing_no_changes_makes_an_empty_commit() {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        let main = Destination::Branch("refs/heads/main".into());
+        let first = git(path, &["rev-parse", "HEAD"]);
+        commit(path, &main, &[], None, "Mark it reviewed", false).unwrap();
+        assert_eq!(
+            git(path, &["log", "-1", "--format=%s"]).trim(),
+            "Mark it reviewed",
+            "the commit is made"
+        );
+        assert_eq!(
+            git(path, &["rev-parse", "HEAD~1"]),
+            first,
+            "it sits on the last commit"
+        );
+        assert_eq!(
+            git(path, &["diff", "--stat", "HEAD~1", "HEAD"]),
+            "",
+            "it changes nothing"
         );
     }
 

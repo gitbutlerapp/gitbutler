@@ -437,7 +437,7 @@ impl Detail {
             .children(unfinished)
             .children(banner.map(|banner| side_header(theme).child(banner)))
             .child(self.render_uncommitted_files(project, worktree, files, theme, cx))
-            .when(!files.is_empty() && !editing, |el| el.child(footer))
+            .when(!editing, |el| el.child(footer))
             .into_any_element()
     }
 
