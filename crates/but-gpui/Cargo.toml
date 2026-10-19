@@ -36,6 +36,8 @@ objc2 = "0.6.4"
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSDictionary", "NSObject", "NSProcessInfo", "NSString", "NSUserDefaults", "NSValue"] }
 # Word-level emphasis and tree-sitter scope breadcrumbs for diffs.
 deltoids = { git = "https://github.com/juanibiapina/deltoids", rev = "617f331ef13e80ddc476239cb392763fa6567e41" }
+# Pull request descriptions as formatted text. Only its parser: none of its HTML output.
+pulldown-cmark = { version = "0.13.4", default-features = false }
 
 [dependencies]
 anyhow.workspace = true

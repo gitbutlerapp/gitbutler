@@ -5,6 +5,7 @@ pub mod diff;
 pub mod emoji;
 pub mod file_icons;
 pub mod illustration;
+pub mod markdown;
 pub mod modal;
 pub mod person;
 pub mod review;
