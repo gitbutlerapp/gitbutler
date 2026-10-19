@@ -20,7 +20,7 @@ use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
 use crate::ui::{
-    Icon, ROW_HEIGHT, checkbox, faint, h_flex, icon_button, list_row, muted, popover,
+    Icon, ROW_HEIGHT, checkbox, count_badge, faint, h_flex, icon_button, list_row, muted, popover,
     relative_time, shortcut, small_icon, v_flex,
 };
 
@@ -107,15 +107,7 @@ fn files_heading(count: usize, (added, removed): (u32, u32), theme: &Theme) -> D
                 .font_weight(gpui::FontWeight::BOLD)
                 .child("Files"),
         )
-        .child(
-            div()
-                .px(px(6.))
-                .rounded_full()
-                .bg(theme.fill_gray.opacity(0.1))
-                .text_size(px(11.))
-                .text_color(theme.text_2)
-                .child(count.to_string()),
-        )
+        .child(count_badge(count, theme))
         .child(diff::stats(added, removed, theme))
 }
 
