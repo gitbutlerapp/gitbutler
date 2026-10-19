@@ -447,8 +447,16 @@ impl Store {
                 match outcome {
                     UpdateOutcome::WouldConflict(found) => {
                         let again = updated.clone();
+                        // With other projects watched, the card says which it's about.
+                        let watched = store.projects.iter().filter(|p| p.expanded).count();
+                        let title = match store.project(&updated) {
+                            Some(entry) if watched > 1 => {
+                                format!("Updating {} leaves conflicts", entry.project.name)
+                            }
+                            _ => "Updating leaves conflicts".to_owned(),
+                        };
                         store.error_with_retry(
-                            "Updating leaves conflicts",
+                            title,
                             update_conflicts_detail(&target, &found),
                             "Update anyway",
                             move |store, cx| {
