@@ -365,7 +365,8 @@ impl Branch {
 #[derive(Debug, Clone)]
 pub struct Commit {
     pub id: CommitId,
-    /// Survives rebases and rewording when the commit has a change id; the sha otherwise.
+    /// Its change ID, which survives rebases and rewording. One made without, as by plain
+    /// Git, has the one the engine writes into it on its first rebase, made from its sha.
     pub key: String,
     pub title: String,
     pub message: String,
@@ -377,9 +378,10 @@ pub struct Commit {
 }
 
 impl Commit {
-    /// Whether `key` is a change ID rather than the commit's sha.
+    /// Whether the commit carries its change ID, rather than `key` being made from its sha.
     pub fn has_change_id(&self) -> bool {
-        gix::ObjectId::from_hex(self.key.as_bytes()).ok() != Some(self.id.0)
+        let made = but_core::commit::Headers::synthetic_change_id_from_commit_id(self.id.0);
+        self.key != made.to_string()
     }
 }
 
@@ -789,7 +791,7 @@ mod tests {
 
     use but_core::HunkHeader;
 
-    use super::{DiffLine, Hunk, HunkKey, LineKind};
+    use super::{Commit, CommitId, CommitState, DiffLine, Hunk, HunkKey, LineKind};
 
     fn header(old_start: u32, old_lines: u32, new_start: u32, new_lines: u32) -> HunkHeader {
         HunkHeader {
@@ -879,6 +881,30 @@ mod tests {
             hunk.picked(&picks),
             vec![HunkKey(header(2, 1, 0, 0)), HunkKey(header(0, 0, 2, 1))],
             "a removal and an addition never share a run"
+        );
+    }
+
+    #[test]
+    fn a_commit_made_by_plain_git_has_no_change_id_of_its_own() {
+        let id = gix::ObjectId::from_hex(b"99a9648a9b2cf5a631d8ef586f97005604afaabc").unwrap();
+        let made = but_core::commit::Headers::synthetic_change_id_from_commit_id(id);
+        let commit = |key: String| Commit {
+            id: CommitId(id),
+            key,
+            title: String::new(),
+            message: String::new(),
+            author: String::new(),
+            time: 0,
+            state: CommitState::Local,
+            conflicted: false,
+        };
+        assert!(
+            !commit(made.to_string()).has_change_id(),
+            "its key is the one made from its sha, which there's nothing to copy of"
+        );
+        assert!(
+            commit("vtlrvnlmsxrmrsnrkvqlwrzqokpsoxzk".into()).has_change_id(),
+            "it carries one"
         );
     }
 }
