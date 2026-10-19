@@ -129,7 +129,8 @@ so update it, shortcuts table included, with every change in behaviour.
 - Each step settles for 120ms, so a delay shorter than that never shows. Stretch the constant to
   check one. A hover registers only after a second small `move`.
 - `drop` moves the pointer before letting go, and that move redraws. `release` lets go in place,
-  which catches a drag end that forgets to redraw.
+  which catches a drag end that forgets to redraw. `drag` presses and moves with no frame
+  between; `press`, then `move`s a step apart, drags with frames between, as a hand does.
 - Prompts use GPUI's fallback renderer, which clips long detail text and ignores Escape and Enter.
   Click its buttons, and check prompt copy in the code.
 - Enter in a message field adds a line, and ⌘↩ saves.
