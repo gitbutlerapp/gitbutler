@@ -1,6 +1,7 @@
-import { locale, setLocale, t } from "$lib/i18n";
+import { locale, localeForSystemLanguages, setLocale, t } from "$lib/i18n";
 import en from "$lib/i18n/locales/en.json";
 import zhCN from "$lib/i18n/locales/zh-CN.json";
+import zhTW from "$lib/i18n/locales/zh-TW.json";
 import { afterEach, expect, test } from "vitest";
 
 afterEach(() => setLocale("en"));
@@ -48,4 +49,30 @@ test("Chinese dictionary covers the English keys and placeholders", () => {
 	for (const key of Object.keys(en) as (keyof typeof en)[]) {
 		expect(zhCN[key].match(/\{\w+\}/g)).toEqual(en[key].match(/\{\w+\}/g));
 	}
+});
+
+test("translates Traditional Chinese with matching keys and placeholders", () => {
+	setLocale("zh-TW");
+	expect(t("create-branch")).toBe("建立分支");
+	expect(Object.keys(zhTW).sort()).toEqual(Object.keys(en).sort());
+	for (const key of Object.keys(en) as (keyof typeof en)[]) {
+		expect(zhTW[key].match(/\{\w+\}/g)).toEqual(en[key].match(/\{\w+\}/g));
+	}
+});
+
+test.each([
+	[["zh-CN"], "zh-CN"],
+	[["zh-SG"], "zh-CN"],
+	[["zh-TW"], "zh-TW"],
+	[["yue-HK"], "zh-TW"],
+	[["zh-MO"], "zh-TW"],
+	[["zh-Hant-CN"], "zh-TW"],
+	[["zh-Hans-TW"], "zh-CN"],
+	[["ZH-hAnT-HK"], "zh-TW"],
+	[["fr-FR", "zh-TW"], "zh-TW"],
+	[["en-US", "zh-CN"], "en"],
+	[["fr-FR"], "en"],
+	[[], "en"],
+])("selects a supported locale for %j", (languages, expected) => {
+	expect(localeForSystemLanguages(languages)).toBe(expected);
 });
