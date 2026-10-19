@@ -72,6 +72,29 @@ impl gpui::Global for Embedded {}
 /// the web app, which installs it, and takes the variable out before its own relaunch.
 pub const WEB_APP_ONCE: &str = "GITBUTLER_WEB_APP_ONCE";
 
+/// Give the Dock the app's icon, `assets/app-icon.svg` drawn at 512 points. A binary run on
+/// its own has no bundle to carry one, so the Dock would show a terminal's.
+#[cfg(target_os = "macos")]
+fn set_dock_icon() {
+    use objc2::rc::{Allocated, Retained};
+    use objc2::runtime::AnyObject;
+    use objc2::{class, msg_send};
+    use objc2_foundation::NSData;
+
+    let png = NSData::with_bytes(include_bytes!("../assets/app-icon.png"));
+    // SAFETY: AppKit's documented `NSImage` and `NSApplication` messages, sent on the main
+    // thread once the application exists, with the argument types they take.
+    unsafe {
+        let alloc: Allocated<AnyObject> = msg_send![class!(NSImage), alloc];
+        let image: Option<Retained<AnyObject>> = msg_send![alloc, initWithData: &*png];
+        let Some(image) = image else {
+            return;
+        };
+        let app: Retained<AnyObject> = msg_send![class!(NSApplication), sharedApplication];
+        let _: () = msg_send![&*app, setApplicationIconImage: &*image];
+    }
+}
+
 /// Run the app until it quits: open its window on this thread, which must be the process's
 /// main thread, as macOS draws windows from there. `embedded` when the desktop app's binary
 /// starts it.
@@ -103,8 +126,10 @@ pub fn run(embedded: Option<Embedded>) {
             cx.text_system()
                 .add_fonts(ui::fonts())
                 .expect("the bundled fonts load");
-            if let Some(embedded) = embedded {
-                cx.set_global(embedded);
+            match embedded {
+                Some(embedded) => cx.set_global(embedded),
+                // The desktop app's bundle gives the Dock its icon.
+                None => set_dock_icon(),
             }
             cx.set_global(Theme::for_appearance(
                 theme::Appearance::System,
