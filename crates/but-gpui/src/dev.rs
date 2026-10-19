@@ -14,6 +14,7 @@
 //! drag 120 300 120 500    # append `cmd`, `alt` or `shift` to hold them on letting go, and
 //!                         # `hold` to keep the button down
 //! drop 120 500            # let go of a held drag there
+//! release 120 500         # let go without moving there first, as a hand does
 //! scroll 900 400 300      # scroll by 300 logical pixels at a window position
 //! scroll 900 400 0 200    # and by 200 to the right
 //! add /path/to/repo       # add a project, as Add a repository does with the folder picked
