@@ -407,10 +407,7 @@ fn commit_from(local: &but_workspace::ref_info::LocalCommit) -> Commit {
     let inner = &local.inner;
     Commit {
         id: CommitId(inner.id),
-        key: inner
-            .change_id
-            .as_ref()
-            .map_or_else(|| inner.id.to_string(), ToString::to_string),
+        key: inner.change_id().to_string(),
         title: title(&inner.message),
         message: inner.message.to_str_lossy().trim_end().to_string(),
         author: inner.author.name.to_str_lossy().into_owned(),
