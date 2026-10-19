@@ -1520,69 +1520,82 @@ impl Navigator {
                                 .child(emoji.to_owned())
                         })),
                 )
+                // However narrow the navigator, the name stays: what the row sums up gives way
+                // first, a whole item at a time from its end, the age before the counts. Each
+                // item that doesn't fit wraps to a second line, which is cut off.
                 .child(
                     div()
-                        .flex_1()
+                        .flex_grow(1.)
                         .min_w(px(0.))
                         .truncate()
                         .when(expanded, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
                         .child(entry.project.name.clone()),
                 )
-                .when(unread, |el| el.child(dot(style.meta(theme.pop))))
-                .when_some(summary, |el, (files, unpushed, target, worktrees)| {
-                    let (warn, blue) = (style.meta(theme.warn), style.meta(theme.blue));
-                    el.children(meta_count(
-                        Icon::File,
-                        files,
-                        warn,
-                        plural(files, "uncommitted file"),
-                    ))
-                    .children(meta_count(
-                        Icon::ArrowUp,
-                        unpushed,
-                        blue,
-                        plural(unpushed, "unpushed commit"),
-                    ))
-                    .children(target.and_then(|t| {
-                        let tip = format!("{} behind {}", plural(t.behind, "commit"), t.name);
-                        meta_count(Icon::ArrowDown, t.behind, warn, tip)
-                    }))
-                    .children(meta_count(
-                        Icon::Folder,
-                        worktrees,
-                        style.muted(),
-                        plural(worktrees, "worktree"),
-                    ))
-                })
-                .when(entry.is_loading(), |el| {
-                    el.child(small_icon(Icon::Clock).text_color(theme.text_3))
-                })
-                // A project something wrote to in the last two minutes is likely an
-                // agent at work; otherwise say how long it's been quiet.
-                .when_some(activity, |el, at| {
-                    if just_now(at) {
-                        el.child(
-                            h_flex()
-                                .id(ElementId::Name(format!("active-{id}").into()))
-                                .gap(px(4.))
-                                .text_size(px(11.))
-                                .text_color(style.meta(theme.safe))
-                                .child(dot(style.meta(theme.safe)))
-                                .child("active")
-                                .tooltip(Tooltip::text("Changed in the last 2 minutes")),
-                        )
-                    } else {
-                        let age = relative_time(at);
-                        el.child(
-                            div()
-                                .id(ElementId::Name(format!("quiet-{id}").into()))
-                                .text_size(px(11.))
-                                .text_color(style.muted())
-                                .tooltip(Tooltip::text(format!("Last active {age} ago")))
-                                .child(age),
-                        )
-                    }
-                })
+                .child(
+                    h_flex()
+                        .flex_shrink(1000.)
+                        .min_w(px(0.))
+                        .h(px(16.))
+                        .flex_wrap()
+                        .overflow_hidden()
+                        .gap(px(8.))
+                        .when(unread, |el| el.child(dot(style.meta(theme.pop))))
+                        .when_some(summary, |el, (files, unpushed, target, worktrees)| {
+                            let (warn, blue) = (style.meta(theme.warn), style.meta(theme.blue));
+                            el.children(meta_count(
+                                Icon::File,
+                                files,
+                                warn,
+                                plural(files, "uncommitted file"),
+                            ))
+                            .children(meta_count(
+                                Icon::ArrowUp,
+                                unpushed,
+                                blue,
+                                plural(unpushed, "unpushed commit"),
+                            ))
+                            .children(target.and_then(|t| {
+                                let tip =
+                                    format!("{} behind {}", plural(t.behind, "commit"), t.name);
+                                meta_count(Icon::ArrowDown, t.behind, warn, tip)
+                            }))
+                            .children(meta_count(
+                                Icon::Folder,
+                                worktrees,
+                                style.muted(),
+                                plural(worktrees, "worktree"),
+                            ))
+                        })
+                        .when(entry.is_loading(), |el| {
+                            el.child(small_icon(Icon::Clock).text_color(theme.text_3))
+                        })
+                        // A project something wrote to in the last two minutes is likely an
+                        // agent at work; otherwise say how long it's been quiet.
+                        .when_some(activity, |el, at| {
+                            if just_now(at) {
+                                el.child(
+                                    h_flex()
+                                        .id(ElementId::Name(format!("active-{id}").into()))
+                                        .gap(px(4.))
+                                        .text_size(px(11.))
+                                        .text_color(style.meta(theme.safe))
+                                        .child(dot(style.meta(theme.safe)))
+                                        .child("active")
+                                        .tooltip(Tooltip::text("Changed in the last 2 minutes")),
+                                )
+                            } else {
+                                let age = relative_time(at);
+                                el.child(
+                                    div()
+                                        .id(ElementId::Name(format!("quiet-{id}").into()))
+                                        .text_size(px(11.))
+                                        .text_color(style.muted())
+                                        .tooltip(Tooltip::text(format!("Last active {age} ago")))
+                                        .child(age),
+                                )
+                            }
+                        }),
+                )
                 .when(expanded && needs_update, |el| {
                     let project = id.clone();
                     let updating = store.updating(id);
