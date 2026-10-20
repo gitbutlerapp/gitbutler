@@ -577,6 +577,19 @@ impl Detail {
                     .ok();
             },
         ));
+        self.header_frame(main, menu, extra, tabs, theme)
+    }
+
+    /// [`Self::page_header`]'s frame, with `menu` for its ⋯: also the header beside a list,
+    /// over the diff of what's selected in it.
+    pub(super) fn header_frame(
+        &self,
+        main: Div,
+        menu: impl IntoElement,
+        extra: Option<AnyElement>,
+        tabs: Option<AnyElement>,
+        theme: &Theme,
+    ) -> AnyElement {
         let menu = h_flex().h(px(22.)).gap(px(8.)).children(extra).child(menu);
         // The diff beside the files starts below this, however tall it's drawn.
         let (height, app) = (self.header_height.clone(), self.app.clone());
@@ -909,7 +922,7 @@ pub(super) const COMMIT_HEADER_HEIGHT: f32 = 85.;
 
 /// The title row of a page's header: `icon`, then the title, which a caller adds, wrapping
 /// rather than hiding its end.
-fn page_title(icon_name: Icon, theme: &Theme) -> Div {
+pub(super) fn page_title(icon_name: Icon, theme: &Theme) -> Div {
     h_flex().items_start().gap(px(8.)).child(
         div()
             .h(px(22.))

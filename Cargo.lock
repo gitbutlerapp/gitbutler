@@ -1697,6 +1697,7 @@ dependencies = [
  "syntect",
  "tempfile",
  "tokio",
+ "toml 0.9.12+spec-1.1.0",
  "tracing",
  "tracing-subscriber",
  "two-face 0.5.2+bat-0.26.1",

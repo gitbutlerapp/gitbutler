@@ -1676,6 +1676,9 @@ impl Detail {
                 | Selection::Project(..),
             ) => self.header_height.get() + self.list_tabs_height(cx),
             Some(Selection::Branches(_)) => self.list_tabs_height(cx),
+            Some(Selection::History(project)) if self.has_operation_header(&project) => {
+                self.header_height.get()
+            }
             _ => 0.,
         }
     }
@@ -1777,6 +1780,10 @@ impl Render for Detail {
                     Selection::Branches(project) | Selection::Project(project) => (self
                         .selected_review(cx))
                     .map(|review| self.render_list_tabs(project, review, &theme, cx)),
+                    // What the selected operation did, over the files it changed.
+                    Selection::History(project) => {
+                        self.render_operation_header(project, &theme, cx)
+                    }
                     _ => None,
                 };
                 let files_shown = self.files_shown(cx);

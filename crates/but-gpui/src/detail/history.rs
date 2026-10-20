@@ -1,6 +1,6 @@
 //! The Operations history page: what GitButler did to a project, newest first under each day,
-//! the files the selected operation changed in the diff beside it, and a way back to before
-//! any of them.
+//! with what it did to which commit or branch; over the diff beside it, a header saying all of
+//! that for the selected one, then the files it changed; and a way back to before any of them.
 
 use gpui::{
     AnyElement, Context, MouseButton, MouseDownEvent, Pixels, Point, SharedString, Window, div,
@@ -8,17 +8,25 @@ use gpui::{
 };
 
 use super::Detail;
-use super::panes::{list_heading, side_list, side_row};
+use super::panes::{
+    list_heading, meta_item, meta_row, page_title, side_list, side_row, title_text,
+};
 use crate::app::{SelectNext, SelectPrevious};
-use crate::backend::history::Operation;
-use crate::backend::{self, DiffSource, SnapshotId};
+use crate::backend::history::{Branches, Change, Operation, Recorded};
+use crate::backend::{self, CommitId, DiffSource, SnapshotId};
 use crate::overlays::MenuItem;
-use crate::state::{Overlay, ProjectId};
+use crate::state::{Overlay, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
 use but_oplog::legacy::OperationKind;
 
-use crate::ui::{Icon, clock_time, day_label, faint, list_row, local_day, small_icon};
+use crate::ui::{
+    Icon, Tooltip, clock_time, commit_title, day_label, faint, h_flex, icon_button, list_row,
+    local_day, plural, small_icon, v_flex,
+};
+
+/// How many of an operation's changes its header lists; the rest it counts.
+const LISTED: usize = 8;
 
 /// How many operations a page of the log holds.
 const PAGE: usize = 60;
@@ -110,6 +118,84 @@ fn operation_icon(kind: Option<OperationKind>) -> Icon {
     }
 }
 
+/// What a row says the operation was done to, after what it did: the commit or branch its
+/// snapshot shows it changed, else what the log says, as the operation an undo took back.
+fn summary(operation: &Operation) -> Option<String> {
+    use OperationKind as K;
+    let undone = matches!(
+        operation.kind,
+        Some(
+            K::RestoreFromSnapshot | K::RestoreFromSnapshotViaUndo | K::RestoreFromSnapshotViaRedo
+        )
+    );
+    if undone || operation.changes.is_empty() {
+        return operation.detail.clone();
+    }
+    let commits = |pick: fn(&Change) -> Option<&Recorded>| -> Vec<&Recorded> {
+        operation.changes.iter().filter_map(pick).collect()
+    };
+    let reworded = commits(|c| match c {
+        Change::Reworded { after, .. } => Some(after),
+        _ => None,
+    });
+    let added = commits(|c| match c {
+        Change::Added { commit, .. } => Some(commit),
+        _ => None,
+    });
+    let moved = commits(|c| match c {
+        Change::Moved { commit, .. } => Some(commit),
+        _ => None,
+    });
+    let removed = commits(|c| match c {
+        Change::Removed { commit, .. } => Some(commit),
+        _ => None,
+    });
+    let name = |commits: &[&Recorded]| match commits {
+        [] => None,
+        [one] => Some(commit_title(one.title()).to_string()),
+        many => Some(plural(many.len(), "commit")),
+    };
+    if let (Some(K::SquashCommit), [gone], [into]) = (operation.kind, &removed[..], &reworded[..]) {
+        let (gone, into) = (commit_title(gone.title()), commit_title(into.title()));
+        return Some(format!("{gone} into {into}"));
+    }
+    if let Some(K::MergeUpstream | K::UpdateWorkspaceBase) = operation.kind
+        && !removed.is_empty()
+    {
+        return Some(format!("{} integrated", plural(removed.len(), "commit")));
+    }
+    let branch = operation.changes.iter().find_map(|change| match change {
+        Change::Renamed { to: name, .. }
+        | Change::BranchAdded(name)
+        | Change::BranchRemoved(name) => Some(name.clone()),
+        _ => None,
+    });
+    // An operation on a branch is about it, though its commits came or went with it.
+    let on_commits = matches!(
+        operation.kind,
+        Some(
+            K::CreateCommit
+                | K::AmendCommit
+                | K::UpdateCommitMessage
+                | K::SquashCommit
+                | K::CherryPick
+                | K::MoveCommit
+                | K::MoveCommitFile
+                | K::UndoCommit
+                | K::DiscardCommit
+                | K::InsertBlankCommit
+        )
+    );
+    if !on_commits && branch.is_some() {
+        return branch;
+    }
+    (name(&reworded).or_else(|| name(&added)))
+        .or_else(|| name(&moved))
+        .or_else(|| name(&removed))
+        .or(branch)
+        .or_else(|| operation.detail.clone())
+}
+
 pub(super) struct History {
     project: ProjectId,
     operations: Vec<Operation>,
@@ -139,9 +225,23 @@ impl Detail {
         {
             history.loading = true;
         }
+        // What the newest operation left, which its snapshot is compared with.
+        let now: Branches = (self.store.read(cx).workspace(project).into_iter())
+            .flat_map(|ws| &ws.stacks)
+            .flat_map(|stack| &stack.branches)
+            .map(|branch| {
+                let commits = (branch.commits.iter()).map(|commit| Recorded {
+                    id: commit.id,
+                    key: commit.key.clone(),
+                    message: commit.message.clone(),
+                });
+                (branch.name.clone(), commits.collect())
+            })
+            .collect();
         let project = project.clone();
         self._history_load = cx.spawn(async move |this, cx| {
-            let result = backend::run(move || backend::history::list(&path, after, limit)).await;
+            let result =
+                backend::run(move || backend::history::list(&path, after, limit, now)).await;
             this.update(cx, |this, cx| {
                 let (operations, more) = match result {
                     Ok(page) => page,
@@ -297,6 +397,182 @@ impl Detail {
             .ok();
     }
 
+    /// Whether [`Self::render_operation_header`] draws one for `project`.
+    pub(super) fn has_operation_header(&self, project: &ProjectId) -> bool {
+        self.selected_operation(project).is_some()
+    }
+
+    /// Over the diff, what the selected operation was: what and when, the branch it was on,
+    /// and each commit and branch it changed, a commit still in the workspace a way to it.
+    pub(super) fn render_operation_header(
+        &self,
+        project: &ProjectId,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        use OperationKind as K;
+        let operation = self.selected_operation(project)?;
+        let mut branches: Vec<&str> = Vec::new();
+        for change in &operation.changes {
+            if let Change::Added { branch, .. }
+            | Change::Removed { branch, .. }
+            | Change::Reworded { branch, .. }
+            | Change::Moved { to: branch, .. } = change
+                && !branches.contains(&branch.as_str())
+            {
+                branches.push(branch);
+            }
+        }
+        let undone = matches!(
+            operation.kind,
+            Some(
+                K::RestoreFromSnapshot
+                    | K::RestoreFromSnapshotViaUndo
+                    | K::RestoreFromSnapshotViaRedo
+            )
+        );
+        let when = format!(
+            "{} {}",
+            day_label(operation.time),
+            clock_time(operation.time)
+        );
+        let meta = meta_row(theme)
+            .child(meta_item(Icon::Clock, theme).child(when))
+            .when_some(operation.detail.clone().filter(|_| undone), |el, what| {
+                el.child(meta_item(Icon::Undo, theme).child(what))
+            })
+            .when_some(Some(branches).filter(|b| b.len() == 1), |el, branches| {
+                el.child(meta_item(Icon::Branch, theme).child(branches[0].to_owned()))
+            });
+        let more = operation.changes.len().saturating_sub(LISTED);
+        let lines = (operation.changes.iter().take(LISTED).enumerate())
+            .map(|(ix, change)| self.change_line(ix, project, operation.kind, change, theme, cx));
+        let main = v_flex()
+            .gap(px(10.))
+            .child(
+                page_title(operation_icon(operation.kind), theme)
+                    .child(title_text(operation.title.clone())),
+            )
+            .child(meta)
+            .when(!operation.changes.is_empty(), |el| {
+                el.child(v_flex().gap(px(4.)).children(lines).when(more > 0, |el| {
+                    el.child(faint(format!("and {more} more"), theme))
+                }))
+            });
+        let (id, menu_project) = (operation.id, project.clone());
+        let menu = icon_button("operation-menu", Icon::Kebab).on_click(cx.listener(
+            move |this, event: &gpui::ClickEvent, _, cx| {
+                this.operation_menu(&menu_project, id, event.position(), cx)
+            },
+        ));
+        Some(
+            v_flex()
+                .flex_1()
+                .h_full()
+                .min_w(px(0.))
+                .child(self.header_frame(main, menu, None, None, theme))
+                .into_any_element(),
+        )
+    }
+
+    /// One of an operation's changes in its header: a glyph, the commit's title or the
+    /// branch's name, then where, faint.
+    fn change_line(
+        &self,
+        ix: usize,
+        project: &ProjectId,
+        kind: Option<OperationKind>,
+        change: &Change,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        use OperationKind as K;
+        let integrated = matches!(kind, Some(K::MergeUpstream | K::UpdateWorkspaceBase));
+        let title = |commit: &Recorded| commit_title(commit.title()).to_string();
+        let (glyph, color, commit, text, note): (_, _, Option<CommitId>, _, _) = match change {
+            Change::Added { commit, branch } => (
+                Icon::Plus,
+                theme.safe,
+                Some(commit.id),
+                title(commit),
+                format!("on {branch}"),
+            ),
+            Change::Removed { commit, .. } if integrated => (
+                Icon::Tick,
+                theme.safe,
+                None,
+                title(commit),
+                "now in the target".to_owned(),
+            ),
+            Change::Removed { commit, branch } => (
+                Icon::Cross,
+                theme.text_3,
+                None,
+                title(commit),
+                format!("from {branch}"),
+            ),
+            Change::Reworded { before, after, .. } => (
+                Icon::Edit,
+                theme.text_2,
+                Some(after.id),
+                title(after),
+                match before.title() == after.title() {
+                    true => "its description changed".to_owned(),
+                    false => format!("was \"{}\"", title(before)),
+                },
+            ),
+            Change::Moved { commit, from, to } => (
+                Icon::Commit,
+                theme.text_2,
+                Some(commit.id),
+                title(commit),
+                format!("from {from} to {to}"),
+            ),
+            Change::BranchAdded(name) => (
+                Icon::Branch,
+                theme.text_2,
+                None,
+                name.clone(),
+                "new branch".to_owned(),
+            ),
+            Change::BranchRemoved(name) => (
+                Icon::Branch,
+                theme.text_3,
+                None,
+                name.clone(),
+                "removed".to_owned(),
+            ),
+            Change::Renamed { from, to } => (
+                Icon::Branch,
+                theme.text_2,
+                None,
+                to.clone(),
+                format!("was {from}"),
+            ),
+        };
+        // A commit the workspace still has opens, as a breadcrumb does.
+        let here = commit.filter(|id| self.store.read(cx).find_commit(project, *id).is_some());
+        let (store, project) = (self.store.clone(), project.clone());
+        h_flex()
+            .id(("operation-change", ix))
+            .min_w(px(0.))
+            .gap(px(8.))
+            .text_size(px(13.))
+            .child(small_icon(glyph).text_color(color))
+            .child(div().min_w(px(0.)).truncate().child(text))
+            .child(faint(note, theme).flex_none().max_w(px(320.)).truncate())
+            .when_some(here, |el, id| {
+                el.cursor_pointer()
+                    .hover(|el| el.text_color(theme.blue))
+                    .tooltip(Tooltip::text("Show this commit"))
+                    .on_click(move |_, _, cx| {
+                        let selection = Selection::Commit(project.clone(), id);
+                        store.update(cx, |store, cx| store.select(Some(selection), cx))
+                    })
+            })
+            .into_any_element()
+    }
+
     /// Record how the project is now, to come back to later.
     pub(super) fn take_snapshot(&self, project: &ProjectId, cx: &mut Context<Self>) {
         self.store.update(cx, |store, cx| {
@@ -349,8 +625,7 @@ impl Detail {
                             false => color,
                         };
                         let id = operation.id;
-                        // As Tauri's: its kind's glyph, what was done and to what, then its
-                        // snapshot's short ID and when, faint.
+                        // Its kind's glyph, what was done and to what, then when, faint.
                         side_row(("operation", ix), selected, on, theme)
                             .child(
                                 small_icon(operation_icon(operation.kind))
@@ -368,13 +643,7 @@ impl Detail {
                                     .min_w(px(0.))
                                     .truncate()
                                     .text_color(quiet(theme.text_2))
-                                    .children(operation.detail.clone()),
-                            )
-                            .child(
-                                faint(id.0.to_hex_with_len(7).to_string(), theme)
-                                    .flex_none()
-                                    .font_family(theme.mono_font.clone())
-                                    .text_color(quiet(theme.text_3)),
+                                    .children(summary(operation)),
                             )
                             .child(
                                 faint(clock_time(operation.time), theme)

@@ -345,14 +345,16 @@ impl Detail {
             // it is a list with nothing in it.
             let (drawing, title, detail): (_, _, SharedString) = match diff.key.source {
                 DiffSource::Worktree | DiffSource::Linked(_) => (
-                    Illustration::Waving,
+                    Some(Illustration::Waving),
                     "No uncommitted changes",
                     "Edits show up here as soon as they're saved".into(),
                 ),
-                _ => (Illustration::Cactus, "", self.changes_nothing(cx)),
+                // The header above says what it did instead.
+                DiffSource::Snapshot { .. } => (None, "", "It changed no files".into()),
+                _ => (Some(Illustration::Cactus), "", self.changes_nothing(cx)),
             };
             return ground()
-                .child(empty_state(Some(drawing), title, detail, theme, cx))
+                .child(empty_state(drawing, title, detail, theme, cx))
                 .into_any_element();
         }
         if diff.rows.is_empty() && self.filtering {
