@@ -20,7 +20,7 @@ use crate::state::{Cut, Overlay, Picks, Prefs, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::illustration::Illustration;
-use crate::ui::person::author_avatar;
+use crate::ui::person::byline_avatar;
 use crate::ui::{
     Icon, ROW_HEIGHT, Tooltip, age_column, empty_state, faint, field, h_flex, icon_button,
     relative_time, review, small_icon, v_flex,
@@ -1007,15 +1007,20 @@ impl Detail {
                                         div()
                                             .id(("other-branch-author", ix))
                                             .flex_none()
-                                            .child(author_avatar(
+                                            .child(byline_avatar(
                                                 author,
                                                 branch.email.as_deref().unwrap_or_default(),
+                                                branch.agent.as_ref(),
                                                 14.,
                                                 theme,
                                             ))
-                                            .tooltip(Tooltip::text(format!(
-                                                "Last commit by {author}"
-                                            ))),
+                                            .tooltip(Tooltip::text(match &branch.agent {
+                                                Some(agent) => format!(
+                                                    "Last commit by {author}, written by {}",
+                                                    agent.name
+                                                ),
+                                                None => format!("Last commit by {author}"),
+                                            })),
                                     )
                                 })
                                 // Its slot kept for an author without a time, so the

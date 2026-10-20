@@ -12,7 +12,7 @@ use but_core::sync::RepoExclusive;
 
 use super::ops::{full_name, holds};
 use super::reviews::{cached_reviews, from_cache};
-use super::{CommitId, Review, ReviewState, open, runtime, short_ref, title};
+use super::{Agent, CommitId, Review, ReviewState, open, runtime, short_ref, title};
 
 #[derive(Debug, Clone)]
 pub struct TargetCommit {
@@ -20,10 +20,12 @@ pub struct TargetCommit {
     pub title: String,
     /// Seconds since the epoch.
     pub time: i64,
-    /// Who wrote it, by name.
+    /// Who it's shown by, as [`super::byline`] picks.
     pub author: String,
-    /// The author's, for their picture.
+    /// Theirs, for their picture.
     pub email: String,
+    /// The agent that wrote it, when `author` is the person who committed it.
+    pub agent: Option<Agent>,
     /// The pull request it landed, without CI checks.
     pub review: Option<Review>,
     /// The workspace doesn't have it yet.
@@ -44,17 +46,22 @@ pub fn target_commits(
         Some(limit),
     )?;
     let cached = cached_reviews(&ctx);
+    let repo = ctx.repo.get()?;
     let commits = page
         .commits
         .into_iter()
         .map(|target| {
             let commit = target.commit;
+            let author = (commit.author.name, commit.author.email);
+            let committer = super::committer(&repo, commit.id).unwrap_or_else(|| author.clone());
+            let ((author, email), agent) = super::byline(author, committer);
             TargetCommit {
                 id: CommitId(commit.id),
                 title: title(&commit.message),
                 time: (commit.committed_at / 1000) as i64,
-                author: commit.author.name,
-                email: commit.author.email,
+                author,
+                email,
+                agent,
                 review: target.review.map(|review| {
                     let mut found = match cached.get(&(review.number as u64)) {
                         Some(found) => from_cache(found),

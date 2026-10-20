@@ -11,6 +11,7 @@ use gpui::{
     svg,
 };
 
+use crate::backend::Agent;
 use crate::theme::Theme;
 
 /// The pattern's grid, in blocks across.
@@ -53,6 +54,38 @@ pub fn author_avatar(name: &str, email: &str, size: f32, theme: &Theme) -> Div {
             .size_full()
             .rounded_full(),
     )
+}
+
+/// `name`'s picture, as [`author_avatar`] draws it, with `agent`'s small at its corner when an
+/// agent wrote what they committed.
+pub fn byline_avatar(
+    name: &str,
+    email: &str,
+    agent: Option<&Agent>,
+    size: f32,
+    theme: &Theme,
+) -> Div {
+    let person = author_avatar(name, email, size, theme);
+    let Some(agent) = agent else {
+        return person;
+    };
+    let small = (size * 0.6).round();
+    person.child(
+        author_avatar(&agent.name, &agent.email, small, theme)
+            .absolute()
+            .right(px(-small / 3.))
+            .bottom(px(-small / 3.))
+            .border_1()
+            .border_color(theme.bg_1),
+    )
+}
+
+/// Who it's by, in words: `name`, and `agent` with them when an agent wrote it.
+pub fn byline_text(name: &str, agent: Option<&Agent>) -> String {
+    match agent {
+        Some(agent) => format!("{name} with {}", agent.name),
+        None => name.to_owned(),
+    }
 }
 
 /// The photo for a lowercased email, fetched once a run, off the UI thread: the GitHub

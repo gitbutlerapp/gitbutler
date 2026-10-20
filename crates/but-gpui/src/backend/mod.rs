@@ -434,16 +434,39 @@ fn branch_from(
     }
 }
 
+/// A signature's `name` and `email`, as [`byline`] takes them.
+fn signature(name: &gix::bstr::BStr, email: &gix::bstr::BStr) -> (String, String) {
+    (
+        name.to_str_lossy().into_owned(),
+        email.to_str_lossy().into_owned(),
+    )
+}
+
+/// The committer of commit `id`, as [`byline`] takes it, when the repository has it.
+fn committer(repo: &gix::Repository, id: gix::ObjectId) -> Option<(String, String)> {
+    let commit = repo.find_commit(id).ok()?;
+    let committer = commit.committer().ok()?;
+    Some(signature(committer.name, committer.email))
+}
+
 fn commit_from(local: &but_workspace::ref_info::LocalCommit) -> Commit {
     use but_workspace::ref_info::LocalCommitRelation as R;
     let inner = &local.inner;
+    let ((author, email), agent) = byline(
+        signature(inner.author.name.as_ref(), inner.author.email.as_ref()),
+        signature(
+            inner.committer.name.as_ref(),
+            inner.committer.email.as_ref(),
+        ),
+    );
     Commit {
         id: CommitId(inner.id),
         key: inner.change_id().to_string(),
         title: title(&inner.message),
         message: inner.message.to_str_lossy().trim_end().to_string(),
-        author: inner.author.name.to_str_lossy().into_owned(),
-        email: inner.author.email.to_str_lossy().into_owned(),
+        author,
+        email,
+        agent,
         time: inner.author.time.seconds,
         state: match local.relation {
             R::LocalOnly => CommitState::Local,

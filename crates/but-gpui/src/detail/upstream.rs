@@ -16,7 +16,7 @@ use crate::backend::{self, CommitId, DiffSource, Forge, Review};
 use crate::state::{Overlay, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
-use crate::ui::person::author_avatar;
+use crate::ui::person::byline_avatar;
 use crate::ui::{
     Icon, Tooltip, age_column, error_summary, h_flex, icon, list_row, muted, plural, relative_time,
     small_icon, v_flex,
@@ -616,16 +616,20 @@ impl Detail {
                                         div()
                                             .id(("target-commit-author", ix))
                                             .flex_none()
-                                            .child(author_avatar(
+                                            .child(byline_avatar(
                                                 &commit.author,
                                                 &commit.email,
+                                                commit.agent.as_ref(),
                                                 14.,
                                                 theme,
                                             ))
-                                            .tooltip(Tooltip::text(format!(
-                                                "Authored by {}",
-                                                commit.author
-                                            ))),
+                                            .tooltip(Tooltip::text(match &commit.agent {
+                                                Some(agent) => format!(
+                                                    "Committed by {}, written by {}",
+                                                    commit.author, agent.name
+                                                ),
+                                                None => format!("Authored by {}", commit.author),
+                                            })),
                                     )
                                     .child(quiet(age_column(Some(commit.time), theme), on, theme))
                                     .on_click(cx.listener(move |this, _, window, cx| {

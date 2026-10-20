@@ -9,7 +9,7 @@ use but_branches::ListedStackStatus;
 
 use super::ops::full_name;
 use super::reviews::from_cache;
-use super::{CommitId, Review, open, title};
+use super::{Agent, CommitId, Review, open, title};
 
 #[derive(Debug, Clone)]
 pub struct OtherBranch {
@@ -17,9 +17,12 @@ pub struct OtherBranch {
     pub ref_name: String,
     pub name: String,
     pub local: bool,
+    /// Who its newest commit is shown by, as [`super::byline`] picks.
     pub author: Option<String>,
-    /// Its newest commit's author's, for their picture.
+    /// Theirs, for their picture.
     pub email: Option<String>,
+    /// The agent that wrote its newest commit, when `author` is the person who committed it.
+    pub agent: Option<Agent>,
     /// When it last changed, in seconds since the epoch.
     pub time: Option<i64>,
     /// Commits it has that the target doesn't, when known.
@@ -38,6 +41,7 @@ pub struct OtherBranch {
 /// from the top; not the target.
 pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
     let ctx = open(path)?;
+    let repo = ctx.repo.get()?;
     Ok(but_api::branch::branch_list(&ctx)?
         .into_iter()
         .filter(|stack| {
@@ -50,14 +54,20 @@ pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
         .flat_map(|(stack, listed)| listed.branches.into_iter().map(move |b| (stack, b)))
         .map(|(stack, listed)| {
             let branch = listed.branch;
+            let byline = branch.last_author.as_ref().map(|author| {
+                let author = super::signature(author.name.as_ref(), author.email.as_ref());
+                let committer = super::committer(&repo, branch.tip);
+                super::byline(author.clone(), committer.unwrap_or(author))
+            });
+            let (person, agent) = byline.unzip();
+            let (author, email) = person.unzip();
             OtherBranch {
                 ref_name: branch.ref_name.to_string(),
                 name: branch.display_name.to_str_lossy().into_owned(),
                 local: branch.has_local,
-                author: (branch.last_author.as_ref())
-                    .map(|author| author.name.to_str_lossy().into_owned()),
-                email: (branch.last_author.as_ref())
-                    .map(|author| author.email.to_str_lossy().into_owned()),
+                author,
+                email,
+                agent: agent.flatten(),
                 time: branch.updated_at_ms.map(|ms| ms / 1000),
                 ahead: branch.commits_ahead_of_target,
                 own_commits: branch.commit_count,

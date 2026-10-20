@@ -387,6 +387,46 @@ impl Branch {
     }
 }
 
+/// A coding agent, or a bot, that wrote a commit a person committed.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Agent {
+    pub name: String,
+    pub email: String,
+}
+
+/// Who a commit is shown by, from its author's and its committer's name and email: its author,
+/// unless that's an agent and the committer a person, who then leads, with the agent. Not the
+/// committer in general: a rebase or a cherry-pick makes whoever ran it that.
+pub fn byline(
+    author: (String, String),
+    committer: (String, String),
+) -> ((String, String), Option<Agent>) {
+    if is_person(&author.0, &author.1) || !is_person(&committer.0, &committer.1) {
+        return (author, None);
+    }
+    let agent = Agent {
+        name: author.0,
+        email: author.1,
+    };
+    (committer, Some(agent))
+}
+
+/// Whether `name` <`email`> is a person: not a coding agent or a bot, nor GitHub committing a
+/// pull request merged on its website.
+fn is_person(name: &str, email: &str) -> bool {
+    let email = email.to_ascii_lowercase();
+    !(name.ends_with("[bot]")
+        || email.ends_with("[bot]@users.noreply.github.com")
+        || email.ends_with("+copilot@users.noreply.github.com")
+        || matches!(
+            email.as_str(),
+            "codex@openai.com"
+                | "noreply@anthropic.com"
+                | "cursoragent@cursor.com"
+                | "noreply@github.com"
+        ))
+}
+
 #[derive(Debug, Clone)]
 pub struct Commit {
     pub id: CommitId,
@@ -395,9 +435,13 @@ pub struct Commit {
     pub key: String,
     pub title: String,
     pub message: String,
+    /// Who it's shown by, as [`byline`] picks: its author, or the person who committed what an
+    /// agent wrote.
     pub author: String,
-    /// The author's, for their picture.
+    /// Theirs, for their picture.
     pub email: String,
+    /// The agent that wrote it, when `author` is the person who committed it.
+    pub agent: Option<Agent>,
     /// Seconds since the Unix epoch.
     pub time: i64,
     pub state: CommitState,
@@ -924,6 +968,36 @@ mod tests {
     }
 
     #[test]
+    fn an_agents_commit_is_shown_by_the_person_who_committed_it() {
+        let person = |name: &str, email: &str| (name.to_owned(), email.to_owned());
+        let (codex, byron) = (
+            person("Codex GPT-6", "codex@openai.com"),
+            person("Byron", "b@x.io"),
+        );
+        let ((name, _), agent) = super::byline(codex.clone(), byron.clone());
+        assert_eq!(name, "Byron", "the person leads");
+        assert_eq!(
+            agent.map(|a| a.name).as_deref(),
+            Some("Codex GPT-6"),
+            "with the agent"
+        );
+
+        let (scott, kiril) = (person("Scott", "s@x.io"), person("Kiril", "k@x.io"));
+        let ((name, _), agent) = super::byline(scott, kiril);
+        assert!(
+            name == "Scott" && agent.is_none(),
+            "a person's commit stays theirs, rebased or not"
+        );
+
+        let web = person("GitHub", "noreply@github.com");
+        let ((name, _), agent) = super::byline(codex, web);
+        assert!(
+            name == "Codex GPT-6" && agent.is_none(),
+            "a merge on GitHub's website isn't a person"
+        );
+    }
+
+    #[test]
     fn a_commit_made_by_plain_git_has_no_change_id_of_its_own() {
         let id = gix::ObjectId::from_hex(b"99a9648a9b2cf5a631d8ef586f97005604afaabc").unwrap();
         let made = but_core::commit::Headers::synthetic_change_id_from_commit_id(id);
@@ -934,6 +1008,7 @@ mod tests {
             message: String::new(),
             author: String::new(),
             email: String::new(),
+            agent: None,
             time: 0,
             state: CommitState::Local,
             conflicted: false,
