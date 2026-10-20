@@ -116,13 +116,17 @@ fn checkout(repo: &gix::Repository, name: &str) -> Option<gix::Repository> {
         .ok()
 }
 
-/// Where each linked worktree's `HEAD` points, to tell whether an operation moved one.
-pub fn heads(path: &Path) -> Vec<Option<gix::ObjectId>> {
+/// Where each linked worktree's `HEAD` points, the branch it has checked out and its commit,
+/// to tell whether an operation moved one.
+pub fn heads(path: &Path) -> Vec<Option<(Option<gix::refs::FullName>, gix::ObjectId)>> {
     let Ok(repo) = gix::open(path) else {
         return Vec::new();
     };
     (repo.worktrees().into_iter().flatten())
-        .map(|wt| Some(wt.into_repo().ok()?.head_id().ok()?.detach()))
+        .map(|wt| {
+            let repo = wt.into_repo().ok()?;
+            Some((repo.head_name().ok()?, repo.head_id().ok()?.detach()))
+        })
         .collect()
 }
 

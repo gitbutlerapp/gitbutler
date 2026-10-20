@@ -1606,4 +1606,30 @@ mod tests {
             "the rest stays uncommitted on disk"
         );
     }
+
+    #[test]
+    fn a_new_branch_checked_out_in_a_linked_worktree_moves_it() {
+        let dir = repo_with("base\n");
+        let path = dir.path();
+        let outside = tempfile::tempdir().unwrap();
+        let linked = outside.path().join("agent");
+        git(
+            path,
+            &[
+                "worktree",
+                "add",
+                "-q",
+                "-b",
+                "agent",
+                linked.to_str().unwrap(),
+            ],
+        );
+        let before = crate::backend::worktrees::heads(path);
+        git(&linked, &["checkout", "-q", "-b", "agent-next"]);
+        assert_ne!(
+            crate::backend::worktrees::heads(path),
+            before,
+            "same commit, but the oplog can't put the branch it has checked out back"
+        );
+    }
 }
