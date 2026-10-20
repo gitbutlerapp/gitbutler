@@ -166,6 +166,8 @@ impl Detail {
                                 },
                             )
                             .icon(Icon::Pr)
+                            // Creating one pushes first.
+                            .disabled_because(refused)
                             .dispatch(&crate::pr::CreatePullRequest),
                         ),
                         None if can_merge => Some(

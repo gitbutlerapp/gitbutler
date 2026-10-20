@@ -273,10 +273,15 @@ impl Navigator {
                     use crate::backend::ReviewState as S;
                     match (branch.review.as_ref()).map(|r| store.review_state(target.project(), r))
                     {
-                        None if !branch.commits.is_empty() => items.push(action(
-                            "Create pull request…",
-                            &crate::pr::CreatePullRequest,
-                        )),
+                        // Creating one pushes first.
+                        None if !branch.commits.is_empty()
+                            && workspace.push_refused(ref_name).is_none() =>
+                        {
+                            items.push(action(
+                                "Create pull request…",
+                                &crate::pr::CreatePullRequest,
+                            ))
+                        }
                         Some(S::Open) => {
                             items.push(action("Merge pull request…", &crate::pr::MergePullRequest))
                         }
