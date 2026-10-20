@@ -221,10 +221,12 @@
 }
 
 .agent-working,
+.cpu,
 .passed {
 	color: var(--text-safe);
 }
 
+.cpu-danger,
 .failed {
 	color: var(--text-danger);
 }
