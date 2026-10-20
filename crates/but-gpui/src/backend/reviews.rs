@@ -8,6 +8,7 @@ use std::path::Path;
 use anyhow::Result;
 use but_api::legacy::forge;
 use but_ctx::Context;
+use but_forge::ForgeName;
 
 use super::ops::holds;
 use super::upstream::sync_failure;
@@ -15,29 +16,45 @@ use super::{
     CheckRun, Checks, Forge, PushState, Review, ReviewState, open, push, runtime, short_ref,
 };
 
-/// Which forge hosts the project, when its target's remote says so or the project picks
-/// one in its settings.
-fn forge_name(ctx: &Context) -> Option<but_forge::ForgeName> {
+/// Which forge hosts the project: the one its target's remote, or a forge account with a
+/// matching host, names, or else `overridden`, the one its settings pick.
+fn forge_from(ctx: &Context, overridden: Option<ForgeName>) -> Option<ForgeName> {
     let meta = ctx.project_meta().ok()?;
     meta.target_ref.as_ref()?;
     let url = forge::remote_url(&meta, &*ctx.repo.get().ok()?).ok()?;
-    let overridden = ctx
-        .legacy_project
-        .forge_override
-        .as_deref()
-        .and_then(but_forge::ForgeName::from_override_str);
     Some(but_forge::derive_forge_repo_info(&url, overridden)?.forge)
+}
+
+/// [`forge_from`] with the project's settings' pick.
+fn forge_name(ctx: &Context) -> Option<ForgeName> {
+    forge_from(ctx, saved_forge(ctx))
+}
+
+/// The forge the project's settings pick, for when nothing else names one.
+fn saved_forge(ctx: &Context) -> Option<ForgeName> {
+    (ctx.legacy_project.forge_override.as_deref()).and_then(ForgeName::from_override_str)
 }
 
 /// [`forge_name`] as the app names forges.
 pub(super) fn forge_of(ctx: &Context) -> Option<Forge> {
-    use but_forge::ForgeName as F;
-    Some(match forge_name(ctx)? {
-        F::GitHub => Forge::GitHub,
-        F::GitLab => Forge::GitLab,
-        F::Bitbucket => Forge::Bitbucket,
-        F::Azure => Forge::Azure,
-    })
+    forge_name(ctx).map(app_forge)
+}
+
+/// The forge the project's remote or accounts name, and the one its settings pick.
+pub(super) fn detected_and_saved_forge(ctx: &Context) -> (Option<Forge>, Option<Forge>) {
+    (
+        forge_from(ctx, None).map(app_forge),
+        saved_forge(ctx).map(app_forge),
+    )
+}
+
+fn app_forge(name: ForgeName) -> Forge {
+    match name {
+        ForgeName::GitHub => Forge::GitHub,
+        ForgeName::GitLab => Forge::GitLab,
+        ForgeName::Bitbucket => Forge::Bitbucket,
+        ForgeName::Azure => Forge::Azure,
+    }
 }
 
 /// The pull requests the forge cache knows about, by number. Reads only the cache;

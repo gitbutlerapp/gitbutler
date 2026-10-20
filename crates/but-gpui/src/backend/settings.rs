@@ -8,8 +8,8 @@ use but_api::legacy::{config, projects};
 use but_core::settings::git::ui::GitConfigSettings;
 use but_settings::AppSettingsWithDiskSync;
 
-use super::open;
 use super::ops::full_name;
+use super::{Forge, open};
 
 /// A program to open files or the project in, by id and name.
 pub type Program = (String, String);
@@ -101,16 +101,35 @@ pub fn set_opens_at_start(on: bool) -> Result<()> {
 pub struct ProjectSettings {
     pub force_push_protection: bool,
     pub sign_commits: bool,
+    /// The forge the project's remote, or a forge account with its host, names.
+    pub detected_forge: Option<Forge>,
+    /// The forge picked for the project, which counts only when none is detected.
+    pub forge_override: Option<Forge>,
 }
 
 pub fn project_settings(path: &Path) -> Result<ProjectSettings> {
     let ctx = open(path)?;
     let git = config::get_gb_config(&ctx)?;
+    let (detected_forge, forge_override) = super::reviews::detected_and_saved_forge(&ctx);
     Ok(ProjectSettings {
         // The value a push checks.
         force_push_protection: ctx.legacy_project.force_push_protection,
         sign_commits: git.gitbutler_sign_commits.unwrap_or(false),
+        detected_forge,
+        forge_override,
     })
+}
+
+/// Pick the forge the project uses when its remote doesn't name one, or clear the pick
+/// (`None`). Saved as GitButler's other apps save it.
+pub fn set_forge_override(id: &str, forge: Option<Forge>) -> Result<()> {
+    let id = id.parse().context("Invalid project id")?;
+    let mut request = gitbutler_project::UpdateRequest::default_with_id(id);
+    match forge {
+        Some(forge) => request.forge_override = Some(forge.name().to_lowercase()),
+        None => request.unset_forge_override = true,
+    }
+    projects::update_project(request).map(|_| ())
 }
 
 /// Change the project's name, or whether it refuses force pushes that would drop others'

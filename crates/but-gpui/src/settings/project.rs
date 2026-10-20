@@ -1,4 +1,4 @@
-//! The project's pages: the selected project's name, target branch, force-push
+//! The project's pages: the selected project's name, target branch and forge, force-push
 //! protection, commit signing and Git hooks, and removing it from GitButler.
 
 use std::collections::HashSet;
@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use gpui::{App, ClickEvent, Context, DismissEvent, Window, div, prelude::*, px};
 
 use super::{Card, Page, Row, SettingsView, field_with_save};
-use crate::backend::settings as backend;
+use crate::backend::{Forge, settings as backend};
 use crate::state::{Prefs, ProjectId};
 use crate::theme::Theme;
 use crate::ui::{ButtonStyle, button, h_flex, muted, switch};
@@ -45,6 +45,16 @@ impl SettingsView {
     fn reload_project(&mut self, cx: &mut Context<Self>) {
         self.store.update(cx, |store, cx| store.load_projects(cx));
         self.show_project(self.project.clone(), cx);
+    }
+
+    /// [`Self::reload_project`], then ask the forge about pull requests and CI again, as after
+    /// picking which forge it is.
+    fn reload_forge(&mut self, cx: &mut Context<Self>) {
+        self.reload_project(cx);
+        if let Some(project) = self.project.clone() {
+            self.store
+                .update(cx, |store, _| store.refresh_forge(&project));
+        }
     }
 
     pub(super) fn project_name(&self, cx: &App) -> Option<String> {
@@ -212,6 +222,54 @@ impl SettingsView {
                         .on_click(change_target),
                 ),
         );
+        // As GitButler's other apps have it: the forge the remote names can't be changed, and
+        // a pick is offered only when it names none, or to clear one saved before.
+        let name_of = |forge: Option<Forge>| forge.map_or("None", Forge::name);
+        let forge_id = project.clone();
+        let pick_forge = self.choice(
+            "forge",
+            name_of(settings.forge_override),
+            [
+                None,
+                Some(Forge::GitHub),
+                Some(Forge::GitLab),
+                Some(Forge::Bitbucket),
+                Some(Forge::Azure),
+            ]
+            .map(|forge| (forge, name_of(forge).to_owned())),
+            move |this, forge, cx| {
+                let id = forge_id.clone();
+                this.apply(
+                    "Couldn't change the project's forge",
+                    move || backend::set_forge_override(&id, forge),
+                    Self::reload_forge,
+                    cx,
+                )
+            },
+            cx,
+        );
+        let forge = match (settings.detected_forge, settings.forge_override) {
+            (Some(detected), None) => Row::new(
+                "Forge",
+                "Where pull requests and CI are, as the remote's host names it.",
+                muted(detected.name(), theme),
+            ),
+            (Some(detected), Some(_)) => Row::new(
+                "Forge",
+                format!(
+                    "The remote's host names {}, so the forge picked here doesn't count. \
+                     None clears it.",
+                    detected.name()
+                ),
+                pick_forge,
+            ),
+            (None, _) => Row::new(
+                "Forge",
+                "Where pull requests and CI are, for a remote whose host doesn't say, as a \
+                 self-hosted forge's. GitHub, GitLab and Bitbucket can open pull requests.",
+                pick_forge,
+            ),
+        };
         let force = Row::new(
             "Protect force pushes",
             "A force push stops if someone else pushed to the branch since you last fetched, \
@@ -262,7 +320,7 @@ impl SettingsView {
         );
         match page {
             Page::Project => vec![
-                Card::new(None, vec![name, target]),
+                Card::new(None, vec![name, target, forge]),
                 Card::new(None, vec![remove]),
             ],
             _ => vec![
