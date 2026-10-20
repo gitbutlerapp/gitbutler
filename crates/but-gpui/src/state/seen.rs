@@ -131,6 +131,7 @@ mod tests {
             title: String::new(),
             message: String::new(),
             author: String::new(),
+            email: String::new(),
             time: 0,
             state: CommitState::Local,
             conflicted: false,

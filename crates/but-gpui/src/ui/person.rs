@@ -1,10 +1,14 @@
 //! A person without a picture, as GitButler's other apps draw them: a pattern in a colour,
 //! both picked from their name. A port of `@gitbutler/ui-react`'s `personColour.ts`, so an
-//! author looks the same here as on but.dev.
+//! author looks the same here as on but.dev. An author with a Gravatar photo gets it on top.
 
 use std::fmt::Write;
+use std::sync::Arc;
 
-use gpui::{Div, div, prelude::*, px, svg};
+use gpui::{
+    App, Asset, Div, ImageCacheError, ImageSource, SharedString, Window, div, img, prelude::*, px,
+    svg,
+};
 
 use crate::theme::Theme;
 
@@ -29,6 +33,44 @@ pub fn person_avatar(seed: &str, size: f32, theme: &Theme) -> Div {
                 .size_full()
                 .text_color(shade),
         )
+}
+
+/// `name`'s picture, with the Gravatar photo for `email` over their pattern once it loads.
+/// Someone without one, or offline, keeps the pattern.
+pub fn author_avatar(name: &str, email: &str, size: f32, theme: &Theme) -> Div {
+    let email = SharedString::from(email.trim().to_lowercase());
+    let photo =
+        move |window: &mut Window, cx: &mut App| match window.use_asset::<Gravatar>(&email, cx)? {
+            Some(photo) => photo.use_render_image(window, cx).map(Ok),
+            None => Some(Err(ImageCacheError::Asset("No Gravatar".into()))),
+        };
+    person_avatar(name, size, theme).relative().child(
+        img(ImageSource::Custom(Arc::new(photo)))
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full()
+            .rounded_full(),
+    )
+}
+
+/// The Gravatar photo for a lowercased email, fetched once a run. `d=404` asks for a real
+/// photo only, so someone without one gets `None` rather than a generated face.
+struct Gravatar;
+
+impl Asset for Gravatar {
+    type Source = SharedString;
+    type Output = Option<Arc<gpui::Image>>;
+
+    fn load(
+        email: SharedString,
+        _: &mut App,
+    ) -> impl Future<Output = Self::Output> + Send + 'static {
+        let hash = md5::compute(email.as_bytes());
+        let url = format!("https://www.gravatar.com/avatar/{hash:x}?s=64&r=g&d=404");
+        let photo = crate::backend::run(move || crate::backend::accounts::avatar(&url));
+        async move { photo.await.ok() }
+    }
 }
 
 /// The SVG of a pattern, by its asset path: one colour, clipped to the circle it's shown in.

@@ -22,6 +22,8 @@ pub struct TargetCommit {
     pub time: i64,
     /// Who wrote it, by name.
     pub author: String,
+    /// The author's, for their picture.
+    pub email: String,
     /// The pull request it landed, without CI checks.
     pub review: Option<Review>,
     /// The workspace doesn't have it yet.
@@ -52,6 +54,7 @@ pub fn target_commits(
                 title: title(&commit.message),
                 time: (commit.committed_at / 1000) as i64,
                 author: commit.author.name,
+                email: commit.author.email,
                 review: target.review.map(|review| {
                     let mut found = match cached.get(&(review.number as u64)) {
                         Some(found) => from_cache(found),

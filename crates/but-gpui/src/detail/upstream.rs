@@ -13,7 +13,7 @@ use crate::backend::{self, CommitId, DiffSource, Forge, Review};
 use crate::state::{Overlay, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
-use crate::ui::person::person_avatar;
+use crate::ui::person::author_avatar;
 use crate::ui::{
     Icon, Tooltip, age_column, error_summary, h_flex, icon, list_row, muted, plural, relative_time,
     small_icon, v_flex,
@@ -590,7 +590,12 @@ impl Detail {
                                         div()
                                             .id(("target-commit-author", ix))
                                             .flex_none()
-                                            .child(person_avatar(&commit.author, 14., theme))
+                                            .child(author_avatar(
+                                                &commit.author,
+                                                &commit.email,
+                                                14.,
+                                                theme,
+                                            ))
                                             .tooltip(Tooltip::text(format!(
                                                 "Authored by {}",
                                                 commit.author

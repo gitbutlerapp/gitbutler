@@ -54,6 +54,7 @@ bstr.workspace = true
 chrono = { workspace = true, features = ["clock"] }
 gix = { workspace = true, features = ["sha1"] }
 reqwest.workspace = true
+md5.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 # GitButler, consumed only from `src/backend`.

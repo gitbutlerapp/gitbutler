@@ -396,6 +396,8 @@ pub struct Commit {
     pub title: String,
     pub message: String,
     pub author: String,
+    /// The author's, for their picture.
+    pub email: String,
     /// Seconds since the Unix epoch.
     pub time: i64,
     pub state: CommitState,
@@ -931,6 +933,7 @@ mod tests {
             title: String::new(),
             message: String::new(),
             author: String::new(),
+            email: String::new(),
             time: 0,
             state: CommitState::Local,
             conflicted: false,

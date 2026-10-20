@@ -18,6 +18,8 @@ pub struct OtherBranch {
     pub name: String,
     pub local: bool,
     pub author: Option<String>,
+    /// Its newest commit's author's, for their picture.
+    pub email: Option<String>,
     /// When it last changed, in seconds since the epoch.
     pub time: Option<i64>,
     /// Commits it has that the target doesn't, when known.
@@ -52,9 +54,10 @@ pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
                 ref_name: branch.ref_name.to_string(),
                 name: branch.display_name.to_str_lossy().into_owned(),
                 local: branch.has_local,
-                author: branch
-                    .last_author
+                author: (branch.last_author.as_ref())
                     .map(|author| author.name.to_str_lossy().into_owned()),
+                email: (branch.last_author.as_ref())
+                    .map(|author| author.email.to_str_lossy().into_owned()),
                 time: branch.updated_at_ms.map(|ms| ms / 1000),
                 ahead: branch.commits_ahead_of_target,
                 own_commits: branch.commit_count,

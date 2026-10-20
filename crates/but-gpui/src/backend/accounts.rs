@@ -162,11 +162,14 @@ pub fn gitbutler_user() -> Option<GitButlerUser> {
     )
 }
 
-/// The picture at `url`, as an image to draw.
+/// The picture at `url`, as an image to draw. A network that never answers gives up after
+/// ten seconds rather than holding a thread.
 pub fn avatar(url: &str) -> Result<std::sync::Arc<gpui::Image>> {
     use gpui::ImageFormat as F;
     let bytes = runtime().handle().block_on(async {
-        anyhow::Ok(reqwest::get(url).await?.error_for_status()?.bytes().await?)
+        let request = reqwest::Client::new().get(url);
+        let response = request.timeout(std::time::Duration::from_secs(10)).send();
+        anyhow::Ok(response.await?.error_for_status()?.bytes().await?)
     })?;
     let format = match bytes.as_ref() {
         [0x89, b'P', b'N', b'G', ..] => F::Png,
