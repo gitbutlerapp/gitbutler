@@ -5,14 +5,15 @@ use std::ops::Range;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, ClickEvent, Context, Div, ElementId, Entity, SharedString, Stateful,
-    UniformListScrollHandle, Window, div, prelude::*, px, uniform_list,
+    AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, MouseButton, MouseDownEvent,
+    SharedString, Stateful, UniformListScrollHandle, Window, div, prelude::*, px, uniform_list,
 };
 
 use super::Detail;
 use crate::app::StartCommit;
 use crate::backend::{self, CommitState, PushState, short_ref};
-use crate::state::{MeshPick, ProjectId, Selection};
+use crate::overlays::MenuItem;
+use crate::state::{Cut, MeshPick, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
 use crate::ui::person::{byline_avatar, byline_text};
@@ -74,6 +75,12 @@ impl Detail {
                     };
                     crumbs.push(heading(selection));
                     crumbs.push((name.to_owned().into(), None));
+                    // The remote's commit shown in place of the branch's diff.
+                    let remote = (self.remote_commit(project, ref_name, cx))
+                        .and_then(|id| branch?.incoming.iter().find(|(c, _)| *c == id));
+                    if let Some((_, title)) = remote {
+                        crumbs.push((commit_title(title).to_string().into(), None));
+                    }
                 }
                 Selection::Branches(project) => {
                     crumbs.push(("Branches".into(), Some(selection.clone())));
@@ -825,10 +832,15 @@ impl Detail {
             .size_full()
             .children(resolve_oldest.map(|banner| side_header(theme).child(banner)))
             .when(!branch.incoming.is_empty(), |el| {
-                let pull = ws
-                    .can_pull(ref_name)
-                    .then(|| (project.clone(), ref_name.to_owned()));
-                el.child(render_incoming(&branch.incoming, pull, theme, cx))
+                let can_pull = ws.can_pull(ref_name);
+                el.child(self.render_incoming(
+                    project,
+                    ref_name,
+                    &branch.incoming,
+                    can_pull,
+                    theme,
+                    cx,
+                ))
             })
             .child(files)
             .into_any_element()
@@ -836,6 +848,120 @@ impl Detail {
 }
 
 impl Detail {
+    /// The commit only `ref_name`'s remote has that its page shows, while it's still one.
+    pub(super) fn remote_commit(
+        &self,
+        project: &ProjectId,
+        ref_name: &str,
+        cx: &App,
+    ) -> Option<backend::CommitId> {
+        let (p, r, id) = self.remote_commit.as_ref()?;
+        let branch = self
+            .store
+            .read(cx)
+            .workspace(project)?
+            .find_branch(ref_name)?;
+        (p == project && r == ref_name && branch.incoming.iter().any(|(c, _)| c == id))
+            .then_some(*id)
+    }
+
+    /// The commits only the branch's remote has, as an agent or a teammate pushed them, and
+    /// Pull to bring them in when it can. Clicking one shows its diff in place of the
+    /// branch's, and again goes back; right-clicking offers what a Branches page commit does.
+    fn render_incoming(
+        &self,
+        project: &ProjectId,
+        ref_name: &str,
+        incoming: &[(backend::CommitId, String)],
+        can_pull: bool,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let picked = self.remote_commit(project, ref_name, cx);
+        let pull = (project.clone(), ref_name.to_owned());
+        let rows = incoming.iter().enumerate().map(|(ix, (id, title))| {
+            let (id, on) = (*id, picked == Some(*id));
+            let key = (project.clone(), ref_name.to_owned());
+            list_row(("remote-commit", ix), on, theme)
+                .mx(px(8.))
+                .text_color(theme.text_2)
+                .child(small_icon(Icon::ArrowDown).text_color(theme.text_3))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .truncate()
+                        .child(commit_title(title)),
+                )
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    let (project, ref_name) = key.clone();
+                    this.remote_commit = (!on).then_some((project, ref_name, id));
+                    this.show_picked(cx);
+                }))
+                .on_mouse_down(MouseButton::Right, {
+                    let project = project.clone();
+                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                        let project = project.clone();
+                        let items = vec![
+                            MenuItem::new("Cherry-pick", move |app, _, cx| {
+                                app.cut(Cut::CherryPick(project.clone(), [id].into()), cx)
+                            }),
+                            MenuItem::new("Copy commit ID", move |app, _, cx| {
+                                app.copy_text(id.0.to_string(), cx)
+                            }),
+                        ];
+                        (this.app)
+                            .update(cx, |app, cx| app.open_menu(event.position, items, cx))
+                            .ok();
+                    })
+                })
+        });
+        v_flex()
+            .flex_none()
+            .py(px(10.))
+            .gap(px(2.))
+            .border_b_1()
+            .border_color(theme.border_3)
+            .text_size(px(12.))
+            .child(
+                h_flex()
+                    .px(px(16.))
+                    .gap(px(8.))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w(px(0.))
+                            .text_color(theme.warn)
+                            .child(format!(
+                                "{} only on the remote",
+                                plural(incoming.len(), "commit")
+                            )),
+                    )
+                    .when(can_pull, |el| {
+                        el.child(
+                            button("pull-remote", "Pull")
+                                .small()
+                                .tooltip("Bring them in, with this branch's own commits on top")
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    let (project, ref_name) = pull.clone();
+                                    this.store.update(cx, |store, cx| {
+                                        store.pull_remote(&project, ref_name, None, cx)
+                                    })
+                                })),
+                        )
+                    }),
+            )
+            .when(!can_pull, |el| {
+                el.child(
+                    div().px(px(16.)).text_color(theme.text_3).child(
+                        "Pulling into a branch with others stacked on it isn't possible yet.",
+                    ),
+                )
+            })
+            .children(rows)
+            .into_any_element()
+    }
+
     /// What a stack's branches change together: its branches, top first, and how many
     /// commits they have, over their files.
     pub(super) fn render_stack_side(
@@ -856,72 +982,6 @@ impl Detail {
         // Its header says what the stack is; here, its files.
         self.render_diff_file_list(theme, cx)
     }
-}
-
-/// The commits only the branch's remote has, as an agent or a teammate pushed them, and
-/// a way to bring them in: `pull`, the branch's project and full ref, when it can.
-fn render_incoming(
-    incoming: &[(backend::CommitId, String)],
-    pull: Option<(ProjectId, String)>,
-    theme: &Theme,
-    cx: &Context<Detail>,
-) -> AnyElement {
-    let can_pull = pull.is_some();
-    v_flex()
-        .flex_none()
-        .px(px(16.))
-        .py(px(10.))
-        .gap(px(4.))
-        .border_b_1()
-        .border_color(theme.border_3)
-        .text_size(px(12.))
-        .child(
-            h_flex()
-                .gap(px(8.))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w(px(0.))
-                        .text_color(theme.warn)
-                        .child(format!(
-                            "{} only on the remote",
-                            plural(incoming.len(), "commit")
-                        )),
-                )
-                .when_some(pull, |el, (project, ref_name)| {
-                    el.child(
-                        button("pull-remote", "Pull")
-                            .small()
-                            .tooltip("Bring them in, with this branch's own commits on top")
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                this.store.update(cx, |store, cx| {
-                                    store.pull_remote(&project, ref_name.clone(), None, cx)
-                                })
-                            })),
-                    )
-                }),
-        )
-        .when(!can_pull, |el| {
-            el.child(
-                div()
-                    .text_color(theme.text_3)
-                    .child("Pulling into a branch with others stacked on it isn't possible yet."),
-            )
-        })
-        .children(incoming.iter().map(|(_, title)| {
-            h_flex()
-                .gap(px(6.))
-                .text_color(theme.text_2)
-                .child(small_icon(Icon::ArrowDown).text_color(theme.text_3))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w(px(0.))
-                        .truncate()
-                        .child(commit_title(title)),
-                )
-        }))
-        .into_any_element()
 }
 
 /// A crumb of the header: what it names, and what clicking it selects.

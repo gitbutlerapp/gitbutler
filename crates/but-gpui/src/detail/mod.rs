@@ -296,6 +296,9 @@ pub struct Detail {
     message_open: bool,
     /// Whether a branch with a pull request shows it in place of its changes.
     review_tab: bool,
+    /// A commit only the selected branch's remote has, picked on its page to see its diff in
+    /// place of the branch's: the branch's project and ref, and the commit.
+    remote_commit: Option<(ProjectId, String, backend::CommitId)>,
     /// Whether the pull request's checks that passed are listed, not just counted.
     passed_checks_open: bool,
     review_scroll: ScrollHandle,
@@ -369,6 +372,7 @@ impl Detail {
         let subscriptions = vec![
             cx.subscribe(&store, |this, _, event, cx| match event {
                 StoreEvent::SelectionChanged => {
+                    this.remote_commit = None;
                     // A commit an operation rewrote is still the one being looked at.
                     let followed =
                         (this.key_for_selection(cx)).is_some_and(|key| this.follows(&key, cx));
@@ -536,6 +540,7 @@ impl Detail {
             cursor: Cursor::default(),
             message_open: false,
             review_tab: false,
+            remote_commit: None,
             passed_checks_open: false,
             review_scroll: ScrollHandle::new(),
             header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),
@@ -610,6 +615,12 @@ impl Detail {
             Selection::Mesh(project, id, pick) => self.machine_source(project, id, pick)?,
             Selection::Commit(_, id) => DiffSource::Commit(*id),
             Selection::Branch(project, ref_name) => {
+                if let Some(id) = self.remote_commit(project, ref_name, cx) {
+                    return Some(DiffKey {
+                        project: project.clone(),
+                        source: DiffSource::Commit(id),
+                    });
+                }
                 let branch = store.workspace(project)?.find_branch(ref_name)?;
                 let newest = branch.commits.first()?.id;
                 let oldest = branch.commits.last()?.id;
