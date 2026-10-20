@@ -799,11 +799,13 @@ impl Detail {
                     let mut shown = None;
                     match result {
                         Ok(files) => {
-                            let files = Arc::new(files);
-                            if files.iter().any(|file| !file.annotated) {
-                                shown = Some(files.clone());
+                            let partial = files.iter().any(|file| !file.annotated);
+                            this.show_diff(key.clone(), Arc::new(files), cx);
+                            // The files as shown: sorted into the list's order, they're a copy,
+                            // which the full load checks it still replaces.
+                            if partial {
+                                shown = this.diff.as_ref().map(|diff| diff.files.clone());
                             }
-                            this.show_diff(key.clone(), files, cx);
                         }
                         Err(err) => {
                             this.diff_error = Some(format!("{err:#}").into());
