@@ -202,6 +202,10 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     let head_commit = entrypoint
         .commit()
         .context("Cannot update workspace without head commit")?;
+    // The target reaches HEAD's commit, so its branch has no commits of its own.
+    let head_is_integrated = head_commit
+        .flags
+        .contains(but_graph::CommitFlags::Integrated);
     let head_commit = repo.find_commit(head_commit.id)?;
     let head_commit_id = head_commit.id;
     let head_is_workspace_commit = is_managed_workspace_by_message(head_commit.message_raw()?);
@@ -212,6 +216,22 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     } else {
         repo.head_name()?
     };
+    // The target's own local branch, checked out with no commits of its own, is in no stack,
+    // so callers pass no update for it. It follows the target as the workspace commit does:
+    // rebased by reference, it moves to the target and stays checked out.
+    let mut updates = updates;
+    if head_is_integrated
+        && let Some(head) = direct_checkout_head_ref_name.as_ref()
+        && local_target_ref.as_ref() == Some(head)
+        && !updates
+            .iter()
+            .any(|update| matches!(&update.selector, RelativeTo::Reference(name) if name == head))
+    {
+        updates.push(BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Reference(head.clone()),
+        });
+    }
 
     // The editor contains every segment in the graph; the target ref's segment
     // is reachable from HEAD and so is mutable by default.
