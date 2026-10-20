@@ -3,8 +3,7 @@
 //! that for the selected one, then the files it changed; and a way back to before any of them.
 
 use gpui::{
-    AnyElement, Context, MouseButton, MouseDownEvent, Pixels, Point, SharedString, Window, div,
-    prelude::*, px,
+    AnyElement, Context, MouseButton, MouseDownEvent, Pixels, Point, Window, div, prelude::*, px,
 };
 
 use super::Detail;
@@ -21,7 +20,7 @@ use crate::ui::illustration::Illustration;
 use but_oplog::legacy::OperationKind;
 
 use crate::ui::{
-    Icon, Tooltip, clock_time, commit_title, day_label, faint, h_flex, icon_button, list_row,
+    Icon, Tooltip, clock_time, commit_title, day_label, faint, h_flex, icon, icon_button, list_row,
     local_day, plural, small_icon, v_flex,
 };
 
@@ -58,8 +57,9 @@ fn rows(history: &History) -> Vec<Row> {
     rows
 }
 
-/// The glyph for a kind of operation, as Tauri's history has one: what it took away, added,
-/// edited, did to a branch or a commit, took back, or kept as a snapshot.
+/// The glyph for a kind of operation, which tells what it did at a glance: a commit made,
+/// changes amended into one, commits squashed, something edited, thrown away, done to a
+/// branch, brought in from the target, taken back, or kept as a snapshot.
 fn operation_icon(kind: Option<OperationKind>) -> Icon {
     use OperationKind as K;
     match kind {
@@ -72,17 +72,12 @@ fn operation_icon(kind: Option<OperationKind>) -> Icon {
             | K::DiscardCommit
             | K::DeleteBranch
             | K::RemoveDependentBranch,
-        ) => Icon::Cross,
+        ) => Icon::Bin,
+        Some(K::CreateCommit | K::InsertBlankCommit) => Icon::Commit,
+        Some(K::AmendCommit) => Icon::Absorb,
+        Some(K::SquashCommit) => Icon::ArrowDoubleDown,
         Some(
-            K::CreateCommit
-            | K::CreateBranch
-            | K::CreateDependentBranch
-            | K::InsertBlankCommit
-            | K::StashIntoBranch,
-        ) => Icon::Plus,
-        Some(
-            K::AmendCommit
-            | K::UpdateCommitMessage
+            K::UpdateCommitMessage
             | K::UpdateBranchName
             | K::UpdateBranchNotes
             | K::UpdateBranchRemoteName
@@ -94,7 +89,10 @@ fn operation_icon(kind: Option<OperationKind>) -> Icon {
             | K::ResolveConflictsAi,
         ) => Icon::Edit,
         Some(
-            K::ApplyBranch
+            K::CreateBranch
+            | K::CreateDependentBranch
+            | K::StashIntoBranch
+            | K::ApplyBranch
             | K::UnapplyBranch
             | K::SwitchBranch
             | K::SwitchToWorkspace
@@ -112,30 +110,99 @@ fn operation_icon(kind: Option<OperationKind>) -> Icon {
             | K::RestoreFromSnapshotViaRedo,
         ) => Icon::Undo,
         Some(K::MoveHunk | K::MoveCommitFile | K::FileChanges) => Icon::File,
-        Some(K::MergeUpstream | K::UpdateWorkspaceBase | K::SyncWorkspace) => Icon::Refresh,
+        Some(K::MergeUpstream | K::UpdateWorkspaceBase) => Icon::ArrowLineDown,
+        Some(K::SyncWorkspace) => Icon::Refresh,
         Some(K::OnDemandSnapshot) => Icon::Camera,
         _ => Icon::Commit,
     }
 }
 
-/// What a row says the operation was done to, after what it did: the commit or branch its
-/// snapshot shows it changed, else what the log says, as the operation an undo took back.
-fn summary(operation: &Operation) -> Option<String> {
+/// Whether `kind` takes earlier operations back: an undo, a redo or a restore.
+fn takes_back(kind: Option<OperationKind>) -> bool {
     use OperationKind as K;
-    let undone = matches!(
-        operation.kind,
+    matches!(
+        kind,
         Some(
             K::RestoreFromSnapshot | K::RestoreFromSnapshotViaUndo | K::RestoreFromSnapshotViaRedo
         )
-    );
-    if undone || operation.changes.is_empty() {
-        return operation.detail.clone();
+    )
+}
+
+/// The color of `kind`'s glyph: green for what it added, blue for what it rewrote, red for
+/// what it threw away, amber for what it took back, and quiet for the rest.
+fn tint(kind: Option<OperationKind>, theme: &Theme) -> gpui::Hsla {
+    use OperationKind as K;
+    let Some(kind) = kind else {
+        return theme.text_3;
+    };
+    match kind {
+        K::CreateCommit
+        | K::AutoCommit
+        | K::InsertBlankCommit
+        | K::CherryPick
+        | K::CreateBranch
+        | K::CreateDependentBranch
+        | K::StashIntoBranch
+        | K::MergeUpstream
+        | K::UpdateWorkspaceBase => theme.safe,
+        K::AmendCommit
+        | K::Absorb
+        | K::SquashCommit
+        | K::UpdateCommitMessage
+        | K::UpdateBranchName
+        | K::UpdateDependentBranchName
+        | K::MoveCommit
+        | K::MoveHunk
+        | K::MoveCommitFile
+        | K::MoveBranch
+        | K::ReorderCommit
+        | K::ReorderBranches
+        | K::TearOffBranch
+        | K::SplitBranch
+        | K::ResolveConflicts
+        | K::ResolveConflictsAi => theme.blue,
+        K::DiscardLines
+        | K::DiscardHunk
+        | K::DiscardFile
+        | K::DiscardChanges
+        | K::Discard
+        | K::DiscardCommit
+        | K::CleanWorkspace
+        | K::DeleteBranch
+        | K::RemoveDependentBranch
+        | K::UndoCommit => theme.danger,
+        K::RestoreFromSnapshot | K::RestoreFromSnapshotViaUndo | K::RestoreFromSnapshotViaRedo => {
+            theme.warn
+        }
+        _ => theme.text_2,
+    }
+}
+
+/// What a row says the operation was done to: the commit or branch its snapshot shows it
+/// changed, else what the log says, as the operation an undo took back.
+fn summary(operation: &Operation) -> Option<String> {
+    subject(operation).or_else(|| operation.detail.clone())
+}
+
+/// What hovering a row's glyph says it did: its title, and for an undo what it took back.
+fn glyph_tooltip(operation: &Operation) -> String {
+    match (takes_back(operation.kind), &operation.detail) {
+        (true, Some(undone)) => format!("{}: {undone}", operation.title),
+        _ => operation.title.clone(),
+    }
+}
+
+/// The commit or branch `operation`'s changes are about, or for an update what it brought.
+fn subject(operation: &Operation) -> Option<String> {
+    use OperationKind as K;
+    if operation.changes.is_empty() {
+        return None;
     }
     let commits = |pick: fn(&Change) -> Option<&Recorded>| -> Vec<&Recorded> {
         operation.changes.iter().filter_map(pick).collect()
     };
-    let reworded = commits(|c| match c {
-        Change::Reworded { after, .. } => Some(after),
+    let edited = commits(|c| match c {
+        Change::Edited { after, .. } => Some(after),
         _ => None,
     });
     let added = commits(|c| match c {
@@ -155,14 +222,23 @@ fn summary(operation: &Operation) -> Option<String> {
         [one] => Some(commit_title(one.title()).to_string()),
         many => Some(plural(many.len(), "commit")),
     };
-    if let (Some(K::SquashCommit), [gone], [into]) = (operation.kind, &removed[..], &reworded[..]) {
+    if let (Some(K::SquashCommit), [gone], [into]) = (operation.kind, &removed[..], &edited[..]) {
         let (gone, into) = (commit_title(gone.title()), commit_title(into.title()));
         return Some(format!("{gone} into {into}"));
     }
-    if let Some(K::MergeUpstream | K::UpdateWorkspaceBase) = operation.kind
-        && !removed.is_empty()
-    {
-        return Some(format!("{} integrated", plural(removed.len(), "commit")));
+    if let Some(K::MergeUpstream | K::UpdateWorkspaceBase) = operation.kind {
+        let brought = operation.changes.iter().find_map(|change| match change {
+            Change::TargetMoved { target, commits } => {
+                Some(format!("{} from {target}", plural(*commits, "commit")))
+            }
+            _ => None,
+        });
+        let integrated = (!removed.is_empty())
+            .then(|| format!("{} integrated", plural(removed.len(), "commit")));
+        return match (brought, integrated) {
+            (Some(brought), Some(integrated)) => Some(format!("{brought}, {integrated}")),
+            (brought, integrated) => brought.or(integrated),
+        };
     }
     let branch = operation.changes.iter().find_map(|change| match change {
         Change::Renamed { to: name, .. }
@@ -189,11 +265,10 @@ fn summary(operation: &Operation) -> Option<String> {
     if !on_commits && branch.is_some() {
         return branch;
     }
-    (name(&reworded).or_else(|| name(&added)))
+    (name(&edited).or_else(|| name(&added)))
         .or_else(|| name(&moved))
         .or_else(|| name(&removed))
         .or(branch)
-        .or_else(|| operation.detail.clone())
 }
 
 pub(super) struct History {
@@ -234,6 +309,8 @@ impl Detail {
                     id: commit.id,
                     key: commit.key.clone(),
                     message: commit.message.clone(),
+                    parent: commit.parent,
+                    tree: commit.tree,
                 });
                 (branch.name.clone(), commits.collect())
             })
@@ -410,27 +487,19 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
-        use OperationKind as K;
         let operation = self.selected_operation(project)?;
         let mut branches: Vec<&str> = Vec::new();
         for change in &operation.changes {
             if let Change::Added { branch, .. }
             | Change::Removed { branch, .. }
-            | Change::Reworded { branch, .. }
+            | Change::Edited { branch, .. }
             | Change::Moved { to: branch, .. } = change
                 && !branches.contains(&branch.as_str())
             {
                 branches.push(branch);
             }
         }
-        let undone = matches!(
-            operation.kind,
-            Some(
-                K::RestoreFromSnapshot
-                    | K::RestoreFromSnapshotViaUndo
-                    | K::RestoreFromSnapshotViaRedo
-            )
-        );
+        let undone = takes_back(operation.kind);
         let when = format!(
             "{} {}",
             day_label(operation.time),
@@ -511,16 +580,22 @@ impl Detail {
                 title(commit),
                 format!("from {branch}"),
             ),
-            Change::Reworded { before, after, .. } => (
-                Icon::Edit,
-                theme.text_2,
-                Some(after.id),
-                title(after),
-                match before.title() == after.title() {
-                    true => "its description changed".to_owned(),
-                    false => format!("was \"{}\"", title(before)),
-                },
-            ),
+            Change::Edited { before, after, .. } => {
+                let reworded = match (
+                    before.message == after.message,
+                    before.title() == after.title(),
+                ) {
+                    (true, _) => None,
+                    (false, true) => Some("its description changed".to_owned()),
+                    (false, false) => Some(format!("was \"{}\"", title(before))),
+                };
+                let (glyph, note) = match (after.amends(before), reworded) {
+                    (true, None) => (Icon::Absorb, "amended".to_owned()),
+                    (true, Some(reworded)) => (Icon::Absorb, format!("amended, {reworded}")),
+                    (false, reworded) => (Icon::Edit, reworded.unwrap_or_default()),
+                };
+                (glyph, theme.text_2, Some(after.id), title(after), note)
+            }
             Change::Moved { commit, from, to } => (
                 Icon::Commit,
                 theme.text_2,
@@ -548,6 +623,13 @@ impl Detail {
                 None,
                 to.clone(),
                 format!("was {from}"),
+            ),
+            Change::TargetMoved { target, commits } => (
+                Icon::ArrowLineDown,
+                theme.text_2,
+                None,
+                plural(*commits, "commit"),
+                format!("new on {target}"),
             ),
         };
         // A commit the workspace still has opens, as a breadcrumb does.
@@ -625,25 +707,30 @@ impl Detail {
                             false => color,
                         };
                         let id = operation.id;
-                        // Its kind's glyph, what was done and to what, then when, faint.
+                        // What it did as a glyph, named on hover, then what it was done to, or
+                        // its name, faint, when nothing says; then when.
+                        let (text, said) = match summary(operation) {
+                            Some(text) => (text, true),
+                            None => (operation.title.clone(), false),
+                        };
                         side_row(("operation", ix), selected, on, theme)
                             .child(
-                                small_icon(operation_icon(operation.kind))
-                                    .text_color(quiet(theme.text_3)),
-                            )
-                            .child(
                                 div()
+                                    .id(("operation-glyph", ix))
                                     .flex_none()
-                                    .font_weight(gpui::FontWeight::MEDIUM)
-                                    .child(SharedString::from(operation.title.clone())),
+                                    .tooltip(Tooltip::text(glyph_tooltip(operation)))
+                                    .child(
+                                        icon(operation_icon(operation.kind))
+                                            .text_color(quiet(tint(operation.kind, theme))),
+                                    ),
                             )
                             .child(
                                 div()
                                     .flex_1()
                                     .min_w(px(0.))
                                     .truncate()
-                                    .text_color(quiet(theme.text_2))
-                                    .children(summary(operation)),
+                                    .when(!said, |el| el.text_color(quiet(theme.text_3)))
+                                    .child(text),
                             )
                             .child(
                                 faint(clock_time(operation.time), theme)

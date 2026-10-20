@@ -66,9 +66,13 @@ macro_rules! icons {
 }
 
 icons! {
+    Absorb => "absorb",
     Ai => "ai",
+    ArrowDoubleDown => "arrow-double-down",
     ArrowDown => "arrow-down",
+    ArrowLineDown => "arrow-line-down",
     ArrowUp => "arrow-up",
+    Bin => "bin",
     Branch => "branch",
     BranchMerge => "branch-merge",
     BulletDisc => "bullet-disc",

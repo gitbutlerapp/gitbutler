@@ -39,11 +39,20 @@ pub struct Recorded {
     /// Its change ID, which a rebase or a new message keeps.
     pub key: String,
     pub message: String,
+    /// Its first parent and its tree, which tell an amend from a rebase.
+    pub parent: Option<CommitId>,
+    pub tree: gix::ObjectId,
 }
 
 impl Recorded {
     pub fn title(&self) -> &str {
         self.message.lines().next().unwrap_or_default()
+    }
+
+    /// Whether it's `before` amended: on the same parent with other changes. One rebased
+    /// onto another parent only moved.
+    pub fn amends(&self, before: &Recorded) -> bool {
+        self.parent == before.parent && self.tree != before.tree
     }
 }
 
@@ -64,8 +73,8 @@ pub enum Change {
         commit: Recorded,
         branch: String,
     },
-    /// A commit with a new message, on `branch`.
-    Reworded {
+    /// A commit rewritten in its place on `branch`: amended, given a new message, or both.
+    Edited {
         before: Recorded,
         after: Recorded,
         branch: String,
@@ -81,6 +90,11 @@ pub enum Change {
     Renamed {
         from: String,
         to: String,
+    },
+    /// The target moved on by `commits` along its own line, as an update brings in.
+    TargetMoved {
+        target: String,
+        commits: usize,
     },
 }
 
@@ -100,18 +114,41 @@ pub fn list(
     // Each commit's entry in a snapshot is read once: unchanged, it's the same in the next.
     let mut read = HashMap::new();
     // What came after the operation at hand: the one after it's snapshot, or the workspace.
-    let mut later = match after {
-        Some(after) => snapshot_branches(&repo, after.0, &mut read),
-        None => Some(now),
+    let (mut later, mut later_target) = match after {
+        Some(after) => (
+            snapshot_branches(&repo, after.0, &mut read),
+            snapshot_target(&repo, after.0),
+        ),
+        None => (
+            Some(now),
+            ctx.project_meta()
+                .ok()
+                .and_then(|meta| meta.target_commit_id),
+        ),
     };
+    let target_name = (ctx.project_meta().ok())
+        .and_then(|meta| meta.target_ref)
+        .map_or_else(
+            || "the target".to_owned(),
+            |name| name.shorten().to_string(),
+        );
     let mut operations = Vec::with_capacity(snapshots.len());
     for snapshot in snapshots {
         let before = snapshot_branches(&repo, snapshot.commit_id, &mut read);
-        let changes = match (&before, &later) {
+        let mut changes = match (&before, &later) {
             (Some(before), Some(after)) => compare(before, after),
             _ => Vec::new(),
         };
-        later = before;
+        let target = snapshot_target(&repo, snapshot.commit_id);
+        if let (Some(from), Some(to)) = (target, later_target)
+            && let Some(commits) = first_parent_steps(&repo, to, from)
+        {
+            changes.push(Change::TargetMoved {
+                target: target_name.clone(),
+                commits,
+            });
+        }
+        (later, later_target) = (before, target);
         // An undo, redo or restore says which operation it took back.
         let restored = |title: &str| {
             let restored = oplog::peel_restore_snapshot(&ctx, snapshot.commit_id)
@@ -122,7 +159,18 @@ pub fn list(
             (title.to_owned(), restored)
         };
         use OperationKind as K;
-        let kind = snapshot.details.as_ref().map(|details| details.operation);
+        // `but amend` records amending a commit as squashing the changes into it: one that
+        // took no commit away amended one.
+        let amended = |changes: &[Change]| {
+            !changes.iter().any(|c| matches!(c, Change::Removed { .. }))
+                && (changes.iter()).any(
+                    |c| matches!(c, Change::Edited { before, after, .. } if after.amends(before)),
+                )
+        };
+        let kind = (snapshot.details.as_ref()).map(|details| match details.operation {
+            K::SquashCommit if amended(&changes) => K::AmendCommit,
+            kind => kind,
+        });
         let (title, detail) = match snapshot.details {
             Some(details) => match details.operation {
                 K::RestoreFromSnapshotViaUndo => restored("Undo"),
@@ -140,7 +188,7 @@ pub fn list(
                         });
                     let body = details.body.filter(|b| !b.trim().is_empty());
                     (
-                        operation_title(details.operation).to_owned(),
+                        operation_title(kind.unwrap_or(details.operation)).to_owned(),
                         about.or(body),
                     )
                 }
@@ -159,15 +207,12 @@ pub fn list(
     Ok((operations, more))
 }
 
-/// A commit's entry in a snapshot, read: the commit, and its first parent.
-type Read = (Recorded, Option<gix::ObjectId>);
-
 /// The workspace's branches as snapshot `id` recorded them, from the stacks it kept with
 /// their heads and commits; `None` for a snapshot that kept none, as an old one.
 fn snapshot_branches(
     repo: &gix::Repository,
     id: gix::ObjectId,
-    read: &mut HashMap<gix::ObjectId, Read>,
+    read: &mut HashMap<gix::ObjectId, Recorded>,
 ) -> Option<Branches> {
     #[derive(Deserialize)]
     struct Meta {
@@ -229,12 +274,12 @@ fn snapshot_branches(
             let mut at = (head.head.commit.as_deref())
                 .and_then(|hex| gix::ObjectId::from_hex(hex.as_bytes()).ok());
             while let Some(id) = at.filter(|id| !taken.contains(id)) {
-                let Some((commit, parent)) = commits.get(&id) else {
+                let Some(commit) = commits.get(&id) else {
                     break;
                 };
                 taken.insert(id);
                 list.push(commit.clone());
-                at = *parent;
+                at = commit.parent.map(|parent| parent.0);
             }
             own.push((head.name.clone(), list));
         }
@@ -244,7 +289,11 @@ fn snapshot_branches(
 }
 
 /// Commit `commit` as entry `sub` of a snapshot's stack keeps it, with the commit's own data.
-fn read_commit(repo: &gix::Repository, commit: gix::ObjectId, sub: gix::ObjectId) -> Option<Read> {
+fn read_commit(
+    repo: &gix::Repository,
+    commit: gix::ObjectId,
+    sub: gix::ObjectId,
+) -> Option<Recorded> {
     let data = repo
         .find_tree(sub)
         .ok()?
@@ -263,7 +312,7 @@ fn read_commit(repo: &gix::Repository, commit: gix::ObjectId, sub: gix::ObjectId
         .change_id
         .map(|id| id.to_string())
         .unwrap_or_default();
-    let recorded = Recorded {
+    Some(Recorded {
         id: CommitId(commit),
         key,
         // As the workspace's commits have it: a conflicted one's without its markers.
@@ -271,8 +320,42 @@ fn read_commit(repo: &gix::Repository, commit: gix::ObjectId, sub: gix::ObjectId
             .to_str_lossy()
             .trim_end()
             .to_owned(),
-    };
-    Some((recorded, parsed.parents.first().copied()))
+        parent: parsed.parents.first().copied().map(CommitId),
+        tree: parsed.tree,
+    })
+}
+
+/// The target commit the workspace was on when snapshot `id` was taken, for a snapshot
+/// that records it.
+fn snapshot_target(repo: &gix::Repository, id: gix::ObjectId) -> Option<gix::ObjectId> {
+    #[derive(Deserialize)]
+    struct Meta {
+        #[serde(rename = "targetCommitId")]
+        target: Option<String>,
+    }
+    let tree = repo.find_commit(id).ok()?.tree().ok()?;
+    let meta = tree.lookup_entry_by_path("project_meta.toml").ok()??;
+    let meta: Meta = toml::from_str(std::str::from_utf8(&meta.object().ok()?.data).ok()?).ok()?;
+    gix::ObjectId::from_hex(meta.target?.as_bytes()).ok()
+}
+
+/// How many first parents lead back from `to` to `from`, as an update moves the target on
+/// by a merged pull request each; `None` when `from` isn't among the first thousand, as
+/// after the target was rewritten, or when it didn't move.
+fn first_parent_steps(
+    repo: &gix::Repository,
+    mut to: gix::ObjectId,
+    from: gix::ObjectId,
+) -> Option<usize> {
+    let mut steps = 0;
+    while to != from {
+        steps += 1;
+        if steps > 1000 {
+            return None;
+        }
+        to = repo.find_commit(to).ok()?.parent_ids().next()?.detach();
+    }
+    (steps > 0).then_some(steps)
 }
 
 /// What changed from `before` to `after`: commits matched by their change ID, so a rebase
@@ -315,8 +398,8 @@ fn compare(before: &Branches, after: &Branches) -> Vec<Change> {
                     branch: name.clone(),
                 }),
                 Some((from, old)) => {
-                    if old.message != commit.message {
-                        changes.push(Change::Reworded {
+                    if old.message != commit.message || commit.amends(old) {
+                        changes.push(Change::Edited {
                             before: old.clone(),
                             after: commit.clone(),
                             branch: name.clone(),
@@ -435,6 +518,7 @@ fn operation_title(kind: OperationKind) -> &'static str {
     use OperationKind as K;
     match kind {
         K::UndoCommit => "Uncommitted",
+        K::UpdateCommitMessage => "Reworded commit",
         K::InsertBlankCommit => "Empty commit added",
         K::MergeUpstream | K::UpdateWorkspaceBase => "Updated from target",
         K::SetBaseBranch => "Changed target",
@@ -465,11 +549,19 @@ fn restore_titled(
 mod tests {
     use super::{Branches, Change, CommitId, Recorded, compare};
 
+    fn oid(n: u8) -> gix::ObjectId {
+        gix::ObjectId::from_bytes_or_panic(&[n; 20])
+    }
+
+    /// Commit `n`, on a parent of its own, so a rewrite with another `n` moves it, with the
+    /// same changes for the same `key`.
     fn commit(n: u8, key: &str, message: &str) -> Recorded {
         Recorded {
-            id: CommitId(gix::ObjectId::from_bytes_or_panic(&[n; 20])),
+            id: CommitId(oid(n)),
             key: key.to_owned(),
             message: message.to_owned(),
+            parent: Some(CommitId(oid(n.wrapping_add(100)))),
+            tree: oid(key.as_bytes()[0]),
         }
     }
 
@@ -480,7 +572,10 @@ mod tests {
             .map(|change| match change {
                 Change::Added { commit, branch } => format!("+ {} on {branch}", commit.title()),
                 Change::Removed { commit, branch } => format!("- {} from {branch}", commit.title()),
-                Change::Reworded { before, after, .. } => {
+                Change::Edited { before, after, .. } if after.amends(before) => {
+                    format!("* {} amended", after.title())
+                }
+                Change::Edited { before, after, .. } => {
                     format!("~ {} was {}", after.title(), before.title())
                 }
                 Change::Moved { commit, from, to } => {
@@ -489,6 +584,7 @@ mod tests {
                 Change::BranchAdded(name) => format!("+ branch {name}"),
                 Change::BranchRemoved(name) => format!("- branch {name}"),
                 Change::Renamed { from, to } => format!("branch {from} now {to}"),
+                Change::TargetMoved { .. } => unreachable!("compare leaves the target alone"),
             })
             .collect()
     }
@@ -546,6 +642,26 @@ mod tests {
             lines(&before, &renamed),
             ["branch fix now hotfix"],
             "a renamed branch's commits didn't move"
+        );
+    }
+
+    #[test]
+    fn an_amend_shows_but_a_rebase_does_not() {
+        let before: Branches = vec![(
+            "feat".into(),
+            vec![commit(2, "b", "Two"), commit(1, "a", "One")],
+        )];
+        // "One" gets new changes in its place, and "Two" is rebased onto it.
+        let amended = Recorded {
+            id: CommitId(oid(3)),
+            tree: oid(9),
+            ..commit(1, "a", "One")
+        };
+        let after: Branches = vec![("feat".into(), vec![commit(4, "b", "Two"), amended])];
+        assert_eq!(
+            lines(&before, &after),
+            ["* One amended"],
+            "the commit above was only rebased onto the amended one"
         );
     }
 }
