@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context as _, Result, bail};
 use gpui::{Context, SharedString, Task};
 
-use super::{ProjectId, Reload, Selection, Store, StoreEvent};
+use super::{Notice, ProjectId, Reload, Selection, Store, StoreEvent};
 use crate::backend::upstream::{UpdateConflicts, UpdateOutcome};
 use crate::backend::{
     self, Branch, Commit, CommitId, Destination, FileChange, HunkKey, Review, ReviewState,
@@ -957,6 +957,14 @@ impl Store {
                 }
                 match result {
                     Ok((value, recorded, moved_worktree)) => {
+                        // A retry that worked takes back the card saying it failed.
+                        let failed = format!("{label} failed");
+                        let elsewhere = (store.project(&project))
+                            .map(|entry| format!("{failed} in {}", entry.project.name));
+                        store.toasts.retain(|toast| {
+                            !matches!(&toast.notice, Notice::Error { title, .. }
+                                if *title == failed || Some(title.as_ref()) == elsewhere.as_deref())
+                        });
                         store.last_snapshot = recorded.map(|snapshot| (project.clone(), snapshot));
                         if moved_worktree {
                             store.keep_last_snapshot();
