@@ -107,18 +107,21 @@ impl Asset for Photo {
 
 /// The picture of the GitHub account `email` belongs to. GitHub answers an address no
 /// account has with its default picture, which, read once a run from an address none can
-/// have, counts as none; while it can't be read, as offline, neither can a photo.
+/// have, counts as none; until it's been read, as while offline, neither can a photo.
 fn github(email: &str) -> Option<Arc<gpui::Image>> {
     use crate::backend::accounts::{fetch, picture};
-    static DEFAULT: OnceLock<Option<md5::Digest>> = OnceLock::new();
+    static DEFAULT: OnceLock<md5::Digest> = OnceLock::new();
     let url = |email: &str| {
         let base = "https://avatars.githubusercontent.com/u/e";
         reqwest::Url::parse_with_params(base, [("email", email), ("s", "64")]).ok()
     };
-    let default = (*DEFAULT.get_or_init(|| {
-        let url = url("nobody@users.invalid")?;
-        fetch(url.as_str()).ok().map(md5::compute)
-    }))?;
+    let default = match DEFAULT.get() {
+        Some(default) => *default,
+        None => {
+            let bytes = fetch(url("nobody@users.invalid")?.as_str()).ok()?;
+            *DEFAULT.get_or_init(|| md5::compute(bytes))
+        }
+    };
     let bytes = fetch(url(email)?.as_str()).ok()?;
     (md5::compute(&bytes) != default)
         .then(|| picture(bytes).ok())

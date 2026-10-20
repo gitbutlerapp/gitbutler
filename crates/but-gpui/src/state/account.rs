@@ -24,21 +24,32 @@ impl Store {
                 .ok()
                 .flatten();
             let picture = user.as_ref().and_then(|user| user.picture.clone());
-            this.update(cx, |store, cx| {
-                if store.account.user != user {
+            // Its picture is fetched again only for another account, or one without it yet.
+            let Ok(fetch) = this.update(cx, |store, cx| {
+                let changed = store.account.user != user;
+                if changed {
                     store.account = Account { user, avatar: None };
                     cx.notify();
                 }
-            })
-            .ok();
-            let Some(url) = picture else {
+                changed || store.account.avatar.is_none()
+            }) else {
+                return;
+            };
+            let Some(url) = picture.filter(|_| fetch) else {
                 return;
             };
             // Without its picture, the account still shows by its initial.
-            let avatar = backend::run(move || backend::accounts::avatar(&url)).await;
+            let fetched = url.clone();
+            let avatar = backend::run(move || backend::accounts::avatar(&fetched)).await;
             this.update(cx, |store, cx| {
-                store.account.avatar = avatar.ok();
-                cx.notify();
+                // Unless someone else signed in meanwhile.
+                let current = store.account.user.as_ref().and_then(|u| u.picture.as_ref());
+                if let Ok(avatar) = avatar
+                    && current == Some(&url)
+                {
+                    store.account.avatar = Some(avatar);
+                    cx.notify();
+                }
             })
             .ok();
         })

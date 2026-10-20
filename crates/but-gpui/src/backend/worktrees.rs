@@ -37,9 +37,10 @@ pub(super) fn linked(
             let name: Arc<str> = listed.name.to_str_lossy().into();
             let checkout = checkout(&repo, &name)?;
             let tree = head_tree(&checkout);
+            // What Git is partway through is cheap to read, and changes without the files.
             let (uncommitted, git_operation) = match kept.remove(&name) {
-                Some((files, operation, read_against)) if read_against == tree => {
-                    (files, operation)
+                Some((files, read_against)) if read_against == tree => {
+                    (files, git_operation(&checkout))
                 }
                 _ => read(&checkout, &name)?,
             };

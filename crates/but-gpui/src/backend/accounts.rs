@@ -170,8 +170,11 @@ pub fn avatar(url: &str) -> Result<std::sync::Arc<gpui::Image>> {
 
 /// What `url` serves, with [`avatar`]'s ten seconds to answer.
 pub fn fetch(url: &str) -> Result<Vec<u8>> {
+    // One client, reusing its connections, for every picture and check.
+    static CLIENT: std::sync::LazyLock<reqwest::Client> =
+        std::sync::LazyLock::new(reqwest::Client::new);
     runtime().handle().block_on(async {
-        let request = reqwest::Client::new().get(url);
+        let request = CLIENT.get(url);
         let response = request.timeout(std::time::Duration::from_secs(10)).send();
         anyhow::Ok(response.await?.error_for_status()?.bytes().await?.to_vec())
     })

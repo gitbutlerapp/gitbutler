@@ -83,7 +83,6 @@ pub fn target_commits(
         .collect::<Vec<TargetCommit>>();
     // The first page stops where the workspace forked off, with older commits below that
     // unless it's where the history starts.
-    let repo = ctx.repo.get()?;
     let forked_above_root = after.is_none()
         && (commits.last()).is_some_and(|last| {
             // A shallow clone's oldest commits name parents it doesn't have.
@@ -103,25 +102,15 @@ pub fn fetch_status(path: &Path) -> Result<Option<(Option<i64>, Option<String>)>
     let status = but_api::workspace::workspace_fetch_status(&ctx)?;
     // A fetch in a terminal counts too: Git notes every fetch in FETCH_HEAD, one for each
     // worktree, as an agent fetching in its own leaves one there.
-    let common = ctx.repo.get()?.common_dir().to_owned();
-    let linked = std::fs::read_dir(common.join("worktrees"))
-        .into_iter()
-        .flatten();
-    let fetch_head = std::iter::once(common.clone())
-        .chain(linked.flatten().map(|entry| entry.path()))
-        .filter_map(|dir| {
-            dir.join("FETCH_HEAD")
-                .metadata()
-                .and_then(|m| m.modified())
-                .ok()
-        })
-        .max()
-        .and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok())
-        .map(|since| since.as_secs() as i64);
+    let fetch_head = super::last_written(ctx.repo.get()?.common_dir(), &["FETCH_HEAD"]);
     let fetched = status.last_successful_ms.map(|ms| (ms / 1000) as i64);
-    // An error from before a later fetch elsewhere is stale.
+    // Not a failure: an error from before a later fetch elsewhere, or from a remote the
+    // workspace doesn't need, which leaves the fetch counted a success.
     let attempted = status.last_attempted_ms.map(|ms| (ms / 1000) as i64);
-    let error = status.last_error.filter(|_| fetch_head <= attempted);
+    let succeeded = fetched.is_some() && fetched == attempted;
+    let error = status
+        .last_error
+        .filter(|_| !succeeded && fetch_head <= attempted);
     Ok(Some((fetched.max(fetch_head), error)))
 }
 
@@ -311,7 +300,7 @@ fn integrate_remote(
     // their new ones, so they're left out, as Lite's "Combine both" does. A version is the
     // same change ID on both sides, one made without counting as the one the engine gives it
     // from its sha when it first rebases it; or with neither having one, as after plain Git,
-    // the same subject. The remote's new commits were made on those versions, so they go
+    // the same subject by the same author. The remote's new commits were made on those versions, so they go
     // after the newest of them as it is here, keeping the remote's order, rather than under
     // every commit of the branch, and of the branches it's stacked on.
     if !theirs {
@@ -324,7 +313,10 @@ fn integrate_remote(
         };
         let same = |a: &Version, b: &Version| {
             key(a) == key(b)
-                || (a.change_id.is_none() && b.change_id.is_none() && a.subject == b.subject)
+                || (a.change_id.is_none()
+                    && b.change_id.is_none()
+                    && a.subject == b.subject
+                    && a.author == b.author)
         };
         let divergence = &plan.divergence;
         let (remote, local) = (&divergence.upstream_only, &divergence.local_only);

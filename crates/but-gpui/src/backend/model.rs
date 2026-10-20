@@ -255,8 +255,9 @@ impl Workspace {
             .uncommitted
             .iter()
             .filter_map(|file| file.modified.map(|ms| ms / 1000));
+        // Linked worktrees' too, as an agent committing in one clears its uncommitted files.
         let committed = self
-            .branches()
+            .shown_branches()
             .filter_map(|branch| branch.commits.first().map(|c| c.time));
         let in_worktrees = self.worktrees.iter().filter_map(Worktree::last_activity);
         edited.chain(committed).chain(in_worktrees).max()
@@ -380,7 +381,6 @@ pub enum PushState {
 }
 
 impl Branch {
-    /// Whether a push has commits to send: a branch with none has nothing yet.
     /// Whether it has commits the remote doesn't: new ones, or ones rewritten since they were
     /// pushed. One only behind its remote has none, though Git couldn't push it without force.
     pub fn can_push(&self) -> bool {

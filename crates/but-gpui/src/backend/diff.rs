@@ -131,7 +131,7 @@ pub fn load_diff(
         None => (usize::MAX, HIGHLIGHT_LIMIT),
     };
     let repo = repo.into_sync();
-    let diffs = parallel_map(
+    let mut diffs = parallel_map(
         changes,
         || repo.to_thread_local(),
         |repo, index, file| {
@@ -148,9 +148,8 @@ pub fn load_diff(
     )
     .into_iter()
     .collect::<Result<Vec<_>>>()?;
-    let mut diffs = diffs;
     match (&source, workdir) {
-        (DiffSource::Commit(id), _) => add_conflicts(&ctx, *id, &mut diffs),
+        (DiffSource::Commit(id), _) => add_conflicts(&ctx, *id, scope_lines, &mut diffs),
         (DiffSource::Worktree | DiffSource::Linked(_), Some(workdir)) => {
             add_marker_conflicts(&workdir, &mut diffs)
         }
@@ -163,7 +162,12 @@ pub fn load_diff(
 /// Give `diffs` the conflicts of `commit`, when it's conflicted: on the files its diff has,
 /// and as files of their own where the diff has nothing else of them. Conflicted files go
 /// first, as they're what the commit needs.
-fn add_conflicts(ctx: &but_ctx::Context, commit: CommitId, diffs: &mut Vec<FileDiff>) {
+fn add_conflicts(
+    ctx: &but_ctx::Context,
+    commit: CommitId,
+    scope_lines: Option<usize>,
+    diffs: &mut Vec<FileDiff>,
+) {
     let found = match but_api::resolve::commit_conflicts(ctx, commit.0) {
         Ok(found) => found,
         Err(err) => return tracing::warn!("couldn't read {commit:?}'s conflicts: {err:#}"),
@@ -174,11 +178,11 @@ fn add_conflicts(ctx: &but_ctx::Context, commit: CommitId, diffs: &mut Vec<FileD
             Some(ix) => ix,
             None => {
                 diffs.push(FileDiff {
-                    file: super::file_change(file.change.clone().into()),
+                    file: file_change(file.change.clone().into()),
                     body: DiffBody::Empty,
                     fingerprint: 0,
                     annotated: true,
-                    scope_lines: None,
+                    scope_lines,
                     drawing: None,
                 });
                 diffs.len() - 1
@@ -412,7 +416,7 @@ fn load_file(
             && old.file.base() == file.base()
             && (up_to_date(old) || annotate.is_none())
             // Conflicts replace the diff, which a file resolved since needs back.
-            && old.conflicts().is_empty()
+            && !old.file.conflicted
     }) {
         return Ok(FileDiff {
             file,
@@ -433,7 +437,7 @@ fn load_file(
         .unified_patch_with_filter(repo, context_lines, &mut filter)?;
     let fingerprint = fingerprint(&file, &patch);
     if let Some(old) = (previous.filter(|old| old.fingerprint == fingerprint && up_to_date(old)))
-        .filter(|old| old.conflicts().is_empty())
+        .filter(|old| !old.file.conflicted)
     {
         return Ok(FileDiff {
             file,
@@ -771,11 +775,15 @@ fn first_parent_here(repo: &gix::Repository, commit: gix::ObjectId) -> Result<bo
 fn fingerprint(file: &FileChange, patch: &Option<but_core::UnifiedPatch>) -> u64 {
     use std::hash::{Hash as _, Hasher as _};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    // Bytes that aren't diffed, as an image's, go by what the file is and when it was written.
+    // Which blobs it's between, so a rebase that keeps the hunks but changes the file around
+    // them reads it again; a worktree file has no blob, and goes by its hunks.
+    (
+        file.base(),
+        file.change.status.state().map(|state| state.id),
+    )
+        .hash(&mut hasher);
+    // Bytes that aren't diffed, as an image's, go by when they were written too.
     if !matches!(patch, Some(but_core::UnifiedPatch::Patch { .. })) {
-        (file.change.status.state())
-            .map(|state| state.id)
-            .hash(&mut hasher);
         file.modified.hash(&mut hasher);
     }
     match patch {
@@ -843,7 +851,7 @@ const FIRST_HIGHLIGHT_LIMIT: u32 = 500;
 const LINE_LIMIT: usize = 2000;
 
 /// A diff line as shown: tabs as spaces, no carriage return, and cut at [`LINE_LIMIT`].
-fn display_text(raw: &str) -> String {
+pub(super) fn display_text(raw: &str) -> String {
     let mut text = raw.trim_end_matches('\r').replace('\t', "    ");
     if text.len() > LINE_LIMIT {
         text.truncate(text.floor_char_boundary(LINE_LIMIT));

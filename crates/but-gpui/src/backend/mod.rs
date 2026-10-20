@@ -98,12 +98,18 @@ pub fn list_projects() -> Result<Vec<Project>> {
 /// When Git last wrote the reflog or index of the repository at `git_dir` or one of its linked
 /// worktrees: a few file times, cheap enough for every project, unlike reading its status.
 fn last_active(git_dir: &Path) -> Option<i64> {
+    last_written(git_dir, &["logs/HEAD", "index"])
+}
+
+/// When one of `files` was last written in the repository at `git_dir` or in one of its
+/// linked worktrees, in seconds since the epoch.
+fn last_written(git_dir: &Path, files: &[&str]) -> Option<i64> {
     let linked = std::fs::read_dir(git_dir.join("worktrees"))
         .into_iter()
         .flatten();
     std::iter::once(git_dir.to_owned())
         .chain(linked.flatten().map(|entry| entry.path()))
-        .flat_map(|dir| [dir.join("logs/HEAD"), dir.join("index")])
+        .flat_map(|dir| files.iter().map(move |file| dir.join(file)))
         .filter_map(|file| file.metadata().and_then(|m| m.modified()).ok())
         .max()
         .and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok())
@@ -190,9 +196,9 @@ pub struct Kept {
     pub linked: HashMap<Arc<str>, KeptWorktree>,
 }
 
-/// A linked worktree's uncommitted files as shown, with the Git command it's partway through
-/// and the tree of its `HEAD` they were read against.
-pub type KeptWorktree = (Vec<FileChange>, Option<&'static str>, Option<gix::ObjectId>);
+/// A linked worktree's uncommitted files as shown, and the tree of its `HEAD` they were read
+/// against.
+pub type KeptWorktree = (Vec<FileChange>, Option<gix::ObjectId>);
 
 impl Kept {
     /// What `shown` has, but for the main checkout's files with `main` and the `linked`
@@ -204,12 +210,7 @@ impl Kept {
             main: (!main).then(|| (shown.uncommitted.clone(), shown.tree)),
             linked: (shown.worktrees.iter())
                 .filter(|worktree| !linked.contains(&worktree.name))
-                .map(|w| {
-                    (
-                        w.name.clone(),
-                        (w.uncommitted.clone(), w.git_operation, w.tree),
-                    )
-                })
+                .map(|w| (w.name.clone(), (w.uncommitted.clone(), w.tree)))
                 .collect(),
         }
     }
@@ -322,9 +323,10 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
                 let theirs = (segment.commits.iter()).position(
                     |commit| matches!(commit.relation, R::Integrated(by) if by == commit.inner.id),
                 );
-                if theirs.is_some() && std::mem::replace(&mut past_theirs, true) {
+                if past_theirs {
                     return None;
                 }
+                past_theirs = theirs.is_some();
                 let mut branch = branch_from(&ctx, &cached, segment);
                 // A detached run of commits has no ref to tell it apart by, and a branch the
                 // workspace has applied is listed there.
@@ -435,13 +437,7 @@ fn branch_from(
         commits: segment.commits.iter().map(commit_from).collect(),
         incoming: (segment.commits_on_remote.iter())
             .map(|commit| {
-                let ((author, email), agent) = byline(
-                    signature(commit.author.name.as_ref(), commit.author.email.as_ref()),
-                    signature(
-                        commit.committer.name.as_ref(),
-                        commit.committer.email.as_ref(),
-                    ),
-                );
+                let ((author, email), agent) = byline_of(&commit.author, &commit.committer);
                 RemoteCommit {
                     id: CommitId(commit.id),
                     title: title(&commit.message),
@@ -495,6 +491,15 @@ fn first_parent_steps(
     Some(steps)
 }
 
+/// Who a commit is shown by, from its author and committer: see [`byline`].
+fn byline_of(
+    author: &gix::actor::Signature,
+    committer: &gix::actor::Signature,
+) -> ((String, String), Option<Agent>) {
+    let signature = |s: &gix::actor::Signature| signature(s.name.as_ref(), s.email.as_ref());
+    byline(signature(author), signature(committer))
+}
+
 /// A signature's `name` and `email`, as [`byline`] takes them.
 fn signature(name: &gix::bstr::BStr, email: &gix::bstr::BStr) -> (String, String) {
     (
@@ -513,13 +518,7 @@ fn committer(repo: &gix::Repository, id: gix::ObjectId) -> Option<(String, Strin
 fn commit_from(local: &but_workspace::ref_info::LocalCommit) -> Commit {
     use but_workspace::ref_info::LocalCommitRelation as R;
     let inner = &local.inner;
-    let ((author, email), agent) = byline(
-        signature(inner.author.name.as_ref(), inner.author.email.as_ref()),
-        signature(
-            inner.committer.name.as_ref(),
-            inner.committer.email.as_ref(),
-        ),
-    );
+    let ((author, email), agent) = byline_of(&inner.author, &inner.committer);
     Commit {
         id: CommitId(inner.id),
         key: inner.change_id().to_string(),

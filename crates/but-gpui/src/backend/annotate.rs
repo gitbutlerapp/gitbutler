@@ -134,7 +134,8 @@ pub fn label_scopes(hunks: &mut [Hunk], old: &str, new: &str, path: &str, limit:
 /// `spans`, short of what the hunks around it show, when its scope adds at most `limit` in
 /// all, across every hunk in it.
 fn widen(hunks: &mut [Hunk], spans: &[Option<Range<usize>>], new: &str, limit: usize) {
-    let text: Vec<&str> = new.lines().collect();
+    // As the diff's own lines are shown, tabs as spaces and long lines cut.
+    let text: Vec<String> = new.lines().map(super::diff::display_text).collect();
     // The first new-side line nothing shows yet. Scopes don't overlap, so whether the one
     // before shows its lines doesn't move where this one's start.
     let mut free = 1;
@@ -174,7 +175,7 @@ fn widen(hunks: &mut [Hunk], spans: &[Option<Range<usize>>], new: &str, limit: u
                 kind: LineKind::Context,
                 old: u32::try_from(new as i64 - ahead).ok(),
                 new: Some(new as u32),
-                text: (*text.get(new.checked_sub(1)?)?).into(),
+                text: text.get(new.checked_sub(1)?)?.as_str().into(),
                 spans: Vec::new(),
                 emph: Vec::new(),
             })

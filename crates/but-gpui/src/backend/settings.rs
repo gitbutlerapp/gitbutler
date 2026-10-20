@@ -64,13 +64,14 @@ pub fn set_fetch_interval(minutes: Option<u64>) -> Result<()> {
     })
 }
 
+/// GitButler's feature flags, as the other apps share them.
+fn feature_flags() -> Option<but_settings::app_settings::FeatureFlags> {
+    Some(app_settings().ok()?.get().ok()?.feature_flags.clone())
+}
+
 /// Whether GitButler's experimental support for linked worktrees is on.
 pub fn worktrees_enabled() -> bool {
-    (app_settings().ok()).is_some_and(|settings| {
-        settings
-            .get()
-            .is_ok_and(|settings| settings.feature_flags.worktree_manipulation)
-    })
+    feature_flags().is_some_and(|flags| flags.worktree_manipulation)
 }
 
 pub fn set_worktrees_enabled(on: bool) -> Result<()> {
@@ -82,11 +83,7 @@ pub fn set_worktrees_enabled(on: bool) -> Result<()> {
 
 /// Whether the desktop app opens this client rather than its web app when it starts.
 pub fn opens_at_start() -> bool {
-    (app_settings().ok()).is_some_and(|settings| {
-        settings
-            .get()
-            .is_ok_and(|settings| settings.feature_flags.gpui)
-    })
+    feature_flags().is_some_and(|flags| flags.gpui)
 }
 
 pub fn set_opens_at_start(on: bool) -> Result<()> {
@@ -230,13 +227,13 @@ pub fn newer_version(feed: &str) -> Result<Option<String>> {
     struct Release {
         version: String,
     }
-    super::runtime().handle().block_on(async {
-        let response = reqwest::get(feed).await?.error_for_status()?;
-        if response.status() == reqwest::StatusCode::NO_CONTENT {
-            return Ok(None);
-        }
-        Ok(Some(response.json::<Release>().await?.version))
-    })
+    // With a timeout, so a check that hangs doesn't hold up the later ones; no content
+    // means it's up to date.
+    let body = super::accounts::fetch(feed)?;
+    if body.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(serde_json::from_slice::<Release>(&body)?.version))
 }
 
 /// GitButler's app settings as they are on disk now. Read afresh each time: the other apps
