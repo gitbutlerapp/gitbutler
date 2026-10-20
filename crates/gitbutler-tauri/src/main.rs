@@ -18,7 +18,8 @@ use but_api::{
 };
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{
-    WindowState, askpass, csp::csp_with_extras, env, logs, menu, projects, settings, zip,
+    Frontend, WindowState, askpass, csp::csp_with_extras, env, logs, menu, notifications, projects,
+    settings, zip,
 };
 use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -41,14 +42,6 @@ fn main() -> anyhow::Result<()> {
 
     let mut tauri_context = generate_context!();
     but_secret::secret::set_application_namespace(&tauri_context.config().identifier);
-
-    // Set the macOS notification bundle ID so notifications appear as GitButler.
-    #[cfg(target_os = "macos")]
-    {
-        if let Err(e) = notify_rust::set_application(&tauri_context.config().identifier) {
-            tracing::warn!(error = %e, "Failed to set notification application");
-        }
-    }
 
     let config_dir = but_path::app_config_dir().expect("missing config dir");
     std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
@@ -76,6 +69,13 @@ fn main() -> anyhow::Result<()> {
         &app_settings,
     ) {
         tauri_context.config_mut().app.security.csp = updated_csp;
+    };
+    let frontend = if app_settings.get()?.feature_flags.lite_frontend
+        && gitbutler_tauri::lite_frontend::serve(&mut tauri_context)
+    {
+        Frontend::Lite
+    } else {
+        Frontend::Svelte
     };
 
     if let Some(project_to_open) =
@@ -148,8 +148,11 @@ fn main() -> anyhow::Result<()> {
                     let handle = app_handle.clone();
                     move |event| {
                         handle
-                            .emit("git_prompt", event)
-                            .expect("tauri event emission doesn't fail in practice")
+                            .emit("git_prompt", &event)
+                            .expect("tauri event emission doesn't fail in practice");
+                        handle
+                            .emit("askpass_prompt", askpass::LitePromptEvent::from(event))
+                            .expect("tauri event emission doesn't fail in practice");
                     }
                 });
 
@@ -157,7 +160,7 @@ fn main() -> anyhow::Result<()> {
                 tracing::info!(version = %app_handle.package_info().version,
                                    name = %app_handle.package_info().name, "starting app");
 
-                app_handle.manage(WindowState::new(app_handle.clone()));
+                app_handle.manage(WindowState::new(app_handle.clone(), frontend));
 
                 app_settings.watch_in_background({
                     let app_handle = app_handle.clone();
@@ -260,6 +263,7 @@ fn main() -> anyhow::Result<()> {
                 legacy::users::tauri_get_user::get_user,
                 legacy::users::tauri_get_login_token::get_login_token,
                 legacy::users::tauri_login_with_token::login_with_token,
+                legacy::users::tauri_login_and_persist::login_and_persist,
                 legacy::users::tauri_get_user_profile::get_user_profile,
                 legacy::users::tauri_update_user_profile::update_user_profile,
                 legacy::projects::tauri_add_project::add_project,
@@ -362,6 +366,7 @@ fn main() -> anyhow::Result<()> {
                 zip::get_project_archive_path,
                 zip::get_anonymous_graph_path,
                 settings::get_app_settings,
+                notifications::show_notification,
                 settings::update_onboarding_complete,
                 settings::update_telemetry,
                 settings::update_feature_flags,
@@ -391,6 +396,57 @@ fn main() -> anyhow::Result<()> {
                 resolve::tauri_commit_conflicts::commit_conflicts,
                 resolve::tauri_resolve_commit_conflict_hunks::resolve_commit_conflict_hunks,
                 platform::tauri_build_type::build_type,
+                but_api::legacy::forge::tauri_add_comment_reaction::add_comment_reaction,
+                but_api::legacy::forge::tauri_add_review_labels::add_review_labels,
+                but_api::legacy::forge::tauri_add_review_reaction::add_review_reaction,
+                but_api::legacy::forge::tauri_add_submission_reaction::add_submission_reaction,
+                but_api::branch::tauri_branch_checkout::branch_checkout,
+                but_api::branch::tauri_branch_checkout_new::branch_checkout_new,
+                but_api::branch::tauri_branch_list::branch_list,
+                but_api::comments::tauri_comment_archive::comment_archive,
+                but_api::comments::tauri_comment_create::comment_create,
+                but_api::comments::tauri_comment_update::comment_update,
+                but_api::comments::tauri_comments_list::comments_list,
+                but_api::commit::discard_commit::tauri_commit_discard::commit_discard,
+                but_api::commit::discard_commit::tauri_commit_discard_changes::commit_discard_changes,
+                but_api::legacy::forge::tauri_create_review_comment::create_review_comment,
+                but_api::legacy::forge::tauri_create_review_thread_reply::create_review_thread_reply,
+                but_api::legacy::forge::tauri_current_forge_login::current_forge_login,
+                but_api::legacy::forge::tauri_delete_review_comment::delete_review_comment,
+                but_api::ai::tauri_get_ai_configuration::get_ai_configuration,
+                but_api::legacy::oplog::tauri_get_redo_target_snapshot::get_redo_target_snapshot,
+                but_api::legacy::oplog::tauri_get_undo_target_snapshot::get_undo_target_snapshot,
+                but_api::legacy::users::tauri_get_user_profile_local::get_user_profile_local,
+                but_api::legacy::repo::tauri_get_workspace_file_from_source::get_workspace_file_from_source,
+                but_api::legacy::forge::tauri_list_comment_reactions::list_comment_reactions,
+                but_api::open::tauri_list_editors::list_editors,
+                but_api::legacy::projects::tauri_list_projects_stateless::list_projects_stateless,
+                but_api::legacy::forge::tauri_list_repo_labels::list_repo_labels,
+                but_api::legacy::forge::tauri_list_review_comments::list_review_comments,
+                but_api::legacy::forge::tauri_list_review_reactions::list_review_reactions,
+                but_api::legacy::forge::tauri_list_review_submissions::list_review_submissions,
+                but_api::legacy::forge::tauri_list_review_threads::list_review_threads,
+                but_api::legacy::forge::tauri_list_review_timeline_events::list_review_timeline_events,
+                but_api::legacy::forge::tauri_list_reviewer_candidates::list_reviewer_candidates,
+                but_api::legacy::forge::tauri_new_review_target::new_review_target,
+                but_api::open::tauri_open_in_program::open_in_program,
+                but_api::legacy::oplog::tauri_peel_restore_snapshot::peel_restore_snapshot,
+                but_api::legacy::forge::tauri_remove_comment_reaction::remove_comment_reaction,
+                but_api::legacy::forge::tauri_remove_review_label::remove_review_label,
+                but_api::legacy::forge::tauri_remove_review_reaction::remove_review_reaction,
+                but_api::legacy::forge::tauri_remove_submission_reaction::remove_submission_reaction,
+                but_api::legacy::forge::tauri_request_review::request_review,
+                but_api::ai::tauri_reset_ai_configuration::reset_ai_configuration,
+                but_api::legacy::oplog::tauri_restore_snapshot_with_kind::restore_snapshot_with_kind,
+                but_api::legacy::forge::tauri_set_review_thread_resolved::set_review_thread_resolved,
+                gitbutler_tauri::ai::stream_ai_response,
+                but_api::ai::tauri_update_ai_configuration::update_ai_configuration,
+                but_api::legacy::users::tauri_update_profile_and_persist::update_profile_and_persist,
+                but_api::legacy::projects::tauri_update_project_settings::update_project_settings,
+                but_api::legacy::forge::tauri_update_review_comment::update_review_comment,
+                but_api::legacy::users::tauri_upload_file::upload_file,
+                but_api::legacy::forge::tauri_withdraw_review_request::withdraw_review_request,
+                but_api::worktrees::tauri_worktrees_list::worktrees_list,
             ])
             .menu(menu::build)
             .on_window_event(|window, event| match event {

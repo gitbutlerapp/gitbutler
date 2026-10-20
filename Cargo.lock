@@ -1027,6 +1027,7 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-user",
+ "gitbutler-watcher",
  "gix",
  "itertools",
  "napi",
@@ -1513,11 +1514,9 @@ dependencies = [
  "but-askpass",
  "but-core",
  "but-ctx",
- "but-llm",
  "but-path",
  "but-settings",
  "gitbutler-watcher",
- "gix",
  "napi",
  "napi-build",
  "napi-derive",
@@ -4170,6 +4169,7 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-watcher",
  "gix",
+ "mac-usernotifications",
  "notify-rust",
  "open",
  "opener",
@@ -6495,6 +6495,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "mac-usernotifications"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08adbb1b9e11709f9ce628dd7471208e5dd3ad35a245dbc81e59a36dce3f3780"
+dependencies = [
+ "block2",
+ "futures-channel",
+ "futures-lite",
+ "futures-timer",
+ "log",
+ "objc2",
+ "objc2-core-foundation",
+ "objc2-foundation",
+ "objc2-user-notifications",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "mac_address"
 version = "1.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7130,7 +7148,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a180dd8642fa45cdb7dd721cd4c11b1cadd4929ce112ebd8b9f5803cc79d536"
 dependencies = [
  "bitflags 2.13.0",
+ "block2",
  "dispatch2",
+ "libc",
  "objc2",
 ]
 
@@ -7279,7 +7299,10 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9df9128cbbfef73cda168416ccf7f837b62737d748333bfe9ab71c245d76613e"
 dependencies = [
+ "bitflags 2.13.0",
+ "block2",
  "objc2",
+ "objc2-core-location",
  "objc2-foundation",
 ]
 

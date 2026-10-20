@@ -1,7 +1,13 @@
+/* The snackbars also take the bottom centre, so while the toolbox is open their stack rides 8px
+   above it. The lift is declared only while the toolbox exists, rather than left to anchor()'s
+   fallback: WebKit keeps an anchored position after its anchor is removed. */
+:global(body):has(.container) {
+	--snackbars-bottom: calc(anchor(--operation-controls top, 8px) + 8px);
+}
+
 .container {
 	z-index: 1;
 	position: fixed;
-	/* Snackbars stack above the toolbox while it is open; see snackbars.module.css. */
 	anchor-name: --operation-controls;
 	bottom: var(--panel-padding-block);
 	left: 50%;

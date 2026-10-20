@@ -17,10 +17,14 @@
     clippy::too_many_lines
 )]
 
+pub mod ai;
 pub mod logs;
 pub mod menu;
 pub mod window;
-pub use window::state::{WindowState, event::ChangeForFrontend};
+pub use window::state::{
+    WindowState,
+    event::{ChangeForFrontend, Frontend},
+};
 
 pub mod askpass;
 pub mod debug;
@@ -32,3 +36,7 @@ pub mod zip;
 pub mod env;
 
 pub mod csp;
+
+pub mod lite_frontend;
+
+pub mod notifications;

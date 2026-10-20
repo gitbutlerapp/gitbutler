@@ -48,6 +48,8 @@ pub struct FeatureFlags {
     pub tui_file_browser: bool,
     /// Enable experimental worktree manipulation support.
     pub worktree_manipulation: bool,
+    /// Boot the desktop app into the Lite frontend. Requires app restart.
+    pub lite_frontend: bool,
 }
 but_schemars::register_sdk_type!(FeatureFlags);
 

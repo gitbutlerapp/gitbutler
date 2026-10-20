@@ -176,12 +176,6 @@ export const diffGutterUnsafeCSS = `
 		box-shadow: var(--shadow-tooltip);
 	}
 
-	/* Written before the filled rule so that a line which cannot be dragged but can be annotated
-	   still gets its card. */
-	[${ACTIONS_ATTRIBUTE}][${ACTIONS_DRAGGABLE_ATTRIBUTE}] {
-		display: if(style(--gitbutler-diff-gutter-can-drag: true): flex; else: none);
-	}
-
 	[${ACTIONS_ATTRIBUTE}][${ACTIONS_FILLED_ATTRIBUTE}] {
 		display: flex;
 	}
@@ -203,8 +197,11 @@ export const diffGutterUnsafeCSS = `
 		cursor: grab;
 	}
 
-	[${ACTIONS_DRAGGABLE_ATTRIBUTE}] > [${GUTTER_DRAG_HANDLE_ATTRIBUTE}] {
-		display: if(style(--gitbutler-diff-gutter-can-drag: true): flex; else: none);
+	@container style(--gitbutler-diff-gutter-can-drag: true) {
+		[${ACTIONS_ATTRIBUTE}][${ACTIONS_DRAGGABLE_ATTRIBUTE}],
+		[${ACTIONS_DRAGGABLE_ATTRIBUTE}] > [${GUTTER_DRAG_HANDLE_ATTRIBUTE}] {
+			display: flex;
+		}
 	}
 
 	[${GUTTER_DRAG_HANDLE_ATTRIBUTE}]:hover {

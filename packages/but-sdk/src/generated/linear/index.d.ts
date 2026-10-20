@@ -2958,11 +2958,14 @@ export type FeatureFlags = {
   tuiFileBrowser: boolean;
   /** Enable experimental worktree manipulation support. */
   worktreeManipulation: boolean;
+  /** Boot the desktop app into the Lite frontend. Requires app restart. */
+  liteFrontend: boolean;
 };
 
 /** Update request for [`crate::app_settings::FeatureFlags`]. */
 export type FeatureFlagsUpdate = {
   worktreeManipulation?: boolean | null;
+  liteFrontend?: boolean | null;
 };
 
 export type Fetch = {

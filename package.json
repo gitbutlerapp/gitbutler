@@ -15,7 +15,7 @@
 		"dev:desktop": "cross-env CARGO_TARGET_DIR=\"$PNPM_SCRIPT_SRC_DIR/target/tauri\" pnpm dev:desktop-with-env",
 		"dev:desktop-http": "cross-env VITE_BUTLER_PORT=6978 VITE_BUTLER_HOST=localhost VITE_BUILD_TARGET=web turbo watch dev --filter=...@gitbutler/desktop",
 		"dev:desktop-with-env": "cargo build -p but && cargo build -p gitbutler-git && node ./scripts/run-desktop-tauri-with-env.mjs development pnpm tauri dev",
-		"dev:internal-tauri": "turbo watch --filter @gitbutler/desktop dev",
+		"dev:internal-tauri": "turbo watch @gitbutler/desktop#dev @gitbutler/lite#dev:tauri-ui",
 		"package": "turbo run package",
 		"ui:playwright:install:unit": "turbo run --filter @gitbutler/ui-svelte playwright:install:unit",
 		"ui:playwright:install:ct": "turbo run --filter @gitbutler/ui-svelte playwright:install:ct",

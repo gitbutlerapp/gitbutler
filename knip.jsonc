@@ -16,6 +16,7 @@
 				"harness/node/index.ts!",
 				"harness/tests/*.test.ts",
 				"harness/tests/*.test.tsx",
+				"tauri/index.ts!",
 
 				"ui/src/css-modules.d.ts!",
 				"ui/src/electron.d.ts!",
@@ -27,6 +28,7 @@
 				"harness/node/**!",
 				"harness/*.ts!",
 				"harness/tests/**",
+				"tauri/**!",
 				"ui/src/**!",
 			],
 			"includeEntryExports": true,
