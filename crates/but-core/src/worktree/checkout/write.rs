@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, path::Path};
+use std::collections::BTreeSet;
 
 use anyhow::Context as _;
 use bstr::{BStr, BString};
@@ -44,8 +44,9 @@ pub(super) fn write_to_worktree(
         .map(ToOwned::to_owned)
         .collect();
 
+    let mut path_check = gix::status::plumbing::SymlinkCheck::new(workdir.to_owned());
     for path in &deleted {
-        remove_from_worktree(workdir, path.as_ref())?;
+        remove_from_worktree(&mut path_check, path.as_ref())?;
     }
     if num_to_write > 0 {
         let mut opts =
@@ -110,8 +111,24 @@ pub(super) fn write_to_worktree(
 }
 
 /// Delete `rela_path` and the directories it leaves empty.
-fn remove_from_worktree(workdir: &Path, rela_path: &BStr) -> anyhow::Result<()> {
-    let path = workdir.join(gix::path::from_bstr(rela_path)?);
+///
+/// Like Git's checkout, delete nothing if a directory leading to `rela_path` is missing or a
+/// symlink, as the file then isn't in the worktree, and deleting through the symlink would reach
+/// outside of it.
+fn remove_from_worktree(
+    path_check: &mut gix::status::plumbing::SymlinkCheck,
+    rela_path: &BStr,
+) -> anyhow::Result<()> {
+    let workdir = path_check.inner.root().to_owned();
+    let path = match path_check.verified_path(rela_path) {
+        Ok(path) => path.to_owned(),
+        Err(err)
+            if err.kind() == std::io::ErrorKind::NotFound || is_symlinked_parent_error(&err) =>
+        {
+            return Ok(());
+        }
+        Err(err) => return Err(err.into()),
+    };
     match std::fs::symlink_metadata(&path) {
         Ok(md) if md.is_dir() => {
             // A submodule or a directory that already became one; only remove it when empty.
@@ -122,11 +139,47 @@ fn remove_from_worktree(workdir: &Path, rela_path: &BStr) -> anyhow::Result<()> 
         Err(err) => return Err(err.into()),
     }
     let mut dir = path.parent();
-    while let Some(parent) = dir.filter(|dir| *dir != workdir) {
+    while let Some(parent) = dir.filter(|dir| *dir != workdir.as_path()) {
         if std::fs::remove_dir(parent).is_err() {
             break;
         }
         dir = parent.parent();
     }
     Ok(())
+}
+
+/// `SymlinkCheck` reports a symlinked parent directory as its only validation error.
+fn is_symlinked_parent_error(err: &std::io::Error) -> bool {
+    err.get_ref()
+        .is_some_and(|source| gix::error::classify(source).is_validation())
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use gix::object::tree::EntryKind;
+
+    #[test]
+    fn deletions_do_not_follow_a_symlinked_parent_directory() -> anyhow::Result<()> {
+        let tmp = but_testsupport::gix_testtools::tempfile::TempDir::new()?;
+        let outside = tmp.path().join("outside");
+        std::fs::create_dir(&outside)?;
+        std::fs::write(outside.join("f"), "outside")?;
+        let repo = gix::init(tmp.path().join("repo"))?;
+
+        let blob = repo.write_blob("tracked")?.detach();
+        let mut editor = repo.empty_tree().edit()?;
+        editor.upsert("dir/f", EntryKind::Blob, blob)?;
+        let baseline = editor.write()?.detach();
+        let target = repo.empty_tree().id;
+        // The worktree had `dir/f` when it was snapshotted, then `dir` was replaced by a symlink.
+        std::os::unix::fs::symlink("../outside", repo.workdir().unwrap().join("dir"))?;
+
+        super::write_to_worktree(&repo, baseline, target, None)?;
+
+        assert!(
+            outside.join("f").is_file(),
+            "like Git, a file behind a symlinked directory isn't in the worktree, so it isn't deleted"
+        );
+        Ok(())
+    }
 }
