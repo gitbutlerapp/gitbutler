@@ -7,7 +7,10 @@ use std::time::{Duration, Instant};
 use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
 
 use super::Detail;
-use super::panes::{Crumb, list_heading, meta_item, meta_row, side_header, side_list, title_text};
+use super::panes::{
+    Crumb, list_heading, meta_item, meta_row, quiet, side_header, side_list, side_row, title_text,
+};
+use crate::app::{SelectNext, SelectPrevious};
 use crate::backend::upstream::{self, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, Forge, Review};
 use crate::state::{Overlay, ProjectId, Selection};
@@ -248,6 +251,27 @@ impl Detail {
             upstream.selected = Some(id);
         }
         self.show_picked(cx);
+    }
+
+    /// Select the target commit `delta` rows from the selected one, keeping it in view.
+    fn step_upstream(&mut self, delta: isize, cx: &mut Context<Self>) {
+        let Some(upstream) = &self.upstream else {
+            return;
+        };
+        // In the order shown: the new commits first, under their own heading.
+        let commits: Vec<_> = (self.upstream_rows(upstream, "").iter().enumerate())
+            .filter_map(|(row, r)| match r {
+                Row::Commit(ix) => Some((row, upstream.commits[*ix].id)),
+                _ => None,
+            })
+            .collect();
+        let at = (commits.iter()).position(|(_, id)| Some(*id) == upstream.selected);
+        let next = at.map_or(0, |at| at as isize + delta);
+        let Some(&(row, id)) = usize::try_from(next).ok().and_then(|ix| commits.get(ix)) else {
+            return;
+        };
+        self.select_target_commit(id, cx);
+        (self.upstream_scroll).scroll_to_item(row, gpui::ScrollStrategy::Nearest);
     }
 
     /// A project's header: its icon, which opens the picker, and its name, over where it is
@@ -545,7 +569,7 @@ impl Detail {
                     &self.upstream_scroll,
                     "target-scrollbar",
                     cx,
-                    move |this, ix, theme, _, cx| {
+                    move |this, ix, theme, window, cx| {
                         let upstream = this.upstream.as_ref()?;
                         Some(match rows.get(ix)? {
                             Row::Heading(heading) => list_heading(heading.clone(), theme),
@@ -553,10 +577,12 @@ impl Detail {
                                 let commit = &upstream.commits[*commit_ix];
                                 let id = commit.id;
                                 let selected = upstream.selected == Some(id);
-                                let glyph = if commit.incoming {
-                                    theme.warn
-                                } else {
-                                    theme.text_3
+                                let solid = this.side_focus.is_focused(window);
+                                let on = selected && solid;
+                                let glyph = match (on, commit.incoming) {
+                                    (true, _) => theme.text_inverted,
+                                    (false, true) => theme.warn,
+                                    (false, false) => theme.text_3,
                                 };
                                 // One that landed a pull request by the request, as Lite
                                 // names it, its number, merge commit and ID on hover.
@@ -568,7 +594,7 @@ impl Detail {
                                     Some(_) => Icon::BranchMerge,
                                     None => Icon::Commit,
                                 };
-                                list_row(("target-commit", ix), selected, theme)
+                                side_row(("target-commit", ix), selected, solid, theme)
                                     .child(small_icon(mark).text_color(glyph))
                                     .child(
                                         div()
@@ -576,7 +602,7 @@ impl Detail {
                                             .flex_1()
                                             .min_w(px(0.))
                                             .truncate()
-                                            .when(!commit.incoming, |el| {
+                                            .when(!commit.incoming && !on, |el| {
                                                 el.text_color(theme.text_2)
                                             })
                                             .child(SharedString::from(label(commit).to_owned()))
@@ -601,8 +627,9 @@ impl Detail {
                                                 commit.author
                                             ))),
                                     )
-                                    .child(age_column(Some(commit.time), theme))
-                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                    .child(quiet(age_column(Some(commit.time), theme), on, theme))
+                                    .on_click(cx.listener(move |this, _, window, cx| {
+                                        window.focus(&this.side_focus, cx);
                                         this.select_target_commit(id, cx)
                                     }))
                                     .into_any_element()
@@ -619,6 +646,12 @@ impl Detail {
                             }
                         })
                     },
+                )
+                .track_focus(&self.side_focus)
+                .key_context("SideList")
+                .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.step_upstream(1, cx)))
+                .on_action(
+                    cx.listener(|this, _: &SelectPrevious, _, cx| this.step_upstream(-1, cx)),
                 )
                 .into_any_element()
             }

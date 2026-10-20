@@ -1051,6 +1051,12 @@ pub(super) fn side_row(
     })
 }
 
+/// `el`, a row's secondary text, softened against a solid selection `on` it.
+pub(super) fn quiet(el: gpui::Div, on: bool, theme: &Theme) -> gpui::Div {
+    el.flex_none()
+        .when(on, |el| el.text_color(theme.text_inverted.opacity(0.7)))
+}
+
 /// A group's heading in a side list, sitting on the rows under it.
 pub(super) fn list_heading(text: impl IntoElement, theme: &Theme) -> AnyElement {
     section_label(text, theme)

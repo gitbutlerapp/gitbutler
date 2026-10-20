@@ -10,7 +10,7 @@ use gpui::{
 };
 
 use super::Detail;
-use super::panes::{Crumb, side_list, side_row};
+use super::panes::{Crumb, quiet, side_list, side_row};
 use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::branches::{self, ApplyOutcome, BranchCommit, OtherBranch};
 use crate::backend::{self, CommitId, DiffSource};
@@ -1075,11 +1075,6 @@ impl Detail {
 }
 
 /// Faint meta text, in the selection's ink on a solid one.
-fn quiet(el: gpui::Div, on: bool, theme: &Theme) -> gpui::Div {
-    el.flex_none()
-        .when(on, |el| el.text_color(theme.text_inverted.opacity(0.7)))
-}
-
 /// Whether `row` is what's selected: the selected commit, or else the selected branch.
 fn is_selected(branches: &Branches, row: &Row) -> bool {
     let selected = |ix: usize| branches.selected.as_ref() == Some(&branches.list[ix].ref_name);
