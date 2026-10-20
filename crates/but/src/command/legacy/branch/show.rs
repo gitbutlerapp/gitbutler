@@ -282,12 +282,22 @@ fn get_commits_ahead(
     let repo = ctx.repo.get()?;
     let branch = branch_arg.resolve_branch(&repo)?;
 
-    // Find merge base
-    let (merge_base, _) = workspace_target::merge_base_with_target_with_perm(
-        ctx,
-        guard.read_permission(),
-        branch.head,
-    )?;
+    // Workspace branches are buckets, not the entire history back to the target.
+    let branch_base = crate::legacy::workspace::applied_stacks(ctx)?
+        .iter()
+        .find_map(|stack| stack.branch(&branch_arg.0))
+        .map(|branch| branch.base_commit);
+    let merge_base = match branch_base {
+        Some(base) => base,
+        None => {
+            workspace_target::merge_base_with_target_with_perm(
+                ctx,
+                guard.read_permission(),
+                branch.head,
+            )?
+            .0
+        }
+    };
 
     // Walk from branch head to merge base, collecting commits
     let traversal = branch

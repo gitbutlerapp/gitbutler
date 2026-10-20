@@ -174,17 +174,9 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Branch: C (3 commits ahead)
+Branch: C (1 commits ahead)
 
 wlx add C
-    2000-01-02 00:00:00 by author
-    1 file changed, 1 insertion, 0 deletions
-
-wwm add B
-    2000-01-02 00:00:00 by author
-    1 file changed, 1 insertion, 0 deletions
-
-tpm add A
     2000-01-02 00:00:00 by author
     1 file changed, 1 insertion, 0 deletions
 
@@ -194,13 +186,9 @@ tpm add A
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Branch: B (2 commits ahead)
+Branch: B (1 commits ahead)
 
 wwm add B
-    2000-01-02 00:00:00 by author
-    1 file changed, 1 insertion, 0 deletions
-
-tpm add A
     2000-01-02 00:00:00 by author
     1 file changed, 1 insertion, 0 deletions
 
@@ -215,6 +203,162 @@ Branch: A (1 commits ahead)
 tpm add A
     2000-01-02 00:00:00 by author
     1 file changed, 1 insertion, 0 deletions
+
+"#]]);
+}
+
+#[test]
+fn show_only_lists_selected_branch_commits() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("show B")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Branch: B
+
+Commits:
+  wwm add B
+    2000-01-02 00:00:00 by author
+
+Stacked on:
+  └─ A (1 commit)
+
+"#]]);
+}
+
+#[test]
+fn show_branch_bucket_json() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+
+    env.but("show C --verbose --json")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "branch": "C",
+  "commits": [
+    {
+      "sha": "aebb0903d514a4bda51b19a2c547b4333bf7847c",
+      "short_sha": "aebb090",
+      "cli_id": "wlx",
+      "message": "add C",
+      "full_message": "add C/n",
+      "author_name": "author",
+      "author_email": "author@example.com",
+      "timestamp": 946771200,
+      "files_changed": 1,
+      "insertions": 1,
+      "deletions": 0,
+      "files": [
+        {
+          "path": "C",
+          "status": "added",
+          "insertions": 1,
+          "deletions": 0
+        }
+      ]
+    }
+  ],
+  "stackedOn": [
+    {
+      "name": "B",
+      "commit_count": 1
+    },
+    {
+      "name": "A",
+      "commit_count": 1
+    }
+  ],
+  "baseCommit": {
+    "sha": "582f37b9cf8a4a20559396f5e73b3ace2e34bbcc",
+    "short_sha": "582f37b",
+    "cli_id": null,
+    "message": "add B",
+    "full_message": null,
+    "author_name": "author",
+    "author_email": "author@example.com",
+    "timestamp": 946771200,
+    "files_changed": null,
+    "insertions": null,
+    "deletions": null,
+    "files": null
+  }
+}
+
+"#]]);
+    env.but("branch show B --files --json")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "branch": "B",
+  "commitsAhead": 1,
+  "commits": [
+    {
+      "sha": "582f37b9cf8a4a20559396f5e73b3ace2e34bbcc",
+      "short_sha": "582f37b",
+      "cli_id": "wwm",
+      "message": "add B",
+      "author_name": "author",
+      "author_email": "author@example.com",
+      "timestamp": 946771200,
+      "files_changed": 1,
+      "insertions": 1,
+      "deletions": 0,
+      "files": [
+        {
+          "path": "B",
+          "status": "added",
+          "insertions": 1,
+          "deletions": 0
+        }
+      ]
+    }
+  ],
+  "uncommittedFiles": [],
+  "reviews": []
+}
+
+"#]]);
+}
+
+#[test]
+fn show_empty_branch_bucket() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    );
+    env.setup_metadata(&["A", "B", "C"]);
+    env.but("branch new empty --above B").assert().success();
+
+    env.but("show empty")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Branch: empty
+
+No commits on this branch.
+
+Stacked on:
+  ├─ B (1 commit)
+  └─ A (1 commit)
+
+"#]]);
+    env.but("branch show empty")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Branch: empty (0 commits ahead)
+
+No commits ahead of base branch.
 
 "#]]);
 }
