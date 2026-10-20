@@ -5,8 +5,9 @@ use std::ops::Range;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, MouseButton, MouseDownEvent,
-    SharedString, Stateful, UniformListScrollHandle, Window, div, prelude::*, px, uniform_list,
+    AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, Focusable as _, MouseButton,
+    MouseDownEvent, Pixels, Point, SharedString, Stateful, UniformListScrollHandle, Window, div,
+    prelude::*, px, uniform_list,
 };
 
 use super::Detail;
@@ -21,8 +22,8 @@ use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, age_column, button,
-    commit_title, empty_state, faint, h_flex, icon, icon_button, list_row, local_time, plural,
-    section_label, shortcut, small_icon, v_flex,
+    commit_title, empty_state, faint, field, h_flex, icon, icon_button, list_row, local_time,
+    plural, section_label, shortcut, small_icon, v_flex,
 };
 
 impl Detail {
@@ -202,15 +203,70 @@ impl Detail {
             )
     }
 
-    /// Fetch, as ⌥⇧F does, to go beside a list's filter: nothing for a project without a
-    /// remote or whose folder is gone.
+    /// The menu of a commit that isn't in the workspace, on the Branches page or only on a
+    /// branch's remote: cherry-pick it, and those picked with it, or copy its ID.
+    pub(super) fn commit_menu(
+        &self,
+        project: &ProjectId,
+        ids: Arc<[backend::CommitId]>,
+        id: backend::CommitId,
+        at: Point<Pixels>,
+        cx: &mut Context<Self>,
+    ) {
+        let label = match ids.len() {
+            1 => "Cherry-pick".to_owned(),
+            n => format!("Cherry-pick {n} commits"),
+        };
+        let project = project.clone();
+        let items = vec![
+            MenuItem::new(label, move |app, _, cx| {
+                app.cut(Cut::CherryPick(project.clone(), ids.clone()), cx)
+            }),
+            MenuItem::new("Copy commit ID", move |app, _, cx| {
+                app.copy_text(id.0.to_string(), cx)
+            }),
+        ];
+        (self.app)
+            .update(cx, |app, cx| app.open_menu(at, items, cx))
+            .ok();
+    }
+
+    /// A side list's filter field, then the button whose `menu` picks what the list shows,
+    /// lit while that leaves some out.
+    pub(super) fn filter_bar(
+        &self,
+        input: &Entity<TextInput>,
+        tooltip: &'static str,
+        menu: fn(&Self, Point<Pixels>, &mut Context<Self>),
+        narrowed: bool,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> Div {
+        let focused = input.focus_handle(cx).is_focused(window);
+        h_flex()
+            .flex_none()
+            .m(px(10.))
+            .gap(px(4.))
+            .child(field(input, focused, Theme::get(cx)).flex_1())
+            .child(
+                icon_button("list-filters", Icon::Filter)
+                    .small()
+                    .selected(narrowed)
+                    .tooltip(tooltip)
+                    .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
+                        menu(this, event.position(), cx)
+                    })),
+            )
+    }
+
+    /// Fetch, as ⌥⇧F does, to go beside a list's filter: nothing for a project whose folder is
+    /// gone. Without a remote, a fetch says there's none.
     pub(super) fn fetch_button(&self, project: &ProjectId, cx: &Context<Self>) -> Option<Button> {
         let store = self.store.read(cx);
-        let entry = store.project(project)?;
-        if self.no_remote(project) || !entry.project.path.exists() {
+        if !store.project(project)?.project.path.exists() {
             return None;
         }
-        let busy = store.fetching(project) || store.forge_checking(project);
+        let busy = store.fetching(project);
         Some(
             icon_button("fetch", Icon::Refresh)
                 .small()
@@ -885,18 +941,7 @@ impl Detail {
                 .on_mouse_down(MouseButton::Right, {
                     let project = project.clone();
                     cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                        let project = project.clone();
-                        let items = vec![
-                            MenuItem::new("Cherry-pick", move |app, _, cx| {
-                                app.cut(Cut::CherryPick(project.clone(), [id].into()), cx)
-                            }),
-                            MenuItem::new("Copy commit ID", move |app, _, cx| {
-                                app.copy_text(id.0.to_string(), cx)
-                            }),
-                        ];
-                        (this.app)
-                            .update(cx, |app, cx| app.open_menu(event.position, items, cx))
-                            .ok();
+                        this.commit_menu(&project, [id].into(), id, event.position, cx)
                     })
                 })
         });
@@ -1090,5 +1135,20 @@ pub(super) fn list_heading(text: impl IntoElement, theme: &Theme) -> AnyElement 
         .items_end()
         .px(px(14.))
         .pb(px(4.))
+        .into_any_element()
+}
+
+/// What a side list shows in place of its rows, in the room they'd take.
+pub(super) fn list_empty(
+    drawing: Illustration,
+    title: String,
+    detail: &'static str,
+    theme: &Theme,
+    cx: &App,
+) -> AnyElement {
+    div()
+        .flex_1()
+        .min_h(px(0.))
+        .child(empty_state(Some(drawing), title, detail, theme, cx))
         .into_any_element()
 }

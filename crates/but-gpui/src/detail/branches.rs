@@ -5,12 +5,12 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, ClickEvent, Context, Focusable as _, MouseButton, MouseDownEvent, Pixels, Point,
-    SharedString, Window, div, prelude::*, px,
+    AnyElement, ClickEvent, Context, MouseButton, MouseDownEvent, Pixels, Point, SharedString,
+    Window, div, prelude::*, px,
 };
 
 use super::Detail;
-use super::panes::{Crumb, quiet, side_list, side_row};
+use super::panes::{Crumb, list_empty, quiet, side_list, side_row};
 use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::branches::{self, ApplyOutcome, BranchCommit, OtherBranch};
 use crate::backend::{self, CommitId, DiffSource};
@@ -22,15 +22,15 @@ use crate::transfer::drag_preview;
 use crate::ui::illustration::Illustration;
 use crate::ui::person::byline_avatar;
 use crate::ui::{
-    Icon, ROW_HEIGHT, Tooltip, age_column, empty_state, faint, field, h_flex, icon_button,
-    relative_time, review, small_icon, v_flex,
+    Icon, ROW_HEIGHT, Tooltip, age_column, empty_state, faint, h_flex, relative_time, review,
+    small_icon, v_flex,
 };
 
 pub(super) struct Branches {
     project: ProjectId,
     /// The project's branches when the list loaded; a reload that changes none of them
     /// leaves the list as it is. `None` until it has loaded.
-    seen: Option<u64>,
+    seen: u64,
     list: Vec<OtherBranch>,
     /// The selected branch, by ref.
     selected: Option<String>,
@@ -107,11 +107,7 @@ impl Detail {
             return;
         };
         let seen = self.branches_fingerprint(project, cx);
-        if !force
-            && self
-                .branches_for(project)
-                .is_some_and(|b| b.seen == Some(seen))
-        {
+        if !force && self.branches_for(project).is_some_and(|b| b.seen == seen) {
             return;
         }
         let project = project.clone();
@@ -120,11 +116,11 @@ impl Detail {
             this.update(cx, |this, cx| {
                 let list = match result {
                     Ok(list) => list,
+                    // What's listed stays, to be read again on the next change.
                     Err(err) => {
-                        this.store.update(cx, |store, cx| {
+                        return this.store.update(cx, |store, cx| {
                             store.error("Couldn't list the branches", format!("{err:#}"), cx)
                         });
-                        Vec::new()
                     }
                 };
                 let previous = this.branches.take().filter(|b| b.project == project);
@@ -151,7 +147,7 @@ impl Detail {
                 };
                 this.branches = Some(Branches {
                     project,
-                    seen: Some(seen),
+                    seen,
                     list,
                     selected,
                     open,
@@ -363,7 +359,7 @@ impl Detail {
 
     /// Select the first branch the filter shows when it hides the selected one, so the diff
     /// is of a branch in the list.
-    pub(crate) fn select_shown_branch(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn select_shown_branch(&mut self, cx: &mut Context<Self>) {
         let Some(branches) = &self.branches else {
             return;
         };
@@ -443,7 +439,13 @@ impl Detail {
             return;
         };
         let rows = self.branch_rows(branches, cx);
-        let at = rows.iter().position(|row| is_selected(branches, row));
+        // A selected branch folded away in its stack steps from the stack's row.
+        let in_stack = |top: usize| {
+            (branches.selected_branch()).is_some_and(|b| b.stack == branches.list[top].stack)
+        };
+        let at = rows.iter().position(|row| {
+            is_selected(branches, row) || matches!(*row, Row::Stack(top, _, true) if in_stack(top))
+        });
         let next = match at {
             Some(at) => (0..rows.len() as isize)
                 .map(|step| at as isize + delta * (step + 1))
@@ -600,25 +602,9 @@ impl Detail {
             }
             _ => self.select_branch_commit(ref_name, id, cx),
         }
-        let Some(ids) = self.branches.as_ref().map(|b| b.cherry_picks(id)) else {
-            return;
-        };
-        let label = match ids.len() {
-            1 => "Cherry-pick".to_owned(),
-            n => format!("Cherry-pick {n} commits"),
-        };
-        let project = project.clone();
-        let items = vec![
-            MenuItem::new(label, move |app, _, cx| {
-                app.cut(Cut::CherryPick(project.clone(), ids.clone()), cx)
-            }),
-            MenuItem::new("Copy commit ID", move |app, _, cx| {
-                app.copy_text(id.0.to_string(), cx)
-            }),
-        ];
-        self.app
-            .update(cx, |app, cx| app.open_menu(at, items, cx))
-            .ok();
+        if let Some(ids) = self.branches.as_ref().map(|b| b.cherry_picks(id)) {
+            self.commit_menu(project, ids, id, at, cx);
+        }
     }
 
     /// Pick up the selected commit, with the others picked, to put copies of them where ⌘V
@@ -751,28 +737,22 @@ impl Detail {
         window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let filter_focused = self.branch_filter.focus_handle(cx).is_focused(window);
+        let Some(branches) = self.branches_for(project) else {
+            return empty_state(None, "Loading branches…", "", theme, cx);
+        };
         let prefs = &self.store.read(cx).prefs;
         // Lit while the filters aren't as they are at rest, as Lite counts them.
         let changed = prefs.branches_with_empty || prefs.branches_local_only;
-        let filter = h_flex()
-            .flex_none()
-            .m(px(10.))
-            .gap(px(4.))
-            .child(field(&self.branch_filter, filter_focused, theme).flex_1())
-            .child(
-                icon_button("branch-filters", Icon::Filter)
-                    .small()
-                    .selected(changed)
-                    .tooltip("Branch filters")
-                    .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
-                        this.branch_filters_menu(event.position(), cx)
-                    })),
+        let filter = self
+            .filter_bar(
+                &self.branch_filter,
+                "Branch filters",
+                Self::branch_filters_menu,
+                changed,
+                window,
+                cx,
             )
             .children(self.fetch_button(project, cx));
-        let Some(branches) = self.branches_for(project).filter(|b| b.seen.is_some()) else {
-            return empty_state(None, "Loading branches…", "", theme, cx);
-        };
         let rows = self.branch_rows(branches, cx);
         let list = if rows.is_empty() {
             let (drawing, empty) = if branches.list.is_empty() {
@@ -785,10 +765,7 @@ impl Detail {
                 };
                 (Illustration::Papers, miss)
             };
-            div()
-                .flex_1()
-                .min_h(px(0.))
-                .child(empty_state(Some(drawing), empty, "", theme, cx))
+            list_empty(drawing, empty, "", theme, cx)
         } else {
             side_list(
                 "other-branches",
@@ -1053,6 +1030,7 @@ impl Detail {
                     })
                 },
             )
+            .into_any_element()
         };
         v_flex()
             .size_full()
@@ -1114,7 +1092,6 @@ impl Detail {
     }
 }
 
-/// Faint meta text, in the selection's ink on a solid one.
 /// Whether `row` is what's selected: the selected commit, or else the selected branch.
 fn is_selected(branches: &Branches, row: &Row) -> bool {
     let selected = |ix: usize| branches.selected.as_ref() == Some(&branches.list[ix].ref_name);

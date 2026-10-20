@@ -89,6 +89,11 @@ impl Detail {
             .filter(|_| more)
             .and_then(|u| u.commits.last())
             .map(|commit| commit.id);
+        // A reload reads as many as are listed, so the older pages and the selection stay.
+        let limit = match more {
+            true => PAGE,
+            false => current.map_or(PAGE, |u| (u.commits.len() as u32).max(PAGE)),
+        };
         let project = project.clone();
         let forge = self
             .store
@@ -97,7 +102,7 @@ impl Detail {
             .and_then(|ws| ws.forge);
         self._upstream_load = cx.spawn(async move |this, cx| {
             let result = backend::run(move || {
-                let page = upstream::target_commits(&path, after, PAGE)?;
+                let page = upstream::target_commits(&path, after, limit)?;
                 let connected = forge.is_none_or(|forge| {
                     (backend::accounts::accounts().iter()).any(|account| account.forge == forge)
                 });
@@ -119,12 +124,15 @@ impl Detail {
                         return;
                     }
                     Err(err) => {
+                        // When it last fetched is still known, though the history can't be read.
+                        let fetch = (this.upstream_for(&project).map(|u| u.fetch.clone()))
+                            .unwrap_or(Some((None, None)));
                         this.upstream = Some(Upstream {
                             project,
                             commits: Vec::new(),
                             more: false,
                             selected: None,
-                            fetch: Some((None, None)),
+                            fetch,
                             unconnected_forge: None,
                             seen: (seen, Instant::now()),
                             failed: Some(format!("{err:#}")),
@@ -181,12 +189,6 @@ impl Detail {
 
     fn upstream_for(&self, project: &ProjectId) -> Option<&Upstream> {
         self.upstream.as_ref().filter(|u| u.project == *project)
-    }
-
-    /// Whether the project's page found it has no remote to fetch from.
-    pub(super) fn no_remote(&self, project: &ProjectId) -> bool {
-        self.upstream_for(project)
-            .is_some_and(|u| u.fetch.is_none())
     }
 
     /// The pull request the selected target commit landed, if it landed one.
@@ -327,7 +329,7 @@ impl Detail {
                     .child(crate::ui::short_path(&entry.project.path)),
             )
             .when(entry.project.path.exists(), |el| {
-                let busy = store.fetching(project) || store.forge_checking(project);
+                let busy = store.fetching(project);
                 let said = match &fetch {
                     Some(None) => "No remote to fetch from".into(),
                     _ if busy => "Fetching…".into(),
@@ -398,12 +400,24 @@ impl Detail {
         let upstream = self.upstream_for(project);
         let fetch_error = upstream.and_then(|u| u.fetch.as_ref()?.1.clone());
         // Where it is and when it fetched head its page; here, what needs doing, if anything.
+        // Checked out outside the workspace, with one to go back to.
+        let outside = (entry.workspace.as_ref())
+            .filter(|ws| !ws.managed && ws.editing.is_none() && ws.target.is_some());
         let needs_doing = fetch_error.is_some()
             || upstream.is_some_and(|u| u.unconnected_forge.is_some())
             || !entry.project.path.exists()
             || entry.error.is_some()
-            || (entry.workspace.as_ref())
-                .is_some_and(|ws| !ws.managed && ws.editing.is_none() && ws.target.is_some());
+            || outside.is_some();
+        // A box of what needs doing, with the button that does it.
+        let callout = |ground: gpui::Hsla| {
+            v_flex()
+                .items_start()
+                .mt(px(4.))
+                .gap(px(8.))
+                .p(px(8.))
+                .rounded(px(6.))
+                .bg(ground)
+        };
         let about = side_header(theme)
             .text_size(px(12.))
             .children(fetch_error.map(|err| {
@@ -412,13 +426,7 @@ impl Detail {
                     .child(format!("The last fetch failed: {}", error_summary(&err)))
             }))
             .children(upstream.and_then(|u| u.unconnected_forge).map(|forge| {
-                v_flex()
-                    .items_start()
-                    .mt(px(4.))
-                    .gap(px(8.))
-                    .p(px(8.))
-                    .rounded(px(6.))
-                    .bg(theme.hover())
+                callout(theme.hover())
                     .child(div().text_color(theme.text_1).child(format!(
                         "Connect {} to see pull requests and CI here.",
                         forge.name()
@@ -433,83 +441,64 @@ impl Detail {
                             })),
                     )
             }))
-            .children(
-                (entry.workspace.as_ref())
-                    .filter(|ws| !ws.managed && ws.editing.is_none() && ws.target.is_some())
-                    .map(|ws| {
-                        // Until Git finishes, switching to the workspace has to wait.
-                        let text = match (&ws.checked_out, ws.git_operation) {
-                            (_, Some(op)) => format!(
-                                "Git is partway through {op}. Finish it in a terminal with \
+            .children(outside.map(|ws| {
+                // Until Git finishes, switching to the workspace has to wait.
+                let text = match (&ws.checked_out, ws.git_operation) {
+                    (_, Some(op)) => format!(
+                        "Git is partway through {op}. Finish it in a terminal with \
                                  `{op} --continue`, or stop it with `{op} --abort`."
-                            ),
-                            (Some(branch), None) => format!(
-                                "Working on {branch} directly. Use the GitButler workspace to \
+                    ),
+                    (Some(branch), None) => format!(
+                        "Working on {branch} directly. Use the GitButler workspace to \
                                  work on several branches at once."
-                            ),
-                            (None, None) => "Working outside the workspace. Use the GitButler \
+                    ),
+                    (None, None) => "Working outside the workspace. Use the GitButler \
                                              workspace to work on several branches at once."
-                                .to_owned(),
-                        };
-                        let project = project.clone();
-                        v_flex()
-                            .items_start()
-                            .mt(px(4.))
-                            .gap(px(8.))
-                            .p(px(8.))
-                            .rounded(px(6.))
-                            .bg(theme.hover())
-                            .child(div().text_color(theme.text_1).child(text))
-                            .when(ws.git_operation.is_none(), |el| {
-                                el.child(
-                                    crate::ui::button("switch-back", "Switch to the workspace")
-                                        .small()
-                                        .on_click(cx.listener(move |this, _, _, cx| {
-                                            this.store.update(cx, |store, cx| {
-                                                store.run(
-                                                    &project,
-                                                    "Switch to the workspace",
-                                                    Overlay::default(),
-                                                    |path, _| {
-                                                        backend::switch_back_to_workspace(path)
-                                                    },
-                                                    |store, (), cx| {
-                                                        store.snack(
-                                                            "Switched to the GitButler workspace",
-                                                            cx,
-                                                        )
-                                                    },
+                        .to_owned(),
+                };
+                let project = project.clone();
+                callout(theme.hover())
+                    .child(div().text_color(theme.text_1).child(text))
+                    .when(ws.git_operation.is_none(), |el| {
+                        el.child(
+                            crate::ui::button("switch-back", "Switch to the workspace")
+                                .small()
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.store.update(cx, |store, cx| {
+                                        store.run(
+                                            &project,
+                                            "Switch to the workspace",
+                                            Overlay::default(),
+                                            |path, _| backend::switch_back_to_workspace(path),
+                                            |store, (), cx| {
+                                                store.snack(
+                                                    "Switched to the GitButler workspace",
                                                     cx,
                                                 )
-                                            })
-                                        })),
-                                )
-                            })
-                    }),
-            )
+                                            },
+                                            cx,
+                                        )
+                                    })
+                                })),
+                        )
+                    })
+            }))
             .when(!entry.project.path.exists(), |el| {
                 let remove = project.clone();
                 el.child(
-                    v_flex()
-                        .mt(px(4.))
-                        .gap(px(8.))
-                        .p(px(8.))
-                        .rounded(px(6.))
-                        .bg(theme.danger.opacity(0.08))
+                    callout(theme.danger.opacity(0.08))
                         .child(
                             div()
                                 .text_color(theme.danger)
                                 .child("The project's folder isn't there any more."),
                         )
-                        .child(
-                            h_flex().child(crate::ui::button("forget", "Remove").small().on_click(
-                                cx.listener(move |this, _, _, cx| {
-                                    let project = remove.clone();
-                                    this.store
-                                        .update(cx, |store, cx| store.remove_project(&project, cx));
-                                }),
-                            )),
-                        ),
+                        .child(crate::ui::button("forget", "Remove").small().on_click(
+                            cx.listener(move |this, _, _, cx| {
+                                let project = remove.clone();
+                                this.store
+                                    .update(cx, |store, cx| store.remove_project(&project, cx));
+                            }),
+                        )),
                 )
             })
             .children(

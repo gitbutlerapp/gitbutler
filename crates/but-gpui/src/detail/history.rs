@@ -3,13 +3,13 @@
 //! that for the selected one, then the files it changed; and a way back to before any of them.
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Focusable as _, MouseButton, MouseDownEvent, Pixels,
-    Point, Window, div, prelude::*, px,
+    AnyElement, App, ClickEvent, Context, MouseButton, MouseDownEvent, Pixels, Point, Window, div,
+    prelude::*, px,
 };
 
 use super::Detail;
 use super::panes::{
-    list_heading, meta_item, meta_row, page_title, side_list, side_row, title_text,
+    list_empty, list_heading, meta_item, meta_row, page_title, side_list, side_row, title_text,
 };
 use crate::app::{SelectNext, SelectPrevious};
 use crate::backend::history::{Branches, Change, Operation, Recorded};
@@ -22,8 +22,8 @@ use crate::ui::text_input::TextInput;
 use but_oplog::legacy::OperationKind;
 
 use crate::ui::{
-    Icon, Tooltip, clock_time, commit_title, day_label, faint, field, h_flex, icon, icon_button,
-    list_row, local_day, plural, small_icon, v_flex,
+    Icon, Tooltip, clock_time, commit_title, day_label, faint, h_flex, icon, icon_button, list_row,
+    local_day, plural, small_icon, v_flex,
 };
 
 /// How many of an operation's changes its header lists; the rest it counts.
@@ -73,11 +73,13 @@ fn operation_icon(kind: Option<OperationKind>) -> Icon {
             | K::DiscardChanges
             | K::Discard
             | K::DiscardCommit
+            | K::CleanWorkspace
             | K::DeleteBranch
             | K::RemoveDependentBranch,
         ) => Icon::Bin,
-        Some(K::CreateCommit | K::InsertBlankCommit) => Icon::Commit,
-        Some(K::AmendCommit) => Icon::Absorb,
+        Some(K::CreateCommit | K::AutoCommit | K::InsertBlankCommit | K::CherryPick)
+        | Some(K::MoveCommit | K::ReorderCommit) => Icon::Commit,
+        Some(K::AmendCommit | K::Absorb) => Icon::Absorb,
         Some(K::SquashCommit) => Icon::ArrowDoubleDown,
         Some(
             K::UpdateCommitMessage
@@ -112,23 +114,18 @@ fn operation_icon(kind: Option<OperationKind>) -> Icon {
             | K::RestoreFromSnapshotViaUndo
             | K::RestoreFromSnapshotViaRedo,
         ) => Icon::Undo,
-        Some(K::MoveHunk | K::MoveCommitFile | K::FileChanges) => Icon::File,
+        Some(
+            K::MoveHunk
+            | K::MoveCommitFile
+            | K::FileChanges
+            | K::AutoHandleChangesBefore
+            | K::AutoHandleChangesAfter,
+        ) => Icon::File,
         Some(K::MergeUpstream | K::UpdateWorkspaceBase) => Icon::ArrowLineDown,
         Some(K::SyncWorkspace) => Icon::Refresh,
         Some(K::OnDemandSnapshot) => Icon::Camera,
-        _ => Icon::Commit,
+        Some(K::Unknown) | None => Icon::Commit,
     }
-}
-
-/// Whether `kind` takes earlier operations back: an undo, a redo or a restore.
-fn takes_back(kind: Option<OperationKind>) -> bool {
-    use OperationKind as K;
-    matches!(
-        kind,
-        Some(
-            K::RestoreFromSnapshot | K::RestoreFromSnapshotViaUndo | K::RestoreFromSnapshotViaRedo
-        )
-    )
 }
 
 /// What an operation did, as the list's filter menu sorts them and their glyphs are tinted.
@@ -256,7 +253,10 @@ fn summary(operation: &Operation) -> Option<String> {
 
 /// What hovering a row's glyph says it did: its title, and for an undo what it took back.
 fn glyph_tooltip(operation: &Operation) -> String {
-    match (takes_back(operation.kind), &operation.detail) {
+    match (
+        Group::of(operation.kind) == Group::TakeBacks,
+        &operation.detail,
+    ) {
         (true, Some(undone)) => format!("{}: {undone}", operation.title),
         _ => operation.title.clone(),
     }
@@ -265,28 +265,16 @@ fn glyph_tooltip(operation: &Operation) -> String {
 /// The commit or branch `operation`'s changes are about, or for an update what it brought.
 fn subject(operation: &Operation) -> Option<String> {
     use OperationKind as K;
-    if operation.changes.is_empty() {
-        return None;
+    let (mut edited, mut added, mut moved, mut removed) = (vec![], vec![], vec![], vec![]);
+    for change in &operation.changes {
+        match change {
+            Change::Edited { after, .. } => edited.push(after),
+            Change::Added { commit, .. } => added.push(commit),
+            Change::Moved { commit, .. } => moved.push(commit),
+            Change::Removed { commit, .. } => removed.push(commit),
+            _ => {}
+        }
     }
-    let commits = |pick: fn(&Change) -> Option<&Recorded>| -> Vec<&Recorded> {
-        operation.changes.iter().filter_map(pick).collect()
-    };
-    let edited = commits(|c| match c {
-        Change::Edited { after, .. } => Some(after),
-        _ => None,
-    });
-    let added = commits(|c| match c {
-        Change::Added { commit, .. } => Some(commit),
-        _ => None,
-    });
-    let moved = commits(|c| match c {
-        Change::Moved { commit, .. } => Some(commit),
-        _ => None,
-    });
-    let removed = commits(|c| match c {
-        Change::Removed { commit, .. } => Some(commit),
-        _ => None,
-    });
     let name = |commits: &[&Recorded]| match commits {
         [] => None,
         [one] => Some(commit_title(one.title()).to_string()),
@@ -358,6 +346,10 @@ impl Detail {
             return;
         };
         let shown = self.history_for(project);
+        // A reload waits for an older page still loading, which replacing it would cancel.
+        if !more && shown.is_some_and(|history| history.loading) {
+            return;
+        }
         let after = (shown.filter(|_| more))
             .and_then(|history| history.operations.last())
             .map(|operation| operation.id);
@@ -368,23 +360,27 @@ impl Detail {
         if let Some(history) = &mut self.history
             && history.project == *project
         {
-            history.loading = true;
+            history.loading = more;
         }
-        // What the newest operation left, which its snapshot is compared with.
-        let now: Branches = (self.store.read(cx).workspace(project).into_iter())
-            .flat_map(|ws| &ws.stacks)
-            .flat_map(|stack| &stack.branches)
-            .map(|branch| {
-                let commits = (branch.commits.iter()).map(|commit| Recorded {
-                    id: commit.id,
-                    key: commit.key.clone(),
-                    message: commit.message.clone(),
-                    parent: commit.parent,
-                    tree: commit.tree,
-                });
-                (branch.name.clone(), commits.collect())
-            })
-            .collect();
+        // What the newest operation left, which its snapshot is compared with: the workspace's
+        // stacks, which snapshots record only while it's a workspace, and not mid-edit.
+        let workspace = (self.store.read(cx).workspace(project))
+            .filter(|ws| ws.managed && ws.editing.is_none());
+        let now = workspace.map(|ws| -> Branches {
+            (ws.stacks.iter())
+                .flat_map(|stack| &stack.branches)
+                .map(|branch| {
+                    let commits = (branch.commits.iter()).map(|commit| Recorded {
+                        id: commit.id,
+                        key: commit.key.clone(),
+                        message: commit.message.clone(),
+                        parent: commit.parent,
+                        tree: commit.tree,
+                    });
+                    (branch.name.clone(), commits.collect())
+                })
+                .collect()
+        });
         let project = project.clone();
         self._history_load = cx.spawn(async move |this, cx| {
             let result =
@@ -392,11 +388,15 @@ impl Detail {
             this.update(cx, |this, cx| {
                 let (operations, more) = match result {
                     Ok(page) => page,
+                    // What's listed stays, Show older too, to try again.
                     Err(err) => {
                         this.store.update(cx, |store, cx| {
                             store.error("Couldn't read the history", format!("{err:#}"), cx)
                         });
-                        (Vec::new(), false)
+                        if let Some(history) = &mut this.history {
+                            history.loading = false;
+                        }
+                        return cx.notify();
                     }
                 };
                 let selected_before = this.history.as_ref().and_then(|h| h.selected);
@@ -429,6 +429,8 @@ impl Detail {
                 }
                 let moved = history.selected != selected_before;
                 this.refresh_diff(moved, cx);
+                // Not one the filter or the kinds hide.
+                this.select_shown_operation(cx);
                 cx.notify();
             })
             .ok();
@@ -452,10 +454,13 @@ impl Detail {
     }
 
     fn select_operation(&mut self, id: SnapshotId, cx: &mut Context<Self>) {
-        if let Some(history) = &mut self.history {
-            history.selected = Some(id);
+        let Some(history) = &mut self.history else {
+            return;
+        };
+        // Selected already, as when its menu opens, how its diff is looked at stays.
+        if history.selected.replace(id) != Some(id) {
+            self.show_picked(cx);
         }
-        self.show_picked(cx);
     }
 
     /// ↓ or ↑ (`delta`) in the list: the next or previous operation, kept in view.
@@ -529,7 +534,8 @@ impl Detail {
             .ok();
     }
 
-    fn selected_operation(&self, project: &ProjectId) -> Option<&Operation> {
+    /// The selected operation, which [`Self::render_operation_header`] draws a header for.
+    pub(super) fn selected_operation(&self, project: &ProjectId) -> Option<&Operation> {
         let history = self.history_for(project)?;
         let id = history.selected?;
         history.operations.iter().find(|op| op.id == id)
@@ -591,11 +597,6 @@ impl Detail {
             .ok();
     }
 
-    /// Whether [`Self::render_operation_header`] draws one for `project`.
-    pub(super) fn has_operation_header(&self, project: &ProjectId) -> bool {
-        self.selected_operation(project).is_some()
-    }
-
     /// Over the diff, what the selected operation was: what and when, the branch it was on,
     /// and each commit and branch it changed, a commit still in the workspace a way to it.
     pub(super) fn render_operation_header(
@@ -616,7 +617,7 @@ impl Detail {
                 branches.push(branch);
             }
         }
-        let undone = takes_back(operation.kind);
+        let undone = Group::of(operation.kind) == Group::TakeBacks;
         let when = format!(
             "{} {}",
             day_label(operation.time),
@@ -778,7 +779,6 @@ impl Detail {
             .into_any_element()
     }
 
-    /// Record how the project is now, to come back to later.
     /// Ask what a snapshot is for, which it may go without, then take it.
     fn take_snapshot(&self, project: &ProjectId, window: &mut Window, cx: &mut Context<Self>) {
         let project = project.clone();
@@ -821,22 +821,17 @@ impl Detail {
         let Some(history) = self.history_for(project) else {
             return crate::ui::empty_state(None, "Loading history…", "", theme, cx);
         };
-        let focused = self.history_filter.focus_handle(cx).is_focused(window);
         let snapshot = project.clone();
         // The filter, which kinds of operation it shows, and a snapshot of the project now.
-        let bar = h_flex()
-            .flex_none()
-            .m(px(10.))
-            .gap(px(4.))
-            .child(field(&self.history_filter, focused, theme).flex_1())
-            .child(
-                icon_button("history-filters", Icon::Filter)
-                    .small()
-                    .selected(!self.history_hidden.is_empty())
-                    .tooltip("Kinds of operation")
-                    .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
-                        this.history_filters_menu(event.position(), cx)
-                    })),
+        let narrowed = !self.history_hidden.is_empty();
+        let bar = self
+            .filter_bar(
+                &self.history_filter,
+                "Kinds of operation",
+                Self::history_filters_menu,
+                narrowed,
+                window,
+                cx,
             )
             .child(
                 icon_button("take-snapshot", Icon::Plus)
@@ -847,31 +842,20 @@ impl Detail {
                     })),
             );
         let shown = self.shown_operations(history, cx);
-        let empty = |drawing, title: String, body| {
-            div()
-                .flex_1()
-                .min_h(px(0.))
-                .child(crate::ui::empty_state(
-                    Some(drawing),
-                    title,
-                    body,
-                    theme,
-                    cx,
-                ))
-                .into_any_element()
-        };
         let list = if history.operations.is_empty() {
-            empty(
+            list_empty(
                 Illustration::Cactus,
                 "Nothing here yet".to_owned(),
                 "Changes you make with GitButler show up here",
+                theme,
+                cx,
             )
         } else if shown.is_empty() && !history.more {
             let miss = match self.history_filter.read(cx).text().trim() {
                 "" => "The filters hide every operation".to_owned(),
                 query => format!("No operations match \"{query}\""),
             };
-            empty(Illustration::Papers, miss, "")
+            list_empty(Illustration::Papers, miss, "", theme, cx)
         } else {
             let rows = rows(history, &shown);
             side_list(

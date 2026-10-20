@@ -467,21 +467,32 @@ fn landed_since(
     base: gix::ObjectId,
     all: usize,
 ) -> Option<usize> {
-    let mut at = repo
+    let tip = repo
         .find_reference(target)
         .ok()?
         .peel_to_id()
         .ok()?
         .detach();
-    let mut landed = 0;
-    while at != base {
-        landed += 1;
-        if landed > all {
+    first_parent_steps(repo, tip, base, all)
+}
+
+/// How many first parents lead back from `tip` to `base`, at most `max`; `None` when `base`
+/// isn't among them.
+fn first_parent_steps(
+    repo: &gix::Repository,
+    mut tip: gix::ObjectId,
+    base: gix::ObjectId,
+    max: usize,
+) -> Option<usize> {
+    let mut steps = 0;
+    while tip != base {
+        steps += 1;
+        if steps > max {
             return None;
         }
-        at = repo.find_commit(at).ok()?.parent_ids().next()?.detach();
+        tip = repo.find_commit(tip).ok()?.parent_ids().next()?.detach();
     }
-    Some(landed)
+    Some(steps)
 }
 
 /// A signature's `name` and `email`, as [`byline`] takes them.

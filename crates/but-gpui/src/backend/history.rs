@@ -99,12 +99,13 @@ pub enum Change {
 }
 
 /// Up to `limit` operations older than `after`, or the newest ones; and whether more remain.
-/// `now` is the workspace's branches, which the newest operation left.
+/// `now` is the workspace's branches, which the newest operation left, when snapshots record
+/// them as the workspace has them.
 pub fn list(
     path: &Path,
     after: Option<SnapshotId>,
     limit: usize,
-    now: Branches,
+    now: Option<Branches>,
 ) -> Result<(Vec<Operation>, bool)> {
     let ctx = open(path)?;
     let mut snapshots = oplog::list_snapshots(&ctx, limit + 1, after.map(|s| s.0), None, None)?;
@@ -114,24 +115,18 @@ pub fn list(
     // Each commit's entry in a snapshot is read once: unchanged, it's the same in the next.
     let mut read = HashMap::new();
     // What came after the operation at hand: the one after it's snapshot, or the workspace.
+    let meta = ctx.project_meta().ok();
     let (mut later, mut later_target) = match after {
         Some(after) => (
             snapshot_branches(&repo, after.0, &mut read),
             snapshot_target(&repo, after.0),
         ),
-        None => (
-            Some(now),
-            ctx.project_meta()
-                .ok()
-                .and_then(|meta| meta.target_commit_id),
-        ),
+        None => (now, meta.as_ref().and_then(|meta| meta.target_commit_id)),
     };
-    let target_name = (ctx.project_meta().ok())
-        .and_then(|meta| meta.target_ref)
-        .map_or_else(
-            || "the target".to_owned(),
-            |name| name.shorten().to_string(),
-        );
+    let target_name = (meta.and_then(|meta| meta.target_ref)).map_or_else(
+        || "the target".to_owned(),
+        |name| name.shorten().to_string(),
+    );
     let mut operations = Vec::with_capacity(snapshots.len());
     for snapshot in snapshots {
         let before = snapshot_branches(&repo, snapshot.commit_id, &mut read);
@@ -141,7 +136,8 @@ pub fn list(
         };
         let target = snapshot_target(&repo, snapshot.commit_id);
         if let (Some(from), Some(to)) = (target, later_target)
-            && let Some(commits) = first_parent_steps(&repo, to, from)
+            && let Some(commits) = super::first_parent_steps(&repo, to, from, 1000)
+            && commits > 0
         {
             changes.push(Change::TargetMoved {
                 target: target_name.clone(),
@@ -337,25 +333,6 @@ fn snapshot_target(repo: &gix::Repository, id: gix::ObjectId) -> Option<gix::Obj
     let meta = tree.lookup_entry_by_path("project_meta.toml").ok()??;
     let meta: Meta = toml::from_str(std::str::from_utf8(&meta.object().ok()?.data).ok()?).ok()?;
     gix::ObjectId::from_hex(meta.target?.as_bytes()).ok()
-}
-
-/// How many first parents lead back from `to` to `from`, as an update moves the target on
-/// by a merged pull request each; `None` when `from` isn't among the first thousand, as
-/// after the target was rewritten, or when it didn't move.
-fn first_parent_steps(
-    repo: &gix::Repository,
-    mut to: gix::ObjectId,
-    from: gix::ObjectId,
-) -> Option<usize> {
-    let mut steps = 0;
-    while to != from {
-        steps += 1;
-        if steps > 1000 {
-            return None;
-        }
-        to = repo.find_commit(to).ok()?.parent_ids().next()?.detach();
-    }
-    (steps > 0).then_some(steps)
 }
 
 /// What changed from `before` to `after`: commits matched by their change ID, so a rebase
