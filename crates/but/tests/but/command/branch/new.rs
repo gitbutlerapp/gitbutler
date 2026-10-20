@@ -1335,8 +1335,6 @@ Hint: run `but help` for all commands
 ├╯
 ┊
 ┊╭┄ bo [bottom] (no commits)
-┊│
-┊├┄ mi [middle] (no commits)
 ├╯
 ┊
 ┴ b1540e5 (common base, main, origin/main) 2000-01-02 M
