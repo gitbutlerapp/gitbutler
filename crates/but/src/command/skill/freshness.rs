@@ -271,9 +271,9 @@ mod tests {
             "Pi loads project skills from .agents/skills"
         );
         assert!(
-            agent_skill_installations(Agent::Junie, Some(dir.path()))
+            !agent_skill_installations(Agent::Junie, Some(dir.path()))
                 .unwrap()
-                .is_empty(),
+                .contains(&local),
             "Junie only loads project skills from .junie/skills"
         );
     }
