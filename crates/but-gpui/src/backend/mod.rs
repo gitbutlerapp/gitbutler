@@ -311,9 +311,20 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     for worktree in &mut worktrees {
         let lane = (info.worktrees.iter()).find(|lane| lane.name == worktree.name.as_ref());
         let segments = lane.iter().flat_map(|lane| &lane.segments);
-        worktree.branches = (segments.enumerate())
-            .filter_map(|(ix, segment)| {
+        let mut past_theirs = false;
+        worktree.branches = segments
+            .filter_map(|segment| {
                 use but_workspace::ref_info::LocalCommitRelation as R;
+                // A lane started from a newer target than the workspace's runs on down through
+                // the target's own commits, which aren't the worktree's work. The branch the
+                // worktree's work starts from shows, even with no commits of its own, but not
+                // the target's branches further down.
+                let theirs = (segment.commits.iter()).position(
+                    |commit| matches!(commit.relation, R::Integrated(by) if by == commit.inner.id),
+                );
+                if theirs.is_some() && std::mem::replace(&mut past_theirs, true) {
+                    return None;
+                }
                 let mut branch = branch_from(&ctx, &cached, segment);
                 // A detached run of commits has no ref to tell it apart by, and a branch the
                 // workspace has applied is listed there.
@@ -322,17 +333,8 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
                 if branch.ref_name.is_empty() || applied {
                     return None;
                 }
-                // A lane started from a newer target than the workspace's runs on down through
-                // the target's own commits, which aren't the worktree's work.
-                let theirs = (segment.commits.iter()).position(
-                    |commit| matches!(commit.relation, R::Integrated(by) if by == commit.inner.id),
-                );
                 if let Some(theirs) = theirs {
                     branch.commits.truncate(theirs);
-                    // Its checked-out branch shows even before it has commits of its own.
-                    if theirs == 0 && ix > 0 {
-                        return None;
-                    }
                 }
                 Some(branch)
             })

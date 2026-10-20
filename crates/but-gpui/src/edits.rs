@@ -102,10 +102,10 @@ impl BranchEdits {
         };
         let commits = lane[at].commits.len();
         let conflicted = lane[at].commits.iter().any(|c| c.conflicted);
-        // A linked worktree's lane can't take new branches or come apart yet.
+        // A linked worktree's lane takes new branches, but can't come apart yet.
         let stack = workspace.stack_of(ref_name).is_some();
         Self {
-            new_below: stack && commits > 0,
+            new_below: commits > 0,
             squash_all: commits > 1 && !conflicted,
             stacked: stack && lane.len() > 1,
             land: land_scope(workspace, ref_name).filter(|_| workspace.target.is_some()),
@@ -479,18 +479,26 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        // A linked worktree's branches can't be ordered yet, so new ones start there.
-        if refused_here(&self.store, cx) {
-            return;
-        }
+        // On top of a linked worktree's branch, the worktree checks the new one out and commits
+        // there, so the title says so, and the composer here doesn't pick it.
+        let worktree = {
+            let store = self.store.read(cx);
+            (store.selection.as_ref())
+                .and_then(|s| store.worktree_of(s))
+                .map(|wt| wt.name.clone())
+        };
+        let title = match &worktree {
+            Some(name) => format!("New branch on top, checked out in {name}"),
+            None => "New branch on top".to_owned(),
+        };
         if let Some((project, below)) = self
             .branch_of_selection(cx)
             .filter(|(_, ref_name)| !ref_name.is_empty())
         {
             self.prompt_new_branch(
                 project,
-                "New branch on top",
-                true,
+                &title,
+                worktree.is_none(),
                 window,
                 cx,
                 move |path, _, name| backend::create_dependent_branch(path, &below, name),

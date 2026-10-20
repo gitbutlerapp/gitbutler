@@ -298,15 +298,11 @@ impl Navigator {
                     return items;
                 }
                 let edits = BranchEdits::of(workspace, ref_name);
-                // A linked worktree's branches can't be ordered yet.
-                if !linked {
-                    items.push(action("New branch on top…", &NewBranchOnTop).separated());
-                }
+                items.push(action("New branch on top…", &NewBranchOnTop).separated());
                 if edits.new_below {
                     items.push(action("New branch below…", &NewBranchBelow));
                 }
-                let empty = action("Add empty commit", &AddEmptyCommitAbove);
-                items.push(if linked { empty.separated() } else { empty });
+                items.push(action("Add empty commit", &AddEmptyCommitAbove));
                 if edits.squash_all {
                     items.push(action("Squash all commits", &SquashAll));
                 }
@@ -508,11 +504,10 @@ impl Navigator {
                         cx,
                     ));
                 }
-                if store.worktree_of(target).is_none() {
-                    items.push(action("New branch on top…", &NewBranchOnTop).separated());
-                    if workspace.managed {
-                        items.push(action("Unapply stack", &UnapplyStack));
-                    }
+                items.push(action("New branch on top…", &NewBranchOnTop).separated());
+                // A linked worktree's lane stays applied while it has it checked out.
+                if store.worktree_of(target).is_none() && workspace.managed {
+                    items.push(action("Unapply stack", &UnapplyStack));
                 }
                 items
             }
