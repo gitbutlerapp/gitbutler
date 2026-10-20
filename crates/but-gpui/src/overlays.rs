@@ -13,7 +13,7 @@ use gpui::{
 
 use crate::app::AppView;
 use crate::backend::{self, short_ref};
-use crate::state::{Notice, Overlay, ProjectId, Remap, Store};
+use crate::state::{Notice, Overlay, ProjectId, Remap, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -25,6 +25,8 @@ use crate::ui::{
 pub struct ContextMenu {
     pub position: Point<Pixels>,
     pub items: Vec<MenuItem>,
+    /// What it opened on: see [`Store::acting_on`].
+    pub acting_on: (Option<Selection>, usize),
 }
 
 type MenuHandler = Rc<dyn Fn(&mut AppView, &mut Window, &mut Context<AppView>)>;
@@ -130,7 +132,11 @@ impl AppView {
         items: Vec<MenuItem>,
         cx: &mut Context<Self>,
     ) {
-        self.menu = Some(ContextMenu { position, items });
+        self.menu = Some(ContextMenu {
+            position,
+            items,
+            acting_on: self.store.read(cx).acting_on(),
+        });
         cx.notify();
     }
 

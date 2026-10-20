@@ -162,6 +162,8 @@ pub struct Palette {
     /// The rows' scroll, which follows the selection.
     scroll: ScrollHandle,
     restore_focus: Option<FocusHandle>,
+    /// What it opened on: see [`Store::acting_on`].
+    pub acting_on: (Option<Selection>, usize),
     _subscription: Subscription,
 }
 
@@ -305,6 +307,7 @@ impl AppView {
             selected: 0,
             scroll: ScrollHandle::new(),
             restore_focus,
+            acting_on: self.store.read(cx).acting_on(),
             _subscription: subscription,
         });
         cx.notify();

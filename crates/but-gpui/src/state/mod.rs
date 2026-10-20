@@ -382,6 +382,12 @@ impl Store {
         Some(self.project(id)?.project.path.clone())
     }
 
+    /// What a menu or the palette acts on: the selection, and how many commits are picked
+    /// along with it.
+    pub fn acting_on(&self) -> (Option<Selection>, usize) {
+        (self.selection.clone(), self.picked.len())
+    }
+
     /// The linked worktree whose branches `selection`, a branch or a commit, is on, and not
     /// the workspace's too. Its agent works on them there, so nothing here changes them.
     pub fn worktree_of(&self, selection: &Selection) -> Option<&Worktree> {

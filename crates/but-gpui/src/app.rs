@@ -149,7 +149,17 @@ impl AppView {
         let navigator = cx.new(|cx| Navigator::new(app, store.clone(), detail.clone(), window, cx));
         window.focus(&navigator.focus_handle(cx), cx);
         let subscriptions = vec![
-            cx.observe(&store, |_, _, cx| cx.notify()),
+            // A menu's items and the palette's commands act on the selection and the picks, so
+            // when an agent's change moves them off what they opened on, they go rather than
+            // act on something else.
+            cx.observe_in(&store, window, |this, store, window, cx| {
+                let now = store.read(cx).acting_on();
+                this.menu.take_if(|menu| menu.acting_on != now);
+                if (this.palette.as_ref()).is_some_and(|palette| palette.acting_on != now) {
+                    this.close_palette(window, cx);
+                }
+                cx.notify()
+            }),
             cx.observe_window_appearance(window, |this, window, cx| {
                 this.apply_appearance(window, cx)
             }),
