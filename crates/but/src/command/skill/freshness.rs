@@ -5,8 +5,8 @@
 use std::path::PathBuf;
 
 use super::{
-    SkillLayout, check_skill_status, find_format_installations, home_dir,
-    is_current_skill_installation, skill_format_for_agent, skill_format_for_name,
+    SkillLayout, agent_loads_shared_project_skills, check_skill_status, find_format_installations,
+    home_dir, is_current_skill_installation, skill_format_for_agent, skill_format_for_name,
     write_skill_files,
 };
 use crate::{
@@ -131,7 +131,7 @@ fn agent_skill_installations(
         if let Some(format) = skill_format_for_agent(agent, false) {
             installations.extend(find_format_installations(format, workdir));
         }
-        if matches!(agent, Agent::OpenCode | Agent::Devin)
+        if agent_loads_shared_project_skills(agent)
             && let Some(format) = skill_format_for_name("Agent Skills", false)
         {
             installations.extend(find_format_installations(format, workdir));
@@ -254,6 +254,28 @@ mod tests {
                 "local skill dir for {agent:?}"
             );
         }
+    }
+
+    #[test]
+    fn local_agent_skills_installation_counts_for_agents_that_load_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let local = skill_format_for_name("Agent Skills", false)
+            .unwrap()
+            .get_install_path(dir.path());
+        write_skill_files(&local, SkillLayout::Full).unwrap();
+
+        assert!(
+            agent_skill_installations(Agent::Pi, Some(dir.path()))
+                .unwrap()
+                .contains(&local),
+            "Pi loads project skills from .agents/skills"
+        );
+        assert!(
+            !agent_skill_installations(Agent::Junie, Some(dir.path()))
+                .unwrap()
+                .contains(&local),
+            "Junie only loads project skills from .junie/skills"
+        );
     }
 
     #[test]
