@@ -62,6 +62,7 @@ use serde::Serialize;
 pub mod diff;
 /// Fundamental data types for reuse
 mod diff_types;
+pub mod index;
 pub use diff_types::{DiffSpec, HunkHeader, ModeFlags};
 
 mod hunks;

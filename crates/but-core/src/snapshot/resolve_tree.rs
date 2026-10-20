@@ -43,11 +43,9 @@ pub struct Options {
 }
 
 pub(super) mod function {
-    use std::collections::BTreeSet;
-
+    use crate::index::ConflictStage;
     use anyhow::{Context as _, bail};
     use bstr::ByteSlice;
-    use gix::index::entry::{Flags, Stage};
 
     use super::{Options, Outcome};
     use crate::RepositoryExt;
@@ -133,7 +131,6 @@ pub(super) mod function {
         })
     }
 
-    #[expect(clippy::indexing_slicing)]
     fn replace_entries_with_their_restored_conflicts(
         index: &mut gix::index::State,
         conflict_tree: gix::Id,
@@ -143,7 +140,7 @@ pub(super) mod function {
         let mut recorder = gix::traverse::tree::Recorder::default();
         conflict_tree.traverse().depthfirst(&mut recorder)?;
 
-        let mut to_remove = BTreeSet::new();
+        let mut edit = crate::index::Edit::new(index);
         for record in &recorder.records {
             if record.mode.is_tree() {
                 continue;
@@ -159,27 +156,14 @@ pub(super) mod function {
             let rela_path = rela_path[..rslash_pos].as_bstr();
             let stage = match stage {
                 0 => bail!("Unconflicted stage for '{rela_path}' is unexpected"),
-                1 => Stage::Base,
-                2 => Stage::Ours,
-                3 => Stage::Theirs,
+                1 => ConflictStage::Base,
+                2 => ConflictStage::Ours,
+                3 => ConflictStage::Theirs,
                 other => bail!("Invalid stage '{other}' for '{rela_path}'"),
             };
-
-            index.dangerously_push_entry(
-                Default::default(),
-                record.oid,
-                Flags::from_stage(stage),
-                record.mode.into(),
-                rela_path,
-            );
-
-            to_remove.insert(rela_path);
+            edit.set_conflict_stage(rela_path, stage, record.mode.into(), record.oid);
         }
-        index.remove_entries(|_idx, path, entry| {
-            entry.flags.stage() == Stage::Unconflicted && to_remove.contains(path)
-        });
-
-        index.sort_entries();
+        edit.finish();
         Ok(())
     }
 }
