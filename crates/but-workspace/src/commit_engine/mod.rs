@@ -10,9 +10,6 @@ use but_core::{
 use but_rebase::{RebaseOutput, commit::DateMode};
 use gix::prelude::ObjectIdExt as _;
 
-/// Utilities for synchronizing the on-disk index with a tree.
-pub mod index;
-
 /// Types for use in the frontend with serialization support.
 pub mod ui;
 
