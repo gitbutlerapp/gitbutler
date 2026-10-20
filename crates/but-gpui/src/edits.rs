@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 
-use gpui::{App, Context, Div, Entity, SharedString, Window, actions, prelude::*};
+use gpui::{App, Context, Div, SharedString, Window, actions, prelude::*};
 
 use crate::app::{
     AppView, DeleteSelection, NewBranchOnTop, Push, RenameSelection, UncommitSelection,
@@ -46,15 +46,6 @@ fn needs_rewrap(message: &str) -> bool {
         .lines()
         .skip(1)
         .any(|line| line.chars().count() > WRAP_AT)
-}
-
-/// Say where to make the selected change instead, when the selection is on a linked
-/// worktree's branches: whether it was refused.
-fn refused_here(store: &Entity<Store>, cx: &mut App) -> bool {
-    store.update(cx, |store, cx| {
-        let selection = store.selection.clone();
-        selection.is_some_and(|selection| store.changes_elsewhere(&selection, cx))
-    })
 }
 
 /// What discarding `count` changes is called, "…" when it asks first: in a linked worktree,
@@ -153,7 +144,7 @@ impl AppView {
             .when(linked, |el| {
                 let store = self.store.clone();
                 el.on_action(move |_: &Push, _, cx| {
-                    refused_here(&store, cx);
+                    store.update(cx, |store, cx| store.changes_elsewhere("Push it", cx));
                 })
             });
         let picked = store.picked.len() > 1;
@@ -438,7 +429,8 @@ impl AppView {
             // with no commits has nothing to name.
             Some(Selection::Branch(project, ref_name))
                 if ref_name.is_empty()
-                    && (refused_here(&self.store, cx)
+                    && ((self.store)
+                        .update(cx, |store, cx| store.changes_elsewhere("Name it", cx))
                         || (self.store.read(cx).workspace(&project))
                             .and_then(|ws| ws.find_branch(""))
                             .is_none_or(|b| b.commits.is_empty())) => {}

@@ -407,13 +407,20 @@ impl Store {
         (workspace.worktrees.iter()).find(|wt| wt.branches.iter().any(|b| selection.on(b)))
     }
 
-    /// Whether `selection` is on a linked worktree's branches, saying where to make the
-    /// change instead when it is.
-    pub fn changes_elsewhere(&mut self, selection: &Selection, cx: &mut Context<Self>) -> bool {
-        let Some(name) = self.worktree_of(selection).map(|wt| wt.name.clone()) else {
+    /// Whether the selection is on a linked worktree's branches, saying to do `what`, as
+    /// "Push it", there instead when it is.
+    pub fn changes_elsewhere(&mut self, what: &str, cx: &mut Context<Self>) -> bool {
+        let selection = self.selection.as_ref();
+        let Some(name) = selection
+            .and_then(|s| self.worktree_of(s))
+            .map(|wt| wt.name.clone())
+        else {
             return false;
         };
-        self.snack(format!("Make that change in worktree {name}"), cx);
+        self.snack(
+            format!("{what} in worktree {name}, where it's checked out"),
+            cx,
+        );
         true
     }
 
