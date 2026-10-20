@@ -485,7 +485,8 @@ impl AppView {
         }
     }
 
-    /// The file list, or the diff while the list is hidden.
+    /// The file list, or the diff while the list is hidden; a Branches or Operations history
+    /// page's list.
     fn focus_changes(&mut self, _: &FocusChanges, window: &mut Window, cx: &mut Context<Self>) {
         self.detail
             .update(cx, |detail, cx| detail.focus_files(window, cx));
