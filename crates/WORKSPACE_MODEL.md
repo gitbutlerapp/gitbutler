@@ -58,6 +58,7 @@ Important concepts:
 
 - target ref — usually something like `origin/main`; the branch/ref used as the workflow frame of reference.
 - target commit ID — a commit reachable from the target ref that should stay included in the workspace context, making the workspace stable even when the target ref moves.
+- local target — the branch the target ref's fetch refspec maps back to (`main` for `origin/main`). It is the target segment's sibling in the graph and the branch the editor treats as the target's own. Other branches configured to track the target ref fork from it and are never the local target.
 - workspace stacks — legacy/presentation metadata; useful for compatibility but not ideal as new operation targets.
 
 Treat target ref and target commit as **frame-of-reference metadata**, not automatically as mutation commands.
@@ -94,6 +95,7 @@ Caveats:
 
 - The graph is segment/bucket based because older UI concerns influenced it.
 - It can encode ordering information Git itself does not represent, especially around refs.
+- A named segment may own no commits: it is a ref on the commit below it, so read what it points at with `resolve_to_unambiguously_pointed_to_commit()`, never off its own `commits`.
 - Merge parent order may not always be reliable; be careful with first-parent traversal or UI that assumes the first parent is the mainline.
 
 ## Workspace projection and refinfo
@@ -130,7 +132,9 @@ Important graph editor concepts:
 - none step (`but_rebase::graph_rebase::Step::None`) — placeholder after removing a pick/ref.
 - `Editor::rebase()` — materializes the edited graph back into Git objects and ref edits.
 
-Materializing also records how local branches stack, read off the step graph by `SuccessfulRebase::branch_stacks()`: the workspace stacks when `HEAD` is on the workspace reference above a workspace commit, and the branch stack order of `HEAD` otherwise and of every linked worktree. `overlayed_graph()` previews with the same stacks. A branch a linked worktree has checked out stacks with that worktree, and the workspace stacks are rebuilt rather than reconciled, keeping only a stack's id and position. An operation that needs something else in metadata still writes it after materializing.
+Materializing also records how local branches stack, read off the step graph by `SuccessfulRebase::branch_stacks()`: the workspace stacks when `HEAD` is on the workspace reference above a workspace commit, and the branch stack order of `HEAD` otherwise and of every linked worktree. `overlayed_graph()` previews with the same stacks. A branch a linked worktree has checked out stacks with that worktree, a branch that merely rests on the target, rather than being a lane's empty segment there, stacks with none, and the workspace stacks are rebuilt rather than reconciled, keeping only a stack's id and position. An operation that needs something else in metadata still writes it after materializing.
+
+`but-graph` reads a linked worktree's branch stack order back when it forks the worktree's checked-out branch out of the lanes: the branches the order puts at one commit become a chain of empty segments resting on that commit, and the worktree's first-parent path into the commit runs through them. They never own commits. The order only claims what the editor would give the worktree: branches on the worktree's own first-parent path that no checkout has checked out and that the entrypoint's metadata doesn't stack. A stale order thus can't take a branch from another lane, and the workspace stacks stay as they are.
 
 The graph editor is not merely “a rebase command.” It is the in-memory graph mutation layer for history and ref-placement rewrites. It is currently created from a mutable workspace projection, so projection may be involved in editor setup even when the mutation decision should be graph-shaped.
 
