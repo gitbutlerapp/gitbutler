@@ -201,6 +201,8 @@ export const FileList: FC<
  * - `icon` defaults to the file's type glyph, or a folder for a directory.
  * - `checkbox` shares the icon's cell and takes its place once the pointer is over it or it is
  *   checked, so a row stays quiet while browsing.
+ * - `busy` while an action on the file runs: a spinner takes the icon's cell, checkbox and all,
+ *   until it is done, as on a sidebar row. Make the row `inert` meanwhile.
  * - The last cell says what happened: the conflict mark if it is `conflicted`, else a tick if it
  *   is `reviewed`, which also fades the name (a reviewed file's news is that it is done with),
  *   else the letter for its `status`, else a folded directory's `count` of files.
@@ -221,6 +223,7 @@ export const FileListItem: FC<
 		directoryPosition?: "lead" | "trail";
 		icon?: ReactNode;
 		checkbox?: ReactNode;
+		busy?: boolean;
 		depth?: number;
 		folded?: boolean;
 		onToggleFolded?: () => void;
@@ -243,6 +246,7 @@ export const FileListItem: FC<
 	directoryPosition = "trail",
 	icon,
 	checkbox,
+	busy = false,
 	depth = 0,
 	folded,
 	onToggleFolded,
@@ -329,10 +333,19 @@ export const FileListItem: FC<
 						</span>
 					)}
 					<span className={styles.lead}>
-						<span className={classes(styles.icon, reviewed && styles.faded)}>
-							{icon ?? (folded !== undefined ? <FolderIcon /> : <FileIcon fileName={name} />)}
-						</span>
-						{checkbox !== undefined && <span className={styles.checkbox}>{checkbox}</span>}
+						{busy ? (
+							// The spinner itself is hidden from a screen reader; its cell says what it means.
+							<output className={styles.icon} aria-label="Working">
+								<Icon name="spinner" size={14} />
+							</output>
+						) : (
+							<>
+								<span className={classes(styles.icon, reviewed && styles.faded)}>
+									{icon ?? (folded !== undefined ? <FolderIcon /> : <FileIcon fileName={name} />)}
+								</span>
+								{checkbox !== undefined && <span className={styles.checkbox}>{checkbox}</span>}
+							</>
+						)}
 					</span>
 					{label}
 					<DiffStats

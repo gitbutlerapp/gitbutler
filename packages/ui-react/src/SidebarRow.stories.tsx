@@ -1228,3 +1228,26 @@ export const Merging = meta.story({
 		/>
 	),
 });
+
+/**
+ * Any row at work, here a worktree updating from its target: `busy` turns a spinner in its glyph's
+ * place, as on a merging branch, so what it holds and its menu stay where they were.
+ */
+export const Updating = meta.story({
+	render: () => (
+		<WorktreeItem
+			name="Main worktree"
+			main
+			busy
+			depth={1}
+			folded={false}
+			meta={
+				<>
+					<MetaCount type="behind">3</MetaCount>
+					<MetaCount type="age">12m</MetaCount>
+				</>
+			}
+			actions={update}
+		/>
+	),
+});
