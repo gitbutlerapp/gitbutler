@@ -623,6 +623,14 @@ impl Store {
                 self.snack("What was cut changed, so it was let go", cx);
             }
         }
+        // The commit a drag is held over follows too, so letting go there without moving
+        // still drops on it.
+        if let Some((Selection::Commit(project, commit), place)) = self.drop_at.clone()
+            && project == *id
+        {
+            self.drop_at = follow_by_key(self.workspace(id), &workspace, commit)
+                .map(|new| (Selection::Commit(project, new), place));
+        }
         // The file watcher learns which worktrees to watch when it starts, so one added,
         // shown again or archived starts it over. Edit mode lists none, so going in and out
         // of it doesn't count.
