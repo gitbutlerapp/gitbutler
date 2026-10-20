@@ -300,6 +300,13 @@ fn resolve(
         })?
     };
 
+    {
+        let repo = ctx.repo.get()?;
+        if repo.head()?.is_unborn() {
+            validate_branch_target_in_unborn_repo(&repo, &commit_op)?;
+        }
+    }
+
     let reword_op = CommitMessageSource::from_args(
         no_message,
         message,
@@ -345,10 +352,6 @@ pub fn run(
     // below borrows from it.
     let source_repo = ChangeSourceRepo::open(ctx, &commit_selection.source())?;
 
-    let sbm = (commit_op.will_create_reference() || commit_op.switch())
-        .then(|| SingleBranchMode::new(ctx, perm.read_permission(), commit_op.switch()))
-        .transpose()?;
-
     let changes = {
         let context_lines = ctx.settings.context_lines;
         let repo = ctx.repo.get()?;
@@ -373,6 +376,18 @@ pub fn run(
 
         builder.into_diff_specs()
     };
+
+    {
+        let repo = ctx.repo.get()?;
+        if repo.head()?.is_unborn() {
+            drop(repo);
+            return run_in_unborn_repo(ctx, meta, perm, commit_op, changes, reword_op);
+        }
+    }
+
+    let sbm = (commit_op.will_create_reference() || commit_op.switch())
+        .then(|| SingleBranchMode::new(ctx, perm.read_permission(), commit_op.switch()))
+        .transpose()?;
 
     let changed_path_count = changes.len();
     let rejection_target = commit_op.rejection_target();
@@ -1108,4 +1123,228 @@ pub enum CommitRelativeToTarget {
         side: Side,
         switch: bool,
     },
+}
+
+fn validate_branch_target_in_unborn_repo(
+    repo: &gix::Repository,
+    commit_op: &CommitOperation,
+) -> CliResult<()> {
+    let head = repo.head()?;
+    let Some(head_ref) = head.referent_name() else {
+        return Ok(());
+    };
+    match commit_op {
+        CommitOperation::CommitToNewBranch(CommitToNewBranchOperation {
+            branch_name,
+            switch: _,
+        }) => {
+            if branch_name
+                .as_ref()
+                .is_none_or(|branch_name| head_ref == branch_name.as_ref())
+            {
+                return Ok(());
+            }
+        }
+        CommitOperation::CommitAt(CommitAtOperation { target }) => match target {
+            CommitRelativeToTarget::BranchTip { name, switch: _ } => {
+                if head_ref == name.as_ref() {
+                    return Ok(());
+                }
+            }
+            CommitRelativeToTarget::Commit { .. } => {
+                return Err(bad_input(
+                    "Creating the first commit relative to another commit is not supported",
+                )
+                .hint("Run `but commit` without a branch target to commit on the current branch.")
+                .into());
+            }
+            CommitRelativeToTarget::BranchBucket { .. } => {
+                return Err(bad_input(
+                    "Creating the first commit relative to another branch is not supported",
+                )
+                .hint("Run `but commit` without a branch target to commit on the current branch.")
+                .into());
+            }
+        },
+    }
+
+    Err(
+        bad_input("Creating the first commit on a different branch is not supported")
+            .hint("Run `but commit` without a branch target to commit on the current branch.")
+            .into(),
+    )
+}
+
+pub fn run_in_unborn_repo(
+    ctx: &mut Context,
+    meta: &mut impl RefMetadata,
+    perm: &mut RepoExclusive,
+    commit_op: CommitOperation,
+    changes: Vec<DiffSpec>,
+    reword_op: CommitMessageSource,
+) -> anyhow::Result<(CommitOutcome, WorkspaceState)> {
+    let name = match commit_op {
+        CommitOperation::CommitToNewBranch(CommitToNewBranchOperation {
+            branch_name,
+            switch: _,
+        }) => {
+            let repo = ctx.repo.get()?;
+            let head = repo.head()?;
+            let head_ref = head
+                .referent_name()
+                .context("BUG: unborn HEAD must name a branch")?;
+            match branch_name {
+                None => head_ref.to_owned(),
+                Some(branch_name) if head_ref == branch_name.as_ref() => branch_name,
+                Some(_) => anyhow::bail!(
+                    "BUG: creating the first commit on a different branch is not supported \
+                    should have been caught during resolution"
+                ),
+            }
+        }
+        CommitOperation::CommitAt(CommitAtOperation { target }) => match target {
+            CommitRelativeToTarget::BranchTip { name, switch: _ } => name,
+            CommitRelativeToTarget::Commit { .. } => {
+                anyhow::bail!(
+                    "BUG: CommitRelativeToTarget::Commit isn't valid in unborn repos, \
+                    should have been caught during resolution"
+                )
+            }
+            CommitRelativeToTarget::BranchBucket { .. } => {
+                anyhow::bail!(
+                    "BUG: CommitRelativeToTarget::BranchBucket isn't valid in unborn repos, \
+                    should have been caught during resolution"
+                )
+            }
+        },
+    };
+
+    let repo = ctx.repo.get()?;
+    let context_lines = ctx.settings.context_lines;
+    let changed_path_count = changes.len();
+
+    let message = match &reword_op {
+        CommitMessageSource::Keep
+        | CommitMessageSource::Empty
+        | CommitMessageSource::Editor { .. } => String::new(),
+        CommitMessageSource::Provided(message) => message.clone(),
+    };
+
+    let but_workspace::commit_engine::CreateCommitOutcome {
+        new_commit,
+        rejected_specs,
+        changed_tree_pre_cherry_pick: _,
+        references: _,
+        rebase_output: _,
+        index: _,
+    } = but_workspace::commit_engine::create_commit(
+        &repo,
+        but_workspace::commit_engine::Destination::NewCommit {
+            parent_commit_id: None,
+            stack_segment: None,
+            message,
+        },
+        changes,
+        context_lines,
+    )?;
+
+    if !rejected_specs.is_empty() {
+        return Err(rejection::RejectedChanges(rejected_specs).into());
+    }
+
+    let mut new_commit = new_commit.context("BUG: nothing was committed")?;
+
+    if let CommitMessageSource::Editor { initial } = reword_op {
+        let commit_details = but_core::diff::CommitDetails::from_commit_id(
+            repo.find_commit(new_commit)?.id(),
+            but_api::diff::ComputeLineStats::No.into(),
+        )?;
+        let message = crate::command::legacy::reword::get_commit_message_from_editor(
+            &repo,
+            context_lines,
+            commit_details,
+            initial.unwrap_or_default(),
+            "",
+            crate::command::legacy::ShowDiffInEditor::Always,
+        )
+        .map_err(|err| {
+            if let Some(but_error::Code::EditorExitedWithNonZeroStatus) =
+                err.downcast_ref::<but_error::Code>()
+            {
+                anyhow::anyhow!("Editor exited with non-zero status")
+            } else {
+                err
+            }
+        })?;
+        if let Some(message) = message {
+            let mut commit = but_core::Commit::from_id(repo.find_commit(new_commit)?.id())?;
+            commit.inner.message = message.into();
+            new_commit = but_rebase::commit::create(
+                &repo,
+                commit.inner,
+                but_rebase::commit::DateMode::CommitterKeepAuthorKeep,
+                but_core::commit::SignCommit::IfSignCommitsEnabled,
+                None,
+            )?;
+        }
+    }
+
+    let tree_id = repo.find_commit(new_commit)?.tree_id()?;
+    let tree_index = repo.index_from_tree(&tree_id)?;
+    let mut index = repo.index_or_empty()?.into_owned_or_cloned();
+    let removed_paths: Vec<_> = index
+        .entries()
+        .iter()
+        .filter(|entry| {
+            tree_index
+                .entry_by_path_and_stage(entry.path(&index), gix::index::entry::Stage::Unconflicted)
+                .is_none()
+        })
+        .map(|entry| entry.path(&index).to_owned())
+        .collect();
+    let mut edit = but_core::index::Edit::new(&mut index);
+    for path in removed_paths {
+        edit.remove(path.as_ref());
+    }
+    for entry in tree_index.entries() {
+        edit.upsert(
+            entry.path(&tree_index),
+            entry.id,
+            entry.mode,
+            but_core::index::Stat::Unknown,
+        );
+    }
+    edit.finish();
+
+    // Persist the index before publishing the commit, so an index-write failure leaves HEAD unborn.
+    index.write(Default::default())?;
+
+    repo.reference(
+        name.as_ref(),
+        new_commit,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "commit (initial): initial commit",
+    )?;
+
+    drop(repo);
+    ctx.invalidate_workspace_cache()?;
+
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+    let ws = WorkspaceState::from_workspace_with_db(
+        &ws,
+        meta,
+        &repo,
+        Default::default(),
+        Vec::new(),
+        &mut db,
+    )?;
+
+    Ok((
+        CommitOutcome {
+            new_commit: CommitId::try_from_commit_id(new_commit, &repo)?,
+            branch_name: Some(BranchNameTarget::Existing(name)),
+            changed_path_count,
+        },
+        ws,
+    ))
 }

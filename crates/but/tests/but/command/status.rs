@@ -332,21 +332,6 @@ Hint: run `but help` for all commands
 }
 
 #[test]
-fn unborn() {
-    let env = Sandbox::open_scenario_with_target_and_default_settings("unborn");
-    snapbox::assert_data_eq!(env.git_log(), snapbox::str![""]);
-
-    // TODO: make this work
-    env.but("status --verbose")
-        .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: No target branch is configured and none could be inferred. Run `but config target <remote>/<branch>` to configure one.
-
-"#]]);
-}
-
-#[test]
 fn first_commit_no_workspace() {
     let env = Sandbox::open_scenario_with_target_and_default_settings("first-commit");
     snapbox::assert_data_eq!(

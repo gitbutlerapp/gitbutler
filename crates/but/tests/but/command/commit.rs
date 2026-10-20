@@ -4,6 +4,8 @@ use super::util::{
 };
 use crate::utils::{CommandExt as _, Sandbox};
 
+mod unborn;
+
 #[test]
 fn rejects_unnamed_segment_as_target() {
     let env =

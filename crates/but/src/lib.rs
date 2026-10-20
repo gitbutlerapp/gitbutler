@@ -869,6 +869,19 @@ async fn dispatch_subcommand(
             setup::init_ctx(&args, InitCtxOptions::default(), out)
         }
         #[cfg(feature = "legacy")]
+        Subcommands::Commit(..) => {
+            setup::init_ctx(
+                &args,
+                InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled { silent: false },
+                    // to create the initial commit in an unborn repo
+                    target_requirement: TargetRequirement::OptionalIfUnborn,
+                    ..Default::default()
+                },
+                out,
+            )
+        }
+        #[cfg(feature = "legacy")]
         Subcommands::Actions { .. }
         | Subcommands::Pull { .. }
         | Subcommands::Fetch
@@ -883,7 +896,6 @@ async fn dispatch_subcommand(
         | Subcommands::Status { .. }
         | Subcommands::Diff(..)
         | Subcommands::Show { .. }
-        | Subcommands::Commit(..)
         | Subcommands::Squash(..)
         | Subcommands::Move(..)
         | Subcommands::Split(..)

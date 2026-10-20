@@ -52,7 +52,9 @@ fn default_command_respects_c_flag_for_setup_checks() {
     env.but("-C repo")
         .assert()
         .stderr_eq(snapbox::str![[r#"
-Error: No target branch is configured and none could be inferred. Run `but config target <remote>/<branch>` to configure one.
+Error: Checked out to branch that doesn't exist
+
+Hint: Run `but commit` to create an initial empty commit
 
 "#]])
         .failure();
@@ -71,7 +73,9 @@ git config but.alias.default "-C repo status"
     );
 
     env.but("").assert().failure().stderr_eq(snapbox::str![[r#"
-Error: No target branch is configured and none could be inferred. Run `but config target <remote>/<branch>` to configure one.
+Error: Checked out to branch that doesn't exist
+
+Hint: Run `but commit` to create an initial empty commit
 
 "#]]);
 }
@@ -93,7 +97,9 @@ git config but.alias.default "-C repo status"
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: No target branch is configured and none could be inferred. Run `but config target <remote>/<branch>` to configure one.
+Error: Checked out to branch that doesn't exist
+
+Hint: Run `but commit` to create an initial empty commit
 
 "#]]);
 }
