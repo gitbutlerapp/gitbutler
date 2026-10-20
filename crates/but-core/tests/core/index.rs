@@ -1,0 +1,170 @@
+use bstr::ByteSlice;
+use but_core::index::{ConflictStage, Edit, Stat};
+use but_testsupport::writable_scenario;
+use gix::index::entry::{Flags, Mode};
+
+fn id(hex: &str) -> gix::ObjectId {
+    gix::ObjectId::from_hex(hex.as_bytes()).expect("valid hex")
+}
+
+fn old_id() -> gix::ObjectId {
+    id("1111111111111111111111111111111111111111")
+}
+
+fn new_id() -> gix::ObjectId {
+    id("2222222222222222222222222222222222222222")
+}
+
+/// An index with an unconflicted entry for each of `paths`.
+fn index_with(paths: &[&str]) -> gix::index::State {
+    let mut state = gix::index::State::new(gix::hash::Kind::Sha1);
+    for path in paths {
+        state.dangerously_push_entry(
+            Default::default(),
+            old_id(),
+            Flags::empty(),
+            Mode::FILE,
+            path.as_bytes().as_bstr(),
+        );
+    }
+    state.sort_entries();
+    state
+}
+
+/// Each entry as `<path> <stage> <id>`.
+fn entries(state: &gix::index::State) -> Vec<String> {
+    state
+        .entries()
+        .iter()
+        .map(|entry| {
+            format!(
+                "{} {:?} {}",
+                entry.path(state),
+                entry.flags.stage(),
+                entry.id.to_hex_with_len(4)
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn added_paths_replace_entries_that_clash_as_file_or_directory() {
+    let mut state = index_with(&["a", "b/c", "d"]);
+    let mut edit = Edit::new(&mut state);
+    edit.upsert("a/x".into(), new_id(), Mode::FILE, Stat::Unknown);
+    edit.set_conflict_stage("b".into(), ConflictStage::Ours, Mode::FILE, new_id());
+
+    assert!(edit.finish(), "entries were replaced");
+    assert_eq!(
+        entries(&state),
+        [
+            "a/x Unconflicted 2222",
+            "b Ours 2222",
+            "d Unconflicted 1111"
+        ],
+        "an index can't hold a path as both a file and a directory"
+    );
+}
+
+#[test]
+fn later_edits_of_a_path_replace_earlier_ones() {
+    let mut state = index_with(&["a", "b"]);
+    let mut edit = Edit::new(&mut state);
+    edit.remove("a".into());
+    edit.upsert("a".into(), new_id(), Mode::FILE, Stat::Unknown);
+    edit.set_conflict_stage("b".into(), ConflictStage::Theirs, Mode::FILE, new_id());
+    edit.upsert("b".into(), new_id(), Mode::FILE, Stat::Unknown);
+
+    assert!(edit.finish(), "both paths changed");
+    assert_eq!(
+        entries(&state),
+        ["a Unconflicted 2222", "b Unconflicted 2222"],
+        "only the last edit of each path applies"
+    );
+}
+
+#[test]
+fn contains_sees_pending_edits() {
+    let mut state = index_with(&["a", "b"]);
+    let mut edit = Edit::new(&mut state);
+    edit.remove("a".into());
+    edit.upsert("c".into(), new_id(), Mode::FILE, Stat::Unknown);
+
+    assert!(!edit.contains("a".into()), "a removed path is gone");
+    assert!(edit.contains("b".into()), "an untouched path stays");
+    assert!(edit.contains("c".into()), "an added path is there");
+    assert!(!edit.contains("d".into()), "an unknown path isn't");
+}
+
+#[test]
+fn upserts_record_the_stat_they_are_given() {
+    let mut state = index_with(&[]);
+    let stat = gix::index::entry::Stat {
+        size: 42,
+        ..Default::default()
+    };
+    let mut edit = Edit::new(&mut state);
+    edit.upsert("known".into(), new_id(), Mode::FILE, Stat::Known(stat));
+    edit.upsert("unknown".into(), new_id(), Mode::FILE, Stat::Unknown);
+    edit.finish();
+
+    let stat_of = |path: &str| state.entry_by_path(path.into()).expect("recorded").stat;
+    assert_eq!(
+        stat_of("known"),
+        stat,
+        "a known stat lets Git skip re-hashing the file"
+    );
+    assert_eq!(
+        stat_of("unknown"),
+        Default::default(),
+        "an unknown stat makes Git compare the content"
+    );
+}
+
+#[test]
+fn finish_reports_no_change_when_nothing_changed() {
+    let mut state = index_with(&["a"]);
+    let mut edit = Edit::new(&mut state);
+    edit.remove("missing".into());
+
+    assert!(
+        !edit.finish(),
+        "removing a path the index doesn't have changes nothing, so the index needn't be written"
+    );
+    assert_eq!(entries(&state), ["a Unconflicted 1111"]);
+}
+
+#[test]
+fn edits_drop_the_cached_data_they_make_stale() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("unborn-empty");
+    but_testsupport::invoke_bash(
+        r#"
+        git_commit() { git -c user.name=a -c user.email=a@example.com commit -q "$@"; }
+        echo base >f && git add f && git_commit -m base
+        git checkout -qb other && echo theirs >f && git_commit -am theirs
+        git checkout -q - && echo ours >f && git_commit -am ours
+        git -c user.name=a -c user.email=a@example.com merge -q other >/dev/null 2>&1 || true
+        echo resolved >f && git add f && git write-tree >/dev/null
+        "#,
+        &repo,
+    );
+    let mut index = repo.open_index()?;
+    assert!(
+        index.tree().is_some() && index.resolve_undo().is_some(),
+        "Git cached the trees and remembers the resolved conflict"
+    );
+
+    let mut edit = Edit::new(&mut index);
+    edit.upsert("g".into(), new_id(), Mode::FILE, Stat::Unknown);
+    assert!(edit.finish(), "a path was added");
+
+    assert!(
+        index.tree().is_none(),
+        "cached trees no longer match the entries, and Git would trust them when committing"
+    );
+    assert!(
+        index.resolve_undo().is_none(),
+        "the recorded conflict no longer matches the entries"
+    );
+    Ok(())
+}
