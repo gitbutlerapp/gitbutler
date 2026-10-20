@@ -11,7 +11,7 @@ use std::str::{self, FromStr as _};
 
 use bstr::{BStr, BString, ByteSlice};
 use but_core::sync::RepoShared;
-use but_core::{ChangeId, TreeStatusKind, UnifiedPatch, ref_metadata::StackId};
+use but_core::{ChangeId, TreeStatusKind, UnifiedPatch, commit::padding, ref_metadata::StackId};
 use but_ctx::Context;
 use but_graph::workspace::{Stack, StackCommit, StackSegment, WorktreeStack};
 use gix::hash::hasher;
@@ -1078,12 +1078,12 @@ impl IdMap {
         let sources =
             change_source::changes_by_source(&repo, context_lines, worktree_names, head_changes)?;
 
-        let worktrees = &ws.worktrees;
+        let (stacks, worktrees) =
+            without_padding_commits(&repo, ws.stacks.clone(), ws.worktrees.clone());
         // Worktree commits are addressed by change ID just like workspace commits, so both
         // feed the same map - otherwise `but status` would print change IDs for them that no
         // other command could resolve.
-        let commit_ids = ws
-            .stacks
+        let commit_ids = stacks
             .iter()
             .flat_map(|stack| &stack.segments)
             .flat_map(|segment| segment.commits.iter())
@@ -1117,13 +1117,38 @@ impl IdMap {
             .collect();
 
         Self::new(
-            ws.stacks.clone(),
+            stacks,
             sources,
             commit_id_to_change_id,
-            worktrees.clone(),
+            worktrees,
             ctx.settings.context_lines,
         )
     }
+}
+
+pub(crate) fn without_padding_commits(
+    repo: &gix::Repository,
+    mut stacks: Vec<Stack>,
+    mut worktrees: Vec<WorktreeStack>,
+) -> (Vec<Stack>, Vec<WorktreeStack>) {
+    for segment in stacks
+        .iter_mut()
+        .flat_map(|stack| &mut stack.segments)
+        .chain(
+            worktrees
+                .iter_mut()
+                .flat_map(|worktree| &mut worktree.segments),
+        )
+    {
+        segment.commits.retain(|commit| {
+            !repo.find_commit(commit.id).is_ok_and(|commit| {
+                commit
+                    .message_raw()
+                    .is_ok_and(padding::is_padding_by_message)
+            })
+        });
+    }
+    (stacks, worktrees)
 }
 
 /// Private methods to individually parse what can appear on both side of a

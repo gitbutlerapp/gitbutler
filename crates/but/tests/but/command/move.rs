@@ -85,7 +85,6 @@ Resolve with but resolve, or back out with but undo.
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ mo [moved] [HEAD]
-┊●   ypr GitButler Padding Commit (no changes)
 ┊●   suw first (no changes) {conflicted}
 ┊│
 ┊├┄ so [source]
@@ -188,7 +187,6 @@ Resolve with but resolve, or back out with but undo.
 ╭┄ @ [uncommitted] (no changes)
 ┊
 ┊╭┄ fi [first] [HEAD]
-┊●   ypr GitButler Padding Commit (no changes)
 ┊●   suw first (no changes) {conflicted}
 ┊│
 ┊├┄ to [top]
