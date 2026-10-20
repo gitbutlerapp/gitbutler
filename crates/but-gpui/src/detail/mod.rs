@@ -1005,12 +1005,15 @@ impl Detail {
         cx.notify();
     }
 
-    /// Focus the file list, or the diff while the list is hidden.
+    /// Focus the file list, or the diff while the list is hidden. On the Branches and
+    /// Operations history pages, focus their list instead, as it takes the arrow keys itself.
     pub fn focus_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        match self.files_shown(cx) {
-            false => window.focus(&self.focus, cx),
-            true => window.focus(&self.files_focus, cx),
-        }
+        let handle = match &self.store.read(cx).selection {
+            Some(Selection::Branches(_) | Selection::History(_)) => &self.side_focus,
+            _ if self.files_shown(cx) => &self.files_focus,
+            _ => &self.focus,
+        };
+        window.focus(handle, cx);
         cx.notify();
     }
 
