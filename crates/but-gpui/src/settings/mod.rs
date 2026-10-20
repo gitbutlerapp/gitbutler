@@ -11,6 +11,7 @@ use gpui::{
 
 mod accounts;
 mod ai;
+mod mesh;
 mod project;
 
 use crate::app::AppView;

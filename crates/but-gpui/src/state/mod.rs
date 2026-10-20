@@ -231,11 +231,9 @@ pub struct Store {
     /// The version the desktop app's update feed offers, newer than this build, when the
     /// desktop app's binary started this client.
     pub newer_version: Option<String>,
-    /// The user's other machines, and what they have of the watched projects.
+    /// The user's other machines, and what they have of the watched projects. Everything the
+    /// mesh does lives in `state/mesh.rs`; see the crate's AGENTS.md for its rules.
     pub mesh: mesh::Mesh,
-    /// Asks the mesh's poll to read it again now.
-    mesh_requests: mpsc::UnboundedSender<()>,
-    _mesh_poll: Task<()>,
     /// Each project's mutation in flight. A project's mutations run one at a time, each
     /// until the reload after it lands, so the next one sees what it did; projects don't
     /// wait on each other.
@@ -296,7 +294,6 @@ impl Store {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let (changes, changed) = mpsc::unbounded();
         let (forge_requests, requested) = mpsc::unbounded();
-        let (mesh_requests, mesh_asked) = mpsc::unbounded();
         let saved = Saved::load();
         let mut store = Self {
             projects: Vec::new(),
@@ -311,9 +308,7 @@ impl Store {
             toasts: Vec::new(),
             account: account::Account::default(),
             newer_version: None,
-            mesh: mesh::Mesh::default(),
-            mesh_requests,
-            _mesh_poll: Self::poll_mesh(mesh_asked, cx),
+            mesh: mesh::Mesh::start(cx),
             running: HashMap::new(),
             busy_ticker: Task::ready(()),
             queue: VecDeque::new(),

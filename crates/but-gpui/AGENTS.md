@@ -119,6 +119,36 @@ so update it, shortcuts table included, with every change in behaviour.
   the network to render. CI checks refresh only for applied branches, so cached checks on an
   unapplied branch are stale.
 
+## Mesh
+
+The mesh shows the user's other machines' work. It's optional, and it must never break or slow
+anything else.
+
+- Its code stays in four files: `backend/mesh.rs` runs the `but-mesh` CLI and reads its JSON,
+  `state/mesh.rs` holds `Mesh` with its poll, sign-in and apply, `detail/machine.rs` is the
+  Other machines page, and `settings/mesh.rs` is the Mesh row in Settings. Everything else
+  reaches it through a `Selection::Machines` arm, `store.mesh`, the `Store::mesh_*` methods or
+  `StoreEvent::MeshRead`. New mesh behaviour goes in those files, with at most a dispatch arm
+  elsewhere.
+- There's no mesh library: the mesh lives in a private repository, so the app only calls the
+  CLI. Without `but-mesh`, or signed out, nothing shows but the Settings row, and nothing runs
+  but one status check a minute. Gate anything new on `store.mesh.connection()`.
+- Every mesh call goes through `backend::run` with one of the timeouts in `backend/mesh.rs`,
+  never on the UI thread. The poll and the page's fetches make one call at a time.
+- Network work never runs in a project's operation queue, where it would hold up commits,
+  pushes and updates. `mesh_apply` fetches first, outside it, and applies with a read's timeout.
+- Background failures (the poll, reporting a project, the page's fetches) log at debug and keep
+  the last good read. A failed status check while connected keeps the connection, so a network
+  blip doesn't hide the page. Only what the user asked for, signing in or out and Apply here,
+  shows an error.
+- The store notifies only when a read changed something. The page draws its list whole, so it
+  lists at most `LISTED` commits per branch and uncommitted files per checkout.
+- Try failures with a fake `but-mesh` first on the `PATH`, which the app searches before
+  `~/.local/bin`: one that sleeps tests the timeouts and that the project's queue stays free,
+  and one that exits non-zero or prints garbage tests the fallbacks. A sandbox keeps the app's
+  data apart but not the mesh's: with the real `but-mesh` signed in, a sandbox run reports its
+  repositories to your mesh.
+
 ## Scripted runs
 
 - The plain and dev-script builds write the same `target/release/gitbutler-gpui`. The plain one

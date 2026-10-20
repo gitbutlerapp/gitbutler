@@ -16,6 +16,10 @@ use super::CommitId;
 /// daemon that stopped answering leaves it waiting for minutes.
 const READ_TIMEOUT: Duration = Duration::from_secs(60);
 
+/// How long bringing a branch's commits over may take: a big branch on a slow network, but
+/// not so long that a stuck fetch holds the next one for long.
+const FETCH_TIMEOUT: Duration = Duration::from_secs(5 * 60);
+
 /// How long signing in waits for the browser, as the CLI itself does.
 const LOGIN_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
@@ -396,15 +400,17 @@ pub fn report(path: &Path) -> Result<()> {
     .map(|_| ())
 }
 
-/// Bring branch `mesh_id` from another machine and apply it to the workspace at `path`,
-/// under its own name or `<name>-from-<machine>`. Returns the name it's applied as.
+/// Apply branch `mesh_id` from another machine to the workspace at `path`, under its own name
+/// or `<name>-from-<machine>`, once [`fetch()`] has brought its commits here. Returns the name
+/// it's applied as.
 pub fn apply(path: &Path, mesh_id: &str) -> Result<String> {
     #[derive(Deserialize)]
     struct Applied {
         applied_as: Option<String>,
     }
-    // The commits come over the network first, which can take a while.
-    let out = mesh(Some(path), &["apply", mesh_id, "--json"], LOGIN_TIMEOUT)?;
+    // It runs in the project's queue: with the commits already here, the CLI only checks with
+    // the server, which a read's timeout bounds.
+    let out = mesh(Some(path), &["apply", mesh_id, "--json"], READ_TIMEOUT)?;
     let applied: Applied = serde_json::from_str(&out).unwrap_or(Applied { applied_as: None });
     Ok(applied.applied_as.unwrap_or_else(|| mesh_id.to_owned()))
 }
@@ -424,7 +430,7 @@ pub fn fetch(path: &Path, mesh_id: &str, reported: Option<&str>) -> Result<Commi
     struct Fetched {
         tip: String,
     }
-    let out = mesh(Some(path), &["fetch", mesh_id, "--json"], LOGIN_TIMEOUT)?;
+    let out = mesh(Some(path), &["fetch", mesh_id, "--json"], FETCH_TIMEOUT)?;
     let fetched: Fetched = serde_json::from_str(&out).context("Couldn't read what was fetched")?;
     let tip =
         gix::ObjectId::from_hex(fetched.tip.as_bytes()).context("The mesh named no commit")?;

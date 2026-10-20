@@ -26,6 +26,11 @@ use crate::ui::{
     just_now, plural, relative_time, small_icon, v_flex,
 };
 
+/// How many of a branch's commits, or of a checkout's uncommitted files, the page lists; the
+/// rest open on but.dev. It draws its list whole each frame, so another machine's long branch
+/// mustn't make it long.
+const LISTED: usize = 50;
+
 /// A branch of a checkout on another machine: the project, the checkout by the mesh's id, and
 /// the branch by name.
 pub(super) type MeshBranch = (ProjectId, Arc<str>, String);
@@ -57,6 +62,7 @@ pub(super) struct MeshFetches {
     /// tip that machine reported.
     queue: Vec<(MeshBranch, std::path::PathBuf, String, Option<String>)>,
     running: bool,
+    _fetch: Option<gpui::Task<()>>,
     /// The pick on each project's page, with the checkout it's in, kept while another page
     /// shows.
     picks: HashMap<ProjectId, (Arc<str>, Pick)>,
@@ -134,7 +140,7 @@ impl Detail {
             .unwrap_or(0);
         let (key, path, mesh_id, tip) = self.mesh.queue.remove(next);
         self.mesh.running = true;
-        self._mesh_fetch = cx.spawn(async move |this, cx| {
+        self.mesh._fetch = Some(cx.spawn(async move |this, cx| {
             let fetched = backend::run(move || mesh::fetch(&path, &mesh_id, tip.as_deref())).await;
             this.update(cx, |this, cx| {
                 this.mesh.running = false;
@@ -151,7 +157,7 @@ impl Detail {
                 cx.notify();
             })
             .ok();
-        });
+        }));
     }
 
     fn pick(&mut self, project: &ProjectId, id: &Arc<str>, pick: Pick, cx: &mut Context<Self>) {
@@ -371,7 +377,8 @@ impl Detail {
                     )
                     .into_any_element(),
             );
-            rows.extend(branch.commits.iter().enumerate().map(|(ix, commit)| {
+            let listed = branch.commits.iter().take(LISTED);
+            rows.extend(listed.enumerate().map(|(ix, commit)| {
                 let commit_id = gix::ObjectId::from_hex(commit.id.as_bytes())
                     .ok()
                     .map(CommitId);
@@ -408,6 +415,14 @@ impl Detail {
                     })
                     .into_any_element()
             }));
+            let link = (self.store.read(cx).mesh.connection())
+                .map(|c| mesh::link(&c.server, id, Some(&branch.name)));
+            rows.extend(more_row(
+                ("machine-more-commits", bx),
+                branch.commits.len(),
+                link,
+                theme,
+            ));
         }
         rows
     }
@@ -526,7 +541,8 @@ fn uncommitted_rows(checkout: &Checkout, server: Option<&str>, theme: &Theme) ->
         theme,
     );
     let url = server.map(|server| mesh::link(server, &checkout.id, None));
-    let files = checkout.uncommitted.iter().enumerate().map(|(ix, file)| {
+    let listed = checkout.uncommitted.iter().take(LISTED);
+    let files = listed.enumerate().map(|(ix, file)| {
         side_row(("machine-file", ix), false, false, theme)
             .tooltip(Tooltip::text(
                 "Its diff is on that machine: open it on but.dev",
@@ -548,7 +564,34 @@ fn uncommitted_rows(checkout: &Checkout, server: Option<&str>, theme: &Theme) ->
             })
             .into_any_element()
     });
-    std::iter::once(heading).chain(files).collect()
+    let more = more_row(
+        "machine-more-files",
+        checkout.uncommitted.len(),
+        url.clone(),
+        theme,
+    );
+    std::iter::once(heading).chain(files).chain(more).collect()
+}
+
+/// Past the first [`LISTED`] of `total`, a row saying how many more there are, which opens
+/// them on but.dev.
+fn more_row(
+    id: impl Into<ElementId>,
+    total: usize,
+    link: Option<String>,
+    theme: &Theme,
+) -> Option<AnyElement> {
+    let more = total.checked_sub(LISTED).filter(|more| *more > 0)?;
+    Some(
+        side_row(id, false, false, theme)
+            .pl(px(32.))
+            .text_color(theme.text_3)
+            .child(format!("{more} more on but.dev"))
+            .when_some(link, |el, link| {
+                el.on_click(move |_, _, cx| cx.open_url(&link))
+            })
+            .into_any_element(),
+    )
 }
 
 /// What a branch on another machine shows as: merged, or still to finish.

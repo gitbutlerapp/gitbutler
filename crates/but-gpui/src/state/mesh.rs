@@ -34,7 +34,6 @@ pub enum MeshState {
     Connected(Connection),
 }
 
-#[derive(Default)]
 pub struct Mesh {
     pub state: MeshState,
     /// Waiting for the browser to approve this machine.
@@ -43,9 +42,25 @@ pub struct Mesh {
     checkouts: HashMap<ProjectId, Arc<[Checkout]>>,
     /// Projects the daemon was asked to report in this run, so each is asked once.
     asked_to_report: HashSet<PathBuf>,
+    /// Asks the poll to read the mesh again now.
+    requests: mpsc::UnboundedSender<()>,
+    _poll: Task<()>,
 }
 
 impl Mesh {
+    /// Start reading the mesh in the background, every [`POLL`] and whenever asked.
+    pub(super) fn start(cx: &mut Context<Store>) -> Self {
+        let (requests, asked) = mpsc::unbounded();
+        Self {
+            state: MeshState::default(),
+            signing_in: false,
+            checkouts: HashMap::new(),
+            asked_to_report: HashSet::new(),
+            requests,
+            _poll: Store::poll_mesh(asked, cx),
+        }
+    }
+
     /// Whether `project`'s work elsewhere has been read, or tried, in this run.
     pub fn read(&self, project: &ProjectId) -> bool {
         self.checkouts.contains_key(project)
@@ -62,10 +77,7 @@ impl Mesh {
 impl Store {
     /// Read the mesh every [`POLL`], or at once when something asks with [`Self::read_mesh`]:
     /// the connection, then each watched project's checkouts elsewhere, one at a time.
-    pub(super) fn poll_mesh(
-        mut asked: mpsc::UnboundedReceiver<()>,
-        cx: &mut Context<Self>,
-    ) -> Task<()> {
+    fn poll_mesh(mut asked: mpsc::UnboundedReceiver<()>, cx: &mut Context<Self>) -> Task<()> {
         cx.spawn(async move |this, cx| {
             loop {
                 let state = match backend::run(backend::mesh::connection).await {
@@ -110,7 +122,7 @@ impl Store {
 
     /// Read the mesh again now, as after watching a project or signing in.
     pub fn read_mesh(&self) {
-        self.mesh_requests.unbounded_send(()).ok();
+        self.mesh.requests.unbounded_send(()).ok();
     }
 
     /// Keep `state`, and say which watched projects to read: each with its path, and whether
@@ -120,6 +132,14 @@ impl Store {
         state: MeshState,
         cx: &mut Context<Self>,
     ) -> Vec<(ProjectId, PathBuf, bool)> {
+        // A failed check while connected, as on a poor network or with the CLI briefly
+        // broken, keeps what was read: the page stays, a little stale, until it answers again.
+        if let MeshState::Unavailable(why) = &state
+            && self.mesh.connection().is_some()
+        {
+            tracing::debug!("mesh check failed, keeping the last read: {why}");
+            return Vec::new();
+        }
         if self.mesh.state != state {
             tracing::debug!(?state, "mesh connection");
             self.mesh.state = state;
@@ -230,7 +250,9 @@ impl Store {
     }
 
     /// Bring `branch`, by the mesh's id, from another machine and apply it to `project`'s
-    /// workspace. The CLI records it in the oplog, as `but apply` does.
+    /// workspace. Its commits come over first, outside the project's queue, so a slow network
+    /// holds up only this; applying them then takes a turn in the queue, and the CLI records it
+    /// in the oplog, as `but apply` does.
     pub fn mesh_apply(
         &mut self,
         project: &ProjectId,
@@ -238,13 +260,30 @@ impl Store {
         branch: String,
         cx: &mut Context<Self>,
     ) {
-        self.run(
-            project,
-            format!("Bring {branch} here"),
-            Overlay::rewriting_main(),
-            move |path, _| backend::mesh::apply(path, &mesh_id),
-            move |store, applied_as, cx| store.snack(format!("Applied {applied_as}"), cx),
-            cx,
-        );
+        let Some(path) = self.path(project) else {
+            return;
+        };
+        let project = project.clone();
+        self.snack(format!("Bringing {branch} over…"), cx);
+        cx.spawn(async move |this, cx| {
+            let id = mesh_id.clone();
+            let fetched = backend::run(move || backend::mesh::fetch(&path, &id, None)).await;
+            this.update(cx, |store, cx| match fetched {
+                Ok(_) => store.run(
+                    &project,
+                    format!("Bring {branch} here"),
+                    Overlay::rewriting_main(),
+                    move |path, _| backend::mesh::apply(path, &mesh_id),
+                    move |store, applied_as, cx| store.snack(format!("Applied {applied_as}"), cx),
+                    cx,
+                ),
+                Err(err) => {
+                    let title = format!("Couldn't bring {branch} here");
+                    store.error(title, format!("{err:#}"), cx)
+                }
+            })
+            .ok();
+        })
+        .detach();
     }
 }
