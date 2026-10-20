@@ -11,24 +11,20 @@ pub const TITLE: &str = "GitButler Padding Commit";
 /// and the author, committer and encoding of `conflicted`, so it is the same commit for the same `conflicted` commit.
 /// Fails if `conflicted` is not conflicted.
 pub fn create(conflicted: &crate::Commit<'_>) -> anyhow::Result<gix::ObjectId> {
-    Ok(conflicted
-        .id
-        .repo
-        .write_object(padding_commit(conflicted)?)?
-        .detach())
-}
-
-fn padding_commit(conflicted: &crate::Commit<'_>) -> anyhow::Result<gix::objs::Commit> {
     if !conflicted.is_conflicted() {
         bail!("Commit {} is not conflicted", conflicted.id);
     }
-    Ok(gix::objs::Commit {
-        tree: conflicted.tree_id_or_auto_resolution()?.detach(),
-        parents: [conflicted.id.detach()].into(),
-        author: conflicted.author.clone(),
-        committer: conflicted.committer.clone(),
-        encoding: conflicted.encoding.clone(),
-        message: format!("{TITLE}\n").into(),
-        extra_headers: Vec::new(),
-    })
+    Ok(conflicted
+        .id
+        .repo
+        .write_object(gix::objs::Commit {
+            tree: conflicted.tree_id_or_auto_resolution()?.detach(),
+            parents: [conflicted.id.detach()].into(),
+            author: conflicted.author.clone(),
+            committer: conflicted.committer.clone(),
+            encoding: conflicted.encoding.clone(),
+            message: format!("{TITLE}\n").into(),
+            extra_headers: Vec::new(),
+        })?
+        .detach())
 }
