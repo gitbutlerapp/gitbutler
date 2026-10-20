@@ -194,7 +194,9 @@ Unapplied stack with 'feature-two' from workspace
 
 "#]]);
 
-    snapbox::assert_data_eq!(env.git_log(), str![[r#"
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
 * 9477ae7 (HEAD -> A) add A
 | * e5c6d74 (feature-one) Add one
 |/  
@@ -202,7 +204,9 @@ Unapplied stack with 'feature-two' from workspace
 |/  
 * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
 
-"#]].raw());
+"#]]
+        .raw()
+    );
 }
 
 #[test]
