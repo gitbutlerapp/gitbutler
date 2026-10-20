@@ -17,6 +17,8 @@ const types: Array<MetaCountType> = [
 	"agent-working",
 	"agent-waiting",
 	"stack",
+	"cpu",
+	"cpu-danger",
 ];
 
 const meta = preview.meta({
@@ -54,6 +56,8 @@ const sample: Record<MetaCountType, string> = {
 	"agent-working": "12m",
 	"agent-waiting": "2m",
 	stack: "1/3",
+	cpu: "14%",
+	"cpu-danger": "84%",
 };
 
 /** Every kind of count, as rows show them, and the three states of a branch's checks. */

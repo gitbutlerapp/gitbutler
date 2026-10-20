@@ -20,7 +20,9 @@ export type MetaCountType =
 	| "repos"
 	| "agent-working"
 	| "agent-waiting"
-	| "stack";
+	| "stack"
+	| "cpu"
+	| "cpu-danger";
 
 const glyph: Record<MetaCountType, IconName> = {
 	behind: "arrow-down",
@@ -38,6 +40,8 @@ const glyph: Record<MetaCountType, IconName> = {
 	"agent-working": "robot",
 	"agent-waiting": "robot",
 	stack: "stack",
+	cpu: "cpu",
+	"cpu-danger": "cpu-danger",
 };
 
 /**
@@ -48,7 +52,9 @@ const glyph: Record<MetaCountType, IconName> = {
  * neutral grey: commits that were pushed and have been rewritten since, most often by a rebase onto
  * the target, so a push replaces them rather than sending new work. Quietest of all
  * are `empty`, a branch with no commits yet, and `head`, what a worktree with nothing to list is on
- * (`empty`, `detached`); a row shows either first, ahead of its counts.
+ * (`empty`, `detached`); a row shows either first, ahead of its counts. `cpu` is a process's CPU
+ * use while it stays low, in green; `cpu-danger` is the same use once it runs high, in red with a
+ * warning on the chip.
  *
  * The value is the children, so a host formats it (`12`, `3d`, `retry-transfers`). The glyph says
  * nothing to a screen reader: wrap the count in a `Tooltip` saying what it counts, or give it an
