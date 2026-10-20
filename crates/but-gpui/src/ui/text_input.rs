@@ -492,10 +492,16 @@ impl TextInput {
     }
 
     fn delete(&mut self, action: &Delete, window: &mut Window, cx: &mut Context<Self>) {
+        // Set directly rather than with `select_to`, which would end the run of deletes that
+        // undo takes back in one step.
         if self.selected_range.is_empty() {
-            self.select_to(self.target(action.to), window, cx)
+            let (at, to) = (self.cursor_offset(), self.target(action.to));
+            self.selected_range = at.min(to)..at.max(to);
         }
-        self.insert("", window, cx)
+        // Nothing to delete, as at the start, changes nothing.
+        if !self.selected_range.is_empty() {
+            self.insert("", window, cx)
+        }
     }
 
     fn newline(&mut self, _: &Newline, window: &mut Window, cx: &mut Context<Self>) {
@@ -549,7 +555,8 @@ impl TextInput {
         self.is_selecting = true;
         let offset = self.offset_for_mouse(event.position);
         if event.click_count >= 2 {
-            let start = self.previous_word(offset.min(self.next_boundary(offset)));
+            // From past the click, so one at a word's very start selects that word.
+            let start = self.previous_word(self.next_boundary(offset));
             let end = self.next_word(start);
             self.move_to(start, window, cx);
             self.select_to(end, window, cx);

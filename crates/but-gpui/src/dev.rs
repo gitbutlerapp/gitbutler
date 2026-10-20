@@ -115,7 +115,11 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
         let mut line_no = 0;
         while let Some(line) = script.next().await {
             line_no += 1;
-            let line = line.split('#').next().unwrap_or_default().trim();
+            // A comment starts a line or follows a space, so `type fix #123` keeps its `#`.
+            let line = match line.trim_start().starts_with('#') {
+                true => "",
+                false => line.split(" #").next().unwrap_or_default().trim(),
+            };
             if line.is_empty() {
                 continue;
             }

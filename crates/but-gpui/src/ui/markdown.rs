@@ -72,8 +72,9 @@ fn safe_link(url: &str) -> bool {
         .any(|scheme| lower.starts_with(scheme))
 }
 
-/// HTML's text, without its tags or comments. `in_comment` carries a comment left open into
-/// the next piece, as an HTML block comes a line at a time; an unclosed tag runs to the end.
+/// HTML's text, without its tags or comments, a `<br>` breaking the line. `in_comment` carries
+/// a comment left open into the next piece, as an HTML block comes a line at a time; an
+/// unclosed tag runs to the end.
 fn html_text(html: &str, in_comment: &mut bool) -> String {
     let mut text = String::new();
     let mut rest = html;
@@ -96,7 +97,15 @@ fn html_text(html: &str, in_comment: &mut bool) -> String {
                 *in_comment = true;
                 rest = comment;
             }
-            None => rest = tag.find('>').map_or("", |end| &tag[end + 1..]),
+            None => {
+                if tag[1..]
+                    .get(..2)
+                    .is_some_and(|name| name.eq_ignore_ascii_case("br"))
+                {
+                    text.push('\n');
+                }
+                rest = tag.find('>').map_or("", |end| &tag[end + 1..])
+            }
         }
     }
 }
@@ -162,7 +171,8 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                     };
                     let start = block.text.len();
                     push(block, &words, style);
-                    if let Some(url) = url {
+                    // Inside a link, only the link opens: a click opens every link it's in.
+                    if let Some(url) = url.filter(|_| link.is_none()) {
                         block.links.push((start..block.text.len(), url));
                     }
                 }
@@ -237,7 +247,11 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                 }
             }
             Event::End(
-                TagEnd::Paragraph | TagEnd::Heading(_) | TagEnd::CodeBlock | TagEnd::Item,
+                TagEnd::Paragraph
+                | TagEnd::Heading(_)
+                | TagEnd::CodeBlock
+                | TagEnd::Item
+                | TagEnd::HtmlBlock,
             ) => close(&mut blocks, &mut current),
             // Each table row is one line, its cells apart and the header bold, because
             // columns can't line up in wrapped text.
@@ -304,12 +318,29 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                     },
                 );
             }
-            Event::Html(html) | Event::InlineHtml(html) => {
+            // Within a paragraph, as a tag around words, or a `<br>` breaking its line.
+            Event::InlineHtml(html) => {
                 let text = html_text(&html, &mut in_comment);
+                if !text.is_empty() && (current.is_some() || !text.trim().is_empty()) {
+                    let block = current
+                        .get_or_insert_with(|| open(Kind::Paragraph, &lists, quotes, outermost));
+                    push(block, &text, style);
+                }
+            }
+            // A block of it comes a line at a time, each without its line break.
+            Event::Html(html) => {
+                let text = html_text(&html, &mut in_comment);
+                let text = text.trim_end_matches('\n');
                 if !text.trim().is_empty() {
                     let block = current
                         .get_or_insert_with(|| open(Kind::Paragraph, &lists, quotes, outermost));
-                    push(block, text.trim_end_matches('\n'), style);
+                    let apart = !block.text.is_empty()
+                        && !block.text.ends_with(char::is_whitespace)
+                        && !text.starts_with(char::is_whitespace);
+                    if apart {
+                        push(block, " ", style);
+                    }
+                    push(block, text, style);
                 }
             }
             Event::SoftBreak => {
@@ -370,7 +401,7 @@ pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
                     .bg(theme.fill_gray.opacity(0.08))
                     .text_size(px(12.))
                     .line_height(px(18.))
-                    .child(text(id, ix, block, theme, Base::CODE))
+                    .child(text(id, ix, block, theme))
                     .into_any_element(),
                 Kind::Heading(level) => div()
                     .pt(px(4.))
@@ -380,7 +411,7 @@ pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
                         _ => 14.,
                     }))
                     .line_height(px(22.))
-                    .child(text(id, ix, block, theme, Base::HEADING))
+                    .child(text(id, ix, block, theme))
                     .into_any_element(),
                 Kind::Item(marker) => h_flex()
                     .items_start()
@@ -392,15 +423,14 @@ pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
                             .text_color(theme.text_2)
                             .child(SharedString::from(marker.clone())),
                     )
-                    .child(div().flex_1().min_w(px(0.)).child(text(
-                        id,
-                        ix,
-                        block,
-                        theme,
-                        Base::quoted(block.quoted),
-                    )))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w(px(0.))
+                            .child(text(id, ix, block, theme)),
+                    )
                     .into_any_element(),
-                Kind::Paragraph => text(id, ix, block, theme, Base::quoted(block.quoted)),
+                Kind::Paragraph => text(id, ix, block, theme),
             };
             let indented = div()
                 .mt(px(space))
@@ -422,43 +452,16 @@ pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
         .into_any_element()
 }
 
-/// How a block's text is drawn before its own styles. Each run sets its font and colour,
-/// so what the block's element sets wouldn't reach it.
-#[derive(Clone, Copy)]
-struct Base {
-    mono: bool,
-    heading: bool,
-    quoted: bool,
-}
-
-impl Base {
-    const CODE: Base = Base {
-        mono: true,
-        heading: false,
-        quoted: false,
-    };
-    const HEADING: Base = Base {
-        mono: false,
-        heading: true,
-        quoted: false,
-    };
-
-    fn quoted(quoted: bool) -> Base {
-        Base {
-            mono: false,
-            heading: false,
-            quoted,
-        }
-    }
-}
-
 /// A block's text in its styles, its links clickable and naming where they go on hover.
-fn text(id: &str, ix: usize, block: &Block, theme: &Theme, base: Base) -> AnyElement {
-    let font = |code: bool| match code || base.mono {
+/// Each run sets its font and colour, so what the block's element sets wouldn't reach it:
+/// code is monospaced, a heading bold, and a quote quieter.
+fn text(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
+    let heading = matches!(block.kind, Kind::Heading(_));
+    let font = |code: bool| match code || block.kind == Kind::Code {
         true => gpui::font(theme.mono_font.clone()),
         false => gpui::font(theme.ui_font.clone()),
     };
-    let color: Hsla = match base.quoted {
+    let color: Hsla = match block.quoted {
         true => theme.text_2,
         false => theme.text_1,
     };
@@ -486,7 +489,7 @@ fn text(id: &str, ix: usize, block: &Block, theme: &Theme, base: Base) -> AnyEle
                     code: all.code || style.code,
                 });
             let linked = block.links.iter().any(|(range, _)| range.contains(&at));
-            let weight = match (style.bold || base.heading, style.italic) {
+            let weight = match (style.bold || heading, style.italic) {
                 (true, _) => FontWeight::SEMIBOLD,
                 (false, true) => FontWeight::MEDIUM,
                 (false, false) => FontWeight::NORMAL,
@@ -541,6 +544,20 @@ mod tests {
             .iter()
             .map(|block| (&block.kind, block.text.as_str()))
             .collect()
+    }
+
+    #[test]
+    fn html_keeps_its_lines_and_blocks_apart() {
+        let blocks = parse("one<br>two\n\n<p>A</p>\n<p>B</p>\n\n<div>C</div>\n");
+        assert_eq!(
+            texts(&blocks),
+            [
+                (&Kind::Paragraph, "one\ntwo"),
+                (&Kind::Paragraph, "A B"),
+                (&Kind::Paragraph, "C"),
+            ],
+            "a <br> breaks the line, an HTML block's lines stay apart, and so do two blocks"
+        );
     }
 
     #[test]

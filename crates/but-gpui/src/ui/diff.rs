@@ -134,8 +134,8 @@ pub fn ends_card(rows: &[DiffRow], ix: usize) -> bool {
 }
 
 /// Rows for `files`, with the files `folded` says are folded reduced to their header, the
-/// files, hunks and lines `hidden`, `hidden_hunk` and `hidden_line` say are hidden left out
-/// (lines only one above the other, not side by side), and the files `whole`
+/// files, hunks and lines `hidden`, `hidden_hunk` and `hidden_line` say are hidden left out,
+/// and the files `whole`
 /// gives the length of shown with every unchanged line. With `split`, a hunk's lines pair up
 /// side by side. A file's conflicts sit among its hunks by line, laid out as `view` says.
 #[allow(clippy::too_many_arguments)]
@@ -160,9 +160,10 @@ pub fn rows(
             rows.push(DiffRow::Gap);
             continue;
         }
-        // An SVG drawn rather than shown as text.
+        // An SVG drawn rather than shown as text, apart from the next file as any is.
         if drawn(file) {
             rows.push(DiffRow::Note(file_ix));
+            rows.push(DiffRow::Gap);
             continue;
         }
         match &file.body {
@@ -206,17 +207,22 @@ pub fn rows(
                     if scoped {
                         scope_rows(&mut rows, file_ix, &hunk.lead);
                     }
+                    // Lines a pending operation takes out of the hunk go at once, from either
+                    // side of a pair too.
                     if split {
-                        rows.extend(pair_lines(&hunk.lines).into_iter().map(|(left, right)| {
-                            DiffRow::Pair {
-                                file: file_ix,
-                                hunk: hunk_ix,
-                                left,
-                                right,
-                            }
+                        let keep = |line: Option<usize>| {
+                            line.filter(|&line| !hidden_line(file, hunk, &hunk.lines[line]))
+                        };
+                        let pairs = (pair_lines(&hunk.lines).into_iter())
+                            .map(|(left, right)| (keep(left), keep(right)))
+                            .filter(|(left, right)| left.is_some() || right.is_some());
+                        rows.extend(pairs.map(|(left, right)| DiffRow::Pair {
+                            file: file_ix,
+                            hunk: hunk_ix,
+                            left,
+                            right,
                         }));
                     } else {
-                        // Lines a pending operation takes out of the hunk go at once.
                         let shown = (0..hunk.lines.len())
                             .filter(|&line| !hidden_line(file, hunk, &hunk.lines[line]));
                         rows.extend(shown.map(|line| DiffRow::Line {
@@ -275,7 +281,6 @@ fn pair_lines(lines: &[DiffLine]) -> Vec<(Option<usize>, Option<usize>)> {
     pairs
 }
 
-/// The unchanged new-side lines `lines`, numbered `ahead` lines further on than the old side.
 /// The unchanged lines a hunk shows of its scope, by their numbers on either side.
 fn scope_rows(rows: &mut Vec<DiffRow>, file: usize, lines: &[DiffLine]) {
     rows.extend(lines.iter().filter_map(|line| {
@@ -287,6 +292,7 @@ fn scope_rows(rows: &mut Vec<DiffRow>, file: usize, lines: &[DiffLine]) {
     }));
 }
 
+/// The unchanged new-side lines `lines`, numbered `ahead` lines further on than the old side.
 fn context_rows(rows: &mut Vec<DiffRow>, file: usize, lines: Range<u32>, ahead: i64) {
     rows.extend(lines.map(|new| DiffRow::Context {
         file,
@@ -819,23 +825,37 @@ pub(super) fn line_text(
         .spans
         .iter()
         .map(|(range, token)| (range.clone(), HighlightStyle::from(theme.token(*token))));
-    let emph = line
-        .emph
-        .iter()
-        .map(|range| (range.clone(), ground(emph_bg)));
-    // Blue like the system's text selection, apart from the green and red of the
-    // change itself.
-    let selected = selected.map(|range| (range, ground(theme.blue.opacity(0.3))));
-    let found = found.into_iter().map(|(range, current)| {
-        (
-            range,
-            ground(theme.warn.opacity(if current { 0.6 } else { 0.28 })),
-        )
-    });
-    StyledText::new(SharedString::from(line.text.clone())).with_highlights(combine_highlights(
-        combine_highlights(combine_highlights(syntax, emph), found),
-        selected,
-    ))
+    // Grounds painted in order, as overlapping ones combined would show either: the changed
+    // words, then what Find matched, then the selection, blue like the system's, apart from
+    // the green and red of the change itself.
+    // Most lines have none, and are drawn every frame.
+    let len = match line.emph.is_empty() && found.is_empty() && selected.is_none() {
+        true => 0,
+        false => line.text.len(),
+    };
+    let mut grounds: Vec<Option<Hsla>> = vec![None; len];
+    let mut paint = |range: &Range<usize>, color: Hsla| {
+        grounds[range.start.min(len)..range.end.min(len)].fill(Some(color));
+    };
+    line.emph.iter().for_each(|range| paint(range, emph_bg));
+    for (range, current) in &found {
+        paint(range, theme.warn.opacity(if *current { 0.6 } else { 0.28 }));
+    }
+    if let Some(range) = &selected {
+        paint(range, theme.blue.opacity(0.3));
+    }
+    let mut runs = Vec::new();
+    let mut start = 0;
+    for at in 1..=len {
+        if at == len || grounds[at] != grounds[start] {
+            if let Some(color) = grounds[start] {
+                runs.push((start..at, ground(color)));
+            }
+            start = at;
+        }
+    }
+    StyledText::new(SharedString::from(line.text.clone()))
+        .with_highlights(combine_highlights(syntax, runs))
 }
 
 /// The text of a line, after its numbers. Unless it wraps, it scrolls sideways, as far as its
@@ -1004,20 +1024,12 @@ pub fn context_row(
     line_row(line, place, last, theme, layout, decor)
 }
 
-/// What one side of a side-by-side row adds to its line.
-#[derive(Default)]
-pub struct Half {
-    pub excluded: bool,
-    pub toggle: Option<OnToggle>,
-    pub found: Vec<(Range<usize>, bool)>,
-    pub gutter: Option<Gutter>,
-}
-
 /// A side-by-side row: a line from the old side on the left and one from the new on the
-/// right, each with its number on that side. `place` tells rows apart, as for [`line_row`].
+/// right, each with its number on that side, and what the owner adds to it, though a side
+/// isn't selectable. `place` tells rows apart, as for [`line_row`].
 pub fn pair_row(
     [left, right]: [Option<(&DiffLine, Option<u32>)>; 2],
-    [left_half, right_half]: [Half; 2],
+    [left_half, right_half]: [LineDecor; 2],
     place: (usize, usize, usize),
     last: bool,
     theme: &Theme,
@@ -1026,7 +1038,7 @@ pub fn pair_row(
     let id = row_id(place);
     let wrap = layout.wrap;
     let side = |line: Option<(&DiffLine, Option<u32>)>,
-                half: Half,
+                half: LineDecor,
                 sideways: &Sideways,
                 name: &'static str| {
         let Some((line, number)) = line else {

@@ -39,7 +39,7 @@ const REPOSITORY: [(&str, &str, &str); 21] = [
 const UI_REACT: &str = include_str!("../../../../packages/ui-react/src/entityAvatarChoices.ts");
 
 /// Every emoji to pick from, in the picker's order, each once.
-pub fn all() -> &'static [Emoji] {
+fn all() -> &'static [Emoji] {
     static ALL: LazyLock<Vec<Emoji>> = LazyLock::new(|| {
         let repository = REPOSITORY.iter().map(|&(emoji, name, keywords)| Emoji {
             emoji,

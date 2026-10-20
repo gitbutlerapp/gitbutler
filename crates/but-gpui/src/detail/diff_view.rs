@@ -175,14 +175,14 @@ impl Detail {
         else {
             return layout;
         };
+        // The highest line number shown, from the last hunk's header and the scope's lines
+        // after it, not a scan of its lines on every row drawn.
         let last = hunks.last().map_or(0, |hunk| {
-            let side = |number: fn(&DiffLine) -> Option<u32>| {
-                (hunk.lines.iter().chain(&hunk.tail))
-                    .rev()
-                    .find_map(number)
-                    .unwrap_or(0)
-            };
-            side(|line| line.old).max(side(|line| line.new))
+            let h = hunk.key.0;
+            (h.old_start + h.old_lines)
+                .max(h.new_start + h.new_lines)
+                .saturating_sub(1)
+                + hunk.tail.len() as u32
         });
         let (length, whole_columns) = match self.whole.get(&file.file.path) {
             Some(Some((_, lines, columns))) => {
@@ -871,14 +871,15 @@ impl Detail {
                 };
                 let half = |line: Option<usize>| {
                     let Some(line) = line else {
-                        return diff::Half::default();
+                        return diff::LineDecor::default();
                     };
                     let (excluded, toggle) = self.line_check(diff, (file, hunk, line), &entity);
-                    diff::Half {
+                    diff::LineDecor {
                         excluded,
                         toggle,
                         found: self.found_on((file, hunk, line)),
                         gutter: self.line_gutter((file, hunk, line), &entity, cx),
+                        ..Default::default()
                     }
                 };
                 let sides = [

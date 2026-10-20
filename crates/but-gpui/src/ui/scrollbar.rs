@@ -102,7 +102,8 @@ pub fn scrollbar(
         move |bounds, (state, area, track), window, cx| {
             let (offset, max) = scroll.offsets();
             let height = bounds.size.height;
-            if max <= px(0.) || height <= px(0.) {
+            // Too short for the shortest thumb, it has no room to travel.
+            if max <= px(0.) || height <= px(24.) {
                 return;
             }
             let thumb = (height * (height / (height + max))).clamp(px(24.), height);

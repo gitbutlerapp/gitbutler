@@ -491,14 +491,24 @@ fn load_file(
         }
         for hunk in hunks.iter_mut() {
             annotate::emphasize(hunk);
-            let Some(mut highlighter) = highlight::Highlighter::for_path(&file.path) else {
+            // One per side, so a removed line's state, as a string it opens, doesn't run
+            // on into the added lines: unchanged lines go through both.
+            let for_path = || highlight::Highlighter::for_path(&file.path);
+            let (Some(mut old), Some(mut new)) = (for_path(), for_path()) else {
                 continue;
             };
             let Hunk {
                 lead, lines, tail, ..
             } = hunk;
             for line in lead.iter_mut().chain(lines).chain(tail) {
-                line.spans = highlighter.line(&line.text);
+                line.spans = match line.kind {
+                    LineKind::Removed => old.line(&line.text),
+                    LineKind::Added => new.line(&line.text),
+                    LineKind::Context => {
+                        old.line(&line.text);
+                        new.line(&line.text)
+                    }
+                };
             }
         }
     }
