@@ -1006,7 +1006,7 @@ impl Graph {
 impl Graph {
     /// Return a utility to perform topological walks on the graph.
     pub fn topo_walk(&self) -> petgraph::visit::Topo<SegmentIndex, <PetGraph as Visitable>::Map> {
-        petgraph::visit::Topo::new(&self.inner)
+        petgraph::visit::Topo::new(&*self.inner)
     }
 }
 
@@ -1348,12 +1348,5 @@ impl Deref for Graph {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
-    }
-}
-
-// This in particular is only for those who know what they are doing.
-impl std::ops::DerefMut for Graph {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
     }
 }

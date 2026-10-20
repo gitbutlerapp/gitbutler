@@ -230,7 +230,7 @@ pub type CommitIndex = usize;
 #[derive(Default, Debug, Clone)]
 #[must_use]
 pub struct Graph {
-    inner: init::PetGraph,
+    inner: init::TraversalOrderedGraph,
     /// From where the graph was created. This is useful if one wants to focus on a subset of the graph.
     ///
     /// This is `None` only for a freshly default-initialized graph, or while a graph is being assembled before

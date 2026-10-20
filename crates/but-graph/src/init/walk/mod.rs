@@ -14,7 +14,7 @@ use crate::{
     Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
     Worktree,
     init::{
-        Goals, PetGraph,
+        Goals, PetGraph, TraversalOrderedGraph,
         overlay::{OverlayMetadata, OverlayRepo},
         remotes,
         types::{EdgeOwned, Instruction, Limit, Queue, QueueItem},
@@ -178,7 +178,7 @@ pub fn split_commit_into_segment(
                 .map(|e| e.id())
                 .collect();
             for edge_id in outgoing_edges {
-                graph.remove_edge(edge_id);
+                graph.inner.remove_edge(edge_id);
             }
 
             let top_commit_id = top_commit_index.map(|idx| graph[sidx].commits[idx].id);
@@ -233,7 +233,7 @@ pub fn split_commit_into_segment(
 /// Assumes that `dst.commits == `src[src_commit..]` and will move connections down, updating their
 /// indices accordingly.
 fn split_connections(
-    graph: &mut PetGraph,
+    graph: &mut TraversalOrderedGraph,
     from: (SegmentIndex, CommitIndex),
     dst: SegmentIndex,
 ) -> anyhow::Result<()> {
@@ -813,7 +813,7 @@ pub fn try_refname_to_id(
 ///
 /// If this gets slower, the change isn't good.
 pub fn propagate_flags_downward(
-    graph: &mut PetGraph,
+    graph: &mut TraversalOrderedGraph,
     flags_to_add: CommitFlags,
     dst_sidx: SegmentIndex,
     dst_commit: Option<CommitIndex>,
@@ -847,7 +847,7 @@ pub fn propagate_flags_downward(
 
         // Track edges for leaf detection
         let mut edge_count = 0;
-        while let Some((edge_idx, target_segment)) = neighbors.next(graph) {
+        while let Some((edge_idx, target_segment)) = neighbors.next(&**graph) {
             edge_count += 1;
             let edge = &graph[edge_idx];
 

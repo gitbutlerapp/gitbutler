@@ -489,7 +489,8 @@ impl Graph {
                 .unwrap_or_else(|| "dst".into());
             format!(", label = \"⚠{src} → {dst} ({err})\", fontname = Courier")
         };
-        let dot = petgraph::dot::Dot::with_attr_getters(&self.inner, &[], &edge_attrs, &node_attrs);
+        let dot =
+            petgraph::dot::Dot::with_attr_getters(&*self.inner, &[], &edge_attrs, &node_attrs);
         format!("{dot:?}")
     }
 
@@ -532,7 +533,7 @@ impl Graph {
                     self.neighbors_directed(sidx, petgraph::Direction::Incoming)
                         .filter(|n| seen.insert_unseen(*n)),
                 );
-                self.remove_node(sidx);
+                self.inner.remove_node(sidx);
                 to_remove -= 1;
             }
             if to_remove != 0 {
@@ -554,7 +555,7 @@ impl Graph {
                 .filter(|n| seen.insert_unseen(*n))
                 .collect();
             for below_sidx in below_segments {
-                if let Some(segment) = self.node_weight_mut(below_sidx)
+                if let Some(segment) = self.inner.node_weight_mut(below_sidx)
                     && let Some(first_commit) = segment.commits.first_mut()
                 {
                     first_commit.flags.remove(CommitFlags::InWorkspace);
