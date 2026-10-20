@@ -414,10 +414,11 @@ export declare function commentUpdate(projectId: string, id: string, payload: st
  * record an oplog snapshot on success.
  *
  * This performs the rewrite under exclusive worktree access and creates a
- * best-effort `AmendCommit` oplog entry if the operation succeeds, which covers
- * the main checkout only even when `changes_source` is a linked worktree. When
- * `dry_run` is enabled, the returned workspace previews the amended commit
- * and no oplog entry is persisted. For lower-level implementation details, see
+ * best-effort `AmendCommit` oplog entry if the operation succeeds. For a linked
+ * worktree `changes_source` it also covers the branch that worktree has checked
+ * out, so undo leaves the change uncommitted there. When `dry_run` is enabled,
+ * the returned workspace previews the amended commit and no oplog entry is
+ * persisted. For lower-level implementation details, see
  * [`but_workspace::commit::commit_amend()`].
  *
  * {@link ../../../../../crates/but-api/src/commit/amend.rs}
@@ -453,10 +454,11 @@ export declare function commitConflicts(projectId: string, commitId: string): Pr
  *
  * `relative_to` and `side` choose where the commit is inserted. `message` is
  * the entire commit message text, not just the title. On success, this commits
- * a best-effort `CreateCommit` oplog snapshot using the same lock, which covers
- * the main checkout only even when `changes_source` is a linked worktree. When
- * `dry_run` is enabled, the returned workspace previews the inserted commit
- * and no oplog entry is persisted. For lower-level implementation details, see
+ * a best-effort `CreateCommit` oplog snapshot using the same lock. For a linked
+ * worktree `changes_source` it also covers the branch that worktree has checked
+ * out, so undo leaves the change uncommitted there. When `dry_run` is enabled,
+ * the returned workspace previews the inserted commit and no oplog entry is
+ * persisted. For lower-level implementation details, see
  * [`but_workspace::commit::commit_create()`].
  *
  * {@link ../../../../../crates/but-api/src/commit/create.rs}

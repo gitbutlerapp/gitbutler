@@ -125,7 +125,8 @@ impl TryFrom<SnapshotProjectMeta> for ProjectMeta {
 /// ├── additional-refs/ (ad-hoc graph refs and explicitly preserved refs)
 /// │   └── [index]/
 /// │       ├── name
-/// │       └── target (absent if the ref did not exist)
+/// │       ├── target (absent if the ref did not exist)
+/// │       └── checked-out-elsewhere (an explicitly preserved ref another worktree had checked out)
 /// ├── conflicts/…
 /// ├── index/
 /// ├── index-conflicts/…
@@ -150,6 +151,8 @@ pub trait OplogExt {
     fn prepare_snapshot(&self, perm: &RepoShared) -> Result<gix::ObjectId>;
 
     /// Like [`prepare_snapshot`](Self::prepare_snapshot), additionally preserving one reference.
+    /// If another worktree has it checked out, restoring moves it there too and leaves that
+    /// worktree's files alone.
     fn prepare_snapshot_with_ref(
         &self,
         ref_name: &gix::refs::FullNameRef,
@@ -248,7 +251,7 @@ impl OplogExt for Context {
         ref_name: &gix::refs::FullNameRef,
         perm: &RepoShared,
     ) -> Result<gix::ObjectId> {
-        prepare_snapshot_with_target_and_refs(self, perm, &[ref_name])
+        prepare_snapshot_with_target_and_refs(self, perm, &[ref_name], &[ref_name])
             .map(|snapshot| snapshot.tree_id)
     }
 
@@ -561,6 +564,8 @@ struct SnapshotCheckout {
 struct SnapshotReference {
     ref_name: gix::refs::FullName,
     target: Option<gix::ObjectId>,
+    /// Another worktree had `ref_name` checked out, so restoring may move it there.
+    checked_out_elsewhere: bool,
 }
 
 fn snapshot_references(
@@ -603,7 +608,14 @@ fn snapshot_reference(
     if target.is_some_and(|target| target.is_null()) {
         bail!("snapshot additional ref target is null");
     }
-    Ok(SnapshotReference { ref_name, target })
+    let checked_out_elsewhere = reference_tree
+        .lookup_entry_by_path("checked-out-elsewhere")?
+        .is_some();
+    Ok(SnapshotReference {
+        ref_name,
+        target,
+        checked_out_elsewhere,
+    })
 }
 
 fn snapshot_checkout(
@@ -812,13 +824,17 @@ fn prepare_snapshot_with_target(
     ctx: &Context,
     shared_access: &RepoShared,
 ) -> Result<PreparedSnapshot> {
-    prepare_snapshot_with_target_and_refs(ctx, shared_access, &[])
+    prepare_snapshot_with_target_and_refs(ctx, shared_access, &[], &[])
 }
 
+/// Like [`prepare_snapshot_with_target`], additionally preserving `explicit_refs`. Those of
+/// `movable_elsewhere` that another worktree has checked out are marked, so restoring may
+/// move them there.
 fn prepare_snapshot_with_target_and_refs(
     ctx: &Context,
     shared_access: &RepoShared,
-    additional_refs: &[&gix::refs::FullNameRef],
+    explicit_refs: &[&gix::refs::FullNameRef],
+    movable_elsewhere: &[&gix::refs::FullNameRef],
 ) -> Result<PreparedSnapshot> {
     let repo = ctx.repo.get()?;
     let empty_tree_id = repo.empty_tree().id;
@@ -859,7 +875,7 @@ fn prepare_snapshot_with_target_and_refs(
     let branch_order_blob = repo.write_blob(toml::to_string(&branch_order)?.as_bytes())?;
     snapshot_tree.upsert(BRANCH_ORDER_FILE, EntryKind::Blob, branch_order_blob)?;
 
-    let mut additional_refs: BTreeSet<_> = additional_refs
+    let mut additional_refs: BTreeSet<_> = explicit_refs
         .iter()
         .map(|name| (*name).to_owned())
         .collect();
@@ -989,6 +1005,21 @@ fn prepare_snapshot_with_target_and_refs(
                 EntryKind::Blob,
                 repo.write_blob(reference.id().to_string().as_bytes())?,
             )?;
+            // Only the caller knows that its operation leaves the other worktree's files
+            // alone, so refs picked up from the graph aren't marked.
+            if movable_elsewhere.contains(&ref_name.as_ref())
+                && but_core::branch::SafeDelete::new(&repo)?
+                    .worktree_dirs_with_ref(&reference)
+                    .is_some_and(|dirs| {
+                        dirs.iter().any(|dir| Some(dir.as_path()) != repo.workdir())
+                    })
+            {
+                reference_tree.upsert(
+                    "checked-out-elsewhere",
+                    EntryKind::Blob,
+                    repo.write_blob(b"")?,
+                )?;
+            }
         }
     }
 
@@ -1185,7 +1216,10 @@ fn restore_snapshot_tree(
     let restored_vb_toml = toml::to_string(&restored_virtual_branches)?;
 
     for reference in &restored_references {
-        if let Some(current_reference) = repo.try_find_reference(reference.ref_name.as_ref())?
+        // A worktree that had the ref checked out when the snapshot was taken gets it moved
+        // back with its files as they are.
+        if !reference.checked_out_elsewhere
+            && let Some(current_reference) = repo.try_find_reference(reference.ref_name.as_ref())?
             && current_reference.target().try_id().map(ToOwned::to_owned) != reference.target
             && let Some(dirs) =
                 but_core::branch::SafeDelete::new(&repo)?.worktree_dirs_with_ref(&current_reference)
@@ -1204,15 +1238,22 @@ fn restore_snapshot_tree(
         }
     }
 
-    // Preserve the same refs for redo, even if they are no longer in HEAD's graph.
+    // Preserve the same refs for redo, even if they are no longer in HEAD's graph,
+    // and let redo move only those undo was allowed to move in another worktree.
     let reference_names: Vec<_> = restored_references
         .iter()
+        .map(|reference| reference.ref_name.as_ref())
+        .collect();
+    let movable_elsewhere: Vec<_> = restored_references
+        .iter()
+        .filter(|reference| reference.checked_out_elsewhere)
         .map(|reference| reference.ref_name.as_ref())
         .collect();
     let before_restore_snapshot_tree_id = prepare_snapshot_with_target_and_refs(
         ctx,
         exclusive_access.read_permission(),
         &reference_names,
+        &movable_elsewhere,
     )?
     .tree_id;
     let before_restore_snapshot_workdir_tree_id =

@@ -103,10 +103,11 @@ pub(crate) fn commit_create_only_impl(
 ///
 /// `relative_to` and `side` choose where the commit is inserted. `message` is
 /// the entire commit message text, not just the title. On success, this commits
-/// a best-effort `CreateCommit` oplog snapshot using the same lock, which covers
-/// the main checkout only even when `changes_source` is a linked worktree. When
-/// `dry_run` is enabled, the returned workspace previews the inserted commit
-/// and no oplog entry is persisted. For lower-level implementation details, see
+/// a best-effort `CreateCommit` oplog snapshot using the same lock. For a linked
+/// worktree `changes_source` it also covers the branch that worktree has checked
+/// out, so undo leaves the change uncommitted there. When `dry_run` is enabled,
+/// the returned workspace previews the inserted commit and no oplog entry is
+/// persisted. For lower-level implementation details, see
 /// [`but_workspace::commit::commit_create()`].
 #[but_api(napi, try_from = crate::commit::json::CommitCreateResult)]
 #[instrument(skip_all, fields(relative_to, side, message), err(Debug))]
@@ -122,9 +123,11 @@ pub fn commit_create(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCreateResult> {
     let context_lines = ctx.settings.context_lines;
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+    let worktree_ref = crate::worktrees::changes_source_ref(ctx, &changes_source)?;
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_ref_and_perm(
         ctx,
         SnapshotDetails::new(OperationKind::CreateCommit),
+        worktree_ref.as_ref().map(|name| name.as_ref()),
         perm.read_permission(),
         dry_run,
     );

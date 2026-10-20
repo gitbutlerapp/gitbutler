@@ -139,6 +139,23 @@ pub(crate) fn open_changes_source(
     Ok(Some((name, wt_repo)))
 }
 
+/// The branch that the linked worktree `source` names has checked out, or `None` for
+/// the main worktree or a detached `HEAD`.
+///
+/// Operations that commit a linked worktree's changes name it in their snapshot, so undo
+/// moves it back and leaves the changes uncommitted there.
+pub(crate) fn changes_source_ref(
+    ctx: &but_ctx::Context,
+    source: &ChangesSource,
+) -> Result<Option<gix::refs::FullName>> {
+    let ChangesSource::Worktree(name) = source else {
+        return Ok(None);
+    };
+    Ok(ctx
+        .worktree_head(name.as_bytes().as_bstr())?
+        .and_then(|head| head.ref_name))
+}
+
 /// List all usable linked worktrees, split by archived state.
 #[but_api(napi, provides = [Worktrees])]
 #[instrument(err(Debug))]

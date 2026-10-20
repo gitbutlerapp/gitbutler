@@ -10,6 +10,7 @@ mod branch_remove;
 mod branch_rename;
 mod changes_in_worktree;
 mod commit_cherry_pick;
+mod commit_linked_worktree;
 mod commit_range_diff;
 mod commit_uncommit;
 #[cfg(feature = "legacy")]

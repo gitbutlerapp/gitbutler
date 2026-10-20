@@ -158,6 +158,42 @@ fn restore_additional_refs_rejects_other_worktrees() -> anyhow::Result<()> {
 }
 
 #[test]
+fn redo_rejects_a_ref_checked_out_elsewhere_only_after_the_snapshot() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    let reference: gix::refs::FullName = "refs/heads/extra".try_into()?;
+    repo.invoke_git("branch extra A");
+    let mut guard = ctx.exclusive_worktree_access();
+    let perm = guard.write_permission();
+    let tree = ctx.prepare_snapshot_with_ref(reference.as_ref(), perm.read_permission())?;
+    let snapshot = ctx.commit_snapshot(
+        tree,
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        perm,
+    )?;
+    let worktree = tempfile::tempdir()?;
+    repo.invoke_git(&format!(
+        "worktree add '{}' extra",
+        worktree.path().display()
+    ));
+    // `extra` didn't move, so undo has nothing to refuse.
+    let redo = ctx.restore_snapshot(snapshot, RestoreKind::RestoreFromSnapshotViaUndo, perm)?;
+    repo.invoke_git("update-ref refs/heads/extra origin/main");
+
+    let error = ctx
+        .restore_snapshot(redo, RestoreKind::RestoreFromSnapshotViaRedo, perm)
+        .unwrap_err();
+    // The worktree checked `extra` out after the first snapshot was taken, so redo
+    // must not move it either, although it had it checked out when undo ran.
+    snapbox::assert_data_eq!(
+        error.to_string(),
+        snapbox::str![[
+            r#"Cannot restore branch 'extra' because it is checked out in worktrees: [..]"#
+        ]]
+    );
+    Ok(())
+}
+
+#[test]
 fn snapshot_with_additional_ref_includes_branch_order() -> anyhow::Result<()> {
     let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
     set_branch_order(ctx, &["refs/heads/A", "refs/heads/B"])?;
