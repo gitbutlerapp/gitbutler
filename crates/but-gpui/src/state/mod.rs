@@ -83,8 +83,9 @@ impl Selection {
 pub enum Cut {
     /// Commits to move, the picked ones together, in the order they're listed.
     Commit(ProjectId, Arc<[CommitId]>),
-    /// A commit to put a copy of somewhere else.
-    CherryPick(ProjectId, CommitId),
+    /// Commits to put copies of somewhere else, the picked ones together, in the order
+    /// they're listed.
+    CherryPick(ProjectId, Arc<[CommitId]>),
     /// A branch to stack on another, with the branches above it.
     Branch(ProjectId, String),
     /// Files from the worktree (`from: None`), down to the hunks checked, or from a commit.
@@ -121,9 +122,10 @@ impl Cut {
 
     pub fn describe(&self) -> String {
         match self {
-            Cut::Commit(_, ids) if ids.len() > 1 => format!("{} commits", ids.len()),
-            Cut::Commit(_, ids) => format!("commit {}", ids[0].short()),
-            Cut::CherryPick(_, id) => format!("commit {}", id.short()),
+            Cut::Commit(_, ids) | Cut::CherryPick(_, ids) if ids.len() > 1 => {
+                format!("{} commits", ids.len())
+            }
+            Cut::Commit(_, ids) | Cut::CherryPick(_, ids) => format!("commit {}", ids[0].short()),
             Cut::Branch(_, ref_name) => short_ref(ref_name).to_owned(),
             // Hunks or lines of one file: what of it isn't said here, where the diff isn't.
             Cut::Files { files, .. } if files.len() == 1 => match &files[0].hunks {

@@ -38,9 +38,9 @@ pub enum Transfer {
         to: CommitId,
         files: Arc<[Selected]>,
     },
-    /// A copy of the commit, leaving it where it is.
+    /// Copies of the commits, as listed, leaving them where they are.
     CherryPick {
-        id: CommitId,
+        ids: Arc<[CommitId]>,
         to: Destination,
     },
     /// Stack a branch, and those above it, on another.
@@ -187,13 +187,15 @@ impl Transfer {
                     to,
                 }
             }
-            (Cut::CherryPick(_, id), Selection::Branch(_, branch)) => Transfer::CherryPick {
-                id: *id,
+            (Cut::CherryPick(_, ids), Selection::Branch(_, branch)) => Transfer::CherryPick {
+                ids: ids.clone(),
                 to: Destination::Branch(branch.clone()),
             },
-            (Cut::CherryPick(_, id), Selection::Commit(_, target_id)) if id != target_id => {
+            (Cut::CherryPick(_, ids), Selection::Commit(_, target_id))
+                if !ids.contains(target_id) =>
+            {
                 Transfer::CherryPick {
-                    id: *id,
+                    ids: ids.clone(),
                     to: match place {
                         Place::Above => Destination::AboveCommit(*target_id),
                         Place::Below => Destination::BelowCommit(*target_id),
@@ -402,17 +404,19 @@ impl Transfer {
                 },
                 cx,
             ),
-            Transfer::CherryPick { id, to } => store.run(
+            Transfer::CherryPick { ids, to } => store.run(
                 project,
                 label,
                 Overlay {
-                    new_commit: store.arriving(project, &[id], &to),
+                    new_commit: store.arriving(project, &ids, &to),
                     ..Overlay::default()
                 },
                 move |path, remap| {
                     // A commit from outside the workspace can't have been rewritten.
-                    let id = remap.get(id).unwrap_or(id);
-                    backend::cherry_pick(path, id, &remap.destination(to)?)
+                    let ids: Vec<_> = (ids.iter())
+                        .map(|id| remap.get(*id).unwrap_or(*id))
+                        .collect();
+                    backend::cherry_pick(path, &ids, &remap.destination(to)?)
                 },
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);

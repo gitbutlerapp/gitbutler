@@ -415,13 +415,14 @@ pub fn insert_empty_commit(path: &Path, at: &Destination) -> Result<CommitId> {
     Ok(CommitId(outcome.new_commit))
 }
 
-/// Put a copy of `commit` at `to`, keeping the original where it is.
-pub fn cherry_pick(path: &Path, commit: CommitId, to: &Destination) -> Result<Rewritten> {
+/// Put copies of `commits`, listed newest first, at `to` in one go, keeping the originals
+/// where they are. The oldest goes in first and each newer one on top, as in their history.
+pub fn cherry_pick(path: &Path, commits: &[CommitId], to: &Destination) -> Result<Rewritten> {
     let mut ctx = open(path)?;
     let (relative_to, side) = to.relative_to()?;
     let outcome = but_api::commit::cherry_pick::commit_cherry_pick(
         &mut ctx,
-        vec![commit.0],
+        commits.iter().rev().map(|commit| commit.0).collect(),
         relative_to,
         side,
         DryRun::No,

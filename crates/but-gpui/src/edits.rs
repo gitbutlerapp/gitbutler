@@ -763,7 +763,7 @@ impl AppView {
     /// Pick up the selected commit to put a copy of it where ⌘V lands.
     fn cherry_pick(&mut self, _: &CherryPick, _: &mut Window, cx: &mut Context<Self>) {
         if let Some((project, id)) = self.single_commit(cx) {
-            self.cut(Cut::CherryPick(project, id), cx);
+            self.cut(Cut::CherryPick(project, [id].into()), cx);
         }
     }
 

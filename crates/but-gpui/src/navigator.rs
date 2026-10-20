@@ -1299,8 +1299,8 @@ impl Navigator {
             (Some(Cut::Commit(p, ids)), Selection::Commit(project, commit)) => {
                 p == project && ids.contains(commit)
             }
-            (Some(Cut::CherryPick(p, c)), Selection::Commit(project, commit)) => {
-                p == project && c == commit
+            (Some(Cut::CherryPick(p, ids)), Selection::Commit(project, commit)) => {
+                p == project && ids.contains(commit)
             }
             _ => false,
         };

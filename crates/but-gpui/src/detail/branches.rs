@@ -16,7 +16,7 @@ use crate::backend::branches::{self, ApplyOutcome, BranchCommit, OtherBranch};
 use crate::backend::{self, CommitId, DiffSource};
 use crate::edits::CherryPick;
 use crate::overlays::MenuItem;
-use crate::state::{Cut, Overlay, Prefs, ProjectId, Selection};
+use crate::state::{Cut, Overlay, Picks, Prefs, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::illustration::Illustration;
@@ -43,12 +43,41 @@ pub(super) struct Branches {
     commits: HashMap<String, (Loaded, Vec<BranchCommit>)>,
     /// One of the selected branch's commits, to see on its own and to copy into the workspace.
     commit: Option<CommitId>,
+    /// Commits of the selected branch picked along with the selected one (⌘- or ⇧-click), to
+    /// cherry-pick together.
+    picked: Picks<CommitId>,
 }
 
 impl Branches {
     fn selected_branch(&self) -> Option<&OtherBranch> {
         let selected = self.selected.as_ref()?;
         self.list.iter().find(|b| b.ref_name == *selected)
+    }
+
+    /// The commits listed under branch `ref_name`: its own, not those of the branches below it
+    /// in a stack.
+    fn listed_commits(&self, ref_name: &str) -> &[BranchCommit] {
+        let own = (self.list.iter().find(|b| b.ref_name == ref_name)).and_then(|b| b.own_commits);
+        match self.commits.get(ref_name) {
+            Some((_, commits)) => &commits[..own.unwrap_or(commits.len()).min(commits.len())],
+            None => &[],
+        }
+    }
+
+    /// What cherry-picking commit `id` takes: the picks, in the order they're listed, when
+    /// it's one of them, or else just it.
+    fn cherry_picks(&self, id: CommitId) -> Arc<[CommitId]> {
+        let Some(ref_name) = self
+            .selected
+            .as_deref()
+            .filter(|_| self.picked.contains(&id))
+        else {
+            return [id].into();
+        };
+        (self.listed_commits(ref_name).iter())
+            .map(|commit| commit.id)
+            .filter(|id| self.picked.contains(id))
+            .collect()
     }
 }
 
@@ -107,13 +136,17 @@ impl Detail {
                 // Which branches were open and their commits, of those still listed, and the
                 // selected commit while its branch stays selected.
                 let listed = |ref_name: &String| list.iter().any(|b| b.ref_name == *ref_name);
-                let (open, folded, commits, commit) = match previous {
-                    Some(b) => (
-                        b.open.into_iter().filter(|r| listed(r)).collect(),
-                        b.folded.into_iter().filter(|r| listed(r)).collect(),
-                        b.commits.into_iter().filter(|(r, _)| listed(r)).collect(),
-                        b.commit.filter(|_| b.selected == selected),
-                    ),
+                let (open, folded, commits, commit, picked) = match previous {
+                    Some(b) => {
+                        let same = b.selected == selected;
+                        (
+                            b.open.into_iter().filter(|r| listed(r)).collect(),
+                            b.folded.into_iter().filter(|r| listed(r)).collect(),
+                            b.commits.into_iter().filter(|(r, _)| listed(r)).collect(),
+                            b.commit.filter(|_| same),
+                            if same { b.picked } else { Picks::default() },
+                        )
+                    }
                     None => Default::default(),
                 };
                 this.branches = Some(Branches {
@@ -125,6 +158,7 @@ impl Detail {
                     folded,
                     commits,
                     commit,
+                    picked,
                 });
                 // The filter may hide what's selected now.
                 this.select_shown_branch(cx);
@@ -227,6 +261,7 @@ impl Detail {
                     .is_some_and(|(id, commits)| commits.iter().all(|c| c.id != id));
                 if gone {
                     branches.commit = None;
+                    branches.picked.clear();
                     this.refresh_diff(true, cx);
                 }
                 cx.notify();
@@ -256,6 +291,7 @@ impl Detail {
         } else {
             branches.open.remove(ref_name);
             if branches.selected.as_deref() == Some(ref_name) && branches.commit.take().is_some() {
+                branches.picked.clear();
                 self.show_picked(cx);
             }
         }
@@ -352,15 +388,51 @@ impl Detail {
         if let Some(branches) = &mut self.branches {
             branches.selected = ref_name;
             branches.commit = None;
+            branches.picked.clear();
         }
         self.show_picked(cx);
     }
 
-    /// Select commit `id` of the branch `ref_name`, which it's listed under.
+    /// Select commit `id` of the branch `ref_name`, which it's listed under, alone.
     fn select_branch_commit(&mut self, ref_name: &str, id: CommitId, cx: &mut Context<Self>) {
         if let Some(branches) = &mut self.branches {
             branches.selected = Some(ref_name.to_owned());
             branches.commit = Some(id);
+            branches.picked.clear();
+        }
+        self.show_picked(cx);
+    }
+
+    /// ⌘-click picks commit `id` along with the selected one, or drops it; ⇧-click (`run`)
+    /// picks the commits between them, as the navigator does. On another branch than the
+    /// selected commit's, it selects just it.
+    fn pick_branch_commit(
+        &mut self,
+        ref_name: &str,
+        id: CommitId,
+        run: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(branches) = &mut self.branches else {
+            return;
+        };
+        let Some(at) = branches
+            .commit
+            .filter(|_| branches.selected.as_deref() == Some(ref_name))
+        else {
+            return self.select_branch_commit(ref_name, id, cx);
+        };
+        let next = match run {
+            true => {
+                let order: Vec<CommitId> = (branches.listed_commits(ref_name).iter())
+                    .map(|c| c.id)
+                    .collect();
+                branches.picked.run(&order, &at, &id)
+            }
+            false => Some(branches.picked.toggle(&at, &id)),
+        };
+        if let Some(next) = next {
+            branches.commit = Some(next);
         }
         self.show_picked(cx);
     }
@@ -511,7 +583,8 @@ impl Detail {
             .map(|worktree| worktree.name.clone())
     }
 
-    /// Select commit `id` of `ref_name` and offer to copy it into the workspace, or its ID.
+    /// Select commit `id` of `ref_name`, keeping the picks when it's one of them, and offer
+    /// to copy it, or them, into the workspace, or its ID.
     fn branch_commit_menu(
         &mut self,
         project: &ProjectId,
@@ -520,11 +593,24 @@ impl Detail {
         at: Point<Pixels>,
         cx: &mut Context<Self>,
     ) {
-        self.select_branch_commit(ref_name, id, cx);
+        match &mut self.branches {
+            Some(branches) if branches.picked.contains(&id) => {
+                branches.commit = Some(id);
+                self.show_picked(cx);
+            }
+            _ => self.select_branch_commit(ref_name, id, cx),
+        }
+        let Some(ids) = self.branches.as_ref().map(|b| b.cherry_picks(id)) else {
+            return;
+        };
+        let label = match ids.len() {
+            1 => "Cherry-pick".to_owned(),
+            n => format!("Cherry-pick {n} commits"),
+        };
         let project = project.clone();
         let items = vec![
-            MenuItem::new("Cherry-pick", move |app, _, cx| {
-                app.cut(Cut::CherryPick(project.clone(), id), cx)
+            MenuItem::new(label, move |app, _, cx| {
+                app.cut(Cut::CherryPick(project.clone(), ids.clone()), cx)
             }),
             MenuItem::new("Copy commit ID", move |app, _, cx| {
                 app.copy_text(id.0.to_string(), cx)
@@ -535,12 +621,15 @@ impl Detail {
             .ok();
     }
 
-    /// Pick up the selected commit, to put a copy of it where ⌘V lands in the workspace.
+    /// Pick up the selected commit, with the others picked, to put copies of them where ⌘V
+    /// lands in the workspace.
     fn copy_branch_commit(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
-        let Some(id) = self.selected_branch_commit(project) else {
+        let Some((branches, id)) =
+            (self.branches_for(project)).and_then(|branches| Some((branches, branches.commit?)))
+        else {
             return;
         };
-        let cut = Cut::CherryPick(project.clone(), id);
+        let cut = Cut::CherryPick(project.clone(), branches.cherry_picks(id));
         self.app.update(cx, |app, cx| app.cut(cut, cx)).ok();
     }
 
@@ -760,11 +849,28 @@ impl Detail {
                             let id = commit.id;
                             let label: SharedString = commit.title.clone().into();
                             let project = branches.project.clone();
-                            let payload = Cut::CherryPick(project.clone(), id);
-                            let selected = is_selected(branches, row);
+                            // A picked one takes the others picked along.
+                            let ids = branches.cherry_picks(id);
+                            let dragged: SharedString = match ids.len() {
+                                1 => label.clone(),
+                                n => format!("{n} commits").into(),
+                            };
+                            let payload = Cut::CherryPick(project.clone(), ids);
+                            let selected = is_selected(branches, row) || is_picked(branches, row);
+                            let joined = match selected && !branches.picked.is_empty() {
+                                true => {
+                                    let picked_at = |ix: Option<usize>| {
+                                        (ix.and_then(|ix| rows.get(ix)))
+                                            .is_some_and(|row| is_picked(branches, row))
+                                    };
+                                    (picked_at(ix.checked_sub(1)), picked_at(Some(ix + 1)))
+                                }
+                                false => (false, false),
+                            };
                             let on = selected && solid;
                             let menu_ref = ref_name.clone();
                             side_row(("other-commit", ix), selected, solid, theme)
+                                .map(|el| crate::ui::joined(el, joined, solid, theme))
                                 // Its glyph under its branch's, its title under the name.
                                 .pl(px(if *stacked { 38. } else { 24. }))
                                 .aria_label(label.clone())
@@ -781,10 +887,17 @@ impl Detail {
                                         .child(label.clone()),
                                 )
                                 .child(quiet(faint(relative_time(commit.time), theme), on, theme))
-                                .on_click(cx.listener(move |this, _, window, cx| {
-                                    window.focus(&this.side_focus, cx);
-                                    this.select_branch_commit(&ref_name, id, cx)
-                                }))
+                                .on_click(cx.listener(
+                                    move |this, event: &ClickEvent, window, cx| {
+                                        window.focus(&this.side_focus, cx);
+                                        let held = event.modifiers();
+                                        match held.secondary() || held.shift {
+                                            true => this
+                                                .pick_branch_commit(&ref_name, id, held.shift, cx),
+                                            false => this.select_branch_commit(&ref_name, id, cx),
+                                        }
+                                    },
+                                ))
                                 .on_mouse_down(
                                     MouseButton::Right,
                                     cx.listener(move |this, event: &MouseDownEvent, window, cx| {
@@ -793,7 +906,7 @@ impl Detail {
                                         this.branch_commit_menu(&project, &menu_ref, id, at, cx)
                                     }),
                                 )
-                                .on_drag(payload, drag_preview(this.store.clone(), label))
+                                .on_drag(payload, drag_preview(this.store.clone(), dragged))
                                 .into_any_element()
                         }
                         row @ Row::Branch(branch_ix, stacked) => {
@@ -1008,6 +1121,18 @@ fn is_selected(branches: &Branches, row: &Row) -> bool {
                 && commits.and_then(|(_, c)| c.get(commit)).map(|c| c.id) == branches.commit
         }
     }
+}
+
+/// Whether `row` is a commit picked with others on the selected branch.
+fn is_picked(branches: &Branches, row: &Row) -> bool {
+    let Row::Commit(ix, commit, _) = *row else {
+        return false;
+    };
+    let ref_name = &branches.list[ix].ref_name;
+    branches.selected.as_ref() == Some(ref_name)
+        && (branches.commits.get(ref_name))
+            .and_then(|(_, commits)| commits.get(commit))
+            .is_some_and(|c| branches.picked.contains(&c.id))
 }
 
 /// What the list calls a branch: its pull request's title once known, else its name.

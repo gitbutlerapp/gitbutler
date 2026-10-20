@@ -577,12 +577,11 @@ impl Store {
                 false => Some(commit),
             };
             let kept = match &mut cut {
-                Cut::Commit(_, commits) => {
+                Cut::Commit(_, commits) | Cut::CherryPick(_, commits) => {
                     let followed: Option<Arc<[CommitId]>> =
                         commits.iter().map(|commit| follow(*commit)).collect();
                     followed.map(|followed| *commits = followed).is_some()
                 }
-                Cut::CherryPick(_, commit) => follow(*commit).map(|new| *commit = new).is_some(),
                 // Some of a commit's file goes once the commit is rewritten, as the lines
                 // picked may have moved with it.
                 Cut::Files {
