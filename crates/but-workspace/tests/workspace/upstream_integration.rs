@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use bstr::ByteSlice;
-use but_core::{Commit, RefMetadata, ref_metadata::ProjectMeta};
+use but_core::{Commit, RefMetadata, commit::SignCommit, ref_metadata::ProjectMeta};
 use but_graph::init::{Options, Tip};
 use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_testsupport::{
@@ -1713,6 +1713,7 @@ fn local_only_empty_direct_checkout_is_preserved() -> Result<()> {
             head_commit_at_merge: repo.rev_parse_single("topic")?.detach(),
             source_branch: "topic".into(),
         }],
+        SignCommit::IfSignCommitsEnabled,
     )?;
     rebase.materialize(Default::default())?;
 
@@ -1856,6 +1857,7 @@ fn empty_direct_checkout_with_merged_review_for_pushed_branch_is_replaced() -> R
             head_commit_at_merge: review_head,
             source_branch: "pushed-topic".into(),
         }],
+        SignCommit::IfSignCommitsEnabled,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -1914,6 +1916,7 @@ fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Resul
             head_commit_at_merge: target_tip,
             source_branch: "pushed-topic".into(),
         }],
+        SignCommit::IfSignCommitsEnabled,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -2559,6 +2562,7 @@ fn fully_integrated_two_stacks_checkout_local_target_at_target_tip() -> Result<(
             },
         ],
         &[],
+        SignCommit::IfSignCommitsEnabled,
     )?;
 
     let preview = out.rebase.overlayed_graph()?.into_workspace()?;
@@ -3162,6 +3166,7 @@ fn fully_integrated_two_stacks_checkout_local_target_at_merge_target() -> Result
             },
         ],
         &[],
+        SignCommit::IfSignCommitsEnabled,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -3217,6 +3222,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
             head_commit_at_merge: review_head,
             source_branch: "A".into(),
         }],
+        SignCommit::IfSignCommitsEnabled,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -3300,6 +3306,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
             head_commit_at_merge: review_head,
             source_branch: "A".into(),
         }],
+        SignCommit::IfSignCommitsEnabled,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -3407,6 +3414,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
             head_commit_at_merge: review_head,
             source_branch: "A".into(),
         }],
+        SignCommit::IfSignCommitsEnabled,
     )?;
     out.rebase.materialize(Default::default())?;
     let graph =
@@ -3609,6 +3617,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
             head_commit_at_merge: review_head,
             source_branch: "A".into(),
         }],
+        SignCommit::IfSignCommitsEnabled,
     )?;
     rebase.materialize(Default::default())?;
 
@@ -3699,6 +3708,7 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
             head_commit_at_merge: review_head,
             source_branch: "A".into(),
         }],
+        SignCommit::IfSignCommitsEnabled,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -3770,6 +3780,7 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
         db,
         updates,
         review_hints,
+        SignCommit::IfSignCommitsEnabled,
     )?;
     let materialized = rebase.materialize(Default::default())?;
     drop(materialized);

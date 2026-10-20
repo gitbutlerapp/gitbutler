@@ -10,7 +10,9 @@ use anyhow::Context as _;
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
 use but_core::{
-    DryRun, RefMetadata, extract_remote_name_and_short_name,
+    DryRun, RefMetadata,
+    commit::SignCommit,
+    extract_remote_name_and_short_name,
     sync::{RepoExclusive, RepoShared},
 };
 use but_error::AnyhowContextExt as _;
@@ -909,6 +911,12 @@ pub fn workspace_integrate_upstream_only_with_perm(
             }
         };
         let cached_target = ws.graph.project_meta.target_commit_id;
+        // A dry run discards the commits it rebases, so signing them only costs time.
+        let sign_commit = if dry_run.into() {
+            SignCommit::No
+        } else {
+            SignCommit::IfSignCommitsEnabled
+        };
         let IntegrateUpstreamOutcome {
             mut rebase,
             project_meta,
@@ -920,6 +928,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
             &mut db,
             updates,
             &review_hints,
+            sign_commit,
         )?;
         let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&rebase)?;
 
