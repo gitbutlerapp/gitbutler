@@ -727,7 +727,8 @@ impl AppView {
         }
     }
 
-    /// An empty commit above or below the selected commit, or on top of the selected branch.
+    /// An empty commit above or below the selected commit, or on top of the selected branch. The
+    /// selection stays where it was, following its commit if the insert rewrites it.
     fn add_empty_commit(&mut self, above: bool, cx: &mut Context<Self>) {
         let at = match self.store.read(cx).selection.clone() {
             Some(Selection::Commit(project, id)) if above => {
@@ -740,7 +741,6 @@ impl AppView {
             _ => return,
         };
         let (project, to) = at;
-        let selected = project.clone();
         let undoable = !self.in_worktree_lane(cx);
         self.store.update(cx, |store, cx| {
             // It shows where it goes right away, dimmed until it's there.
@@ -754,10 +754,7 @@ impl AppView {
                 "Add empty commit",
                 overlay,
                 move |path, remap| backend::insert_empty_commit(path, &remap.destination(to)?),
-                move |store, id, cx| {
-                    store.select(Some(Selection::Commit(selected, id)), cx);
-                    store.snack_after(undoable, "Empty commit added", cx)
-                },
+                move |store, _, cx| store.snack_after(undoable, "Empty commit added", cx),
                 cx,
             )
         });
