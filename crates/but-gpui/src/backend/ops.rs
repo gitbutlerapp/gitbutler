@@ -151,7 +151,12 @@ fn why(reason: &RejectionReason) -> &'static str {
     use RejectionReason as R;
     match reason {
         R::NoEffectiveChanges => "nothing in it would change",
-        R::CherryPickMergeConflict | R::WorkspaceMergeConflict => {
+        // The changes it builds on can be in a later commit of the same branch.
+        R::CherryPickMergeConflict => {
+            "it builds on changes in a later commit or another branch; put it where those are, \
+             or move them first"
+        }
+        R::WorkspaceMergeConflict => {
             "it builds on changes in another branch; commit there, or move those first"
         }
         R::WorkspaceMergeConflictOfUnrelatedFile => "it would conflict with another branch",
