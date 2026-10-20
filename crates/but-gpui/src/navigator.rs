@@ -2415,7 +2415,7 @@ impl Navigator {
                     el.child(faint("pushing", theme))
                 })
                 // Folded, how many commits it holds; open, they're listed under it.
-                .when(closed, |el| {
+                .when(!open, |el| {
                     let n = branch.commits.len();
                     el.children(meta_count(
                         Icon::Commit,
