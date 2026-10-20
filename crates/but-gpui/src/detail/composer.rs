@@ -188,6 +188,14 @@ fn covers_same_lines(a: HunkKey, b: HunkKey) -> bool {
     a.start < b.end && b.start < a.end
 }
 
+/// Which checkout a message being written is kept for, in `Store::drafts`.
+pub(super) fn draft_key(project: &ProjectId, worktree: Option<&str>) -> String {
+    match worktree {
+        Some(worktree) => format!("{project}#{worktree}"),
+        None => project.to_string(),
+    }
+}
+
 impl Detail {
     /// Close the composer for `project`'s checkout `worktree` to show next. The checks of the
     /// one left wait for coming back, as looking elsewhere shouldn't put back in what was
@@ -207,6 +215,12 @@ impl Detail {
             self.other_checks.insert(left, checks);
         }
         (self.checks_project, self.checks_worktree) = (project, worktree);
+        // The message being written there, as checks are.
+        let draft = (self.checks_project.as_ref())
+            .map(|project| draft_key(project, self.checks_worktree.as_deref()))
+            .and_then(|key| self.store.read(cx).drafts.get(&key).cloned())
+            .unwrap_or_default();
+        self.message.update(cx, |input, cx| input.load(draft, cx));
         self.composing = false;
         self.writing = None;
         cx.emit(ChecksChanged);
@@ -682,8 +696,13 @@ impl Detail {
                     Ok((branch, committed?))
                 },
                 move |store, (branch, (_id, left_out, hook_failed)), cx| {
-                    // The box is shared by projects, and may hold the next commit's message
-                    // by now.
+                    // The message is done with, even kept for a checkout left meanwhile.
+                    let key = draft_key(&finished, from.as_deref());
+                    if (store.drafts.get(&key)).is_some_and(|d| d.trim() == committed) {
+                        store.drafts.remove(&key);
+                    }
+                    // The box may hold the next commit's message by now, or another
+                    // checkout's.
                     let target = branch.clone();
                     after_landing(&detail, window, &finished, cx, |detail, window, cx| {
                         // The next commit goes where this one did, not to whichever stack is
@@ -692,8 +711,12 @@ impl Detail {
                         if picked.as_ref() == Some(&detail.commit_target) {
                             detail.commit_target = Some(target);
                         }
-                        if detail.message.read(cx).text().trim() == committed {
+                        // Moved on to another checkout, what was checked for this one goes too.
+                        let here = detail.message.read(cx).text().trim() == committed;
+                        if here {
                             (detail.message).update(cx, |input, cx| input.set_text("", cx));
+                        }
+                        if here || detail.checks_worktree != from {
                             detail.finish_composing(&from, window, cx);
                         }
                     });

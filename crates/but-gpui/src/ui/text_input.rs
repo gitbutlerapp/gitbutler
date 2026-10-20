@@ -246,6 +246,13 @@ impl TextInput {
         cx.notify();
     }
 
+    /// Show `text` as a new field would: another text rather than an edit of this one, with
+    /// nothing to undo back to.
+    pub fn load(&mut self, text: impl Into<String>, cx: &mut Context<Self>) {
+        self.set_text(text, cx);
+        (self.undo, self.redo) = (Vec::new(), Vec::new());
+    }
+
     pub fn select_all_text(&mut self, cx: &mut Context<Self>) {
         self.selected_range = 0..self.content.len();
         self.selection_reversed = false;

@@ -252,6 +252,10 @@ pub struct Store {
     kept_snapshots: Arc<Mutex<HashSet<SnapshotId>>>,
     next_toast: usize,
     seen: Seen,
+    /// Commit messages being written, by checkout (see `composer::draft_key`), for coming
+    /// back to. Like the composer's checks they last the session, so a message never comes
+    /// back without them.
+    pub drafts: HashMap<String, String>,
     /// The commits each project had before the app's last operation on it. Commits that
     /// appear after it are the app's own doing, so they load as already seen.
     rebaseline: HashMap<ProjectId, HashSet<String>>,
@@ -324,6 +328,7 @@ impl Store {
             )),
             next_toast: 0,
             seen: saved.seen,
+            drafts: HashMap::new(),
             widths: saved.widths,
             file_tree: saved.file_tree,
             file_sort: saved.file_sort,
