@@ -927,6 +927,40 @@ fn restore_repoints_workspace_and_worktree() -> anyhow::Result<()> {
 }
 
 #[test]
+fn restore_keeps_index_stat_of_untouched_files() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    // Age the files so their refreshed stat isn't racy, which restoring must not trust.
+    let an_hour_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
+    for name in ["M", "first", "second"] {
+        fs::File::options()
+            .write(true)
+            .open(repo.projects_root().join(name))?
+            .set_modified(an_hour_ago)?;
+    }
+    repo.invoke_git("update-index --refresh");
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    fs::remove_file(repo.projects_root().join("second"))?;
+
+    ctx.restore_snapshot(
+        snapshot,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+
+    // `diff-files` lists entries whose stat doesn't match the file. Only the file the
+    // restore re-created needs to be hashed again.
+    snapbox::assert_data_eq!(
+        repo.invoke_git("diff-files --name-only"),
+        snapbox::str!["second"]
+    );
+    Ok(())
+}
+
+#[test]
 fn restore_round_trips_workspace_and_ad_hoc_checkouts() -> anyhow::Result<()> {
     let Test { repo, ctx } = &mut Test::default();
     let repo = repo.open_repo();
