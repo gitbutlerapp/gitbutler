@@ -731,11 +731,19 @@ impl Store {
             Notice::Snackbar { undo: Some(_), .. } => Duration::from_secs(6),
             Notice::Error { .. } => Duration::from_secs(15),
         };
-        // One snackbar at a time; errors stack.
-        if matches!(notice, Notice::Snackbar { .. }) {
-            self.toasts
-                .retain(|toast| !matches!(toast.notice, Notice::Snackbar { .. }));
-        }
+        // One snackbar at a time; errors stack, though the same failure again replaces its card.
+        self.toasts.retain(|toast| match (&toast.notice, &notice) {
+            (Notice::Snackbar { .. }, Notice::Snackbar { .. }) => false,
+            (
+                Notice::Error { title, detail, .. },
+                Notice::Error {
+                    title: t,
+                    detail: d,
+                    ..
+                },
+            ) => (title, detail) != (t, d),
+            _ => true,
+        });
         self.toasts.push(Toast { id, notice });
         cx.spawn(async move |this, cx| {
             cx.background_executor().timer(linger).await;
