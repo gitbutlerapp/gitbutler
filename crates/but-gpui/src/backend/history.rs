@@ -458,10 +458,10 @@ pub fn restore(path: &Path, id: SnapshotId, kept: &HashSet<SnapshotId>) -> Resul
     oplog::restore_snapshot_with_kind(&mut ctx, RestoreKind::ExplicitRestoreFromSnapshot, id.0)
 }
 
-/// Record the project as it is now.
-pub fn take_snapshot(path: &Path) -> Result<()> {
+/// Record the project as it is now, with what it's for when `message` says.
+pub fn take_snapshot(path: &Path, message: Option<String>) -> Result<()> {
     let mut ctx = open(path)?;
-    oplog::create_snapshot(&mut ctx, None)?;
+    oplog::create_snapshot(&mut ctx, message)?;
     Ok(())
 }
 
@@ -519,6 +519,7 @@ fn operation_title(kind: OperationKind) -> &'static str {
     match kind {
         K::UndoCommit => "Uncommitted",
         K::UpdateCommitMessage => "Reworded commit",
+        K::OnDemandSnapshot => "Manual snapshot",
         K::InsertBlankCommit => "Empty commit added",
         K::MergeUpstream | K::UpdateWorkspaceBase => "Updated from target",
         K::SetBaseBranch => "Changed target",

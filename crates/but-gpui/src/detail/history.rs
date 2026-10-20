@@ -3,7 +3,8 @@
 //! that for the selected one, then the files it changed; and a way back to before any of them.
 
 use gpui::{
-    AnyElement, Context, MouseButton, MouseDownEvent, Pixels, Point, Window, div, prelude::*, px,
+    AnyElement, App, ClickEvent, Context, Focusable as _, MouseButton, MouseDownEvent, Pixels,
+    Point, Window, div, prelude::*, px,
 };
 
 use super::Detail;
@@ -17,11 +18,12 @@ use crate::overlays::MenuItem;
 use crate::state::{Overlay, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
+use crate::ui::text_input::TextInput;
 use but_oplog::legacy::OperationKind;
 
 use crate::ui::{
-    Icon, Tooltip, clock_time, commit_title, day_label, faint, h_flex, icon, icon_button, list_row,
-    local_day, plural, small_icon, v_flex,
+    Icon, Tooltip, clock_time, commit_title, day_label, faint, field, h_flex, icon, icon_button,
+    list_row, local_day, plural, small_icon, v_flex,
 };
 
 /// How many of an operation's changes its header lists; the rest it counts.
@@ -38,12 +40,13 @@ enum Row {
     More,
 }
 
-/// The list's rows: each day's operations under its heading, then Show older while there's
-/// more.
-fn rows(history: &History) -> Vec<Row> {
+/// The list's rows: each day's `shown` operations under its heading, then Show older while
+/// there's more.
+fn rows(history: &History, shown: &[usize]) -> Vec<Row> {
     let mut rows = Vec::new();
     let mut day = None;
-    for (ix, operation) in history.operations.iter().enumerate() {
+    for &ix in shown {
+        let operation = &history.operations[ix];
         let this = local_day(operation.time);
         if day.as_ref() != Some(&this) {
             rows.push(Row::Day(operation.time));
@@ -128,60 +131,127 @@ fn takes_back(kind: Option<OperationKind>) -> bool {
     )
 }
 
-/// The color of `kind`'s glyph: green for what it added, blue for what it rewrote, red for
-/// what it threw away, amber for what it took back, and quiet for the rest.
-fn tint(kind: Option<OperationKind>, theme: &Theme) -> gpui::Hsla {
-    use OperationKind as K;
-    let Some(kind) = kind else {
-        return theme.text_3;
-    };
-    match kind {
-        K::CreateCommit
-        | K::AutoCommit
-        | K::InsertBlankCommit
-        | K::CherryPick
-        | K::CreateBranch
-        | K::CreateDependentBranch
-        | K::StashIntoBranch
-        | K::MergeUpstream
-        | K::UpdateWorkspaceBase => theme.safe,
-        K::AmendCommit
-        | K::Absorb
-        | K::SquashCommit
-        | K::UpdateCommitMessage
-        | K::UpdateBranchName
-        | K::UpdateDependentBranchName
-        | K::MoveCommit
-        | K::MoveHunk
-        | K::MoveCommitFile
-        | K::MoveBranch
-        | K::ReorderCommit
-        | K::ReorderBranches
-        | K::TearOffBranch
-        | K::SplitBranch
-        | K::ResolveConflicts
-        | K::ResolveConflictsAi => theme.blue,
-        K::DiscardLines
-        | K::DiscardHunk
-        | K::DiscardFile
-        | K::DiscardChanges
-        | K::Discard
-        | K::DiscardCommit
-        | K::CleanWorkspace
-        | K::DeleteBranch
-        | K::RemoveDependentBranch
-        | K::UndoCommit => theme.danger,
-        K::RestoreFromSnapshot | K::RestoreFromSnapshotViaUndo | K::RestoreFromSnapshotViaRedo => {
-            theme.warn
+/// What an operation did, as the list's filter menu sorts them and their glyphs are tinted.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub(super) enum Group {
+    Commits,
+    Rewrites,
+    Discards,
+    Branches,
+    Updates,
+    TakeBacks,
+    Snapshots,
+    Other,
+}
+
+impl Group {
+    const ALL: [Group; 8] = [
+        Group::Commits,
+        Group::Rewrites,
+        Group::Discards,
+        Group::Branches,
+        Group::Updates,
+        Group::TakeBacks,
+        Group::Snapshots,
+        Group::Other,
+    ];
+
+    fn of(kind: Option<OperationKind>) -> Self {
+        use OperationKind as K;
+        let Some(kind) = kind else {
+            return Group::Other;
+        };
+        match kind {
+            K::CreateCommit | K::AutoCommit | K::InsertBlankCommit | K::CherryPick => {
+                Group::Commits
+            }
+            K::AmendCommit
+            | K::Absorb
+            | K::SquashCommit
+            | K::UpdateCommitMessage
+            | K::MoveCommit
+            | K::MoveHunk
+            | K::MoveCommitFile
+            | K::ReorderCommit
+            | K::EnterEditMode
+            | K::ResolveConflicts
+            | K::ResolveConflictsAi => Group::Rewrites,
+            K::DiscardLines
+            | K::DiscardHunk
+            | K::DiscardFile
+            | K::DiscardChanges
+            | K::Discard
+            | K::DiscardCommit
+            | K::CleanWorkspace
+            | K::UndoCommit
+            | K::DeleteBranch
+            | K::RemoveDependentBranch => Group::Discards,
+            K::CreateBranch
+            | K::CreateDependentBranch
+            | K::StashIntoBranch
+            | K::UpdateBranchName
+            | K::UpdateDependentBranchName
+            | K::UpdateBranchNotes
+            | K::UpdateBranchRemoteName
+            | K::GenericBranchUpdate
+            | K::UpdateDependentBranchDescription
+            | K::UpdateDependentBranchPrNumber
+            | K::ApplyBranch
+            | K::UnapplyBranch
+            | K::SwitchBranch
+            | K::SwitchToWorkspace
+            | K::MoveBranch
+            | K::ReorderBranches
+            | K::TearOffBranch
+            | K::SplitBranch => Group::Branches,
+            K::MergeUpstream | K::UpdateWorkspaceBase | K::SetBaseBranch | K::SyncWorkspace => {
+                Group::Updates
+            }
+            K::RestoreFromSnapshot
+            | K::RestoreFromSnapshotViaUndo
+            | K::RestoreFromSnapshotViaRedo => Group::TakeBacks,
+            K::OnDemandSnapshot => Group::Snapshots,
+            K::FileChanges
+            | K::AutoHandleChangesBefore
+            | K::AutoHandleChangesAfter
+            | K::Unknown => Group::Other,
         }
-        _ => theme.text_2,
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Group::Commits => "Commits made",
+            Group::Rewrites => "Commits amended, squashed or moved",
+            Group::Discards => "Changes thrown away",
+            Group::Branches => "Branches",
+            Group::Updates => "Updates from the target",
+            Group::TakeBacks => "Undos and restores",
+            Group::Snapshots => "Snapshots",
+            Group::Other => "Other",
+        }
+    }
+
+    /// Green for what it added, blue for what it rewrote, red for what it threw away, amber
+    /// for what it took back, and quiet for the rest.
+    fn tint(self, theme: &Theme) -> gpui::Hsla {
+        match self {
+            Group::Commits | Group::Updates => theme.safe,
+            Group::Rewrites => theme.blue,
+            Group::Discards => theme.danger,
+            Group::TakeBacks => theme.warn,
+            Group::Branches | Group::Snapshots => theme.text_2,
+            Group::Other => theme.text_3,
+        }
     }
 }
 
 /// What a row says the operation was done to: the commit or branch its snapshot shows it
 /// changed, else what the log says, as the operation an undo took back.
 fn summary(operation: &Operation) -> Option<String> {
-    subject(operation).or_else(|| operation.detail.clone())
+    let snapshot = operation.kind == Some(OperationKind::OnDemandSnapshot);
+    (subject(operation).or_else(|| operation.detail.clone()))
+        // A snapshot taken by hand is what its row is about, with a message or without.
+        .or_else(|| snapshot.then(|| operation.title.clone()))
 }
 
 /// What hovering a row's glyph says it did: its title, and for an undo what it took back.
@@ -393,23 +463,70 @@ impl Detail {
         let Some(history) = &self.history else {
             return;
         };
-        let at = (history.operations.iter()).position(|op| Some(op.id) == history.selected);
+        let shown = self.shown_operations(history, cx);
+        let at = (shown.iter()).position(|&ix| Some(history.operations[ix].id) == history.selected);
         let next = at.map_or(0, |at| at as isize + delta);
-        let Some(op) = usize::try_from(next)
-            .ok()
-            .and_then(|ix| history.operations.get(ix))
-        else {
+        let Some(&next) = usize::try_from(next).ok().and_then(|at| shown.get(at)) else {
             return;
         };
-        let id = op.id;
+        let id = history.operations[next].id;
         // Kept in view by its row, below the day headings.
-        let row = rows(history)
+        let row = rows(history, &shown)
             .iter()
-            .position(|row| matches!(row, Row::Operation(ix) if *ix as isize == next));
+            .position(|row| matches!(row, Row::Operation(ix) if *ix == next));
         self.select_operation(id, cx);
         if let Some(row) = row {
             (self.history_scroll).scroll_to_item(row, gpui::ScrollStrategy::Nearest);
         }
+    }
+
+    /// The operations the list shows, by index: of kinds not left out, and matching the
+    /// filter by what was done or to what.
+    fn shown_operations(&self, history: &History, cx: &App) -> Vec<usize> {
+        let query = self.history_filter.read(cx).text().trim().to_lowercase();
+        let matches = |text: &str| text.to_lowercase().contains(&query);
+        (history.operations.iter().enumerate())
+            .filter(|(_, op)| !self.history_hidden.contains(&Group::of(op.kind)))
+            .filter(|(_, op)| {
+                query.is_empty() || matches(&op.title) || summary(op).is_some_and(|s| matches(&s))
+            })
+            .map(|(ix, _)| ix)
+            .collect()
+    }
+
+    /// Select the first operation the list shows when it hides the selected one, so the
+    /// header and diff are of one in the list.
+    pub(super) fn select_shown_operation(&mut self, cx: &mut Context<Self>) {
+        let Some(history) = &self.history else {
+            return;
+        };
+        let shown = self.shown_operations(history, cx);
+        let listed = (shown.iter()).any(|&ix| Some(history.operations[ix].id) == history.selected);
+        if let (false, Some(&first)) = (listed, shown.first()) {
+            let id = history.operations[first].id;
+            self.select_operation(id, cx);
+        }
+    }
+
+    /// Which kinds of operation the list shows, each ticked or not.
+    fn history_filters_menu(&self, position: Point<Pixels>, cx: &mut Context<Self>) {
+        let items = (Group::ALL.into_iter())
+            .map(|group| {
+                MenuItem::new(group.label(), move |app, _, cx| {
+                    app.detail.update(cx, |detail, cx| {
+                        if !detail.history_hidden.remove(&group) {
+                            detail.history_hidden.insert(group);
+                        }
+                        detail.select_shown_operation(cx);
+                        cx.notify()
+                    })
+                })
+                .ticked(!self.history_hidden.contains(&group))
+            })
+            .collect();
+        (self.app)
+            .update(cx, |app, cx| app.open_menu(position, items, cx))
+            .ok();
     }
 
     fn selected_operation(&self, project: &ProjectId) -> Option<&Operation> {
@@ -510,6 +627,12 @@ impl Detail {
             .when_some(operation.detail.clone().filter(|_| undone), |el, what| {
                 el.child(meta_item(Icon::Undo, theme).child(what))
             })
+            // What a snapshot taken by hand is for, when it was given a message.
+            .when_some(
+                (operation.detail.clone())
+                    .filter(|_| operation.kind == Some(OperationKind::OnDemandSnapshot)),
+                |el, message| el.child(meta_item(Icon::TextBlock, theme).child(message)),
+            )
             .when_some(Some(branches).filter(|b| b.len() == 1), |el, branches| {
                 el.child(meta_item(Icon::Branch, theme).child(branches[0].to_owned()))
             });
@@ -656,121 +779,190 @@ impl Detail {
     }
 
     /// Record how the project is now, to come back to later.
-    pub(super) fn take_snapshot(&self, project: &ProjectId, cx: &mut Context<Self>) {
-        self.store.update(cx, |store, cx| {
-            store.run(
-                project,
-                "Snapshot",
-                Overlay::default(),
-                move |path, _| backend::history::take_snapshot(path),
-                |store, (), cx| store.snack("Snapshot taken", cx),
+    /// Ask what a snapshot is for, which it may go without, then take it.
+    fn take_snapshot(&self, project: &ProjectId, window: &mut Window, cx: &mut Context<Self>) {
+        let project = project.clone();
+        (self.app.update(cx, |app, cx| {
+            let input = cx.new(|cx| TextInput::new("What it's for (optional)", false, cx));
+            app.open_prompt(
+                "Take a snapshot",
+                Some("Saves the project as it is now, to restore later from its menu.".into()),
+                "Take snapshot",
+                input,
+                None,
+                None,
+                window,
                 cx,
+                move |app, message, _, cx| {
+                    let message = Some(message.trim().to_owned()).filter(|m| !m.is_empty());
+                    app.store.update(cx, |store, cx| {
+                        store.run(
+                            &project,
+                            "Snapshot",
+                            Overlay::default(),
+                            move |path, _| backend::history::take_snapshot(path, message),
+                            |store, (), cx| store.snack("Snapshot taken", cx),
+                            cx,
+                        )
+                    })
+                },
             )
-        });
+        }))
+        .ok();
     }
 
     pub(super) fn render_history_side(
         &self,
         project: &ProjectId,
         theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let Some(history) = self.history_for(project) else {
             return crate::ui::empty_state(None, "Loading history…", "", theme, cx);
         };
-        if history.operations.is_empty() {
-            return crate::ui::empty_state(
-                Some(Illustration::Cactus),
-                "Nothing here yet",
-                "Changes you make with GitButler show up here",
-                theme,
-                cx,
+        let focused = self.history_filter.focus_handle(cx).is_focused(window);
+        let snapshot = project.clone();
+        // The filter, which kinds of operation it shows, and a snapshot of the project now.
+        let bar = h_flex()
+            .flex_none()
+            .m(px(10.))
+            .gap(px(4.))
+            .child(field(&self.history_filter, focused, theme).flex_1())
+            .child(
+                icon_button("history-filters", Icon::Filter)
+                    .small()
+                    .selected(!self.history_hidden.is_empty())
+                    .tooltip("Kinds of operation")
+                    .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
+                        this.history_filters_menu(event.position(), cx)
+                    })),
+            )
+            .child(
+                icon_button("take-snapshot", Icon::Plus)
+                    .small()
+                    .tooltip("Take a snapshot of the project as it is, to restore later")
+                    .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                        this.take_snapshot(&snapshot, window, cx)
+                    })),
             );
-        }
-        let rows = rows(history);
-        side_list(
-            "history",
-            rows.len(),
-            &self.history_scroll,
-            "history-scrollbar",
-            cx,
-            move |this, ix, theme, window, cx| {
-                let history = this.history.as_ref()?;
-                let row = match rows.get(ix)? {
-                    Row::Day(time) => return Some(list_heading(day_label(*time), theme)),
-                    Row::Operation(op) => {
-                        let operation = history.operations.get(*op)?;
-                        let selected = history.selected == Some(operation.id);
-                        let on = selected && this.side_focus.is_focused(window);
-                        let quiet = |color: gpui::Hsla| match on {
-                            true => theme.text_inverted.opacity(0.7),
-                            false => color,
-                        };
-                        let id = operation.id;
-                        // What it did as a glyph, named on hover, then what it was done to, or
-                        // its name, faint, when nothing says; then when.
-                        let (text, said) = match summary(operation) {
-                            Some(text) => (text, true),
-                            None => (operation.title.clone(), false),
-                        };
-                        side_row(("operation", ix), selected, on, theme)
-                            .child(
-                                div()
-                                    .id(("operation-glyph", ix))
-                                    .flex_none()
-                                    .tooltip(Tooltip::text(glyph_tooltip(operation)))
-                                    .child(
-                                        icon(operation_icon(operation.kind))
-                                            .text_color(quiet(tint(operation.kind, theme))),
-                                    ),
-                            )
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .min_w(px(0.))
-                                    .truncate()
-                                    .when(!said, |el| el.text_color(quiet(theme.text_3)))
-                                    .child(text),
-                            )
-                            .child(
-                                faint(clock_time(operation.time), theme)
-                                    .flex_none()
-                                    .text_color(quiet(theme.text_3)),
-                            )
-                            .on_click(cx.listener(move |this, _, window, cx| {
-                                window.focus(&this.side_focus, cx);
-                                this.select_operation(id, cx)
-                            }))
-                            .on_mouse_down(MouseButton::Right, {
-                                let project = history.project.clone();
-                                cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+        let shown = self.shown_operations(history, cx);
+        let empty = |drawing, title: String, body| {
+            div()
+                .flex_1()
+                .min_h(px(0.))
+                .child(crate::ui::empty_state(
+                    Some(drawing),
+                    title,
+                    body,
+                    theme,
+                    cx,
+                ))
+                .into_any_element()
+        };
+        let list = if history.operations.is_empty() {
+            empty(
+                Illustration::Cactus,
+                "Nothing here yet".to_owned(),
+                "Changes you make with GitButler show up here",
+            )
+        } else if shown.is_empty() && !history.more {
+            let miss = match self.history_filter.read(cx).text().trim() {
+                "" => "The filters hide every operation".to_owned(),
+                query => format!("No operations match \"{query}\""),
+            };
+            empty(Illustration::Papers, miss, "")
+        } else {
+            let rows = rows(history, &shown);
+            side_list(
+                "history",
+                rows.len(),
+                &self.history_scroll,
+                "history-scrollbar",
+                cx,
+                move |this, ix, theme, window, cx| {
+                    let history = this.history.as_ref()?;
+                    let row = match rows.get(ix)? {
+                        Row::Day(time) => return Some(list_heading(day_label(*time), theme)),
+                        Row::Operation(op) => {
+                            let operation = history.operations.get(*op)?;
+                            let selected = history.selected == Some(operation.id);
+                            let on = selected && this.side_focus.is_focused(window);
+                            let quiet = |color: gpui::Hsla| match on {
+                                true => theme.text_inverted.opacity(0.7),
+                                false => color,
+                            };
+                            let id = operation.id;
+                            // What it did as a glyph, named on hover, then what it was done
+                            // to, or its name, faint, when nothing says; then when.
+                            let (text, said) = match summary(operation) {
+                                Some(text) => (text, true),
+                                None => (operation.title.clone(), false),
+                            };
+                            let tint = Group::of(operation.kind).tint(theme);
+                            side_row(("operation", ix), selected, on, theme)
+                                .child(
+                                    div()
+                                        .id(("operation-glyph", ix))
+                                        .flex_none()
+                                        .tooltip(Tooltip::text(glyph_tooltip(operation)))
+                                        .child(
+                                            icon(operation_icon(operation.kind))
+                                                .text_color(quiet(tint)),
+                                        ),
+                                )
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .min_w(px(0.))
+                                        .truncate()
+                                        .when(!said, |el| el.text_color(quiet(theme.text_3)))
+                                        .child(text),
+                                )
+                                .child(
+                                    faint(clock_time(operation.time), theme)
+                                        .flex_none()
+                                        .text_color(quiet(theme.text_3)),
+                                )
+                                .on_click(cx.listener(move |this, _, window, cx| {
                                     window.focus(&this.side_focus, cx);
-                                    this.operation_menu(&project, id, event.position, cx)
+                                    this.select_operation(id, cx)
+                                }))
+                                .on_mouse_down(MouseButton::Right, {
+                                    let project = history.project.clone();
+                                    cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                                        window.focus(&this.side_focus, cx);
+                                        this.operation_menu(&project, id, event.position, cx)
+                                    })
                                 })
-                            })
-                    }
-                    Row::More => {
-                        let project = history.project.clone();
-                        list_row("history-more", false, theme)
-                            .text_color(theme.text_2)
-                            .child(if history.loading {
-                                "Loading…"
-                            } else {
-                                "Show older"
-                            })
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                this.load_history(&project, true, cx)
-                            }))
-                    }
-                };
-                Some(row.into_any_element())
-            },
-        )
-        .pt(px(6.))
-        .track_focus(&self.side_focus)
-        .key_context("SideList")
-        .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.step_history(1, cx)))
-        .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.step_history(-1, cx)))
-        .into_any_element()
+                        }
+                        Row::More => {
+                            let project = history.project.clone();
+                            list_row("history-more", false, theme)
+                                .text_color(theme.text_2)
+                                .child(if history.loading {
+                                    "Loading…"
+                                } else {
+                                    "Show older"
+                                })
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.load_history(&project, true, cx)
+                                }))
+                        }
+                    };
+                    Some(row.into_any_element())
+                },
+            )
+            .into_any_element()
+        };
+        v_flex()
+            .size_full()
+            .track_focus(&self.side_focus)
+            .key_context("SideList")
+            .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.step_history(1, cx)))
+            .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.step_history(-1, cx)))
+            .child(bar)
+            .child(list)
+            .into_any_element()
     }
 }

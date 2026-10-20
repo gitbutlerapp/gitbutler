@@ -20,9 +20,9 @@ use crate::ui::person::{byline_avatar, byline_text};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, age_column, button, commit_title,
-    empty_state, faint, h_flex, icon, icon_button, list_row, local_time, plural, section_label,
-    shortcut, small_icon, v_flex,
+    Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, age_column, button,
+    commit_title, empty_state, faint, h_flex, icon, icon_button, list_row, local_time, plural,
+    section_label, shortcut, small_icon, v_flex,
 };
 
 impl Detail {
@@ -200,61 +200,27 @@ impl Detail {
                         }),
                 ),
             )
-            .children(selection.and_then(|selection| self.page_action(selection, cx)))
     }
 
-    /// The one control on the right of the header: Refresh where what the page shows comes
-    /// from elsewhere, and Take snapshot on the Operations history, which has nothing to
-    /// refresh. Everything else a page does is in its right-click menus, away from a corner
-    /// that's easy to hit by accident.
-    fn page_action(&self, selection: &Selection, cx: &Context<Self>) -> Option<AnyElement> {
+    /// Fetch, as ⌥⇧F does, to go beside a list's filter: nothing for a project without a
+    /// remote or whose folder is gone.
+    pub(super) fn fetch_button(&self, project: &ProjectId, cx: &Context<Self>) -> Option<Button> {
         let store = self.store.read(cx);
-        let project = selection.project();
         let entry = store.project(project)?;
-        let refresh = |id: &'static str, busy: bool| {
-            button(id, if busy { "Refreshing…" } else { "Refresh" })
-                .icon(Icon::Refresh)
-                .style(ButtonStyle::Ghost)
-                .disabled_because(busy.then_some("Refreshing already"))
-        };
-        match selection {
-            // Fetched, with pull requests and CI asked about again. A folder that's gone, or
-            // a project without a remote, has nothing to fetch.
-            Selection::Project(_) | Selection::Branches(_) | Selection::Branch(..)
-                if !self.no_remote(project) && entry.project.path.exists() =>
-            {
-                let busy = store.fetching(project) || store.forge_checking(project);
-                let tip = "Fetch, and check pull requests and CI again";
-                Some(
-                    refresh("refresh", busy)
-                        .tooltip_with_key(tip, shortcut(&crate::app::Fetch, cx))
-                        .dispatch(&crate::app::Fetch)
-                        .into_any_element(),
-                )
-            }
-            Selection::Mesh(..) => {
-                let store = self.store.clone();
-                Some(
-                    refresh("refresh-machines", false)
-                        .tooltip("Read your other machines' work again")
-                        .on_click(move |_, _, cx| store.read(cx).read_mesh())
-                        .into_any_element(),
-                )
-            }
-            Selection::History(project) => {
-                let project = project.clone();
-                Some(
-                    button("snapshot", "Take snapshot")
-                        .style(ButtonStyle::Ghost)
-                        .tooltip("Save how the project is now, to come back to later")
-                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                            this.take_snapshot(&project, cx)
-                        }))
-                        .into_any_element(),
-                )
-            }
-            _ => None,
+        if self.no_remote(project) || !entry.project.path.exists() {
+            return None;
         }
+        let busy = store.fetching(project) || store.forge_checking(project);
+        Some(
+            icon_button("fetch", Icon::Refresh)
+                .small()
+                .tooltip_with_key(
+                    "Fetch, and check pull requests and CI again",
+                    shortcut(&crate::app::Fetch, cx),
+                )
+                .disabled_because(busy.then_some("Fetching already"))
+                .dispatch(&crate::app::Fetch),
+        )
     }
 
     /// Cancel and Finish for the commit `project` has checked out for editing. Finishing

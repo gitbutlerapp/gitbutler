@@ -768,7 +768,8 @@ impl Detail {
                     .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
                         this.branch_filters_menu(event.position(), cx)
                     })),
-            );
+            )
+            .children(self.fetch_button(project, cx));
         let Some(branches) = self.branches_for(project).filter(|b| b.seen.is_some()) else {
             return empty_state(None, "Loading branches…", "", theme, cx);
         };

@@ -19,7 +19,7 @@ use crate::ui::illustration::Illustration;
 use crate::ui::person::byline_avatar;
 use crate::ui::{
     Icon, Tooltip, age_column, error_summary, h_flex, icon, list_row, muted, plural, relative_time,
-    small_icon, v_flex,
+    shortcut, small_icon, v_flex,
 };
 
 /// What a target commit is called: the pull request it landed, by its title, as Lite names
@@ -327,18 +327,38 @@ impl Detail {
                     .child(crate::ui::short_path(&entry.project.path)),
             )
             .when(entry.project.path.exists(), |el| {
-                el.child(
-                    meta_item(Icon::Refresh, theme)
-                        .flex_none()
-                        .child(match fetch {
-                            Some(None) => "No remote to fetch from".into(),
-                            Some(Some((Some(at), _))) => match relative_time(at).as_str() {
-                                "now" => "Fetched just now".into(),
-                                ago => format!("Fetched {ago} ago"),
-                            },
-                            _ => "Not fetched yet".into(),
-                        }),
-                )
+                let busy = store.fetching(project) || store.forge_checking(project);
+                let said = match &fetch {
+                    Some(None) => "No remote to fetch from".into(),
+                    _ if busy => "Fetching…".into(),
+                    Some(Some((Some(at), _))) => match relative_time(*at).as_str() {
+                        "now" => "Fetched just now".into(),
+                        ago => format!("Fetched {ago} ago"),
+                    },
+                    _ => "Not fetched yet".into(),
+                };
+                let item = meta_item(Icon::Refresh, theme).flex_none().child(said);
+                // When it last fetched, which fetches again on a click, as ⌥⇧F does.
+                el.child(match fetch {
+                    Some(None) => item.into_any_element(),
+                    _ => {
+                        let hover = theme.text_1;
+                        div()
+                            .id("fetch-now")
+                            .flex_none()
+                            .cursor_pointer()
+                            .hover(move |el| el.text_color(hover))
+                            .tooltip(Tooltip::keyed(
+                                "Fetch, and check pull requests and CI again",
+                                shortcut(&crate::app::Fetch, cx),
+                            ))
+                            .on_click(|_, window, cx| {
+                                window.dispatch_action(Box::new(crate::app::Fetch), cx)
+                            })
+                            .child(item)
+                            .into_any_element()
+                    }
+                })
             });
         let main = v_flex()
             .gap(px(10.))

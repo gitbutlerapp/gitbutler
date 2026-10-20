@@ -330,8 +330,11 @@ pub struct Detail {
     /// What's fetched of other machines' branches; see `detail/machine.rs`.
     mesh: machine::MeshFetches,
     _branch_commits_load: Task<()>,
-    /// The History page's operations, for the project it shows.
+    /// The History page's operations, for the project it shows, its filter, and the kinds of
+    /// operation it leaves out.
     history: Option<history::History>,
+    history_filter: Entity<TextInput>,
+    history_hidden: HashSet<history::Group>,
     history_scroll: UniformListScrollHandle,
     _history_load: Task<()>,
     /// The file list beside the diff is hidden, for more room.
@@ -368,133 +371,148 @@ impl Detail {
             TextInput::new("Commit message", true, cx).scrolled_by(message_scroll.clone())
         });
         let branch_filter = cx.new(|cx| TextInput::new("Filter branches", false, cx));
+        let history_filter = cx.new(|cx| TextInput::new("Filter operations", false, cx));
         let file_filter = cx.new(|cx| TextInput::new("Filter files", false, cx));
-        let subscriptions = vec![
-            cx.subscribe(&store, |this, _, event, cx| match event {
-                StoreEvent::SelectionChanged => {
-                    this.remote_commit = None;
-                    // A commit an operation rewrote is still the one being looked at.
-                    let followed =
-                        (this.key_for_selection(cx)).is_some_and(|key| this.follows(&key, cx));
-                    if !followed {
-                        this.message_open = false;
-                        this.reset_view();
-                    }
-                    let project = this.selected_project(cx);
-                    let checkout = this.selected_checkout(cx).map(|(_, worktree)| worktree);
-                    if this.checks_project != project {
-                        this.switch_checkout(project, checkout.flatten(), cx);
-                        this.commit_target = None;
-                    } else if let Some(worktree) = checkout
-                        && worktree != this.checks_worktree
-                    {
-                        // Checks are of one checkout's files, which another's share paths with.
-                        this.switch_checkout(project, worktree, cx);
-                    }
-                    this.reload_page(true, cx);
-                    this.refresh_diff(true, cx);
-                }
-                StoreEvent::Loaded(project) => {
-                    if this.selected_project(cx).as_ref() == Some(project) {
-                        this.reload_page(false, cx);
-                        // A reload that didn't touch the files shown, like the forge poll's,
-                        // shouldn't re-highlight them. Files of another checkout, left on
-                        // screen until this project loaded, aren't the ones shown.
-                        let key = this.key_for_selection(cx);
-                        let unchanged = (this.worktree_diff())
-                            .filter(|diff| key.as_ref() == Some(&diff.key))
-                            .and_then(|diff| diff.key.uncommitted(this.store.read(cx)))
-                            .is_some_and(|files| this.shows_worktree(files));
-                        if !unchanged {
-                            this.refresh_diff(false, cx);
+        let subscriptions =
+            vec![
+                cx.subscribe(&store, |this, _, event, cx| match event {
+                    StoreEvent::SelectionChanged => {
+                        this.remote_commit = None;
+                        // A commit an operation rewrote is still the one being looked at.
+                        let followed =
+                            (this.key_for_selection(cx)).is_some_and(|key| this.follows(&key, cx));
+                        if !followed {
+                            this.message_open = false;
+                            this.reset_view();
                         }
-                    }
-                }
-                StoreEvent::MeshRead(project) => {
-                    if let Some(Selection::Mesh(p, ..)) = this.selection(cx)
-                        && p == *project
-                    {
-                        this.load_machines(&p, cx);
-                        this.refresh_diff(false, cx);
-                        cx.notify();
-                    }
-                }
-                StoreEvent::Pending(project) => {
-                    if this.selected_project(cx).as_ref() == Some(project) {
-                        this.rebuild_rows(cx);
-                        this.skip_taken(cx);
-                    }
-                }
-            }),
-            cx.subscribe_in(
-                &file_filter,
-                window,
-                |this, _, event, window, cx| match event {
-                    InputEvent::Changed => {
-                        this.rebuild_rows(cx);
-                        // So the diff's keys act on a file in view.
-                        let shown = this.shown_files();
-                        if let Some(&file) = shown.first()
-                            && !shown.contains(&this.cursor.file)
+                        let project = this.selected_project(cx);
+                        let checkout = this.selected_checkout(cx).map(|(_, worktree)| worktree);
+                        if this.checks_project != project {
+                            this.switch_checkout(project, checkout.flatten(), cx);
+                            this.commit_target = None;
+                        } else if let Some(worktree) = checkout
+                            && worktree != this.checks_worktree
                         {
-                            this.place_cursor(Cursor { file, hunk: None });
+                            // Checks are of one checkout's files, which another's share paths with.
+                            this.switch_checkout(project, worktree, cx);
+                        }
+                        this.reload_page(true, cx);
+                        this.refresh_diff(true, cx);
+                    }
+                    StoreEvent::Loaded(project) => {
+                        if this.selected_project(cx).as_ref() == Some(project) {
+                            this.reload_page(false, cx);
+                            // A reload that didn't touch the files shown, like the forge poll's,
+                            // shouldn't re-highlight them. Files of another checkout, left on
+                            // screen until this project loaded, aren't the ones shown.
+                            let key = this.key_for_selection(cx);
+                            let unchanged = (this.worktree_diff())
+                                .filter(|diff| key.as_ref() == Some(&diff.key))
+                                .and_then(|diff| diff.key.uncommitted(this.store.read(cx)))
+                                .is_some_and(|files| this.shows_worktree(files));
+                            if !unchanged {
+                                this.refresh_diff(false, cx);
+                            }
                         }
                     }
-                    InputEvent::Submit => window.focus(&this.focus, cx),
-                    InputEvent::Cancel => this.close_filter(window, cx),
-                },
-            ),
-            cx.subscribe_in(&message, window, |this, _, event, window, cx| match event {
-                InputEvent::Submit => this.commit(window, cx),
-                InputEvent::Cancel => this.leave_composer(window, cx),
-                // The input draws itself; nothing here shows the message, and notifying
-                // would redraw the diff on every keystroke.
-                InputEvent::Changed => {}
-            }),
-            // Esc empties it, then leaves it, as the navigator's filter does.
-            cx.subscribe_in(
-                &branch_filter,
-                window,
-                |this, input, event, window, cx| match event {
-                    InputEvent::Changed => {
-                        this.select_shown_branch(cx);
-                        cx.notify()
+                    StoreEvent::MeshRead(project) => {
+                        if let Some(Selection::Mesh(p, ..)) = this.selection(cx)
+                            && p == *project
+                        {
+                            this.load_machines(&p, cx);
+                            this.refresh_diff(false, cx);
+                            cx.notify();
+                        }
                     }
-                    // Back to the list, which takes the arrow keys.
-                    InputEvent::Cancel if input.read(cx).text().is_empty() => {
-                        window.focus(&this.side_focus, cx)
+                    StoreEvent::Pending(project) => {
+                        if this.selected_project(cx).as_ref() == Some(project) {
+                            this.rebuild_rows(cx);
+                            this.skip_taken(cx);
+                        }
                     }
-                    InputEvent::Cancel => input.update(cx, |input, cx| input.set_text("", cx)),
-                    InputEvent::Submit => {}
-                },
-            ),
-            // What the side panel shows comes from the store, and the diff's files go in the
-            // file list's order, as the keys step through them.
-            cx.observe(&store, |this, store, cx| {
-                // Diffs of a project no longer watched go with it, unless on screen.
-                let shown = this.diff.as_ref().map(|diff| diff.key.clone());
-                let gone: Vec<_> = this
-                    .recent
-                    .extract_if(.., |(key, _)| {
-                        let watched =
-                            (store.read(cx).project(&key.project)).is_some_and(|p| p.expanded);
-                        !watched && shown.as_ref() != Some(key)
-                    })
-                    .collect();
-                this.forget(gone, cx);
-                let order = (store.read(cx).file_tree, store.read(cx).file_sort);
-                if let Some(diff) =
-                    (this.diff.as_ref()).filter(|diff| (diff.tree, diff.sort) != order)
-                {
-                    let key = diff.key.clone();
-                    let files = this
-                        .recent_files(&key)
-                        .unwrap_or_else(|| diff.files.clone());
-                    this.show_diff(key, files, cx);
-                }
-                cx.notify()
-            }),
-        ];
+                }),
+                cx.subscribe_in(
+                    &file_filter,
+                    window,
+                    |this, _, event, window, cx| match event {
+                        InputEvent::Changed => {
+                            this.rebuild_rows(cx);
+                            // So the diff's keys act on a file in view.
+                            let shown = this.shown_files();
+                            if let Some(&file) = shown.first()
+                                && !shown.contains(&this.cursor.file)
+                            {
+                                this.place_cursor(Cursor { file, hunk: None });
+                            }
+                        }
+                        InputEvent::Submit => window.focus(&this.focus, cx),
+                        InputEvent::Cancel => this.close_filter(window, cx),
+                    },
+                ),
+                cx.subscribe_in(&message, window, |this, _, event, window, cx| match event {
+                    InputEvent::Submit => this.commit(window, cx),
+                    InputEvent::Cancel => this.leave_composer(window, cx),
+                    // The input draws itself; nothing here shows the message, and notifying
+                    // would redraw the diff on every keystroke.
+                    InputEvent::Changed => {}
+                }),
+                // Esc empties it, then leaves it, as the navigator's filter does.
+                cx.subscribe_in(&history_filter, window, |this, input, event, window, cx| {
+                    match event {
+                        InputEvent::Changed => {
+                            this.select_shown_operation(cx);
+                            cx.notify()
+                        }
+                        InputEvent::Cancel if input.read(cx).text().is_empty() => {
+                            window.focus(&this.side_focus, cx)
+                        }
+                        InputEvent::Cancel => input.update(cx, |input, cx| input.set_text("", cx)),
+                        InputEvent::Submit => {}
+                    }
+                }),
+                cx.subscribe_in(
+                    &branch_filter,
+                    window,
+                    |this, input, event, window, cx| match event {
+                        InputEvent::Changed => {
+                            this.select_shown_branch(cx);
+                            cx.notify()
+                        }
+                        // Back to the list, which takes the arrow keys.
+                        InputEvent::Cancel if input.read(cx).text().is_empty() => {
+                            window.focus(&this.side_focus, cx)
+                        }
+                        InputEvent::Cancel => input.update(cx, |input, cx| input.set_text("", cx)),
+                        InputEvent::Submit => {}
+                    },
+                ),
+                // What the side panel shows comes from the store, and the diff's files go in the
+                // file list's order, as the keys step through them.
+                cx.observe(&store, |this, store, cx| {
+                    // Diffs of a project no longer watched go with it, unless on screen.
+                    let shown = this.diff.as_ref().map(|diff| diff.key.clone());
+                    let gone: Vec<_> = this
+                        .recent
+                        .extract_if(.., |(key, _)| {
+                            let watched =
+                                (store.read(cx).project(&key.project)).is_some_and(|p| p.expanded);
+                            !watched && shown.as_ref() != Some(key)
+                        })
+                        .collect();
+                    this.forget(gone, cx);
+                    let order = (store.read(cx).file_tree, store.read(cx).file_sort);
+                    if let Some(diff) =
+                        (this.diff.as_ref()).filter(|diff| (diff.tree, diff.sort) != order)
+                    {
+                        let key = diff.key.clone();
+                        let files = this
+                            .recent_files(&key)
+                            .unwrap_or_else(|| diff.files.clone());
+                        this.show_diff(key, files, cx);
+                    }
+                    cx.notify()
+                }),
+            ];
         let mut detail = Self {
             store,
             app,
@@ -561,6 +579,8 @@ impl Detail {
             mesh: machine::MeshFetches::default(),
             _branch_commits_load: Task::ready(()),
             history: None,
+            history_filter,
+            history_hidden: HashSet::new(),
             history_scroll: UniformListScrollHandle::new(),
             _history_load: Task::ready(()),
             files_hidden: false,
@@ -1758,7 +1778,9 @@ impl Render for Detail {
                     Selection::Branch(project, ref_name) => {
                         self.render_branch_side(project, ref_name, &theme, cx)
                     }
-                    Selection::History(project) => self.render_history_side(project, &theme, cx),
+                    Selection::History(project) => {
+                        self.render_history_side(project, &theme, window, cx)
+                    }
                     Selection::Worktree(project, name) => {
                         self.render_uncommitted_side(project, Some(name), &theme, window, cx)
                     }
