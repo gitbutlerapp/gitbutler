@@ -17,7 +17,6 @@ use gpui::{
 use crate::app::{AddProject, AppView, Collapse, Confirm, Expand, SelectNext, SelectPrevious};
 use crate::backend::{
     Branch, CommitId, CommitState, FileChange, PushState, Review, ReviewState, Workspace, Worktree,
-    short_ref,
 };
 use crate::detail::{ChecksChanged, Detail};
 use crate::overlays::MenuItem;
@@ -118,9 +117,6 @@ enum Row {
     Pending(SharedString, bool),
     /// Where a commit of the project being dragged lands in a new branch of its own.
     NewBranch(ProjectId),
-    /// After a stack, while one of the project's branches is dragged: where it lands below
-    /// the stack's last branch, by its ref.
-    LaneEnd(ProjectId, String),
     /// After a project's worktrees: how many are inactive, which it shows or hides.
     Inactive(ProjectId, usize),
     /// The line after a worktree's section.
@@ -410,14 +406,6 @@ impl Navigator {
                 });
                 for stack in stacks {
                     self.lane_rows(store, id, &stack.branches, &mut rows);
-                    if let Some(dragged @ Cut::Branch(..)) = &store.dragging
-                        && let Some(last) = stack.branches.last()
-                    {
-                        let below = Selection::Branch(id.clone(), last.ref_name.clone());
-                        if Transfer::resolve(dragged, &below, Place::Below, store).is_some() {
-                            rows.push(Row::LaneEnd(id.clone(), last.ref_name.clone()));
-                        }
-                    }
                 }
                 if workspace.stacks.is_empty() {
                     // Off the workspace, as after a plain `git checkout`, the branches are
@@ -1127,7 +1115,7 @@ impl Navigator {
                     }))
                     .into_any_element()
             }
-            // Both drop zones are padded, not margined: a margin collapses through the card's
+            // The drop zone is padded, not margined: a margin collapses through the card's
             // ground.
             Some(Row::NewBranch(project)) => {
                 let project = project.clone();
@@ -1145,32 +1133,6 @@ impl Navigator {
                             this.store
                                 .update(cx, |store, cx| store.move_to_new_branch(from, ids, cx));
                         }
-                    }));
-                div().py(px(2.)).child(zone).into_any_element()
-            }
-            Some(Row::LaneEnd(project, ref_name)) => {
-                let store = self.store.read(cx);
-                let named = (store
-                    .workspace(project)
-                    .and_then(|ws| ws.find_branch(ref_name)))
-                .map_or(short_ref(ref_name), |branch| {
-                    store.label_of(project, branch)
-                });
-                let label = format!("Move below {named}");
-                let (project, ref_name) = (project.clone(), ref_name.clone());
-                let zone = drop_zone(("lane-end-drop", ix), label, theme)
-                    .h(px(24.))
-                    .on_drag_move(cx.listener(Self::over_zone))
-                    .on_drop(cx.listener(move |this, payload: &Cut, window, cx| {
-                        if this.store.read(cx).drop_at.is_some() {
-                            return;
-                        }
-                        let below = Selection::Branch(project.clone(), ref_name.clone());
-                        this.app
-                            .update(cx, |app, cx| {
-                                app.transfer(payload, &below, Place::Below, window, cx)
-                            })
-                            .ok();
                     }));
                 div().py(px(2.)).child(zone).into_any_element()
             }
@@ -2875,6 +2837,9 @@ fn place_at(payload: &Cut, target: &Selection, y: f32, held: Modifiers) -> Place
         (Cut::Commit(..), Selection::Commit(..)) if y > 0.75 => Place::Below,
         (Cut::CherryPick(..), Selection::Commit(..)) if y < 0.5 => Place::Above,
         (Cut::CherryPick(..), Selection::Commit(..)) => Place::Below,
+        // A branch's heading: its lower half puts the dragged branch below it, its upper half
+        // stacks it on top.
+        (Cut::Branch(..), Selection::Branch(..)) if y > 0.5 => Place::Below,
         _ if held.shift && !matches!(target, Selection::Commit(..)) => Place::Below,
         _ => Place::Into,
     }
