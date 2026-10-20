@@ -72,21 +72,27 @@ impl gpui::Global for Embedded {}
 /// the web app, which installs it, and takes the variable out before its own relaunch.
 pub const WEB_APP_ONCE: &str = "GITBUTLER_WEB_APP_ONCE";
 
-/// Give the Dock the app's icon, `assets/app-icon.svg` drawn at 512 points. A binary run on
-/// its own has no bundle to carry one, so the Dock would show a terminal's.
+/// Give the Dock the desktop app's icon for this build's channel, as its bundle has it. A
+/// binary run on its own has no bundle to carry one, so the Dock would show a terminal's.
 #[cfg(target_os = "macos")]
 fn set_dock_icon() {
+    use but_path::AppChannel;
     use objc2::rc::{Allocated, Retained};
     use objc2::runtime::AnyObject;
     use objc2::{class, msg_send};
     use objc2_foundation::NSData;
 
-    let png = NSData::with_bytes(include_bytes!("../assets/app-icon.png"));
+    let icns: &[u8] = match AppChannel::new() {
+        AppChannel::Release => include_bytes!("../../gitbutler-tauri/icons/release/icon.icns"),
+        AppChannel::Nightly => include_bytes!("../../gitbutler-tauri/icons/nightly/icon.icns"),
+        AppChannel::Dev => include_bytes!("../../gitbutler-tauri/icons/dev/icon.icns"),
+    };
+    let icns = NSData::with_bytes(icns);
     // SAFETY: AppKit's documented `NSImage` and `NSApplication` messages, sent on the main
     // thread once the application exists, with the argument types they take.
     unsafe {
         let alloc: Allocated<AnyObject> = msg_send![class!(NSImage), alloc];
-        let image: Option<Retained<AnyObject>> = msg_send![alloc, initWithData: &*png];
+        let image: Option<Retained<AnyObject>> = msg_send![alloc, initWithData: &*icns];
         let Some(image) = image else {
             return;
         };
