@@ -659,6 +659,7 @@ mod tests {
             },
             fingerprint: 0,
             annotated: true,
+            scope_lines: None,
             drawing: None,
         }
     }

@@ -17,7 +17,7 @@ mod project;
 use crate::app::AppView;
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::overlays::MenuItem;
-use crate::state::{ProjectId, Store};
+use crate::state::{ProjectId, ScopeLines, Store};
 use crate::theme::{Appearance, CodeSize, Theme};
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -409,7 +409,7 @@ impl SettingsView {
             "Light, dark, or whichever macOS is set to.",
             appearance,
         );
-        let diff = vec![
+        let mut diff = vec![
             Row::new("Code size", "How large code shows in diffs.", code),
             Row::new(
                 "Wrap long lines",
@@ -434,7 +434,55 @@ impl SettingsView {
                         .ok();
                 })),
             ),
+            Row::new(
+                "Semantic context",
+                "Each hunk's box names the function or type it changes, and a short one shows \
+                 whole around it. deltoids reads it from the code with tree-sitter, for Rust, \
+                 TypeScript, JavaScript, Python, Go and 15 other languages, though not Svelte. \
+                 Off, diffs skip reading it, and load a little faster.",
+                switch("semantic", !prefs.no_semantic_context, theme).on_click(cx.listener(
+                    |this, _, _, cx| {
+                        this.app
+                            .update(cx, |app, cx| {
+                                app.detail.update(cx, |detail, cx| {
+                                    detail.set_semantic_context(
+                                        |prefs| prefs.no_semantic_context ^= true,
+                                        cx,
+                                    )
+                                })
+                            })
+                            .ok();
+                    },
+                )),
+            ),
         ];
+        if !prefs.no_semantic_context {
+            let app = self.app.clone();
+            let scope = segmented(
+                "scope",
+                [
+                    (ScopeLines::Short, "20 lines"),
+                    (ScopeLines::Medium, "50 lines"),
+                    (ScopeLines::Long, "200 lines"),
+                ],
+                prefs.whole_scopes,
+                move |lines, _, cx| {
+                    app.update(cx, |app, cx| {
+                        app.detail.update(cx, |detail, cx| {
+                            detail.set_semantic_context(|prefs| prefs.whole_scopes = lines, cx)
+                        })
+                    })
+                    .ok();
+                },
+                theme,
+            );
+            diff.push(Row::new(
+                "Whole scopes up to",
+                "The most unchanged lines a function or type may add around its hunks to show \
+                 whole. A longer one keeps three lines of context.",
+                scope,
+            ));
+        }
         let navigator = vec![Row::new(
             "Show branches' commits",
             "Branches in the navigator start with their commits listed. Off, each starts folded \

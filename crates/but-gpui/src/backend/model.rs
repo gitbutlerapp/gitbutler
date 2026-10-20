@@ -636,6 +636,9 @@ pub struct FileDiff {
     /// Highlighted and given scope names. A load can leave files past the first few
     /// plain, for a later one to fill in.
     pub annotated: bool,
+    /// The most lines its hunks' scopes could add when annotated, `None` with scopes off. A
+    /// load with another limit annotates it again.
+    pub scope_lines: Option<usize>,
     /// An SVG's two sides drawn, shown in place of its lines unless those are asked for.
     pub drawing: Option<Drawing>,
 }

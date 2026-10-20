@@ -913,7 +913,7 @@ mod tests {
         let path = dir.path();
         std::fs::write(path.join("new"), "one\ntwo\n").unwrap();
 
-        let diff = load_diff(path, DiffSource::Worktree, None, None, None).unwrap();
+        let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
         let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
             panic!("a text diff");
         };
@@ -956,7 +956,7 @@ mod tests {
         std::fs::write(linked.join("file"), "agent\n").unwrap();
 
         let source = DiffSource::Linked("agent".into());
-        let diff = load_diff(path, source, None, None, None).unwrap();
+        let diff = load_diff(path, source, None, None, None, None).unwrap();
         let whole = Selected::whole(&diff[0].file);
         discard(path, Some("agent"), &[whole]).unwrap();
         assert_eq!(
@@ -994,7 +994,15 @@ mod tests {
         assert!(!merge.status.success(), "both sides changed the line");
         std::fs::write(linked.join("gone"), "two\n").unwrap();
 
-        let diff = load_diff(path, DiffSource::Linked("agent".into()), None, None, None).unwrap();
+        let diff = load_diff(
+            path,
+            DiffSource::Linked("agent".into()),
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
         let selected: Vec<Selected> = (diff.iter())
             .map(|file| Selected {
                 file: file.file.clone(),
@@ -1026,7 +1034,7 @@ mod tests {
         lines[19] = "last edit\n".into();
         std::fs::write(path.join("file"), lines.concat()).unwrap();
 
-        let diff = load_diff(path, DiffSource::Worktree, None, None, None).unwrap();
+        let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
         let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
             panic!("a text diff");
         };
@@ -1250,7 +1258,7 @@ mod tests {
         edited[18] = "last edit\n".into();
         std::fs::write(path.join("file"), edited.concat()).unwrap();
 
-        let diff = load_diff(path, DiffSource::Worktree, None, None, None).unwrap();
+        let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
         let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
             panic!("a text diff");
         };
@@ -1270,7 +1278,7 @@ mod tests {
             err.to_string().contains("changed since the diff was shown"),
             "its place in the file is from before the first discard: {err}"
         );
-        let diff = load_diff(path, DiffSource::Worktree, None, None, None).unwrap();
+        let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
         let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
             panic!("a text diff");
         };
@@ -1295,7 +1303,7 @@ mod tests {
         edited[1] = "two\n".into();
         edited[18] = "nineteen\n".into();
         std::fs::write(path.join("file"), edited.concat()).unwrap();
-        let diff = load_diff(path, DiffSource::Worktree, None, None, None).unwrap();
+        let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
         let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
             panic!("a text diff");
         };
@@ -1341,7 +1349,7 @@ mod tests {
         edited[4] = "five a\nfive b\n".into();
         std::fs::write(path.join("file"), edited.concat()).unwrap();
 
-        let diff = load_diff(path, DiffSource::Worktree, None, None, None).unwrap();
+        let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
         let hunk = &diff[0].hunks()[0];
         let picks = std::collections::BTreeSet::from([line_in(hunk, "five b")]);
         let lines_picked = Selected {
@@ -1378,7 +1386,7 @@ mod tests {
         git(path, &["commit", "-q", "-am", "edit"]);
         let head = git(path, &["rev-parse", "HEAD"]);
         let commit = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
-        let diff = load_diff(path, DiffSource::Commit(commit), None, None, None).unwrap();
+        let diff = load_diff(path, DiffSource::Commit(commit), None, None, None, None).unwrap();
         (dir, commit, diff, edited)
     }
 
@@ -1463,7 +1471,7 @@ mod tests {
         edited[4] = "five a\nfive b\n".into();
         std::fs::write(path.join("file"), edited.concat()).unwrap();
 
-        let diff = load_diff(path, DiffSource::Worktree, None, None, None).unwrap();
+        let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
         let hunk = &diff[0].hunks()[0];
         let picks = std::collections::BTreeSet::from([line_in(hunk, "five a")]);
         let picked = Selected {

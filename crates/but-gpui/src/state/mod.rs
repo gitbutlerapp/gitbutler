@@ -28,7 +28,7 @@ pub use mesh::{MeshPick, MeshState};
 pub use mutation::{NewAt, Overlay, Remap, Rereads, SLOW};
 use mutation::{Queued, Running};
 pub use picks::Picks;
-pub use saved::{FileSort, Pane, Prefs, WatchedOrder, saved_window_place};
+pub use saved::{FileSort, Pane, Prefs, ScopeLines, WatchedOrder, saved_window_place};
 use saved::{Restored, Saved};
 use seen::Seen;
 

@@ -37,7 +37,7 @@ use gpui::{
 use crate::app::{AddProject, AppView, Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::edit::Editing;
 use crate::backend::{self, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected};
-use crate::state::{FileSort, Pane, Picks, ProjectId, Selection, Store, StoreEvent};
+use crate::state::{FileSort, Pane, Picks, Prefs, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -721,9 +721,10 @@ impl Detail {
         }
         self.loading = Some(key.clone());
         let recent = self.recent_files(&key);
+        let scope_lines = self.store.read(cx).prefs.scope_lines();
         if let Some(files) = recent.clone()
             && !key.source.live()
-            && files.iter().all(|file| file.annotated)
+            && (files.iter()).all(|file| file.annotated && file.scope_lines == scope_lines)
         {
             self.loading = None;
             self.show_diff(key, files, cx);
@@ -786,6 +787,7 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         let source = key.source.clone();
+        let scope_lines = self.store.read(cx).prefs.scope_lines();
         self._load = cx.spawn(async move |this, cx| {
             if !delay.is_zero() {
                 cx.background_executor().timer(delay).await;
@@ -798,7 +800,9 @@ impl Detail {
             const FIRST: usize = 6;
             let result = backend::run({
                 let (path, source, worktree) = (path.clone(), source.clone(), worktree.clone());
-                move || backend::load_diff(&path, source, worktree, previous, Some(FIRST))
+                move || {
+                    backend::load_diff(&path, source, worktree, previous, Some(FIRST), scope_lines)
+                }
             })
             .await;
             let shown = this
@@ -839,9 +843,10 @@ impl Detail {
                 return;
             };
             let previous = Some(shown.clone());
-            let result =
-                backend::run(move || backend::load_diff(&path, source, worktree, previous, None))
-                    .await;
+            let result = backend::run(move || {
+                backend::load_diff(&path, source, worktree, previous, None, scope_lines)
+            })
+            .await;
             this.update(cx, |this, cx| {
                 // Unless something newer landed in the meantime.
                 let current = this.diff.as_ref().map(|diff| &diff.files);
@@ -1277,6 +1282,18 @@ impl Detail {
             store.set_diff_prefs(|prefs| prefs.wrap = !prefs.wrap, cx)
         });
         self.remeasure(cx);
+    }
+
+    /// Change how much of the code around each hunk diffs read and show, and load the diff
+    /// on screen again with it.
+    pub fn set_semantic_context(
+        &mut self,
+        update: impl FnOnce(&mut Prefs),
+        cx: &mut Context<Self>,
+    ) {
+        self.store
+            .update(cx, |store, cx| store.set_prefs(update, cx));
+        self.refresh_diff(true, cx);
     }
 
     /// Draw changed lines with their green and red ground, or without.

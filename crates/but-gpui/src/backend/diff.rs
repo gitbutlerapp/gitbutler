@@ -49,13 +49,15 @@ impl DiffSource {
 
 /// The diff of `source`. A worktree diff takes the `worktree` files the workspace just
 /// listed, rather than looking at the worktree a second time. Files whose patch is the same
-/// as in `previous` keep their highlighting, which is most of what loading costs.
+/// as in `previous` keep their highlighting, which is most of what loading costs. A hunk's
+/// scope adds at most `scope_lines` unchanged lines around it, and isn't read with `None`.
 pub fn load_diff(
     path: &Path,
     source: DiffSource,
     worktree: Option<Vec<FileChange>>,
     previous: Option<Arc<Vec<FileDiff>>>,
     annotate: Option<usize>,
+    scope_lines: Option<usize>,
 ) -> Result<Vec<FileDiff>> {
     let started = std::time::Instant::now();
     let ctx = open(path)?;
@@ -140,6 +142,7 @@ pub fn load_diff(
                 context_lines,
                 previous,
                 (index < first).then_some(limit),
+                scope_lines,
             )
         },
     )
@@ -175,6 +178,7 @@ fn add_conflicts(ctx: &but_ctx::Context, commit: CommitId, diffs: &mut Vec<FileD
                     body: DiffBody::Empty,
                     fingerprint: 0,
                     annotated: true,
+                    scope_lines: None,
                     drawing: None,
                 });
                 diffs.len() - 1
@@ -394,7 +398,10 @@ fn load_file(
     context_lines: u32,
     previous: Option<&FileDiff>,
     annotate: Option<u32>,
+    scope_lines: Option<usize>,
 ) -> Result<FileDiff> {
+    // Annotated as this load would, its scopes no wider or narrower.
+    let up_to_date = |old: &FileDiff| old.annotated && old.scope_lines == scope_lines;
     // An uncommitted file last written at the same moment, against the same base, has the
     // same patch, so it isn't computed again, much as git skips files whose stat is unchanged.
     if let Some(old) = previous.filter(|old| {
@@ -403,7 +410,7 @@ fn load_file(
             && old.file.kind == file.kind
             && old.file.previous_path == file.previous_path
             && old.file.base() == file.base()
-            && (old.annotated || annotate.is_none())
+            && (up_to_date(old) || annotate.is_none())
             // Conflicts replace the diff, which a file resolved since needs back.
             && old.conflicts().is_empty()
     }) {
@@ -411,7 +418,8 @@ fn load_file(
             file,
             body: old.body.clone(),
             fingerprint: old.fingerprint,
-            annotated: old.annotated,
+            annotated: up_to_date(old),
+            scope_lines,
             drawing: old.drawing.clone(),
         });
     }
@@ -424,7 +432,7 @@ fn load_file(
         .change
         .unified_patch_with_filter(repo, context_lines, &mut filter)?;
     let fingerprint = fingerprint(&file, &patch);
-    if let Some(old) = (previous.filter(|old| old.fingerprint == fingerprint && old.annotated))
+    if let Some(old) = (previous.filter(|old| old.fingerprint == fingerprint && up_to_date(old)))
         .filter(|old| old.conflicts().is_empty())
     {
         return Ok(FileDiff {
@@ -432,6 +440,7 @@ fn load_file(
             body: old.body.clone(),
             fingerprint,
             annotated: true,
+            scope_lines,
             drawing: old.drawing.clone(),
         });
     }
@@ -470,8 +479,10 @@ fn load_file(
         && lines <= limit
     {
         // First, so the lines a scope adds around a hunk are highlighted with it, in order.
-        if let Some((old, new)) = scope_sides(&filter) {
-            annotate::label_scopes(hunks, &old, &new, &file.path);
+        if let Some(scope_lines) = scope_lines
+            && let Some((old, new)) = scope_sides(&filter)
+        {
+            annotate::label_scopes(hunks, &old, &new, &file.path, scope_lines);
             *widest = self::widest(hunks);
         }
         for hunk in hunks.iter_mut() {
@@ -500,6 +511,7 @@ fn load_file(
         body,
         fingerprint,
         annotated,
+        scope_lines,
         drawing,
     })
 }

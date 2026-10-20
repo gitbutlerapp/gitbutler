@@ -73,15 +73,12 @@ fn ranges(emphasis: &LineEmphasis, len: usize) -> Vec<Range<usize>> {
     ranges
 }
 
-/// The most unchanged lines a hunk's scope adds around it. A bigger scope, as a long
-/// function, leaves the hunk its few lines of context and its name in the hunk's header.
-const SCOPE_CONTEXT: usize = 20;
-
 /// Name the scopes each hunk changes, outermost first, by matching its first changed line
 /// against deltoids' scope-aware diff of the same two texts, and show the rest of the
-/// innermost one around the hunk when that's at most [`SCOPE_CONTEXT`] more lines, as
-/// deltoids grows a hunk's context to the scope it changes.
-pub fn label_scopes(hunks: &mut [Hunk], old: &str, new: &str, path: &str) {
+/// innermost one around the hunk when that's at most `limit` more lines, as deltoids grows
+/// a hunk's context to the scope it changes. A bigger scope, as a long function, leaves the
+/// hunk its few lines of context and its name in the hunk's header.
+pub fn label_scopes(hunks: &mut [Hunk], old: &str, new: &str, path: &str, limit: usize) {
     let scoped = deltoids::Diff::compute(old, new, path);
     if scoped.language().is_none() {
         return;
@@ -130,13 +127,13 @@ pub fn label_scopes(hunks: &mut [Hunk], old: &str, new: &str, path: &str) {
         }
         spans.push(containing.map(|containing| side(containing, true)));
     }
-    widen(hunks, &spans, new);
+    widen(hunks, &spans, new, limit);
 }
 
 /// Give each hunk the unchanged lines out to the edges of its scope's new-side lines in
-/// `spans`, short of what the hunks around it show, when its scope adds few enough in all,
-/// across every hunk in it.
-fn widen(hunks: &mut [Hunk], spans: &[Option<Range<usize>>], new: &str) {
+/// `spans`, short of what the hunks around it show, when its scope adds at most `limit` in
+/// all, across every hunk in it.
+fn widen(hunks: &mut [Hunk], spans: &[Option<Range<usize>>], new: &str, limit: usize) {
     let text: Vec<&str> = new.lines().collect();
     // The first new-side line nothing shows yet. Scopes don't overlap, so whether the one
     // before shows its lines doesn't move where this one's start.
@@ -166,10 +163,7 @@ fn widen(hunks: &mut [Hunk], spans: &[Option<Range<usize>>], new: &str) {
             .sum()
     };
     for (ix, (lead, tail)) in ranges.iter().enumerate() {
-        if spans[ix]
-            .as_ref()
-            .is_none_or(|span| added(span) > SCOPE_CONTEXT)
-        {
+        if spans[ix].as_ref().is_none_or(|span| added(span) > limit) {
             continue;
         }
         let key = hunks[ix].key.0;
@@ -203,6 +197,8 @@ fn widen(hunks: &mut [Hunk], spans: &[Option<Range<usize>>], new: &str) {
 mod tests {
     use super::*;
     use crate::backend::HunkKey;
+
+    const LIMIT: usize = 20;
 
     /// The hunk Git makes, with 3 lines of context, for line `at` of `old` changed to
     /// `new`'s, the two having as many lines.
@@ -262,7 +258,7 @@ mod tests {
     fn a_hunk_in_a_short_scope_shows_all_of_it() {
         let (old, new) = (source(10, 7, false), source(10, 7, true));
         let mut hunks = [changed_line(&old, &new, 7)];
-        label_scopes(&mut hunks, &old, &new, "work.rs");
+        label_scopes(&mut hunks, &old, &new, "work.rs", LIMIT);
         assert_eq!(
             numbers(&hunks[0].lead),
             [1, 2, 3],
@@ -292,7 +288,7 @@ mod tests {
             .join("\n")
             + "\n";
         let mut hunks = [changed_line(&old, &new, 4), changed_line(&old, &new, 14)];
-        label_scopes(&mut hunks, &old, &new, "work.rs");
+        label_scopes(&mut hunks, &old, &new, "work.rs", LIMIT);
         assert_eq!(
             numbers(&hunks[0].tail),
             [8, 9, 10],
@@ -322,12 +318,12 @@ mod tests {
             .join("\n")
             + "\n";
         let mut hunks = [changed_line(&old, &new, 11), changed_line(&old, &new, 31)];
-        label_scopes(&mut hunks, &old, &new, "work.rs");
+        label_scopes(&mut hunks, &old, &new, "work.rs", LIMIT);
         assert!(
             hunks
                 .iter()
                 .all(|hunk| hunk.lead.is_empty() && hunk.tail.is_empty()),
-            "each would add few lines, but the function adds more than {SCOPE_CONTEXT} in all"
+            "each would add few lines, but the function adds more than {LIMIT} in all"
         );
     }
 
@@ -335,10 +331,10 @@ mod tests {
     fn a_hunk_in_a_long_scope_keeps_its_context() {
         let (old, new) = (source(40, 21, false), source(40, 21, true));
         let mut hunks = [changed_line(&old, &new, 21)];
-        label_scopes(&mut hunks, &old, &new, "work.rs");
+        label_scopes(&mut hunks, &old, &new, "work.rs", LIMIT);
         assert!(
             hunks[0].lead.is_empty() && hunks[0].tail.is_empty(),
-            "the function would add more than {SCOPE_CONTEXT} lines"
+            "the function would add more than {LIMIT} lines"
         );
         assert!(!hunks[0].scope.is_empty(), "it's still named");
     }

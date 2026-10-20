@@ -236,6 +236,26 @@ pub enum WatchedOrder {
     Activity,
 }
 
+/// How many unchanged lines the rest of a hunk's function or type may add for a diff to show
+/// it whole.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ScopeLines {
+    Short,
+    #[default]
+    Medium,
+    Long,
+}
+
+impl ScopeLines {
+    pub fn lines(self) -> usize {
+        match self {
+            ScopeLines::Short => 20,
+            ScopeLines::Medium => 50,
+            ScopeLines::Long => 200,
+        }
+    }
+}
+
 /// The little the app remembers between launches.
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -271,6 +291,10 @@ pub struct Prefs {
     /// Changed lines go without their green and red ground, keeping the bar beside them.
     pub plain_lines: bool,
     pub code_size: crate::theme::CodeSize,
+    /// Diffs leave out what deltoids reads from the code around each hunk, and skip reading
+    /// it: the function or type the hunk changes, and the rest of that when it's short.
+    pub no_semantic_context: bool,
+    pub whole_scopes: ScopeLines,
     /// Projects, by id, whose Git hooks run around commits and pushes. Off unless picked,
     /// as in the desktop app.
     pub run_hooks: HashSet<String>,
@@ -300,6 +324,14 @@ pub struct Prefs {
     /// The navigator's branches start with their commits listed, rather than folded to a
     /// row each.
     pub branches_start_open: bool,
+}
+
+impl Prefs {
+    /// The most unchanged lines a hunk's scope adds around it, `None` with semantic context
+    /// off.
+    pub fn scope_lines(&self) -> Option<usize> {
+        (!self.no_semantic_context).then(|| self.whole_scopes.lines())
+    }
 }
 
 /// Where the window was: the display it was on, and its left, top, width and height on that
