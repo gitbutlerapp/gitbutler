@@ -466,14 +466,28 @@ fn write_index_trees(ctx: &Context) -> Result<IndexTrees> {
     })
 }
 
+/// Write the index from `tree_id`, keeping the stat of entries that are unchanged from
+/// `previous`, like `git reset` does. Without it, every later status would read and hash
+/// every tracked file to learn that it didn't change.
 fn reset_index_to_tree(
     ctx: &Context,
     tree_id: gix::ObjectId,
     conflicts_tree_id: Option<gix::ObjectId>,
+    previous: &gix::index::State,
 ) -> Result<()> {
     let repo = ctx.repo.get()?;
     let tree = repo.find_tree(tree_id)?;
     let mut index = repo.index_from_tree(&tree.id())?;
+    let stat_options = repo.stat_options()?;
+    for (entry, path) in index.entries_mut_with_paths() {
+        if let Some(prev) = previous.entry_by_path_and_stage(path, Stage::Unconflicted)
+            && prev.id == entry.id
+            && prev.mode == entry.mode
+            && !prev.stat.is_racy(previous.timestamp(), stat_options)
+        {
+            entry.stat = prev.stat;
+        }
+    }
     if let Some(conflicts_tree_id) = conflicts_tree_id {
         restore_index_conflicts(&mut index, repo.find_tree(conflicts_tree_id)?.id())?;
     }
@@ -1291,6 +1305,8 @@ fn restore_snapshot_tree(
     }
 
     let gix_repo = ctx.clone_repo_for_merging()?;
+    // The checkout below rewrites the index, so keep the stat it has now for the final index.
+    let index_before_checkout = repo.index_or_empty()?;
 
     // Check out the snapshot's worktree while HEAD still points at the pre-restore commit:
     // safe_checkout diffs from `before_restore_snapshot_workdir_tree_id`, so
@@ -1375,7 +1391,12 @@ fn restore_snapshot_tree(
     let index_conflicts_tree_id = snapshot_tree
         .lookup_entry_by_path("index-conflicts")?
         .map(|entry| entry.id().detach());
-    reset_index_to_tree(ctx, index_tree_entry.id().detach(), index_conflicts_tree_id)?;
+    reset_index_to_tree(
+        ctx,
+        index_tree_entry.id().detach(),
+        index_conflicts_tree_id,
+        &index_before_checkout,
+    )?;
 
     if let Some(checkout) = restored_checkout {
         if checkout.ref_name != workspace_ref {
