@@ -14,6 +14,7 @@ use super::panes::{Crumb, side_list, side_row};
 use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::branches::{self, ApplyOutcome, BranchCommit, OtherBranch};
 use crate::backend::{self, CommitId, DiffSource};
+use crate::edits::CherryPick;
 use crate::overlays::MenuItem;
 use crate::state::{Cut, Overlay, Prefs, ProjectId, Selection};
 use crate::theme::Theme;
@@ -937,6 +938,12 @@ impl Detail {
             .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.step_branches(-1, cx)))
             .on_action(cx.listener(|this, _: &Expand, _, cx| this.fold_branches(true, cx)))
             .on_action(cx.listener(|this, _: &Collapse, _, cx| this.fold_branches(false, cx)))
+            .when(self.selected_branch_commit(project).is_some(), |el| {
+                let project = project.clone();
+                el.on_action(cx.listener(move |this, _: &CherryPick, _, cx| {
+                    this.copy_branch_commit(&project, cx)
+                }))
+            })
             .child(filter)
             .child(list)
             .into_any_element()
