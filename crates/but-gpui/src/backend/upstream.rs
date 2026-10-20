@@ -464,7 +464,9 @@ pub fn fetch(path: &Path) -> Result<bool> {
 /// need an update to sit on the moved target.
 pub fn land(path: &Path, branch: &str, whole_stack: bool) -> Result<bool> {
     let mut ctx = open(path)?;
-    let landed = but_api::land::branch_land(&mut ctx, branch.to_owned(), false, whole_stack)?;
+    // A merge commit when the branch has diverged, as `but land` makes one without its flags.
+    let landed =
+        but_api::land::branch_land(&mut ctx, branch.to_owned(), false, false, whole_stack)?;
     Ok(landed.reconcile_skipped)
 }
 
