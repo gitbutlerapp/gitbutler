@@ -64,7 +64,8 @@ struct ConflictStages {
 /// no path is both a file and a directory, and no cached data is left that the edits made stale.
 ///
 /// Edits are recorded and applied together by `finish()`, so [`state()`](Self::state) stays the
-/// unchanged, sorted index until then. Later edits of a path replace earlier ones.
+/// unchanged, sorted index until then. Later edits of a path replace earlier ones, and later
+/// additions replace earlier ones that clash with them as file versus directory.
 pub struct Edit<'index> {
     state: &'index mut gix::index::State,
     pending: BTreeMap<BString, Pending>,
@@ -89,14 +90,16 @@ impl<'index> Edit<'index> {
         match self.pending.get(path) {
             Some(Pending::Remove) => false,
             Some(Pending::Upsert { .. } | Pending::Conflict(_)) => true,
-            None => self.state.entry_by_path(path).is_some(),
+            None => !self.is_displaced(path) && self.state.entry_by_path(path).is_some(),
         }
     }
 
     /// Record `path` as unconflicted with `id` and `mode`.
     ///
-    /// This removes its conflict stages, and any entries that clash with it as file versus directory.
+    /// This removes its conflict stages, and any entries that clash with it as file versus directory,
+    /// including earlier pending additions.
     pub fn upsert(&mut self, path: &BStr, id: gix::ObjectId, mode: Mode, stat: Stat) {
+        self.drop_clashing_additions(path);
         self.pending
             .insert(path.to_owned(), Pending::Upsert { id, mode, stat });
     }
@@ -109,7 +112,7 @@ impl<'index> Edit<'index> {
     /// Record `mode` and `id` as conflict `stage` of `path`.
     ///
     /// The path keeps only the conflict stages recorded this way, and loses its unconflicted entry
-    /// and any entries that clash with it as file versus directory.
+    /// and any entries that clash with it as file versus directory, including earlier pending additions.
     pub fn set_conflict_stage(
         &mut self,
         path: &BStr,
@@ -117,6 +120,7 @@ impl<'index> Edit<'index> {
         mode: Mode,
         id: gix::ObjectId,
     ) {
+        self.drop_clashing_additions(path);
         let stages = self
             .pending
             .entry(path.to_owned())
@@ -128,6 +132,42 @@ impl<'index> Edit<'index> {
             ConflictStage::Ours => stages.ours = entry,
             ConflictStage::Theirs => stages.theirs = entry,
         }
+    }
+
+    /// Whether a pending addition at a directory leading to `path`, or inside `path`, will remove
+    /// its entries.
+    fn is_displaced(&self, path: &BStr) -> bool {
+        parents(path).any(|dir| self.is_added(dir)) || self.additions_inside(path).next().is_some()
+    }
+
+    /// Forget pending additions that clash with `path` as file versus directory, as an index can't
+    /// hold both and the later addition wins.
+    fn drop_clashing_additions(&mut self, path: &BStr) {
+        let clashing: Vec<BString> = parents(path)
+            .filter(|dir| self.is_added(dir))
+            .map(ToOwned::to_owned)
+            .chain(self.additions_inside(path).cloned())
+            .collect();
+        for clashing_path in clashing {
+            self.pending.remove(&clashing_path);
+        }
+    }
+
+    fn is_added(&self, path: &BStr) -> bool {
+        self.pending
+            .get(path)
+            .is_some_and(|edit| !matches!(edit, Pending::Remove))
+    }
+
+    /// The paths of pending additions inside the directory `path`.
+    fn additions_inside(&self, path: &BStr) -> impl Iterator<Item = &BString> {
+        let mut prefix = path.to_owned();
+        prefix.push(b'/');
+        self.pending
+            .range(prefix.clone()..)
+            .take_while(move |(added, _)| added.starts_with(&prefix))
+            .filter(|(_, edit)| !matches!(edit, Pending::Remove))
+            .map(|(added, _)| added)
     }
 
     /// Apply the edits, sort the index, and drop the tree cache and resolve-undo data, which

@@ -84,6 +84,52 @@ fn later_edits_of_a_path_replace_earlier_ones() {
 }
 
 #[test]
+fn later_additions_replace_earlier_ones_that_clash_as_file_or_directory() {
+    for (first, second) in [("a", "a/b"), ("a/b", "a")] {
+        let mut state = index_with(&[]);
+        let mut edit = Edit::new(&mut state);
+        edit.upsert(first.into(), old_id(), Mode::FILE, Stat::Unknown);
+        edit.upsert(second.into(), new_id(), Mode::FILE, Stat::Unknown);
+        edit.finish();
+
+        assert_eq!(
+            entries(&state),
+            [format!("{second} Unconflicted 2222")],
+            "an index can't hold {first} and {second}, so the later addition wins"
+        );
+    }
+
+    let mut state = index_with(&[]);
+    let mut edit = Edit::new(&mut state);
+    edit.upsert("a".into(), old_id(), Mode::FILE, Stat::Unknown);
+    edit.set_conflict_stage("a/b".into(), ConflictStage::Ours, Mode::FILE, new_id());
+    edit.finish();
+    assert_eq!(
+        entries(&state),
+        ["a/b Ours 2222"],
+        "conflict stages displace a clashing earlier addition too"
+    );
+}
+
+#[test]
+fn contains_sees_entries_displaced_by_pending_additions() {
+    let mut state = index_with(&["a/b", "c"]);
+    let mut edit = Edit::new(&mut state);
+    edit.upsert("a".into(), new_id(), Mode::FILE, Stat::Unknown);
+    edit.upsert("c/d".into(), new_id(), Mode::FILE, Stat::Unknown);
+
+    assert!(
+        !edit.contains("a/b".into()),
+        "adding the file a removes what was in the directory a"
+    );
+    assert!(
+        !edit.contains("c".into()),
+        "adding c/d removes the file that was at c"
+    );
+    assert!(edit.contains("a".into()) && edit.contains("c/d".into()));
+}
+
+#[test]
 fn contains_sees_pending_edits() {
     let mut state = index_with(&["a", "b"]);
     let mut edit = Edit::new(&mut state);
