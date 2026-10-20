@@ -114,9 +114,12 @@ const RISKY: &[&str] = &[
     "Discard or delete selection",
     "Uncommit",
     "Squash all commits",
-    "Unapply stack",
-    "Land branch on target",
+    "Squash the picked commits",
+    "Replace with the remote's version",
+    "Unapply branch or stack",
+    "Land on target",
     "Push branch",
+    "Merge pull request",
 ];
 
 type Run = Box<dyn FnOnce(&mut AppView, &mut Window, &mut Context<AppView>)>;
@@ -490,5 +493,20 @@ impl AppView {
                 )
                 .into_any_element(),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{COMMANDS, RISKY};
+
+    #[test]
+    fn every_risky_name_is_a_command() {
+        for risky in RISKY {
+            assert!(
+                COMMANDS.iter().any(|(label, _)| label == risky),
+                "{risky:?} must match a command's label, or ⌘K then Enter could repeat it"
+            );
+        }
     }
 }
