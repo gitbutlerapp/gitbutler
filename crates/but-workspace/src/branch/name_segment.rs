@@ -2,30 +2,25 @@ use but_core::RefMetadata;
 use but_graph::WorktreeKind;
 use but_rebase::graph_rebase::{Editor, LookupStep, Pick, Selector, Step, SuccessfulRebase};
 
-use crate::{
-    branch::{
-        create_reference,
-        create_reference::{Anchor, Position, function::ensure_name_is_available},
-    },
-    editor_workspace::ensure_workspace_commit,
+use crate::branch::{
+    create_reference,
+    create_reference::{Anchor, Position, function::ensure_name_is_available},
 };
 
 /// Name the anonymous segment whose top commit is `top` as `ref_name`, as seen from `checkout`.
 ///
 /// If `checkout` is detached at `top`, the new reference points at `top` and `checkout` is
 /// attached to it. Otherwise the reference is created right above `top` like
-/// [`create_reference()`] would. A workspace commit is created first if `HEAD` is on the
-/// workspace reference without one.
+/// [`create_reference()`] would.
 ///
 /// Fail if `ref_name` is already taken.
 pub fn name_segment<'ws, 'meta, M: RefMetadata>(
-    editor: Editor<'ws, 'meta, M>,
+    mut editor: Editor<'ws, 'meta, M>,
     checkout: &WorktreeKind,
     top: gix::ObjectId,
     ref_name: &gix::refs::FullNameRef,
 ) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
     ensure_name_is_available(&editor, ref_name)?;
-    let mut editor = ensure_workspace_commit(editor)?.into_editor();
     let Some(head) =
         checkout_head(&editor, checkout).filter(|head| is_pick_of(&editor, *head, top))
     else {

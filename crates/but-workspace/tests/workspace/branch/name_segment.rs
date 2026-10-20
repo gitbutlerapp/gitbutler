@@ -59,12 +59,10 @@ fn workspace_reference_without_workspace_commit() -> anyhow::Result<()> {
         "refs/heads/named",
     )?;
 
-    // A workspace commit was created first, so `named` became a stack beneath it.
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* c55fa47 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 455e76a (named) X
+* 455e76a (HEAD -> gitbutler/workspace, named) X
 * 3183e43 (origin/main, main) M1
 
 "#]]

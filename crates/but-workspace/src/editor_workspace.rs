@@ -3,26 +3,30 @@
 use anyhow::Context as _;
 use but_core::{RefMetadata, WORKSPACE_REF_NAME};
 use but_error::bail_precondition;
-use but_rebase::graph_rebase::{Editor, Pick, Step, SuccessfulRebase, mutate::InsertSide};
+use but_rebase::graph_rebase::{
+    Editor, Pick, Selector, Step, SuccessfulRebase, mutate::InsertSide,
+};
 
 use crate::{WorkspaceCommit, commit::Stack};
 
-/// Insert a workspace commit below the workspace reference if `HEAD` is on it without one.
+/// Return the workspace commit, creating one if none is found.
 pub fn ensure_workspace_commit<'ws, 'meta, M: RefMetadata>(
     mut editor: Editor<'ws, 'meta, M>,
-) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
-    if editor.workspace_commit().is_none()
-        && let Some(workspace_reference) = editor.workspace_reference()
-    {
-        let (_, below) = editor.find_reference_target(workspace_reference)?;
-        let commit = write_workspace_commit(editor.repo(), &below)?;
-        editor.insert(
-            workspace_reference,
-            Step::Pick(Pick::new_workspace_pick(commit)),
-            InsertSide::Below,
-        )?;
+    workspace_reference: Selector,
+) -> anyhow::Result<(SuccessfulRebase<'ws, 'meta, M>, Selector)> {
+    if let Some(workspace_commit) = editor.workspace_commit(workspace_reference) {
+        return Ok((editor.rebase()?, workspace_commit));
     }
-    editor.rebase()
+
+    let (_, below) = editor.find_reference_target(workspace_reference)?;
+    let id = write_workspace_commit(editor.repo(), &below)?;
+    let workspace_commit = editor.insert(
+        workspace_reference,
+        Step::Pick(Pick::new_workspace_pick(id)),
+        InsertSide::Below,
+    )?;
+
+    Ok((editor.rebase()?, workspace_commit))
 }
 
 /// Check out a new workspace reference whose workspace commit sits on top of what `HEAD`

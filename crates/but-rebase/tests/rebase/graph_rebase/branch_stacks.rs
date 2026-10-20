@@ -162,7 +162,7 @@ ad hoc
 }
 
 #[test]
-fn a_workspace_reference_without_a_workspace_commit_is_one_ad_hoc_stack() -> Result<()> {
+fn a_workspace_reference_without_a_workspace_commit_is_one_workspace_stack() -> Result<()> {
     let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
 
     // GitButler's own references never stack, which leaves `main` below `HEAD`.
@@ -176,8 +176,9 @@ fn a_workspace_reference_without_a_workspace_commit_is_one_ad_hoc_stack() -> Res
 ◎  refs/heads/main
 ●  4d41a5c one
 ●  965998b base
-ad hoc
+workspace
   main
+ad hoc
 
 "#]]
     );
