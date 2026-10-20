@@ -541,7 +541,7 @@ impl Store {
         }
         self.update_seen(id, &workspace, latest);
         // An agent amending or rebasing the selected commit gives it a new id but keeps its
-        // change id; stay on it.
+        // change id, or with plain Git its author, time and message; stay on it.
         // One that's gone, as squashed away, leaves its branch selected, if that's still there.
         // A selected branch renamed, as an agent names one, is followed by its newest commit.
         let old = self.workspace(id);
@@ -667,13 +667,16 @@ impl Store {
 }
 
 /// Where `old`'s commit `commit` is in `new`, if it's still there: under the same id, or
-/// under the new id that amending or rebasing it gave it, which keeps its key.
+/// under the new id that amending or rebasing it gave it, which keeps its key, or after Git
+/// rewrote it without the key, what Git kept, as unread marks pair them.
 fn follow_by_key(old: Option<&Workspace>, new: &Workspace, commit: CommitId) -> Option<CommitId> {
     if new.find_commit(commit).is_some() {
         return Some(commit);
     }
     let (_, old) = old?.find_commit(commit)?;
-    new.commits().find(|c| c.key == old.key).map(|c| c.id)
+    (new.commits().find(|c| c.key == old.key))
+        .or_else(|| new.commits().find(|c| c.authored == old.authored))
+        .map(|c| c.id)
 }
 
 /// Why a project didn't load: plainly when its folder is gone, otherwise as reported.
