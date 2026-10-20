@@ -28,8 +28,9 @@ impl Store {
             }) else {
                 return;
             };
+            // Detached, so a newer save replacing this task can't cancel the write.
             cx.background_spawn(async move { Saved::write(&bytes) })
-                .await;
+                .detach();
         });
     }
 

@@ -378,8 +378,9 @@ impl Store {
             return;
         };
         let project = entry.project.clone();
-        // Hold off reloads until the project is ready.
-        entry.loading = true;
+        // Hold off reloads until the project is ready, unless a load runs already, as one an
+        // unwatched project's page started: that one holds them off, and lands as usual.
+        let held = !std::mem::replace(&mut entry.loading, true);
         let changes = self.changes.clone();
         let id = id.clone();
         cx.spawn(async move |this, cx| {
@@ -393,9 +394,11 @@ impl Store {
                 let Some(entry) = store.project_mut(&id) else {
                     return;
                 };
-                entry.loading = false;
                 // The full reload below reads whatever was asked for meanwhile.
-                entry.queued = None;
+                if held {
+                    entry.loading = false;
+                    entry.queued = None;
+                }
                 match watcher {
                     Ok(watcher) => {
                         if entry.expanded {
@@ -408,6 +411,7 @@ impl Store {
                         entry.error = Some(load_error(&entry.project, &err));
                     }
                 }
+                // Behind a load still running, if one is.
                 store.reload(&id, cx);
             })
             .ok();
@@ -422,14 +426,17 @@ impl Store {
 
     /// Load again the expanded projects whose folder went since they last loaded, and those
     /// that failed to load: a watcher doesn't see its own folder move, and what failed may
-    /// have been fixed in a terminal.
+    /// have been fixed in a terminal. One that couldn't be opened, so isn't watched, opens.
     pub fn recheck_folders(&mut self, cx: &mut Context<Self>) {
-        let stale: Vec<ProjectId> = (self.projects.iter())
+        let stale: Vec<(ProjectId, bool)> = (self.projects.iter())
             .filter(|entry| entry.expanded && entry.project.path.exists() == entry.error.is_some())
-            .map(|entry| entry.id.clone())
+            .map(|entry| (entry.id.clone(), entry.watcher.is_none()))
             .collect();
-        for id in stale {
-            self.reload(&id, cx);
+        for (id, unwatched) in stale {
+            match unwatched {
+                true => self.open_project(&id, cx),
+                false => self.reload(&id, cx),
+            }
         }
     }
 

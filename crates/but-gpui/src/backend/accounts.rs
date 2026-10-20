@@ -72,7 +72,7 @@ pub fn forget(account: AccountId) -> Result<()> {
 
 /// Check `token` with the forge and store it. Bitbucket also needs the account's `email`.
 /// Returns who it signed in as.
-pub fn add_token(forge: Forge, token: String, email: Option<String>) -> Result<String> {
+pub fn add_token(forge: Forge, token: String, email: String) -> Result<String> {
     let token = Sensitive(token.trim().to_owned());
     let handle = runtime().handle();
     Ok(match forge {
@@ -87,10 +87,10 @@ pub fn add_token(forge: Forge, token: String, email: Option<String>) -> Result<S
                 .username
         }
         Forge::Bitbucket => {
-            let Some(email) = email.filter(|e| !e.trim().is_empty()) else {
-                bail!("Bitbucket needs the account's email too");
-            };
             let email = email.trim().to_owned();
+            if email.is_empty() {
+                bail!("Bitbucket needs the account's email too");
+            }
             handle.block_on(but_api::bitbucket::store_bitbucket_api_token(
                 email.clone(),
                 token,

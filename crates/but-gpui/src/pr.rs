@@ -19,7 +19,7 @@ use crate::ui::{ButtonStyle, button, faint, h_flex, muted, switch, v_flex};
 actions!(pr, [CreatePullRequest, MergePullRequest]);
 
 /// Why a pull request with commits not pushed yet can't be merged.
-pub const PUSH_BEFORE_MERGE: &str = "Push first, so the pull request has these commits";
+const PUSH_BEFORE_MERGE: &str = "Push first, so the pull request has these commits";
 
 pub struct ReviewView {
     store: Entity<Store>,

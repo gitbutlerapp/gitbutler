@@ -15,8 +15,8 @@ use crate::ui::markdown;
 use crate::ui::review as ui_review;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, button, faint, h_flex, icon, local_time, muted, now, relative_time,
-    shortcut, small_icon, v_flex,
+    ButtonStyle, Icon, Tooltip, ago, button, faint, h_flex, icon, local_time, muted, now, shortcut,
+    small_icon, v_flex,
 };
 
 /// How tall the tabs over the diff beside a list are.
@@ -460,14 +460,6 @@ fn duration(run: &CheckRun) -> Option<String> {
         60..3600 => format!("{}m {}s", seconds / 60, seconds % 60),
         _ => format!("{}h {}m", seconds / 3600, seconds % 3600 / 60),
     })
-}
-
-/// `seconds` (since the epoch) as how long ago: "just now", "5m ago".
-fn ago(seconds: i64) -> String {
-    match relative_time(seconds).as_str() {
-        "now" => "just now".into(),
-        ago => format!("{ago} ago"),
-    }
 }
 
 /// A tab of a page's header, underlined along the header's edge while `selected`.

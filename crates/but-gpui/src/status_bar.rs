@@ -10,7 +10,7 @@ use crate::app::{
 use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
 use crate::state::{SLOW, Selection};
 use crate::theme::Theme;
-use crate::ui::{Icon, STATUS_BAR_HEIGHT, h_flex, relative_time, shortcut, small_icon};
+use crate::ui::{Icon, STATUS_BAR_HEIGHT, h_flex, shortcut, small_icon};
 
 impl AppView {
     pub fn render_status_bar(
@@ -50,34 +50,31 @@ impl AppView {
                 .child("paste here")
                 .child(key("esc", &theme))
                 .into_any_element()
-        } else if !store.picked.is_empty() {
+        } else if let Some((n, what, how)) = [
             // Only the navigator's highlight shows them otherwise.
+            (
+                store.picked.len(),
+                "commit",
+                Some("drag them together, or right-click to squash or uncommit them"),
+            ),
+            (
+                detail.picked_line_count(),
+                "line",
+                Some("drag a grip or right-click to move them"),
+            ),
+            (detail.picked_files(), "file", None),
+        ]
+        .into_iter()
+        .find(|(n, ..)| *n > 0)
+        {
             h_flex()
                 .gap(px(6.))
-                .child(div().text_color(theme.pop).child(format!(
-                    "{} selected",
-                    crate::ui::plural(store.picked.len(), "commit")
-                )))
-                .child("drag them together, or right-click to squash or uncommit them")
-                .child(key("esc", &theme))
-                .into_any_element()
-        } else if detail.picked_line_count() > 0 {
-            h_flex()
-                .gap(px(6.))
-                .child(div().text_color(theme.pop).child(format!(
-                    "{} selected",
-                    crate::ui::plural(detail.picked_line_count(), "line")
-                )))
-                .child("drag a grip or right-click to move them")
-                .child(key("esc", &theme))
-                .into_any_element()
-        } else if detail.picked_files() > 0 {
-            h_flex()
-                .gap(px(6.))
-                .child(div().text_color(theme.pop).child(format!(
-                    "{} selected",
-                    crate::ui::plural(detail.picked_files(), "file")
-                )))
+                .child(
+                    div()
+                        .text_color(theme.pop)
+                        .child(format!("{} selected", crate::ui::plural(n, what))),
+                )
+                .children(how)
                 .child(key("esc", &theme))
                 .into_any_element()
         } else if let Some((path, place)) = (detail.is_focused(window, cx)
@@ -100,10 +97,7 @@ impl AppView {
                 let target = entry.workspace.as_ref()?.target.as_ref()?;
                 let fetched = (store.fetched_at(&entry.id)).map(|at| {
                     let at = crate::ui::now() - at.elapsed().as_secs() as i64;
-                    match relative_time(at).as_str() {
-                        "now" => " · fetched just now".to_owned(),
-                        ago => format!(" · fetched {ago} ago"),
-                    }
+                    format!(" · fetched {}", crate::ui::ago(at))
                 });
                 // A stack can be on an older target commit, as one just applied can.
                 let standing = match target.behind {

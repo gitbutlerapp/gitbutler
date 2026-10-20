@@ -72,15 +72,18 @@ impl SettingsView {
     fn start_adding(&mut self, forge: Forge, window: &mut Window, cx: &mut Context<Self>) {
         let token = cx.new(|cx| TextInput::new("Token", false, cx).masked());
         let email = cx.new(|cx| TextInput::new("Email", false, cx));
-        cx.subscribe(&token, |this, _, event, cx| match event {
-            InputEvent::Submit => this.add_token(cx),
-            InputEvent::Cancel => {
-                this.accounts.adding = None;
-                cx.notify();
-            }
-            InputEvent::Changed => {}
-        })
-        .detach();
+        // Enter adds it and Esc cancels from either field, as Bitbucket's starts in the email.
+        for field in [&token, &email] {
+            cx.subscribe(field, |this, _, event, cx| match event {
+                InputEvent::Submit => this.add_token(cx),
+                InputEvent::Cancel => {
+                    this.accounts.adding = None;
+                    cx.notify();
+                }
+                InputEvent::Changed => {}
+            })
+            .detach();
+        }
         let first = if forge == Forge::Bitbucket {
             &email
         } else {
@@ -106,10 +109,11 @@ impl SettingsView {
         self.accounts.adding = None;
         cx.notify();
         cx.spawn(async move |this, cx| {
-            let added = run(move || accounts::add_token(forge, token, Some(email))).await;
+            let added = run(move || accounts::add_token(forge, token, email)).await;
             this.update(cx, |this, cx| {
                 match added {
                     Ok(who) => this.store.update(cx, |store, cx| {
+                        store.retry_forges();
                         store.snack(format!("Added {who} on {}", forge.name()), cx)
                     }),
                     Err(err) => this.error("Couldn't add the account", err, cx),
@@ -165,7 +169,10 @@ impl SettingsView {
                 }
             };
             store.update(cx, |store, cx| match &outcome {
-                Ok(who) => store.snack(format!("Signed in to GitHub as {who}"), cx),
+                Ok(who) => {
+                    store.retry_forges();
+                    store.snack(format!("Signed in to GitHub as {who}"), cx)
+                }
                 Err(err) => store.error("Couldn't sign in to GitHub", format!("{err:#}"), cx),
             });
             this.update(cx, |this, cx| {

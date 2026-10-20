@@ -114,7 +114,6 @@ pub fn run(embedded: Option<Embedded>) {
     };
 
     use crate::app::AppView;
-    use crate::theme::Theme;
 
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -137,11 +136,6 @@ pub fn run(embedded: Option<Embedded>) {
                 // The desktop app's bundle gives the Dock its icon.
                 None => set_dock_icon(),
             }
-            cx.set_global(Theme::for_appearance(
-                theme::Appearance::System,
-                cx.window_appearance(),
-                theme::CodeSize::default(),
-            ));
             ui::text_input::bind_keys(cx);
             app::bind_keys(cx);
             navigator::bind_keys(cx);

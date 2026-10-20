@@ -18,8 +18,8 @@ use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
 use crate::ui::person::byline_avatar;
 use crate::ui::{
-    Icon, Tooltip, age_column, error_summary, h_flex, icon, list_row, muted, plural, relative_time,
-    shortcut, small_icon, v_flex,
+    Icon, Tooltip, age_column, error_summary, h_flex, icon, list_row, muted, plural, shortcut,
+    small_icon, v_flex,
 };
 
 /// What a target commit is called: the pull request it landed, by its title, as Lite names
@@ -333,10 +333,7 @@ impl Detail {
                 let said = match &fetch {
                     Some(None) => "No remote to fetch from".into(),
                     _ if busy => "Fetching…".into(),
-                    Some(Some((Some(at), _))) => match relative_time(*at).as_str() {
-                        "now" => "Fetched just now".into(),
-                        ago => format!("Fetched {ago} ago"),
-                    },
+                    Some(Some((Some(at), _))) => format!("Fetched {}", crate::ui::ago(*at)),
                     _ => "Not fetched yet".into(),
                 };
                 let item = meta_item(Icon::Refresh, theme).flex_none().child(said);

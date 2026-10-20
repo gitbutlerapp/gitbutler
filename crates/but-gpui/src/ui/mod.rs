@@ -898,6 +898,14 @@ pub fn error_summary(text: &str) -> String {
     }
 }
 
+/// `seconds` (since the epoch) as how long ago: "just now", "5m ago".
+pub fn ago(seconds: i64) -> String {
+    match relative_time(seconds).as_str() {
+        "now" => "just now".into(),
+        ago => format!("{ago} ago"),
+    }
+}
+
 pub fn relative_time(seconds: i64) -> String {
     let delta = (now() - seconds).max(0);
     match delta {

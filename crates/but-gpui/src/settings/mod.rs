@@ -770,6 +770,7 @@ impl SettingsView {
             .child(page.title())
             .on_click(cx.listener(move |this, _, _, cx| {
                 if page == Page::Ai {
+                    this.retry_ai();
                     this.ensure_ai(cx);
                 }
                 this.page = page;

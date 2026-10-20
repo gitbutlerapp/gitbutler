@@ -544,8 +544,20 @@ impl Store {
         if let Some(Selection::Project(project)) = &selection
             && self.project(project).is_some_and(|entry| !entry.expanded)
         {
+            // A moment later, so arrowing past unwatched projects doesn't read each one.
             let project = project.clone();
-            self.load(&project, Reload::full(), cx);
+            cx.spawn(async move |this, cx| {
+                cx.background_executor()
+                    .timer(std::time::Duration::from_millis(150))
+                    .await;
+                this.update(cx, |store, cx| {
+                    if store.selection == Some(Selection::Project(project.clone())) {
+                        store.load(&project, Reload::full(), cx)
+                    }
+                })
+                .ok();
+            })
+            .detach();
         }
         self.selection = selection;
         self.save_soon(cx);
@@ -693,7 +705,7 @@ impl Store {
         );
     }
 
-    pub fn notify_user(&mut self, notice: Notice, cx: &mut Context<Self>) {
+    fn notify_user(&mut self, notice: Notice, cx: &mut Context<Self>) {
         let id = self.next_toast;
         self.next_toast += 1;
         let linger = match notice {

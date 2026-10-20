@@ -34,17 +34,21 @@ impl Store {
                         tracing::warn!(%project, "background fetch failed: {err:#}");
                     }
                     let reloaded = this.update(cx, |store, cx| {
-                        store.fetched.insert(project.clone(), Instant::now());
+                        // Only a fetch that worked says when it last fetched.
                         match fetched {
-                            Ok(_) => store.fetch_failed.remove(&project),
+                            Ok(_) => {
+                                store.fetched.insert(project.clone(), Instant::now());
+                                store.fetch_failed.remove(&project)
+                            }
                             Err(_) => store.fetch_failed.insert(project.clone(), Instant::now()),
                         };
                         // What a fetch changes is in the git directory, which the watcher
                         // reloads for.
                         let watched =
                             (store.project(&project)).is_some_and(|entry| entry.watcher.is_some());
+                        // A fetch writes refs, not files.
                         if fetched.is_err() || !watched {
-                            store.load_or_defer(&project, Reload::full(), cx);
+                            store.load_or_defer(&project, Reload::commits(), cx);
                         }
                     });
                     if reloaded.is_err() {
@@ -124,6 +128,13 @@ impl Store {
     }
 
     /// Whether asking `id`'s forge failed last time, so what shows of it may be old.
+    /// Ask the forges that failed again, as once an account to read them with is added.
+    pub fn retry_forges(&mut self) {
+        for id in std::mem::take(&mut self.forge_failed) {
+            self.refresh_forge(&id);
+        }
+    }
+
     pub fn forge_failed(&self, id: &ProjectId) -> bool {
         self.forge_failed.contains(id)
     }
@@ -188,8 +199,9 @@ impl Store {
                     Ok(changed) => {
                         store.forge_failed.remove(&id);
                         store.forge_synced.insert(id.clone(), crate::ui::now());
+                        // The forge's answers are in the commits and branches, not the files.
                         if *changed {
-                            store.load_or_defer(&id, Reload::full(), cx);
+                            store.load_or_defer(&id, Reload::commits(), cx);
                         }
                     }
                     Err(_) => {
@@ -207,7 +219,7 @@ impl Store {
                 };
                 let reloaded = this.update(cx, |store, cx| {
                     match checked {
-                        Some(Ok(true)) => store.load_or_defer(&id, Reload::full(), cx),
+                        Some(Ok(true)) => store.load_or_defer(&id, Reload::commits(), cx),
                         Some(Ok(false)) | None => {}
                         Some(Err(err)) => tracing::debug!(%id, "CI refresh failed: {err:#}"),
                     }

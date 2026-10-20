@@ -91,16 +91,22 @@ impl AppView {
         line: Option<u32>,
         cx: &mut Context<Self>,
     ) {
+        let open =
+            move || settings::open_in_editor(&path, worktree.as_deref(), &editor, &file, line);
+        self.open_with("Couldn't open the editor", open, cx);
+    }
+
+    /// Run `open` off the UI thread, saying `failed`, with why, when it fails.
+    fn open_with(
+        &self,
+        failed: &'static str,
+        open: impl FnOnce() -> anyhow::Result<()> + Send + 'static,
+        cx: &mut Context<Self>,
+    ) {
         let store = self.store.clone();
         cx.spawn(async move |_, cx| {
-            let opened = backend::run(move || {
-                settings::open_in_editor(&path, worktree.as_deref(), &editor, &file, line)
-            })
-            .await;
-            if let Err(err) = opened {
-                store.update(cx, |store, cx| {
-                    store.error("Couldn't open the editor", format!("{err:#}"), cx)
-                });
+            if let Err(err) = backend::run(open).await {
+                store.update(cx, |store, cx| store.error(failed, format!("{err:#}"), cx));
             }
         })
         .detach();
@@ -116,16 +122,8 @@ impl AppView {
             .terminal
             .clone()
             .unwrap_or_else(|| DEFAULT_TERMINAL.to_owned());
-        let store = self.store.clone();
-        cx.spawn(async move |_, cx| {
-            let opened = backend::run(move || settings::open_in_terminal(&path, &terminal)).await;
-            if let Err(err) = opened {
-                store.update(cx, |store, cx| {
-                    store.error("Couldn't open the terminal", format!("{err:#}"), cx)
-                });
-            }
-        })
-        .detach();
+        let open = move || settings::open_in_terminal(&path, &terminal);
+        self.open_with("Couldn't open the terminal", open, cx);
     }
 
     /// The selected project in the terminal.

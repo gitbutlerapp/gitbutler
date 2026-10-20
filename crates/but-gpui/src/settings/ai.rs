@@ -23,6 +23,8 @@ const OWN_KEY: &str = "bringYourOwn";
 pub(super) struct Ai {
     config: Option<AiConfiguration>,
     loading: bool,
+    /// The last read failed: a search doesn't read them again, only opening the page does.
+    failed: bool,
     /// "Your own" is picked but no key is stored yet; it's saved with the key, as a key
     /// option without a key can't be.
     own_pending: bool,
@@ -54,6 +56,7 @@ impl Ai {
         Self {
             config: None,
             loading: false,
+            failed: false,
             own_pending: false,
             key,
             model,
@@ -106,11 +109,17 @@ impl SettingsView {
     /// Read the AI settings again next time they're shown, as after signing in or out.
     pub(super) fn forget_ai(&mut self) {
         self.ai.config = None;
+        self.retry_ai();
+    }
+
+    /// Read the AI settings again when next asked, after a read that failed.
+    pub(super) fn retry_ai(&mut self) {
+        self.ai.failed = false;
     }
 
     /// Read the AI settings the first time they're needed.
     pub(super) fn ensure_ai(&mut self, cx: &mut Context<Self>) {
-        if self.ai.config.is_some() || self.ai.loading {
+        if self.ai.config.is_some() || self.ai.loading || self.ai.failed {
             return;
         }
         self.ai.loading = true;
@@ -123,7 +132,10 @@ impl SettingsView {
                         this.ai.config = Some(config);
                         this.sync_ai_fields(cx);
                     }
-                    Err(err) => this.error("Couldn't read the AI settings", err, cx),
+                    Err(err) => {
+                        this.ai.failed = true;
+                        this.error("Couldn't read the AI settings", err, cx)
+                    }
                 }
             })
             .ok();
