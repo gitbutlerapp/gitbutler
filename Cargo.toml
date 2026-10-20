@@ -207,13 +207,13 @@ bstr = "1.12.1"
 zip = { version = "4", default-features = false, features = ["bzip2"] }
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
 # When adjusting this, update `gix-testtools` as well!
-gix = { version = "0.89.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "79f388066484c445c038823b2201220e34b0b312", default-features = false, features = [
+gix = { version = "0.89.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "7a22948228c2193a87cd504f6ef0e03df7c539b4", default-features = false, features = [
     "sha1",
     "sha256",
     "anyhow",
     "auto-chain-error"
 ] }
-gix-testtools = { version = "0.22.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "79f388066484c445c038823b2201220e34b0b312" }
+gix-testtools = { version = "0.22.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "7a22948228c2193a87cd504f6ef0e03df7c539b4" }
 
 
 git2 = { version = "0.21.0", features = [
@@ -318,7 +318,7 @@ sapling-renderdag = "0.1.0"
 [patch.crates-io]
 # Keep workspace crates that use the `gix 0.89` line on the same git revision.
 # This is relevant to force `git-meta` to use our version.
-gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "79f388066484c445c038823b2201220e34b0b312" }
+gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "7a22948228c2193a87cd504f6ef0e03df7c539b4" }
 git2 = { git = "https://github.com/gitbutlerapp/git2-rs", rev = "a87a7bb3f6843504339fe7434ee0732a3e968f3e" }
 
 [workspace.lints.clippy]
