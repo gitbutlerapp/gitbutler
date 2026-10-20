@@ -74,9 +74,6 @@ impl Graph {
     ) -> anyhow::Result<Self> {
         self.hard_limit_hit = hard_limit;
 
-        // Make sure edge order matches the git commit graph when traversed.
-        self.rebuild_edges_in_parent_order();
-
         // Keep the original traversal tip available even if post-processing moves the
         // entrypoint to a segment that doesn't contain it.
         self.update_entrypoint_commit_id(tip);
@@ -138,34 +135,6 @@ impl Graph {
             self.detach_entrypoint_segment()?;
         }
         Ok(self)
-    }
-
-    /// Rebuild outgoing edges so petgraph traversal follows the source commit's
-    /// `parent_order`. Petgraph traverses edges in reverse creation order, so
-    /// edges are re-added from last parent to first parent.
-    fn rebuild_edges_in_parent_order(&mut self) {
-        for sidx in self.segments().collect::<Vec<_>>() {
-            self.rebuild_outgoing_edges_in_parent_order(sidx);
-        }
-    }
-
-    /// Like [`Self::rebuild_edges_in_parent_order()`], for `sidx` alone.
-    fn rebuild_outgoing_edges_in_parent_order(&mut self, sidx: SegmentIndex) {
-        let mut outgoing_edges: Vec<EdgeOwned> = self
-            .inner
-            .edges_directed(sidx, Direction::Outgoing)
-            .map(EdgeOwned::from)
-            .collect();
-        if outgoing_edges.len() < 2 {
-            return;
-        }
-        outgoing_edges.sort_by_key(|e| std::cmp::Reverse(e.weight.parent_order));
-        for edge in &outgoing_edges {
-            self.inner.remove_edge(edge.id);
-        }
-        for edge in &outgoing_edges {
-            self.inner.add_edge(edge.source, edge.target, edge.weight);
-        }
     }
 
     /// Ensure the entrypoint commit-id is updated to match the actual tip commit.
@@ -1890,7 +1859,6 @@ impl Graph {
                     .push(edge.into());
             }
         }
-        let mut retargeted = BTreeSet::new();
         for (branch_sidx, leaving) in leaving_by_branch {
             let commits_sidx =
                 self.split_segment(branch_sidx, 0, None, None, meta, worktree_by_branch)?;
@@ -1909,11 +1877,7 @@ impl Graph {
                     edge.weight.dst_id,
                     edge.weight.parent_order,
                 );
-                retargeted.insert(edge.source);
             }
-        }
-        for sidx in retargeted {
-            self.rebuild_outgoing_edges_in_parent_order(sidx);
         }
         Ok(())
     }
