@@ -202,7 +202,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             return Ok(None);
         };
         let (target, ref_name) = self
-            .checkout_target(selector)?
+            .landed_checkout_target(selector)?
             .context("Checkout selector is pointing to none")?;
         Ok(Some(HeadCheckout {
             target,
@@ -238,14 +238,30 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             });
         }
 
+        let mut ref_edits = self.landed_ref_edits()?;
+        let specs = self
+            .linked_checkout_specs()?
+            .into_iter()
+            .map(|spec| {
+                Ok(LinkedCheckoutSpec {
+                    target: self.landing(spec.target)?,
+                    ..spec
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let head = if materialize_options.without_checkout {
+            None
+        } else {
+            self.head_checkout()?
+        };
+
         if let Some(memory) = self.repo.objects.take_object_memory() {
             memory.persist(&self.repo)?;
         }
 
-        let specs = self.linked_checkout_specs()?;
-        let worktree_head_edits = worktree_head_edits(&specs)?;
+        ref_edits.extend(worktree_head_edits(&specs)?);
 
-        let (head, checkout_conflict_occurred) = if !materialize_options.without_checkout {
+        let checkout_conflict_occurred = if !materialize_options.without_checkout {
             let linked_repos = open_linked_checkout_repos(&repo, specs)?;
             for linked_repo in linked_repos {
                 safe_checkout_from_head(
@@ -261,8 +277,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                 )?;
             }
 
-            let head = self.head_checkout()?;
-            let checkout_conflict_occurred = if let Some(head) = &head {
+            if let Some(head) = &head {
                 let outcome = safe_checkout_from_head(
                     head.target,
                     &repo,
@@ -277,18 +292,12 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                 outcome.conflict_occurred
             } else {
                 false
-            };
-            (head, checkout_conflict_occurred)
+            }
         } else {
-            (None, false)
+            false
         };
 
-        let mut ref_edits = self.ref_edits.clone();
-        ref_edits.extend(worktree_head_edits);
-
-        if !materialize_options.without_checkout
-            && let Some(head) = head
-        {
+        if let Some(head) = head {
             let target = head_target(head.target, head.ref_name);
             if repo.find_reference("HEAD")?.inner.target != target {
                 let checked_out = match &target {

@@ -9,7 +9,7 @@ use crate::{
 };
 
 #[test]
-fn failed_implicit_move_checkout_restores_source_history() {
+fn implicit_move_onto_a_conflicted_tip_checks_out_its_padding_commit() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
     env.file("file", "x\n");
     env.but("commit -b source -m base").assert().success();
@@ -55,20 +55,23 @@ Hint: run `but help` for all commands
     );
     env.but("move suw --above source -b moved")
         .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Cannot check out a conflicted commit.
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Moved suw to new branch 'moved' above branch 'source'
 
-Hint: Run `but switch --workspace` and start conflict resolution with `but resolve`
+⚠ This operation left a commit conflicted:
+  ● suw [conflict] first
+Resolve with but resolve, or back out with but undo.
 
 "#]]);
-    // A failed checkout must restore the original source refs and leave no destination branch.
+    // The moved commit conflicts on top of `last`, so the checked out `moved` rests on a padding commit over it.
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* baa8b36 (HEAD -> source) last
-* 5f3b211 revert
-* 10fc7e8 first
+* b14d932 (HEAD -> moved) GitButler Padding Commit
+* cf2bcd3 [conflict] first
+* ae5714b (source) last
+* e5528a4 revert
 * 491196b base
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
@@ -81,13 +84,14 @@ Hint: Run `but switch --workspace` and start conflict resolution with `but resol
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ so [source] [HEAD]
+┊╭┄ mo [moved] [HEAD]
+┊●   ypr GitButler Padding Commit (no changes)
+┊●   suw first (no changes) {conflicted}
+┊│
+┊├┄ so [source]
 ┊●   nlu last
 ┊│     nlu:q M file
-┊●   uwm revert
-┊│     uwm:q M file
-┊●   suw first
-┊│     suw:q M file
+┊●   uwm revert (no changes)
 ┊●   vml base
 ┊│     vml:q A file
 ├╯
@@ -100,7 +104,7 @@ Hint: run `but help` for all commands
 }
 
 #[test]
-fn failed_implicit_branch_move_checkout_restores_source_history() {
+fn implicit_branch_move_onto_a_conflicted_tip_checks_out_its_padding_commit() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
     env.file("file", "x\n");
     env.but("commit -b source -m base").assert().success();
@@ -154,20 +158,23 @@ Hint: run `but help` for all commands
     );
     env.but("move first --above top")
         .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Cannot check out a conflicted commit.
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Stacked branch 'first' on top of branch 'top'
 
-Hint: Run `but switch --workspace` and start conflict resolution with `but resolve`
+⚠ This operation left a commit conflicted:
+  ● suw [conflict] first
+Resolve with but resolve, or back out with but undo.
 
 "#]]);
-    // Restacking existing branches must also roll back every rewritten ref and branch order.
+    // `first` conflicts on top of `top` and is checked out, so it rests on a padding commit over it.
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* baa8b36 (HEAD -> top) last
-* 5f3b211 revert
-* 10fc7e8 (first) first
+* b14d932 (HEAD -> first) GitButler Padding Commit
+* cf2bcd3 [conflict] first
+* ae5714b (top) last
+* e5528a4 revert
 * 491196b (source) base
 * b1540e5 (origin/main, origin/HEAD, main, gitbutler/target) M
 * e31e6ca add init
@@ -180,15 +187,14 @@ Hint: Run `but switch --workspace` and start conflict resolution with `but resol
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┊╭┄ to [top] [HEAD]
+┊╭┄ fi [first] [HEAD]
+┊●   ypr GitButler Padding Commit (no changes)
+┊●   suw first (no changes) {conflicted}
+┊│
+┊├┄ to [top]
 ┊●   nlu last
 ┊│     nlu:q M file
-┊●   uwm revert
-┊│     uwm:q M file
-┊│
-┊├┄ fi [first]
-┊●   suw first
-┊│     suw:q M file
+┊●   uwm revert (no changes)
 ┊│
 ┊├┄ so [source]
 ┊●   vml base
@@ -6200,28 +6206,32 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    let head_before = env.invoke_git("rev-parse HEAD");
     let head_ref_before = env.invoke_git("symbolic-ref HEAD");
 
     env.but("discard oln")
         .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Cannot check out a conflicted commit.
-
-Hint: Run `but switch --workspace` and start conflict resolution with `but resolve`
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Discarded commit oln
 
 "#]]);
 
     assert_eq!(
-        env.invoke_git("rev-parse HEAD"),
-        head_before,
-        "the rejected discard preserves the branch tip and its history"
-    );
-    assert_eq!(
         env.invoke_git("symbolic-ref HEAD"),
         head_ref_before,
-        "the rejected discard keeps the same branch checked out"
+        "the discard keeps the same branch checked out"
+    );
+    // The conflicted `change file` is now the tip, so the branch rests on a padding commit over it.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        snapbox::str![[r#"
+* dc1fb54 (HEAD -> A) GitButler Padding Commit
+* 2cf78ad [conflict] change file
+| * ff4136d (gitbutler/workspace) GitButler Workspace Commit
+|/  
+* 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+
+"#]]
     );
 }
 

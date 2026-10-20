@@ -1044,13 +1044,8 @@ fn pad_conflicted_main(
     editor.replace_with_none(b)?;
     editor.rebase()?.materialize_without_checkout()?;
 
-    let c = repo.rev_parse_single("main")?;
-    let padding = but_core::commit::padding::create(&but_core::Commit::from_id(c)?)?;
-    repo.reference(
-        "refs/heads/main",
-        padding,
-        gix::refs::transaction::PreviousValue::Any,
-        "pad c",
-    )?;
-    Ok((c.detach(), padding))
+    Ok((
+        repo.rev_parse_single("main~1")?.detach(),
+        repo.rev_parse_single("main")?.detach(),
+    ))
 }

@@ -1057,6 +1057,62 @@ fn a_detached_worktree_follows_a_commit_inserted_above_its_head() -> Result<()> 
 }
 
 #[test]
+fn worktrees_on_a_conflicted_commit_check_out_its_padding_commit() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-checkout-heads")?;
+    let graph = graph_with_worktrees(&repo, &*meta, &mut db)?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    // A base that already has a different `a` makes the commit adding `a` conflict.
+    let mut replacement = but_core::Commit::from_id(repo.rev_parse_single("middle~1")?)?;
+    let mut tree = repo.edit_tree(replacement.tree)?;
+    tree.upsert(
+        "a",
+        gix::objs::tree::EntryKind::Blob,
+        repo.write_blob("other\n")?,
+    )?;
+    replacement.tree = tree.write()?.detach();
+    let replacement = repo.write_object(replacement.inner)?.detach();
+    let base = editor.select_commit(repo.rev_parse_single("middle~1")?.detach())?;
+    editor.amend_pick(base, replacement)?;
+    editor.rebase()?.materialize(Default::default())?;
+
+    // middle moves to a padding commit on the conflicted a, while b rests on a itself, not on the padding commit.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* f17f1b1 (HEAD -> main) b
+| * f8af7ed (middle) GitButler Padding Commit
+|/  
+* 57337f7 [conflict] a
+* c06f553 base
+
+"#]]
+        .raw()
+    );
+
+    let attached = linked_repo(&repo, "wt")?;
+    assert_eq!(
+        std::fs::read_to_string(attached.git_dir().join("HEAD"))?,
+        "ref: refs/heads/middle\n",
+        "the branch-backed worktree stays attached"
+    );
+    // The attached worktree is exactly the padding commit.
+    snapbox::assert_data_eq!(git_status(&attached)?, snapbox::str![""]);
+
+    let detached = linked_repo(&repo, "wt-detached")?;
+    assert_eq!(detached.head_name()?, None, "the worktree stays detached");
+    assert_eq!(
+        detached.head_id()?,
+        repo.rev_parse_single("middle")?,
+        "on the same padding commit the attached worktree's branch points at"
+    );
+    // The detached worktree is exactly the padding commit.
+    snapbox::assert_data_eq!(git_status(&detached)?, snapbox::str![""]);
+    Ok(())
+}
+
+#[test]
 fn an_attached_worktree_follows_its_branch_being_replaced_by_another() -> Result<()> {
     let (repo, _tmpdir, mut meta, mut db) = worktree_fixture("worktree-checkout-heads")?;
     let middle = repo.rev_parse_single("middle")?.detach();

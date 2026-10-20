@@ -2,6 +2,7 @@ use anyhow::Result;
 use but_rebase::graph_rebase::Editor;
 use but_testsupport::{cat_commit, visualize_commit_graph_all};
 use but_workspace::commit::reword;
+use snapbox::IntoData;
 
 use crate::ref_info::with_workspace_commit::utils::{
     named_writable_scenario_with_description,
@@ -108,14 +109,13 @@ fn reword_conflicted_commit_keeps_conflict_markers() -> Result<()> {
     let id = repo.rev_parse_single("conflicted")?;
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
-    // Test conflict metadata preservation without checking out the conflicted commit.
     reword(editor, id.detach(), b"New name".into())?
         .0
-        .materialize_without_checkout()?;
+        .materialize(Default::default())?;
 
     // Prefix and trailer are re-applied, so the commit still reads as conflicted.
     snapbox::assert_data_eq!(
-        cat_commit(&repo, "main")?,
+        cat_commit(&repo, "main~1")?,
         snapbox::str![[r#"
 tree c986d61715fc89d762de9e07087f6afc621fa4af
 parent a047f8183ba2bb7eb00ef89e60050c5fde740483
@@ -139,10 +139,23 @@ GitButler-Conflict: This is a GitButler-managed conflicted commit. Files are aut
 "#]]
     );
 
-    let commit = but_core::Commit::from_id(repo.rev_parse_single("main")?)?;
+    let commit = but_core::Commit::from_id(repo.rev_parse_single("main~1")?)?;
     assert!(
         commit.is_conflicted(),
         "rewording must not drop the conflicted state"
+    );
+    // The conflicted commit is checked out through a padding commit on top of it.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 7c77c78 (tag: conflicted) [conflict] GitButler WIP Commit
+| * 0d3631b (HEAD -> main) GitButler Padding Commit
+| * 6738c1b [conflict] New name
+|/  
+* a047f81 (tag: normal) init
+
+"#]]
+        .raw()
     );
 
     Ok(())

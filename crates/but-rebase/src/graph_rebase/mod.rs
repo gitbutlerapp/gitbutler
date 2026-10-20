@@ -12,10 +12,19 @@ use std::collections::{BTreeMap, HashMap};
 use anyhow::{Context, Result, bail};
 use but_core::ChangeId;
 use but_core::commit::CommitIdentifiers;
-use but_core::{RefMetadata, commit::SignCommit};
+use but_core::{
+    RefMetadata,
+    commit::{SignCommit, padding},
+};
 use but_graph::init::Overlay;
 pub use creation::GraphEditorOptions;
-use gix::refs::transaction::RefEdit;
+use gix::{
+    prelude::ObjectIdExt as _,
+    refs::{
+        Target,
+        transaction::{Change, PreviousValue, RefEdit},
+    },
+};
 
 use crate::graph_rebase::util::{OrderedParentKind, collect_ordered_parents};
 
@@ -391,6 +400,64 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         })
     }
 
+    fn landing(&self, id: gix::ObjectId) -> Result<gix::ObjectId> {
+        let commit = but_core::Commit::from_id(id.attach(&self.repo))?;
+        if !commit.is_conflicted() {
+            return Ok(id);
+        }
+        padding::create(&commit).context(but_error::Code::ConflictedCommitCheckout)
+    }
+
+    fn landed_checkout_target(
+        &self,
+        selector: Selector,
+    ) -> Result<Option<(gix::ObjectId, Option<gix::refs::FullName>)>> {
+        self.checkout_target(selector)?
+            .map(|(id, ref_name)| Ok((self.landing(id)?, ref_name)))
+            .transpose()
+    }
+
+    fn landed_ref_edits(&self) -> Result<Vec<RefEdit>> {
+        let mut edits = self.ref_edits.clone();
+        for checkout in &self.checkouts {
+            let (Checkout::Head { selector, .. } | Checkout::Worktree { selector, .. }) = checkout;
+            let Some((id, Some(ref_name))) = self.checkout_target(*selector)? else {
+                continue;
+            };
+            let landing = self.landing(id)?;
+            if landing == id {
+                continue;
+            }
+            match edits.iter_mut().find(|edit| edit.name == ref_name) {
+                Some(RefEdit {
+                    change: Change::Update { new, .. },
+                    ..
+                }) => *new = Target::Object(landing),
+                Some(RefEdit {
+                    change: Change::Delete { .. },
+                    ..
+                }) => bail!("BUG: the checked out reference {ref_name} is deleted"),
+                None => edits.push(RefEdit::update(
+                    ref_name,
+                    landing,
+                    PreviousValue::MustExistAndMatch(Target::Object(id)),
+                    "",
+                )),
+            }
+        }
+        edits.retain(|edit| {
+            !matches!(
+                &edit.change,
+                Change::Update {
+                    expected: PreviousValue::MustExistAndMatch(previous),
+                    new,
+                    ..
+                } if previous == new
+            )
+        });
+        Ok(edits)
+    }
+
     fn worktree_tips_after_rebase(&self) -> Result<Vec<but_graph::init::WorktreeTip>> {
         Ok(self
             .linked_checkout_specs()?
@@ -529,14 +596,14 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     ///
     /// Materialization will be a no-op
     pub fn references_updated(&self) -> Result<bool> {
-        if !self.ref_edits.is_empty() {
+        if !self.landed_ref_edits()?.is_empty() {
             return Ok(true);
         }
 
         for co in &self.checkouts {
             match co {
                 Checkout::Head { selector, .. } => {
-                    let target = self.checkout_target(*selector)?;
+                    let target = self.landed_checkout_target(*selector)?;
                     let head = self
                         .repo()
                         .head_id()
@@ -553,7 +620,9 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
                     initial_head,
                     ..
                 } => {
-                    if self.checkout_target(*selector)? != Some((*initial_head, ref_name.clone())) {
+                    if self.landed_checkout_target(*selector)?
+                        != Some((*initial_head, ref_name.clone()))
+                    {
                         return Ok(true);
                     }
                 }
