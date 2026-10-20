@@ -165,23 +165,29 @@ pub fn gitbutler_user() -> Option<GitButlerUser> {
 /// The picture at `url`, as an image to draw. A network that never answers gives up after
 /// ten seconds rather than holding a thread.
 pub fn avatar(url: &str) -> Result<std::sync::Arc<gpui::Image>> {
-    use gpui::ImageFormat as F;
-    let bytes = runtime().handle().block_on(async {
+    picture(fetch(url)?)
+}
+
+/// What `url` serves, with [`avatar`]'s ten seconds to answer.
+pub fn fetch(url: &str) -> Result<Vec<u8>> {
+    runtime().handle().block_on(async {
         let request = reqwest::Client::new().get(url);
         let response = request.timeout(std::time::Duration::from_secs(10)).send();
-        anyhow::Ok(response.await?.error_for_status()?.bytes().await?)
-    })?;
-    let format = match bytes.as_ref() {
+        anyhow::Ok(response.await?.error_for_status()?.bytes().await?.to_vec())
+    })
+}
+
+/// `bytes` as an image to draw, when they're a picture in a format GitButler draws.
+pub fn picture(bytes: Vec<u8>) -> Result<std::sync::Arc<gpui::Image>> {
+    use gpui::ImageFormat as F;
+    let format = match bytes.as_slice() {
         [0x89, b'P', b'N', b'G', ..] => F::Png,
         [0xFF, 0xD8, ..] => F::Jpeg,
         [b'G', b'I', b'F', ..] => F::Gif,
         b if b.starts_with(b"RIFF") && b.get(8..12) == Some(b"WEBP".as_slice()) => F::Webp,
         _ => anyhow::bail!("Not a picture GitButler can draw"),
     };
-    Ok(std::sync::Arc::new(gpui::Image::from_bytes(
-        format,
-        bytes.to_vec(),
-    )))
+    Ok(std::sync::Arc::new(gpui::Image::from_bytes(format, bytes)))
 }
 
 /// The page to sign in to GitButler on. It shows a token to paste back here.

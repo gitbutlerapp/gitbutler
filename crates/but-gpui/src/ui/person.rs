@@ -1,9 +1,10 @@
 //! A person without a picture, as GitButler's other apps draw them: a pattern in a colour,
 //! both picked from their name. A port of `@gitbutler/ui-react`'s `personColour.ts`, so an
-//! author looks the same here as on but.dev. An author with a Gravatar photo gets it on top.
+//! author looks the same here as on but.dev. An author with a GitHub or Gravatar photo gets it
+//! on top.
 
 use std::fmt::Write;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use gpui::{
     App, Asset, Div, ImageCacheError, ImageSource, SharedString, Window, div, img, prelude::*, px,
@@ -35,14 +36,14 @@ pub fn person_avatar(seed: &str, size: f32, theme: &Theme) -> Div {
         )
 }
 
-/// `name`'s picture, with the Gravatar photo for `email` over their pattern once it loads.
-/// Someone without one, or offline, keeps the pattern.
+/// `name`'s picture, with the photo for `email` over their pattern once it loads. Someone
+/// without one, or offline, keeps the pattern.
 pub fn author_avatar(name: &str, email: &str, size: f32, theme: &Theme) -> Div {
     let email = SharedString::from(email.trim().to_lowercase());
     let photo =
-        move |window: &mut Window, cx: &mut App| match window.use_asset::<Gravatar>(&email, cx)? {
+        move |window: &mut Window, cx: &mut App| match window.use_asset::<Photo>(&email, cx)? {
             Some(photo) => photo.use_render_image(window, cx).map(Ok),
-            None => Some(Err(ImageCacheError::Asset("No Gravatar".into()))),
+            None => Some(Err(ImageCacheError::Asset("No photo".into()))),
         };
     person_avatar(name, size, theme).relative().child(
         img(ImageSource::Custom(Arc::new(photo)))
@@ -54,11 +55,11 @@ pub fn author_avatar(name: &str, email: &str, size: f32, theme: &Theme) -> Div {
     )
 }
 
-/// The Gravatar photo for a lowercased email, fetched once a run. `d=404` asks for a real
-/// photo only, so someone without one gets `None` rather than a generated face.
-struct Gravatar;
+/// The photo for a lowercased email, fetched once a run, off the UI thread: the GitHub
+/// picture of the account it belongs to, else the Gravatar one.
+struct Photo;
 
-impl Asset for Gravatar {
+impl Asset for Photo {
     type Source = SharedString;
     type Output = Option<Arc<gpui::Image>>;
 
@@ -66,11 +67,37 @@ impl Asset for Gravatar {
         email: SharedString,
         _: &mut App,
     ) -> impl Future<Output = Self::Output> + Send + 'static {
-        let hash = md5::compute(email.as_bytes());
-        let url = format!("https://www.gravatar.com/avatar/{hash:x}?s=64&r=g&d=404");
-        let photo = crate::backend::run(move || crate::backend::accounts::avatar(&url));
-        async move { photo.await.ok() }
+        let photo = crate::backend::run(move || Ok(github(&email).or_else(|| gravatar(&email))));
+        async move { photo.await.ok().flatten() }
     }
+}
+
+/// The picture of the GitHub account `email` belongs to. GitHub answers an address no
+/// account has with its default picture, which, read once a run from an address none can
+/// have, counts as none; while it can't be read, as offline, neither can a photo.
+fn github(email: &str) -> Option<Arc<gpui::Image>> {
+    use crate::backend::accounts::{fetch, picture};
+    static DEFAULT: OnceLock<Option<md5::Digest>> = OnceLock::new();
+    let url = |email: &str| {
+        let base = "https://avatars.githubusercontent.com/u/e";
+        reqwest::Url::parse_with_params(base, [("email", email), ("s", "64")]).ok()
+    };
+    let default = (*DEFAULT.get_or_init(|| {
+        let url = url("nobody@users.invalid")?;
+        fetch(url.as_str()).ok().map(md5::compute)
+    }))?;
+    let bytes = fetch(url(email)?.as_str()).ok()?;
+    (md5::compute(&bytes) != default)
+        .then(|| picture(bytes).ok())
+        .flatten()
+}
+
+/// The Gravatar photo for `email`. `d=404` asks for a real photo only, so someone without one
+/// gets `None` rather than a generated face.
+fn gravatar(email: &str) -> Option<Arc<gpui::Image>> {
+    let hash = md5::compute(email.as_bytes());
+    let url = format!("https://www.gravatar.com/avatar/{hash:x}?s=64&r=g&d=404");
+    crate::backend::accounts::avatar(&url).ok()
 }
 
 /// The SVG of a pattern, by its asset path: one colour, clipped to the circle it's shown in.
