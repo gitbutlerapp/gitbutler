@@ -4,7 +4,7 @@
 use std::collections::HashSet;
 use std::hash::Hash;
 use std::sync::Arc;
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::Duration;
 
 use gpui::{
     AnyElement, App, Bounds, ClickEvent, Context, Div, DragMoveEvent, ElementId, Entity,
@@ -113,7 +113,6 @@ enum Row {
     More(ProjectId, String, usize),
     /// The end of a branch's commits unfolded, which folds them again.
     Fewer(ProjectId, String),
-    /// A commit an operation is still making, by its title.
     /// A commit a mutation is making, by its title, and whether it's been long enough to
     /// show it's still on its way.
     Pending(SharedString, bool),
@@ -200,6 +199,63 @@ struct RowStyle<'a> {
     joined: (bool, bool),
 }
 
+/// A fold's glyph in a step as wide as a branch's: a chevron, down while `open`, or a dot
+/// with nothing to fold (`None`).
+fn step(open: Option<bool>, color: gpui::Hsla) -> Div {
+    let glyph = match open {
+        None => Icon::BulletDisc,
+        Some(true) => Icon::ChevronDown,
+        Some(false) => Icon::ChevronRight,
+    };
+    div()
+        .flex_none()
+        .w(px(14.))
+        .h(px(16.))
+        .flex()
+        .items_center()
+        .justify_center()
+        .child(small_icon(glyph).text_color(color))
+}
+
+/// A row's click handler that runs `toggle` on a double-click, as a folder opens.
+fn double_click(
+    toggle: impl Fn(&mut Navigator, &mut Window, &mut Context<Navigator>) + 'static,
+    cx: &Context<Navigator>,
+) -> impl Fn(&ClickEvent, &mut Window, &mut App) + 'static {
+    cx.listener(move |this, event: &ClickEvent, window, cx| {
+        if event.click_count() == 2 {
+            toggle(this, window, cx)
+        }
+    })
+}
+
+impl Navigator {
+    /// A row's fold, as a branch's: a chevron that folds it without selecting it, down while
+    /// `open`, or a dot when there's nothing to fold (`None`).
+    fn fold_step(
+        &self,
+        id: impl Into<ElementId>,
+        open: Option<bool>,
+        color: gpui::Hsla,
+        cx: &Context<Self>,
+        toggle: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
+    ) -> Stateful<Div> {
+        let theme = Theme::get(cx);
+        let el = div().id(id).child(step(open, color));
+        match open {
+            None => el,
+            Some(_) => el
+                .rounded(px(3.))
+                .hover(|el| el.bg(theme.hover()))
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                    cx.stop_propagation();
+                    toggle(this, window, cx)
+                })),
+        }
+    }
+}
+
 impl RowStyle<'_> {
     fn row(&self, id: String, indent: f32) -> Stateful<Div> {
         let theme = self.theme;
@@ -224,6 +280,20 @@ impl RowStyle<'_> {
         } else {
             self.theme.text_2
         }
+    }
+
+    /// The faintest text, as a fold's glyph, or on a solid selection its muted ink.
+    fn quiet(&self) -> Hsla {
+        match self.solid {
+            true => self.muted(),
+            false => self.theme.text_3,
+        }
+    }
+
+    /// How many of a row's commits aren't pushed, when any aren't.
+    fn unpushed(&self, n: usize) -> Option<Stateful<Div>> {
+        let color = self.meta(self.theme.blue);
+        meta_count(Icon::ArrowUp, n, color, plural(n, "unpushed commit"))
     }
 
     /// Meaningful colours wash out on the dark selection ground; keep them legible.
@@ -268,7 +338,7 @@ pub struct Navigator {
     folded_checkouts: HashSet<(ProjectId, Arc<str>)>,
     /// Branches on other machines folded or opened against how Settings say branches start,
     /// as [`Self::flipped_branches`].
-    flipped_mesh_branches: HashSet<mesh::MeshBranch>,
+    flipped_mesh_branches: HashSet<crate::state::MeshBranch>,
     /// The filter in the header, over every project's rows.
     filter: Entity<TextInput>,
     /// The first item the filter found, which Enter in it selects.
@@ -331,7 +401,7 @@ impl Navigator {
             }),
             cx.subscribe(&store, |this, _, event, _| match event {
                 StoreEvent::SelectionChanged => this.reveal_selection = true,
-                StoreEvent::Loaded(_) => this.hold_still = true,
+                StoreEvent::Loaded(_) | StoreEvent::MeshRead(_) => this.hold_still = true,
                 _ => {}
             }),
             // Dragging the uncommitted changes carries the checked ones.
@@ -835,10 +905,13 @@ impl Navigator {
             return;
         }
         let current = self.store.read(cx).selection.as_ref();
-        let next = match current.and_then(|s| items.iter().position(|item| *item == s)) {
-            Some(ix) => (ix as isize + delta).clamp(0, items.len() as isize - 1) as usize,
-            None => 0,
+        // From off the list, a step forward starts at the top and one back at the bottom.
+        let at = match current.and_then(|s| items.iter().position(|item| *item == s)) {
+            Some(ix) => ix as isize,
+            None if delta > 0 => -1,
+            None => items.len() as isize,
         };
+        let next = (at + delta).clamp(0, items.len() as isize - 1) as usize;
         let next = items[next].clone();
         self.select(next, window, cx);
     }
@@ -881,7 +954,8 @@ impl Navigator {
         let next = match (at, forward) {
             (Some(at), true) => items[at + 1..].iter().find(heads),
             (Some(at), false) => items[..at].iter().rev().find(heads),
-            (None, _) => items.first(),
+            (None, true) => items.iter().find(heads),
+            (None, false) => items.iter().rev().find(heads),
         };
         if let Some(next) = next.map(|item| (*item).clone()) {
             self.select(next, window, cx);
@@ -1296,12 +1370,10 @@ impl Navigator {
             (Some(Cut::Branch(p, r)), Selection::Branch(project, ref_name)) => {
                 p == project && r == ref_name
             }
-            (Some(Cut::Commit(p, ids)), Selection::Commit(project, commit)) => {
-                p == project && ids.contains(commit)
-            }
-            (Some(Cut::CherryPick(p, ids)), Selection::Commit(project, commit)) => {
-                p == project && ids.contains(commit)
-            }
+            (
+                Some(Cut::Commit(p, ids) | Cut::CherryPick(p, ids)),
+                Selection::Commit(project, commit),
+            ) => p == project && ids.contains(commit),
             _ => false,
         };
         let style = RowStyle {
@@ -1698,10 +1770,7 @@ impl Navigator {
                 // A watched project's card folds to this row, still watched.
                 .when(expanded, |el| {
                     let project = id.clone();
-                    let step_color = match style.solid {
-                        true => style.muted(),
-                        false => theme.text_3,
-                    };
+                    let step_color = style.quiet();
                     el.child(
                         div()
                             .id(ElementId::Name(format!("fold-project-{id}").into()))
@@ -1966,37 +2035,20 @@ impl Navigator {
         let open = self.section_open(ix);
         // Written to in the last two minutes, likely by the agent working in it.
         let active = worktree.is_some_and(|wt| wt.last_activity().is_some_and(just_now));
-        let step_color = match style.solid {
-            true => style.muted(),
-            false => theme.text_3,
-        };
-        // As a branch's: a chevron, or a dot with no branches to fold.
-        // As wide as a branch's, so the two line up.
-        let step = div()
-            .id(("worktree-fold", ix))
-            .flex_none()
-            .w(px(14.))
-            .flex()
-            .justify_center();
-        let step = match branches.is_empty() {
-            true => step.child(small_icon(Icon::BulletDisc).text_color(step_color)),
-            false => {
-                let (project, name) = (id.clone(), name.clone());
-                step.child(
-                    small_icon(match open {
-                        true => Icon::ChevronDown,
-                        false => Icon::ChevronRight,
-                    })
-                    .text_color(step_color),
-                )
-                // Folding the worktree doesn't select it.
-                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                    cx.stop_propagation();
-                    this.toggle_section(&project, name.clone(), open, window, cx);
-                }))
+        let toggle = {
+            let (project, name) = (id.clone(), name.clone());
+            move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
+                this.toggle_section(&project, name.clone(), open, window, cx)
             }
         };
+        let folds = !branches.is_empty();
+        let step = self.fold_step(
+            ("worktree-fold", ix),
+            folds.then_some(open),
+            style.quiet(),
+            cx,
+            toggle.clone(),
+        );
         // In as far as a branch is, so its chevron and icon line up with theirs.
         let row = style
             .row(
@@ -2045,22 +2097,14 @@ impl Navigator {
                         el.child(
                             div()
                                 .text_size(px(11.))
-                                .text_color(match style.solid {
-                                    true => style.muted(),
-                                    false => theme.text_3,
-                                })
+                                .text_color(style.quiet())
                                 .child("uncommitted"),
                         )
                     }),
             )
             .when(!open, |el| {
-                el.children(meta_count(
-                    Icon::ArrowUp,
-                    unpushed_n,
-                    style.meta(theme.blue),
-                    plural(unpushed_n, "unpushed commit"),
-                ))
-                .when(unread, |el| el.child(dot(style.meta(theme.pop))))
+                el.children(style.unpushed(unpushed_n))
+                    .when(unread, |el| el.child(dot(style.meta(theme.pop))))
             })
             .when(active, |el| {
                 el.child(
@@ -2071,14 +2115,7 @@ impl Navigator {
                 )
             })
             .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
-            .when(!branches.is_empty(), |el| {
-                let (project, name) = (id.clone(), name.clone());
-                el.on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
-                    if event.click_count() == 2 {
-                        this.toggle_section(&project, name.clone(), open, window, cx);
-                    }
-                }))
-            });
+            .when(folds, |el| el.on_click(double_click(toggle, cx)));
         // The worktree's checked files while it's shown, else all of them.
         let drags = !uncommitted.is_empty();
         Some(
@@ -2176,35 +2213,19 @@ impl Navigator {
             .map(|commit| commit.time)
             .max();
         let label = format!("Stack of {}", branches.len());
-        let step_color = match style.solid {
-            true => style.muted(),
-            false => theme.text_3,
+        let toggle = {
+            let (project, bottom) = (id.clone(), bottom.to_owned());
+            move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
+                this.toggle_stack(&project, &bottom, open, window, cx)
+            }
         };
-        let fold = (id.clone(), bottom.to_owned());
-        let step = div()
-            .id(("stack-fold", ix))
-            .flex_none()
-            .w(px(14.))
-            .h(px(16.))
-            .flex()
-            .items_center()
-            .justify_center()
-            .rounded(px(3.))
-            .hover(|el| el.bg(theme.hover()))
-            .child(
-                small_icon(match open {
-                    true => Icon::ChevronDown,
-                    false => Icon::ChevronRight,
-                })
-                .text_color(step_color),
-            )
-            // Folding the stack doesn't select it.
-            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                cx.stop_propagation();
-                this.toggle_stack(&fold.0, &fold.1, open, window, cx);
-            }));
-        let fold = (id.clone(), bottom.to_owned());
+        let step = self.fold_step(
+            ("stack-fold", ix),
+            Some(open),
+            style.quiet(),
+            cx,
+            toggle.clone(),
+        );
         // As ui-react's StackCaption: quiet, so it doesn't read as one more branch, with
         // "Stack" a step above the rest.
         let (word, quiet) = match style.solid {
@@ -2242,26 +2263,17 @@ impl Navigator {
                         })),
                 )
                 .when(!open, |el| {
-                    el.children(meta_count(
-                        Icon::ArrowUp,
-                        unpushed_n,
-                        style.meta(theme.blue),
-                        plural(unpushed_n, "unpushed commit"),
-                    ))
-                    .children(latest.map(|at| {
-                        div()
-                            .flex_none()
-                            .text_size(px(11.))
-                            .text_color(style.muted())
-                            .child(relative_time(at))
-                    }))
+                    el.children(style.unpushed(unpushed_n))
+                        .children(latest.map(|at| {
+                            div()
+                                .flex_none()
+                                .text_size(px(11.))
+                                .text_color(style.muted())
+                                .child(relative_time(at))
+                        }))
                 })
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
-                .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
-                    if event.click_count() == 2 {
-                        this.toggle_stack(&fold.0, &fold.1, open, window, cx);
-                    }
-                }))
+                .on_click(double_click(toggle, cx))
                 .into_any_element(),
         )
     }
@@ -2337,52 +2349,25 @@ impl Navigator {
         let open = !closed || holds_selected;
         // As ui-react's SidebarRow: a chevron in a step of its own folds the commits away; a
         // branch without any has a dot there, keeping it in line with those that fold.
-        let step_color = match style.solid {
-            true => style.muted(),
-            false => theme.text_3,
-        };
-        let step = div()
-            .id(ElementId::Name(format!("fold-{id}-{ref_name}").into()))
-            .flex_none()
-            .w(px(14.))
-            .h(px(16.))
-            .flex()
-            .items_center()
-            .justify_center();
-        let step = match branch.commits.is_empty() {
-            true => step.child(small_icon(Icon::BulletDisc).text_color(step_color)),
-            false => {
-                let fold_key = key.clone();
-                step.rounded(px(3.))
-                    .hover(|el| el.bg(theme.hover()))
-                    .child(
-                        small_icon(match open {
-                            true => Icon::ChevronDown,
-                            false => Icon::ChevronRight,
-                        })
-                        .text_color(step_color),
-                    )
-                    // Folding the branch doesn't select it.
-                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                        cx.stop_propagation();
-                        if !open {
-                            this.set_branch_open(fold_key.clone(), true);
-                            return cx.notify();
-                        }
-                        this.set_branch_open(fold_key.clone(), false);
-                        // Folding it over its selected commit takes the selection up to it,
-                        // as ← does.
-                        match holds_selected {
-                            true => {
-                                let (project, ref_name) = fold_key.clone();
-                                this.select(Selection::Branch(project, ref_name), window, cx)
-                            }
-                            false => cx.notify(),
-                        }
-                    }))
+        let toggle = move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
+            this.set_branch_open(key.clone(), !open);
+            // Folding it over its selected commit takes the selection up to it, as ← does.
+            match open && holds_selected {
+                true => {
+                    let (project, ref_name) = key.clone();
+                    this.select(Selection::Branch(project, ref_name), window, cx)
+                }
+                false => cx.notify(),
             }
         };
+        let folds = !branch.commits.is_empty();
+        let step = self.fold_step(
+            ElementId::Name(format!("fold-{id}-{ref_name}").into()),
+            folds.then_some(open),
+            style.quiet(),
+            cx,
+            toggle.clone(),
+        );
         // As an unread commit's title stands out, so does its branch's name, folded or not.
         let unread = (branch.commits.iter()).any(|commit| store.is_unread(id, commit));
         let review = (branch.review.as_ref()).map(|r| (r, store.review_state(id, r)));
@@ -2401,10 +2386,7 @@ impl Navigator {
                 )
                 // As ui-react's empty MetaCount, the quietest meta, ahead of any counts.
                 .when(branch.commits.is_empty(), |el| {
-                    let quiet = match style.solid {
-                        true => style.muted(),
-                        false => theme.text_3,
-                    };
+                    let quiet = style.quiet();
                     el.child(
                         h_flex()
                             .id(ElementId::Name(format!("empty-{id}-{ref_name}").into()))
@@ -2454,12 +2436,7 @@ impl Navigator {
                         plural(branch.incoming.len(), "commit")
                     ),
                 ))
-                .children(meta_count(
-                    Icon::ArrowUp,
-                    unpushed,
-                    style.meta(theme.blue),
-                    plural(unpushed, "unpushed commit"),
-                ))
+                .children(style.unpushed(unpushed))
                 .when(store.pushing(id, ref_name), |el| {
                     el.child(faint("pushing", theme))
                 })
@@ -2477,12 +2454,7 @@ impl Navigator {
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
                 // Double-clicking closes the branch to its row or opens it again, as with a
                 // folder.
-                .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
-                    if event.click_count() == 2 {
-                        toggle(&mut this.flipped_branches, key.clone());
-                        cx.notify();
-                    }
-                }))
+                .when(folds, |el| el.on_click(double_click(toggle, cx)))
                 .when(!ref_name.is_empty(), |el| {
                     let payload = Cut::Branch(id.clone(), ref_name.to_owned());
                     let label = store.label_of(id, branch).to_owned();
@@ -2764,9 +2736,7 @@ fn last_active(entry: &ProjectEntry) -> Option<i64> {
 }
 
 fn active_lately(at: i64) -> bool {
-    (UNIX_EPOCH + Duration::from_secs(at.max(0) as u64))
-        .elapsed()
-        .is_ok_and(|age| age <= ACTIVE_WITHIN)
+    crate::ui::now() - at <= ACTIVE_WITHIN.as_secs() as i64
 }
 
 /// What ← goes up to from `selection`, a branch or a stack: a branch in a stack to the stack,
@@ -2868,11 +2838,8 @@ fn unpushed<'a>(branches: impl Iterator<Item = &'a Branch>) -> usize {
 /// [`INACTIVE_AFTER`]. One with no reflog to date it stays listed.
 fn is_inactive(worktree: &Worktree) -> bool {
     worktree.uncommitted.is_empty()
-        && worktree.updated_at.is_some_and(|at| {
-            (UNIX_EPOCH + Duration::from_secs(at.max(0) as u64))
-                .elapsed()
-                .is_ok_and(|age| age > INACTIVE_AFTER)
-        })
+        && (worktree.updated_at)
+            .is_some_and(|at| crate::ui::now() - at > INACTIVE_AFTER.as_secs() as i64)
 }
 
 /// A branch as the navigator names it: its pull request's title once the forge cache has one,

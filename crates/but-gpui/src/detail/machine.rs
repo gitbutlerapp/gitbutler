@@ -10,7 +10,7 @@ use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
 use super::Detail;
 use crate::backend::mesh::{self, Checkout};
 use crate::backend::{self, CommitId, DiffSource};
-use crate::state::{MeshPick, ProjectId, Selection};
+use crate::state::{MeshBranch, MeshPick, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::{
     ButtonStyle, Icon, button, empty_state, faint, h_flex, plural, small_icon, v_flex,
@@ -18,10 +18,6 @@ use crate::ui::{
 
 /// How many of a checkout's uncommitted files its view lists; the rest open on but.dev.
 const LISTED: usize = 50;
-
-/// A branch of a checkout on another machine: the project, the checkout by the mesh's id, and
-/// the branch by name.
-type MeshBranch = (ProjectId, Arc<str>, String);
 
 /// A branch's copy here.
 pub(super) enum Fetch {
@@ -47,8 +43,14 @@ pub(super) struct MeshFetches {
 
 impl Detail {
     /// Fetch the branches of `project`'s checkouts elsewhere that have no copy here as their
-    /// machine reported them, the selected one first.
-    pub(super) fn load_machines(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+    /// machine reported them, the selected one first; with `retry`, as on selecting a page of
+    /// them, those that failed too.
+    pub(super) fn load_machines(
+        &mut self,
+        project: &ProjectId,
+        retry: bool,
+        cx: &mut Context<Self>,
+    ) {
         let store = self.store.read(cx);
         let Some(path) = store.path(project) else {
             return;
@@ -59,7 +61,7 @@ impl Detail {
             }
             _ => None,
         };
-        let mut wanted: Vec<_> = (store.mesh_checkouts(project).iter())
+        let wanted: Vec<_> = (store.mesh_checkouts(project).iter())
             .flat_map(|checkout| {
                 let id: Arc<str> = checkout.id.as_str().into();
                 (checkout.branches.iter()).map(move |branch| (id.clone(), branch))
@@ -68,17 +70,28 @@ impl Detail {
                 let mesh_id = branch.mesh_id.clone()?;
                 let key = (project.clone(), id, branch.name.clone());
                 let current = (self.mesh.fetches.get(&key)).is_some_and(|(tip, fetch)| {
-                    *tip == branch.tip || matches!(fetch, Fetch::Running)
+                    let failed = retry && matches!(fetch, Fetch::Failed(_));
+                    (*tip == branch.tip && !failed) || matches!(fetch, Fetch::Running)
                 });
                 (!current).then(|| (key, path.clone(), mesh_id, branch.tip.clone()))
             })
             .collect();
-        wanted.sort_by_key(|(key, ..)| picked.as_ref() != Some(&(key.1.clone(), key.2.clone())));
         for (key, path, mesh_id, tip) in wanted {
-            self.mesh
-                .fetches
-                .insert(key.clone(), (tip.clone(), Fetch::Running));
+            // A copy fetched already shows until the newer one replaces it.
+            let fetch = match self.mesh.fetches.remove(&key) {
+                Some((_, done @ Fetch::Done(_))) => done,
+                _ => Fetch::Running,
+            };
+            self.mesh.fetches.insert(key.clone(), (tip.clone(), fetch));
+            self.mesh.queue.retain(|(queued, ..)| *queued != key);
             self.mesh.queue.push((key, path, mesh_id, tip));
+        }
+        // The selected branch goes first, queued now or before.
+        let first = (self.mesh.queue.iter())
+            .position(|(key, ..)| picked.as_ref() == Some(&(key.1.clone(), key.2.clone())));
+        if let Some(first) = first {
+            let picked = self.mesh.queue.remove(first);
+            self.mesh.queue.insert(0, picked);
         }
         self.fetch_next(cx);
     }

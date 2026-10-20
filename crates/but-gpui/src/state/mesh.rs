@@ -22,6 +22,9 @@ use crate::backend::{
 /// seconds, and reading it takes a few.
 const POLL: Duration = Duration::from_secs(60);
 
+/// A branch on another machine: its project, its checkout by the mesh's id, and its name.
+pub type MeshBranch = (ProjectId, Arc<str>, String);
+
 /// What's selected of a checkout on another machine: it, one of its branches, or a commit,
 /// by the branch it's listed under.
 #[derive(Debug, Clone, PartialEq)]
@@ -104,9 +107,14 @@ impl Store {
                 };
                 for (project, path, report) in due {
                     if report {
-                        let path = path.clone();
-                        if let Err(err) = backend::run(move || backend::mesh::report(&path)).await {
-                            tracing::warn!(%project, "mesh couldn't report the project: {err:#}");
+                        let to_report = path.clone();
+                        let reported = backend::run(move || backend::mesh::report(&to_report)).await;
+                        // Asked again on the next read, as the daemon may only have been down.
+                        if let Err(err) = reported {
+                            tracing::debug!(%project, "mesh couldn't report the project: {err:#}");
+                            let path = path.clone();
+                            this.update(cx, |store, _| store.mesh.asked_to_report.remove(&path))
+                                .ok();
                         }
                     }
                     let read = backend::run(move || backend::mesh::checkouts(&path)).await;
@@ -200,14 +208,27 @@ impl Store {
         self.mesh
             .checkouts
             .insert(project.clone(), checkouts.into());
-        // What was selected there may be gone, finished or pushed: up to the project.
+        // What was selected there may be gone, finished or pushed: a commit rewritten goes up
+        // to its branch, and anything else gone up to the project.
         if let Some(Selection::Mesh(p, id, pick)) = &self.selection
             && *p == project
-            && !(self.mesh_checkout(p, id)).is_some_and(|checkout| {
-                (pick.branch()).is_none_or(|name| checkout.branches.iter().any(|b| b.name == name))
-            })
         {
-            self.select(Some(Selection::Project(project.clone())), cx);
+            let checkout = self.mesh_checkout(p, id);
+            let branch = (checkout.zip(pick.branch()))
+                .and_then(|(checkout, name)| checkout.branches.iter().find(|b| b.name == name));
+            let up = match pick {
+                MeshPick::Checkout => checkout.is_none().then_some(Selection::Project(p.clone())),
+                MeshPick::Branch(_) => branch.is_none().then_some(Selection::Project(p.clone())),
+                MeshPick::Commit(name, commit) => match branch {
+                    None => Some(Selection::Project(p.clone())),
+                    Some(branch) => (!branch.commits.iter().any(|c| c.id == *commit)).then(|| {
+                        Selection::Mesh(p.clone(), id.clone(), MeshPick::Branch(name.clone()))
+                    }),
+                },
+            };
+            if let Some(up) = up {
+                self.select(Some(up), cx);
+            }
         }
         cx.emit(StoreEvent::MeshRead(project));
         cx.notify();

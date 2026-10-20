@@ -419,7 +419,7 @@ impl Detail {
                         if let Some(Selection::Mesh(p, ..)) = this.selection(cx)
                             && p == *project
                         {
-                            this.load_machines(&p, cx);
+                            this.load_machines(&p, false, cx);
                             this.refresh_diff(false, cx);
                             cx.notify();
                         }
@@ -673,7 +673,7 @@ impl Detail {
             Some(Selection::History(project)) => self.load_history(&project, false, cx),
             Some(Selection::Branches(project)) => self.load_branches(&project, force, cx),
             Some(Selection::Project(project)) => self.load_upstream(&project, false, force, cx),
-            Some(Selection::Mesh(project, ..)) => self.load_machines(&project, cx),
+            Some(Selection::Mesh(project, ..)) => self.load_machines(&project, force, cx),
             _ => {}
         }
     }

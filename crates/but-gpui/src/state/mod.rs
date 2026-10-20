@@ -24,7 +24,7 @@ mod saved;
 mod seen;
 
 use load::{Change, Reload};
-pub use mesh::{MeshPick, MeshState};
+pub use mesh::{MeshBranch, MeshPick, MeshState};
 pub use mutation::{NewAt, Overlay, Remap, Rereads, SLOW};
 use mutation::{Queued, Running};
 pub use picks::Picks;
@@ -535,15 +535,9 @@ impl Store {
         if self.selection == selection {
             return;
         }
-        if let Some(Selection::Commit(project, id)) = &selection
-            && let Some((_, commit)) = self.find_commit(project, *id)
-        {
-            let key = commit.key.clone();
-            self.seen
-                .commits
-                .entry(project.to_string())
-                .or_default()
-                .insert(key);
+        // Opened, it's read, by both ids, so a rebase by Git keeps it read.
+        if let Some(Selection::Commit(project, id)) = &selection {
+            self.mark_read(project, [*id], true, cx);
         }
         // An unwatched project's page reads it once, unwatched, so it can say whether the
         // target moved on and update it.

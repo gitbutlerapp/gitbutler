@@ -136,16 +136,17 @@ anything else.
   CLI. Without `but-mesh`, or signed out, nothing shows but the Settings row, and nothing runs
   but one status check a minute. Gate anything new on `store.mesh.connection()`.
 - Every mesh call goes through `backend::run` with one of the timeouts in `backend/mesh.rs`,
-  never on the UI thread. The poll and the page's fetches make one call at a time.
+  never on the UI thread. The poll and the branch fetches make one call at a time.
 - Network work never runs in a project's operation queue, where it would hold up commits,
   pushes and updates. `mesh_apply` fetches first, outside it, and applies with a read's timeout.
-- Background failures (the poll, reporting a project, the page's fetches) log at debug and keep
-  the last good read. A failed status check while connected keeps the connection, so a network
-  blip doesn't hide the page. Only what the user asked for, signing in or out and Apply here,
-  shows an error.
-- The store notifies only when a read changed something. The page's list is a `uniform_list`, as
-  the other side lists are, so another machine's long branch costs nothing to draw; the checkout
-  view beside it lists at most `LISTED` uncommitted files.
+- Background failures (the poll, reporting a project, the branch fetches) log at debug and keep
+  the last good read, and are tried again: a report on the next read, a fetch when its page is
+  selected again. A failed status check while connected keeps the connection, so a network blip
+  doesn't hide the rows. Only what the user asked for, signing in or out and Apply here, shows an
+  error.
+- The store notifies only when a read changed something, so the mesh's types keep only what's
+  drawn. Its rows are the navigator's, in its `list`, so another machine's long branch costs
+  nothing to draw; a checkout's view beside the diff lists at most `LISTED` uncommitted files.
 - Try failures with a fake `but-mesh` first on the `PATH`, which the app searches before
   `~/.local/bin`: one that sleeps tests the timeouts and that the project's queue stays free,
   and one that exits non-zero or prints garbage tests the fallbacks. A sandbox keeps the app's

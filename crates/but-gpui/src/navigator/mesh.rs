@@ -6,23 +6,19 @@
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, ElementId, MouseButton, Stateful, Window, div,
-    prelude::*, px,
+    AnyElement, App, ClickEvent, Context, ElementId, MouseButton, Window, div, prelude::*, px,
 };
 
-use super::{NEST, Navigator, Row, RowStyle, Rows, found, matches, toggle};
-use crate::backend::CommitId;
-use crate::backend::mesh::{self, Branch, BranchStatus};
+use super::{NEST, Navigator, Row, RowStyle, Rows, double_click, found, matches, step, toggle};
+use crate::app::CopySelection;
+use crate::backend::mesh::{self, BranchStatus};
 use crate::overlays::MenuItem;
-use crate::state::{MeshPick, ProjectId, Selection, Store};
+use crate::state::{MeshBranch, MeshPick, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::{
     Icon, ROW_HEIGHT, Tooltip, commit_title, dot, faint, h_flex, icon, just_now, meta_count,
     plural, relative_time, section_label, small_icon,
 };
-
-/// A branch on another machine: its project, its checkout by the mesh's id, and its name.
-pub(super) type MeshBranch = (ProjectId, Arc<str>, String);
 
 impl Navigator {
     /// `id`'s checkouts on other machines under their heading, unless that's folded without
@@ -63,8 +59,8 @@ impl Navigator {
                     if on_commit || self.mesh_branch_open(&key) {
                         rows.open();
                         rows.extend(
-                            commits(branch)
-                                .map(|commit| at(MeshPick::Commit(branch.name.clone(), commit))),
+                            (branch.commits.iter())
+                                .map(|commit| at(MeshPick::Commit(branch.name.clone(), commit.id))),
                         );
                         rows.close();
                     }
@@ -122,7 +118,7 @@ impl Navigator {
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
-        let open = store.prefs.shown_mesh.contains(id.as_ref());
+        let open = self.mesh_open(id, cx);
         let checkouts = store.mesh_checkouts(id);
         let active = (checkouts.iter()).any(|c| c.online && c.last_activity.is_some_and(just_now));
         let project = id.clone();
@@ -165,23 +161,20 @@ impl Navigator {
         let store = self.store.read(cx);
         let checkout = store.mesh_checkout(project, key)?;
         let theme = style.theme;
-        let quiet = match style.solid {
-            true => style.muted(),
-            false => theme.text_3,
-        };
+        let quiet = style.quiet();
         let branch = match pick.branch() {
             Some(name) => Some(checkout.branches.iter().find(|b| b.name == name)?),
             None => None,
         };
         let row = match (pick, branch) {
             (MeshPick::Commit(_, id), Some(branch)) => {
-                let commit = (branch.commits.iter()).find(|c| commit_id(&c.id) == Some(*id))?;
+                let commit = (branch.commits.iter()).find(|c| c.id == *id)?;
                 let (glyph, color) = match commit.pushed {
                     true => (Icon::CommitFill, style.muted()),
                     false => (Icon::Commit, theme.blue),
                 };
                 // Under its branch's glyph, its title under the branch's name.
-                (style.row(format!("mesh-commit-{project}-{key}-{}", commit.id), 30.))
+                (style.row(format!("mesh-commit-{project}-{key}-{:?}", commit.id), 30.))
                     .gap(px(10.))
                     .aria_label(commit.title.clone())
                     .child(small_icon(glyph).text_color(style.meta(color)))
@@ -210,9 +203,7 @@ impl Navigator {
                 let (glyph, color) = match branch.status {
                     BranchStatus::Integrated => (Icon::Tick, theme.safe),
                     BranchStatus::Diverged => (Icon::Branch, theme.warn),
-                    BranchStatus::Pushed | BranchStatus::Unpushed | BranchStatus::Empty => {
-                        (Icon::Branch, style.muted())
-                    }
+                    BranchStatus::Other => (Icon::Branch, style.muted()),
                 };
                 let toggle = move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
                     this.toggle_mesh_branch(fold.clone(), open, window, cx)
@@ -237,12 +228,7 @@ impl Navigator {
                             .text_color(style.meta(theme.blue))
                             .child(name.clone()),
                     )
-                    .children(meta_count(
-                        Icon::ArrowUp,
-                        unpushed,
-                        style.meta(theme.blue),
-                        plural(unpushed, "unpushed commit"),
-                    ))
+                    .children(style.unpushed(unpushed))
                     .when(!open, |el| {
                         el.children(meta_count(
                             Icon::Commit,
@@ -331,14 +317,7 @@ impl Navigator {
                                 .children(counts),
                         )
                     })
-                    .when(!open, |el| {
-                        el.children(meta_count(
-                            Icon::ArrowUp,
-                            unpushed,
-                            style.meta(theme.blue),
-                            plural(unpushed, "unpushed commit"),
-                        ))
-                    })
+                    .when(!open, |el| el.children(style.unpushed(unpushed)))
                     .when(active, |el| {
                         el.child(
                             div()
@@ -357,42 +336,29 @@ impl Navigator {
         )
     }
 
-    /// A row's fold, as a branch's: a chevron that folds it without selecting it, down while
-    /// `open`, or a dot when there's nothing to fold (`None`).
-    fn fold_step(
-        &self,
-        id: impl Into<ElementId>,
-        open: Option<bool>,
-        color: gpui::Hsla,
-        cx: &Context<Self>,
-        toggle: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
-    ) -> Stateful<Div> {
-        let theme = Theme::get(cx);
-        let el = div().id(id).child(step(open, color));
-        match open {
-            None => el,
-            Some(_) => el
-                .rounded(px(3.))
-                .hover(|el| el.bg(theme.hover()))
-                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                    cx.stop_propagation();
-                    toggle(this, window, cx)
-                })),
-        }
-    }
-
     /// Whether `key`'s commits show: as Settings start branches, unless folded or opened
     /// since, as a branch here.
     fn mesh_branch_open(&self, key: &MeshBranch) -> bool {
         self.branches_start_open != self.flipped_mesh_branches.contains(key)
     }
 
-    /// Fold or unfold all of `project`'s work elsewhere. Folding it over the selection takes
-    /// that up to the project.
-    fn toggle_mesh(&mut self, project: &ProjectId, window: &mut Window, cx: &mut Context<Self>) {
+    /// Whether `project`'s work elsewhere shows under its heading: unfolded, with the
+    /// selection in it, or found by the filter.
+    fn mesh_open(&self, project: &ProjectId, cx: &App) -> bool {
         let store = self.store.read(cx);
-        let folding = store.prefs.shown_mesh.contains(project.as_ref());
+        store.prefs.shown_mesh.contains(project.as_ref())
+            || matches!(&store.selection, Some(Selection::Mesh(p, ..)) if p == project)
+            || !self.filter_terms(cx).is_empty()
+    }
+
+    /// Fold or unfold all of `project`'s work elsewhere. Folding it over the selection takes
+    /// that up to the project. Under the filter, which shows what it finds, it does nothing.
+    fn toggle_mesh(&mut self, project: &ProjectId, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.filter_terms(cx).is_empty() {
+            return;
+        }
+        let folding = self.mesh_open(project, cx);
+        let store = self.store.read(cx);
         let inside = matches!(&store.selection, Some(Selection::Mesh(p, ..)) if p == project);
         let key = project.to_string();
         self.store.update(cx, |store, cx| {
@@ -443,7 +409,11 @@ impl Navigator {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        toggle(&mut self.flipped_mesh_branches, key.clone());
+        // Shown open over its selected commit whatever was stored, it only flips when that
+        // agrees.
+        if self.mesh_branch_open(&key) == open {
+            toggle(&mut self.flipped_mesh_branches, key.clone());
+        }
         let (project, id, name) = key;
         let on_commit = matches!(&self.store.read(cx).selection,
             Some(Selection::Mesh(p, i, MeshPick::Commit(n, _))) if (p, i, n) == (&project, &id, &name));
@@ -554,54 +524,8 @@ impl Navigator {
             }));
         }
         if *pick == MeshPick::Checkout {
-            let path = checkout.path.clone();
-            items.push(MenuItem::new("Copy path", move |app, _, cx| {
-                cx.write_to_clipboard(gpui::ClipboardItem::new_string(path.clone()));
-                app.store.update(cx, |store, cx| store.snack("Copied", cx));
-            }));
+            items.push(MenuItem::action("Copy path", &CopySelection, cx));
         }
         items
     }
-}
-
-/// A fold's glyph in a step as wide as a branch's: a chevron, down while `open`, or a dot
-/// with nothing to fold (`None`).
-fn step(open: Option<bool>, color: gpui::Hsla) -> Div {
-    let glyph = match open {
-        None => Icon::BulletDisc,
-        Some(true) => Icon::ChevronDown,
-        Some(false) => Icon::ChevronRight,
-    };
-    div()
-        .flex_none()
-        .w(px(14.))
-        .h(px(16.))
-        .flex()
-        .items_center()
-        .justify_center()
-        .child(small_icon(glyph).text_color(color))
-}
-
-/// A row's click handler that runs `toggle` on a double-click, as a folder opens.
-fn double_click(
-    toggle: impl Fn(&mut Navigator, &mut Window, &mut Context<Navigator>) + 'static,
-    cx: &Context<Navigator>,
-) -> impl Fn(&ClickEvent, &mut Window, &mut App) + 'static {
-    cx.listener(move |this, event: &ClickEvent, window, cx| {
-        if event.click_count() == 2 {
-            toggle(this, window, cx)
-        }
-    })
-}
-
-/// `branch`'s commits, by the ids the mesh gives them.
-fn commits(branch: &Branch) -> impl Iterator<Item = CommitId> + '_ {
-    branch
-        .commits
-        .iter()
-        .filter_map(|commit| commit_id(&commit.id))
-}
-
-fn commit_id(hex: &str) -> Option<CommitId> {
-    gix::ObjectId::from_hex(hex.as_bytes()).ok().map(CommitId)
 }

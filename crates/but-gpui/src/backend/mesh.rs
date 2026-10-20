@@ -51,9 +51,6 @@ pub struct Checkout {
     /// The checkout's folder, when the machine has another checkout of the project with no
     /// worktree name to tell the two apart.
     pub folder: Option<String>,
-    /// The branch checked out, outside a GitButler workspace.
-    pub head_branch: Option<String>,
-    pub in_workspace: bool,
     pub branches: Vec<Branch>,
     pub uncommitted: Vec<File>,
     /// When it last changed, in seconds since the epoch.
@@ -77,35 +74,28 @@ pub struct Branch {
     pub name: String,
     /// What `but mesh apply` takes, when the mesh offers this branch to bring here.
     pub mesh_id: Option<String>,
-    /// Whether its tip commit is in this repository already.
-    pub here: bool,
     pub status: BranchStatus,
     /// Its newest commit, as that machine last reported it.
     pub tip: Option<String>,
     /// Newest first.
     pub commits: Vec<Commit>,
-    pub review_url: Option<String>,
 }
 
+/// What a branch's glyph tells apart.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BranchStatus {
-    /// Everything pushed.
-    Pushed,
-    /// Some or all commits only on that machine.
-    Unpushed,
-    /// Rewritten since it was pushed, so pushing it needs force.
-    Diverged,
     /// Merged into the target.
     Integrated,
-    /// No upstream and no commits.
-    Empty,
+    /// Rewritten since it was pushed, so pushing it needs force.
+    Diverged,
+    /// Pushed, with commits only on that machine, or empty.
+    Other,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Commit {
-    pub id: String,
+    pub id: CommitId,
     pub title: String,
-    pub author: Option<String>,
     /// In seconds since the epoch.
     pub created_at: Option<i64>,
     pub pushed: bool,
@@ -264,8 +254,6 @@ fn parse_checkouts(out: &str) -> Result<Vec<Checkout>> {
         id: String,
         path: String,
         worktree_name: Option<String>,
-        head: String,
-        head_branch: Option<String>,
         #[serde(default)]
         stacks: Vec<Stack>,
         branch: Option<BranchJson>,
@@ -284,14 +272,12 @@ fn parse_checkouts(out: &str) -> Result<Vec<Checkout>> {
         #[serde(default)]
         commits: Vec<CommitJson>,
         status: String,
-        review_url: Option<String>,
         tip: Option<String>,
     }
     #[derive(Deserialize)]
     struct CommitJson {
         id: String,
         title: String,
-        author: Option<String>,
         created_at: Option<i64>,
         pushed: bool,
     }
@@ -306,7 +292,6 @@ fn parse_checkouts(out: &str) -> Result<Vec<Checkout>> {
         id: String,
         name: String,
         checkout_id: String,
-        local: bool,
     }
 
     let status: Status = serde_json::from_str(out).context("Couldn't read the mesh's status")?;
@@ -318,7 +303,6 @@ fn parse_checkouts(out: &str) -> Result<Vec<Checkout>> {
     let mut checkouts: Vec<Checkout> = rows
         .map(|row| {
             let checkout = row.checkout;
-            let in_workspace = checkout.head == "workspace";
             let branches = (checkout.stacks.into_iter())
                 .flat_map(|stack| stack.branches)
                 .chain(checkout.branch)
@@ -328,24 +312,25 @@ fn parse_checkouts(out: &str) -> Result<Vec<Checkout>> {
                         .find(|b| b.checkout_id == checkout.id && b.name == branch.name);
                     Branch {
                         mesh_id: mesh_branch.map(|b| b.id.clone()),
-                        here: mesh_branch.is_some_and(|b| b.local),
                         status: match branch.status.as_str() {
-                            "nothingToPush" => BranchStatus::Pushed,
                             "integrated" => BranchStatus::Integrated,
                             "unpushedCommitsRequiringForce" => BranchStatus::Diverged,
-                            "local" => BranchStatus::Empty,
-                            _ => BranchStatus::Unpushed,
+                            _ => BranchStatus::Other,
                         },
+                        // A commit is shown and fetched by its id, so one without a valid
+                        // id is left out.
                         commits: (branch.commits.into_iter())
-                            .map(|commit| Commit {
-                                id: commit.id,
-                                title: commit.title,
-                                author: commit.author,
-                                created_at: commit.created_at.map(|ms| ms / 1000),
-                                pushed: commit.pushed,
+                            .filter_map(|commit| {
+                                Some(Commit {
+                                    id: CommitId(
+                                        gix::ObjectId::from_hex(commit.id.as_bytes()).ok()?,
+                                    ),
+                                    title: commit.title,
+                                    created_at: commit.created_at.map(|ms| ms / 1000),
+                                    pushed: commit.pushed,
+                                })
                             })
                             .collect(),
-                        review_url: branch.review_url,
                         tip: branch.tip,
                         name: branch.name,
                     }
@@ -358,8 +343,6 @@ fn parse_checkouts(out: &str) -> Result<Vec<Checkout>> {
                 path: checkout.path,
                 worktree: checkout.worktree_name,
                 folder: None,
-                head_branch: (!in_workspace).then_some(checkout.head_branch).flatten(),
-                in_workspace,
                 branches,
                 uncommitted: (checkout.uncommitted.into_iter())
                     .map(|file| File {
@@ -477,10 +460,12 @@ mod tests {
          "same_as": null, "checkout": {"id": "c-studio", "path": "/s/repo", "worktree_name": null,
          "head": "workspace", "head_branch": "gitbutler/workspace",
          "stacks": [{"branches": [{"name": "feat", "status": "unpushedCommits", "review_url": null,
-           "commits": [{"id": "b2", "title": "Second", "author": "Ann", "created_at": 2000000,
-                        "pushed": false, "rebased": false},
-                       {"id": "b1", "title": "First", "author": "Ann", "created_at": 1000000,
-                        "pushed": true, "rebased": false}]}]}],
+           "commits": [{"id": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2", "title": "Second",
+                        "author": "Ann", "created_at": 2000000, "pushed": false, "rebased": false},
+                       {"id": "not a sha", "title": "Garbled", "created_at": 1500000,
+                        "pushed": true, "rebased": false},
+                       {"id": "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1", "title": "First",
+                        "author": "Ann", "created_at": 1000000, "pushed": true, "rebased": false}]}]}],
          "branch": null,
          "uncommitted": [{"path": "a.rs", "status": "modified", "additions": 3, "deletions": 1}],
          "last_activity_at": 3000000, "error": null}},
@@ -508,11 +493,7 @@ mod tests {
         );
 
         let studio = &checkouts[0];
-        assert!(
-            studio.in_workspace && !studio.online,
-            "an offline GitButler workspace"
-        );
-        assert_eq!(studio.head_branch, None, "a workspace isn't on one branch");
+        assert!(!studio.online, "it's offline");
         assert_eq!(
             studio.last_activity,
             Some(3000),
@@ -530,29 +511,28 @@ mod tests {
         );
         assert_eq!(
             feat.status,
-            BranchStatus::Unpushed,
+            BranchStatus::Other,
             "it has a commit only there"
         );
-        assert!(!feat.here, "its tip isn't in this repository");
         assert_eq!(
             feat.commits[0].created_at,
             Some(2000),
             "newest first, in seconds"
         );
+        let titles: Vec<_> = feat.commits.iter().map(|c| c.title.as_str()).collect();
+        assert_eq!(
+            titles,
+            ["Second", "First"],
+            "a commit without a valid id is left out"
+        );
 
         let cloud = &checkouts[1];
-        assert_eq!(
-            cloud.head_branch.as_deref(),
-            Some("claude/fix"),
-            "a plain branch"
-        );
         assert_eq!(cloud.branches.len(), 1, "its checked-out branch is listed");
         assert_eq!(
             cloud.branches[0].status,
             BranchStatus::Integrated,
             "merged upstream"
         );
-        assert!(cloud.branches[0].here, "its tip is here already");
     }
 
     #[test]
