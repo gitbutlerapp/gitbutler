@@ -30,7 +30,7 @@ use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, count_badge, dot,
-    empty_state, faint, field, h_flex, icon, icon_button, just_now, list_row, plural,
+    empty_state, faint, field, h_flex, icon, icon_button, just_now, list_row, meta_count, plural,
     relative_time, resize_handle, review, section_label, shortcut, small_icon, v_flex,
 };
 
@@ -2883,23 +2883,6 @@ fn branch_name(name: &str, review: Option<(&Review, ReviewState)>, style: &RowSt
             .text_color(style.meta(theme.blue))
             .child(name.to_owned()),
     }
-}
-
-/// A small count in a row's meta, coloured by meaning (amber waits on you, blue is
-/// unpushed), saying on hover what it counts; nothing at zero.
-fn meta_count(glyph: Icon, n: usize, color: Hsla, tip: String) -> Option<Stateful<Div>> {
-    let tip = SharedString::from(tip);
-    (n > 0).then(|| {
-        h_flex()
-            .id(ElementId::Name(tip.clone()))
-            .flex_none()
-            .gap(px(3.))
-            .text_size(px(11.))
-            .text_color(color)
-            .child(small_icon(glyph).text_color(color))
-            .child(n.to_string())
-            .tooltip(Tooltip::text(tip))
-    })
 }
 
 /// Where on `target` a drop of `payload` at `y`, from 0 at its top to 1 at its bottom,

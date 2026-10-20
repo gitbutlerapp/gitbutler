@@ -1,43 +1,44 @@
-//! A project's Other machines page: each of its checkouts on the user's other machines, as the
-//! mesh reports them, with their uncommitted files and their branches with their commits,
-//! listed beside a diff. Opening it fetches those branches from the copy the mesh keeps, one at
-//! a time, so a branch or one of its commits shows its diff as a branch of this machine's
-//! would. Uncommitted files' diffs stay on their machine, and open on but.dev.
+//! A project's Other machines page: its checkouts on the user's other machines, as the mesh
+//! reports them, in a tree as the navigator's: each machine, its checkouts, their branches and
+//! their commits, a line each, with the rest on hover. A checkout shows its uncommitted files,
+//! whose diffs stay on that machine and open on but.dev; a branch or a commit shows its diff,
+//! once fetched from the copy the mesh keeps, one at a time.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::path::Path;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, ClickEvent, Context, ElementId, MouseButton, MouseDownEvent, SharedString, Window,
-    div, prelude::*, px,
+    AnyElement, ClickEvent, Context, Div, ElementId, Hsla, MouseButton, MouseDownEvent,
+    SharedString, Stateful, UniformListScrollHandle, div, prelude::*, px,
 };
 
 use super::Detail;
-use super::panes::{list_heading, side_header, side_row, title_text};
+use super::panes::{quiet, side_list, side_row};
+use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::mesh::{self, BranchStatus, Checkout};
 use crate::backend::{self, CommitId, DiffSource};
 use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
-use crate::ui::person::person_avatar;
 use crate::ui::{
-    Icon, Tooltip, age_column, commit_title, dot, empty_state, faint, h_flex, icon, icon_button,
-    just_now, plural, relative_time, small_icon, v_flex,
+    ButtonStyle, Icon, Tooltip, age_column, button, commit_title, dot, empty_state, faint, h_flex,
+    just_now, meta_count, plural, relative_time, small_icon, v_flex,
 };
 
-/// How many of a branch's commits, or of a checkout's uncommitted files, the page lists; the
-/// rest open on but.dev. It draws its list whole each frame, so another machine's long branch
-/// mustn't make it long.
+/// How many of a checkout's uncommitted files its view lists; the rest open on but.dev.
 const LISTED: usize = 50;
 
 /// A branch of a checkout on another machine: the project, the checkout by the mesh's id, and
 /// the branch by name.
 pub(super) type MeshBranch = (ProjectId, Arc<str>, String);
 
-/// What's picked on a machine's page, whose diff shows beside it.
+/// What's picked on the page: a checkout, which shows its uncommitted files, or one of its
+/// branches or commits, which show their diff.
 #[derive(Clone, PartialEq)]
 pub(super) enum Pick {
+    Checkout,
     Branch(String),
     /// A commit, by the branch it's listed under and its id.
     Commit(String, CommitId),
@@ -52,9 +53,9 @@ pub(super) enum Fetch {
     Failed(SharedString),
 }
 
-/// What the app has fetched from other machines, and what it's fetching.
+/// The Other machines page: what it fetched and is fetching, what's picked and what's folded.
 #[derive(Default)]
-pub(super) struct MeshFetches {
+pub(super) struct MachinesPage {
     /// Each branch's fetch, with the tip that machine reported when it started: a new one
     /// fetches it again.
     fetches: HashMap<MeshBranch, (Option<String>, Fetch)>,
@@ -66,44 +67,70 @@ pub(super) struct MeshFetches {
     /// The pick on each project's page, with the checkout it's in, kept while another page
     /// shows.
     picks: HashMap<ProjectId, (Arc<str>, Pick)>,
+    /// Machines folded to their row, by name.
+    folded_machines: HashSet<(ProjectId, String)>,
+    /// Checkouts folded to their row.
+    folded_checkouts: HashSet<(ProjectId, Arc<str>)>,
+    /// Branches whose commits show under them, folded until opened, as in the navigator.
+    open_branches: HashSet<MeshBranch>,
+    scroll: UniformListScrollHandle,
+}
+
+/// A row of the page's list, by index into the project's checkouts, a checkout's branches and
+/// a branch's commits.
+#[derive(Clone, Copy, PartialEq)]
+enum Row {
+    /// A machine, by the first of its checkouts listed. It only folds.
+    Machine(usize),
+    Checkout(usize),
+    Branch(usize, usize),
+    Commit(usize, usize, usize),
 }
 
 impl Detail {
     /// Fetch the branches of `project`'s checkouts elsewhere that have no copy here as their
-    /// machine reported them, the picked one first, and pick the first branch if nothing is.
+    /// machine reported them, the picked one first, and pick the first branch, or else the
+    /// first checkout, if nothing is.
     pub(super) fn load_machines(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         let Some(path) = store.path(project) else {
             return;
         };
         let checkouts = store.mesh_checkouts(project);
-        let listed = |id: &str, name: &str| {
-            (checkouts.iter()).any(|c| c.id == id && c.branches.iter().any(|b| b.name == name))
+        let still_there = |id: &str, pick: &Pick| {
+            checkouts.iter().any(|c| {
+                c.id == id
+                    && match pick {
+                        Pick::Checkout => true,
+                        Pick::Branch(name) | Pick::Commit(name, _) => {
+                            c.branches.iter().any(|b| b.name == *name)
+                        }
+                    }
+            })
         };
         let picks = &mut self.mesh.picks;
+        if !(picks.get(project)).is_some_and(|(id, pick)| still_there(id, pick)) {
+            picks.remove(project);
+            let first_branch = (checkouts.iter()).find_map(|c| {
+                let name = c.branches.first()?.name.clone();
+                Some((c.id.as_str().into(), Pick::Branch(name)))
+            });
+            let first = first_branch
+                .or_else(|| (checkouts.first()).map(|c| (c.id.as_str().into(), Pick::Checkout)));
+            if let Some(first) = first {
+                picks.insert(project.clone(), first);
+            }
+        }
         let picked = match picks.get(project) {
-            Some((id, Pick::Branch(name) | Pick::Commit(name, _))) if listed(id, name) => {
+            Some((id, Pick::Branch(name) | Pick::Commit(name, _))) => {
                 Some((id.clone(), name.clone()))
             }
-            _ => {
-                picks.remove(project);
-                let first = (checkouts.iter()).find_map(|c| {
-                    let id: Arc<str> = c.id.as_str().into();
-                    Some((id, c.branches.first()?.name.clone()))
-                });
-                if let Some((id, name)) = &first {
-                    picks.insert(project.clone(), (id.clone(), Pick::Branch(name.clone())));
-                }
-                first
-            }
+            Some((_, Pick::Checkout)) | None => None,
         };
         let mut wanted: Vec<_> = (checkouts.iter())
             .flat_map(|checkout| {
                 let id: Arc<str> = checkout.id.as_str().into();
-                checkout
-                    .branches
-                    .iter()
-                    .map(move |branch| (id.clone(), branch))
+                (checkout.branches.iter()).map(move |branch| (id.clone(), branch))
             })
             .filter_map(|(id, branch)| {
                 let mesh_id = branch.mesh_id.clone()?;
@@ -160,6 +187,39 @@ impl Detail {
         }));
     }
 
+    /// The rows `project`'s page lists: each machine, in the order the mesh first names it,
+    /// then, unless folded, its checkouts, their branches and the commits of open branches.
+    fn machine_rows(&self, project: &ProjectId, checkouts: &[Checkout]) -> Vec<Row> {
+        let page = &self.mesh;
+        let mut rows = Vec::new();
+        for (first, checkout) in checkouts.iter().enumerate() {
+            let machine = &checkout.machine;
+            if checkouts[..first].iter().any(|c| c.machine == *machine) {
+                continue;
+            }
+            rows.push(Row::Machine(first));
+            if (page.folded_machines).contains(&(project.clone(), machine.clone())) {
+                continue;
+            }
+            let on_it = checkouts.iter().enumerate().skip(first);
+            for (c, checkout) in on_it.filter(|(_, c)| c.machine == *machine) {
+                rows.push(Row::Checkout(c));
+                let id: Arc<str> = checkout.id.as_str().into();
+                if (page.folded_checkouts).contains(&(project.clone(), id.clone())) {
+                    continue;
+                }
+                for (b, branch) in checkout.branches.iter().enumerate() {
+                    rows.push(Row::Branch(c, b));
+                    let key = (project.clone(), id.clone(), branch.name.clone());
+                    if page.open_branches.contains(&key) {
+                        rows.extend((0..branch.commits.len()).map(|k| Row::Commit(c, b, k)));
+                    }
+                }
+            }
+        }
+        rows
+    }
+
     fn pick(&mut self, project: &ProjectId, id: &Arc<str>, pick: Pick, cx: &mut Context<Self>) {
         let picked = (id.clone(), pick);
         if self.mesh.picks.get(project) != Some(&picked) {
@@ -168,17 +228,150 @@ impl Detail {
         }
     }
 
-    /// The checkout of `project`'s page and the branch picked there, or holding the commit
-    /// picked there.
-    pub(super) fn machine_picked_branch(&self, project: &ProjectId) -> Option<(Arc<str>, String)> {
-        let (id, Pick::Branch(name) | Pick::Commit(name, _)) = self.mesh.picks.get(project)?;
-        Some((id.clone(), name.clone()))
+    /// What picking `row` picks; a machine's row picks nothing.
+    fn row_pick(checkouts: &[Checkout], row: Row) -> Option<(Arc<str>, Pick)> {
+        match row {
+            Row::Machine(_) => None,
+            Row::Checkout(c) => Some((checkouts.get(c)?.id.as_str().into(), Pick::Checkout)),
+            Row::Branch(c, b) => {
+                let checkout = checkouts.get(c)?;
+                let name = checkout.branches.get(b)?.name.clone();
+                Some((checkout.id.as_str().into(), Pick::Branch(name)))
+            }
+            Row::Commit(c, b, k) => {
+                let checkout = checkouts.get(c)?;
+                let branch = checkout.branches.get(b)?;
+                let id = gix::ObjectId::from_hex(branch.commits.get(k)?.id.as_bytes()).ok()?;
+                let pick = Pick::Commit(branch.name.clone(), CommitId(id));
+                Some((checkout.id.as_str().into(), pick))
+            }
+        }
     }
 
-    /// The pick on `project`'s page, if it's in checkout `id`.
-    fn machine_pick(&self, project: &ProjectId, id: &Arc<str>) -> Option<&Pick> {
-        let (picked_in, pick) = self.mesh.picks.get(project)?;
-        (picked_in == id).then_some(pick)
+    /// ↓ or ↑ (`delta`) in the list: the next or previous row that picks something, kept in
+    /// view.
+    fn step_machines(&mut self, delta: isize, cx: &mut Context<Self>) {
+        let Some(Selection::Machines(project)) = self.selection(cx) else {
+            return;
+        };
+        let store = self.store.read(cx);
+        let checkouts = store.mesh_checkouts(&project);
+        let rows = self.machine_rows(&project, checkouts);
+        let picks: Vec<_> = (rows.iter())
+            .map(|row| Self::row_pick(checkouts, *row))
+            .collect();
+        let current = self.mesh.picks.get(&project);
+        let at = picks.iter().position(|pick| pick.as_ref() == current);
+        let next = match at {
+            Some(at) => (1..rows.len() as isize)
+                .map(|step| at as isize + delta * step)
+                .take_while(|ix| (0..rows.len() as isize).contains(ix))
+                .map(|ix| ix as usize)
+                .find(|ix| picks[*ix].is_some()),
+            None => picks.iter().position(Option::is_some),
+        };
+        if let Some(ix) = next
+            && let Some((id, pick)) = picks[ix].clone()
+        {
+            self.pick(&project, &id, pick, cx);
+            self.mesh
+                .scroll
+                .scroll_to_item(ix, gpui::ScrollStrategy::Nearest);
+        }
+    }
+
+    /// → in the list: open what's picked, or step into it when it's open. ← folds it, or steps
+    /// up from a commit to its branch and from a branch to its checkout.
+    fn fold_machines(&mut self, open: bool, cx: &mut Context<Self>) {
+        let Some(Selection::Machines(project)) = self.selection(cx) else {
+            return;
+        };
+        let Some((id, pick)) = self.mesh.picks.get(&project).cloned() else {
+            return;
+        };
+        let store = self.store.read(cx);
+        let Some(checkout) = store.mesh_checkout(&project, &id) else {
+            return;
+        };
+        match pick {
+            Pick::Checkout if checkout.branches.is_empty() => {}
+            Pick::Checkout => {
+                let key = (project.clone(), id.clone());
+                let folded = self.mesh.folded_checkouts.contains(&key);
+                match (open, folded) {
+                    (true, true) | (false, false) => self.toggle_checkout(key, cx),
+                    (true, false) => self.step_machines(1, cx),
+                    (false, true) => {}
+                }
+            }
+            Pick::Branch(name) => {
+                let has_commits =
+                    (checkout.branches.iter()).any(|b| b.name == name && !b.commits.is_empty());
+                let key = (project.clone(), id.clone(), name);
+                let is_open = self.mesh.open_branches.contains(&key);
+                match (open, is_open) {
+                    (true, false) if has_commits => self.toggle_mesh_branch(key, cx),
+                    (true, true) => self.step_machines(1, cx),
+                    (false, true) => self.toggle_mesh_branch(key, cx),
+                    (false, false) => self.pick(&project, &id, Pick::Checkout, cx),
+                    (true, false) => {}
+                }
+            }
+            Pick::Commit(name, _) if !open => self.pick(&project, &id, Pick::Branch(name), cx),
+            Pick::Commit(..) => {}
+        }
+    }
+
+    fn toggle_machine(&mut self, key: (ProjectId, String), cx: &mut Context<Self>) {
+        if !self.mesh.folded_machines.remove(&key) {
+            self.mesh.folded_machines.insert(key);
+        }
+        cx.notify();
+    }
+
+    fn toggle_checkout(&mut self, key: (ProjectId, Arc<str>), cx: &mut Context<Self>) {
+        if !self.mesh.folded_checkouts.remove(&key) {
+            self.mesh.folded_checkouts.insert(key);
+        }
+        cx.notify();
+    }
+
+    /// Show a branch's commits under it, or fold them away. Folding it over its picked commit
+    /// picks the branch.
+    fn toggle_mesh_branch(&mut self, key: MeshBranch, cx: &mut Context<Self>) {
+        if self.mesh.open_branches.remove(&key) {
+            let (project, id, name) = &key;
+            let on_commit = matches!(self.mesh.picks.get(project),
+                Some((i, Pick::Commit(n, _))) if i == id && n == name);
+            if on_commit {
+                self.pick(project, id, Pick::Branch(name.clone()), cx);
+            }
+        } else {
+            self.mesh.open_branches.insert(key);
+        }
+        cx.notify();
+    }
+
+    /// Fold or open what's picked on `project`'s page, as a double-click on its row does.
+    fn fold_picked(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        match self.mesh.picks.get(project).cloned() {
+            Some((id, Pick::Checkout)) => self.toggle_checkout((project.clone(), id), cx),
+            Some((id, Pick::Branch(name))) => {
+                self.toggle_mesh_branch((project.clone(), id, name), cx)
+            }
+            Some((_, Pick::Commit(..))) | None => {}
+        }
+    }
+
+    /// The checkout picked on `project`'s page, and the branch picked there or holding the
+    /// commit picked there.
+    pub(super) fn machine_picked(&self, project: &ProjectId) -> Option<(Arc<str>, Option<String>)> {
+        let (id, pick) = self.mesh.picks.get(project)?;
+        let branch = match pick {
+            Pick::Checkout => None,
+            Pick::Branch(name) | Pick::Commit(name, _) => Some(name.clone()),
+        };
+        Some((id.clone(), branch))
     }
 
     fn branch_fetch(&self, project: &ProjectId, id: &Arc<str>, name: &str) -> Option<&Fetch> {
@@ -190,6 +383,7 @@ impl Detail {
     pub(super) fn machine_source(&self, project: &ProjectId) -> Option<DiffSource> {
         let (id, pick) = self.mesh.picks.get(project)?;
         let (name, commit) = match pick {
+            Pick::Checkout => return None,
             Pick::Branch(name) => (name, None),
             Pick::Commit(name, commit) => (name, Some(*commit)),
         };
@@ -205,53 +399,50 @@ impl Detail {
         })
     }
 
-    /// What the diff pane says while the pick on `project`'s page has no diff yet.
-    pub(super) fn machine_waiting(&self, project: &ProjectId, cx: &gpui::App) -> SharedString {
+    /// What the diff pane shows for `project`'s page without a diff: a picked checkout's
+    /// uncommitted files, or why a branch has none yet.
+    pub(super) fn machine_placeholder(
+        &self,
+        project: &ProjectId,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
         let store = self.store.read(cx);
-        let checkouts = store.mesh_checkouts(project);
-        let Some((id, Pick::Branch(name) | Pick::Commit(name, _))) = self.mesh.picks.get(project)
+        let picked = self.mesh.picks.get(project);
+        let Some(((id, pick), checkout)) =
+            picked.and_then(|p| Some((p, store.mesh_checkout(project, &p.0)?)))
         else {
-            return match checkouts.iter().all(|c| c.branches.is_empty()) {
-                // The list says why it's empty.
-                _ if checkouts.is_empty() => "".into(),
-                true => "Nothing committed there yet. Uncommitted files open on but.dev".into(),
-                false => "Pick a branch or a commit".into(),
-            };
+            return empty_state(None, "", "", theme, cx);
         };
-        let Some(checkout) = store.mesh_checkout(project, id) else {
-            return "".into();
+        let name = match pick {
+            Pick::Checkout => {
+                let server = store.mesh.connection().map(|c| c.server.as_str());
+                return uncommitted_view(checkout, server, theme);
+            }
+            Pick::Branch(name) | Pick::Commit(name, _) => name,
         };
         let branch = checkout.branches.iter().find(|b| b.name == *name);
-        match self.branch_fetch(project, id, name) {
+        let waiting = match self.branch_fetch(project, id, name) {
             _ if branch.is_some_and(|b| b.mesh_id.is_none()) => {
-                format!("The mesh keeps no copy of {name}").into()
+                format!("The mesh keeps no copy of {name}")
             }
-            Some(Fetch::Failed(err)) => format!("Couldn't fetch {name}: {err}").into(),
-            Some(Fetch::Running) | None => {
-                format!("Fetching {name} from {}…", checkout.machine).into()
-            }
-            Some(Fetch::Done(_)) => "".into(),
-        }
+            Some(Fetch::Failed(err)) => format!("Couldn't fetch {name}: {err}"),
+            Some(Fetch::Running) | None => format!("Fetching {name} from {}…", checkout.machine),
+            Some(Fetch::Done(_)) => String::new(),
+        };
+        empty_state(None, "", waiting, theme, cx)
     }
 
     pub(super) fn render_machines_side(
         &self,
         project: &ProjectId,
         theme: &Theme,
-        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
-        let connection = store.mesh.connection();
-        let header = side_header(theme)
-            .child(title_text("Other machines"))
-            .children(
-                connection
-                    .map(|c| faint(format!("Signed in as {} on {}", c.login, c.machine), theme)),
-            );
         let checkouts = store.mesh_checkouts(project);
         if checkouts.is_empty() {
-            let empty = match store.mesh.read(project) {
+            return match store.mesh.read(project) {
                 true => empty_state(
                     Some(Illustration::Papers),
                     "Nothing unfinished elsewhere",
@@ -261,174 +452,307 @@ impl Detail {
                 ),
                 false => empty_state(None, "Reading your other machines…", "", theme, cx),
             };
-            return v_flex()
-                .size_full()
-                .child(header)
-                .child(empty)
-                .into_any_element();
         }
-        let server = connection.map(|c| c.server.clone());
-        let solid = self.files_focused(window);
-        v_flex()
-            .size_full()
-            .child(header)
-            .child(
-                v_flex()
-                    .id("machine-list")
-                    .flex_1()
-                    .min_h(px(0.))
-                    .overflow_y_scroll()
-                    .pb(px(16.))
-                    .children(checkouts.iter().enumerate().map(|(ix, checkout)| {
-                        let id: Arc<str> = checkout.id.as_str().into();
-                        // Its own id keeps its rows' ids apart from another checkout's.
-                        v_flex()
-                            .id(("checkout", ix))
-                            .child(checkout_heading(checkout, server.as_deref(), theme))
-                            .children(uncommitted_rows(checkout, server.as_deref(), theme))
-                            .children(
-                                self.machine_branches(project, &id, checkout, solid, theme, cx),
-                            )
-                    })),
-            )
-            .into_any_element()
+        let rows = self.machine_rows(project, checkouts);
+        let project = project.clone();
+        side_list(
+            "machine-rows",
+            rows.len(),
+            &self.mesh.scroll,
+            "machine-scrollbar",
+            cx,
+            move |this, ix, theme, window, cx| {
+                let checkouts = this.store.read(cx).mesh_checkouts(&project);
+                let solid = this.side_focus.is_focused(window);
+                this.machine_row(&project, checkouts, (ix, *rows.get(ix)?), solid, theme, cx)
+            },
+        )
+        .pt(px(6.))
+        .track_focus(&self.side_focus)
+        .key_context("SideList")
+        .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.step_machines(1, cx)))
+        .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.step_machines(-1, cx)))
+        .on_action(cx.listener(|this, _: &Expand, _, cx| this.fold_machines(true, cx)))
+        .on_action(cx.listener(|this, _: &Collapse, _, cx| this.fold_machines(false, cx)))
+        .into_any_element()
     }
 
-    /// Each branch of `checkout`, with how its fetch stands, then its commits; the picked one,
-    /// or the one holding the picked commit, is lit.
-    fn machine_branches(
+    /// The list's row `ix`, `row`, on one line with what doesn't fit on hover. A click picks
+    /// it, a double-click or its chevron folds it, and right-clicking offers what it can do.
+    fn machine_row(
         &self,
         project: &ProjectId,
-        id: &Arc<str>,
-        checkout: &Checkout,
+        checkouts: &[Checkout],
+        (ix, row): (usize, Row),
         solid: bool,
         theme: &Theme,
         cx: &Context<Self>,
-    ) -> Vec<AnyElement> {
-        let mut rows = Vec::new();
-        if checkout.branches.is_empty() {
-            return rows;
-        }
-        let noun = match checkout.branches.len() {
-            1 => "1 branch".to_owned(),
-            n => format!("{n} branches"),
+    ) -> Option<AnyElement> {
+        let picked = Self::row_pick(checkouts, row);
+        let selected = picked.is_some() && picked.as_ref() == self.mesh.picks.get(project);
+        let on = selected && solid;
+        let ink = |color| if on { theme.text_inverted } else { color };
+        // A click picks the row and a double-click folds it; its chevron folds it only.
+        let picks = |row: Stateful<Div>| {
+            let (project, picked) = (project.clone(), picked.clone());
+            row.on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
+                window.focus(&this.side_focus, cx);
+                if let Some((id, pick)) = picked.clone() {
+                    this.pick(&project, &id, pick, cx);
+                    if event.click_count() == 2 {
+                        this.fold_picked(&project, cx);
+                    }
+                }
+            }))
         };
-        rows.push(list_heading(noun, theme));
-        let picked = self.machine_pick(project, id);
-        for (bx, branch) in checkout.branches.iter().enumerate() {
-            let (glyph, color) = branch_glyph(branch.status, theme);
-            let unpushed = branch.commits.iter().filter(|c| !c.pushed).count();
-            let fetch = self.branch_fetch(project, id, &branch.name);
-            let here = matches!(fetch, Some(Fetch::Done(_)));
-            let lit = picked == Some(&Pick::Branch(branch.name.clone()));
-            let status = match fetch {
-                Some(Fetch::Running) => Some(faint("fetching…", theme).into_any_element()),
-                Some(Fetch::Failed(err)) => Some(
-                    div()
-                        .id(("machine-branch-failed", bx))
-                        .child(small_icon(Icon::Warning).text_color(theme.warn))
-                        .tooltip(Tooltip::text(format!("Couldn't fetch it: {err}")))
-                        .into_any_element(),
-                ),
-                Some(Fetch::Done(_)) | None => None,
-            };
-            let (pick_project, pick_id, name) = (project.clone(), id.clone(), branch.name.clone());
-            let menu = (project.clone(), id.clone(), branch.name.clone());
-            rows.push(
-                side_row(("machine-branch", bx), lit, solid, theme)
-                    .mt(px(4.))
-                    .child(icon(glyph).text_color(if lit && solid {
-                        theme.text_inverted
-                    } else {
-                        color
-                    }))
+        let menu = |row: Stateful<Div>| {
+            let (project, picked) = (project.clone(), picked.clone());
+            row.on_mouse_down(
+                MouseButton::Right,
+                cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                    window.focus(&this.side_focus, cx);
+                    let Some((id, pick)) = picked.clone() else {
+                        return;
+                    };
+                    this.pick(&project, &id, pick.clone(), cx);
+                    let items = match &pick {
+                        Pick::Checkout => this.checkout_menu(&project, &id, cx),
+                        Pick::Branch(name) | Pick::Commit(name, _) => {
+                            this.machine_branch_menu(&project, &id, name, cx)
+                        }
+                    };
+                    (this.app)
+                        .update(cx, |app, cx| app.open_menu(event.position, items, cx))
+                        .ok();
+                }),
+            )
+        };
+        let el = match row {
+            Row::Machine(c) => {
+                let checkout = checkouts.get(c)?;
+                let key = (project.clone(), checkout.machine.clone());
+                let open = !self.mesh.folded_machines.contains(&key);
+                // The newest change of its checkouts.
+                let last = (checkouts.iter())
+                    .filter(|o| o.machine == checkout.machine)
+                    .filter_map(|o| o.last_activity)
+                    .max();
+                let active = checkout.online && last.is_some_and(just_now);
+                let (color, status) = match (active, checkout.online) {
+                    (true, _) => (theme.safe, "Online, changed in the last 2 minutes"),
+                    (false, true) => (theme.text_3, "Online"),
+                    (false, false) => (theme.text_3.opacity(0.4), "Offline"),
+                };
+                side_row(("machine", ix), false, false, theme)
+                    .pl(px(2.))
+                    .child(chevron(
+                        ("machine-fold", ix),
+                        Some(open),
+                        theme.text_3,
+                        theme,
+                    ))
+                    .child(small_icon(Icon::Globe).text_color(theme.text_2))
                     .child(
                         div()
                             .flex_1()
                             .min_w(px(0.))
                             .truncate()
                             .font_weight(gpui::FontWeight::MEDIUM)
-                            .child(branch.name.clone()),
+                            .when(!checkout.online, |el| el.text_color(theme.text_2))
+                            .child(checkout.machine.clone()),
                     )
-                    .children(status)
-                    .when(unpushed > 0, |el| {
-                        el.child(
-                            h_flex()
-                                .gap(px(3.))
-                                .text_size(px(12.))
-                                .text_color(theme.blue)
-                                .child(small_icon(Icon::ArrowUp).text_color(theme.blue))
-                                .child(unpushed.to_string()),
-                        )
-                    })
+                    .child(
+                        div()
+                            .id(("machine-online", ix))
+                            .child(dot(color))
+                            .tooltip(Tooltip::text(status)),
+                    )
+                    .child(age_column(last, theme))
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        this.pick(&pick_project, &pick_id, Pick::Branch(name.clone()), cx)
+                        this.toggle_machine(key.clone(), cx)
                     }))
-                    .on_mouse_down(
-                        MouseButton::Right,
-                        cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                            let (project, id, name) = &menu;
-                            this.pick(project, id, Pick::Branch(name.clone()), cx);
-                            let items = this.machine_branch_menu(project, id, name, cx);
-                            this.app
-                                .update(cx, |app, cx| app.open_menu(event.position, items, cx))
-                                .ok();
-                        }),
+            }
+            Row::Checkout(c) => {
+                let checkout = checkouts.get(c)?;
+                let id: Arc<str> = checkout.id.as_str().into();
+                let key = (project.clone(), id);
+                let open = !self.mesh.folded_checkouts.contains(&key);
+                let unpushed: usize = (checkout.branches.iter())
+                    .map(|b| b.commits.iter().filter(|c| !c.pushed).count())
+                    .sum();
+                let files = checkout.uncommitted.len();
+                let tip = match &checkout.error {
+                    Some(err) => {
+                        format!("{}\nThe mesh couldn't read all of it: {err}", checkout.path)
+                    }
+                    None => checkout.path.clone(),
+                };
+                let fold = (!checkout.branches.is_empty()).then_some(open);
+                let row = side_row(("checkout", ix), selected, solid, theme)
+                    .pl(px(16.))
+                    .child(fold_on_click(
+                        chevron(("checkout-fold", ix), fold, ink(theme.text_3), theme),
+                        cx,
+                        move |this, cx| this.toggle_checkout(key.clone(), cx),
+                    ))
+                    .child(small_icon(Icon::Folder).text_color(ink(theme.text_2)))
+                    .child(
+                        div()
+                            .id(("checkout-name", ix))
+                            .flex_1()
+                            .min_w(px(0.))
+                            .truncate()
+                            .when(checkout.error.is_some() && !on, |el| {
+                                el.text_color(theme.warn)
+                            })
+                            .child(place(checkout))
+                            .tooltip(Tooltip::text(tip)),
                     )
-                    .into_any_element(),
-            );
-            let listed = branch.commits.iter().take(LISTED);
-            rows.extend(listed.enumerate().map(|(ix, commit)| {
-                let commit_id = gix::ObjectId::from_hex(commit.id.as_bytes())
-                    .ok()
-                    .map(CommitId);
-                let pick = commit_id.map(|c| Pick::Commit(branch.name.clone(), c));
-                let lit = pick.is_some() && picked == pick.as_ref();
-                let row_id = SharedString::from(format!("machine-commit-{bx}-{ix}"));
-                let (pick_project, pick_id) = (project.clone(), id.clone());
-                side_row(ElementId::Name(row_id), lit, solid, theme)
-                    .pl(px(32.))
-                    .when(!here, |el| el.text_color(theme.text_2))
-                    .child(small_icon(Icon::Commit).text_color(match commit.pushed {
-                        true => theme.text_3,
-                        false => theme.blue,
-                    }))
+                    .children(meta_count(
+                        Icon::File,
+                        files,
+                        ink(theme.warn),
+                        plural(files, "uncommitted file"),
+                    ))
+                    .when(!open, |el| {
+                        el.children(meta_count(
+                            Icon::ArrowUp,
+                            unpushed,
+                            ink(theme.blue),
+                            plural(unpushed, "unpushed commit"),
+                        ))
+                    })
+                    .child(quiet(age_column(checkout.last_activity, theme), on, theme));
+                menu(picks(row))
+            }
+            Row::Branch(c, b) => {
+                let checkout = checkouts.get(c)?;
+                let branch = checkout.branches.get(b)?;
+                let id: Arc<str> = checkout.id.as_str().into();
+                let fetch = match self.branch_fetch(project, &id, &branch.name) {
+                    Some(Fetch::Running) => Some((
+                        Icon::Refresh,
+                        ink(theme.text_3),
+                        format!("Fetching it from {}", checkout.machine),
+                    )),
+                    Some(Fetch::Failed(err)) => Some((
+                        Icon::Warning,
+                        ink(theme.warn),
+                        format!("Couldn't fetch it: {err}"),
+                    )),
+                    Some(Fetch::Done(_)) | None => None,
+                };
+                let key = (project.clone(), id, branch.name.clone());
+                let open = self.mesh.open_branches.contains(&key);
+                let (glyph, color) = branch_glyph(branch.status, theme);
+                let unpushed = branch.commits.iter().filter(|c| !c.pushed).count();
+                let commits = branch.commits.len();
+                let fold = (commits > 0).then_some(open);
+                let row = side_row(("branch", ix), selected, solid, theme)
+                    .pl(px(30.))
+                    .child(fold_on_click(
+                        chevron(("branch-fold", ix), fold, ink(theme.text_3), theme),
+                        cx,
+                        move |this, cx| this.toggle_mesh_branch(key.clone(), cx),
+                    ))
+                    .child(small_icon(glyph).text_color(ink(color)))
                     .child(
                         div()
                             .flex_1()
                             .min_w(px(0.))
                             .truncate()
-                            .child(commit_title(&commit.title)),
+                            .font_family(theme.mono_font.clone())
+                            .text_size(px(12.))
+                            .text_color(ink(theme.blue))
+                            .child(branch.name.clone()),
                     )
-                    .children(commit.author.as_ref().map(|author| {
+                    .children(fetch.map(|(glyph, color, tip)| {
                         div()
-                            .id(ElementId::Name(format!("machine-author-{bx}-{ix}").into()))
-                            .flex_none()
-                            .child(person_avatar(author, 14., theme))
-                            .tooltip(Tooltip::text(format!("Authored by {author}")))
+                            .id(("branch-fetch", ix))
+                            .child(small_icon(glyph).text_color(color))
+                            .tooltip(Tooltip::text(tip))
                     }))
-                    .child(age_column(commit.created_at, theme))
-                    .when_some(pick, |el, pick| {
-                        el.on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                            this.pick(&pick_project, &pick_id, pick.clone(), cx)
-                        }))
-                    })
-                    .into_any_element()
-            }));
-            let link = (self.store.read(cx).mesh.connection())
-                .map(|c| mesh::link(&c.server, id, Some(&branch.name)));
-            rows.extend(more_row(
-                ("machine-more-commits", bx),
-                branch.commits.len(),
-                link,
-                theme,
-            ));
-        }
-        rows
+                    // Unpushed commits, or else, folded, how many it has; never both.
+                    .children(meta_count(
+                        Icon::ArrowUp,
+                        unpushed,
+                        ink(theme.blue),
+                        plural(unpushed, "unpushed commit"),
+                    ))
+                    .when(unpushed == 0 && !open, |el| {
+                        el.children(meta_count(
+                            Icon::Commit,
+                            commits,
+                            ink(theme.text_3),
+                            plural(commits, "commit"),
+                        ))
+                    });
+                menu(picks(row))
+            }
+            Row::Commit(c, b, k) => {
+                let checkout = checkouts.get(c)?;
+                let branch = checkout.branches.get(b)?;
+                let commit = branch.commits.get(k)?;
+                let id: Arc<str> = checkout.id.as_str().into();
+                let here = matches!(
+                    self.branch_fetch(project, &id, &branch.name),
+                    Some(Fetch::Done(_))
+                );
+                let tip = match (&commit.author, commit.created_at) {
+                    (Some(author), Some(at)) => format!("{author}, {} ago", relative_time(at)),
+                    (Some(author), None) => author.clone(),
+                    (None, Some(at)) => format!("{} ago", relative_time(at)),
+                    (None, None) => commit.id.chars().take(7).collect(),
+                };
+                let row = side_row(("commit", ix), selected, solid, theme)
+                    .pl(px(52.))
+                    .when(!here && !on, |el| el.text_color(theme.text_2))
+                    .child(
+                        small_icon(Icon::Commit).text_color(ink(match commit.pushed {
+                            true => theme.text_3,
+                            false => theme.blue,
+                        })),
+                    )
+                    .child(
+                        div()
+                            .id(("commit-title", ix))
+                            .flex_1()
+                            .min_w(px(0.))
+                            .truncate()
+                            .child(commit_title(&commit.title))
+                            .tooltip(Tooltip::text(tip)),
+                    )
+                    .child(quiet(age_column(commit.created_at, theme), on, theme));
+                menu(picks(row))
+            }
+        };
+        Some(el.into_any_element())
     }
 
-    /// What right-clicking a branch on a machine's page offers: bringing it here, and its page
-    /// on but.dev.
+    /// What right-clicking a checkout offers: it on but.dev, where its uncommitted changes
+    /// are, and its path there.
+    fn checkout_menu(&self, project: &ProjectId, id: &Arc<str>, cx: &gpui::App) -> Vec<MenuItem> {
+        let store = self.store.read(cx);
+        let Some(checkout) = store.mesh_checkout(project, id) else {
+            return Vec::new();
+        };
+        let mut items = Vec::new();
+        if let Some(connection) = store.mesh.connection() {
+            let url = mesh::link(&connection.server, id, None);
+            items.push(MenuItem::new("Open on but.dev", move |_, _, cx| {
+                cx.open_url(&url)
+            }));
+        }
+        let path = checkout.path.clone();
+        items.push(MenuItem::new("Copy path", move |app, _, cx| {
+            cx.write_to_clipboard(gpui::ClipboardItem::new_string(path.clone()));
+            app.store.update(cx, |store, cx| store.snack("Copied", cx));
+        }));
+        items
+    }
+
+    /// What right-clicking a branch, or one of its commits, offers: bringing it here, and its
+    /// page on but.dev.
     fn machine_branch_menu(
         &self,
         project: &ProjectId,
@@ -463,139 +787,116 @@ impl Detail {
     }
 }
 
-/// Over a checkout's rows: the machine (and worktree) it's on, whether that's online, when it
-/// last changed and where it is, with a link to it on but.dev.
-fn checkout_heading(checkout: &Checkout, server: Option<&str>, theme: &Theme) -> AnyElement {
-    let active = checkout.online && checkout.last_activity.is_some_and(just_now);
-    let (color, status) = match (active, checkout.online) {
-        (true, _) => (theme.safe, "Online"),
-        (false, true) => (theme.text_3, "Online"),
-        (false, false) => (theme.text_3.opacity(0.4), "Offline"),
+/// Where a checkout is on its machine, as its row names it: its worktree's name, or else its
+/// folder's.
+fn place(checkout: &Checkout) -> String {
+    (checkout.worktree.clone())
+        .or_else(|| checkout.folder.clone())
+        .or_else(|| {
+            let folder = Path::new(&checkout.path).file_name()?;
+            Some(folder.to_string_lossy().into_owned())
+        })
+        .unwrap_or_else(|| checkout.path.clone())
+}
+
+/// A row's fold control: a chevron, down while `open`, or a dot when there's nothing under the
+/// row to fold (`None`).
+fn chevron(
+    id: impl Into<ElementId>,
+    open: Option<bool>,
+    color: Hsla,
+    theme: &Theme,
+) -> Stateful<Div> {
+    let step = div()
+        .id(id)
+        .flex_none()
+        .w(px(14.))
+        .h(px(16.))
+        .flex()
+        .items_center()
+        .justify_center();
+    match open {
+        None => step.child(small_icon(Icon::BulletDisc).text_color(theme.text_3.opacity(0.6))),
+        Some(open) => step.rounded(px(3.)).hover(|el| el.bg(theme.hover())).child(
+            small_icon(match open {
+                true => Icon::ChevronDown,
+                false => Icon::ChevronRight,
+            })
+            .text_color(color),
+        ),
+    }
+}
+
+/// `step`, a row's chevron, folding the row on a click without picking it.
+fn fold_on_click(
+    step: Stateful<Div>,
+    cx: &Context<Detail>,
+    fold: impl Fn(&mut Detail, &mut Context<Detail>) + 'static,
+) -> Stateful<Div> {
+    step.on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+            cx.stop_propagation();
+            fold(this, cx)
+        }))
+}
+
+/// A checkout's uncommitted files, for the diff pane: their diffs are on that machine, so a
+/// button opens it on but.dev.
+fn uncommitted_view(checkout: &Checkout, server: Option<&str>, theme: &Theme) -> AnyElement {
+    let files = &checkout.uncommitted;
+    let title = match files.len() {
+        0 => format!("Nothing uncommitted on {}", checkout.machine),
+        n => format!("{} on {}", plural(n, "uncommitted file"), checkout.machine),
     };
-    let activity = checkout.last_activity.map(|at| match just_now(at) {
-        true => "active now".to_owned(),
-        false => format!("active {} ago", relative_time(at)),
-    });
+    let more = files.len().saturating_sub(LISTED);
     v_flex()
-        .px(px(14.))
-        .pt(px(14.))
-        .pb(px(2.))
-        .gap(px(2.))
+        .p(px(24.))
+        .gap(px(12.))
+        .max_w(px(640.))
         .child(
-            h_flex()
-                .gap(px(8.))
-                .child(icon(Icon::Globe).text_color(theme.text_2))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w(px(0.))
-                        .truncate()
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
-                        .child(checkout.label()),
-                )
-                .children(server.map(|server| {
-                    let url = mesh::link(server, &checkout.id, None);
-                    icon_button("machine-on-but-dev", Icon::Link)
-                        .small()
-                        .tooltip("Open on but.dev, with its uncommitted changes")
-                        .on_click(move |_, _, cx| cx.open_url(&url))
-                })),
+            v_flex()
+                .gap(px(2.))
+                .child(div().font_weight(gpui::FontWeight::SEMIBOLD).child(title))
+                .child(faint(checkout.path.clone(), theme)),
         )
-        .child(
-            h_flex()
-                .gap(px(5.))
-                .text_size(px(12.))
-                .text_color(theme.text_2)
-                .child(dot(color))
-                .child(match activity {
-                    Some(activity) => format!("{status}, {activity}"),
-                    None => status.to_owned(),
-                }),
-        )
-        .child(
-            div()
-                .id("machine-path")
-                .text_size(px(12.))
-                .text_color(theme.text_3)
-                .truncate()
-                .tooltip(Tooltip::text(checkout.path.clone()))
-                .child(checkout.path.clone()),
-        )
-        .children(checkout.error.as_ref().map(|err| {
-            div()
-                .text_size(px(12.))
-                .text_color(theme.warn)
-                .child(format!("The mesh couldn't read all of it: {err}"))
+        .when(!files.is_empty(), |el| {
+            let listed = files.iter().take(LISTED).map(|file| {
+                h_flex()
+                    .gap(px(8.))
+                    .child(small_icon(Icon::File).text_color(theme.warn))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w(px(0.))
+                            .truncate()
+                            .child(file.path.clone()),
+                    )
+                    .child(faint(
+                        format!("+{} −{}", file.additions, file.deletions),
+                        theme,
+                    ))
+            });
+            el.child(v_flex().gap(px(4.)).children(listed))
+                .when(more > 0, |el| {
+                    el.child(faint(format!("and {more} more"), theme))
+                })
+        })
+        .children(server.map(|server| {
+            let url = mesh::link(server, &checkout.id, None);
+            h_flex().child(
+                button("checkout-on-but-dev", "Open on but.dev")
+                    .small()
+                    .icon(Icon::Link)
+                    .style(ButtonStyle::Ghost)
+                    .tooltip("Their diffs are on that machine")
+                    .on_click(move |_, _, cx| cx.open_url(&url)),
+            )
         }))
         .into_any_element()
 }
 
-/// A checkout's uncommitted files, under a heading. Their diffs are on that machine, so a click
-/// opens the checkout on but.dev.
-fn uncommitted_rows(checkout: &Checkout, server: Option<&str>, theme: &Theme) -> Vec<AnyElement> {
-    if checkout.uncommitted.is_empty() {
-        return Vec::new();
-    }
-    let heading = list_heading(
-        plural(checkout.uncommitted.len(), "uncommitted file"),
-        theme,
-    );
-    let url = server.map(|server| mesh::link(server, &checkout.id, None));
-    let listed = checkout.uncommitted.iter().take(LISTED);
-    let files = listed.enumerate().map(|(ix, file)| {
-        side_row(("machine-file", ix), false, false, theme)
-            .tooltip(Tooltip::text(
-                "Its diff is on that machine: open it on but.dev",
-            ))
-            .child(small_icon(Icon::File).text_color(theme.warn))
-            .child(
-                div()
-                    .flex_1()
-                    .min_w(px(0.))
-                    .truncate()
-                    .child(file.path.clone()),
-            )
-            .child(faint(
-                format!("+{} −{}", file.additions, file.deletions),
-                theme,
-            ))
-            .when_some(url.clone(), |el, url| {
-                el.on_click(move |_, _, cx| cx.open_url(&url))
-            })
-            .into_any_element()
-    });
-    let more = more_row(
-        "machine-more-files",
-        checkout.uncommitted.len(),
-        url.clone(),
-        theme,
-    );
-    std::iter::once(heading).chain(files).chain(more).collect()
-}
-
-/// Past the first [`LISTED`] of `total`, a row saying how many more there are, which opens
-/// them on but.dev.
-fn more_row(
-    id: impl Into<ElementId>,
-    total: usize,
-    link: Option<String>,
-    theme: &Theme,
-) -> Option<AnyElement> {
-    let more = total.checked_sub(LISTED).filter(|more| *more > 0)?;
-    Some(
-        side_row(id, false, false, theme)
-            .pl(px(32.))
-            .text_color(theme.text_3)
-            .child(format!("{more} more on but.dev"))
-            .when_some(link, |el, link| {
-                el.on_click(move |_, _, cx| cx.open_url(&link))
-            })
-            .into_any_element(),
-    )
-}
-
 /// What a branch on another machine shows as: merged, or still to finish.
-fn branch_glyph(status: BranchStatus, theme: &Theme) -> (Icon, gpui::Hsla) {
+fn branch_glyph(status: BranchStatus, theme: &Theme) -> (Icon, Hsla) {
     match status {
         BranchStatus::Integrated => (Icon::Tick, theme.safe),
         BranchStatus::Diverged => (Icon::Branch, theme.warn),

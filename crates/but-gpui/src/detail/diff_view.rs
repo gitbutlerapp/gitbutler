@@ -330,8 +330,7 @@ impl Detail {
             if let Some(Selection::Machines(project)) = &self.store.read(cx).selection
                 && !self.loading.is_some()
             {
-                let waiting = self.machine_waiting(project, cx);
-                let message = empty_state(None, "", waiting, theme, cx);
+                let message = self.machine_placeholder(project, theme, cx);
                 return ground().child(message).into_any_element();
             }
             let message = match (self.loading.is_some(), self.nothing_committed(cx)) {

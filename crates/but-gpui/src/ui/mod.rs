@@ -825,6 +825,23 @@ pub fn age_column(seconds: Option<i64>, theme: &Theme) -> Div {
         .whitespace_nowrap()
 }
 
+/// A small count in a row's meta, coloured by meaning (amber waits on you, blue is
+/// unpushed), saying on hover what it counts; nothing at zero.
+pub fn meta_count(glyph: Icon, n: usize, color: Hsla, tip: String) -> Option<Stateful<Div>> {
+    let tip = SharedString::from(tip);
+    (n > 0).then(|| {
+        h_flex()
+            .id(ElementId::Name(tip.clone()))
+            .flex_none()
+            .gap(px(3.))
+            .text_size(px(11.))
+            .text_color(color)
+            .child(small_icon(glyph).text_color(color))
+            .child(n.to_string())
+            .tooltip(Tooltip::text(tip))
+    })
+}
+
 /// `seconds` (since the epoch) as the time here, the way but.dev dates a commit:
 /// "16/10/2026, 21:04".
 pub fn local_time(seconds: i64) -> String {

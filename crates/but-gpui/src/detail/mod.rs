@@ -326,7 +326,7 @@ pub struct Detail {
     _branches_load: Task<()>,
     /// Branches fetched from other machines, and the picks on their pages.
     /// What the Other machines page fetched and picked; see `detail/machine.rs`.
-    mesh: machine::MeshFetches,
+    mesh: machine::MachinesPage,
     _branch_commits_load: Task<()>,
     /// The History page's operations, for the project it shows.
     history: Option<history::History>,
@@ -554,7 +554,7 @@ impl Detail {
             branch_filter,
             branches_scroll: UniformListScrollHandle::new(),
             _branches_load: Task::ready(()),
-            mesh: machine::MeshFetches::default(),
+            mesh: machine::MachinesPage::default(),
             _branch_commits_load: Task::ready(()),
             history: None,
             history_scroll: UniformListScrollHandle::new(),
@@ -1025,9 +1025,12 @@ impl Detail {
     /// history and project pages, focus their list instead, as it takes the arrow keys itself.
     pub fn focus_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let handle = match &self.store.read(cx).selection {
-            Some(Selection::Branches(_) | Selection::History(_) | Selection::Project(_)) => {
-                &self.side_focus
-            }
+            Some(
+                Selection::Branches(_)
+                | Selection::History(_)
+                | Selection::Project(_)
+                | Selection::Machines(_),
+            ) => &self.side_focus,
             _ if self.files_shown(cx) => &self.files_focus,
             _ => &self.focus,
         };
@@ -1738,9 +1741,7 @@ impl Render for Detail {
                     Selection::Stack(project, bottom) => {
                         self.render_stack_side(project, bottom, &theme, cx)
                     }
-                    Selection::Machines(project) => {
-                        self.render_machines_side(project, &theme, window, cx)
-                    }
+                    Selection::Machines(project) => self.render_machines_side(project, &theme, cx),
                     Selection::Branches(project) => {
                         self.render_branches_side(project, &theme, window, cx)
                     }

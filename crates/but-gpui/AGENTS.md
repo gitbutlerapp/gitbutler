@@ -141,8 +141,9 @@ anything else.
   the last good read. A failed status check while connected keeps the connection, so a network
   blip doesn't hide the page. Only what the user asked for, signing in or out and Apply here,
   shows an error.
-- The store notifies only when a read changed something. The page draws its list whole, so it
-  lists at most `LISTED` commits per branch and uncommitted files per checkout.
+- The store notifies only when a read changed something. The page's list is a `uniform_list`, as
+  the other side lists are, so another machine's long branch costs nothing to draw; the checkout
+  view beside it lists at most `LISTED` uncommitted files.
 - Try failures with a fake `but-mesh` first on the `PATH`, which the app searches before
   `~/.local/bin`: one that sleeps tests the timeouts and that the project's queue stays free,
   and one that exits non-zero or prints garbage tests the fallbacks. A sandbox keeps the app's
