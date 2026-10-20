@@ -1010,10 +1010,13 @@ pub fn branch_create_with_perm(
         unique_canned_refname(&repo)?
     };
 
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+    // The snapshot lists `new_ref` so that undo deletes it again: left behind, it would join
+    // a stack on the next change.
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
         ctx,
         SnapshotDetails::new(OperationKind::CreateBranch)
             .with_trailers([Trailer::Name(new_ref.to_string())]),
+        &[new_ref.as_ref()],
         perm.read_permission(),
         DryRun::No,
     );
