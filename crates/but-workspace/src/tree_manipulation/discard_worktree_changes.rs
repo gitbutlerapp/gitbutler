@@ -45,7 +45,7 @@ pub fn discard_workspace_changes(
     let wt_changes = but_core::diff::worktree_changes(repo)?;
     let mut dropped = Vec::new();
     let mut index = repo.index_or_empty()?.into_owned_or_cloned();
-    let mut initial_entries_len = index.entries().len();
+    let mut edit = but_core::index::Edit::new(&mut index);
     let (mut pipeline, _) = repo.filter_pipeline(Some(repo.empty_tree().id))?;
     let head_tree = repo.head_tree_id_or_empty()?.object()?.into_tree();
 
@@ -67,18 +67,14 @@ pub fn discard_workspace_changes(
                 TreeStatus::Addition { is_untracked, .. } => {
                     std::fs::remove_file(path_check.verified_path(&wt_change.path)?)?;
                     if !is_untracked {
-                        file::index::mark_entry_for_deletion(
-                            &mut index,
-                            wt_change.path.as_bstr(),
-                            initial_entries_len,
-                        );
+                        edit.remove(wt_change.path.as_bstr());
                     }
                     if let Some(entry) =
                         head_tree.lookup_entry(wt_change.path.split(|b| *b == b'/'))?
                     {
                         file::restore_state_to_worktree(
                             &mut pipeline,
-                            &mut index,
+                            &mut edit,
                             wt_change.path.as_bstr(),
                             ChangeState {
                                 id: entry.object_id(),
@@ -86,30 +82,27 @@ pub fn discard_workspace_changes(
                             },
                             file::RestoreMode::Deleted,
                             &mut path_check,
-                            &mut initial_entries_len,
                         )?
                     }
                 }
                 TreeStatus::Deletion { previous_state } => {
                     file::restore_state_to_worktree(
                         &mut pipeline,
-                        &mut index,
+                        &mut edit,
                         wt_change.path.as_bstr(),
                         previous_state,
                         file::RestoreMode::Deleted,
                         &mut path_check,
-                        &mut initial_entries_len,
                     )?;
                 }
                 TreeStatus::Modification { previous_state, .. } => {
                     file::restore_state_to_worktree(
                         &mut pipeline,
-                        &mut index,
+                        &mut edit,
                         wt_change.path.as_bstr(),
                         previous_state,
                         file::RestoreMode::Update,
                         &mut path_check,
-                        &mut initial_entries_len,
                     )?;
                 }
                 TreeStatus::Rename {
@@ -119,18 +112,16 @@ pub fn discard_workspace_changes(
                 } => {
                     file::restore_state_to_worktree(
                         &mut pipeline,
-                        &mut index,
+                        &mut edit,
                         previous_path.as_bstr(),
                         previous_state,
                         file::RestoreMode::Deleted,
                         &mut path_check,
-                        &mut initial_entries_len,
                     )?;
                     file::purge_and_restore_from_head_tree(
-                        &mut index,
+                        &mut edit,
                         wt_change.path.as_bstr(),
                         &mut path_check,
-                        initial_entries_len,
                     )?;
                 }
             }
@@ -163,7 +154,7 @@ pub fn discard_workspace_changes(
                         &mut spec.hunk_headers,
                         &mut path_check,
                         &mut pipeline,
-                        &index,
+                        edit.state(),
                         context_lines,
                     )?;
                     if !spec.hunk_headers.is_empty() {
@@ -175,16 +166,7 @@ pub fn discard_workspace_changes(
         }
     }
 
-    let has_removals_or_updates = index.entries().iter().any(|e| {
-        e.flags
-            .intersects(gix::index::entry::Flags::REMOVE | gix::index::entry::Flags::UPDATE)
-    });
-    if has_removals_or_updates {
-        index.remove_tree();
-        index.remove_resolve_undo();
-        // Always sort, we currently don't keep track of whether this is truly required
-        // and checking the amount of entries isn't safe in light of conflicts (that may get removed).
-        index.sort_entries();
+    if edit.finish() {
         index.write(Default::default())?;
     }
     Ok(dropped)
@@ -201,7 +183,7 @@ mod file {
         tempfile::create_dir::Retries,
     };
 
-    use crate::tree_manipulation::discard_worktree_changes::file::index::mark_entry_for_deletion;
+    use but_core::index::{Edit, Stat};
 
     pub enum RestoreMode {
         /// Assume the resource to be restored doesn't exist as it was deleted.
@@ -210,16 +192,15 @@ mod file {
         Update,
     }
 
-    /// Restore `state` by writing it into the worktree of `repo`, possibly re-adding or updating the
-    /// `index` with it so that it matches the worktree.
+    /// Restore `state` by writing it into the worktree of `repo`, and record it in `edit`
+    /// so that the index matches the worktree.
     pub fn restore_state_to_worktree(
         pipeline: &mut gix::filter::Pipeline<'_>,
-        index: &mut gix::index::State,
+        edit: &mut Edit<'_>,
         rela_path: &BStr,
         state: ChangeState,
         mode: RestoreMode,
         path_check: &mut gix::status::plumbing::SymlinkCheck,
-        num_sorted_entries: &mut usize,
     ) -> anyhow::Result<()> {
         if state.id.is_null() {
             bail!(
@@ -227,18 +208,8 @@ mod file {
             );
         }
 
-        let mut update_index = |md| -> anyhow::Result<()> {
-            crate::commit_engine::index::upsert_index_entry(
-                index,
-                rela_path,
-                Some(&md),
-                state.id,
-                state.kind.into(),
-                gix::index::entry::Flags::UPDATE,
-                num_sorted_entries,
-            )?;
-            Ok(())
-        };
+        let mut update_index =
+            || edit.upsert(rela_path, state.id, state.kind.into(), Stat::Unknown);
 
         let repo = pipeline.repo;
         let wt_root = path_check.inner.root().to_owned();
@@ -261,20 +232,17 @@ mod file {
                     Retries::default(),
                     0,
                 )?;
-                let file = match tempfile.persist(&file_path) {
-                    Ok(res) => res,
-                    Err(err) => {
-                        if err.error.kind() == std::io::ErrorKind::IsADirectory {
-                            // It's OK to remove everything that's in the way.
-                            // Alternatives to this is to let it be handled by the stack.
-                            std::fs::remove_dir_all(&file_path)?;
-                            err.file.persist(file_path)?
-                        } else {
-                            return Err(err.into());
-                        }
+                if let Err(err) = tempfile.persist(&file_path) {
+                    if err.error.kind() == std::io::ErrorKind::IsADirectory {
+                        // It's OK to remove everything that's in the way.
+                        // Alternatives to this is to let it be handled by the stack.
+                        std::fs::remove_dir_all(&file_path)?;
+                        err.file.persist(file_path)?;
+                    } else {
+                        return Err(err.into());
                     }
-                };
-                update_index(gix::index::fs::Metadata::from_file(&file)?)?;
+                }
+                update_index();
             }
             EntryKind::Link => {
                 let link_path = file_path;
@@ -292,7 +260,7 @@ mod file {
                         return Err(err.into());
                     }
                 }
-                update_index(gix::index::fs::Metadata::from_path_no_follow(&link_path)?)?;
+                update_index();
             }
             EntryKind::Commit => {
                 if let RestoreMode::Update = mode {
@@ -358,10 +326,10 @@ mod file {
                         }
                     })?;
                 }
-                update_index(gix::index::fs::Metadata::from_path_no_follow(&file_path)?)?;
+                update_index();
             }
             EntryKind::Tree => {
-                mark_entry_for_deletion(index, rela_path, *num_sorted_entries);
+                edit.remove(rela_path);
                 let checkout_destination = file_path;
                 let mut sub_index = repo.index_from_tree(&state.id)?;
                 let mut opts = repo
@@ -392,21 +360,16 @@ mod file {
                     let partial_rela_path = entry.path_in(&path_storage);
                     rela_path.extend_from_slice(partial_rela_path);
 
-                    if index.entry_by_path(rela_path.as_bstr()).is_none() {
-                        index.dangerously_push_entry(
-                            entry.stat,
-                            entry.id,
-                            entry.flags | gix::index::entry::Flags::UPDATE,
-                            entry.mode,
+                    if !edit.contains(rela_path.as_bstr()) {
+                        edit.upsert(
                             rela_path.as_bstr(),
+                            entry.id,
+                            entry.mode,
+                            Stat::Known(entry.stat),
                         );
                     }
                     rela_path.truncate(prefix_len);
                 }
-                // These might be re-visited later if the user was able to add individual deletions in a directory.
-                // Sort to make index-lookups work.
-                index.sort_entries();
-                *num_sorted_entries = index.entries().len();
             }
         };
         Ok(())
@@ -476,19 +439,11 @@ mod file {
     /// and if necessary, checkout everything that this revealed.
     /// This is required when handling renames.
     pub fn purge_and_restore_from_head_tree(
-        index: &mut gix::index::State,
+        edit: &mut Edit<'_>,
         rela_path: &BStr,
         path_check: &mut gix::status::plumbing::SymlinkCheck,
-        num_sorted_entries: usize,
     ) -> anyhow::Result<()> {
-        if let Some(range) = index.entry_range(with_trailing_slash(rela_path).as_bstr()) {
-            #[expect(clippy::indexing_slicing)]
-            for entry in &mut index.entries_mut()[range] {
-                entry.flags.insert(gix::index::entry::Flags::REMOVE);
-            }
-        } else {
-            mark_entry_for_deletion(index, rela_path, num_sorted_entries);
-        }
+        edit.remove(rela_path);
 
         // TODO(motivational test): restore what was there in the the index, and then on disk by checkout.
         let path = path_check.verified_path(rela_path)?;
@@ -508,33 +463,6 @@ mod file {
             bail!("BUG: it's unclear how this case would occur, get a test for it")
         }
         Ok(())
-    }
-
-    pub(super) mod index {
-        use bstr::BStr;
-        use gix::index::entry::Stage;
-
-        pub fn mark_entry_for_deletion(
-            state: &mut gix::index::State,
-            rela_path: &BStr,
-            num_sorted_entries: usize,
-        ) {
-            for stage in [Stage::Unconflicted, Stage::Base, Stage::Ours, Stage::Theirs] {
-                // TODO(perf): `gix` should offer a way to get the *first* index by path so the
-                //             binary search doesn't have to be repeated.
-                let Some(entry_idx) = state.entry_index_by_path_and_stage_bounded(
-                    rela_path,
-                    stage,
-                    num_sorted_entries,
-                ) else {
-                    continue;
-                };
-                #[expect(clippy::indexing_slicing)]
-                state.entries_mut()[entry_idx]
-                    .flags
-                    .insert(gix::index::entry::Flags::REMOVE);
-            }
-        }
     }
 
     fn tempfile_in_root_with_permissions_at(
