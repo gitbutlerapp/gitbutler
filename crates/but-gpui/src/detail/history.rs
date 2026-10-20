@@ -533,7 +533,11 @@ impl Detail {
         let Some(operation) = self.selected_operation(project) else {
             return;
         };
-        let (id, title) = (operation.id, operation.title.clone());
+        // Named as its row is, by what it was done to.
+        let (id, title) = (
+            operation.id,
+            summary(operation).unwrap_or(operation.title.clone()),
+        );
         let project = project.clone();
         self.app
             .update(cx, |app, cx| {
