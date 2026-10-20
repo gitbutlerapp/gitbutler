@@ -545,6 +545,14 @@ impl Store {
         // One that's gone, as squashed away, leaves its branch selected, if that's still there.
         // A selected branch renamed, as an agent names one, is followed by its newest commit.
         let old = self.workspace(id);
+        let renamed: Vec<(String, String)> = (old.iter().flat_map(|old| old.branches()))
+            .filter(|branch| workspace.find_branch(&branch.ref_name).is_none())
+            .filter_map(|branch| {
+                let newest = follow_by_key(old, &workspace, branch.commits.first()?.id)?;
+                let (now, _) = workspace.find_commit(newest)?;
+                Some((branch.ref_name.clone(), now.ref_name.clone()))
+            })
+            .collect();
         let (rewritten, gone_from) = match &self.selection {
             Some(Selection::Commit(project, commit)) if project == id => {
                 match follow_by_key(old, &workspace, *commit) {
@@ -555,14 +563,9 @@ impl Store {
                     }
                 }
             }
-            Some(Selection::Branch(project, ref_name))
-                if project == id && workspace.find_branch(ref_name).is_none() =>
-            {
-                let newest =
-                    old.and_then(|old| Some(old.find_branch(ref_name)?.commits.first()?.id));
-                let now = newest.and_then(|commit| follow_by_key(old, &workspace, commit));
-                let branch = now.and_then(|commit| workspace.find_commit(commit));
-                (None, branch.map(|(branch, _)| branch.ref_name.clone()))
+            Some(Selection::Branch(project, ref_name)) if project == id => {
+                let to = renamed.iter().find(|(from, _)| from == ref_name);
+                (None, to.map(|(_, to)| to.clone()))
             }
             _ => (None, None),
         };
@@ -661,6 +664,9 @@ impl Store {
         }
         if let Some(branch) = gone_from {
             self.select(Some(Selection::Branch(id.clone(), branch)), cx);
+        }
+        for (from, to) in renamed {
+            cx.emit(StoreEvent::Renamed(id.clone(), from, to));
         }
         self.save_soon(cx);
     }

@@ -142,6 +142,9 @@ pub enum StoreEvent {
     /// A project's workspace was (re)loaded.
     Loaded(ProjectId),
     SelectionChanged,
+    /// A project's branch, by full ref, is gone by that name while its newest commit is on
+    /// another now, as when an agent renames it.
+    Renamed(ProjectId, String, String),
     /// What the user's other machines have of a project was read again, and changed.
     MeshRead(ProjectId),
     /// An operation on a project was queued, started or finished, which hides or shows
