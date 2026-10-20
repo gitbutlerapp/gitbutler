@@ -8,13 +8,14 @@ use bstr::ByteSlice;
 use but_core::{
     RefMetadata,
     branch::{canned_refname, find_unique_refname_excluding},
+    commit::SignCommit,
     ref_metadata::ProjectMeta,
 };
 use but_graph::workspace::commit::is_managed_workspace_by_message;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{
-        Editor, LookupStep, Pick, Selector, Step, SuccessfulRebase, ToSelector,
+        Editor, GraphEditorOptions, LookupStep, Pick, Selector, Step, SuccessfulRebase, ToSelector,
         mutate::{InsertSide, RelativeTo, SegmentDelimiter, SelectorSet},
     },
 };
@@ -163,11 +164,21 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
     db: &'meta mut but_db::DbHandle,
     updates: Vec<BottomUpdate>,
 ) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
-    integrate_upstream_with_hints(workspace, meta, project_meta, repo, db, updates, &[])
+    integrate_upstream_with_hints(
+        workspace,
+        meta,
+        project_meta,
+        repo,
+        db,
+        updates,
+        &[],
+        SignCommit::IfSignCommitsEnabled,
+    )
 }
 
 /// Like [`integrate_upstream()`], but accepts merged-review-derived integration
-/// anchors to classify additional integrated history.
+/// anchors to classify additional integrated history, and signs the rebased
+/// commits according to `sign_commit`.
 #[allow(clippy::too_many_arguments)]
 pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     workspace: &'ws mut but_graph::Workspace,
@@ -177,6 +188,7 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     db: &'meta mut but_db::DbHandle,
     updates: Vec<BottomUpdate>,
     review_hints: &[ReviewIntegrationHint],
+    sign_commit: SignCommit,
 ) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
     if matches!(workspace.kind, but_graph::workspace::WorkspaceKind::AdHoc)
         && workspace.ref_name().is_none()
@@ -235,7 +247,16 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
 
     // The editor contains every segment in the graph; the target ref's segment
     // is reachable from HEAD and so is mutable by default.
-    let mut editor = Editor::create(workspace, meta, repo, db)?;
+    let mut editor = Editor::create_with_opts(
+        workspace,
+        meta,
+        repo,
+        db,
+        &GraphEditorOptions {
+            default_sign_commit: sign_commit,
+            ..Default::default()
+        },
+    )?;
 
     let updates_with_selectors = updates
         .iter()
