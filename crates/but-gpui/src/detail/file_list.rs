@@ -556,9 +556,11 @@ impl Detail {
                 .collect(),
             },
             FileSource::Diff => {
-                let files = (self.diff.as_ref()?.files.iter())
+                let diff = self.diff.as_ref()?;
+                let leaving = diff.key.leaving(store);
+                let files = (diff.files.iter())
                     .map(|f| &f.file)
-                    .filter(|f| under(&f.path))
+                    .filter(|f| under(&f.path) && !leaving(&f.path))
                     .map(Selected::whole)
                     .collect();
                 self.owned_cut(files, cx)?

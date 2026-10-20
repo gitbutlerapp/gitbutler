@@ -131,6 +131,8 @@ fn interval_label(minutes: Option<u64>) -> String {
 pub struct SettingsView {
     store: Entity<Store>,
     app: WeakEntity<AppView>,
+    /// The diff's settings change through it, as its own toggles do.
+    detail: Entity<crate::detail::Detail>,
     search: Entity<TextInput>,
     page: Page,
     /// The project the project's pages are about.
@@ -163,6 +165,7 @@ impl SettingsView {
     pub fn new(
         store: Entity<Store>,
         app: WeakEntity<AppView>,
+        detail: Entity<crate::detail::Detail>,
         project: Option<ProjectId>,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -197,6 +200,7 @@ impl SettingsView {
         let mut view = Self {
             store,
             app,
+            detail,
             search,
             page: Page::General,
             project: None,
@@ -386,7 +390,7 @@ impl SettingsView {
             },
             theme,
         );
-        let app = self.app.clone();
+        let detail = self.detail.clone();
         let code = segmented(
             "code",
             [
@@ -396,11 +400,7 @@ impl SettingsView {
             ],
             prefs.code_size,
             move |size, _, cx| {
-                app.update(cx, |app, cx| {
-                    app.detail
-                        .update(cx, |detail, cx| detail.set_code_size(size, cx))
-                })
-                .ok();
+                detail.update(cx, |detail, cx| detail.set_code_size(size, cx));
             },
             theme,
         );
@@ -416,22 +416,14 @@ impl SettingsView {
                 "Diff lines wider than the pane continue on the next row. ⌥Z in a diff turns it \
                  on and off.",
                 switch("wrap", prefs.wrap, theme).on_click(cx.listener(|this, _, _, cx| {
-                    this.app
-                        .update(cx, |app, cx| {
-                            app.detail.update(cx, |detail, cx| detail.toggle_wrap(cx))
-                        })
-                        .ok();
+                    this.detail.update(cx, |detail, cx| detail.toggle_wrap(cx));
                 })),
             ),
             Row::new(
                 "Side by side",
                 "Diffs show the old lines beside the new ones. ⌘B in a diff switches.",
                 switch("split", prefs.split, theme).on_click(cx.listener(|this, _, _, cx| {
-                    this.app
-                        .update(cx, |app, cx| {
-                            app.detail.update(cx, |detail, cx| detail.toggle_split(cx))
-                        })
-                        .ok();
+                    this.detail.update(cx, |detail, cx| detail.toggle_split(cx));
                 })),
             ),
             Row::new(
@@ -442,22 +434,16 @@ impl SettingsView {
                  Off, diffs skip reading it, and load a little faster.",
                 switch("semantic", !prefs.no_semantic_context, theme).on_click(cx.listener(
                     |this, _, _, cx| {
-                        this.app
-                            .update(cx, |app, cx| {
-                                app.detail.update(cx, |detail, cx| {
-                                    detail.set_semantic_context(
-                                        |prefs| prefs.no_semantic_context ^= true,
-                                        cx,
-                                    )
-                                })
-                            })
-                            .ok();
+                        this.detail.update(cx, |detail, cx| {
+                            detail
+                                .set_semantic_context(|prefs| prefs.no_semantic_context ^= true, cx)
+                        });
                     },
                 )),
             ),
         ];
         if !prefs.no_semantic_context {
-            let app = self.app.clone();
+            let detail = self.detail.clone();
             let scope = segmented(
                 "scope",
                 [
@@ -467,12 +453,9 @@ impl SettingsView {
                 ],
                 prefs.whole_scopes,
                 move |lines, _, cx| {
-                    app.update(cx, |app, cx| {
-                        app.detail.update(cx, |detail, cx| {
-                            detail.set_semantic_context(|prefs| prefs.whole_scopes = lines, cx)
-                        })
-                    })
-                    .ok();
+                    detail.update(cx, |detail, cx| {
+                        detail.set_semantic_context(|prefs| prefs.whole_scopes = lines, cx)
+                    });
                 },
                 theme,
             );
@@ -940,9 +923,9 @@ impl AppView {
                 .map(|s| s.project().clone())
                 .or_else(|| store.projects.first().map(|entry| entry.id.clone()))
         });
-        let app = cx.entity().downgrade();
+        let (app, detail) = (cx.entity().downgrade(), self.detail.clone());
         let view = cx.new(|cx| {
-            let mut view = SettingsView::new(store, app, project, window, cx);
+            let mut view = SettingsView::new(store, app, detail, project, window, cx);
             if page == Page::Ai {
                 view.ensure_ai(cx);
             }

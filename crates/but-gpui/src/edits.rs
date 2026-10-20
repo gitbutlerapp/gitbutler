@@ -65,19 +65,19 @@ pub fn discard_label(what: &str, linked: bool, count: usize) -> String {
 }
 
 /// Whether `ref_name` can land, and if so whether with the branches below it: the bottom
-/// branch of a stack lands alone, the top one of a taller stack lands the whole stack.
-pub fn land_scope(workspace: &Workspace, ref_name: &str) -> Option<bool> {
+/// branch of a stack lands alone, the top one of a taller stack lands the whole stack. What
+/// lands needs commits, and none conflicted, which the engine won't land.
+fn land_scope(workspace: &Workspace, ref_name: &str) -> Option<bool> {
     let (stack, at) = workspace.stack_of(ref_name)?;
-    let branch = &stack.branches[at];
-    if branch.commits.is_empty() || branch.commits.iter().any(|c| c.conflicted) {
-        return None;
-    }
-    let bottom = at + 1 == stack.branches.len();
-    match (at, bottom) {
-        (_, true) => Some(false),
-        (0, false) => Some(true),
-        _ => None,
-    }
+    let whole = match (at, at + 1 == stack.branches.len()) {
+        (_, true) => false,
+        (0, false) => true,
+        _ => return None,
+    };
+    let landing: Vec<_> = (stack.branches[at..].iter())
+        .flat_map(|branch| &branch.commits)
+        .collect();
+    (!landing.is_empty() && !landing.iter().any(|c| c.conflicted)).then_some(whole)
 }
 
 /// Which edits of a named branch have something to do, so its menu and the palette offer
@@ -184,7 +184,9 @@ impl AppView {
                                 cx,
                             );
                         }
-                        store.move_to_new_branch(&project, [id].into(), cx)
+                        // With the commits picked with it, as dropping them on New branch does.
+                        let ids = store.with_picks(&project, id);
+                        store.move_to_new_branch(&project, ids, cx)
                     });
                 }))
                 .when(picked, |el| el.on_action(cx.listener(Self::squash_picked)))
@@ -205,7 +207,8 @@ impl AppView {
                 let Some(workspace) = store.workspace(project) else {
                     return el;
                 };
-                let el = el.when(!linked && workspace.can_pull(ref_name), |el| {
+                // A worktree's lane never can, as pulling reaches past the worktree.
+                let el = el.when(workspace.can_pull(ref_name), |el| {
                     el.on_action(cx.listener(|this, _: &PullRemote, window, cx| {
                         this.pull_remote(false, window, cx)
                     }))
@@ -294,7 +297,7 @@ impl AppView {
     }
 
     /// The selected commit, and the project it's in.
-    pub(crate) fn selected_commit<'a>(&self, cx: &'a App) -> Option<(ProjectId, &'a Commit)> {
+    fn selected_commit<'a>(&self, cx: &'a App) -> Option<(ProjectId, &'a Commit)> {
         let store = self.store.read(cx);
         let Some(Selection::Commit(project, id)) = &store.selection else {
             return None;
@@ -305,7 +308,7 @@ impl AppView {
 
     /// The selected commit, for an action on one commit; with several picked, which looks
     /// like several selected, it says so instead.
-    pub(crate) fn single_commit(&self, cx: &mut Context<Self>) -> Option<(ProjectId, CommitId)> {
+    fn single_commit(&self, cx: &mut Context<Self>) -> Option<(ProjectId, CommitId)> {
         if self.store.read(cx).picked.len() > 1 {
             self.store.update(cx, |store, cx| {
                 store.snack("That works on one commit: click one to select just it", cx)
@@ -431,9 +434,14 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         match self.selection(cx) {
-            // A linked worktree's unnamed branch is named there, where its HEAD is.
-            Some(Selection::Branch(_, ref_name))
-                if ref_name.is_empty() && refused_here(&self.store, cx) => {}
+            // A linked worktree's unnamed branch is named there, where its HEAD is, and one
+            // with no commits has nothing to name.
+            Some(Selection::Branch(project, ref_name))
+                if ref_name.is_empty()
+                    && (refused_here(&self.store, cx)
+                        || (self.store.read(cx).workspace(&project))
+                            .and_then(|ws| ws.find_branch(""))
+                            .is_none_or(|b| b.commits.is_empty())) => {}
             Some(Selection::Branch(project, ref_name)) => {
                 let undoable = !self.in_worktree_lane(cx);
                 // An unnamed branch has no ref to rename, so it gets one at its newest commit.
@@ -479,31 +487,27 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        // On top of a linked worktree's branch, the worktree checks the new one out and commits
-        // there, so the title says so, and the composer here doesn't pick it.
-        let worktree = {
-            let store = self.store.read(cx);
-            (store.selection.as_ref())
-                .and_then(|s| store.worktree_of(s))
-                .map(|wt| wt.name.clone())
-        };
-        let title = match &worktree {
-            Some(name) => format!("New branch on top, checked out in {name}"),
-            None => "New branch on top".to_owned(),
-        };
-        if let Some((project, below)) = self
+        let Some((project, below)) = self
             .branch_of_selection(cx)
             .filter(|(_, ref_name)| !ref_name.is_empty())
-        {
-            self.prompt_new_branch(
-                project,
-                &title,
-                worktree.is_none(),
-                window,
-                cx,
-                move |path, _, name| backend::create_dependent_branch(path, &below, name),
-            );
-        }
+        else {
+            return;
+        };
+        // A linked worktree's branch isn't one the composer here picks. On top of the one it
+        // has checked out, the worktree checks the new one out and commits there, so the title
+        // says so.
+        let store = self.store.read(cx);
+        let worktree = (store.selection.as_ref()).and_then(|s| store.worktree_of(s));
+        let checked_out = (store.workspace(&project).and_then(|ws| ws.lane_of(&below)))
+            .is_some_and(|(_, at)| at == 0);
+        let title = match worktree.filter(|_| checked_out) {
+            Some(worktree) => format!("New branch on top, checked out in {}", worktree.name),
+            None => "New branch on top".to_owned(),
+        };
+        let here = worktree.is_none();
+        self.prompt_new_branch(project, &title, here, window, cx, move |path, _, name| {
+            backend::create_dependent_branch(path, &below, name)
+        });
     }
 
     /// Ask for a branch name and make the branch with `op`, then select it. One made on top
@@ -614,13 +618,7 @@ impl AppView {
                             ..Overlay::default()
                         },
                         move |path, _| backend::remove_branch(path, &ref_name),
-                        move |store, (), cx| match linked {
-                            true => {
-                                store.keep_last_snapshot();
-                                store.snack("Branch deleted", cx)
-                            }
-                            false => store.snack_undoable("Branch deleted", cx),
-                        },
+                        move |store, (), cx| store.snack_after(!linked, "Branch deleted", cx),
                         cx,
                     )
                 });
@@ -717,10 +715,7 @@ impl AppView {
                     "Discard",
                     overlay,
                     move |path, _| backend::discard(path, worktree.as_deref(), &changes),
-                    move |store, (), cx| match undoable {
-                        true => store.snack_undoable("Changes discarded", cx),
-                        false => store.snack("Changes discarded", cx),
-                    },
+                    move |store, (), cx| store.snack_after(undoable, "Changes discarded", cx),
                     cx,
                 )
             });
@@ -1095,7 +1090,7 @@ impl AppView {
         &mut self,
         project: ProjectId,
         commit: CommitId,
-        files: std::sync::Arc<[Selected]>,
+        files: Arc<[Selected]>,
         cx: &mut Context<Self>,
     ) {
         let selected = project.clone();
@@ -1123,7 +1118,7 @@ impl AppView {
         &mut self,
         project: ProjectId,
         commit: CommitId,
-        files: std::sync::Arc<[Selected]>,
+        files: Arc<[Selected]>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {

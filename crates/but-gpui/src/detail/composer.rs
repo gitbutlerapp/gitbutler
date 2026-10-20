@@ -1081,9 +1081,7 @@ impl Detail {
             .when(self.checks_worktree.is_none(), |el| {
                 el.hover(|el| el.bg(theme.fill_gray.opacity(0.14)))
                     .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
-                    .tooltip(move |_, cx| {
-                        Tooltip::with_key("Pick the branch to commit to".into(), key.clone(), cx)
-                    })
+                    .tooltip(Tooltip::keyed("Pick the branch to commit to", key))
                     .on_click(
                         cx.listener(|this, _, window, cx| this.pick_commit_target(window, cx)),
                     )

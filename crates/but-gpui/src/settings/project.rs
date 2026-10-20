@@ -16,12 +16,14 @@ impl SettingsView {
     pub(super) fn show_project(&mut self, project: Option<ProjectId>, cx: &mut Context<Self>) {
         // Reloading the same project keeps what the field holds: a new name reaches the
         // store only once the project list is read again.
+        // Another project's settings aren't shown while its own load; the same project's stay
+        // until they're read again, so a switch doesn't flash Loading.
         if self.project != project {
             self.project = project.clone();
             self.reset_name(cx);
+            self.project_settings = None;
+            self.signing = None;
         }
-        self.project_settings = None;
-        self.signing = None;
         let Some(project) = project else {
             return;
         };

@@ -132,10 +132,9 @@ impl AppView {
         let store = self.store.read(cx);
         let detail = self.detail.read(cx);
         let has_diff = store.selection.is_some() && !detail.showing_review(cx);
-        let width = window.viewport_size().width.into();
         has_diff.then(|| match detail.files_shown(cx) {
             false => 0.,
-            true => store.fitted_width(Pane::Files, width, self.navigator_open, true),
+            true => detail.files_width(window, cx),
         })
     }
 
@@ -268,7 +267,7 @@ impl AppView {
         }
     }
 
-    pub fn new_branch(&mut self, _: &NewBranch, window: &mut Window, cx: &mut Context<Self>) {
+    fn new_branch(&mut self, _: &NewBranch, window: &mut Window, cx: &mut Context<Self>) {
         let Some(project) = self.selected_project(cx).or_else(|| {
             self.store
                 .read(cx)
@@ -629,7 +628,7 @@ impl AppView {
             .update(cx, |store, cx| store.update_from_target(&project, None, cx));
     }
 
-    pub fn toggle_navigator(
+    fn toggle_navigator(
         &mut self,
         _: &ToggleNavigator,
         window: &mut Window,

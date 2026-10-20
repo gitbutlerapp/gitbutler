@@ -628,7 +628,7 @@ impl RenderOnce for Button {
             .when_some(self.label, |el, label| el.child(label))
             .when_some(self.disabled.clone().or(self.tooltip), |el, tooltip| {
                 let key = self.tooltip_key.filter(|_| self.disabled.is_none());
-                el.tooltip(move |_, cx| Tooltip::with_key(tooltip.clone(), key.clone(), cx))
+                el.tooltip(Tooltip::keyed(tooltip, key))
             })
             .when_some(
                 self.on_click.filter(|_| self.disabled.is_none()),
@@ -678,22 +678,21 @@ impl Covered {
 }
 
 impl Tooltip {
-    pub fn with_key(text: SharedString, key: Option<SharedString>, cx: &mut App) -> gpui::AnyView {
-        cx.new(|_| Tooltip {
-            text,
-            key,
-            shown: None,
-        })
-        .into()
-    }
-
     /// A tooltip of `text` with the shortcut `key`, for an element's `tooltip`.
     pub fn keyed(
         text: impl Into<SharedString>,
         key: Option<SharedString>,
     ) -> impl Fn(&mut Window, &mut App) -> gpui::AnyView + 'static {
         let text = text.into();
-        move |_, cx| Self::with_key(text.clone(), key.clone(), cx)
+        move |_, cx| {
+            let (text, key) = (text.clone(), key.clone());
+            cx.new(|_| Tooltip {
+                text,
+                key,
+                shown: None,
+            })
+            .into()
+        }
     }
 
     /// A tooltip of just `text`, for an element's `tooltip`.

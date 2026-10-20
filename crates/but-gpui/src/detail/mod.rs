@@ -338,7 +338,7 @@ pub struct Detail {
     history_scroll: UniformListScrollHandle,
     _history_load: Task<()>,
     /// The file list beside the diff is hidden, for more room.
-    pub files_hidden: bool,
+    files_hidden: bool,
     /// Since when the pointer is on the files button over the diff, and whether it's on the
     /// popover of the files the button opens, [`FILES_POPOVER_DELAY`] on, while they aren't
     /// beside the diff.
@@ -701,13 +701,16 @@ impl Detail {
                 this.update(cx, |_, cx| cx.notify()).ok();
             });
         }
+        // A load still running is of what was selected before, which mustn't land under this.
         let Some(path) = self.store.read(cx).path(&key.project) else {
+            self.loading = None;
             return;
         };
         let worktree = key.uncommitted(self.store.read(cx)).map(<[_]>::to_vec);
         if key.source.live() && worktree.is_none() {
             // The workspace is still loading and lists the files itself; diffing now would run
             // a second status on the same repository, slowing both. Its `Loaded` brings us back.
+            self.loading = None;
             return;
         }
         self.loading = Some(key.clone());
@@ -969,7 +972,9 @@ impl Detail {
             self.list.scroll_to(top);
             self.cursor = self.cursor_in(&files);
         }
-        if key.checkout() == Some(self.checks_worktree.as_deref()) {
+        if self.checks_project.as_ref() == Some(&key.project)
+            && key.checkout() == Some(self.checks_worktree.as_deref())
+        {
             self.checks.reconcile(&files);
         }
         if self.diff.as_ref().is_none_or(|diff| diff.rows != rows) {
@@ -1036,7 +1041,8 @@ impl Detail {
             Some(Selection::Branches(_) | Selection::History(_) | Selection::Project(_)) => {
                 &self.side_focus
             }
-            _ if self.files_shown(cx) => &self.files_focus,
+            // A pull request's tab draws no file list.
+            _ if self.files_shown(cx) && !self.showing_review(cx) => &self.files_focus,
             _ => &self.focus,
         };
         window.focus(handle, cx);
@@ -1288,7 +1294,7 @@ impl Detail {
     }
 
     /// Draw changed lines with their green and red ground, or without.
-    pub fn toggle_plain_lines(&mut self, cx: &mut Context<Self>) {
+    fn toggle_plain_lines(&mut self, cx: &mut Context<Self>) {
         self.store.update(cx, |store, cx| {
             store.set_diff_prefs(|prefs| prefs.plain_lines = !prefs.plain_lines, cx)
         });
@@ -1509,13 +1515,14 @@ impl Detail {
     /// is at the bottom of the page, where a snackbar would cover its buttons.
     pub fn shows_footer(&self, cx: &App) -> bool {
         let store = self.store.read(cx);
+        // Drawn with nothing uncommitted too, as Commit… and the composer still are.
         !self.files_hidden
             && self
                 .selected_checkout(cx)
                 .is_some_and(|(project, worktree)| {
                     (store.workspace(&project))
                         .and_then(|ws| ws.uncommitted_in(worktree.as_deref()))
-                        .is_some_and(|files| !files.is_empty())
+                        .is_some()
                 })
     }
 
@@ -1554,7 +1561,7 @@ impl Detail {
     }
 
     /// How wide the file list is drawn while it's shown.
-    fn files_width(&self, window: &Window, cx: &App) -> f32 {
+    pub(crate) fn files_width(&self, window: &Window, cx: &App) -> f32 {
         let window = window.viewport_size().width.into();
         (self.store.read(cx)).fitted_width(Pane::Files, window, !self.beside_traffic_lights, true)
     }

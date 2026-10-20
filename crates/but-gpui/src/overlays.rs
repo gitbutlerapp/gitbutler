@@ -104,9 +104,7 @@ fn branch_name(name: &str) -> Result<String, SharedString> {
     if name.is_empty() {
         return Err("Enter a name for the branch".into());
     }
-    but_core::branch::normalize_short_name(name)
-        .map(|short| short.to_string())
-        .map_err(|_| "Git doesn't allow that as a branch name".into())
+    backend::branch_name(name).ok_or_else(|| "Git doesn't allow that as a branch name".into())
 }
 
 /// A small modal asking for one line of text: a branch name, a repository to clone, a pull
@@ -169,9 +167,11 @@ impl AppView {
                 Ok(short) => short,
                 Err(hint) => return Some(hint),
             };
+            // Linked worktrees' branches too, which the backend would refuse the name for.
             let taken = short != current
-                && (this.store.read(cx).workspace(&checked))
-                    .is_some_and(|ws| ws.branches().any(|b| short_ref(&b.ref_name) == short));
+                && (this.store.read(cx).workspace(&checked)).is_some_and(|ws| {
+                    (ws.lanes().flatten()).any(|b| short_ref(&b.ref_name) == short)
+                });
             taken.then(|| format!("{short} already exists").into())
         };
         let current = initial.to_owned();

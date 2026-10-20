@@ -820,7 +820,7 @@ impl Store {
     }
 
     /// Start the first waiting mutation of every project that has none running.
-    pub(super) fn start_next(&mut self, cx: &mut Context<Self>) {
+    fn start_next(&mut self, cx: &mut Context<Self>) {
         let mut started = false;
         while let Some(ix) =
             (self.queue.iter()).position(|q| !self.running.contains_key(&q.project))
@@ -990,7 +990,7 @@ impl Store {
                             }
                             _ => format!("{label} failed"),
                         };
-                        store.error(title, failure_detail(&err), cx)
+                        store.error(title, backend::failure_detail(&err), cx)
                     }
                 }
                 store.load(&project, reload, cx);
@@ -1371,59 +1371,9 @@ fn commit_counts(branches: &[(String, usize)]) -> String {
     counts.join(", ")
 }
 
-/// What a failed operation's card says: the engine's own words, except where those name a
-/// commit the user never saw, or leave out what the engine did about it.
-fn failure_detail(err: &anyhow::Error) -> String {
-    match err.downcast_ref::<but_error::Code>() {
-        Some(but_error::Code::ConflictedCommitCheckout) => {
-            "That would leave the checked-out commit conflicted, which Git can't check out."
-                .to_owned()
-        }
-        // The engine turns signing off for the project then, and the next commit would
-        // quietly go unsigned.
-        Some(but_error::Code::CommitSigningFailed) => format!(
-            "Signing it failed, which turns commit signing off for this project unless it's \
-             on in your global Git config. Check Sign commits in Project settings.\n{}",
-            err.root_cause()
-        ),
-        // A precondition says what stopped it in the user's words; the context wrapped
-        // around it names refs and hashes, which a short card fills up with.
-        _ => match err.downcast_ref::<but_error::Context>() {
-            Some(said) if said.code == but_error::Code::PreconditionFailed => said.to_string(),
-            _ => format!("{err:#}"),
-        },
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_refused_conflicted_checkout_says_why_without_a_hash() {
-        let err = anyhow::anyhow!(but_error::Code::ConflictedCommitCheckout)
-            .context("Refusing to check out conflicted commit 7c20f085")
-            .context("Moving the commit");
-        assert!(
-            failure_detail(&err).starts_with("That would leave the checked-out commit"),
-            "the engine's code is found under the context it adds"
-        );
-        let err = anyhow::anyhow!(but_error::Code::CommitSigningFailed).context("Signing failed");
-        assert!(
-            failure_detail(&err).contains("turns commit signing off"),
-            "the engine turned signing off, which the next commit would otherwise not show"
-        );
-        let err = anyhow::anyhow!(
-            but_error::Context::new("Uncommitted files would be overwritten by checkout: \"a.rs\"")
-                .with_code(but_error::Code::PreconditionFailed)
-        )
-        .context("Could not safely check out 'refs/heads/b' from 1234 to 5678");
-        assert_eq!(
-            failure_detail(&err),
-            "Uncommitted files would be overwritten by checkout: \"a.rs\"",
-            "what the engine says stopped it, not the hashes of what it was doing"
-        );
-    }
 
     #[test]
     fn an_update_says_what_conflicted_and_what_landed() {

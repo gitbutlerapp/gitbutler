@@ -313,7 +313,7 @@ impl Detail {
         had
     }
 
-    pub(super) fn render_diff(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+    fn render_diff(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
         let ground = || div().flex_1().min_w(px(0.)).h_full().bg(theme.bg_1);
         if let Some(err) = &self.diff_error {
             let message = empty_state(
@@ -463,9 +463,13 @@ impl Detail {
         match selection {
             Selection::Commit(..) => "This commit changes no files".into(),
             Selection::Branch(..) | Selection::Stack(..)
-                if store
-                    .branch_for(selection)
-                    .is_some_and(|b| b.push == PushState::Integrated) =>
+                if match selection {
+                    // A stack's branches all, as it has no branch of its own.
+                    Selection::Stack(_, bottom) => (workspace.and_then(|ws| ws.lane(bottom)))
+                        .is_some_and(|lane| lane.iter().all(|b| b.push == PushState::Integrated)),
+                    _ => (store.branch_for(selection))
+                        .is_some_and(|b| b.push == PushState::Integrated),
+                } =>
             {
                 format!(
                     "{target} already has these commits, so the branch changes nothing against it"
@@ -512,11 +516,7 @@ impl Detail {
     /// their lines while the list isn't beside the diff and lists them on hover, then how
     /// long lines show and where the sides go. A page whose column is its own list has no
     /// toggle, only the count and the list on hover.
-    pub(super) fn render_diff_tools(
-        &self,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> Option<AnyElement> {
+    fn render_diff_tools(&self, theme: &Theme, cx: &Context<Self>) -> Option<AnyElement> {
         let diff = self.shown_diff()?;
         let prefs = &self.store.read(cx).prefs;
         let (added, removed) = (diff.files.iter().map(FileDiff::stats))
@@ -563,9 +563,7 @@ impl Detail {
             )
             // Hidden, the list opens on hover, which says more than a tooltip would.
             .when(toggles && !hidden, |el| {
-                el.tooltip(move |_, cx| {
-                    Tooltip::with_key("Hide the files".into(), files_key.clone(), cx)
-                })
+                el.tooltip(Tooltip::keyed("Hide the files", files_key))
             })
             .when(toggles, |el| el.on_click(act(&ToggleFiles)));
         // Under the button, with a strip of its own above it that keeps it open on the way
@@ -1034,7 +1032,7 @@ impl Detail {
     }
 
     /// Show every line of `file`, or only its hunks again.
-    pub(super) fn toggle_whole(&mut self, file: usize, cx: &mut Context<Self>) {
+    fn toggle_whole(&mut self, file: usize, cx: &mut Context<Self>) {
         let Some(path) = self.diff_path(file) else {
             return;
         };
