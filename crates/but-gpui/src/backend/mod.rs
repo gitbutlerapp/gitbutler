@@ -291,7 +291,12 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     // target commit, and nothing to bring in.
     let target = info.target_ref.as_ref().map(|target| Target {
         name: target.ref_name.shorten().to_string(),
-        behind: target.commits_ahead,
+        behind: (target_commit.zip(ctx.repo.get().ok()))
+            .and_then(|(base, repo)| {
+                landed_since(&repo, target.ref_name.as_ref(), base, target.commits_ahead)
+            })
+            .unwrap_or(target.commits_ahead),
+        commits_behind: target.commits_ahead,
         needs_update: target.commits_ahead > 0 || stacks_behind,
     });
     let lost_target = (target.is_none())
@@ -448,6 +453,33 @@ fn branch_from(
         push,
         review,
     }
+}
+
+/// How many commits along `target`'s own line of history its tip is past `base`, what the
+/// workspace was last updated to: each pull request merged one, as the project's page lists
+/// them, rather than one for each commit it merged too, of which there are `all`. `None` when
+/// `base` isn't on that line, as after the target was rewritten.
+fn landed_since(
+    repo: &gix::Repository,
+    target: &gix::refs::FullNameRef,
+    base: gix::ObjectId,
+    all: usize,
+) -> Option<usize> {
+    let mut at = repo
+        .find_reference(target)
+        .ok()?
+        .peel_to_id()
+        .ok()?
+        .detach();
+    let mut landed = 0;
+    while at != base {
+        landed += 1;
+        if landed > all {
+            return None;
+        }
+        at = repo.find_commit(at).ok()?.parent_ids().next()?.detach();
+    }
+    Some(landed)
 }
 
 /// A signature's `name` and `email`, as [`byline`] takes them.

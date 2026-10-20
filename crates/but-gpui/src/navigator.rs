@@ -1616,6 +1616,14 @@ impl Navigator {
                             .children(target.and_then(|t| {
                                 let tip =
                                     format!("{} behind {}", plural(t.behind, "commit"), t.name);
+                                // Each merge counts once, as the project's page lists them.
+                                let tip = match t.commits_behind > t.behind {
+                                    true => format!(
+                                        "{tip} ({} with what they merged)",
+                                        t.commits_behind
+                                    ),
+                                    false => tip,
+                                };
                                 meta_count(Icon::ArrowDown, t.behind, warn, tip)
                             }))
                             .children(meta_count(

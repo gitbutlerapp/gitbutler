@@ -273,8 +273,11 @@ impl Workspace {
 pub struct Target {
     /// Short name, like `origin/main`.
     pub name: String,
-    /// Commits on the target the workspace doesn't have yet.
+    /// Commits on the target's own line of history the workspace doesn't have yet: each pull
+    /// request merged counts once, as the project's page lists them.
     pub behind: usize,
+    /// Every commit the workspace doesn't have, those the merges brought in too.
+    pub commits_behind: usize,
     /// Whether updating from the target would change anything.
     pub needs_update: bool,
 }
