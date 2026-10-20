@@ -216,12 +216,13 @@ impl Detail {
                 Selection::Worktree(_, name) => {
                     crumbs.push((name.to_string().into(), None));
                 }
-                Selection::Machine(project, id) => {
-                    if let Some(checkout) = store.mesh_checkout(project, id) {
-                        crumbs.push((checkout.label().into(), Some(selection.clone())));
-                        if let Some(branch) = self.machine_picked_branch(project, id) {
-                            crumbs.push((branch.into(), None));
-                        }
+                Selection::Machines(project) => {
+                    crumbs.push(("Other machines".into(), Some(selection.clone())));
+                    if let Some((id, branch)) = self.machine_picked_branch(project)
+                        && let Some(checkout) = store.mesh_checkout(project, &id)
+                    {
+                        crumbs.push((checkout.label().into(), None));
+                        crumbs.push((branch.into(), None));
                     }
                 }
                 Selection::Stack(_, bottom) => {

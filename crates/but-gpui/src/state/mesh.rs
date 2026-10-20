@@ -46,6 +46,11 @@ pub struct Mesh {
 }
 
 impl Mesh {
+    /// Whether `project`'s work elsewhere has been read, or tried, in this run.
+    pub fn read(&self, project: &ProjectId) -> bool {
+        self.checkouts.contains_key(project)
+    }
+
     pub fn connection(&self) -> Option<&Connection> {
         match &self.state {
             MeshState::Connected(connection) => Some(connection),
@@ -82,7 +87,12 @@ impl Store {
                     tracing::debug!(%project, checkouts = ?read.as_ref().map(Vec::len), "mesh read");
                     let Ok(()) = this.update(cx, |store, cx| match read {
                         Ok(checkouts) => store.set_mesh_checkouts(project, checkouts, cx),
-                        Err(err) => tracing::debug!(%project, "mesh read failed: {err:#}"),
+                        Err(err) => {
+                            tracing::debug!(%project, "mesh read failed: {err:#}");
+                            // Tried, so the page stops saying it's reading; what was read
+                            // before stays.
+                            store.mesh.checkouts.entry(project).or_default();
+                        }
                     }) else {
                         return;
                     };
@@ -120,6 +130,10 @@ impl Store {
                 self.mesh.checkouts.clear();
                 cx.notify();
             }
+            // Signed out, the navigator lists no Other machines page to be on.
+            if let Some(Selection::Machines(project)) = self.selection.clone() {
+                self.select(Some(Selection::Project(project)), cx);
+            }
             return Vec::new();
         };
         let reported: HashSet<PathBuf> = connection.reported.iter().cloned().collect();
@@ -156,14 +170,7 @@ impl Store {
         self.mesh
             .checkouts
             .insert(project.clone(), checkouts.into());
-        cx.emit(StoreEvent::MeshRead(project.clone()));
-        // A checkout that's gone takes the selection back to its project.
-        if let Some(Selection::Machine(p, id)) = &self.selection
-            && *p == project
-            && self.mesh_checkout(p, id).is_none()
-        {
-            self.select(Some(Selection::Project(project)), cx);
-        }
+        cx.emit(StoreEvent::MeshRead(project));
         cx.notify();
     }
 

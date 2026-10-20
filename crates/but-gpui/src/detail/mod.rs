@@ -12,7 +12,6 @@ pub use find::FindInDiff;
 mod history;
 mod lines;
 mod machine;
-pub(crate) use machine::branch_glyph;
 mod panes;
 mod pull_request;
 mod resolve;
@@ -409,10 +408,10 @@ impl Detail {
                     }
                 }
                 StoreEvent::MeshRead(project) => {
-                    if let Some(Selection::Machine(p, id)) = this.selection(cx)
+                    if let Some(Selection::Machines(p)) = this.selection(cx)
                         && p == *project
                     {
-                        this.load_machine(&p, &id, cx);
+                        this.load_machines(&p, cx);
                         this.refresh_diff(false, cx);
                         cx.notify();
                     }
@@ -610,7 +609,7 @@ impl Detail {
             Selection::Branches(project) => self.branches_source(project)?,
             Selection::Uncommitted(_) => DiffSource::Worktree,
             Selection::Worktree(_, name) => DiffSource::Linked(name.clone()),
-            Selection::Machine(project, id) => self.machine_source(project, id)?,
+            Selection::Machines(project) => self.machine_source(project)?,
             Selection::Commit(_, id) => DiffSource::Commit(*id),
             Selection::Branch(project, ref_name) => {
                 let branch = store.workspace(project)?.find_branch(ref_name)?;
@@ -645,7 +644,7 @@ impl Detail {
             Some(Selection::History(project)) => self.load_history(&project, false, cx),
             Some(Selection::Branches(project)) => self.load_branches(&project, force, cx),
             Some(Selection::Project(project)) => self.load_upstream(&project, false, force, cx),
-            Some(Selection::Machine(project, id)) => self.load_machine(&project, &id, cx),
+            Some(Selection::Machines(project)) => self.load_machines(&project, cx),
             _ => {}
         }
     }
@@ -1697,7 +1696,7 @@ impl Detail {
                 Selection::Branches(_)
                     | Selection::History(_)
                     | Selection::Project(_)
-                    | Selection::Machine(..)
+                    | Selection::Machines(_)
             )
         )
     }
@@ -1740,8 +1739,8 @@ impl Render for Detail {
                     Selection::Stack(project, bottom) => {
                         self.render_stack_side(project, bottom, &theme, cx)
                     }
-                    Selection::Machine(project, id) => {
-                        self.render_machine_side(project, id, &theme, window, cx)
+                    Selection::Machines(project) => {
+                        self.render_machines_side(project, &theme, window, cx)
                     }
                     Selection::Branches(project) => {
                         self.render_branches_side(project, &theme, window, cx)

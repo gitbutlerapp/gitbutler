@@ -48,8 +48,8 @@ pub enum Selection {
     Worktree(ProjectId, Arc<str>),
     /// A stack of two or more branches, by its bottom branch, and what they change together.
     Stack(ProjectId, String),
-    /// The project's checkout on another machine, by the mesh's id for it.
-    Machine(ProjectId, Arc<str>),
+    /// The project's unfinished work on the user's other machines, from the mesh.
+    Machines(ProjectId),
 }
 
 impl Selection {
@@ -63,7 +63,7 @@ impl Selection {
             | Selection::History(project)
             | Selection::Worktree(project, _)
             | Selection::Stack(project, _)
-            | Selection::Machine(project, _) => project,
+            | Selection::Machines(project) => project,
         }
     }
 
@@ -425,7 +425,7 @@ impl Store {
             | Selection::History(_)
             | Selection::Worktree(..)
             | Selection::Stack(..)
-            | Selection::Machine(..) => None,
+            | Selection::Machines(_) => None,
         }
     }
 
@@ -517,8 +517,8 @@ impl Store {
             Selection::Commit(_, id) => workspace.find_commit(*id).is_some(),
             Selection::Worktree(_, name) => workspace.worktrees.iter().any(|w| w.name == *name),
             Selection::Stack(_, bottom) => workspace.lane(bottom).is_some_and(|b| b.len() > 1),
-            // Another machine's, which the mesh's reads keep track of.
-            Selection::Machine(..) => true,
+            // The mesh's reads keep the page's list current.
+            Selection::Machines(_) => true,
         };
         if !still_there {
             self.select(

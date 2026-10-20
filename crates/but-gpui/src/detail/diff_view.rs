@@ -327,10 +327,10 @@ impl Detail {
         }
         let Some(diff) = self.shown_diff() else {
             // Another machine's branch, until it's here.
-            if let Some(Selection::Machine(project, id)) = &self.store.read(cx).selection
+            if let Some(Selection::Machines(project)) = &self.store.read(cx).selection
                 && !self.loading.is_some()
             {
-                let waiting = self.machine_waiting(project, id, cx);
+                let waiting = self.machine_waiting(project, cx);
                 let message = empty_state(None, "", waiting, theme, cx);
                 return ground().child(message).into_any_element();
             }

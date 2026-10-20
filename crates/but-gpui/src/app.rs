@@ -561,15 +561,8 @@ impl AppView {
                 let worktree = workspace.find_worktree(&name)?;
                 Some(worktree.path.display().to_string())
             }
-            // Where it is on that machine.
-            Selection::Machine(project, id) => Some(
-                self.store
-                    .read(cx)
-                    .mesh_checkout(&project, &id)?
-                    .path
-                    .clone(),
-            ),
             Selection::Uncommitted(_)
+            | Selection::Machines(_)
             | Selection::Branches(_)
             | Selection::History(_)
             | Selection::Stack(..) => None,
