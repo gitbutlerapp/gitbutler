@@ -962,7 +962,16 @@ impl Store {
                         if moved_worktree {
                             store.keep_last_snapshot();
                         }
-                        done(store, value, cx)
+                        // Gone on to another project meanwhile, the user stays there: what this
+                        // finished selects, as the commit it made, doesn't take them back.
+                        let elsewhere = (store.selection.clone())
+                            .filter(|selection| *selection.project() != project);
+                        done(store, value, cx);
+                        if let Some(elsewhere) =
+                            elsewhere.filter(|before| store.selection.as_ref() != Some(before))
+                        {
+                            store.select(Some(elsewhere), cx);
+                        }
                     }
                     Err(err) => {
                         // What it would have taken away stays, so the selection goes back.
