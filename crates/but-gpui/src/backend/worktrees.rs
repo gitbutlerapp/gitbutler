@@ -130,11 +130,21 @@ pub fn heads(path: &Path) -> Vec<Option<(Option<gix::refs::FullName>, gix::Objec
         .collect()
 }
 
-/// Remove worktree `name` from disk as `git worktree remove` does, which refuses one with
-/// uncommitted changes unless `force`. Its branch stays.
-pub fn remove(path: &Path, name: &str, force: bool) -> Result<()> {
+/// Remove worktree `name` from disk as `git worktree remove` does, with the uncommitted
+/// files `lost` as last written, which the user agreed to lose. Its branch stays. One with
+/// other uncommitted files, or those written to since, as by an agent meanwhile, is refused.
+pub fn remove(path: &Path, name: &str, lost: &[(String, Option<i64>)]) -> Result<()> {
     let mut ctx = open(path)?;
-    but_api::worktrees::worktree_remove(&mut ctx, name.to_owned(), force)
+    let worktree = checkout(&*ctx.repo.get()?, name);
+    let files = worktree.map(|repo| worktree_files(&repo)).transpose()?;
+    let asked = |file: &FileChange| lost.contains(&(file.path.clone(), file.modified));
+    if let Some(file) = (files.iter().flatten()).find(|file| !asked(file)) {
+        anyhow::bail!(
+            "{name} has a change you weren't asked about, {}. Look at it before deleting.",
+            file.path
+        );
+    }
+    but_api::worktrees::worktree_remove(&mut ctx, name.to_owned(), !lost.is_empty())
 }
 
 /// Hide worktree `name` from the workspace, or with `archived` false show it again. It

@@ -427,7 +427,10 @@ impl Navigator {
                 };
                 let path = worktree.path.clone();
                 let copied = path.display().to_string();
-                let dirty = worktree.uncommitted.len();
+                // As last written, so an agent's edit while the question is up isn't lost.
+                let lost: Vec<(String, Option<i64>)> = (worktree.uncommitted.iter())
+                    .map(|f| (f.path.clone(), f.modified))
+                    .collect();
                 let (project, name) = (project.clone(), name.clone());
                 let (deleted_project, deleted) = (project.clone(), name.clone());
                 vec![
@@ -443,8 +446,9 @@ impl Navigator {
                     })
                     .separated(),
                     MenuItem::new("Delete worktree…", move |this, window, cx| {
-                        let (project, name) = (deleted_project.clone(), deleted.clone());
-                        let detail = match dirty {
+                        let (project, name, lost) =
+                            (deleted_project.clone(), deleted.clone(), lost.clone());
+                        let detail = match lost.len() {
                             0 => "Its folder is removed from disk. Its branch stays.".to_owned(),
                             n => format!(
                                 "Its folder is removed from disk, with {}, which are lost. \
@@ -461,7 +465,7 @@ impl Navigator {
                             cx,
                             move |this, cx| {
                                 this.store.update(cx, |store, cx| {
-                                    store.delete_worktree(&project, name, dirty > 0, cx)
+                                    store.delete_worktree(&project, name, lost, cx)
                                 })
                             },
                         )

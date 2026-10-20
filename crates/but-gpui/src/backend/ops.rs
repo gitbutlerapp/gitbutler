@@ -1013,6 +1013,53 @@ mod tests {
     }
 
     #[test]
+    fn deleting_a_linked_worktree_loses_only_the_files_named() {
+        let dir = repo_with("base\n");
+        let path = dir.path();
+        let outside = tempfile::tempdir().unwrap();
+        let linked = outside.path().join("agent");
+        git(
+            path,
+            &[
+                "worktree",
+                "add",
+                "-q",
+                "-b",
+                "agent",
+                linked.to_str().unwrap(),
+            ],
+        );
+        std::fs::write(linked.join("file"), "seen\n").unwrap();
+        let repo = gix::open(&linked).unwrap();
+        let asked = [("file".to_owned(), written(&repo, "file".into()))];
+        // Written after the user was asked about the change above.
+        std::fs::write(linked.join("fresh"), "new\n").unwrap();
+
+        let remove = crate::backend::worktrees::remove;
+        let err = remove(path, "agent", &asked).unwrap_err();
+        assert!(
+            format!("{err:#}").contains("fresh"),
+            "it names the change nobody agreed to lose: {err:#}"
+        );
+        assert!(
+            linked.join("fresh").exists(),
+            "and leaves the worktree as it was"
+        );
+
+        std::fs::remove_file(linked.join("fresh")).unwrap();
+        let later = std::time::SystemTime::now() + std::time::Duration::from_secs(2);
+        let file = std::fs::File::options()
+            .write(true)
+            .open(linked.join("file"));
+        file.unwrap().set_modified(later).unwrap();
+        let err = remove(path, "agent", &asked).unwrap_err();
+        assert!(
+            format!("{err:#}").contains("file"),
+            "nor what was written to a file named since: {err:#}"
+        );
+    }
+
+    #[test]
     fn a_failed_discard_in_a_linked_worktree_leaves_its_conflicts() {
         let dir = repo_with("base\n");
         let path = dir.path();

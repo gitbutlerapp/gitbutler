@@ -633,13 +633,13 @@ impl Store {
         );
     }
 
-    /// Delete linked worktree `name` from disk, with `force` even with uncommitted changes,
-    /// which are lost. Its branch stays. Undo can't bring the folder back.
+    /// Delete linked worktree `name` from disk, with its uncommitted files `lost`, which the
+    /// user agreed to lose. Its branch stays. Undo can't bring the folder back.
     pub fn delete_worktree(
         &mut self,
         project: &ProjectId,
         name: Arc<str>,
-        force: bool,
+        lost: Vec<(String, Option<i64>)>,
         cx: &mut Context<Self>,
     ) {
         let done = format!("Deleted {name}");
@@ -651,7 +651,7 @@ impl Store {
             project,
             "Delete worktree",
             overlay,
-            move |path, _| backend::worktrees::remove(path, &name, force),
+            move |path, _| backend::worktrees::remove(path, &name, &lost),
             move |store, (), cx| store.snack(done, cx),
             cx,
         );
