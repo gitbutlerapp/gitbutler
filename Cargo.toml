@@ -369,7 +369,6 @@ gix-odb = { opt-level = 3 }
 gix-object = { opt-level = 3 }
 gix-ref = { opt-level = 3 }
 gix-pack = { opt-level = 3 }
-gix-features = { opt-level = 3 }
 gix-hash = { opt-level = 3 }
 gix-actor = { opt-level = 3 }
 gix-config = { opt-level = 3 }
