@@ -15,7 +15,7 @@ use crate::backend::{self, CommitState, PushState, short_ref};
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
-use crate::ui::person::person_avatar;
+use crate::ui::person::author_avatar;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -536,7 +536,7 @@ impl Detail {
             .child(
                 h_flex()
                     .gap(px(6.))
-                    .child(person_avatar(&commit.author, 16., theme))
+                    .child(author_avatar(&commit.author, &commit.email, 16., theme))
                     .child(format!("{} at {}", commit.author, local_time(commit.time))),
             )
             .child(

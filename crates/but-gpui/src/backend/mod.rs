@@ -442,6 +442,7 @@ fn commit_from(local: &but_workspace::ref_info::LocalCommit) -> Commit {
         title: title(&inner.message),
         message: inner.message.to_str_lossy().trim_end().to_string(),
         author: inner.author.name.to_str_lossy().into_owned(),
+        email: inner.author.email.to_str_lossy().into_owned(),
         time: inner.author.time.seconds,
         state: match local.relation {
             R::LocalOnly => CommitState::Local,

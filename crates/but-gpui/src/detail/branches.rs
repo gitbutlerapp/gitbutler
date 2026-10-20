@@ -20,7 +20,7 @@ use crate::state::{Cut, Overlay, Prefs, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::illustration::Illustration;
-use crate::ui::person::person_avatar;
+use crate::ui::person::author_avatar;
 use crate::ui::{
     ButtonStyle, Icon, ROW_HEIGHT, Tooltip, age_column, button, empty_state, faint, field, h_flex,
     icon_button, muted, plural, relative_time, review, small_icon, v_flex,
@@ -894,7 +894,12 @@ impl Detail {
                                         div()
                                             .id(("other-branch-author", ix))
                                             .flex_none()
-                                            .child(person_avatar(author, 14., theme))
+                                            .child(author_avatar(
+                                                author,
+                                                branch.email.as_deref().unwrap_or_default(),
+                                                14.,
+                                                theme,
+                                            ))
                                             .tooltip(Tooltip::text(format!(
                                                 "Last commit by {author}"
                                             ))),
