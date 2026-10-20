@@ -527,17 +527,22 @@ impl Detail {
         history.operations.iter().find(|op| op.id == id)
     }
 
-    /// Put the project back to how it was before the selected operation, after asking.
-    /// The restore goes in the log too, so it can be undone.
-    fn restore_selected(&self, project: &ProjectId, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(operation) = self.selected_operation(project) else {
+    /// Put the project back to how it was before operation `id`, after asking. The restore
+    /// goes in the log too, so it can be undone.
+    fn restore_operation(
+        &self,
+        project: &ProjectId,
+        id: SnapshotId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let history = self.history_for(project);
+        let Some(operation) = history.and_then(|h| h.operations.iter().find(|op| op.id == id))
+        else {
             return;
         };
         // Named as its row is, by what it was done to.
-        let (id, title) = (
-            operation.id,
-            summary(operation).unwrap_or(operation.title.clone()),
-        );
+        let title = summary(operation).unwrap_or_else(|| operation.title.clone());
         let project = project.clone();
         self.app
             .update(cx, |app, cx| {
@@ -573,7 +578,7 @@ impl Detail {
                 let (detail, project) = (app.detail.clone(), project.clone());
                 window.defer(cx, move |window, cx| {
                     detail.update(cx, |detail, cx| {
-                        detail.restore_selected(&project, window, cx)
+                        detail.restore_operation(&project, id, window, cx)
                     })
                 })
             }),
