@@ -560,6 +560,7 @@ checks out the target branch, or a generated branch when the target can't be reu
 ```bash
 but merge <branch-selector> --yes                  # Merge onto the target (--yes required non-interactively)
 but merge <branch-selector> --no-ff --yes          # Force a merge commit instead of fast-forwarding
+but merge <branch-selector> --ff-only --yes        # Refuse unless the target can be fast-forwarded
 but merge <top-branch> --whole-stack --yes   # Merge an entire stack by naming its top segment
 ```
 

@@ -762,6 +762,83 @@ fn merge_rename_no_silent_mismerge() {
     );
 }
 
+/// `--ff-only` fast-forwards like the default when it can, but refuses a branch that has diverged
+/// from the target instead of creating a merge commit, leaving the target untouched.
+#[test]
+fn merge_ff_only_refuses_diverged_branch() {
+    let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
+    env.but("switch --workspace").assert().success();
+
+    env.but("branch new seed").assert().success();
+    env.file("seed.txt", "seed\n");
+    env.but("commit -b seed -m 'add seed'").assert().success();
+    let seed_tip = env.invoke_git("rev-parse seed");
+    env.but("merge seed --ff-only --yes").assert().success();
+    assert_eq!(
+        env.invoke_git("rev-parse main"),
+        seed_tip,
+        "a fast-forwardable branch still lands with --ff-only"
+    );
+
+    env.but("branch new feature").assert().success();
+    env.file("feature.txt", "feature\n");
+    env.but("commit -b feature -m 'add feature'")
+        .assert()
+        .success();
+
+    // Out-of-band: advance the gb-local target with an unrelated commit so `feature` diverges.
+    let target_tip = env.invoke_git("rev-parse gb-local/main");
+    let wt = env
+        .projects_root()
+        .parent()
+        .expect("sandbox root")
+        .join("land-ff-only-wt");
+    let _ = std::fs::remove_dir_all(&wt);
+    env.invoke_git(&format!(
+        "worktree add --detach {} {}",
+        wt.display(),
+        target_tip
+    ));
+    std::fs::write(wt.join("other.txt"), "other\n").unwrap();
+    env.invoke_git(&format!("-C {} add -A", wt.display()));
+    env.invoke_git(&format!("-C {} commit -m 'target moves on'", wt.display()));
+    let diverged = env.invoke_git(&format!("-C {} rev-parse HEAD", wt.display()));
+    env.invoke_git(&format!("worktree remove --force {}", wt.display()));
+    env.invoke_git(&format!("update-ref refs/heads/main {diverged}"));
+    env.invoke_git(&format!("update-ref refs/remotes/gb-local/main {diverged}"));
+
+    env.but("merge feature --ff-only --yes")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Failed to merge branch. Cannot fast-forward gb-local/main to feature: the branch has diverged from the target. Rebase feature onto the target (`but pull`), or re-run without `--ff-only` to create a merge commit.
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("rev-parse gb-local/main"),
+        diverged,
+        "a refused --ff-only land must not move the target"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse main"),
+        diverged,
+        "a refused --ff-only land must not move the local target"
+    );
+}
+
+/// `--ff-only` and `--no-ff` contradict each other and are rejected at parse time.
+#[test]
+fn merge_ff_only_conflicts_with_no_ff() {
+    let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
+    env.but("merge main --ff-only --no-ff --yes")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the argument '--ff-only' cannot be used with '--no-ff'
+...
+"#]]);
+}
+
 /// The load-bearing safety gate: without `--yes`, a non-interactive `but merge` (a script or agent)
 /// must refuse before mutating anything, rather than silently publishing to the target.
 #[test]

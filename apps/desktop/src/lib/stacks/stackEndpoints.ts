@@ -874,7 +874,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 		}),
 		landBranch: build.mutation<
 			BranchLandResult,
-			{ projectId: string; branch: string; noFf: boolean; wholeStack: boolean }
+			{ projectId: string; branch: string; noFf: boolean; ffOnly: boolean; wholeStack: boolean }
 		>({
 			extraOptions: {
 				command: "branch_land",

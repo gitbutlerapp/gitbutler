@@ -25,13 +25,15 @@ pub(super) enum LandOutcome {
 }
 
 /// Decide how to land `branch_name` onto the target and, for the merge case, build a signed,
-/// rename-aware merge commit. Conflicts bail here, before anything is pushed or moved.
+/// rename-aware merge commit. Conflicts, and a diverged branch with `ff_only`, bail here, before
+/// anything is pushed or moved.
 pub(super) fn decide_land_outcome(
     repo: &gix::Repository,
     branch_name: &str,
     fetch_remote_name: &str,
     target_branch_name: &str,
     no_ff: bool,
+    ff_only: bool,
 ) -> anyhow::Result<LandOutcome> {
     let feature_ref_name = format!("refs/heads/{branch_name}");
     let feature_oid = repo
@@ -62,6 +64,13 @@ pub(super) fn decide_land_outcome(
             feature_oid,
             target_oid,
         });
+    }
+    if ff_only {
+        bail!(
+            "Cannot fast-forward {fetch_remote_name}/{target_branch_name} to {branch_name}: the \
+             branch has diverged from the target. Rebase {branch_name} onto the target (`but pull`), \
+             or re-run without `--ff-only` to create a merge commit."
+        );
     }
 
     // Diverged (or `--no-ff`): build a real merge commit. Use GitButler's canonical tree-merge

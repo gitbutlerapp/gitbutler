@@ -1686,13 +1686,21 @@ async fn dispatch_subcommand(
             branch,
             yes,
             no_ff,
+            ff_only,
             whole_stack,
         } => {
             let conflicts_before = command::legacy::conflict_notice::snapshot(&ctx);
-            let result =
-                command::legacy::merge::handle(&mut ctx, out, &branch, yes, no_ff, whole_stack)
-                    .context("Failed to merge branch.")
-                    .map_err(Into::into);
+            let result = command::legacy::merge::handle(
+                &mut ctx,
+                out,
+                &branch,
+                yes,
+                no_ff,
+                ff_only,
+                whole_stack,
+            )
+            .context("Failed to merge branch.")
+            .map_err(Into::into);
             if let Ok(conflicted_commits) = result {
                 command::legacy::conflict_notice::report_newly_conflicted(
                     &ctx,

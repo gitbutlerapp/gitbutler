@@ -242,6 +242,9 @@ export declare function branchDiff(projectId: string, branch: string): Promise<T
  * commits. HEAD must be the managed workspace or, in single-branch mode, the checked-out branch
  * (see [`ensure_landable_checkout`]), and the target remote must be configured and non-triangular.
  *
+ * `no_ff` always creates a merge commit; `ff_only` refuses to land unless the target can be
+ * fast-forwarded to the branch tip. Passing both is an error.
+ *
  * This fetches the target, lands the branch (fast-forward or signed merge commit, retrying when
  * the target moves underneath us), then reconciles the remaining applied branches onto the moved
  * target. The remote push is not undoable; see [`BranchLandResult::reconcile_skipped`] and the
@@ -249,7 +252,7 @@ export declare function branchDiff(projectId: string, branch: string): Promise<T
  *
  * {@link ../../../../../crates/but-api/src/land/mod.rs}
  */
-export declare function branchLand(projectId: string, branch: string, noFf: boolean, wholeStack: boolean): Promise<BranchLandResult>
+export declare function branchLand(projectId: string, branch: string, noFf: boolean, ffOnly: boolean, wholeStack: boolean): Promise<BranchLandResult>
 
 /**
  * Lists all local and remote branches of the project, grouped into stacks where

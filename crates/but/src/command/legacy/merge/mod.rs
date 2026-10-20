@@ -26,6 +26,7 @@ pub fn handle(
     branch_id: &str,
     yes: bool,
     no_ff: bool,
+    ff_only: bool,
     whole_stack: bool,
 ) -> anyhow::Result<Vec<(gix::ObjectId, ChangeId)>> {
     // Resolve the branch identifier and read the target configuration. The checkout guard runs here
@@ -95,7 +96,7 @@ pub fn handle(
     }
 
     let head_before = ctx.repo.get()?.head_name()?;
-    let result = but_api::land::branch_land(ctx, branch_name.clone(), no_ff, whole_stack)?;
+    let result = but_api::land::branch_land(ctx, branch_name.clone(), no_ff, ff_only, whole_stack)?;
 
     messaging::report_land_result(
         out,
