@@ -51,13 +51,16 @@ fn default_command_respects_c_flag_for_setup_checks() {
 
     env.but("-C repo")
         .assert()
-        .stderr_eq(snapbox::str![[r#"
-Error: Checked out to branch that doesn't exist
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ no commits (main)
 
-Hint: Run `but commit` to create an initial empty commit
+Hint: run `but commit` to create the initial commit
 
-"#]])
-        .failure();
+"#]]);
 }
 
 #[test]
@@ -72,10 +75,16 @@ git config but.alias.default "-C repo status"
 "#,
     );
 
-    env.but("").assert().failure().stderr_eq(snapbox::str![[r#"
-Error: Checked out to branch that doesn't exist
+    env.but("")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ no commits (main)
 
-Hint: Run `but commit` to create an initial empty commit
+Hint: run `but commit` to create the initial commit
 
 "#]]);
 }
@@ -95,11 +104,14 @@ git config but.alias.default "-C repo status"
 
     env.but("-C repo2")
         .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Checked out to branch that doesn't exist
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ no commits (main)
 
-Hint: Run `but commit` to create an initial empty commit
+Hint: run `but commit` to create the initial commit
 
 "#]]);
 }

@@ -870,7 +870,7 @@ async fn dispatch_subcommand(
             setup::init_ctx(&args, InitCtxOptions::default(), out)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Commit(..) => {
+        Subcommands::Commit(..) | Subcommands::Status { .. } | Subcommands::Diff(..) => {
             setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -894,8 +894,6 @@ async fn dispatch_subcommand(
         | Subcommands::Merge { .. } => setup::init_ctx(&args, InitCtxOptions::default(), out),
         #[cfg(feature = "legacy")]
         Subcommands::Clean { .. }
-        | Subcommands::Status { .. }
-        | Subcommands::Diff(..)
         | Subcommands::Show { .. }
         | Subcommands::Squash(..)
         | Subcommands::Move(..)

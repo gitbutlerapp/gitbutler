@@ -5,14 +5,16 @@ fn creating_the_first_commit_in_an_unborn_repo() {
     let env = Sandbox::open_with_default_settings("unborn");
     snapbox::assert_data_eq!(env.git_log(), snapbox::str![""]);
 
-    // TODO: make status not fail, it can still show uncommitted files
     env.but("status --verbose")
         .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Checked out to branch that doesn't exist
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ no commits (main)
 
-Hint: Run `but commit` to create an initial empty commit
+Hint: run `but commit` to create the initial commit
 
 "#]]);
 

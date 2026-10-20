@@ -2160,3 +2160,78 @@ Hint: run `but help` for all commands
 
 "#]]);
 }
+
+#[test]
+fn status_in_unborn_repo_json() {
+    let env = Sandbox::open_with_default_settings("unborn");
+    env.file("file", "...");
+
+    env.but("status --json")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+{
+  "uncommittedChanges": [
+    {
+      "cliId": "qs",
+      "filePath": "file",
+      "changeType": "added"
+    }
+  ],
+  "stacks": [],
+  "mergeBase": null,
+  "upstreamState": null
+}
+
+"#]]);
+}
+
+#[test]
+fn status_in_unborn_repo() {
+    let env = Sandbox::open_with_default_settings("unborn");
+
+    env.file("file", "...");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   qs A file
+┊
+┴ no commits (main)
+
+Hint: run `but commit` to create the initial commit
+
+"#]]);
+
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+─────────────╮
+ qs:2 A file │
+─────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +...
+
+"#]]);
+
+    env.but("diff qs")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+─────────────╮
+ qs:2 A file │
+─────────────╯
+
+@@ -1,0 +1,1 @@
+───────────────
+  ┊ 1 │ +...
+
+"#]]);
+}

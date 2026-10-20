@@ -40,9 +40,9 @@ pub struct WorkspaceStatus {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub worktrees: Vec<Worktree>,
     /// The most recent common merge base between all applied stacks and the target upstream branch
-    pub merge_base: Commit,
+    pub merge_base: Option<Commit>,
     /// Information about how ahead the target upstream branch is compared to the merge base
-    pub upstream_state: UpstreamState,
+    pub upstream_state: Option<UpstreamState>,
 }
 
 /// A linked worktree with the commits it owns exclusively.
@@ -96,8 +96,8 @@ impl WorkspaceStatus {
         conflicted_files: Vec<String>,
         stacks: Vec<Stack>,
         worktrees: Vec<Worktree>,
-        merge_base: Commit,
-        upstream_state: UpstreamState,
+        merge_base: Option<Commit>,
+        upstream_state: Option<UpstreamState>,
     ) -> Self {
         Self {
             uncommitted_changes,
@@ -700,24 +700,28 @@ pub(super) fn build_workspace_status_json(
     let json_worktrees = build_worktrees_json(status_ctx, repo)?;
 
     // Create a Commit object for the merge base.
-    let base_commit = repo.find_commit(status_ctx.common_merge_base_data.commit_id)?;
-    let base_commit_decoded = base_commit.decode()?;
-    let author: but_workspace::ui::Author = base_commit_decoded.author()?.into();
+    let merge_base_commit = if let Some(base) = &status_ctx.common_merge_base_data {
+        let base_commit = repo.find_commit(base.commit_id)?;
+        let base_commit_decoded = base_commit.decode()?;
+        let author: but_workspace::ui::Author = base_commit_decoded.author()?.into();
 
-    let merge_base_commit = Commit::from_upstream_commit(
-        but_workspace::ui::UpstreamCommit {
-            id: status_ctx.common_merge_base_data.commit_id,
-            authored_at: status_ctx.common_merge_base_data.authored_at,
-            committed_at: status_ctx.common_merge_base_data.committed_at,
-            message: status_ctx.common_merge_base_data.message.clone().into(),
-            author,
-            // This is a synthetic upstream commit used only to reuse
-            // `Commit::from_upstream_commit()`. Legacy status JSON does not
-            // expose change-ids, so dropping it here is fine.
-            change_id: None,
-        },
-        None,
-    );
+        Some(Commit::from_upstream_commit(
+            but_workspace::ui::UpstreamCommit {
+                id: base.commit_id,
+                authored_at: base.authored_at,
+                committed_at: base.committed_at,
+                message: base.message.clone().into(),
+                author,
+                // This is a synthetic upstream commit used only to reuse
+                // `Commit::from_upstream_commit()`. Legacy status JSON does not
+                // expose change-ids, so dropping it here is fine.
+                change_id: None,
+            },
+            None,
+        ))
+    } else {
+        None
+    };
 
     let upstream_state_json = if let Some(upstream) = &status_ctx.upstream_state {
         // Create a Commit object for the latest upstream commit
@@ -785,24 +789,26 @@ pub(super) fn build_workspace_status_json(
             None
         };
 
-        UpstreamState {
+        Some(UpstreamState {
             behind: upstream.behind_count,
             latest_commit,
             last_fetched,
             upstream_commits,
-        }
+        })
     } else {
         // When up to date, use the merge base as the latest commit
         let last_fetched = status_ctx
             .last_fetched_ms
             .map(|ts| i128_to_rfc3339(ts as i128));
 
-        UpstreamState {
-            behind: 0,
-            latest_commit: merge_base_commit.clone(),
-            last_fetched,
-            upstream_commits: None,
-        }
+        merge_base_commit
+            .clone()
+            .map(|latest_commit| UpstreamState {
+                behind: 0,
+                latest_commit,
+                last_fetched,
+                upstream_commits: None,
+            })
     };
 
     Ok(WorkspaceStatus::new(
