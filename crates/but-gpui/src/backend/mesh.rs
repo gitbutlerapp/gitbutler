@@ -356,6 +356,13 @@ fn parse_checkouts(out: &str) -> Result<Vec<Checkout>> {
             }
         })
         .collect();
+    // A checkout with nothing going on, no uncommitted files and no branch with commits that
+    // haven't landed, isn't listed, nor is a machine with only those.
+    checkouts.retain(|c| {
+        !c.uncommitted.is_empty()
+            || (c.branches.iter())
+                .any(|b| !b.commits.is_empty() && b.status != BranchStatus::Integrated)
+    });
     // Two main checkouts on one machine, as two clones, are told apart by their folders.
     let twins: Vec<usize> = (0..checkouts.len())
         .filter(|&ix| {
@@ -474,6 +481,12 @@ mod tests {
          "head": "branch", "head_branch": "claude/fix", "stacks": [],
          "branch": {"name": "claude/fix", "status": "integrated", "review_url": "https://pr/1",
                     "commits": []},
+         "uncommitted": [{"path": "b.rs", "status": "added", "additions": 1, "deletions": 0}],
+         "last_activity_at": null, "error": null}},
+        {"machine": "laptop", "this_machine": false, "online": true, "same_work_as_here": false,
+         "same_as": null, "checkout": {"id": "c-idle", "path": "/l/repo", "worktree_name": null,
+         "head": "branch", "head_branch": "done", "stacks": [],
+         "branch": {"name": "done", "status": "integrated", "review_url": null, "commits": []},
          "uncommitted": [], "last_activity_at": null, "error": null}}
       ],
       "branches": [
@@ -489,7 +502,8 @@ mod tests {
         assert_eq!(
             ids,
             ["c-studio", "c-cloud"],
-            "this machine's own worktree and work identical to it are left out"
+            "this machine's own worktree, work identical to it, and a checkout with nothing \
+             going on are left out"
         );
 
         let studio = &checkouts[0];
