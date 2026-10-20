@@ -1,9 +1,16 @@
 //! Padding commits sit on top of a conflicted commit to make its auto-resolution checkout-able.
 
 use anyhow::bail;
+use bstr::{BStr, ByteSlice};
 
 /// The title of every padding commit message.
 pub const TITLE: &str = "GitButler Padding Commit";
+
+/// Return `true` if the title of `commit_message` is [`TITLE`].
+pub fn is_padding_by_message(commit_message: &BStr) -> bool {
+    let message = gix::objs::commit::MessageRef::from_bytes(commit_message);
+    message.title.trim().as_bstr() == TITLE
+}
 
 /// Write the padding commit of `conflicted` and return its id.
 ///

@@ -1,8 +1,11 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anyhow::{Context, Result, bail};
-use but_core::{RefMetadata, commit::SignCommit};
-use but_graph::{Commit, RefInfo, SegmentIndex};
+use but_core::{
+    RefMetadata,
+    commit::{SignCommit, padding},
+};
+use but_graph::{Commit, CommitFlags, RefInfo, SegmentIndex};
 use petgraph::{Direction, visit::EdgeRef as _};
 
 use crate::graph_rebase::{
@@ -101,6 +104,30 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         // The editor contains every commit the graph contains, so we iterate
         // over all segments rather than only those reachable from an entrypoint.
         let segments_to_add = workspace.graph.segments().collect::<Vec<_>>();
+        let graph_commits = || {
+            segments_to_add
+                .iter()
+                .flat_map(|sid| &workspace.graph[*sid].commits)
+        };
+
+        let graph_commit_ids = graph_commits().map(|c| c.id).collect::<HashSet<_>>();
+        let mut padding_parents = HashMap::<gix::ObjectId, gix::ObjectId>::new();
+        for commit in graph_commits() {
+            if let [parent_id] = commit.parent_ids[..]
+                && !commit.flags.contains(CommitFlags::Integrated)
+                && graph_commit_ids.contains(&parent_id)
+                && padding::is_padding_by_message(repo.find_commit(commit.id)?.message_raw()?)
+            {
+                padding_parents.insert(commit.id, parent_id);
+            }
+        }
+        let without_padding = |id: &gix::ObjectId| {
+            let mut id = *id;
+            while let Some(parent_id) = padding_parents.get(&id) {
+                id = *parent_id;
+            }
+            id
+        };
 
         let workspace_commit_id = workspace
             .graph
@@ -149,9 +176,6 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             }
 
             for commit in &segment.commits {
-                commits.push(commit.clone());
-                commit_to_idx.insert(commit.id, segment.id);
-
                 for ref_info in &commit.refs {
                     let refname = ref_info.ref_name.clone();
                     let reference_mutable = segment_mutable
@@ -171,6 +195,15 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     }
                     nodes.push(ix);
                 }
+
+                if padding_parents.contains_key(&commit.id) {
+                    continue;
+                }
+                commits.push(Commit {
+                    parent_ids: commit.parent_ids.iter().map(without_padding).collect(),
+                    ..commit.clone()
+                });
+                commit_to_idx.insert(commit.id, segment.id);
 
                 let mut pick = if workspace_commit_id == Some(commit.id) {
                     Pick::new_workspace_pick(commit.id)
@@ -334,12 +367,14 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                         tip.name
                     )
                 })?,
-                None => *commit_to_pick_ix.get(&tip.id).with_context(|| {
-                    format!(
-                        "Visible detached worktree {} HEAD {} is missing from the editor",
-                        tip.name, tip.id
-                    )
-                })?,
+                None => *commit_to_pick_ix
+                    .get(&without_padding(&tip.id))
+                    .with_context(|| {
+                        format!(
+                            "Visible detached worktree {} HEAD {} is missing from the editor",
+                            tip.name, tip.id
+                        )
+                    })?,
             };
             let name = tip.name.clone();
             let checkout = Checkout::Worktree {
@@ -361,7 +396,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             Some(ref_name) => reference_to_ix.get(ref_name),
             None => entrypoint
                 .commit()
-                .and_then(|commit| commit_to_pick_ix.get(&commit.id)),
+                .and_then(|commit| commit_to_pick_ix.get(&without_padding(&commit.id))),
         }
         .map(|&id| Selector { id, revision: 0 });
         let checkouts = worktree_checkouts
