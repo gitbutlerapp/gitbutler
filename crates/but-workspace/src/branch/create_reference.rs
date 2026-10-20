@@ -117,19 +117,20 @@ pub(super) mod function {
         }
         let rebase = editor.rebase()?;
         let workspace = rebase.overlayed_graph()?.into_workspace()?;
-        let editor = rebase.into_editor();
+        let mut editor = rebase.into_editor();
         let placement = placement(&editor, &workspace, anchor.into())?;
-        let mut editor = ensure_workspace_commit(editor)?.into_editor();
-        let workspace_commit = editor.workspace_commit();
         let reference = Step::new_reference(ref_name.to_owned());
         match placement {
             Placement::Independent { base } => {
-                let Some(workspace_commit) = workspace_commit else {
+                let Some(workspace_reference) = editor.workspace_reference() else {
                     bail_precondition!(
                         "Cannot create independent branch '{}' outside of a workspace",
                         ref_name.shorten()
                     );
                 };
+                let (successful_rebase, workspace_commit) =
+                    ensure_workspace_commit(editor, workspace_reference)?;
+                editor = successful_rebase.into_editor();
                 if workspace.stacks.is_empty() {
                     for (placeholder, _) in editor.direct_parents(workspace_commit)? {
                         editor.remove_edges(workspace_commit, placeholder)?;

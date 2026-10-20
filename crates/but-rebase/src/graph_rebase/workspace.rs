@@ -283,9 +283,10 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         .then_some(head)
     }
 
-    /// The workspace commit beneath the [workspace reference](Self::workspace_reference), if any.
-    pub fn workspace_commit(&self) -> Option<Selector> {
-        let head = self.workspace_reference()?;
+    /// The workspace commit found by traversing the commits reachable from `workspace_reference`
+    /// until the target, if any.
+    pub fn workspace_commit(&self, workspace_reference: Selector) -> Option<Selector> {
+        let head = workspace_reference;
         let target = self.target_selector().map(|s| s.id);
         traverse::all_until_optional_limit(&self.graph, head.id, target)
             .find(|ix| is_workspace_commit(&self.graph, &self.repo, *ix))
