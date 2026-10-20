@@ -381,9 +381,18 @@ sirocco = { opt-level = 3 }
 adler32furious = { opt-level = 3 }
 serde = { opt-level = 3 }
 serde_json = { opt-level = 3 }
-# The GPUI client's layout and diff highlighting are slow unoptimised.
-gpui_macros = { opt-level = 3 }
+# The GPUI client's layout, drawing, images and diff highlighting are slow unoptimised.
+gpui = { opt-level = 3 }
+gpui_macos = { opt-level = 3 }
+gpui_apple = { opt-level = 3 }
+sum_tree = { opt-level = 3 }
 taffy = { opt-level = 3 }
+resvg = { opt-level = 3 }
+usvg = { opt-level = 3 }
+tiny-skia = { opt-level = 3 }
+image = { opt-level = 3 }
+png = { opt-level = 3 }
+zune-jpeg = { opt-level = 3 }
 syntect = { opt-level = 3 }
 fancy-regex = { opt-level = 3 }
 regex-automata = { opt-level = 3 }
