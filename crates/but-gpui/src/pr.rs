@@ -471,6 +471,12 @@ impl AppView {
         let Some((project, branch, None)) = self.review_target(cx) else {
             return;
         };
+        // Creating one pushes first.
+        let refused =
+            (self.store.read(cx).workspace(&project)).and_then(|ws| ws.push_refused(&branch));
+        if let Some(refused) = refused {
+            return self.store.update(cx, |store, cx| store.snack(refused, cx));
+        }
         let store = self.store.clone();
         let view = cx.new(|cx| ReviewView::new(store, project, branch, window, cx));
         self.open_modal(view, window, cx);
