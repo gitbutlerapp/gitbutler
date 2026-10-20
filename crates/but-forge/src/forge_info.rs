@@ -104,17 +104,32 @@ pub fn compare_branch_url(
         Some(f) => format!("{f}:{branch}"),
         None => branch.to_string(),
     };
+    // Branch names may contain URL delimiters such as `#` or `%`.
+    let path_head = match fork {
+        Some(f) => format!("{}:{}", urlencoding::encode(f), encode_path(branch)),
+        None => encode_path(branch),
+    };
     Some(match repo_info.forge {
-        ForgeName::GitHub => format!("{base_url}/compare/{base}...{head}"),
-        ForgeName::GitLab => format!("{base_url}/-/compare/{base}...{head}"),
+        ForgeName::GitHub => format!("{base_url}/compare/{}...{path_head}", encode_path(base)),
+        ForgeName::GitLab => format!("{base_url}/-/compare/{}...{path_head}", encode_path(base)),
         ForgeName::Bitbucket => format!(
-            "{base_url}/branch/{head}?dest={}",
+            "{base_url}/branch/{path_head}?dest={}",
             urlencoding::encode(base)
         ),
-        ForgeName::Azure => {
-            format!("{base_url}/branchCompare?baseVersion=GB{base}&targetVersion=GB{head}")
-        }
+        ForgeName::Azure => format!(
+            "{base_url}/branchCompare?baseVersion=GB{}&targetVersion=GB{}",
+            urlencoding::encode(base),
+            urlencoding::encode(&head)
+        ),
     })
+}
+
+/// Percent-encode each `/`-separated segment, keeping the separators.
+fn encode_path(path: &str) -> String {
+    path.split('/')
+        .map(urlencoding::encode)
+        .collect::<Vec<_>>()
+        .join("/")
 }
 
 fn build_base_url(remote_url: &str, repo_info: &ForgeRepoInfo, accounts: &[ForgeUser]) -> String {
@@ -140,12 +155,7 @@ fn build_base_url(remote_url: &str, repo_info: &ForgeRepoInfo, accounts: &[Forge
         _ => host,
     };
     // Owners may contain namespace separators (GitLab groups or Azure org/project).
-    let owner = repo_info
-        .owner
-        .split('/')
-        .map(urlencoding::encode)
-        .collect::<Vec<_>>()
-        .join("/");
+    let owner = encode_path(&repo_info.owner);
     let repo = urlencoding::encode(&repo_info.repo);
     match repo_info.forge {
         ForgeName::Azure => {
