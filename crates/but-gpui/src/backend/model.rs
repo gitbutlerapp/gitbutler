@@ -468,6 +468,9 @@ pub struct Commit {
     /// Its change ID, which survives rebases and rewording. One made without, as by plain
     /// Git, has the one the engine writes into it on its first rebase, made from its sha.
     pub key: String,
+    /// Its author, when they wrote it and its message, hashed: what any rebase keeps, Git's
+    /// own too, which drops the change ID.
+    pub authored: String,
     pub title: String,
     pub message: String,
     /// Who it's shown by, as [`byline`] picks: its author, or the person who committed what an
@@ -485,6 +488,13 @@ pub struct Commit {
     /// was amended, rather than only rebased.
     pub parent: Option<CommitId>,
     pub tree: gix::ObjectId,
+}
+
+/// What [`Commit::authored`] is made of.
+pub fn authored(author: &gix::actor::Signature, message: &[u8]) -> String {
+    let time = author.time.seconds.to_string();
+    let parts: [&[u8]; 4] = [&author.name, &author.email, time.as_bytes(), message];
+    format!("{:x}", md5::compute(parts.join(&0)))
 }
 
 impl Commit {
@@ -1018,6 +1028,7 @@ mod tests {
                 .map(|state| Commit {
                     id: CommitId(id),
                     key: String::new(),
+                    authored: String::new(),
                     title: String::new(),
                     message: String::new(),
                     author: String::new(),
@@ -1134,6 +1145,7 @@ mod tests {
         let commit = |key: String| Commit {
             id: CommitId(id),
             key,
+            authored: String::new(),
             title: String::new(),
             message: String::new(),
             author: String::new(),

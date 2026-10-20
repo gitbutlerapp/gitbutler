@@ -102,7 +102,8 @@ so update it, shortcuts table included, with every change in behaviour.
   (`Commit::change_id()` falls back to the id the engine writes on a rebase), and hunks by their
   old-side range, since an agent's edit above shifts every index.
 - An amend keeps the change ID and the parent and changes the tree. A rebase or a reword doesn't
-  count as one.
+  count as one. `git rebase` drops the change ID, so what's been read also goes by
+  `Commit::authored`, a hash of the author, time and message, which every rebase keeps.
 - Hunk and line selections in uncommitted files are positional, and an agent's edit slides them.
   Commit, amend and discard compare each file's `modified` time and base with the diff the user
   saw and refuse if either moved. Core takes any selection in an added file as the whole file,

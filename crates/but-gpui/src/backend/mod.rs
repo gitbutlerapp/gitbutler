@@ -512,6 +512,7 @@ fn commit_from(local: &but_workspace::ref_info::LocalCommit) -> Commit {
     Commit {
         id: CommitId(inner.id),
         key: inner.change_id().to_string(),
+        authored: model::authored(&inner.author, inner.message.trim_end()),
         title: title(&inner.message),
         message: inner.message.to_str_lossy().trim_end().to_string(),
         author,
