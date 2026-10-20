@@ -1,6 +1,7 @@
 //! Finding text in the diff (⌘F): every match marked in the lines, the current one more
 //! strongly, and Enter and ⇧Enter stepping through them.
 
+use std::collections::HashMap;
 use std::ops::Range;
 
 use gpui::{
@@ -9,7 +10,7 @@ use gpui::{
 };
 
 use super::Detail;
-use crate::backend::{self, FileDiff, LineKind};
+use crate::backend::{self, DiffLine, LineKind};
 use crate::theme::Theme;
 use crate::ui::diff::DiffRow;
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -35,31 +36,58 @@ pub fn bind_keys(cx: &mut App) {
 /// A diff line, by file, hunk and line, which stays put when files fold.
 pub(super) type LineId = (usize, usize, usize);
 
+/// Where a match is, as the diff's rows name lines: one of a hunk's, or an unchanged one,
+/// of the file shown whole or of a hunk's scope, by its file and new-side number.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(super) enum Spot {
+    Line(LineId),
+    Unchanged(usize, u32),
+}
+
+impl Spot {
+    fn of(row: DiffRow) -> Option<Spot> {
+        match row {
+            DiffRow::Line { file, hunk, line } => Some(Spot::Line((file, hunk, line))),
+            DiffRow::Context { file, new, .. } => Some(Spot::Unchanged(file, new)),
+            _ => None,
+        }
+    }
+
+    fn row(self) -> DiffRow {
+        match self {
+            Spot::Line((file, hunk, line)) => DiffRow::Line { file, hunk, line },
+            Spot::Unchanged(file, new) => DiffRow::Context { file, old: 0, new },
+        }
+    }
+}
+
 pub(super) struct Find {
     input: Entity<TextInput>,
-    /// Every match, in the diff's order, which sorts them by line.
-    matches: Vec<(LineId, Range<usize>)>,
+    /// Every match, in the diff's order.
+    matches: Vec<(Spot, Range<usize>)>,
+    /// Each line's matches, by their place in `matches`.
+    on: HashMap<Spot, Vec<usize>>,
     current: usize,
 }
 
-/// Where `query` appears in `files`' lines, ignoring case for ASCII.
-fn search(files: &[FileDiff], query: &str) -> Vec<(LineId, Range<usize>)> {
+/// Where `query` appears in the lines `rows` show, ignoring case for ASCII.
+fn search<'a>(
+    rows: &[DiffRow],
+    line: impl Fn(DiffRow) -> Option<&'a DiffLine>,
+    query: &str,
+) -> Vec<(Spot, Range<usize>)> {
     if query.is_empty() {
         return Vec::new();
     }
     let query = query.to_ascii_lowercase();
     let mut found = Vec::new();
-    for (file_ix, file) in files.iter().enumerate() {
-        for (hunk_ix, hunk) in file.hunks().iter().enumerate() {
-            for (line_ix, line) in hunk.lines.iter().enumerate() {
-                // ASCII lowering keeps byte offsets where they were.
-                let text = line.text.to_ascii_lowercase();
-                found.extend(
-                    text.match_indices(&query)
-                        .map(|(at, _)| ((file_ix, hunk_ix, line_ix), at..at + query.len())),
-                );
-            }
-        }
+    for &row in rows {
+        let (Some(spot), Some(line)) = (Spot::of(row), line(row)) else {
+            continue;
+        };
+        // ASCII lowering keeps byte offsets where they were.
+        let text = line.text.to_ascii_lowercase();
+        found.extend((text.match_indices(&query)).map(|(at, _)| (spot, at..at + query.len())));
     }
     found
 }
@@ -83,6 +111,7 @@ impl Detail {
         self.find = Some(Find {
             input,
             matches: Vec::new(),
+            on: HashMap::new(),
             current: 0,
         });
         cx.notify();
@@ -105,15 +134,22 @@ impl Detail {
     /// Search the diff again, as when the query or the diff changed; with `reveal`, go to
     /// the first match.
     pub(super) fn run_find(&mut self, reveal: bool, cx: &mut Context<Self>) {
-        // Not in files the diff doesn't show, as those the file filter hides.
-        let shown = self.shown_files();
-        let (Some(find), Some(diff)) = (&mut self.find, &self.diff) else {
+        let (Some(find), Some(diff)) = (&self.find, &self.diff) else {
             return;
         };
         let query = find.input.read(cx).text().to_owned();
-        find.matches = search(&diff.files, &query);
-        find.matches
-            .retain(|((file, _, _), _)| shown.binary_search(file).is_ok());
+        // What the diff shows, unchanged lines and all, with folded files open: not what a
+        // filter or an operation under way hides.
+        let rows = self.build_rows(&diff.key, &diff.files, true, cx);
+        let matches = search(&rows, |row| self.line_of(row), &query);
+        let mut on: HashMap<Spot, Vec<usize>> = HashMap::new();
+        for (ix, (spot, _)) in matches.iter().enumerate() {
+            on.entry(*spot).or_default().push(ix);
+        }
+        let Some(find) = &mut self.find else {
+            return;
+        };
+        (find.matches, find.on) = (matches, on);
         find.current = find.current.min(find.matches.len().saturating_sub(1));
         if reveal {
             find.current = 0;
@@ -138,7 +174,7 @@ impl Detail {
     /// Scroll the current match into view, unfolding its file if need be, and sideways when
     /// it's past the edge of a long line.
     fn reveal_match(&mut self, cx: &mut Context<Self>) {
-        let Some(((file, hunk, line), range)) = self
+        let Some((spot, range)) = self
             .find
             .as_ref()
             .and_then(|find| find.matches.get(find.current))
@@ -146,7 +182,10 @@ impl Detail {
         else {
             return;
         };
-        let row = DiffRow::Line { file, hunk, line };
+        let row = spot.row();
+        let Some(file) = row.file() else {
+            return;
+        };
         let same_line = |r: &DiffRow| r.same_place(row);
         if self.row_of(same_line).is_none() && self.is_folded(file) {
             self.toggle_fold(file, cx);
@@ -159,10 +198,9 @@ impl Detail {
         let (Some(diff_file), false) = (diff_file, prefs.wrap) else {
             return;
         };
-        let (Some(text), Some(scroll)) = (
-            diff_file.hunks().get(hunk).and_then(|h| h.lines.get(line)),
-            self.sideways.get(&diff_file.file.path),
-        ) else {
+        let (Some(text), Some(scroll)) =
+            (self.line_of(row), self.sideways.get(&diff_file.file.path))
+        else {
             return;
         };
         // A unified diff scrolls both sides as the new one; split, a line on both sides
@@ -183,15 +221,13 @@ impl Detail {
         }
     }
 
-    /// The matches on `line` to mark, each with whether it's the current one.
-    pub(super) fn found_on(&self, line: LineId) -> Vec<(Range<usize>, bool)> {
+    /// The matches on the line at `spot` to mark, each with whether it's the current one.
+    pub(super) fn found_on(&self, spot: Spot) -> Vec<(Range<usize>, bool)> {
         let Some(find) = &self.find else {
             return Vec::new();
         };
-        let start = find.matches.partition_point(|(at, _)| *at < line);
-        (find.matches[start..].iter().enumerate())
-            .take_while(|(_, (at, _))| *at == line)
-            .map(|(ix, (_, range))| (range.clone(), start + ix == find.current))
+        (find.on.get(&spot).into_iter().flatten())
+            .map(|&ix| (find.matches[ix].1.clone(), ix == find.current))
             .collect()
     }
 
@@ -254,5 +290,56 @@ impl Detail {
                 )
                 .into_any_element(),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Spot, search};
+    use crate::backend::{DiffLine, LineKind};
+    use crate::ui::diff::DiffRow;
+
+    #[test]
+    fn unchanged_lines_are_searched_in_the_order_shown() {
+        let line = |kind, text: &str| DiffLine {
+            kind,
+            old: None,
+            new: None,
+            text: text.into(),
+            spans: Vec::new(),
+            emph: Vec::new(),
+        };
+        let (scope, changed) = (
+            line(LineKind::Context, "fn work() {"),
+            line(LineKind::Added, "    work();"),
+        );
+        let rows = [
+            DiffRow::File(0),
+            DiffRow::Context {
+                file: 0,
+                old: 1,
+                new: 1,
+            },
+            DiffRow::Hunk { file: 0, hunk: 0 },
+            DiffRow::Line {
+                file: 0,
+                hunk: 0,
+                line: 0,
+            },
+        ];
+        let found = search(
+            &rows,
+            |row| match row {
+                DiffRow::Context { .. } => Some(&scope),
+                DiffRow::Line { .. } => Some(&changed),
+                _ => None,
+            },
+            "WORK",
+        );
+        assert_eq!(
+            found,
+            [(Spot::Unchanged(0, 1), 3..7), (Spot::Line((0, 0, 0)), 4..8)],
+            "the scope's line above the hunk, then the hunk's, ignoring case"
+        );
     }
 }

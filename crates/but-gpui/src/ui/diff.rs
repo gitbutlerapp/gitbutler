@@ -1019,7 +1019,13 @@ pub fn context_row(
     let place = (file, 0xfffff, new as usize);
     if layout.split {
         let sides = [Some((line, Some(old))), Some((line, Some(new)))];
-        return pair_row(sides, Default::default(), place, last, theme, layout);
+        // What Find matched shows on both sides, as the line is on both.
+        let half = |found| LineDecor {
+            found,
+            ..Default::default()
+        };
+        let halves = [half(decor.found.clone()), half(decor.found)];
+        return pair_row(sides, halves, place, last, theme, layout);
     }
     line_row(line, place, last, theme, layout, decor)
 }

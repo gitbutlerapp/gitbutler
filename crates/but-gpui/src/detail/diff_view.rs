@@ -14,6 +14,7 @@ use gpui::{
 };
 
 use super::file_list::At;
+use super::find::Spot;
 use super::lines::Pick;
 use super::{
     Cursor, Detail, DiscardHunk, FILES_POPOVER_DELAY, LoadedDiff, TextPoint, ToggleFiles,
@@ -135,8 +136,13 @@ impl Render for DiffPane {
 impl Detail {
     /// The diff line at `row`, if that row is one.
     fn line_at(&self, row: usize) -> Option<&DiffLine> {
+        self.line_of(*self.diff.as_ref()?.rows.get(row)?)
+    }
+
+    /// The diff line `row` shows, if it shows one.
+    pub(super) fn line_of(&self, row: DiffRow) -> Option<&DiffLine> {
         let diff = self.diff.as_ref()?;
-        match *diff.rows.get(row)? {
+        match row {
             DiffRow::Line {
                 file, hunk, line, ..
             } => diff.files.get(file)?.hunks().get(hunk)?.lines.get(line),
@@ -851,7 +857,7 @@ impl Detail {
                     gutter: self.line_gutter(place, &entity, cx),
                     select: Some(line_select(ix, entity)),
                     selected: self.selected_in_row(ix),
-                    found: self.found_on(place),
+                    found: self.found_on(Spot::Line(place)),
                 };
                 let layout = self.layout(&diff.files[file], &store.prefs);
                 let element = diff::line_row(text, place, last, theme, &layout, decor);
@@ -877,7 +883,7 @@ impl Detail {
                     diff::LineDecor {
                         excluded,
                         toggle,
-                        found: self.found_on((file, hunk, line)),
+                        found: self.found_on(Spot::Line((file, hunk, line))),
                         gutter: self.line_gutter((file, hunk, line), &entity, cx),
                         ..Default::default()
                     }
@@ -920,6 +926,7 @@ impl Detail {
                 let decor = LineDecor {
                     select: Some(line_select(ix, entity)),
                     selected: self.selected_in_row(ix),
+                    found: self.found_on(Spot::Unchanged(file, new)),
                     ..Default::default()
                 };
                 let layout = self.layout(&diff.files[file], &store.prefs);

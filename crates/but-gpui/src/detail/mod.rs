@@ -963,7 +963,7 @@ impl Detail {
                 Arc::new(sorted)
             }
         };
-        let rows = self.build_rows(&key, &files, cx);
+        let rows = self.build_rows(&key, &files, false, cx);
         let top = same.then(|| self.keep_place(&rows, &files));
         // Most rows are a line tall: rows not drawn yet count as one, so the scrollbar's thumb
         // is about the right size before they are.
@@ -1090,7 +1090,15 @@ impl Detail {
 
     /// The diff's rows. Files folded by hand show only their header; uncommitted files and hunks, or files of the commit shown, that a pending
     /// operation takes away are left out until it's done.
-    fn build_rows(&self, key: &DiffKey, files: &[FileDiff], cx: &App) -> Vec<DiffRow> {
+    /// The rows `files` show; `unfolded`, as they would with every file open and one line a
+    /// row, as Find searches them.
+    fn build_rows(
+        &self,
+        key: &DiffKey,
+        files: &[FileDiff],
+        unfolded: bool,
+        cx: &App,
+    ) -> Vec<DiffRow> {
         let store = self.store.read(cx);
         let terms = self.filter_terms(cx);
         let leaving = key.leaving(store);
@@ -1107,7 +1115,7 @@ impl Detail {
         let parts_of = |file: &FileDiff| parts.get(file.file.path.as_str());
         diff::rows(
             files,
-            |file| self.folded.contains(&file.file.path),
+            |file| !unfolded && self.folded.contains(&file.file.path),
             |file| self.drawing_of(file).is_some(),
             |file| leaving(&file.file.path) || !keeps_path(&terms, &file.file.path),
             |file, hunk| parts_of(file).is_some_and(|keys| keys.contains(&hunk.key)),
@@ -1120,7 +1128,7 @@ impl Detail {
                 }
                 _ => None,
             },
-            store.prefs.split,
+            store.prefs.split && !unfolded,
             |conflict| self.conflict_view(conflict),
         )
     }
@@ -1240,7 +1248,7 @@ impl Detail {
             cx.notify();
             return;
         };
-        let rows = self.build_rows(&diff.key, &diff.files, cx);
+        let rows = self.build_rows(&diff.key, &diff.files, false, cx);
         if rows != diff.rows {
             self.text_selection = None;
             let scroll_to = self.keep_place(&rows, &diff.files);
