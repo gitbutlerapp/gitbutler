@@ -49,15 +49,19 @@ pub(super) struct Branches {
 }
 
 impl Branches {
+    /// Branch `ref_name`, while it's listed.
+    fn branch(&self, ref_name: &str) -> Option<&OtherBranch> {
+        self.list.iter().find(|b| b.ref_name == ref_name)
+    }
+
     fn selected_branch(&self) -> Option<&OtherBranch> {
-        let selected = self.selected.as_ref()?;
-        self.list.iter().find(|b| b.ref_name == *selected)
+        self.branch(self.selected.as_ref()?)
     }
 
     /// The commits listed under branch `ref_name`: its own, not those of the branches below it
     /// in a stack.
     fn listed_commits(&self, ref_name: &str) -> &[BranchCommit] {
-        let own = (self.list.iter().find(|b| b.ref_name == ref_name)).and_then(|b| b.own_commits);
+        let own = self.branch(ref_name).and_then(|b| b.own_commits);
         match self.commits.get(ref_name) {
             Some((_, commits)) => &commits[..own.unwrap_or(commits.len()).min(commits.len())],
             None => &[],
@@ -181,6 +185,12 @@ impl Detail {
 
     pub(super) fn selected_other_branch(&self, project: &ProjectId) -> Option<&OtherBranch> {
         self.branches_for(project)?.selected_branch()
+    }
+
+    /// Branch `ref_name` of `project`'s list, while it's still listed: what a menu opened on
+    /// it acts on, even once a reload has selected another.
+    fn listed_branch(&self, project: &ProjectId, ref_name: &str) -> Option<&OtherBranch> {
+        self.branches_for(project)?.branch(ref_name)
     }
 
     pub(super) fn branches_source(&self, project: &ProjectId) -> Option<DiffSource> {
@@ -517,7 +527,7 @@ impl Detail {
         };
         let mut items = Vec::new();
         let worktree = self.checked_out_in(project, branch, cx);
-        let p = project.clone();
+        let (p, r) = (project.clone(), ref_name.to_owned());
         items.push(match worktree.clone() {
             Some(name) => MenuItem::new("Open worktree", move |app, _, cx| {
                 let shown = Selection::Worktree(p.clone(), name.clone());
@@ -526,14 +536,14 @@ impl Detail {
             }),
             None => MenuItem::new("Apply to workspace", move |app, _, cx| {
                 app.detail
-                    .update(cx, |detail, cx| detail.apply_branch(&p, cx))
+                    .update(cx, |detail, cx| detail.apply_branch(&p, &r, cx))
             }),
         });
         if worktree.is_none() {
-            let p = project.clone();
+            let (p, r) = (project.clone(), ref_name.to_owned());
             items.push(MenuItem::new("Switch to branch", move |app, _, cx| {
                 app.detail
-                    .update(cx, |detail, cx| detail.switch_to_branch(&p, cx))
+                    .update(cx, |detail, cx| detail.switch_to_branch(&p, &r, cx))
             }));
         }
         if let Some(url) = (branch.review.as_ref()).and_then(|r| r.url.clone()) {
@@ -549,13 +559,15 @@ impl Detail {
             .separated(),
         );
         if branch.local && worktree.is_none() {
-            let p = project.clone();
+            let (p, r) = (project.clone(), ref_name.to_owned());
             items.push(
                 // Once the menu's done with the app, which asking to confirm updates too.
                 MenuItem::new("Delete branch…", move |app, window, cx| {
-                    let (detail, p) = (app.detail.clone(), p.clone());
+                    let (detail, p, r) = (app.detail.clone(), p.clone(), r.clone());
                     window.defer(cx, move |window, cx| {
-                        detail.update(cx, |detail, cx| detail.delete_other_branch(&p, window, cx))
+                        detail.update(cx, |detail, cx| {
+                            detail.delete_other_branch(&p, &r, window, cx)
+                        })
                     })
                 })
                 .danger()
@@ -619,8 +631,8 @@ impl Detail {
         self.app.update(cx, |app, cx| app.cut(cut, cx)).ok();
     }
 
-    fn apply_branch(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
-        let Some(branch) = self.selected_other_branch(project) else {
+    fn apply_branch(&mut self, project: &ProjectId, ref_name: &str, cx: &mut Context<Self>) {
+        let Some(branch) = self.listed_branch(project, ref_name) else {
             return;
         };
         let (ref_name, name) = (branch.ref_name.clone(), branch.name.clone());
@@ -652,9 +664,9 @@ impl Detail {
         });
     }
 
-    /// Leave the workspace for just the selected branch, checked out on its own.
-    fn switch_to_branch(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
-        let Some(branch) = self.selected_other_branch(project) else {
+    /// Leave the workspace for just branch `ref_name`, checked out on its own.
+    fn switch_to_branch(&mut self, project: &ProjectId, ref_name: &str, cx: &mut Context<Self>) {
+        let Some(branch) = self.listed_branch(project, ref_name) else {
             return;
         };
         let (ref_name, name) = (branch.ref_name.clone(), branch.name.clone());
@@ -677,10 +689,11 @@ impl Detail {
     fn delete_other_branch(
         &mut self,
         project: &ProjectId,
+        ref_name: &str,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(branch) = self.selected_other_branch(project).filter(|b| b.local) else {
+        let Some(branch) = self.listed_branch(project, ref_name).filter(|b| b.local) else {
             return;
         };
         let ref_name = format!("refs/heads/{}", branch.name);
