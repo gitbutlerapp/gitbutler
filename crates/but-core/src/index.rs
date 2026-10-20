@@ -199,8 +199,10 @@ impl<'index> Edit<'index> {
         }
     }
 
-    /// Forget pending additions at `stage` that clash with `path` as file versus directory, as an
-    /// index can't hold both at the same stage and the later addition wins.
+    /// Drop the stage of pending additions at `stage` that clash with `path` as file versus
+    /// directory, as an index can't hold both at the same stage and the later addition wins.
+    ///
+    /// A path left with nothing to add is still removed, so its original entries don't come back.
     fn drop_clashing_additions(&mut self, path: &BStr, stage: Stage) {
         let clashing: Vec<BString> = clashing_additions(&self.pending, path, stage)
             .cloned()
@@ -209,7 +211,7 @@ impl<'index> Edit<'index> {
             if let Some(edit) = self.pending.get_mut(&clashing_path)
                 && edit.drop_stage(stage)
             {
-                self.pending.remove(&clashing_path);
+                *edit = Pending::Remove;
             }
         }
     }

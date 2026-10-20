@@ -148,6 +148,30 @@ fn a_clashing_addition_replaces_only_the_stage_it_clashes_at() {
 }
 
 #[test]
+fn a_displaced_addition_still_replaces_the_entries_of_its_path() {
+    let mut state = index_with(&[]);
+    let mut edit = Edit::new(&mut state);
+    edit.set_conflict_stage("a".into(), ConflictStage::Ours, Mode::FILE, old_id());
+    edit.set_conflict_stage("a".into(), ConflictStage::Theirs, Mode::FILE, old_id());
+    edit.finish();
+
+    let mut edit = Edit::new(&mut state);
+    edit.upsert("a".into(), new_id(), Mode::FILE, Stat::Unknown);
+    edit.upsert("a/b".into(), new_id(), Mode::FILE, Stat::Unknown);
+    assert!(
+        !edit.contains("a".into()),
+        "a was resolved, then replaced by the directory a"
+    );
+    edit.finish();
+
+    assert_eq!(
+        entries(&state),
+        ["a/b Unconflicted 2222"],
+        "the conflict stages of a don't come back when its resolution is displaced"
+    );
+}
+
+#[test]
 fn existing_entries_stay_when_an_addition_clashes_only_at_another_stage() {
     let mut state = index_with(&["a", "c/d"]);
     let mut edit = Edit::new(&mut state);
