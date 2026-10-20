@@ -359,6 +359,10 @@
 	vertical-align: top;
 }
 
+.leadSpinner {
+	display: flex;
+}
+
 .line2 {
 	display: flex;
 	column-gap: var(--space-md);

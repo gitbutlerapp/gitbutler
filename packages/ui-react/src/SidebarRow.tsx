@@ -39,6 +39,10 @@ type RowProps = {
 	/** What the name stands for in full (a path, a pull request's state, a commit's author), shown
 	 * over the name alone, so the counts beside it keep their own. */
 	tooltip?: ReactNode;
+	/** An action on the row is running, whether started from its menu or its `actions`: a spinner
+	 * stands in for its glyph until it is done. Every row shows its work there, at its start, so the
+	 * state and the menu at its end keep their places. */
+	busy?: boolean;
 } & useRender.ComponentProps<"div">;
 
 const Steps: FC<{
@@ -118,11 +122,13 @@ const measureRuns = (event: PointerEvent<HTMLElement>) => {
 	}
 };
 
-/** The one-line row every sidebar item but a pull request in `rich` is drawn on. */
+/** The one-line row every sidebar item but a pull request in `rich` is drawn on. `spinner` is what
+ * stands in for `icon` while it is `busy`, a plain one unless the item colours its own. */
 const Row: FC<
 	RowProps & {
 		name: string;
 		icon: ReactNode;
+		spinner?: ReactNode;
 		label: ReactNode;
 		layout: SidebarRowLayout;
 		rowClassName?: string;
@@ -130,8 +136,10 @@ const Row: FC<
 > = ({
 	name,
 	icon,
+	spinner = <Icon name="spinner" />,
 	label,
 	layout,
+	busy = false,
 	depth = 0,
 	folded,
 	onToggleFolded,
@@ -153,7 +161,14 @@ const Row: FC<
 			children: (
 				<>
 					<Steps depth={depth} folded={folded} onToggleFolded={onToggleFolded} name={name} />
-					<span className={styles.icon}>{icon}</span>
+					{busy ? (
+						// The spinner itself is hidden from a screen reader; its cell says what it means.
+						<output className={styles.icon} aria-label="Working">
+							{spinner}
+						</output>
+					) : (
+						<span className={styles.icon}>{icon}</span>
+					)}
 					<span className={styles.label}>{label}</span>
 					{layout === "compact" ? (
 						// The state and the actions share the row's end, so neither moves when one gives way
@@ -336,8 +351,7 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
  * one line, its state and actions right after its name, and the name gives way first. A merged or
  * closed request is done with: one muted line in either layout.
  *
- * While an action on the branch runs, `busy` turns a spinner in its glyph's place, in the glyph's
- * colour. A merge takes `pr` state `merged` as it starts, so the row reads as where it is heading;
+ * While an action on the branch runs, its `busy` spinner takes the glyph's colour. A merge takes `pr` state `merged` as it starts, so the row reads as where it is heading;
  * back to `open` if it is refused.
  *
  * @import import { BranchItem } from "@gitbutler/ui-react/SidebarRow.tsx";
@@ -349,17 +363,14 @@ export const BranchItem: FC<
 		/** The branch's name, under a pull request's title in `rich`. */
 		branch?: string;
 		layout?: SidebarRowLayout;
-		/** An action on the branch is running: a spinner in place of the glyph. */
-		busy?: boolean;
 	} & RowProps
-> = ({ title, pr, branch, layout = "compact", busy = false, tooltip, ...props }) => {
+> = ({ title, pr, branch, layout = "compact", tooltip, ...props }) => {
 	const done = pr?.state === "merged" || pr?.state === "closed";
-	const glyph = (
-		<Icon
-			name={busy ? "spinner" : pr ? prGlyph[pr.state] : "branch"}
-			className={classes(styles.branchGlyph, pr && styles[pr.state])}
-		/>
+	const glyph = (name: IconName) => (
+		<Icon name={name} className={classes(styles.branchGlyph, pr && styles[pr.state])} />
 	);
+	const icon = glyph(pr ? prGlyph[pr.state] : "branch");
+	const spinner = glyph("spinner");
 	const badge = pr && (
 		<Badge variant={prBadge[pr.state]} className={styles.badge}>
 			{`#${pr.number}`}
@@ -367,7 +378,7 @@ export const BranchItem: FC<
 	);
 
 	if (layout === "rich" && pr && !done)
-		return <TwoLineBranch {...props} {...{ title, glyph, badge, branch, tooltip }} />;
+		return <TwoLineBranch {...props} {...{ title, icon, spinner, badge, branch, tooltip }} />;
 
 	return (
 		<Row
@@ -375,7 +386,8 @@ export const BranchItem: FC<
 			name={title}
 			layout={done ? "compact" : layout}
 			rowClassName={classes(pr?.state === "merged" && styles.merged)}
-			icon={glyph}
+			icon={icon}
+			spinner={spinner}
 			label={
 				<>
 					{badge}
@@ -393,12 +405,20 @@ export const BranchItem: FC<
 
 /** An open or draft pull request in `rich`: its title over its branch, state and actions. */
 const TwoLineBranch: FC<
-	RowProps & { title: string; glyph: ReactNode; badge: ReactNode; branch: string | undefined }
+	RowProps & {
+		title: string;
+		icon: ReactNode;
+		spinner: ReactNode;
+		badge: ReactNode;
+		branch: string | undefined;
+	}
 > = ({
 	title,
-	glyph,
+	icon,
+	spinner,
 	badge,
 	branch,
+	busy = false,
 	depth = 0,
 	folded,
 	onToggleFolded,
@@ -423,7 +443,14 @@ const TwoLineBranch: FC<
 						{/* Inline, so a title that wraps carries on under the glyph, as text does. */}
 						<span className={classes("text-14", "text-semibold", styles.line1)}>
 							<span className={styles.lead}>
-								{glyph}
+								{/* On the spinner alone, so the badge beside it keeps its own words. */}
+								{busy ? (
+									<output className={styles.leadSpinner} aria-label="Working">
+										{spinner}
+									</output>
+								) : (
+									icon
+								)}
 								{badge}
 							</span>
 							{tooltip === undefined ? (
@@ -522,10 +549,10 @@ export const UncommittedItem: FC<
 export const StackCaption: FC<
 	{ count: number; tip: string } & Pick<
 		RowProps,
-		"depth" | "folded" | "onToggleFolded" | "meta" | "menu" | "tooltip"
+		"depth" | "folded" | "onToggleFolded" | "meta" | "menu" | "tooltip" | "busy"
 	> &
 		ComponentProps<"div">
-> = ({ count, tip, depth = 0, folded, onToggleFolded, meta, menu, tooltip, ...props }) => {
+> = ({ count, tip, depth = 0, folded, onToggleFolded, meta, menu, tooltip, busy, ...props }) => {
 	const folds = typeof folded === "boolean" && onToggleFolded !== undefined;
 	return (
 		<Row
@@ -537,6 +564,7 @@ export const StackCaption: FC<
 			onToggleFolded={onToggleFolded}
 			meta={meta}
 			menu={menu}
+			busy={busy}
 			onClick={(event) => {
 				props.onClick?.(event);
 				const target = event.target as Element;

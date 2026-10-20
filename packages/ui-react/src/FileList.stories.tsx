@@ -64,7 +64,8 @@ const kebab = (
 
 /**
  * Every state a row can be in. The list holds the selection focus, so the selected row is solid;
- * the second list has lost it. A row that can't be acted on right now is `inert`.
+ * the second list has lost it. A row that can't be acted on right now is `inert`; one whose action
+ * is running is `busy` too, with a spinner in its icon's place.
  */
 export const States = meta.story({
 	render: () => (
@@ -97,6 +98,15 @@ export const States = meta.story({
 					conflicted
 				/>
 				<FileListItem name="index.ts" directory="src" status="Deletion" inert />
+				<FileListItem
+					name="routes.ts"
+					directory="src"
+					status="Modification"
+					added={7}
+					removed={1}
+					busy
+					inert
+				/>
 			</FileList>
 			<FileList title="Changes" count={2} added={30}>
 				<FileListItem name="styles.css" directory="src/styles" status="Addition" />
