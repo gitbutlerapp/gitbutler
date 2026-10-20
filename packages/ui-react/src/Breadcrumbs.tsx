@@ -161,6 +161,7 @@ export const Breadcrumbs: FC<Props> = ({ items, className, ...props }) => {
 											<BaseMenu.Item
 												key={h.label}
 												onClick={h.onClick}
+												nativeButton
 												render={(itemProps) => <PopupItem {...itemProps}>{h.label}</PopupItem>}
 											/>
 										) : (

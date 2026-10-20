@@ -235,6 +235,7 @@ export const MenuItem: FC<
 		<BaseMenu.Item
 			disabled={disabled}
 			onClick={onClick}
+			nativeButton
 			render={(props) => (
 				<PopupItem {...props} icon={icon} kbd={kbd}>
 					{children}
@@ -286,6 +287,7 @@ export const MenuRadioItem: FC<RowProps & { value: string; disabled?: boolean }>
 		value={value}
 		disabled={disabled}
 		closeOnClick
+		nativeButton
 		render={(props, state) => (
 			<PopupItem {...props} icon={icon} kbd={kbd} trailing={state.checked ? "tick" : undefined}>
 				{children}
