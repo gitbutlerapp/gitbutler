@@ -175,9 +175,18 @@ impl AppView {
             taken.then(|| format!("{short} already exists").into())
         };
         let current = initial.to_owned();
+        // As the desktop app says: a rename doesn't reach the remote.
+        let pushed = (renaming.as_deref().filter(|from| !from.is_empty()))
+            .and_then(|from| self.store.read(cx).workspace(&project)?.find_branch(from))
+            .is_some_and(|branch| branch.push != backend::PushState::NeverPushed);
+        let detail = pushed.then(|| {
+            "It's been pushed. The remote keeps it under its old name, and pushing again \
+             makes a new remote branch, apart from any pull request of the old one."
+                .to_owned()
+        });
         self.open_prompt(
             title,
-            None,
+            detail,
             confirm,
             input,
             None,
