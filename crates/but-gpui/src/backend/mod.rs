@@ -427,7 +427,23 @@ fn branch_from(
         ref_name,
         commits: segment.commits.iter().map(commit_from).collect(),
         incoming: (segment.commits_on_remote.iter())
-            .map(|commit| (CommitId(commit.id), title(&commit.message)))
+            .map(|commit| {
+                let ((author, email), agent) = byline(
+                    signature(commit.author.name.as_ref(), commit.author.email.as_ref()),
+                    signature(
+                        commit.committer.name.as_ref(),
+                        commit.committer.email.as_ref(),
+                    ),
+                );
+                RemoteCommit {
+                    id: CommitId(commit.id),
+                    title: title(&commit.message),
+                    author,
+                    email,
+                    agent,
+                    time: commit.author.time.seconds,
+                }
+            })
             .collect(),
         push,
         review,

@@ -218,7 +218,7 @@ impl Workspace {
             return Vec::new();
         }
         (self.pushed_with(ref_name).iter())
-            .flat_map(|b| b.incoming.iter().map(|(id, _)| *id))
+            .flat_map(|b| b.incoming.iter().map(|commit| commit.id))
             .collect()
     }
 
@@ -293,8 +293,8 @@ pub struct Branch {
     pub ref_name: String,
     /// Newest first.
     pub commits: Vec<Commit>,
-    /// The commits only the branch's remote has, by ID and title, newest first.
-    pub incoming: Vec<(CommitId, String)>,
+    /// The commits only the branch's remote has, newest first.
+    pub incoming: Vec<RemoteCommit>,
     pub push: PushState,
     pub review: Option<Review>,
 }
@@ -402,6 +402,21 @@ impl Branch {
             (_, pull) => format!("{pull} to pull"),
         }
     }
+}
+
+/// A commit only a branch's remote has, as a teammate or an agent elsewhere pushed it.
+#[derive(Debug, Clone)]
+pub struct RemoteCommit {
+    pub id: CommitId,
+    pub title: String,
+    /// Who it's shown by, as [`byline`] picks.
+    pub author: String,
+    /// Theirs, for their picture.
+    pub email: String,
+    /// The agent that wrote it, when `author` is the person who committed it.
+    pub agent: Option<Agent>,
+    /// When it was written, in seconds since the Unix epoch.
+    pub time: i64,
 }
 
 /// A coding agent, or a bot, that wrote a commit a person committed.
@@ -889,6 +904,7 @@ mod tests {
 
     use super::{
         Branch, Commit, CommitId, CommitState, DiffLine, Hunk, HunkKey, LineKind, PushState,
+        RemoteCommit,
     };
 
     fn header(old_start: u32, old_lines: u32, new_start: u32, new_lines: u32) -> HunkHeader {
@@ -1008,7 +1024,17 @@ mod tests {
                     tree: id,
                 })
                 .collect(),
-            incoming: vec![(CommitId(id), String::new()); incoming],
+            incoming: vec![
+                RemoteCommit {
+                    id: CommitId(id),
+                    title: String::new(),
+                    author: String::new(),
+                    email: String::new(),
+                    agent: None,
+                    time: 0,
+                };
+                incoming
+            ],
             push,
             review: None,
         };

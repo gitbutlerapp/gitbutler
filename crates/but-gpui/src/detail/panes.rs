@@ -20,9 +20,9 @@ use crate::ui::person::{byline_avatar, byline_text};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, empty_state,
-    faint, h_flex, icon, icon_button, list_row, local_time, plural, section_label, shortcut,
-    small_icon, v_flex,
+    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, age_column, button, commit_title,
+    empty_state, faint, h_flex, icon, icon_button, list_row, local_time, plural, section_label,
+    shortcut, small_icon, v_flex,
 };
 
 impl Detail {
@@ -77,9 +77,9 @@ impl Detail {
                     crumbs.push((name.to_owned().into(), None));
                     // The remote's commit shown in place of the branch's diff.
                     let remote = (self.remote_commit(project, ref_name, cx))
-                        .and_then(|id| branch?.incoming.iter().find(|(c, _)| *c == id));
-                    if let Some((_, title)) = remote {
-                        crumbs.push((commit_title(title).to_string().into(), None));
+                        .and_then(|id| branch?.incoming.iter().find(|c| c.id == id));
+                    if let Some(commit) = remote {
+                        crumbs.push((commit_title(&commit.title).to_string().into(), None));
                     }
                 }
                 Selection::Branches(project) => {
@@ -861,7 +861,7 @@ impl Detail {
             .read(cx)
             .workspace(project)?
             .find_branch(ref_name)?;
-        (p == project && r == ref_name && branch.incoming.iter().any(|(c, _)| c == id))
+        (p == project && r == ref_name && branch.incoming.iter().any(|c| c.id == *id))
             .then_some(*id)
     }
 
@@ -872,15 +872,15 @@ impl Detail {
         &self,
         project: &ProjectId,
         ref_name: &str,
-        incoming: &[(backend::CommitId, String)],
+        incoming: &[backend::RemoteCommit],
         can_pull: bool,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
         let picked = self.remote_commit(project, ref_name, cx);
         let pull = (project.clone(), ref_name.to_owned());
-        let rows = incoming.iter().enumerate().map(|(ix, (id, title))| {
-            let (id, on) = (*id, picked == Some(*id));
+        let rows = incoming.iter().enumerate().map(|(ix, commit)| {
+            let (id, on) = (commit.id, picked == Some(commit.id));
             let key = (project.clone(), ref_name.to_owned());
             list_row(("remote-commit", ix), on, theme)
                 .mx(px(8.))
@@ -891,8 +891,26 @@ impl Detail {
                         .flex_1()
                         .min_w(px(0.))
                         .truncate()
-                        .child(commit_title(title)),
+                        .child(commit_title(&commit.title)),
                 )
+                // Who wrote it and when, as on the Branches page; their name on hover.
+                .child(
+                    div()
+                        .id(("remote-commit-author", ix))
+                        .flex_none()
+                        .child(byline_avatar(
+                            &commit.author,
+                            &commit.email,
+                            commit.agent.as_ref(),
+                            14.,
+                            theme,
+                        ))
+                        .tooltip(Tooltip::text(byline_text(
+                            &commit.author,
+                            commit.agent.as_ref(),
+                        ))),
+                )
+                .child(age_column(Some(commit.time), theme))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     let (project, ref_name) = key.clone();
                     this.remote_commit = (!on).then_some((project, ref_name, id));
