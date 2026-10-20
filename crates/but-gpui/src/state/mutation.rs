@@ -981,7 +981,16 @@ impl Store {
                         {
                             store.select(Some(moved), cx);
                         }
-                        store.error(format!("{label} failed"), failure_detail(&err), cx)
+                        // Seen from another project, the card says which one it was.
+                        let elsewhere = (store.selection.as_ref())
+                            .is_some_and(|selection| *selection.project() != project);
+                        let title = match store.project(&project) {
+                            Some(entry) if elsewhere => {
+                                format!("{label} failed in {}", entry.project.name)
+                            }
+                            _ => format!("{label} failed"),
+                        };
+                        store.error(title, failure_detail(&err), cx)
                     }
                 }
                 store.load(&project, reload, cx);
