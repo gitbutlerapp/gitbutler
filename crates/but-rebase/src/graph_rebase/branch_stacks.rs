@@ -29,10 +29,11 @@ use crate::graph_rebase::{
 /// target itself, the references that merely rest on it are no branch of any stack.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct BranchStacks {
-    /// One stack per parent of the workspace commit, in parent order, or `None` if
-    /// `HEAD` isn't on the workspace reference with a workspace commit beneath it.
+    /// One stack per parent of the workspace commit, in parent order, or the stack `HEAD`
+    /// is on if the workspace reference has no workspace commit beneath it. `None` if `HEAD`
+    /// isn't on the workspace reference.
     pub workspace: Option<Vec<Vec<FullName>>>,
-    /// The stack `HEAD` is on if there is no workspace commit, followed by one
+    /// The stack `HEAD` is on if it isn't on the workspace reference, followed by one
     /// stack per linked worktree.
     pub ad_hoc: Vec<Vec<FullName>>,
     /// Removed references
@@ -161,18 +162,17 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
             }
         }
         let head = head.or_else(|| find_pick(graph, self.repo.head_id().ok()?.detach()));
-        let workspace_commit = head
-            .filter(|head| {
-                matches!(
-                    &graph[*head],
-                    Step::Reference { refname, .. } if refname.as_bstr() == WORKSPACE_REF_NAME
-                )
-            })
-            .and_then(|head| {
-                first_parents(graph, head)
-                    .take_while(|ix| Some(*ix) != base)
-                    .find(|ix| is_workspace_commit(graph, &self.repo, *ix))
-            });
+        let workspace_reference = head.filter(|head| {
+            matches!(
+                &graph[*head],
+                Step::Reference { refname, .. } if refname.as_bstr() == WORKSPACE_REF_NAME
+            )
+        });
+        let workspace_commit = workspace_reference.and_then(|head| {
+            first_parents(graph, head)
+                .take_while(|ix| Some(*ix) != base)
+                .find(|ix| is_workspace_commit(graph, &self.repo, *ix))
+        });
 
         let checked_out_in_worktrees: HashSet<_> = worktrees.iter().copied().collect();
         let workspace_ref: FullName = WORKSPACE_REF_NAME.try_into()?;
@@ -215,12 +215,18 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
             stack
         };
 
-        let workspace = workspace_commit.map(|commit| {
-            let mut parents: Vec<_> = graph.edges_directed(commit, Direction::Outgoing).collect();
-            parents.sort_by_key(|edge| edge.weight().order);
-            parents
-                .into_iter()
-                .map(|edge| stack_from(edge.target(), None))
+        let workspace = workspace_reference.map(|workspace_reference| {
+            let tips: Vec<_> = match workspace_commit {
+                Some(commit) => {
+                    let mut parents: Vec<_> =
+                        graph.edges_directed(commit, Direction::Outgoing).collect();
+                    parents.sort_by_key(|edge| edge.weight().order);
+                    parents.into_iter().map(|edge| edge.target()).collect()
+                }
+                None => vec![workspace_reference],
+            };
+            tips.into_iter()
+                .map(|tip| stack_from(tip, None))
                 .filter(|stack| !stack.is_empty())
                 .collect()
         });
