@@ -1,11 +1,6 @@
-use bstr::BStr;
 use but_error::bail_precondition;
 use but_oxidize::{ObjectIdExt, OidExt as _};
-use gix::{
-    merge::{plumbing::tree::ConflictIndexEntry, tree::TreatAsUnresolved},
-    prelude::ObjectIdExt as _,
-    refs::Target,
-};
+use gix::{merge::tree::TreatAsUnresolved, prelude::ObjectIdExt as _, refs::Target};
 use tracing::instrument;
 
 use crate::{RepositoryExt, update_head_reference};
@@ -83,23 +78,16 @@ pub fn safe_checkout_from_head(
         let mut repo = gix::open(repo.git_dir())?;
         #[allow(deprecated)]
         let wd_tree_id = repo.create_wd_tree(u64::MAX)?;
-        let wd_tree = git2_repo
-            .find_object(wd_tree_id.to_git2(), None)?
-            .peel_to_tree()?;
         repo.config_snapshot_mut()
             .set_value(&gix::config::tree::Merge::RENORMALIZE, "true")?;
         let mut outcome = repo.merge_trees(
             old_tree.id().to_gix(),
             wd_tree_id,
             new_tree.id().to_gix(),
-            Default::default(),
+            repo.default_merge_labels(),
             repo.tree_merge_options()?.with_rewrites(None),
         )?;
-        let checkout_target_base_id = outcome.tree.write()?.detach();
-
-        let checkout_target_base = git2_repo.find_tree(checkout_target_base_id.to_git2())?;
-        let mut checkout_target = git2::Index::new()?;
-        checkout_target.read_tree(&checkout_target_base)?;
+        let checkout_target_id = outcome.tree.write()?.detach();
 
         let unresolved = TreatAsUnresolved::git();
         if outcome.has_unresolved_conflicts(unresolved) {
@@ -119,36 +107,6 @@ pub fn safe_checkout_from_head(
                             conflict.ours.location()
                         );
                     }
-                    fn to_git2_index_entry(
-                        entry: &ConflictIndexEntry,
-                        path: &BStr,
-                    ) -> git2::IndexEntry {
-                        git2::IndexEntry {
-                            ctime: git2::IndexTime::new(0, 0),
-                            mtime: git2::IndexTime::new(0, 0),
-                            dev: 0,
-                            ino: 0,
-                            mode: entry.mode.value() as u32,
-                            uid: 0,
-                            gid: 0,
-                            file_size: 0,
-                            id: entry.id.to_git2(),
-                            flags: 0,
-                            flags_extended: 0,
-                            path: path.to_vec(),
-                        }
-                    }
-                    let base_index_entry =
-                        base.map(|c| to_git2_index_entry(&c, conflict.ours.location()));
-                    let ours_index_entry =
-                        ours.map(|c| to_git2_index_entry(&c, conflict.ours.location()));
-                    let theirs_index_entry =
-                        theirs.map(|c| to_git2_index_entry(&c, conflict.ours.location()));
-                    checkout_target.conflict_add(
-                        base_index_entry.as_ref(),
-                        ours_index_entry.as_ref(),
-                        theirs_index_entry.as_ref(),
-                    )?;
                 }
             } else {
                 let mut paths = outcome
@@ -166,9 +124,12 @@ pub fn safe_checkout_from_head(
             }
         }
 
-        let mut checkout_opts = git2::build::CheckoutBuilder::new();
-        checkout_opts.baseline(&wd_tree);
-        git2_repo.checkout_index(Some(&mut checkout_target), Some(&mut checkout_opts))?;
+        super::write::write_to_worktree(
+            &repo,
+            wd_tree_id,
+            checkout_target_id,
+            conflict_occurred.then_some(&outcome),
+        )?;
     }
 
     let mut head_update = None;

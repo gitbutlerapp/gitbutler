@@ -37,6 +37,7 @@ gix = { workspace = true, features = [
     "serde",
     "status",
     "merge",
+    "worktree-mutation",
 ] }
 smallvec.workspace = true
 # for V1 conflict commits

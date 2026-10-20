@@ -1,7 +1,7 @@
 use bstr::ByteSlice;
 use but_core::worktree::{checkout, safe_checkout_from_head};
 use but_testsupport::{
-    CommandExt, git_at_dir, git_status, open_repo, read_only_in_memory_scenario,
+    CommandExt, git, git_at_dir, git_status, open_repo, read_only_in_memory_scenario,
     visualize_commit_graph_all, visualize_disk_tree_skip_dot_git, visualize_index,
     writable_scenario, writable_scenario_slow,
 };
@@ -522,6 +522,41 @@ fn pure_deletion_checkout_keeps_non_intersecting_worktree_deletion() -> anyhow::
 }
 
 #[test]
+fn checkout_adding_and_modifying_files_keeps_one_index_entry_per_path() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("unborn-empty");
+
+    let old_blob = repo.write_blob(b"old")?;
+    let mut editor = repo.empty_tree().edit()?;
+    for i in 0..20 {
+        editor.upsert(format!("f{i:02}.txt"), EntryKind::Blob, old_blob)?;
+    }
+    let initial_tree_id = editor.write()?.detach();
+    let initial_commit = repo.new_commit("init", initial_tree_id, None::<gix::ObjectId>)?;
+    safe_checkout_from_head(initial_commit.id, &repo, Default::default())?;
+
+    // The added file sorts before the modified ones, so recording it shifts where they are found.
+    let new_blob = repo.write_blob(b"new")?;
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            tree.upsert("a-new.txt", EntryKind::Blob, new_blob)?;
+            for i in 0..20 {
+                tree.upsert(format!("f{i:02}.txt"), EntryKind::Blob, new_blob)?;
+            }
+            Ok(())
+        },
+        "add a file and modify all others",
+    )?;
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    let index = repo.open_index()?;
+    assert_eq!(index.entries().len(), 21, "each path has one entry");
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
+
+    Ok(())
+}
+
+#[test]
 fn pure_deletion_checkout_keeps_empty_worktree_root() -> anyhow::Result<()> {
     let root = but_testsupport::gix_testtools::tempfile::TempDir::new()?;
     let git_dir = root.path().join("git-dir");
@@ -1007,6 +1042,235 @@ Outcome {
         "checkout updates HEAD to the target commit"
     );
 
+    Ok(())
+}
+
+#[test]
+fn filtered_files_are_written_in_worktree_form() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("required-filter-binary-git-form");
+    let file_path = repo.workdir_path("a.secret").unwrap();
+    assert_eq!(
+        std::fs::read(&file_path)?.as_bstr(),
+        "line1\nline2\nline3\n",
+        "the worktree holds the smudged form, like an unlocked git-crypt repository"
+    );
+    assert_eq!(
+        repo.find_blob(repo.rev_parse_single("@:a.secret")?)?
+            .data
+            .as_bstr(),
+        "SECRET\0yvar1\nyvar2\nyvar3\n",
+        "Git holds the binary cleaned form"
+    );
+
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"SECRET\0yvar1\npunatrq\nyvar3\n")?;
+            tree.upsert("a.secret", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "change the filtered file",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    assert_eq!(
+        std::fs::read(&file_path)?.as_bstr(),
+        "line1\nchanged\nline3\n",
+        "checkout runs the smudge filter"
+    );
+    assert_eq!(
+        git_status(&repo)?,
+        "",
+        "the smudged file cleans back to the checked out blob"
+    );
+    Ok(())
+}
+
+#[test]
+fn index_matches_the_checked_out_tree() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("required-filter-binary-git-form");
+    git(&repo).args(["write-tree"]).run();
+    assert!(
+        repo.index()?.tree().is_some(),
+        "the index caches its trees, which a checkout must not leave stale"
+    );
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"SECRET\0yvar1\npunatrq\nyvar3\n")?;
+            tree.upsert("a.secret", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "change the filtered file",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    let index_tree = git(&repo).args(["write-tree"]).output()?.stdout;
+    assert_eq!(
+        index_tree.trim().to_str()?,
+        new_commit.tree_id()?.to_string(),
+        "Git builds the next commit from the index, so it must be the checked out tree"
+    );
+    Ok(())
+}
+
+#[test]
+fn written_paths_lose_their_leftover_conflict_stages() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("required-filter-binary-git-form");
+    let blob = repo.rev_parse_single("@:a.secret")?;
+    let null = repo.object_hash().null();
+    but_testsupport::invoke_bash(
+        &format!(
+            "printf '0 {null}\\ta.secret\\n100644 {blob} 1\\ta.secret\\n100644 {blob} 2\\ta.secret\\n100644 {blob} 3\\ta.secret\\n' | git update-index --index-info"
+        ),
+        &repo,
+    );
+    assert_eq!(
+        git_status(&repo)?,
+        "UU a.secret\n",
+        "a conflict that was never marked as resolved"
+    );
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"SECRET\0yvar1\npunatrq\nyvar3\n")?;
+            tree.upsert("a.secret", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "change the conflicted file",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    assert_eq!(
+        git(&repo)
+            .args(["ls-files", "--stage", "a.secret"])
+            .output()?
+            .stdout
+            .as_bstr(),
+        format!(
+            "100644 {} 0\ta.secret\n",
+            new_commit
+                .tree()?
+                .lookup_entry_by_path("a.secret")?
+                .unwrap()
+                .oid()
+        ),
+        "the written file has one unconflicted entry, without the old conflict stages next to it"
+    );
+    assert_eq!(
+        git_status(&repo)?,
+        "",
+        "the index and worktree match the checkout"
+    );
+    Ok(())
+}
+
+#[test]
+fn conflicting_untracked_binary_file_is_recorded_as_conflict() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("required-filter-binary-git-form");
+    let workdir = repo.workdir().unwrap().to_owned();
+    std::fs::write(workdir.join("blob.bin"), b"ours\0")?;
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"theirs\0")?;
+            tree.upsert("blob.bin", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "add a binary file that the worktree also has, untracked",
+    )?;
+
+    let out = safe_checkout_from_head(
+        new_commit.id,
+        &repo,
+        checkout::Options {
+            allow_uncommitted_changes_to_conflict_with_new_head: true,
+            ..Default::default()
+        },
+    )?;
+
+    assert!(out.conflict_occurred, "both sides added different content");
+    assert_eq!(
+        git_status(&repo)?,
+        "AA blob.bin\n",
+        "the conflict is recorded in the index, so it can be resolved"
+    );
+    Ok(())
+}
+
+#[test]
+fn filtered_files_are_added_and_deleted_while_worktree_edits_survive() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("required-filter-binary-git-form");
+    let workdir = repo.workdir().unwrap().to_owned();
+    std::fs::write(workdir.join("b.secret"), "b edited in worktree\n")?;
+
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            tree.remove("a.secret")?;
+            let blob_id = repo.write_blob(b"SECRET\0arj\n")?;
+            tree.upsert("dir/new.secret", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "delete and add filtered files",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    assert!(
+        !workdir.join("a.secret").exists(),
+        "filtered files deleted in the target are removed"
+    );
+    assert_eq!(
+        std::fs::read(workdir.join("dir/new.secret"))?.as_bstr(),
+        "new\n",
+        "filtered files added in the target are smudged"
+    );
+    assert_eq!(
+        std::fs::read(workdir.join("b.secret"))?.as_bstr(),
+        "b edited in worktree\n",
+        "the user's edit to a filtered file survives"
+    );
+    assert_eq!(
+        git_status(&repo)?,
+        " M b.secret\n",
+        "only the user's edit remains as a change"
+    );
+    Ok(())
+}
+
+#[test]
+fn status_does_not_clean_filtered_files_written_by_checkout() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("required-filter-binary-git-form");
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"SECRET\0yvar1\npunatrq\nyvar3\n")?;
+            tree.upsert("a.secret", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "change the filtered file",
+    )?;
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    // Files written in the same second as the index are racily clean and always re-hashed, as in Git.
+    // Age them relative to the index so status relies on the recorded stat, as it does a moment later.
+    std::fs::File::options()
+        .write(true)
+        .open(repo.index_path())?
+        .set_modified(std::time::SystemTime::now() + std::time::Duration::from_secs(2))?;
+    let clean_calls = repo.git_dir().join("clean-calls");
+    std::fs::write(&clean_calls, "")?;
+    let changes = but_core::diff::worktree_changes(&repo)?.changes;
+
+    assert!(changes.is_empty(), "the checkout leaves no changes behind");
+    assert!(
+        !std::fs::read_to_string(&clean_calls)?.contains("a.secret"),
+        "the index records the written file's stat, so status needs no clean filter run to compare it"
+    );
     Ok(())
 }
 
