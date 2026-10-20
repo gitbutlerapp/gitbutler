@@ -330,9 +330,11 @@ impl AppView {
             .enumerate()
             .filter_map(|(ix, choice)| {
                 let detail = (choice.detail.as_ref()).and_then(|detail| score(detail, &query));
-                score(&choice.label, &query)
-                    .max(detail)
-                    .map(|score| (score, ix))
+                let score = score(&choice.label, &query).max(detail)?;
+                // One that throws work away shows for its words, not for letters scattered
+                // through it, so typing a command missing here doesn't land on it.
+                let scattered = score == 0 && !query.is_empty();
+                (!scattered || !RISKY.contains(&&*choice.label)).then_some((score, ix))
             })
             .collect();
         // Stable, so equal scores keep the recent-first order.
