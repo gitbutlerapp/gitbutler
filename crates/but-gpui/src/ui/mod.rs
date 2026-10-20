@@ -30,7 +30,7 @@ pub const STATUS_BAR_HEIGHT: f32 = 28.;
 
 /// Every icon: the design system's, compiled in from `packages/ui-react` so they're the ones
 /// Lite and but.dev draw, and a build fails if one goes; then this app's own, under
-/// `assets/icons`, for what ui-react draws in code rather than from a file.
+/// `assets/icons`, for what ui-react draws in code rather than from a file, or doesn't have.
 macro_rules! icons {
     (
         $($variant:ident => $name:literal),* $(,)?;
@@ -121,6 +121,8 @@ icons! {
     own: FolderFill => "folder-fill",
     // ui-react's eye, struck through, for a project not watched.
     EyeOff => "eye-off",
+    // Another machine, which ui-react has no glyph for, in the style of its folder.
+    Computer => "computer",
 }
 
 /// GitButler's fonts, compiled into the binary so the client looks the same everywhere.

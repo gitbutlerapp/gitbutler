@@ -12,7 +12,7 @@ use crate::navigator::Navigator;
 use crate::overlays::{ContextMenu, Prompt};
 use crate::palette::Palette;
 use crate::projects::pick_folder;
-use crate::state::{Cut, Pane, ProjectId, Selection, Store};
+use crate::state::{Cut, MeshPick, Pane, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::transfer::{Place, Transfer};
 use crate::ui::{HEADER_HEIGHT, resize_pane};
@@ -566,8 +566,15 @@ impl AppView {
                 let worktree = workspace.find_worktree(&name)?;
                 Some(worktree.path.display().to_string())
             }
+            Selection::Mesh(project, id, MeshPick::Checkout) => Some(
+                self.store
+                    .read(cx)
+                    .mesh_checkout(&project, &id)?
+                    .path
+                    .clone(),
+            ),
             Selection::Uncommitted(_)
-            | Selection::Machines(_)
+            | Selection::Mesh(..)
             | Selection::Branches(_)
             | Selection::History(_)
             | Selection::Stack(..) => None,

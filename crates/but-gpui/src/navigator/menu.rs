@@ -516,7 +516,8 @@ impl Navigator {
                 }
                 items
             }
-            Selection::Branches(_) | Selection::History(_) | Selection::Machines(_) => Vec::new(),
+            Selection::Mesh(..) => self.mesh_menu(target, cx),
+            Selection::Branches(_) | Selection::History(_) => Vec::new(),
         }
     }
 }

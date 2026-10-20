@@ -12,7 +12,7 @@ use gpui::{
 use super::Detail;
 use crate::app::StartCommit;
 use crate::backend::{self, CommitState, PushState, short_ref};
-use crate::state::{ProjectId, Selection};
+use crate::state::{MeshPick, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
 use crate::ui::person::author_avatar;
@@ -82,13 +82,23 @@ impl Detail {
                 Selection::Worktree(_, name) => {
                     crumbs.push((name.to_string().into(), None));
                 }
-                Selection::Machines(project) => {
-                    crumbs.push(("Other machines".into(), Some(selection.clone())));
-                    if let Some((id, branch)) = self.machine_picked(project)
-                        && let Some(checkout) = store.mesh_checkout(project, &id)
-                    {
-                        crumbs.push((checkout.label().into(), None));
-                        crumbs.extend(branch.map(|branch| (branch.into(), None)));
+                Selection::Mesh(project, id, pick) => {
+                    if let Some(checkout) = store.mesh_checkout(project, id) {
+                        // Each but the last goes to what it names.
+                        let at = |pick| Some(Selection::Mesh(project.clone(), id.clone(), pick));
+                        let up = |on: bool, pick| if on { at(pick) } else { None };
+                        let below = pick.branch().is_some();
+                        crumbs.push((checkout.label().into(), up(below, MeshPick::Checkout)));
+                        if let Some(name) = pick.branch() {
+                            let on = matches!(pick, MeshPick::Commit(..));
+                            crumbs.push((
+                                name.to_owned().into(),
+                                up(on, MeshPick::Branch(name.into())),
+                            ));
+                        }
+                        if let MeshPick::Commit(_, commit) = pick {
+                            crumbs.push((commit.short().into(), None));
+                        }
                     }
                 }
                 Selection::Stack(_, bottom) => {
@@ -215,7 +225,7 @@ impl Detail {
                         .into_any_element(),
                 )
             }
-            Selection::Machines(_) => {
+            Selection::Mesh(..) => {
                 let store = self.store.clone();
                 Some(
                     refresh("refresh-machines", false)

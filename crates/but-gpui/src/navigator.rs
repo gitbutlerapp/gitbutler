@@ -36,6 +36,7 @@ use crate::ui::{
 
 mod account;
 mod menu;
+mod mesh;
 mod order;
 
 /// How far a worktree's rows sit in from its heading.
@@ -122,6 +123,8 @@ enum Row {
     Inactive(ProjectId, usize),
     /// The line after a worktree's section.
     WorktreeDivider,
+    /// Over a project's checkouts on other machines, which folds them all away.
+    MeshHeading(ProjectId),
 }
 
 /// The rows as they're built, each with how far in it sits: a worktree's section and a
@@ -261,6 +264,11 @@ pub struct Navigator {
     folded_worktrees: HashSet<(ProjectId, Option<Arc<str>>)>,
     /// Stacks showing only their caption, by their bottom branch.
     folded_stacks: HashSet<(ProjectId, String)>,
+    /// Checkouts on other machines showing only their heading, by the mesh's id.
+    folded_checkouts: HashSet<(ProjectId, Arc<str>)>,
+    /// Branches on other machines folded or opened against how Settings say branches start,
+    /// as [`Self::flipped_branches`].
+    flipped_mesh_branches: HashSet<mesh::MeshBranch>,
     /// The filter in the header, over every project's rows.
     filter: Entity<TextInput>,
     /// The first item the filter found, which Enter in it selects.
@@ -317,6 +325,7 @@ impl Navigator {
                 if this.branches_start_open != start_open {
                     this.branches_start_open = start_open;
                     this.flipped_branches.clear();
+                    this.flipped_mesh_branches.clear();
                 }
                 cx.notify()
             }),
@@ -341,6 +350,8 @@ impl Navigator {
             reveal_selection: false,
             unfolded_branches: HashSet::new(),
             flipped_branches: HashSet::new(),
+            folded_checkouts: HashSet::new(),
+            flipped_mesh_branches: HashSet::new(),
             branches_start_open,
             shown_inactive: HashSet::new(),
             folded_worktrees: HashSet::new(),
@@ -445,6 +456,10 @@ impl Navigator {
                     }
                 }
             }
+            // Signed in to the mesh, its checkouts on the user's other machines, as worktrees.
+            if store.mesh.connection().is_some() {
+                self.mesh_rows(store, id, &mut rows);
+            }
             // After the worktrees, so a drag starting in one doesn't push its rows down. Outside
             // the workspace there's nowhere to put a branch of its own.
             if workspace.managed
@@ -459,10 +474,6 @@ impl Navigator {
             }
             rows.push(Row::Item(Selection::Branches(id.clone())));
             rows.push(Row::Item(Selection::History(id.clone())));
-            // Signed in to the mesh, the project's work on the user's other machines.
-            if store.mesh.connection().is_some() {
-                rows.push(Row::Item(Selection::Machines(id.clone())));
-            }
         }
         // The rest share one card under a heading that also adds projects, so it's there
         // when every project is expanded too.
@@ -574,16 +585,7 @@ impl Navigator {
                     }
                 }
             }
-            // The Other machines page, when a machine or a branch there matches.
-            let elsewhere = store.mesh_checkouts(id).iter().any(|checkout| {
-                let at = found(terms, &[&checkout.label()]);
-                matches(terms, own, at)
-                    || (checkout.branches.iter())
-                        .any(|b| matches(terms, own | at, found(terms, &[&b.name])))
-            });
-            if elsewhere {
-                rows.push_found(Selection::Machines(id.clone()), true);
-            }
+            self.filtered_mesh_rows(store, id, terms, own, &mut rows);
             if rows.rows.len() == project_end && !hit(0, own) {
                 rows.truncate(start);
             }
@@ -923,6 +925,7 @@ impl Navigator {
                 self.folded_stacks.remove(&(project, bottom));
                 cx.notify();
             }
+            Some(Selection::Mesh(project, id, pick)) => self.expand_mesh(project, id, pick, cx),
             _ => {}
         }
     }
@@ -968,6 +971,9 @@ impl Navigator {
             }
             Some(Selection::Stack(project, bottom)) if folds => {
                 self.toggle_stack(&project, &bottom, true, window, cx)
+            }
+            Some(Selection::Mesh(project, id, pick)) => {
+                self.collapse_mesh(project, id, pick, window, cx)
             }
             // Jump up, like closing a folder in a tree.
             Some(selection) => {
@@ -1069,6 +1075,7 @@ impl Navigator {
         let el = match self.rows.get(ix) {
             None | Some(Row::Gap) => return div().h(px(10.)).into_any_element(),
             Some(Row::Item(item)) => self.render_item(ix, item, inset, window, theme, cx),
+            Some(Row::MeshHeading(id)) => self.mesh_heading(id, theme, cx),
             // A dashed line, as ui-react's WorktreeDivider.
             Some(Row::WorktreeDivider) => h_flex()
                 .h(px(12.))
@@ -1329,10 +1336,7 @@ impl Navigator {
                 Some(self.page_row(item, Icon::Clock, label, None, style, cx))
             }
             Selection::Stack(id, bottom) => self.stack_row(ix, item, id, bottom, style, cx),
-            Selection::Machines(_) => {
-                let tip = Some("Unfinished work on your other machines");
-                Some(self.page_row(item, Icon::Globe, "Other machines", tip, style, cx))
-            }
+            Selection::Mesh(..) => self.mesh_row(ix, item, style, cx),
         };
         match el {
             Some(el) => self.drop_target(el, item.clone(), window, theme, cx),

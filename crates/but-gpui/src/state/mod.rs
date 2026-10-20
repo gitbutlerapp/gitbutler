@@ -24,7 +24,7 @@ mod saved;
 mod seen;
 
 use load::{Change, Reload};
-pub use mesh::MeshState;
+pub use mesh::{MeshPick, MeshState};
 pub use mutation::{NewAt, Overlay, Remap, Rereads, SLOW};
 use mutation::{Queued, Running};
 pub use picks::Picks;
@@ -48,8 +48,9 @@ pub enum Selection {
     Worktree(ProjectId, Arc<str>),
     /// A stack of two or more branches, by its bottom branch, and what they change together.
     Stack(ProjectId, String),
-    /// The project's unfinished work on the user's other machines, from the mesh.
-    Machines(ProjectId),
+    /// A checkout of the project on one of the user's other machines, by the mesh's id for
+    /// it, or a branch or commit in it.
+    Mesh(ProjectId, Arc<str>, MeshPick),
 }
 
 impl Selection {
@@ -63,7 +64,7 @@ impl Selection {
             | Selection::History(project)
             | Selection::Worktree(project, _)
             | Selection::Stack(project, _)
-            | Selection::Machines(project) => project,
+            | Selection::Mesh(project, ..) => project,
         }
     }
 
@@ -420,7 +421,7 @@ impl Store {
             | Selection::History(_)
             | Selection::Worktree(..)
             | Selection::Stack(..)
-            | Selection::Machines(_) => None,
+            | Selection::Mesh(..) => None,
         }
     }
 
@@ -512,8 +513,8 @@ impl Store {
             Selection::Commit(_, id) => workspace.find_commit(*id).is_some(),
             Selection::Worktree(_, name) => workspace.worktrees.iter().any(|w| w.name == *name),
             Selection::Stack(_, bottom) => workspace.lane(bottom).is_some_and(|b| b.len() > 1),
-            // The mesh's reads keep the page's list current.
-            Selection::Machines(_) => true,
+            // The mesh's reads keep it current.
+            Selection::Mesh(..) => true,
         };
         if !still_there {
             self.select(

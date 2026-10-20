@@ -124,12 +124,13 @@ so update it, shortcuts table included, with every change in behaviour.
 The mesh shows the user's other machines' work. It's optional, and it must never break or slow
 anything else.
 
-- Its code stays in four files: `backend/mesh.rs` runs the `but-mesh` CLI and reads its JSON,
-  `state/mesh.rs` holds `Mesh` with its poll, sign-in and apply, `detail/machine.rs` is the
-  Other machines page, and `settings/mesh.rs` is the Mesh row in Settings. Everything else
-  reaches it through a `Selection::Machines` arm, `store.mesh`, the `Store::mesh_*` methods or
-  `StoreEvent::MeshRead`. New mesh behaviour goes in those files, with at most a dispatch arm
-  elsewhere.
+- Its code stays in five files: `backend/mesh.rs` runs the `but-mesh` CLI and reads its JSON,
+  `state/mesh.rs` holds `Mesh` with its poll, sign-in and apply, `navigator/mesh.rs` draws
+  each card's checkouts elsewhere and folds them, `detail/machine.rs` fetches and shows what's
+  selected there, and `settings/mesh.rs` is the Mesh row in Settings. Everything else reaches
+  it through a `Selection::Mesh` or `Row::MeshHeading` arm, `store.mesh`, the `Store::mesh_*`
+  methods or `StoreEvent::MeshRead`. New mesh behaviour goes in those files, with at most a
+  dispatch arm elsewhere.
 - There's no mesh library: the mesh lives in a private repository, so the app only calls the
   CLI. Without `but-mesh`, or signed out, nothing shows but the Settings row, and nothing runs
   but one status check a minute. Gate anything new on `store.mesh.connection()`.

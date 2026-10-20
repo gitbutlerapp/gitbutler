@@ -288,6 +288,9 @@ pub struct Prefs {
     /// Watched projects, by id, whose cards are folded to their row; they're still loaded and
     /// kept current.
     pub folded_projects: HashSet<String>,
+    /// Watched projects, by id, whose work on other machines shows under its heading; it
+    /// starts folded.
+    pub shown_mesh: HashSet<String>,
     /// The order the watched projects go in.
     pub watched_order: WatchedOrder,
     /// The Branches page lists branches with no commits of their own too, as Lite's can.

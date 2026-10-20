@@ -1,0 +1,607 @@
+//! A watched project's checkouts on the user's other machines, from the mesh, after its own
+//! worktrees and drawn as they are: each checkout's branches, and their commits, fold as a
+//! worktree's do, under a heading that starts folded. The crate's AGENTS.md has the
+//! mesh's rules.
+
+use std::sync::Arc;
+
+use gpui::{
+    AnyElement, App, ClickEvent, Context, Div, ElementId, MouseButton, Stateful, Window, div,
+    prelude::*, px,
+};
+
+use super::{NEST, Navigator, Row, RowStyle, Rows, found, matches, toggle};
+use crate::backend::CommitId;
+use crate::backend::mesh::{self, Branch, BranchStatus};
+use crate::overlays::MenuItem;
+use crate::state::{MeshPick, ProjectId, Selection, Store};
+use crate::theme::Theme;
+use crate::ui::{
+    Icon, ROW_HEIGHT, Tooltip, commit_title, dot, faint, h_flex, icon, just_now, meta_count,
+    plural, relative_time, section_label, small_icon,
+};
+
+/// A branch on another machine: its project, its checkout by the mesh's id, and its name.
+pub(super) type MeshBranch = (ProjectId, Arc<str>, String);
+
+impl Navigator {
+    /// `id`'s checkouts on other machines under their heading, unless that's folded without
+    /// the selection in them. Each lists its branches unless it's folded, and an open branch
+    /// its commits, as a worktree does; a line rules each off.
+    pub(super) fn mesh_rows(&self, store: &Store, id: &ProjectId, rows: &mut Rows) {
+        let checkouts = store.mesh_checkouts(id);
+        if checkouts.is_empty() {
+            return;
+        }
+        if !matches!(rows.rows.last(), Some(Row::WorktreeDivider)) {
+            rows.push(Row::WorktreeDivider);
+        }
+        rows.push(Row::MeshHeading(id.clone()));
+        let selected = match &store.selection {
+            Some(Selection::Mesh(project, checkout, pick)) if project == id => {
+                Some((checkout, pick))
+            }
+            _ => None,
+        };
+        if !store.prefs.shown_mesh.contains(id.as_ref()) && selected.is_none() {
+            return;
+        }
+        for checkout in checkouts {
+            let key: Arc<str> = checkout.id.as_str().into();
+            let at = |pick| Row::Item(Selection::Mesh(id.clone(), key.clone(), pick));
+            let pick = selected.filter(|(on, _)| **on == key).map(|(_, pick)| pick);
+            rows.push(at(MeshPick::Checkout));
+            let inside = pick.and_then(MeshPick::branch).is_some();
+            if inside || !self.folded_checkouts.contains(&(id.clone(), key.clone())) {
+                rows.open();
+                rows.inset = NEST;
+                for branch in &checkout.branches {
+                    rows.push(at(MeshPick::Branch(branch.name.clone())));
+                    let on_commit =
+                        matches!(pick, Some(MeshPick::Commit(name, _)) if *name == branch.name);
+                    let key = (id.clone(), key.clone(), branch.name.clone());
+                    if on_commit || self.mesh_branch_open(&key) {
+                        rows.open();
+                        rows.extend(
+                            commits(branch)
+                                .map(|commit| at(MeshPick::Commit(branch.name.clone(), commit))),
+                        );
+                        rows.close();
+                    }
+                }
+                rows.inset = 0.;
+                rows.close();
+            }
+            rows.push(Row::WorktreeDivider);
+        }
+    }
+
+    /// [`Self::mesh_rows`] under the filter, with `held` the words found in the project's
+    /// name: the checkouts that match, or have branches that do, with those branches.
+    pub(super) fn filtered_mesh_rows(
+        &self,
+        store: &Store,
+        id: &ProjectId,
+        terms: &[String],
+        held: u64,
+        rows: &mut Rows,
+    ) {
+        let start = rows.rows.len();
+        rows.push(Row::MeshHeading(id.clone()));
+        for checkout in store.mesh_checkouts(id) {
+            let own = found(terms, &[&checkout.label()]);
+            let hit = matches(terms, held, own);
+            let branches: Vec<_> = (checkout.branches.iter())
+                .filter(|b| matches(terms, held | own, found(terms, &[&b.name])))
+                .collect();
+            if !hit && branches.is_empty() {
+                continue;
+            }
+            let key: Arc<str> = checkout.id.as_str().into();
+            let at = |pick| Selection::Mesh(id.clone(), key.clone(), pick);
+            rows.push_found(at(MeshPick::Checkout), hit);
+            rows.open();
+            rows.inset = NEST;
+            for branch in branches {
+                rows.push_found(at(MeshPick::Branch(branch.name.clone())), true);
+            }
+            rows.inset = 0.;
+            rows.close();
+        }
+        if rows.rows.len() == start + 1 {
+            rows.truncate(start);
+        }
+    }
+
+    /// Over `id`'s checkouts elsewhere, lined up with its worktrees' chevrons: a click folds
+    /// them all away, and folded, it says how many there are.
+    pub(super) fn mesh_heading(
+        &self,
+        id: &ProjectId,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let store = self.store.read(cx);
+        let open = store.prefs.shown_mesh.contains(id.as_ref());
+        let checkouts = store.mesh_checkouts(id);
+        let active = (checkouts.iter()).any(|c| c.online && c.last_activity.is_some_and(just_now));
+        let project = id.clone();
+        h_flex()
+            .id(ElementId::Name(format!("mesh-heading-{id}").into()))
+            .h(px(ROW_HEIGHT))
+            .mx(px(3.))
+            .pl(px(14.))
+            .pr(px(12.))
+            .gap(px(6.))
+            .cursor_pointer()
+            .child(step(Some(open), theme.text_3))
+            .child(small_icon(Icon::Globe).text_color(theme.text_3))
+            .child(section_label("Network worktrees", theme))
+            .when(!open, |el| {
+                el.child(faint(checkouts.len().to_string(), theme))
+                    .when(active, |el| el.child(dot(theme.safe)))
+            })
+            .tooltip(Tooltip::text(
+                "Unfinished work on your other machines, from your mesh",
+            ))
+            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                this.toggle_mesh(&project, window, cx)
+            }))
+            .into_any_element()
+    }
+
+    /// A row of another machine's: a checkout, drawn as a worktree's heading, or a branch or
+    /// commit in it, drawn as one here.
+    pub(super) fn mesh_row(
+        &self,
+        ix: usize,
+        item: &Selection,
+        style: RowStyle,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        let Selection::Mesh(project, key, pick) = item else {
+            return None;
+        };
+        let store = self.store.read(cx);
+        let checkout = store.mesh_checkout(project, key)?;
+        let theme = style.theme;
+        let quiet = match style.solid {
+            true => style.muted(),
+            false => theme.text_3,
+        };
+        let branch = match pick.branch() {
+            Some(name) => Some(checkout.branches.iter().find(|b| b.name == name)?),
+            None => None,
+        };
+        let row = match (pick, branch) {
+            (MeshPick::Commit(_, id), Some(branch)) => {
+                let commit = (branch.commits.iter()).find(|c| commit_id(&c.id) == Some(*id))?;
+                let (glyph, color) = match commit.pushed {
+                    true => (Icon::CommitFill, style.muted()),
+                    false => (Icon::Commit, theme.blue),
+                };
+                // Under its branch's glyph, its title under the branch's name.
+                (style.row(format!("mesh-commit-{project}-{key}-{}", commit.id), 30.))
+                    .gap(px(10.))
+                    .aria_label(commit.title.clone())
+                    .child(small_icon(glyph).text_color(style.meta(color)))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w(px(0.))
+                            .truncate()
+                            .child(commit_title(&commit.title)),
+                    )
+                    .children(commit.created_at.map(|at| {
+                        div()
+                            .flex_none()
+                            .text_size(px(11.))
+                            .text_color(style.muted())
+                            .child(relative_time(at))
+                    }))
+            }
+            (MeshPick::Branch(name), Some(branch)) => {
+                let fold = (project.clone(), key.clone(), name.clone());
+                let on_commit = matches!(&store.selection,
+                    Some(Selection::Mesh(p, i, MeshPick::Commit(n, _))) if (p, i, n) == (project, key, name));
+                let open = self.mesh_branch_open(&fold) || on_commit;
+                let n = branch.commits.len();
+                let unpushed = branch.commits.iter().filter(|c| !c.pushed).count();
+                let (glyph, color) = match branch.status {
+                    BranchStatus::Integrated => (Icon::Tick, theme.safe),
+                    BranchStatus::Diverged => (Icon::Branch, theme.warn),
+                    BranchStatus::Pushed | BranchStatus::Unpushed | BranchStatus::Empty => {
+                        (Icon::Branch, style.muted())
+                    }
+                };
+                let toggle = move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
+                    this.toggle_mesh_branch(fold.clone(), open, window, cx)
+                };
+                (style.row(format!("mesh-branch-{project}-{key}-{name}"), 6.))
+                    .aria_label(format!("Branch {name}"))
+                    .child(self.fold_step(
+                        ("mesh-branch-fold", ix),
+                        (n > 0).then_some(open),
+                        quiet,
+                        cx,
+                        toggle.clone(),
+                    ))
+                    .child(icon(glyph).text_color(style.meta(color)))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w(px(0.))
+                            .truncate()
+                            .font_family(theme.mono_font.clone())
+                            .text_size(px(12.))
+                            .text_color(style.meta(theme.blue))
+                            .child(name.clone()),
+                    )
+                    .children(meta_count(
+                        Icon::ArrowUp,
+                        unpushed,
+                        style.meta(theme.blue),
+                        plural(unpushed, "unpushed commit"),
+                    ))
+                    .when(!open, |el| {
+                        el.children(meta_count(
+                            Icon::Commit,
+                            n,
+                            style.muted(),
+                            plural(n, "commit"),
+                        ))
+                    })
+                    .when(n > 0, |el| el.on_click(double_click(toggle, cx)))
+            }
+            (MeshPick::Checkout, _) => {
+                let fold = (project.clone(), key.clone());
+                let inside = matches!(&store.selection,
+                    Some(Selection::Mesh(p, i, pick)) if (p, i) == (project, key) && pick.branch().is_some());
+                let open = inside || !self.folded_checkouts.contains(&fold);
+                let files = &checkout.uncommitted;
+                let (added, removed) =
+                    (files.iter()).fold((0, 0), |(a, r), f| (a + f.additions, r + f.deletions));
+                let unpushed: usize = (checkout.branches.iter())
+                    .map(|b| b.commits.iter().filter(|c| !c.pushed).count())
+                    .sum();
+                let active = checkout.online && checkout.last_activity.is_some_and(just_now);
+                let mut tip = checkout.path.clone();
+                if !checkout.online {
+                    tip.push_str("\nOffline");
+                }
+                if let Some(err) = &checkout.error {
+                    tip.push_str(&format!("\nThe mesh couldn't read all of it: {err}"));
+                }
+                let toggle = move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
+                    this.toggle_checkout(fold.clone(), open, window, cx)
+                };
+                let folds = !checkout.branches.is_empty();
+                let counts = match added + removed {
+                    0 => meta_count(
+                        Icon::File,
+                        files.len(),
+                        style.meta(theme.warn),
+                        plural(files.len(), "uncommitted file"),
+                    )
+                    .map(IntoElement::into_any_element),
+                    _ => Some(
+                        crate::ui::diff::stats(added as u32, removed as u32, theme)
+                            .into_any_element(),
+                    ),
+                };
+                (style.row(format!("mesh-{project}-{key}"), 6.))
+                    .aria_label(checkout.label())
+                    .aria_expanded(open)
+                    .child(self.fold_step(
+                        ("mesh-fold", ix),
+                        folds.then_some(open),
+                        quiet,
+                        cx,
+                        toggle.clone(),
+                    ))
+                    .child(icon(Icon::Computer).text_color(style.muted()))
+                    .child(
+                        div()
+                            .id(("mesh-name", ix))
+                            .flex_grow(1.)
+                            .min_w(px(0.))
+                            .truncate()
+                            .font_weight(gpui::FontWeight::MEDIUM)
+                            .when(!checkout.online, |el| el.text_color(style.muted()))
+                            .when(checkout.error.is_some() && !style.solid, |el| {
+                                el.text_color(theme.warn)
+                            })
+                            .tooltip(Tooltip::text(tip))
+                            .child(checkout.label()),
+                    )
+                    // As a worktree's, the quiet "uncommitted" gives way before the name does.
+                    .when(!files.is_empty(), |el| {
+                        el.child(
+                            h_flex()
+                                .flex_shrink(1000.)
+                                .min_w(px(0.))
+                                .overflow_hidden()
+                                .gap(px(8.))
+                                .child(
+                                    div()
+                                        .text_size(px(11.))
+                                        .text_color(quiet)
+                                        .child("uncommitted"),
+                                )
+                                .children(counts),
+                        )
+                    })
+                    .when(!open, |el| {
+                        el.children(meta_count(
+                            Icon::ArrowUp,
+                            unpushed,
+                            style.meta(theme.blue),
+                            plural(unpushed, "unpushed commit"),
+                        ))
+                    })
+                    .when(active, |el| {
+                        el.child(
+                            div()
+                                .id(("mesh-active", ix))
+                                .child(dot(style.meta(theme.safe)))
+                                .tooltip(Tooltip::text("Changed in the last 2 minutes")),
+                        )
+                    })
+                    .when(folds, |el| el.on_click(double_click(toggle, cx)))
+            }
+            _ => return None,
+        };
+        Some(
+            row.on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+                .into_any_element(),
+        )
+    }
+
+    /// A row's fold, as a branch's: a chevron that folds it without selecting it, down while
+    /// `open`, or a dot when there's nothing to fold (`None`).
+    fn fold_step(
+        &self,
+        id: impl Into<ElementId>,
+        open: Option<bool>,
+        color: gpui::Hsla,
+        cx: &Context<Self>,
+        toggle: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
+    ) -> Stateful<Div> {
+        let theme = Theme::get(cx);
+        let el = div().id(id).child(step(open, color));
+        match open {
+            None => el,
+            Some(_) => el
+                .rounded(px(3.))
+                .hover(|el| el.bg(theme.hover()))
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                    cx.stop_propagation();
+                    toggle(this, window, cx)
+                })),
+        }
+    }
+
+    /// Whether `key`'s commits show: as Settings start branches, unless folded or opened
+    /// since, as a branch here.
+    fn mesh_branch_open(&self, key: &MeshBranch) -> bool {
+        self.branches_start_open != self.flipped_mesh_branches.contains(key)
+    }
+
+    /// Fold or unfold all of `project`'s work elsewhere. Folding it over the selection takes
+    /// that up to the project.
+    fn toggle_mesh(&mut self, project: &ProjectId, window: &mut Window, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        let folding = store.prefs.shown_mesh.contains(project.as_ref());
+        let inside = matches!(&store.selection, Some(Selection::Mesh(p, ..)) if p == project);
+        let key = project.to_string();
+        self.store.update(cx, |store, cx| {
+            store.set_prefs(
+                |prefs| {
+                    match folding {
+                        true => prefs.shown_mesh.remove(&key),
+                        false => prefs.shown_mesh.insert(key),
+                    };
+                },
+                cx,
+            )
+        });
+        if folding && inside {
+            self.select(Selection::Project(project.clone()), window, cx)
+        }
+    }
+
+    /// Fold checkout `key`'s branches, or unfold them. Folding them over the selection takes
+    /// it up to the checkout, as a worktree does.
+    fn toggle_checkout(
+        &mut self,
+        key: (ProjectId, Arc<str>),
+        open: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !open {
+            self.folded_checkouts.remove(&key);
+            return cx.notify();
+        }
+        let inside = matches!(&self.store.read(cx).selection,
+            Some(Selection::Mesh(p, id, pick)) if (p, id) == (&key.0, &key.1) && pick.branch().is_some());
+        let (project, id) = key.clone();
+        self.folded_checkouts.insert(key);
+        match inside {
+            true => self.select(Selection::Mesh(project, id, MeshPick::Checkout), window, cx),
+            false => cx.notify(),
+        }
+    }
+
+    /// Show branch `key`'s commits, or fold them away. Folding them over the selected one
+    /// takes the selection up to the branch.
+    fn toggle_mesh_branch(
+        &mut self,
+        key: MeshBranch,
+        open: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        toggle(&mut self.flipped_mesh_branches, key.clone());
+        let (project, id, name) = key;
+        let on_commit = matches!(&self.store.read(cx).selection,
+            Some(Selection::Mesh(p, i, MeshPick::Commit(n, _))) if (p, i, n) == (&project, &id, &name));
+        match open && on_commit {
+            true => self.select(
+                Selection::Mesh(project, id, MeshPick::Branch(name)),
+                window,
+                cx,
+            ),
+            false => cx.notify(),
+        }
+    }
+
+    /// → on a mesh row: unfold a checkout, or open a branch.
+    pub(super) fn expand_mesh(
+        &mut self,
+        project: ProjectId,
+        id: Arc<str>,
+        pick: MeshPick,
+        cx: &mut Context<Self>,
+    ) {
+        match pick {
+            MeshPick::Checkout => {
+                self.folded_checkouts.remove(&(project, id));
+            }
+            MeshPick::Branch(name) => {
+                let key = (project, id, name);
+                if !self.mesh_branch_open(&key) {
+                    toggle(&mut self.flipped_mesh_branches, key);
+                }
+            }
+            MeshPick::Commit(..) => {}
+        }
+        cx.notify();
+    }
+
+    /// ← on a mesh row, as a tree steps out: fold an open checkout or branch, or else go up to
+    /// what holds it.
+    pub(super) fn collapse_mesh(
+        &mut self,
+        project: ProjectId,
+        id: Arc<str>,
+        pick: MeshPick,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let store = self.store.read(cx);
+        let Some(checkout) = store.mesh_checkout(&project, &id) else {
+            return;
+        };
+        match pick {
+            MeshPick::Checkout => {
+                let key = (project.clone(), id);
+                match !checkout.branches.is_empty() && !self.folded_checkouts.contains(&key) {
+                    true => self.toggle_checkout(key, true, window, cx),
+                    false => self.select(Selection::Project(project), window, cx),
+                }
+            }
+            MeshPick::Branch(name) => {
+                let has_commits =
+                    (checkout.branches.iter()).any(|b| b.name == name && !b.commits.is_empty());
+                let key = (project.clone(), id.clone(), name);
+                match has_commits && self.mesh_branch_open(&key) {
+                    true => self.toggle_mesh_branch(key, true, window, cx),
+                    false => {
+                        self.select(Selection::Mesh(project, id, MeshPick::Checkout), window, cx)
+                    }
+                }
+            }
+            MeshPick::Commit(name, _) => self.select(
+                Selection::Mesh(project, id, MeshPick::Branch(name)),
+                window,
+                cx,
+            ),
+        }
+    }
+
+    /// What right-clicking a mesh row offers: for a checkout, it on but.dev, where its
+    /// uncommitted changes are, and its path there; for a branch or a commit on one, bringing
+    /// the branch here and its page on but.dev.
+    pub(super) fn mesh_menu(&self, target: &Selection, cx: &App) -> Vec<MenuItem> {
+        let Selection::Mesh(project, id, pick) = target else {
+            return Vec::new();
+        };
+        let store = self.store.read(cx);
+        let Some(checkout) = store.mesh_checkout(project, id) else {
+            return Vec::new();
+        };
+        let mut items = Vec::new();
+        let branch =
+            (pick.branch()).and_then(|name| checkout.branches.iter().find(|b| b.name == name));
+        let managed = store.workspace(project).is_some_and(|ws| ws.managed);
+        if let Some((branch, mesh_id)) = branch.and_then(|b| Some((b, b.mesh_id.clone()?)))
+            && managed
+        {
+            let (project, name) = (project.clone(), branch.name.clone());
+            items.push(MenuItem::new("Apply here", move |app, _, cx| {
+                let (mesh_id, name) = (mesh_id.clone(), name.clone());
+                app.store.update(cx, |store, cx| {
+                    store.mesh_apply(&project, mesh_id, name, cx)
+                })
+            }));
+        }
+        if let Some(connection) = store.mesh.connection() {
+            let url = mesh::link(&connection.server, id, pick.branch());
+            items.push(MenuItem::new("Open on but.dev", move |_, _, cx| {
+                cx.open_url(&url)
+            }));
+        }
+        if *pick == MeshPick::Checkout {
+            let path = checkout.path.clone();
+            items.push(MenuItem::new("Copy path", move |app, _, cx| {
+                cx.write_to_clipboard(gpui::ClipboardItem::new_string(path.clone()));
+                app.store.update(cx, |store, cx| store.snack("Copied", cx));
+            }));
+        }
+        items
+    }
+}
+
+/// A fold's glyph in a step as wide as a branch's: a chevron, down while `open`, or a dot
+/// with nothing to fold (`None`).
+fn step(open: Option<bool>, color: gpui::Hsla) -> Div {
+    let glyph = match open {
+        None => Icon::BulletDisc,
+        Some(true) => Icon::ChevronDown,
+        Some(false) => Icon::ChevronRight,
+    };
+    div()
+        .flex_none()
+        .w(px(14.))
+        .h(px(16.))
+        .flex()
+        .items_center()
+        .justify_center()
+        .child(small_icon(glyph).text_color(color))
+}
+
+/// A row's click handler that runs `toggle` on a double-click, as a folder opens.
+fn double_click(
+    toggle: impl Fn(&mut Navigator, &mut Window, &mut Context<Navigator>) + 'static,
+    cx: &Context<Navigator>,
+) -> impl Fn(&ClickEvent, &mut Window, &mut App) + 'static {
+    cx.listener(move |this, event: &ClickEvent, window, cx| {
+        if event.click_count() == 2 {
+            toggle(this, window, cx)
+        }
+    })
+}
+
+/// `branch`'s commits, by the ids the mesh gives them.
+fn commits(branch: &Branch) -> impl Iterator<Item = CommitId> + '_ {
+    branch
+        .commits
+        .iter()
+        .filter_map(|commit| commit_id(&commit.id))
+}
+
+fn commit_id(hex: &str) -> Option<CommitId> {
+    gix::ObjectId::from_hex(hex.as_bytes()).ok().map(CommitId)
+}

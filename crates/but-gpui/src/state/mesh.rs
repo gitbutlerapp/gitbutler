@@ -14,13 +14,32 @@ use gpui::{Context, Task};
 use super::mutation::Overlay;
 use super::{ProjectId, Selection, Store, StoreEvent};
 use crate::backend::{
-    self,
+    self, CommitId,
     mesh::{Checkout, Connection},
 };
 
 /// How often the other machines' work is read again. The mesh hears of a change within
 /// seconds, and reading it takes a few.
 const POLL: Duration = Duration::from_secs(60);
+
+/// What's selected of a checkout on another machine: it, one of its branches, or a commit,
+/// by the branch it's listed under.
+#[derive(Debug, Clone, PartialEq)]
+pub enum MeshPick {
+    Checkout,
+    Branch(String),
+    Commit(String, CommitId),
+}
+
+impl MeshPick {
+    /// The branch picked, or holding the commit picked.
+    pub fn branch(&self) -> Option<&str> {
+        match self {
+            MeshPick::Checkout => None,
+            MeshPick::Branch(name) | MeshPick::Commit(name, _) => Some(name),
+        }
+    }
+}
 
 /// This machine's connection to the mesh.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -61,11 +80,6 @@ impl Mesh {
         }
     }
 
-    /// Whether `project`'s work elsewhere has been read, or tried, in this run.
-    pub fn read(&self, project: &ProjectId) -> bool {
-        self.checkouts.contains_key(project)
-    }
-
     pub fn connection(&self) -> Option<&Connection> {
         match &self.state {
             MeshState::Connected(connection) => Some(connection),
@@ -99,12 +113,8 @@ impl Store {
                     tracing::debug!(%project, checkouts = ?read.as_ref().map(Vec::len), "mesh read");
                     let Ok(()) = this.update(cx, |store, cx| match read {
                         Ok(checkouts) => store.set_mesh_checkouts(project, checkouts, cx),
-                        Err(err) => {
-                            tracing::debug!(%project, "mesh read failed: {err:#}");
-                            // Tried, so the page stops saying it's reading; what was read
-                            // before stays.
-                            store.mesh.checkouts.entry(project).or_default();
-                        }
+                        // What was read before stays.
+                        Err(err) => tracing::debug!(%project, "mesh read failed: {err:#}"),
                     }) else {
                         return;
                     };
@@ -133,7 +143,7 @@ impl Store {
         cx: &mut Context<Self>,
     ) -> Vec<(ProjectId, PathBuf, bool)> {
         // A failed check while connected, as on a poor network or with the CLI briefly
-        // broken, keeps what was read: the page stays, a little stale, until it answers again.
+        // broken, keeps what was read: the navigator shows it, a little stale, until it answers.
         if let MeshState::Unavailable(why) = &state
             && self.mesh.connection().is_some()
         {
@@ -150,8 +160,8 @@ impl Store {
                 self.mesh.checkouts.clear();
                 cx.notify();
             }
-            // Signed out, the navigator lists no Other machines page to be on.
-            if let Some(Selection::Machines(project)) = self.selection.clone() {
+            // Signed out, the navigator lists no other machines to be on.
+            if let Some(Selection::Mesh(project, ..)) = self.selection.clone() {
                 self.select(Some(Selection::Project(project)), cx);
             }
             return Vec::new();
@@ -190,6 +200,15 @@ impl Store {
         self.mesh
             .checkouts
             .insert(project.clone(), checkouts.into());
+        // What was selected there may be gone, finished or pushed: up to the project.
+        if let Some(Selection::Mesh(p, id, pick)) = &self.selection
+            && *p == project
+            && !(self.mesh_checkout(p, id)).is_some_and(|checkout| {
+                (pick.branch()).is_none_or(|name| checkout.branches.iter().any(|b| b.name == name))
+            })
+        {
+            self.select(Some(Selection::Project(project.clone())), cx);
+        }
         cx.emit(StoreEvent::MeshRead(project));
         cx.notify();
     }
