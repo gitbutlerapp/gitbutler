@@ -746,6 +746,7 @@ use conflict::message_is_conflicted;
 pub use conflict::{
     add_conflict_markers, rewrite_conflict_markers_on_message_change, strip_conflict_markers,
 };
+pub mod padding;
 pub mod tree_expression;
 
 /// Write a GitButler conflicted tree that wraps `resolved_tree_id` together
