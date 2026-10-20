@@ -89,10 +89,11 @@ pub(crate) fn commit_amend_only_impl(
 /// record an oplog snapshot on success.
 ///
 /// This performs the rewrite under exclusive worktree access and creates a
-/// best-effort `AmendCommit` oplog entry if the operation succeeds, which covers
-/// the main checkout only even when `changes_source` is a linked worktree. When
-/// `dry_run` is enabled, the returned workspace previews the amended commit
-/// and no oplog entry is persisted. For lower-level implementation details, see
+/// best-effort `AmendCommit` oplog entry if the operation succeeds. For a linked
+/// worktree `changes_source` it also covers the branch that worktree has checked
+/// out, so undo leaves the change uncommitted there. When `dry_run` is enabled,
+/// the returned workspace previews the amended commit and no oplog entry is
+/// persisted. For lower-level implementation details, see
 /// [`but_workspace::commit::commit_amend()`].
 #[but_api(napi, try_from = crate::commit::json::CommitCreateResult)]
 #[instrument(err(Debug))]
@@ -105,9 +106,11 @@ pub fn commit_amend(
 ) -> anyhow::Result<CommitCreateResult> {
     let context_lines = ctx.settings.context_lines;
     let mut guard = ctx.exclusive_worktree_access();
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+    let worktree_ref = crate::worktrees::changes_source_ref(ctx, &changes_source)?;
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_ref_and_perm(
         ctx,
         SnapshotDetails::new(OperationKind::AmendCommit),
+        worktree_ref.as_ref().map(|name| name.as_ref()),
         guard.read_permission(),
         dry_run,
     );

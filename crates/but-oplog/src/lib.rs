@@ -98,6 +98,10 @@ mod oplog_snapshot {
         }
 
         /// Create a snapshot that also preserves `ref_name` for undo and redo.
+        ///
+        /// If a linked worktree has `ref_name` checked out, undo moves it there too and leaves
+        /// that worktree's files alone. Only pass such a ref for an operation that leaves those
+        /// files alone too.
         pub fn from_details_with_ref_and_perm(
             ctx: &but_ctx::Context,
             details: gitbutler_oplog::entry::SnapshotDetails,
