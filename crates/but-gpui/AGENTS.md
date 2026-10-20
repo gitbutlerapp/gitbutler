@@ -116,6 +116,9 @@ so update it, shortcuts table included, with every change in behaviour.
   anything that touched a linked worktree, in older snapshots too. Commits in a linked worktree
   skip hooks, which would run against the main checkout's files. Branches move only within their
   own side.
+- A snapshot taken with one branch checked out outside the workspace keeps no stacks: only the
+  branch's ref and tip under `checkout/`, and the refs below it under `additional-refs/`. History
+  reads those branches' commits from the repository, down to the snapshot's target.
 - PR and CI data come from the forge cache the workspace load already reads, and nothing calls
   the network to render. CI checks refresh only for applied branches, so cached checks on an
   unapplied branch are stale.

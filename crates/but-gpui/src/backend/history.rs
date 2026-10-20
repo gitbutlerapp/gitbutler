@@ -60,6 +60,23 @@ impl Recorded {
 /// commits, newest first.
 pub type Branches = Vec<(String, Vec<Recorded>)>;
 
+/// The branches of `workspace` now, as a snapshot records them.
+pub fn branches(workspace: &super::Workspace) -> Branches {
+    (workspace.stacks.iter())
+        .flat_map(|stack| &stack.branches)
+        .map(|branch| {
+            let commits = (branch.commits.iter()).map(|commit| Recorded {
+                id: commit.id,
+                key: commit.key.clone(),
+                message: commit.message.clone(),
+                parent: commit.parent,
+                tree: commit.tree,
+            });
+            (branch.name.clone(), commits.collect())
+        })
+        .collect()
+}
+
 /// One thing an operation did to the branches.
 #[derive(Debug, Clone)]
 pub enum Change {
@@ -117,10 +134,10 @@ pub fn list(
     // What came after the operation at hand: the one after it's snapshot, or the workspace.
     let meta = ctx.project_meta().ok();
     let (mut later, mut later_target) = match after {
-        Some(after) => (
-            snapshot_branches(&repo, after.0, &mut read),
-            snapshot_target(&repo, after.0),
-        ),
+        Some(after) => {
+            let target = snapshot_target(&repo, after.0);
+            (snapshot_branches(&repo, after.0, target, &mut read), target)
+        }
         None => (now, meta.as_ref().and_then(|meta| meta.target_commit_id)),
     };
     let target_name = (meta.and_then(|meta| meta.target_ref)).map_or_else(
@@ -129,12 +146,12 @@ pub fn list(
     );
     let mut operations = Vec::with_capacity(snapshots.len());
     for snapshot in snapshots {
-        let before = snapshot_branches(&repo, snapshot.commit_id, &mut read);
+        let target = snapshot_target(&repo, snapshot.commit_id);
+        let before = snapshot_branches(&repo, snapshot.commit_id, target, &mut read);
         let mut changes = match (&before, &later) {
             (Some(before), Some(after)) => compare(before, after),
             _ => Vec::new(),
         };
-        let target = snapshot_target(&repo, snapshot.commit_id);
         if let (Some(from), Some(to)) = (target, later_target)
             && let Some(commits) = super::first_parent_steps(&repo, to, from, 1000)
             && commits > 0
@@ -204,10 +221,12 @@ pub fn list(
 }
 
 /// The workspace's branches as snapshot `id` recorded them, from the stacks it kept with
-/// their heads and commits; `None` for a snapshot that kept none, as an old one.
+/// their heads and commits, or from the branch checked out outside the workspace; `None` for
+/// a snapshot that kept neither, as an old one. `target` is the target commit it recorded.
 fn snapshot_branches(
     repo: &gix::Repository,
     id: gix::ObjectId,
+    target: Option<gix::ObjectId>,
     read: &mut HashMap<gix::ObjectId, Recorded>,
 ) -> Option<Branches> {
     #[derive(Deserialize)]
@@ -238,6 +257,9 @@ fn snapshot_branches(
         true
     }
     let tree = repo.find_commit(id).ok()?.tree().ok()?;
+    if let Some(branches) = checkout_branches(repo, &tree, target, read) {
+        return Some(branches);
+    }
     let meta = tree.lookup_entry_by_path("virtual_branches.toml").ok()??;
     let meta = meta.object().ok()?;
     let meta: Meta = toml::from_str(std::str::from_utf8(&meta.data).ok()?).ok()?;
@@ -257,7 +279,15 @@ fn snapshot_branches(
                 let sub = entry.oid().to_owned();
                 let entry = match read.entry(sub) {
                     Entry::Occupied(entry) => entry.into_mut(),
-                    Entry::Vacant(entry) => entry.insert(read_commit(repo, commit, sub)?),
+                    Entry::Vacant(entry) => {
+                        let data = repo
+                            .find_tree(sub)
+                            .ok()?
+                            .find_entry("commit")?
+                            .object()
+                            .ok()?;
+                        entry.insert(recorded(repo, commit, &data.data)?)
+                    }
                 };
                 commits.insert(commit, entry.clone());
             }
@@ -284,21 +314,68 @@ fn snapshot_branches(
     Some(branches)
 }
 
-/// Commit `commit` as entry `sub` of a snapshot's stack keeps it, with the commit's own data.
-fn read_commit(
+/// The branches of a snapshot taken with a branch checked out outside the workspace: that
+/// branch, then each one it's stacked on, with the commits `target` doesn't have. A snapshot
+/// keeps where the branches pointed but not their commits, so these are read from the
+/// repository. `None` for one taken in the workspace, which records no checkout.
+fn checkout_branches(
     repo: &gix::Repository,
-    commit: gix::ObjectId,
-    sub: gix::ObjectId,
-) -> Option<Recorded> {
-    let data = repo
-        .find_tree(sub)
-        .ok()?
-        .find_entry("commit")?
-        .object()
-        .ok()?
-        .detach()
-        .data;
-    let parsed = gix::objs::CommitRef::from_bytes(&data, repo.object_hash())
+    tree: &gix::Tree<'_>,
+    target: Option<gix::ObjectId>,
+    read: &mut HashMap<gix::ObjectId, Recorded>,
+) -> Option<Branches> {
+    let text = |path: &str| -> Option<String> {
+        let entry = tree.lookup_entry_by_path(path).ok()??;
+        Some(entry.object().ok()?.data.to_str().ok()?.trim().to_owned())
+    };
+    let id = |path: &str| gix::ObjectId::from_hex(text(path)?.as_bytes()).ok();
+    let checkout = text("checkout/ref")?;
+    // While a commit is edited `HEAD` is on GitButler's own branch, and the stacks still say.
+    if checkout.starts_with("refs/heads/gitbutler/") {
+        return None;
+    }
+    let (tip, target) = (id("checkout/commit")?, target?);
+    // The branches below it, by the commit each points to.
+    let mut refs = HashMap::new();
+    for ix in 0.. {
+        let Some(name) = text(&format!("additional-refs/{ix}/name")) else {
+            break;
+        };
+        if let Some(at) = id(&format!("additional-refs/{ix}/target")) {
+            refs.insert(at, name);
+        }
+    }
+    let mut branches = vec![(short_ref(&checkout).to_owned(), Vec::new())];
+    let walk = (repo.rev_walk([tip]).first_parent_only())
+        .with_hidden([target])
+        .all()
+        .ok()?;
+    // At most a thousand, so a branch far from the target doesn't hold up the list.
+    for info in walk.take(1000) {
+        let commit = info.ok()?.id;
+        // One on the checked-out commit itself is part of the checked-out branch, as the
+        // workspace shows it.
+        if commit != tip
+            && let Some(name) = refs.get(&commit)
+        {
+            branches.push((short_ref(name).to_owned(), Vec::new()));
+        }
+        // Keyed by the commit itself, where a stack's entries are keyed by their subtree.
+        let entry = match read.entry(commit) {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => {
+                let data = repo.find_object(commit).ok()?;
+                entry.insert(recorded(repo, commit, &data.data)?)
+            }
+        };
+        branches.last_mut()?.1.push(entry.clone());
+    }
+    Some(branches)
+}
+
+/// Commit `commit` from its own `data`.
+fn recorded(repo: &gix::Repository, commit: gix::ObjectId, data: &[u8]) -> Option<Recorded> {
+    let parsed = gix::objs::CommitRef::from_bytes(data, repo.object_hash())
         .ok()?
         .into_owned()
         .ok()?;

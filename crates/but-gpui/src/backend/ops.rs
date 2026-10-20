@@ -1230,6 +1230,51 @@ mod tests {
     }
 
     #[test]
+    fn history_shows_commits_made_outside_the_workspace() {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        git(
+            path,
+            &["remote", "add", "origin", "https://example.com/repo.git"],
+        );
+        git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+        crate::backend::settings::set_target(path, "refs/remotes/origin/main").unwrap();
+        git(path, &["checkout", "-q", "-b", "feature"]);
+        let commit = |message: &str| git(path, &["commit", "-q", "--allow-empty", "-m", message]);
+        commit("Lower");
+        // A branch stacked under the checked-out one.
+        git(path, &["branch", "lower"]);
+        commit("First");
+        crate::backend::history::take_snapshot(path, None).unwrap();
+        commit("Second");
+        crate::backend::history::take_snapshot(path, None).unwrap();
+        commit("Third");
+
+        use crate::backend::history::{self, Change};
+        let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+        assert!(!workspace.managed, "a branch checked out by itself");
+        let now = history::branches(&workspace);
+        let (operations, _) = history::list(path, None, 10, Some(now)).unwrap();
+        let lines: Vec<Vec<String>> = (operations.iter())
+            .map(|operation| {
+                (operation.changes.iter())
+                    .map(|change| match change {
+                        Change::Added { commit, branch } => {
+                            format!("+ {} on {branch}", commit.title())
+                        }
+                        other => format!("{other:?}"),
+                    })
+                    .collect()
+            })
+            .collect();
+        assert_eq!(
+            lines,
+            [["+ Third on feature"], ["+ Second on feature"]],
+            "each snapshot records the branches' commits as the workspace shows them"
+        );
+    }
+
+    #[test]
     fn a_reload_of_the_commits_keeps_the_files_while_their_tree_stays() {
         let dir = repo_with("one\n");
         let path = dir.path();

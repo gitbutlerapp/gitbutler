@@ -12,7 +12,7 @@ use super::panes::{
     list_empty, list_heading, meta_item, meta_row, page_title, side_list, side_row, title_text,
 };
 use crate::app::{SelectNext, SelectPrevious};
-use crate::backend::history::{Branches, Change, Operation, Recorded};
+use crate::backend::history::{Change, Operation, Recorded};
 use crate::backend::{self, CommitId, DiffSource, SnapshotId};
 use crate::overlays::MenuItem;
 use crate::state::{Overlay, ProjectId, Selection};
@@ -362,25 +362,11 @@ impl Detail {
         {
             history.loading = more;
         }
-        // What the newest operation left, which its snapshot is compared with: the workspace's
-        // stacks, which snapshots record only while it's a workspace, and not mid-edit.
-        let workspace = (self.store.read(cx).workspace(project))
-            .filter(|ws| ws.managed && ws.editing.is_none());
-        let now = workspace.map(|ws| -> Branches {
-            (ws.stacks.iter())
-                .flat_map(|stack| &stack.branches)
-                .map(|branch| {
-                    let commits = (branch.commits.iter()).map(|commit| Recorded {
-                        id: commit.id,
-                        key: commit.key.clone(),
-                        message: commit.message.clone(),
-                        parent: commit.parent,
-                        tree: commit.tree,
-                    });
-                    (branch.name.clone(), commits.collect())
-                })
-                .collect()
-        });
+        // What the newest operation left, which its snapshot is compared with: the branches,
+        // which snapshots don't record mid-edit.
+        let now = (self.store.read(cx).workspace(project))
+            .filter(|ws| ws.editing.is_none())
+            .map(backend::history::branches);
         let project = project.clone();
         self._history_load = cx.spawn(async move |this, cx| {
             let result =
