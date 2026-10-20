@@ -97,6 +97,9 @@ fn steps(depth: usize, chevron: Option<gpui::Svg>, theme: &Theme) -> Div {
         .children(chevron.map(|chevron| step().items_center().child(chevron)))
 }
 
+/// A folder row, for what shows on it under the pointer.
+const DIR_GROUP: &str = "dir-row";
+
 /// The panel's heading: Files, how many, and their lines added and removed.
 fn files_heading(count: usize, (added, removed): (u32, u32), theme: &Theme) -> Div {
     h_flex()
@@ -582,11 +585,20 @@ impl Detail {
         else {
             return None;
         };
+        // The lines its files add and remove, shown on hover: always there, they'd crowd the
+        // names. Summed from the diff's files, as each file's own counts are.
+        let under = format!("{path}/");
+        let (added, removed) = (self.diff.iter())
+            .flat_map(|diff| diff.files.iter())
+            .filter(|file| file.file.path.starts_with(&under))
+            .map(FileDiff::stats)
+            .fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr));
         let row = file_row(
             ElementId::Name(format!("dir-{path}").into()),
             holds_cursor,
             theme,
         )
+        .group(DIR_GROUP)
         .child(steps(
             depth,
             Some(
@@ -608,6 +620,14 @@ impl Detail {
                 .child(img(Icon::FolderFill.path()).w(px(17.)).h(px(14.))),
         )
         .child(div().flex_1().min_w(px(0.)).truncate().child(name))
+        .when(added + removed > 0, |el| {
+            el.child(
+                diff::stats(added, removed, theme)
+                    .flex_none()
+                    .opacity(0.)
+                    .group_hover(DIR_GROUP, |style| style.opacity(1.)),
+            )
+        })
         .when(collapsed, |el| el.child(faint(files.to_string(), theme)))
         .on_mouse_down(
             MouseButton::Right,
