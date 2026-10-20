@@ -1169,10 +1169,12 @@ pub fn branch_remove_with_perm(
         );
     }
 
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+    // Name the branch so undo recreates it even when it isn't in the workspace.
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_ref_and_perm(
         ctx,
         SnapshotDetails::new(OperationKind::DeleteBranch)
             .with_trailers([Trailer::Name(ref_name.to_string())]),
+        Some(ref_name.as_ref()),
         perm.read_permission(),
         DryRun::No,
     );
