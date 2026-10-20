@@ -202,6 +202,11 @@ impl Theme {
         self.fill_gray.opacity(0.06)
     }
 
+    /// The border of a control, as design-core's `--border-control`.
+    pub fn control_border(&self) -> Hsla {
+        self.fill_gray.opacity(0.26)
+    }
+
     /// Selection ground while the list does not have focus.
     pub fn selected_unfocused(&self) -> Hsla {
         self.fill_gray.opacity(0.11)

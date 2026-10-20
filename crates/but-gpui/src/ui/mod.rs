@@ -162,15 +162,96 @@ pub fn small_icon(icon: Icon) -> Svg {
     svg().path(icon.path()).size(px(12.)).flex_none()
 }
 
-/// A row of toggles in one bordered group, as ui-react's `ToggleGroupStyles`.
-pub fn toggle_group(theme: &Theme) -> Div {
+/// Icon toggles joined in a row, as ui-react's `ToggleGroupStyles` of outline toggles: one
+/// border round them and a rule between.
+pub fn toggle_group(theme: &Theme, toggles: impl IntoIterator<Item = Stateful<Div>>) -> Div {
+    let line = theme.control_border();
+    let toggles: Vec<_> = toggles.into_iter().collect();
+    let last = toggles.len().saturating_sub(1);
     h_flex()
         .flex_none()
-        .p(px(2.))
-        .gap(px(2.))
-        .rounded(px(6.))
+        .h(px(28.))
+        .rounded(px(4.))
         .border_1()
-        .border_color(theme.border_3)
+        .border_color(line)
+        .children(toggles.into_iter().enumerate().map(|(ix, toggle)| {
+            // Rounded inside the border, so a pressed one's ground keeps to it.
+            toggle
+                .when(ix == 0, |el| el.rounded_l(px(3.)))
+                .when(ix == last, |el| el.rounded_r(px(3.)))
+                .when(ix > 0, |el| el.border_l_1().border_color(line))
+        }))
+}
+
+/// One of a [`toggle_group`]'s toggles, on the recessed ground while `pressed`.
+pub fn icon_toggle(
+    id: impl Into<ElementId>,
+    glyph: Icon,
+    tip: &'static str,
+    key: Option<SharedString>,
+    pressed: bool,
+    theme: &Theme,
+) -> Stateful<Div> {
+    let hover = theme.hover();
+    div()
+        .id(id)
+        .role(Role::Button)
+        .aria_label(tip)
+        .w(px(28.))
+        .h_full()
+        .flex()
+        .items_center()
+        .justify_center()
+        .when(pressed, |el| el.bg(theme.bg_2))
+        .when(!pressed, |el| el.hover(move |el| el.bg(hover)))
+        .child(icon(glyph).text_color(theme.text_1.opacity(0.7)))
+        .tooltip(Tooltip::keyed(tip, key))
+}
+
+/// A choice of one, as ui-react's `SegmentedControl`: `segments` with whether each is the
+/// picked one, on a recessed track. The picked one is raised on the content ground, and a short
+/// rule parts two that aren't.
+pub fn segmented(
+    small: bool,
+    theme: &Theme,
+    segments: impl IntoIterator<Item = (Stateful<Div>, bool)>,
+) -> Div {
+    let (text, hover, line) = (theme.text_1, theme.hover(), theme.control_border());
+    let segments: Vec<_> = segments.into_iter().collect();
+    let picked: Vec<bool> = segments.iter().map(|(_, picked)| *picked).collect();
+    h_flex()
+        .flex_none()
+        .h(px(if small { 24. } else { 28. }))
+        .rounded(px(4.))
+        .bg(theme.bg_2)
+        .text_size(px(if small { 12. } else { 13. }))
+        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .whitespace_nowrap()
+        .children(
+            segments
+                .into_iter()
+                .enumerate()
+                .flat_map(|(ix, (segment, on))| {
+                    // Always there, so picking another moves nothing.
+                    let rule = (ix > 0).then(|| {
+                        let drawn = !picked[ix - 1] && !on;
+                        (div().flex_none().w(px(1.)).h(px(12.)))
+                            .when(drawn, |el| el.bg(theme.border_2))
+                            .into_any_element()
+                    });
+                    let segment = (segment.role(Role::Button).h_full().flex().items_center())
+                        .px(px(if small { 7. } else { 9. }))
+                        .rounded(px(4.))
+                        .border_1()
+                        .border_color(if on { line } else { gpui::transparent_black() })
+                        .text_color(text.opacity(if on { 0.9 } else { 0.7 }))
+                        .when(on, |el| el.bg(theme.bg_1))
+                        .when(!on, |el| {
+                            el.hover(move |el| el.bg(hover).text_color(text.opacity(0.9)))
+                        });
+                    rule.into_iter().chain([segment.into_any_element()])
+                }),
+        )
 }
 
 pub fn h_flex() -> Div {
@@ -600,12 +681,20 @@ impl Tooltip {
         .into()
     }
 
+    /// A tooltip of `text` with the shortcut `key`, for an element's `tooltip`.
+    pub fn keyed(
+        text: impl Into<SharedString>,
+        key: Option<SharedString>,
+    ) -> impl Fn(&mut Window, &mut App) -> gpui::AnyView + 'static {
+        let text = text.into();
+        move |_, cx| Self::with_key(text.clone(), key.clone(), cx)
+    }
+
     /// A tooltip of just `text`, for an element's `tooltip`.
     pub fn text(
         text: impl Into<SharedString>,
     ) -> impl Fn(&mut Window, &mut App) -> gpui::AnyView + 'static {
-        let text = text.into();
-        move |_, cx| Self::with_key(text.clone(), None, cx)
+        Self::keyed(text, None)
     }
 }
 

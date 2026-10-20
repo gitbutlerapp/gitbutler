@@ -10,7 +10,9 @@ use super::diff::{
     text_cell,
 };
 use super::text_input::TextInput;
-use super::{ButtonStyle, Icon, button, h_flex, icon_button, small_icon, toggle_group, v_flex};
+use super::{
+    ButtonStyle, Icon, Tooltip, button, h_flex, icon_button, segmented, small_icon, v_flex,
+};
 use crate::backend::{Conflict, DiffLine, LineKind};
 use crate::theme::Theme;
 
@@ -250,11 +252,10 @@ fn bar(row: &Row, theme: &Theme) -> AnyElement {
     let actions = &row.actions;
     let choice = |id: &'static str, label: SharedString, tip: String, pick: Pick| {
         let act = actions.pick.clone();
-        button(id, label)
-            .small()
-            .selected(picked == Some(pick))
-            .tooltip_with_key(tip, Some(pick_key(pick).into()))
-            .on_click(move |_, window, cx| act(pick, window, cx))
+        let segment = (div().id(id).child(label))
+            .tooltip(Tooltip::keyed(tip, Some(pick_key(pick).into())))
+            .on_click(move |_, window, cx| act(pick, window, cx));
+        (segment, picked == Some(pick))
     };
     let edit = actions.edit.clone();
     let suggest = actions.suggest.clone();
@@ -279,27 +280,30 @@ fn bar(row: &Row, theme: &Theme) -> AnyElement {
                 .text_color(color)
                 .child(format!("Conflict {} of {}", row.number, row.total)),
         )
-        .child(
-            toggle_group(theme)
-                .child(choice(
+        .child(segmented(
+            true,
+            theme,
+            [
+                choice(
                     "keep-new-base",
                     row.sides[0].label.to_owned().into(),
                     format!("Keep the lines from {}", row.sides[0].phrase),
                     Pick::NewBase,
-                ))
-                .child(choice(
+                ),
+                choice(
                     "keep-commit",
                     row.sides[1].label.to_owned().into(),
                     format!("Keep the lines from {}", row.sides[1].phrase),
                     Pick::Commit,
-                ))
-                .child(choice(
+                ),
+                choice(
                     "keep-both",
                     "Both".into(),
                     format!("Keep both, {} first", row.sides[0].phrase),
                     Pick::Both,
-                )),
-        )
+                ),
+            ],
+        ))
         .child(
             button("conflict-edit", "Edit")
                 .small()

@@ -22,7 +22,7 @@ use crate::theme::{Appearance, CodeSize, Theme};
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, button, dropdown, field, h_flex, icon, muted, switch, v_flex,
+    self, ButtonStyle, Icon, Tooltip, button, dropdown, field, h_flex, icon, muted, switch, v_flex,
 };
 
 actions!(settings, [OpenSettings]);
@@ -384,6 +384,7 @@ impl SettingsView {
                 app.update(cx, |app, cx| app.apply_appearance(window, cx))
                     .ok();
             },
+            theme,
         );
         let app = self.app.clone();
         let code = segmented(
@@ -401,6 +402,7 @@ impl SettingsView {
                 })
                 .ok();
             },
+            theme,
         );
         let appearance = Row::new(
             "Appearance",
@@ -928,22 +930,26 @@ fn field_with_save(
         .child(field(input, focused, Theme::get(cx)).w(px(220.)))
 }
 
-/// Buttons for a setting with a few values, the current one `current` filled in. Unlike a
-/// dropdown's menu, a button's click doesn't run inside the app's own update, so `pick`
-/// can update the app.
+/// A segmented control for a setting with a few values, `current` picked. Unlike a dropdown's
+/// menu, a segment's click doesn't run inside the app's own update, so `pick` can update the
+/// app.
 fn segmented<T: Copy + PartialEq + 'static>(
     id: &str,
     choices: [(T, &'static str); 3],
     current: T,
     pick: impl Fn(T, &mut Window, &mut App) + Clone + 'static,
+    theme: &Theme,
 ) -> gpui::Div {
-    h_flex()
-        .gap(px(2.))
-        .children(choices.into_iter().map(|(choice, label)| {
+    ui::segmented(
+        true,
+        theme,
+        choices.map(|(choice, label)| {
             let pick = pick.clone();
-            button(SharedString::from(format!("{id}-{label}")), label)
-                .small()
-                .selected(current == choice)
-                .on_click(move |_, window, cx| pick(choice, window, cx))
-        }))
+            let segment = div()
+                .id(SharedString::from(format!("{id}-{label}")))
+                .child(label)
+                .on_click(move |_, window, cx| pick(choice, window, cx));
+            (segment, current == choice)
+        }),
+    )
 }

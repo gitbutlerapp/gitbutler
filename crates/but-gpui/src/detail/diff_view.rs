@@ -31,8 +31,8 @@ use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, button, checkbox, empty_state, h_flex, icon, icon_button, shortcut,
-    small_icon, toggle_group, v_flex,
+    ButtonStyle, Icon, Tooltip, button, checkbox, empty_state, h_flex, icon, icon_button,
+    icon_toggle, segmented, shortcut, small_icon, toggle_group, v_flex,
 };
 
 /// The diff, drawn by a view of its own over the space [`Detail`] leaves for it. A scrolled
@@ -590,20 +590,19 @@ impl Detail {
             )
         });
         let files = div().relative().child(toggle).children(list);
-        let group = || toggle_group(theme);
-        // A choice of the group, which `action` makes when `on` isn't already.
-        let choice = |id: &'static str,
+        let flag = |id: &'static str, glyph, tip, on, action: &'static dyn Action| {
+            icon_toggle(id, glyph, tip, shortcut(action, cx), on, theme).on_click(act(action))
+        };
+        // A way to lay the diff out, which `action` switches to when it isn't already.
+        let layout = |id: &'static str,
                       label: &'static str,
                       tip: &'static str,
                       on: bool,
                       action: &'static dyn Action| {
-            let button = (button(id, label).small().selected(on))
-                .tooltip_with_key(tip, shortcut(action, cx));
-            if on {
-                button
-            } else {
-                button.on_click(act(action))
-            }
+            let segment = (div().id(id).child(label))
+                .tooltip(Tooltip::keyed(tip, shortcut(action, cx)))
+                .when(!on, |el| el.on_click(act(action)));
+            (segment, on)
         };
         let (wrap, split, plain) = (prefs.wrap, prefs.split, prefs.plain_lines);
         Some(
@@ -615,39 +614,39 @@ impl Detail {
                 .bg(theme.bg_1)
                 .child(files)
                 .child(div().flex_1())
-                .child(
-                    group()
-                        .child(
-                            (icon_button("diff-wrap", Icon::TextWrap)
-                                .small()
-                                .selected(wrap))
-                            .tooltip_with_key("Wrap long lines", shortcut(&ToggleWrap, cx))
-                            .on_click(act(&ToggleWrap)),
-                        )
-                        .child(
-                            (icon_button("diff-backgrounds", Icon::TextBlock).small())
-                                .selected(!plain)
-                                .tooltip("Toggle diff backgrounds")
-                                .on_click(act(&TogglePlainLines)),
+                .child(toggle_group(
+                    theme,
+                    [
+                        flag(
+                            "diff-wrap",
+                            Icon::TextWrap,
+                            "Wrap long lines",
+                            wrap,
+                            &ToggleWrap,
                         ),
-                )
-                .child(
-                    group()
-                        .child(choice(
-                            "diff-split",
-                            "Split",
-                            "Side by side",
-                            split,
-                            &ToggleSplit,
-                        ))
-                        .child(choice(
+                        flag(
+                            "diff-backgrounds",
+                            Icon::TextBlock,
+                            "Toggle diff backgrounds",
+                            !plain,
+                            &TogglePlainLines,
+                        ),
+                    ],
+                ))
+                .child(segmented(
+                    false,
+                    theme,
+                    [
+                        layout("diff-split", "Split", "Side by side", split, &ToggleSplit),
+                        layout(
                             "diff-unified",
                             "Unified",
                             "One above the other",
                             !split,
                             &ToggleSplit,
-                        )),
-                )
+                        ),
+                    ],
+                ))
                 .into_any_element(),
         )
     }
