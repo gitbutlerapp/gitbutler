@@ -305,6 +305,75 @@ RefInfo {
 }
 
 #[test]
+fn single_branch_hides_the_padding_commit_on_its_conflicted_tip() -> anyhow::Result<()> {
+    let (_tmp, repo, meta, mut db) =
+        utils::named_writable_scenario_with_args("with-conflict-marked-message", None::<String>)?;
+    let conflicted = but_core::Commit::from_id(repo.rev_parse_single("conflicted")?)?;
+    let padding = but_core::commit::padding::create(&conflicted)?;
+    repo.reference(
+        "refs/heads/main",
+        padding,
+        gix::refs::transaction::PreviousValue::Any,
+        "pad the conflicted tip",
+    )?;
+
+    // `main` points at the padding commit on top of the conflicted commit.
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 9b2f09f (HEAD -> main) GitButler Padding Commit
+* 7c77c78 (tag: conflicted) [conflict] GitButler WIP Commit
+* a047f81 (tag: normal) init
+
+"#]]
+        .raw()
+    );
+
+    let info = head_info(&repo, &meta, &mut db, standard_options())?;
+    // The conflicted commit is the tip of `main`, as the padding commit only exists to check it out.
+    snapbox::assert_data_eq!(
+        info.to_debug(),
+        snapbox::str![[r#"
+RefInfo {
+    symbolic_remote_names: {},
+    stacks: [
+        Stack {
+            id: Some(
+                00000000-0000-0000-0000-000000000001,
+            ),
+            base: None,
+            segments: [
+                ref_info::ui::Segment {
+                    id: NodeIndex(0),
+                    ref_name: "►main[🌳]",
+                    remote_tracking_ref_name: "None",
+                    commits: [
+                        LocalCommit(💥7c77c78, "GitButler WIP Commit", local),
+                        LocalCommit(a047f81, "init\n", local),
+                    ],
+                    commits_on_remote: [],
+                    metadata: "None",
+                    push_status: CompletelyUnpushed,
+                    base: "None",
+                },
+            ],
+        },
+    ],
+    target_ref: None,
+    target_commit: None,
+    is_target_current: false,
+    lower_bound: None,
+    ancestor_workspace_commit: None,
+}
+
+"#]]
+        .raw()
+    );
+
+    Ok(())
+}
+
+#[test]
 fn single_branch_multiple_segments() -> anyhow::Result<()> {
     let (repo, meta, mut db) =
         read_only_in_memory_scenario("single-branch-10-commits-multi-segment")?;
