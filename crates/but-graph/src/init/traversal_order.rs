@@ -126,6 +126,25 @@ impl TraversalOrderedGraph {
     }
 }
 
+/// Validation
+impl TraversalOrderedGraph {
+    /// Fail if any segment's outgoing edges don't iterate in traversal order.
+    pub(crate) fn check_traversal_order(&self) -> anyhow::Result<()> {
+        for sidx in self.inner.node_indices() {
+            let keys: Vec<_> = self
+                .inner
+                .edges_directed(sidx, Direction::Outgoing)
+                .map(|e| traversal_key(e.weight()))
+                .collect();
+            anyhow::ensure!(
+                keys.windows(2).all(|w| w[0] <= w[1]),
+                "BUG: outgoing edges of segment {sidx:?} are not in traversal order: {keys:?}"
+            );
+        }
+        Ok(())
+    }
+}
+
 /// The sort key for the outgoing edges of one segment.
 ///
 /// Edges placed by workspace metadata come first, in that order, followed by all others in

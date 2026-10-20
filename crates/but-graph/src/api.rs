@@ -1040,6 +1040,7 @@ impl Graph {
                 self.check_traversal_tip_points_to_first_commit(tip)?;
             }
         }
+        self.inner.check_traversal_order()?;
         for edge in self.inner.edge_references() {
             Self::check_edge(&self.inner, edge, false)?;
         }
