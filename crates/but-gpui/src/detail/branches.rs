@@ -22,8 +22,8 @@ use crate::transfer::drag_preview;
 use crate::ui::illustration::Illustration;
 use crate::ui::person::author_avatar;
 use crate::ui::{
-    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, age_column, button, empty_state, faint, field, h_flex,
-    icon_button, muted, plural, relative_time, review, small_icon, v_flex,
+    Icon, ROW_HEIGHT, Tooltip, age_column, empty_state, faint, field, h_flex, icon_button,
+    relative_time, review, small_icon, v_flex,
 };
 
 pub(super) struct Branches {
@@ -983,93 +983,14 @@ impl Detail {
             .ok();
     }
 
-    /// The header's crumbs for the selected branch and commit, and what can be done with
-    /// them.
-    pub(super) fn branches_header(
-        &self,
-        project: &ProjectId,
-        crumbs: &mut Vec<Crumb>,
-        actions: &mut Vec<AnyElement>,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) {
+    /// The page's crumbs after "Branches": the selected branch, and the commit of it selected.
+    pub(super) fn branches_crumbs(&self, project: &ProjectId, crumbs: &mut Vec<Crumb>) {
         let Some(branch) = self.selected_other_branch(project) else {
             return;
         };
         crumbs.push((branch.name.clone().into(), None));
-        let local = branch.local;
-        // Who made it and how far ahead it is.
-        let target = (self.store.read(cx).workspace(project))
-            .and_then(|ws| ws.target.as_ref())
-            .map_or("the target".to_owned(), |t| t.name.clone());
-        let ahead = match branch.ahead {
-            Some(0) => format!("already in {target}"),
-            Some(n) => plural(n, "commit"),
-            None => String::new(),
-        };
-        let summary = [branch.author.clone().unwrap_or_default(), ahead];
-        let summary: Vec<String> = summary.into_iter().filter(|p| !p.is_empty()).collect();
-        actions.push(muted(summary.join(" · "), theme).into_any_element());
         if let Some(title) = self.selected_branch_commit_title(project) {
             crumbs.push((title.into(), None));
-            let project = project.clone();
-            actions.push(
-                button("copy-commit", "Cherry-pick")
-                    .style(ButtonStyle::Ghost)
-                    .tooltip("Then press ⌘V on a branch or commit, or drag it there")
-                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        this.copy_branch_commit(&project, cx)
-                    }))
-                    .into_any_element(),
-            );
-        }
-        if let Some(name) = self.checked_out_in(project, branch, cx) {
-            let shown = Selection::Worktree(project.clone(), name);
-            let store = self.store.clone();
-            actions.push(
-                button("open-worktree", "Open worktree")
-                    .style(ButtonStyle::Pop)
-                    .tooltip("A linked worktree has it checked out")
-                    .on_click(move |_, _, cx| {
-                        store.update(cx, |store, cx| store.select(Some(shown.clone()), cx))
-                    })
-                    .into_any_element(),
-            );
-        } else {
-            if local {
-                let project = project.clone();
-                actions.push(
-                    button("delete-other", "Delete…")
-                        .style(ButtonStyle::Ghost)
-                        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                            this.delete_other_branch(&project, window, cx)
-                        }))
-                        .into_any_element(),
-                );
-            }
-            let switched = project.clone();
-            actions.push(
-                button("switch-to-branch", "Switch to branch")
-                    .style(ButtonStyle::Ghost)
-                    .tooltip(
-                        "Leave the workspace and work on just this branch. Switch to the \
-                         workspace, on the project's page, brings the others back.",
-                    )
-                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        this.switch_to_branch(&switched, cx)
-                    }))
-                    .into_any_element(),
-            );
-            let project = project.clone();
-            actions.push(
-                button("apply-branch", "Apply to workspace")
-                    .style(ButtonStyle::Pop)
-                    .tooltip("Add it to the workspace, beside your other branches")
-                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        this.apply_branch(&project, cx)
-                    }))
-                    .into_any_element(),
-            );
         }
     }
 }

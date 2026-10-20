@@ -3,8 +3,8 @@
 //! any of them.
 
 use gpui::{
-    AnyElement, ClickEvent, Context, MouseButton, MouseDownEvent, Pixels, Point, SharedString,
-    Window, div, prelude::*, px,
+    AnyElement, Context, MouseButton, MouseDownEvent, Pixels, Point, SharedString, Window, div,
+    prelude::*, px,
 };
 
 use super::Detail;
@@ -18,9 +18,7 @@ use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
 use but_oplog::legacy::OperationKind;
 
-use crate::ui::{
-    ButtonStyle, Icon, button, clock_time, day_label, faint, list_row, local_day, small_icon,
-};
+use crate::ui::{Icon, clock_time, day_label, faint, list_row, local_day, small_icon};
 
 /// How many operations a page of the log holds.
 const PAGE: usize = 60;
@@ -237,38 +235,6 @@ impl Detail {
         }
     }
 
-    /// The header's actions for the page: taking a snapshot, and restoring to before the
-    /// selected operation.
-    pub(super) fn history_header(
-        &self,
-        project: &ProjectId,
-        actions: &mut Vec<AnyElement>,
-        cx: &Context<Self>,
-    ) {
-        let snapshot = cx.listener({
-            let project = project.clone();
-            move |this, _: &ClickEvent, _, cx| this.take_snapshot(&project, cx)
-        });
-        actions.push(
-            button("snapshot", "Take snapshot")
-                .style(ButtonStyle::Ghost)
-                .tooltip("Save how the project is now, to come back to later")
-                .on_click(snapshot)
-                .into_any_element(),
-        );
-        if self.selected_operation(project).is_some() {
-            let project = project.clone();
-            actions.push(
-                button("restore", "Restore to before this")
-                    .style(ButtonStyle::Gray)
-                    .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                        this.restore_selected(&project, window, cx)
-                    }))
-                    .into_any_element(),
-            );
-        }
-    }
-
     fn selected_operation(&self, project: &ProjectId) -> Option<&Operation> {
         let history = self.history_for(project)?;
         let id = history.selected?;
@@ -332,7 +298,7 @@ impl Detail {
     }
 
     /// Record how the project is now, to come back to later.
-    fn take_snapshot(&self, project: &ProjectId, cx: &mut Context<Self>) {
+    pub(super) fn take_snapshot(&self, project: &ProjectId, cx: &mut Context<Self>) {
         self.store.update(cx, |store, cx| {
             store.run(
                 project,

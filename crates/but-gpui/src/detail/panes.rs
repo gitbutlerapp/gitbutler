@@ -34,7 +34,6 @@ impl Detail {
         let store = self.store.read(cx);
         // Each crumb but the last links to what it names.
         let mut crumbs: Vec<Crumb> = Vec::new();
-        let mut actions: Vec<AnyElement> = Vec::new();
         if let Some(selection) = selection
             && let Some(entry) = store.project(selection.project())
         {
@@ -58,61 +57,14 @@ impl Detail {
                 }
             };
             match selection {
-                Selection::Project(project) => {
-                    self.upstream_crumbs(project, &mut crumbs, cx);
-                    let needs_update = workspace
-                        .and_then(|ws| ws.target.as_ref())
-                        .filter(|target| target.needs_update)
-                        .map(|target| target.name.clone());
-                    // Busy while one waits or runs, as pressing again would only queue more.
-                    let (fetching, updating) =
-                        (store.fetching(&entry.id), store.updating(&entry.id));
-                    // A folder that's gone has nothing to fetch into.
-                    if !self.no_remote(&entry.id) && entry.project.path.exists() {
-                        actions.push(
-                            button("fetch", if fetching { "Fetching…" } else { "Fetch" })
-                                .icon(Icon::Refresh)
-                                .style(ButtonStyle::Ghost)
-                                .disabled_because(fetching.then_some("Fetching already"))
-                                .tooltip_with_key(
-                                    "Fetch from the project's remotes",
-                                    shortcut(&crate::app::Fetch, cx),
-                                )
-                                .dispatch(&crate::app::Fetch)
-                                .into_any_element(),
-                        );
+                Selection::Project(project) => self.upstream_crumbs(project, &mut crumbs, cx),
+                Selection::Uncommitted(_) => match workspace.and_then(|ws| ws.editing.as_ref()) {
+                    Some(editing) => {
+                        let title = commit_title(&editing.title);
+                        crumbs.push((format!("Editing {title}").into(), None));
                     }
-                    if let Some(target) = needs_update {
-                        actions.push(
-                            button(
-                                "update",
-                                match updating {
-                                    true => "Updating…".to_owned(),
-                                    false => format!("Update from {target}"),
-                                },
-                            )
-                            .icon(Icon::ArrowDown)
-                            .style(ButtonStyle::Pop)
-                            .disabled_because(updating.then_some("Updating already"))
-                            .tooltip_with_key(
-                                "Rebase your branches onto the target's new commits",
-                                shortcut(&crate::app::UpdateFromTarget, cx),
-                            )
-                            .dispatch(&crate::app::UpdateFromTarget)
-                            .into_any_element(),
-                        );
-                    }
-                }
-                Selection::Uncommitted(project) => {
-                    match workspace.and_then(|ws| ws.editing.as_ref()) {
-                        Some(editing) => {
-                            let title = commit_title(&editing.title);
-                            crumbs.push((format!("Editing {title}").into(), None));
-                            actions.extend(self.editing_actions(project, cx));
-                        }
-                        None => crumbs.push(("Main worktree".into(), None)),
-                    }
-                }
+                    None => crumbs.push(("Main worktree".into(), None)),
+                },
                 Selection::Branch(project, ref_name) => {
                     let branch = workspace.and_then(|ws| ws.find_branch(ref_name));
                     let name = match branch {
@@ -122,96 +74,10 @@ impl Detail {
                     };
                     crumbs.push(heading(selection));
                     crumbs.push((name.to_owned().into(), None));
-                    // An unnamed branch has no ref to open a pull request from.
-                    let review = workspace
-                        .and_then(|ws| ws.find_branch(ref_name))
-                        .filter(|b| !ref_name.is_empty() && !b.commits.is_empty())
-                        .filter(|_| crate::pr::on_forge(store, selection))
-                        .filter(|_| store.worktree_of(selection).is_none())
-                        .map(|b| {
-                            (b.review.as_ref()).map(|r| store.review_state(selection.project(), r))
-                        });
-                    let can_create = review == Some(None);
-                    let can_merge = review == Some(Some(crate::backend::ReviewState::Open));
-                    let pushable = workspace.filter(|ws| ws.can_push(ref_name));
-                    let pushing = store.pushing(selection.project(), ref_name);
-                    let busy = pushing.then_some("Wait for the push to finish");
-                    let refused = workspace.and_then(|ws| ws.push_refused(ref_name));
-                    // Landing directly takes the place of a pull request, forge or not.
-                    let land = (store.lands_directly(selection.project()))
-                        .then_some(workspace)
-                        .flatten()
-                        .and_then(|ws| {
-                            let whole = crate::edits::land_scope(ws, ref_name)?;
-                            Some((whole, &ws.target.as_ref()?.name))
-                        });
-                    let next = match land {
-                        Some((whole, target)) => Some(
-                            button(
-                                "land",
-                                match whole {
-                                    true => format!("Land the stack on {target}"),
-                                    false => format!("Land on {target}"),
-                                },
-                            )
-                            .icon(Icon::BranchMerge)
-                            .dispatch(&crate::edits::LandBranch),
-                        ),
-                        None if can_create => Some(
-                            button(
-                                "create-pr",
-                                match store.publishing(selection.project(), ref_name) {
-                                    true => "Creating…",
-                                    false => "Create pull request",
-                                },
-                            )
-                            .icon(Icon::Pr)
-                            // Creating one pushes first.
-                            .disabled_because(refused)
-                            .dispatch(&crate::pr::CreatePullRequest),
-                        ),
-                        None if can_merge => Some(
-                            button("merge-pr", "Merge")
-                                .icon(Icon::BranchMerge)
-                                .disabled_because(pushable.map(|_| crate::pr::PUSH_BEFORE_MERGE))
-                                .dispatch(&crate::pr::MergePullRequest),
-                        ),
-                        None => None,
-                    };
-                    if let Some(next) = next {
-                        // The next step once nothing's left to push.
-                        let style = match pushable {
-                            Some(_) => ButtonStyle::Ghost,
-                            None => ButtonStyle::Pop,
-                        };
-                        actions.push(next.style(style).disabled_because(busy).into_any_element());
-                    }
-                    if let Some(ws) = pushable {
-                        // Pushing takes the branches below along, so they count too.
-                        let label = if pushing {
-                            "Pushing…"
-                        } else if ws.needs_force(ref_name) {
-                            "Force push"
-                        } else {
-                            "Push"
-                        };
-                        actions.push(
-                            button("push", label)
-                                .icon(Icon::ArrowUp)
-                                .style(ButtonStyle::Pop)
-                                .disabled_because(busy.or(refused))
-                                .tooltip_with_key(
-                                    "Push this branch and the ones below it",
-                                    shortcut(&crate::app::Push, cx),
-                                )
-                                .dispatch(&crate::app::Push)
-                                .into_any_element(),
-                        );
-                    }
                 }
                 Selection::Branches(project) => {
                     crumbs.push(("Branches".into(), Some(selection.clone())));
-                    self.branches_header(project, &mut crumbs, &mut actions, theme, cx);
+                    self.branches_crumbs(project, &mut crumbs);
                 }
                 Selection::Worktree(_, name) => {
                     crumbs.push((name.to_string().into(), None));
@@ -232,10 +98,7 @@ impl Detail {
                     crumbs.push(heading(selection));
                     crumbs.push((format!("Stack of {n}").into(), None));
                 }
-                Selection::History(project) => {
-                    crumbs.push(("Operations history".into(), None));
-                    self.history_header(project, &mut actions, cx);
-                }
+                Selection::History(_) => crumbs.push(("Operations history".into(), None)),
                 Selection::Commit(project, id) => {
                     if let Some((branch, commit)) = workspace.and_then(|ws| ws.find_commit(*id)) {
                         let branch_selection =
@@ -320,7 +183,61 @@ impl Detail {
                         }),
                 ),
             )
-            .children(actions)
+            .children(selection.and_then(|selection| self.page_action(selection, cx)))
+    }
+
+    /// The one control on the right of the header: Refresh where what the page shows comes
+    /// from elsewhere, and Take snapshot on the Operations history, which has nothing to
+    /// refresh. Everything else a page does is in its right-click menus, away from a corner
+    /// that's easy to hit by accident.
+    fn page_action(&self, selection: &Selection, cx: &Context<Self>) -> Option<AnyElement> {
+        let store = self.store.read(cx);
+        let project = selection.project();
+        let entry = store.project(project)?;
+        let refresh = |id: &'static str, busy: bool| {
+            button(id, if busy { "Refreshing…" } else { "Refresh" })
+                .icon(Icon::Refresh)
+                .style(ButtonStyle::Ghost)
+                .disabled_because(busy.then_some("Refreshing already"))
+        };
+        match selection {
+            // Fetched, with pull requests and CI asked about again. A folder that's gone, or
+            // a project without a remote, has nothing to fetch.
+            Selection::Project(_) | Selection::Branches(_) | Selection::Branch(..)
+                if !self.no_remote(project) && entry.project.path.exists() =>
+            {
+                let busy = store.fetching(project) || store.forge_checking(project);
+                let tip = "Fetch, and check pull requests and CI again";
+                Some(
+                    refresh("refresh", busy)
+                        .tooltip_with_key(tip, shortcut(&crate::app::Fetch, cx))
+                        .dispatch(&crate::app::Fetch)
+                        .into_any_element(),
+                )
+            }
+            Selection::Machines(_) => {
+                let store = self.store.clone();
+                Some(
+                    refresh("refresh-machines", false)
+                        .tooltip("Read your other machines' work again")
+                        .on_click(move |_, _, cx| store.read(cx).read_mesh())
+                        .into_any_element(),
+                )
+            }
+            Selection::History(project) => {
+                let project = project.clone();
+                Some(
+                    button("snapshot", "Take snapshot")
+                        .style(ButtonStyle::Ghost)
+                        .tooltip("Save how the project is now, to come back to later")
+                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                            this.take_snapshot(&project, cx)
+                        }))
+                        .into_any_element(),
+                )
+            }
+            _ => None,
+        }
     }
 
     /// Cancel and Finish for the commit `project` has checked out for editing. Finishing
@@ -331,6 +248,7 @@ impl Detail {
         let finish = project.clone();
         [
             button("cancel-editing", "Cancel")
+                .small()
                 .style(ButtonStyle::Ghost)
                 .tooltip("Put the commit back as it was")
                 .on_click(cx.listener(move |this, _, _, cx| {
@@ -338,6 +256,7 @@ impl Detail {
                 }))
                 .into_any_element(),
             button("finish-editing", "Finish")
+                .small()
                 .icon(Icon::Tick)
                 .style(ButtonStyle::Pop)
                 .tooltip("Commit the files as they are in its place, and rebase what's above it")
@@ -403,7 +322,29 @@ impl Detail {
                 );
             }
         };
-        let footer = if !self.composing {
+        // A commit being edited, in the main checkout, is finished or cancelled where a commit
+        // would be made.
+        let editing = worktree.is_none() && workspace.editing.is_some();
+        let footer = if editing {
+            h_flex()
+                .flex_none()
+                .h(px(super::FOOTER_HEIGHT))
+                .px(px(12.))
+                .gap(px(8.))
+                .border_t_1()
+                .border_color(theme.border_3)
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .truncate()
+                        .text_size(px(12.))
+                        .text_color(theme.text_3)
+                        .child("Editing the commit"),
+                )
+                .children(self.editing_actions(project, cx))
+                .into_any_element()
+        } else if !self.composing {
             let target = self.effective_target(project, cx);
             let target = match (target.as_deref(), worktree) {
                 (Some(target), _) => format!("Commit to {}", short_ref(target)),
@@ -442,15 +383,12 @@ impl Detail {
         let banner = self.conflict_banner(cx.entity().downgrade(), cx);
         // Committing here while Git is partway through something leaves it there.
         let unfinished = git_operation.map(|op| unfinished_banner(op, theme));
-        // A commit being edited, in the main checkout, is finished from the header, not
-        // committed.
-        let editing = worktree.is_none() && workspace.editing.is_some();
         v_flex()
             .size_full()
             .children(unfinished)
             .children(banner.map(|banner| side_header(theme).child(banner)))
             .child(self.render_uncommitted_files(project, worktree, files, theme, cx))
-            .when(!editing, |el| el.child(footer))
+            .child(footer)
             .into_any_element()
     }
 

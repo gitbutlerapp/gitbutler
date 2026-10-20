@@ -257,9 +257,14 @@ impl AppView {
         }
     }
 
+    /// Fetch the selected project, and ask its forge about pull requests and CI again: what
+    /// the header's Refresh does.
     fn fetch(&mut self, _: &Fetch, _: &mut Window, cx: &mut Context<Self>) {
         if let Some(project) = self.selected_project(cx) {
-            self.store.update(cx, |store, cx| store.fetch(&project, cx));
+            self.store.update(cx, |store, cx| {
+                store.fetch(&project, cx);
+                store.refresh_forge(&project);
+            });
         }
     }
 
