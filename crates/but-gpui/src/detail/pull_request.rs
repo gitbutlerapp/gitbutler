@@ -15,8 +15,8 @@ use crate::ui::markdown;
 use crate::ui::review as ui_review;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, ago, button, faint, h_flex, icon, local_time, muted, now, shortcut,
-    small_icon, v_flex,
+    ButtonStyle, Icon, Tooltip, ago, button, duration, faint, h_flex, icon, local_time, muted, now,
+    shortcut, small_icon, v_flex,
 };
 
 /// How tall the tabs over the diff beside a list are.
@@ -433,8 +433,9 @@ fn check_row(ix: usize, run: &CheckRun, theme: &Theme) -> Stateful<Div> {
         Some(false) if run.status == "skipped" => (Icon::Tick, theme.text_3),
         Some(false) => (Icon::Tick, theme.safe),
     };
-    let status = match duration(run) {
-        Some(took) => format!("{} · {took}", run.status),
+    // How long a finished check ran.
+    let status = match run.completed_at.zip(run.started_at) {
+        Some((end, start)) => format!("{} · {}", run.status, duration((end - start).max(0))),
         None => run.status.clone(),
     };
     let when = (run.completed_at.map(ago))
@@ -450,16 +451,6 @@ fn check_row(ix: usize, run: &CheckRun, theme: &Theme) -> Stateful<Div> {
         .child(faint(status, theme).flex_none())
         .child(div().flex_1())
         .children(when.map(|when| faint(when, theme).flex_none()))
-}
-
-/// How long a finished check ran: "42s", "3m 5s", "1h 12m".
-fn duration(run: &CheckRun) -> Option<String> {
-    let seconds = (run.completed_at? - run.started_at?).max(0);
-    Some(match seconds {
-        0..60 => format!("{seconds}s"),
-        60..3600 => format!("{}m {}s", seconds / 60, seconds % 60),
-        _ => format!("{}h {}m", seconds / 3600, seconds % 3600 / 60),
-    })
 }
 
 /// A tab of a page's header, underlined along the header's edge while `selected`.

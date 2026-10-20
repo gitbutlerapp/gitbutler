@@ -10,7 +10,7 @@ use crate::app::{
 use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
 use crate::state::{SLOW, Selection};
 use crate::theme::Theme;
-use crate::ui::{Icon, STATUS_BAR_HEIGHT, h_flex, shortcut, small_icon};
+use crate::ui::{Icon, STATUS_BAR_HEIGHT, duration, h_flex, shortcut, small_icon};
 
 impl AppView {
     pub fn render_status_bar(
@@ -24,14 +24,14 @@ impl AppView {
         let working = store.busy().map(|(busy, took)| {
             // How long it's taking once that's noticeable, and what else runs or waits.
             let elapsed = match took >= SLOW {
-                true => format!(" {:.1}s", took.as_secs_f32()),
+                true => format!(" {}", duration(took.as_secs_f32().round() as i64)),
                 false => String::new(),
             };
             let others = match store.others_busy() {
                 0 => String::new(),
                 n => format!(" · {n} more"),
             };
-            format!("{busy}…{elapsed}{others}")
+            format!("{}…{elapsed}{others}", under_way(busy))
         });
         let state: AnyElement = if let Some(working) = working {
             h_flex()
@@ -246,10 +246,63 @@ fn key(keys: &str, theme: &Theme) -> gpui::Div {
 }
 
 /// A key and what it does, the words a step quieter than the key.
+/// An operation's label, which names it as a command ("Push main"), as what's under way
+/// ("Pushing main"). An update rebases the stacks onto the target.
+fn under_way(label: &str) -> String {
+    let (verb, rest) = label.split_once(' ').unwrap_or((label, ""));
+    let doing = match verb {
+        "Update" => "Rebasing".to_owned(),
+        "Snapshot" => "Taking a snapshot".to_owned(),
+        // A short stressed last syllable doubles its consonant.
+        "Commit" | "Uncommit" | "Split" | "Rewrap" => {
+            format!("{verb}{}ing", &verb[verb.len() - 1..])
+        }
+        _ => format!("{}ing", verb.strip_suffix('e').unwrap_or(verb)),
+    };
+    match rest {
+        "" => doing,
+        rest => format!("{doing} {rest}"),
+    }
+}
+
 fn hint(keys: &str, label: &str, theme: &Theme) -> gpui::Div {
     h_flex()
         .flex_none()
         .gap(px(4.))
         .child(key(keys, theme))
         .child(div().text_color(theme.text_3).child(label.to_owned()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::under_way;
+
+    #[test]
+    fn labels_read_as_what_is_under_way() {
+        let read = [
+            "Update",
+            "Push main",
+            "Fetch",
+            "Commit",
+            "Cherry-pick 2 commits",
+            "Resolve",
+            "Undo",
+            "Snapshot",
+        ]
+        .map(under_way);
+        assert_eq!(
+            read,
+            [
+                "Rebasing",
+                "Pushing main",
+                "Fetching",
+                "Committing",
+                "Cherry-picking 2 commits",
+                "Resolving",
+                "Undoing",
+                "Taking a snapshot"
+            ],
+            "an update rebases, and each verb takes -ing as English spells it"
+        );
+    }
 }

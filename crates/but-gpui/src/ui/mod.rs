@@ -897,6 +897,15 @@ pub fn error_summary(text: &str) -> String {
     }
 }
 
+/// A span of `seconds`: "42s", "3m 5s", "1h 12m".
+pub fn duration(seconds: i64) -> String {
+    match seconds {
+        ..60 => format!("{seconds}s"),
+        60..3600 => format!("{}m {}s", seconds / 60, seconds % 60),
+        _ => format!("{}h {}m", seconds / 3600, seconds % 3600 / 60),
+    }
+}
+
 /// `seconds` (since the epoch) as how long ago: "just now", "5m ago".
 pub fn ago(seconds: i64) -> String {
     match relative_time(seconds).as_str() {

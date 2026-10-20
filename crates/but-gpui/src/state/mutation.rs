@@ -861,9 +861,8 @@ impl Store {
     fn tick_while_busy(cx: &mut Context<Self>) -> Task<()> {
         cx.spawn(async move |this, cx| {
             loop {
-                cx.background_executor()
-                    .timer(Duration::from_millis(250))
-                    .await;
+                // It counts whole seconds.
+                cx.background_executor().timer(Duration::from_secs(1)).await;
                 let Ok(true) = this.update(cx, |store, cx| {
                     if store.busy().is_some_and(|(_, t)| t >= SLOW) {
                         cx.notify();
