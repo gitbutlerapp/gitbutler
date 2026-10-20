@@ -26,11 +26,11 @@ import {
 } from "$lib/forge/bitbucket/bitbucketUserService.svelte";
 import { CHECKS_MONITOR, ChecksMonitor } from "$lib/forge/checksMonitor.svelte";
 import { FORGE_INFO_SERVICE, ForgeInfoService } from "$lib/forge/forgeInfo.svelte";
-import { GitHubUserService, GITHUB_USER_SERVICE } from "$lib/forge/github/githubUserService.svelte";
 import {
 	FORGEJO_USER_SERVICE,
 	ForgejoUserService,
 } from "$lib/forge/forgejo/forgejoUserService.svelte"; // forgejo-fork
+import { GitHubUserService, GITHUB_USER_SERVICE } from "$lib/forge/github/githubUserService.svelte";
 import { GITLAB_USER_SERVICE, GitLabUserService } from "$lib/forge/gitlab/gitlabUserService.svelte";
 import { LISTING_SERVICE, ListingService } from "$lib/forge/listingService.svelte";
 import { PR_SERVICE, PrService } from "$lib/forge/prService.svelte";

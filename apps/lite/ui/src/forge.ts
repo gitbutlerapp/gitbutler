@@ -42,6 +42,9 @@ export const forgeDestination = (
 		case "bitbucket":
 			label = "Bitbucket";
 			break;
+		case "forgejo":
+			label = "Forgejo";
+			break;
 		default:
 			return null;
 	}
@@ -50,20 +53,16 @@ export const forgeDestination = (
 };
 
 export const isCloudForge = (destination: ForgeDestination): boolean => {
-	let cloudHost: string;
 	switch (destination.name) {
 		case "github":
-			cloudHost = "github.com";
-			break;
+			return destination.host === "github.com";
 		case "gitlab":
-			cloudHost = "gitlab.com";
-			break;
+			return destination.host === "gitlab.com";
 		case "bitbucket":
-			cloudHost = "bitbucket.org";
-			break;
+			return destination.host === "bitbucket.org";
+		default:
+			return false;
 	}
-
-	return cloudHost === destination.host;
 };
 
 // https://linear.app/gitbutler/issue/GB-1479/use-error-codes-to-improve-displayhandling-of-backend-errors
@@ -74,6 +73,8 @@ export const forgeAuthFailure = (error: unknown): "missing" | "rejected" | null 
 	if (msg.startsWith("Not authenticated with")) return "missing";
 	if (msg.endsWith("authentication failed.")) return "rejected";
 	if (msg.endsWith("GitLab refused access for the token.")) return "rejected";
+	if (msg.includes("Forgejo refused access for the token.")) return "rejected";
+	if (msg.includes("Forgejo did not accept the token.")) return "rejected";
 
 	return null;
 };

@@ -19,6 +19,7 @@ impl ForgeName {
             Self::GitLab => Some("gitlab.com"),
             Self::Bitbucket => Some("bitbucket.org"),
             Self::Azure => Some("dev.azure.com"),
+            Self::Forgejo => Some("codeberg.org"), // forgejo-fork
         }
     }
 
@@ -37,6 +38,7 @@ impl ForgeName {
             "gitlab" => Some(ForgeName::GitLab),
             "bitbucket" => Some(ForgeName::Bitbucket),
             "azure" => Some(ForgeName::Azure),
+            "forgejo" => Some(ForgeName::Forgejo), // forgejo-fork
             _ => None,
         }
     }

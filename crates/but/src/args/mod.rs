@@ -504,7 +504,7 @@ pub enum Subcommands {
         update: Vec<PullUpdate>,
     },
 
-    /// Commands for creating and managing reviews on a forge, e.g. GitHub PRs or GitLab MRs.
+    /// Commands for creating and managing reviews on a forge, e.g. GitHub PRs, GitLab MRs, or Forgejo PRs.
     ///
     /// If you are authenticated with a forge using `but config forge auth`, you can use
     /// the `but pr` or `but mr` commands to create pull requests (or merge requests) on

@@ -21,14 +21,14 @@ pub struct MergedReviewFromMessage<'a> {
 /// its squash-merge subject (`title (#N)`); rebase merges leave no trace.
 /// Being message-based, it trusts what the message says: an edited merge
 /// body or a hand-written `(#N)` issue reference is taken at face value.
-/// Other forges are not recognised yet.
+/// Other forges (except Forgejo, which shares GitHub's message shapes) are not recognised yet.
 pub fn merged_review_from_message<'a>(
     forge: &ForgeName,
     message: &'a str,
 ) -> Option<MergedReviewFromMessage<'a>> {
     match forge {
-        ForgeName::GitHub => github_merged_review(message),
-        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure | ForgeName::Forgejo => None,
+        ForgeName::GitHub | ForgeName::Forgejo => github_merged_review(message),
+        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure => None,
     }
 }
 

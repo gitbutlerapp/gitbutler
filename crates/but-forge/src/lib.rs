@@ -206,6 +206,9 @@ fn canonical_repository_host<'a>(forge: &ForgeName, host: &'a str) -> &'a str {
         ForgeName::GitLab => "altssh.gitlab.com",
         ForgeName::Bitbucket => "altssh.bitbucket.org",
         ForgeName::Azure => "ssh.dev.azure.com",
+        // Forgejo instances have no public alt-SSH host; this never matches a
+        // parsed repository host.
+        ForgeName::Forgejo => "\0",
     };
     if repository_hosts_match(host, alias) {
         forge.public_host().unwrap_or(host)

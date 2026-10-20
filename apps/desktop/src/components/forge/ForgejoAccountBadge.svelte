@@ -1,7 +1,7 @@
 <script lang="ts">
 	// forgejo-fork
 	import { forgejoHostLabel } from "$lib/forge/forgejo/forgejoUserService.svelte";
-	import { Badge } from "@gitbutler/ui";
+	import { Badge } from "@gitbutler/ui-svelte";
 	import type { ForgejoAccountIdentifier } from "@gitbutler/but-sdk";
 
 	type Props = {

@@ -277,32 +277,7 @@ fn capabilities_for(forge: &ForgeName) -> ForgeCapabilities {
         },
     }
 }
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn self_hosted_base_url_built_from_override_repo_info() {
-        // On the #14319 override path, `derive_forge_repo_info` fabricates
-        // `ForgeRepoInfo` exactly as the account path would - owner/repo parsed
-        // from the URL - so `build_base_url` must produce the self-hosted web
-        // URL from it, taking the host from the remote rather than a hardcoded
-        // per-forge default.
-        let repo_info = ForgeRepoInfo {
-            forge: ForgeName::GitLab,
-            host: "git.selfhosted.example".into(),
-            port: None,
-            owner: "group".into(),
-            repo: "repo".into(),
-            protocol: "https".into(),
-        };
-        assert_eq!(
-            build_base_url(
-                "https://git.selfhosted.example/group/repo.git",
-                &repo_info,
-                &[]
-            ),
 mod tests {
     use super::*;
 

@@ -7,7 +7,7 @@
 	import { FORGEJO_USER_SERVICE } from "$lib/forge/forgejo/forgejoUserService.svelte";
 	import { inject } from "@gitbutler/core/context";
 
-	import { AddForgeAccountButton, Button, CardGroup, Link, Textbox } from "@gitbutler/ui";
+	import { AddForgeAccountButton, Button, CardGroup, Link, Textbox } from "@gitbutler/ui-svelte";
 	import { fade } from "svelte/transition";
 
 	const forgejoUserService = inject(FORGEJO_USER_SERVICE);
@@ -133,7 +133,7 @@
 						size="large"
 						value={hostInput}
 						placeholder="https://codeberg.org"
-						oninput={(value) => (hostInput = value)}
+						oninput={(value: string) => (hostInput = value)}
 					/>
 					<Textbox
 						label="Personal access token"
@@ -141,7 +141,7 @@
 						type="password"
 						value={tokenInput}
 						placeholder="••••••••••••••••••••••••••••••••••••••••"
-						oninput={(value) => (tokenInput = value)}
+						oninput={(value: string) => (tokenInput = value)}
 						error={tokenError}
 					/>
 				</CardGroup.Item>

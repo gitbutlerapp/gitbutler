@@ -13,10 +13,8 @@
 
 use anyhow::{Context, bail};
 use but_api::{
-use but_api::{
     bitbucket, branch, commit, diff, forgejo, github, gitlab, land, legacy, open, platform,
     resolve, workspace, worktrees,
-};
 };
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{

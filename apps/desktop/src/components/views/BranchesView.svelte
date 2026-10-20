@@ -21,8 +21,8 @@
 	import { isNormalizedError } from "$lib/error/normalizedError";
 	import { useBitbucketForgeUser } from "$lib/forge/bitbucket/hooks.svelte";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
-	import { useGitHubForgeUser } from "$lib/forge/github/hooks.svelte";
 	import { useForgejoForgeUser } from "$lib/forge/forgejo/hooks.svelte"; // forgejo-fork
+	import { useGitHubForgeUser } from "$lib/forge/github/hooks.svelte";
 	import { useGitLabForgeUser } from "$lib/forge/gitlab/hooks.svelte";
 	import { workspacePath } from "$lib/routes/routes.svelte";
 	import { handleApplyOutcome } from "$lib/stacks/stack";

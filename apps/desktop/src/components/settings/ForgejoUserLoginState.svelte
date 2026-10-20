@@ -4,7 +4,7 @@
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { FORGEJO_USER_SERVICE } from "$lib/forge/forgejo/forgejoUserService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { ForgeUserCard } from "@gitbutler/ui";
+	import { ForgeUserCard } from "@gitbutler/ui-svelte";
 	import { QueryStatus } from "@reduxjs/toolkit/query";
 	import type { ForgejoAccountIdentifier } from "@gitbutler/but-sdk";
 
