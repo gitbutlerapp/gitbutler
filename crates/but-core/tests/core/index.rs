@@ -52,14 +52,14 @@ fn added_paths_replace_entries_that_clash_as_file_or_directory() {
     let mut state = index_with(&["a", "b/c", "d"]);
     let mut edit = Edit::new(&mut state);
     edit.upsert("a/x".into(), new_id(), Mode::FILE, Stat::Unknown);
-    edit.set_conflict_stage("b".into(), ConflictStage::Ours, Mode::FILE, new_id());
+    edit.upsert("b".into(), new_id(), Mode::FILE, Stat::Unknown);
 
     assert!(edit.finish(), "entries were replaced");
     assert_eq!(
         entries(&state),
         [
             "a/x Unconflicted 2222",
-            "b Ours 2222",
+            "b Unconflicted 2222",
             "d Unconflicted 1111"
         ],
         "an index can't hold a path as both a file and a directory"
@@ -106,8 +106,67 @@ fn later_additions_replace_earlier_ones_that_clash_as_file_or_directory() {
     edit.finish();
     assert_eq!(
         entries(&state),
-        ["a/b Ours 2222"],
-        "conflict stages displace a clashing earlier addition too"
+        ["a Unconflicted 1111", "a/b Ours 2222"],
+        "like Git, only entries at the same stage clash, so a conflict stage keeps an unconflicted addition"
+    );
+}
+
+#[test]
+fn a_file_and_a_directory_may_share_a_path_at_different_conflict_stages() {
+    for (first, second) in [
+        (("a", ConflictStage::Ours), ("a/b", ConflictStage::Theirs)),
+        (("a/b", ConflictStage::Theirs), ("a", ConflictStage::Ours)),
+    ] {
+        let mut state = index_with(&[]);
+        let mut edit = Edit::new(&mut state);
+        edit.set_conflict_stage(first.0.into(), first.1, Mode::FILE, new_id());
+        edit.set_conflict_stage(second.0.into(), second.1, Mode::FILE, new_id());
+        edit.finish();
+
+        assert_eq!(
+            entries(&state),
+            ["a Ours 2222", "a/b Theirs 2222"],
+            "Git keeps both sides of a file/directory conflict, as they are at different stages"
+        );
+    }
+}
+
+#[test]
+fn a_clashing_addition_replaces_only_the_stage_it_clashes_at() {
+    let mut state = index_with(&[]);
+    let mut edit = Edit::new(&mut state);
+    edit.set_conflict_stage("a".into(), ConflictStage::Ours, Mode::FILE, old_id());
+    edit.set_conflict_stage("a".into(), ConflictStage::Theirs, Mode::FILE, old_id());
+    edit.set_conflict_stage("a/b".into(), ConflictStage::Ours, Mode::FILE, new_id());
+    edit.finish();
+
+    assert_eq!(
+        entries(&state),
+        ["a Theirs 1111", "a/b Ours 2222"],
+        "like Git, a keeps the stage that a/b doesn't clash with"
+    );
+}
+
+#[test]
+fn existing_entries_stay_when_an_addition_clashes_only_at_another_stage() {
+    let mut state = index_with(&["a", "c/d"]);
+    let mut edit = Edit::new(&mut state);
+    edit.set_conflict_stage("a/b".into(), ConflictStage::Ours, Mode::FILE, new_id());
+    edit.set_conflict_stage("c".into(), ConflictStage::Theirs, Mode::FILE, new_id());
+
+    assert!(
+        edit.contains("a".into()) && edit.contains("c/d".into()),
+        "unconflicted entries don't clash with conflict stages"
+    );
+    edit.finish();
+    assert_eq!(
+        entries(&state),
+        [
+            "a Unconflicted 1111",
+            "a/b Ours 2222",
+            "c Theirs 2222",
+            "c/d Unconflicted 1111"
+        ]
     );
 }
 
