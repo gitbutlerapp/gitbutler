@@ -83,12 +83,24 @@ fn refuse_conflicted(
     refuse_changed(&repo, selected)
 }
 
-/// Refuse some of an uncommitted file written to since its diff was read, as by an agent:
-/// its hunks and lines are placed by line numbers that an edit above or among them moves,
-/// and the engine would take whatever lies there now.
+/// Refuse some of an uncommitted file written to since its diff was read, as by an agent,
+/// or whose base moved, as when the CLI committed part of it: its hunks and lines are placed
+/// by line numbers that either moves, and the engine would take whatever lies there now.
 fn refuse_changed(repo: &gix::Repository, selected: &[Selected]) -> Result<()> {
+    let head = repo.head_tree().ok();
+    let base_now = |part: &Selected| {
+        let path = part
+            .file
+            .previous_path
+            .as_deref()
+            .unwrap_or(&part.file.path);
+        let entry = head.as_ref()?.lookup_entry_by_path(path).ok()??;
+        Some(entry.object_id())
+    };
     let changed = (selected.iter()).find(|part| {
-        part.hunks.is_some() && written(repo, part.file.path.as_str().into()) != part.file.modified
+        part.hunks.is_some()
+            && (written(repo, part.file.path.as_str().into()) != part.file.modified
+                || base_now(part) != part.file.base())
     });
     if let Some(part) = changed {
         bail!(
@@ -97,6 +109,25 @@ fn refuse_changed(repo: &gix::Repository, selected: &[Selected]) -> Result<()> {
         );
     }
     Ok(())
+}
+
+/// Record the project as it is, so undo brings back what `kind` is about to change. One that
+/// can't be recorded only logs: the operation goes ahead, without its undo step.
+pub(super) fn record_undo(
+    ctx: &but_ctx::Context,
+    kind: but_oplog::legacy::OperationKind,
+    perm: &mut but_ctx::access::RepoExclusive,
+) {
+    let details = but_oplog::legacy::SnapshotDetails::new(kind);
+    let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+        ctx,
+        details,
+        perm.read_permission(),
+        DryRun::No,
+    );
+    if let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(ctx, perm)) {
+        tracing::warn!(?err, ?kind, "couldn't record the operation for undo");
+    }
 }
 
 /// Where changes are read from: the main checkout, or the linked `worktree`.
@@ -651,7 +682,7 @@ pub fn discard_commit(path: &Path, commit: CommitId) -> Result<()> {
 /// Throw away the `selected` uncommitted changes of the main checkout, or of the linked
 /// `worktree` with that name.
 pub fn discard(path: &Path, worktree: Option<&str>, selected: &[Selected]) -> Result<()> {
-    use but_oplog::legacy::{OperationKind, SnapshotDetails};
+    use but_oplog::legacy::OperationKind;
     let mut ctx = open(path)?;
     // One lock throughout, so what's conflicted can't change under the discard.
     let mut guard = ctx.exclusive_worktree_access();
@@ -671,23 +702,15 @@ pub fn discard(path: &Path, worktree: Option<&str>, selected: &[Selected]) -> Re
     }
     refuse_changed(repo, selected)?;
     let conflicted: Vec<bstr::BString> = conflicted.into_iter().map(Into::into).collect();
-    let specs = taken_specs(selected)?;
+    // Hunks that moved since the diff was shown refuse it before anything is recorded.
+    let context_lines = ctx.settings.context_lines;
+    let specs = current_hunks(repo, selected, taken_specs(selected)?, context_lines)?;
     // The snapshot is recorded before anything changes, as the but-api discard does: undo
     // then brings back whatever goes, conflicts included, even when some of it couldn't be
     // discarded. The oplog can't restore a linked worktree, so its discard has none.
     if worktree.is_none() {
-        let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
-            &ctx,
-            SnapshotDetails::new(OperationKind::DiscardChanges),
-            perm.read_permission(),
-            DryRun::No,
-        );
-        if let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(&ctx, perm)) {
-            tracing::warn!(?err, "couldn't record the discard for undo");
-        }
+        record_undo(&ctx, OperationKind::DiscardChanges, perm);
     }
-    let context_lines = ctx.settings.context_lines;
-    let specs = current_hunks(repo, selected, specs, context_lines)?;
     // Conflicted files go last: resolving one takes its conflict away, so a failure after
     // that would lose it, and a linked worktree has no snapshot to bring it back.
     let (conflicted_specs, rest): (Vec<_>, Vec<_>) =
@@ -722,6 +745,10 @@ fn current_hunks(
     specs: Vec<DiffSpec>,
     context_lines: u32,
 ) -> Result<Vec<DiffSpec>> {
+    // Whole files have no hunks to find.
+    if specs.iter().all(|spec| spec.hunk_headers.is_empty()) {
+        return Ok(specs);
+    }
     let changes = but_core::diff::worktree_changes(repo)?.changes;
     let mut current = Vec::new();
     for (part, mut spec) in selected.iter().zip(specs) {
@@ -730,7 +757,10 @@ fn current_hunks(
                 || anyhow::anyhow!("{} changed since the diff was shown; try again", spec.path);
             let change = (changes.iter())
                 .find(|change| change.path == spec.path)
-                .filter(|change| super::file_change((*change).clone()).base() == part.file.base())
+                .filter(|change| {
+                    let base = change.status.previous_state_and_path().map(|(s, _)| s.id);
+                    base == part.file.base()
+                })
                 .ok_or_else(stale)?;
             let hunks = match change.unified_patch(repo, context_lines)? {
                 Some(but_core::UnifiedPatch::Patch { hunks, .. }) => hunks,
@@ -780,13 +810,14 @@ fn current_hunks(
 }
 
 /// Take the conflicted uncommitted `files` as they are on disk, markers or not.
-pub fn mark_resolved(path: &Path, files: Vec<String>) -> Result<()> {
+pub fn mark_resolved(path: &Path, worktree: Option<&str>, files: Vec<String>) -> Result<()> {
     let mut ctx = open(path)?;
     let paths = files.into_iter().map(Into::into).collect();
-    // Undo can't restore a commit checked out for editing, so it isn't recorded.
-    if super::edit::editing(&ctx)?.is_some() {
+    // Undo can't restore a linked worktree, or a commit checked out for editing, so neither
+    // is recorded.
+    if worktree.is_some() || super::edit::editing(&ctx)?.is_some() {
         let _guard = ctx.exclusive_worktree_access();
-        return but_workspace::resolve_worktree_conflicts(&*ctx.repo.get()?, paths);
+        return but_workspace::resolve_worktree_conflicts(&checkout(&ctx, worktree)?, paths);
     }
     but_api::workspace::resolve_worktree_conflicts(&mut ctx, paths)
 }
@@ -798,6 +829,17 @@ mod tests {
 
     use super::*;
     use crate::backend::{DiffBody, DiffSource, FileDiff, Kept, Workspace, load_diff};
+
+    /// HEAD's commit in the repository at `dir`.
+    fn head(dir: &Path) -> CommitId {
+        let id = git(dir, &["rev-parse", "HEAD"]);
+        CommitId(gix::ObjectId::from_hex(id.trim().as_bytes()).unwrap())
+    }
+
+    /// "line 1" to "line 20", a line each.
+    fn twenty_lines() -> Vec<String> {
+        (1..=20).map(|n| format!("line {n}\n")).collect()
+    }
 
     fn git(dir: &Path, args: &[&str]) -> String {
         let out = Command::new("git")
@@ -853,8 +895,7 @@ mod tests {
             .output()
             .unwrap();
         assert!(!merge.status.success(), "both sides changed the line");
-        let head = git(path, &["rev-parse", "HEAD"]);
-        let head = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+        let head = head(path);
         (dir, head)
     }
 
@@ -877,7 +918,7 @@ mod tests {
             "the markers would go in: {refused:#}"
         );
 
-        mark_resolved(path, vec!["file".into()]).unwrap();
+        mark_resolved(path, None, vec!["file".into()]).unwrap();
         let files = uncommitted(path);
         assert_eq!(files.len(), 1, "the markers are still a change: {files:?}");
         assert!(!files[0].conflicted, "the index takes the file as it is");
@@ -1023,11 +1064,16 @@ mod tests {
             3,
             "with no snapshot to undo from, the conflict is still there to resolve"
         );
+        mark_resolved(path, Some("agent"), vec!["file".into()]).unwrap();
+        assert!(
+            git(&linked, &["ls-files", "-u"]).is_empty(),
+            "marked resolved in the worktree's own index, not the main checkout's"
+        );
     }
 
     #[test]
     fn amending_some_hunks_leaves_the_rest_uncommitted() {
-        let mut lines: Vec<String> = (1..=20).map(|n| format!("line {n}\n")).collect();
+        let mut lines: Vec<String> = twenty_lines();
         let dir = repo_with(&lines.concat());
         let path = dir.path();
         lines[0] = "first edit\n".into();
@@ -1043,8 +1089,7 @@ mod tests {
             2,
             "the edits are far enough apart for two hunks"
         );
-        let head = git(path, &["rev-parse", "HEAD"]);
-        let head = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+        let head = head(path);
         let first_hunk = Selected {
             file: diff[0].file.clone(),
             hunks: Some(vec![hunks[0].key]),
@@ -1058,6 +1103,32 @@ mod tests {
             std::fs::read_to_string(path.join("file")).unwrap(),
             lines.concat(),
             "the worktree keeps the last edit, now uncommitted"
+        );
+    }
+
+    #[test]
+    fn amending_part_of_a_file_whose_base_moved_asks_to_try_again() {
+        let mut lines: Vec<String> = twenty_lines();
+        let dir = repo_with(&lines.concat());
+        let path = dir.path();
+        lines[0] = "first edit\n".into();
+        lines[19] = "last edit\n".into();
+        std::fs::write(path.join("file"), lines.concat()).unwrap();
+        let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
+        let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
+            panic!("a text diff");
+        };
+        let first_hunk = Selected {
+            file: diff[0].file.clone(),
+            hunks: Some(vec![hunks[0].key]),
+        };
+        // Committed elsewhere, as by the CLI, which leaves the file as it is.
+        git(path, &["commit", "-qam", "elsewhere"]);
+        let head = head(path);
+        let err = amend(path, head, &[first_hunk], None, false).unwrap_err();
+        assert!(
+            err.to_string().contains("changed since the diff was shown"),
+            "its hunks are numbered against a base that's gone: {err}"
         );
     }
 
@@ -1250,7 +1321,7 @@ mod tests {
 
     #[test]
     fn a_hunk_discard_queued_behind_another_in_its_file_asks_to_try_again() {
-        let lines: Vec<String> = (1..=20).map(|n| format!("line {n}\n")).collect();
+        let lines: Vec<String> = twenty_lines();
         let dir = repo_with(&lines.concat());
         let path = dir.path();
         let mut edited = lines.clone();
@@ -1296,7 +1367,7 @@ mod tests {
 
     #[test]
     fn a_hunk_discard_after_its_files_base_moved_asks_to_try_again() {
-        let lines: Vec<String> = (1..=20).map(|n| format!("line {n}\n")).collect();
+        let lines: Vec<String> = twenty_lines();
         let dir = repo_with(&lines.concat());
         let path = dir.path();
         let mut edited = lines.clone();
@@ -1342,7 +1413,7 @@ mod tests {
 
     #[test]
     fn discarding_picked_lines_keeps_the_rest_of_their_hunk() {
-        let lines: Vec<String> = (1..=20).map(|n| format!("line {n}\n")).collect();
+        let lines: Vec<String> = twenty_lines();
         let dir = repo_with(&lines.concat());
         let path = dir.path();
         let mut edited = lines.clone();
@@ -1370,7 +1441,7 @@ mod tests {
     /// A workspace whose one commit, on top of the target, turns line 5 of `file` into two,
     /// with that commit's id and diff.
     fn workspace_with_an_edit() -> (tempfile::TempDir, CommitId, Vec<FileDiff>, Vec<String>) {
-        let lines: Vec<String> = (1..=20).map(|n| format!("line {n}\n")).collect();
+        let lines: Vec<String> = twenty_lines();
         let dir = repo_with(&lines.concat());
         let path = dir.path();
         git(
@@ -1464,7 +1535,7 @@ mod tests {
 
     #[test]
     fn amending_picked_lines_commits_just_those() {
-        let lines: Vec<String> = (1..=20).map(|n| format!("line {n}\n")).collect();
+        let lines: Vec<String> = twenty_lines();
         let dir = repo_with(&lines.concat());
         let path = dir.path();
         let mut edited = lines.clone();
@@ -1478,8 +1549,7 @@ mod tests {
             file: diff[0].file.clone(),
             hunks: Some(hunk.picked(&picks)),
         };
-        let head = git(path, &["rev-parse", "HEAD"]);
-        let head = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+        let head = head(path);
         amend(path, head, &[picked], None, false).unwrap();
 
         let amended = git(path, &["show", "HEAD:file"]);

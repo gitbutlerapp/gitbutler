@@ -12,8 +12,10 @@ use crate::transfer::DragPreview;
 
 /// Lines picked in one file of the diff.
 pub(super) struct LinePicks {
-    /// The file, by path.
+    /// The file, by path, and its patch's fingerprint: picks go by line numbers, which the
+    /// file changed since no longer means.
     path: String,
+    fingerprint: u64,
     /// By their hunk and index in it.
     lines: HashSet<(HunkKey, usize)>,
     /// What was picked before the run from `anchor` began, which ⇧ adds to.
@@ -89,7 +91,8 @@ impl Detail {
         let item = (hunk.key, line);
         let path = &file.file.path;
         let before = self.line_picks.as_ref().map(|picks| picks.lines.clone());
-        let picks = self.line_picks.take().filter(|picks| picks.path == *path);
+        let picks = (self.line_picks.take())
+            .filter(|picks| picks.path == *path && picks.fingerprint == file.fingerprint);
         self.line_picks =
             match (how, picks) {
                 (Pick::Run, Some(mut picks)) => {
@@ -113,6 +116,7 @@ impl Detail {
                 (_, picks) => (picks.is_none_or(|picks| picks.lines != HashSet::from([item])))
                     .then(|| LinePicks {
                         path: path.clone(),
+                        fingerprint: file.fingerprint,
                         lines: HashSet::from([item]),
                         kept: HashSet::from([item]),
                         anchor: item,
@@ -173,19 +177,15 @@ impl Detail {
         had
     }
 
-    /// Keep the picked lines of hunks the loaded diff still has.
+    /// Keep the picked lines while the loaded diff has their file as it was, and else let
+    /// them go: a line's place in a changed file may be another line by now.
     pub(super) fn settle_line_picks(&mut self) {
-        let Some(picks) = self.line_picks.as_mut() else {
+        let Some(picks) = self.line_picks.as_ref() else {
             return;
         };
         let file = (self.diff.as_ref())
             .and_then(|diff| diff.files.iter().find(|f| f.file.path == picks.path));
-        let keys: HashSet<HunkKey> = file.map_or_else(HashSet::new, |file| {
-            file.hunks().iter().map(|hunk| hunk.key).collect()
-        });
-        picks.lines.retain(|(key, _)| keys.contains(key));
-        picks.kept.retain(|(key, _)| keys.contains(key));
-        if picks.lines.is_empty() {
+        if file.is_none_or(|file| file.fingerprint != picks.fingerprint) {
             self.line_picks = None;
         }
     }
@@ -260,10 +260,14 @@ impl Detail {
         for (hunk, line) in lines {
             by_hunk.entry(hunk).or_default().insert(line);
         }
-        let keys = (by_hunk.iter())
+        let keys: Vec<HunkKey> = (by_hunk.iter())
             .filter_map(|(hunk, lines)| Some(self.part_keys(diff_file.hunks().get(*hunk)?, lines)))
             .flatten()
             .collect();
+        // No keys would read as the whole file.
+        if keys.is_empty() {
+            return None;
+        }
         self.owned_cut(vec![diff_file.part(Some(keys))], cx)
     }
 

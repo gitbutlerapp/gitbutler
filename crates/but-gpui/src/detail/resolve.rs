@@ -220,13 +220,13 @@ impl Detail {
 
     /// The first conflict after `after` with nothing kept yet, wrapping around.
     fn next_undecided(&self, after: Option<&str>) -> Option<String> {
-        let ids: Vec<&str> = self.conflicts().map(|(_, c)| c.id.as_str()).collect();
+        let conflicts: Vec<&Conflict> = self.conflicts().map(|(_, c)| c).collect();
         let start = after
-            .and_then(|after| ids.iter().position(|id| *id == after))
+            .and_then(|after| conflicts.iter().position(|c| c.id == after))
             .map_or(0, |at| at + 1);
-        (ids[start..].iter().chain(&ids[..start]))
-            .find(|id| (self.find_conflict(id)).is_none_or(|(_, c)| !self.conflict_view(c).settled))
-            .map(|id| id.to_string())
+        (conflicts[start..].iter().chain(&conflicts[..start]))
+            .find(|c| !self.conflict_view(c).settled)
+            .map(|c| c.id.clone())
     }
 
     /// Conflict `id`, with its file's place in the diff.
@@ -306,7 +306,9 @@ impl Detail {
     /// Write conflict `id`'s lines by hand, from what's kept so far or the user's own: the
     /// commit's, or the uncommitted changes, the first side of a merge's markers.
     fn edit(&mut self, id: String, window: &mut Window, cx: &mut Context<Self>) {
-        let files = matches!(self.conflicted(), Some((_, Conflicted::Files(_))));
+        // A commit being edited starts from its own side, as a commit's conflict does.
+        let files = matches!(self.conflicted(), Some((_, Conflicted::Files(_))))
+            && !self.editing_commit(cx);
         let Some((_, found)) = self.find_conflict(&id) else {
             return;
         };
@@ -480,6 +482,20 @@ impl Detail {
         if keep.is_empty() {
             return false;
         }
+        // Once applied, those conflicts are gone, and the ones left are numbered again: an
+        // id applied could be another's by then, which mustn't take its pick.
+        let applied: Vec<String> = keep.iter().map(|(_, c, _)| c.id.clone()).collect();
+        let detail = cx.entity().downgrade();
+        let forget = move |cx: &mut App| {
+            (detail.update(cx, |detail, _| {
+                for id in &applied {
+                    detail.resolving.keeping.remove(id);
+                    detail.resolving.suggesting.remove(id);
+                    detail.resolving.ancestors.remove(id);
+                }
+            }))
+            .ok();
+        };
         let commit = match conflicted {
             Conflicted::Commit(commit) => commit,
             Conflicted::Files(worktree) => {
@@ -506,6 +522,7 @@ impl Detail {
                             }
                         },
                         move |store, files, cx| {
+                            forget(cx);
                             if finish {
                                 return store.finish_editing(&project_done, cx);
                             }
@@ -520,10 +537,7 @@ impl Detail {
                             };
                             // The oplog can't bring back a linked worktree, nor a commit
                             // checked out for editing.
-                            match worktree.is_none() && !editing {
-                                true => store.snack_undoable(message, cx),
-                                false => store.snack(message, cx),
-                            }
+                            store.snack_after(worktree.is_none() && !editing, message, cx)
                         },
                         cx,
                     )
@@ -552,6 +566,7 @@ impl Detail {
                     conflicts::resolve(path, now, keep)
                 },
                 move |store, (rewritten, outcome), cx| {
+                    forget(cx);
                     let next =
                         next.map(|(id, title)| (rewritten.get(&id).copied().unwrap_or(id), title));
                     let message = match (outcome.remaining, outcome.emptied, next) {
@@ -656,7 +671,7 @@ impl Detail {
             actions: Actions {
                 pick,
                 edit: act(|this, id, window, cx| this.edit(id, window, cx)),
-                suggest: Some(act(|this, id, _, cx| this.suggest(id, cx))),
+                suggest: act(|this, id, _, cx| this.suggest(id, cx)),
                 change: act(|this, id, _, cx| this.change(&id, cx)),
                 ancestor: act(|this, id, _, cx| this.toggle_ancestor(&id, cx)),
                 done: act(|this, _, window, cx| this.finish_edit(window, cx)),

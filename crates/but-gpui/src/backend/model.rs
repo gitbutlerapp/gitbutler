@@ -598,13 +598,7 @@ impl FileChange {
     /// What the change is against: the file as committed, or nothing for an addition.
     /// Committing part of a file moves it without touching the file itself.
     pub fn base(&self) -> Option<gix::ObjectId> {
-        use but_core::TreeStatus as S;
-        match &self.change.status {
-            S::Addition { .. } => None,
-            S::Deletion { previous_state }
-            | S::Modification { previous_state, .. }
-            | S::Rename { previous_state, .. } => Some(previous_state.id),
-        }
+        (self.change.status.previous_state_and_path()).map(|(state, _)| state.id)
     }
 }
 

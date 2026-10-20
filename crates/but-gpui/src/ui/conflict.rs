@@ -75,7 +75,7 @@ pub struct Actions {
     pub pick: OnPick,
     pub edit: OnToggle,
     /// None without an AI provider to ask.
-    pub suggest: Option<OnToggle>,
+    pub suggest: OnToggle,
     /// Back to the two sides.
     pub change: OnToggle,
     pub ancestor: OnToggle,
@@ -311,12 +311,12 @@ fn bar(row: &Row, theme: &Theme) -> AnyElement {
                 .tooltip_with_key("Write what to keep", Some("↩".into()))
                 .on_click(move |_, window, cx| edit(window, cx)),
         )
-        .children(suggest.map(|suggest| {
+        .child(
             icon_button("conflict-suggest", Icon::Ai)
                 .small()
                 .tooltip_with_key("Suggest a merge", Some("A".into()))
-                .on_click(move |_, window, cx| suggest(window, cx))
-        }))
+                .on_click(move |_, window, cx| suggest(window, cx)),
+        )
         .into_any_element()
 }
 
@@ -333,14 +333,7 @@ fn label(side: Side, row: &Row, theme: &Theme) -> AnyElement {
     let (glyph, name, color) = match side {
         Side::NewBase => (row.icons[0], row.sides[0], theme.diff_added),
         Side::Commit => (row.icons[1], row.sides[1], theme.blue),
-        Side::Ancestor => (
-            Icon::Clock,
-            Name {
-                label: "Before both",
-                phrase: "before both",
-            },
-            theme.text_2,
-        ),
+        Side::Ancestor => unreachable!("only the two sides are labelled"),
     };
     let empty = side_lines(row.conflict, side).is_empty();
     let text = match empty {

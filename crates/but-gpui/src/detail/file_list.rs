@@ -1025,15 +1025,17 @@ impl Detail {
                     .filter(|f| f.file.conflicted)
                     .map(|f| f.file.path.clone())
                     .collect();
-                // `mark_resolved` works in the main checkout.
-                if !conflicted.is_empty() && worktree.is_none() {
-                    let project = project.clone();
-                    let editing = (self.store.read(cx).workspace(&project))
-                        .is_some_and(|ws| ws.editing.is_some());
+                if !conflicted.is_empty() {
+                    let (project, worktree) = (project.clone(), worktree.clone());
+                    // Undo can't bring back a linked worktree, or a commit checked out for
+                    // editing.
+                    let undoable = worktree.is_none()
+                        && (self.store.read(cx).workspace(&project))
+                            .is_some_and(|ws| ws.editing.is_none());
                     items.insert(
                         0,
                         MenuItem::new("Mark resolved", move |this, _, cx| {
-                            let files = conflicted.clone();
+                            let (files, worktree) = (conflicted.clone(), worktree.clone());
                             this.store.update(cx, |store, cx| {
                                 store.run(
                                     &project,
@@ -1042,11 +1044,11 @@ impl Detail {
                                         rereads: Rereads::Files,
                                         ..Overlay::default()
                                     },
-                                    move |path, _| backend::mark_resolved(path, files),
-                                    // Undo can't bring back a commit checked out for editing.
-                                    move |store, (), cx| match editing {
-                                        true => store.snack("Marked resolved", cx),
-                                        false => store.snack_undoable("Marked resolved", cx),
+                                    move |path, _| {
+                                        backend::mark_resolved(path, worktree.as_deref(), files)
+                                    },
+                                    move |store, (), cx| {
+                                        store.snack_after(undoable, "Marked resolved", cx)
                                     },
                                     cx,
                                 )

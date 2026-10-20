@@ -6,7 +6,6 @@ use std::path::Path;
 
 use anyhow::{Context as _, Result};
 use but_api::resolve::{self, HunkResolution, ResolutionSpec};
-use but_core::DryRun;
 
 use super::ops::rewritten;
 use super::{CommitId, Rewritten, checkout, markers, open};
@@ -73,7 +72,7 @@ pub fn resolve_markers(
     worktree: Option<&str>,
     keep: Vec<(String, String, Keep)>,
 ) -> Result<usize> {
-    use but_oplog::legacy::{OperationKind, SnapshotDetails};
+    use but_oplog::legacy::OperationKind;
     let mut ctx = open(path)?;
     // Asked before taking the worktree, as asking takes it too.
     let editing = super::edit::editing(&ctx)?.is_some();
@@ -93,7 +92,8 @@ pub fn resolve_markers(
     let mut writes = Vec::new();
     for (file, picks) in by_file {
         let on_disk = workdir.join(&file);
-        let text = std::fs::read_to_string(&on_disk)?;
+        let text =
+            std::fs::read_to_string(&on_disk).with_context(|| format!("Couldn't read {file}"))?;
         let lines = markers::lines(&text);
         let blocks = markers::blocks(&lines);
         let ids = markers::ids(&lines, &blocks);
@@ -120,15 +120,7 @@ pub fn resolve_markers(
     }
     // Recorded once the picks are found, so a refused Apply leaves nothing to undo.
     if worktree.is_none() && !editing {
-        let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
-            &ctx,
-            SnapshotDetails::new(OperationKind::ResolveConflicts),
-            perm.read_permission(),
-            DryRun::No,
-        );
-        if let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(&ctx, perm)) {
-            tracing::warn!(?err, "couldn't record the resolution for undo");
-        }
+        super::ops::record_undo(&ctx, OperationKind::ResolveConflicts, perm);
     }
     let mut resolved = Vec::new();
     for (file, on_disk, text, whole) in writes {

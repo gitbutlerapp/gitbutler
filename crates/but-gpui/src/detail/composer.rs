@@ -122,6 +122,24 @@ impl Checks {
                 .collect();
             self.unchecked_hunks.extend(out);
         }
+        let partly: HashSet<String> = (self.unchecked_hunks.iter())
+            .map(|(path, _)| path.clone())
+            .filter(|path| present.contains(path.as_str()))
+            .collect();
+        for path in partly {
+            self.settle(&path, file_hunks(files, &path));
+        }
+    }
+
+    /// A file with every one of its `hunks` left out is left out whole, as unchecking it does.
+    fn settle(&mut self, path: &str, hunks: &[Hunk]) {
+        let out =
+            (hunks.iter()).all(|hunk| self.unchecked_hunks.contains(&(path.to_owned(), hunk.key)));
+        if out {
+            self.unchecked_hunks
+                .retain(|(hunk_path, _)| hunk_path != path);
+            self.unchecked.insert(path.to_owned());
+        }
     }
 }
 
@@ -272,8 +290,18 @@ impl Detail {
 
     /// The hunks of `path` in the loaded worktree diff.
     fn worktree_file_hunks(&self, path: &str) -> &[Hunk] {
-        self.worktree_diff()
+        self.checks_diff()
             .map_or(&[], |diff| file_hunks(&diff.files, path))
+    }
+
+    /// The loaded diff when it's of the checkout the checks are about: another's stays on
+    /// screen until this one's loads, and shares its paths.
+    fn checks_diff(&self) -> Option<&super::LoadedDiff> {
+        let worktree = self.checks_worktree.as_deref();
+        self.worktree_diff().filter(|diff| {
+            self.checks_project.as_ref() == Some(&diff.key.project)
+                && diff.key.checkout() == Some(worktree)
+        })
     }
 
     pub(super) fn toggle_hunk(&mut self, path: &str, key: HunkKey, cx: &mut Context<Self>) {
@@ -340,15 +368,8 @@ impl Detail {
 
     /// A file none of whose hunks are in is out as a whole.
     fn settle_checks(&mut self, path: &str, cx: &mut Context<Self>) {
-        let out = (self.worktree_file_hunks(path).iter())
-            .all(|hunk| (self.checks.unchecked_hunks).contains(&(path.to_owned(), hunk.key)));
-        if out {
-            let checks = &mut self.checks;
-            checks
-                .unchecked_hunks
-                .retain(|(hunk_path, _)| hunk_path != path);
-            checks.unchecked.insert(path.to_owned());
-        }
+        let hunks = self.worktree_file_hunks(path).to_vec();
+        self.checks.settle(path, &hunks);
         cx.emit(ChecksChanged);
         cx.notify();
     }
@@ -473,11 +494,15 @@ impl Detail {
                 self.checks.unchecked_hunks = out;
                 self.checks.line_picks = lines;
             } else {
-                // Hunks unknown until the diff loads: keep the choices the drop left out,
-                // and committing waits for the diff to tell them apart.
+                // Hunks unknown until the diff loads: a file only some of which was dropped
+                // is left out rather than taken whole, and the rest keep what they had.
                 let checks = &mut self.checks;
                 (checks.unchecked_hunks).retain(|(path, key)| left_out(path, key));
                 (checks.line_picks).retain(|(path, key), _| left_out(path, key));
+                let partly = (keep.iter()).filter(|(_, picked)| picked.is_some());
+                checks
+                    .unchecked
+                    .extend(partly.map(|(path, _)| path.to_string()));
             }
         }
         cx.emit(ChecksChanged);
@@ -637,10 +662,10 @@ impl Detail {
                 "Commit",
                 overlay,
                 move |path, _| {
-                    let branch = match target {
-                        Some(branch) => branch,
+                    let (branch, created) = match target {
+                        Some(branch) => (branch, false),
                         None if linked => anyhow::bail!("The worktree has no branch checked out"),
-                        None => backend::create_branch(path, None)?,
+                        None => (backend::create_branch(path, None)?, true),
                     };
                     let committed = backend::commit(
                         path,
@@ -649,8 +674,12 @@ impl Detail {
                         worktree.as_deref(),
                         &message,
                         run_hooks,
-                    )?;
-                    Ok((branch, committed))
+                    );
+                    // A commit a hook refused leaves no empty branch made for it behind.
+                    if committed.is_err() && created {
+                        backend::remove_branch(path, &branch).ok();
+                    }
+                    Ok((branch, committed?))
                 },
                 move |store, (branch, (_id, left_out, hook_failed)), cx| {
                     // The box is shared by projects, and may hold the next commit's message
@@ -745,9 +774,7 @@ impl Detail {
         }
         let worktree = self.checks_worktree.as_deref();
         let current = self.loading.is_none()
-            && (self.worktree_diff()).is_some_and(|diff| {
-                diff.key.project == *project && diff.key.checkout() == Some(worktree)
-            })
+            && (self.checks_diff()).is_some_and(|diff| diff.key.project == *project)
             && (self.store.read(cx).workspace(project))
                 .and_then(|ws| ws.uncommitted_in(worktree))
                 .is_some_and(|files| self.shows_worktree(files));
@@ -799,7 +826,7 @@ impl Detail {
 
     /// The checked changes as a unified diff, for the AI to read.
     fn checked_diff_text(&self) -> String {
-        let Some(diff) = self.worktree_diff() else {
+        let Some(diff) = self.checks_diff() else {
             return String::new();
         };
         let mut text = String::new();
@@ -1098,8 +1125,14 @@ impl Detail {
         let Some(workspace) = self.store.read(cx).workspace(&project) else {
             return;
         };
+        // Only those it commits to: not one merged upstream or being unapplied.
+        let store = self.store.read(cx);
         let mut choices: Vec<Choice> = (workspace.branches())
-            .filter(|branch| !branch.ref_name.is_empty())
+            .filter(|branch| {
+                !branch.ref_name.is_empty()
+                    && branch.push != PushState::Integrated
+                    && !store.hides_branch(&project, &branch.ref_name)
+            })
             .map(|branch| {
                 let (detail, ref_name) = (detail.clone(), branch.ref_name.clone());
                 let choice = Choice::new(branch.name.clone(), move |_, _, cx| {
@@ -1256,7 +1289,13 @@ mod tests {
             Toggled::False,
             "a hunk whose lines changed under its picks is left out, not taken whole"
         );
+        assert_eq!(
+            checks.file_check("a.rs"),
+            Toggled::False,
+            "with its only hunk out, the file is out, not counted as partly in"
+        );
 
+        checks.unchecked.clear();
         checks.unchecked_hunks.clear();
         checks.line_picks.insert(
             ("a.rs".into(), picked.key),
