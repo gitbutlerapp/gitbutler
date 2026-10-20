@@ -1259,23 +1259,13 @@ pub fn run_in_unborn_repo(
             repo.find_commit(new_commit)?.id(),
             but_api::diff::ComputeLineStats::No.into(),
         )?;
-        let message = crate::command::legacy::reword::get_commit_message_from_editor(
+        let message = crate::command::legacy::reword2::edit_commit_message(
             &repo,
             context_lines,
             commit_details,
-            initial.unwrap_or_default(),
+            initial.as_deref().unwrap_or_default(),
             "",
-            crate::command::legacy::ShowDiffInEditor::Always,
-        )
-        .map_err(|err| {
-            if let Some(but_error::Code::EditorExitedWithNonZeroStatus) =
-                err.downcast_ref::<but_error::Code>()
-            {
-                anyhow::anyhow!("Editor exited with non-zero status")
-            } else {
-                err
-            }
-        })?;
+        )?;
         if let Some(message) = message {
             let mut commit = but_core::Commit::from_id(repo.find_commit(new_commit)?.id())?;
             commit.inner.message = message.into();
@@ -1325,6 +1315,27 @@ pub fn run_in_unborn_repo(
         gix::refs::transaction::PreviousValue::MustNotExist,
         "commit (initial): initial commit",
     )?;
+
+    // Setup skipped target inference while HEAD was unborn. Initialize it before
+    // rebuilding the workspace so same-process status and TUI reloads can resolve it.
+    let mut project_meta = ctx.project_meta()?;
+    if project_meta.target_ref.is_none()
+        && let Some(target) = but_workspace::init::infer_default_target_ref(&repo)?
+    {
+        project_meta.target_ref = Some(target.clone());
+        if project_meta.target_commit_id.is_none()
+            && target.as_local_full_name_ref() == name.as_ref()
+            && let Some(upstream) = project_meta.remote_target_ref(&repo)?
+            && repo.try_find_reference(upstream.as_ref())?.is_none()
+        {
+            // Empty clones already configure an upstream, but its ref won't exist
+            // until the first push. Use this root commit as the explicit cutoff
+            // without removing upstream configuration or fabricating a remote ref.
+            project_meta.target_commit_id = Some(new_commit);
+            project_meta.persist(&repo)?;
+        }
+        but_workspace::init::set_target_ref_and_init_project(&repo, &target, None)?;
+    }
 
     drop(repo);
     ctx.invalidate_workspace_cache()?;

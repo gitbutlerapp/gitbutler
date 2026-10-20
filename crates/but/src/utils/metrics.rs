@@ -74,6 +74,7 @@ impl Subcommands {
             Subcommands::Help { .. } => Help,
             Subcommands::Onboarding => Onboarding,
             Subcommands::Setup { .. } => Setup,
+            #[cfg(feature = "legacy")]
             Subcommands::Init(_) => Init,
             Subcommands::AgentLog { .. } => AgentLog,
             #[cfg(feature = "legacy")]

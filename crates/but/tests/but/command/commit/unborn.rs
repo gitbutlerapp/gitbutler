@@ -55,6 +55,64 @@ No previous operations to undo.
 }
 
 #[test]
+fn initial_commit_includes_status_after() {
+    let env = Sandbox::open_with_default_settings("unborn");
+
+    env.but("commit -m initial --status-after")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit qnt on branch 'main'
+
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ aa4c8c7 (common base, main, HEAD) 2000-01-02 initial
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
+
+#[test]
+fn initial_commit_in_empty_clone_initializes_target() {
+    let env = Sandbox::empty();
+    env.invoke_bash(
+        "git init --bare --initial-branch=main remote.git\n\
+         git clone remote.git repo\n\
+         git -C repo config gitbutler.testing.changeId content-hash",
+    );
+
+    env.but("-C repo commit -m initial --status-after")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit qnt on branch 'main'
+
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ aa4c8c7 (common base, main, HEAD) 2000-01-02 initial
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+
+    env.but("-C repo status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ aa4c8c7 (common base, main, HEAD) 2000-01-02 initial
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
+
+#[test]
 fn initial_commit_synchronizes_the_index() {
     let env = Sandbox::open_with_default_settings("unborn");
     env.file("hello.txt", "hello");

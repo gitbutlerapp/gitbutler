@@ -818,8 +818,9 @@ async fn dispatch_subcommand(
             })
             .map(|()| DispatchOutcome::Return);
         }
-        Subcommands::Init(_) => {
-            let outcome = command::init::run(&args.current_dir)?;
+        #[cfg(feature = "legacy")]
+        Subcommands::Init(init_args) => {
+            let outcome = command::legacy::init::run(init_args, &args.current_dir, out)?;
             out.print_cli_output(outcome)?;
             return Ok(DispatchOutcome::Return);
         }
@@ -958,6 +959,8 @@ async fn dispatch_subcommand(
     #[cfg(feature = "legacy")]
     let mut command_outcome = None;
     let ws: Option<WorkspaceState> = match cmd {
+        #[cfg(feature = "legacy")]
+        Subcommands::Init(..) => unreachable!("handled above"),
         Subcommands::Metrics { .. }
         | Subcommands::Gui { .. }
         | Subcommands::Completions { .. }
@@ -965,7 +968,6 @@ async fn dispatch_subcommand(
         | Subcommands::Help { .. }
         | Subcommands::Onboarding
         | Subcommands::Setup { .. }
-        | Subcommands::Init(..)
         | Subcommands::Config(..)
         | Subcommands::Alias(..)
         | Subcommands::Skill(..)

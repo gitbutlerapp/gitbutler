@@ -312,7 +312,7 @@ pub fn run(
     }
 }
 
-fn edit_commit_message(
+pub(super) fn edit_commit_message(
     repo: &gix::Repository,
     context_lines: u32,
     commit_details: CommitDetails,
