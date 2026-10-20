@@ -268,6 +268,7 @@ pub fn pre_push(
     })?
     .current_dir(repo.workdir().unwrap_or(repo.git_dir()))
     .stdin(Stdio::piped())
+    .stderr(Stdio::piped())
     .spawn()?;
 
     {
@@ -330,7 +331,7 @@ fn join_output(stdout: String, stderr: String, code: Option<i32>) -> String {
     let code = code
         .map(|code| format!(" (Exit Code {code})"))
         .unwrap_or_default();
-    if stdout.is_empty() && stderr.is_ascii() {
+    if stdout.is_empty() && stderr.is_empty() {
         return format!("hook produced no output{code}");
     } else if stdout.is_empty() {
         return stderr;

@@ -139,6 +139,23 @@ pub(crate) fn open_changes_source(
     Ok(Some((name, wt_repo)))
 }
 
+/// The branch that the linked worktree `source` names has checked out, or `None` for
+/// the main worktree or a detached `HEAD`.
+///
+/// Operations that commit a linked worktree's changes name it in their snapshot, so undo
+/// moves it back and leaves the changes uncommitted there.
+pub(crate) fn changes_source_ref(
+    ctx: &but_ctx::Context,
+    source: &ChangesSource,
+) -> Result<Option<gix::refs::FullName>> {
+    let ChangesSource::Worktree(name) = source else {
+        return Ok(None);
+    };
+    Ok(ctx
+        .worktree_head(name.as_bytes().as_bstr())?
+        .and_then(|head| head.ref_name))
+}
+
 /// List all usable linked worktrees, split by archived state.
 #[but_api(napi, provides = [Worktrees])]
 #[instrument(err(Debug))]
@@ -314,8 +331,9 @@ but_schemars::register_sdk_type!(NewWorktree);
 ///
 /// The branch is `new_ref` or a canned name, and the checkout lives at
 /// `~/.gitbutler-worktrees/<repo-dir-basename>/<slug>`, where the repository directory is
-/// the main worktree and the slug of the short branch name also names the worktree.
-/// This fails without a target to base the worktree on, and refuses an existing branch or directory.
+/// the main worktree. The slug is derived from the short branch name, falling back to `wt`
+/// if empty. If the directory is taken, creation retries up to five times with a random ASCII suffix.
+/// This fails without a target to base the worktree on, and refuses an existing branch.
 #[but_api(napi, invalidates = [Worktrees, Workspace])]
 #[instrument(err(Debug))]
 pub fn worktree_new(
@@ -357,23 +375,22 @@ pub fn worktree_new_at_base_with_perm(
         None => unique_canned_refname(&repo)?,
     };
     let slug = slug(ref_name.shorten());
-    if slug.is_empty() {
-        bail!(
-            "Cannot derive a worktree directory from '{}'",
-            ref_name.shorten()
-        );
-    }
+    let slug = if slug.is_empty() { "wt" } else { &slug };
     let repo_name = repo
         .workdir()
         .context("Cannot create a worktree without a main working directory")?
         .file_name()
         .context("Cannot derive a repository directory basename")?;
-    let path = but_path::home_dir()
+    let root = but_path::home_dir()
         .context("Could not resolve the home directory for worktrees")?
         .join(".gitbutler-worktrees")
-        .join(repo_name)
-        .join(&slug);
-    let name = but_workspace::worktrees::add(&repo, &path, ref_name.as_ref(), base)?;
+        .join(repo_name);
+    let (name, path) = create_with_suffix(
+        &root,
+        slug,
+        || uuid::Uuid::new_v4().simple().to_string()[..8].to_owned(),
+        |path| but_workspace::worktrees::add(&repo, path, ref_name.as_ref(), base),
+    )?;
     let path = gix::path::realpath(&path)?;
     drop((repo, ws, db));
     ctx.invalidate_workspace_cache()?;
@@ -383,6 +400,32 @@ pub fn worktree_new_at_base_with_perm(
         ref_name,
         base,
     })
+}
+
+const CREATION_RETRIES: usize = 5;
+
+/// Retry only refusals made before creation changes any repository state. In particular,
+/// a checkout/copy failure may leave a path behind, but must never trigger a retry.
+fn create_with_suffix(
+    root: &std::path::Path,
+    slug: &str,
+    mut suffix: impl FnMut() -> String,
+    mut create: impl FnMut(&std::path::Path) -> Result<BString>,
+) -> Result<(BString, PathBuf)> {
+    let mut path = root.join(slug);
+    for attempt in 0..=CREATION_RETRIES {
+        match create(&path) {
+            Ok(name) => return Ok((name, path)),
+            Err(err)
+                if err.is::<but_workspace::worktrees::DestinationExists>()
+                    && attempt < CREATION_RETRIES =>
+            {
+                path = root.join(format!("{slug}-{}", suffix()));
+            }
+            Err(err) => return Err(err),
+        }
+    }
+    unreachable!("the last attempt returns either success or error")
 }
 
 /// Turn `name` into a single lowercase ASCII path component, keeping letters and digits and
@@ -401,6 +444,104 @@ fn slug(name: &BStr) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::{CREATION_RETRIES, create_with_suffix};
+    use but_workspace::worktrees::DestinationExists;
+    use std::path::Path;
+
+    #[test]
+    fn collisions_retry_with_fresh_suffixes_and_stop_on_success() -> anyhow::Result<()> {
+        let mut suffixes = ["aaaaaaaa", "bbbbbbbb"].into_iter();
+        let mut attempted = Vec::new();
+        let (name, path) = create_with_suffix(
+            Path::new("root"),
+            "feature",
+            || suffixes.next().expect("only two retries").to_owned(),
+            |path| {
+                attempted.push(path.to_owned());
+                if attempted.len() < 3 {
+                    Err(DestinationExists(path.to_owned()).into())
+                } else {
+                    Ok("feature-bbbbbbbb".into())
+                }
+            },
+        )?;
+        assert_eq!(
+            attempted,
+            [
+                "root/feature",
+                "root/feature-aaaaaaaa",
+                "root/feature-bbbbbbbb"
+            ]
+            .map(std::path::PathBuf::from),
+            "retry suffixes replace rather than accumulate"
+        );
+        assert_eq!(name, "feature-bbbbbbbb", "return actual registered name");
+        assert_eq!(
+            path,
+            Path::new("root/feature-bbbbbbbb"),
+            "return successful destination"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn collisions_exhaust_the_retry_limit() {
+        let mut attempts = 0;
+        let mut suffixes = 0;
+        let err = create_with_suffix(
+            Path::new("root"),
+            "feature",
+            || {
+                suffixes += 1;
+                format!("{suffixes:08x}")
+            },
+            |path| {
+                attempts += 1;
+                Err(DestinationExists(path.to_owned()).into())
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            attempts,
+            CREATION_RETRIES + 1,
+            "initial attempt plus bounded retries"
+        );
+        assert_eq!(
+            suffixes, CREATION_RETRIES,
+            "no suffix generated before first failure or after exhaustion"
+        );
+        assert_eq!(
+            err.downcast_ref::<DestinationExists>().unwrap().0,
+            Path::new("root/feature-00000005"),
+            "preserve final creation error"
+        );
+    }
+
+    #[test]
+    fn unrelated_errors_do_not_retry_even_with_an_occupied_destination() -> anyhow::Result<()> {
+        let root = tempfile::tempdir()?;
+        std::fs::create_dir(root.path().join("feature"))?;
+        let mut attempts = 0;
+        let err = create_with_suffix(
+            root.path(),
+            "feature",
+            || panic!("unrelated errors must not generate suffixes"),
+            |_| {
+                attempts += 1;
+                // An AlreadyExists from a later copy/checkout step is not a destination refusal.
+                Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, "copy failed").into())
+            },
+        )
+        .unwrap_err();
+        assert_eq!(attempts, 1, "only destination refusals can retry");
+        assert_eq!(
+            err.to_string(),
+            "copy failed",
+            "preserve unrelated creation error"
+        );
+        Ok(())
+    }
+
     #[test]
     fn slug() {
         for (input, expected) in [

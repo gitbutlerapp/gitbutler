@@ -540,15 +540,6 @@ Hint: run `but help` for all commands
 Error: A branch named 'A' is already applied
 
 "#]]);
-    env.but("worktree new feature-one")
-        .env("LC_ALL", "C")
-        .assert()
-        .failure()
-        .stdout_eq(snapbox::str![])
-        .stderr_eq(snapbox::str![[r#"
-Error: '[..]/home/.gitbutler-worktrees/[..]/feature-one' already exists
-
-"#]]);
 }
 
 #[cfg(unix)]
@@ -1156,6 +1147,168 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
         "source contents must not overwrite destination\n",
         "copying must leave source contents unchanged"
     );
+}
+
+#[test]
+fn new_handles_non_ascii_name() {
+    let env = flag_on_sandbox();
+
+    env.but("worktree new '日本語'")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created worktree wt on '日本語' from 0dc3733 at [..]/wt
+
+"#]]);
+
+    env.but("worktree list")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Active worktrees
+i0 wt (refs/heads/日本語) - [..]/wt
+
+Archived worktrees
+(none)
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┊╭┄ i0:@ [uncommitted] {wt} (no changes)
+┊├┄ i0 [日本語] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn new_handles_directory_collision_with_random_suffix() {
+    let env = flag_on_sandbox();
+
+    // collision because `_` is stripped, but the `my-worktree` stem still remains
+    env.but("worktree new 'my-worktree_'")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created worktree my-worktree on 'my-worktree_' from 0dc3733 at [..]/my-worktree
+
+"#]]);
+    env.but("worktree new 'my-worktree__'")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created worktree my-worktree-[..] on 'my-worktree__' from 0dc3733 at [..]/my-worktree-[..]
+
+"#]]);
+
+    // collision because the entire name is stripped, which should result in the `wt` fallback slug
+    env.but("worktree new '日本語'")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created worktree wt on '日本語' from 0dc3733 at [..]/wt
+
+"#]]);
+    env.but("worktree new '日本語日本語'")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Created worktree wt-[..] on '日本語日本語' from 0dc3733 at [..]/wt-[..]
+
+"#]]);
+
+    env.but("worktree list")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Active worktrees
+my my-worktree (refs/heads/my-worktree_) - [..]/my-worktree
+wo my-worktree-[..] (refs/heads/my-worktree__) - [..]/my-worktree-[..]
+i0 wt (refs/heads/日本語) - [..]/wt
+j0 wt-[..] (refs/heads/日本語日本語) - [..]/wt-[..]
+
+Archived worktrees
+(none)
+
+"#]]);
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┊╭┄ my:@ [uncommitted] {my-worktree} (no changes)
+┊├┄ my [my-worktree_] (no commits)
+├╯
+┊
+┊╭┄ wo:@ [uncommitted] {my-worktree-[..]} (no changes)
+┊├┄ wo [my-worktree__] (no commits)
+├╯
+┊
+┊╭┄ i0:@ [uncommitted] {wt} (no changes)
+┊├┄ i0 [日本語] (no commits)
+├╯
+┊
+┊╭┄ j0:@ [uncommitted] {wt-[..]} (no changes)
+┊├┄ j0 [日本語日本語] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn new_random_suffix_handles_multiple_collisions() {
+    let env = flag_on_sandbox();
+
+    env.but("worktree new my-worktree").assert().success();
+    env.but("worktree new my-worktree_").assert().success();
+    env.but("worktree new my-worktree__").assert().success();
+
+    let output = env
+        .but("worktree list --json")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![]);
+
+    let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout).unwrap();
+    let active = json["active"].as_array().unwrap();
+    let names: std::collections::HashSet<_> = active
+        .iter()
+        .map(|worktree| worktree["name"].as_str().unwrap())
+        .collect();
+
+    assert_eq!(active.len(), 3, "all three worktrees were created");
+    assert_eq!(names.len(), 3, "each worktree has a distinct name");
 }
 
 #[test]

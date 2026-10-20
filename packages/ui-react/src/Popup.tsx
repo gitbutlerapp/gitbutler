@@ -50,7 +50,7 @@ export const Popup: FC<{ anchored?: boolean } & useRender.ComponentProps<"div">>
  *
  * - `xsmall` (320): a one-line question and its buttons — "Discard 3 files?".
  * - `small` (420): a prompt with a field or a short list, and pickers.
- * - `medium` (640): a pane that lays itself out around one group.
+ * - `medium` (520): a pane that lays itself out around one group.
  * - `large` (820): a pane with more than one group, or a working surface: settings, the conflict
  *   resolver.
  *
@@ -235,7 +235,8 @@ export const ModalHeader: FC<
 /**
  * What a modal asks about: fields, a list of the things it acts on, a note. Stacks its children
  * apart and scrolls when the modal outgrows the window, while {@link ModalHeader} and
- * {@link ModalFooter} stay in place.
+ * {@link ModalFooter} stay in place. While it scrolls, a hairline marks each edge it runs past:
+ * under the header once it's scrolled down, over the footer while there is more below.
  *
  * @public
  * @import import { Modal, ModalBody, ModalFooter, ModalHeader } from "@gitbutler/ui-react/Popup.tsx";
@@ -280,6 +281,12 @@ export type DropdownProps = {
 	 * goes once they do with the pointer still outside.
 	 */
 	openOnHover?: boolean;
+	/**
+	 * How long the pointer rests on the trigger before an `openOnHover` dropdown opens, in ms:
+	 * long enough to pass over it on the way elsewhere, short enough to read as a glance.
+	 * @default 100
+	 */
+	delay?: number;
 	/** @default "bottom" */
 	side?: "top" | "bottom" | "left" | "right";
 	/** @default "start" */
@@ -306,6 +313,7 @@ export const Dropdown: FC<DropdownProps> = ({
 	onOpenChange,
 	trigger,
 	openOnHover = false,
+	delay = 100,
 	side = "bottom",
 	align = "start",
 	sideOffset = 4,
@@ -364,7 +372,7 @@ export const Dropdown: FC<DropdownProps> = ({
 				onOpenChange?.(next);
 			}}
 		>
-			<Popover.Trigger render={trigger} openOnHover={openOnHover} />
+			<Popover.Trigger render={trigger} openOnHover={openOnHover} delay={delay} />
 			<Popover.Portal>
 				<Popover.Positioner side={side} align={align} sideOffset={sideOffset}>
 					<Popup

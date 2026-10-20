@@ -2093,22 +2093,54 @@ git worktree add -q -b wt wt-dir A
     }
 
     #[test]
-    fn an_empty_branch_cannot_move_into_a_worktree() -> anyhow::Result<()> {
+    fn an_empty_branch_moves_into_a_worktree() -> anyhow::Result<()> {
         let mut fixture = workspace_with_worktree("git branch empty main")?;
         add_stack_with_segments(&mut fixture.meta, 3, "empty", StackState::InWorkspace, &[]);
+        fixture.meta.write_unreconciled()?;
+        let mut meta =
+            but_meta::BranchOrderMetadata::from_paths(fixture.meta.path(), fixture.repo.path())?;
         let project_meta = fixture.ws.graph.project_meta.clone();
         fixture.ws.refresh_from_head(
             &fixture.repo,
-            &fixture.meta,
-            project_meta,
+            &meta,
+            project_meta.clone(),
             &mut fixture.db,
         )?;
-        let err = fixture
-            .move_branch("empty", above("wt-lower")?)
-            .unwrap_err();
-        assert_eq!(
-            err.to_string(),
-            "Cannot place empty branch 'empty' in worktree 'wt-dir': branches can't be ordered in worktrees yet"
+
+        let editor = Editor::create(&mut fixture.ws, &mut meta, &fixture.repo, &mut fixture.db)?;
+        let (relative_to, side) = above("wt-lower")?;
+        but_workspace::branch::move_branch(
+            editor,
+            "refs/heads/empty".try_into()?,
+            relative_to,
+            side,
+        )?
+        .materialize(Default::default())?;
+        fixture
+            .ws
+            .refresh_from_head(&fixture.repo, &meta, project_meta, &mut fixture.db)?;
+
+        // `empty` left its stack and sits between the worktree's branches, as its order says.
+        snapbox::assert_data_eq!(
+            graph_workspace(&fixture.ws).to_string(),
+            snapbox::str![[r#"
+📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on 85efbe4
+├── ≡📙:A on 85efbe4 {1}
+│   └── 📙:A
+│       └── ·09d8e52 (🏘️)
+├── ≡📙:C on 85efbe4 {2}
+│   ├── 📙:C
+│   │   └── ·09bc93e (🏘️)
+│   └── 📙:B
+│       └── ·c813d8d (🏘️)
+└── 📁wt-dir on 09d8e52 (🏘️)
+    ├── :wt[📁wt-dir]
+    │   └── ·7f04017
+    ├── :empty
+    └── :wt-lower
+        └── ·e9b62b2
+
+"#]]
         );
         Ok(())
     }

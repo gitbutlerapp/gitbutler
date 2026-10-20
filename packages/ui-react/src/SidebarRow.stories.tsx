@@ -192,9 +192,9 @@ const Tree: FC<{ layout: SidebarRowLayout; selected?: string }> = ({ layout, sel
 					actions={push}
 					menu={menu("Branch")}
 				/>
-				<WorktreeDivider depth={2} />
 				<StackCaption
-					label="Stack of 2"
+					count={2}
+					tip="fix: retry stalled transfers"
 					depth={2}
 					folded={stackFolded}
 					onToggleFolded={() => setStackFolded(!stackFolded)}
@@ -215,7 +215,7 @@ const Tree: FC<{ layout: SidebarRowLayout; selected?: string }> = ({ layout, sel
 							title="fix: retry stalled transfers"
 							pr={{ number: 377, state: "open" }}
 							branch="retry-transfers"
-							depth={2}
+							depth={3}
 							folded
 							meta={
 								<>
@@ -237,7 +237,7 @@ const Tree: FC<{ layout: SidebarRowLayout; selected?: string }> = ({ layout, sel
 							title="feat: resume work on another machine"
 							pr={{ number: 280, state: "open" }}
 							branch="resume-work"
-							depth={2}
+							depth={3}
 							folded={false}
 							meta={
 								<>
@@ -256,19 +256,18 @@ const Tree: FC<{ layout: SidebarRowLayout; selected?: string }> = ({ layout, sel
 						<CommitItem
 							message="chore: separator tokens"
 							pushed={false}
-							depth={3}
+							depth={4}
 							menu={menu("Commit")}
 						/>
 						<CommitItem
 							message="feat: 28px hunk separator"
-							depth={3}
+							depth={4}
 							selected={selected === "commit"}
 							menu={menu("Commit")}
 						/>
-						<CommitItem message="feat: elapsed time for agents" depth={3} menu={menu("Commit")} />
+						<CommitItem message="feat: elapsed time for agents" depth={4} menu={menu("Commit")} />
 					</>
 				)}
-				<WorktreeDivider depth={2} />
 				<BranchItem
 					layout={layout}
 					title="chore: bump dependencies"
@@ -397,6 +396,182 @@ export const Selection = meta.story({
 			</Card>
 			<Card label="pavel--macbook-pro-2" header={machine}>
 				<Tree layout="rich" selected="ios-push-handoff" />
+			</Card>
+		</div>
+	),
+});
+
+/** A stack's caption over its branches, which it hides while folded and sums up instead. */
+const Stack: FC<{
+	tip: string;
+	branches: Array<ReactNode>;
+	summary: ReactNode;
+	initiallyFolded: boolean;
+}> = ({ tip, branches, summary, initiallyFolded }) => {
+	const [folded, setFolded] = useState(initiallyFolded);
+	return (
+		<>
+			<StackCaption
+				count={branches.length}
+				tip={tip}
+				depth={1}
+				folded={folded}
+				onToggleFolded={() => setFolded(!folded)}
+				meta={folded && summary}
+				menu={menu("Stack")}
+			/>
+			{!folded && branches}
+		</>
+	);
+};
+
+/** One repository's branches: two stacks around a branch of its own. */
+const Stacks: FC<{ folded: [boolean, boolean] }> = ({ folded }) => (
+	<Repository last>
+		<RepoItem layout="compact" name="but-dev" folded={false} menu={menu("Repository")} />
+		<UncommittedItem count={10} depth={1} menu={menu("Uncommitted changes")} />
+		<BranchItem
+			title="mesh-archive"
+			depth={1}
+			folded
+			meta={
+				<>
+					<MetaCount type="unpushed">2</MetaCount>
+					<MetaCount type="age">1d</MetaCount>
+				</>
+			}
+			actions={push}
+			menu={menu("Branch")}
+		/>
+		<Stack
+			tip="feat: archive UI"
+			initiallyFolded={folded[0]}
+			summary={
+				<>
+					<MetaCount type="unpushed">5</MetaCount>
+					<MetaCount type="age">12m</MetaCount>
+				</>
+			}
+			branches={[
+				<BranchItem
+					key="ui"
+					title="feat: archive UI"
+					pr={{ number: 34, state: "open" }}
+					depth={2}
+					folded
+					meta={
+						<>
+							<CiStatus status="working" />
+							<MetaCount type="unpushed">2</MetaCount>
+							<MetaCount type="age">12m</MetaCount>
+						</>
+					}
+					actions={push}
+					menu={menu("Branch")}
+				/>,
+				<BranchItem
+					key="api"
+					title="archive-api"
+					depth={2}
+					folded
+					meta={
+						<>
+							<MetaCount type="unpushed">3</MetaCount>
+							<MetaCount type="age">1h</MetaCount>
+						</>
+					}
+					actions={push}
+					menu={menu("Branch")}
+				/>,
+				<BranchItem
+					key="schema"
+					title="feat: archive schema"
+					pr={{ number: 31, state: "open" }}
+					depth={2}
+					folded
+					meta={
+						<>
+							<CiStatus status="working" />
+							<MetaCount type="age">5h</MetaCount>
+						</>
+					}
+					menu={menu("Branch")}
+				/>,
+			]}
+		/>
+		<BranchItem
+			title="fix: redact remote credentials"
+			pr={{ number: 32, state: "open" }}
+			depth={1}
+			folded
+			meta={
+				<>
+					<CiStatus status="working" />
+					<MetaCount type="unpushed">3</MetaCount>
+					<MetaCount type="age">8m</MetaCount>
+				</>
+			}
+			actions={push}
+			menu={menu("Branch")}
+		/>
+		<Stack
+			tip="feat: unique cursor names"
+			initiallyFolded={folded[1]}
+			summary={
+				<>
+					<MetaCount type="unpushed">1</MetaCount>
+					<MetaCount type="age">35m</MetaCount>
+				</>
+			}
+			branches={[
+				<BranchItem
+					key="names"
+					title="feat: unique cursor names"
+					pr={{ number: 36, state: "open" }}
+					depth={2}
+					folded
+					meta={
+						<>
+							<CiStatus status="working" />
+							<MetaCount type="unpushed">1</MetaCount>
+							<MetaCount type="age">35m</MetaCount>
+						</>
+					}
+					actions={push}
+					menu={menu("Branch")}
+				/>,
+				<BranchItem
+					key="api"
+					title="cursor-api"
+					depth={2}
+					folded
+					meta={
+						<>
+							<MetaCount type="commits">5</MetaCount>
+							<MetaCount type="age">2d</MetaCount>
+						</>
+					}
+					menu={menu("Branch")}
+				/>,
+			]}
+		/>
+	</Repository>
+);
+
+/**
+ * Stacks of branches, with no divider around them: a stack's branches sit one level under its
+ * caption. Folded, the caption names the branch at the top of the stack and sums up the rest; open,
+ * it steps back. A click anywhere on it folds the stack.
+ */
+export const StacksFolded = meta.story({
+	parameters: { design: { type: "figma", url: core("3688-8924") } },
+	render: () => (
+		<div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-start" }}>
+			<Card label="pavel--macbook-pro-2" header={machine}>
+				<Stacks folded={[true, false]} />
+			</Card>
+			<Card label="pavel--macbook-pro-2" header={machine}>
+				<Stacks folded={[true, true]} />
 			</Card>
 		</div>
 	),
@@ -1028,5 +1203,28 @@ export const ByRepository = meta.story({
 				<ByRepositoryTree layout="rich" open />
 			</Card>
 		</div>
+	),
+});
+
+/**
+ * A pull request merging from the branch's menu: the row takes the merged look as the merge starts,
+ * and `busy` turns a spinner in its glyph's place until it is done. Its checks step aside; what is
+ * still to push and its age stay.
+ */
+export const Merging = meta.story({
+	render: () => (
+		<BranchItem
+			title="fix: redact remote URLs in logs"
+			pr={{ number: 32, state: "merged" }}
+			busy
+			depth={1}
+			folded
+			meta={
+				<>
+					<MetaCount type="unpushed">3</MetaCount>
+					<MetaCount type="age">8m</MetaCount>
+				</>
+			}
+		/>
 	),
 });

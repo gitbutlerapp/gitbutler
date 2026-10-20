@@ -264,6 +264,8 @@ pub struct Graph {
     /// an ordinary ad-hoc lower-bound branch and the bottom branch of a
     /// GitButler-created dependent branch chain.
     ad_hoc_branch_stack_orders: Vec<Vec<gix::refs::FullName>>,
+    /// The persisted local branch orders of linked worktrees, each from the checked-out branch down.
+    worktree_branch_stack_orders: Vec<Vec<gix::refs::FullName>>,
     /// It's `true` only if we have stopped the traversal due to a hard limit.
     hard_limit_hit: bool,
     /// The options used to create the graph, which allows it to regenerate itself after something

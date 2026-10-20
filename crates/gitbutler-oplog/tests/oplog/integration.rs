@@ -158,6 +158,42 @@ fn restore_additional_refs_rejects_other_worktrees() -> anyhow::Result<()> {
 }
 
 #[test]
+fn redo_rejects_a_ref_checked_out_elsewhere_only_after_the_snapshot() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    let reference: gix::refs::FullName = "refs/heads/extra".try_into()?;
+    repo.invoke_git("branch extra A");
+    let mut guard = ctx.exclusive_worktree_access();
+    let perm = guard.write_permission();
+    let tree = ctx.prepare_snapshot_with_ref(reference.as_ref(), perm.read_permission())?;
+    let snapshot = ctx.commit_snapshot(
+        tree,
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        perm,
+    )?;
+    let worktree = tempfile::tempdir()?;
+    repo.invoke_git(&format!(
+        "worktree add '{}' extra",
+        worktree.path().display()
+    ));
+    // `extra` didn't move, so undo has nothing to refuse.
+    let redo = ctx.restore_snapshot(snapshot, RestoreKind::RestoreFromSnapshotViaUndo, perm)?;
+    repo.invoke_git("update-ref refs/heads/extra origin/main");
+
+    let error = ctx
+        .restore_snapshot(redo, RestoreKind::RestoreFromSnapshotViaRedo, perm)
+        .unwrap_err();
+    // The worktree checked `extra` out after the first snapshot was taken, so redo
+    // must not move it either, although it had it checked out when undo ran.
+    snapbox::assert_data_eq!(
+        error.to_string(),
+        snapbox::str![[
+            r#"Cannot restore branch 'extra' because it is checked out in worktrees: [..]"#
+        ]]
+    );
+    Ok(())
+}
+
+#[test]
 fn snapshot_with_additional_ref_includes_branch_order() -> anyhow::Result<()> {
     let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
     set_branch_order(ctx, &["refs/heads/A", "refs/heads/B"])?;
@@ -922,6 +958,40 @@ fn restore_repoints_workspace_and_worktree() -> anyhow::Result<()> {
         ctx.snapshots_iter(None, Vec::new(), None)?.count(),
         2,
         "restoring the snapshot records a second oplog entry"
+    );
+    Ok(())
+}
+
+#[test]
+fn restore_keeps_index_stat_of_untouched_files() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    // Age the files so their refreshed stat isn't racy, which restoring must not trust.
+    let an_hour_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
+    for name in ["M", "first", "second"] {
+        fs::File::options()
+            .write(true)
+            .open(repo.projects_root().join(name))?
+            .set_modified(an_hour_ago)?;
+    }
+    repo.invoke_git("update-index --refresh");
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+    fs::remove_file(repo.projects_root().join("second"))?;
+
+    ctx.restore_snapshot(
+        snapshot,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+
+    // `diff-files` lists entries whose stat doesn't match the file. Only the file the
+    // restore re-created needs to be hashed again.
+    snapbox::assert_data_eq!(
+        repo.invoke_git("diff-files --name-only"),
+        snapbox::str!["second"]
     );
     Ok(())
 }

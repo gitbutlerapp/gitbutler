@@ -373,10 +373,9 @@ impl Graph {
         let is_listed = frame
             .metadata
             .is_some_and(|metadata| metadata.find_owner_indexes_by_name(name, Applied).is_some());
-        let is_upstream = self[local_target]
-            .commits
-            .first()
-            .is_none_or(|commit| commit.flags.contains(CommitFlags::Integrated));
+        let is_upstream = self
+            .resolve_to_unambiguously_pointed_to_commit(local_target)
+            .is_none_or(|(commit, _)| commit.flags.contains(CommitFlags::Integrated));
         (is_upstream && !is_listed).then_some(local_target)
     }
 
@@ -564,10 +563,8 @@ impl Graph {
                     .collect();
                 let base = match groups.get(idx + 1) {
                     Some(next) => (
-                        next.members
-                            .first()
-                            .and_then(|&sidx| self[sidx].commits.first())
-                            .map(|c| c.id),
+                        self.resolve_to_unambiguously_pointed_to_commit(next.head)
+                            .map(|(c, _)| c.id),
                         Some(next.head),
                     ),
                     None => lane.base.unzip(),
@@ -593,15 +590,17 @@ impl Graph {
                 .stacks(Applied)
                 .find(|stack| stack.id == id)
         });
-        let ad_hoc_names: BTreeSet<_> = if frame.kind.has_managed_ref() {
-            BTreeSet::new()
+        let ad_hoc_orders = if frame.kind.has_managed_ref() {
+            &[][..]
         } else {
-            self.ad_hoc_branch_stack_orders
-                .iter()
-                .flatten()
-                .map(|rn| rn.as_ref())
-                .collect()
+            &self.ad_hoc_branch_stack_orders[..]
         };
+        let ad_hoc_names: BTreeSet<_> = ad_hoc_orders
+            .iter()
+            .chain(&self.worktree_branch_stack_orders)
+            .flatten()
+            .map(|rn| rn.as_ref())
+            .collect();
         let wanted_by_metadata = |name: &gix::refs::FullNameRef| {
             own_metadata.is_some_and(|stack| {
                 stack

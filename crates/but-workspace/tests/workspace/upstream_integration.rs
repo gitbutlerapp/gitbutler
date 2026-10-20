@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use bstr::ByteSlice;
-use but_core::{Commit, RefMetadata, ref_metadata::ProjectMeta};
+use but_core::{Commit, RefMetadata, commit::SignCommit, ref_metadata::ProjectMeta};
 use but_graph::init::{Options, Tip};
 use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_testsupport::{
@@ -1713,6 +1713,7 @@ fn local_only_empty_direct_checkout_is_preserved() -> Result<()> {
             head_commit_at_merge: repo.rev_parse_single("topic")?.detach(),
             source_branch: "topic".into(),
         }],
+        SignCommit::IfSignCommitsEnabled,
     )?;
     rebase.materialize(Default::default())?;
 
@@ -1727,6 +1728,93 @@ fn local_only_empty_direct_checkout_is_preserved() -> Result<()> {
         "the preserved local-only branch should remain checked out"
     );
 
+    Ok(())
+}
+
+/// The target's own local branch, checked out with no commits of its own, as in a project
+/// working directly on `main`, with the target one commit ahead.
+fn checked_out_local_target_workspace() -> Result<(
+    tempfile::TempDir,
+    gix::Repository,
+    but_meta::VirtualBranchesTomlMetadata,
+    but_db::DbHandle,
+    but_graph::Workspace,
+)> {
+    let (tmp, repo, meta, _description, mut db) =
+        named_writable_scenario_with_description("checked-out-local-target-behind")?;
+    remove_managed_workspace_ref(&repo)?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
+    let workspace = graph.into_workspace()?;
+    assert!(
+        workspace.stacks.is_empty(),
+        "the target's own local branch is in no stack, so callers have no update to pass for it"
+    );
+    Ok((tmp, repo, meta, db, workspace))
+}
+
+#[test]
+fn checked_out_local_target_follows_the_target() -> Result<()> {
+    let (tmp, repo, mut meta, mut db, mut workspace) = checked_out_local_target_workspace()?;
+    let target_tip = repo.rev_parse_single("origin/main")?.detach();
+
+    let project_meta = workspace.graph.project_meta.clone();
+    let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        &mut db,
+        vec![],
+    )?;
+    rebase.materialize(Default::default())?;
+
+    assert_eq!(
+        repo.find_reference("main")?.id(),
+        target_tip,
+        "the checked-out target branch moves to the target"
+    );
+    assert_eq!(
+        repo.head_name()?,
+        Some(gix::refs::FullName::try_from("refs/heads/main")?),
+        "and stays checked out"
+    );
+    assert_eq!(
+        std::fs::read_to_string(tmp.path().join("file.txt"))?,
+        "two\n",
+        "with the target's changes in the worktree"
+    );
+    Ok(())
+}
+
+#[test]
+fn checked_out_local_target_reports_dirty_worktree_conflicts() -> Result<()> {
+    let (tmp, repo, mut meta, mut db, mut workspace) = checked_out_local_target_workspace()?;
+    let main = repo.find_reference("main")?.id().detach();
+    std::fs::write(tmp.path().join("file.txt"), "dirty\n")?;
+
+    let project_meta = workspace.graph.project_meta.clone();
+    let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        &mut db,
+        vec![],
+    )?;
+
+    assert_eq!(
+        worktree_conflicts_for_rebase(&rebase)?,
+        vec![but_serde::BStringForFrontend::from("file.txt")],
+        "the target changed the same lines as the uncommitted change"
+    );
+    assert_eq!(
+        repo.find_reference("main")?.id(),
+        main,
+        "the preview leaves the branch where it is"
+    );
     Ok(())
 }
 
@@ -1769,6 +1857,7 @@ fn empty_direct_checkout_with_merged_review_for_pushed_branch_is_replaced() -> R
             head_commit_at_merge: review_head,
             source_branch: "pushed-topic".into(),
         }],
+        SignCommit::IfSignCommitsEnabled,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -1827,6 +1916,7 @@ fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Resul
             head_commit_at_merge: target_tip,
             source_branch: "pushed-topic".into(),
         }],
+        SignCommit::IfSignCommitsEnabled,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -2472,6 +2562,7 @@ fn fully_integrated_two_stacks_checkout_local_target_at_target_tip() -> Result<(
             },
         ],
         &[],
+        SignCommit::IfSignCommitsEnabled,
     )?;
 
     let preview = out.rebase.overlayed_graph()?.into_workspace()?;
@@ -3075,6 +3166,7 @@ fn fully_integrated_two_stacks_checkout_local_target_at_merge_target() -> Result
             },
         ],
         &[],
+        SignCommit::IfSignCommitsEnabled,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -3130,6 +3222,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
             head_commit_at_merge: review_head,
             source_branch: "A".into(),
         }],
+        SignCommit::IfSignCommitsEnabled,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -3213,6 +3306,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
             head_commit_at_merge: review_head,
             source_branch: "A".into(),
         }],
+        SignCommit::IfSignCommitsEnabled,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -3320,6 +3414,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
             head_commit_at_merge: review_head,
             source_branch: "A".into(),
         }],
+        SignCommit::IfSignCommitsEnabled,
     )?;
     out.rebase.materialize(Default::default())?;
     let graph =
@@ -3522,6 +3617,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
             head_commit_at_merge: review_head,
             source_branch: "A".into(),
         }],
+        SignCommit::IfSignCommitsEnabled,
     )?;
     rebase.materialize(Default::default())?;
 
@@ -3612,6 +3708,7 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
             head_commit_at_merge: review_head,
             source_branch: "A".into(),
         }],
+        SignCommit::IfSignCommitsEnabled,
     )?;
     out.rebase.materialize(Default::default())?;
 
@@ -3683,6 +3780,7 @@ fn integrate_with_hints_and_materialize<M: RefMetadata>(
         db,
         updates,
         review_hints,
+        SignCommit::IfSignCommitsEnabled,
     )?;
     let materialized = rebase.materialize(Default::default())?;
     drop(materialized);

@@ -336,6 +336,10 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
  * one line, its state and actions right after its name, and the name gives way first. A merged or
  * closed request is done with: one muted line in either layout.
  *
+ * While an action on the branch runs, `busy` turns a spinner in its glyph's place, in the glyph's
+ * colour. A merge takes `pr` state `merged` as it starts, so the row reads as where it is heading;
+ * back to `open` if it is refused.
+ *
  * @import import { BranchItem } from "@gitbutler/ui-react/SidebarRow.tsx";
  */
 export const BranchItem: FC<
@@ -345,12 +349,14 @@ export const BranchItem: FC<
 		/** The branch's name, under a pull request's title in `rich`. */
 		branch?: string;
 		layout?: SidebarRowLayout;
+		/** An action on the branch is running: a spinner in place of the glyph. */
+		busy?: boolean;
 	} & RowProps
-> = ({ title, pr, branch, layout = "compact", tooltip, ...props }) => {
+> = ({ title, pr, branch, layout = "compact", busy = false, tooltip, ...props }) => {
 	const done = pr?.state === "merged" || pr?.state === "closed";
 	const glyph = (
 		<Icon
-			name={pr ? prGlyph[pr.state] : "branch"}
+			name={busy ? "spinner" : pr ? prGlyph[pr.state] : "branch"}
 			className={classes(styles.branchGlyph, pr && styles[pr.state])}
 		/>
 	);
@@ -503,36 +509,28 @@ export const UncommittedItem: FC<
 );
 
 /**
- * The label over a stack of two or more branches, "Stack of 2". It doesn't open; with `folded` a
- * click anywhere on it, as on its chevron, hides the stack's branches, and `meta` then says what
- * they hold. Its `menu` (push the stack, open its pull requests) shows under the pointer. `first`
- * is for a stack that opens right under its repository or worktree; otherwise it follows a
- * {@link WorktreeDivider} and sits tucked under it.
+ * The caption over a stack of two or more branches: how many (`count`) and "Stack". Its branches
+ * sit under it one level deeper, with no divider around the stack. It doesn't open; with `folded` a
+ * click anywhere on it, as on its chevron, hides the stack's branches. Folded, the branch at the
+ * stack's top (`tip`), the one that gets pushed, follows "Stack", muted and giving way first, and
+ * `meta` says what the hidden branches hold. "Stack" keeps one quiet colour either way, so the
+ * caption doesn't read as one more branch. Its `menu` (push the stack, open its pull requests)
+ * shows under the pointer.
  *
  * @import import { StackCaption } from "@gitbutler/ui-react/SidebarRow.tsx";
  */
 export const StackCaption: FC<
-	{ label: string; first?: boolean } & Pick<
+	{ count: number; tip: string } & Pick<
 		RowProps,
 		"depth" | "folded" | "onToggleFolded" | "meta" | "menu" | "tooltip"
 	> &
 		ComponentProps<"div">
-> = ({
-	label,
-	first = false,
-	depth = 0,
-	folded,
-	onToggleFolded,
-	meta,
-	menu,
-	tooltip,
-	...props
-}) => {
+> = ({ count, tip, depth = 0, folded, onToggleFolded, meta, menu, tooltip, ...props }) => {
 	const folds = typeof folded === "boolean" && onToggleFolded !== undefined;
 	return (
 		<Row
 			{...props}
-			name={label}
+			name={`Stack of ${count}`}
 			layout="compact"
 			depth={depth}
 			folded={folded}
@@ -553,16 +551,25 @@ export const StackCaption: FC<
 					return;
 				onToggleFolded();
 			}}
-			rowClassName={classes(
-				styles.caption,
-				folds && styles.captionFolds,
-				!first && styles.captionTucked,
-			)}
+			rowClassName={classes(styles.caption, folds && styles.captionFolds)}
 			icon={<Icon name="stack" />}
 			label={
-				<Name tooltip={tooltip} className={classes("text-13", styles.name)}>
-					{label}
-				</Name>
+				<>
+					<Badge variant="lightGray" className={styles.badge}>
+						{count}
+					</Badge>
+					<Name
+						tooltip={tooltip}
+						className={classes("text-14", "text-semibold", styles.name, styles.word)}
+					>
+						Stack
+					</Name>
+					{folded === true && (
+						<Name tooltip={tooltip} className={classes("text-14", "text-semibold", styles.name)}>
+							{tip}
+						</Name>
+					)}
+				</>
 			}
 		/>
 	);
@@ -601,8 +608,8 @@ export const MoreItem: FC<
 	});
 
 /**
- * The line between the worktrees of one repository, and around a stack of branches: before it
- * unless it comes first, after it unless it ends the list.
+ * The line between the worktrees of one repository. A stack needs none: its branches sit one level
+ * under its {@link StackCaption}.
  *
  * @import import { WorktreeDivider } from "@gitbutler/ui-react/SidebarRow.tsx";
  */

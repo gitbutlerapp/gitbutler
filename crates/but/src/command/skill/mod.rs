@@ -339,6 +339,30 @@ fn skill_format_for_agent(agent: Agent, global: bool) -> Option<&'static SkillFo
     skill_format_for_name(name, global)
 }
 
+/// Whether `agent` also loads skills from the shared project `.agents/skills`,
+/// besides its own [`skill_format_for_agent`] location.
+#[rustfmt::skip]
+fn agent_loads_shared_project_skills(agent: Agent) -> bool {
+    match agent {
+        Agent::Codex | Agent::Cursor | Agent::CursorCli | Agent::GitHubCopilot
+        | Agent::OpenCode | Agent::Poolside | Agent::GeminiCli | Agent::Augment
+        | Agent::Antigravity | Agent::Replit | Agent::Amp | Agent::Crush
+        | Agent::Goose | Agent::RooCode | Agent::Pi | Agent::Devin => true,
+        // `.agents/skills` already is their own format.
+        Agent::Cline | Agent::Dirac | Agent::DeepSeekHarness => false,
+        // Trae only reads it behind an opt-in setting; the others don't
+        // document it, so counting it would silence the missing-skill notice
+        // while they never load the skill.
+        Agent::ClaudeCode | Agent::ClaudeCodeCowork | Agent::KiroCli | Agent::Trae
+        | Agent::Junie | Agent::TabnineCli => false,
+        // No known skill location at all.
+        Agent::QwenCode | Agent::GitLabDuoCli | Agent::KiloCode | Agent::Hermes
+        | Agent::V0 | Agent::PulumiNeo | Agent::AmazonQ | Agent::CodeBuddy
+        | Agent::GrokBuild | Agent::Warp | Agent::OpenHands | Agent::OpenClaw
+        | Agent::Unknown => false,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum InstallScope {
     Local,

@@ -33,13 +33,11 @@ fn switch_from_plain_branch() -> anyhow::Result<()> {
 
 "#]]
     );
+    // A and B merely rest on the target with nothing ordering them, so no stack holds them.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
 📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e5d0542
-└── ≡📙:A on e5d0542 {[..]}
-    ├── 📙:A
-    └── 📙:B
 
 "#]]
     );

@@ -57,6 +57,7 @@ Graph {
     entrypoint_ref: None,
     traversal_tips: [],
     ad_hoc_branch_stack_orders: [],
+    worktree_branch_stack_orders: [],
     hard_limit_hit: false,
     options: Options {
         collect_tags: false,
@@ -205,6 +206,7 @@ Graph {
         },
     ],
     ad_hoc_branch_stack_orders: [],
+    worktree_branch_stack_orders: [],
     hard_limit_hit: false,
     options: Options {
         collect_tags: true,

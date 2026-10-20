@@ -320,6 +320,43 @@ fn bitbucket_compare_url_encodes_dest() {
     );
 }
 
+#[test]
+fn compare_urls_encode_url_delimiters_in_branch_names() {
+    for (remote, fork, expected) in [
+        (
+            "https://github.com/owner/repo.git",
+            None,
+            "https://github.com/owner/repo/compare/release/100%25...fix/%2342-crash",
+        ),
+        (
+            "https://github.com/owner/repo.git",
+            Some("fork"),
+            "https://github.com/owner/repo/compare/release/100%25...fork:fix/%2342-crash",
+        ),
+        (
+            "https://gitlab.com/group/repo.git",
+            None,
+            "https://gitlab.com/group/repo/-/compare/release/100%25...fix/%2342-crash",
+        ),
+        (
+            "https://bitbucket.org/owner/repo.git",
+            None,
+            "https://bitbucket.org/owner/repo/branch/fix/%2342-crash?dest=release%2F100%25",
+        ),
+        (
+            "https://dev.azure.com/myorg/myproject/_git/myrepo",
+            None,
+            "https://dev.azure.com/myorg/myproject/_git/myrepo/branchCompare?baseVersion=GBrelease%2F100%25&targetVersion=GBfix%2F%2342-crash",
+        ),
+    ] {
+        assert_eq!(
+            compare_branch_url(remote, "release/100%", "fix/#42-crash", fork, &[], None).unwrap(),
+            expected,
+            "`#` must not start a fragment and `%` must not start an escape"
+        );
+    }
+}
+
 // Commit and PR/MR hyperlinks are built on the frontend as
 // `{baseUrl}{commitUrlPath}{sha}` / `{baseUrl}{prUrlPath}{number}`.
 // These assert the full composed URL per forge so a typo in the

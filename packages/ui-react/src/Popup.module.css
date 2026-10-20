@@ -143,6 +143,33 @@
 	flex: 1 1 auto;
 }
 
+/* A hairline at each edge the body scrolls past: under the header once it's scrolled down, over
+   the footer while there is more below. The modal's own edges, so they span its whole width. */
+.modalBodyArea::before,
+.modalBodyArea::after {
+	z-index: 1;
+	position: absolute;
+	inset-inline: 0;
+	border-top: 1px solid var(--border-section);
+	content: "";
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity var(--transition-fast);
+}
+
+.modalBodyArea::before {
+	top: 0;
+}
+
+.modalBodyArea::after {
+	bottom: 0;
+}
+
+.modalBodyArea[data-overflow-y-start]::before,
+.modalBodyArea[data-overflow-y-end]::after {
+	opacity: 1;
+}
+
 /* .modalPart's padding, restated for the viewport: its own place among the modal's parts is the
    area's. */
 .modalBody {
