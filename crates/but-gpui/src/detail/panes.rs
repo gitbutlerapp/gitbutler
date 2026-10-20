@@ -656,11 +656,11 @@ impl Detail {
         };
         let target = ws.target.as_ref().map_or("the target", |t| t.name.as_str());
         let (state, color) = match branch.push {
-            PushState::NothingToPush => ("on the remote".to_owned(), theme.safe),
-            PushState::Unpushed => ("not pushed".to_owned(), theme.blue),
-            PushState::NeedsForce => ("rewritten, needs a force push".to_owned(), theme.blue),
-            PushState::NeverPushed => ("never pushed".to_owned(), theme.blue),
             PushState::Integrated => (format!("in {target}"), theme.text_2),
+            // The remote has commits it doesn't: pulling comes first.
+            _ if !branch.incoming.is_empty() => (branch.remote_state(), theme.warn),
+            PushState::NothingToPush => (branch.remote_state(), theme.safe),
+            _ => (branch.remote_state(), theme.blue),
         };
         let name = store.name_of(project, branch);
         let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();

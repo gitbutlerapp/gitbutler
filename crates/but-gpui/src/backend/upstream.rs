@@ -273,7 +273,8 @@ pub fn push_refusal(err: &anyhow::Error) -> Option<String> {
 }
 
 /// Bring in the commits only `branch`'s remote has: the local commits rebased on top of
-/// them, or with `theirs` the remote's version of the branch instead of the local one.
+/// them, leaving out the remote's older versions of commits rewritten here; or with `theirs`
+/// the remote's version of the branch instead of the local one.
 pub fn pull_remote(path: &Path, branch: &str, theirs: bool) -> Result<()> {
     integrate_remote(&mut open(path)?, branch, theirs, DryRun::No)?;
     Ok(())
@@ -304,23 +305,48 @@ fn integrate_remote(
     } else {
         Strategy::PullRebase
     };
-    let plan = but_api::branch::get_initial_branch_integration(ctx, name.as_ref(), Some(strategy))?;
+    let mut plan =
+        but_api::branch::get_initial_branch_integration(ctx, name.as_ref(), Some(strategy))?;
     // Rebasing would bring back the remote's versions of commits rewritten here, beside
-    // their new ones: the same change ID on both sides, or with neither having one, as
-    // after plain git, the same subject. A change ID on one side only tells them apart.
-    let divergence = &plan.divergence;
-    let rewritten_here = divergence.upstream_only.iter().any(|remote| {
-        (divergence.local_only.iter()).any(|local| match (&remote.change_id, &local.change_id) {
-            (Some(a), Some(b)) => a == b,
-            (None, None) => remote.subject == local.subject,
-            _ => false,
-        })
-    });
-    anyhow::ensure!(
-        theirs || !rewritten_here,
-        "The remote has older versions of commits rewritten here, which pulling would bring \
-         back. Replace the branch with the remote's version, or push this one over it."
-    );
+    // their new ones, so they're left out, as Lite's "Combine both" does. A version is the
+    // same change ID on both sides, one made without counting as the one the engine gives it
+    // from its sha when it first rebases it; or with neither having one, as after plain Git,
+    // the same subject. The remote's new commits were made on those versions, so they go
+    // after the newest of them as it is here, keeping the remote's order, rather than under
+    // every commit of the branch, and of the branches it's stacked on.
+    if !theirs {
+        use but_workspace::branch::IntegrationDivergenceCommit as Version;
+        use but_workspace::branch::integrate_branch_upstream::InteractiveIntegrationStep as Step;
+        let key = |c: &Version| {
+            (c.change_id.clone()).unwrap_or_else(|| {
+                but_core::commit::Headers::synthetic_change_id_from_commit_id(c.id).to_string()
+            })
+        };
+        let same = |a: &Version, b: &Version| {
+            key(a) == key(b)
+                || (a.change_id.is_none() && b.change_id.is_none() && a.subject == b.subject)
+        };
+        let divergence = &plan.divergence;
+        let (remote, local) = (&divergence.upstream_only, &divergence.local_only);
+        let versions = |of: &[Version], among: &[Version]| -> Vec<gix::ObjectId> {
+            (of.iter())
+                .filter(|c| among.iter().any(|other| same(c, other)))
+                .map(|c| c.id)
+                .collect()
+        };
+        let (older, rewritten) = (versions(remote, local), versions(local, remote));
+        let upstream: Vec<gix::ObjectId> = remote.iter().map(|c| c.id).collect();
+        let picked = |step: &Step, among: &[gix::ObjectId]| matches!(step, Step::Pick { commit_id } if among.contains(commit_id));
+        let steps = std::mem::take(&mut plan.integration.steps);
+        let (incoming, mut ours): (Vec<_>, Vec<_>) = (steps.into_iter())
+            .filter(|step| !picked(step, &older))
+            .partition(|step| picked(step, &upstream));
+        let at = (ours.iter())
+            .rposition(|step| picked(step, &rewritten))
+            .map_or(0, |at| at + 1);
+        ours.splice(at..at, incoming);
+        plan.integration.steps = ours;
+    }
     let mut guard = ctx.exclusive_worktree_access();
     but_api::branch::apply_branch_integration_with_perm(
         ctx,

@@ -378,12 +378,29 @@ pub enum PushState {
 
 impl Branch {
     /// Whether a push has commits to send: a branch with none has nothing yet.
+    /// Whether it has commits the remote doesn't: new ones, or ones rewritten since they were
+    /// pushed. One only behind its remote has none, though Git couldn't push it without force.
     pub fn can_push(&self) -> bool {
-        !self.commits.is_empty()
-            && matches!(
-                self.push,
-                PushState::Unpushed | PushState::NeedsForce | PushState::NeverPushed
-            )
+        self.commits.iter().any(|c| c.state == CommitState::Local)
+    }
+
+    /// What its header says of it against its remote, short of being in the target: what's
+    /// to pull and to push, or that it was rewritten since it was pushed. Git can't push one
+    /// behind its remote without force either, but pulling is what it needs.
+    pub fn remote_state(&self) -> String {
+        let to_push = self
+            .commits
+            .iter()
+            .filter(|c| c.state == CommitState::Local)
+            .count();
+        match (self.push, self.incoming.len()) {
+            (PushState::NeverPushed, _) => "never pushed".to_owned(),
+            (PushState::NeedsForce, 0) => "rewritten, needs a force push".to_owned(),
+            (_, 0) if to_push > 0 => format!("{to_push} to push"),
+            (_, 0) => "on the remote".to_owned(),
+            (_, pull) if to_push > 0 => format!("{pull} to pull, {to_push} to push"),
+            (_, pull) => format!("{pull} to pull"),
+        }
     }
 }
 
@@ -870,7 +887,9 @@ mod tests {
 
     use but_core::HunkHeader;
 
-    use super::{Commit, CommitId, CommitState, DiffLine, Hunk, HunkKey, LineKind};
+    use super::{
+        Branch, Commit, CommitId, CommitState, DiffLine, Hunk, HunkKey, LineKind, PushState,
+    };
 
     fn header(old_start: u32, old_lines: u32, new_start: u32, new_lines: u32) -> HunkHeader {
         HunkHeader {
@@ -965,6 +984,85 @@ mod tests {
             vec![HunkKey(header(2, 1, 0, 0)), HunkKey(header(0, 0, 2, 1))],
             "a removal and an addition never share a run"
         );
+    }
+
+    #[test]
+    fn a_branch_says_what_it_needs_against_its_remote() {
+        let id = gix::ObjectId::from_bytes_or_panic(&[1; 20]);
+        let branch = |push: PushState, states: &[CommitState], incoming: usize| Branch {
+            name: "feat".into(),
+            ref_name: "refs/heads/feat".into(),
+            commits: (states.iter())
+                .map(|state| Commit {
+                    id: CommitId(id),
+                    key: String::new(),
+                    title: String::new(),
+                    message: String::new(),
+                    author: String::new(),
+                    email: String::new(),
+                    agent: None,
+                    time: 0,
+                    state: *state,
+                    conflicted: false,
+                    parent: None,
+                    tree: id,
+                })
+                .collect(),
+            incoming: vec![(CommitId(id), String::new()); incoming],
+            push,
+            review: None,
+        };
+        use CommitState::{Local, Pushed};
+        for (push, states, incoming, said, can_push, why) in [
+            (
+                PushState::NothingToPush,
+                &[Pushed][..],
+                0,
+                "on the remote",
+                false,
+                "in step",
+            ),
+            (
+                PushState::Unpushed,
+                &[Local, Pushed],
+                0,
+                "1 to push",
+                true,
+                "ahead",
+            ),
+            (
+                PushState::NeedsForce,
+                &[Pushed, Pushed],
+                2,
+                "2 to pull",
+                false,
+                "only behind",
+            ),
+            (
+                PushState::NeedsForce,
+                &[Local, Pushed],
+                2,
+                "2 to pull, 1 to push",
+                true,
+                "diverged",
+            ),
+            (
+                PushState::NeedsForce,
+                &[Local],
+                0,
+                "rewritten, needs a force push",
+                true,
+                "rewritten",
+            ),
+        ] {
+            let branch = branch(push, states, incoming);
+            assert_eq!(branch.remote_state(), said, "{why}");
+            assert_eq!(
+                branch.can_push(),
+                can_push,
+                "{why}: whether it has commits to send"
+            );
+        }
     }
 
     #[test]
