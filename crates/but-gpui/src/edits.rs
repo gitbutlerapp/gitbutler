@@ -1001,6 +1001,16 @@ impl AppView {
                 ..Overlay::default()
             },
         };
+        // What the question shows, to land only that: the newest commit of the branch and
+        // those below it, where its ref is even when it has none of its own.
+        let Some(tip) = (workspace.stack_of(&ref_name).into_iter())
+            .flat_map(|(stack, at)| &stack.branches[at..])
+            .flat_map(|branch| &branch.commits)
+            .next()
+        else {
+            return;
+        };
+        let tip = tip.id;
         let name = short_ref(&ref_name).to_owned();
         let (what, whose) = match whole_stack {
             true => (format!("{name} and the branches below it"), "Their"),
@@ -1030,7 +1040,7 @@ impl AppView {
                         &project,
                         label,
                         overlay,
-                        move |path, _| backend::land(path, &name, whole_stack),
+                        move |path, _| backend::land(path, &name, tip, whole_stack),
                         move |store, update_needed, cx| {
                             let mut message = format!("Landed on {target}");
                             if update_needed {

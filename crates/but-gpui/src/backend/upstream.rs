@@ -454,8 +454,18 @@ pub fn fetch(path: &Path) -> Result<bool> {
 /// Put `branch` (a short name), or with `whole_stack` it and every branch below it,
 /// straight onto the target and push the target. Returns whether the other branches still
 /// need an update to sit on the moved target.
-pub fn land(path: &Path, branch: &str, whole_stack: bool) -> Result<bool> {
+pub fn land(path: &Path, branch: &str, tip: CommitId, whole_stack: bool) -> Result<bool> {
     let mut ctx = open(path)?;
+    // A push can't be undone, so not of commits an agent added after the user was asked.
+    let now = {
+        let repo = ctx.repo.get()?;
+        (repo.try_find_reference(&format!("refs/heads/{branch}"))?)
+            .map(|mut r| r.peel_to_id().map(|id| id.detach()))
+            .transpose()?
+    };
+    if now != Some(tip.0) {
+        anyhow::bail!("{branch} changed while you were asked; look at it again");
+    }
     // A merge commit when the branch has diverged, as `but land` makes one without its flags.
     let landed =
         but_api::land::branch_land(&mut ctx, branch.to_owned(), false, false, whole_stack)?;
