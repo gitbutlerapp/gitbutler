@@ -312,8 +312,9 @@ pub struct Detail {
     selecting: bool,
     /// Files folded by hand.
     folded: HashSet<String>,
-    /// The commit message being written with AI, streaming into the box.
-    writing: Option<Task<()>>,
+    /// The commit message being written with AI, streaming into the box, and what the box
+    /// held before, which a write cut short puts back.
+    writing: Option<(Task<()>, String)>,
     /// The find bar over the diff, while it's open.
     find: Option<find::Find>,
     /// What's picked for the shown commit's conflicts, until it's applied.

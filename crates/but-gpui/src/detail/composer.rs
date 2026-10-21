@@ -212,7 +212,12 @@ impl Detail {
             .unwrap_or_default();
         let checks = std::mem::replace(&mut self.checks, next);
         if !checks.is_empty() {
-            self.other_checks.insert(left, checks);
+            self.other_checks.insert(left.clone(), checks);
+        }
+        // A message the AI was still writing goes back to what was written by hand.
+        if let (Some((_, notes)), (Some(project), worktree)) = (self.writing.take(), &left) {
+            let key = draft_key(project, worktree.as_deref());
+            (self.store).update(cx, |store, _| store.drafts.insert(key, notes));
         }
         (self.checks_project, self.checks_worktree) = (project, worktree);
         // The message being written there, as checks are.
@@ -222,7 +227,6 @@ impl Detail {
             .unwrap_or_default();
         self.message.update(cx, |input, cx| input.load(draft, cx));
         self.composing = false;
-        self.writing = None;
         cx.emit(ChecksChanged);
         cx.notify();
     }
@@ -230,7 +234,10 @@ impl Detail {
     pub(super) fn close_composer(&mut self, cx: &mut Context<Self>) {
         self.composing = false;
         // A message still being written would land in whatever the box shows next.
-        self.writing = None;
+        if let Some((_, notes)) = self.writing.take() {
+            self.message
+                .update(cx, |input, cx| input.set_text(notes, cx));
+        }
         self.checks.clear();
         cx.emit(ChecksChanged);
         cx.notify();
@@ -892,6 +899,7 @@ impl Detail {
         }
         let notes = self.message.read(cx).text().to_owned();
         let prompt = ai::commit_prompt(&notes, &diff);
+        let kept = notes.clone();
         let input = self.message.clone();
         input.update(cx, |input, _| input.break_undo_run());
         let task = cx.spawn(async move |this, cx| {
@@ -920,7 +928,7 @@ impl Detail {
             })
             .ok();
         });
-        self.writing = Some(task);
+        self.writing = Some((task, kept));
         cx.notify();
     }
 
