@@ -68,7 +68,10 @@ so update it, shortcuts table included, with every change in behaviour.
   `(Navigator || Detail)` rather than `Workspace`, which modals sit inside. `DiffPane` is a
   sibling of `Detail`, so its find field has its own context.
 - GPUI focuses the nearest focusable parent on mouse-down, so clicking a tab inside `Detail`
-  takes the keys from a list page. Hand focus back, and never to an element that isn't drawn.
+  takes the keys from a list page. Hand focus back, and never to an element that isn't drawn;
+  if a focused one goes anyway, keys reach nothing, so `on_focus_lost` sends them to the navigator.
+- A drag's payload stays as the drag began. Drop targets read `Store::dragging`, which reloads
+  follow as they follow the cut.
 - A cached view redraws only on its own notify. `window.focus` doesn't notify it, and a drag let
   go over a target that refuses it ends without any redraw, so the navigator notifies on both.
 - GPUI calls an element unhovered once the pointer moves with the button down on it, and starts
@@ -104,6 +107,11 @@ so update it, shortcuts table included, with every change in behaviour.
 - An amend keeps the change ID and the parent and changes the tree. A rebase or a reword doesn't
   count as one. `git rebase` drops the change ID, so what's been read also goes by
   `Commit::authored`, a hash of the author, time and message, which every rebase keeps.
+- A menu, prompt, picker, form or drag holds the ref name or commit id it opened on, which an
+  agent can rename or rewrite before it's used. Follow it (`follow_by_key`, `Remap`,
+  `StoreEvent::Renamed`), or close or refuse once it's gone; never act on the stale one.
+- A confirmation that can't be undone (a linked worktree's discard or delete, Land) carries what it
+  asked about, as a file's `modified` time or a branch's tip, and refuses if that moved meanwhile.
 - Hunk and line selections in uncommitted files are positional, and an agent's edit slides them.
   Commit, amend and discard compare each file's `modified` time and base with the diff the user
   saw and refuse if either moved. Core takes any selection in an added file as the whole file,
