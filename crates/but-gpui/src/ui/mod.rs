@@ -1063,10 +1063,14 @@ pub fn local_time(seconds: i64) -> String {
     local(seconds, "%d/%m/%Y, %H:%M")
 }
 
-/// `seconds` (since the epoch) in `format`, at the time here.
+/// `seconds` (since the epoch) in `format`, at the time here then: a summer moment keeps
+/// summer time in winter.
 fn local(seconds: i64, format: &'static str) -> String {
-    let offset = gix::date::Time::now_local_or_utc().offset;
-    gix::date::Time::new(seconds, offset).format_or_unix(gix::date::time::CustomFormat::new(format))
+    use chrono::TimeZone as _;
+    match chrono::Local.timestamp_opt(seconds, 0).single() {
+        Some(at) => at.format(format).to_string(),
+        None => seconds.to_string(),
+    }
 }
 
 /// The day `seconds` (since the epoch) fall on here, as a short date: "Oct 21".

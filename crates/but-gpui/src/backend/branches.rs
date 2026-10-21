@@ -9,8 +9,8 @@ use but_branches::ListedStackStatus;
 
 use super::ops::full_name;
 use super::reviews::from_cache;
-use super::upstream::TargetCommit;
-use super::{Agent, CommitId, Review, open, title};
+use super::upstream::{TargetCommit, target_commit};
+use super::{Agent, CommitId, Review, open};
 
 #[derive(Debug, Clone)]
 pub struct OtherBranch {
@@ -59,11 +59,8 @@ pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
         .flat_map(|(stack, listed)| listed.branches.into_iter().map(move |b| (stack, b)))
         .map(|(stack, listed)| {
             let branch = listed.branch;
-            let byline = branch.last_author.as_ref().map(|author| {
-                let author = super::signature(author.name.as_ref(), author.email.as_ref());
-                let committer = super::committer(&repo, branch.tip);
-                super::byline(author.clone(), committer.unwrap_or(author))
-            });
+            let byline =
+                (repo.find_commit(branch.tip).ok()).and_then(|tip| super::commit_byline(&tip).ok());
             let (person, agent) = byline.unzip();
             let (author, email) = person.unzip();
             OtherBranch {
@@ -116,32 +113,9 @@ pub fn branch_commits(path: &Path, ref_name: &str) -> Result<Vec<TargetCommit>> 
         None => (name.shorten().to_string(), None),
     };
     let details = but_api::legacy::workspace::branch_details(&ctx, short, remote)?;
-    Ok(details
-        .commits
-        .into_iter()
-        .map(|commit| {
-            let author = (commit.author.name.clone(), commit.author.email.clone());
-            let committer = super::committer(&repo, commit.id).unwrap_or_else(|| author.clone());
-            let ((author, email), agent) = super::byline(author, committer);
-            TargetCommit {
-                id: CommitId(commit.id),
-                title: title(&commit.message),
-                body: (commit.message.lines().skip(1))
-                    .map(|line| line.to_str_lossy())
-                    .collect::<Vec<_>>()
-                    .join("\n")
-                    .trim()
-                    .to_owned(),
-                time: (commit.committed_at / 1000) as i64,
-                author,
-                email,
-                agent,
-                review: None,
-                incoming: false,
-                merge: false,
-            }
-        })
-        .collect())
+    (details.commits.iter())
+        .map(|commit| target_commit(&repo.find_commit(commit.id)?))
+        .collect()
 }
 
 /// How applying a branch went.

@@ -252,14 +252,7 @@ fn marker_conflicts(path: &str, text: &str) -> Vec<Conflict> {
     let ids = markers::ids(&lines, &blocks);
     let numbered = |range: std::ops::Range<usize>, from: usize| -> Vec<DiffLine> {
         (lines[range].iter().zip(from as u32..))
-            .map(|(raw, new)| DiffLine {
-                kind: LineKind::Context,
-                old: None,
-                new: Some(new),
-                text: display_text(raw.trim_end_matches('\n')).into(),
-                spans: Vec::new(),
-                emph: Vec::new(),
-            })
+            .map(|(raw, new)| context_line(new, &display_text(raw.trim_end_matches('\n'))))
             .collect()
     };
     (blocks.iter().enumerate().zip(ids))
@@ -295,14 +288,7 @@ fn conflicts_of(file: &but_api::resolve::ConflictedFile) -> Vec<Conflict> {
     let count = |text: &str| text.lines().count() as u32;
     let lines = |text: &str, from: u32| -> Vec<DiffLine> {
         (text.lines().zip(from..))
-            .map(|(raw, new)| DiffLine {
-                kind: LineKind::Context,
-                old: None,
-                new: Some(new),
-                text: display_text(raw).into(),
-                spans: Vec::new(),
-                emph: Vec::new(),
-            })
+            .map(|(raw, new)| context_line(new, &display_text(raw)))
             .collect()
     };
     let mut shift = 0i64;
@@ -364,27 +350,15 @@ fn annotate_conflict(path: &str, conflict: &mut Conflict) {
     }
     highlight(&[before, new_base], after);
     // The sides as a removal and an addition, which marks the words that differ.
-    let mut pair = Hunk {
-        key: HunkKey(but_core::HunkHeader {
-            old_start: 0,
-            old_lines: 0,
-            new_start: 0,
-            new_lines: 0,
-        }),
-        header: String::new(),
-        lines: (new_base.iter().map(|line| (line, LineKind::Removed)))
-            .chain(commit.iter().map(|line| (line, LineKind::Added)))
-            .map(|(line, kind)| DiffLine {
-                kind,
-                ..line.clone()
-            })
-            .collect(),
-        scope: Vec::new(),
-        lead: Vec::new(),
-        tail: Vec::new(),
-    };
-    annotate::emphasize(&mut pair);
-    let (base_emph, commit_emph) = pair.lines.split_at(new_base.len());
+    let mut pair: Vec<DiffLine> = (new_base.iter().map(|line| (line, LineKind::Removed)))
+        .chain(commit.iter().map(|line| (line, LineKind::Added)))
+        .map(|(line, kind)| DiffLine {
+            kind,
+            ..line.clone()
+        })
+        .collect();
+    annotate::emphasize_run(&mut pair);
+    let (base_emph, commit_emph) = pair.split_at(new_base.len());
     for (line, marked) in new_base.iter_mut().zip(base_emph) {
         line.emph = marked.emph.clone();
     }
@@ -712,12 +686,8 @@ pub fn file_lines(
                 .map(|h| h.line(&text))
                 .unwrap_or_default();
             DiffLine {
-                kind: LineKind::Context,
-                old: None,
-                new: Some(ix as u32 + 1),
-                text: text.into(),
                 spans,
-                emph: Vec::new(),
+                ..context_line(ix as u32 + 1, &text)
             }
         })
         .collect();
@@ -859,6 +829,19 @@ const FIRST_HIGHLIGHT_LIMIT: u32 = 500;
 /// Lines longer than this, as in minified files, are cut short: shaping and highlighting
 /// them costs far more than anyone reads.
 const LINE_LIMIT: usize = 2000;
+
+/// An unchanged line numbered `new` on the new side only, showing `text` as it is, so pass
+/// it through [`display_text`] first.
+pub(super) fn context_line(new: u32, text: &str) -> DiffLine {
+    DiffLine {
+        kind: LineKind::Context,
+        old: None,
+        new: Some(new),
+        text: text.into(),
+        spans: Vec::new(),
+        emph: Vec::new(),
+    }
+}
 
 /// A diff line as shown: tabs as spaces, no carriage return, and cut at [`LINE_LIMIT`].
 pub(super) fn display_text(raw: &str) -> String {

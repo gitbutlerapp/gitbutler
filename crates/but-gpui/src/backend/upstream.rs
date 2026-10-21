@@ -3,6 +3,7 @@
 //! the workspace doesn't have yet, the pull request each commit landed, and when the
 //! project last fetched.
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::Result;
@@ -43,13 +44,19 @@ pub fn target_commits(
     after: Option<CommitId>,
     limit: u32,
 ) -> Result<(Vec<TargetCommit>, bool)> {
-    target_page(&open(path)?, after, limit)
+    let ctx = open(path)?;
+    target_page(&ctx, &cached_reviews(&ctx), after, limit)
 }
 
 /// The newest `limit` of the target's commits the workspace doesn't have yet, each named by
-/// the pull request it landed, as the project's page names them.
-pub(super) fn incoming(ctx: &but_ctx::Context, limit: usize) -> Result<Vec<RemoteCommit>> {
-    let (commits, _) = target_page(ctx, None, limit as u32)?;
+/// the pull request it landed, as the project's page names them, with the pull requests the
+/// forge cache has, `cached`.
+pub(super) fn incoming(
+    ctx: &but_ctx::Context,
+    cached: &HashMap<u64, but_forge::ForgeReview>,
+    limit: usize,
+) -> Result<Vec<RemoteCommit>> {
+    let (commits, _) = target_page(ctx, cached, None, limit as u32)?;
     Ok((commits.into_iter())
         .filter(|commit| commit.incoming)
         .map(|commit| RemoteCommit {
@@ -72,6 +79,7 @@ pub(super) fn incoming(ctx: &but_ctx::Context, limit: usize) -> Result<Vec<Remot
 
 fn target_page(
     ctx: &but_ctx::Context,
+    cached: &HashMap<u64, but_forge::ForgeReview>,
     after: Option<CommitId>,
     limit: u32,
 ) -> Result<(Vec<TargetCommit>, bool)> {
@@ -80,49 +88,31 @@ fn target_page(
         after.map(|id| but_api::json::HexHash(id.0)),
         Some(limit),
     )?;
-    let cached = cached_reviews(ctx);
     let repo = ctx.repo.get()?;
-    let commits = page
-        .commits
-        .into_iter()
+    let commits = (page.commits.into_iter())
         .map(|target| {
-            let commit = target.commit;
-            let author = (commit.author.name, commit.author.email);
-            let committer = super::committer(&repo, commit.id).unwrap_or_else(|| author.clone());
-            let ((author, email), agent) = super::byline(author, committer);
-            TargetCommit {
-                id: CommitId(commit.id),
-                title: title(&commit.message),
-                body: (commit.message.lines().skip(1))
-                    .map(|line| line.to_str_lossy())
-                    .collect::<Vec<_>>()
-                    .join("\n")
-                    .trim()
-                    .to_owned(),
-                time: (commit.committed_at / 1000) as i64,
-                author,
-                email,
-                agent,
-                review: target.review.map(|review| {
-                    let mut found = match cached.get(&(review.number as u64)) {
-                        Some(found) => from_cache(found),
-                        // Named by the merge commit's message, which the cache has no record of.
-                        None => Review {
-                            number: review.number as u64,
-                            title: review.title,
-                            url: Some(review.html_url),
-                            ..Review::default()
-                        },
-                    };
-                    // It landed, whatever the cache saw last.
-                    found.state = ReviewState::Merged;
-                    found
-                }),
+            let review = target.review.map(|review| {
+                let mut found = match cached.get(&(review.number as u64)) {
+                    Some(found) => from_cache(found),
+                    // Named by the merge commit's message, which the cache has no record of.
+                    None => Review {
+                        number: review.number as u64,
+                        title: review.title,
+                        url: Some(review.html_url),
+                        ..Review::default()
+                    },
+                };
+                // It landed, whatever the cache saw last.
+                found.state = ReviewState::Merged;
+                found
+            });
+            Ok(TargetCommit {
+                review,
                 incoming: !target.in_workspace,
-                merge: (repo.find_commit(commit.id)).is_ok_and(|c| c.parent_ids().count() > 1),
-            }
+                ..target_commit(&repo.find_commit(target.commit.id)?)?
+            })
         })
-        .collect::<Vec<TargetCommit>>();
+        .collect::<Result<Vec<TargetCommit>>>()?;
     // The first page stops where the workspace forked off, with older commits below that
     // unless it's where the history starts.
     let forked_above_root = after.is_none()
@@ -134,6 +124,30 @@ fn target_page(
     Ok((commits, page.has_more || forked_above_root))
 }
 
+/// `commit` as a target's history lists it. Whether it's incoming, and the pull request it
+/// landed, are for the caller to set.
+pub(super) fn target_commit(commit: &gix::Commit<'_>) -> Result<TargetCommit> {
+    let message = commit.message_raw_sloppy();
+    let ((author, email), agent) = super::commit_byline(commit)?;
+    Ok(TargetCommit {
+        id: CommitId(commit.id),
+        title: title(message),
+        body: (message.lines().skip(1))
+            .map(|line| line.to_str_lossy())
+            .collect::<Vec<_>>()
+            .join("\n")
+            .trim()
+            .to_owned(),
+        time: commit.time()?.seconds,
+        author,
+        email,
+        agent,
+        review: None,
+        incoming: false,
+        merge: commit.parent_ids().count() > 1,
+    })
+}
+
 /// How many days back the project's page counts the target's activity.
 pub const ACTIVITY_DAYS: usize = 30;
 
@@ -142,16 +156,23 @@ const DAY: i64 = 24 * 60 * 60;
 /// The day `seconds` (since the epoch) falls on here, numbered from the epoch's, so a day
 /// picked stays that day as the clock moves on.
 pub fn day_of(seconds: i64) -> i64 {
-    (seconds + local_offset()).div_euclid(DAY)
+    (seconds + offset_at(seconds)).div_euclid(DAY)
 }
 
 /// When day `day`, as [`day_of`] numbers it, starts here, in seconds since the epoch.
 pub fn day_start(day: i64) -> i64 {
-    day * DAY - local_offset()
+    // Midnight in UTC, moved by the offset here at about midnight here. Read at midnight in
+    // UTC, the offset would be an hour out when the clocks change between the two.
+    let midnight = day * DAY;
+    midnight - offset_at(midnight - offset_at(midnight))
 }
 
-fn local_offset() -> i64 {
-    gix::date::Time::now_local_or_utc().offset as i64
+/// How far the clock here is ahead of UTC at `seconds` (since the epoch), in seconds: the
+/// summer offset for a summer moment, whatever the season now.
+fn offset_at(seconds: i64) -> i64 {
+    use chrono::TimeZone as _;
+    (chrono::Local.timestamp_opt(seconds, 0).single())
+        .map_or(0, |at| at.offset().local_minus_utc().into())
 }
 
 /// The target as the project's page sums it up: its README, and who's been committing to it.
@@ -196,13 +217,9 @@ pub fn overview(path: &Path, target: &str, now: i64) -> Result<Overview> {
     let mut team: Vec<(String, String, u32)> = Vec::new();
     let all = (repo.rev_walk([tip.id])).sorting(newest_since).all()?;
     for commit in commits_since(all, since).filter(|commit| commit.parent_ids().count() < 2) {
-        let (Ok(author), Ok(committer)) = (commit.author(), commit.committer()) else {
+        let Ok(((name, email), _)) = super::commit_byline(&commit) else {
             continue;
         };
-        let ((name, email), _) = super::byline(
-            super::signature(author.name, author.email),
-            super::signature(committer.name, committer.email),
-        );
         let email = email.to_lowercase();
         match team.iter_mut().find(|(_, known, _)| *known == email) {
             Some(person) => person.2 += 1,
@@ -297,7 +314,7 @@ pub fn readme_image(path: &Path, target: &str, src: &str) -> Result<Vec<u8>> {
 }
 
 /// The one client README images are fetched with, which follows a redirect only to another
-/// public https address.
+/// address [`public_https`] passes.
 fn image_client() -> &'static reqwest::Client {
     static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
     CLIENT.get_or_init(|| {
@@ -315,8 +332,9 @@ fn image_client() -> &'static reqwest::Client {
     })
 }
 
-/// Whether `url` is https on the internet: a README's images mustn't reach this machine or
-/// the network it's on.
+/// Whether `url` is https and its host doesn't name this machine or the network it's on, as
+/// an address or a local name, which a README's images mustn't reach. The name isn't
+/// resolved, so a public name that resolves to a private address passes.
 fn public_https(url: &reqwest::Url) -> bool {
     use std::net::IpAddr;
     let public = |ip: IpAddr| match ip {
@@ -368,35 +386,9 @@ pub fn merged_commits(
         .with_hidden([first])
         .sorting(Sorting::ByCommitTime(CommitTimeOrder::NewestFirst))
         .all()?;
-    let mut commits = Vec::new();
-    for info in walk.take(limit + 1) {
-        let commit = info?.object()?;
-        let message = commit.message_raw_sloppy();
-        let author = commit.author()?;
-        let author = (
-            author.name.to_str_lossy().into_owned(),
-            author.email.to_str_lossy().into_owned(),
-        );
-        let committer = super::committer(&repo, commit.id).unwrap_or_else(|| author.clone());
-        let ((author, email), agent) = super::byline(author, committer);
-        commits.push(TargetCommit {
-            id: CommitId(commit.id),
-            title: title(message),
-            body: (message.lines().skip(1))
-                .map(|line| line.to_str_lossy())
-                .collect::<Vec<_>>()
-                .join("\n")
-                .trim()
-                .to_owned(),
-            time: commit.time()?.seconds,
-            author,
-            email,
-            agent,
-            review: None,
-            incoming: false,
-            merge: commit.parent_ids().count() > 1,
-        });
-    }
+    let mut commits = (walk.take(limit + 1))
+        .map(|info| target_commit(&info?.object()?))
+        .collect::<Result<Vec<_>>>()?;
     let more = commits.len() > limit;
     commits.truncate(limit);
     Ok((commits, more))
@@ -435,47 +427,48 @@ pub fn push(
     drops: Option<&[CommitId]>,
     run_hooks: bool,
 ) -> Result<(Option<String>, Option<String>)> {
+    let mut ctx = open(path)?;
+    // Decided when it runs, as an amend queued before it rewrites the branch.
+    let mut info = but_api::legacy::workspace::head_info(&ctx)?;
     // Forced, as decided when it runs, the push goes past the lease, which would refuse to
     // drop even the commits only the remote has that were shown. Unless pushing anyway, it
     // fetches again first and stops if the remote moved, as a teammate's amend still matches
     // the commit rewritten here, or has commits that weren't shown.
-    if let Some(shown) = drops {
-        let (info, tips) = with_remote_tips(path, ref_name)?;
-        if needs_force(&info, ref_name) {
-            fetch(path)?;
-            let (info, now) = with_remote_tips(path, ref_name)?;
-            // A stack pushes the branches below it too: the refusal names the one it's about.
-            let name = |segment: Option<&but_workspace::ref_info::Segment>| {
-                (segment.and_then(|segment| segment.ref_name())).map_or_else(
-                    || short_ref(ref_name).to_owned(),
-                    |n| n.shorten().to_string(),
-                )
-            };
-            if now != tips {
-                let moved = name(
-                    (pushed_with(&info, ref_name).zip(tips.iter().zip(&now)))
-                        .find(|(_, (before, after))| before != after)
-                        .map(|(segment, _)| segment),
-                );
-                anyhow::bail!(
-                    "Someone pushed to {moved} since the last fetch, and forcing would replace \
-                     it. Check what's there before pushing again."
-                );
-            }
-            if let Some(unseen) = pushed_with(&info, ref_name).find(|segment| {
-                (segment.commits_on_remote.iter()).any(|c| !shown.contains(&CommitId(c.id)))
-            }) {
-                anyhow::bail!(
-                    "The remote has commits on {} that weren't shown, and forcing would drop \
-                     them. Push again to see them.",
-                    name(Some(unseen))
-                );
-            }
+    if let Some(shown) = drops.filter(|_| needs_force(&info, ref_name)) {
+        let tips = remote_tips(&ctx, &info, ref_name)?;
+        fetch(path)?;
+        // Opened again after the fetch, so the remote's tips are read as it left them.
+        ctx = open(path)?;
+        info = but_api::legacy::workspace::head_info(&ctx)?;
+        let now = remote_tips(&ctx, &info, ref_name)?;
+        // A stack pushes the branches below it too: the refusal names the one it's about.
+        let name = |segment: Option<&but_workspace::ref_info::Segment>| {
+            (segment.and_then(|segment| segment.ref_name())).map_or_else(
+                || short_ref(ref_name).to_owned(),
+                |n| n.shorten().to_string(),
+            )
+        };
+        if now != tips {
+            let moved = name(
+                (pushed_with(&info, ref_name).zip(tips.iter().zip(&now)))
+                    .find(|(_, (before, after))| before != after)
+                    .map(|(segment, _)| segment),
+            );
+            anyhow::bail!(
+                "Someone pushed to {moved} since the last fetch, and forcing would replace \
+                 it. Check what's there before pushing again."
+            );
+        }
+        if let Some(unseen) = pushed_with(&info, ref_name).find(|segment| {
+            (segment.commits_on_remote.iter()).any(|c| !shown.contains(&CommitId(c.id)))
+        }) {
+            anyhow::bail!(
+                "The remote has commits on {} that weren't shown, and forcing would drop \
+                 them. Push again to see them.",
+                name(Some(unseen))
+            );
         }
     }
-    let ctx = open(path)?;
-    // Decided when it runs, as an amend queued before it rewrites the branch.
-    let info = but_api::legacy::workspace::head_info(&ctx)?;
     // As in the desktop app, a conflicted commit stays here until it's resolved.
     if pushed_with(&info, ref_name).any(|segment| segment.commits.iter().any(|c| c.has_conflicts)) {
         anyhow::bail!("Resolve the conflicted commits first, so they aren't pushed");
@@ -526,24 +519,21 @@ fn needs_force(info: &but_workspace::RefInfo, ref_name: &str) -> bool {
         .any(|segment| segment.push_status == PushStatus::UnpushedCommitsRequiringForce)
 }
 
-/// The workspace now, and where the remote-tracking branches of `ref_name` and the ones below
-/// it point.
-fn with_remote_tips(
-    path: &Path,
+/// Where the remote-tracking branches of `ref_name` and the ones below it in `info` point.
+fn remote_tips(
+    ctx: &but_ctx::Context,
+    info: &but_workspace::RefInfo,
     ref_name: &str,
-) -> Result<(but_workspace::RefInfo, Vec<Option<gix::ObjectId>>)> {
-    let ctx = open(path)?;
-    let info = but_api::legacy::workspace::head_info(&ctx)?;
+) -> Result<Vec<Option<gix::ObjectId>>> {
     let repo = ctx.repo.get()?;
-    let tips = pushed_with(&info, ref_name)
+    Ok(pushed_with(info, ref_name)
         .map(|segment| {
             (segment.remote_tracking_ref_name.as_ref())
                 .and_then(|name| repo.find_reference(name.as_ref()).ok())
                 .and_then(|mut tip| tip.peel_to_id().ok())
                 .map(|id| id.detach())
         })
-        .collect();
-    Ok((info, tips))
+        .collect())
 }
 
 /// `ref_name`'s branch and the ones below it in its stack, which pushing it pushes too.
@@ -681,9 +671,9 @@ pub fn update_from_target(
     accepted: Option<&UpdateConflicts>,
 ) -> Result<UpdateOutcome> {
     let mut ctx = open(path)?;
-    let info = but_api::legacy::workspace::head_info(&ctx)?;
-    // Held from the dry run through the update, so nothing lands in between.
+    // Held from reading the workspace through the update, so nothing changes it in between.
     let mut guard = ctx.exclusive_worktree_access();
+    let info = but_api::legacy::workspace::head_info(&ctx)?;
     let preview = integrate_upstream(&mut ctx, &info, DryRun::Yes, guard.write_permission())?;
     let found = UpdateConflicts {
         branches: newly_conflicted(&info, &preview.workspace_state.conflicted_commits),
@@ -784,7 +774,24 @@ pub fn land(path: &Path, branch: &str, tip: CommitId, whole_stack: bool) -> Resu
 
 #[cfg(test)]
 mod tests {
-    use super::{ACTIVITY_DAYS, DAY, overview, public_https, push_refusal};
+    use super::{ACTIVITY_DAYS, DAY, day_of, overview, public_https, push_refusal};
+
+    #[test]
+    fn a_day_goes_by_the_clock_here_on_that_day_not_today() {
+        use chrono::TimeZone as _;
+        // Half past every hour of 2026, both changes of clocks included where the clocks
+        // change. Where they don't, as in UTC, it can't tell.
+        let year = 1_767_225_600;
+        let epoch = chrono::NaiveDate::default();
+        for at in (0..365 * 24).map(|hour| year + hour * 3600 + 1800) {
+            let here = chrono::Local.timestamp_opt(at, 0).unwrap().date_naive();
+            assert_eq!(
+                day_of(at),
+                (here - epoch).num_days(),
+                "{at} falls on {here} here, by that day's offset from UTC"
+            );
+        }
+    }
 
     #[test]
     fn sums_up_the_target_by_day_and_author() {

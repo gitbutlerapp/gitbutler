@@ -296,11 +296,9 @@ pub fn create_branch(path: &Path, name: Option<&str>) -> Result<String> {
     use but_api::branch::json::BranchCreatePlacement as Placement;
     let mut ctx = open(path)?;
     refuse_unborn(&ctx)?;
-    let name = match name.map(str::trim).filter(|name| !name.is_empty()) {
-        Some(name) => name.to_owned(),
-        None => but_api::branch::branch_canned_name(&ctx)?,
-    };
-    let ref_name = branch_ref(&name)?;
+    let ref_name = (name.map(str::trim).filter(|name| !name.is_empty()))
+        .map(branch_ref)
+        .transpose()?;
     let checked_out = (ctx.repo.get()?.head_name()?).filter(|head| {
         head.as_bstr() != but_core::WORKSPACE_REF_NAME
             && head.as_ref().category() == Some(gix::refs::Category::LocalBranch)
@@ -312,8 +310,8 @@ pub fn create_branch(path: &Path, name: Option<&str>) -> Result<String> {
         },
         None => Placement::Independent { order: None },
     };
-    but_api::branch::branch_create(&mut ctx, Some(ref_name.clone()), placement)?;
-    Ok(ref_name.to_string())
+    let created = but_api::branch::branch_create(&mut ctx, ref_name, placement)?;
+    Ok(created.new_ref.to_string())
 }
 
 /// Make branch `name` at the target, or one with a made-up name, and switch to it on its own,
@@ -374,13 +372,12 @@ fn create_branch_at(
     name: &str,
 ) -> Result<String> {
     let mut ctx = open(path)?;
-    let ref_name = branch_ref(name)?;
-    but_api::branch::branch_create(
+    let created = but_api::branch::branch_create(
         &mut ctx,
-        Some(ref_name.clone()),
+        Some(branch_ref(name)?),
         but_api::branch::json::BranchCreatePlacement::Dependent { relative_to, side },
     )?;
-    Ok(ref_name.to_string())
+    Ok(created.new_ref.to_string())
 }
 
 /// Stack `branch` (a full ref name) on top of `onto`, with the branches above it.

@@ -29,7 +29,9 @@ pub fn emphasize(hunk: &mut Hunk) {
     }
 }
 
-fn emphasize_run(run: &mut [DiffLine]) {
+/// Mark the changed words of each removed line in `run` that pairs up with an added one.
+/// `run` has no unchanged lines.
+pub(super) fn emphasize_run(run: &mut [DiffLine]) {
     let (removed, added): (Vec<usize>, Vec<usize>) =
         (0..run.len()).partition(|&ix| run[ix].kind == LineKind::Removed);
     let bytes = |ixs: &[usize]| ixs.iter().map(|&ix| run[ix].text.len()).sum::<usize>();
@@ -172,12 +174,8 @@ fn widen(hunks: &mut [Hunk], spans: &[Option<Range<usize>>], new: &str, limit: u
         // removed or added.
         let unchanged = |new: usize, ahead: i64| {
             Some(DiffLine {
-                kind: LineKind::Context,
                 old: u32::try_from(new as i64 - ahead).ok(),
-                new: Some(new as u32),
-                text: text.get(new.checked_sub(1)?)?.as_str().into(),
-                spans: Vec::new(),
-                emph: Vec::new(),
+                ..super::diff::context_line(new as u32, text.get(new.checked_sub(1)?)?)
             })
         };
         let before = i64::from(key.new_start) - i64::from(key.old_start);

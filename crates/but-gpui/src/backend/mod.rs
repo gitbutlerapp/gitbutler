@@ -301,7 +301,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         needs_update: target.commits_ahead > 0 || stacks_behind,
         incoming: match target.commits_ahead {
             0 => Vec::new(),
-            _ => upstream::incoming(&ctx, model::UPSTREAM_SHOWN).unwrap_or_else(|err| {
+            _ => upstream::incoming(&ctx, &cached, model::UPSTREAM_SHOWN).unwrap_or_else(|err| {
                 tracing::warn!("couldn't read the target's new commits: {err:#}");
                 Vec::new()
             }),
@@ -334,14 +334,15 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
                     return None;
                 }
                 past_theirs = theirs.is_some();
-                let mut branch = branch_from(&ctx, &cached, segment);
                 // A detached run of commits has no ref to tell it apart by, and a branch the
                 // workspace has applied is listed there.
-                let applied = (stacks.iter().flat_map(|stack| &stack.branches))
-                    .any(|stacked| stacked.ref_name == branch.ref_name);
-                if branch.ref_name.is_empty() || applied {
+                let ref_name = segment.ref_name()?.to_string();
+                if (stacks.iter().flat_map(|stack| &stack.branches))
+                    .any(|stacked| stacked.ref_name == ref_name)
+                {
                     return None;
                 }
+                let mut branch = branch_from(&ctx, &cached, segment);
                 if let Some(theirs) = theirs {
                     branch.commits.truncate(theirs);
                 }
@@ -520,11 +521,13 @@ fn signature(name: &gix::bstr::BStr, email: &gix::bstr::BStr) -> (String, String
     )
 }
 
-/// The committer of commit `id`, as [`byline`] takes it, when the repository has it.
-fn committer(repo: &gix::Repository, id: gix::ObjectId) -> Option<(String, String)> {
-    let commit = repo.find_commit(id).ok()?;
-    let committer = commit.committer().ok()?;
-    Some(signature(committer.name, committer.email))
+/// Who `commit` is shown by: see [`byline`].
+fn commit_byline(commit: &gix::Commit<'_>) -> Result<((String, String), Option<Agent>)> {
+    let (author, committer) = (commit.author()?, commit.committer()?);
+    Ok(byline(
+        signature(author.name, author.email),
+        signature(committer.name, committer.email),
+    ))
 }
 
 fn commit_from(local: &but_workspace::ref_info::LocalCommit) -> Commit {
