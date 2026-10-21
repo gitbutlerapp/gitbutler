@@ -9,7 +9,10 @@ use gpui::{
     AnyElement, App, ClickEvent, Context, ElementId, MouseButton, Window, div, prelude::*, px,
 };
 
-use super::{NEST, Navigator, Row, RowStyle, Rows, double_click, found, matches, step, toggle};
+use super::{
+    ClickOpened, NEST, Navigator, Row, RowStyle, Rows, double_click, found, matches, open_on_click,
+    step, toggle,
+};
 use crate::app::CopySelection;
 use crate::backend::mesh::{self, BranchStatus};
 use crate::overlays::MenuItem;
@@ -194,6 +197,7 @@ impl Navigator {
             }
             (MeshPick::Branch(name), Some(branch)) => {
                 let fold = (project.clone(), key.clone(), name.clone());
+                let clicked = ClickOpened::Elsewhere(fold.clone());
                 let on_commit = matches!(&store.selection,
                     Some(Selection::Mesh(p, i, MeshPick::Commit(n, _))) if (p, i, n) == (project, key, name));
                 let open = self.mesh_branch_open(&fold) || on_commit;
@@ -234,7 +238,7 @@ impl Navigator {
                             plural(n, "commit"),
                         ))
                     })
-                    .when(n > 0, |el| el.on_click(double_click(toggle, cx)))
+                    .when(n > 0, |el| el.on_click(open_on_click(clicked, cx)))
             }
             (MeshPick::Checkout, _) => {
                 let fold = (project.clone(), key.clone());
@@ -335,7 +339,7 @@ impl Navigator {
 
     /// Whether `key`'s commits show: as Settings start branches, unless folded or opened
     /// since, as a branch here.
-    fn mesh_branch_open(&self, key: &MeshBranch) -> bool {
+    pub(super) fn mesh_branch_open(&self, key: &MeshBranch) -> bool {
         self.branches_start_open != self.flipped_mesh_branches.contains(key)
     }
 
@@ -406,6 +410,10 @@ impl Navigator {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // By hand, it stays as it's left.
+        if self.click_opened == Some(ClickOpened::Elsewhere(key.clone())) {
+            self.click_opened = None;
+        }
         // Shown open over its selected commit whatever was stored, it only flips when that
         // agrees.
         if self.mesh_branch_open(&key) == open {
@@ -438,6 +446,9 @@ impl Navigator {
             }
             MeshPick::Branch(name) => {
                 let key = (project, id, name);
+                if self.click_opened == Some(ClickOpened::Elsewhere(key.clone())) {
+                    self.click_opened = None;
+                }
                 if !self.mesh_branch_open(&key) {
                     toggle(&mut self.flipped_mesh_branches, key);
                 }

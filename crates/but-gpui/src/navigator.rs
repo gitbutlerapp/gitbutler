@@ -95,6 +95,13 @@ pub fn bind_keys(cx: &mut App) {
     ]);
 }
 
+/// A branch whose commits a click on its row opened, here or on another machine.
+#[derive(Clone, PartialEq)]
+enum ClickOpened {
+    Here((ProjectId, String)),
+    Elsewhere(crate::state::MeshBranch),
+}
+
 /// Rows in display order. Only [`Row::Item`] can be selected.
 #[derive(PartialEq)]
 enum Row {
@@ -227,6 +234,20 @@ fn step(open: Option<bool>, color: gpui::Hsla) -> Div {
         }))
 }
 
+/// A branch row's click handler: a plain click opens its commits, as
+/// [`Navigator::open_on_click`] does; one with ⌘ or ⇧, picking commits, doesn't.
+fn open_on_click(
+    branch: ClickOpened,
+    cx: &Context<Navigator>,
+) -> impl Fn(&ClickEvent, &mut Window, &mut App) + 'static {
+    cx.listener(move |this, event: &ClickEvent, _, cx| {
+        let held = event.modifiers();
+        if !held.secondary() && !held.shift {
+            this.open_on_click(branch.clone(), cx)
+        }
+    })
+}
+
 /// A row's click handler that runs `toggle` on a double-click, as a folder opens.
 fn double_click(
     toggle: impl Fn(&mut Navigator, &mut Window, &mut Context<Navigator>) + 'static,
@@ -350,6 +371,9 @@ pub struct Navigator {
     /// Branches on other machines folded or opened against how Settings say branches start,
     /// as [`Self::flipped_branches`].
     flipped_mesh_branches: HashSet<crate::state::MeshBranch>,
+    /// The branch a click on its row opened, which a click on another's folds again; one
+    /// opened or folded by hand since stays as it's left.
+    click_opened: Option<ClickOpened>,
     /// The filter in the header, over every project's rows.
     filter: Entity<TextInput>,
     /// The first item the filter found, which Enter in it selects.
@@ -407,6 +431,7 @@ impl Navigator {
                     this.branches_start_open = start_open;
                     this.flipped_branches.clear();
                     this.flipped_mesh_branches.clear();
+                    this.click_opened = None;
                 }
                 cx.notify()
             }),
@@ -428,6 +453,12 @@ impl Navigator {
                     if (this.open_upstream).remove(&(project.clone(), Some(from.clone()))) {
                         (this.open_upstream).insert((project.clone(), Some(to.clone())));
                     }
+                    if let Some(ClickOpened::Here((p, r))) = &mut this.click_opened
+                        && p == project
+                        && r == from
+                    {
+                        *r = to.clone();
+                    }
                 }
                 _ => {}
             }),
@@ -447,6 +478,7 @@ impl Navigator {
             reveal_selection: false,
             unfolded_branches: HashSet::new(),
             flipped_branches: HashSet::new(),
+            click_opened: None,
             open_upstream: HashSet::new(),
             folded_checkouts: HashSet::new(),
             flipped_mesh_branches: HashSet::new(),
@@ -1013,9 +1045,41 @@ impl Navigator {
     }
 
     fn set_branch_open(&mut self, key: (ProjectId, String), open: bool) {
+        // By hand, it stays as it's left.
+        if matches!(&self.click_opened, Some(ClickOpened::Here(opened)) if *opened == key) {
+            self.click_opened = None;
+        }
         if self.branch_open(&key) != open {
             toggle(&mut self.flipped_branches, key);
         }
+    }
+
+    /// Open a branch's commits for a plain click on its row, and fold the ones the last
+    /// click opened: a click looks inside a branch, without the list growing by a branch
+    /// each time.
+    fn open_on_click(&mut self, branch: ClickOpened, cx: &mut Context<Self>) {
+        if let Some(previous) = self.click_opened.take_if(|previous| *previous != branch) {
+            match previous {
+                ClickOpened::Here(key) => self.set_branch_open(key, false),
+                ClickOpened::Elsewhere(key) => {
+                    if self.mesh_branch_open(&key) {
+                        toggle(&mut self.flipped_mesh_branches, key);
+                    }
+                }
+            }
+        }
+        match &branch {
+            ClickOpened::Here(key) if !self.branch_open(key) => {
+                self.set_branch_open(key.clone(), true);
+                self.click_opened = Some(branch);
+            }
+            ClickOpened::Elsewhere(key) if !self.mesh_branch_open(key) => {
+                toggle(&mut self.flipped_mesh_branches, key.clone());
+                self.click_opened = Some(branch);
+            }
+            _ => {}
+        }
+        cx.notify();
     }
 
     /// Whether one of the commits only `ref_name`'s remote has, or with `None` the target's
@@ -2439,6 +2503,7 @@ impl Navigator {
                 format!("{name} · #{}{checks}", review.number)
             });
         let key = (id.clone(), ref_name.to_owned());
+        let clicked = ClickOpened::Here(key.clone());
         let closed = !self.branch_open(&key) && !branch.commits.is_empty();
         // A selected commit keeps its branch open, as does one only its remote has.
         let holds_selected = matches!(&store.selection, Some(Selection::Commit(p, c))
@@ -2553,9 +2618,8 @@ impl Navigator {
                 })
                 .when(unread, |el| el.child(dot(style.meta(theme.pop))))
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
-                // Double-clicking closes the branch to its row or opens it again, as with a
-                // folder.
-                .when(folds, |el| el.on_click(double_click(toggle, cx)))
+                // A click looks inside, opening its commits; the chevron, ← and → fold them.
+                .when(folds, |el| el.on_click(open_on_click(clicked, cx)))
                 .when(!ref_name.is_empty(), |el| {
                     let payload = Cut::Branch(id.clone(), ref_name.to_owned());
                     let label = store.label_of(id, branch).to_owned();
