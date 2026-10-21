@@ -991,7 +991,7 @@ fn can_create_new_branches_above_merged_branches_but_not_below() {
 ┊╭┄ do [document-but-pr-skill] (merged upstream) (no commits)
 ├╯
 ┊
-┊● 55165db (upstream: origin/main) 1 new commit
+┊● 55165db (main, upstream: origin/main) 1 new commit
 ├╯ 080592b (common base) 2000-01-02 add document-but-pr-skill
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -1020,7 +1020,7 @@ Created branch 'a-branch-1' above branch 'document-but-pr-skill'
 ┊├┄ do [document-but-pr-skill] (merged upstream) (no commits)
 ├╯
 ┊
-┊● 55165db (upstream: origin/main) 1 new commit
+┊● 55165db (main, upstream: origin/main) 1 new commit
 ├╯ 080592b (common base) 2000-01-02 add document-but-pr-skill
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -1057,7 +1057,7 @@ fn cannot_create_branches_below_branches_merged_upstream() {
 ┊●   nyq A-change
 ├╯
 ┊
-┊● 9354ac4 (upstream: origin/main) 1 new commit
+┊● 9354ac4 (main, upstream: origin/main) 1 new commit
 ├╯ efc9211 (common base) 2000-01-02 base
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace

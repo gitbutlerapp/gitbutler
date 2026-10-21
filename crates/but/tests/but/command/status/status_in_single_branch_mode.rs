@@ -702,7 +702,7 @@ fn main_pulled_outside_gitbutler_is_not_a_branch_of_a_new_stack() {
 ┊●   rwm feature-change
 ├╯
 ┊
-┊● 100373b (upstream: origin/main) 1 new commit
+┊● 100373b (main, upstream: origin/main) 1 new commit
 ├╯ 100373b (common base, main, origin/main) 2000-01-02 upstream
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace

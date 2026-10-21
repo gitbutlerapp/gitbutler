@@ -42,7 +42,7 @@
 </tspan>
     <tspan x="10px" y="190px"><tspan>┊</tspan>
 </tspan>
-    <tspan x="10px" y="208px"><tspan>┊╭┄ (upstream: origin/main) 2 new commits</tspan>
+    <tspan x="10px" y="208px"><tspan>┊╭┄ (main, upstream: origin/main) 2 new commits</tspan>
 </tspan>
     <tspan x="10px" y="226px"><tspan>┊</tspan><tspan class="fg-green">●</tspan><tspan> </tspan><tspan class="fg-cyan">9354ac4</tspan><tspan> </tspan><tspan class="dimmed">main-advance</tspan>
 </tspan>

@@ -194,7 +194,7 @@ Hint: Most likely you want `but pull`, which updates the workspace and removes l
 ┊│     kyl:l A file-b.txt
 ├╯
 ┊
-┊● 9354ac4 (upstream: origin/main) 2 new commits
+┊● 9354ac4 (main, upstream: origin/main) 2 new commits
 ├╯ efc9211 (common base) 2000-01-02 base
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
