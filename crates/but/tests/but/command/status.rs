@@ -800,6 +800,112 @@ fn status_upstream_summary_without_flag() {
 }
 
 #[test]
+fn status_upstream_label_includes_local_target() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits");
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.invoke_git("branch --set-upstream-to=origin/main main");
+    env.invoke_git("config gitbutler.project.targetRef refs/heads/main");
+    env.invoke_git("branch unrelated origin/main");
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┊● [..] (main, upstream: origin/main) 10 new commits
+...
+"#]]);
+    env.but("status --upstream")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┊╭┄ (main, upstream: origin/main) 10 new commits
+...
+"#]]);
+}
+
+#[test]
+fn status_upstream_label_uses_configured_local_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits");
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.invoke_git("branch trunk origin/main");
+    env.invoke_git("branch --set-upstream-to=origin/main trunk");
+    env.invoke_git("config gitbutler.project.targetRef refs/heads/trunk");
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┊● [..] (trunk, upstream: origin/main) 10 new commits
+...
+"#]]);
+}
+
+#[test]
+fn status_upstream_label_omits_local_target_behind() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits");
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.invoke_git("branch --set-upstream-to=origin/main main");
+    env.invoke_git("config gitbutler.project.targetRef refs/heads/main");
+    env.invoke_git("branch -f main base");
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┊● [..] (upstream: origin/main) 10 new commits
+...
+"#]]);
+}
+
+#[test]
+fn status_upstream_label_omits_local_target_ahead() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits");
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.invoke_git("branch --set-upstream-to=origin/main main");
+    env.invoke_git("config gitbutler.project.targetRef refs/heads/main");
+    env.invoke_git("checkout main");
+    env.invoke_git("commit --allow-empty -m ahead");
+    env.invoke_git("checkout gitbutler/workspace");
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┊● [..] (upstream: origin/main) 10 new commits
+...
+"#]]);
+}
+
+#[test]
+fn status_upstream_label_omits_local_target_diverged() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits");
+    env.setup_metadata_at_target(&["A"], "refs/heads/base");
+    env.invoke_git("branch --set-upstream-to=origin/main main");
+    env.invoke_git("config gitbutler.project.targetRef refs/heads/main");
+    env.invoke_git("branch -f main A");
+
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+...
+┊● [..] (upstream: origin/main) 10 new commits
+...
+"#]]);
+}
+
+#[test]
 fn status_upstream_detailed_with_flag() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-many-commits");
     env.setup_metadata_at_target(&["A"], "refs/heads/base");
@@ -848,7 +954,7 @@ fn status_upstream_and_merge_base_messages_truncate_when_unpaged() {
 ┊●   lvx add A
 ├╯
 ┊
-┊╭┄ (upstream: origin/main) 1 new commit
+┊╭┄ (main, upstream: origin/main) 1 new commit
 ┊● 67247ca add upstream-commit-message-that-is-intentionally-very-very-long-to-exc…
 ┊┊
 ├╯ 9fd740d (common base) 2000-01-02 add merge-base-message-that-is-intentio…
@@ -897,7 +1003,7 @@ fn status_marks_merged_upstream_without_upstream_flag() {
 ┊●   kyl B-change
 ├╯
 ┊
-┊● 9354ac4 (upstream: origin/main) 2 new commits
+┊● 9354ac4 (main, upstream: origin/main) 2 new commits
 ├╯ efc9211 (common base) 2000-01-02 base
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -932,7 +1038,7 @@ Applied remote branch 'origin/document-but-pr-skill' to workspace
 ┊╭┄ do [document-but-pr-skill] (merged upstream) (no commits)
 ├╯
 ┊
-┊● 55165db (upstream: origin/main) 1 new commit
+┊● 55165db (main, upstream: origin/main) 1 new commit
 ├╯ 080592b (common base) 2000-01-02 add document-but-pr-skill
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -1031,7 +1137,7 @@ fn unmerged_empty_branch_above_merged_one_is_not_treated_as_merged() {
 ┊├┄ bo [bottom] (merged upstream) (no commits)
 ├╯
 ┊
-┊● 334227d (upstream: origin/main) 1 new commit
+┊● 334227d (main, upstream: origin/main) 1 new commit
 ├╯ 141de4f (common base) 2000-01-02 add bottom
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -1227,7 +1333,7 @@ fn status_upstream_prunes_untracked_integrated_branch() {
 ┊●   kyl B-change
 ├╯
 ┊
-┊╭┄ (upstream: origin/main) 2 new commits
+┊╭┄ (main, upstream: origin/main) 2 new commits
 ┊● 9354ac4 main-advance
 ┊● 756ee31 A-change
 ┊┊
@@ -1273,7 +1379,7 @@ fn status_upstream_prunes_metadata_tracked_integrated_branches() {
 ┊╭┄ ex [extra-untracked] ○ empty (no commits)
 ├╯
 ┊
-┊╭┄ (upstream: origin/main) 2 new commits
+┊╭┄ (main, upstream: origin/main) 2 new commits
 ┊● 9354ac4 main-advance
 ┊● 756ee31 A-change
 ┊┊
@@ -1320,7 +1426,7 @@ fn status_upstream_prunes_with_different_bases() {
 ┊●   wxl B-change
 ├╯
 ┊
-┊╭┄ (upstream: origin/main) 2 new commits
+┊╭┄ (main, upstream: origin/main) 2 new commits
 ┊● ba5149e M2
 ┊● 6daac93 M1
 ┊┊

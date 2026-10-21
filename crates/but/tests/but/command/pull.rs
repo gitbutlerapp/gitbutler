@@ -354,7 +354,7 @@ fn single_branch_pull_preserves_main_after_pushing_it() {
 ┊●   sxu on main (no changes)
 ├╯
 ┊
-┊● 1eef6fe (upstream: origin/main) 1 new commit
+┊● 1eef6fe (main, upstream: origin/main) 1 new commit
 ├╯ 85efbe4 (common base) 2000-01-02 M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -704,7 +704,7 @@ fn single_branch_pull_replaces_integrated_checkout_when_main_is_in_another_workt
 ┊●   tyt add A
 ├╯
 ┊
-┊● 5aa8cbc (upstream: origin/main) 2 new commits
+┊● 5aa8cbc (main, upstream: origin/main) 2 new commits
 ├╯ 85efbe4 (common base) 2000-01-02 M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -859,7 +859,7 @@ fn single_branch_pull_prunes_an_integrated_lower_branch() {
 ┊●   ovp add C
 ├╯
 ┊
-┊● dba3edc (upstream: origin/main) 2 new commits
+┊● dba3edc (main, upstream: origin/main) 2 new commits
 ├╯ 85efbe4 (common base) 2000-01-02 M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -948,7 +948,7 @@ fn single_branch_pull_keeps_an_empty_branch_above_an_integrated_branch() {
 ┊●   lwy add bottom
 ├╯
 ┊
-┊● 3ea7b57 (upstream: origin/main) 1 new commit
+┊● 3ea7b57 (main, upstream: origin/main) 1 new commit
 ├╯ 85efbe4 (common base) 2000-01-02 M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -1048,7 +1048,7 @@ fn pull_prunes_integrated_stack_and_keeps_remaining_stack_parent() {
 ┊●   lrm add B
 ├╯
 ┊
-┊● 26ecc90 (upstream: origin/main) 2 new commits
+┊● 26ecc90 (main, upstream: origin/main) 2 new commits
 ├╯ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -1119,7 +1119,7 @@ fn pull_prunes_integrated_branch_from_partial_stack() {
 ┊●   rkq add C
 ├╯
 ┊
-┊● d4cb681 (upstream: origin/main) 2 new commits
+┊● d4cb681 (main, upstream: origin/main) 2 new commits
 ├╯ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -1200,7 +1200,7 @@ fn pull_check_uses_workspace_dry_run_for_partial_stack() {
 ┊●   rkq add C
 ├╯
 ┊
-┊● d4cb681 (upstream: origin/main) 2 new commits
+┊● d4cb681 (main, upstream: origin/main) 2 new commits
 ├╯ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -1247,7 +1247,7 @@ Run `but pull` to update your branches
 ┊●   rkq add C
 ├╯
 ┊
-┊● d4cb681 (upstream: origin/main) 2 new commits (checked 0 seconds ago)
+┊● d4cb681 (main, upstream: origin/main) 2 new commits (checked 0 seconds ago)
 ├╯ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -1269,7 +1269,7 @@ fn pull_check_reports_conflicted_branches_as_rebasable() {
 ┊●   nyo A-change
 ├╯
 ┊
-┊● bdfcf28 (upstream: origin/main) 1 new commit
+┊● bdfcf28 (main, upstream: origin/main) 1 new commit
 ├╯ efc9211 (common base) 2000-01-02 base
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -1329,7 +1329,7 @@ fn pull_checks_out_main_after_all_stacks_integrate() {
 ┊╭┄ h0 [B] (no commits)
 ├╯
 ┊
-┊● 7e5d4e1 (upstream: origin/main) 3 new commits
+┊● 7e5d4e1 (main, upstream: origin/main) 3 new commits
 ├╯ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -1432,7 +1432,7 @@ fn pull_does_not_report_branch_rebase_conflicts_as_worktree_conflicts() {
 ┊●   vxp local change
 ├╯
 ┊
-┊● 247c151 (upstream: origin/main) 1 new commit
+┊● 247c151 (main, upstream: origin/main) 1 new commit
 ├╯ fa11d0d (common base) 2000-01-02 base
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -1490,7 +1490,7 @@ fn pull_json_reports_branch_rebase_conflicts_as_successful_integration() {
 ┊●   vxp local change
 ├╯
 ┊
-┊● 247c151 (upstream: origin/main) 1 new commit
+┊● 247c151 (main, upstream: origin/main) 1 new commit
 ├╯ fa11d0d (common base) 2000-01-02 base
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -1555,7 +1555,7 @@ fn pull_reports_conflict_in_lower_branch_of_stack() {
 ┊●   [..] bottom change
 ├╯
 ┊
-┊● 7f73771 (upstream: origin/main) 1 new commit
+┊● 7f73771 (main, upstream: origin/main) 1 new commit
 ├╯ 8fa27c9 (common base) 2000-01-02 base
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -1621,7 +1621,7 @@ fn pull_reports_conflicts_in_multiple_branches_of_stack() {
 ┊●   [..] bottom change
 ├╯
 ┊
-┊● e4933d8 (upstream: origin/main) 1 new commit
+┊● e4933d8 (main, upstream: origin/main) 1 new commit
 ├╯ 67519c0 (common base) 2000-01-02 base
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
@@ -1979,7 +1979,7 @@ To undo this operation:
 ┊●   swk add W
 ├╯
 ┊
-┊● 526bb83 (upstream: origin/main) 1 new commit[..]
+┊● 526bb83 (main, upstream: origin/main) 1 new commit[..]
 ├╯ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace

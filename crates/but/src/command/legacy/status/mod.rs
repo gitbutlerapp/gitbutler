@@ -1086,12 +1086,21 @@ fn print_upstream_state(
 
     let t = crate::theme::get();
     let dot = Span::styled("●", t.success);
+    let repo = ctx.repo.get()?;
+    let mut label = String::new();
+    if let Some(local_target) = ctx.project_meta()?.target_ref
+        && let Some(mut reference) = repo.try_find_reference(&local_target)?
+        && reference.peel_to_id()?.detach() == upstream.commit_id
+    {
+        label.push_str(&local_target.shorten().to_string());
+        label.push_str(", ");
+    }
+    label.push_str(&format!("upstream: {}", upstream.target_name));
 
     if status_ctx.flags.show_upstream {
         // When showing detailed commits, only show count in summary
         let mut upstream_summary = Vec::from([Span::raw(format!(
-            "(upstream: {}) {} new {}",
-            upstream.target_name,
+            "({label}) {} new {}",
             upstream.behind_count,
             if upstream.behind_count == 1 {
                 "commit"
@@ -1109,7 +1118,6 @@ fn print_upstream_state(
         if let Some(base_branch) = &status_ctx.base_branch
             && !base_branch.upstream_commits.is_empty()
         {
-            let repo = ctx.repo.get()?;
             let commits = base_branch.upstream_commits.iter().take(8);
             for commit in commits {
                 let commit_short = shorten_hex_object_id(&repo, &commit.id);
@@ -1142,8 +1150,7 @@ fn print_upstream_state(
         let mut upstream_summary = Vec::from([
             Span::styled(upstream.latest_commit.clone(), t.hint),
             Span::raw(format!(
-                " (upstream: {}) {} new {}",
-                upstream.target_name,
+                " ({label}) {} new {}",
                 upstream.behind_count,
                 if upstream.behind_count == 1 {
                     "commit"

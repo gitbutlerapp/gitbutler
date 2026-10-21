@@ -39,11 +39,12 @@
     <text x="10" y="204" style="fill:#CCCCCC;">┊</text>
     <text x="18" y="204" style="fill:#00AA00;">●</text>
     <text x="34 42 50 58 66 74 82" y="204" style="fill:#CCCCCC;opacity:0.75;">9354ac4</text>
-    <text x="98 106 114 122 130 138 146 154 162 170" y="204" style="fill:#CCCCCC;opacity:0.75;">(upstream:</text>
-    <text x="186 194 202 210 218 226 234 242 250 258 266 274" y="204" style="fill:#CCCCCC;opacity:0.75;">origin/main)</text>
-    <text x="290" y="204" style="fill:#CCCCCC;opacity:0.75;">2</text>
-    <text x="306 314 322" y="204" style="fill:#CCCCCC;opacity:0.75;">new</text>
-    <text x="338 346 354 362 370 378 386" y="204" style="fill:#CCCCCC;opacity:0.75;">commits</text>
+    <text x="98 106 114 122 130 138" y="204" style="fill:#CCCCCC;opacity:0.75;">(main,</text>
+    <text x="154 162 170 178 186 194 202 210 218" y="204" style="fill:#CCCCCC;opacity:0.75;">upstream:</text>
+    <text x="234 242 250 258 266 274 282 290 298 306 314 322" y="204" style="fill:#CCCCCC;opacity:0.75;">origin/main)</text>
+    <text x="338" y="204" style="fill:#CCCCCC;opacity:0.75;">2</text>
+    <text x="354 362 370" y="204" style="fill:#CCCCCC;opacity:0.75;">new</text>
+    <text x="386 394 402 410 418 426 434" y="204" style="fill:#CCCCCC;opacity:0.75;">commits</text>
     <text x="10 18" y="222" style="fill:#CCCCCC;">├╯</text>
     <text x="34 42 50 58 66 74 82" y="222" style="fill:#CCCCCC;opacity:0.75;">efc9211</text>
     <text x="98 106 114 122 130 138 146" y="222" style="fill:#CCCCCC;">(common</text>

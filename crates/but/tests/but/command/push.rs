@@ -119,7 +119,7 @@ fn assert_single_branch_status_after_push(env: &Sandbox) {
 ┊●   nmy M (no changes)
 ├╯
 ┊
-┊● d781bd0 (upstream: origin/main) 2 new commits
+┊● d781bd0 (main, upstream: origin/main) 2 new commits
 ├╯ e31e6ca (common base) 2000-01-02 add init
 
 Hint: origin/main moved ahead; run `but pull` to update the workspace
