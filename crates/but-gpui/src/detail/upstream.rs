@@ -758,46 +758,30 @@ impl Detail {
         let shown = |commit: &TargetCommit| {
             span.is_none_or(|(start, end)| (start..end).contains(&commit.time))
         };
-        let (incoming, rest): (Vec<usize>, Vec<usize>) = (0..upstream.commits.len())
-            .filter(|ix| shown(&upstream.commits[*ix]))
-            .partition(|ix| upstream.commits[*ix].incoming);
         let mut rows = Vec::new();
-        // An open merge lists the commits it brought in under it.
-        let commits = |rows: &mut Vec<Row>, ixs: Vec<usize>| {
-            for ix in ixs {
-                rows.push(Row::Commit(ix));
-                let commit = &upstream.commits[ix];
-                if !(commit.merge && self.open_merges.contains(&commit.id)) {
-                    continue;
+        // The navigator lists the new ones on their own, so here they're only marked.
+        for ix in (0..upstream.commits.len()).filter(|ix| shown(&upstream.commits[*ix])) {
+            if rows.is_empty() {
+                rows.push(Row::Heading(format!("On {target}")));
+            }
+            rows.push(Row::Commit(ix));
+            let commit = &upstream.commits[ix];
+            // An open merge lists the commits it brought in under it.
+            if !(commit.merge && self.open_merges.contains(&commit.id)) {
+                continue;
+            }
+            match (self.store.read(cx).merged.get(&commit.id)).and_then(|m| m.as_ref()) {
+                None => rows.push(Row::Note("Loading…")),
+                Some((merged, _)) if merged.is_empty() => {
+                    rows.push(Row::Note("This clone doesn't have its commits"))
                 }
-                match (self.store.read(cx).merged.get(&commit.id)).and_then(|m| m.as_ref()) {
-                    None => rows.push(Row::Note("Loading…")),
-                    Some((merged, _)) if merged.is_empty() => {
-                        rows.push(Row::Note("This clone doesn't have its commits"))
-                    }
-                    Some((merged, more)) => {
-                        rows.extend((0..merged.len()).map(|m| Row::Merged(ix, m)));
-                        if *more {
-                            rows.push(Row::Note("Older ones aren't listed"));
-                        }
+                Some((merged, more)) => {
+                    rows.extend((0..merged.len()).map(|m| Row::Merged(ix, m)));
+                    if *more {
+                        rows.push(Row::Note("Older ones aren't listed"));
                     }
                 }
             }
-        };
-        if !incoming.is_empty() {
-            rows.push(Row::Heading(format!(
-                "New on {target} · {}",
-                plural(incoming.len(), "commit")
-            )));
-            commits(&mut rows, incoming);
-        }
-        if !rest.is_empty() {
-            let heading = match rows.is_empty() {
-                true => format!("On {target}"),
-                false => format!("Earlier on {target}"),
-            };
-            rows.push(Row::Heading(heading));
-            commits(&mut rows, rest);
         }
         // Read further back only while the picked days may have more.
         let past = (span.zip(upstream.commits.last()))
