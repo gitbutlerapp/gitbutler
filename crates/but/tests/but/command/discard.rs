@@ -1489,6 +1489,41 @@ Discarded uncommitted changes from note.txt
 }
 
 #[test]
+fn a_path_prefix_names_files_in_the_checkout_it_is_run_from() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    std::fs::create_dir_all(wt_dir.join("dir")).unwrap();
+    std::fs::write(wt_dir.join("dir/wt.txt"), "dirty in the worktree\n").unwrap();
+    std::fs::create_dir_all(env.projects_root().join("dir")).unwrap();
+    env.file("dir/main.txt", "dirty in main\n");
+
+    env.but("discard dir/")
+        .current_dir(&wt_dir)
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Discarded uncommitted changes from dir/wt.txt
+
+"#]]);
+    assert!(
+        !wt_dir.join("dir/wt.txt").exists(),
+        "the worktree's file under the prefix is discarded"
+    );
+    assert!(
+        env.projects_root().join("dir/main.txt").exists(),
+        "the main checkout keeps its file under the same prefix"
+    );
+    assert!(
+        wt_dir.join("note.txt").exists(),
+        "the worktree keeps its file outside the prefix"
+    );
+}
+
+#[test]
 fn bare_discard_in_an_unmanaged_worktree_is_refused() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);

@@ -764,7 +764,7 @@ impl<'a> Node<'a> for &'a LaneWithId {
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         // Parse known suffixes.
         if element.ends_with('/') {
-            return Ok(id_map.parse_uncommitted_path_prefix(element));
+            return Ok(id_map.parse_uncommitted_path_prefix(element, &ChangeSourceId::Head));
         }
         // A stack lives in the workspace, so only the main worktree's files are
         // reachable through it.
@@ -1186,18 +1186,16 @@ impl IdMap {
         matches
     }
 
-    /// The main worktree's uncommitted hunks under the path prefix `element`.
-    ///
-    /// Deliberately restricted to [`ChangeSourceId::Head`], mirroring `@`: a
-    /// prefix spanning several checkouts could never be committed in one go, as
-    /// an operation only ever reads changes from a single source.
-    fn parse_uncommitted_path_prefix<'a>(&'a self, element: &str) -> Vec<Box<dyn Node<'a> + 'a>> {
+    /// The uncommitted hunks under the path prefix `element` in the checkout `source`.
+    fn parse_uncommitted_path_prefix<'a>(
+        &'a self,
+        element: &str,
+        source: &ChangeSourceId,
+    ) -> Vec<Box<dyn Node<'a> + 'a>> {
         let mut hunks = Vec::new();
         for (short_id, uncommitted_hunk) in self.uncommitted_hunks.iter() {
             let hunk = &uncommitted_hunk.hunk;
-            if hunk.path.starts_with(element.as_bytes())
-                && uncommitted_hunk.source == ChangeSourceId::Head
-            {
+            if hunk.path.starts_with(element.as_bytes()) && uncommitted_hunk.source == *source {
                 hunks.push(IdAndHunk {
                     id: short_id.to_owned(),
                     hunk: hunk.to_owned(),
@@ -1213,7 +1211,7 @@ impl IdMap {
             cli_id: CliId::PathPrefix {
                 id: element.to_string(),
                 hunks,
-                source: ChangeSourceId::Head,
+                source: source.clone(),
             },
         })]
     }
@@ -1305,7 +1303,11 @@ impl IdMap {
             return Ok(matches);
         }
         if element.ends_with('/') {
-            return Ok(self.parse_uncommitted_path_prefix(element));
+            return Ok(self
+                .paths_in
+                .as_ref()
+                .map(|paths_in| self.parse_uncommitted_path_prefix(element, paths_in))
+                .unwrap_or_default());
         }
 
         let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
@@ -1838,10 +1840,9 @@ pub enum CliId {
         id: ShortId,
         /// The hunk assignments with their associated short IDs
         hunks: NonEmpty<IdAndHunk>,
-        /// The checkout these hunks were read from, always
-        /// [`ChangeSourceId::Head`]: a prefix spanning several checkouts could
-        /// never be committed in one go, so `IdMap` only ever matches one for
-        /// the main worktree.
+        /// The checkout these hunks were read from: a prefix spanning several
+        /// checkouts could never be committed in one go, so it only ever matches
+        /// in one.
         source: ChangeSourceId,
     },
     /// A file that exists in a commit.

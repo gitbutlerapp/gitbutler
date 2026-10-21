@@ -97,9 +97,9 @@ impl CliIdArg {
             CliId::UncommittedHunkOrFile(uncommitted) => {
                 ResolvedCliIdArg::UncommittedHunkOrFile(Box::new(uncommitted))
             }
-            // The source is dropped because a path prefix is always the main
-            // worktree's, see `IdMap::parse_uncommitted_path_prefix`.
-            CliId::PathPrefix { id, hunks, .. } => ResolvedCliIdArg::PathPrefix { id, hunks },
+            CliId::PathPrefix { id, hunks, source } => {
+                ResolvedCliIdArg::PathPrefix { id, hunks, source }
+            }
             CliId::CommittedFile { committed_file, .. } => {
                 ResolvedCliIdArg::CommittedFile(committed_file)
             }
@@ -498,6 +498,7 @@ pub enum ResolvedCliIdArg {
     PathPrefix {
         id: String,
         hunks: NonEmpty<IdAndHunk>,
+        source: ChangeSourceId,
     },
     Stack {
         id: String,
@@ -571,8 +572,8 @@ impl ResolvedCliIdArg {
             ResolvedCliIdArg::CommittedHunk(committed_hunk) => {
                 ResolvedCliIdArgRef::CommittedHunk(committed_hunk)
             }
-            ResolvedCliIdArg::PathPrefix { id, hunks } => {
-                ResolvedCliIdArgRef::PathPrefix { id, hunks }
+            ResolvedCliIdArg::PathPrefix { id, hunks, source } => {
+                ResolvedCliIdArgRef::PathPrefix { id, hunks, source }
             }
             ResolvedCliIdArg::Uncommitted(source) => ResolvedCliIdArgRef::Uncommitted(source),
             ResolvedCliIdArg::Stack { id, stack_id } => ResolvedCliIdArgRef::Stack {
@@ -628,14 +629,15 @@ impl PartialEq<CliId> for ResolvedCliIdArg {
             ResolvedCliIdArg::PathPrefix {
                 id: lhs_id,
                 hunks: lhs_hunks,
+                source: lhs_source,
             } => {
                 if let CliId::PathPrefix {
                     id: rhs_id,
                     hunks: rhs_hunks,
-                    source: _,
+                    source: rhs_source,
                 } = other
                 {
-                    return lhs_id == rhs_id && lhs_hunks == rhs_hunks;
+                    return lhs_id == rhs_id && lhs_hunks == rhs_hunks && lhs_source == rhs_source;
                 }
             }
             ResolvedCliIdArg::Stack {
@@ -691,6 +693,7 @@ pub enum ResolvedCliIdArgRef<'a> {
     PathPrefix {
         id: &'a str,
         hunks: &'a NonEmpty<IdAndHunk>,
+        source: &'a ChangeSourceId,
     },
     Uncommitted(&'a ChangeSourceId),
     Stack {

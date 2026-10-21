@@ -826,8 +826,7 @@ impl<'a> AmendUncommittedHunks<'a> {
     ) -> CliResult<Self> {
         let source = change_source::single_source(sources.iter().map(|source| match source {
             UncommittedSquashSource::HunkOrFile(source) => source.source.clone(),
-            // A path prefix only ever covers the main worktree.
-            UncommittedSquashSource::PathPrefix(_) => ChangeSourceId::Head,
+            UncommittedSquashSource::PathPrefix { source, .. } => source.clone(),
         }))?;
         Ok(Self {
             target,
@@ -852,7 +851,10 @@ impl AmendUncommittedHunks<'_> {
 #[derive(Clone, Debug)]
 pub enum UncommittedSquashSource<'a> {
     HunkOrFile(Cow<'a, UncommittedHunkOrFile>),
-    PathPrefix(Cow<'a, NonEmpty<IdAndHunk>>),
+    PathPrefix {
+        hunks: Cow<'a, NonEmpty<IdAndHunk>>,
+        source: ChangeSourceId,
+    },
 }
 
 impl UncommittedSquashSource<'_> {
@@ -861,8 +863,11 @@ impl UncommittedSquashSource<'_> {
             UncommittedSquashSource::HunkOrFile(source) => {
                 UncommittedSquashSource::HunkOrFile(Cow::Owned(source.into_owned()))
             }
-            UncommittedSquashSource::PathPrefix(source) => {
-                UncommittedSquashSource::PathPrefix(Cow::Owned(source.into_owned()))
+            UncommittedSquashSource::PathPrefix { hunks, source } => {
+                UncommittedSquashSource::PathPrefix {
+                    hunks: Cow::Owned(hunks.into_owned()),
+                    source,
+                }
             }
         }
     }
@@ -1220,9 +1225,16 @@ impl<'a> Squashable<'a> {
             ResolvedCliIdArgRef::CommittedHunk(committed_hunk) => {
                 return Ok(Self::CommittedHunk(committed_hunk.clone()));
             }
-            ResolvedCliIdArgRef::PathPrefix { id: _, hunks } => {
+            ResolvedCliIdArgRef::PathPrefix {
+                id: _,
+                hunks,
+                source,
+            } => {
                 return Ok(Self::UncommittedChange(
-                    UncommittedSquashSource::PathPrefix(Cow::Borrowed(hunks)),
+                    UncommittedSquashSource::PathPrefix {
+                        hunks: Cow::Borrowed(hunks),
+                        source: source.clone(),
+                    },
                 ));
             }
             ResolvedCliIdArgRef::Stack { .. } => "a stack",
@@ -1354,8 +1366,8 @@ pub fn run(
                     UncommittedSquashSource::HunkOrFile(source) => {
                         builder.push_changes_from_uncommitted(source)?;
                     }
-                    UncommittedSquashSource::PathPrefix(source) => {
-                        builder.push_changes_from_path_prefix(source)?;
+                    UncommittedSquashSource::PathPrefix { hunks, source: _ } => {
+                        builder.push_changes_from_path_prefix(hunks)?;
                     }
                 }
             }

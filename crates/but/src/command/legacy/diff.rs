@@ -461,7 +461,11 @@ fn resolve(
         ResolvedCliIdArg::CommittedHunk(..) => {
             Err(bad_input("viewing diffs for committed hunks is not supported").into())
         }
-        ResolvedCliIdArg::PathPrefix { id, hunks } => Ok(DiffOperation::PathPrefix { id, hunks }),
+        ResolvedCliIdArg::PathPrefix {
+            id,
+            hunks,
+            source: _,
+        } => Ok(DiffOperation::PathPrefix { id, hunks }),
         ResolvedCliIdArg::Stack { .. } => {
             Err(bad_input("viewing diffs for stack assignments is not supported").into())
         }

@@ -122,8 +122,7 @@ impl UncommittedSelection {
             UncommittedSelection::Changes(changes) => {
                 single_source(changes.iter().map(|change| match change {
                     UncommittedDiscardSource::HunkOrFile(change) => change.source.clone(),
-                    // A path prefix only ever covers the main worktree.
-                    UncommittedDiscardSource::PathPrefix(_) => ChangeSourceId::Head,
+                    UncommittedDiscardSource::PathPrefix { source, .. } => source.clone(),
                 }))
             }
         }
@@ -137,7 +136,10 @@ impl UncommittedSelection {
 #[derive(Debug)]
 pub enum UncommittedDiscardSource {
     HunkOrFile(UncommittedHunkOrFile),
-    PathPrefix(NonEmpty<IdAndHunk>),
+    PathPrefix {
+        hunks: NonEmpty<IdAndHunk>,
+        source: ChangeSourceId,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -407,9 +409,12 @@ fn resolve(
                 uncommitted_change_sources.push(UncommittedDiscardSource::HunkOrFile(*change))
             }
             ResolvedCliIdArg::Uncommitted(source) => uncommitted_sources.push(source),
-            ResolvedCliIdArg::PathPrefix { id: _, hunks } => {
-                uncommitted_change_sources.push(UncommittedDiscardSource::PathPrefix(hunks))
-            }
+            ResolvedCliIdArg::PathPrefix {
+                id: _,
+                hunks,
+                source,
+            } => uncommitted_change_sources
+                .push(UncommittedDiscardSource::PathPrefix { hunks, source }),
             ResolvedCliIdArg::Stack { .. } => {
                 return Err(bad_input("Stacks cannot be discarded")
                     .arg_name("<CHANGES>")
@@ -595,7 +600,7 @@ pub fn run(
                                 UncommittedDiscardSource::HunkOrFile(change) => {
                                     builder.push_changes_from_uncommitted(&change)?;
                                 }
-                                UncommittedDiscardSource::PathPrefix(hunks) => {
+                                UncommittedDiscardSource::PathPrefix { hunks, source: _ } => {
                                     builder.push_changes_from_path_prefix(&hunks)?;
                                 }
                             }
