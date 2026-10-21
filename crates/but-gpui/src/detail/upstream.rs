@@ -13,7 +13,7 @@ use super::panes::{
     Crumb, list_heading, meta_item, meta_row, quiet, side_header, side_list, side_row, title_text,
 };
 use super::pull_request::tab;
-use crate::app::{SelectNext, SelectPrevious};
+use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, TargetCommit};
 
 const DAY: i64 = 24 * 60 * 60;
@@ -867,12 +867,35 @@ impl Detail {
     }
 
     /// Select the target commit `delta` rows from the selected one, keeping it in view.
+    /// → in the list: open the picked merge, or step into its commits when it's open, as
+    /// on the Branches page. ← folds it, or steps from one of its commits back up to it.
+    fn fold_upstream(&mut self, open: bool, cx: &mut Context<Self>) {
+        let Some(upstream) = &self.upstream else {
+            return;
+        };
+        let Some(Picked::Commit(id)) = upstream.selected else {
+            return;
+        };
+        let merge = (upstream.commits.iter()).any(|commit| commit.id == id && commit.merge);
+        let project = upstream.project.clone();
+        match (
+            open,
+            self.merged_pick.is_some(),
+            self.open_merges.contains(&id),
+        ) {
+            (true, false, false) if merge => self.toggle_merge(&project, id, cx),
+            (true, false, true) => self.step_upstream(1, cx),
+            (false, true, _) => self.pick_merged(None, cx),
+            (false, false, true) => self.toggle_merge(&project, id, cx),
+            _ => {}
+        }
+    }
+
     fn step_upstream(&mut self, delta: isize, cx: &mut Context<Self>) {
         let Some(upstream) = &self.upstream else {
             return;
         };
-        // In the order shown: the README over the list, then the new commits first, under
-        // their own heading.
+        // In the order shown: the README over the list, then the target's commits.
         let readme = (upstream.summary.as_ref()).is_some_and(|s| s.readme.is_some());
         let merged = |ix: usize, m: usize| {
             let merge = upstream.commits[ix].id;
@@ -1676,6 +1699,10 @@ impl Detail {
                     .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.step_upstream(1, cx)))
                     .on_action(
                         cx.listener(|this, _: &SelectPrevious, _, cx| this.step_upstream(-1, cx)),
+                    )
+                    .on_action(cx.listener(|this, _: &Expand, _, cx| this.fold_upstream(true, cx)))
+                    .on_action(
+                        cx.listener(|this, _: &Collapse, _, cx| this.fold_upstream(false, cx)),
                     )
                     .children((summary.and_then(|s| s.readme.as_ref())).map(|(name, _)| {
                         let selected = upstream.selected == Some(Picked::Readme);

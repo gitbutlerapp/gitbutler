@@ -1217,8 +1217,9 @@ impl Navigator {
         rows.close();
     }
 
-    fn expand(&mut self, _: &Expand, _: &mut Window, cx: &mut Context<Self>) {
-        match self.store.read(cx).selection.clone() {
+    fn expand(&mut self, _: &Expand, window: &mut Window, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        match store.selection.clone() {
             // A folded card opens; an unwatched project is watched.
             Some(Selection::Project(id)) => self.store.update(cx, |store, cx| {
                 match store.prefs.folded_projects.contains(id.as_ref()) {
@@ -1243,6 +1244,15 @@ impl Navigator {
                 cx.notify();
             }
             Some(Selection::Mesh(project, id, pick)) => self.expand_mesh(project, id, pick, cx),
+            // A remote's merge unfolds the commits it brought in.
+            Some(Selection::Upstream(project, ref_name, id))
+                if !self.open_merges.contains(&id)
+                    && (store.workspace(&project))
+                        .and_then(|ws| ws.upstream(ref_name.as_deref()).iter().find(|c| c.id == id))
+                        .is_some_and(|commit| commit.merge) =>
+            {
+                self.toggle_merge(&project, ref_name, id, window, cx)
+            }
             _ => {}
         }
     }
@@ -1287,7 +1297,10 @@ impl Navigator {
                     self.select(Selection::Branch(project, ref_name), window, cx);
                 }
             }
-            // The target's new commits go up to the project, below.
+            // An open merge folds; the target's new commits go up to the project, below.
+            Some(Selection::Upstream(project, ref_name, id)) if self.open_merges.contains(&id) => {
+                self.toggle_merge(&project, ref_name, id, window, cx)
+            }
             Some(Selection::Upstream(project, Some(ref_name), _)) => {
                 self.select(Selection::Branch(project, ref_name), window, cx)
             }
