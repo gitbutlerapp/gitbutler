@@ -76,6 +76,22 @@ pub fn safe_checkout_from_head(
         // Reopen to ensure that there is no "object memory" (i.e. all object
         // writes actually happen on disk).
         let mut repo = gix::open(repo.git_dir())?;
+        // Like Git, don't write over an unresolved conflict, as the write would replace its stages.
+        let index = repo.index_or_empty()?;
+        let mut conflicted: Vec<_> = index
+            .entries()
+            .iter()
+            .filter(|entry| entry.stage() != gix::index::entry::Stage::Unconflicted)
+            .map(|entry| format!("{:?}", entry.path(&index)))
+            .collect();
+        if !conflicted.is_empty() {
+            conflicted.dedup();
+            bail_precondition!(
+                "Unresolved conflicts in the index must be resolved before checkout: {}",
+                conflicted.join(", ")
+            );
+        }
+        drop(index);
         #[allow(deprecated)]
         let wd_tree_id = repo.create_wd_tree(u64::MAX)?;
         repo.config_snapshot_mut()

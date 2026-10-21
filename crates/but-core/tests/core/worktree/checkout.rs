@@ -1117,7 +1117,7 @@ fn index_matches_the_checked_out_tree() -> anyhow::Result<()> {
 }
 
 #[test]
-fn written_paths_lose_their_leftover_conflict_stages() -> anyhow::Result<()> {
+fn checkout_refuses_while_the_index_has_an_unresolved_conflict() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("required-filter-binary-git-form");
     let blob = repo.rev_parse_single("@:a.secret")?;
     let null = repo.object_hash().null();
@@ -1142,28 +1142,30 @@ fn written_paths_lose_their_leftover_conflict_stages() -> anyhow::Result<()> {
         "change the conflicted file",
     )?;
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+    let head = repo.head_id()?.detach();
+    let stages = git(&repo)
+        .args(["ls-files", "--stage", "a.secret"])
+        .output()?
+        .stdout;
 
+    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+        .expect_err("like `git checkout`, checkout refuses until the conflict is resolved");
+
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str![
+            "Unresolved conflicts in the index must be resolved before checkout: \"a.secret\""
+        ]
+    );
+    assert_eq!(repo.head_id()?.detach(), head, "HEAD stays");
     assert_eq!(
         git(&repo)
             .args(["ls-files", "--stage", "a.secret"])
             .output()?
             .stdout
             .as_bstr(),
-        format!(
-            "100644 {} 0\ta.secret\n",
-            new_commit
-                .tree()?
-                .lookup_entry_by_path("a.secret")?
-                .unwrap()
-                .oid()
-        ),
-        "the written file has one unconflicted entry, without the old conflict stages next to it"
-    );
-    assert_eq!(
-        git_status(&repo)?,
-        "",
-        "the index and worktree match the checkout"
+        stages.as_bstr(),
+        "the conflict stays"
     );
     Ok(())
 }
