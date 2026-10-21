@@ -15,8 +15,8 @@ use crate::ui::markdown;
 use crate::ui::review as ui_review;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, ago, button, duration, faint, h_flex, icon, local_time, muted, now,
-    shortcut, small_icon, v_flex,
+    ButtonStyle, Icon, Tooltip, ago, button, count_badge, duration, faint, h_flex, icon,
+    local_time, muted, now, shortcut, small_icon, v_flex,
 };
 
 /// How tall the tabs over the diff beside a list are.
@@ -97,21 +97,31 @@ impl Detail {
             // The first tab's label, not its hover ground, lines up with the text above.
             .ml(px(-8.))
             .child(
-                tab("tab-changes", "Changes", !self.review_tab, theme)
-                    .children(files.map(|n| faint(n.to_string(), theme)))
-                    .on_click(
-                        cx.listener(|this, _, window, cx| this.set_review_tab(false, window, cx)),
-                    ),
+                tab(
+                    "tab-changes",
+                    Icon::Diff,
+                    "Changes",
+                    !self.review_tab,
+                    theme,
+                )
+                .children(files.map(|n| count_badge(n, theme)))
+                .on_click(
+                    cx.listener(|this, _, window, cx| this.set_review_tab(false, window, cx)),
+                ),
             )
             .child(
-                tab("tab-review", "Pull request", self.review_tab, theme)
-                    .children(checks.map(|checks| {
-                        let (glyph, color, _) = ui_review::checks_summary(checks, theme);
-                        small_icon(glyph).text_color(color)
-                    }))
-                    .on_click(
-                        cx.listener(|this, _, window, cx| this.set_review_tab(true, window, cx)),
-                    ),
+                tab(
+                    "tab-review",
+                    Icon::Pr,
+                    "Pull request",
+                    self.review_tab,
+                    theme,
+                )
+                .children(checks.map(|checks| {
+                    let (glyph, color, _) = ui_review::checks_summary(checks, theme);
+                    small_icon(glyph).text_color(color)
+                }))
+                .on_click(cx.listener(|this, _, window, cx| this.set_review_tab(true, window, cx))),
             )
             .into_any_element()
     }
@@ -435,9 +445,15 @@ fn check_row(ix: usize, run: &CheckRun, theme: &Theme) -> Stateful<Div> {
         .children(when.map(|when| faint(when, theme).flex_none()))
 }
 
-/// A tab of a page's header, as ui-react's: its label faded unless it's selected or under
-/// the pointer, and under the selected one a bar along the header's edge.
-fn tab(id: &'static str, label: &'static str, selected: bool, theme: &Theme) -> Stateful<Div> {
+/// A tab of a page's header, as ui-react's and but.dev's: its glyph, its label faded unless
+/// it's selected or under the pointer, and under the selected one a bar along the header's edge.
+fn tab(
+    id: &'static str,
+    glyph: Icon,
+    label: &'static str,
+    selected: bool,
+    theme: &Theme,
+) -> Stateful<Div> {
     let hover = theme.hover();
     h_flex()
         .id(id)
@@ -453,6 +469,7 @@ fn tab(id: &'static str, label: &'static str, selected: bool, theme: &Theme) -> 
         .font_weight(gpui::FontWeight::SEMIBOLD)
         .text_color(theme.text_1)
         .when(!selected, |el| el.hover(move |el| el.bg(hover)))
+        .child(icon(glyph).text_color(theme.text_1.opacity(0.7)))
         .child(
             div()
                 .opacity(if selected { 0.9 } else { 0.63 })

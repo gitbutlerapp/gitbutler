@@ -1148,11 +1148,17 @@ pub fn empty_state(
 pub fn count_badge(count: usize, theme: &Theme) -> Div {
     div()
         .flex_none()
-        .px(px(6.))
+        .h(px(16.))
+        .min_w(px(16.))
+        .px(px(5.))
+        .flex()
+        .items_center()
+        .justify_center()
         .rounded_full()
-        .bg(theme.fill_gray.opacity(0.1))
+        .bg(theme.fill_gray.opacity(0.15))
         .text_size(px(11.))
-        .text_color(theme.text_2)
+        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .text_color(theme.text_1)
         .child(count.to_string())
 }
 
