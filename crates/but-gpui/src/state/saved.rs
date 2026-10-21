@@ -322,6 +322,9 @@ pub struct Prefs {
     pub branches_with_empty: bool,
     /// The Branches page leaves out the branches only a remote has.
     pub branches_local_only: bool,
+    /// The Branches page lists merged branches too: ones whose pull request was merged, or
+    /// whose commits the target has.
+    pub branches_with_merged: bool,
     /// The navigator's branches start with their commits listed, rather than folded to a
     /// row each.
     pub branches_start_open: bool,

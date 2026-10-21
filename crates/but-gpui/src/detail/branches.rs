@@ -13,7 +13,7 @@ use super::Detail;
 use super::panes::{Crumb, list_empty, quiet, side_list, side_row};
 use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::branches::{self, ApplyOutcome, BranchCommit, OtherBranch};
-use crate::backend::{self, CommitId, DiffSource};
+use crate::backend::{self, CommitId, DiffSource, ReviewState};
 use crate::edits::CherryPick;
 use crate::overlays::MenuItem;
 use crate::state::{Cut, Overlay, Picks, Prefs, ProjectId, Selection};
@@ -348,11 +348,12 @@ impl Detail {
         let store = self.store.read(cx);
         let prefs = &store.prefs;
         // One being deleted leaves at once. As in Lite, one with no commits of its own only
-        // when asked for.
+        // when asked for, and a merged one too.
         let keeps = |branch: &OtherBranch| {
             !store.hides_branch(&branches.project, &branch.ref_name)
                 && (prefs.branches_with_empty || branch.own_commits != Some(0))
                 && (branch.local || !prefs.branches_local_only)
+                && (prefs.branches_with_merged || !is_merged(branch))
                 && (query.is_empty()
                     || branch.name.to_lowercase().contains(&query)
                     || (branch.review.as_ref())
@@ -755,7 +756,8 @@ impl Detail {
         };
         let prefs = &self.store.read(cx).prefs;
         // Lit while the filters aren't as they are at rest, as Lite counts them.
-        let changed = prefs.branches_with_empty || prefs.branches_local_only;
+        let changed =
+            prefs.branches_with_empty || prefs.branches_local_only || prefs.branches_with_merged;
         let filter = self
             .filter_bar(
                 &self.branch_filter,
@@ -1065,7 +1067,7 @@ impl Detail {
     }
 
     /// Lite's branch filters: branches with no commits of their own, left out at rest, and
-    /// the ones only a remote has.
+    /// the ones only a remote has; and merged ones, left out at rest too.
     fn branch_filters_menu(&self, position: Point<Pixels>, cx: &mut Context<Self>) {
         let prefs = &self.store.read(cx).prefs;
         let toggle = |label: &str, ticked: bool, update: fn(&mut Prefs)| {
@@ -1087,6 +1089,11 @@ impl Detail {
             toggle("Only local branches", prefs.branches_local_only, |prefs| {
                 prefs.branches_local_only = !prefs.branches_local_only
             }),
+            toggle(
+                "Show merged branches",
+                prefs.branches_with_merged,
+                |prefs| prefs.branches_with_merged = !prefs.branches_with_merged,
+            ),
         ];
         (self.app)
             .update(cx, |app, cx| app.open_menu(position, items, cx))
@@ -1137,4 +1144,10 @@ fn label(branch: &OtherBranch) -> &str {
         .map(|review| review.title.as_str())
         .filter(|title| !title.is_empty())
         .unwrap_or(&branch.name)
+}
+
+/// Whether `branch` has landed: its pull request was merged, or the target has its commits.
+fn is_merged(branch: &OtherBranch) -> bool {
+    branch.ahead == Some(0)
+        || (branch.review.as_ref()).is_some_and(|review| review.state == ReviewState::Merged)
 }
