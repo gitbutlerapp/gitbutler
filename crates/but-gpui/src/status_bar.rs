@@ -46,14 +46,19 @@ impl AppView {
                 .child(working)
                 .into_any_element()
         } else if let Some(cut) = &store.cut {
+            // Its keys apart from what's cut, as far as the hints on the right are apart.
             h_flex()
-                .gap(px(6.))
+                .gap(px(10.))
                 .min_w(px(0.))
-                .child(div().text_color(theme.pop).child(cut.verb()))
-                .child(div().truncate().child(cut.describe()))
-                .children(shortcut(&PasteHere, cx).map(|keys| key(&keys, &theme)))
-                .child("paste here")
-                .child(key("esc", &theme))
+                .child(
+                    h_flex()
+                        .gap(px(6.))
+                        .min_w(px(0.))
+                        .child(div().text_color(theme.pop).child(cut.verb()))
+                        .child(div().truncate().child(cut.describe())),
+                )
+                .children(shortcut(&PasteHere, cx).map(|keys| hint(&keys, "paste here", &theme)))
+                .child(hint("esc", "cancel", &theme))
                 .into_any_element()
         } else if let Some((n, what, how)) = [
             // Only the navigator's highlight shows them otherwise.
@@ -73,14 +78,18 @@ impl AppView {
         .find(|(n, ..)| *n > 0)
         {
             h_flex()
-                .gap(px(6.))
+                .gap(px(10.))
                 .child(
-                    div()
-                        .text_color(theme.pop)
-                        .child(format!("{} selected", crate::ui::plural(n, what))),
+                    h_flex()
+                        .gap(px(6.))
+                        .child(
+                            div()
+                                .text_color(theme.pop)
+                                .child(format!("{} selected", crate::ui::plural(n, what))),
+                        )
+                        .children(how),
                 )
-                .children(how)
-                .child(key("esc", &theme))
+                .child(hint("esc", "cancel", &theme))
                 .into_any_element()
         } else if let Some((path, place)) = (detail.is_focused(window, cx)
             && !detail.showing_review(cx))
@@ -244,15 +253,6 @@ impl AppView {
     }
 }
 
-/// A key as the bar names it: plain, not a keycap, so the hints read as help rather than
-/// buttons.
-fn key(keys: &str, theme: &Theme) -> gpui::Div {
-    div()
-        .flex_none()
-        .text_color(theme.text_2)
-        .child(keys.to_owned())
-}
-
 /// An operation's label, which names it as a command ("Push main"), as what's under way
 /// ("Pushing main"). An update rebases the stacks onto the target.
 fn under_way(label: &str) -> String {
@@ -272,13 +272,14 @@ fn under_way(label: &str) -> String {
     }
 }
 
-/// A key and what it does, the words a step quieter than the key.
+/// A key and what it does, as a menu's shortcuts are: the words read as the bar's other text,
+/// the key, plain rather than a keycap, a step quieter.
 fn hint(keys: &str, label: &str, theme: &Theme) -> gpui::Div {
     h_flex()
         .flex_none()
         .gap(px(4.))
-        .child(key(keys, theme))
-        .child(div().text_color(theme.text_3).child(label.to_owned()))
+        .child(div().text_color(theme.text_3).child(keys.to_owned()))
+        .child(label.to_owned())
 }
 
 #[cfg(test)]
