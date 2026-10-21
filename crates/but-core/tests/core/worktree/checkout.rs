@@ -1688,4 +1688,172 @@ fn cancelling_consumed_changes_keeps_a_concurrent_edit() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Checkout must treat symlinks like Git: never write or delete through one, and refuse
+/// where Git refuses. Each scenario is checked out by `git checkout` in one copy of the
+/// fixture and by `safe_checkout_from_head` in another, and both must agree.
+#[cfg(unix)]
+mod symlinks {
+    use but_core::worktree::safe_checkout_from_head;
+    use but_testsupport::{git, git_status, invoke_bash_at_dir, open_repo};
+
+    #[test]
+    fn ignored_symlinked_dir_where_target_adds_a_file() -> anyhow::Result<()> {
+        checkout_matches_git("ignored-symlinked-dir-where-target-adds-a-file")
+    }
+
+    #[test]
+    fn ignored_symlink_where_target_adds_a_file() -> anyhow::Result<()> {
+        checkout_matches_git("ignored-symlink-where-target-adds-a-file")
+    }
+
+    #[test]
+    fn untracked_symlinked_dir_where_target_adds_a_file() -> anyhow::Result<()> {
+        checkout_matches_git("untracked-symlinked-dir-where-target-adds-a-file")
+    }
+
+    #[test]
+    fn tracked_dir_turned_symlink_where_target_modifies_a_file() -> anyhow::Result<()> {
+        checkout_matches_git("tracked-dir-turned-symlink-where-target-modifies-a-file")
+    }
+
+    /// Git refuses as `d/x` has a local change, the deletion. GitButler carries local changes into
+    /// the target instead of refusing, and here both sides deleted `d/x`, so it checks out `b`.
+    /// The worktree ends up as Git leaves it, and nothing behind the symlink changes.
+    #[test]
+    fn tracked_dir_turned_symlink_where_target_deletes_a_file() -> anyhow::Result<()> {
+        let scenario = "tracked-dir-turned-symlink-where-target-deletes-a-file";
+        let (repo, _tmp) = fixture(scenario)?;
+        let (git_repo, _git_tmp) = fixture(scenario)?;
+
+        let git_succeeded = git(&git_repo)
+            .args(["checkout", "-q", "b"])
+            .output()?
+            .status
+            .success();
+        assert!(!git_succeeded, "Git refuses the checkout");
+
+        let target = repo.rev_parse_single("b")?.detach();
+        safe_checkout_from_head(target, &repo, Default::default())?;
+        assert_eq!(disk(&repo)?, disk(&git_repo)?, "worktrees are the same");
+        assert_eq!(
+            disk(&repo)?,
+            [
+                "d -> elsewhere",
+                "elsewhere/",
+                "elsewhere/x = \"elsewhere\\n\"",
+                "keep = \"keep\\n\""
+            ],
+            "the symlink stays and nothing behind it changes"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn tracked_file_turned_symlink_where_target_modifies_it() -> anyhow::Result<()> {
+        checkout_matches_git("tracked-file-turned-symlink-where-target-modifies-it")
+    }
+
+    #[test]
+    fn target_turns_a_dir_into_a_symlink() -> anyhow::Result<()> {
+        checkout_matches_git("target-turns-a-dir-into-a-symlink")
+    }
+
+    #[test]
+    fn target_turns_a_symlink_into_a_dir() -> anyhow::Result<()> {
+        checkout_matches_git("target-turns-a-symlink-into-a-dir")
+    }
+
+    #[test]
+    fn target_keeps_a_symlink_and_modifies_a_file() -> anyhow::Result<()> {
+        checkout_matches_git("target-keeps-a-symlink-and-modifies-a-file")
+    }
+
+    fn checkout_matches_git(scenario: &str) -> anyhow::Result<()> {
+        let (repo, _tmp) = fixture(scenario)?;
+        let (git_repo, _git_tmp) = fixture(scenario)?;
+        let before = disk(&repo)?;
+
+        let git_succeeded = git(&git_repo)
+            .args(["checkout", "-q", "b"])
+            .output()?
+            .status
+            .success();
+        let target = repo.rev_parse_single("b")?.detach();
+        let ours = safe_checkout_from_head(target, &repo, Default::default());
+
+        assert_eq!(
+            ours.is_ok(),
+            git_succeeded,
+            "{scenario}: Git succeeded: {git_succeeded}, GitButler: {:?}",
+            ours.map(|_| ())
+        );
+        assert_eq!(
+            disk(&repo)?,
+            disk(&git_repo)?,
+            "{scenario}: worktrees differ"
+        );
+        if !git_succeeded {
+            assert_eq!(
+                disk(&repo)?,
+                before,
+                "{scenario}: a refused checkout changes nothing"
+            );
+        }
+        assert_eq!(
+            git_status(&repo)?,
+            git_status(&git_repo)?,
+            "{scenario}: statuses differ"
+        );
+        Ok(())
+    }
+
+    /// Run the fixture script in a new directory. Fixture copies would replace symlinks with what they point to.
+    fn fixture(
+        scenario: &str,
+    ) -> anyhow::Result<(
+        gix::Repository,
+        but_testsupport::gix_testtools::tempfile::TempDir,
+    )> {
+        let tmp = but_testsupport::gix_testtools::tempfile::TempDir::new()?;
+        let script = include_str!("../../fixtures/scenario/symlinks-in-the-way.sh");
+        invoke_bash_at_dir(&format!("set -- {scenario}\n{script}"), tmp.path());
+        Ok((open_repo(tmp.path())?, tmp))
+    }
+
+    /// Every path below the worktree root except `.git`, without following symlinks.
+    fn disk(repo: &gix::Repository) -> anyhow::Result<Vec<String>> {
+        fn walk(
+            dir: &std::path::Path,
+            root: &std::path::Path,
+            out: &mut Vec<String>,
+        ) -> anyhow::Result<()> {
+            for entry in std::fs::read_dir(dir)? {
+                let path = entry?.path();
+                let rela = path.strip_prefix(root)?.display().to_string();
+                if rela == ".git" {
+                    continue;
+                }
+                let md = path.symlink_metadata()?;
+                if md.is_symlink() {
+                    out.push(format!(
+                        "{rela} -> {}",
+                        std::fs::read_link(&path)?.display()
+                    ));
+                } else if md.is_dir() {
+                    out.push(format!("{rela}/"));
+                    walk(&path, root, out)?;
+                } else {
+                    out.push(format!("{rela} = {:?}", std::fs::read_to_string(&path)?));
+                }
+            }
+            Ok(())
+        }
+        let root = repo.workdir().expect("non-bare");
+        let mut out = Vec::new();
+        walk(root, root, &mut out)?;
+        out.sort();
+        Ok(out)
+    }
+}
+
 mod utils {}
