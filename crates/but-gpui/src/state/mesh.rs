@@ -208,22 +208,24 @@ impl Store {
         self.mesh
             .checkouts
             .insert(project.clone(), checkouts.into());
-        // What was selected there may be gone, finished or pushed: a commit rewritten goes up
-        // to its branch, and anything else gone up to the project.
+        // What was selected there may be gone, finished or pushed: it goes up to what's still
+        // there, a commit rewritten to its branch, a branch gone to its checkout, and a checkout
+        // gone to the project.
         if let Some(Selection::Mesh(p, id, pick)) = &self.selection
             && *p == project
         {
             let checkout = self.mesh_checkout(p, id);
             let branch = (checkout.zip(pick.branch()))
                 .and_then(|(checkout, name)| checkout.branches.iter().find(|b| b.name == name));
+            let mesh = |pick| Selection::Mesh(p.clone(), id.clone(), pick);
             let up = match pick {
-                MeshPick::Checkout => checkout.is_none().then_some(Selection::Project(p.clone())),
-                MeshPick::Branch(_) => branch.is_none().then_some(Selection::Project(p.clone())),
+                _ if checkout.is_none() => Some(Selection::Project(p.clone())),
+                MeshPick::Checkout => None,
+                MeshPick::Branch(_) => branch.is_none().then(|| mesh(MeshPick::Checkout)),
                 MeshPick::Commit(name, commit) => match branch {
-                    None => Some(Selection::Project(p.clone())),
-                    Some(branch) => (!branch.commits.iter().any(|c| c.id == *commit)).then(|| {
-                        Selection::Mesh(p.clone(), id.clone(), MeshPick::Branch(name.clone()))
-                    }),
+                    None => Some(mesh(MeshPick::Checkout)),
+                    Some(branch) => (!branch.commits.iter().any(|c| c.id == *commit))
+                        .then(|| mesh(MeshPick::Branch(name.clone()))),
                 },
             };
             if let Some(up) = up {
