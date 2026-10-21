@@ -1146,8 +1146,8 @@ fn label(branch: &OtherBranch) -> &str {
         .unwrap_or(&branch.name)
 }
 
-/// Whether `branch` has landed: its pull request was merged, or the target has its commits.
+/// Whether `branch`'s pull request was merged. One the target already has, as merged without
+/// a forge, counts no commits of its own and goes with the empty ones.
 fn is_merged(branch: &OtherBranch) -> bool {
-    branch.ahead == Some(0)
-        || (branch.review.as_ref()).is_some_and(|review| review.state == ReviewState::Merged)
+    (branch.review.as_ref()).is_some_and(|review| review.state == ReviewState::Merged)
 }
