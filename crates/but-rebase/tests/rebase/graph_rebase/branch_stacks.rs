@@ -566,11 +566,12 @@ fn rewritten_stored_cutoff_uses_its_commit_mapping() -> Result<()> {
     snapbox::assert_data_eq!(
         rebase.steps_ascii(),
         snapbox::str![[r#"
-◎  refs/heads/gitbutler/workspace
-◎  refs/heads/main
-●  92660d6 just a normal commit
+◎  refs/heads/boundary (immutable)
+│ ◎  refs/heads/gitbutler/workspace
+│ ◎  refs/heads/main
+│ ●  92660d6 just a normal commit
+├─╯
 │ ◎  refs/remotes/origin/main (immutable)
-│ ◎  refs/heads/boundary (immutable)
 ├─╯
 ●  e47fc3a rewritten boundary
 ◎  refs/heads/older (immutable)
