@@ -74,11 +74,13 @@ impl Detail {
                         None if ref_name.is_empty() => "Unnamed branch",
                         None => short_ref(ref_name),
                     };
-                    crumbs.push(heading(selection));
-                    crumbs.push((name.to_owned().into(), None));
-                    // The remote's commit shown in place of the branch's diff.
+                    // The remote's commit shown in place of the branch's diff, after the branch,
+                    // which then goes back to its own.
                     let remote = (self.remote_commit(project, ref_name, cx))
                         .and_then(|id| branch?.incoming.iter().find(|c| c.id == id));
+                    let back = remote.is_some().then(|| selection.clone());
+                    crumbs.push(heading(selection));
+                    crumbs.push((name.to_owned().into(), back));
                     if let Some(commit) = remote {
                         crumbs.push((commit_title(&commit.title).to_string().into(), None));
                     }
@@ -167,7 +169,7 @@ impl Detail {
                             let shrink = crumb.chars().count() as f32;
                             let el = match target.filter(|_| ix != last) {
                                 Some(target) => {
-                                    let app = self.app.clone();
+                                    let (app, detail) = (self.app.clone(), cx.entity().downgrade());
                                     // A step darker under the pointer: it's still a quiet trail.
                                     let hover = theme.text_2.blend(theme.text_1.opacity(0.5));
                                     div()
@@ -183,6 +185,12 @@ impl Detail {
                                         .on_click(move |_, window, cx| {
                                             (app.update(cx, |app, cx| {
                                                 app.select(target.clone(), window, cx)
+                                            }))
+                                            .ok();
+                                            // The branch's crumb, over a remote commit of it,
+                                            // names what's already selected.
+                                            (detail.update(cx, |detail, cx| {
+                                                detail.leave_remote_commit(cx)
                                             }))
                                             .ok();
                                         })
@@ -885,6 +893,16 @@ impl Detail {
             .find_branch(ref_name)?;
         (p == project && r == ref_name && branch.incoming.iter().any(|c| c.id == *id))
             .then_some(*id)
+    }
+
+    /// Go back from a remote commit's diff to the branch's own, as Esc, the files' ✕ and the
+    /// branch's crumb do. False when there was none to leave.
+    pub(crate) fn leave_remote_commit(&mut self, cx: &mut Context<Self>) -> bool {
+        if self.remote_commit.take().is_none() {
+            return false;
+        }
+        self.show_picked(cx);
+        true
     }
 
     /// The commits only the branch's remote has, as an agent or a teammate pushed them, and

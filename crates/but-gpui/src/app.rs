@@ -491,12 +491,14 @@ impl AppView {
             return;
         }
         if self.detail.read(cx).is_focused(window, cx) {
-            // Undo the nearest thing first: a text selection, then the file filter.
+            // Undo the nearest thing first: a text selection, then the file filter, then a
+            // remote commit shown in place of its branch's changes.
             let handled = self.detail.update(cx, |detail, cx| {
                 detail.clear_text_selection(cx)
                     || detail.clear_line_picks(cx)
                     || detail.clear_file_picks(cx)
                     || detail.close_open_filter(window, cx)
+                    || detail.leave_remote_commit(cx)
             });
             if !handled {
                 self.focus_main(window, cx);

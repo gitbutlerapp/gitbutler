@@ -100,15 +100,19 @@ fn steps(depth: usize, chevron: Option<gpui::Svg>, theme: &Theme) -> Div {
 /// A folder row, for what shows on it under the pointer.
 const DIR_GROUP: &str = "dir-row";
 
-/// The panel's heading: Files, how many, and their lines added and removed.
-fn files_heading(count: usize, (added, removed): (u32, u32), theme: &Theme) -> Div {
+/// The panel's heading: `title`, how many files, and their lines added and removed.
+fn files_heading(title: String, count: usize, (added, removed): (u32, u32), theme: &Theme) -> Div {
+    // The title gives way first, so the header's buttons stay in a narrow panel.
     h_flex()
+        .min_w(px(0.))
         .gap(px(8.))
         .child(
             div()
+                .min_w(px(0.))
+                .truncate()
                 .text_size(px(14.))
                 .font_weight(gpui::FontWeight::BOLD)
-                .child("Files"),
+                .child(title),
         )
         .child(count_badge(count, theme))
         .child(diff::stats(added, removed, theme))
@@ -691,9 +695,38 @@ impl Detail {
                 );
         }
         let stats = (diffs.map(FileDiff::stats)).fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr));
+        // Beside commits only the remote has, it says whose files these are: the local
+        // branch's, or the remote commit's shown in their place, with the way back.
+        let (remote, incoming) = match self.selection(cx) {
+            Some(Selection::Branch(project, ref_name)) => (
+                self.remote_commit(&project, &ref_name, cx),
+                (self.store.read(cx).workspace(&project))
+                    .and_then(|ws| ws.find_branch(&ref_name))
+                    .is_some_and(|branch| !branch.incoming.is_empty()),
+            ),
+            _ => (None, false),
+        };
+        let title = match (remote, incoming) {
+            (Some(id), _) => format!("Files in {}", id.short()),
+            (None, true) => "Files in local branch".to_owned(),
+            (None, false) => "Files".to_owned(),
+        };
         header_row()
-            .child(files_heading(paths.count(), stats, theme))
+            .child(files_heading(title, paths.count(), stats, theme))
             .child(div().flex_1())
+            .when(remote.is_some(), |el| {
+                el.child(
+                    icon_button("leave-remote-commit", Icon::Cross)
+                        .small()
+                        .tooltip_with_key(
+                            "Back to the local branch's files",
+                            shortcut(&crate::app::Cancel, cx),
+                        )
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.leave_remote_commit(cx);
+                        })),
+                )
+            })
             .child(
                 icon_button("filter-files", Icon::Search)
                     .small()
