@@ -837,9 +837,34 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
+        // Folded, it's as tall whatever the commit, so picking another moves nothing below:
+        // one line of title, and three of the rest, cut short.
         const LINES: usize = 3;
+        const LINE: f32 = 20.;
+        // A merge with no more to say than the pull request it landed says what that does, in
+        // its description's words.
+        let described;
         // A merge names the pull request by its title, which the body often repeats.
-        let body = (commit.body.lines())
+        let own = (commit.body.lines())
+            .filter(|line| (commit.review.as_ref()).is_none_or(|r| line.trim() != r.title))
+            .any(|line| !line.trim().is_empty());
+        let text = match (own, &commit.review) {
+            (false, Some(review)) if !review.body.trim().is_empty() => {
+                let mut end = review.body.len().min(4096);
+                while !review.body.is_char_boundary(end) {
+                    end -= 1;
+                }
+                described = (markdown::parse(&review.body[..end]).iter())
+                    .map(|block| block.text.as_str())
+                    .filter(|text| !text.trim().is_empty())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                &described
+            }
+            _ => &commit.body,
+        };
+        // A merge names the pull request by its title, which the body often repeats.
+        let body = (text.lines())
             .filter(|line| {
                 commit
                     .review
@@ -852,12 +877,20 @@ impl Detail {
             .position(|line| !line.trim().is_empty())
             .unwrap_or(body.len());
         let body = &body[start..];
-        let long = body.len() > LINES;
+        let end = body
+            .iter()
+            .rposition(|line| !line.trim().is_empty())
+            .map_or(0, |at| at + 1);
+        let body = &body[..end];
+        // Whether it runs past its three lines, by about how many characters fit across.
+        let across = ((self.beside_width.get() - 32.) / 7.).max(20.) as usize;
+        let lines: usize = (body.iter())
+            .map(|line| line.chars().count().div_ceil(across).max(1))
+            .sum();
+        let title = label(commit).to_owned();
+        let long = lines > LINES || title.chars().count() > across * 15 / 13;
         let open = self.message_open;
-        let shown = match open || !long {
-            true => body.join("\n"),
-            false => body[..LINES].join("\n"),
-        };
+        let shown = body.join("\n");
         let (height, app) = (self.target_message_height.clone(), self.app.clone());
         let measure = gpui::canvas(
             move |bounds, _, cx| {
@@ -883,9 +916,14 @@ impl Detail {
             .border_color(theme.border_3)
             .child(
                 div()
+                    .id("target-message-title")
                     .text_size(px(15.))
+                    .line_height(px(22.))
                     .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .child(SharedString::from(label(commit).to_owned())),
+                    .when(!open, |el| {
+                        el.truncate().tooltip(Tooltip::text(title.clone()))
+                    })
+                    .child(SharedString::from(title.clone())),
             )
             .child(
                 h_flex()
@@ -906,32 +944,38 @@ impl Detail {
                         commit.id.short()
                     )),
             )
-            .when(!shown.is_empty(), |el| {
-                el.child(
-                    div()
-                        .text_color(theme.text_2)
-                        .whitespace_normal()
-                        .child(SharedString::from(shown)),
-                )
-            })
-            .when(long, |el| {
-                el.child(
-                    div()
-                        .id("target-message-more")
-                        .text_size(px(12.))
-                        .text_color(theme.blue)
-                        .cursor_pointer()
-                        .child(match open {
-                            true => "Show less",
-                            false => "Show more",
-                        })
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.message_open = !this.message_open;
-                            cx.notify();
-                            this.app.update(cx, |_, cx| cx.notify()).ok();
-                        })),
-                )
-            })
+            .child(
+                div()
+                    .text_size(px(13.))
+                    .line_height(px(LINE))
+                    .text_color(theme.text_2)
+                    .whitespace_normal()
+                    .when(!open, |el| {
+                        el.h(px(LINE * LINES as f32))
+                            .overflow_hidden()
+                            .line_clamp(LINES)
+                    })
+                    .child(SharedString::from(shown)),
+            )
+            // Its room kept when there's no more to show.
+            .child(
+                div()
+                    .id("target-message-more")
+                    .h(px(18.))
+                    .text_size(px(12.))
+                    .text_color(theme.blue)
+                    .cursor_pointer()
+                    .when(!long, |el| el.invisible())
+                    .child(match open {
+                        true => "Show less",
+                        false => "Show more",
+                    })
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.message_open = !this.message_open;
+                        cx.notify();
+                        this.app.update(cx, |_, cx| cx.notify()).ok();
+                    })),
+            )
             .child(measure)
             .into_any_element()
     }
