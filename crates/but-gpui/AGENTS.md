@@ -216,3 +216,5 @@ anything else.
   create and merge, editing a commit in the app (the resolver and `but resolve` cover it),
   moving a commit one step, updating one stack, Locate for a moved project, diff zoom and the
   palette's theme toggle.
+- Format a file on its own with `rustfmt --edition 2024 <file>`: given `lib.rs` or a `mod.rs`,
+  rustfmt formats every module under it too, which matters when others edit the crate at once.
