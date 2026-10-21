@@ -117,6 +117,20 @@ fn deleting_below_a_directory_the_worktree_turned_into_a_symlink_leaves_no_index
 }
 
 #[test]
+fn deleting_a_file_the_worktree_replaced_with_a_directory_leaves_no_index_entry()
+-> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    std::fs::create_dir(repo.workdir().expect("non-bare").join("x"))?;
+
+    let target = repo.rev_parse_single("b")?.detach();
+    safe_checkout_from_head(target, &repo, Default::default())?;
+
+    // An empty directory isn't the file, so both sides deleted `x`. Git doesn't list empty directories.
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
+    Ok(())
+}
+
+#[test]
 fn checkout_keeps_a_staged_modification_the_worktree_deleted() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let x = repo.workdir().expect("non-bare").join("x");

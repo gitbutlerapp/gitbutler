@@ -230,12 +230,13 @@ fn remove_index_entries_deleted_on_both_sides(
         if staged || new_tree.entry_by_path(path).is_some() {
             continue;
         }
-        // Like Git, a path behind a symlinked or missing directory isn't in the worktree.
+        // Like Git, a path behind a symlinked or missing directory, or replaced by a directory,
+        // isn't in the worktree.
         let in_worktree = match path_check
             .verified_path(path)
             .and_then(|path| path.symlink_metadata())
         {
-            Ok(_) => true,
+            Ok(md) => !md.is_dir(),
             Err(err)
                 if matches!(
                     err.kind(),
