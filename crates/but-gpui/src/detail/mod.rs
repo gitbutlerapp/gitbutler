@@ -1160,6 +1160,18 @@ impl Detail {
     }
 
     fn open_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // The Branches and History pages filter their lists, as the navigator does; the
+        // project's page has no filter.
+        let page = match self.store.read(cx).selection {
+            Some(Selection::Branches(_)) => Some(self.branch_filter.clone()),
+            Some(Selection::History(_)) => Some(self.history_filter.clone()),
+            Some(Selection::Project(_)) => return,
+            _ => None,
+        };
+        if let Some(input) = page {
+            input.update(cx, |input, cx| input.select_all_text(cx));
+            return window.focus(&input.focus_handle(cx), cx);
+        }
         self.filtering = true;
         // Its field heads the file list, so a hidden list comes back with it.
         self.files_hidden = false;
