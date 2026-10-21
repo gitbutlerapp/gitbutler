@@ -15,6 +15,7 @@ use crate::backend::upstream::{self, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, Forge, Review};
 use crate::state::{Overlay, ProjectId, Selection};
 use crate::theme::Theme;
+use crate::ui::emoji::ProjectIcon;
 use crate::ui::illustration::Illustration;
 use crate::ui::person::byline_avatar;
 use crate::ui::{
@@ -293,7 +294,7 @@ impl Detail {
         let Some(entry) = store.project(project) else {
             return div().into_any_element();
         };
-        let emoji = store.project_icon(project).map(str::to_owned);
+        let mark = ProjectIcon::parse(store.project_icon(project)).render(px(16.), theme);
         let fetch = self.upstream_for(project).map(|u| u.fetch.clone());
         let picked = project.clone();
         // As wide as the other pages' icons, so the titles line up.
@@ -308,10 +309,8 @@ impl Detail {
             .rounded(px(4.))
             .cursor_pointer()
             .hover(|el| el.bg(theme.hover()))
-            .map(|el| match &emoji {
-                Some(emoji) => el.text_size(px(16.)).child(emoji.clone()),
-                None => el.child(icon(Icon::Folder).text_color(theme.text_1)),
-            })
+            .text_size(px(16.))
+            .child(mark)
             // No tooltip: it would sit over the picker's search field.
             .on_click(
                 cx.listener(move |this, event: &gpui::ClickEvent, window, cx| {

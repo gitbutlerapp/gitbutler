@@ -225,16 +225,36 @@ pub fn connection() -> Result<Option<Connection>> {
     }))
 }
 
-/// The checkouts of the repository at `path` on the user's other machines, as the mesh last
-/// heard of them: the work this machine doesn't have already.
-pub fn checkouts(path: &Path) -> Result<Vec<Checkout>> {
-    parse_checkouts(&mesh(Some(path), &["status", "--json"], READ_TIMEOUT)?)
+/// What the mesh has of the repository at `path`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Status {
+    /// The project, once the mesh has heard of it.
+    pub project: Option<Project>,
+    /// Its checkouts on the user's other machines, as the mesh last heard of them: the work
+    /// this machine doesn't have already.
+    pub checkouts: Vec<Checkout>,
 }
 
-/// [`checkouts()`] from what `but mesh status --json` printed.
-fn parse_checkouts(out: &str) -> Result<Vec<Checkout>> {
+/// A project as the mesh knows it.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct Project {
+    pub id: String,
+    /// The icon picked for it on but.dev or here, as but.dev stores it: an emoji, or
+    /// `glyph:<colour>`; empty for none.
+    #[serde(default)]
+    pub icon: String,
+}
+
+/// What the mesh has of the repository at `path`.
+pub fn status(path: &Path) -> Result<Status> {
+    parse_status(&mesh(Some(path), &["status", "--json"], READ_TIMEOUT)?)
+}
+
+/// [`status()`] from what `but mesh status --json` printed.
+fn parse_status(out: &str) -> Result<Status> {
     #[derive(Deserialize)]
-    struct Status {
+    struct StatusJson {
+        project: Option<Project>,
         checkouts: Vec<Row>,
         #[serde(default)]
         branches: Vec<Offered>,
@@ -294,7 +314,8 @@ fn parse_checkouts(out: &str) -> Result<Vec<Checkout>> {
         checkout_id: String,
     }
 
-    let status: Status = serde_json::from_str(out).context("Couldn't read the mesh's status")?;
+    let status: StatusJson =
+        serde_json::from_str(out).context("Couldn't read the mesh's status")?;
     let offered = &status.branches;
     // Another machine's, and drawn here: work identical to this machine's, or to another
     // checkout listed, shows once.
@@ -376,7 +397,63 @@ fn parse_checkouts(out: &str) -> Result<Vec<Checkout>> {
         let folder = Path::new(&checkouts[ix].path).file_name();
         checkouts[ix].folder = folder.map(|name| name.to_string_lossy().into_owned());
     }
-    Ok(checkouts)
+    Ok(Status {
+        project: status.project,
+        checkouts,
+    })
+}
+
+/// Give the mesh's project `id` the `icon`, as but.dev stores it, or none when it's empty.
+/// The CLI has no command for it, so this asks the server itself, as this machine, with the
+/// server and token the CLI keeps in its config.
+pub fn set_project_icon(id: &str, icon: &str) -> Result<()> {
+    #[derive(Deserialize)]
+    struct Config {
+        server: String,
+        #[serde(default)]
+        node_token: String,
+    }
+    let dir = match std::env::var_os("BUT_MESH_CONFIG_DIR") {
+        Some(dir) => PathBuf::from(dir),
+        None => std::env::var_os("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|home| Path::new(&home).join(".config")))
+            .context("No home folder to find the mesh's config in")?
+            .join("but-mesh"),
+    };
+    let text = std::fs::read_to_string(dir.join("config.toml"))
+        .context("This machine isn't signed in to the mesh")?;
+    // Its parser's errors can quote the token, so only what went wrong is said.
+    let config: Config =
+        toml::from_str(&text).map_err(|_| anyhow::anyhow!("Couldn't read the mesh's config"))?;
+    if config.node_token.is_empty() {
+        bail!("This machine isn't signed in to the mesh");
+    }
+    // As the CLI: an override of the server for development, else the config's.
+    let server = std::env::var("BUT_MESH_SERVER")
+        .ok()
+        .filter(|server| !server.trim().is_empty())
+        .unwrap_or(config.server);
+    let url = format!(
+        "{}/api/projects/{id}/icon",
+        server.trim().trim_end_matches('/')
+    );
+    let client = reqwest::Client::builder()
+        // The token is for the server alone, which never redirects.
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(READ_TIMEOUT)
+        .build()?;
+    let response = super::runtime().block_on(
+        client
+            .post(url)
+            .header("x-but-node-token", config.node_token)
+            .json(&serde_json::json!({ "icon": icon }))
+            .send(),
+    )?;
+    if !response.status().is_success() {
+        bail!("The mesh refused the icon ({})", response.status());
+    }
+    Ok(())
 }
 
 /// Have the daemon report the repository at `path`, as it does the repositories it found
@@ -449,11 +526,12 @@ pub fn link(server: &str, checkout: &str, branch: Option<&str>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{BranchStatus, link, parse_checkouts};
+    use super::{BranchStatus, link, parse_status};
 
     /// `but mesh status --json`, cut down to what's read: this machine's linked worktree,
     /// work identical to this machine's, and two other machines with what's unfinished.
     const STATUS: &str = r#"{
+      "project": {"id": "p1", "name": "repo", "root_commit": "r", "icon": "glyph:pop"},
       "checkouts": [
         {"machine": "here", "this_machine": true, "online": true, "same_work_as_here": false,
          "same_as": null, "checkout": {"id": "c-here", "path": "/w/repo-wt", "worktree_name": "wt",
@@ -497,7 +575,14 @@ mod tests {
 
     #[test]
     fn keeps_only_other_machines_work_this_one_lacks() {
-        let checkouts = parse_checkouts(STATUS).expect("the sample is valid status JSON");
+        let status = parse_status(STATUS).expect("the sample is valid status JSON");
+        let project = status.project.expect("the sample names its project");
+        assert_eq!(
+            (project.id.as_str(), project.icon.as_str()),
+            ("p1", "glyph:pop"),
+            "the project's id and icon are read"
+        );
+        let checkouts = status.checkouts;
         let ids: Vec<_> = checkouts.iter().map(|c| c.id.as_str()).collect();
         assert_eq!(
             ids,

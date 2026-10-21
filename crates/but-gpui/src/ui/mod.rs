@@ -110,6 +110,7 @@ icons! {
     PrClose => "pr-close",
     PrDraft => "pr-draft",
     Refresh => "refresh",
+    Repo => "repo",
     Search => "search",
     Settings => "settings",
     Sidebar => "sidebar",
@@ -127,6 +128,14 @@ icons! {
     EyeOff => "eye-off",
     // Another machine, which ui-react has no glyph for, in the style of its folder.
     Computer => "computer",
+    // The repo glyph filled as ui-react's `EntityGlyph` fills it, its gradient baked in, for a
+    // project's icon: one for each colour but the outline, which is `Repo`.
+    RepoPop => "repo-pop",
+    RepoSafe => "repo-safe",
+    RepoPurple => "repo-purple",
+    RepoDanger => "repo-danger",
+    RepoWarn => "repo-warn",
+    RepoGray => "repo-gray",
 }
 
 /// GitButler's fonts, compiled into the binary so the client looks the same everywhere.

@@ -15,7 +15,7 @@ use super::mutation::Overlay;
 use super::{ProjectId, Selection, Store, StoreEvent};
 use crate::backend::{
     self, CommitId,
-    mesh::{Checkout, Connection},
+    mesh::{self, Checkout, Connection},
 };
 
 /// How often the other machines' work is read again. The mesh hears of a change within
@@ -62,6 +62,10 @@ pub struct Mesh {
     pub signing_in: bool,
     /// Each watched project's checkouts on other machines, as last read.
     checkouts: HashMap<ProjectId, Arc<[Checkout]>>,
+    /// Each watched project's id in the mesh, once read, which its icon is set by.
+    ids: HashMap<ProjectId, String>,
+    /// Projects whose icon is being sent to the mesh: a read meanwhile may have the old one.
+    sending_icon: HashSet<ProjectId>,
     /// Projects the daemon was asked to report in this run, so each is asked once.
     asked_to_report: HashSet<PathBuf>,
     /// Asks the poll to read the mesh again now.
@@ -77,6 +81,8 @@ impl Mesh {
             state: MeshState::default(),
             signing_in: false,
             checkouts: HashMap::new(),
+            ids: HashMap::new(),
+            sending_icon: HashSet::new(),
             asked_to_report: HashSet::new(),
             requests,
             _poll: Store::poll_mesh(asked, cx),
@@ -117,10 +123,15 @@ impl Store {
                                 .ok();
                         }
                     }
-                    let read = backend::run(move || backend::mesh::checkouts(&path)).await;
-                    tracing::debug!(%project, checkouts = ?read.as_ref().map(Vec::len), "mesh read");
+                    let read = backend::run(move || backend::mesh::status(&path)).await;
+                    tracing::debug!(%project, checkouts = ?read.as_ref().map(|s| s.checkouts.len()), "mesh read");
                     let Ok(()) = this.update(cx, |store, cx| match read {
-                        Ok(checkouts) => store.set_mesh_checkouts(project, checkouts, cx),
+                        Ok(status) => {
+                            if let Some(read) = status.project {
+                                store.set_mesh_project(&project, read, cx);
+                            }
+                            store.set_mesh_checkouts(project, status.checkouts, cx)
+                        }
                         // What was read before stays.
                         Err(err) => tracing::debug!(%project, "mesh read failed: {err:#}"),
                     }) else {
@@ -168,6 +179,7 @@ impl Store {
                 self.mesh.checkouts.clear();
                 cx.notify();
             }
+            self.mesh.ids.clear();
             // Signed out, the navigator lists no other machines to be on.
             if let Some(Selection::Mesh(project, ..)) = self.selection.clone() {
                 self.select(Some(Selection::Project(project)), cx);
@@ -234,6 +246,68 @@ impl Store {
         }
         cx.emit(StoreEvent::MeshRead(project));
         cx.notify();
+    }
+
+    /// Keep the mesh's id for `project`, and have its icon and the mesh's agree: the mesh's,
+    /// picked here or on but.dev, wins; one picked only here is sent to the mesh.
+    fn set_mesh_project(
+        &mut self,
+        project: &ProjectId,
+        read: mesh::Project,
+        cx: &mut Context<Self>,
+    ) {
+        self.mesh.ids.insert(project.clone(), read.id);
+        let here = self.project_icon(project).unwrap_or_default();
+        if read.icon == here || self.mesh.sending_icon.contains(project) {
+            return;
+        }
+        match read.icon.is_empty() {
+            true => self.send_mesh_icon(project, here.to_owned(), cx),
+            false => {
+                let (id, icon) = (project.to_string(), read.icon);
+                self.set_prefs(|prefs| _ = prefs.project_icons.insert(id, icon), cx);
+            }
+        }
+    }
+
+    /// Give `project` the `icon`, as but.dev stores it, or none, here and in the mesh.
+    pub fn set_project_icon(
+        &mut self,
+        project: &ProjectId,
+        icon: Option<String>,
+        cx: &mut Context<Self>,
+    ) {
+        let id = project.to_string();
+        self.set_prefs(
+            |prefs| match &icon {
+                Some(icon) => _ = prefs.project_icons.insert(id, icon.clone()),
+                None => _ = prefs.project_icons.remove(&id),
+            },
+            cx,
+        );
+        self.send_mesh_icon(project, icon.unwrap_or_default(), cx);
+    }
+
+    /// Send `project`'s `icon` to the mesh, once it's been read and has an id there. A failure
+    /// is only logged: the next read puts back the mesh's.
+    fn send_mesh_icon(&mut self, project: &ProjectId, icon: String, cx: &mut Context<Self>) {
+        let Some(id) = self.mesh.ids.get(project).cloned() else {
+            return;
+        };
+        let project = project.clone();
+        self.mesh.sending_icon.insert(project.clone());
+        cx.spawn(async move |this, cx| {
+            let sent = backend::run(move || mesh::set_project_icon(&id, &icon)).await;
+            if let Err(err) = sent {
+                tracing::warn!(%project, "couldn't send the project's icon to the mesh: {err:#}");
+            }
+            this.update(cx, |store, _| {
+                store.mesh.sending_icon.remove(&project);
+                store.read_mesh();
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// `project`'s checkouts on other machines, as the mesh last said.

@@ -301,8 +301,8 @@ pub struct Prefs {
     pub run_hooks: HashSet<String>,
     /// Projects, by id, whose branches offer Land in place of Create pull request.
     pub land_directly: HashSet<String>,
-    /// The emoji each project shows before its name in the navigator, by id, as but.dev
-    /// lets a repository have one.
+    /// The icon each project shows before its name in the navigator, by id, as but.dev
+    /// stores a repository's: an emoji, or `glyph:<colour>`. The mesh's, once read, wins.
     pub project_icons: HashMap<String, String>,
     /// The navigator's other projects go by when they were last active rather than by name.
     pub projects_by_activity: bool,
