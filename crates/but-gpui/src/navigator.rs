@@ -495,11 +495,12 @@ impl Navigator {
             let main_selected = selection.is_some_and(|s| within(s, workspace.branches()));
             let main_open = self.worktree_open(id, None, main_selected);
             // Alone and with nothing uncommitted, it has nothing to say, so it's left out, but
-            // for while it's selected, something's dragged, which may go there, or its branches
-            // are folded under it.
+            // for while it's selected or its branches are folded under it. Not for a drag: rows
+            // appearing as it starts would move what's under the pointer, and uncommitting has
+            // its menu item and keys.
             let clean = (store.uncommitted_shown(id, None, &workspace.uncommitted)).is_empty();
             let heading_selected = matches!(selection, Some(Selection::Uncommitted(_)));
-            if headed || !clean || heading_selected || store.dragging.is_some() || !main_open {
+            if headed || !clean || heading_selected || !main_open {
                 rows.push(Row::Item(Selection::Uncommitted(id.clone())));
             }
             if headed {
