@@ -299,6 +299,13 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
             .unwrap_or(target.commits_ahead),
         commits_behind: target.commits_ahead,
         needs_update: target.commits_ahead > 0 || stacks_behind,
+        incoming: match target.commits_ahead {
+            0 => Vec::new(),
+            _ => upstream::incoming(&ctx, model::UPSTREAM_SHOWN).unwrap_or_else(|err| {
+                tracing::warn!("couldn't read the target's new commits: {err:#}");
+                Vec::new()
+            }),
+        },
     });
     let lost_target = (target.is_none())
         .then(|| ctx.project_meta().ok()?.target_ref)
@@ -448,6 +455,7 @@ fn branch_from(
                 }
             })
             .collect(),
+        remote: (segment.remote_tracking_ref_name.as_ref()).map(|name| name.shorten().to_string()),
         push,
         review,
     }

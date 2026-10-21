@@ -149,6 +149,15 @@ impl Workspace {
         })
     }
 
+    /// The commits only a remote has: branch `ref_name`'s remote, or with `None` the
+    /// target's that the workspace doesn't have yet, newest first.
+    pub fn upstream(&self, ref_name: Option<&str>) -> &[RemoteCommit] {
+        match ref_name {
+            Some(ref_name) => self.find_branch(ref_name).map_or(&[], |b| &b.incoming),
+            None => self.target.as_ref().map_or(&[], |t| &t.incoming),
+        }
+    }
+
     pub fn find_branch(&self, ref_name: &str) -> Option<&Branch> {
         self.shown_branches()
             .find(|branch| branch.ref_name == ref_name)
@@ -281,7 +290,13 @@ pub struct Target {
     pub commits_behind: usize,
     /// Whether updating from the target would change anything.
     pub needs_update: bool,
+    /// The newest of the `behind` commits, up to [`UPSTREAM_SHOWN`], named as the project's
+    /// page names them.
+    pub incoming: Vec<RemoteCommit>,
 }
+
+/// How many of the target's commits the workspace doesn't have yet are read with it.
+pub const UPSTREAM_SHOWN: usize = 8;
 
 #[derive(Debug, Clone)]
 pub struct Stack {
@@ -299,6 +314,8 @@ pub struct Branch {
     pub commits: Vec<Commit>,
     /// The commits only the branch's remote has, newest first.
     pub incoming: Vec<RemoteCommit>,
+    /// The remote branch it tracks, like `origin/feature-x`.
+    pub remote: Option<String>,
     pub push: PushState,
     pub review: Option<Review>,
 }
@@ -1046,6 +1063,7 @@ mod tests {
                 };
                 incoming
             ],
+            remote: None,
             push,
             review: None,
         };

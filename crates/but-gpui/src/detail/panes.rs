@@ -5,13 +5,12 @@ use std::ops::Range;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, Focusable as _, MouseButton,
-    MouseDownEvent, Pixels, Point, SharedString, Stateful, UniformListScrollHandle, Window, div,
-    prelude::*, px, uniform_list,
+    AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, Focusable as _, Pixels, Point,
+    SharedString, Stateful, UniformListScrollHandle, Window, div, prelude::*, px, uniform_list,
 };
 
 use super::Detail;
-use crate::app::{SelectNext, SelectPrevious, StartCommit};
+use crate::app::StartCommit;
 use crate::backend::{self, CommitState, PushState, short_ref};
 use crate::overlays::MenuItem;
 use crate::state::{Cut, MeshPick, ProjectId, Selection};
@@ -21,9 +20,9 @@ use crate::ui::person::{byline_avatar, byline_text};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, age_column, button,
-    commit_title, empty_state, faint, field, h_flex, icon, icon_button, list_row, local_time,
-    plural, section_label, shortcut, small_icon, v_flex,
+    Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title,
+    empty_state, faint, field, h_flex, icon, icon_button, list_row, local_time, plural,
+    section_label, shortcut, small_icon, v_flex,
 };
 
 impl Detail {
@@ -74,16 +73,8 @@ impl Detail {
                         None if ref_name.is_empty() => "Unnamed branch",
                         None => short_ref(ref_name),
                     };
-                    // The remote's commit shown in place of the branch's diff, after the branch,
-                    // which then goes back to its own.
-                    let remote = (self.remote_commit(project, ref_name, cx))
-                        .and_then(|id| branch?.incoming.iter().find(|c| c.id == id));
-                    let back = remote.is_some().then(|| selection.clone());
                     crumbs.push(heading(selection));
-                    crumbs.push((name.to_owned().into(), back));
-                    if let Some(commit) = remote {
-                        crumbs.push((commit_title(&commit.title).to_string().into(), None));
-                    }
+                    crumbs.push((name.to_owned().into(), None));
                 }
                 Selection::Branches(project) => {
                     crumbs.push(("Branches".into(), Some(selection.clone())));
@@ -119,6 +110,28 @@ impl Detail {
                     crumbs.push((format!("Stack of {n}").into(), None));
                 }
                 Selection::History(_) => crumbs.push(("Operations history".into(), None)),
+                // After what has it, the branch or the target, which go to their pages.
+                Selection::Upstream(project, ref_name, id) => {
+                    match ref_name
+                        .as_ref()
+                        .and_then(|r| Some((r, workspace?.find_branch(r)?)))
+                    {
+                        Some((ref_name, branch)) => {
+                            let branch_selection =
+                                Selection::Branch(project.clone(), ref_name.clone());
+                            crumbs.push(heading(&branch_selection));
+                            let name = store.name_of(project, branch).to_owned();
+                            crumbs.push((name.into(), Some(branch_selection)));
+                        }
+                        None => {
+                            let target = workspace.and_then(|ws| ws.target.as_ref());
+                            let name = target.map_or("Target", |t| t.name.as_str());
+                            let page = Selection::Project(project.clone());
+                            crumbs.push((name.to_owned().into(), Some(page)));
+                        }
+                    }
+                    crumbs.push((id.short().into(), None));
+                }
                 Selection::Commit(project, id) => {
                     if let Some((branch, commit)) = workspace.and_then(|ws| ws.find_commit(*id)) {
                         let branch_selection =
@@ -169,7 +182,7 @@ impl Detail {
                             let shrink = crumb.chars().count() as f32;
                             let el = match target.filter(|_| ix != last) {
                                 Some(target) => {
-                                    let (app, detail) = (self.app.clone(), cx.entity().downgrade());
+                                    let app = self.app.clone();
                                     // A step darker under the pointer: it's still a quiet trail.
                                     let hover = theme.text_2.blend(theme.text_1.opacity(0.5));
                                     div()
@@ -185,12 +198,6 @@ impl Detail {
                                         .on_click(move |_, window, cx| {
                                             (app.update(cx, |app, cx| {
                                                 app.select(target.clone(), window, cx)
-                                            }))
-                                            .ok();
-                                            // The branch's crumb, over a remote commit of it,
-                                            // names what's already selected.
-                                            (detail.update(cx, |detail, cx| {
-                                                detail.leave_remote_commit(cx)
                                             }))
                                             .ok();
                                         })
@@ -493,7 +500,6 @@ impl Detail {
             CommitState::Pushed => ("on the remote".to_owned(), theme.safe),
             CommitState::Integrated => (format!("in {target}"), theme.text_2),
         };
-        let sha = commit.id.0.to_string();
         // A long title wraps rather than hiding its end: it's shown nowhere else.
         let title = page_title(Icon::Commit, theme)
             .id("commit-title")
@@ -543,26 +549,7 @@ impl Detail {
                         local_time(commit.time)
                     )),
             )
-            .child(
-                h_flex()
-                    .id("commit-sha")
-                    .gap(px(4.))
-                    .cursor_pointer()
-                    .group("commit-sha")
-                    .text_color(theme.text_3)
-                    .hover(|el| el.text_color(theme.text_2))
-                    .child(
-                        small_icon(Icon::Hash)
-                            .text_color(theme.text_3)
-                            .group_hover("commit-sha", |el| el.text_color(theme.text_2)),
-                    )
-                    .child(commit.id.short())
-                    .tooltip(Tooltip::text("Copy commit ID"))
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        let sha = sha.clone();
-                        this.app.update(cx, |app, cx| app.copy_text(sha, cx)).ok();
-                    })),
-            )
+            .child(self.sha_chip(id, theme, cx))
             .when_some(self.signers.get(&id).copied().flatten(), |el, signer| {
                 el.child(
                     meta_item(Icon::Lock, theme)
@@ -601,6 +588,78 @@ impl Detail {
         let target = Selection::Commit(project.clone(), id);
         let apply = super::resolve::apply_button(self, cx.entity().downgrade(), cx);
         self.page_header(main, target, apply, None, theme, cx)
+    }
+
+    /// A commit's short ID, which copies the whole one on a click.
+    fn sha_chip(&self, id: backend::CommitId, theme: &Theme, cx: &Context<Self>) -> Stateful<Div> {
+        let sha = id.0.to_string();
+        h_flex()
+            .id("commit-sha")
+            .gap(px(4.))
+            .cursor_pointer()
+            .group("commit-sha")
+            .text_color(theme.text_3)
+            .hover(|el| el.text_color(theme.text_2))
+            .child(
+                small_icon(Icon::Hash)
+                    .text_color(theme.text_3)
+                    .group_hover("commit-sha", |el| el.text_color(theme.text_2)),
+            )
+            .child(id.short())
+            .tooltip(Tooltip::text("Copy commit ID"))
+            .on_click(cx.listener(move |this, _, _, cx| {
+                let sha = sha.clone();
+                this.app.update(cx, |app, cx| app.copy_text(sha, cx)).ok();
+            }))
+    }
+
+    /// The header of a commit only a remote has, branch `ref_name`'s or with `None` the
+    /// target's: its title, who wrote it and when, its ID, and which remote has it.
+    pub(super) fn render_upstream_header(
+        &self,
+        project: &ProjectId,
+        ref_name: Option<&str>,
+        id: backend::CommitId,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let Some(ws) = self.store.read(cx).workspace(project) else {
+            return div().into_any_element();
+        };
+        let Some(commit) = ws.upstream(ref_name).iter().find(|c| c.id == id) else {
+            return div().into_any_element();
+        };
+        let remote = match ref_name {
+            Some(ref_name) => ws.find_branch(ref_name).and_then(|b| b.remote.clone()),
+            None => ws.target.as_ref().map(|target| target.name.clone()),
+        };
+        let title =
+            page_title(Icon::ArrowDown, theme).child(title_text(commit_title(&commit.title)));
+        let meta = meta_row(theme)
+            .child(
+                h_flex()
+                    .gap(px(6.))
+                    .child(byline_avatar(
+                        &commit.author,
+                        &commit.email,
+                        commit.agent.as_ref(),
+                        16.,
+                        theme,
+                    ))
+                    .child(format!(
+                        "{} at {}",
+                        byline_text(&commit.author, commit.agent.as_ref()),
+                        local_time(commit.time)
+                    )),
+            )
+            .child(self.sha_chip(id, theme, cx))
+            .child(div().text_color(theme.warn).child(match remote {
+                Some(remote) => format!("only on {remote}"),
+                None => "only on the remote".to_owned(),
+            }));
+        let main = v_flex().gap(px(10.)).child(title).child(meta);
+        let target = Selection::Upstream(project.clone(), ref_name.map(str::to_owned), id);
+        self.page_header(main, target, None, None, theme, cx)
     }
 
     /// The header across a page, over its files and its diff: `main` beside `extra`, if
@@ -807,7 +866,6 @@ impl Detail {
         project: &ProjectId,
         ref_name: &str,
         theme: &Theme,
-        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
@@ -862,194 +920,12 @@ impl Detail {
         v_flex()
             .size_full()
             .children(resolve_oldest.map(|banner| side_header(theme).child(banner)))
-            .when(!branch.incoming.is_empty(), |el| {
-                el.child(self.render_incoming(
-                    project,
-                    ref_name,
-                    &branch.incoming,
-                    theme,
-                    window,
-                    cx,
-                ))
-            })
             .child(files)
             .into_any_element()
     }
 }
 
 impl Detail {
-    /// The commit only `ref_name`'s remote has that its page shows, while it's still one.
-    pub(super) fn remote_commit(
-        &self,
-        project: &ProjectId,
-        ref_name: &str,
-        cx: &App,
-    ) -> Option<backend::CommitId> {
-        let (p, r, id) = self.remote_commit.as_ref()?;
-        let branch = self
-            .store
-            .read(cx)
-            .workspace(project)?
-            .find_branch(ref_name)?;
-        (p == project && r == ref_name && branch.incoming.iter().any(|c| c.id == *id))
-            .then_some(*id)
-    }
-
-    /// Go back from a remote commit's diff to the branch's own, as Esc, the files' ✕ and the
-    /// branch's crumb do. False when there was none to leave.
-    pub(crate) fn leave_remote_commit(&mut self, cx: &mut Context<Self>) -> bool {
-        if self.remote_commit.take().is_none() {
-            return false;
-        }
-        self.show_picked(cx);
-        true
-    }
-
-    /// The commits only the branch's remote has, as an agent or a teammate pushed them, and
-    /// Pull to bring them in when it can. Clicking one shows its diff in place of the
-    /// branch's, and again goes back; right-clicking offers what a Branches page commit does.
-    /// Clicked, the list takes the keys, ↑ and ↓ stepping through it as the other side
-    /// lists do.
-    fn render_incoming(
-        &self,
-        project: &ProjectId,
-        ref_name: &str,
-        incoming: &[backend::RemoteCommit],
-        theme: &Theme,
-        window: &Window,
-        cx: &Context<Self>,
-    ) -> AnyElement {
-        let can_pull =
-            (self.store.read(cx).workspace(project)).is_some_and(|ws| ws.can_pull(ref_name));
-        let picked = self.remote_commit(project, ref_name, cx);
-        let solid = self.side_focus.is_focused(window);
-        let pull = (project.clone(), ref_name.to_owned());
-        let rows = incoming.iter().enumerate().map(|(ix, commit)| {
-            let (id, on) = (commit.id, picked == Some(commit.id));
-            let key = (project.clone(), ref_name.to_owned());
-            side_row(("remote-commit", ix), on, solid, theme)
-                .mx(px(8.))
-                .when(!(on && solid), |el| el.text_color(theme.text_2))
-                .child(small_icon(Icon::ArrowDown).text_color(match on && solid {
-                    true => theme.text_inverted,
-                    false => theme.text_3,
-                }))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w(px(0.))
-                        .truncate()
-                        .child(commit_title(&commit.title)),
-                )
-                // Who wrote it and when, as on the Branches page; their name on hover.
-                .child(
-                    div()
-                        .id(("remote-commit-author", ix))
-                        .flex_none()
-                        .child(byline_avatar(
-                            &commit.author,
-                            &commit.email,
-                            commit.agent.as_ref(),
-                            14.,
-                            theme,
-                        ))
-                        .tooltip(Tooltip::text(byline_text(
-                            &commit.author,
-                            commit.agent.as_ref(),
-                        ))),
-                )
-                .child(quiet(
-                    age_column(Some(commit.time), theme),
-                    on && solid,
-                    theme,
-                ))
-                .on_click(cx.listener(move |this, _, window, cx| {
-                    window.focus(&this.side_focus, cx);
-                    let (project, ref_name) = key.clone();
-                    this.remote_commit = (!on).then_some((project, ref_name, id));
-                    this.show_picked(cx);
-                }))
-                .on_mouse_down(MouseButton::Right, {
-                    let project = project.clone();
-                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                        this.commit_menu(&project, [id].into(), id, event.position, cx)
-                    })
-                })
-        });
-        v_flex()
-            .flex_none()
-            .py(px(10.))
-            .gap(px(2.))
-            .border_b_1()
-            .border_color(theme.border_3)
-            .text_size(px(12.))
-            .child(
-                h_flex()
-                    .px(px(16.))
-                    .gap(px(8.))
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w(px(0.))
-                            .text_color(theme.warn)
-                            .child(format!(
-                                "{} only on the remote",
-                                plural(incoming.len(), "commit")
-                            )),
-                    )
-                    .when(can_pull, |el| {
-                        el.child(
-                            button("pull-remote", "Pull")
-                                .small()
-                                .tooltip("Bring them in, with this branch's own commits on top")
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    let (project, ref_name) = pull.clone();
-                                    this.store.update(cx, |store, cx| {
-                                        store.pull_remote(&project, ref_name, None, cx)
-                                    })
-                                })),
-                        )
-                    }),
-            )
-            .when(!can_pull, |el| {
-                el.child(
-                    div().px(px(16.)).text_color(theme.text_3).child(
-                        "Pulling into a branch with others stacked on it isn't possible yet.",
-                    ),
-                )
-            })
-            .children(rows)
-            .track_focus(&self.side_focus)
-            .key_context("SideList")
-            .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.step_incoming(1, cx)))
-            .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.step_incoming(-1, cx)))
-            .into_any_element()
-    }
-
-    /// Show the remote's commit `delta` rows from the one shown, or its first.
-    fn step_incoming(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let Some(Selection::Branch(project, ref_name)) = self.selection(cx) else {
-            return;
-        };
-        let ids: Vec<_> = (self.store.read(cx).workspace(&project))
-            .and_then(|ws| ws.find_branch(&ref_name))
-            .map(|branch| branch.incoming.iter().map(|c| c.id).collect())
-            .unwrap_or_default();
-        let at = (self.remote_commit(&project, &ref_name, cx))
-            .and_then(|id| ids.iter().position(|c| *c == id));
-        let next = match at {
-            Some(at) => at
-                .saturating_add_signed(delta)
-                .min(ids.len().saturating_sub(1)),
-            None => 0,
-        };
-        let Some(id) = ids.get(next).copied().filter(|_| at != Some(next)) else {
-            return;
-        };
-        self.remote_commit = Some((project, ref_name, id));
-        self.show_picked(cx);
-    }
-
     /// What a stack's branches change together: its branches, top first, and how many
     /// commits they have, over their files.
     pub(super) fn render_stack_side(

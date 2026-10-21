@@ -125,6 +125,11 @@ enum Row {
     WorktreeDivider,
     /// Over a project's checkouts on other machines, which folds them all away.
     MeshHeading(ProjectId),
+    /// Over the commits only a remote has, branch `String`'s or with `None` the target's,
+    /// which folds them away.
+    UpstreamHeading(ProjectId, Option<String>),
+    /// After the target's new commits listed, how many more its page lists.
+    UpstreamMore(ProjectId, usize),
 }
 
 /// The rows as they're built, each with how far in it sits: a worktree's section and a
@@ -337,6 +342,9 @@ pub struct Navigator {
     folded_stacks: HashSet<(ProjectId, String)>,
     /// Checkouts on other machines showing only their heading, by the mesh's id.
     folded_checkouts: HashSet<(ProjectId, Arc<str>)>,
+    /// The commits only a remote has listed under their heading, a branch's (by its full
+    /// ref) or with `None` the target's. They start folded to the heading.
+    open_upstream: HashSet<(ProjectId, Option<String>)>,
     /// Branches on other machines folded or opened against how Settings say branches start,
     /// as [`Self::flipped_branches`].
     flipped_mesh_branches: HashSet<crate::state::MeshBranch>,
@@ -415,6 +423,9 @@ impl Navigator {
                             set.insert((project.clone(), to.clone()));
                         }
                     }
+                    if (this.open_upstream).remove(&(project.clone(), Some(from.clone()))) {
+                        (this.open_upstream).insert((project.clone(), Some(to.clone())));
+                    }
                 }
                 _ => {}
             }),
@@ -434,6 +445,7 @@ impl Navigator {
             reveal_selection: false,
             unfolded_branches: HashSet::new(),
             flipped_branches: HashSet::new(),
+            open_upstream: HashSet::new(),
             folded_checkouts: HashSet::new(),
             flipped_mesh_branches: HashSet::new(),
             branches_start_open,
@@ -482,6 +494,7 @@ impl Navigator {
             if let Some(err) = &entry.error {
                 rows.push(Row::Note(err.clone(), true));
             }
+            self.upstream_rows(store, workspace, id, None, &mut rows);
             // Nothing but the edit goes on while a commit is checked out, its files listed
             // where the uncommitted ones are.
             if workspace.editing.is_some() {
@@ -804,13 +817,19 @@ impl Navigator {
                 true => branch.commits.len(),
                 false => fold_at,
             };
-            let closed =
-                !branch.commits.is_empty() && !self.branch_open(&key) && selected_at.is_none();
+            let upstream = Some(branch.ref_name.as_str());
+            let closed = !branch.commits.is_empty()
+                && !self.branch_open(&key)
+                && selected_at.is_none()
+                && !Self::upstream_selected(store, id, upstream);
             rows.push(Row::Item(Selection::Branch(key.0, key.1)));
             if closed {
                 continue;
             }
             rows.open();
+            if let Some(workspace) = store.workspace(id) {
+                self.upstream_rows(store, workspace, id, upstream, rows);
+            }
             let pending = |at: &dyn Fn(&NewAt) -> bool| {
                 (store.new_commits(id, at).into_iter())
                     .map(|(title, slow)| Row::Pending(title, slow))
@@ -998,6 +1017,52 @@ impl Navigator {
         }
     }
 
+    /// Whether one of the commits only `ref_name`'s remote has, or with `None` the target's
+    /// new ones, is selected.
+    fn upstream_selected(store: &Store, id: &ProjectId, ref_name: Option<&str>) -> bool {
+        matches!(&store.selection, Some(Selection::Upstream(p, r, _))
+            if p == id && r.as_deref() == ref_name)
+    }
+
+    /// Whether the commits only `ref_name`'s remote has, or with `None` the target's new
+    /// ones, are listed under their heading: once it's opened, and while one is selected.
+    fn upstream_open(&self, store: &Store, id: &ProjectId, ref_name: Option<&str>) -> bool {
+        self.open_upstream
+            .contains(&(id.clone(), ref_name.map(str::to_owned)))
+            || Self::upstream_selected(store, id, ref_name)
+    }
+
+    /// The heading over the commits only `ref_name`'s remote has, or with `None` the target's
+    /// new ones, and when it's open each of them, newest first, as `but status` lists them;
+    /// for the target, then how many more its page lists.
+    fn upstream_rows(
+        &self,
+        store: &Store,
+        workspace: &Workspace,
+        id: &ProjectId,
+        ref_name: Option<&str>,
+        rows: &mut Rows,
+    ) {
+        let commits = workspace.upstream(ref_name);
+        if commits.is_empty() {
+            return;
+        }
+        let owner = ref_name.map(str::to_owned);
+        rows.push(Row::UpstreamHeading(id.clone(), owner.clone()));
+        if !self.upstream_open(store, id, ref_name) {
+            return;
+        }
+        rows.extend(
+            (commits.iter())
+                .map(|commit| Row::Item(Selection::Upstream(id.clone(), owner.clone(), commit.id))),
+        );
+        let behind = (workspace.target.as_ref()).filter(|_| owner.is_none());
+        let more = behind.map_or(0, |target| target.behind.saturating_sub(commits.len()));
+        if more > 0 {
+            rows.push(Row::UpstreamMore(id.clone(), more));
+        }
+    }
+
     fn expand(&mut self, _: &Expand, _: &mut Window, cx: &mut Context<Self>) {
         match self.store.read(cx).selection.clone() {
             // A folded card opens; an unwatched project is watched.
@@ -1060,6 +1125,10 @@ impl Navigator {
                 if let Some(ref_name) = branch {
                     self.select(Selection::Branch(project, ref_name), window, cx);
                 }
+            }
+            // The target's new commits go up to the project, below.
+            Some(Selection::Upstream(project, Some(ref_name), _)) => {
+                self.select(Selection::Branch(project, ref_name), window, cx)
             }
             Some(Selection::Uncommitted(project)) if folds => {
                 self.toggle_section(&project, None, true, window, cx)
@@ -1268,6 +1337,18 @@ impl Navigator {
                     }));
                 div().py(px(2.)).child(zone).into_any_element()
             }
+            Some(Row::UpstreamHeading(project, ref_name)) => {
+                self.upstream_heading(ix, project, ref_name.as_deref(), theme, cx)
+            }
+            Some(Row::UpstreamMore(project, more)) => {
+                let page = Selection::Project(project.clone());
+                fold_row(("upstream-more", ix), Icon::Kebab, 41., 63., theme)
+                    .child(format!("{more} more on its page"))
+                    .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                        this.select(page.clone(), window, cx)
+                    }))
+                    .into_any_element()
+            }
             Some(Row::More(project, ref_name, hidden)) => {
                 let key = (project.clone(), ref_name.clone());
                 // The glyph under the commits' glyphs, the words under their titles.
@@ -1434,6 +1515,9 @@ impl Navigator {
             }
             Selection::Stack(id, bottom) => self.stack_row(ix, item, id, bottom, style, cx),
             Selection::Mesh(..) => self.mesh_row(ix, item, style, cx),
+            Selection::Upstream(id, ref_name, commit) => {
+                self.upstream_row(item, id, ref_name.as_deref(), commit, style, cx)
+            }
         };
         match el {
             Some(el) => self.drop_target(el, item.clone(), window, theme, cx),
@@ -2371,9 +2455,10 @@ impl Navigator {
             });
         let key = (id.clone(), ref_name.to_owned());
         let closed = !self.branch_open(&key) && !branch.commits.is_empty();
-        // A selected commit keeps its branch open.
+        // A selected commit keeps its branch open, as does one only its remote has.
         let holds_selected = matches!(&store.selection, Some(Selection::Commit(p, c))
-            if p == id && branch.commits.iter().any(|commit| commit.id == *c));
+            if p == id && branch.commits.iter().any(|commit| commit.id == *c))
+            || Self::upstream_selected(store, id, Some(ref_name));
         let open = !closed || holds_selected;
         // As ui-react's SidebarRow: a chevron in a step of its own folds the commits away; a
         // branch without any has a dot there, keeping it in line with those that fold.
@@ -2455,15 +2540,19 @@ impl Navigator {
                     style.meta(theme.danger),
                     plural(conflicted, "conflicted commit"),
                 ))
-                .children(meta_count(
-                    Icon::ArrowDown,
-                    branch.incoming.len(),
-                    style.meta(theme.warn),
-                    format!(
-                        "{} only on the remote",
-                        plural(branch.incoming.len(), "commit")
-                    ),
-                ))
+                // Folded, how many only its remote has; open, its On origin/… row says.
+                .when(!open, |el| {
+                    el.children(meta_count(
+                        Icon::ArrowDown,
+                        branch.incoming.len(),
+                        style.meta(theme.warn),
+                        format!(
+                            "{} only on {}",
+                            plural(branch.incoming.len(), "commit"),
+                            branch.remote.as_deref().unwrap_or("the remote")
+                        ),
+                    ))
+                })
                 .children(style.unpushed(unpushed))
                 .when(store.pushing(id, ref_name), |el| {
                     el.child(faint("pushing", theme))
@@ -2562,6 +2651,143 @@ impl Navigator {
                 .on_drag(payload, drag_preview(self.store.clone(), dragged))
                 .into_any_element(),
         )
+    }
+
+    /// A commit only a remote has, among its branch's commits or under the project: a ↓
+    /// where a commit has its dot, and its title quieter. It isn't dragged or edited here.
+    fn upstream_row(
+        &self,
+        item: &Selection,
+        id: &ProjectId,
+        ref_name: Option<&str>,
+        commit_id: &CommitId,
+        style: RowStyle,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        let store = self.store.read(cx);
+        let workspace = store.workspace(id)?;
+        let commit = (workspace.upstream(ref_name).iter()).find(|c| c.id == *commit_id)?;
+        let title: SharedString = commit.title.clone().into();
+        Some(
+            style
+                // Under its heading's words, as a branch's commits are under its name.
+                .row(format!("upstream-{id}-{}", commit_id.0), 30.)
+                .gap(px(10.))
+                .aria_label(title.clone())
+                .child(small_icon(Icon::ArrowDown).text_color(style.meta(style.theme.warn)))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w(px(0.))
+                        .truncate()
+                        .text_color(style.muted())
+                        .child(title),
+                )
+                .child(
+                    div()
+                        .flex_none()
+                        .text_size(px(11.))
+                        .text_color(style.muted())
+                        .child(relative_time(commit.time)),
+                )
+                .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+                .into_any_element(),
+        )
+    }
+
+    /// Over the commits only branch `ref_name`'s remote has, or with `None` the target's new
+    /// ones, a section heading as Network worktrees has: where they are, how many while
+    /// folded, which a click lists or folds, and for a branch, Pull.
+    fn upstream_heading(
+        &self,
+        ix: usize,
+        project: &ProjectId,
+        ref_name: Option<&str>,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let store = self.store.read(cx);
+        let workspace = store.workspace(project);
+        let open = self.upstream_open(store, project, ref_name);
+        let (remote, count) = match ref_name {
+            Some(ref_name) => {
+                let branch = workspace.and_then(|ws| ws.find_branch(ref_name));
+                (
+                    branch.and_then(|b| b.remote.clone()),
+                    branch.map_or(0, |b| b.incoming.len()),
+                )
+            }
+            None => {
+                let target = workspace.and_then(|ws| ws.target.as_ref());
+                (
+                    target.map(|t| t.name.clone()),
+                    target.map_or(0, |t| t.behind),
+                )
+            }
+        };
+        let pull = (ref_name.filter(|r| workspace.is_some_and(|ws| ws.can_pull(r))))
+            .map(|r| (project.clone(), r.to_owned()));
+        let key = (project.clone(), ref_name.map(str::to_owned));
+        let hover = theme.hover();
+        h_flex()
+            .id(("upstream-heading", ix))
+            .h(px(ROW_HEIGHT))
+            .mx(px(3.))
+            // Its chevron under a branch's commit glyphs, or the project's worktree chevrons.
+            .pl(px(if ref_name.is_some() { 37. } else { 13. }))
+            .pr(px(8.))
+            .gap(px(6.))
+            .rounded(px(4.))
+            .hover(move |el| el.bg(hover))
+            .cursor_pointer()
+            .child(step(Some(open), theme.text_3))
+            .child(
+                section_label(
+                    match remote {
+                        Some(remote) => format!("On {remote}"),
+                        None => "On the remote".to_owned(),
+                    },
+                    theme,
+                )
+                .flex_1()
+                .min_w(px(0.))
+                .truncate(),
+            )
+            .when(!open, |el| {
+                let tip = plural(count, "commit");
+                el.children(meta_count(Icon::ArrowDown, count, theme.warn, tip))
+            })
+            .children(pull.map(|(project, ref_name)| {
+                button(ElementId::Name(format!("pull-{ix}").into()), "Pull")
+                    .small()
+                    .style(ButtonStyle::Gray)
+                    .tooltip("Bring them in, with this branch's own commits on top")
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        let ref_name = ref_name.clone();
+                        (this.store).update(cx, |store, cx| {
+                            store.pull_remote(&project, ref_name, None, cx)
+                        })
+                    }))
+            }))
+            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                let (project, ref_name) = key.clone();
+                let selected =
+                    Self::upstream_selected(this.store.read(cx), &project, ref_name.as_deref());
+                match open {
+                    true => this.open_upstream.remove(&key),
+                    false => this.open_upstream.insert(key.clone()),
+                };
+                // Folding them over the selected one takes the selection up, as a branch's
+                // chevron does.
+                match (open && selected, ref_name) {
+                    (true, Some(ref_name)) => {
+                        this.select(Selection::Branch(project, ref_name), window, cx)
+                    }
+                    (true, None) => this.select(Selection::Project(project), window, cx),
+                    (false, _) => cx.notify(),
+                }
+            }))
+            .into_any_element()
     }
 
     /// A pointer moving over a drop zone drops there, so a row still lit lets go, even one a

@@ -12,7 +12,7 @@ use but_core::sync::RepoExclusive;
 
 use super::ops::{full_name, holds};
 use super::reviews::{cached_reviews, from_cache};
-use super::{Agent, CommitId, Review, ReviewState, open, runtime, short_ref, title};
+use super::{Agent, CommitId, RemoteCommit, Review, ReviewState, open, runtime, short_ref, title};
 
 #[derive(Debug, Clone)]
 pub struct TargetCommit {
@@ -39,13 +39,40 @@ pub fn target_commits(
     after: Option<CommitId>,
     limit: u32,
 ) -> Result<(Vec<TargetCommit>, bool)> {
-    let ctx = open(path)?;
+    target_page(&open(path)?, after, limit)
+}
+
+/// The newest `limit` of the target's commits the workspace doesn't have yet, each named by
+/// the pull request it landed, as the project's page names them.
+pub(super) fn incoming(ctx: &but_ctx::Context, limit: usize) -> Result<Vec<RemoteCommit>> {
+    let (commits, _) = target_page(ctx, None, limit as u32)?;
+    Ok((commits.into_iter())
+        .filter(|commit| commit.incoming)
+        .map(|commit| RemoteCommit {
+            id: commit.id,
+            title: (commit.review)
+                .map(|review| review.title)
+                .filter(|title| !title.is_empty())
+                .unwrap_or(commit.title),
+            author: commit.author,
+            email: commit.email,
+            agent: commit.agent,
+            time: commit.time,
+        })
+        .collect())
+}
+
+fn target_page(
+    ctx: &but_ctx::Context,
+    after: Option<CommitId>,
+    limit: u32,
+) -> Result<(Vec<TargetCommit>, bool)> {
     let page = but_api::target_commits::workspace_target_commits(
-        &ctx,
+        ctx,
         after.map(|id| but_api::json::HexHash(id.0)),
         Some(limit),
     )?;
-    let cached = cached_reviews(&ctx);
+    let cached = cached_reviews(ctx);
     let repo = ctx.repo.get()?;
     let commits = page
         .commits

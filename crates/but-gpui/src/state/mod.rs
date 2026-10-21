@@ -51,6 +51,9 @@ pub enum Selection {
     /// A checkout of the project on one of the user's other machines, by the mesh's id for
     /// it, or a branch or commit in it.
     Mesh(ProjectId, Arc<str>, MeshPick),
+    /// A commit only a remote has: one of a branch's (by its full ref) its remote has, or
+    /// with `None` one of the target's the workspace doesn't have yet.
+    Upstream(ProjectId, Option<String>, CommitId),
 }
 
 impl Selection {
@@ -64,7 +67,8 @@ impl Selection {
             | Selection::History(project)
             | Selection::Worktree(project, _)
             | Selection::Stack(project, _)
-            | Selection::Mesh(project, ..) => project,
+            | Selection::Mesh(project, ..)
+            | Selection::Upstream(project, ..) => project,
         }
     }
 
@@ -456,7 +460,8 @@ impl Store {
             | Selection::History(_)
             | Selection::Worktree(..)
             | Selection::Stack(..)
-            | Selection::Mesh(..) => None,
+            | Selection::Mesh(..)
+            | Selection::Upstream(..) => None,
         }
     }
 
@@ -550,12 +555,24 @@ impl Store {
             Selection::Stack(_, bottom) => workspace.lane(bottom).is_some_and(|b| b.len() > 1),
             // The mesh's reads keep it current.
             Selection::Mesh(..) => true,
+            Selection::Upstream(_, ref_name, id) => {
+                (workspace.upstream(ref_name.as_deref()).iter()).any(|c| c.id == *id)
+            }
         };
         if !still_there {
-            self.select(
-                Some(Selection::Uncommitted(selection.project().clone())),
-                cx,
-            );
+            // A remote's commit, pulled or brought in by an update, goes up to its branch, or
+            // the target's to the project's page.
+            let project = selection.project().clone();
+            let home = match selection {
+                Selection::Upstream(_, Some(ref_name), _)
+                    if workspace.find_branch(&ref_name).is_some() =>
+                {
+                    Selection::Branch(project, ref_name)
+                }
+                Selection::Upstream(_, None, _) => Selection::Project(project),
+                _ => Selection::Uncommitted(project),
+            };
+            self.select(Some(home), cx);
         }
     }
 

@@ -781,6 +781,7 @@ mod tests {
                 })
                 .collect(),
             incoming: Vec::new(),
+            remote: None,
             push: PushState::NeverPushed,
             review: None,
         }

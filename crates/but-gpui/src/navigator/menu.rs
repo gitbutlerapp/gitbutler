@@ -15,7 +15,7 @@ use crate::edits::{
     SquashAll, SquashPicked, TakeRemote, UnapplyStack, Unstack,
 };
 use crate::overlays::MenuItem;
-use crate::state::{ProjectId, Selection, Store, WatchedOrder};
+use crate::state::{Cut, ProjectId, Selection, Store, WatchedOrder};
 use crate::ui::{plural, quoted};
 
 /// An item marking `ids`, commits of `project`, read, or with `read` false unread.
@@ -150,6 +150,18 @@ impl Navigator {
         let action =
             |label: &'static str, action: &dyn gpui::Action| MenuItem::action(label, action, cx);
         match target {
+            // A remote's commit can be copied into a branch here, or its ID copied.
+            Selection::Upstream(project, _, id) => {
+                let (project, id) = (project.clone(), *id);
+                vec![
+                    MenuItem::new("Cherry-pick", move |app, _, cx| {
+                        app.cut(Cut::CherryPick(project.clone(), [id].into()), cx)
+                    }),
+                    MenuItem::new("Copy commit ID", move |app, _, cx| {
+                        app.copy_text(id.0.to_string(), cx)
+                    }),
+                ]
+            }
             Selection::Project(project) => {
                 let expanded = store.project(project).is_some_and(|p| p.expanded);
                 let mut items = vec![if expanded {

@@ -491,14 +491,12 @@ impl AppView {
             return;
         }
         if self.detail.read(cx).is_focused(window, cx) {
-            // Undo the nearest thing first: a text selection, then the file filter, then a
-            // remote commit shown in place of its branch's changes.
+            // Undo the nearest thing first: a text selection, then the file filter.
             let handled = self.detail.update(cx, |detail, cx| {
                 detail.clear_text_selection(cx)
                     || detail.clear_line_picks(cx)
                     || detail.clear_file_picks(cx)
                     || detail.close_open_filter(window, cx)
-                    || detail.leave_remote_commit(cx)
             });
             if !handled {
                 self.focus_main(window, cx);
@@ -605,7 +603,7 @@ impl AppView {
             .then(|| detail.selected_text().or_else(|| detail.cursor_path()))
             .flatten();
         let text = file.or_else(|| match self.selection(cx)? {
-            Selection::Commit(_, id) => Some(id.0.to_string()),
+            Selection::Commit(_, id) | Selection::Upstream(_, _, id) => Some(id.0.to_string()),
             Selection::Branch(_, ref_name) => Some(short_ref(&ref_name).to_owned()),
             Selection::Project(project) => {
                 Some(self.store.read(cx).path(&project)?.display().to_string())
