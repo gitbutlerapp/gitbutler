@@ -251,18 +251,26 @@ impl Detail {
         let files = (store.workspace(&project))
             .and_then(|ws| ws.uncommitted_in(worktree.as_deref()))
             .unwrap_or_default();
+        // By path: finding each file in the diff in turn takes time squared in the files, as
+        // after an `npm install` with nothing ignored.
+        let hunks: HashMap<&str, &[Hunk]> = (self.checks_diff().into_iter())
+            .flat_map(|diff| diff.files.iter())
+            .map(|f| (f.file.path.as_str(), f.hunks()))
+            .collect();
         (files.iter())
-            .filter_map(|file| self.selected_change(file))
+            .filter_map(|file| {
+                let hunks = hunks.get(file.path.as_str()).copied().unwrap_or_default();
+                self.selected_change(file, hunks)
+            })
             .collect()
     }
 
-    /// What of uncommitted `file` is checked: the file narrowed to its checked hunks and
-    /// lines, unless none of it is.
-    pub(super) fn selected_change(&self, file: &FileChange) -> Option<Selected> {
+    /// What of uncommitted `file`, whose loaded `hunks` these are, is checked: the file
+    /// narrowed to its checked hunks and lines, unless none of it is.
+    pub(super) fn selected_change(&self, file: &FileChange, hunks: &[Hunk]) -> Option<Selected> {
         if self.checks.unchecked.contains(&file.path) {
             return None;
         }
-        let hunks = self.worktree_file_hunks(&file.path);
         let partial = self.checks.file_check(&file.path) == Toggled::Mixed;
         // Hunks left out but not loaded to tell which: leave the file alone rather than take
         // all of it.
@@ -308,7 +316,7 @@ impl Detail {
     }
 
     /// The hunks of `path` in the loaded worktree diff.
-    fn worktree_file_hunks(&self, path: &str) -> &[Hunk] {
+    pub(super) fn worktree_file_hunks(&self, path: &str) -> &[Hunk] {
         self.checks_diff()
             .map_or(&[], |diff| file_hunks(&diff.files, path))
     }
