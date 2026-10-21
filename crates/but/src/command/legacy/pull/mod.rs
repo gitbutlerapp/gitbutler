@@ -12,7 +12,9 @@ use json::{BaseBranchInfo, BranchStatusInfo, PullCheckOutput, UpstreamCommit, Up
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    CliResult,
     args::PullUpdate,
+    bad_input,
     command::legacy::upstream::{
         self, BranchStatus as PullBranchStatus, BranchStatusInfo as PullBranchStatusInfo,
     },
@@ -81,12 +83,16 @@ pub async fn handle(
     out: &mut OutputChannel,
     check_only: bool,
     update: &[PullUpdate],
-) -> anyhow::Result<Option<WorkspaceState>> {
+) -> CliResult<Option<WorkspaceState>> {
+    if ctx.repo.get()?.remote_names().is_empty() {
+        return Err(bad_input("Cannot pull without a remote").into());
+    }
+
     if check_only {
         handle_check(ctx, out, update).await?;
         Ok(None)
     } else {
-        handle_pull(ctx, out, update).await
+        Ok(handle_pull(ctx, out, update).await?)
     }
 }
 

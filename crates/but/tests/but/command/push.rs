@@ -385,3 +385,29 @@ Hint: Most likely you want `but pull`, which updates the workspace and removes l
 
 "#]]);
 }
+
+#[test]
+fn push_gives_decent_error_without_remote() {
+    let env = Sandbox::empty();
+    env.but("init --commit").assert().success();
+
+    env.but("commit -m 'new commit'").assert().success();
+
+    env.but("push")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: No push remote configured
+
+"#]]);
+
+    env.but("switch --workspace").assert().success();
+
+    env.but("push")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: No push remote configured
+
+"#]]);
+}

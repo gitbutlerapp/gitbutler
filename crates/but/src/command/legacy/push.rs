@@ -9,6 +9,7 @@ use serde::Serialize;
 use crate::{
     CliId, CliResult, IdMap,
     args::push::{self, Command},
+    bad_input,
     command::legacy::workspace_target,
     theme::{self, Paint},
     utils::{
@@ -48,6 +49,15 @@ pub async fn handle(
     ctx: &mut Context,
     out: &mut OutputChannel,
 ) -> CliResult<()> {
+    let push_remote = {
+        let guard = ctx.shared_worktree_access();
+        let (repo, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        ws.push_remote_name(&repo)?
+    };
+    if push_remote.is_none() {
+        return Err(bad_input("No push remote configured").into());
+    }
+
     // Check gerrit mode early
     let gerrit_mode = {
         let repo = ctx.repo.get()?;
