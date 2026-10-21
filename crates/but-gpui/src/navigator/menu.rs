@@ -8,14 +8,14 @@ use crate::app::{
     NewBranchOnTop, OpenPullRequest, Push, RenameSelection, StartCommit, UncommitSelection,
     UpdateFromTarget,
 };
-use crate::backend::{Commit, CommitId};
+use crate::backend::CommitId;
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, BranchEdits, CherryPick, CommitEdits, CopyChangeId,
     CopyMessage, MoveToNewBranch, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage,
     SquashAll, SquashPicked, TakeRemote, UnapplyStack, Unstack,
 };
 use crate::overlays::MenuItem;
-use crate::state::{Cut, ProjectId, Selection, Store, WatchedOrder};
+use crate::state::{Cut, ProjectId, Seeable, Selection, Store, WatchedOrder};
 use crate::ui::{plural, quoted};
 
 /// An item marking `ids`, commits of `project`, read, or with `read` false unread.
@@ -29,14 +29,14 @@ fn mark_read(label: &str, project: &ProjectId, ids: Vec<CommitId>, read: bool) -
 
 /// Marking `commits` of `project` read, the ones that aren't, and unread, the ones that
 /// are: one item or the other, or both when some are each.
-fn read_marks<'a>(
+fn read_marks<'a, C: Seeable + 'a>(
     store: &Store,
     project: &ProjectId,
-    commits: impl IntoIterator<Item = &'a Commit>,
+    commits: impl IntoIterator<Item = &'a C>,
 ) -> Vec<MenuItem> {
-    let (unread, read): (Vec<&Commit>, Vec<&Commit>) =
-        (commits.into_iter()).partition(|commit| store.is_unread(project, commit));
-    let ids = |commits: Vec<&Commit>| commits.iter().map(|commit| commit.id).collect();
+    let (unread, read): (Vec<&C>, Vec<&C>) =
+        (commits.into_iter()).partition(|commit| store.is_unread(project, *commit));
+    let ids = |commits: Vec<&C>| commits.iter().map(|commit| commit.id()).collect();
     let mut items = Vec::new();
     if !unread.is_empty() {
         items.push(mark_read("Mark as read", project, ids(unread), true));
@@ -110,8 +110,13 @@ impl Navigator {
                 false => MenuItem::action("Show commits", &Expand, cx),
             }];
             let unread: Vec<CommitId> = (branch.commits.iter())
-                .filter(|commit| store.is_unread(project, commit))
+                .filter(|commit| store.is_unread(project, *commit))
                 .map(|commit| commit.id)
+                .chain(
+                    (branch.incoming.iter())
+                        .filter(|commit| store.is_unread(project, *commit))
+                        .map(|commit| commit.id),
+                )
                 .collect();
             if !unread.is_empty() {
                 view.push(mark_read("Mark all as read", project, unread, true));
@@ -150,17 +155,25 @@ impl Navigator {
         let action =
             |label: &'static str, action: &dyn gpui::Action| MenuItem::action(label, action, cx);
         match target {
-            // A remote's commit can be copied into a branch here, or its ID copied.
-            Selection::Upstream(project, _, id) => {
+            // A remote's commit can be copied into a branch here, or its ID copied, and a
+            // branch's marked read or unread.
+            Selection::Upstream(project, ref_name, id) => {
+                let commit = (ref_name.as_deref()).and_then(|ref_name| {
+                    let commits = store.workspace(project)?.upstream(Some(ref_name));
+                    commits.iter().find(|commit| commit.id == *id)
+                });
+                let marks = read_marks(store, project, commit);
                 let (project, id) = (project.clone(), *id);
-                vec![
+                let mut items = vec![
                     MenuItem::new("Cherry-pick", move |app, _, cx| {
                         app.cut(Cut::CherryPick(project.clone(), [id].into()), cx)
                     }),
                     MenuItem::new("Copy commit ID", move |app, _, cx| {
                         app.copy_text(id.0.to_string(), cx)
                     }),
-                ]
+                ];
+                items.extend(marks);
+                items
             }
             Selection::Project(project) => {
                 let expanded = store.project(project).is_some_and(|p| p.expanded);

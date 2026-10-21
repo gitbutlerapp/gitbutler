@@ -30,6 +30,7 @@ use mutation::{Queued, Running};
 pub use picks::Picks;
 pub use saved::{FileSort, Pane, Prefs, ScopeLines, WatchedOrder, saved_window_place};
 use saved::{Restored, Saved};
+pub use seen::Seeable;
 use seen::Seen;
 
 pub type ProjectId = SharedString;
@@ -585,8 +586,11 @@ impl Store {
         if self.selection == selection {
             return;
         }
-        // Opened, it's read, by both ids, so a rebase by Git keeps it read.
-        if let Some(Selection::Commit(project, id)) = &selection {
+        // Opened, it's read, by both ids, so a rebase by Git keeps it read, as does pulling
+        // one only its branch's remote had.
+        if let Some(Selection::Commit(project, id) | Selection::Upstream(project, Some(_), id)) =
+            &selection
+        {
             self.mark_read(project, [*id], true, cx);
         }
         // An unwatched project's page reads it once, unwatched, so it can say whether the

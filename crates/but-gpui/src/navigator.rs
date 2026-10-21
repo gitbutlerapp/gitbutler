@@ -1685,8 +1685,12 @@ impl Navigator {
                 folded(ws.worktrees.len()),
             )
         });
-        let unread =
-            workspace.is_some_and(|ws| ws.commits().any(|commit| store.is_unread(id, commit)));
+        let unread = workspace.is_some_and(|ws| {
+            ws.commits().any(|commit| store.is_unread(id, commit))
+                || ws
+                    .remote_commits()
+                    .any(|commit| store.is_unread(id, commit))
+        });
         // An open project's from what it loaded; a closed one's from what Git last recorded,
         // as nothing's loaded or watched for it.
         let activity = match expanded {
@@ -2141,8 +2145,7 @@ impl Navigator {
         let uncommitted = store.uncommitted_shown(id, name.as_deref(), uncommitted);
         let branches = section_branches(workspace, name.as_ref());
         let unpushed_n = unpushed(branches.iter().copied());
-        let unread = (branches.iter().flat_map(|branch| &branch.commits))
-            .any(|commit| store.is_unread(id, commit));
+        let unread = (branches.iter()).any(|branch| store.branch_unread(id, branch));
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
         // Written to in the last two minutes, likely by the agent working in it.
@@ -2482,7 +2485,7 @@ impl Navigator {
             toggle.clone(),
         );
         // As an unread commit's title stands out, so does its branch's name, folded or not.
-        let unread = (branch.commits.iter()).any(|commit| store.is_unread(id, commit));
+        let unread = store.branch_unread(id, branch);
         let review = (branch.review.as_ref()).map(|r| (r, store.review_state(id, r)));
         Some(
             style
@@ -2654,7 +2657,8 @@ impl Navigator {
     }
 
     /// A commit only a remote has, among its branch's commits or under the project: a ↓
-    /// where a commit has its dot, and its title quieter. It isn't dragged or edited here.
+    /// where a commit has its dot, and its title quieter unless it's unread, as only a
+    /// branch's are. It isn't dragged or edited here.
     fn upstream_row(
         &self,
         item: &Selection,
@@ -2668,6 +2672,7 @@ impl Navigator {
         let workspace = store.workspace(id)?;
         let commit = (workspace.upstream(ref_name).iter()).find(|c| c.id == *commit_id)?;
         let title: SharedString = commit.title.clone().into();
+        let unread = ref_name.is_some() && store.is_unread(id, commit);
         Some(
             style
                 // Under its heading's words, as a branch's commits are under its name.
@@ -2680,9 +2685,13 @@ impl Navigator {
                         .flex_1()
                         .min_w(px(0.))
                         .truncate()
-                        .text_color(style.muted())
+                        .map(|el| match unread {
+                            true => el.font_weight(gpui::FontWeight::SEMIBOLD),
+                            false => el.text_color(style.muted()),
+                        })
                         .child(title),
                 )
+                .when(unread, |el| el.child(dot(style.meta(style.theme.pop))))
                 .child(
                     div()
                         .flex_none()
@@ -2697,7 +2706,7 @@ impl Navigator {
 
     /// Over the commits only branch `ref_name`'s remote has, or with `None` the target's new
     /// ones, a section heading as Network worktrees has: where they are, how many while
-    /// folded, which a click lists or folds, and for a branch, Pull.
+    /// folded and whether any is unread, which a click lists or folds, and for a branch, Pull.
     fn upstream_heading(
         &self,
         ix: usize,
@@ -2725,6 +2734,10 @@ impl Navigator {
                 )
             }
         };
+        // Only a branch's are marked read.
+        let unread = (ref_name.zip(workspace)).is_some_and(|(ref_name, ws)| {
+            (ws.upstream(Some(ref_name)).iter()).any(|commit| store.is_unread(project, commit))
+        });
         let pull = (ref_name.filter(|r| workspace.is_some_and(|ws| ws.can_pull(r))))
             .map(|r| (project.clone(), r.to_owned()));
         let key = (project.clone(), ref_name.map(str::to_owned));
@@ -2756,6 +2769,7 @@ impl Navigator {
             .when(!open, |el| {
                 let tip = plural(count, "commit");
                 el.children(meta_count(Icon::ArrowDown, count, theme.warn, tip))
+                    .when(unread, |el| el.child(dot(theme.pop)))
             })
             .children(pull.map(|(project, ref_name)| {
                 button(ElementId::Name(format!("pull-{ix}").into()), "Pull")

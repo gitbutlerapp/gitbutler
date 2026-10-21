@@ -50,6 +50,8 @@ pub(super) fn incoming(ctx: &but_ctx::Context, limit: usize) -> Result<Vec<Remot
         .filter(|commit| commit.incoming)
         .map(|commit| RemoteCommit {
             id: commit.id,
+            key: String::new(),
+            authored: String::new(),
             title: (commit.review)
                 .map(|review| review.title)
                 .filter(|title| !title.is_empty())

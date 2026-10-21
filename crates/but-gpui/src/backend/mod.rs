@@ -447,6 +447,8 @@ fn branch_from(
                 let ((author, email), agent) = byline_of(&commit.author, &commit.committer);
                 RemoteCommit {
                     id: CommitId(commit.id),
+                    key: commit.change_id().to_string(),
+                    authored: model::authored(&commit.author, commit.message.trim_end()),
                     title: title(&commit.message),
                     author,
                     email,

@@ -149,6 +149,11 @@ impl Workspace {
         })
     }
 
+    /// The commits only shown branches' remotes have.
+    pub fn remote_commits(&self) -> impl Iterator<Item = &RemoteCommit> {
+        self.shown_branches().flat_map(|branch| &branch.incoming)
+    }
+
     /// The commits only a remote has: branch `ref_name`'s remote, or with `None` the
     /// target's that the workspace doesn't have yet, newest first.
     pub fn upstream(&self, ref_name: Option<&str>) -> &[RemoteCommit] {
@@ -428,6 +433,10 @@ impl Branch {
 #[derive(Debug, Clone)]
 pub struct RemoteCommit {
     pub id: CommitId,
+    /// Its change ID and authored hash, as a [`Commit`]'s: what its read mark goes by, which
+    /// it keeps once pulled. Empty for the target's new commits, which aren't marked.
+    pub key: String,
+    pub authored: String,
     pub title: String,
     /// Who it's shown by, as [`byline`] picks.
     pub author: String,
@@ -1055,6 +1064,8 @@ mod tests {
             incoming: vec![
                 RemoteCommit {
                     id: CommitId(id),
+                    key: String::new(),
+                    authored: String::new(),
                     title: String::new(),
                     author: String::new(),
                     email: String::new(),

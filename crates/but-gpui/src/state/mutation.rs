@@ -909,9 +909,12 @@ impl Store {
         // count as the operation's own and lose its unread mark, as an agent's commit that
         // lands during a push would: one that only talks to the remote makes none.
         let remote_only = (self.running.get(project)).is_some_and(|r| r.overlay.remote_only);
+        // Those only a remote has too, so pulling them keeps their read marks.
         let before: Option<HashSet<String>> = (!editing && !remote_only).then(|| {
             self.workspace(project).map_or_else(HashSet::new, |ws| {
-                ws.commits().map(|commit| commit.key.clone()).collect()
+                super::seen::shown(ws)
+                    .map(|(_, [key, _])| key.to_owned())
+                    .collect()
             })
         });
         cx.notify();

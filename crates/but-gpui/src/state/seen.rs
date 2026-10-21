@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use gpui::Context;
 
 use super::{ProjectId, Selection, Store};
-use crate::backend::{Commit, CommitId, Workspace};
+use crate::backend::{Branch, Commit, CommitId, RemoteCommit, Workspace};
 
 /// What the user has looked at, so new work by agents stands out. Per project id.
 #[derive(Default, Clone, Serialize, Deserialize)]
@@ -17,23 +17,56 @@ pub(super) struct Seen {
     pub(super) commits: HashMap<String, HashSet<String>>,
 }
 
-/// What `commit` goes by among those seen: its change ID, and what a rebase by Git, which
-/// drops that, keeps.
-fn ids(commit: &Commit) -> [String; 2] {
-    [commit.key.clone(), commit.authored.clone()]
+/// A commit that can be read: a branch's own, or one only its remote has.
+pub trait Seeable {
+    fn id(&self) -> CommitId;
+    /// What it goes by among those seen: its change ID, and what a rebase by Git, which
+    /// drops that, keeps.
+    fn ids(&self) -> [&str; 2];
 }
 
-/// Whether `commit` was seen, by either of its [`ids`].
-fn was_seen(seen: &HashSet<String>, commit: &Commit) -> bool {
-    seen.contains(&commit.key) || seen.contains(&commit.authored)
+impl Seeable for Commit {
+    fn id(&self) -> CommitId {
+        self.id
+    }
+    fn ids(&self) -> [&str; 2] {
+        [&self.key, &self.authored]
+    }
+}
+
+impl Seeable for RemoteCommit {
+    fn id(&self) -> CommitId {
+        self.id
+    }
+    fn ids(&self) -> [&str; 2] {
+        [&self.key, &self.authored]
+    }
+}
+
+/// Every commit `workspace` shows, and those only its branches' remotes have, by what each
+/// goes by among those seen.
+pub(super) fn shown(workspace: &Workspace) -> impl Iterator<Item = (CommitId, [&str; 2])> {
+    let local = workspace.commits().map(|commit| (commit.id, commit.ids()));
+    local.chain((workspace.remote_commits()).map(|commit| (commit.id, commit.ids())))
+}
+
+/// Whether a commit going by `ids` was seen, by either.
+fn was_seen(seen: &HashSet<String>, ids: [&str; 2]) -> bool {
+    ids.iter().any(|id| seen.contains(*id))
 }
 
 impl Store {
-    pub fn is_unread(&self, project: &str, commit: &Commit) -> bool {
+    pub fn is_unread(&self, project: &str, commit: &impl Seeable) -> bool {
         self.seen
             .commits
             .get(project)
-            .is_some_and(|seen| !was_seen(seen, commit))
+            .is_some_and(|seen| !was_seen(seen, commit.ids()))
+    }
+
+    /// Whether any of `branch`'s commits is unread, or any only its remote has.
+    pub fn branch_unread(&self, project: &str, branch: &Branch) -> bool {
+        (branch.commits.iter()).any(|commit| self.is_unread(project, commit))
+            || (branch.incoming.iter()).any(|commit| self.is_unread(project, commit))
     }
 
     /// Count `ids` of `project` as seen, as opening them does, or with `read` false as not
@@ -45,9 +78,11 @@ impl Store {
         read: bool,
         cx: &mut Context<Self>,
     ) {
-        let keys: Vec<String> = (ids.into_iter())
-            .filter_map(|id| self.find_commit(project, id))
-            .flat_map(|(_, commit)| self::ids(commit))
+        let ids: HashSet<CommitId> = ids.into_iter().collect();
+        let keys: Vec<String> = (self.workspace(project).into_iter())
+            .flat_map(shown)
+            .filter(|(id, _)| ids.contains(id))
+            .flat_map(|(_, keys)| keys.map(str::to_owned))
             .collect();
         let seen = self.seen.commits.entry(project.to_string()).or_default();
         match read {
@@ -65,7 +100,9 @@ impl Store {
     /// when a newer load is already queued behind this one.
     pub(super) fn update_seen(&mut self, id: &ProjectId, workspace: &Workspace, latest: bool) {
         let amended = self.amended_since_last_load(id, workspace);
-        let commits: HashSet<String> = workspace.commits().flat_map(ids).collect();
+        let commits: HashSet<String> = (shown(workspace))
+            .flat_map(|(_, keys)| keys.map(str::to_owned))
+            .collect();
         let first_sight = !self.seen.commits.contains_key(id.as_ref());
         let seen = self.seen.commits.entry(id.to_string()).or_default();
         seen.retain(|key| commits.contains(key));
@@ -73,18 +110,18 @@ impl Store {
         // app's own operations created. A commit seen by one of its ids is seen by both, so
         // it stays seen when a rebase by Git changes its key, or a reword its message.
         let before = self.rebaseline.get(id);
-        let now_seen: Vec<String> = (workspace.commits())
-            .filter(|commit| {
+        let now_seen: Vec<String> = (shown(workspace))
+            .filter(|(_, [key, authored])| {
                 first_sight
-                    || before.is_some_and(|before| !before.contains(&commit.key))
-                    || was_seen(seen, commit)
+                    || before.is_some_and(|before| !before.contains(*key))
+                    || was_seen(seen, [key, authored])
             })
-            .flat_map(ids)
+            .flat_map(|(_, keys)| keys.map(str::to_owned))
             .collect();
         seen.extend(now_seen);
         // A commit amended since is news again.
-        for key in amended.iter().flat_map(|commit| ids(commit)) {
-            seen.remove(&key);
+        for key in amended.iter().flat_map(|commit| commit.ids()) {
+            seen.remove(key);
         }
         if latest {
             self.rebaseline.remove(id);
@@ -139,7 +176,7 @@ fn amended(old: &Commit, new: &Commit) -> bool {
 mod tests {
     use std::collections::HashSet;
 
-    use super::{amended, amended_since, ids, was_seen};
+    use super::{Seeable, amended, amended_since, was_seen};
     use crate::backend::{Commit, CommitId, CommitState};
 
     fn commit(id: u8, parent: u8, tree: u8) -> Commit {
@@ -190,17 +227,17 @@ mod tests {
 
     #[test]
     fn a_commit_rebased_by_git_is_still_seen() {
-        let seen: HashSet<String> = ids(&commit(1, 9, 1)).into();
+        let seen: HashSet<String> = commit(1, 9, 1).ids().map(str::to_owned).into();
         let rebased = without_change_id(commit(2, 8, 1));
         assert!(
-            was_seen(&seen, &rebased),
+            was_seen(&seen, rebased.ids()),
             "Git dropped its change ID, but it has the same author, time and message"
         );
         let other = Commit {
             authored: "someone else's".into(),
             ..rebased
         };
-        assert!(!was_seen(&seen, &other), "another commit isn't");
+        assert!(!was_seen(&seen, other.ids()), "another commit isn't");
     }
 
     #[test]
