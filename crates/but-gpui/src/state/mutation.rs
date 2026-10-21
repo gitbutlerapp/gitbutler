@@ -864,7 +864,7 @@ impl Store {
                 // It counts whole seconds.
                 cx.background_executor().timer(Duration::from_secs(1)).await;
                 let Ok(true) = this.update(cx, |store, cx| {
-                    if store.busy().is_some_and(|(_, t)| t >= SLOW) {
+                    if store.busy().is_some_and(|(_, _, t)| t >= SLOW) {
                         cx.notify();
                     }
                     !store.running.is_empty()
@@ -1013,11 +1013,11 @@ impl Store {
         Some(commit.key.clone())
     }
 
-    /// The longest-running mutation in flight, and for how long, if any.
-    pub fn busy(&self) -> Option<(&SharedString, Duration)> {
-        (self.running.values())
-            .max_by_key(|running| running.started.elapsed())
-            .map(|running| (&running.label, running.started.elapsed()))
+    /// The longest-running mutation in flight, its project, and for how long, if any.
+    pub fn busy(&self) -> Option<(&ProjectId, &SharedString, Duration)> {
+        (self.running.iter())
+            .max_by_key(|(_, running)| running.started.elapsed())
+            .map(|(project, running)| (project, &running.label, running.started.elapsed()))
     }
 
     /// End `id`'s running mutation once it has loaded what it did, or can't load at all,

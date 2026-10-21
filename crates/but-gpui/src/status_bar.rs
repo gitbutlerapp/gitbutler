@@ -21,7 +21,12 @@ impl AppView {
         let theme = Theme::get(cx).clone();
         let store = self.store.read(cx);
         let detail = self.detail.read(cx);
-        let working = store.busy().map(|(busy, took)| {
+        let working = store.busy().map(|(project, busy, took)| {
+            // Another project's says which, as its failure card would.
+            let whose = (store.project(project))
+                .filter(|_| (store.selection.as_ref()).is_some_and(|s| s.project() != project))
+                .map(|entry| format!(" in {}", entry.project.name))
+                .unwrap_or_default();
             // How long it's taking once that's noticeable, and what else runs or waits.
             let elapsed = match took >= SLOW {
                 true => format!(" {}", duration(took.as_secs_f32().round() as i64)),
@@ -31,7 +36,7 @@ impl AppView {
                 0 => String::new(),
                 n => format!(" · {n} more"),
             };
-            format!("{}…{elapsed}{others}", under_way(busy))
+            format!("{}{whose}…{elapsed}{others}", under_way(busy))
         });
         let state: AnyElement = if let Some(working) = working {
             h_flex()
