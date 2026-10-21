@@ -41,6 +41,9 @@ pub(super) struct Branches {
     /// The branches whose commits show under them, by ref: folded until opened, as the
     /// navigator's are.
     open: HashSet<String>,
+    /// The branch a click on its row opened, which a click on another's folds again, as the
+    /// navigator does; one opened or folded by hand since stays as it's left.
+    click_opened: Option<String>,
     /// The stacks whose branches are folded away under their caption, by their top branch.
     folded: HashSet<String>,
     /// Open branches' commits, by ref and what they were loaded for.
@@ -159,11 +162,12 @@ impl Detail {
                 // Which branches were open and their commits, of those still listed, and the
                 // selected commit while its branch stays selected.
                 let listed = |ref_name: &String| list.iter().any(|b| b.ref_name == *ref_name);
-                let (open, folded, commits, commit, picked) = match previous {
+                let (open, click_opened, folded, commits, commit, picked) = match previous {
                     Some(b) => {
                         let same = b.selected == selected;
                         (
                             b.open.into_iter().filter(|r| listed(r)).collect(),
+                            b.click_opened.filter(|r| listed(r)),
                             b.folded.into_iter().filter(|r| listed(r)).collect(),
                             b.commits.into_iter().filter(|(r, _)| listed(r)).collect(),
                             b.commit.filter(|_| same),
@@ -178,6 +182,7 @@ impl Detail {
                     list,
                     selected,
                     open,
+                    click_opened,
                     folded,
                     commits,
                     commit,
@@ -377,6 +382,10 @@ impl Detail {
         let Some(branches) = &mut self.branches else {
             return;
         };
+        // By hand, it stays as it's left.
+        if branches.click_opened.as_deref() == Some(ref_name) {
+            branches.click_opened = None;
+        }
         if branches.open.insert(ref_name.to_owned()) {
             self.load_open_commits(cx);
         } else {
@@ -385,6 +394,32 @@ impl Detail {
                 branches.picked.clear();
                 self.show_picked(cx);
             }
+        }
+        cx.notify();
+    }
+
+    /// Open branch `ref_name`'s commits for a click on its row, and fold the ones the last
+    /// click opened, as the navigator does: a click looks inside a branch, without the list
+    /// growing by a branch each time.
+    fn open_on_click(&mut self, ref_name: &str, cx: &mut Context<Self>) {
+        let Some(branches) = &mut self.branches else {
+            return;
+        };
+        if branches
+            .branch(ref_name)
+            .is_some_and(|b| b.own_commits == Some(0))
+        {
+            return;
+        }
+        if let Some(previous) = branches
+            .click_opened
+            .take_if(|previous| previous != ref_name)
+        {
+            branches.open.remove(&previous);
+        }
+        if branches.open.insert(ref_name.to_owned()) {
+            branches.click_opened = Some(ref_name.to_owned());
+            self.load_open_commits(cx);
         }
         cx.notify();
     }
@@ -1666,15 +1701,14 @@ impl Detail {
                                 .when(branch.time.is_some() || branch.author.is_some(), |el| {
                                     el.child(quiet(age_column(branch.time, theme), on, theme))
                                 })
-                                // Double-clicking folds it or opens it, as with a folder.
+                                // A click selects it and looks inside, opening its commits; the
+                                // chevron, ← and → fold them.
                                 .on_click(cx.listener(
                                     move |this, event: &ClickEvent, window, cx| {
                                         window.focus(&this.side_focus, cx);
-                                        match event.click_count() {
-                                            2 => this.toggle_branch(&ref_name, cx),
-                                            _ => {
-                                                this.select_other_branch(Some(ref_name.clone()), cx)
-                                            }
+                                        if event.click_count() == 1 {
+                                            this.select_other_branch(Some(ref_name.clone()), cx);
+                                            this.open_on_click(&ref_name, cx);
                                         }
                                     },
                                 ))
