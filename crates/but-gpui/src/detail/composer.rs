@@ -720,10 +720,6 @@ impl Detail {
                             detail.finish_composing(&from, window, cx);
                         }
                     });
-                    // The oplog can't bring a linked worktree's changes back.
-                    if linked {
-                        store.keep_last_snapshot();
-                    }
                     store.report_left_out(
                         &format!("Committed to {}", short_ref(&branch)),
                         &left_out,
