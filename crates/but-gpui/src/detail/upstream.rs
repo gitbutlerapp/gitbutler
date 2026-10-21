@@ -4,6 +4,7 @@
 //! the README shows it; selecting a commit shows its diff.
 
 use std::cell::Cell;
+use std::collections::BTreeSet;
 use std::time::{Duration, Instant};
 
 use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
@@ -635,26 +636,20 @@ impl Detail {
         }
     }
 
-    /// The times the activity's picked days span, from the start of the first to the end of
-    /// the last, today running on past now.
-    fn picked_span(&self, upstream: &Upstream) -> Option<(i64, i64)> {
-        let (project, first, last) = self.activity_days.as_ref()?;
+    /// The activity's days picked, if any, and which day is today.
+    fn picked_days(&self, upstream: &Upstream) -> Option<(&DayPick, i64)> {
+        let (project, pick) = self.activity_days.as_ref()?;
         let summary = upstream
             .summary
             .as_ref()
-            .filter(|_| *project == upstream.project)?;
-        let today = summary.first_day + summary.daily.len() as i64 - 1;
-        let end = match *last >= today {
-            true => i64::MAX,
-            false => upstream::day_start(last + 1),
-        };
-        Some((upstream::day_start(*first), end))
+            .filter(|_| *project == upstream.project && !pick.days.is_empty())?;
+        Some((pick, summary.first_day + summary.daily.len() as i64 - 1))
     }
 
     fn upstream_rows(&self, upstream: &Upstream, target: &str, cx: &gpui::App) -> Vec<Row> {
-        let span = self.picked_span(upstream);
+        let picked = self.picked_days(upstream);
         let shown = |commit: &TargetCommit| {
-            span.is_none_or(|(start, end)| (start..end).contains(&commit.time))
+            picked.is_none_or(|(pick, today)| pick.keeps(Some(commit.time), today))
         };
         let mut rows = Vec::new();
         // The navigator lists the new ones on their own, so here they're only marked.
@@ -682,11 +677,13 @@ impl Detail {
             }
         }
         // Read further back only while the picked days may have more.
-        let past = (span.zip(upstream.commits.last()))
-            .is_some_and(|((start, _), oldest)| oldest.time < start);
+        let first =
+            (picked.and_then(|(pick, _)| pick.days.first())).map(|day| upstream::day_start(*day));
+        let past =
+            (first.zip(upstream.commits.last())).is_some_and(|(start, oldest)| oldest.time < start);
         if upstream.more && !past {
             rows.push(Row::More);
-        } else if rows.is_empty() && span.is_some() {
+        } else if rows.is_empty() && picked.is_some() {
             rows.push(Row::Heading(format!("No commits on {target} then")));
         }
         rows
@@ -729,29 +726,26 @@ impl Detail {
             .into_any_element()
     }
 
-    /// Pick the activity's day `day`, or with `extend` the days from the one picked before
-    /// to it; picking the one day picked again shows every day.
-    fn pick_days(&mut self, project: &ProjectId, day: i64, extend: bool, cx: &mut Context<Self>) {
-        let anchor = (self.activity_anchor.as_ref())
-            .filter(|(p, _)| extend && p == project)
-            .map(|(_, anchor)| *anchor);
-        let same = matches!(&self.activity_days, Some((p, a, b)) if p == project && *a == day && *b == day);
-        self.activity_days = match anchor {
-            Some(anchor) => Some((project.clone(), anchor.min(day), anchor.max(day))),
-            None if same => None,
-            None => Some((project.clone(), day, day)),
-        };
-        if anchor.is_none() {
-            self.activity_anchor = (self.activity_days.as_ref()).map(|_| (project.clone(), day));
+    /// Pick the activity's days as `gesture` does, which filters the history to them.
+    fn day_gesture(&mut self, project: &ProjectId, gesture: DayGesture, cx: &mut Context<Self>) {
+        if self
+            .activity_days
+            .as_ref()
+            .is_none_or(|(p, _)| p != project)
+        {
+            self.activity_days = Some((project.clone(), DayPick::default()));
         }
-        self.upstream_scroll
-            .scroll_to_item(0, gpui::ScrollStrategy::Top);
-        cx.notify();
+        if let Some((_, pick)) = &mut self.activity_days
+            && pick.apply(gesture)
+        {
+            self.upstream_scroll
+                .scroll_to_item(0, gpui::ScrollStrategy::Top);
+            cx.notify();
+        }
     }
 
     fn clear_days(&mut self, cx: &mut Context<Self>) {
         self.activity_days = None;
-        self.activity_anchor = None;
         cx.notify();
     }
 
@@ -935,7 +929,7 @@ impl Detail {
     }
 
     /// How busy the target has been: a bar for each day, the last week's stronger. Clicking
-    /// a day, or shift-clicking a span of them, filters the history to them.
+    /// a day, shift-clicking another or dragging across them filters the history to them.
     fn render_activity(
         &self,
         project: &ProjectId,
@@ -943,112 +937,21 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
-        const HEIGHT: f32 = 36.;
-        let daily = &summary.daily;
-        let total: u32 = daily.iter().sum();
-        let week: u32 = daily.iter().rev().take(7).sum();
-        let most = daily.iter().copied().max().unwrap_or(0).max(1);
+        let none = BTreeSet::new();
         let picked = (self.activity_days.as_ref())
-            .filter(|(p, ..)| p == project)
-            .map(|(_, first, last)| (*first, *last));
-        let today = summary.first_day + daily.len() as i64 - 1;
-        // A day's date, from its noon, clear of a clock change.
-        let date = |day: i64| crate::ui::local_date(upstream::day_start(day) + DAY / 2);
-        let bars = daily.iter().enumerate().map(|(ix, &n)| {
-            let day = summary.first_day + ix as i64;
-            let when = match today - day {
-                0 => "today".to_owned(),
-                1 => "yesterday".to_owned(),
-                days => format!("{days} days ago"),
-            };
-            let recent = today - day < 7;
-            let inside = picked.is_none_or(|(first, last)| (first..=last).contains(&day));
-            let project = project.clone();
-            div()
-                .id(("activity-day", ix))
-                .flex_1()
-                .h_full()
-                .flex()
-                .items_end()
-                .tooltip(Tooltip::text(format!(
-                    "{}, {when}",
-                    plural(n as usize, "commit")
-                )))
-                .on_click(cx.listener(move |this, event: &gpui::ClickEvent, _, cx| {
-                    this.pick_days(&project, day, event.modifiers().shift, cx)
-                }))
-                .child(
-                    div()
-                        .w_full()
-                        .h(px((n as f32 / most as f32 * HEIGHT).max(2.)))
-                        .rounded_t(px(1.))
-                        .bg(match (n, picked.is_some(), inside, recent) {
-                            (0, ..) => theme.border_2,
-                            (_, true, true, _) => theme.pop,
-                            (_, true, false, _) => theme.pop.opacity(0.2),
-                            (_, false, _, true) => theme.pop,
-                            (_, false, _, false) => theme.pop.opacity(0.4),
-                        }),
-                )
-        });
-        let said = match picked {
-            Some((first, last)) => {
-                let n: u32 = (daily.iter().enumerate())
-                    .filter(|(ix, _)| (first..=last).contains(&(summary.first_day + *ix as i64)))
-                    .map(|(_, n)| n)
-                    .sum();
-                let days = match first == last {
-                    true => date(first),
-                    false => format!("{} – {}", date(first), date(last)),
-                };
-                h_flex()
-                    .gap(px(6.))
-                    .child(faint(
-                        format!("{days}: {}", plural(n as usize, "commit")),
-                        theme,
-                    ))
-                    .child(
-                        button("activity-clear", "Clear")
-                            .small()
-                            .style(ButtonStyle::Ghost)
-                            .on_click(cx.listener(|this, _, _, cx| this.clear_days(cx))),
-                    )
-                    .into_any_element()
-            }
-            None => faint(
-                format!(
-                    "{}, {week} in the last week",
-                    plural(total as usize, "commit")
-                ),
-                theme,
-            )
-            .into_any_element(),
-        };
-        v_flex()
-            .px(px(14.))
-            .pt(px(14.))
-            .pb(px(6.))
-            .gap(px(6.))
-            .child(
-                h_flex()
-                    .gap(px(8.))
-                    .child(section_label("Activity", theme).flex_grow(1.))
-                    .child(said),
-            )
-            .child(
-                h_flex()
-                    .h(px(HEIGHT))
-                    .gap(px(2.))
-                    .items_end()
-                    .children(bars),
-            )
-            .child(
-                h_flex()
-                    .text_size(px(11.))
-                    .child(faint(format!("{ACTIVITY_DAYS} days ago"), theme).flex_grow(1.))
-                    .child(faint("Today", theme)),
-            )
-            .into_any_element()
+            .filter(|(p, _)| p == project)
+            .map_or(&none, |(_, pick)| &pick.days);
+        let project = project.clone();
+        activity_strip(
+            &summary.daily,
+            summary.first_day,
+            picked,
+            "commit",
+            theme,
+            cx,
+            move |this, gesture, cx| this.day_gesture(&project, gesture, cx),
+            |this, cx| this.clear_days(cx),
+        )
     }
 
     /// The target's README, beside the list in place of a diff.
@@ -1593,6 +1496,214 @@ pub(super) fn commit_author(
         .child(quiet(age_column(Some(commit.time), theme), on, theme))
 }
 
+/// How busy something has been: a bar for each day of `daily`, from `first_day`, the last
+/// week's stronger, counting `unit`s. Pressing a day, shift-pressing another or dragging
+/// across them hands `gesture` what the pointer did, for a [`DayPick`]; Clear, beside the days
+/// picked, calls `clear`.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn activity_strip(
+    daily: &[u32],
+    first_day: i64,
+    picked: &BTreeSet<i64>,
+    unit: &str,
+    theme: &Theme,
+    cx: &Context<Detail>,
+    gesture: impl Fn(&mut Detail, DayGesture, &mut Context<Detail>) + Clone + 'static,
+    clear: impl Fn(&mut Detail, &mut Context<Detail>) + 'static,
+) -> AnyElement {
+    const HEIGHT: f32 = 36.;
+    let total: u32 = daily.iter().sum();
+    let week: u32 = daily.iter().rev().take(7).sum();
+    let most = daily.iter().copied().max().unwrap_or(0).max(1);
+    let today = first_day + daily.len() as i64 - 1;
+    // A day's noon, clear of a clock change, to date it by.
+    let noon = |day: i64| upstream::day_start(day) + DAY / 2;
+    let date = |day: i64| crate::ui::local_date(noon(day));
+    let bars: Vec<_> = daily
+        .iter()
+        .enumerate()
+        .map(|(ix, &n)| {
+            let day = first_day + ix as i64;
+            let recent = today - day < 7;
+            let inside = picked.is_empty() || picked.contains(&day);
+            let (press, drag) = (gesture.clone(), gesture.clone());
+            div()
+                .id(("activity-day", ix))
+                .flex_1()
+                .h_full()
+                .flex()
+                .items_end()
+                .tooltip(Tooltip::text(crate::ui::local_weekday(noon(day))))
+                .on_mouse_down(
+                    gpui::MouseButton::Left,
+                    cx.listener(move |this, event: &gpui::MouseDownEvent, _, cx| {
+                        let (shift, toggle) = (event.modifiers.shift, event.modifiers.secondary());
+                        press(this, DayGesture::Press { day, shift, toggle }, cx)
+                    }),
+                )
+                .on_mouse_move(
+                    cx.listener(move |this, event: &gpui::MouseMoveEvent, _, cx| {
+                        if event.pressed_button == Some(gpui::MouseButton::Left) {
+                            drag(this, DayGesture::Drag(day), cx)
+                        }
+                    }),
+                )
+                .child(
+                    div()
+                        .w_full()
+                        .h(px((n as f32 / most as f32 * HEIGHT).max(2.)))
+                        .rounded_t(px(1.))
+                        .bg(match (n, !picked.is_empty(), inside, recent) {
+                            (_, true, true, _) => theme.pop,
+                            (0, ..) => theme.border_2,
+                            (_, true, false, _) => theme.pop.opacity(0.2),
+                            (_, false, _, true) => theme.pop,
+                            (_, false, _, false) => theme.pop.opacity(0.4),
+                        }),
+                )
+        })
+        .collect();
+    let said = match picked.first().zip(picked.last()) {
+        Some((&first, &last)) => {
+            let n: u32 = (daily.iter().enumerate())
+                .filter(|(ix, _)| picked.contains(&(first_day + *ix as i64)))
+                .map(|(_, n)| n)
+                .sum();
+            // A span by its ends; days picked apart, by how many.
+            let days = match picked.len() {
+                1 => date(first),
+                len if (last - first + 1) as usize == len => {
+                    format!("{} – {}", date(first), date(last))
+                }
+                len => format!("{len} days"),
+            };
+            h_flex()
+                .gap(px(6.))
+                .child(faint(
+                    format!("{days}: {}", plural(n as usize, unit)),
+                    theme,
+                ))
+                .child(
+                    button("activity-clear", "Clear")
+                        .small()
+                        .style(ButtonStyle::Ghost)
+                        .on_click(cx.listener(move |this, _, _, cx| clear(this, cx))),
+                )
+                .into_any_element()
+        }
+        None => faint(
+            format!("{}, {week} in the last week", plural(total as usize, unit)),
+            theme,
+        )
+        .into_any_element(),
+    };
+    v_flex()
+        .px(px(14.))
+        .pt(px(14.))
+        .pb(px(6.))
+        .gap(px(6.))
+        .child(
+            h_flex()
+                .gap(px(8.))
+                .child(section_label("Activity", theme).flex_grow(1.))
+                .child(said),
+        )
+        .child({
+            let release = move |this: &mut Detail,
+                                _: &gpui::MouseUpEvent,
+                                _: &mut gpui::Window,
+                                cx: &mut Context<Detail>| {
+                gesture(this, DayGesture::Release, cx)
+            };
+            h_flex()
+                .h(px(HEIGHT))
+                .gap(px(2.))
+                .items_end()
+                .on_mouse_up(gpui::MouseButton::Left, cx.listener(release.clone()))
+                .on_mouse_up_out(gpui::MouseButton::Left, cx.listener(release))
+                .children(bars)
+        })
+        .child(
+            h_flex()
+                .text_size(px(11.))
+                .child(faint(format!("{ACTIVITY_DAYS} days ago"), theme).flex_grow(1.))
+                .child(faint("Today", theme)),
+        )
+        .into_any_element()
+}
+
+/// What the pointer did on an activity strip's day: pressed it, with shift or ⌘ (`toggle`)
+/// held or not; moved onto it while pressed; or let go.
+#[derive(Debug, Clone, Copy)]
+pub(super) enum DayGesture {
+    Press { day: i64, shift: bool, toggle: bool },
+    Drag(i64),
+    Release,
+}
+
+/// Days picked off an activity strip, as `upstream::day_of` numbers them, none for every day:
+/// one by a click, another added or taken away by ⌘-click, and a span by shift-clicking from
+/// the one clicked before or by dragging across them.
+#[derive(Debug, Clone, Default)]
+pub(super) struct DayPick {
+    pub(super) days: BTreeSet<i64>,
+    /// The day a shift-click picks the span from: the one clicked before.
+    anchor: Option<i64>,
+    /// While a press is held: the day the span picked runs from to the one under the pointer.
+    drag_from: Option<i64>,
+}
+
+impl DayPick {
+    /// Apply `gesture`, as a list picks its rows: a click picks a day alone, or lets go of
+    /// the one day picked; ⌘ adds or takes away one; shift picks the days from the one
+    /// clicked before; holding the press, the pointer moving across the days picks those it
+    /// spans from where it was pressed. Whether the days picked changed.
+    pub(super) fn apply(&mut self, gesture: DayGesture) -> bool {
+        let before = self.days.clone();
+        let span = |a: i64, b: i64| (a.min(b)..=a.max(b)).collect::<BTreeSet<_>>();
+        match gesture {
+            DayGesture::Press {
+                day, shift: true, ..
+            } if self.anchor.is_some() => {
+                let from = self.anchor.unwrap_or(day);
+                self.days = span(from, day);
+                self.drag_from = Some(from);
+            }
+            DayGesture::Press {
+                day, toggle: true, ..
+            } => {
+                if !self.days.remove(&day) {
+                    self.days.insert(day);
+                }
+                self.anchor = Some(day);
+                self.drag_from = None;
+            }
+            DayGesture::Press { day, .. } => {
+                match self.days.len() == 1 && self.days.contains(&day) {
+                    true => self.days.clear(),
+                    false => self.days = BTreeSet::from([day]),
+                }
+                self.anchor = Some(day);
+                self.drag_from = Some(day);
+            }
+            DayGesture::Drag(day) => {
+                if let Some(from) = self.drag_from {
+                    self.days = span(from, day);
+                }
+            }
+            DayGesture::Release => self.drag_from = None,
+        }
+        self.days != before
+    }
+
+    /// Whether something last changed at `time`, if it's known, falls on a day picked, with
+    /// every day picked while none is; one after `today` counts as today's.
+    pub(super) fn keeps(&self, time: Option<i64>, today: i64) -> bool {
+        self.days.is_empty()
+            || time.is_some_and(|time| self.days.contains(&upstream::day_of(time).min(today)))
+    }
+}
+
 /// Who's been committing to the target, most first, each with a bar of how much.
 fn team(team: &[(String, String, u32)], theme: &Theme) -> Option<AnyElement> {
     let most = team.first()?.2.max(1);
@@ -1680,4 +1791,58 @@ fn image_format(bytes: &[u8]) -> Option<gpui::ImageFormat> {
         _ if text.contains("<svg") => ImageFormat::Svg,
         _ => return None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{DayGesture, DayPick};
+
+    #[test]
+    fn days_are_picked_by_click_cmd_click_shift_click_and_drag() {
+        use DayGesture::{Drag, Release};
+        let press = |day| DayGesture::Press {
+            day,
+            shift: false,
+            toggle: false,
+        };
+        let shift = |day| DayGesture::Press {
+            day,
+            shift: true,
+            toggle: false,
+        };
+        let cmd = |day| DayGesture::Press {
+            day,
+            shift: false,
+            toggle: true,
+        };
+        let mut pick = DayPick::default();
+        let mut days = |gestures: &[DayGesture]| {
+            for gesture in gestures {
+                pick.apply(*gesture);
+            }
+            pick.days.iter().copied().collect::<Vec<_>>()
+        };
+        assert_eq!(days(&[press(10), Release]), [10], "a click picks a day");
+        assert_eq!(
+            days(&[shift(13), Release]),
+            [10, 11, 12, 13],
+            "shift picks the days between"
+        );
+        assert_eq!(
+            days(&[cmd(20), Release, cmd(11), Release]),
+            [10, 12, 13, 20],
+            "⌘ adds or takes away one"
+        );
+        assert_eq!(
+            days(&[press(20), Drag(18), Drag(17), Release]),
+            [17, 18, 19, 20],
+            "dragging picks the days crossed"
+        );
+        assert_eq!(days(&[Drag(5)]), [17, 18, 19, 20], "only while pressed");
+        assert_eq!(
+            days(&[press(12), Release, press(12), Release]),
+            [] as [i64; 0],
+            "clicking the one day picked again lets go"
+        );
+    }
 }

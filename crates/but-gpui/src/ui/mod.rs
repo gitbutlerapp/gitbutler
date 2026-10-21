@@ -1073,9 +1073,14 @@ fn local(seconds: i64, format: &'static str) -> String {
     }
 }
 
-/// The day `seconds` (since the epoch) fall on here, as a short date: "Oct 21".
+/// The day `seconds` (since the epoch) fall on here, as a short date: "21 Oct".
 pub fn local_date(seconds: i64) -> String {
-    local(seconds, "%b %d")
+    local(seconds, "%-d %b")
+}
+
+/// The same with its weekday: "Wed, 21 Oct".
+pub fn local_weekday(seconds: i64) -> String {
+    local(seconds, "%a, %-d %b")
 }
 
 /// The day `seconds` (since the epoch) fell on here, to tell one day's from another's.
@@ -1090,7 +1095,7 @@ pub fn day_label(seconds: i64) -> String {
     match local_day(seconds) {
         day if day == local_day(today) => "Today".into(),
         day if day == local_day(today - 86_400) => "Yesterday".into(),
-        _ if local(seconds, "%Y") == local(today, "%Y") => local(seconds, "%a, %-d %b"),
+        _ if local(seconds, "%Y") == local(today, "%Y") => local_weekday(seconds),
         _ => local(seconds, "%a, %-d %b %Y"),
     }
 }
