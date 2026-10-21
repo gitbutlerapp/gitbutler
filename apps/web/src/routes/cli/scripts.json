@@ -76,7 +76,7 @@
 			},
 			{
 				"type": "input",
-				"lines": ["$ but branch new -a user-bookmarks liked-tweets"]
+				"lines": ["$ but branch new -A user-bookmarks liked-tweets"]
 			},
 			{
 				"type": "output",

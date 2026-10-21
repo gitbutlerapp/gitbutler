@@ -17,7 +17,6 @@ use crate::{
     },
     bad_input,
     id::CommitId,
-    print_deprecation_warning,
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
@@ -66,7 +65,6 @@ fn resolve(
     let NewPlatform {
         above,
         below,
-        anchor,
         name,
         allow_merged,
         switch,
@@ -84,20 +82,6 @@ fn resolve(
     let name = name
         .map(|name| name.resolve_for_creation(&repo, &ws))
         .transpose()?;
-
-    let above = match (above, anchor) {
-        (None, None) => None,
-        (None, Some(anchor)) => {
-            print_deprecation_warning(
-                "`--anchor/-a` is deprecated and will be removed in a future release. Use `--above/-A` instead",
-            );
-            Some(anchor)
-        }
-        (Some(above), None) => Some(above),
-        (Some(_), Some(_)) => {
-            unreachable!("--anchor and --above are mutually exclusive in the clap args")
-        }
-    };
 
     match (above, below) {
         (None, None) => {

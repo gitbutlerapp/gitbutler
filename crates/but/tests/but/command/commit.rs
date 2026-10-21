@@ -2492,7 +2492,7 @@ fn committing_below_empty_branch_with_empty_branch_below() {
     env.file("one", "one content");
 
     env.but("branch new middle").assert().success();
-    env.but("branch new --anchor middle top").assert().success();
+    env.but("branch new --above middle top").assert().success();
     env.but("commit one -m 'add one' --below top")
         .assert()
         .success();
@@ -2529,10 +2529,10 @@ fn committing_below_non_top_empty_branch() {
     env.but("commit one -m 'add one' -b bottom")
         .assert()
         .success();
-    env.but("branch new --anchor bottom middle")
+    env.but("branch new --above bottom middle")
         .assert()
         .success();
-    env.but("branch new --anchor middle top").assert().success();
+    env.but("branch new --above middle top").assert().success();
     env.but("commit two -m 'add two' --below middle")
         .assert()
         .success();
