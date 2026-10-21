@@ -906,8 +906,10 @@ impl Store {
             return;
         };
         // While editing there are no commits to compare with afterwards; every commit would
-        // count as the operation's own and lose its unread mark.
-        let before: Option<HashSet<String>> = (!editing).then(|| {
+        // count as the operation's own and lose its unread mark, as an agent's commit that
+        // lands during a push would: one that only talks to the remote makes none.
+        let remote_only = (self.running.get(project)).is_some_and(|r| r.overlay.remote_only);
+        let before: Option<HashSet<String>> = (!editing && !remote_only).then(|| {
             self.workspace(project).map_or_else(HashSet::new, |ws| {
                 ws.commits().map(|commit| commit.key.clone()).collect()
             })
@@ -957,13 +959,14 @@ impl Store {
                     };
                     reload.merge(std::mem::take(&mut running.deferred));
                 }
-                // Set here rather than at the start, so a load the watcher started
-                // mid-operation can't use it up.
-                if let Some(before) = before {
-                    store.rebaseline.insert(project.clone(), before);
-                }
                 match result {
                     Ok((value, recorded, moved_worktree)) => {
+                        // Set here rather than at the start, so a load the watcher started
+                        // mid-operation can't use it up; not after a failure, which made
+                        // nothing.
+                        if let Some(before) = before {
+                            store.rebaseline.insert(project.clone(), before);
+                        }
                         // A retry that worked takes back the card saying it failed.
                         let failed = format!("{label} failed");
                         let elsewhere = (store.project(&project))
