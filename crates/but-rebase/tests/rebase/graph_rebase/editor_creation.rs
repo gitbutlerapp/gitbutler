@@ -866,7 +866,7 @@ fn a_padding_commit_is_left_out() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 44cf4df (HEAD -> main) GitButler Padding Commit
+* 45942da (HEAD -> main) GitButler Padding Commit
 * 04d1892 (c) [conflict] c
 * 5e0ba46 (b, a) a
 * 6155f21 (base) base
@@ -938,7 +938,7 @@ fn a_commit_on_a_padding_commit_is_rebased_onto_the_conflicted_commit() -> Resul
         editor.steps_ascii(),
         snapbox::str![[r#"
 ◎  refs/heads/main
-●  7f03d38 d
+●  28cf0e5 d
 ◎  refs/heads/c
 ●  04d1892 [conflict] c
 ◎  refs/heads/a
@@ -955,7 +955,7 @@ fn a_commit_on_a_padding_commit_is_rebased_onto_the_conflicted_commit() -> Resul
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 89b7df9 (HEAD -> main) d
+* de74ff3 (HEAD -> main) d
 * 04d1892 (c) [conflict] c
 * 5e0ba46 (b, a) a
 * 6155f21 (base) base

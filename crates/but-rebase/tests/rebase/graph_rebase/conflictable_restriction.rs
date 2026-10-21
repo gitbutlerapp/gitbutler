@@ -64,7 +64,7 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
         snapbox::str![[r#"
 
 └── 👉►:0[0]:main[🌳]
-    └── ·44cf4df (⌂)
+    └── ·45942da (⌂)
         └── ►:1[1]:c
             ├── ·04d1892 (⌂)
             └── ·5e0ba46 (⌂) ►a, ►b
@@ -78,7 +78,7 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 44cf4df (HEAD -> main) GitButler Padding Commit
+* 45942da (HEAD -> main) GitButler Padding Commit
 * 04d1892 (c) [conflict] c
 * 5e0ba46 (b, a) a
 * 6155f21 (base) base
@@ -100,6 +100,12 @@ author author <author@example.com> 946684800 +0000
 committer Committer (Memory Override) <committer@example.com> 946771200 +0000
 
 GitButler Padding Commit
+
+Hi! I'm a stand-in for the conflicted commit below me, so your editor shows its
+auto-resolved changes instead of conflict markers.
+
+There's nothing to do with me. GitButler takes me out again once you resolve the
+conflict, and anything you commit on top of me moves onto the conflicted commit.
 
 "#]]
     );
@@ -327,7 +333,7 @@ fn without_checkout_a_conflicted_tip_is_padded_too() -> Result<()> {
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 44cf4df (HEAD -> main) GitButler Padding Commit
+* 45942da (HEAD -> main) GitButler Padding Commit
 * 04d1892 (c) [conflict] c
 * 5e0ba46 (b, a) a
 * 6155f21 (base) base

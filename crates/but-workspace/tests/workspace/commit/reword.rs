@@ -149,7 +149,7 @@ GitButler-Conflict: This is a GitButler-managed conflicted commit. Files are aut
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 * 7c77c78 (tag: conflicted) [conflict] GitButler WIP Commit
-| * 0d3631b (HEAD -> main) GitButler Padding Commit
+| * 6a3d3a6 (HEAD -> main) GitButler Padding Commit
 | * 6738c1b [conflict] New name
 |/  
 * a047f81 (tag: normal) init

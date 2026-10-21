@@ -68,7 +68,7 @@ Resolve with but resolve, or back out with but undo.
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* b14d932 (HEAD -> moved) GitButler Padding Commit
+* e80083a (HEAD -> moved) GitButler Padding Commit
 * cf2bcd3 [conflict] first
 * ae5714b (source) last
 * e5528a4 revert
@@ -170,7 +170,7 @@ Resolve with but resolve, or back out with but undo.
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* b14d932 (HEAD -> first) GitButler Padding Commit
+* e80083a (HEAD -> first) GitButler Padding Commit
 * cf2bcd3 [conflict] first
 * ae5714b (top) last
 * e5528a4 revert
@@ -6223,7 +6223,7 @@ Discarded commit oln
     snapbox::assert_data_eq!(
         env.git_log(),
         snapbox::str![[r#"
-* dc1fb54 (HEAD -> A) GitButler Padding Commit
+* 29eafac (HEAD -> A) GitButler Padding Commit
 * 2cf78ad [conflict] change file
 | * ff4136d (gitbutler/workspace) GitButler Workspace Commit
 |/  

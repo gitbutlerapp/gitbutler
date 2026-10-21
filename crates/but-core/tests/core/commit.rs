@@ -113,6 +113,12 @@ committer Sebastian Thiel <sebastian.thiel@icloud.com> 1736343261 +0100
 
 GitButler Padding Commit
 
+Hi! I'm a stand-in for the conflicted commit below me, so your editor shows its
+auto-resolved changes instead of conflict markers.
+
+There's nothing to do with me. GitButler takes me out again once you resolve the
+conflict, and anything you commit on top of me moves onto the conflicted commit.
+
 "#]]
         );
         Ok(())

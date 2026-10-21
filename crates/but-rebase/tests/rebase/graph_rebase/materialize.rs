@@ -1082,7 +1082,7 @@ fn worktrees_on_a_conflicted_commit_check_out_its_padding_commit() -> Result<()>
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
 * f17f1b1 (HEAD -> main) b
-| * f8af7ed (middle) GitButler Padding Commit
+| * 5fe3053 (middle) GitButler Padding Commit
 |/  
 * 57337f7 [conflict] a
 * c06f553 base

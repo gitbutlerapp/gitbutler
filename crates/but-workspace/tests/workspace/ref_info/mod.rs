@@ -321,7 +321,7 @@ fn single_branch_hides_the_padding_commit_on_its_conflicted_tip() -> anyhow::Res
     snapbox::assert_data_eq!(
         but_testsupport::visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
-* 9b2f09f (HEAD -> main) GitButler Padding Commit
+* 555f404 (HEAD -> main) GitButler Padding Commit
 * 7c77c78 (tag: conflicted) [conflict] GitButler WIP Commit
 * a047f81 (tag: normal) init
 
