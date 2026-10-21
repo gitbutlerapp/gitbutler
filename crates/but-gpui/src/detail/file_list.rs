@@ -381,9 +381,12 @@ impl Detail {
         let (from, worktree) = match &key.source {
             DiffSource::Worktree => (None, None),
             DiffSource::Linked(name) => (None, Some(name.clone())),
+            // Not a conflicted commit's, which nothing takes from until it's resolved.
             DiffSource::Commit(id)
-                if (self.store.read(cx).workspace(&key.project))
-                    .is_some_and(|ws| ws.commits().any(|commit| commit.id == *id)) =>
+                if (self.store.read(cx).workspace(&key.project)).is_some_and(|ws| {
+                    ws.commits()
+                        .any(|commit| commit.id == *id && !commit.conflicted)
+                }) =>
             {
                 (Some(*id), None)
             }
