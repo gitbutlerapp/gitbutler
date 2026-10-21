@@ -11,7 +11,7 @@ use gpui::{
 };
 
 use super::Detail;
-use crate::app::StartCommit;
+use crate::app::{SelectNext, SelectPrevious, StartCommit};
 use crate::backend::{self, CommitState, PushState, short_ref};
 use crate::overlays::MenuItem;
 use crate::state::{Cut, MeshPick, ProjectId, Selection};
@@ -807,6 +807,7 @@ impl Detail {
         project: &ProjectId,
         ref_name: &str,
         theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
@@ -862,13 +863,12 @@ impl Detail {
             .size_full()
             .children(resolve_oldest.map(|banner| side_header(theme).child(banner)))
             .when(!branch.incoming.is_empty(), |el| {
-                let can_pull = ws.can_pull(ref_name);
                 el.child(self.render_incoming(
                     project,
                     ref_name,
                     &branch.incoming,
-                    can_pull,
                     theme,
+                    window,
                     cx,
                 ))
             })
@@ -908,24 +908,32 @@ impl Detail {
     /// The commits only the branch's remote has, as an agent or a teammate pushed them, and
     /// Pull to bring them in when it can. Clicking one shows its diff in place of the
     /// branch's, and again goes back; right-clicking offers what a Branches page commit does.
+    /// Clicked, the list takes the keys, ↑ and ↓ stepping through it as the other side
+    /// lists do.
     fn render_incoming(
         &self,
         project: &ProjectId,
         ref_name: &str,
         incoming: &[backend::RemoteCommit],
-        can_pull: bool,
         theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
+        let can_pull =
+            (self.store.read(cx).workspace(project)).is_some_and(|ws| ws.can_pull(ref_name));
         let picked = self.remote_commit(project, ref_name, cx);
+        let solid = self.side_focus.is_focused(window);
         let pull = (project.clone(), ref_name.to_owned());
         let rows = incoming.iter().enumerate().map(|(ix, commit)| {
             let (id, on) = (commit.id, picked == Some(commit.id));
             let key = (project.clone(), ref_name.to_owned());
-            list_row(("remote-commit", ix), on, theme)
+            side_row(("remote-commit", ix), on, solid, theme)
                 .mx(px(8.))
-                .text_color(theme.text_2)
-                .child(small_icon(Icon::ArrowDown).text_color(theme.text_3))
+                .when(!(on && solid), |el| el.text_color(theme.text_2))
+                .child(small_icon(Icon::ArrowDown).text_color(match on && solid {
+                    true => theme.text_inverted,
+                    false => theme.text_3,
+                }))
                 .child(
                     div()
                         .flex_1()
@@ -950,8 +958,13 @@ impl Detail {
                             commit.agent.as_ref(),
                         ))),
                 )
-                .child(age_column(Some(commit.time), theme))
-                .on_click(cx.listener(move |this, _, _, cx| {
+                .child(quiet(
+                    age_column(Some(commit.time), theme),
+                    on && solid,
+                    theme,
+                ))
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    window.focus(&this.side_focus, cx);
                     let (project, ref_name) = key.clone();
                     this.remote_commit = (!on).then_some((project, ref_name, id));
                     this.show_picked(cx);
@@ -1006,7 +1019,35 @@ impl Detail {
                 )
             })
             .children(rows)
+            .track_focus(&self.side_focus)
+            .key_context("SideList")
+            .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.step_incoming(1, cx)))
+            .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.step_incoming(-1, cx)))
             .into_any_element()
+    }
+
+    /// Show the remote's commit `delta` rows from the one shown, or its first.
+    fn step_incoming(&mut self, delta: isize, cx: &mut Context<Self>) {
+        let Some(Selection::Branch(project, ref_name)) = self.selection(cx) else {
+            return;
+        };
+        let ids: Vec<_> = (self.store.read(cx).workspace(&project))
+            .and_then(|ws| ws.find_branch(&ref_name))
+            .map(|branch| branch.incoming.iter().map(|c| c.id).collect())
+            .unwrap_or_default();
+        let at = (self.remote_commit(&project, &ref_name, cx))
+            .and_then(|id| ids.iter().position(|c| *c == id));
+        let next = match at {
+            Some(at) => at
+                .saturating_add_signed(delta)
+                .min(ids.len().saturating_sub(1)),
+            None => 0,
+        };
+        let Some(id) = ids.get(next).copied().filter(|_| at != Some(next)) else {
+            return;
+        };
+        self.remote_commit = Some((project, ref_name, id));
+        self.show_picked(cx);
     }
 
     /// What a stack's branches change together: its branches, top first, and how many

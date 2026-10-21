@@ -1810,7 +1810,7 @@ impl Render for Detail {
                         self.render_commit_side(project, *id, &theme, cx)
                     }
                     Selection::Branch(project, ref_name) => {
-                        self.render_branch_side(project, ref_name, &theme, cx)
+                        self.render_branch_side(project, ref_name, &theme, window, cx)
                     }
                     Selection::History(project) => {
                         self.render_history_side(project, &theme, window, cx)
