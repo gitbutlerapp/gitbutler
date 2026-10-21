@@ -2468,7 +2468,7 @@ impl Navigator {
             cx,
             toggle.clone(),
         );
-        // As an unread commit's title stands out, so does its branch's name, folded or not.
+        // An unread commit marks its branch with a dot too, folded or not.
         let unread = store.branch_unread(id, branch);
         let review = (branch.review.as_ref()).map(|r| (r, store.review_state(id, r)));
         Some(
@@ -2481,7 +2481,6 @@ impl Navigator {
                     branch_name(name, review, &style)
                         .id(ElementId::Name(format!("name-{id}-{ref_name}").into()))
                         .flex_1()
-                        .when(unread, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
                         .when_some(tip, |el, tip| el.tooltip(Tooltip::text(tip))),
                 )
                 // As ui-react's empty MetaCount, the quietest meta, ahead of any counts.
@@ -3149,12 +3148,15 @@ fn is_inactive(worktree: &Worktree) -> bool {
             .is_some_and(|at| crate::ui::now() - at > INACTIVE_AFTER.as_secs() as i64)
 }
 
-/// A branch as the navigator names it: its pull request's title once the forge cache has one,
-/// toned by the request's state, or else `name` in blue mono. Drawn from what the last load
-/// read, so no row waits on the network, and offline the cached title stays.
+/// A branch as the navigator names it, in semibold as but.dev's: its pull request's title once
+/// the forge cache has one, toned by the request's state, or else `name`. Drawn from what the
+/// last load read, so no row waits on the network, and offline the cached title stays.
 fn branch_name(name: &str, review: Option<(&Review, ReviewState)>, style: &RowStyle) -> Div {
     let theme = style.theme;
-    let el = div().min_w(px(0.)).truncate();
+    let el = div()
+        .min_w(px(0.))
+        .truncate()
+        .font_weight(gpui::FontWeight::SEMIBOLD);
     match review.filter(|(review, _)| !review.title.is_empty()) {
         Some((review, state)) => el
             .text_color(match style.solid {
@@ -3163,11 +3165,7 @@ fn branch_name(name: &str, review: Option<(&Review, ReviewState)>, style: &RowSt
                 false => review::title_color(state, theme),
             })
             .child(review.title.clone()),
-        None => el
-            .font_family(theme.mono_font.clone())
-            .text_size(px(12.))
-            .text_color(style.meta(theme.blue))
-            .child(name.to_owned()),
+        None => el.child(name.to_owned()),
     }
 }
 

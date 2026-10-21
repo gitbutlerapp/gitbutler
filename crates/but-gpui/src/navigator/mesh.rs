@@ -222,9 +222,7 @@ impl Navigator {
                             .flex_1()
                             .min_w(px(0.))
                             .truncate()
-                            .font_family(theme.mono_font.clone())
-                            .text_size(px(12.))
-                            .text_color(style.meta(theme.blue))
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
                             .child(name.clone()),
                     )
                     .children(style.unpushed(unpushed))
