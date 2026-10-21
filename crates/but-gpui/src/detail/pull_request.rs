@@ -137,7 +137,8 @@ impl Detail {
     /// How tall the tabs beside a list are, which the diff starts below: nothing when the
     /// page has none.
     pub(super) fn list_tabs_height(&self, cx: &App) -> f32 {
-        match self.list_page(cx) && (self.selected_review(cx).is_some() || self.on_merge(cx)) {
+        match self.list_page(cx) && (self.selected_review(cx).is_some() || self.has_commits_tab(cx))
+        {
             true => TABS_HEIGHT,
             false => 0.,
         }

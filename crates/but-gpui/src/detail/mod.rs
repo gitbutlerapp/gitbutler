@@ -1809,9 +1809,9 @@ impl Detail {
                 self.header_height.get()
                     + message
                     + self.list_tabs_height(cx)
-                    + self.merged_over_height(&project)
+                    + self.merged_over_height(cx)
             }
-            Some(Selection::Branches(_)) => self.list_tabs_height(cx),
+            Some(Selection::Branches(_)) => self.list_tabs_height(cx) + self.merged_over_height(cx),
             Some(Selection::History(project)) if self.selected_operation(&project).is_some() => {
                 self.header_height.get()
             }
@@ -1924,17 +1924,18 @@ impl Render for Detail {
                     Selection::Project(project) if self.showing_target_commit(project) => {
                         Some(self.render_target_beside(project, &theme, cx))
                     }
-                    Selection::Branches(project) | Selection::Project(project) => {
-                        match self.selected_review(cx) {
-                            Some(review) => {
-                                Some(self.render_list_tabs(project, review, &theme, cx))
-                            }
-                            None if self.showing_readme(cx) => {
-                                Some(self.render_readme(project, &theme, cx))
-                            }
-                            None => None,
-                        }
+                    // An opened branch: its commits, its files and its pull request, as a
+                    // merge on the project's page has them.
+                    Selection::Branches(project) => {
+                        Some(self.render_branch_beside(project, &theme, cx))
                     }
+                    Selection::Project(project) => match self.selected_review(cx) {
+                        Some(review) => Some(self.render_list_tabs(project, review, &theme, cx)),
+                        None if self.showing_readme(cx) => {
+                            Some(self.render_readme(project, &theme, cx))
+                        }
+                        None => None,
+                    },
                     // What the selected operation did, over the files it changed.
                     Selection::History(project) => {
                         self.render_operation_header(project, &theme, cx)

@@ -354,12 +354,25 @@ impl Detail {
         Some((commit, merged))
     }
 
-    /// Whether the project's page shows a merge, which has a Commits tab.
-    pub(super) fn on_merge(&self, cx: &gpui::App) -> bool {
+    /// Whether the page shows something with a Commits tab: a merge on the project's page, or
+    /// a branch opened on the Branches page.
+    pub(super) fn has_commits_tab(&self, cx: &gpui::App) -> bool {
         match self.store.read(cx).selection.as_ref() {
             Some(Selection::Project(project)) => self.selected_merge(project).is_some(),
+            Some(Selection::Branches(project)) => self.selected_other_branch(project).is_some(),
             _ => false,
         }
+    }
+
+    /// How many rows the Commits tab lists, a row for all of them first when there's more
+    /// than one; `None` while they're being read.
+    fn commit_rows(&self, cx: &gpui::App) -> Option<usize> {
+        let count = match self.store.read(cx).selection.as_ref()? {
+            Selection::Project(project) => self.selected_merge(project)?.1?.len(),
+            Selection::Branches(project) => self.opened_branch_commits(project)?.len(),
+            _ => return None,
+        };
+        Some(count + usize::from(count > 1))
     }
 
     /// The commit of a merge picked to show in its place.
@@ -375,8 +388,8 @@ impl Detail {
         self.beside_width.get() >= COMMITS_COLUMN + MIN_DIFF
     }
 
-    fn showing_commits(&self, project: &ProjectId) -> bool {
-        self.commits_tab && self.selected_merge(project).is_some()
+    pub(super) fn showing_commits(&self, cx: &gpui::App) -> bool {
+        self.commits_tab && self.has_commits_tab(cx)
     }
 
     /// Whether the window leaves the diff out, as a pull request and the README take its
@@ -385,16 +398,15 @@ impl Detail {
         self.showing_review(cx) || self.showing_readme(cx) || self.showing_branches_table(cx)
     }
 
-    /// How tall a merge's commits are over its diff, without room for them beside it: a few
-    /// rows, which scroll, and the rule under them.
-    pub(super) fn merged_over_height(&self, project: &ProjectId) -> f32 {
-        let Some((_, Some(merged))) = self.selected_merge(project) else {
+    /// How tall the Commits tab's commits are over the diff, without room for them beside it:
+    /// a few rows, which scroll, and the rule under them.
+    pub(super) fn merged_over_height(&self, cx: &gpui::App) -> f32 {
+        let Some(rows) = self.commit_rows(cx) else {
             return 0.;
         };
-        if !self.showing_commits(project) || self.commits_beside() {
+        if !self.showing_commits(cx) || self.commits_beside() {
             return 0.;
         }
-        let rows = merged.len() + usize::from(merged.len() > 1);
         let fits = rows.min(MERGED_OVER_ROWS) as f32 * crate::ui::ROW_HEIGHT + 8.;
         let dragged = self
             .merged_split
@@ -402,11 +414,10 @@ impl Detail {
         dragged.unwrap_or(fits) + 1.
     }
 
-    /// How tall a merge's commits are over its files: as dragged, or as tall as they need.
-    fn merged_split_height(&self, project: &ProjectId) -> f32 {
-        let rows = (self.selected_merge(project))
-            .and_then(|(_, merged)| merged)
-            .map_or(1, |merged| merged.len() + usize::from(merged.len() > 1));
+    /// How tall the Commits tab's commits are over the files: as dragged, or as tall as they
+    /// need.
+    fn merged_split_height(&self, cx: &gpui::App) -> f32 {
+        let rows = self.commit_rows(cx).unwrap_or(1);
         let fits = rows as f32 * crate::ui::ROW_HEIGHT + 8.;
         self.merged_split.unwrap_or(fits).max(MERGED_MIN)
     }
@@ -460,17 +471,16 @@ impl Detail {
     /// its Commits tab, and the files, when there's room for them; 0 when they're left to the
     /// button over the diff.
     pub fn beside_offset(&self, cx: &gpui::App) -> f32 {
-        let Some(Selection::Project(project)) = self.store.read(cx).selection.as_ref() else {
-            return 0.;
+        let shows = match self.store.read(cx).selection.as_ref() {
+            Some(Selection::Project(project)) => self.showing_target_commit(project),
+            Some(Selection::Branches(project)) => self.selected_other_branch(project).is_some(),
+            _ => false,
         };
-        // A merge's commits over the diff leave its files to the button over it.
-        if !self.showing_target_commit(project)
-            || self.showing_review(cx)
-            || self.merged_over_height(project) > 0.
-        {
+        // Commits over the diff leave the files to the button over it.
+        if !shows || self.showing_review(cx) || self.merged_over_height(cx) > 0. {
             return 0.;
         }
-        let commits = match self.showing_commits(project) && self.commits_beside() {
+        let commits = match self.showing_commits(cx) && self.commits_beside() {
             true => COMMITS_COLUMN,
             false => 0.,
         };
@@ -523,7 +533,9 @@ impl Detail {
         self.app.update(cx, |_, cx| cx.notify()).ok();
     }
 
-    fn set_target_tab(
+    /// Pick the tab beside a list page's list: the pull request, the commits, or else the
+    /// changes.
+    pub(super) fn set_list_tab(
         &mut self,
         review: bool,
         commits: bool,
@@ -550,109 +562,17 @@ impl Detail {
         let Some(commit) = self.selected_target_commit(project) else {
             return div().flex_1().into_any_element();
         };
-        let (width, app) = (self.beside_width.clone(), self.app.clone());
-        let measure_width = gpui::canvas(
-            move |bounds, _, cx| {
-                let drawn = f32::from(bounds.size.width);
-                if width.replace(drawn) != drawn {
-                    cx.defer(move |cx| {
-                        app.update(cx, |_, cx| cx.notify()).ok();
-                    });
-                }
-            },
-            |_, _, _, _| {},
-        )
-        .absolute()
-        .size_full();
         let review = commit.review.as_ref();
         let merge = self.selected_merge(project);
-        let commits = self.showing_commits(project);
+        let commits = self.showing_commits(cx);
         let reviewing = self.review_tab && review.is_some();
-        let offset = self.beside_offset(cx);
-        let files = |width: f32| {
-            v_flex()
-                .w(px(width))
-                .flex_none()
-                .h_full()
-                .border_r_1()
-                .border_color(theme.border_3)
-                .child(self.render_diff_file_list(theme, cx))
-        };
-        let below = if reviewing {
-            self.render_review_tab(project, theme, cx)
-        } else if commits && !self.commits_beside() {
-            // Over the diff, which the window draws under them.
-            v_flex()
-                .flex_1()
-                .child(
-                    v_flex()
-                        .relative()
-                        .flex_none()
-                        .h(px(self.merged_over_height(project) - 1.))
-                        .py(px(4.))
-                        .border_b_1()
-                        .border_color(theme.border_3)
-                        .on_drag_move(
-                            cx.listener(|this, event, _, cx| this.drag_merged_split(event, cx)),
-                        )
-                        .child(self.render_merged_list(project, theme, cx))
-                        .child(self.merged_split_handle(theme, cx)),
-                )
-                .into_any_element()
-        } else if commits {
-            h_flex()
-                .flex_1()
-                .min_h(px(0.))
-                .items_start()
-                .child(
-                    v_flex()
-                        .w(px(COMMITS_COLUMN))
-                        .flex_none()
-                        .h_full()
-                        .border_r_1()
-                        .border_color(theme.border_3)
-                        .map(|el| match offset == COMMITS_COLUMN {
-                            // Without room for the files beside them, they go under the
-                            // commits, which take as much of the column as they need, up to a
-                            // limit, or as dragged; each scrolls.
-                            true => el
-                                .child(
-                                    v_flex()
-                                        .relative()
-                                        .flex_none()
-                                        .h(px(self.merged_split_height(project)))
-                                        .max_h(gpui::relative(match self.merged_split {
-                                            Some(_) => 0.85,
-                                            None => 0.6,
-                                        }))
-                                        .border_b_1()
-                                        .border_color(theme.border_3)
-                                        .on_drag_move(cx.listener(|this, event, _, cx| {
-                                            this.drag_merged_split(event, cx)
-                                        }))
-                                        .child(self.render_merged_list(project, theme, cx))
-                                        .child(self.merged_split_handle(theme, cx)),
-                                )
-                                .child(
-                                    v_flex()
-                                        .flex_1()
-                                        .min_h(px(0.))
-                                        .child(self.render_diff_file_list(theme, cx)),
-                                ),
-                            false => el.child(self.render_merged_list(project, theme, cx)),
-                        }),
-                )
-                .when(offset > COMMITS_COLUMN, |el| {
-                    el.child(files(offset - COMMITS_COLUMN))
-                })
-                .into_any_element()
-        } else {
-            h_flex()
-                .flex_1()
-                .min_h(px(0.))
-                .items_start()
-                .when(offset > 0., |el| el.child(files(offset)))
-                .into_any_element()
+        let below = match reviewing {
+            true => self.render_review_tab(project, theme, cx),
+            false => self.render_commits_and_files(
+                self.render_merged_list(project, theme, cx),
+                theme,
+                cx,
+            ),
         };
         let tabs = (review.is_some() || merge.is_some()).then(|| {
             let changed = (self.shown_diff().map(|diff| diff.files.len())).filter(|n| *n > 0);
@@ -677,7 +597,7 @@ impl Detail {
                                 tab("tab-commits", "Commits", commits && !reviewing, theme)
                                     .children(count.map(|n| faint(n.to_string(), theme)))
                                     .on_click(cx.listener(|this, _, window, cx| {
-                                        this.set_target_tab(false, true, window, cx)
+                                        this.set_list_tab(false, true, window, cx)
                                     })),
                             )
                         })
@@ -685,14 +605,14 @@ impl Detail {
                             tab("tab-changes", "Changes", !reviewing && !commits, theme)
                                 .children(changed.map(|n| faint(n.to_string(), theme)))
                                 .on_click(cx.listener(|this, _, window, cx| {
-                                    this.set_target_tab(false, false, window, cx)
+                                    this.set_list_tab(false, false, window, cx)
                                 })),
                         )
                         .when(review.is_some(), |el| {
                             el.child(
                                 tab("tab-review", "Pull request", reviewing, theme).on_click(
                                     cx.listener(|this, _, window, cx| {
-                                        this.set_target_tab(true, false, window, cx)
+                                        this.set_list_tab(true, false, window, cx)
                                     }),
                                 ),
                             )
@@ -709,8 +629,124 @@ impl Detail {
             .child(self.render_target_message(message, theme, cx))
             .children(tabs)
             .child(below)
-            .child(measure_width)
+            .child(self.measure_beside_width())
             .into_any_element()
+    }
+
+    /// What measures how wide the space beside a list page's list is, as it's drawn, for
+    /// whether the commits and files fit beside the diff.
+    pub(super) fn measure_beside_width(&self) -> impl IntoElement {
+        let (width, app) = (self.beside_width.clone(), self.app.clone());
+        gpui::canvas(
+            move |bounds, _, cx| {
+                let drawn = f32::from(bounds.size.width);
+                if width.replace(drawn) != drawn {
+                    cx.defer(move |cx| {
+                        app.update(cx, |_, cx| cx.notify()).ok();
+                    });
+                }
+            },
+            |_, _, _, _| {},
+        )
+        .absolute()
+        .size_full()
+    }
+
+    /// Under a list page's tabs: `list`, the Commits tab's commits, while it's picked, and the
+    /// files when there's room. Without room beside the diff the commits go over it; the
+    /// files go beside them, or under them when there's room for one column only. The window
+    /// draws the diff over the rest.
+    pub(super) fn render_commits_and_files(
+        &self,
+        list: AnyElement,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let commits = self.showing_commits(cx);
+        let offset = self.beside_offset(cx);
+        let files = |width: f32| {
+            v_flex()
+                .w(px(width))
+                .flex_none()
+                .h_full()
+                .border_r_1()
+                .border_color(theme.border_3)
+                .child(self.render_diff_file_list(theme, cx))
+        };
+        if commits && !self.commits_beside() {
+            // Over the diff, which the window draws under them.
+            v_flex()
+                .flex_1()
+                .child(
+                    v_flex()
+                        .relative()
+                        .flex_none()
+                        .h(px(self.merged_over_height(cx) - 1.))
+                        .py(px(4.))
+                        .border_b_1()
+                        .border_color(theme.border_3)
+                        .on_drag_move(
+                            cx.listener(|this, event, _, cx| this.drag_merged_split(event, cx)),
+                        )
+                        .child(list)
+                        .child(self.merged_split_handle(theme, cx)),
+                )
+                .into_any_element()
+        } else if commits {
+            h_flex()
+                .flex_1()
+                .min_h(px(0.))
+                .items_start()
+                .child(
+                    v_flex()
+                        .w(px(COMMITS_COLUMN))
+                        .flex_none()
+                        .h_full()
+                        .border_r_1()
+                        .border_color(theme.border_3)
+                        .map(|el| match offset == COMMITS_COLUMN {
+                            // Without room for the files beside them, they go under the
+                            // commits, which take as much of the column as they need, up to a
+                            // limit, or as dragged; each scrolls.
+                            true => el
+                                .child(
+                                    v_flex()
+                                        .relative()
+                                        .flex_none()
+                                        .h(px(self.merged_split_height(cx)))
+                                        .max_h(gpui::relative(match self.merged_split {
+                                            Some(_) => 0.85,
+                                            None => 0.6,
+                                        }))
+                                        .border_b_1()
+                                        .border_color(theme.border_3)
+                                        .on_drag_move(cx.listener(|this, event, _, cx| {
+                                            this.drag_merged_split(event, cx)
+                                        }))
+                                        .child(list)
+                                        .child(self.merged_split_handle(theme, cx)),
+                                )
+                                .child(
+                                    v_flex()
+                                        .flex_1()
+                                        .min_h(px(0.))
+                                        .child(self.render_diff_file_list(theme, cx)),
+                                ),
+                            false => el.child(list),
+                        }),
+                )
+                .when(offset > COMMITS_COLUMN, |el| {
+                    el.child(files(offset - COMMITS_COLUMN))
+                })
+                .into_any_element()
+        } else {
+            h_flex()
+                .flex_1()
+                .min_h(px(0.))
+                .items_start()
+                .when(offset > 0., |el| el.child(files(offset)))
+                .into_any_element()
+        }
     }
 
     /// The menu over a merge's diff that picks one of its commits to show, or all of them.
