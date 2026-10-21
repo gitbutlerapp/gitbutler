@@ -300,7 +300,15 @@ pub fn create_branch(path: &Path, name: Option<&str>) -> Result<String> {
     let ref_name = (name.map(str::trim).filter(|name| !name.is_empty()))
         .map(branch_ref)
         .transpose()?;
-    let checked_out = (ctx.repo.get()?.head_name()?).filter(|head| {
+    let head = ctx.repo.get()?.head_name()?;
+    // A branch made here and checked out couldn't be undone: the oplog takes a detached
+    // HEAD for the workspace and would restore that instead.
+    anyhow::ensure!(
+        head.is_some(),
+        "No branch is checked out (HEAD is detached). Check one out, or make one with \
+         `git switch -c <name>`, first."
+    );
+    let checked_out = head.filter(|head| {
         head.as_bstr() != but_core::WORKSPACE_REF_NAME
             && head.as_ref().category() == Some(gix::refs::Category::LocalBranch)
     });
@@ -1362,6 +1370,21 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["refs/heads/feature"],
             "the branch checked out is listed as the only one"
+        );
+    }
+
+    #[test]
+    fn a_new_branch_from_a_detached_head_is_refused() {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        target_origin_main(path);
+        git(path, &["checkout", "-q", "--detach"]);
+
+        let err = create_branch(path, Some("rescue")).unwrap_err();
+        assert!(err.to_string().contains("detached"), "{err}");
+        assert!(
+            git(path, &["branch", "--list", "rescue"]).trim().is_empty(),
+            "nothing is made"
         );
     }
 
