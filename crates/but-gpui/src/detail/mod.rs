@@ -341,12 +341,8 @@ pub struct Detail {
     _upstream_load: Task<()>,
     /// The Branches page's branches, for the project it shows, and its filter.
     branches: Option<branches::Branches>,
-    /// Whether the Branches page shows its table of every branch, as it opens, rather than
-    /// one branch's diff beside the list.
-    branches_table: bool,
     branch_filter: Entity<TextInput>,
     branches_scroll: UniformListScrollHandle,
-    branches_table_scroll: UniformListScrollHandle,
     _branches_load: Task<()>,
     /// What's fetched of other machines' branches; see `detail/machine.rs`.
     mesh: machine::MeshFetches,
@@ -416,7 +412,7 @@ impl Detail {
                         this.switch_checkout(project, worktree, cx);
                     }
                     if matches!(this.selection(cx), Some(Selection::Branches(_))) {
-                        this.branches_table = true;
+                        this.close_branch(cx);
                     }
                     this.reload_page(true, cx);
                     this.refresh_diff(true, cx);
@@ -592,10 +588,9 @@ impl Detail {
             upstream_scroll: UniformListScrollHandle::new(),
             _upstream_load: Task::ready(()),
             branches: None,
-            branches_table: true,
+
             branch_filter,
             branches_scroll: UniformListScrollHandle::new(),
-            branches_table_scroll: UniformListScrollHandle::new(),
             _branches_load: Task::ready(()),
             mesh: machine::MeshFetches::default(),
             _branch_commits_load: Task::ready(()),
@@ -1802,7 +1797,8 @@ impl Detail {
                 self.header_height.get() + message + self.list_tabs_height(cx)
             }
             Some(Selection::Branches(project)) => {
-                let message = match self.picked_branch_commit(&project) {
+                // The opened branch's header, or its picked commit's message.
+                let message = match self.selected_other_branch(&project) {
                     Some(_) => self.target_message_height.get(),
                     None => 0.,
                 };
@@ -1873,8 +1869,6 @@ impl Render for Detail {
                     Selection::Mesh(project, id, pick) => {
                         self.render_mesh_side(project, id, pick, &theme, cx)
                     }
-                    // The table takes the page instead.
-                    Selection::Branches(_) if self.branches_table => div().into_any_element(),
                     Selection::Branches(project) => {
                         self.render_branches_side(project, &theme, window, cx)
                     }
@@ -1918,15 +1912,22 @@ impl Render for Detail {
                 // request, over the pull request or the diff.
                 let beside = match selection {
                     Selection::Project(project) if self.showing_target_commit(project, cx) => {
-                        let message = self.shown_target_commit(project, cx);
+                        let message = (self.shown_target_commit(project, cx))
+                            .map(|commit| self.render_target_message(commit, &theme, cx));
                         Some(self.list_beside(project, message, &theme, cx))
                     }
-                    // An opened branch: its commits, its files and its pull request, as a
-                    // merge on the project's page has them, and a commit of it picked shows
-                    // its message, as a merge's does.
+                    // An opened branch: its header, its files and its pull request, as a merge
+                    // on the project's page has them, and a commit of it picked shows its
+                    // message, as a merge's does.
+                    Selection::Branches(project) if self.showing_branches_overview(cx) => {
+                        Some(self.render_branches_overview(project, &theme, cx))
+                    }
                     Selection::Branches(project) => {
-                        let message = self.picked_branch_commit(project);
-                        Some(self.list_beside(project, message, &theme, cx))
+                        let header = match self.picked_branch_commit(project) {
+                            Some(commit) => Some(self.render_target_message(commit, &theme, cx)),
+                            None => self.render_other_branch_header(project, &theme, cx),
+                        };
+                        Some(self.list_beside(project, header, &theme, cx))
                     }
                     Selection::Project(project) if self.showing_readme(cx) => {
                         Some(self.render_readme(project, &theme, cx))
@@ -1943,9 +1944,6 @@ impl Render for Detail {
                         if self.showing_review(cx) =>
                     {
                         self.render_review_tab(project, &theme, cx)
-                    }
-                    Selection::Branches(project) if self.branches_table => {
-                        self.render_branches_table(project, &theme, window, cx)
                     }
                     _ => h_flex()
                         .w_full()

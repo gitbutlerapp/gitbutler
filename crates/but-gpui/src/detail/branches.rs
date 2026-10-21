@@ -1,6 +1,6 @@
-//! The Branches page: branches outside the workspace, local ones first, then the ones only a
-//! remote has, each with what it would bring in, ready to apply or delete. It opens on a table
-//! of every branch, one line each, and opening one shows the list beside its diff.
+//! The Branches page: branches outside the workspace, newest first, local ones and the ones
+//! only a remote has alike, each with what it would bring in, ready to apply or delete. Beside
+//! the list, an overview of the team's branches until one is opened, then its diff.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -11,24 +11,27 @@ use gpui::{
 };
 
 use super::Detail;
-use super::panes::{Crumb, list_empty, side_list};
-use super::upstream::commit_author;
+use super::panes::{
+    Crumb, list_empty, measured, meta_item, meta_row, page_title, side_list, title_text,
+};
+use super::upstream::{DayGesture, DayPick, activity_strip, commit_author};
 
-use crate::app::{Collapse, Confirm, Expand, SelectNext, SelectPrevious};
+use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::branches::{self, ApplyOutcome, OtherBranch};
-use crate::backend::upstream::TargetCommit;
+use crate::backend::upstream::{self, ACTIVITY_DAYS, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, ReviewState};
 use crate::edits::CherryPick;
 use crate::overlays::MenuItem;
-use crate::state::{Cut, Overlay, Picks, Prefs, ProjectId, Selection};
+use crate::state::{BranchStatus, Cut, Overlay, Picks, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::illustration::Illustration;
-use crate::ui::person::byline_avatar;
+use crate::ui::person::{author_avatar, byline, byline_avatar};
 use crate::ui::text_input::TextInput;
 use crate::ui::{
-    Icon, ROW_HEIGHT, Tooltip, age_column, empty_state, faint, fold_button, guide, h_flex,
-    icon_button, quiet, relative_time, review, section_label, side_row, small_icon, v_flex,
+    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, age_column, button, empty_state, faint, fold_button,
+    guide, h_flex, icon, list_row, plural, quiet, review, section_label, side_row, small_icon,
+    v_flex,
 };
 
 pub(super) struct Branches {
@@ -37,7 +40,7 @@ pub(super) struct Branches {
     /// leaves the list as it is. `None` until it has loaded.
     seen: u64,
     list: Vec<OtherBranch>,
-    /// The selected branch, by ref.
+    /// The selected branch, by ref, whose diff shows; none while the overview does.
     selected: Option<String>,
     /// The selection is the caption of `selected`'s stack, which names its top branch: that
     /// one's changes are the whole stack's.
@@ -54,6 +57,10 @@ pub(super) struct Branches {
     /// Commits of the selected branch picked along with the selected one (⌘- or ⇧-click), to
     /// cherry-pick together.
     picked: Picks<CommitId>,
+    /// The one person whose branches are listed, by name, as `OtherBranch::people` has it.
+    who: Option<String>,
+    /// The days picked off the activity, which the list keeps the branches last changed on.
+    days: DayPick,
 }
 
 impl Branches {
@@ -93,19 +100,6 @@ impl Branches {
     }
 }
 
-/// A line of the table: a heading over the branches changed in the last 30 days, or over the
-/// older ones, with how many it heads; or a branch, by index into the list.
-enum TableRow {
-    Heading(&'static str, usize),
-    Branch(usize),
-}
-
-/// How long ago a stack last changed for its branches to be listed under "Older".
-const RECENT: i64 = 30 * 24 * 60 * 60;
-
-/// The hover group of a table row, which shows its edit button.
-const TABLE_ROW: &str = "branch-table-row";
-
 /// A branch's tip and how many commits it has that the target doesn't: a fetch can land
 /// some of its commits on the target without moving its tip.
 type Loaded = (CommitId, Option<usize>);
@@ -116,11 +110,39 @@ const STACK_CHEVRON: f32 = 2. + 7.;
 /// Where a stacked branch's sits.
 const STACKED_CHEVRON: f32 = 16. + 7.;
 
-/// A row of the list: a stack's caption, by its top branch's index, with how many of its
+/// How many people the filter menu offers, the most active first.
+const PEOPLE_IN_MENU: usize = 10;
+
+/// How many people the overview lists, the most active first.
+const PEOPLE_IN_OVERVIEW: usize = 8;
+
+/// The list's filters, besides the text: whose branches, by their pull request, and from
+/// which days; one left out counts what each of its choices would show.
+#[derive(Clone, Copy, PartialEq)]
+enum Facet {
+    Who,
+    Status,
+    Days,
+}
+
+/// The pull request choices, as the filter menu and the chip name them.
+const STATUSES: [(BranchStatus, &str); 7] = [
+    (BranchStatus::NotMerged, "Not merged"),
+    (BranchStatus::Open, "Open"),
+    (BranchStatus::Draft, "Draft"),
+    (BranchStatus::Closed, "Closed"),
+    (BranchStatus::Merged, "Merged"),
+    (BranchStatus::NoPullRequest, "No pull request"),
+    (BranchStatus::Any, "Any"),
+];
+
+/// A row of the list: a heading over the branches changed today, this week, in the last 30
+/// days or before; a stack's caption, by its top branch's index, with how many of its
 /// branches show and whether they're folded away; a branch by index into the list; or a
 /// commit of an open one, by the branch's index and its own. A branch in a stack shown with
 /// others, and its commits, sit a step in (`stacked`).
 enum Row {
+    Heading(&'static str),
     Stack(usize, usize, bool),
     Branch(usize, bool),
     Commit(usize, usize, bool),
@@ -155,20 +177,17 @@ impl Detail {
                     }
                 };
                 let previous = this.branches.take().filter(|b| b.project == project);
-                // The newest, which the list shows first.
-                let first = list.first();
-                let was = previous.as_ref().and_then(|b| b.selected.clone());
-                let selected = (was.clone())
-                    .filter(|ref_name| list.iter().any(|b| b.ref_name == *ref_name))
-                    .or_else(|| first.map(|b| b.ref_name.clone()));
-                // The branch opened went, as an agent renamed or deleted it: back to the table,
-                // rather than open another in its place.
-                if was.is_some_and(|was| !list.iter().any(|b| b.ref_name == was)) {
-                    this.branches_table = true;
-                }
+                // The branch opened, while it's listed: once it goes, as an agent renamed or
+                // deleted it, the overview shows rather than another branch in its place.
+                let selected = (previous.as_ref())
+                    .and_then(|b| b.selected.clone())
+                    .filter(|ref_name| list.iter().any(|b| b.ref_name == *ref_name));
                 // Which branches were open and their commits, of those still listed, and the
                 // selected commit while its branch stays selected.
                 let listed = |ref_name: &String| list.iter().any(|b| b.ref_name == *ref_name);
+                let (who, days) = (previous.as_ref())
+                    .map(|b| (b.who.clone(), b.days.clone()))
+                    .unwrap_or_default();
                 let (open, folded, commits, commit, picked, stack) = match previous {
                     Some(b) => {
                         let same = b.selected == selected;
@@ -194,6 +213,8 @@ impl Detail {
                     commits,
                     commit,
                     picked,
+                    who,
+                    days,
                 });
                 // The filter may hide what's selected now.
                 this.select_shown_branch(cx);
@@ -218,34 +239,31 @@ impl Detail {
         self.branches.as_ref().filter(|b| b.project == *project)
     }
 
-    /// The branch whose diff shows; none while the table does.
+    /// The branch whose diff shows; none while the overview does.
     pub(super) fn selected_other_branch(&self, project: &ProjectId) -> Option<&OtherBranch> {
-        if self.branches_table {
-            return None;
-        }
         self.branches_for(project)?.selected_branch()
     }
 
-    /// Whether the Branches page shows its table of every branch rather than one's diff.
-    pub(crate) fn showing_branches_table(&self, cx: &App) -> bool {
-        self.branches_table && matches!(self.store.read(cx).selection, Some(Selection::Branches(_)))
-    }
-
-    /// Go back to the table of every branch, letting go of a selected commit.
-    fn close_branch(&mut self, cx: &mut Context<Self>) {
-        self.branches_table = true;
-        if let Some(branches) = &mut self.branches {
-            branches.commit = None;
-            branches.picked.clear();
+    /// Whether the Branches page shows its overview beside the list, with no branch opened.
+    pub(crate) fn showing_branches_overview(&self, cx: &App) -> bool {
+        match &self.store.read(cx).selection {
+            Some(Selection::Branches(project)) => self
+                .branches_for(project)
+                .is_none_or(|b| b.selected.is_none()),
+            _ => false,
         }
-        self.show_picked(cx);
     }
 
-    /// Esc on the Branches page with a branch opened: back to the table, whether it did. The
+    /// Go back to the overview, letting go of the branch opened.
+    pub(super) fn close_branch(&mut self, cx: &mut Context<Self>) {
+        self.select_other_branch(None, cx)
+    }
+
+    /// Esc on the Branches page with a branch opened: back to the overview, whether it did. The
     /// app, which Esc is handled in, redraws for the diff that goes.
     pub fn close_opened_branch(&mut self, cx: &mut Context<Self>) -> bool {
-        let opened = !self.branches_table
-            && matches!(self.store.read(cx).selection, Some(Selection::Branches(_)));
+        let opened = matches!(&self.store.read(cx).selection,
+            Some(Selection::Branches(project)) if self.selected_other_branch(project).is_some());
         if opened {
             self.close_branch(cx);
         }
@@ -261,21 +279,13 @@ impl Detail {
         commits.iter().find(|c| c.id == id)
     }
 
-    /// Open branch `ref_name` from the table: the list, it selected there, beside its diff.
-    fn open_from_table(&mut self, ref_name: String, window: &mut Window, cx: &mut Context<Self>) {
-        self.branches_table = false;
-        window.focus(&self.side_focus, cx);
-        self.select_other_branch(Some(ref_name), cx);
-    }
-
     /// Branch `ref_name` of `project`'s list, while it's still listed: what a menu opened on
     /// it acts on, even once a reload has selected another.
     fn listed_branch(&self, project: &ProjectId, ref_name: &str) -> Option<&OtherBranch> {
         self.branches_for(project)?.branch(ref_name)
     }
 
-    /// None while the table shows, even with a commit of the branch last opened still picked,
-    /// which would load behind it and take the diff's keys.
+    /// None while the overview shows.
     pub(super) fn branches_source(&self, project: &ProjectId) -> Option<DiffSource> {
         let branch = self.selected_other_branch(project)?;
         if let Some(id) = self.selected_branch_commit(project) {
@@ -388,13 +398,34 @@ impl Detail {
         cx.notify();
     }
 
-    /// The branches the filter keeps, local ones first, under headings.
+    /// The branches the filters keep, newest first, under headings by when they last
+    /// changed, a stack's branches together under a caption while more than one of them shows.
     fn branch_rows(&self, branches: &Branches, cx: &Context<Self>) -> Vec<Row> {
         let shown = self.shown_branches(branches, cx);
+        // A stack goes by its newest branch, as the listing orders them.
+        let mut newest: HashMap<usize, i64> = HashMap::new();
+        for branch in &branches.list {
+            if let Some(time) = branch.time {
+                let at = newest.entry(branch.stack).or_insert(time);
+                *at = (*at).max(time);
+            }
+        }
+        let today = upstream::day_of(crate::ui::now());
         let mut rows = Vec::new();
-        // In the listing's order, as Lite has them: newest first, local and remote alike, a
-        // stack's branches together under a caption while more than one of them shows.
+        let mut group = None;
         for stack in shown.chunk_by(|a, b| branches.list[*a].stack == branches.list[*b].stack) {
+            let ago = (newest.get(&branches.list[stack[0]].stack))
+                .map(|time| today - upstream::day_of(*time));
+            let heading = match ago {
+                Some(0) => "Today",
+                Some(days) if days < 7 => "This week",
+                Some(days) if days < ACTIVITY_DAYS as i64 => "Last 30 days",
+                _ => "Older",
+            };
+            if group != Some(heading) {
+                rows.push(Row::Heading(heading));
+                group = Some(heading);
+            }
             let stacked = stack.len() > 1;
             if stacked {
                 let top = (branches.list.iter())
@@ -426,34 +457,115 @@ impl Detail {
         rows
     }
 
-    /// The branches the filter keeps, by index into the list, folded away or not.
-    fn shown_branches(&self, branches: &Branches, cx: &Context<Self>) -> Vec<usize> {
+    /// The branches the filters keep, by index into the list, folded away or not.
+    fn shown_branches(&self, branches: &Branches, cx: &App) -> Vec<usize> {
+        self.kept_branches(branches, None, cx)
+    }
+
+    /// The branches the filters keep but `skip`, which is left out to count its choices.
+    fn kept_branches(&self, branches: &Branches, skip: Option<Facet>, cx: &App) -> Vec<usize> {
         let query = self.branch_filter.read(cx).text().trim().to_lowercase();
         let store = self.store.read(cx);
         let prefs = &store.prefs;
-        // One being deleted leaves at once. As in Lite, one with no commits of its own only
-        // when asked for, and a merged one too.
+        let today = upstream::day_of(crate::ui::now());
+        let says = |text: &str| text.to_lowercase().contains(&query);
         let keeps = |branch: &OtherBranch| {
+            let named = !query.is_empty() && says(&branch.name);
+            let found = query.is_empty()
+                || named
+                || says(title(branch))
+                || branch.description.as_deref().is_some_and(says)
+                || branch.people.iter().any(|person| says(person));
+            // One being deleted leaves at once, and one with no commits of its own shows only
+            // when its name is searched for.
             !store.hides_branch(&branches.project, &branch.ref_name)
-                && (prefs.branches_with_empty || branch.own_commits != Some(0))
+                && (branch.own_commits != Some(0) || named)
                 && (branch.local || !prefs.branches_local_only)
-                && (prefs.branches_with_merged || !is_merged(branch))
-                && (query.is_empty()
-                    || branch.name.to_lowercase().contains(&query)
-                    || (branch.review.as_ref())
-                        .is_some_and(|review| review.title.to_lowercase().contains(&query))
-                    || branch
-                        .author
-                        .as_ref()
-                        .is_some_and(|author| author.to_lowercase().contains(&query)))
+                && found
+                && (skip == Some(Facet::Status) || status_keeps(prefs.branches_status, branch))
+                && (skip == Some(Facet::Who)
+                    || (branches.who.as_ref()).is_none_or(|who| branch.people.contains(who)))
+                && (skip == Some(Facet::Days) || branches.days.keeps(branch.time, today))
         };
         (0..branches.list.len())
             .filter(|ix| keeps(&branches.list[*ix]))
             .collect()
     }
 
-    /// Select the first branch the filter shows when it hides the selected one, so the diff
-    /// is of a branch in the list.
+    /// The people whose branches the filters keep but the person, most branches first, with
+    /// how many and an email for their picture.
+    fn branch_people(&self, branches: &Branches, cx: &App) -> Vec<(String, String, usize)> {
+        let mut people: Vec<(String, String, usize)> = Vec::new();
+        for ix in self.kept_branches(branches, Some(Facet::Who), cx) {
+            for person in &branches.list[ix].people {
+                match people.iter_mut().find(|(name, ..)| name == person) {
+                    Some((.., n)) => *n += 1,
+                    None => people.push((person.clone(), String::new(), 1)),
+                }
+            }
+        }
+        // Their email from any branch they made the newest commit of, filtered or not.
+        for (name, email, _) in &mut people {
+            *email = (branches.list.iter())
+                .find(|b| b.author.as_ref() == Some(name))
+                .and_then(|b| b.email.clone())
+                .unwrap_or_default();
+        }
+        people.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.0.cmp(&b.0)));
+        people
+    }
+
+    /// How many branches the filters keep but the pull request one, for each choice of it.
+    fn status_counts(&self, branches: &Branches, cx: &App) -> Vec<(BranchStatus, usize)> {
+        let kept = self.kept_branches(branches, Some(Facet::Status), cx);
+        (STATUSES.iter())
+            .map(|(status, _)| {
+                let n = (kept.iter())
+                    .filter(|ix| status_keeps(*status, &branches.list[**ix]))
+                    .count();
+                (*status, n)
+            })
+            .collect()
+    }
+
+    /// List only `who`'s branches, or everyone's.
+    pub(crate) fn filter_person(&mut self, who: Option<String>, cx: &mut Context<Self>) {
+        if let Some(branches) = &mut self.branches {
+            branches.who = who;
+        }
+        self.select_shown_branch(cx);
+        cx.notify();
+    }
+
+    /// List the branches by their pull request, as `status` picks.
+    pub(crate) fn filter_status(&mut self, status: BranchStatus, cx: &mut Context<Self>) {
+        (self.store).update(cx, |store, cx| {
+            store.set_prefs(|prefs| prefs.branches_status = status, cx)
+        });
+        self.select_shown_branch(cx);
+        cx.notify();
+    }
+
+    /// Pick the activity's days as `gesture` does, which the list keeps the branches of.
+    fn branch_day_gesture(&mut self, gesture: DayGesture, cx: &mut Context<Self>) {
+        let Some(branches) = &mut self.branches else {
+            return;
+        };
+        if branches.days.apply(gesture) {
+            self.select_shown_branch(cx);
+            cx.notify();
+        }
+    }
+
+    fn clear_branch_days(&mut self, cx: &mut Context<Self>) {
+        if let Some(branches) = &mut self.branches {
+            branches.days = DayPick::default();
+        }
+        cx.notify();
+    }
+
+    /// Let go of the opened branch once the filters hide it, so the overview shows rather
+    /// than the diff of one the list doesn't.
     pub(super) fn select_shown_branch(&mut self, cx: &mut Context<Self>) {
         let Some(branches) = &self.branches else {
             return;
@@ -461,21 +573,14 @@ impl Detail {
         // One folded away in its stack still counts.
         let selected =
             |ix: &usize| Some(&branches.list[*ix].ref_name) == branches.selected.as_ref();
-        let rows = self.branch_rows(branches, cx);
         if self.shown_branches(branches, cx).iter().any(selected) {
             // A stack the filter leaves one branch of has no caption to stay on.
+            let rows = self.branch_rows(branches, cx);
             if branches.stack && !rows.iter().any(|row| is_selected(branches, row)) {
                 self.select_other_branch(branches.selected.clone(), cx);
             }
-            return;
-        }
-        // With none shown, none is selected, and nothing shows beside the list either.
-        let first = rows.iter().find_map(|row| match row {
-            Row::Branch(ix, _) => Some(branches.list[*ix].ref_name.clone()),
-            _ => None,
-        });
-        if first != branches.selected {
-            self.select_other_branch(first, cx);
+        } else if branches.selected.is_some() {
+            self.select_other_branch(None, cx);
         }
     }
 
@@ -560,11 +665,15 @@ impl Detail {
         let at = rows.iter().position(|row| {
             is_selected(branches, row) || matches!(*row, Row::Stack(top, _, true) if in_stack(top))
         });
+        // Over the headings, which aren't selected.
+        let selectable = |ix: &usize| !matches!(rows[*ix], Row::Heading(_));
         let next = match at {
-            Some(at) => Some(at as isize + delta)
-                .filter(|ix| (0..rows.len() as isize).contains(ix))
-                .map(|ix| ix as usize),
-            None => (!rows.is_empty()).then_some(0),
+            Some(at) => (1..rows.len() as isize)
+                .map(|step| at as isize + delta * step)
+                .take_while(|ix| (0..rows.len() as isize).contains(ix))
+                .map(|ix| ix as usize)
+                .find(selectable),
+            None => (0..rows.len()).find(selectable),
         };
         if let Some(next) = next {
             self.select_branch_row(&rows[next], cx);
@@ -622,6 +731,7 @@ impl Detail {
             return;
         };
         match *row {
+            Row::Heading(_) => {}
             Row::Stack(top, ..) => {
                 let top = branches.list[top].ref_name.clone();
                 self.select_stack(top, cx)
@@ -861,63 +971,6 @@ impl Detail {
             .ok();
     }
 
-    /// The table's lines: the branches the filter keeps, in the listing's order, the stacks
-    /// changed in the last 30 days first. A stack goes by its newest branch, as the listing
-    /// orders them, so its branches stay together.
-    fn table_rows(&self, branches: &Branches, cx: &Context<Self>) -> Vec<TableRow> {
-        let mut newest: HashMap<usize, i64> = HashMap::new();
-        for branch in &branches.list {
-            if let Some(time) = branch.time {
-                let at = newest.entry(branch.stack).or_insert(time);
-                *at = (*at).max(time);
-            }
-        }
-        let now = crate::ui::now();
-        let (recent, older): (Vec<usize>, Vec<usize>) = (self.shown_branches(branches, cx))
-            .into_iter()
-            .partition(|ix| {
-                (newest.get(&branches.list[*ix].stack)).is_some_and(|time| now - time < RECENT)
-            });
-        let mut rows = Vec::new();
-        for (title, group) in [("Last 30 days", recent), ("Older", older)] {
-            if !group.is_empty() {
-                rows.push(TableRow::Heading(title, group.len()));
-                rows.extend(group.into_iter().map(TableRow::Branch));
-            }
-        }
-        rows
-    }
-
-    /// ↑ and ↓ in the table: the branch above or below the selected one.
-    fn step_table(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let Some(branches) = &self.branches else {
-            return;
-        };
-        let rows = self.table_rows(branches, cx);
-        let selected = |row: &TableRow| {
-            matches!(*row, TableRow::Branch(ix)
-                if branches.selected.as_ref() == Some(&branches.list[ix].ref_name))
-        };
-        let at = rows.iter().position(selected);
-        let next = match at {
-            Some(at) => (0..rows.len() as isize)
-                .map(|step| at as isize + delta * (step + 1))
-                .take_while(|ix| (0..rows.len() as isize).contains(ix))
-                .map(|ix| ix as usize)
-                .find(|ix| matches!(rows[*ix], TableRow::Branch(_))),
-            None => rows
-                .iter()
-                .position(|row| matches!(row, TableRow::Branch(_))),
-        };
-        if let Some(next) = next
-            && let TableRow::Branch(ix) = rows[next]
-        {
-            let ref_name = branches.list[ix].ref_name.clone();
-            self.select_other_branch(Some(ref_name), cx);
-            (self.branches_table_scroll).scroll_to_item(next, gpui::ScrollStrategy::Nearest);
-        }
-    }
-
     /// Ask for local branch `ref_name`'s description and keep it where Git does.
     fn edit_branch_description(
         &mut self,
@@ -951,7 +1004,7 @@ impl Detail {
                     &title,
                     Some(
                         "Git keeps it as the branch's description, where git branch \
-                         --edit-description does. Leave it empty to remove it."
+                         --edit-description does. Leave it empty to remove it. ⌘↩ saves it."
                             .to_owned(),
                     ),
                     "Save",
@@ -998,241 +1051,6 @@ impl Detail {
         });
     }
 
-    /// The table of every branch the filter keeps, one line each, as the page opens: what it's
-    /// for, its pull request, its commits, who last worked on it and when. Opening one shows
-    /// the list beside its diff.
-    pub(super) fn render_branches_table(
-        &self,
-        project: &ProjectId,
-        theme: &Theme,
-        window: &Window,
-        cx: &Context<Self>,
-    ) -> AnyElement {
-        let Some(branches) = self.branches_for(project) else {
-            return empty_state(None, "Loading branches…", "", theme, cx);
-        };
-        let filter = self.branch_filter_bar(project, window, cx);
-        let rows = self.table_rows(branches, cx);
-        let body = if rows.is_empty() {
-            self.no_branches(branches, theme, cx)
-        } else {
-            side_list(
-                "branch-table",
-                rows.len(),
-                &self.branches_table_scroll,
-                "branch-table-scrollbar",
-                cx,
-                move |this, ix, theme, window, cx| {
-                    let branches = this.branches.as_ref()?;
-                    Some(match rows.get(ix)? {
-                        TableRow::Heading(title, count) => h_flex()
-                            .h(px(ROW_HEIGHT))
-                            .px(px(14.))
-                            .gap(px(6.))
-                            .items_end()
-                            .pb(px(4.))
-                            .child(section_label(*title, theme))
-                            .child(faint(count.to_string(), theme))
-                            .into_any_element(),
-                        TableRow::Branch(branch_ix) => {
-                            this.render_table_row(branches, ix, *branch_ix, theme, window, cx)
-                        }
-                    })
-                },
-            )
-            .into_any_element()
-        };
-        v_flex()
-            .size_full()
-            .track_focus(&self.side_focus)
-            .key_context("SideList")
-            .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.step_table(1, cx)))
-            .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.step_table(-1, cx)))
-            .on_action(cx.listener(|this, _: &Confirm, window, cx| {
-                let selected = (this.branches.as_ref()).and_then(|b| b.selected.clone());
-                if let Some(ref_name) = selected {
-                    this.open_from_table(ref_name, window, cx);
-                }
-            }))
-            .child(filter)
-            .child(table_columns(
-                // Inset as the rows are, so the headings sit over their columns.
-                h_flex()
-                    .h(px(28.))
-                    .mx(px(6.))
-                    .px(px(8.))
-                    .border_b_1()
-                    .border_color(theme.border_3)
-                    .text_size(px(12.))
-                    .text_color(theme.text_2),
-                [
-                    "Branch",
-                    "Description",
-                    "Pull request",
-                    "Commits",
-                    "Ahead",
-                    "Last author",
-                    "Updated",
-                ]
-                .map(|label| div().child(label).into_any_element()),
-            ))
-            .child(body)
-            .into_any_element()
-    }
-
-    /// Branch `branch_ix` as a line of the table, line `ix`.
-    fn render_table_row(
-        &self,
-        branches: &Branches,
-        ix: usize,
-        branch_ix: usize,
-        theme: &Theme,
-        window: &Window,
-        cx: &Context<Self>,
-    ) -> AnyElement {
-        let branch = &branches.list[branch_ix];
-        let selected = branches.selected.as_ref() == Some(&branch.ref_name);
-        let solid = self.side_focus.is_focused(window);
-        let on = selected && solid;
-        let ink = |color| if on { theme.text_inverted } else { color };
-        let ref_name = branch.ref_name.clone();
-        let project = branches.project.clone();
-        let shown_name = (branch.ref_name.strip_prefix("refs/remotes/"))
-            .filter(|_| !branch.local)
-            .unwrap_or(&branch.name);
-        // Stacked on the branch listed after it in its stack.
-        let below = (branches.list.get(branch_ix + 1)).filter(|b| b.stack == branch.stack);
-        let name = h_flex()
-            .gap(px(6.))
-            .child(
-                div()
-                    .min_w(px(0.))
-                    .truncate()
-                    // Semibold UI type, as the navigator names branches.
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .text_color(ink(theme.text_1))
-                    .child(SharedString::from(shown_name.to_owned())),
-            )
-            .when_some(below, |el, below| {
-                el.child(
-                    div()
-                        .id(("branch-table-stacked", ix))
-                        .flex_none()
-                        .child(small_icon(Icon::Stack).text_color(ink(theme.text_3)))
-                        .tooltip(Tooltip::text(format!("Stacked on {}", below.name))),
-                )
-            });
-        // Its own description, else its pull request's title, else its newest commit's.
-        let own = branch.description.as_ref();
-        let text = (own.or(branch
-            .review
-            .as_ref()
-            .map(|r| &r.title)
-            .filter(|t| !t.is_empty())))
-        .or(branch.subject.as_ref())
-        .map(|text| text.lines().next().unwrap_or_default().to_owned());
-        let edit = branch.local.then(|| {
-            let (project, ref_name) = (project.clone(), ref_name.clone());
-            div()
-                .flex_none()
-                .opacity(0.)
-                .group_hover(TABLE_ROW, |style| style.opacity(1.))
-                // Editing it doesn't open the branch.
-                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .child(
-                    icon_button(("branch-table-describe", ix), Icon::Edit)
-                        .small()
-                        .inverted(on)
-                        .tooltip("Edit description")
-                        .on_click(window.listener_for(
-                            &cx.entity(),
-                            move |this, _: &ClickEvent, window, cx| {
-                                cx.stop_propagation();
-                                this.edit_branch_description(&project, &ref_name, window, cx)
-                            },
-                        )),
-                )
-        });
-        // The button at the column's end, where it is on every line.
-        let description = h_flex()
-            .gap(px(4.))
-            .justify_between()
-            .child(
-                div()
-                    .min_w(px(0.))
-                    .truncate()
-                    .text_color(ink(match own {
-                        Some(_) => theme.text_1,
-                        None => theme.text_2,
-                    }))
-                    .child(text.unwrap_or_default()),
-            )
-            .children(edit);
-        let review = match &branch.review {
-            Some(review) => {
-                let (glyph, color) = review::state_glyph(review.state, theme);
-                h_flex()
-                    .gap(px(4.))
-                    .child(small_icon(glyph).text_color(ink(color)))
-                    .child(review::state_label(review.state))
-                    .child(
-                        div()
-                            .text_color(ink(theme.text_2))
-                            .child(format!("#{}", review.number)),
-                    )
-            }
-            None => h_flex()
-                .text_color(ink(theme.text_2))
-                .child(match branch.local {
-                    true => "No pull request",
-                    false => "Remote only",
-                }),
-        };
-        let count = |n: Option<usize>| {
-            div()
-                .text_color(ink(theme.text_2))
-                .child(n.map_or("—".to_owned(), |n| n.to_string()))
-        };
-        let author = h_flex()
-            .gap(px(6.))
-            .when_some(branch.author.as_ref(), |el, author| {
-                el.child(byline_avatar(
-                    author,
-                    branch.email.as_deref().unwrap_or_default(),
-                    branch.agent.as_ref(),
-                    14.,
-                    theme,
-                ))
-                .child(div().min_w(px(0.)).truncate().child(author.clone()))
-            });
-        let updated = div()
-            .text_color(ink(theme.text_2))
-            .child(branch.time.map(relative_time).unwrap_or_default());
-        let open_ref = ref_name.clone();
-        table_columns(
-            side_row(("branch-table-row", ix), selected, solid, theme).group(TABLE_ROW),
-            [
-                name.into_any_element(),
-                description.into_any_element(),
-                review.into_any_element(),
-                count(branch.own_commits).into_any_element(),
-                count(branch.ahead).into_any_element(),
-                author.into_any_element(),
-                updated.into_any_element(),
-            ],
-        )
-        .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-            this.open_from_table(open_ref.clone(), window, cx)
-        }))
-        .on_mouse_down(
-            MouseButton::Right,
-            cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                this.branch_menu(&project, &ref_name, event.position, cx)
-            }),
-        )
-        .into_any_element()
-    }
-
     pub(super) fn render_branches_side(
         &self,
         project: &ProjectId,
@@ -1244,7 +1062,12 @@ impl Detail {
             return empty_state(None, "Loading branches…", "", theme, cx);
         };
         let filter = self.branch_filter_bar(project, window, cx);
+        let chips = self.branch_filter_chips(branches, cx);
+        let activity = self.branch_activity(branches, theme, cx);
         let rows = self.branch_rows(branches, cx);
+        let target = (self.store.read(cx).workspace(project))
+            .and_then(|ws| ws.target.as_ref())
+            .map(|target| target.name.clone());
         let list = if rows.is_empty() {
             self.no_branches(branches, theme, cx)
         } else {
@@ -1258,8 +1081,17 @@ impl Detail {
                     let branches = this.branches.as_ref()?;
                     let solid = this.side_focus.is_focused(window);
                     Some(match rows.get(ix)? {
+                        // On the rows under it, as a side list's group headings are.
+                        Row::Heading(heading) => div()
+                            .h(px(ROW_HEIGHT))
+                            .px(px(14.))
+                            .pb(px(2.))
+                            .flex()
+                            .items_end()
+                            .child(section_label(*heading, theme))
+                            .into_any_element(),
                         // As the navigator's caption, its branches a step in under it: a
-                        // click selects it, its chevron folds them away, and folded, it names
+                        // click selects it and its chevron folds them away; folded, it names
                         // its top branch.
                         row @ Row::Stack(top, count, folded) => {
                             let selected = is_selected(branches, row);
@@ -1287,7 +1119,7 @@ impl Detail {
                                             .min_w(px(0.))
                                             .truncate()
                                             .text_color(ink(theme.text_1))
-                                            .child(label(&branches.list[*top]).to_owned()),
+                                            .child(title(&branches.list[*top]).to_owned()),
                                     )
                                 })
                                 .on_click(cx.listener(move |this, _, _, cx| {
@@ -1372,13 +1204,6 @@ impl Detail {
                             let branch = &branches.list[*branch_ix];
                             let selected = is_selected(branches, row);
                             let ref_name = branch.ref_name.clone();
-                            let merged = (branch.ahead == Some(0)).then(|| {
-                                let ws = this.store.read(cx).workspace(&branches.project);
-                                let target = ws.and_then(|ws| ws.target.as_ref());
-                                format!("in {}", target.map_or("the target", |t| &t.name))
-                            });
-                            // As the navigator names it: a pull request by its title, the
-                            // branch's name and number on hover.
                             let (glyph, glyph_color) = match &branch.review {
                                 Some(review) => review::state_glyph(review.state, theme),
                                 None => (Icon::Branch, theme.text_2),
@@ -1397,62 +1222,63 @@ impl Detail {
                                 cx,
                                 move |this, _, cx| this.toggle_branch(&fold, cx),
                             );
-                            let shown_name = (branch.ref_name.strip_prefix("refs/remotes/"))
-                                .filter(|_| !branch.local)
-                                .unwrap_or(&branch.name);
+                            // As the navigator colours a pull request's title; fainter once
+                            // the target has it.
+                            let title_color = match &branch.review {
+                                Some(review) => review::title_color(review.state, theme),
+                                None if branch.ahead == Some(0) => theme.text_2,
+                                None => theme.text_1,
+                            };
                             let name = div()
-                                .id(("other-branch-name", ix))
                                 .flex_1()
                                 .min_w(px(0.))
                                 .truncate()
-                                .font_weight(gpui::FontWeight::SEMIBOLD);
-                            let name = match &branch.review {
-                                Some(review) if !review.title.is_empty() => name
-                                    .text_color(ink(review::title_color(review.state, theme)))
-                                    .child(SharedString::from(review.title.clone())),
-                                // A branch only a remote has, by the remote's name for it.
-                                _ => name
-                                    .text_color(ink(if merged.is_some() {
-                                        theme.text_2
-                                    } else {
-                                        theme.text_1
-                                    }))
-                                    .child(SharedString::from(shown_name.to_owned())),
-                            };
-                            let tip = (branch.review.as_ref())
-                                .map(|review| format!("{shown_name} · #{}", review.number));
+                                .font_weight(gpui::FontWeight::SEMIBOLD)
+                                .text_color(ink(title_color))
+                                .child(title(branch).to_owned());
+                            // The target has it all: said, as the navigator says it of a branch
+                            // that landed.
+                            let merged = (branch.ahead == Some(0)).then(|| {
+                                format!("in {}", target.as_deref().unwrap_or("the target"))
+                            });
                             let (project, menu_ref) = (branches.project.clone(), ref_name.clone());
                             side_row(("other-branch", ix), selected, solid, theme)
                                 .pl(px(if *stacked { 16. } else { 2. }))
                                 .children(stacked.then(|| guide(STACK_CHEVRON, theme)))
                                 .child(step)
                                 .child(small_icon(glyph).text_color(ink(glyph_color)))
-                                .child(
-                                    name.when_some(tip, |el, tip| el.tooltip(Tooltip::text(tip))),
-                                )
+                                .child(name)
                                 .when_some(merged, |el, merged| {
                                     el.child(quiet(faint(merged, theme), on, theme))
                                 })
                                 // Who made its newest commit, to pick out a teammate's at a
-                                // glance; their name on hover.
-                                .when_some(branch.author.as_ref(), |el, author| {
+                                // glance; a click lists only theirs.
+                                .when_some(branch.author.clone(), |el, author| {
+                                    let tip = match &branch.agent {
+                                        Some(agent) => format!(
+                                            "Last commit by {author}, written by {}. Click \
+                                             to list only theirs.",
+                                            agent.name
+                                        ),
+                                        None => format!(
+                                            "Last commit by {author}. Click to list only theirs."
+                                        ),
+                                    };
                                     el.child(
                                         div()
                                             .id(("other-branch-author", ix))
                                             .flex_none()
                                             .child(byline_avatar(
-                                                author,
+                                                &author,
                                                 branch.email.as_deref().unwrap_or_default(),
                                                 branch.agent.as_ref(),
                                                 14.,
                                                 theme,
                                             ))
-                                            .tooltip(Tooltip::text(match &branch.agent {
-                                                Some(agent) => format!(
-                                                    "Last commit by {author}, written by {}",
-                                                    agent.name
-                                                ),
-                                                None => format!("Last commit by {author}"),
+                                            .tooltip(Tooltip::text(tip))
+                                            .on_click(cx.listener(move |this, _, _, cx| {
+                                                cx.stop_propagation();
+                                                this.filter_person(Some(author.clone()), cx)
                                             })),
                                     )
                                 })
@@ -1477,6 +1303,8 @@ impl Detail {
                     })
                 },
             )
+            .flex_1()
+            .min_h(px(0.))
             .into_any_element()
         };
         v_flex()
@@ -1494,11 +1322,13 @@ impl Detail {
                 }))
             })
             .child(filter)
+            .children(chips)
+            .child(activity)
             .child(list)
             .into_any_element()
     }
 
-    /// The filter bar over the table and the list, with a fetch button.
+    /// The filter bar over the list, with a fetch button.
     fn branch_filter_bar(
         &self,
         project: &ProjectId,
@@ -1506,22 +1336,100 @@ impl Detail {
         cx: &Context<Self>,
     ) -> gpui::Div {
         let prefs = &self.store.read(cx).prefs;
-        // Lit while the filters aren't as they are at rest, as Lite counts them.
-        let changed =
-            prefs.branches_with_empty || prefs.branches_local_only || prefs.branches_with_merged;
+        // Lit while the filters aren't as they are at rest; the days have their own Clear.
+        let narrowed = (self.branches_for(project)).is_some_and(|b| b.who.is_some())
+            || prefs.branches_status != BranchStatus::NotMerged
+            || prefs.branches_local_only;
         self.filter_bar(
             &self.branch_filter,
             "Branch filters",
             Self::branch_filters_menu,
-            changed,
+            narrowed,
             window,
             cx,
         )
         .children(self.fetch_button(project, cx))
     }
 
-    /// What the table and the list show without a branch to list: that every one is applied,
-    /// or that the filters hide them.
+    /// The filters narrowing the list, a chip each that lets go of it; none at rest.
+    fn branch_filter_chips(&self, branches: &Branches, cx: &Context<Self>) -> Option<gpui::Div> {
+        let prefs = &self.store.read(cx).prefs;
+        let chip = |id: &'static str, label: String| {
+            button(id, label)
+                .small()
+                .icon(Icon::Cross)
+                .style(ButtonStyle::Gray)
+                .tooltip("Stop filtering by this")
+        };
+        let status = (STATUSES.iter())
+            .find(|(status, _)| *status == prefs.branches_status)
+            .filter(|(status, _)| *status != BranchStatus::NotMerged)
+            .map(|(_, name)| *name);
+        let chips: Vec<_> = (branches.who.clone())
+            .map(|who| {
+                chip("branches-who", who)
+                    .on_click(cx.listener(|this, _, _, cx| this.filter_person(None, cx)))
+            })
+            .into_iter()
+            .chain(status.map(|status| {
+                chip("branches-status", status.to_owned()).on_click(
+                    cx.listener(|this, _, _, cx| this.filter_status(BranchStatus::NotMerged, cx)),
+                )
+            }))
+            .chain(prefs.branches_local_only.then(|| {
+                chip("branches-local", "Only local".to_owned()).on_click(cx.listener(
+                    |this, _, _, cx| {
+                        (this.store).update(cx, |store, cx| {
+                            store.set_prefs(|prefs| prefs.branches_local_only = false, cx)
+                        });
+                        cx.notify();
+                    },
+                ))
+            }))
+            .collect();
+        (!chips.is_empty()).then(|| {
+            h_flex()
+                .flex_none()
+                .flex_wrap()
+                .gap(px(4.))
+                .px(px(10.))
+                .children(chips)
+        })
+    }
+
+    /// How many branches the filters but the days keep changed on each of the last 30 days.
+    /// Clicking a day, shift-clicking another or dragging across them keeps those changed
+    /// then.
+    fn branch_activity(
+        &self,
+        branches: &Branches,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let today = upstream::day_of(crate::ui::now());
+        let first_day = today - (ACTIVITY_DAYS as i64 - 1);
+        let mut daily = vec![0; ACTIVITY_DAYS];
+        for ix in self.kept_branches(branches, Some(Facet::Days), cx) {
+            if let Some(day) =
+                (branches.list[ix].time.map(upstream::day_of)).filter(|day| *day >= first_day)
+            {
+                daily[((day - first_day) as usize).min(ACTIVITY_DAYS - 1)] += 1;
+            }
+        }
+        activity_strip(
+            &daily,
+            first_day,
+            &branches.days.days,
+            "branch",
+            theme,
+            cx,
+            |this, gesture, cx| this.branch_day_gesture(gesture, cx),
+            |this, cx| this.clear_branch_days(cx),
+        )
+    }
+
+    /// What the list shows without a branch to list: that every one is applied, or that the
+    /// filters hide them.
     fn no_branches(&self, branches: &Branches, theme: &Theme, cx: &Context<Self>) -> AnyElement {
         let (drawing, empty) = if branches.list.is_empty() {
             (Illustration::Cactus, "Every branch is applied".to_owned())
@@ -1536,38 +1444,282 @@ impl Detail {
         list_empty(drawing, empty, "", theme, cx)
     }
 
-    /// Lite's branch filters: branches with no commits of their own, left out at rest, and
-    /// the ones only a remote has; and merged ones, left out at rest too.
+    /// Whose branches the list shows, and which by their pull request, each choice with how
+    /// many it would show; and whether only local ones.
     fn branch_filters_menu(&self, position: Point<Pixels>, cx: &mut Context<Self>) {
+        let Some(branches) = self.branches.as_ref() else {
+            return;
+        };
         let prefs = &self.store.read(cx).prefs;
-        let toggle = |label: &str, ticked: bool, update: fn(&mut Prefs)| {
-            MenuItem::new(label.to_owned(), move |app, _, cx| {
-                app.store
-                    .update(cx, |store, cx| store.set_prefs(update, cx));
-                // The selected branch may have just been filtered out.
-                app.detail
-                    .update(cx, |detail, cx| detail.select_shown_branch(cx));
+        let everyone = self.kept_branches(branches, Some(Facet::Who), cx).len();
+        let person = |who: Option<String>, label: String, n: usize| {
+            let ticked = branches.who == who;
+            MenuItem::new(label, move |app, _, cx| {
+                let who = who.clone();
+                (app.detail).update(cx, |detail, cx| detail.filter_person(who, cx));
             })
             .ticked(ticked)
+            .detail(n.to_string())
         };
-        let items = vec![
-            toggle(
-                "Include empty branches",
-                prefs.branches_with_empty,
-                |prefs| prefs.branches_with_empty = !prefs.branches_with_empty,
-            ),
-            toggle("Only local branches", prefs.branches_local_only, |prefs| {
-                prefs.branches_local_only = !prefs.branches_local_only
-            }),
-            toggle(
-                "Show merged branches",
-                prefs.branches_with_merged,
-                |prefs| prefs.branches_with_merged = !prefs.branches_with_merged,
-            ),
-        ];
+        let people = self.branch_people(branches, cx);
+        // The one picked stays offered, however few branches it has.
+        let offered = people
+            .iter()
+            .enumerate()
+            .filter(|(ix, (name, ..))| *ix < PEOPLE_IN_MENU || branches.who.as_ref() == Some(name));
+        let mut items = vec![person(None, "Anyone".to_owned(), everyone).under("Person")];
+        items.extend(offered.map(|(_, (name, _, n))| person(Some(name.clone()), name.clone(), *n)));
+        for (ix, (status, n)) in self.status_counts(branches, cx).into_iter().enumerate() {
+            let item = MenuItem::new(STATUSES[ix].1, move |app, _, cx| {
+                (app.detail).update(cx, |detail, cx| detail.filter_status(status, cx));
+            })
+            .ticked(prefs.branches_status == status)
+            .detail(n.to_string());
+            items.push(match ix {
+                0 => item.under("Pull request"),
+                _ => item,
+            });
+        }
+        items.push(
+            MenuItem::new("Only local branches", |app, _, cx| {
+                (app.store).update(cx, |store, cx| {
+                    store.set_prefs(|p| p.branches_local_only = !p.branches_local_only, cx)
+                });
+                // The branch opened may have just been filtered out.
+                (app.detail).update(cx, |detail, cx| detail.select_shown_branch(cx));
+            })
+            .ticked(prefs.branches_local_only)
+            .separated(),
+        );
         (self.app)
             .update(cx, |app, cx| app.open_menu(position, items, cx))
             .ok();
+    }
+
+    /// Beside the list until a branch is opened: how the branches the filters keep stand by
+    /// their pull request, and whose they are, most first, each a filter of its own.
+    pub(super) fn render_branches_overview(
+        &self,
+        project: &ProjectId,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let Some(branches) = self.branches_for(project) else {
+            return div().flex_1().into_any_element();
+        };
+        let shown = self.shown_branches(branches, cx).len();
+        let picked_status = self.store.read(cx).prefs.branches_status;
+        let statuses = (self.status_counts(branches, cx).into_iter().enumerate())
+            .filter(|(_, (status, _))| {
+                !matches!(status, BranchStatus::NotMerged | BranchStatus::Any)
+            })
+            .map(|(ix, (status, n))| {
+                let (glyph, color) = match status {
+                    BranchStatus::Open => review::state_glyph(ReviewState::Open, theme),
+                    BranchStatus::Draft => review::state_glyph(ReviewState::Draft, theme),
+                    BranchStatus::Closed => review::state_glyph(ReviewState::Closed, theme),
+                    BranchStatus::Merged => review::state_glyph(ReviewState::Merged, theme),
+                    _ => (Icon::Branch, theme.text_2),
+                };
+                let picked = picked_status == status;
+                // One with none to list is quiet and can't be picked, unless it is.
+                let none = n == 0 && !picked;
+                list_row(("overview-status", ix), picked, theme)
+                    .when(none, |el| el.text_color(theme.text_3))
+                    .child(small_icon(glyph).text_color(match none {
+                        true => theme.text_3,
+                        false => color,
+                    }))
+                    .child(div().flex_1().child(STATUSES[ix].1))
+                    .child(faint(n.to_string(), theme))
+                    .when(!none, |el| {
+                        el.on_click(cx.listener(move |this, _, _, cx| {
+                            let status = match picked {
+                                true => BranchStatus::NotMerged,
+                                false => status,
+                            };
+                            this.filter_status(status, cx)
+                        }))
+                    })
+            });
+        let people = self.branch_people(branches, cx);
+        let most = people.first().map_or(1, |(.., n)| (*n).max(1));
+        // The one picked stays listed, however few branches it has, as in the filter menu.
+        let listed = |ix: usize, name: &String| {
+            ix < PEOPLE_IN_OVERVIEW || branches.who.as_ref() == Some(name)
+        };
+        let rest = (people.iter().enumerate())
+            .filter(|(ix, (name, ..))| !listed(*ix, name))
+            .count();
+        let people = (people.into_iter().enumerate())
+            .filter(|(ix, (name, ..))| listed(*ix, name))
+            .map(|(ix, (name, email, n))| {
+                let picked = branches.who.as_ref() == Some(&name);
+                list_row(("overview-person", ix), picked, theme)
+                    .h_auto()
+                    .py(px(5.))
+                    .child(author_avatar(&name, &email, 20., theme))
+                    .child(
+                        v_flex()
+                            .flex_1()
+                            .min_w(px(0.))
+                            .gap(px(3.))
+                            .child(
+                                h_flex()
+                                    .gap(px(8.))
+                                    .child(
+                                        div().flex_1().min_w(px(0.)).truncate().child(name.clone()),
+                                    )
+                                    .child(faint(n.to_string(), theme)),
+                            )
+                            .child(
+                                div().h(px(4.)).rounded(px(2.)).bg(theme.border_3).child(
+                                    div()
+                                        .h_full()
+                                        .rounded(px(2.))
+                                        .w(relative(n as f32 / most as f32))
+                                        .bg(theme.text_3),
+                                ),
+                            ),
+                    )
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.filter_person((!picked).then(|| name.clone()), cx)
+                    }))
+            });
+        let people: Vec<_> = people.collect();
+        let nobody = people.is_empty();
+        // Who first, as the page is for what the team is at; side by side while there's room.
+        v_flex()
+            .id("branches-overview")
+            .flex_1()
+            .h_full()
+            .min_w(px(0.))
+            .overflow_y_scroll()
+            .child(
+                h_flex()
+                    .flex_wrap()
+                    .items_start()
+                    .p(px(6.))
+                    .child(
+                        overview_box("People", "branches".to_owned(), people, theme)
+                            .when(nobody, |el| {
+                                el.child(faint("No branches listed", theme).px(px(14.)).py(px(4.)))
+                            })
+                            .when(rest > 0, |el| {
+                                el.child(
+                                    faint(format!("and {}", plural(rest, "other")), theme)
+                                        .px(px(14.)),
+                                )
+                            }),
+                    )
+                    .child(overview_box(
+                        "Pull requests",
+                        format!("{} listed", plural(shown, "branch")),
+                        statuses,
+                        theme,
+                    )),
+            )
+            .into_any_element()
+    }
+
+    /// The opened branch's header, beside the list over its diff where a picked commit's
+    /// message goes, as the navigator heads a branch: what it's called, then its name, its
+    /// pull request, its commits and who last worked on it, and its description under them.
+    /// A stack's caption heads the stack: its branches, top first.
+    pub(super) fn render_other_branch_header(
+        &self,
+        project: &ProjectId,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        let branches = self.branches_for(project)?;
+        let branch = branches.selected_branch()?;
+        let target = (self.store.read(cx).workspace(project))
+            .and_then(|ws| ws.target.as_ref())
+            .map_or("the target".to_owned(), |target| target.name.clone());
+        let stack: Vec<&OtherBranch> = (branches.list.iter())
+            .filter(|b| b.stack == branch.stack)
+            .collect();
+        let (glyph, title) = match &branch.review {
+            _ if branches.stack => (Icon::Stack, format!("Stack of {}", stack.len())),
+            Some(review) if !review.title.is_empty() => (
+                review::state_glyph(review.state, theme).0,
+                review.title.clone(),
+            ),
+            _ => (Icon::Branch, shown_name(branch).to_owned()),
+        };
+        let name = match branches.stack {
+            true => (stack.iter().map(|b| shown_name(b)))
+                .collect::<Vec<_>>()
+                .join(" ← "),
+            false => shown_name(branch).to_owned(),
+        };
+        let review = (branch.review.as_ref())
+            .filter(|_| !branches.stack)
+            .map(|review| {
+                let (glyph, color) = review::state_glyph(review.state, theme);
+                let state = match review.state {
+                    ReviewState::Open => "Open",
+                    ReviewState::Draft => "Draft",
+                    ReviewState::Merged => "Merged",
+                    ReviewState::Closed => "Closed",
+                };
+                h_flex()
+                    .flex_none()
+                    .gap(px(3.))
+                    .child(icon(glyph).size(px(14.)).text_color(color))
+                    .child(format!("{state} #{}", review.number))
+            });
+        let commits = match (branch.ahead, branches.stack) {
+            (Some(0), false) => format!("in {target}"),
+            (_, true) => plural(stack.iter().filter_map(|b| b.own_commits).sum(), "commit"),
+            (_, false) => plural(branch.own_commits.unwrap_or(0), "commit"),
+        };
+        let byline = (branch.author.as_ref())
+            .zip(branch.time)
+            .map(|(author, time)| {
+                let email = branch.email.as_deref().unwrap_or_default();
+                byline(author, email, branch.agent.as_ref(), time, theme).flex_none()
+            });
+        let description = (branch.description.clone()).filter(|_| !branches.stack);
+        // And the rule along its bottom, which the diff starts below, as a commit's message.
+        let height = measured(&self.target_message_height, &self.app, |bounds| {
+            f32::from(bounds.size.height) + 1.
+        });
+        Some(
+            v_flex()
+                .relative()
+                .flex_none()
+                .gap(px(8.))
+                .px(px(16.))
+                .py(px(12.))
+                .border_b_1()
+                .border_color(theme.border_3)
+                .child(page_title(glyph, theme).child(title_text(title.clone()).truncate()))
+                .child(
+                    meta_row(theme)
+                        // Its name, unless the title already is.
+                        .when(name != title, |el| {
+                            el.child(
+                                meta_item(Icon::Branch, theme)
+                                    .min_w(px(0.))
+                                    .child(div().min_w(px(0.)).truncate().child(name)),
+                            )
+                        })
+                        .children(review)
+                        .child(meta_item(Icon::Commit, theme).flex_none().child(commits))
+                        .children(byline),
+                )
+                .children(description.map(|description| {
+                    div()
+                        .text_size(px(13.))
+                        .text_color(theme.text_2)
+                        .whitespace_normal()
+                        .child(description)
+                }))
+                .child(height)
+                .into_any_element(),
+        )
     }
 
     /// The page's crumbs after "Branches": the selected stack or branch, and the commit of it
@@ -1589,37 +1741,10 @@ impl Detail {
     }
 }
 
-/// `row` with `cells` laid out as the table's columns: the branch and its description share
-/// what the others leave, the description taking more.
-fn table_columns<E: ParentElement + Styled>(row: E, cells: [AnyElement; 7]) -> E {
-    let widths = [
-        None,
-        None,
-        Some(140.),
-        Some(64.),
-        Some(56.),
-        Some(160.),
-        Some(72.),
-    ];
-    let row = row.gap(px(12.)).items_center();
-    cells
-        .into_iter()
-        .zip(widths)
-        .enumerate()
-        .fold(row, |row, (ix, (cell, width))| {
-            let column = div().min_w(px(0.)).overflow_hidden().child(cell);
-            row.child(match (ix, width) {
-                (0, _) => column.flex_none().w(relative(0.22)),
-                (_, None) => column.flex_grow(1.).flex_shrink(1.).flex_basis(px(0.)),
-                (_, Some(width)) => column.flex_none().w(px(width)),
-            })
-        })
-}
-
-/// Whether `row` is what's selected: the selected commit, or else the selected branch.
 fn is_selected(branches: &Branches, row: &Row) -> bool {
     let selected = |ix: usize| branches.selected.as_ref() == Some(&branches.list[ix].ref_name);
     match *row {
+        Row::Heading(_) => false,
         Row::Stack(top, ..) => selected(top) && branches.stack,
         Row::Branch(ix, _) => selected(ix) && !branches.stack && branches.commit.is_none(),
         Row::Commit(ix, commit, _) => {
@@ -1642,16 +1767,59 @@ fn is_picked(branches: &Branches, row: &Row) -> bool {
             .is_some_and(|c| branches.picked.contains(&c.id))
 }
 
-/// What the list calls a branch: its pull request's title once known, else its name.
-fn label(branch: &OtherBranch) -> &str {
+/// What the list calls a branch, as the navigator does: its pull request's title once known,
+/// else its name, a remote's as the remote names it (origin/…).
+fn title(branch: &OtherBranch) -> &str {
     (branch.review.as_ref())
         .map(|review| review.title.as_str())
         .filter(|title| !title.is_empty())
+        .unwrap_or_else(|| shown_name(branch))
+}
+
+/// A branch's name, a remote's as the remote names it (origin/…).
+fn shown_name(branch: &OtherBranch) -> &str {
+    (branch.ref_name.strip_prefix("refs/remotes/"))
+        .filter(|_| !branch.local)
         .unwrap_or(&branch.name)
 }
 
-/// Whether `branch`'s pull request was merged. One the target already has, as merged without
-/// a forge, counts no commits of its own and goes with the empty ones.
-fn is_merged(branch: &OtherBranch) -> bool {
-    (branch.review.as_ref()).is_some_and(|review| review.state == ReviewState::Merged)
+/// Whether `status` keeps `branch`, by its pull request.
+fn status_keeps(status: BranchStatus, branch: &OtherBranch) -> bool {
+    let state = branch.review.as_ref().map(|review| review.state);
+    match status {
+        BranchStatus::NotMerged => state != Some(ReviewState::Merged),
+        BranchStatus::Open => state == Some(ReviewState::Open),
+        BranchStatus::Draft => state == Some(ReviewState::Draft),
+        BranchStatus::Closed => state == Some(ReviewState::Closed),
+        BranchStatus::Merged => state == Some(ReviewState::Merged),
+        BranchStatus::NoPullRequest => state.is_none(),
+        BranchStatus::Any => true,
+    }
+}
+
+/// A card of the overview: `title` and `detail` over its `rows`.
+fn overview_box(
+    title: &str,
+    detail: String,
+    rows: impl IntoIterator<Item = impl IntoElement>,
+    theme: &Theme,
+) -> gpui::Div {
+    v_flex()
+        .flex_1()
+        .min_w(px(280.))
+        .m(px(6.))
+        .py(px(8.))
+        .gap(px(2.))
+        .border_1()
+        .border_color(theme.border_3)
+        .rounded(px(8.))
+        .child(
+            h_flex()
+                .px(px(14.))
+                .pb(px(4.))
+                .gap(px(8.))
+                .child(section_label(title.to_owned(), theme).flex_grow(1.))
+                .child(faint(detail, theme)),
+        )
+        .children(rows)
 }

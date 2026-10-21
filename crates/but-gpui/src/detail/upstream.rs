@@ -399,7 +399,7 @@ impl Detail {
     /// Whether the window leaves the diff out, as a pull request and the README take its
     /// place.
     pub fn diff_hidden(&self, cx: &gpui::App) -> bool {
-        self.showing_review(cx) || self.showing_readme(cx) || self.showing_branches_table(cx)
+        self.showing_review(cx) || self.showing_readme(cx) || self.showing_branches_overview(cx)
     }
 
     /// How far right of a list page's list the diff starts: past the files, when there's room
@@ -456,13 +456,13 @@ impl Detail {
         self.show_picked(cx);
     }
 
-    /// Beside a list page's list, what's selected in it: `message`, the commit's whose message
-    /// shows, if any; tabs when it has a pull request; and under them the pull request, or the
-    /// files when there's room, the window drawing the diff over the rest.
+    /// Beside a list page's list, what's selected in it: its `header`, a commit's message or a
+    /// branch's, if any; tabs when it has a pull request; and under them the pull request, or
+    /// the files when there's room, the window drawing the diff over the rest.
     pub(super) fn list_beside(
         &self,
         project: &ProjectId,
-        message: Option<&TargetCommit>,
+        header: Option<AnyElement>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
@@ -489,7 +489,7 @@ impl Detail {
             .flex_1()
             .h_full()
             .min_w(px(0.))
-            .children(message.map(|commit| self.render_target_message(commit, theme, cx)))
+            .children(header)
             .children(tabs)
             .child(below)
             .child(width)
@@ -520,7 +520,7 @@ impl Detail {
 
     /// A target commit's message: its title and who wrote it and when, with a link that shows
     /// the rest of it, when there is any.
-    fn render_target_message(
+    pub(super) fn render_target_message(
         &self,
         commit: &TargetCommit,
         theme: &Theme,

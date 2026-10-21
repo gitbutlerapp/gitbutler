@@ -259,6 +259,21 @@ pub enum WatchedOrder {
     Activity,
 }
 
+/// Which branches the Branches page lists by their pull request.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BranchStatus {
+    /// Every one but those whose pull request merged.
+    #[default]
+    NotMerged,
+    Open,
+    Draft,
+    Closed,
+    Merged,
+    NoPullRequest,
+    /// Merged ones too.
+    Any,
+}
+
 /// How many unchanged lines the rest of a hunk's function or type may add for a diff to show
 /// it whole.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -347,12 +362,10 @@ pub struct Prefs {
     pub shown_inactive: HashSet<String>,
     /// The order the watched projects go in.
     pub watched_order: WatchedOrder,
-    /// The Branches page lists branches with no commits of their own too, as Lite's can.
-    pub branches_with_empty: bool,
     /// The Branches page leaves out the branches only a remote has.
     pub branches_local_only: bool,
-    /// The Branches page lists the branches whose pull request was merged too.
-    pub branches_with_merged: bool,
+    /// Which branches the Branches page lists by their pull request.
+    pub branches_status: BranchStatus,
     /// The navigator's branches start with their commits listed, rather than folded to a
     /// row each.
     pub branches_start_open: bool,

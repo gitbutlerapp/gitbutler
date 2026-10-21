@@ -1420,6 +1420,30 @@ mod tests {
     }
 
     #[test]
+    fn a_listed_branch_names_everyone_with_a_commit_of_its_own() {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        target_origin_main(path);
+        git(path, &["checkout", "-q", "-b", "feature"]);
+        for (who, title) in [("Ada", "first"), ("Bo", "second"), ("Ada", "third")] {
+            let name = format!("user.name={who}");
+            git(
+                path,
+                &["-c", &name, "commit", "-q", "--allow-empty", "-m", title],
+            );
+        }
+        git(path, &["checkout", "-q", "main"]);
+
+        let listed = crate::backend::branches::other_branches(path).unwrap();
+        let feature = listed.iter().find(|b| b.name == "feature").unwrap();
+        assert_eq!(
+            feature.people,
+            ["Ada", "Bo"],
+            "who its own commits are by, newest first, each once"
+        );
+    }
+
+    #[test]
     fn a_new_branch_beside_named_like_another_changes_nothing() {
         let dir = repo_with("one\n");
         let path = dir.path();

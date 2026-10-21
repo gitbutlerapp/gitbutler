@@ -942,6 +942,10 @@ pub fn commit_title(title: &str) -> SharedString {
 pub fn plural(n: usize, word: &str) -> String {
     match n {
         1 => format!("1 {word}"),
+        // As English spells it: branches, not branchs.
+        n if ["s", "x", "ch", "sh"].iter().any(|end| word.ends_with(end)) => {
+            format!("{n} {word}es")
+        }
         n => format!("{n} {word}s"),
     }
 }

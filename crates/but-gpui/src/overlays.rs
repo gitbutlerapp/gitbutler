@@ -39,6 +39,8 @@ pub struct MenuItem {
     pub label: SharedString,
     /// The keys that do the same, shown at the end of the row.
     pub key: Option<SharedString>,
+    /// A word on it, quieter, before the keys: how many it would show, say.
+    pub detail: Option<SharedString>,
     pub danger: bool,
     /// Starts a new group, with a line above it.
     pub separated: bool,
@@ -57,6 +59,7 @@ impl MenuItem {
         Self {
             label: label.into(),
             key: None,
+            detail: None,
             danger: false,
             separated: false,
             heading: None,
@@ -95,6 +98,11 @@ impl MenuItem {
 
     pub fn ticked(mut self, ticked: bool) -> Self {
         self.ticked = ticked;
+        self
+    }
+
+    pub fn detail(mut self, detail: impl Into<SharedString>) -> Self {
+        self.detail = Some(detail.into());
         self
     }
 }
@@ -445,9 +453,16 @@ impl AppView {
                     theme.text_1
                 })
                 .child(div().flex_1().child(item.label.clone()))
+                .when_some(item.detail.clone(), |el, detail| {
+                    el.child(div().text_color(theme.text_3).child(detail))
+                })
                 .when_some(item.key.clone(), |el, key| el.child(keycap(&key, theme)))
-                .when(item.ticked, |el| {
-                    el.child(small_icon(Icon::Tick).text_color(theme.text_1))
+                // A row with a detail keeps the tick's place, so the details line up.
+                .when(item.ticked || item.detail.is_some(), |el| {
+                    el.child(small_icon(Icon::Tick).text_color(match item.ticked {
+                        true => theme.text_1,
+                        false => gpui::transparent_black(),
+                    }))
                 })
                 .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                     this.menu = None;

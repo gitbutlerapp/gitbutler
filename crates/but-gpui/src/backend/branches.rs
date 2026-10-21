@@ -20,6 +20,8 @@ pub struct OtherBranch {
     pub local: bool,
     /// Who its newest commit is shown by, as [`super::byline`] picks.
     pub author: Option<String>,
+    /// Everyone its own commits are shown by, newest first, as `author` is.
+    pub people: Vec<String>,
     /// Theirs, for their picture.
     pub email: Option<String>,
     /// The agent that wrote its newest commit, when `author` is the person who committed it.
@@ -38,8 +40,6 @@ pub struct OtherBranch {
     pub review: Option<Review>,
     /// A local branch's description, as `git branch --edit-description` writes it.
     pub description: Option<String>,
-    /// Its newest commit's title.
-    pub subject: Option<String>,
 }
 
 /// Every branch the workspace doesn't have applied, newest first, a stack's branches together
@@ -67,6 +67,7 @@ pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
                 ref_name: branch.ref_name.to_string(),
                 name: branch.display_name.to_str_lossy().into_owned(),
                 local: branch.has_local,
+                people: people(&repo, branch.tip, branch.commit_count.unwrap_or(1)),
                 author,
                 email,
                 agent: agent.flatten(),
@@ -79,12 +80,28 @@ pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
                 description: (branch.description.as_ref())
                     .map(|d| d.to_str_lossy().trim().to_owned())
                     .filter(|d| !d.is_empty()),
-                subject: (branch.tip_subject.as_ref())
-                    .map(|s| s.to_str_lossy().into_owned())
-                    .filter(|s| !s.is_empty()),
             }
         })
         .collect())
+}
+
+/// Who the `count` commits from `tip` down its first parents are shown by, newest first,
+/// each once.
+fn people(repo: &gix::Repository, tip: gix::ObjectId, count: usize) -> Vec<String> {
+    let mut people = Vec::new();
+    let mut next = Some(tip);
+    for _ in 0..count {
+        let Some(commit) = next.and_then(|id| repo.find_commit(id).ok()) else {
+            break;
+        };
+        if let Ok(((name, _), _)) = super::commit_byline(&commit)
+            && !people.contains(&name)
+        {
+            people.push(name);
+        }
+        next = commit.parent_ids().next().map(|id| id.detach());
+    }
+    people
 }
 
 /// Set local branch `ref_name`'s description where Git keeps it, as `git branch
