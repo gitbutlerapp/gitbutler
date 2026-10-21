@@ -865,8 +865,8 @@ impl Detail {
         .into_any_element()
     }
 
-    /// A target commit's message: its title, who wrote it and when, and the first lines of
-    /// the rest, with a button to show it all.
+    /// A target commit's message: its title and who wrote it and when, with a link that shows
+    /// the rest of it, when there is any.
     pub(super) fn render_target_message(
         &self,
         commit: &TargetCommit,
@@ -874,8 +874,7 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         // Folded, it's as tall whatever the commit, so picking another moves nothing below:
-        // one line of title, and three of the rest, cut short.
-        const LINES: usize = 3;
+        // one line of title, and one of who wrote it, which holds the link.
         const LINE: f32 = 20.;
         // A merge with no more to say than the pull request it landed says what that does, in
         // its description's words.
@@ -918,15 +917,24 @@ impl Detail {
             .rposition(|line| !line.trim().is_empty())
             .map_or(0, |at| at + 1);
         let body = &body[..end];
-        // Whether it runs past its three lines, by about how many characters fit across.
-        let across = ((self.beside_width.get() - 32.) / 7.).max(20.) as usize;
-        let lines: usize = (body.iter())
-            .map(|line| line.chars().count().div_ceil(across).max(1))
-            .sum();
         let title = label(commit).to_owned();
-        let long = lines > LINES || title.chars().count() > across * 15 / 13;
         let open = self.message_open;
         let shown = body.join("\n");
+        let toggle = (!shown.is_empty()).then(|| {
+            div()
+                .id("target-message-more")
+                .text_color(theme.blue)
+                .cursor_pointer()
+                .child(match open {
+                    true => "Hide message",
+                    false => "Show message",
+                })
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.message_open = !this.message_open;
+                    cx.notify();
+                    this.app.update(cx, |_, cx| cx.notify()).ok();
+                }))
+        });
         let (height, app) = (self.target_message_height.clone(), self.app.clone());
         let measure = gpui::canvas(
             move |bounds, _, cx| {
@@ -978,40 +986,19 @@ impl Detail {
                         commit.author,
                         crate::ui::ago(commit.time),
                         commit.id.short()
-                    )),
+                    ))
+                    .children(toggle.map(|toggle| h_flex().gap(px(6.)).child("·").child(toggle))),
             )
-            .child(
-                div()
-                    .text_size(px(13.))
-                    .line_height(px(LINE))
-                    .text_color(theme.text_2)
-                    .whitespace_normal()
-                    .when(!open, |el| {
-                        el.h(px(LINE * LINES as f32))
-                            .overflow_hidden()
-                            .line_clamp(LINES)
-                    })
-                    .child(SharedString::from(shown)),
-            )
-            // Its room kept when there's no more to show.
-            .child(
-                div()
-                    .id("target-message-more")
-                    .h(px(18.))
-                    .text_size(px(12.))
-                    .text_color(theme.blue)
-                    .cursor_pointer()
-                    .when(!long, |el| el.invisible())
-                    .child(match open {
-                        true => "Show less",
-                        false => "Show more",
-                    })
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.message_open = !this.message_open;
-                        cx.notify();
-                        this.app.update(cx, |_, cx| cx.notify()).ok();
-                    })),
-            )
+            .when(open && !shown.is_empty(), |el| {
+                el.child(
+                    div()
+                        .text_size(px(13.))
+                        .line_height(px(LINE))
+                        .text_color(theme.text_2)
+                        .whitespace_normal()
+                        .child(SharedString::from(shown)),
+                )
+            })
             .child(measure)
             .into_any_element()
     }
