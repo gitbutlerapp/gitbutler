@@ -158,6 +158,13 @@ impl AppView {
                 if (this.palette.as_ref()).is_some_and(|palette| palette.acting_on != now) {
                     this.close_palette(window, cx);
                 }
+                let on_branch = this.prompt.as_ref().and_then(|p| p.on_branch.as_ref());
+                if on_branch.is_some_and(|(project, from)| {
+                    (store.read(cx).workspace(project))
+                        .is_some_and(|ws| ws.find_branch(from).is_none())
+                }) {
+                    this.cancel_prompt(window, cx);
+                }
                 cx.notify()
             }),
             cx.observe_window_appearance(window, |this, window, cx| {

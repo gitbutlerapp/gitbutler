@@ -501,9 +501,11 @@ impl AppView {
             None => "New branch on top".to_owned(),
         };
         let here = worktree.is_none();
+        let on_branch = (project.clone(), below.clone());
         self.prompt_new_branch(project, &title, here, window, cx, move |path, _, name| {
             backend::create_dependent_branch(path, &below, name)
         });
+        self.prompt_on_branch(on_branch);
     }
 
     /// Ask for a branch name and make the branch with `op`, then select it. One made on top

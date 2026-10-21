@@ -122,6 +122,9 @@ pub struct Prompt {
     check: Option<CheckHandler>,
     /// What `check` said of the text last submitted, until it's edited.
     hint: Option<SharedString>,
+    /// The branch the prompt renames or makes one on top of. Once it's gone, as when an
+    /// agent renamed it, the prompt goes too, as a menu does, rather than fail.
+    pub(crate) on_branch: Option<(ProjectId, String)>,
     _subscription: Subscription,
 }
 
@@ -190,6 +193,8 @@ impl AppView {
              makes a new remote branch, apart from any pull request of the old one."
                 .to_owned()
         });
+        let renamed =
+            (renaming.clone().filter(|from| !from.is_empty())).map(|from| (project.clone(), from));
         self.open_prompt(
             title,
             detail,
@@ -225,6 +230,17 @@ impl AppView {
                 });
             },
         );
+        if let Some(from) = renamed {
+            self.prompt_on_branch(from);
+        }
+    }
+
+    /// Tie the prompt just opened to the branch it acts on, so it goes once the branch does.
+    pub(crate) fn prompt_on_branch(&mut self, branch: (ProjectId, String)) {
+        // Not to a prompt Git is waiting on, which one asked for meanwhile left open.
+        if let Some(prompt) = self.prompt.as_mut().filter(|p| p.on_cancel.is_none()) {
+            prompt.on_branch = Some(branch);
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -295,12 +311,13 @@ impl AppView {
             on_cancel,
             check,
             hint: None,
+            on_branch: None,
             _subscription: subscription,
         });
         cx.notify();
     }
 
-    fn cancel_prompt(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn cancel_prompt(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(prompt) = self.prompt.take()
             && let Some(on_cancel) = prompt.on_cancel
         {
