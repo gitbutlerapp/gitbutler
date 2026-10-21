@@ -316,6 +316,9 @@ pub struct Prefs {
     /// Watched projects, by id, whose work on other machines shows under its heading; it
     /// starts folded.
     pub shown_mesh: HashSet<String>,
+    /// Watched projects, by id, whose inactive worktrees show under their heading; it starts
+    /// folded.
+    pub shown_inactive: HashSet<String>,
     /// The order the watched projects go in.
     pub watched_order: WatchedOrder,
     /// The Branches page lists branches with no commits of their own too, as Lite's can.

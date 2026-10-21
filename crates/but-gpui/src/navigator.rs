@@ -119,8 +119,9 @@ enum Row {
     Pending(SharedString, bool),
     /// Where a commit of the project being dragged lands in a new branch of its own.
     NewBranch(ProjectId),
-    /// After a project's worktrees: how many are inactive, which it shows or hides.
-    Inactive(ProjectId, usize),
+    /// After a project's active worktrees, the heading over its inactive ones: how many, and
+    /// whether the selection's in one, which keeps them listed.
+    Inactive(ProjectId, usize, bool),
     /// The line after a worktree's section.
     WorktreeDivider,
     /// Over a project's checkouts on other machines, which folds them all away.
@@ -334,8 +335,6 @@ pub struct Navigator {
     /// Whether branches start open, as the flips were made against. When Settings change
     /// it, the flips go and every branch starts over.
     branches_start_open: bool,
-    /// Projects showing their inactive worktrees too.
-    shown_inactive: HashSet<ProjectId>,
     /// Worktrees showing only their heading, the main one by `None`.
     folded_worktrees: HashSet<(ProjectId, Option<Arc<str>>)>,
     /// Stacks showing only their caption, by their bottom branch.
@@ -449,7 +448,6 @@ impl Navigator {
             folded_checkouts: HashSet::new(),
             flipped_mesh_branches: HashSet::new(),
             branches_start_open,
-            shown_inactive: HashSet::new(),
             folded_worktrees: HashSet::new(),
             folded_stacks: HashSet::new(),
             filter,
@@ -547,18 +545,20 @@ impl Navigator {
                 let on_branches =
                     |wt: &Worktree| selection.is_some_and(|s| within(s, wt.branches.iter()));
                 let heads = |wt: &Worktree| matches!(selection, Some(Selection::Worktree(_, name)) if *name == wt.name);
-                // The inactive ones wait behind a row of their own, unless the selection's in one.
+                // The inactive ones wait under a heading of their own, folded unless opened or
+                // the selection's in one.
                 let (inactive, active): (Vec<_>, Vec<_>) = (workspace.worktrees.iter())
                     .filter(|wt| !store.hides_worktree(id, &wt.name))
-                    .partition(|wt| is_inactive(wt) && !heads(wt) && !on_branches(wt));
+                    .partition(|wt| is_inactive(wt));
                 for wt in active {
                     self.worktree_rows(store, id, wt, on_branches(wt), &mut rows);
                 }
                 if !inactive.is_empty() {
-                    rows.push(Row::Inactive(id.clone(), inactive.len()));
-                    if self.shown_inactive.contains(id) {
+                    let inside = (inactive.iter()).any(|wt| heads(wt) || on_branches(wt));
+                    rows.push(Row::Inactive(id.clone(), inactive.len(), inside));
+                    if inside || store.prefs.shown_inactive.contains(id.as_ref()) {
                         for wt in inactive {
-                            self.worktree_rows(store, id, wt, false, &mut rows);
+                            self.worktree_rows(store, id, wt, on_branches(wt), &mut rows);
                         }
                     }
                 }
@@ -1371,23 +1371,8 @@ impl Navigator {
                     }))
                     .into_any_element()
             }
-            Some(Row::Inactive(project, n)) => {
-                let (project, shown) = (project.clone(), self.shown_inactive.contains(project));
-                let chevron = match shown {
-                    true => Icon::ChevronDown,
-                    false => Icon::ChevronRight,
-                };
-                // The chevron under the worktrees' chevrons, the words under their names.
-                fold_row(("inactive", ix), chevron, 11., 55., theme)
-                    .child(plural(*n, "inactive worktree"))
-                    .tooltip(Tooltip::text(
-                        "Nothing uncommitted, and no commits or checkouts in 12 hours",
-                    ))
-                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                        toggle(&mut this.shown_inactive, project.clone());
-                        cx.notify();
-                    }))
-                    .into_any_element()
+            Some(Row::Inactive(project, n, inside)) => {
+                self.inactive_heading(project, *n, *inside, theme, cx)
             }
         };
         // Items step in by their style, keeping the highlight full width; the rest as a whole.
@@ -2702,6 +2687,58 @@ impl Navigator {
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
                 .into_any_element(),
         )
+    }
+
+    /// Over `project`'s `n` inactive worktrees, as Network worktrees is over its checkouts
+    /// elsewhere: a click lists or folds them, and folded, it says how many. The selection in
+    /// one keeps them listed, and folding them over it takes it up to the project.
+    fn inactive_heading(
+        &self,
+        project: &ProjectId,
+        n: usize,
+        inside: bool,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let key = project.to_string();
+        let open = inside || self.store.read(cx).prefs.shown_inactive.contains(&key);
+        let project = project.clone();
+        h_flex()
+            .id(ElementId::Name(
+                format!("inactive-heading-{project}").into(),
+            ))
+            .h(px(ROW_HEIGHT))
+            .mx(px(3.))
+            .pl(px(14.))
+            .pr(px(12.))
+            .gap(px(6.))
+            .cursor_pointer()
+            .child(step(Some(open), theme.text_3))
+            .child(small_icon(Icon::Clock).text_color(theme.text_3))
+            .child(section_label("Inactive worktrees", theme))
+            .when(!open, |el| el.child(faint(n.to_string(), theme)))
+            .tooltip(Tooltip::text(
+                "Nothing uncommitted, and no commits or checkouts in 12 hours",
+            ))
+            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                let key = key.clone();
+                this.store.update(cx, |store, cx| {
+                    store.set_prefs(
+                        |prefs| {
+                            match open {
+                                true => prefs.shown_inactive.remove(&key),
+                                false => prefs.shown_inactive.insert(key),
+                            };
+                        },
+                        cx,
+                    )
+                });
+                match open && inside {
+                    true => this.select(Selection::Project(project.clone()), window, cx),
+                    false => cx.notify(),
+                }
+            }))
+            .into_any_element()
     }
 
     /// Over the commits only branch `ref_name`'s remote has, or with `None` the target's new
