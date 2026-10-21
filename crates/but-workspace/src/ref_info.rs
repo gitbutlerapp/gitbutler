@@ -9,8 +9,11 @@ use std::{
 };
 
 use bstr::{BStr, BString, ByteSlice};
-use but_core::ref_metadata;
-use but_graph::{SegmentIndex, workspace::StackCommitFlags};
+use but_core::{commit::padding, ref_metadata};
+use but_graph::{
+    SegmentIndex,
+    workspace::{StackCommitFlags, WorktreeBase},
+};
 use gix::Repository;
 
 /// A commit with must useful information extracted from the Git commit itself.
@@ -549,6 +552,9 @@ pub(crate) fn find_ancestor_workspace_commit(
                 sidx_and_cidx = Some((s.id, cidx));
                 return true;
             }
+            if padding::is_padding_by_message(commit.message.as_ref()) {
+                continue;
+            }
             commits_outside.push(
                 crate::ref_info::Commit::from_commit_ahead_of_workspace_commit(
                     but_core::Commit {
@@ -991,10 +997,11 @@ impl crate::ref_info::Segment {
         }: &but_graph::workspace::StackSegment,
         repo: &gix::Repository,
     ) -> anyhow::Result<Self> {
-        let commits: Vec<_> = commits
+        let mut commits: Vec<_> = commits
             .iter()
             .map(|c| LocalCommit::try_from_stack_commit(c, repo))
             .collect::<anyhow::Result<_>>()?;
+        commits.retain(|c| !padding::is_padding_by_message(c.message.as_ref()));
         let commits_on_remote: Vec<_> = commits_on_remote
             .iter()
             .map(|c| {
@@ -1031,13 +1038,27 @@ impl crate::worktrees::WorktreeInfo {
             name: name.clone(),
             ref_name: ref_name.clone(),
             head: *head,
-            base: *base,
+            base: match *base {
+                Some(WorktreeBase::InWorkspace(id)) => {
+                    Some(WorktreeBase::InWorkspace(beneath_padding(id, repo)?))
+                }
+                Some(WorktreeBase::Outside(id)) => Some(WorktreeBase::Outside(id)),
+                None => None,
+            },
             segments: segments
                 .iter()
                 .map(|s| crate::ref_info::Segment::try_from_graph_segment(s, repo))
                 .collect::<anyhow::Result<_>>()?,
         })
     }
+}
+
+fn beneath_padding(id: gix::ObjectId, repo: &gix::Repository) -> anyhow::Result<gix::ObjectId> {
+    let commit = but_core::Commit::from_id(id.attach(repo))?;
+    Ok(match commit.parents.as_slice() {
+        [parent] if padding::is_padding_by_message(commit.message.as_ref()) => *parent,
+        _ => id,
+    })
 }
 
 impl LocalCommit {

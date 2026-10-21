@@ -4066,6 +4066,56 @@ Worktree changes need to be re-committed manually for now.
     Ok(())
 }
 
+#[test]
+fn a_padding_commit_does_not_count_as_on_top_of_the_workspace_commit() -> anyhow::Result<()> {
+    let (_tmp, repo, mut meta, mut db) =
+        writable_scenario("advanced-workspace-ref-and-single-stack")?;
+    let head = repo.head_commit()?;
+    repo.commit(
+        "HEAD",
+        but_core::commit::padding::TITLE,
+        head.tree_id()?,
+        [head.id],
+    )?;
+
+    // The padding commit sits on top of the commits already on top of the workspace commit.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* c1d320a (HEAD -> gitbutler/workspace) GitButler Padding Commit
+* da912a8 on-top4
+* 198eaf8 (intermediate-ref) on-top3
+*   3147997 on-top2-merge
+|\  
+| * dd7bb9a (branch-on-top) on-top-sibling
+|/  
+* 9785229 on-top1
+* c58f157 GitButler Workspace Commit
+* 6fdab32 (A) A1
+* bce0c5e (origin/main, main) M2
+* 3183e43 M1
+
+"#]]
+        .raw()
+    );
+
+    add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
+    let err = head_info(&repo, &meta, &mut db, standard_options()).unwrap_err();
+    // Only the 4 commits of `advanced_workspace_single_stack` count, not the padding commit above them.
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str![[r#"
+Found 4 commit(s) on top of the workspace commit.
+
+Run the following command in your working directory to fix this while leaving your worktree unchanged.
+Worktree changes need to be re-committed manually for now.
+
+    git reset --soft c58f15768a8ba280fe773ffc4820b13ad882cd84
+"#]]
+    );
+    Ok(())
+}
+
 mod branch_details;
 mod journey;
 

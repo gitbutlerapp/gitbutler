@@ -1,7 +1,8 @@
 use anyhow::Result;
 use but_graph::{Graph, init::Tip};
 use but_rebase::graph_rebase::{Editor, GraphEditorOptions, testing::Testing as _};
-use but_testsupport::{StackState, graph_tree, visualize_commit_graph_all};
+use but_testsupport::{CommandExt as _, StackState, git, graph_tree, visualize_commit_graph_all};
+use gix::prelude::ObjectIdExt as _;
 use snapbox::IntoData;
 
 use crate::{
@@ -854,4 +855,197 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
     );
 
     Ok(())
+}
+
+#[test]
+fn a_padding_commit_is_left_out() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits-one-file")?;
+    let (_c, padding) = pad_conflicted_main(&repo, &mut *meta, &mut db)?;
+
+    // main points at the padding commit on the conflicted c.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 45942da (HEAD -> main) GitButler Padding Commit
+* 04d1892 (c) [conflict] c
+* 5e0ba46 (b, a) a
+* 6155f21 (base) base
+
+"#]]
+    );
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    // main sits directly on the conflicted c, as the padding commit has no step.
+    snapbox::assert_data_eq!(
+        editor.steps_ascii(),
+        snapbox::str![[r#"
+◎  refs/heads/main
+◎  refs/heads/c
+●  04d1892 [conflict] c
+◎  refs/heads/a
+◎  refs/heads/b
+●  5e0ba46 a
+◎  refs/heads/base
+●  6155f21 base
+"#]]
+    );
+    assert!(
+        editor.select_commit(padding).is_err(),
+        "a padding commit can't be selected as it isn't part of the editor"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn a_commit_on_a_padding_commit_is_rebased_onto_the_conflicted_commit() -> Result<()> {
+    let (repo, _tmpdir, mut meta, mut db) = fixture_writable("four-commits-one-file")?;
+    let (_c, padding) = pad_conflicted_main(&repo, &mut *meta, &mut db)?;
+    let mut d = but_core::Commit::from_id(padding.attach(&repo))?;
+    d.parents = [padding].into();
+    d.message = "d\n".into();
+    let d = repo.write_object(d.inner)?.detach();
+    repo.reference(
+        "refs/heads/main",
+        d,
+        gix::refs::transaction::PreviousValue::Any,
+        "commit d on padding",
+    )?;
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    // d sits directly on the conflicted c, as the padding commit has no step.
+    snapbox::assert_data_eq!(
+        editor.steps_ascii(),
+        snapbox::str![[r#"
+◎  refs/heads/main
+●  28cf0e5 d
+◎  refs/heads/c
+●  04d1892 [conflict] c
+◎  refs/heads/a
+◎  refs/heads/b
+●  5e0ba46 a
+◎  refs/heads/base
+●  6155f21 base
+"#]]
+    );
+
+    editor.rebase()?.materialize_without_checkout()?;
+
+    // d was rewritten onto c, dropping the padding commit for good.
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* de74ff3 (HEAD -> main) d
+* 04d1892 (c) [conflict] c
+* 5e0ba46 (b, a) a
+* 6155f21 (base) base
+
+"#]]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn detached_checkouts_on_a_padding_commit_check_out_the_conflicted_commit() -> Result<()> {
+    let (repo, tmpdir, mut meta, mut db) = fixture_writable("four-commits-one-file")?;
+    let (c, padding) = pad_conflicted_main(&repo, &mut *meta, &mut db)?;
+    repo.reference(
+        "refs/heads/main",
+        c,
+        gix::refs::transaction::PreviousValue::Any,
+        "unpad main",
+    )?;
+    repo.reference(
+        "HEAD",
+        padding,
+        gix::refs::transaction::PreviousValue::Any,
+        "detach at padding",
+    )?;
+    git(&repo)
+        .args(["worktree", "add", "--detach"])
+        .arg(tmpdir.path().join("wt-detached"))
+        .arg(padding.to_string())
+        .run();
+    db.worktree_meta_mut().mark_adopted()?;
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        Default::default(),
+        &mut db,
+        but_graph::init::Options {
+            worktrees: true,
+            ..standard_options()
+        },
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let editor = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?;
+
+    // The padding commit both checkouts sit on has no step of its own.
+    snapbox::assert_data_eq!(
+        editor.steps_ascii(),
+        snapbox::str![[r#"
+◎  refs/heads/c
+◎  refs/heads/main
+●  04d1892 [conflict] c
+◎  refs/heads/a
+◎  refs/heads/b
+●  5e0ba46 a
+◎  refs/heads/base
+●  6155f21 base
+"#]]
+    );
+    assert_eq!(
+        editor.head(),
+        Some(editor.select_commit(c)?),
+        "HEAD checks out the conflicted commit the padding commit sits on"
+    );
+    assert_eq!(
+        editor.worktree_head("wt-detached".into()),
+        Some(editor.select_commit(c)?),
+        "the worktree checks out the conflicted commit the padding commit sits on"
+    );
+
+    Ok(())
+}
+
+fn pad_conflicted_main(
+    repo: &gix::Repository,
+    meta: &mut impl but_core::RefMetadata,
+    db: &mut but_db::DbHandle,
+) -> Result<(gix::ObjectId, gix::ObjectId)> {
+    let graph =
+        Graph::from_head(repo, &*meta, Default::default(), db, standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, meta, repo, db)?;
+    let b = editor.select_commit(repo.rev_parse_single("b")?.detach())?;
+    editor.replace_with_none(b)?;
+    editor.rebase()?.materialize_without_checkout()?;
+
+    Ok((
+        repo.rev_parse_single("main~1")?.detach(),
+        repo.rev_parse_single("main")?.detach(),
+    ))
 }

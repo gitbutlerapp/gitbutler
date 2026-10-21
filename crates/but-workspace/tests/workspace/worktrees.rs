@@ -349,6 +349,46 @@ fn lane_chains_follow_what_worktrees_rest_on() -> Result<()> {
 }
 
 #[test]
+fn a_worktree_on_a_padding_commit_rests_on_the_lane_owning_it() -> Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("worktree-workspace");
+    but_testsupport::invoke_bash_at_dir(
+        &format!(
+            "git -C wt-inside commit -q --allow-empty -m '{}' && \
+             git worktree add -q -b on-padding wt-on-padding wt-inside && \
+             git -C wt-on-padding commit -q --allow-empty -m on-padding",
+            but_core::commit::padding::TITLE
+        ),
+        repo.workdir().expect("fixture has a working directory"),
+    );
+    let mut meta = but_meta::VirtualBranchesTomlMetadata::from_path(
+        repo.path().join("should-never-be-written.toml"),
+    )?;
+    add_workspace(&mut meta);
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    let info = ref_info_with_worktree_tips(&repo, &meta)?;
+
+    let chain: Vec<_> = info
+        .lane_chain("refs/heads/on-padding".try_into()?)
+        .into_iter()
+        .map(|(lane, index)| {
+            lane.segments_from(index)[0]
+                .ref_name()
+                .map(|name| name.shorten().to_string())
+        })
+        .collect();
+    assert_eq!(
+        chain,
+        [
+            Some("on-padding".to_string()),
+            Some("wt-inside".to_string()),
+            Some("A".to_string())
+        ],
+        "the padding commit is hidden from `wt-inside`, so resting on it means resting on the commit it pads"
+    );
+    Ok(())
+}
+
+#[test]
 fn worktrees_are_empty_without_seeded_tips() -> Result<()> {
     let mut db = but_testsupport::in_memory_db();
     let (repo, _tmp) = writable_scenario_slow("worktree-workspace");

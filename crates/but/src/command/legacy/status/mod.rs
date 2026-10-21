@@ -502,8 +502,8 @@ fn build_status_context(
                 ..Default::default()
             },
         )?;
-        let stacks = ws.stacks.clone();
-        let worktree_stacks = ws.worktrees.clone();
+        let (stacks, worktree_stacks) =
+            crate::id::without_padding_commits(&repo, ws.stacks.clone(), ws.worktrees.clone());
         let mut push_statuses_by_segment_id = HashMap::<SegmentIndex, PushStatus>::new();
         let mut local_commits_by_id = HashMap::<gix::ObjectId, LocalCommit>::new();
         let mut remote_commits_by_id = HashMap::<gix::ObjectId, Commit>::new();
