@@ -402,6 +402,19 @@ impl Navigator {
             cx.subscribe(&store, |this, _, event, _| match event {
                 StoreEvent::SelectionChanged => this.reveal_selection = true,
                 StoreEvent::Loaded(_) | StoreEvent::MeshRead(_) => this.hold_still = true,
+                // A renamed branch stays open or folded as it was.
+                StoreEvent::Renamed(project, from, to) => {
+                    let sets = [
+                        &mut this.flipped_branches,
+                        &mut this.unfolded_branches,
+                        &mut this.folded_stacks,
+                    ];
+                    for set in sets {
+                        if set.remove(&(project.clone(), from.clone())) {
+                            set.insert((project.clone(), to.clone()));
+                        }
+                    }
+                }
                 _ => {}
             }),
             // Dragging the uncommitted changes carries the checked ones.
