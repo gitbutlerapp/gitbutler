@@ -46,7 +46,7 @@ fn resolve(ctx: &mut Context, args: Platform) -> CliResult<OpenOperation> {
     let Platform { target, print } = args;
 
     let guard = ctx.exclusive_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
     let repo = ctx.repo.get()?;
     let project = but_project_handle::ProjectHandle::from_path(repo.git_dir())?.to_string();
 

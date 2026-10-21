@@ -1431,6 +1431,64 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 }
 
 #[test]
+fn a_bare_path_names_a_file_in_the_checkout_it_is_run_from() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+    env.file("main.txt", "dirty in main\n");
+
+    env.but("discard main.txt")
+        .current_dir(&wt_dir)
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find source: 'main.txt'
+
+Hint: Run `but status` for applicable targets.
+
+"#]]);
+    env.but("discard note.txt")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find source: 'note.txt'
+
+Hint: Run `but status` for applicable targets.
+
+"#]]);
+    assert!(
+        env.projects_root().join("main.txt").exists(),
+        "the main checkout keeps its change"
+    );
+    assert!(
+        wt_dir.join("note.txt").exists(),
+        "the worktree keeps its change"
+    );
+
+    env.but("discard note.txt")
+        .current_dir(&wt_dir)
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Discarded uncommitted changes from note.txt
+
+"#]]);
+    assert!(
+        !wt_dir.join("note.txt").exists(),
+        "the worktree's own file is discarded"
+    );
+    assert!(
+        env.projects_root().join("main.txt").exists(),
+        "the main checkout still keeps its change"
+    );
+}
+
+#[test]
 fn bare_discard_in_an_unmanaged_worktree_is_refused() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);

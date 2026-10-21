@@ -1,6 +1,5 @@
 use bstr::BString;
 use but_core::ref_metadata::StackId;
-use itertools::Itertools as _;
 use nonempty::NonEmpty;
 
 use crate::{
@@ -320,41 +319,10 @@ impl CliIdArg {
                 0 => return Ok(None),
                 1 => uncommitted.pop().expect("exactly one item"),
                 _ => {
-                    // When the matches are one path dirty in several checkouts,
-                    // lengthening the ID cannot fix it - name the checkouts instead.
-                    // Prefix matches on distinct paths do not qualify: their scoped
-                    // forms would not resolve, as scoping matches by filename.
-                    let files: Vec<_> = uncommitted
-                        .iter()
-                        .filter_map(|id| id.as_uncommitted_hunk_or_file())
-                        .collect();
-                    let sources: Vec<String> = files
-                        .iter()
-                        .map(|uncommitted| uncommitted.source.selector().to_string())
-                        .unique()
-                        .collect();
-                    let same_path_once_per_checkout = files.len() == uncommitted.len()
-                        && sources.len() == uncommitted.len()
-                        && files
-                            .iter()
-                            .map(|uncommitted| &uncommitted.hunks.first().hunk.path)
-                            .all_equal();
-                    let hint = if same_path_once_per_checkout {
-                        let path = &files[0].hunks.first().hunk.path;
-                        format!(
-                            "'{self}' is uncommitted in several worktrees; scope it as {}",
-                            sources
-                                .iter()
-                                .map(|source| format!("`{source}:{path}`"))
-                                .join(" or ")
-                        )
-                    } else {
-                        "Use a longer ID to disambiguate".to_string()
-                    };
                     return Err(bad_input(format!(
                         "Ambiguous uncommitted change '{self}', matches multiple items"
                     ))
-                    .hint(hint)
+                    .hint("Use a longer ID to disambiguate")
                     .into());
                 }
             }

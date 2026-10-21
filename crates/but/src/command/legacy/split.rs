@@ -28,7 +28,7 @@ pub fn split(
 ) -> CliResult<(r#move::MoveOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
 
     let allow_merged = args.allow_merged;
     let move_op = resolve(args, ctx, &id_map, &mut out, current_dir)?;

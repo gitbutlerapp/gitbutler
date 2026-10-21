@@ -305,7 +305,7 @@ pub fn discard(
 ) -> CliResult<(DiscardOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
     let operation = {
         let repo = ctx.repo.get()?;
         if let Some(name) = resolve_worktree(&repo, &id_map, &args.changes)? {

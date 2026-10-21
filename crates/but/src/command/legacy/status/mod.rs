@@ -468,13 +468,13 @@ fn build_status_context(
 ) -> anyhow::Result<StatusContext> {
     use crate::utils::change_source::InvokedFrom;
 
+    let invoked_from = match &render_mode {
+        StatusRenderMode::Oneshot(invoked_from) => invoked_from.clone(),
+        StatusRenderMode::Tui(options) => options.invoked_from.clone(),
+    };
     let head_ref = {
         let repo = ctx.repo.get()?;
-        let invoked_from = match &render_mode {
-            StatusRenderMode::Oneshot(invoked_from) => invoked_from.as_ref(),
-            StatusRenderMode::Tui(options) => options.invoked_from.as_ref(),
-        };
-        match invoked_from {
+        match &invoked_from {
             Some(InvokedFrom::LinkedWorktree(name)) => {
                 but_workspace::worktrees::open_worktree_repo(&repo, name.as_ref())?.head_name()?
             }
@@ -617,6 +617,7 @@ fn build_status_context(
         commit_id_to_change_id,
         worktree_stacks,
         ctx.settings.context_lines,
+        invoked_from.as_ref().map(InvokedFrom::checkout),
     )?;
 
     let stacks = id_map.stacks();

@@ -984,12 +984,19 @@ async fn dispatch_subcommand(
             use crate::utils::IntermediateChannel;
 
             let out = IntermediateChannel::new(out);
-            command::open::open(&ctx, out, sources, program_id)?;
+            command::open::open(
+                &ctx,
+                out,
+                sources,
+                program_id,
+                &InvokedFrom::discover(&args.current_dir)?,
+            )?;
             None
         }
         #[cfg(feature = "nightly")]
         Subcommands::_Expand { cli_id } => {
-            let outcome = command::expand::handle(&ctx, cli_id)?;
+            let outcome =
+                command::expand::handle(&ctx, cli_id, &InvokedFrom::discover(&args.current_dir)?)?;
             out.print_cli_output(outcome)?;
             None
         }

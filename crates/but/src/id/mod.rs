@@ -22,7 +22,7 @@ use crate::id::{
     uncommitted_info::UncommittedInfo,
 };
 use crate::theme;
-use crate::utils::change_source::{self, ChangeSourceId, SourceChanges};
+use crate::utils::change_source::{self, ChangeSourceId, InvokedFrom, SourceChanges};
 use crate::utils::{detect_agent, get_change_id_for_commit};
 
 mod file_info;
@@ -702,8 +702,8 @@ impl<'a> Node<'a> for &'a SegmentWithId {
         };
         // `<worktree>:<path>` is how a path that is dirty in several checkouts is
         // narrowed down to one, mirroring `@:<path>` for the main worktree.
-        let mut matches = id_map
-            .parse_uncommitted_filename(element, Some(&ChangeSourceId::Worktree(name.clone())));
+        let mut matches =
+            id_map.parse_uncommitted_filename(element, &ChangeSourceId::Worktree(name.clone()));
         // `<worktree>:@` is that worktree's uncommitted area. Pushed rather than
         // returned early so a file in this worktree literally named `@` competes
         // with it as an ambiguity, exactly as one does with the bare `@` sentinel.
@@ -768,7 +768,7 @@ impl<'a> Node<'a> for &'a LaneWithId {
         }
         // A stack lives in the workspace, so only the main worktree's files are
         // reachable through it.
-        Ok(id_map.parse_uncommitted_filename(element, Some(&ChangeSourceId::Head)))
+        Ok(id_map.parse_uncommitted_filename(element, &ChangeSourceId::Head))
     }
 
     fn to_cli_id(self: Box<Self>) -> Option<CliId> {
@@ -784,6 +784,9 @@ pub struct IdMap {
     /// resolution of committed hunks as different context line settings may produce different
     /// hunks.
     diff_context_lines: u32,
+    /// The checkout a bare path names a file in: where `but` was invoked from, or `None` when
+    /// that isn't known, so a bare path names nothing rather than a file in some other checkout.
+    paths_in: Option<ChangeSourceId>,
 
     /// Maps full reverse hex IDs to uncommitted files.
     pub uncommitted_files: BTreeMap<ChangeId, UncommittedFile>,
@@ -805,6 +808,7 @@ impl IdMap {
         commit_id_to_change_id: gix::hashtable::HashMap<gix::ObjectId, ChangeId>,
         worktrees: Vec<WorktreeStack>,
         diff_context_lines: u32,
+        paths_in: Option<ChangeSourceId>,
     ) -> anyhow::Result<Self> {
         // Taken before partitioning, which drops sources without changes: a clean
         // worktree still gets a lane, so `but status` can list it and name it.
@@ -956,6 +960,7 @@ impl IdMap {
             uncommitted_files,
             uncommitted_hunks,
             diff_context_lines,
+            paths_in,
         })
     }
 
@@ -1047,7 +1052,8 @@ impl IdMap {
         Ok(())
     }
 
-    /// Creates a new instance from `ctx` for more convenience over calling [IdMap::new].
+    /// Creates a new instance from `ctx` for more convenience over calling [IdMap::new], in
+    /// which bare paths name nothing.
     ///
     /// # NOTE: claims a read-only workspace lock!
     // TODO(ctx|ai): make it use perm so the caller keeps the state exclusive/shared over greater periods.
@@ -1055,16 +1061,21 @@ impl IdMap {
     // in the light of mutations.
     pub fn legacy_new_from_context(ctx: &Context) -> anyhow::Result<Self> {
         let guard = ctx.shared_worktree_access();
-        Self::new_from_context(ctx, guard.read_permission())
+        Self::new_from_context(ctx, guard.read_permission(), None)
     }
 
     ///
     /// Creates a new instance from `ctx` for more convenience over calling [IdMap::new].
-    /// `perm` is needed to obtain a read-only workspace.
+    /// `perm` is needed to obtain a read-only workspace, and bare paths name files in the
+    /// checkout `invoked_from`, or nothing without one.
     ///
     /// # NOTE: claims a read-only workspace lock!
     /// TODO(ctx|ai): Use a `ws` directly instead of creating a whole new RefInfo uncached.
-    pub fn new_from_context(ctx: &Context, perm: &RepoShared) -> anyhow::Result<Self> {
+    pub fn new_from_context(
+        ctx: &Context,
+        perm: &RepoShared,
+        invoked_from: Option<&InvokedFrom>,
+    ) -> anyhow::Result<Self> {
         let context_lines = ctx.settings.context_lines;
         // Worktree state reconciles archived rows and thus needs the database, so it must
         // be read before the handle below is borrowed.
@@ -1122,6 +1133,7 @@ impl IdMap {
             commit_id_to_change_id,
             worktrees,
             ctx.settings.context_lines,
+            invoked_from.map(InvokedFrom::checkout),
         )
     }
 }
@@ -1154,15 +1166,11 @@ pub(crate) fn without_padding_commits(
 /// Private methods to individually parse what can appear on both side of a
 /// colon. (Some of them can also appear alone.)
 impl IdMap {
-    /// The uncommitted files named `element`, restricted to `source` when given.
-    ///
-    /// Without a `source` this matches every checkout, so a path dirty in more
-    /// than one of them is reported as ambiguous rather than silently resolving
-    /// to whichever came first.
+    /// The uncommitted files named `element` in the checkout `source`.
     fn parse_uncommitted_filename<'a>(
         &'a self,
         element: &str,
-        source: Option<&ChangeSourceId>,
+        source: &ChangeSourceId,
     ) -> Vec<Box<dyn Node<'a> + 'a>> {
         let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
         for uncommitted_file in self.uncommitted_files.values() {
@@ -1171,9 +1179,7 @@ impl IdMap {
             // TODO once the set of allowed CLI IDs is determined and the
             // access patterns of `uncommitted_files` are known, change its data
             // structure to be more efficient than the current linear search.
-            if hunk.1.path == element.as_bytes()
-                && source.is_none_or(|source| *source == uncommitted_file.source)
-            {
+            if hunk.1.path == element.as_bytes() && *source == uncommitted_file.source {
                 matches.push(Box::new(uncommitted_file));
             }
         }
@@ -1317,9 +1323,9 @@ impl IdMap {
                 }
             }
         }
-        // Unscoped: a path dirty in several checkouts matches all of them, and the
-        // caller reports the ambiguity so it can be resolved with a file ID.
-        matches.extend(self.parse_uncommitted_filename(element, None));
+        if let Some(paths_in) = &self.paths_in {
+            matches.extend(self.parse_uncommitted_filename(element, paths_in));
+        }
         // A worktree names its own uncommitted area, so like `@` it resolves in
         // both scopes rather than only the full one.
         matches.extend(self.parse_worktree_name(element));
@@ -1456,7 +1462,7 @@ impl<'a> Node<'a> for Unstaged {
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
         // `@` means the main worktree, so `@:<path>` must never reach into a
         // linked worktree that happens to have the same path dirty.
-        Ok(id_map.parse_uncommitted_filename(element, Some(&ChangeSourceId::Head)))
+        Ok(id_map.parse_uncommitted_filename(element, &ChangeSourceId::Head))
     }
 
     fn to_cli_id(self: Box<Self>) -> Option<CliId> {
