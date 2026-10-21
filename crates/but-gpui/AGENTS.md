@@ -13,6 +13,9 @@ so update it, shortcuts table included, with every change in behaviour.
   70-120ms, only on that machine.
 - GPUI picks a weight by choosing between font files and doesn't vary a variable font, so add
   static instances, never a variable file. `assets/fonts/README.md` has the recipe.
+- A character the embedded Inter lacks is drawn from another font, heavier and off the
+  baseline. Design-core's Inter has only 230, so before writing a new symbol into the UI, check
+  it's in `assets/fonts` and add it from the full Inter if not, as the key symbols were.
 - The files are cut 60 lighter than the design-core weights they stand in for, because GPUI
   draws thicker stems than Chrome. Compare against but.dev before changing a weight: render both
   at the same scale (headless Chrome with `--force-device-scale-factor=2` and a harness `shot`)
