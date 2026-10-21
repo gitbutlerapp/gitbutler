@@ -546,19 +546,21 @@ impl Detail {
         });
         // Back where editing started, like the navigator, when it's done.
         let back = window.focused(cx).unwrap_or(self.focus.clone());
+        let editing = key.clone();
         let subscription = cx.subscribe_in(
             &input,
             window,
             move |this, input, event, window, cx| match event {
                 InputEvent::Submit => {
                     let message = input.read(cx).text().trim().to_owned();
-                    this.rewording = None;
                     // The commit as it is now, should an agent have rewritten it meanwhile.
                     let id = match this.selection(cx) {
                         Some(Selection::Commit(_, now)) => now,
                         _ => id,
                     };
                     let project = project.clone();
+                    let (detail, editing) = (cx.entity().downgrade(), editing.clone());
+                    let submitted = message.clone();
                     this.store.update(cx, |store, cx| {
                         let reworded = store.key_of(&project, id).map(|key| (key, message.clone()));
                         let overlay = Overlay {
@@ -572,7 +574,18 @@ impl Detail {
                             move |path, remap| backend::reword(path, remap.get(id)?, &message),
                             move |store, rewritten, cx| {
                                 store.follow(&rewritten, cx);
-                                store.snack_after(undoable, "Message updated", cx)
+                                store.snack_after(undoable, "Message updated", cx);
+                                // Open until it lands, so a reword that fails keeps what was
+                                // written, and so does one written on meanwhile.
+                                (detail.update(cx, |detail, cx| {
+                                    if (detail.rewording.as_ref()).is_some_and(|(k, input, _)| {
+                                        *k == editing && input.read(cx).text().trim() == submitted
+                                    }) {
+                                        detail.rewording = None;
+                                        cx.notify();
+                                    }
+                                }))
+                                .ok();
                             },
                             cx,
                         )
