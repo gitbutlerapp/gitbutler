@@ -2207,3 +2207,29 @@ fn status_json(env: &Sandbox) -> serde_json::Value {
         .clone();
     serde_json::from_slice(&output).unwrap()
 }
+
+#[test]
+fn pull_gives_decent_error_without_remote() {
+    let env = Sandbox::empty();
+    env.but("init --commit").assert().success();
+
+    env.but("commit -m 'new commit'").assert().success();
+
+    env.but("pull")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot pull without a remote
+
+"#]]);
+
+    env.but("switch --workspace").assert().success();
+
+    env.but("pull")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot pull without a remote
+
+"#]]);
+}
