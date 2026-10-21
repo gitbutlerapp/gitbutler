@@ -750,8 +750,11 @@ impl Render for Tooltip {
             .text_color(theme.text_1)
             .font_family(theme.ui_font.clone())
             .gap(px(7.))
-            .child(self.text.clone())
-            .when_some(self.key.clone(), |el, key| el.child(keycap(&key, theme)))
+            // Within the cap, a long one wraps, a path between its characters.
+            .child(div().min_w(px(0.)).child(self.text.clone()))
+            .when_some(self.key.clone(), |el, key| {
+                el.child(keycap(&key, theme).flex_none())
+            })
     }
 }
 
