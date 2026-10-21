@@ -80,13 +80,14 @@ fn refuse_conflicted(
     if let Some(path) = unmerged(&repo, selected)?.first() {
         bail!("Mark {path} resolved first: it still has conflicts");
     }
-    refuse_changed(&repo, selected)
+    refuse_changed(&repo, selected, false)
 }
 
 /// Refuse some of an uncommitted file written to since its diff was read, as by an agent,
 /// or whose base moved, as when the CLI committed part of it: its hunks and lines are placed
 /// by line numbers that either moves, and the engine would take whatever lies there now.
-fn refuse_changed(repo: &gix::Repository, selected: &[Selected]) -> Result<()> {
+/// With `whole`, refuse whole files too, for what can't be undone.
+fn refuse_changed(repo: &gix::Repository, selected: &[Selected], whole: bool) -> Result<()> {
     let head = repo.head_tree().ok();
     let base_now = |part: &Selected| {
         let path = part
@@ -97,10 +98,12 @@ fn refuse_changed(repo: &gix::Repository, selected: &[Selected]) -> Result<()> {
         let entry = head.as_ref()?.lookup_entry_by_path(path).ok()??;
         Some(entry.object_id())
     };
+    // A whole file goes back to its base whatever that is, so only being written to counts.
     let changed = (selected.iter()).find(|part| {
-        part.hunks.is_some()
+        let picked = part.hunks.is_some();
+        (whole || picked)
             && (written(repo, part.file.path.as_str().into()) != part.file.modified
-                || base_now(part) != part.file.base())
+                || (picked && base_now(part) != part.file.base()))
     });
     if let Some(part) = changed {
         bail!(
@@ -706,7 +709,9 @@ pub fn discard(path: &Path, worktree: Option<&str>, selected: &[Selected]) -> Re
             part.file.path
         );
     }
-    refuse_changed(repo, selected)?;
+    // A linked worktree's discard can't be undone, so not of what was written after the
+    // diff was shown, as by an agent while the confirmation was up.
+    refuse_changed(repo, selected, worktree.is_some())?;
     let conflicted: Vec<bstr::BString> = conflicted.into_iter().map(Into::into).collect();
     // Hunks that moved since the diff was shown refuse it before anything is recorded.
     let context_lines = ctx.settings.context_lines;
@@ -1002,10 +1007,22 @@ mod tests {
         std::fs::write(path.join("file"), "main\n").unwrap();
         std::fs::write(linked.join("file"), "agent\n").unwrap();
 
-        let source = DiffSource::Linked("agent".into());
-        let diff = load_diff(path, source, None, None, None, None).unwrap();
-        let whole = Selected::whole(&diff[0].file);
-        discard(path, Some("agent"), &[whole]).unwrap();
+        let read = || {
+            let source = DiffSource::Linked("agent".into());
+            let diff = load_diff(path, source, None, None, None, None).unwrap();
+            Selected::whole(&diff[0].file)
+        };
+        let whole = read();
+        std::fs::write(linked.join("file"), "agent, more\n").unwrap();
+        let refused = discard(path, Some("agent"), &[whole]).unwrap_err();
+        assert!(
+            refused
+                .to_string()
+                .contains("changed since the diff was shown"),
+            "what was written after the diff was read isn't thrown away unseen, as nothing \
+             brings a linked worktree's discard back: {refused}"
+        );
+        discard(path, Some("agent"), &[read()]).unwrap();
         assert_eq!(
             std::fs::read_to_string(linked.join("file")).unwrap(),
             "one\n",
@@ -1016,6 +1033,15 @@ mod tests {
             "main\n",
             "the main checkout's change to the same path stays"
         );
+
+        std::fs::write(linked.join("added"), "x\n").unwrap();
+        git(&linked, &["add", "added"]);
+        std::fs::remove_file(linked.join("added")).unwrap();
+        let source = DiffSource::Linked("agent".into());
+        let diff = load_diff(path, source, None, None, None, None).unwrap();
+        let added = diff.iter().find(|f| f.file.path == "added").unwrap();
+        discard(path, Some("agent"), &[Selected::whole(&added.file)])
+            .expect("a whole file's base, here the index's, isn't what was shown to compare");
     }
 
     #[test]
