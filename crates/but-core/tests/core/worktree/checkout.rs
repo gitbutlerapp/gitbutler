@@ -64,6 +64,248 @@ fn update_unborn_head_in_sha256_repository() -> anyhow::Result<()> {
 }
 
 #[test]
+fn deleting_what_the_worktree_already_deleted_leaves_no_index_entry() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+ D x
+
+"#]]
+    );
+
+    let target = repo.rev_parse_single("b")?.detach();
+    safe_checkout_from_head(target, &repo, Default::default())?;
+
+    // Like `git checkout b`: both sides deleted `x`, so nothing is left to show.
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
+    snapbox::assert_data_eq!(
+        visualize_index(&*repo.index()?),
+        snapbox::str![[r#"
+100644:2fa992c keep
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn deleting_below_a_directory_the_worktree_turned_into_a_symlink_leaves_no_index_entry()
+-> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-dir-turned-symlink-the-target-deletes");
+    let workdir = repo.workdir().expect("non-bare");
+    std::os::unix::fs::symlink("elsewhere", workdir.join("d"))?;
+
+    let target = repo.rev_parse_single("b")?.detach();
+    safe_checkout_from_head(target, &repo, Default::default())?;
+
+    // Like Git, `d/x` behind the symlink isn't in the worktree, so both sides deleted it.
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+?? d
+
+"#]]
+    );
+    assert_eq!(
+        std::fs::read_to_string(workdir.join("elsewhere/x"))?,
+        "elsewhere\n",
+        "nothing behind the symlink changes"
+    );
+    Ok(())
+}
+
+#[test]
+fn deleting_a_file_the_worktree_replaced_with_a_directory_leaves_no_index_entry()
+-> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    std::fs::create_dir(repo.workdir().expect("non-bare").join("x"))?;
+
+    let target = repo.rev_parse_single("b")?.detach();
+    safe_checkout_from_head(target, &repo, Default::default())?;
+
+    // An empty directory isn't the file, so both sides deleted `x`. Git doesn't list empty directories.
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
+    Ok(())
+}
+
+#[test]
+fn checkout_keeps_the_stages_of_an_unresolved_conflict_the_worktree_deleted() -> anyhow::Result<()>
+{
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let base = repo.rev_parse_single("HEAD:x")?.detach();
+    let ours = repo.write_blob("ours\n")?.detach();
+    let theirs = repo.write_blob("theirs\n")?.detach();
+    but_testsupport::git(&repo)
+        .args(["update-index", "--force-remove", "x"])
+        .run();
+    let mut info = but_testsupport::git(&repo)
+        .args(["update-index", "--index-info"])
+        .stdin(std::process::Stdio::piped())
+        .spawn()?;
+    std::io::Write::write_all(
+        info.stdin.as_mut().expect("piped"),
+        format!("100644 {base} 1\tx\n100644 {ours} 2\tx\n100644 {theirs} 3\tx\n").as_bytes(),
+    )?;
+    assert!(info.wait()?.success());
+    let stages = but_testsupport::git(&repo)
+        .args(["ls-files", "-s", "x"])
+        .output()?
+        .stdout;
+    assert_eq!(stages.lines().count(), 3, "the conflict is in the index");
+
+    let target = repo.rev_parse_single("b")?.detach();
+    let _ = safe_checkout_from_head(target, &repo, Default::default());
+
+    // Git refuses to check out over an unresolved conflict. Whatever checkout does, the
+    // conflict stays.
+    assert_eq!(
+        but_testsupport::git(&repo)
+            .args(["ls-files", "-s", "x"])
+            .output()?
+            .stdout
+            .as_bstr(),
+        stages.as_bstr()
+    );
+    Ok(())
+}
+
+#[test]
+fn checkout_keeps_a_staged_modification_the_worktree_deleted() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let x = repo.workdir().expect("non-bare").join("x");
+    std::fs::write(&x, "staged\n")?;
+    but_testsupport::git(&repo).args(["add", "x"]).run();
+    std::fs::remove_file(&x)?;
+    let staged = but_testsupport::git(&repo)
+        .args(["ls-files", "-s", "x"])
+        .output()?
+        .stdout;
+
+    let target = repo.rev_parse_single("b")?.detach();
+    safe_checkout_from_head(target, &repo, Default::default())?;
+
+    // `git checkout b` refuses to lose the staged content. The checkout keeps it in the index.
+    assert_eq!(
+        but_testsupport::git(&repo)
+            .args(["ls-files", "-s", "x"])
+            .output()?
+            .stdout
+            .as_bstr(),
+        staged.as_bstr()
+    );
+    Ok(())
+}
+
+#[test]
+fn checkout_keeps_a_staged_mode_change_the_worktree_deleted() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let x = repo.workdir().expect("non-bare").join("x");
+    std::fs::write(&x, "one\n")?;
+    but_testsupport::git(&repo)
+        .args(["update-index", "--chmod=+x", "x"])
+        .run();
+    std::fs::remove_file(&x)?;
+    let staged = but_testsupport::git(&repo)
+        .args(["ls-files", "-s", "x"])
+        .output()?
+        .stdout;
+    assert!(staged.starts_with(b"100755"), "the mode change is staged");
+
+    let target = repo.rev_parse_single("b")?.detach();
+    safe_checkout_from_head(target, &repo, Default::default())?;
+
+    assert_eq!(
+        but_testsupport::git(&repo)
+            .args(["ls-files", "-s", "x"])
+            .output()?
+            .stdout
+            .as_bstr(),
+        staged.as_bstr()
+    );
+    Ok(())
+}
+
+#[test]
+fn checkout_keeps_a_staged_addition_the_worktree_deleted() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("staged-addition-deleted-from-worktree");
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+AD n
+
+"#]]
+    );
+
+    let target = repo.rev_parse_single("b")?.detach();
+    safe_checkout_from_head(target, &repo, Default::default())?;
+
+    // Like `git checkout b`: `b` doesn't know `n`, so the staged addition stays.
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+AD n
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn a_worktree_modification_the_target_deletes_stays_a_conflict() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-modification-the-target-deletes");
+
+    let target = repo.rev_parse_single("b")?.detach();
+    let out = safe_checkout_from_head(
+        target,
+        &repo,
+        checkout::Options {
+            allow_uncommitted_changes_to_conflict_with_new_head: true,
+            ..Default::default()
+        },
+    )?;
+
+    // Like `git checkout -m b`, the modified file stays, conflicted with its deletion.
+    // GitButler's `ours` is the worktree, so the sides are swapped compared to Git.
+    assert!(out.conflict_occurred);
+    snapbox::assert_data_eq!(
+        std::fs::read_to_string(repo.workdir().unwrap().join("x"))?,
+        snapbox::str![[r#"
+two
+
+"#]]
+    );
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+UD x
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn deleting_below_a_directory_the_worktree_turned_into_a_file_leaves_no_index_entry()
+-> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-dir-turned-file-the-target-deletes");
+
+    let target = repo.rev_parse_single("b")?.detach();
+    safe_checkout_from_head(target, &repo, Default::default())?;
+
+    // Both sides deleted `a/b`, and the file `a` the user put there stays untracked.
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+?? a
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
 fn no_op_trees_never_touch_worktree() -> anyhow::Result<()> {
     let repo = read_only_in_memory_scenario("all-file-types-renamed-and-modified")?;
     snapbox::assert_data_eq!(
