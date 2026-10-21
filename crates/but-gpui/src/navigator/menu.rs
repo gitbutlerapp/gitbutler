@@ -51,20 +51,21 @@ fn read_marks<'a>(
 }
 
 /// Starting a branch from a project or its main worktree: one more in the workspace, beside
-/// the others, while there is one; or one of its own, switched to, leaving the workspace, as
-/// an agent's single-branch work starts.
+/// the others, while there is one; one of its own, switched to, leaving the workspace, as
+/// an agent's single-branch work starts; or, with linked worktrees on, one in a new linked
+/// worktree, as `but worktree new` makes.
 fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuItem> {
     let managed = store.workspace(project).is_some_and(|ws| ws.managed);
-    let project = project.clone();
     let mut items = Vec::new();
     if managed {
         items.push(MenuItem::action("New branch in workspace…", &NewBranch, cx));
     }
+    let switching = project.clone();
     items.push(MenuItem::new(
         "New branch and switch to it…",
         move |app, window, cx| {
             app.prompt_new_branch(
-                project.clone(),
+                switching.clone(),
                 "New branch and switch to it",
                 false,
                 window,
@@ -73,6 +74,23 @@ fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuIte
             )
         },
     ));
+    if managed && crate::backend::settings::worktrees_enabled() {
+        let project = project.clone();
+        items.push(MenuItem::new("New worktree…", move |app, window, cx| {
+            let selected = project.clone();
+            app.prompt_branch(
+                project.clone(),
+                "New worktree",
+                None,
+                window,
+                cx,
+                |path, _, name| crate::backend::worktrees::create(path, name),
+                move |store, name, cx| {
+                    store.select(Some(Selection::Worktree(selected, name.into())), cx)
+                },
+            )
+        }));
+    }
     items
 }
 

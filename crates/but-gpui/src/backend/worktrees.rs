@@ -130,6 +130,15 @@ pub fn heads(path: &Path) -> Vec<Option<(Option<gix::refs::FullName>, gix::Objec
         .collect()
 }
 
+/// Make a linked worktree on new branch `name`, at the workspace's base, as `but worktree new`
+/// does. Returns the worktree's name.
+pub fn create(path: &Path, name: &str) -> Result<String> {
+    let mut ctx = open(path)?;
+    let ref_name = super::ops::branch_ref(name)?;
+    let created = but_api::worktrees::worktree_new(&mut ctx, Some(ref_name))?;
+    Ok(created.name.to_str_lossy().into_owned())
+}
+
 /// Remove worktree `name` from disk as `git worktree remove` does, with the uncommitted
 /// files `lost` as last written, which the user agreed to lose. Its branch stays. One with
 /// other uncommitted files, or those written to since, as by an agent meanwhile, is refused.

@@ -203,7 +203,7 @@ fn why(reason: &RejectionReason) -> &'static str {
 }
 
 /// A branch name as GitButler would store it, like `my branch` → `refs/heads/my-branch`.
-fn branch_ref(name: &str) -> Result<gix::refs::FullName> {
+pub(super) fn branch_ref(name: &str) -> Result<gix::refs::FullName> {
     let name = but_core::branch::normalize_short_name(name.trim())?;
     full_name(&format!("refs/heads/{name}"))
 }
