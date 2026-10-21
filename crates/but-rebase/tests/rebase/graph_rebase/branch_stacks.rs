@@ -163,6 +163,59 @@ ad hoc
 }
 
 #[test]
+fn an_empty_stack_on_the_target_stays_on_its_lane() -> Result<()> {
+    let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-two-stacks")?;
+    invoke_bash("git branch empty main", &repo);
+    for (idx, stack) in ["stack-a", "stack-b", "empty"].into_iter().enumerate() {
+        add_stack_with_segments(&mut meta, idx, stack, StackState::InWorkspace, &[]);
+    }
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        target_meta(&repo),
+        &mut db,
+        standard_options(),
+    )?
+    .validated()?;
+    let mut ws = graph.into_workspace()?;
+    let rebase = Editor::create(&mut ws, &mut *meta, &repo, &mut db)?.rebase()?;
+    let stacks = rebase.branch_stacks()?;
+
+    // The metadata makes `empty` a lane's empty segment on the target rather than a reference
+    // merely resting on it, so it stays on a path between the workspace commit and the target.
+    snapbox::assert_data_eq!(
+        format!(
+            "{}\n{}",
+            rebase.steps_ascii(),
+            render_stacks(stacks.workspace.as_deref().unwrap_or_default())
+        ),
+        snapbox::str![[r#"
+◎  refs/heads/gitbutler/workspace
+●      5f92c07 GitButler Workspace Commit
+├─┬─╮
+◎ │ │  refs/heads/stack-a
+● │ │  49c06ff A2
+● │ │  ff76d2f A1
+│ ◎ │  refs/heads/stack-b
+│ ● │  afc3f8f B2
+│ ● │  b3ee99c B1
+├─╯ │
+│   ◎  refs/heads/empty
+├───╯
+│ ◎  refs/remotes/origin/main (immutable)
+├─╯
+◎  refs/heads/main
+●  965998b base
+  stack-a
+  stack-b
+  empty
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
 fn a_workspace_reference_without_a_workspace_commit_is_one_workspace_stack() -> Result<()> {
     let (repo, _tmp, mut meta, mut db) = fixture_writable("workspace-without-managed-commit")?;
 
