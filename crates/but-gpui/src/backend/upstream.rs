@@ -147,6 +147,8 @@ pub struct Overview {
     pub daily: Vec<u32>,
     /// Who wrote them, merges left out, most commits first: name, email and how many.
     pub team: Vec<(String, String, u32)>,
+    /// When it was counted, in seconds since the epoch, which the days count back from.
+    pub at: i64,
 }
 
 /// `target` (a short name, like `origin/main`) summed up as of `now`, in seconds since the epoch.
@@ -189,6 +191,7 @@ pub fn overview(path: &Path, target: &str, now: i64) -> Result<Overview> {
         readme: readme(&repo, &tip)?,
         daily,
         team,
+        at: now,
     })
 }
 

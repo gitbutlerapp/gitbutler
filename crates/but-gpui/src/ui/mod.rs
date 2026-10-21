@@ -991,6 +991,11 @@ fn local(seconds: i64, format: &'static str) -> String {
     gix::date::Time::new(seconds, offset).format_or_unix(gix::date::time::CustomFormat::new(format))
 }
 
+/// The day `seconds` (since the epoch) fall on here, as a short date: "Oct 21".
+pub fn local_date(seconds: i64) -> String {
+    local(seconds, "%b %d")
+}
+
 /// The day `seconds` (since the epoch) fell on here, to tell one day's from another's.
 pub fn local_day(seconds: i64) -> String {
     local(seconds, "%Y-%m-%d")

@@ -15,6 +15,8 @@ use super::panes::{
 use super::pull_request::tab;
 use crate::app::{SelectNext, SelectPrevious};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, TargetCommit};
+
+const DAY: i64 = 24 * 60 * 60;
 use crate::backend::{self, CommitId, DiffSource, Forge, Review};
 use crate::palette::Choice;
 use crate::state::{Overlay, ProjectId, Selection};
@@ -67,6 +69,8 @@ struct Summary {
     readme: Option<(String, Vec<markdown::Block>)>,
     daily: Vec<u32>,
     team: Vec<(String, String, u32)>,
+    /// When the days were counted back from.
+    at: i64,
     /// How many branches aren't applied, as the Branches page lists them at first: with
     /// commits of their own, and no merged pull request.
     unapplied: Option<usize>,
@@ -79,6 +83,7 @@ impl From<Overview> for Summary {
                 .map(|(name, text)| (name, markdown::parse_showing_images(&text))),
             daily: overview.daily,
             team: overview.team,
+            at: overview.at,
             unapplied: None,
         }
     }
@@ -823,9 +828,31 @@ impl Detail {
         }
     }
 
+    /// The times the activity's picked days span, from the start of the first to the end of
+    /// the last, the last day running on past now.
+    fn picked_span(&self, upstream: &Upstream) -> Option<(i64, i64)> {
+        let (project, first, last) = self.activity_days.as_ref()?;
+        let summary = upstream
+            .summary
+            .as_ref()
+            .filter(|_| *project == upstream.project)?;
+        let days = summary.daily.len();
+        let start = summary.at - (days - first) as i64 * DAY;
+        let end = match last + 1 == days {
+            true => i64::MAX,
+            false => summary.at - (days - 1 - last) as i64 * DAY,
+        };
+        Some((start, end))
+    }
+
     fn upstream_rows(&self, upstream: &Upstream, target: &str) -> Vec<Row> {
-        let (incoming, rest): (Vec<usize>, Vec<usize>) =
-            (0..upstream.commits.len()).partition(|ix| upstream.commits[*ix].incoming);
+        let span = self.picked_span(upstream);
+        let shown = |commit: &TargetCommit| {
+            span.is_none_or(|(start, end)| (start..end).contains(&commit.time))
+        };
+        let (incoming, rest): (Vec<usize>, Vec<usize>) = (0..upstream.commits.len())
+            .filter(|ix| shown(&upstream.commits[*ix]))
+            .partition(|ix| upstream.commits[*ix].incoming);
         let mut rows = Vec::new();
         if !incoming.is_empty() {
             rows.push(Row::Heading(format!(
@@ -842,10 +869,38 @@ impl Detail {
             rows.push(Row::Heading(heading));
             rows.extend(rest.into_iter().map(Row::Commit));
         }
-        if upstream.more {
+        // Read further back only while the picked days may have more.
+        let past = (span.zip(upstream.commits.last()))
+            .is_some_and(|((start, _), oldest)| oldest.time < start);
+        if upstream.more && !past {
             rows.push(Row::More);
         }
         rows
+    }
+
+    /// Pick the activity's day `ix`, or with `extend` the days from the one picked before
+    /// to it; picking the one day picked again shows every day.
+    fn pick_days(&mut self, project: &ProjectId, ix: usize, extend: bool, cx: &mut Context<Self>) {
+        let anchor = self.activity_anchor.filter(|_| extend);
+        let same =
+            matches!(&self.activity_days, Some((p, a, b)) if p == project && *a == ix && *b == ix);
+        self.activity_days = match anchor {
+            Some(anchor) => Some((project.clone(), anchor.min(ix), anchor.max(ix))),
+            None if same => None,
+            None => Some((project.clone(), ix, ix)),
+        };
+        if anchor.is_none() {
+            self.activity_anchor = self.activity_days.as_ref().map(|_| ix);
+        }
+        self.upstream_scroll
+            .scroll_to_item(0, gpui::ScrollStrategy::Top);
+        cx.notify();
+    }
+
+    fn clear_days(&mut self, cx: &mut Context<Self>) {
+        self.activity_days = None;
+        self.activity_anchor = None;
+        cx.notify();
     }
 
     /// The page's crumbs after the project's: the target and the commit of it selected.
@@ -967,6 +1022,126 @@ impl Detail {
             })
             .detach();
         }
+    }
+
+    /// How busy the target has been: a bar for each day, the last week's stronger. Clicking
+    /// a day, or shift-clicking a span of them, filters the history to them.
+    fn render_activity(
+        &self,
+        project: &ProjectId,
+        summary: &Summary,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        const HEIGHT: f32 = 36.;
+        let daily = &summary.daily;
+        let total: u32 = daily.iter().sum();
+        let week: u32 = daily.iter().rev().take(7).sum();
+        let most = daily.iter().copied().max().unwrap_or(0).max(1);
+        let picked = (self.activity_days.as_ref())
+            .filter(|(p, ..)| p == project)
+            .map(|(_, first, last)| (*first, *last));
+        // A day's bar by its own last moment, for its date.
+        let day_of = |ix: usize| summary.at - (daily.len() - 1 - ix) as i64 * DAY - 1;
+        let bars = daily.iter().enumerate().map(|(ix, &n)| {
+            let days_ago = daily.len() - 1 - ix;
+            let when = match days_ago {
+                0 => "in the last day".to_owned(),
+                1 => "a day ago".to_owned(),
+                days => format!("{days} days ago"),
+            };
+            let recent = days_ago < 7;
+            let inside = picked.is_none_or(|(first, last)| (first..=last).contains(&ix));
+            let project = project.clone();
+            div()
+                .id(("activity-day", ix))
+                .flex_1()
+                .h_full()
+                .flex()
+                .items_end()
+                .cursor_pointer()
+                .tooltip(Tooltip::text(format!(
+                    "{}, {when}",
+                    plural(n as usize, "commit")
+                )))
+                .on_click(cx.listener(move |this, event: &gpui::ClickEvent, _, cx| {
+                    this.pick_days(&project, ix, event.modifiers().shift, cx)
+                }))
+                .child(
+                    div()
+                        .w_full()
+                        .h(px((n as f32 / most as f32 * HEIGHT).max(2.)))
+                        .rounded_t(px(1.))
+                        .bg(match (n, picked.is_some(), inside, recent) {
+                            (0, ..) => theme.border_2,
+                            (_, true, true, _) => theme.pop,
+                            (_, true, false, _) => theme.pop.opacity(0.2),
+                            (_, false, _, true) => theme.pop,
+                            (_, false, _, false) => theme.pop.opacity(0.4),
+                        }),
+                )
+        });
+        let said = match picked {
+            Some((first, last)) => {
+                let n: u32 = daily[first..=last].iter().sum();
+                let days = match first == last {
+                    true => crate::ui::local_date(day_of(first)),
+                    false => format!(
+                        "{} – {}",
+                        crate::ui::local_date(day_of(first)),
+                        crate::ui::local_date(day_of(last))
+                    ),
+                };
+                h_flex()
+                    .gap(px(8.))
+                    .child(faint(
+                        format!("{days}: {}", plural(n as usize, "commit")),
+                        theme,
+                    ))
+                    .child(
+                        div()
+                            .id("activity-clear")
+                            .text_color(theme.blue)
+                            .cursor_pointer()
+                            .child("Clear")
+                            .on_click(cx.listener(|this, _, _, cx| this.clear_days(cx))),
+                    )
+                    .into_any_element()
+            }
+            None => faint(
+                format!(
+                    "{}, {week} in the last week",
+                    plural(total as usize, "commit")
+                ),
+                theme,
+            )
+            .into_any_element(),
+        };
+        v_flex()
+            .px(px(14.))
+            .pt(px(14.))
+            .pb(px(6.))
+            .gap(px(6.))
+            .child(
+                h_flex()
+                    .gap(px(8.))
+                    .child(section_label("Activity", theme).flex_grow(1.))
+                    .child(said),
+            )
+            .child(
+                h_flex()
+                    .h(px(HEIGHT))
+                    .gap(px(2.))
+                    .items_end()
+                    .children(bars),
+            )
+            .child(
+                h_flex()
+                    .text_size(px(11.))
+                    .child(faint(format!("{ACTIVITY_DAYS} days ago"), theme).flex_grow(1.))
+                    .child(faint("Today", theme)),
+            )
+            .into_any_element()
     }
 
     /// The target's README, beside the list in place of a diff.
@@ -1465,7 +1640,7 @@ impl Detail {
                                 this.pick_on_page(Picked::Readme, cx)
                             }))
                     }))
-                    .children(summary.map(|s| activity(&s.daily, theme)))
+                    .children(summary.map(|s| self.render_activity(project, s, theme, cx)))
                     .child(list.flex_1().min_h(px(0.)))
                     .children(summary.and_then(|s| team(&s.team, theme)))
                     .into_any_element()
@@ -1477,75 +1652,6 @@ impl Detail {
             .child(list)
             .into_any_element()
     }
-}
-
-/// How busy the target has been: a bar for each day, the last week's stronger.
-fn activity(daily: &[u32], theme: &Theme) -> AnyElement {
-    const HEIGHT: f32 = 36.;
-    let total: u32 = daily.iter().sum();
-    let week: u32 = daily.iter().rev().take(7).sum();
-    let most = daily.iter().copied().max().unwrap_or(0).max(1);
-    let bars = daily.iter().enumerate().map(|(ix, &n)| {
-        let days_ago = daily.len() - 1 - ix;
-        let when = match days_ago {
-            0 => "in the last day".to_owned(),
-            1 => "a day ago".to_owned(),
-            days => format!("{days} days ago"),
-        };
-        let recent = days_ago < 7;
-        div()
-            .id(("activity-day", ix))
-            .flex_1()
-            .h_full()
-            .flex()
-            .items_end()
-            .tooltip(Tooltip::text(format!(
-                "{}, {when}",
-                plural(n as usize, "commit")
-            )))
-            .child(
-                div()
-                    .w_full()
-                    .h(px((n as f32 / most as f32 * HEIGHT).max(2.)))
-                    .rounded_t(px(1.))
-                    .bg(match (n, recent) {
-                        (0, _) => theme.border_2,
-                        (_, true) => theme.pop,
-                        (_, false) => theme.pop.opacity(0.4),
-                    }),
-            )
-    });
-    v_flex()
-        .px(px(14.))
-        .pt(px(14.))
-        .pb(px(6.))
-        .gap(px(6.))
-        .child(
-            h_flex()
-                .gap(px(8.))
-                .child(section_label("Activity", theme).flex_grow(1.))
-                .child(faint(
-                    format!(
-                        "{}, {week} in the last week",
-                        plural(total as usize, "commit")
-                    ),
-                    theme,
-                )),
-        )
-        .child(
-            h_flex()
-                .h(px(HEIGHT))
-                .gap(px(2.))
-                .items_end()
-                .children(bars),
-        )
-        .child(
-            h_flex()
-                .text_size(px(11.))
-                .child(faint(format!("{ACTIVITY_DAYS} days ago"), theme).flex_grow(1.))
-                .child(faint("Today", theme)),
-        )
-        .into_any_element()
 }
 
 /// Who's been committing to the target, most first, each with a bar of how much.

@@ -315,6 +315,10 @@ pub struct Detail {
     /// The project page's Commits tab is picked, over a merge's commits.
     commits_tab: bool,
     merged_scroll: UniformListScrollHandle,
+    /// The days of a project's activity picked, by their bars, first to last, which its
+    /// history is filtered to; and the bar a shift-click extends them from.
+    activity_days: Option<(ProjectId, usize, usize)>,
+    activity_anchor: Option<usize>,
     /// The images each project's README shows, as loaded, by where they're from.
     readme_images: HashMap<ProjectId, HashMap<String, Arc<gpui::RenderImage>>>,
     /// The images asked for, loaded or not, so each is asked for once.
@@ -571,6 +575,8 @@ impl Detail {
             merged_pick: None,
             commits_tab: false,
             merged_scroll: UniformListScrollHandle::new(),
+            activity_days: None,
+            activity_anchor: None,
             readme_images: HashMap::new(),
             readme_images_asked: HashSet::new(),
             header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),
