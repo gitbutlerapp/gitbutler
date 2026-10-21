@@ -481,10 +481,10 @@ impl Navigator {
             if let Some(err) = &entry.error {
                 rows.push(Row::Note(err.clone(), true));
             }
-            rows.push(Row::Item(Selection::Uncommitted(id.clone())));
             // Nothing but the edit goes on while a commit is checked out, its files listed
             // where the uncommitted ones are.
             if workspace.editing.is_some() {
+                rows.push(Row::Item(Selection::Uncommitted(id.clone())));
                 continue;
             }
             // The main worktree's heading folds its branches away; with linked worktrees each is
@@ -492,12 +492,21 @@ impl Navigator {
             // the heading lines up with them, and they with the project.
             let headed = !workspace.worktrees.is_empty();
             let selection = store.selection.as_ref().filter(|s| s.project() == id);
+            let main_selected = selection.is_some_and(|s| within(s, workspace.branches()));
+            let main_open = self.worktree_open(id, None, main_selected);
+            // Alone and with nothing uncommitted, it has nothing to say, so it's left out, but
+            // for while it's selected, something's dragged, which may go there, or its branches
+            // are folded under it.
+            let clean = (store.uncommitted_shown(id, None, &workspace.uncommitted)).is_empty();
+            let heading_selected = matches!(selection, Some(Selection::Uncommitted(_)));
+            if headed || !clean || heading_selected || store.dragging.is_some() || !main_open {
+                rows.push(Row::Item(Selection::Uncommitted(id.clone())));
+            }
             if headed {
                 rows.open();
                 rows.inset = NEST;
             }
-            let main_selected = selection.is_some_and(|s| within(s, workspace.branches()));
-            if self.worktree_open(id, None, main_selected) {
+            if main_open {
                 // A stack being unapplied leaves at once.
                 let stacks = (workspace.stacks.iter()).filter(|stack| {
                     !(stack.branches.iter()).any(|b| store.hides_branch(id, &b.ref_name))
