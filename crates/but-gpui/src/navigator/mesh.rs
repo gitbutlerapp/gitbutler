@@ -9,9 +9,10 @@ use gpui::{
     AnyElement, App, ClickEvent, Context, ElementId, MouseButton, Window, div, prelude::*, px,
 };
 
+use super::menu::keyed;
 use super::{
-    ClickOpened, NEST, Navigator, Row, RowStyle, Rows, double_click, found, matches, open_on_click,
-    toggle,
+    COMMIT_INDENT, ClickOpened, NEST, Navigator, Row, RowStyle, Rows, double_click, found, matches,
+    open_on_click, section_heading, uncommitted_counts,
 };
 use crate::app::CopySelection;
 use crate::backend::mesh::{self, BranchStatus};
@@ -19,8 +20,8 @@ use crate::overlays::MenuItem;
 use crate::state::{MeshBranch, MeshPick, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::{
-    Icon, ROW_HEIGHT, Tooltip, commit_title, dot, faint, fold_button, fold_glyph, h_flex, icon,
-    just_now, meta_count, plural, relative_time, section_label, small_icon,
+    Icon, Tooltip, commit_title, dot, faint, icon, just_now, meta_count, plural, section_label,
+    small_icon,
 };
 
 impl Navigator {
@@ -125,16 +126,9 @@ impl Navigator {
         let checkouts = store.mesh_checkouts(id);
         let active = (checkouts.iter()).any(|c| c.online && c.last_activity.is_some_and(just_now));
         let project = id.clone();
-        h_flex()
-            .id(ElementId::Name(format!("mesh-heading-{id}").into()))
-            .h(px(ROW_HEIGHT))
-            .mx(px(3.))
-            .pl(px(14.))
-            .pr(px(12.))
-            .gap(px(6.))
-            .child(fold_glyph(Some(open), theme.text_3))
-            .child(small_icon(Icon::Globe).text_color(theme.text_3))
-            .child(section_label("Network worktrees", theme))
+        let heading = ElementId::Name(format!("mesh-heading-{id}").into());
+        let label = section_label("Network worktrees", theme);
+        section_heading(heading, 6., open, Some(Icon::Globe), label, theme)
             .when(!open, |el| {
                 el.child(faint(checkouts.len().to_string(), theme))
                     .when(active, |el| el.child(dot(theme.safe)))
@@ -143,7 +137,9 @@ impl Navigator {
                 "Unfinished work on your other machines, from your mesh",
             ))
             .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                this.toggle_mesh(&project, window, cx)
+                let inside = matches!(&this.store.read(cx).selection,
+                    Some(Selection::Mesh(p, ..)) if *p == project);
+                this.toggle_shown(&project, |p| &mut p.shown_mesh, open, inside, window, cx)
             }))
             .into_any_element()
     }
@@ -175,8 +171,8 @@ impl Navigator {
                     true => (Icon::CommitFill, style.muted()),
                     false => (Icon::Commit, theme.blue),
                 };
-                // Under its branch's glyph, its title under the branch's name.
-                (style.row(format!("mesh-commit-{project}-{key}-{:?}", commit.id), 30.))
+                let id = format!("mesh-commit-{project}-{key}-{:?}", commit.id);
+                (style.row(id, COMMIT_INDENT))
                     .gap(px(10.))
                     .aria_label(commit.title.clone())
                     .child(small_icon(glyph).text_color(style.meta(color)))
@@ -187,13 +183,7 @@ impl Navigator {
                             .truncate()
                             .child(commit_title(&commit.title)),
                     )
-                    .children(commit.created_at.map(|at| {
-                        div()
-                            .flex_none()
-                            .text_size(px(11.))
-                            .text_color(style.muted())
-                            .child(relative_time(at))
-                    }))
+                    .children(commit.created_at.map(|at| style.age(at)))
             }
             (MeshPick::Branch(name), Some(branch)) => {
                 let fold = (project.clone(), key.clone(), name.clone());
@@ -213,7 +203,7 @@ impl Navigator {
                 };
                 (style.row(format!("mesh-branch-{project}-{key}-{name}"), 6.))
                     .aria_label(format!("Branch {name}"))
-                    .child(fold_button(
+                    .child(self.fold(
                         ("mesh-branch-fold", ix),
                         (n > 0).then_some(open),
                         quiet,
@@ -263,23 +253,10 @@ impl Navigator {
                     this.toggle_checkout(fold.clone(), open, window, cx)
                 };
                 let folds = !checkout.branches.is_empty();
-                let counts = match added + removed {
-                    0 => meta_count(
-                        Icon::File,
-                        files.len(),
-                        style.meta(theme.warn),
-                        plural(files.len(), "uncommitted file"),
-                    )
-                    .map(IntoElement::into_any_element),
-                    _ => Some(
-                        crate::ui::diff::stats(added as u32, removed as u32, theme)
-                            .into_any_element(),
-                    ),
-                };
                 (style.row(format!("mesh-{project}-{key}"), 6.))
                     .aria_label(checkout.label())
                     .aria_expanded(open)
-                    .child(fold_button(
+                    .child(self.fold(
                         ("mesh-fold", ix),
                         folds.then_some(open),
                         quiet,
@@ -303,30 +280,11 @@ impl Navigator {
                     )
                     // As a worktree's, the quiet "uncommitted" gives way before the name does.
                     .when(!files.is_empty(), |el| {
-                        el.child(
-                            h_flex()
-                                .flex_shrink(1000.)
-                                .min_w(px(0.))
-                                .overflow_hidden()
-                                .gap(px(8.))
-                                .child(
-                                    div()
-                                        .text_size(px(11.))
-                                        .text_color(quiet)
-                                        .child("uncommitted"),
-                                )
-                                .children(counts),
-                        )
+                        let lines = (added as u32, removed as u32);
+                        el.child(uncommitted_counts((files.len(), 0, lines), style))
                     })
                     .when(!open, |el| el.children(style.unpushed(unpushed)))
-                    .when(active, |el| {
-                        el.child(
-                            div()
-                                .id(("mesh-active", ix))
-                                .child(dot(style.meta(theme.safe)))
-                                .tooltip(Tooltip::text("Changed in the last 2 minutes")),
-                        )
-                    })
+                    .when(active, |el| el.child(style.active_dot(("mesh-active", ix))))
                     .when(folds, |el| el.on_click(double_click(toggle, cx)))
             }
             _ => return None,
@@ -349,33 +307,7 @@ impl Navigator {
         let store = self.store.read(cx);
         store.prefs.shown_mesh.contains(project.as_ref())
             || matches!(&store.selection, Some(Selection::Mesh(p, ..)) if p == project)
-            || !self.filter_terms(cx).is_empty()
-    }
-
-    /// Fold or unfold all of `project`'s work elsewhere. Folding it over the selection takes
-    /// that up to the project. Under the filter, which shows what it finds, it does nothing.
-    fn toggle_mesh(&mut self, project: &ProjectId, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.filter_terms(cx).is_empty() {
-            return;
-        }
-        let folding = self.mesh_open(project, cx);
-        let store = self.store.read(cx);
-        let inside = matches!(&store.selection, Some(Selection::Mesh(p, ..)) if p == project);
-        let key = project.to_string();
-        self.store.update(cx, |store, cx| {
-            store.set_prefs(
-                |prefs| {
-                    match folding {
-                        true => prefs.shown_mesh.remove(&key),
-                        false => prefs.shown_mesh.insert(key),
-                    };
-                },
-                cx,
-            )
-        });
-        if folding && inside {
-            self.select(Selection::Project(project.clone()), window, cx)
-        }
+            || self.filtering(cx)
     }
 
     /// Fold checkout `key`'s branches, or unfold them. Folding them over the selection takes
@@ -410,15 +342,9 @@ impl Navigator {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        // By hand, it stays as it's left.
-        if self.click_opened == Some(ClickOpened::Elsewhere(key.clone())) {
-            self.click_opened = None;
-        }
         // Shown open over its selected commit whatever was stored, it only flips when that
         // agrees.
-        if self.mesh_branch_open(&key) == open {
-            toggle(&mut self.flipped_mesh_branches, key.clone());
-        }
+        self.set_open(ClickOpened::Elsewhere(key.clone()), !open, cx);
         let (project, id, name) = key;
         let on_commit = matches!(&self.store.read(cx).selection,
             Some(Selection::Mesh(p, i, MeshPick::Commit(n, _))) if (p, i, n) == (&project, &id, &name));
@@ -445,13 +371,7 @@ impl Navigator {
                 self.folded_checkouts.remove(&(project, id));
             }
             MeshPick::Branch(name) => {
-                let key = (project, id, name);
-                if self.click_opened == Some(ClickOpened::Elsewhere(key.clone())) {
-                    self.click_opened = None;
-                }
-                if !self.mesh_branch_open(&key) {
-                    toggle(&mut self.flipped_mesh_branches, key);
-                }
+                self.set_open(ClickOpened::Elsewhere((project, id, name)), true, cx)
             }
             MeshPick::Commit(..) => {}
         }
@@ -532,7 +452,10 @@ impl Navigator {
             }));
         }
         if *pick == MeshPick::Checkout {
-            items.push(MenuItem::action("Copy path", &CopySelection, cx));
+            let path = checkout.path.clone();
+            items.push(keyed("Copy path", &CopySelection, cx, move |app, _, cx| {
+                app.copy_text(path.clone(), cx)
+            }));
         }
         items
     }

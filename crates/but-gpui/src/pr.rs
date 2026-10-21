@@ -2,24 +2,21 @@
 //! merging one that's open.
 
 use gpui::{
-    App, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle, Focusable, MouseButton,
-    PromptLevel, ScrollHandle, SharedString, Stateful, Task, Window, actions, div, prelude::*, px,
+    App, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle, Focusable, PromptLevel,
+    ScrollHandle, SharedString, Stateful, Task, Window, actions, div, prelude::*, px,
 };
 
 use crate::app::AppView;
 use crate::backend::ai;
 use crate::backend::reviews::{self, MergeMethod};
-use crate::backend::{self, Forge, Review, ReviewState, Workspace, short_ref};
+use crate::backend::{self, Forge, Review, ReviewState, short_ref};
 use crate::state::{Overlay, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::text_input::{InputEvent, Newline, TextInput};
-use crate::ui::{ButtonStyle, button, faint, h_flex, muted, switch, v_flex};
+use crate::ui::{ButtonStyle, button, faint, field, h_flex, muted, switch, v_flex};
 
 actions!(pr, [CreatePullRequest, MergePullRequest]);
-
-/// Why a pull request with commits not pushed yet can't be merged.
-const PUSH_BEFORE_MERGE: &str = "Push first, so the pull request has these commits";
 
 pub struct ReviewView {
     store: Entity<Store>,
@@ -270,41 +267,22 @@ impl Render for ReviewView {
             Some(target) => format!("{} → {target}", short_ref(&self.branch)),
             None => short_ref(&self.branch).to_owned(),
         };
+        // Creating it pushes first when it or a branch below it has something to push.
         let push = (self.store.read(cx).workspace(&self.project))
-            .and_then(|ws| push_first(ws, &self.branch))
-            .map(|force| {
-                if force {
-                    "Gets force-pushed first, since it or a branch below it was rewritten"
-                } else {
-                    "Gets pushed first"
-                }
+            .filter(|ws| ws.can_push(&self.branch))
+            .map(|ws| match ws.needs_force(&self.branch) {
+                true => "Gets force-pushed first, since it or a branch below it was rewritten",
+                false => "Gets pushed first",
             });
-        let field = |input: &Entity<TextInput>, tall: bool| {
-            let handle = input.focus_handle(cx);
-            let focused = handle.is_focused(window);
-            div()
+        let text_box = |input: &Entity<TextInput>, tall: bool| {
+            let focused = input.focus_handle(cx).is_focused(window);
+            field(input, focused, &theme)
                 .id(if tall { "pr-body" } else { "pr-title" })
-                // Anywhere in the box writes in it, not just on its lines.
-                .on_mouse_down(MouseButton::Left, move |_, window, cx| {
-                    window.focus(&handle, cx)
-                })
-                .px(px(10.))
-                .py(px(7.))
-                .rounded(px(6.))
-                .border_1()
-                .border_color(if focused {
-                    theme.focus_border()
-                } else {
-                    theme.border_2
-                })
-                .text_size(px(13.))
-                .line_height(px(19.))
                 .when(tall, |el| {
                     (el.min_h(px(180.)).max_h(px(320.)))
                         .overflow_y_scroll()
                         .track_scroll(&self.body_scroll)
                 })
-                .child(input.clone())
         };
         let label = |text: &'static str| {
             div()
@@ -349,7 +327,7 @@ impl Render for ReviewView {
                     .pb(px(16.))
                     .gap(px(6.))
                     .child(label("Title"))
-                    .child(field(&self.title, false).capture_action(cx.listener(
+                    .child(text_box(&self.title, false).capture_action(cx.listener(
                         |this, _: &Newline, window, cx| {
                             window.focus(&this.body.focus_handle(cx), cx);
                             cx.stop_propagation();
@@ -375,7 +353,7 @@ impl Render for ReviewView {
                                 .on_click(cx.listener(|this, _, _, cx| this.write_with_ai(cx))),
                             ),
                     )
-                    .child(field(&self.body, true))
+                    .child(text_box(&self.body, true))
                     .child(
                         h_flex()
                             .pt(px(8.))
@@ -515,8 +493,9 @@ impl AppView {
         };
         // The forge merges what it has, not the commits only here.
         if (self.store.read(cx).workspace(&project)).is_some_and(|ws| ws.can_push(&branch)) {
-            self.store
-                .update(cx, |store, cx| store.snack(PUSH_BEFORE_MERGE, cx));
+            self.store.update(cx, |store, cx| {
+                store.snack("Push first, so the pull request has these commits", cx)
+            });
             return;
         }
         // GitLab merges as the project is set up to, whatever is asked for.
@@ -562,12 +541,6 @@ impl AppView {
         })
         .detach();
     }
-}
-
-/// Whether creating `branch`'s pull request pushes first, and whether forced: it or a branch
-/// below it has something to push.
-fn push_first(ws: &Workspace, branch: &str) -> Option<bool> {
-    ws.can_push(branch).then(|| ws.needs_force(branch))
 }
 
 /// Whether `selection`'s project is on a forge, so pull requests apply.

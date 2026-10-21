@@ -1,14 +1,14 @@
 //! The navigator's right-click menus.
 
-use gpui::App;
+use gpui::{Action, App, Context, SharedString, Window};
 
-use super::Navigator;
+use super::{ClickOpened, Navigator};
 use crate::app::{
-    Collapse, CopySelection, CutSelection, DeleteSelection, Expand, Fetch, NewBranch,
+    AppView, Collapse, CopySelection, CutSelection, DeleteSelection, Expand, Fetch, NewBranch,
     NewBranchOnTop, OpenPullRequest, Push, RenameSelection, StartCommit, UncommitSelection,
     UpdateFromTarget,
 };
-use crate::backend::CommitId;
+use crate::backend::{CommitId, short_ref};
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, BranchEdits, CherryPick, CommitEdits, CopyChangeId,
     CopyMessage, MoveToNewBranch, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage,
@@ -16,7 +16,23 @@ use crate::edits::{
 };
 use crate::overlays::MenuItem;
 use crate::state::{Cut, ProjectId, Seeable, Selection, Store, WatchedOrder};
-use crate::ui::{plural, quoted};
+use crate::ui::{plural, quoted, shortcut};
+
+/// An item that runs `handler` on the row it opened on, showing the keys of `action`, which
+/// does the same from the navigator. The ⋯ in a page's header opens these menus with the
+/// focus in the detail, where `action` would act on the diff instead, as ⌘C copies the path
+/// of the file under its cursor, or do nothing, as → does there.
+pub(super) fn keyed(
+    label: impl Into<SharedString>,
+    action: &dyn Action,
+    cx: &App,
+    handler: impl Fn(&mut AppView, &mut Window, &mut Context<AppView>) + 'static,
+) -> MenuItem {
+    MenuItem {
+        key: shortcut(action, cx),
+        ..MenuItem::new(label, handler)
+    }
+}
 
 /// An item marking `ids`, commits of `project`, read, or with `read` false unread.
 fn mark_read(label: &str, project: &ProjectId, ids: Vec<CommitId>, read: bool) -> MenuItem {
@@ -104,11 +120,18 @@ impl Navigator {
         if let Selection::Branch(project, ref_name) = target
             && let Some(branch) = store.branch_for(target).filter(|b| !b.commits.is_empty())
         {
+            // On the navigator, as the page header's ⋯ has the detail focused, where the keys
+            // don't reach the navigator.
             let key = (project.clone(), ref_name.clone());
-            let mut view = vec![match self.branch_open(&key) {
-                true => MenuItem::action("Hide commits", &Collapse, cx),
-                false => MenuItem::action("Show commits", &Expand, cx),
-            }];
+            let open = self.branch_open(&key);
+            let (label, keys): (_, &dyn Action) = match open {
+                true => ("Hide commits", &Collapse),
+                false => ("Show commits", &Expand),
+            };
+            let mut view = vec![keyed(label, keys, cx, move |this, _, cx| {
+                let key = ClickOpened::Here(key.clone());
+                (this.navigator).update(cx, |nav, cx| nav.set_open(key, !open, cx))
+            })];
             let unread: Vec<CommitId> = (branch.commits.iter())
                 .filter(|commit| store.is_unread(project, *commit))
                 .map(|commit| commit.id)
@@ -177,26 +200,26 @@ impl Navigator {
             }
             Selection::Project(project) => {
                 let expanded = store.project(project).is_some_and(|p| p.expanded);
+                let id = project.clone();
                 let mut items = vec![if expanded {
                     // At once: Collapse (h) folds an open card before it stops watching it.
-                    let id = project.clone();
                     MenuItem::new("Stop watching", move |this, _, cx| {
                         this.store
                             .update(cx, |store, cx| store.set_expanded(&id, false, cx))
                     })
                 } else {
-                    action("Watch", &Expand)
+                    keyed("Watch", &Expand, cx, move |this, _, cx| {
+                        this.store
+                            .update(cx, |store, cx| store.set_expanded(&id, true, cx))
+                    })
                 }];
                 if expanded {
                     // Its card swaps places with the watched one's above or below: it goes
                     // before the one above, or before the one after the one below.
-                    let watched: Vec<&ProjectId> = (store.projects.iter())
-                        .filter(|entry| entry.expanded)
-                        .map(|entry| &entry.id)
-                        .collect();
-                    let at = watched.iter().position(|id| *id == project).unwrap_or(0);
-                    let up = at.checked_sub(1).map(|above| Some(watched[above]));
-                    let down = (at + 1 < watched.len()).then(|| watched.get(at + 2).copied());
+                    let watched = store.expanded_ids();
+                    let at = watched.iter().position(|id| id == project).unwrap_or(0);
+                    let up = at.checked_sub(1).map(|above| Some(&watched[above]));
+                    let down = (at + 1 < watched.len()).then(|| watched.get(at + 2));
                     // Only the manual order moves by hand.
                     if store.prefs.watched_order == WatchedOrder::Manual {
                         for (label, before) in [("Move up", up), ("Move down", down)] {
@@ -387,9 +410,12 @@ impl Navigator {
                         &UnapplyStack,
                     ));
                 }
+                let name = short_ref(ref_name).to_owned();
                 items.extend([
                     action("Rename…", &RenameSelection).separated(),
-                    action("Copy name", &CopySelection),
+                    keyed("Copy name", &CopySelection, cx, move |app, _, cx| {
+                        app.copy_text(name.clone(), cx)
+                    }),
                 ]);
                 // A linked worktree keeps the branch it has checked out, its lane's top one.
                 let checked_out =
@@ -447,8 +473,13 @@ impl Navigator {
                         &crate::detail::ResolveConflicts,
                     ));
                 }
+                let (cut_project, id) = (project.clone(), *id);
+                let cut = keyed("Cut", &CutSelection, cx, move |app, _, cx| {
+                    let ids = app.store.read(cx).with_picks(&cut_project, id);
+                    app.cut(Cut::Commit(cut_project.clone(), ids), cx)
+                });
                 items.extend([
-                    action("Cut", &CutSelection).separated(),
+                    cut.separated(),
                     action("Cherry-pick", &CherryPick),
                     action("Edit message…", &RenameSelection).separated(),
                 ]);
@@ -464,7 +495,10 @@ impl Navigator {
                 }
                 items.extend([
                     action("Move to a new branch", &MoveToNewBranch).separated(),
-                    action("Copy commit ID", &CopySelection).separated(),
+                    keyed("Copy commit ID", &CopySelection, cx, move |app, _, cx| {
+                        app.copy_text(id.0.to_string(), cx)
+                    })
+                    .separated(),
                 ]);
                 if edits.change_id {
                     items.push(action("Copy change ID", &CopyChangeId));
@@ -542,10 +576,17 @@ impl Navigator {
             }
             Selection::Stack(project, bottom) => {
                 let key = (project.clone(), bottom.clone());
-                let mut items = vec![match self.folded_stacks.contains(&key) {
-                    true => action("Show branches", &Expand),
-                    false => action("Hide branches", &Collapse),
-                }];
+                let folded = self.folded_stacks.contains(&key);
+                let (label, keys): (_, &dyn Action) = match folded {
+                    true => ("Show branches", &Expand),
+                    false => ("Hide branches", &Collapse),
+                };
+                let (fold_project, fold_bottom) = key.clone();
+                let mut items = vec![keyed(label, keys, cx, move |this, window, cx| {
+                    (this.navigator).update(cx, |nav, cx| {
+                        nav.toggle_stack(&fold_project, &fold_bottom, !folded, window, cx)
+                    })
+                })];
                 let Some(workspace) = store.workspace(project) else {
                     return items;
                 };

@@ -154,10 +154,13 @@ impl AppView {
         } else if detail.files_focused(window) {
             vec![(&NextFile, "next file")]
         } else if detail_focused && uncommitted {
-            // ⌘X takes what's picked, or the hunk or file under the cursor, and on a file's
-            // header there's no hunk for ⌥⌘Z.
-            let discard =
-                (detail.on_hunk()).then_some((&DiscardHunk as &dyn Action, "discard hunk"));
+            // ⌘X takes what's picked, or the hunk or file under the cursor; ⌥⌘Z the picked lines,
+            // or the hunk, and on a file's header there's no hunk for it.
+            let discard = match detail.picked_line_count() {
+                0 => detail.on_hunk().then_some("discard hunk"),
+                _ => Some("discard lines"),
+            };
+            let discard = discard.map(|label| (&DiscardHunk as &dyn Action, label));
             [
                 (&NextHunk as &dyn Action, "next hunk"),
                 (&CutSelection, "cut"),
@@ -250,7 +253,6 @@ fn key(keys: &str, theme: &Theme) -> gpui::Div {
         .child(keys.to_owned())
 }
 
-/// A key and what it does, the words a step quieter than the key.
 /// An operation's label, which names it as a command ("Push main"), as what's under way
 /// ("Pushing main"). An update rebases the stacks onto the target.
 fn under_way(label: &str) -> String {
@@ -270,6 +272,7 @@ fn under_way(label: &str) -> String {
     }
 }
 
+/// A key and what it does, the words a step quieter than the key.
 fn hint(keys: &str, label: &str, theme: &Theme) -> gpui::Div {
     h_flex()
         .flex_none()

@@ -244,6 +244,13 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             .map(|part| part.parse::<f32>().context("expected a number"))
             .collect()
     };
+    // The window position the command takes.
+    let at = || -> Result<Point<Pixels>> {
+        let [x, y] = numbers()?[..] else {
+            bail!("{command} takes x y");
+        };
+        Ok(point(px(x), px(y)))
+    };
     let held = |name| rest.split_whitespace().any(|part| part == name);
     let modifiers = Modifiers {
         platform: held("cmd"),
@@ -279,18 +286,12 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             }
         }
         "move" => {
-            let [x, y] = numbers()?[..] else {
-                bail!("move takes x y");
-            };
-            let at = point(px(x), px(y));
+            let at = at()?;
             let pressed = PRESSED.load(Ordering::Relaxed).then_some(MouseButton::Left);
             window.dispatch_event(mouse_move(at, pressed, Modifiers::default()), cx);
         }
         "press" => {
-            let [x, y] = numbers()?[..] else {
-                bail!("press takes x y");
-            };
-            let at = point(px(x), px(y));
+            let at = at()?;
             window.dispatch_event(
                 mouse_down(MouseButton::Left, at, Modifiers::default(), 1),
                 cx,
@@ -314,9 +315,7 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             );
         }
         "click" | "rclick" | "dclick" | "tclick" => {
-            let [x, y] = numbers()?[..] else {
-                bail!("click takes x y");
-            };
+            let at = at()?;
             let button = if command == "rclick" {
                 MouseButton::Right
             } else {
@@ -328,7 +327,6 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 "tclick" => 3,
                 _ => 1,
             };
-            let at = point(px(x), px(y));
             for count in 1..=clicks {
                 window.dispatch_event(mouse_move(at, None, modifiers), cx);
                 window.dispatch_event(mouse_down(button, at, modifiers, count), cx);
@@ -361,19 +359,13 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
         "release" => {
             // Let go of a drag held by `drag … hold` where the pointer is, with no move first,
             // as a hand does.
-            let [x, y] = numbers()?[..] else {
-                bail!("release takes x y");
-            };
-            let at = point(px(x), px(y));
+            let at = at()?;
             window.dispatch_event(mouse_up(MouseButton::Left, at, Modifiers::default(), 1), cx);
             PRESSED.store(false, Ordering::Relaxed);
         }
         "drop" => {
             // Finish a drag left held by `drag … hold`, after frames have run.
-            let [x, y] = numbers()?[..] else {
-                bail!("drop takes x y");
-            };
-            let (at, left) = (point(px(x), px(y)), MouseButton::Left);
+            let (at, left) = (at()?, MouseButton::Left);
             window.dispatch_event(mouse_move(at, Some(left), Modifiers::default()), cx);
             window.dispatch_event(mouse_up(left, at, Modifiers::default(), 1), cx);
             PRESSED.store(false, Ordering::Relaxed);

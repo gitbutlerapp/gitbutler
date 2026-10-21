@@ -6,9 +6,9 @@ use std::rc::Rc;
 
 use anyhow::Result;
 use gpui::{
-    Action, AnyElement, App, ClickEvent, Context, DismissEvent, Entity, Focusable as _,
-    ManagedView, MouseButton, Pixels, Point, Role, SharedString, Subscription, Window, anchored,
-    deferred, div, prelude::*, px, relative,
+    Action, AnyElement, App, ClickEvent, Context, DismissEvent, Div, Entity, Focusable as _,
+    ManagedView, MouseButton, Pixels, Point, Role, SharedString, Stateful, Subscription, Window,
+    anchored, deferred, div, prelude::*, px, relative,
 };
 
 use crate::app::AppView;
@@ -17,8 +17,8 @@ use crate::state::{Notice, Overlay, ProjectId, Remap, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, Icon, STATUS_BAR_HEIGHT, button, error_summary, h_flex, icon, keycap, list_row,
-    muted, popover, shortcut, small_icon, v_flex,
+    ButtonStyle, Icon, STATUS_BAR_HEIGHT, button, error_summary, field, h_flex, icon, keycap,
+    list_row, muted, popover, shortcut, small_icon, v_flex,
 };
 
 /// A right-click menu.
@@ -144,8 +144,9 @@ impl AppView {
     }
 
     /// Ask for a branch name, then run `op` with it and hand `done` the full ref name of the
-    /// branch it returns. With the branch it's `renaming` (a full ref, empty for one without
-    /// a name yet), that branch is being named; without one, created.
+    /// branch it returns. With the branch it's `renaming`, a full ref, that branch is being
+    /// renamed; without one, or an empty one for a branch without a name yet, it asks as
+    /// for a new branch.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn prompt_branch(
         &mut self,
@@ -157,6 +158,7 @@ impl AppView {
         op: impl FnOnce(&Path, &Remap, &str) -> Result<String> + Send + 'static,
         done: impl FnOnce(&mut Store, String, &mut Context<Store>) + 'static,
     ) {
+        let renaming = renaming.filter(|from| !from.is_empty());
         let initial = renaming.as_deref().map_or("", short_ref);
         let confirm = if initial.is_empty() {
             "Create"
@@ -185,7 +187,7 @@ impl AppView {
         };
         let current = initial.to_owned();
         // As the desktop app says: a rename doesn't reach the remote.
-        let pushed = (renaming.as_deref().filter(|from| !from.is_empty()))
+        let pushed = (renaming.as_deref())
             .and_then(|from| self.store.read(cx).workspace(&project)?.find_branch(from))
             .is_some_and(|branch| branch.push != backend::PushState::NeverPushed);
         let detail = pushed.then(|| {
@@ -193,8 +195,7 @@ impl AppView {
              makes a new remote branch, apart from any pull request of the old one."
                 .to_owned()
         });
-        let renamed =
-            (renaming.clone().filter(|from| !from.is_empty())).map(|from| (project.clone(), from));
+        let renamed = renaming.clone().map(|from| (project.clone(), from));
         self.open_prompt(
             title,
             detail,
@@ -214,7 +215,6 @@ impl AppView {
                 // to tell it from another unnamed one, so its new name waits for the reload.
                 let overlay = Overlay {
                     renamed: (renaming.clone())
-                        .filter(|from| !from.is_empty())
                         .map(|from| (from, branch_name(&name).unwrap_or(name.clone()))),
                     ..Overlay::default()
                 };
@@ -269,6 +269,9 @@ impl AppView {
             }
             return;
         }
+        // It takes the focus, so nothing else that would take the keys stays over it.
+        self.palette = None;
+        self.menu = None;
         let subscription =
             cx.subscribe_in(
                 &input,
@@ -286,7 +289,7 @@ impl AppView {
                         if let Some(prompt) = this.prompt.take() {
                             (prompt.on_submit)(this, text, window, cx);
                         }
-                        this.focus_main(window, cx);
+                        this.restore_focus(window, cx);
                         cx.notify();
                     }
                     InputEvent::Cancel => {
@@ -323,7 +326,7 @@ impl AppView {
         {
             on_cancel(self);
         }
-        self.focus_main(window, cx);
+        self.restore_focus(window, cx);
         cx.notify();
     }
 
@@ -381,13 +384,10 @@ impl AppView {
         cx.notify();
     }
 
-    /// The modal on screen, when it's a `V`.
-    pub fn modal_view<V: 'static>(&self) -> Option<Entity<V>> {
-        self.modal.as_ref()?.0.clone().downcast::<V>().ok()
-    }
-
+    /// Close the modal, and a menu open from it, whose items would act on it.
     pub(crate) fn close_modal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.modal.take().is_some() {
+            self.menu = None;
             self.focus_main(window, cx);
             cx.notify();
         }
@@ -395,32 +395,11 @@ impl AppView {
 
     pub(crate) fn render_modal(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let (view, ..) = self.modal.as_ref()?;
-        Some(
-            div()
-                .id("modal-backdrop")
-                .absolute()
-                .inset_0()
-                .bg(gpui::black().opacity(0.25))
-                .flex()
-                .justify_center()
-                .items_center()
-                .occlude()
-                .on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(|this, _, window, cx| this.close_modal(window, cx)),
-                )
-                .child(
-                    // At most most of the window: the modal inside can't say so itself, as
-                    // this box is only as wide as the modal.
-                    div()
-                        .flex()
-                        .max_w(relative(0.92))
-                        .max_h(relative(0.88))
-                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                        .child(view.clone()),
-                )
-                .into_any_element(),
-        )
+        // At most most of the window: the modal inside can't say so itself, as this box is
+        // only as wide as the modal.
+        let card = (div().flex().max_w(relative(0.92)).max_h(relative(0.88))).child(view.clone());
+        let backdrop = backdrop("modal-backdrop", card, cx, Self::close_modal);
+        Some(backdrop.items_center().into_any_element())
     }
 
     pub(crate) fn render_menu(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
@@ -469,118 +448,72 @@ impl AppView {
                 .into_any_element();
             line.into_iter().chain(heading).chain([row])
         });
-        Some(
-            deferred(
-                // Over the window, so what's under the menu neither hovers nor shows a
-                // tooltip, and a click outside only closes it, as a native menu does.
-                div().absolute().inset_0().occlude().child(
-                    anchored()
-                        .position(menu.position)
-                        .snap_to_window_with_margin(px(8.))
-                        .child(
-                            popover(theme)
-                                .id("context-menu")
-                                .min_w(px(180.))
-                                .py(px(4.))
-                                .children(items)
-                                .on_mouse_down_out(cx.listener(|this, _, _, cx| {
-                                    this.menu = None;
-                                    cx.notify();
-                                })),
-                        ),
-                ),
-            )
-            .with_priority(2)
-            .into_any_element(),
-        )
+        let card = (popover(theme).id("context-menu").min_w(px(180.)).py(px(4.))).children(items);
+        Some(floating(menu.position, card, cx, |this, _, cx| {
+            this.menu = None;
+            cx.notify();
+        }))
     }
 
-    pub(crate) fn render_prompt(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub(crate) fn render_prompt(
+        &self,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         let prompt = self.prompt.as_ref()?;
         let theme = Theme::get(cx);
         let input = prompt.input.clone();
-        Some(
-            div()
-                .id("prompt-backdrop")
-                .absolute()
-                .inset_0()
-                .bg(gpui::black().opacity(0.2))
-                .flex()
-                .justify_center()
-                .items_start()
-                .pt(px(120.))
-                .occlude()
-                .on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(|this, _, window, cx| {
-                        this.cancel_prompt(window, cx);
-                    }),
+        let focused = input.focus_handle(cx).is_focused(window);
+        let card = popover(theme)
+            .id("prompt")
+            .w(px(380.))
+            .h_auto()
+            .p(px(16.))
+            .gap(px(12.))
+            .rounded(px(10.))
+            .child(
+                div()
+                    .text_size(px(14.))
+                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .child(prompt.title.clone()),
+            )
+            .when_some(prompt.detail.clone(), |el, detail| {
+                el.child(muted(detail, theme))
+            })
+            .child(field(&input, focused, theme).font_family(theme.mono_font.clone()))
+            .when_some(prompt.hint.clone(), |el, hint| {
+                el.child(
+                    div()
+                        .text_size(px(12.))
+                        .text_color(theme.danger)
+                        .child(hint),
                 )
-                .child(
-                    popover(theme)
-                        .id("prompt")
-                        .w(px(380.))
-                        .h_auto()
-                        .p(px(16.))
-                        .gap(px(12.))
-                        .rounded(px(10.))
-                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                        .child(
-                            div()
-                                .text_size(px(14.))
-                                .font_weight(gpui::FontWeight::SEMIBOLD)
-                                .child(prompt.title.clone()),
-                        )
-                        .when_some(prompt.detail.clone(), |el, detail| {
-                            el.child(muted(detail, theme))
-                        })
-                        .child(
-                            div()
-                                .px(px(8.))
-                                .py(px(6.))
-                                .rounded(px(4.))
-                                .border_1()
-                                .border_color(theme.focus_border())
-                                .font_family(theme.mono_font.clone())
-                                .text_size(px(13.))
-                                .child(prompt.input.clone()),
-                        )
-                        .when_some(prompt.hint.clone(), |el, hint| {
-                            el.child(
-                                div()
-                                    .text_size(px(12.))
-                                    .text_color(theme.danger)
-                                    .child(hint),
-                            )
-                        })
-                        .child(
-                            h_flex()
-                                .justify_end()
-                                .gap(px(8.))
-                                .child(
-                                    button("prompt-cancel", "Cancel")
-                                        .style(ButtonStyle::Ghost)
-                                        .on_click({
-                                            let input = input.clone();
-                                            move |_, window, cx| {
-                                                input.update(cx, |_, cx| {
-                                                    cx.emit(InputEvent::Cancel)
-                                                });
-                                                window.refresh();
-                                            }
-                                        }),
-                                )
-                                .child(
-                                    button("prompt-confirm", prompt.confirm.clone())
-                                        .style(ButtonStyle::Gray)
-                                        .on_click(move |_, _, cx| {
-                                            input.update(cx, |_, cx| cx.emit(InputEvent::Submit))
-                                        }),
-                                ),
-                        ),
-                )
-                .into_any_element(),
-        )
+            })
+            .child(
+                h_flex()
+                    .justify_end()
+                    .gap(px(8.))
+                    .child(
+                        button("prompt-cancel", "Cancel")
+                            .style(ButtonStyle::Ghost)
+                            .on_click({
+                                let input = input.clone();
+                                move |_, window, cx| {
+                                    input.update(cx, |_, cx| cx.emit(InputEvent::Cancel));
+                                    window.refresh();
+                                }
+                            }),
+                    )
+                    .child(
+                        button("prompt-confirm", prompt.confirm.clone())
+                            .style(ButtonStyle::Gray)
+                            .on_click(move |_, _, cx| {
+                                input.update(cx, |_, cx| cx.emit(InputEvent::Submit))
+                            }),
+                    ),
+            );
+        let backdrop = backdrop("prompt-backdrop", card, cx, Self::cancel_prompt);
+        Some(backdrop.items_start().pt(px(120.)).into_any_element())
     }
 
     /// Snackbars at the bottom centre, error cards at the bottom right.
@@ -611,6 +544,8 @@ impl AppView {
                             .text_color(theme.snackbar_text)
                             .text_size(px(12.))
                             .shadow_lg()
+                            // Over a modal's backdrop, which a click would reach and close it.
+                            .occlude()
                             .child(message.clone())
                             .when_some(undo.clone(), |el, (project, snapshot)| {
                                 el.child(
@@ -664,6 +599,7 @@ impl AppView {
                             .w(px(320.))
                             .p(px(14.))
                             .gap(px(8.))
+                            .occlude()
                             .child(
                                 h_flex()
                                     .items_start()
@@ -736,4 +672,48 @@ impl AppView {
                     .child(snackbar)
             }))
     }
+}
+
+/// A dimmed layer over the window that takes the pointer, with `card` across its middle. A
+/// press outside the card runs `dismiss`.
+pub(crate) fn backdrop(
+    id: &'static str,
+    card: impl InteractiveElement + IntoElement + 'static,
+    cx: &mut Context<AppView>,
+    dismiss: impl Fn(&mut AppView, &mut Window, &mut Context<AppView>) + 'static,
+) -> Stateful<Div> {
+    div()
+        .id(id)
+        .absolute()
+        .inset_0()
+        .bg(gpui::black().opacity(0.25))
+        .occlude()
+        .flex()
+        .justify_center()
+        .on_mouse_down(
+            MouseButton::Left,
+            cx.listener(move |this, _, window, cx| dismiss(this, window, cx)),
+        )
+        .child(card.on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation()))
+}
+
+/// `card` at `position`, kept inside the window, over everything as a native menu is: what's
+/// under it neither hovers nor shows a tooltip, and a press outside it only runs `close`.
+pub(crate) fn floating(
+    position: Point<Pixels>,
+    card: Stateful<Div>,
+    cx: &mut Context<AppView>,
+    close: impl Fn(&mut AppView, &mut Window, &mut Context<AppView>) + 'static,
+) -> AnyElement {
+    let close = cx.listener(move |this, _, window, cx| close(this, window, cx));
+    deferred(
+        div().absolute().inset_0().occlude().child(
+            anchored()
+                .position(position)
+                .snap_to_window_with_margin(px(8.))
+                .child(card.on_mouse_down_out(close)),
+        ),
+    )
+    .with_priority(2)
+    .into_any_element()
 }

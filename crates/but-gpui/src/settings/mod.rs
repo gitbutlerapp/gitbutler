@@ -22,7 +22,8 @@ use crate::theme::{Appearance, CodeSize, Theme};
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    self, ButtonStyle, Icon, Tooltip, button, dropdown, field, h_flex, icon, muted, switch, v_flex,
+    self, ButtonStyle, Icon, Tooltip, button, dropdown, field, h_flex, icon, muted, side_row,
+    switch, v_flex,
 };
 
 actions!(settings, [OpenSettings]);
@@ -219,6 +220,13 @@ impl SettingsView {
         };
         view.show_project(project, cx);
         view.load_accounts(cx);
+        view.load_app_settings(cx);
+        view
+    }
+
+    /// Read the app's settings shown here, as saved, which a change that failed left as
+    /// they were.
+    fn load_app_settings(&mut self, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
             let loaded = crate::backend::run(|| {
                 Ok((
@@ -243,7 +251,6 @@ impl SettingsView {
             }
         })
         .detach();
-        view
     }
 
     fn error(&self, title: &str, err: anyhow::Error, cx: &mut App) {
@@ -274,21 +281,6 @@ impl SettingsView {
         .detach();
     }
 
-    /// Show the fetch interval as saved, which a change that failed left as it was.
-    fn reload_fetch_interval(&mut self, cx: &mut Context<Self>) {
-        cx.spawn(async move |this, cx| {
-            let saved = crate::backend::run(|| Ok(backend::fetch_interval())).await;
-            if let Ok(minutes) = saved {
-                this.update(cx, |this, cx| {
-                    this.fetch_interval = minutes;
-                    cx.notify();
-                })
-                .ok();
-            }
-        })
-        .detach();
-    }
-
     fn open_menu(&self, event: &ClickEvent, items: Vec<MenuItem>, cx: &mut App) {
         let position = event.position();
         self.app
@@ -296,7 +288,8 @@ impl SettingsView {
             .ok();
     }
 
-    /// A dropdown showing `label`, whose menu sets one of `options` through `set`.
+    /// A dropdown showing `label`, whose menu sets one of `options` through `set` and ticks
+    /// the one `label` names.
     fn choice<T: Clone + 'static>(
         &self,
         id: &'static str,
@@ -305,15 +298,18 @@ impl SettingsView {
         set: impl Fn(&mut Self, T, &mut Context<Self>) + Clone + 'static,
         cx: &Context<Self>,
     ) -> AnyElement {
+        let label = label.into();
         let this = cx.entity().downgrade();
         let items: Vec<MenuItem> = options
             .into_iter()
-            .map(|(value, label)| {
+            .map(|(value, option)| {
                 let (this, set) = (this.clone(), set.clone());
-                MenuItem::new(label, move |_, _, cx| {
+                let ticked = option == *label;
+                MenuItem::new(option, move |_, _, cx| {
                     this.update(cx, |this, cx| set(this, value.clone(), cx))
                         .ok();
                 })
+                .ticked(ticked)
             })
             .collect();
         dropdown(id, label, Theme::get(cx))
@@ -496,7 +492,7 @@ impl SettingsView {
                 this.apply(
                     "Couldn't change how often to fetch",
                     move || backend::set_fetch_interval(minutes),
-                    Self::reload_fetch_interval,
+                    Self::load_app_settings,
                     cx,
                 );
             },
@@ -517,21 +513,16 @@ impl SettingsView {
                 let on = !this.worktrees;
                 this.worktrees = on;
                 cx.notify();
-                cx.spawn(async move |this, cx| {
-                    let saved =
-                        crate::backend::run(move || backend::set_worktrees_enabled(on)).await;
-                    this.update(cx, |this, cx| match saved {
-                        // Watched and listed again, with their worktrees or without.
-                        Ok(()) => this.store.update(cx, |store, cx| store.reopen_expanded(cx)),
-                        Err(err) => {
-                            this.worktrees = !on;
-                            cx.notify();
-                            this.error("Couldn't change the worktree setting", err, cx)
-                        }
-                    })
-                    .ok();
-                })
-                .detach();
+                this.apply(
+                    "Couldn't change the worktree setting",
+                    move || backend::set_worktrees_enabled(on),
+                    // Watched and listed again, with their worktrees or without.
+                    |this, cx| {
+                        this.load_app_settings(cx);
+                        this.store.update(cx, |store, cx| store.reopen_expanded(cx));
+                    },
+                    cx,
+                );
             }));
         Row::new(
             "Linked worktrees",
@@ -549,18 +540,12 @@ impl SettingsView {
                 let on = !this.open_at_start;
                 this.open_at_start = on;
                 cx.notify();
-                cx.spawn(async move |this, cx| {
-                    let saved = crate::backend::run(move || backend::set_opens_at_start(on)).await;
-                    if let Err(err) = saved {
-                        this.update(cx, |this, cx| {
-                            this.open_at_start = !on;
-                            cx.notify();
-                            this.error("Couldn't change what opens at start", err, cx)
-                        })
-                        .ok();
-                    }
-                })
-                .detach();
+                this.apply(
+                    "Couldn't change what opens at start",
+                    move || backend::set_opens_at_start(on),
+                    Self::load_app_settings,
+                    cx,
+                );
             },
         ));
         Row::new(
@@ -733,32 +718,31 @@ impl SettingsView {
         cx: &Context<Self>,
     ) -> impl IntoElement {
         let selected = !searching && self.page == page;
-        let hover = theme.hover();
-        h_flex()
-            .id(SharedString::from(format!("{page:?}")))
-            .px(px(8.))
-            .py(px(6.))
-            .gap(px(10.))
-            .rounded(px(6.))
-            .text_size(px(13.))
-            .map(|el| match selected {
-                true => el.bg(theme.fill_gray).text_color(theme.text_inverted),
-                false => el.text_color(theme.text_1).hover(move |el| el.bg(hover)),
-            })
-            .child(icon(page.icon()).text_color(match selected {
-                true => theme.text_inverted.opacity(0.7),
-                false => theme.text_2,
-            }))
-            .child(page.title())
-            .on_click(cx.listener(move |this, _, _, cx| {
-                if page == Page::Ai {
-                    this.retry_ai();
-                    this.ensure_ai(cx);
-                }
-                this.page = page;
-                this.search.update(cx, |search, cx| search.set_text("", cx));
-                cx.notify();
-            }))
+        // Solid while it's shown, as a side list's is with the focus.
+        side_row(
+            SharedString::from(format!("{page:?}")),
+            selected,
+            true,
+            theme,
+        )
+        .mx(px(0.))
+        .h(px(30.))
+        .gap(px(10.))
+        .rounded(px(6.))
+        .child(icon(page.icon()).text_color(match selected {
+            true => theme.text_inverted.opacity(0.7),
+            false => theme.text_2,
+        }))
+        .child(page.title())
+        .on_click(cx.listener(move |this, _, _, cx| {
+            if page == Page::Ai {
+                this.retry_ai();
+                this.ensure_ai(cx);
+            }
+            this.page = page;
+            this.search.update(cx, |search, cx| search.set_text("", cx));
+            cx.notify();
+        }))
     }
 }
 
@@ -881,15 +865,13 @@ impl Render for SettingsView {
 impl AppView {
     /// Settings, at General, signing in to GitButler.
     pub fn sign_in(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.open_settings_at(None, Page::General, window, cx);
-        if let Some(view) = self.modal_view::<SettingsView>() {
-            view.update(cx, |view, cx| view.log_in_to_gitbutler(window, cx));
-        }
+        let view = self.open_settings_at(None, Page::General, window, cx);
+        view.update(cx, |view, cx| view.log_in_to_gitbutler(window, cx));
     }
 
     /// Settings, at Integrations: where a forge account gets connected.
     pub fn open_accounts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.open_settings_at(None, Page::Integrations, window, cx)
+        self.open_settings_at(None, Page::Integrations, window, cx);
     }
 
     /// Settings, at Project, for `project`.
@@ -899,11 +881,11 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.open_settings_at(Some(project), Page::Project, window, cx)
+        self.open_settings_at(Some(project), Page::Project, window, cx);
     }
 
     pub fn open_settings(&mut self, _: &OpenSettings, window: &mut Window, cx: &mut Context<Self>) {
-        self.open_settings_at(None, Page::General, window, cx)
+        self.open_settings_at(None, Page::General, window, cx);
     }
 
     /// Settings, at `page`, for `project`, or else the selected project or the first.
@@ -913,7 +895,7 @@ impl AppView {
         page: Page,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) {
+    ) -> Entity<SettingsView> {
         let store = self.store.clone();
         let project = project.or_else(|| {
             let store = store.read(cx);
@@ -924,13 +906,11 @@ impl AppView {
         let (app, detail) = (cx.entity().downgrade(), self.detail.clone());
         let view = cx.new(|cx| {
             let mut view = SettingsView::new(store, app, detail, project, window, cx);
-            if page == Page::Ai {
-                view.ensure_ai(cx);
-            }
             view.page = page;
             view
         });
-        self.open_modal(view, window, cx);
+        self.open_modal(view.clone(), window, cx);
+        view
     }
 }
 

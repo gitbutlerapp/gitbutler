@@ -12,7 +12,7 @@ use crate::navigator::Navigator;
 use crate::overlays::{ContextMenu, Prompt};
 use crate::palette::Palette;
 use crate::projects::pick_folder;
-use crate::state::{Cut, MeshPick, Notice, Pane, ProjectId, Selection, Store};
+use crate::state::{Cut, MeshPick, Notice, Pane, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::transfer::{Place, Transfer};
 use crate::ui::{HEADER_HEIGHT, resize_pane};
@@ -112,7 +112,7 @@ pub struct AppView {
     pub store: Entity<Store>,
     pub detail: Entity<Detail>,
     diff: Entity<DiffPane>,
-    navigator: Entity<Navigator>,
+    pub(crate) navigator: Entity<Navigator>,
     pub menu: Option<ContextMenu>,
     pub prompt: Option<Prompt>,
     /// The emoji picker open on a project's icon.
@@ -140,9 +140,7 @@ impl AppView {
 
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let store = cx.new(Store::new);
-        let prefs = &store.read(cx).prefs;
-        let theme = Theme::for_appearance(prefs.appearance, window.appearance(), prefs.code_size);
-        cx.set_global(theme);
+        cx.set_global(theme_for(store.read(cx), window));
         let app = cx.entity().downgrade();
         let detail = cx.new(|cx| Detail::new(store.clone(), app.clone(), window, cx));
         let diff = cx.new(|cx| DiffPane::new(&detail, window, cx));
@@ -194,12 +192,8 @@ impl AppView {
                 }
             }),
             // Keys go to what's focused, so when it leaves the screen, as the Branches page's
-            // list does once Apply selects the branch, they go to the navigator instead; to an
-            // open modal, as Settings, rather than what's under it.
-            cx.on_focus_lost(window, |this, window, cx| match &this.modal {
-                Some((_, focus, _)) => window.focus(focus, cx),
-                None => this.focus_main(window, cx),
-            }),
+            // list does once Apply selects the branch, they go to the navigator instead.
+            cx.on_focus_lost(window, |this, window, cx| this.restore_focus(window, cx)),
         ];
         // Closing the window quits, so it asks the same as ⌘Q.
         let this = cx.entity().downgrade();
@@ -226,15 +220,20 @@ impl AppView {
 
     /// Use the theme the appearance setting and the system call for.
     pub fn apply_appearance(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let prefs = &self.store.read(cx).prefs;
-        let theme = Theme::for_appearance(prefs.appearance, window.appearance(), prefs.code_size);
-        cx.set_global(theme);
+        cx.set_global(theme_for(self.store.read(cx), window));
         cx.refresh_windows();
     }
 
+    /// Select `selection`. Asked for again, as a crumb naming the page shown is clicked, the
+    /// page goes back to how it opens, as the navigator's row does.
     pub fn select(&mut self, selection: Selection, window: &mut Window, cx: &mut Context<Self>) {
-        self.store
-            .update(cx, |store, cx| store.select(Some(selection), cx));
+        self.store.update(cx, |store, cx| {
+            let again = store.selection.as_ref() == Some(&selection);
+            store.select(Some(selection), cx);
+            if again {
+                cx.emit(StoreEvent::Reopened);
+            }
+        });
         self.focus_main(window, cx);
     }
 
@@ -304,8 +303,7 @@ impl AppView {
         });
     }
 
-    /// Fetch the selected project, and ask its forge about pull requests and CI again: what
-    /// the header's Refresh does.
+    /// Fetch the selected project, and ask its forge about pull requests and CI again.
     fn fetch(&mut self, _: &Fetch, _: &mut Window, cx: &mut Context<Self>) {
         if let Some(project) = self.selected_project(cx) {
             self.store.update(cx, |store, cx| {
@@ -483,12 +481,13 @@ impl AppView {
         if cx.stop_active_drag(window) {
             return;
         }
-        if self.modal.is_some() {
-            return self.close_modal(window, cx);
-        }
+        // The menu first, as it can be open over a modal.
         if self.menu.take().is_some() {
             cx.notify();
             return;
+        }
+        if self.modal.is_some() {
+            return self.close_modal(window, cx);
         }
         if self.detail.read(cx).is_focused(window, cx) {
             // Undo the nearest thing first: a text selection, then the file filter.
@@ -548,6 +547,15 @@ impl AppView {
         } else {
             self.detail
                 .update(cx, |detail, cx| detail.focus(window, cx));
+        }
+    }
+
+    /// Focus what's left on top once something above the window goes: the open modal, as
+    /// Settings, rather than what's under it.
+    pub(crate) fn restore_focus(&self, window: &mut Window, cx: &mut App) {
+        match &self.modal {
+            Some((_, focus, _)) => window.focus(focus, cx),
+            None => self.focus_main(window, cx),
         }
     }
 
@@ -736,7 +744,8 @@ impl Render for AppView {
         let covered = self.menu.is_some()
             || self.prompt.is_some()
             || self.palette.is_some()
-            || self.modal.is_some();
+            || self.modal.is_some()
+            || self.icon_picker.is_some();
         crate::ui::Covered::note(covered, window, cx);
         let theme = Theme::get(cx).clone();
         div()
@@ -767,7 +776,10 @@ impl Render for AppView {
             .on_action(cx.listener(Self::new_branch))
             .on_action(cx.listener(Self::push_selected))
             .on_action(cx.listener(Self::cut_selection))
-            .on_action(cx.listener(Self::paste_here))
+            // Only while something is cut, so ⌘K doesn't offer it with nothing to paste.
+            .when(self.store.read(cx).cut.is_some(), |el| {
+                el.on_action(cx.listener(Self::paste_here))
+            })
             .on_action(cx.listener(Self::copy_selection))
             .on_action(cx.listener(Self::open_pull_request))
             .on_action(cx.listener(|this, _: &ToggleFileTree, _, cx| {
@@ -864,14 +876,21 @@ impl Render for AppView {
                     ),
             )
             .child(self.render_status_bar(window, cx))
-            .child(self.render_toasts(cx))
             .children(self.render_modal(cx))
             // Above a modal: Git can ask for credentials while one is open.
-            .children(self.render_prompt(cx))
+            .children(self.render_prompt(window, cx))
             .children(self.render_palette(cx))
+            // Above what dims the window, so their buttons take clicks rather than close it.
+            .child(self.render_toasts(cx))
             .children(self.render_menu(cx))
             .children(self.render_icon_picker(window, cx))
     }
+}
+
+/// The theme the appearance setting and the system call for.
+fn theme_for(store: &Store, window: &Window) -> Theme {
+    let prefs = &store.prefs;
+    Theme::for_appearance(prefs.appearance, window.appearance(), prefs.code_size)
 }
 
 /// What the snackbar says after copying `text`: the text itself when it's short.

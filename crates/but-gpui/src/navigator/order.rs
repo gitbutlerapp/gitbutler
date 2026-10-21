@@ -25,13 +25,6 @@ impl Navigator {
         watched
     }
 
-    fn watched_ids(&self, cx: &App) -> Vec<ProjectId> {
-        let store = self.store.read(cx);
-        (self.watched(store).into_iter())
-            .map(|e| e.id.clone())
-            .collect()
-    }
-
     /// The button beside the account that opens the view menu.
     pub(super) fn view_button(&self, cx: &Context<Self>) -> AnyElement {
         icon_button("watched-view-options", Icon::Mixer)
@@ -52,7 +45,9 @@ impl Navigator {
     fn view_menu(&self, cx: &App) -> Vec<MenuItem> {
         let store = self.store.read(cx);
         let order = store.prefs.watched_order;
-        let shown = self.watched_ids(cx);
+        let shown: Vec<ProjectId> = (self.watched(store).into_iter())
+            .map(|e| e.id.clone())
+            .collect();
         let set = |label: &'static str, to: WatchedOrder| {
             let shown = shown.clone();
             MenuItem::new(label, move |app: &mut AppView, _, cx| {

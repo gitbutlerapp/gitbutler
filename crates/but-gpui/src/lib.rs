@@ -1,48 +1,31 @@
 //! An experimental native GitButler client built on GPUI. Only macOS builds it for now;
 //! elsewhere GPUI needs system libraries the workspace's CI doesn't install.
+#![cfg(target_os = "macos")]
 
-#[cfg(target_os = "macos")]
 mod app;
-#[cfg(target_os = "macos")]
 mod backend;
-#[cfg(target_os = "macos")]
 mod detail;
-#[cfg(all(target_os = "macos", feature = "dev-script"))]
+#[cfg(feature = "dev-script")]
 mod dev;
-#[cfg(target_os = "macos")]
 mod edits;
-#[cfg(target_os = "macos")]
 mod help;
-#[cfg(target_os = "macos")]
 mod navigator;
-#[cfg(target_os = "macos")]
 mod open_in;
-#[cfg(target_os = "macos")]
 mod overlays;
-#[cfg(target_os = "macos")]
 mod palette;
-#[cfg(target_os = "macos")]
 mod pr;
-#[cfg(target_os = "macos")]
 mod projects;
-#[cfg(target_os = "macos")]
 mod settings;
-#[cfg(target_os = "macos")]
 mod state;
-#[cfg(target_os = "macos")]
 mod status_bar;
-#[cfg(target_os = "macos")]
 mod theme;
-#[cfg(target_os = "macos")]
 mod transfer;
-#[cfg(target_os = "macos")]
 mod ui;
 
 /// Draw text as GitButler's web apps do, with `-webkit-font-smoothing: antialiased`. Unless the
 /// app's `AppleFontSmoothing` says otherwise, GPUI thickens glyph strokes the way macOS font
 /// smoothing would, lighter text more, so the same fonts read heavier here than in but.dev.
 /// A registered default lives in memory only and is never written to the app's preferences.
-#[cfg(target_os = "macos")]
 fn draw_text_unsmoothed() {
     use objc2_foundation::{NSDictionary, NSNumber, NSString, NSUserDefaults};
 
@@ -55,7 +38,6 @@ fn draw_text_unsmoothed() {
 }
 
 /// What the desktop app's binary gives the client when it starts it instead of its web one.
-#[cfg(target_os = "macos")]
 #[derive(Clone)]
 pub struct Embedded {
     /// The desktop app's update feed for this build and version, which answers with a newer
@@ -65,7 +47,6 @@ pub struct Embedded {
     pub check_every: std::time::Duration,
 }
 
-#[cfg(target_os = "macos")]
 impl gpui::Global for Embedded {}
 
 /// Set when the client relaunches the desktop app to install an update: that launch opens
@@ -74,7 +55,6 @@ pub const WEB_APP_ONCE: &str = "GITBUTLER_WEB_APP_ONCE";
 
 /// Give the Dock the desktop app's icon for this build's channel, as its bundle has it. A
 /// binary run on its own has no bundle to carry one, so the Dock would show a terminal's.
-#[cfg(target_os = "macos")]
 fn set_dock_icon() {
     use but_path::AppChannel;
     use objc2::rc::{Allocated, Retained};
@@ -104,7 +84,6 @@ fn set_dock_icon() {
 /// Run the app until it quits: open its window on this thread, which must be the process's
 /// main thread, as macOS draws windows from there. `embedded` when the desktop app's binary
 /// starts it.
-#[cfg(target_os = "macos")]
 pub fn run(embedded: Option<Embedded>) {
     #[cfg(feature = "dev-script")]
     dev::mark_launch();

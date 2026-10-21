@@ -74,11 +74,12 @@ impl Selection {
         }
     }
 
-    /// Whether it's `branch` or one of its commits.
+    /// Whether it's `branch`, one of its commits, or one only its remote has.
     pub fn on(&self, branch: &Branch) -> bool {
         match self {
             Selection::Branch(_, ref_name) => branch.ref_name == *ref_name,
             Selection::Commit(_, id) => branch.commits.iter().any(|commit| commit.id == *id),
+            Selection::Upstream(_, Some(ref_name), _) => branch.ref_name == *ref_name,
             _ => false,
         }
     }
@@ -584,7 +585,7 @@ impl Store {
     }
 
     /// The projects open in the navigator.
-    fn expanded_ids(&self) -> Vec<ProjectId> {
+    pub(crate) fn expanded_ids(&self) -> Vec<ProjectId> {
         (self.projects.iter())
             .filter(|entry| entry.expanded)
             .map(|entry| entry.id.clone())

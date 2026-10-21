@@ -104,7 +104,6 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("secondary-z", Undo, c),
         KeyBinding::new("secondary-shift-z", Redo, c),
     ]);
-    #[cfg(target_os = "macos")]
     cx.bind_keys([
         delete("alt-backspace", WordLeft),
         delete("alt-delete", WordRight),
@@ -133,20 +132,6 @@ pub fn bind_keys(cx: &mut App) {
         extend("cmd-shift-down", End),
         extend("ctrl-shift-a", LineStart),
         extend("ctrl-shift-e", LineEnd),
-    ]);
-    #[cfg(not(target_os = "macos"))]
-    cx.bind_keys([
-        delete("ctrl-backspace", WordLeft),
-        delete("ctrl-delete", WordRight),
-        go("ctrl-left", WordLeft),
-        go("ctrl-right", WordRight),
-        go("ctrl-home", Start),
-        go("ctrl-end", End),
-        extend("ctrl-shift-left", WordLeft),
-        extend("ctrl-shift-right", WordRight),
-        extend("ctrl-shift-home", Start),
-        extend("ctrl-shift-end", End),
-        KeyBinding::new("ctrl-y", Redo, c),
     ]);
 }
 

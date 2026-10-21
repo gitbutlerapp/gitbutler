@@ -3,7 +3,7 @@
 
 use gpui::{
     Action, AnyElement, ClickEvent, Context, Entity, FocusHandle, Focusable as _, KeyBinding,
-    MouseButton, ScrollHandle, SharedString, Subscription, Window, actions, div, prelude::*, px,
+    ScrollHandle, SharedString, Subscription, Window, actions, div, prelude::*, px,
 };
 
 use crate::app::{
@@ -19,6 +19,7 @@ use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CopyChangeId, CopyMessage,
     NewBranchBelow, NewBranchHere, RewrapMessage, SquashAll, UnapplyStack, Unstack,
 };
+use crate::overlays::backdrop;
 use crate::state::Selection;
 use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrollbar};
@@ -413,97 +414,77 @@ impl AppView {
             })
             .collect();
         let empty = rows.is_empty();
-        Some(
-            div()
-                .id("palette-backdrop")
-                .absolute()
-                .inset_0()
-                // Over a modal, a click outside closes only the palette.
-                .occlude()
-                .flex()
-                .justify_center()
-                .items_start()
-                .pt(px(72.))
-                .on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(|this, _, window, cx| this.close_palette(window, cx)),
-                )
-                .child(
-                    popover(&theme)
-                        .id("palette")
-                        .key_context("Palette")
-                        .on_action(cx.listener(Self::palette_up))
-                        .on_action(cx.listener(Self::palette_down))
-                        .w(px(520.))
-                        .max_h(px(440.))
-                        .overflow_hidden()
-                        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                        .child(
-                            div()
-                                .flex_none()
-                                .h(px(36.))
-                                .px(px(12.))
-                                .flex()
-                                .items_center()
-                                .border_b_1()
-                                .border_color(theme.border_3)
-                                .child(palette.input.clone()),
-                        )
-                        .child(
-                            v_flex()
-                                .relative()
-                                .flex_1()
-                                .min_h(px(0.))
-                                .child(
-                                    v_flex()
-                                        .id("palette-rows")
-                                        .flex_1()
-                                        .min_h(px(0.))
-                                        .py(px(4.))
-                                        .overflow_y_scroll()
-                                        .track_scroll(&palette.scroll)
-                                        .children(rows)
-                                        .when(empty, |el| {
-                                            el.child(
-                                                div()
-                                                    .px(px(12.))
-                                                    .py(px(6.))
-                                                    .text_color(theme.text_2)
-                                                    .child("Nothing matches"),
-                                            )
-                                        }),
+        let card = popover(&theme)
+            .id("palette")
+            .key_context("Palette")
+            .on_action(cx.listener(Self::palette_up))
+            .on_action(cx.listener(Self::palette_down))
+            .w(px(520.))
+            .max_h(px(440.))
+            .overflow_hidden()
+            .child(
+                div()
+                    .flex_none()
+                    .h(px(36.))
+                    .px(px(12.))
+                    .flex()
+                    .items_center()
+                    .border_b_1()
+                    .border_color(theme.border_3)
+                    .child(palette.input.clone()),
+            )
+            .child(
+                v_flex()
+                    .relative()
+                    .flex_1()
+                    .min_h(px(0.))
+                    .child(
+                        v_flex()
+                            .id("palette-rows")
+                            .flex_1()
+                            .min_h(px(0.))
+                            .py(px(4.))
+                            .overflow_y_scroll()
+                            .track_scroll(&palette.scroll)
+                            .children(rows)
+                            .when(empty, |el| {
+                                el.child(
+                                    div()
+                                        .px(px(12.))
+                                        .py(px(6.))
+                                        .text_color(theme.text_2)
+                                        .child("Nothing matches"),
                                 )
-                                .children(scrollbar(
-                                    "palette-scrollbar",
-                                    Scroll::Div(palette.scroll.clone()),
-                                    &theme,
-                                )),
-                        )
-                        .child(
-                            h_flex()
-                                .flex_none()
-                                .h(px(36.))
-                                .px(px(12.))
-                                .gap(px(12.))
-                                .border_t_1()
-                                .border_color(theme.border_3)
-                                .bg(theme.bg_2)
-                                .text_size(px(12.))
-                                .text_color(theme.text_2)
-                                .children(
-                                    [("↑ ↓", "Move"), ("↩", palette.verb), ("esc", "Close")].map(
-                                        |(key, hint)| {
-                                            h_flex()
-                                                .gap(px(4.))
-                                                .child(keycap(key, &theme))
-                                                .child(hint)
-                                        },
-                                    ),
-                                ),
+                            }),
+                    )
+                    .children(scrollbar(
+                        "palette-scrollbar",
+                        Scroll::Div(palette.scroll.clone()),
+                        &theme,
+                    )),
+            )
+            .child(
+                h_flex()
+                    .flex_none()
+                    .h(px(36.))
+                    .px(px(12.))
+                    .gap(px(12.))
+                    .border_t_1()
+                    .border_color(theme.border_3)
+                    .bg(theme.bg_2)
+                    .text_size(px(12.))
+                    .text_color(theme.text_2)
+                    .children(
+                        [("↑ ↓", "Move"), ("↩", palette.verb), ("esc", "Close")].map(
+                            |(key, hint)| {
+                                h_flex().gap(px(4.)).child(keycap(key, &theme)).child(hint)
+                            },
                         ),
-                )
-                .into_any_element(),
-        )
+                    ),
+            );
+        // Over a modal, a click outside closes only the palette.
+        let backdrop = backdrop("palette-backdrop", card, cx, Self::close_palette);
+        Some(backdrop.items_start().pt(px(72.)).into_any_element())
     }
 }
 

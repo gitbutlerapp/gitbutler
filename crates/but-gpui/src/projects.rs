@@ -5,11 +5,12 @@ use std::path::PathBuf;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Entity, Focusable as _, PathPromptOptions, Pixels, Point,
-    Subscription, Window, actions, anchored, deferred, div, prelude::*, px,
+    Subscription, Window, actions, div, prelude::*, px,
 };
 
 use crate::app::AppView;
 use crate::backend::{self, settings};
+use crate::overlays::floating;
 use crate::palette::Choice;
 use crate::state::ProjectId;
 use crate::theme::Theme;
@@ -230,7 +231,7 @@ impl AppView {
 
     fn set_icon_picker_closed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.icon_picker.take().is_some() {
-            self.focus_main(window, cx);
+            self.restore_focus(window, cx);
             cx.notify();
         }
     }
@@ -301,37 +302,27 @@ impl AppView {
             .overflow_y_scroll()
             .child(row(emoji_cells));
         let focused = picker.search.focus_handle(cx).is_focused(window);
-        Some(
-            deferred(
-                div().absolute().inset_0().occlude().child(
-                    anchored()
-                        .position(picker.position)
-                        .snap_to_window_with_margin(px(8.))
-                        .child(
-                            popover(theme)
-                                .id("icon-picker")
-                                .p(px(8.))
-                                .gap(px(8.))
-                                .child(field(&picker.search, focused, theme))
-                                .when(!colours.is_empty(), |el| {
-                                    el.child(section_label("Colours", theme))
-                                        .child(row(colour_cells))
-                                })
-                                .when(!found.is_empty(), |el| {
-                                    el.child(section_label("Emoji", theme)).child(grid)
-                                })
-                                .when(colours.is_empty() && found.is_empty(), |el| {
-                                    el.child(faint("Nothing found", theme))
-                                })
-                                .on_mouse_down_out(cx.listener(|this, _, window, cx| {
-                                    this.set_icon_picker_closed(window, cx)
-                                })),
-                        ),
-                ),
-            )
-            .with_priority(2)
-            .into_any_element(),
-        )
+        let card = popover(theme)
+            .id("icon-picker")
+            .p(px(8.))
+            .gap(px(8.))
+            .child(field(&picker.search, focused, theme))
+            .when(!colours.is_empty(), |el| {
+                el.child(section_label("Colours", theme))
+                    .child(row(colour_cells))
+            })
+            .when(!found.is_empty(), |el| {
+                el.child(section_label("Emoji", theme)).child(grid)
+            })
+            .when(colours.is_empty() && found.is_empty(), |el| {
+                el.child(faint("Nothing found", theme))
+            });
+        Some(floating(
+            picker.position,
+            card,
+            cx,
+            Self::set_icon_picker_closed,
+        ))
     }
 }
 
