@@ -137,62 +137,97 @@ pub const ACTIVITY_DAYS: usize = 30;
 
 const DAY: i64 = 24 * 60 * 60;
 
+/// The day `seconds` (since the epoch) falls on here, numbered from the epoch's, so a day
+/// picked stays that day as the clock moves on.
+pub fn day_of(seconds: i64) -> i64 {
+    (seconds + local_offset()).div_euclid(DAY)
+}
+
+/// When day `day`, as [`day_of`] numbers it, starts here, in seconds since the epoch.
+pub fn day_start(day: i64) -> i64 {
+    day * DAY - local_offset()
+}
+
+fn local_offset() -> i64 {
+    gix::date::Time::now_local_or_utc().offset as i64
+}
+
 /// The target as the project's page sums it up: its README, and who's been committing to it.
 #[derive(Debug, Clone, Default)]
 pub struct Overview {
     /// The README's file name and text at the target's tip.
     pub readme: Option<(String, String)>,
-    /// How many commits landed each day of the last [`ACTIVITY_DAYS`], counted in 24 hours
-    /// back from now, oldest first.
+    /// How many commits landed on the target's own line, as its history lists them, each of
+    /// the last [`ACTIVITY_DAYS`] days here, oldest first.
     pub daily: Vec<u32>,
-    /// Who wrote them, merges left out, most commits first: name, email and how many.
+    /// Who wrote the commits on all its lines, merges left out, most commits first: name,
+    /// email and how many, each by [`super::byline`].
     pub team: Vec<(String, String, u32)>,
-    /// When it was counted, in seconds since the epoch, which the days count back from.
-    pub at: i64,
+    /// The day the first of `daily` counts, as [`day_of`] numbers days.
+    pub first_day: i64,
 }
 
-/// `target` (a short name, like `origin/main`) summed up as of `now`, in seconds since the epoch.
+/// `target` (a short name, like `origin/main`) summed up as of `now`, in seconds since the
+/// epoch. A commit that can't be read is left out rather than failing the rest.
 pub fn overview(path: &Path, target: &str, now: i64) -> Result<Overview> {
     use gix::revision::walk::Sorting;
     use gix::traverse::commit::simple::CommitTimeOrder;
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
     let tip = repo.rev_parse_single(target)?.object()?.peel_to_commit()?;
-    let since = now - ACTIVITY_DAYS as i64 * DAY;
+    let first_day = day_of(now) - (ACTIVITY_DAYS as i64 - 1);
+    let since = day_start(first_day);
+    let newest_since = Sorting::ByCommitTimeCutoff {
+        order: CommitTimeOrder::NewestFirst,
+        seconds: since,
+    };
     let mut daily = vec![0; ACTIVITY_DAYS];
-    let mut team: Vec<(String, String, u32)> = Vec::new();
-    let walk = (repo.rev_walk([tip.id]))
-        .sorting(Sorting::ByCommitTimeCutoff {
-            order: CommitTimeOrder::NewestFirst,
-            seconds: since,
-        })
+    let line = (repo.rev_walk([tip.id]))
+        .first_parent_only()
+        .sorting(newest_since)
         .all()?;
-    for info in walk {
-        let commit = info?.object()?;
-        let time = commit.time()?.seconds;
-        if time < since {
-            continue;
-        }
+    for commit in commits_since(line, since) {
+        let day = commit.time().map_or(first_day, |time| day_of(time.seconds));
         // A clock ahead of this one counts as today.
-        let ago = ((now - time).max(0) / DAY) as usize;
-        daily[ACTIVITY_DAYS - 1 - ago.min(ACTIVITY_DAYS - 1)] += 1;
-        if commit.parent_ids().count() > 1 {
+        daily[((day - first_day) as usize).min(ACTIVITY_DAYS - 1)] += 1;
+    }
+    let mut team: Vec<(String, String, u32)> = Vec::new();
+    let all = (repo.rev_walk([tip.id])).sorting(newest_since).all()?;
+    for commit in commits_since(all, since).filter(|commit| commit.parent_ids().count() < 2) {
+        let (Ok(author), Ok(committer)) = (commit.author(), commit.committer()) else {
             continue;
-        }
-        let author = commit.author()?;
-        let email = author.email.to_str_lossy().to_lowercase();
+        };
+        let ((name, email), _) = super::byline(
+            super::signature(author.name, author.email),
+            super::signature(committer.name, committer.email),
+        );
+        let email = email.to_lowercase();
         match team.iter_mut().find(|(_, known, _)| *known == email) {
             Some(person) => person.2 += 1,
-            None => team.push((author.name.to_str_lossy().into_owned(), email, 1)),
+            None => team.push((name, email, 1)),
         }
     }
     team.sort_by_key(|person| std::cmp::Reverse(person.2));
+    let readme = readme(&repo, &tip)
+        .inspect_err(|err| tracing::warn!(?err, "couldn't read the README"))
+        .ok()
+        .flatten();
     Ok(Overview {
-        readme: readme(&repo, &tip)?,
+        readme,
         daily,
         team,
-        at: now,
+        first_day,
     })
+}
+
+/// The commits of `walk` from `since` on, in seconds since the epoch, leaving out any that
+/// can't be read.
+fn commits_since(
+    walk: gix::revision::Walk<'_>,
+    since: i64,
+) -> impl Iterator<Item = gix::Commit<'_>> {
+    walk.filter_map(|info| info.ok()?.object().ok())
+        .filter(move |commit| commit.time().is_ok_and(|time| time.seconds >= since))
 }
 
 /// The README at the top of `commit`'s tree, Markdown first, by its file name and text.
@@ -231,21 +266,18 @@ const MAX_IMAGE_BYTES: usize = 8 << 20;
 pub fn readme_image(path: &Path, target: &str, src: &str) -> Result<Vec<u8>> {
     let lower = src.to_ascii_lowercase();
     if lower.starts_with("https://") || lower.starts_with("http://") {
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(20))
-            .build()?;
-        let bytes = runtime().block_on(async {
-            let response = client.get(src).send().await?.error_for_status()?;
-            if response
-                .content_length()
-                .is_some_and(|n| n as usize > MAX_IMAGE_BYTES)
-            {
-                anyhow::bail!("{src} is too large to show");
+        let url = reqwest::Url::parse(src)?;
+        anyhow::ensure!(public_https(&url), "{src} isn't a public https address");
+        return runtime().block_on(async {
+            let mut response = image_client().get(url).send().await?.error_for_status()?;
+            // Read as it comes, as a server needn't say how much it sends.
+            let mut bytes = Vec::new();
+            while let Some(chunk) = response.chunk().await? {
+                bytes.extend_from_slice(&chunk);
+                anyhow::ensure!(bytes.len() <= MAX_IMAGE_BYTES, "{src} is too large to show");
             }
-            Ok(response.bytes().await?)
-        })?;
-        anyhow::ensure!(bytes.len() <= MAX_IMAGE_BYTES, "{src} is too large to show");
-        return Ok(bytes.to_vec());
+            Ok(bytes)
+        });
     }
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
@@ -262,19 +294,80 @@ pub fn readme_image(path: &Path, target: &str, src: &str) -> Result<Vec<u8>> {
     Ok(blob.data.clone())
 }
 
+/// The one client README images are fetched with, which follows a redirect only to another
+/// public https address.
+fn image_client() -> &'static reqwest::Client {
+    static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+    CLIENT.get_or_init(|| {
+        let policy = reqwest::redirect::Policy::custom(|attempt| {
+            match attempt.previous().len() < 5 && public_https(attempt.url()) {
+                true => attempt.follow(),
+                false => attempt.stop(),
+            }
+        });
+        reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(20))
+            .redirect(policy)
+            .build()
+            .unwrap_or_default()
+    })
+}
+
+/// Whether `url` is https on the internet: a README's images mustn't reach this machine or
+/// the network it's on.
+fn public_https(url: &reqwest::Url) -> bool {
+    use std::net::IpAddr;
+    let public = |ip: IpAddr| match ip {
+        IpAddr::V4(ip) => {
+            !(ip.is_private() || ip.is_loopback() || ip.is_link_local() || ip.is_unspecified())
+        }
+        IpAddr::V6(ip) => {
+            let local =
+                (ip.segments()[0] & 0xfe00) == 0xfc00 || (ip.segments()[0] & 0xffc0) == 0xfe80;
+            !(local || ip.is_loopback() || ip.is_unspecified())
+        }
+    };
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+    let host = (host.trim_start_matches('[').trim_end_matches(']')).to_ascii_lowercase();
+    url.scheme() == "https"
+        && match host.parse::<IpAddr>() {
+            Ok(ip) => public(ip),
+            Err(_) => {
+                host != "localhost" && !host.ends_with(".localhost") && !host.ends_with(".local")
+            }
+        }
+}
+
 /// The commits `merge` brought in: those its other parents have that its first doesn't,
-/// newest first, up to `limit`.
-pub fn merged_commits(path: &Path, merge: CommitId, limit: usize) -> Result<Vec<TargetCommit>> {
+/// newest first, up to `limit`; and whether there are more. A shallow clone may not have
+/// them.
+pub fn merged_commits(
+    path: &Path,
+    merge: CommitId,
+    limit: usize,
+) -> Result<(Vec<TargetCommit>, bool)> {
+    use gix::revision::walk::Sorting;
+    use gix::traverse::commit::simple::CommitTimeOrder;
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
     let commit = repo.find_commit(merge.0)?;
     let mut parents = commit.parent_ids().map(|id| id.detach());
     let Some(first) = parents.next() else {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), false));
     };
-    let walk = (repo.rev_walk(parents)).with_hidden([first]).all()?;
+    let others: Vec<_> = parents.filter(|id| repo.has_object(id)).collect();
+    anyhow::ensure!(
+        !others.is_empty(),
+        "this clone doesn't have the commits it merged"
+    );
+    let walk = (repo.rev_walk(others))
+        .with_hidden([first])
+        .sorting(Sorting::ByCommitTime(CommitTimeOrder::NewestFirst))
+        .all()?;
     let mut commits = Vec::new();
-    for info in walk.take(limit) {
+    for info in walk.take(limit + 1) {
         let commit = info?.object()?;
         let message = commit.message_raw_sloppy();
         let author = commit.author()?;
@@ -302,7 +395,9 @@ pub fn merged_commits(path: &Path, merge: CommitId, limit: usize) -> Result<Vec<
             merge: commit.parent_ids().count() > 1,
         });
     }
-    Ok(commits)
+    let more = commits.len() > limit;
+    commits.truncate(limit);
+    Ok((commits, more))
 }
 
 /// When the project last fetched, in seconds since the epoch, and why the last attempt
@@ -687,7 +782,7 @@ pub fn land(path: &Path, branch: &str, tip: CommitId, whole_stack: bool) -> Resu
 
 #[cfg(test)]
 mod tests {
-    use super::{ACTIVITY_DAYS, DAY, overview, push_refusal};
+    use super::{ACTIVITY_DAYS, DAY, overview, public_https, push_refusal};
 
     #[test]
     fn sums_up_the_target_by_day_and_author() {
@@ -739,6 +834,13 @@ mod tests {
         git(&["add", "."], now - 3 * DAY);
         commit("Ann", now - 3 * DAY);
         commit("Bob", now - 2 * DAY);
+        git(&["checkout", "-q", "-b", "side"], now - DAY);
+        commit("Cat", now - DAY);
+        git(&["checkout", "-q", "main"], now - DAY / 2);
+        git(
+            &["merge", "-q", "--no-ff", "-m", "merge side", "side"],
+            now - DAY / 2,
+        );
         commit("Ann", now - 60);
 
         let summed = overview(path, "main", now).unwrap();
@@ -750,18 +852,43 @@ mod tests {
         assert_eq!(summed.daily.len(), ACTIVITY_DAYS, "a bar a day");
         assert_eq!(
             summed.daily.iter().sum::<u32>(),
-            3,
-            "the commit from before the window isn't counted"
+            4,
+            "the target's own line, as its history lists it: the merge once, not the commit it \
+             brought, and not the commit from before the window"
         );
-        assert_eq!(summed.daily[ACTIVITY_DAYS - 1], 1, "the last day ends now");
+        assert_eq!(summed.daily[ACTIVITY_DAYS - 1], 1, "the last day is today");
         assert_eq!(
             summed.team,
             [
                 ("Ann".to_owned(), "ann@example.com".to_owned(), 2),
+                ("Cat".to_owned(), "cat@example.com".to_owned(), 1),
                 ("Bob".to_owned(), "bob@example.com".to_owned(), 1),
             ],
-            "most commits first"
+            "most commits first, the merged branch's author too and the merge left out"
         );
+    }
+
+    #[test]
+    fn readme_images_come_only_from_public_https_addresses() {
+        let public = |url: &str| public_https(&reqwest::Url::parse(url).unwrap());
+        assert!(
+            public("https://img.shields.io/badge/ci-passing.svg"),
+            "a badge service"
+        );
+        for url in [
+            "http://example.com/logo.png",
+            "https://localhost/logo.png",
+            "https://127.0.0.1/logo.png",
+            "https://192.168.1.1/logo.png",
+            "https://10.0.0.2/logo.png",
+            "https://[::1]/logo.png",
+            "https://printer.local/logo.png",
+        ] {
+            assert!(
+                !public(url),
+                "{url} is plain http or on this machine or its network"
+            );
+        }
     }
 
     #[test]

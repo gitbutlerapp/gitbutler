@@ -310,17 +310,18 @@ pub struct Detail {
     /// the space beside the project page's list is, measured as they're drawn.
     target_message_height: Rc<Cell<f32>>,
     beside_width: Rc<Cell<f32>>,
-    /// The commits each merge on a target brought in, by the merge; `None` while loading.
-    merged: HashMap<backend::CommitId, Option<Vec<backend::upstream::TargetCommit>>>,
+    /// The commits each merge on a target brought in, by the merge, and whether it brought
+    /// more than those; `None` while loading.
+    merged: HashMap<backend::CommitId, Option<(Vec<backend::upstream::TargetCommit>, bool)>>,
     /// The one of them shown in place of everything the merge brought in.
     merged_pick: Option<backend::CommitId>,
     /// The project page's Commits tab is picked, over a merge's commits.
     commits_tab: bool,
     merged_scroll: UniformListScrollHandle,
-    /// The days of a project's activity picked, by their bars, first to last, which its
-    /// history is filtered to; and the bar a shift-click extends them from.
-    activity_days: Option<(ProjectId, usize, usize)>,
-    activity_anchor: Option<usize>,
+    /// The days of a project's activity picked, first to last, as `upstream::day_of` numbers
+    /// them, which its history is filtered to; and the day a shift-click extends them from.
+    activity_days: Option<(ProjectId, i64, i64)>,
+    activity_anchor: Option<(ProjectId, i64)>,
     /// How tall a merge's commits were dragged to be over its files or its diff; `None` for
     /// as tall as they need, up to a limit.
     merged_split: Option<f32>,
@@ -1802,7 +1803,7 @@ impl Detail {
                 | Selection::Stack(..),
             ) => self.header_height.get() + self.list_tabs_height(cx),
             Some(Selection::Project(project)) => {
-                let message = match self.showing_target_commit(&project) {
+                let message = match self.showing_target_commit(&project, cx) {
                     true => self.target_message_height.get(),
                     false => 0.,
                 };
@@ -1927,7 +1928,7 @@ impl Render for Detail {
                 // Beside a list, the selected branch or commit's tabs when it has a pull
                 // request, over the pull request or the diff.
                 let beside = match selection {
-                    Selection::Project(project) if self.showing_target_commit(project) => {
+                    Selection::Project(project) if self.showing_target_commit(project, cx) => {
                         Some(self.render_target_beside(project, &theme, cx))
                     }
                     // An opened branch: its commits, its files and its pull request, as a

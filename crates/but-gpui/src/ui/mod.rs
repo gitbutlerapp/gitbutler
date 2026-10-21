@@ -409,7 +409,7 @@ pub fn dropdown(
         .border_color(theme.border_2)
         .text_size(px(13.))
         .hover(|el| el.bg(theme.hover()))
-        .child(label.into())
+        .child(div().min_w(px(0.)).truncate().child(label.into()))
         .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
 }
 

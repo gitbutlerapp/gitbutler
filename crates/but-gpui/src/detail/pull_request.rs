@@ -47,7 +47,8 @@ impl Detail {
     /// picked stays picked from branch to branch, as but.dev's does; a branch without a
     /// pull request shows its changes.
     pub fn showing_review(&self, cx: &App) -> bool {
-        self.review_tab && self.selected_review(cx).is_some()
+        // A Commits tab, which a merge or a branch opens on, comes first.
+        self.review_tab && self.selected_review(cx).is_some() && !self.showing_commits(cx)
     }
 
     fn set_review_tab(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {

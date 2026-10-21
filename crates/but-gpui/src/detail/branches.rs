@@ -252,8 +252,9 @@ impl Detail {
     /// Open branch `ref_name` from the table: the list, it selected there, beside its diff.
     fn open_from_table(&mut self, ref_name: String, window: &mut Window, cx: &mut Context<Self>) {
         self.branches_table = false;
-        // It opens on its commits, as a merge does.
-        (self.commits_tab, self.review_tab) = (true, false);
+        // It opens on its commits, as a merge does, which come before the pull request tab
+        // the branch pages keep picked.
+        self.commits_tab = true;
         window.focus(&self.side_focus, cx);
         self.select_other_branch(Some(ref_name), cx);
         self.app.update(cx, |_, cx| cx.notify()).ok();
@@ -860,8 +861,8 @@ impl Detail {
             return div().flex_1().into_any_element();
         };
         let review = branch.review.as_ref();
-        let reviewing = self.review_tab && review.is_some();
-        let commits = self.showing_commits(cx) && !reviewing;
+        let commits = self.showing_commits(cx);
+        let reviewing = self.review_tab && review.is_some() && !commits;
         let below = match reviewing {
             true => self.render_review_tab(project, theme, cx),
             false => self.render_commits_and_files(

@@ -591,7 +591,12 @@ impl Detail {
 
     /// A commit's short ID in its line's ink, as ui-react's `CopyableId`, which copies the
     /// whole one on a click.
-    fn sha_chip(&self, id: backend::CommitId, theme: &Theme, cx: &Context<Self>) -> Stateful<Div> {
+    pub(super) fn sha_chip(
+        &self,
+        id: backend::CommitId,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Stateful<Div> {
         let sha = id.0.to_string();
         let hover = theme.text_2.blend(theme.text_1.opacity(0.5));
         h_flex()

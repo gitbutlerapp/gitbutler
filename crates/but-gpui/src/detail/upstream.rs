@@ -24,11 +24,11 @@ use crate::theme::Theme;
 use crate::ui::emoji::ProjectIcon;
 use crate::ui::illustration::Illustration;
 use crate::ui::markdown;
-use crate::ui::person::{author_avatar, byline_avatar};
+use crate::ui::person::{author_avatar, byline_avatar, byline_text};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
-    Icon, Tooltip, age_column, error_summary, faint, h_flex, icon, list_row, muted, plural,
-    section_label, shortcut, small_icon, v_flex,
+    ButtonStyle, Icon, Tooltip, age_column, button, error_summary, faint, h_flex, icon, list_row,
+    muted, plural, section_label, shortcut, small_icon, v_flex,
 };
 
 /// What a target commit is called: the pull request it landed, by its title, as Lite names
@@ -77,8 +77,8 @@ struct Summary {
     readme: Option<(String, Vec<markdown::Block>)>,
     daily: Vec<u32>,
     team: Vec<(String, String, u32)>,
-    /// When the days were counted back from.
-    at: i64,
+    /// The day the first of `daily` counts, as [`upstream::day_of`] numbers days.
+    first_day: i64,
     /// How many branches aren't applied, as the Branches page lists them at first: with
     /// commits of their own, and no merged pull request.
     unapplied: Option<usize>,
@@ -91,7 +91,7 @@ impl From<Overview> for Summary {
                 .map(|(name, text)| (name, markdown::parse_showing_images(&text))),
             daily: overview.daily,
             team: overview.team,
-            at: overview.at,
+            first_day: overview.first_day,
             unapplied: None,
         }
     }
@@ -162,7 +162,6 @@ impl Detail {
             .filter(|_| more)
             .and_then(|u| u.commits.last())
             .map(|commit| commit.id);
-        // A reload reads as many as are listed, so the older pages and the selection stay.
         let limit = match more {
             true => PAGE,
             false => current.map_or(PAGE, |u| (u.commits.len() as u32).max(PAGE)),
@@ -192,7 +191,7 @@ impl Detail {
                                 .ok()
                                 .map(|branches| {
                                     (branches.iter())
-                                        .filter(|b| b.own_commits.unwrap_or(0) > 0)
+                                        .filter(|b| b.own_commits != Some(0))
                                         .filter(|b| {
                                             (b.review.as_ref()).is_none_or(|r| {
                                                 r.state != backend::ReviewState::Merged
@@ -212,7 +211,7 @@ impl Detail {
             })
             .await;
             this.update(cx, |this, cx| {
-                let ((commits, has_more), fetch, unconnected_forge, summary) = match result {
+                let ((commits, mut has_more), fetch, unconnected_forge, summary) = match result {
                     Ok(loaded) => loaded,
                     // Paging further back keeps what's listed.
                     Err(err) if after.is_some() => {
@@ -249,17 +248,33 @@ impl Detail {
                 // A page further back says nothing of whether the newest are current, as when
                 // it cut short the reload after a fetch.
                 let now = (seen, Instant::now());
-                let (mut list, selected, seen, summary) = match previous {
+                let (mut list, selected, seen, summary, older) = match previous {
                     Some(previous) if after.is_some() => (
                         previous.commits,
                         previous.selected,
                         previous.seen,
                         previous.summary,
+                        Vec::new(),
                     ),
-                    Some(previous) => (Vec::new(), previous.selected, now, summary),
-                    None => (Vec::new(), None, now, summary),
+                    // The newest page stops where the workspace forked off, so the older pages
+                    // read before stay, from where it stops, and one picked from them with it.
+                    Some(previous) => {
+                        let mut read = previous.commits;
+                        let at = (commits.last())
+                            .and_then(|last| read.iter().position(|c| c.id == last.id));
+                        let older = match at {
+                            Some(at) => {
+                                has_more = previous.more;
+                                read.split_off(at + 1)
+                            }
+                            None => Vec::new(),
+                        };
+                        (Vec::new(), previous.selected, now, summary, older)
+                    }
+                    None => (Vec::new(), None, now, summary, Vec::new()),
                 };
                 list.extend(commits);
+                list.extend(older);
                 // The README first, as a repository's page opens on it.
                 let readme = summary.as_ref().is_some_and(|s| s.readme.is_some());
                 let selected = selected
@@ -340,8 +355,8 @@ impl Detail {
 
     /// Whether the project's page shows a commit of its target, with its message over its
     /// diff, as it does unless it's editing a commit.
-    pub(super) fn showing_target_commit(&self, project: &ProjectId) -> bool {
-        self.selected_target_commit(project).is_some()
+    pub(super) fn showing_target_commit(&self, project: &ProjectId, cx: &gpui::App) -> bool {
+        self.editing(project, cx).is_none() && self.selected_target_commit(project).is_some()
     }
 
     /// The merge selected on the project's page, and the commits it brought in, once read.
@@ -350,7 +365,9 @@ impl Detail {
         project: &ProjectId,
     ) -> Option<(&TargetCommit, Option<&[TargetCommit]>)> {
         let commit = self.selected_target_commit(project).filter(|c| c.merge)?;
-        let merged = self.merged.get(&commit.id).and_then(|m| m.as_deref());
+        let merged = (self.merged.get(&commit.id))
+            .and_then(|m| m.as_ref())
+            .map(|(commits, _)| commits.as_slice());
         Some((commit, merged))
     }
 
@@ -383,7 +400,7 @@ impl Detail {
     }
 
     /// Whether the Commits tab lists a merge's commits beside the diff, there being room;
-    /// without, it lists them alone, and a commit picked opens on the Changes tab.
+    /// without, it lists them over the diff.
     fn commits_beside(&self) -> bool {
         self.beside_width.get() >= COMMITS_COLUMN + MIN_DIFF
     }
@@ -472,7 +489,7 @@ impl Detail {
     /// button over the diff.
     pub fn beside_offset(&self, cx: &gpui::App) -> f32 {
         let shows = match self.store.read(cx).selection.as_ref() {
-            Some(Selection::Project(project)) => self.showing_target_commit(project),
+            Some(Selection::Project(project)) => self.showing_target_commit(project, cx),
             Some(Selection::Branches(project)) => self.selected_other_branch(project).is_some(),
             _ => false,
         };
@@ -565,7 +582,7 @@ impl Detail {
         let review = commit.review.as_ref();
         let merge = self.selected_merge(project);
         let commits = self.showing_commits(cx);
-        let reviewing = self.review_tab && review.is_some();
+        let reviewing = self.review_tab && review.is_some() && !commits;
         let below = match reviewing {
             true => self.render_review_tab(project, theme, cx),
             false => self.render_commits_and_files(
@@ -681,7 +698,8 @@ impl Detail {
                     v_flex()
                         .relative()
                         .flex_none()
-                        .h(px(self.merged_over_height(cx) - 1.))
+                        // Before its commits are read there's no height yet, nor a negative one.
+                        .h(px((self.merged_over_height(cx) - 1.).max(0.)))
                         .py(px(4.))
                         .border_b_1()
                         .border_color(theme.border_3)
@@ -759,20 +777,8 @@ impl Detail {
         let shown =
             (self.merged_commit(project)).map_or("All commits".to_owned(), |c| c.title.clone());
         let project = project.clone();
-        h_flex()
-            .id("merged-menu")
+        crate::ui::dropdown("merged-menu", shown, theme)
             .max_w(px(260.))
-            .gap(px(4.))
-            .px(px(8.))
-            .py(px(2.))
-            .rounded(px(6.))
-            .border_1()
-            .border_color(theme.border_2)
-            .cursor_pointer()
-            .hover(|el| el.bg(theme.hover()))
-            .text_size(px(12.))
-            .child(div().min_w(px(0.)).truncate().child(shown))
-            .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
             .on_click(cx.listener(move |this, _, window, cx| {
                 let Some((_, Some(merged))) = this.selected_merge(&project) else {
                     return;
@@ -804,12 +810,18 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let Some((_, merged)) = self.selected_merge(project) else {
+        let Some((merge, merged)) = self.selected_merge(project) else {
             return div().into_any_element();
         };
         let Some(merged) = merged else {
             return crate::ui::empty_state(None, "Loading…", "", theme, cx);
         };
+        if merged.is_empty() {
+            let why = "This clone may not have them";
+            return crate::ui::empty_state(None, "No commits to list", why, theme, cx);
+        }
+        // Past how many are read, it lists the newest of them.
+        let more = (self.merged.get(&merge.id)).is_some_and(|m| m.as_ref().is_some_and(|m| m.1));
         let project = project.clone();
         side_list(
             "merged-commits",
@@ -833,11 +845,10 @@ impl Detail {
                 Some(match pick {
                     None => row
                         .child(small_icon(Icon::BranchMerge).text_color(theme.text_3))
-                        .child(
-                            div()
-                                .flex_1()
-                                .child(format!("All {} commits merged", merged.len())),
-                        )
+                        .child(div().flex_1().child(match more {
+                            true => format!("The newest {} commits merged", merged.len()),
+                            false => format!("All {} commits merged", merged.len()),
+                        }))
                         .into_any_element(),
                     Some(commit) => row
                         .child(small_icon(Icon::Commit).text_color(theme.text_3))
@@ -921,14 +932,13 @@ impl Detail {
         let open = self.message_open;
         let shown = body.join("\n");
         let toggle = (!shown.is_empty()).then(|| {
-            div()
-                .id("target-message-more")
-                .text_color(theme.blue)
-                .cursor_pointer()
-                .child(match open {
-                    true => "Hide message",
-                    false => "Show message",
-                })
+            let label = match open {
+                true => "Hide message",
+                false => "Show message",
+            };
+            button("target-message-more", label)
+                .small()
+                .style(ButtonStyle::Ghost)
                 .on_click(cx.listener(|this, _, _, cx| {
                     this.message_open = !this.message_open;
                     cx.notify();
@@ -969,33 +979,39 @@ impl Detail {
                     })
                     .child(SharedString::from(title.clone())),
             )
+            // As a commit's page header says who wrote it and when, with its ID to copy.
             .child(
-                h_flex()
-                    .gap(px(6.))
-                    .text_size(px(12.))
-                    .text_color(theme.text_2)
-                    .child(byline_avatar(
-                        &commit.author,
-                        &commit.email,
-                        commit.agent.as_ref(),
-                        14.,
-                        theme,
-                    ))
-                    .child(format!(
-                        "{} · {} · {}",
-                        commit.author,
-                        crate::ui::ago(commit.time),
-                        commit.id.short()
-                    ))
-                    .children(toggle.map(|toggle| h_flex().gap(px(6.)).child("·").child(toggle))),
+                meta_row(theme)
+                    .child(
+                        h_flex()
+                            .gap(px(8.))
+                            .child(byline_avatar(
+                                &commit.author,
+                                &commit.email,
+                                commit.agent.as_ref(),
+                                16.,
+                                theme,
+                            ))
+                            .child(format!(
+                                "{} at {}",
+                                byline_text(&commit.author, commit.agent.as_ref()),
+                                crate::ui::local_time(commit.time)
+                            )),
+                    )
+                    .child(self.sha_chip(commit.id, theme, cx))
+                    .children(toggle),
             )
             .when(open && !shown.is_empty(), |el| {
                 el.child(
                     div()
+                        .id("target-message-body")
                         .text_size(px(13.))
                         .line_height(px(LINE))
                         .text_color(theme.text_2)
                         .whitespace_normal()
+                        // A long one scrolls rather than push the diff out of the window.
+                        .max_h(px(LINE * 12.))
+                        .overflow_y_scroll()
                         .child(SharedString::from(shown)),
                 )
             })
@@ -1016,20 +1032,19 @@ impl Detail {
     }
 
     /// The times the activity's picked days span, from the start of the first to the end of
-    /// the last, the last day running on past now.
+    /// the last, today running on past now.
     fn picked_span(&self, upstream: &Upstream) -> Option<(i64, i64)> {
         let (project, first, last) = self.activity_days.as_ref()?;
         let summary = upstream
             .summary
             .as_ref()
             .filter(|_| *project == upstream.project)?;
-        let days = summary.daily.len();
-        let start = summary.at - (days - first) as i64 * DAY;
-        let end = match last + 1 == days {
+        let today = summary.first_day + summary.daily.len() as i64 - 1;
+        let end = match *last >= today {
             true => i64::MAX,
-            false => summary.at - (days - 1 - last) as i64 * DAY,
+            false => upstream::day_start(last + 1),
         };
-        Some((start, end))
+        Some((upstream::day_start(*first), end))
     }
 
     fn upstream_rows(&self, upstream: &Upstream, target: &str) -> Vec<Row> {
@@ -1061,23 +1076,26 @@ impl Detail {
             .is_some_and(|((start, _), oldest)| oldest.time < start);
         if upstream.more && !past {
             rows.push(Row::More);
+        } else if rows.is_empty() && span.is_some() {
+            rows.push(Row::Heading(format!("No commits on {target} then")));
         }
         rows
     }
 
-    /// Pick the activity's day `ix`, or with `extend` the days from the one picked before
+    /// Pick the activity's day `day`, or with `extend` the days from the one picked before
     /// to it; picking the one day picked again shows every day.
-    fn pick_days(&mut self, project: &ProjectId, ix: usize, extend: bool, cx: &mut Context<Self>) {
-        let anchor = self.activity_anchor.filter(|_| extend);
-        let same =
-            matches!(&self.activity_days, Some((p, a, b)) if p == project && *a == ix && *b == ix);
+    fn pick_days(&mut self, project: &ProjectId, day: i64, extend: bool, cx: &mut Context<Self>) {
+        let anchor = (self.activity_anchor.as_ref())
+            .filter(|(p, _)| extend && p == project)
+            .map(|(_, anchor)| *anchor);
+        let same = matches!(&self.activity_days, Some((p, a, b)) if p == project && *a == day && *b == day);
         self.activity_days = match anchor {
-            Some(anchor) => Some((project.clone(), anchor.min(ix), anchor.max(ix))),
+            Some(anchor) => Some((project.clone(), anchor.min(day), anchor.max(day))),
             None if same => None,
-            None => Some((project.clone(), ix, ix)),
+            None => Some((project.clone(), day, day)),
         };
         if anchor.is_none() {
-            self.activity_anchor = self.activity_days.as_ref().map(|_| ix);
+            self.activity_anchor = (self.activity_days.as_ref()).map(|_| (project.clone(), day));
         }
         self.upstream_scroll
             .scroll_to_item(0, gpui::ScrollStrategy::Top);
@@ -1131,8 +1149,9 @@ impl Detail {
         if let Some(Selection::Project(project)) = self.store.read(cx).selection.clone() {
             self.load_selected_merge(&project, cx);
             // A merge opens on the commits it merged.
+            // It doesn't forget the pull request tab the branch pages keep picked.
             if self.selected_merge(&project).is_some() {
-                (self.commits_tab, self.review_tab) = (true, false);
+                self.commits_tab = true;
             }
         }
         self.show_picked(cx);
@@ -1199,6 +1218,29 @@ impl Detail {
                     let bytes = upstream::readme_image(&path, &target, &source)?;
                     let format = image_format(&bytes)
                         .ok_or_else(|| anyhow::anyhow!("{source} isn't an image"))?;
+                    let (format, bytes) = match format {
+                        // An SVG's own images would be read from any path it names.
+                        gpui::ImageFormat::Svg => {
+                            let text = String::from_utf8_lossy(&bytes).to_ascii_lowercase();
+                            anyhow::ensure!(
+                                !text.contains("<image") && !text.contains(":image"),
+                                "{source} draws other images, which aren't shown"
+                            );
+                            (format, bytes)
+                        }
+                        // Its first frame alone, as that's all that's drawn: every frame of
+                        // a long one would take a lot of memory.
+                        gpui::ImageFormat::Gif => {
+                            let frame = image::load_from_memory_with_format(
+                                &bytes,
+                                image::ImageFormat::Gif,
+                            )?;
+                            let mut png = std::io::Cursor::new(Vec::new());
+                            frame.write_to(&mut png, image::ImageFormat::Png)?;
+                            (gpui::ImageFormat::Png, png.into_inner())
+                        }
+                        _ => (format, bytes),
+                    };
                     gpui::Image::from_bytes(format, bytes).to_image_data(svg)
                 })
                 .await;
@@ -1232,17 +1274,18 @@ impl Detail {
         let picked = (self.activity_days.as_ref())
             .filter(|(p, ..)| p == project)
             .map(|(_, first, last)| (*first, *last));
-        // A day's bar by its own last moment, for its date.
-        let day_of = |ix: usize| summary.at - (daily.len() - 1 - ix) as i64 * DAY - 1;
+        let today = summary.first_day + daily.len() as i64 - 1;
+        // A day's date, from its noon, clear of a clock change.
+        let date = |day: i64| crate::ui::local_date(upstream::day_start(day) + DAY / 2);
         let bars = daily.iter().enumerate().map(|(ix, &n)| {
-            let days_ago = daily.len() - 1 - ix;
-            let when = match days_ago {
-                0 => "in the last day".to_owned(),
-                1 => "a day ago".to_owned(),
+            let day = summary.first_day + ix as i64;
+            let when = match today - day {
+                0 => "today".to_owned(),
+                1 => "yesterday".to_owned(),
                 days => format!("{days} days ago"),
             };
-            let recent = days_ago < 7;
-            let inside = picked.is_none_or(|(first, last)| (first..=last).contains(&ix));
+            let recent = today - day < 7;
+            let inside = picked.is_none_or(|(first, last)| (first..=last).contains(&day));
             let project = project.clone();
             div()
                 .id(("activity-day", ix))
@@ -1250,13 +1293,12 @@ impl Detail {
                 .h_full()
                 .flex()
                 .items_end()
-                .cursor_pointer()
                 .tooltip(Tooltip::text(format!(
                     "{}, {when}",
                     plural(n as usize, "commit")
                 )))
                 .on_click(cx.listener(move |this, event: &gpui::ClickEvent, _, cx| {
-                    this.pick_days(&project, ix, event.modifiers().shift, cx)
+                    this.pick_days(&project, day, event.modifiers().shift, cx)
                 }))
                 .child(
                     div()
@@ -1274,27 +1316,24 @@ impl Detail {
         });
         let said = match picked {
             Some((first, last)) => {
-                let n: u32 = daily[first..=last].iter().sum();
+                let n: u32 = (daily.iter().enumerate())
+                    .filter(|(ix, _)| (first..=last).contains(&(summary.first_day + *ix as i64)))
+                    .map(|(_, n)| n)
+                    .sum();
                 let days = match first == last {
-                    true => crate::ui::local_date(day_of(first)),
-                    false => format!(
-                        "{} – {}",
-                        crate::ui::local_date(day_of(first)),
-                        crate::ui::local_date(day_of(last))
-                    ),
+                    true => date(first),
+                    false => format!("{} – {}", date(first), date(last)),
                 };
                 h_flex()
-                    .gap(px(8.))
+                    .gap(px(6.))
                     .child(faint(
                         format!("{days}: {}", plural(n as usize, "commit")),
                         theme,
                     ))
                     .child(
-                        div()
-                            .id("activity-clear")
-                            .text_color(theme.blue)
-                            .cursor_pointer()
-                            .child("Clear")
+                        button("activity-clear", "Clear")
+                            .small()
+                            .style(ButtonStyle::Ghost)
                             .on_click(cx.listener(|this, _, _, cx| this.clear_days(cx))),
                     )
                     .into_any_element()
@@ -1884,7 +1923,8 @@ fn team(team: &[(String, String, u32)], theme: &Theme) -> Option<AnyElement> {
                                 .h_full()
                                 .rounded(px(2.))
                                 .w(gpui::relative(*n as f32 / most as f32))
-                                .bg(theme.pop),
+                                // Gray, leaving pop to the activity above.
+                                .bg(theme.text_3),
                         ),
                     ),
             )
