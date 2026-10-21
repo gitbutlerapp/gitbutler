@@ -930,8 +930,13 @@ impl Navigator {
     }
 
     fn select(&mut self, selection: Selection, window: &mut Window, cx: &mut Context<Self>) {
-        self.store
-            .update(cx, |store, cx| store.select(Some(selection), cx));
+        self.store.update(cx, |store, cx| {
+            let again = store.selection.as_ref() == Some(&selection);
+            store.select(Some(selection), cx);
+            if again {
+                cx.emit(StoreEvent::Reopened);
+            }
+        });
         window.focus(&self.focus, cx);
     }
 

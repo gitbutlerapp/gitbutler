@@ -116,6 +116,8 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("l", Expand, side),
         KeyBinding::new("left", Collapse, side),
         KeyBinding::new("h", Collapse, side),
+        // Opens the branch picked in the Branches page's table.
+        KeyBinding::new("enter", crate::app::Confirm, side),
         // Works while typing the message too, as the composer's other key does.
         KeyBinding::new("alt-cmd-enter", AmendTop, Some("Detail")),
         KeyBinding::new("cmd-shift-b", composer::PickCommitTarget, Some("Detail")),
@@ -349,8 +351,12 @@ pub struct Detail {
     _upstream_load: Task<()>,
     /// The Branches page's branches, for the project it shows, and its filter.
     branches: Option<branches::Branches>,
+    /// Whether the Branches page shows its table of every branch, as it opens, rather than
+    /// one branch's diff beside the list.
+    branches_table: bool,
     branch_filter: Entity<TextInput>,
     branches_scroll: UniformListScrollHandle,
+    branches_table_scroll: UniformListScrollHandle,
     _branches_load: Task<()>,
     /// What's fetched of other machines' branches; see `detail/machine.rs`.
     mesh: machine::MeshFetches,
@@ -419,8 +425,18 @@ impl Detail {
                         // Checks are of one checkout's files, which another's share paths with.
                         this.switch_checkout(project, worktree, cx);
                     }
+                    if matches!(this.selection(cx), Some(Selection::Branches(_))) {
+                        this.branches_table = true;
+                    }
                     this.reload_page(true, cx);
                     this.refresh_diff(true, cx);
+                }
+                StoreEvent::Reopened => {
+                    if matches!(this.selection(cx), Some(Selection::Branches(_)))
+                        && !this.branches_table
+                    {
+                        this.show_branches_table(cx);
+                    }
                 }
                 StoreEvent::Loaded(project) => {
                     if this.selected_project(cx).as_ref() == Some(project) {
@@ -595,8 +611,10 @@ impl Detail {
             upstream_scroll: UniformListScrollHandle::new(),
             _upstream_load: Task::ready(()),
             branches: None,
+            branches_table: true,
             branch_filter,
             branches_scroll: UniformListScrollHandle::new(),
+            branches_table_scroll: UniformListScrollHandle::new(),
             _branches_load: Task::ready(()),
             mesh: machine::MeshFetches::default(),
             _branch_commits_load: Task::ready(()),
@@ -1859,6 +1877,8 @@ impl Render for Detail {
                     Selection::Mesh(project, id, pick) => {
                         self.render_mesh_side(project, id, pick, &theme, cx)
                     }
+                    // The table takes the page instead.
+                    Selection::Branches(_) if self.branches_table => div().into_any_element(),
                     Selection::Branches(project) => {
                         self.render_branches_side(project, &theme, window, cx)
                     }
@@ -1925,6 +1945,9 @@ impl Render for Detail {
                 let panes = match selection {
                     Selection::Branch(project, _) if self.showing_review(cx) => {
                         self.render_review_tab(project, &theme, cx)
+                    }
+                    Selection::Branches(project) if self.branches_table => {
+                        self.render_branches_table(project, &theme, window, cx)
                     }
                     _ => h_flex()
                         .w_full()

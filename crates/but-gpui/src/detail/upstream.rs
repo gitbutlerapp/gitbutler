@@ -382,7 +382,7 @@ impl Detail {
     /// Whether the window leaves the diff out, as a pull request and the README take its
     /// place.
     pub fn diff_hidden(&self, cx: &gpui::App) -> bool {
-        self.showing_review(cx) || self.showing_readme(cx)
+        self.showing_review(cx) || self.showing_readme(cx) || self.showing_branches_table(cx)
     }
 
     /// How tall a merge's commits are over its diff, without room for them beside it: a few

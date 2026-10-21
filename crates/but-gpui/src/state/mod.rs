@@ -147,6 +147,8 @@ pub enum StoreEvent {
     /// A project's workspace was (re)loaded.
     Loaded(ProjectId),
     SelectionChanged,
+    /// The selected page was clicked in the navigator again, to go back to how it opens.
+    Reopened,
     /// A project's branch, by full ref, is gone by that name while its newest commit is on
     /// another now, as when an agent renames it.
     Renamed(ProjectId, String, String),

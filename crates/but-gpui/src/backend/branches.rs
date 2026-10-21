@@ -35,6 +35,10 @@ pub struct OtherBranch {
     /// Its pull request, without CI checks: the app asks the forge about those only for the
     /// workspace's branches, so the cache's would be stale.
     pub review: Option<Review>,
+    /// A local branch's description, as `git branch --edit-description` writes it.
+    pub description: Option<String>,
+    /// Its newest commit's title.
+    pub subject: Option<String>,
 }
 
 /// Every branch the workspace doesn't have applied, newest first, a stack's branches together
@@ -74,9 +78,26 @@ pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
                 stack,
                 tip: CommitId(branch.tip),
                 review: listed.review.as_ref().map(from_cache),
+                description: (branch.description.as_ref())
+                    .map(|d| d.to_str_lossy().trim().to_owned())
+                    .filter(|d| !d.is_empty()),
+                subject: (branch.tip_subject.as_ref())
+                    .map(|s| s.to_str_lossy().into_owned())
+                    .filter(|s| !s.is_empty()),
             }
         })
         .collect())
+}
+
+/// Set local branch `ref_name`'s description where Git keeps it, as `git branch
+/// --edit-description` does; a blank one removes it.
+pub fn set_branch_description(path: &Path, ref_name: &str, description: &str) -> Result<()> {
+    let mut ctx = open(path)?;
+    but_api::branch::branch_set_description(
+        &mut ctx,
+        full_name(ref_name)?,
+        Some(description.to_owned()),
+    )
 }
 
 /// A commit `ref_name` has that the target doesn't.
