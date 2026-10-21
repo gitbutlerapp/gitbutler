@@ -1811,7 +1811,13 @@ impl Detail {
                     + self.list_tabs_height(cx)
                     + self.merged_over_height(cx)
             }
-            Some(Selection::Branches(_)) => self.list_tabs_height(cx) + self.merged_over_height(cx),
+            Some(Selection::Branches(project)) => {
+                let message = match self.picked_branch_commit(&project) {
+                    Some(_) => self.target_message_height.get(),
+                    None => 0.,
+                };
+                message + self.list_tabs_height(cx) + self.merged_over_height(cx)
+            }
             Some(Selection::History(project)) if self.selected_operation(&project).is_some() => {
                 self.header_height.get()
             }

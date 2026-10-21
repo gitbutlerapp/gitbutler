@@ -14,7 +14,8 @@ use super::Detail;
 use super::panes::{Crumb, list_empty, quiet, side_list, side_row};
 use super::pull_request::{TABS_HEIGHT, tab};
 use crate::app::{Collapse, Confirm, Expand, SelectNext, SelectPrevious};
-use crate::backend::branches::{self, ApplyOutcome, BranchCommit, OtherBranch};
+use crate::backend::branches::{self, ApplyOutcome, OtherBranch};
+use crate::backend::upstream::TargetCommit;
 use crate::backend::{self, CommitId, DiffSource, ReviewState};
 use crate::edits::CherryPick;
 use crate::overlays::MenuItem;
@@ -43,7 +44,7 @@ pub(super) struct Branches {
     /// The stacks whose branches are folded away under their caption, by their top branch.
     folded: HashSet<String>,
     /// Open branches' commits, by ref and what they were loaded for.
-    commits: HashMap<String, (Loaded, Vec<BranchCommit>)>,
+    commits: HashMap<String, (Loaded, Vec<TargetCommit>)>,
     /// One of the selected branch's commits, to see on its own and to copy into the workspace.
     commit: Option<CommitId>,
     /// Commits of the selected branch picked along with the selected one (⌘- or ⇧-click), to
@@ -63,7 +64,7 @@ impl Branches {
 
     /// The commits listed under branch `ref_name`: its own, not those of the branches below it
     /// in a stack.
-    fn listed_commits(&self, ref_name: &str) -> &[BranchCommit] {
+    fn listed_commits(&self, ref_name: &str) -> &[TargetCommit] {
         let own = self.branch(ref_name).and_then(|b| b.own_commits);
         match self.commits.get(ref_name) {
             Some((_, commits)) => &commits[..own.unwrap_or(commits.len()).min(commits.len())],
@@ -214,14 +215,38 @@ impl Detail {
 
     /// Go back to the table of every branch, letting go of a selected commit.
     pub(super) fn show_branches_table(&mut self, cx: &mut Context<Self>) {
+        self.close_branch(cx);
+        // The diff beside the list goes with it.
+        self.app.update(cx, |_, cx| cx.notify()).ok();
+    }
+
+    fn close_branch(&mut self, cx: &mut Context<Self>) {
         self.branches_table = true;
         if let Some(branches) = &mut self.branches {
             branches.commit = None;
             branches.picked.clear();
         }
         self.show_picked(cx);
-        // The diff beside the list goes with it.
-        self.app.update(cx, |_, cx| cx.notify()).ok();
+    }
+
+    /// Esc on the Branches page with a branch opened: back to the table, whether it did. The
+    /// app, which Esc is handled in, redraws for the diff that goes.
+    pub fn close_opened_branch(&mut self, cx: &mut Context<Self>) -> bool {
+        let opened = !self.branches_table
+            && matches!(self.store.read(cx).selection, Some(Selection::Branches(_)));
+        if opened {
+            self.close_branch(cx);
+        }
+        opened
+    }
+
+    /// The commit picked of the opened branch, which shows its message over the tabs.
+    pub(super) fn picked_branch_commit(&self, project: &ProjectId) -> Option<&TargetCommit> {
+        let branch = self.selected_other_branch(project)?;
+        let branches = self.branches_for(project)?;
+        let id = branches.commit?;
+        let (_, commits) = branches.commits.get(&branch.ref_name)?;
+        commits.iter().find(|c| c.id == id)
     }
 
     /// Open branch `ref_name` from the table: the list, it selected there, beside its diff.
@@ -443,6 +468,7 @@ impl Detail {
     }
 
     fn select_other_branch(&mut self, ref_name: Option<String>, cx: &mut Context<Self>) {
+        self.message_open = false;
         if let Some(branches) = &mut self.branches {
             branches.selected = ref_name;
             branches.commit = None;
@@ -454,6 +480,7 @@ impl Detail {
 
     /// Select commit `id` of the branch `ref_name`, which it's listed under, alone.
     fn select_branch_commit(&mut self, ref_name: &str, id: CommitId, cx: &mut Context<Self>) {
+        self.message_open = false;
         if let Some(branches) = &mut self.branches {
             branches.selected = Some(ref_name.to_owned());
             branches.commit = Some(id);
@@ -575,7 +602,8 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         self.select_other_branch(Some(ref_name.to_owned()), cx);
-        let Some(branch) = self.selected_other_branch(project) else {
+        // By its name, as the table has none opened.
+        let Some(branch) = self.listed_branch(project, ref_name) else {
             return;
         };
         let mut items = Vec::new();
@@ -611,6 +639,21 @@ impl Detail {
             })
             .separated(),
         );
+        if branch.local {
+            let (p, r) = (project.clone(), ref_name.to_owned());
+            // Once the menu's done with the app, which the prompt updates too.
+            items.push(MenuItem::new(
+                "Edit description…",
+                move |app, window, cx| {
+                    let (detail, p, r) = (app.detail.clone(), p.clone(), r.clone());
+                    window.defer(cx, move |window, cx| {
+                        detail.update(cx, |detail, cx| {
+                            detail.edit_branch_description(&p, &r, window, cx)
+                        })
+                    })
+                },
+            ));
+        }
         if branch.local && worktree.is_none() {
             let (p, r) = (project.clone(), ref_name.to_owned());
             items.push(
@@ -797,7 +840,7 @@ impl Detail {
     }
 
     /// The opened branch's own commits, newest first, once read for its tip.
-    pub(super) fn opened_branch_commits(&self, project: &ProjectId) -> Option<&[BranchCommit]> {
+    pub(super) fn opened_branch_commits(&self, project: &ProjectId) -> Option<&[TargetCommit]> {
         let branch = self.selected_other_branch(project)?;
         let branches = self.branches_for(project)?;
         let ((tip, _), _) = branches.commits.get(&branch.ref_name)?;
@@ -864,11 +907,15 @@ impl Detail {
                         )
                     }),
             );
+        // A commit picked shows its message over the tabs, as a merge's does.
+        let message = (self.picked_branch_commit(project))
+            .map(|commit| self.render_target_message(commit, theme, cx));
         v_flex()
             .relative()
             .flex_1()
             .h_full()
             .min_w(px(0.))
+            .children(message)
             .child(tabs)
             .child(below)
             .child(self.measure_beside_width())

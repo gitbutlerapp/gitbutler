@@ -492,16 +492,30 @@ impl AppView {
         }
         if self.detail.read(cx).is_focused(window, cx) {
             // Undo the nearest thing first: a text selection, then the file filter.
+            // Then the branch opened on the Branches page, for its table.
             let handled = self.detail.update(cx, |detail, cx| {
                 detail.clear_text_selection(cx)
                     || detail.clear_line_picks(cx)
                     || detail.clear_file_picks(cx)
                     || detail.close_open_filter(window, cx)
+                    || detail.close_opened_branch(cx)
             });
-            if !handled {
-                self.focus_main(window, cx);
+            match handled {
+                true => cx.notify(),
+                false => self.focus_main(window, cx),
             }
             return;
+        }
+        // With nothing cut or picked, the branch opened on the Branches page goes back to its
+        // table.
+        let store = self.store.read(cx);
+        if store.cut.is_none()
+            && store.picked.is_empty()
+            && self
+                .detail
+                .update(cx, |detail, cx| detail.close_opened_branch(cx))
+        {
+            return cx.notify();
         }
         if self.store.read(cx).cut.is_some() {
             self.store.update(cx, |store, cx| store.set_cut(None, cx));

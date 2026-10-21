@@ -867,7 +867,7 @@ impl Detail {
 
     /// A target commit's message: its title, who wrote it and when, and the first lines of
     /// the rest, with a button to show it all.
-    fn render_target_message(
+    pub(super) fn render_target_message(
         &self,
         commit: &TargetCommit,
         theme: &Theme,

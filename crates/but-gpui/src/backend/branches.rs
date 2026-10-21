@@ -9,6 +9,7 @@ use but_branches::ListedStackStatus;
 
 use super::ops::full_name;
 use super::reviews::from_cache;
+use super::upstream::TargetCommit;
 use super::{Agent, CommitId, Review, open, title};
 
 #[derive(Debug, Clone)]
@@ -100,18 +101,11 @@ pub fn set_branch_description(path: &Path, ref_name: &str, description: &str) ->
     )
 }
 
-/// A commit `ref_name` has that the target doesn't.
-#[derive(Debug, Clone)]
-pub struct BranchCommit {
-    pub id: CommitId,
-    pub title: String,
-    /// Seconds since the epoch.
-    pub time: i64,
-}
-
-/// The commits `ref_name` has that the target doesn't, newest first.
-pub fn branch_commits(path: &Path, ref_name: &str) -> Result<Vec<BranchCommit>> {
+/// The commits `ref_name` has that the target doesn't, newest first, as the project's page
+/// has a target's, so a picked one shows its message as a target commit does.
+pub fn branch_commits(path: &Path, ref_name: &str) -> Result<Vec<TargetCommit>> {
     let ctx = open(path)?;
+    let repo = ctx.repo.get()?;
     let name = full_name(ref_name)?;
     let remote = but_core::extract_remote_name_and_short_name(
         name.as_ref(),
@@ -125,10 +119,27 @@ pub fn branch_commits(path: &Path, ref_name: &str) -> Result<Vec<BranchCommit>> 
     Ok(details
         .commits
         .into_iter()
-        .map(|commit| BranchCommit {
-            id: CommitId(commit.id),
-            title: title(&commit.message),
-            time: (commit.committed_at / 1000) as i64,
+        .map(|commit| {
+            let author = (commit.author.name.clone(), commit.author.email.clone());
+            let committer = super::committer(&repo, commit.id).unwrap_or_else(|| author.clone());
+            let ((author, email), agent) = super::byline(author, committer);
+            TargetCommit {
+                id: CommitId(commit.id),
+                title: title(&commit.message),
+                body: (commit.message.lines().skip(1))
+                    .map(|line| line.to_str_lossy())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+                    .trim()
+                    .to_owned(),
+                time: (commit.committed_at / 1000) as i64,
+                author,
+                email,
+                agent,
+                review: None,
+                incoming: false,
+                merge: false,
+            }
         })
         .collect())
 }
