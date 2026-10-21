@@ -131,11 +131,10 @@ impl AppView {
     fn diff_left(&self, window: &Window, cx: &App) -> Option<f32> {
         let store = self.store.read(cx);
         let detail = self.detail.read(cx);
-        let has_diff =
-            store.selection.is_some() && !detail.showing_review(cx) && !detail.showing_readme(cx);
+        let has_diff = store.selection.is_some() && !detail.diff_hidden(cx);
         has_diff.then(|| match detail.files_shown(cx) {
             false => 0.,
-            true => detail.files_width(window, cx) + detail.beside_files_width(cx),
+            true => detail.files_width(window, cx) + detail.beside_offset(cx),
         })
     }
 

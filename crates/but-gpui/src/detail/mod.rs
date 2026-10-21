@@ -308,6 +308,13 @@ pub struct Detail {
     /// the space beside the project page's list is, measured as they're drawn.
     target_message_height: Rc<Cell<f32>>,
     beside_width: Rc<Cell<f32>>,
+    /// The commits each merge on a target brought in, by the merge; `None` while loading.
+    merged: HashMap<backend::CommitId, Option<Vec<backend::upstream::TargetCommit>>>,
+    /// The one of them shown in place of everything the merge brought in.
+    merged_pick: Option<backend::CommitId>,
+    /// The project page's Commits tab is picked, over a merge's commits.
+    commits_tab: bool,
+    merged_scroll: UniformListScrollHandle,
     /// The images each project's README shows, as loaded, by where they're from.
     readme_images: HashMap<ProjectId, HashMap<String, Arc<gpui::RenderImage>>>,
     /// The images asked for, loaded or not, so each is asked for once.
@@ -560,6 +567,10 @@ impl Detail {
             readme_scroll: ScrollHandle::new(),
             target_message_height: Rc::new(Cell::new(0.)),
             beside_width: Rc::new(Cell::new(0.)),
+            merged: HashMap::new(),
+            merged_pick: None,
+            commits_tab: false,
+            merged_scroll: UniformListScrollHandle::new(),
             readme_images: HashMap::new(),
             readme_images_asked: HashSet::new(),
             header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),

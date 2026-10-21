@@ -137,7 +137,7 @@ impl Detail {
     /// How tall the tabs beside a list are, which the diff starts below: nothing when the
     /// page has none.
     pub(super) fn list_tabs_height(&self, cx: &App) -> f32 {
-        match self.list_page(cx) && self.selected_review(cx).is_some() {
+        match self.list_page(cx) && (self.selected_review(cx).is_some() || self.on_merge(cx)) {
             true => TABS_HEIGHT,
             false => 0.,
         }
@@ -455,7 +455,12 @@ fn check_row(ix: usize, run: &CheckRun, theme: &Theme) -> Stateful<Div> {
 
 /// A tab of a page's header, as ui-react's: its label faded unless it's selected or under
 /// the pointer, and under the selected one a bar along the header's edge.
-fn tab(id: &'static str, label: &'static str, selected: bool, theme: &Theme) -> Stateful<Div> {
+pub(super) fn tab(
+    id: &'static str,
+    label: &'static str,
+    selected: bool,
+    theme: &Theme,
+) -> Stateful<Div> {
     let hover = theme.hover();
     h_flex()
         .id(id)

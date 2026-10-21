@@ -32,6 +32,8 @@ pub struct TargetCommit {
     pub review: Option<Review>,
     /// The workspace doesn't have it yet.
     pub incoming: bool,
+    /// It has more than one parent, bringing in the commits of the others.
+    pub merge: bool,
 }
 
 /// Up to `limit` of the target's commits, newest first, after `after` or from its tip;
@@ -115,6 +117,7 @@ fn target_page(
                     found
                 }),
                 incoming: !target.in_workspace,
+                merge: (repo.find_commit(commit.id)).is_ok_and(|c| c.parent_ids().count() > 1),
             }
         })
         .collect::<Vec<TargetCommit>>();
@@ -254,6 +257,49 @@ pub fn readme_image(path: &Path, target: &str, src: &str) -> Result<Vec<u8>> {
         "{src} is too large to show"
     );
     Ok(blob.data.clone())
+}
+
+/// The commits `merge` brought in: those its other parents have that its first doesn't,
+/// newest first, up to `limit`.
+pub fn merged_commits(path: &Path, merge: CommitId, limit: usize) -> Result<Vec<TargetCommit>> {
+    let ctx = open(path)?;
+    let repo = ctx.repo.get()?;
+    let commit = repo.find_commit(merge.0)?;
+    let mut parents = commit.parent_ids().map(|id| id.detach());
+    let Some(first) = parents.next() else {
+        return Ok(Vec::new());
+    };
+    let walk = (repo.rev_walk(parents)).with_hidden([first]).all()?;
+    let mut commits = Vec::new();
+    for info in walk.take(limit) {
+        let commit = info?.object()?;
+        let message = commit.message_raw_sloppy();
+        let author = commit.author()?;
+        let author = (
+            author.name.to_str_lossy().into_owned(),
+            author.email.to_str_lossy().into_owned(),
+        );
+        let committer = super::committer(&repo, commit.id).unwrap_or_else(|| author.clone());
+        let ((author, email), agent) = super::byline(author, committer);
+        commits.push(TargetCommit {
+            id: CommitId(commit.id),
+            title: title(message),
+            body: (message.lines().skip(1))
+                .map(|line| line.to_str_lossy())
+                .collect::<Vec<_>>()
+                .join("\n")
+                .trim()
+                .to_owned(),
+            time: commit.time()?.seconds,
+            author,
+            email,
+            agent,
+            review: None,
+            incoming: false,
+            merge: commit.parent_ids().count() > 1,
+        });
+    }
+    Ok(commits)
 }
 
 /// When the project last fetched, in seconds since the epoch, and why the last attempt

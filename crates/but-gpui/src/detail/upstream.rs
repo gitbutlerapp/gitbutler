@@ -12,9 +12,11 @@ use super::Detail;
 use super::panes::{
     Crumb, list_heading, meta_item, meta_row, quiet, side_header, side_list, side_row, title_text,
 };
+use super::pull_request::tab;
 use crate::app::{SelectNext, SelectPrevious};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, Forge, Review};
+use crate::palette::Choice;
 use crate::state::{Overlay, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::emoji::ProjectIcon;
@@ -45,6 +47,9 @@ const STALE_AFTER: Duration = Duration::from_secs(60);
 /// How wide the files beside a target commit's diff are, and how wide the diff has to stay
 /// for them to show there rather than behind the button over the diff.
 const BESIDE_FILES: f32 = 260.;
+/// How wide a merge's commits are beside its diff, and how many are listed.
+const COMMITS_COLUMN: f32 = 320.;
+const MERGED_SHOWN: usize = 200;
 const MIN_DIFF: f32 = 560.;
 
 /// How many of the team the page lists.
@@ -265,6 +270,7 @@ impl Detail {
                 });
                 this.refresh_diff(false, cx);
                 this.load_readme_images(&project, cx);
+                this.load_selected_merge(&project, cx);
                 cx.notify();
                 // The window draws the diff beside the list, or the README doesn't need it.
                 this.app.update(cx, |_, cx| cx.notify()).ok();
@@ -311,7 +317,10 @@ impl Detail {
 
     pub(super) fn upstream_source(&self, project: &ProjectId) -> Option<DiffSource> {
         match self.upstream_for(project)?.selected? {
-            Picked::Commit(id) => Some(DiffSource::Commit(id)),
+            // Or the commit of a merge picked to show in its place.
+            Picked::Commit(id) => Some(DiffSource::Commit(
+                self.merged_commit(project).map_or(id, |c| c.id),
+            )),
             Picked::Readme => None,
         }
     }
@@ -322,24 +331,134 @@ impl Detail {
         self.selected_target_commit(project).is_some()
     }
 
-    /// How wide the files listed between the project page's list and the diff are, when
-    /// there's room for them beside it; 0 when they're left to the button over the diff.
-    pub fn beside_files_width(&self, cx: &gpui::App) -> f32 {
-        let on_commit = match self.store.read(cx).selection.as_ref() {
-            Some(Selection::Project(project)) => {
-                self.showing_target_commit(project) && !self.showing_review(cx)
-            }
+    /// The merge selected on the project's page, and the commits it brought in, once read.
+    fn selected_merge(
+        &self,
+        project: &ProjectId,
+    ) -> Option<(&TargetCommit, Option<&[TargetCommit]>)> {
+        let commit = self.selected_target_commit(project).filter(|c| c.merge)?;
+        let merged = self.merged.get(&commit.id).and_then(|m| m.as_deref());
+        Some((commit, merged))
+    }
+
+    /// Whether the project's page shows a merge, which has a Commits tab.
+    pub(super) fn on_merge(&self, cx: &gpui::App) -> bool {
+        match self.store.read(cx).selection.as_ref() {
+            Some(Selection::Project(project)) => self.selected_merge(project).is_some(),
             _ => false,
-        };
-        match on_commit && self.beside_width.get() >= BESIDE_FILES + MIN_DIFF {
-            true => BESIDE_FILES,
-            false => 0.,
         }
     }
 
-    /// Beside the project page's list, its selected commit: its message, then its tabs when
-    /// it landed a pull request, over its files, when there's room, and the diff, which the
-    /// window draws over the rest.
+    /// The commit of a merge picked to show in its place.
+    fn merged_commit(&self, project: &ProjectId) -> Option<&TargetCommit> {
+        let (_, merged) = self.selected_merge(project)?;
+        let pick = self.merged_pick?;
+        merged?.iter().find(|c| c.id == pick)
+    }
+
+    /// Whether the Commits tab lists a merge's commits beside the diff, there being room;
+    /// without, it lists them alone, and a commit picked opens on the Changes tab.
+    fn commits_beside(&self) -> bool {
+        self.beside_width.get() >= COMMITS_COLUMN + MIN_DIFF
+    }
+
+    fn showing_commits(&self, project: &ProjectId) -> bool {
+        self.commits_tab && self.selected_merge(project).is_some()
+    }
+
+    /// Whether the window leaves the diff out, as a pull request, the README and a merge's
+    /// commits listed alone take its place.
+    pub fn diff_hidden(&self, cx: &gpui::App) -> bool {
+        let commits_alone = match self.store.read(cx).selection.as_ref() {
+            Some(Selection::Project(project)) => {
+                self.showing_commits(project) && !self.commits_beside()
+            }
+            _ => false,
+        };
+        self.showing_review(cx) || self.showing_readme(cx) || commits_alone
+    }
+
+    /// How far right of the project page's list the diff starts: past a merge's commits on
+    /// its Commits tab, and the files, when there's room for them; 0 when they're left to the
+    /// button over the diff.
+    pub fn beside_offset(&self, cx: &gpui::App) -> f32 {
+        let Some(Selection::Project(project)) = self.store.read(cx).selection.as_ref() else {
+            return 0.;
+        };
+        if !self.showing_target_commit(project) || self.showing_review(cx) {
+            return 0.;
+        }
+        let commits = match self.showing_commits(project) && self.commits_beside() {
+            true => COMMITS_COLUMN,
+            false => 0.,
+        };
+        match self.beside_width.get() >= commits + BESIDE_FILES + MIN_DIFF {
+            true => commits + BESIDE_FILES,
+            false => commits,
+        }
+    }
+
+    /// Read the commits the merge `id` brought in, unless they've been read.
+    fn load_merged(&mut self, project: &ProjectId, id: CommitId, cx: &mut Context<Self>) {
+        let Some(path) = self.store.read(cx).path(project) else {
+            return;
+        };
+        if self.merged.contains_key(&id) {
+            return;
+        }
+        self.merged.insert(id, None);
+        cx.spawn(async move |this, cx| {
+            let read =
+                backend::run(move || upstream::merged_commits(&path, id, MERGED_SHOWN)).await;
+            this.update(cx, |this, cx| {
+                let commits = read
+                    .inspect_err(|err| tracing::warn!(?err, "couldn't read a merge's commits"))
+                    .unwrap_or_default();
+                this.merged.insert(id, Some(commits));
+                cx.notify();
+                this.app.update(cx, |_, cx| cx.notify()).ok();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// Read the selected commit's merged commits, if it's a merge.
+    fn load_selected_merge(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        let merge = (self.selected_target_commit(project))
+            .filter(|c| c.merge)
+            .map(|c| c.id);
+        if let Some(id) = merge {
+            self.load_merged(project, id, cx);
+        }
+    }
+
+    /// Show the merge's commit `pick` in its place, or with `None` all it brought in.
+    fn pick_merged(&mut self, pick: Option<CommitId>, cx: &mut Context<Self>) {
+        self.merged_pick = pick;
+        self.message_open = false;
+        self.show_picked(cx);
+        self.app.update(cx, |_, cx| cx.notify()).ok();
+    }
+
+    fn set_target_tab(
+        &mut self,
+        review: bool,
+        commits: bool,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.review_tab = review;
+        self.commits_tab = commits;
+        window.focus(&self.side_focus, cx);
+        cx.notify();
+        self.app.update(cx, |_, cx| cx.notify()).ok();
+    }
+
+    /// Beside the project page's list, its selected commit: its message, or the message of
+    /// the commit of a merge picked; tabs when it landed a pull request or is a merge; and
+    /// under them the pull request, the merge's commits, and the files when there's room, the
+    /// window drawing the diff over the rest.
     pub(super) fn render_target_beside(
         &self,
         project: &ProjectId,
@@ -364,45 +483,225 @@ impl Detail {
         .absolute()
         .size_full();
         let review = commit.review.as_ref();
-        let files = self.beside_files_width(cx);
-        let below = match (review, self.review_tab) {
-            (Some(_), true) => self.render_review_tab(project, theme, cx),
-            _ => h_flex()
+        let merge = self.selected_merge(project);
+        let commits = self.showing_commits(project);
+        let reviewing = self.review_tab && review.is_some();
+        let offset = self.beside_offset(cx);
+        let files = |width: f32| {
+            v_flex()
+                .w(px(width))
+                .flex_none()
+                .h_full()
+                .border_r_1()
+                .border_color(theme.border_3)
+                .child(self.render_diff_file_list(theme, cx))
+        };
+        let below = if reviewing {
+            self.render_review_tab(project, theme, cx)
+        } else if commits && !self.commits_beside() {
+            self.render_merged_list(project, false, theme, cx)
+        } else if commits {
+            h_flex()
                 .flex_1()
                 .min_h(px(0.))
                 .items_start()
-                .when(files > 0., |el| {
-                    el.child(
-                        v_flex()
-                            .w(px(files))
-                            .flex_none()
-                            .h_full()
-                            .border_r_1()
-                            .border_color(theme.border_3)
-                            .child(self.render_diff_file_list(theme, cx)),
-                    )
+                .child(
+                    v_flex()
+                        .w(px(COMMITS_COLUMN))
+                        .flex_none()
+                        .h_full()
+                        .border_r_1()
+                        .border_color(theme.border_3)
+                        .child(self.render_merged_list(project, true, theme, cx)),
+                )
+                .when(offset > COMMITS_COLUMN, |el| {
+                    el.child(files(offset - COMMITS_COLUMN))
                 })
-                .into_any_element(),
+                .into_any_element()
+        } else {
+            h_flex()
+                .flex_1()
+                .min_h(px(0.))
+                .items_start()
+                .when(offset > 0., |el| el.child(files(offset)))
+                .into_any_element()
         };
+        let tabs = (review.is_some() || merge.is_some()).then(|| {
+            let changed = (self.shown_diff().map(|diff| diff.files.len())).filter(|n| *n > 0);
+            let count = merge.and_then(|(_, merged)| merged).map(<[_]>::len);
+            // Without the commits beside the diff, a menu picks one to show.
+            let menu = (merge.is_some() && !commits && !reviewing)
+                .then(|| self.render_merged_menu(project, theme, cx));
+            h_flex()
+                .flex_none()
+                .h(px(super::pull_request::TABS_HEIGHT))
+                .px(px(16.))
+                .items_end()
+                .border_b_1()
+                .border_color(theme.border_3)
+                .child(
+                    h_flex()
+                        .flex_grow(1.)
+                        .ml(px(-8.))
+                        .child(
+                            tab("tab-changes", "Changes", !reviewing && !commits, theme)
+                                .children(changed.map(|n| faint(n.to_string(), theme)))
+                                .on_click(cx.listener(|this, _, window, cx| {
+                                    this.set_target_tab(false, false, window, cx)
+                                })),
+                        )
+                        .when(merge.is_some(), |el| {
+                            el.child(
+                                tab("tab-commits", "Commits", commits && !reviewing, theme)
+                                    .children(count.map(|n| faint(n.to_string(), theme)))
+                                    .on_click(cx.listener(|this, _, window, cx| {
+                                        this.set_target_tab(false, true, window, cx)
+                                    })),
+                            )
+                        })
+                        .when(review.is_some(), |el| {
+                            el.child(
+                                tab("tab-review", "Pull request", reviewing, theme).on_click(
+                                    cx.listener(|this, _, window, cx| {
+                                        this.set_target_tab(true, false, window, cx)
+                                    }),
+                                ),
+                            )
+                        }),
+                )
+                .children(menu.map(|menu| div().pb(px(6.)).child(menu)))
+        });
+        let message = self.merged_commit(project).unwrap_or(commit);
         v_flex()
             .relative()
             .flex_1()
             .h_full()
             .min_w(px(0.))
-            .child(self.render_target_message(commit, theme, cx))
-            .children(review.map(|review| {
-                h_flex()
-                    .flex_none()
-                    .h(px(super::pull_request::TABS_HEIGHT))
-                    .px(px(16.))
-                    .items_end()
-                    .border_b_1()
-                    .border_color(theme.border_3)
-                    .child(self.review_tabs(review, theme, cx))
-            }))
+            .child(self.render_target_message(message, theme, cx))
+            .children(tabs)
             .child(below)
             .child(measure_width)
             .into_any_element()
+    }
+
+    /// The menu over a merge's diff that picks one of its commits to show, or all of them.
+    fn render_merged_menu(
+        &self,
+        project: &ProjectId,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let shown =
+            (self.merged_commit(project)).map_or("All commits".to_owned(), |c| c.title.clone());
+        let project = project.clone();
+        h_flex()
+            .id("merged-menu")
+            .max_w(px(260.))
+            .gap(px(4.))
+            .px(px(8.))
+            .py(px(2.))
+            .rounded(px(6.))
+            .border_1()
+            .border_color(theme.border_2)
+            .cursor_pointer()
+            .hover(|el| el.bg(theme.hover()))
+            .text_size(px(12.))
+            .child(div().min_w(px(0.)).truncate().child(shown))
+            .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
+            .on_click(cx.listener(move |this, _, window, cx| {
+                let Some((_, Some(merged))) = this.selected_merge(&project) else {
+                    return;
+                };
+                let detail = cx.entity();
+                let pick = |label: String, pick: Option<CommitId>| {
+                    let detail = detail.clone();
+                    Choice::new(label, move |_, _, cx| {
+                        detail.update(cx, |detail, cx| detail.pick_merged(pick, cx));
+                    })
+                };
+                let choices = std::iter::once(pick("All commits".to_owned(), None))
+                    .chain(merged.iter().map(|c| pick(c.title.clone(), Some(c.id))))
+                    .collect();
+                (this.app)
+                    .update(cx, |app, cx| {
+                        app.open_picker("Show a commit of the merge", "Show", choices, window, cx)
+                    })
+                    .ok();
+            }))
+            .into_any_element()
+    }
+
+    /// A merge's commits, under a row for all of them; `beside` the diff, a click shows one
+    /// there, and alone, it opens on the Changes tab.
+    fn render_merged_list(
+        &self,
+        project: &ProjectId,
+        beside: bool,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let Some((_, merged)) = self.selected_merge(project) else {
+            return div().into_any_element();
+        };
+        let Some(merged) = merged else {
+            return crate::ui::empty_state(None, "Loading…", "", theme, cx);
+        };
+        let project = project.clone();
+        side_list(
+            "merged-commits",
+            merged.len() + 1,
+            &self.merged_scroll,
+            "merged-scrollbar",
+            cx,
+            move |this, ix, theme, _, cx| {
+                let (_, merged) = this.selected_merge(&project)?;
+                let merged = merged?;
+                let pick = match ix {
+                    0 => None,
+                    ix => Some(merged.get(ix - 1)?),
+                };
+                let id = pick.map(|c| c.id);
+                let selected = beside && this.merged_pick == id;
+                let row = side_row(("merged-commit", ix), selected, false, theme).on_click(
+                    cx.listener(move |this, _, window, cx| {
+                        this.pick_merged(id, cx);
+                        if !beside {
+                            this.set_target_tab(false, false, window, cx);
+                        }
+                    }),
+                );
+                Some(match pick {
+                    None => row
+                        .child(small_icon(Icon::BranchMerge).text_color(theme.text_3))
+                        .child(div().flex_1().child(match merged.len() {
+                            1 => "The commit merged".to_owned(),
+                            n => format!("All {n} commits merged"),
+                        }))
+                        .into_any_element(),
+                    Some(commit) => row
+                        .child(small_icon(Icon::Commit).text_color(theme.text_3))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w(px(0.))
+                                .truncate()
+                                .child(SharedString::from(commit.title.clone())),
+                        )
+                        .child(byline_avatar(
+                            &commit.author,
+                            &commit.email,
+                            commit.agent.as_ref(),
+                            14.,
+                            theme,
+                        ))
+                        .child(quiet(age_column(Some(commit.time), theme), false, theme))
+                        .into_any_element(),
+                })
+            },
+        )
+        .flex_1()
+        .min_h(px(0.))
+        .into_any_element()
     }
 
     /// A target commit's message: its title, who wrote it and when, and the first lines of
@@ -576,6 +875,9 @@ impl Detail {
             .map_or("Target".to_owned(), |target| target.name.clone());
         crumbs.push((target.into(), None));
         crumbs.push((picked.into(), None));
+        if let Some(commit) = self.merged_commit(project) {
+            crumbs.push((commit.title.clone().into(), None));
+        }
     }
 
     fn pick_on_page(&mut self, picked: Picked, cx: &mut Context<Self>) {
@@ -583,6 +885,10 @@ impl Detail {
             upstream.selected = Some(picked);
         }
         self.message_open = false;
+        self.merged_pick = None;
+        if let Some(Selection::Project(project)) = self.store.read(cx).selection.clone() {
+            self.load_selected_merge(&project, cx);
+        }
         self.show_picked(cx);
         // The window draws the diff beside the list, or the README doesn't need it.
         self.app.update(cx, |_, cx| cx.notify()).ok();
