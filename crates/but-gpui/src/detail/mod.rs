@@ -197,6 +197,8 @@ struct LoadedDiff {
     tree: bool,
     sort: FileSort,
     rows: Vec<DiffRow>,
+    /// What was selected when it loaded.
+    selection: Option<Selection>,
 }
 
 /// A file's new side as diff lines, read for the patch with this fingerprint, and the
@@ -924,7 +926,21 @@ impl Detail {
 
     /// Show a loaded diff, keeping the scroll position and checks when it's a reload.
     fn show_diff(&mut self, key: DiffKey, files: Arc<Vec<FileDiff>>, cx: &mut Context<Self>) {
-        let same = self.diff.as_ref().is_some_and(|diff| diff.key == key) || self.follows(&key, cx);
+        // A branch's or stack's diff is of its commits' range, which an agent rewriting or
+        // adding one changes: still selected, it's the same diff to look at.
+        let selection = self.selection(cx);
+        let reloaded = (self.diff.as_ref()).is_some_and(|diff| {
+            matches!(
+                (&diff.key.source, &key.source),
+                (DiffSource::Range { .. }, DiffSource::Range { .. })
+            ) && matches!(
+                selection,
+                Some(Selection::Branch(..) | Selection::Stack(..))
+            ) && diff.selection == selection
+        });
+        let same = self.diff.as_ref().is_some_and(|diff| diff.key == key)
+            || self.follows(&key, cx)
+            || reloaded;
         if !same {
             self.whole.clear();
             self.sideways.clear();
@@ -1016,6 +1032,7 @@ impl Detail {
             tree,
             sort,
             rows,
+            selection,
         });
         self.settle_line_picks();
         self.prune_resolving();
