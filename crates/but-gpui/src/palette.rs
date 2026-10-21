@@ -250,8 +250,7 @@ impl AppView {
                     .branches()
                     .filter(|branch| !branch.ref_name.is_empty())
                     .map(move |branch| {
-                        let selection =
-                            Selection::Branch(entry.id.clone(), branch.ref_name.clone());
+                        let (id, ref_name) = (entry.id.clone(), branch.ref_name.clone());
                         // As the navigator names it: a pull request by its title, its
                         // branch's name beside it, where typing either finds it.
                         let label = store.label_of(&entry.id, branch).to_owned();
@@ -259,8 +258,15 @@ impl AppView {
                         let project = several.then_some(entry.project.name.as_str());
                         let detail = name.into_iter().chain(project).collect::<Vec<_>>();
                         let detail = detail.join(" · ");
+                        let gone = format!("{} was renamed or deleted meanwhile", branch.name);
                         let choice = Choice::new(label, move |this, window, cx| {
-                            this.select(selection, window, cx)
+                            // Gone since the picker opened, as an agent renamed it.
+                            if (this.store.read(cx).workspace(&id))
+                                .is_none_or(|ws| ws.find_branch(&ref_name).is_none())
+                            {
+                                return this.store.update(cx, |store, cx| store.snack(gone, cx));
+                            }
+                            this.select(Selection::Branch(id, ref_name), window, cx)
                         });
                         match detail.is_empty() {
                             true => choice,
