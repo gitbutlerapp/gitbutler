@@ -298,6 +298,18 @@ pub fn section_label(text: impl IntoElement, theme: &Theme) -> Div {
     faint(text, theme).font_weight(gpui::FontWeight::SEMIBOLD)
 }
 
+/// A tree's line down from an open row's chevron, `at` its middle, on each row under it,
+/// where they join into one, as but.dev's sidebar draws them.
+pub fn guide(at: f32, theme: &Theme) -> Div {
+    div()
+        .absolute()
+        .top_0()
+        .bottom_0()
+        .left(px(at))
+        .w(px(1.))
+        .bg(theme.text_2.opacity(0.2))
+}
+
 /// A row of a list or menu, shaded when `selected` and otherwise under the pointer.
 pub fn list_row(id: impl Into<ElementId>, selected: bool, theme: &Theme) -> Stateful<Div> {
     h_flex()

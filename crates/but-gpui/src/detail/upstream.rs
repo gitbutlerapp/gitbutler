@@ -26,9 +26,13 @@ use crate::ui::markdown;
 use crate::ui::person::{author_avatar, byline_avatar, byline_text};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, age_column, button, error_summary, faint, h_flex, icon, list_row,
-    muted, plural, section_label, shortcut, small_icon, v_flex,
+    ButtonStyle, Icon, Tooltip, age_column, button, error_summary, faint, guide, h_flex, icon,
+    list_row, muted, plural, section_label, shortcut, small_icon, v_flex,
 };
+
+/// Where the middle of a merge's chevron sits in its row: the row's padding and half the
+/// chevron's step.
+const FOLD_MIDDLE: f32 = 8. + 7.;
 
 /// What a target commit is called: the pull request it landed, by its title, as Lite names
 /// it, or else the commit's own title.
@@ -1489,9 +1493,12 @@ impl Detail {
                         let upstream = this.upstream.as_ref()?;
                         Some(match rows.get(ix)? {
                             Row::Heading(heading) => list_heading(heading.clone(), theme),
+                            // Under a merge's commits' titles.
                             Row::Note(note) => h_flex()
                                 .h(px(crate::ui::ROW_HEIGHT))
-                                .pl(px(52.))
+                                .mx(px(6.))
+                                .pl(px(8. + 14. + 8. + 12. + 8.))
+                                .child(guide(FOLD_MIDDLE, theme))
                                 .child(faint(*note, theme))
                                 .into_any_element(),
                             Row::Merged(merge_ix, merged_ix) => {
@@ -1505,8 +1512,10 @@ impl Detail {
                                 let solid = this.side_focus.is_focused(window);
                                 let on = selected && solid;
                                 side_row(("merged-commit", ix), selected, solid, theme)
-                                    // A step in from its merge: its glyph under the merge's title.
-                                    .pl(px(52.))
+                                    // As a branch's commits are under it: its glyph and title
+                                    // under the merge's, a line down from the merge's chevron.
+                                    .child(guide(FOLD_MIDDLE, theme))
+                                    .child(div().flex_none().w(px(14.)))
                                     .child(small_icon(Icon::Commit).text_color(match on {
                                         true => theme.text_inverted,
                                         false => theme.text_3,

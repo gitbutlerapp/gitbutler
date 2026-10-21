@@ -31,8 +31,8 @@ use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, count_badge, dot,
-    empty_state, faint, field, h_flex, icon, icon_button, just_now, list_row, meta_count, plural,
-    relative_time, resize_handle, review, section_label, shortcut, small_icon, v_flex,
+    empty_state, faint, field, guide, h_flex, icon, icon_button, just_now, list_row, meta_count,
+    plural, relative_time, resize_handle, review, section_label, shortcut, small_icon, v_flex,
 };
 
 mod account;
@@ -172,8 +172,13 @@ impl Rows {
     /// Set the rows pushed until [`Self::close`] under the row just pushed, a guide running
     /// down beside them from under its chevron.
     fn open(&mut self) {
+        self.open_at(GUIDE_AT);
+    }
+
+    /// As [`Self::open`], for a row whose chevron's middle is `at` instead.
+    fn open_at(&mut self, at: f32) {
         let under = self.insets.last().copied().unwrap_or_default();
-        self.open.push(GUIDE_AT + under);
+        self.open.push(at + under);
     }
 
     fn close(&mut self) {
@@ -213,6 +218,19 @@ struct RowStyle<'a> {
     inset: f32,
     /// The rows above and below are picked with it: see [`crate::ui::joined`].
     joined: (bool, bool),
+}
+
+/// How far a remote's commits sit in: the target's as a branch's commits do, a branch's a
+/// step in from their heading, which is under the branch's commit glyphs.
+fn upstream_indent(ref_name: Option<&str>) -> f32 {
+    30. + if ref_name.is_some() { STACK_STEP } else { 0. }
+}
+
+/// Where the middles of a remote's heading's chevron and of its merges' chevrons sit: the
+/// target's under the worktree chevrons, a branch's under its commit glyphs.
+fn upstream_chevrons(ref_name: Option<&str>) -> (f32, f32) {
+    let heading = if ref_name.is_some() { 47. } else { 23. };
+    (heading, 3. + 8. + upstream_indent(ref_name) + 6.)
 }
 
 /// A fold's glyph in a step as wide as a branch's: a chevron, down while `open`, or with
@@ -1160,6 +1178,9 @@ impl Navigator {
         if !self.upstream_open(store, id, ref_name) {
             return;
         }
+        // Guides from the heading's chevron and an open merge's, as from a branch's.
+        let (heading, merge) = upstream_chevrons(ref_name);
+        rows.open_at(heading);
         let selected = match &store.selection {
             Some(Selection::Upstream(p, r, c)) if p == id && *r == owner => Some(*c),
             _ => None,
@@ -1175,9 +1196,11 @@ impl Navigator {
             };
             let holds = selected.is_some_and(|c| merged.iter().any(|m| m.id == c));
             if commit.merge && (self.open_merges.contains(&commit.id) || holds) {
+                rows.open_at(merge);
                 rows.extend(merged.iter().map(|merged| {
                     Row::Item(Selection::Upstream(id.clone(), owner.clone(), merged.id))
                 }));
+                rows.close();
             }
         }
         let behind = (workspace.target.as_ref()).filter(|_| owner.is_none());
@@ -1185,6 +1208,7 @@ impl Navigator {
         if more > 0 {
             rows.push(Row::UpstreamMore(id.clone(), more));
         }
+        rows.close();
     }
 
     fn expand(&mut self, _: &Expand, _: &mut Window, cx: &mut Context<Self>) {
@@ -1518,15 +1542,7 @@ impl Navigator {
             .is_none_or(|next| matches!(next, Row::Gap));
         // A guide for each row it's under, joining those of the rows above and below into
         // one line, as but.dev's sidebar draws them.
-        let guides = (self.guides.get(ix).into_iter().flatten()).map(|at| {
-            div()
-                .absolute()
-                .top_0()
-                .bottom_0()
-                .left(px(*at))
-                .w(px(1.))
-                .bg(theme.text_2.opacity(0.2))
-        });
+        let guides = (self.guides.get(ix).into_iter().flatten()).map(|at| guide(*at, theme));
         // A watched project's card, or the one after them, takes a dragged project card.
         let slot = match &self.rows[ix] {
             _ if self.store.read(cx).prefs.watched_order != WatchedOrder::Manual => None,
@@ -2845,7 +2861,7 @@ impl Navigator {
                 // Under its heading's words, as a branch's commits are under its name.
                 .row(
                     format!("upstream-{id}-{}", commit_id.0),
-                    if nested { 52. } else { 30. },
+                    upstream_indent(ref_name) + if nested { STACK_STEP } else { 0. },
                 )
                 .gap(px(10.))
                 .aria_label(title.clone())
@@ -2973,7 +2989,7 @@ impl Navigator {
             .h(px(ROW_HEIGHT))
             .mx(px(3.))
             // Its chevron under a branch's commit glyphs, or the project's worktree chevrons.
-            .pl(px(if ref_name.is_some() { 37. } else { 13. }))
+            .pl(px(upstream_chevrons(ref_name).0 - 10.))
             .pr(px(8.))
             .gap(px(6.))
             .rounded(px(4.))

@@ -26,8 +26,8 @@ use crate::ui::illustration::Illustration;
 use crate::ui::person::byline_avatar;
 use crate::ui::text_input::TextInput;
 use crate::ui::{
-    Icon, ROW_HEIGHT, Tooltip, age_column, empty_state, faint, h_flex, icon_button, relative_time,
-    review, section_label, small_icon, v_flex,
+    Icon, ROW_HEIGHT, Tooltip, age_column, empty_state, faint, guide, h_flex, icon_button,
+    relative_time, review, section_label, small_icon, v_flex,
 };
 
 pub(super) struct Branches {
@@ -108,6 +108,12 @@ const TABLE_ROW: &str = "branch-table-row";
 /// A branch's tip and how many commits it has that the target doesn't: a fetch can land
 /// some of its commits on the target without moving its tip.
 type Loaded = (CommitId, Option<usize>);
+
+/// Where the middle of a stack's chevron sits in its row, and an unstacked branch's: the
+/// row's left padding and half the chevron's step.
+const STACK_CHEVRON: f32 = 2. + 7.;
+/// Where a stacked branch's sits.
+const STACKED_CHEVRON: f32 = 16. + 7.;
 
 /// A row of the list: a stack's caption, by its top branch's index, with how many of its
 /// branches show and whether they're folded away; a branch by index into the list; or a
@@ -1424,6 +1430,15 @@ impl Detail {
                                 .map(|el| crate::ui::joined(el, joined, solid, theme))
                                 // Its glyph under its branch's, its title under the name.
                                 .pl(px(if *stacked { 38. } else { 24. }))
+                                // Lines down from its stack's chevron and its branch's.
+                                .children(stacked.then(|| guide(STACK_CHEVRON, theme)))
+                                .child(guide(
+                                    match stacked {
+                                        true => STACKED_CHEVRON,
+                                        false => STACK_CHEVRON,
+                                    },
+                                    theme,
+                                ))
                                 .aria_label(label.clone())
                                 .child(small_icon(Icon::Commit).text_color(match on {
                                     true => theme.text_inverted,
@@ -1556,6 +1571,7 @@ impl Detail {
                             let (project, menu_ref) = (branches.project.clone(), ref_name.clone());
                             side_row(("other-branch", ix), selected, solid, theme)
                                 .pl(px(if *stacked { 16. } else { 2. }))
+                                .children(stacked.then(|| guide(STACK_CHEVRON, theme)))
                                 .child(step)
                                 .child(small_icon(glyph).text_color(ink(glyph_color)))
                                 .child(
