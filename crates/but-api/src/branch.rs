@@ -1189,6 +1189,7 @@ pub fn branch_remove_with_perm(
     // above the checked-out reference" flow. We look at the projection rather
     // than the branch-order metadata on purpose: the metadata is best-effort and
     // may drift, whereas the projection reflects the real segments.
+    let target = ctx.project_meta().ok().and_then(|meta| meta.target_ref);
     let move_head_to = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
         let is_checked_out = repo
@@ -1206,9 +1207,20 @@ pub fn branch_remove_with_perm(
                 .position(|s| s.ref_name() == Some(ref_name.as_ref()))
                 .expect("segment we just matched by ref name");
             let is_empty = stack.segments[idx].commits.is_empty();
+            // Made on top of the checked-out target, as `git checkout -b` from it, the
+            // target is the workspace's base rather than a segment underneath.
+            let target_at_head = target
+                .map(|target| target.as_local_full_name_ref().to_owned())
+                .filter(|target| *target != ref_name)
+                .filter(|target| {
+                    let tip = (repo.find_reference(target.as_ref()).ok())
+                        .and_then(|mut r| r.peel_to_id().ok());
+                    tip.is_some_and(|tip| repo.head_id().is_ok_and(|head| head == tip))
+                });
             let below = stack.segments[idx + 1..]
                 .iter()
-                .find_map(|s| s.ref_name().map(|r| r.to_owned()));
+                .find_map(|s| s.ref_name().map(|r| r.to_owned()))
+                .or(target_at_head);
             match (is_empty, below) {
                 (true, Some(below)) => Some(below),
                 (true, None) => bail_precondition!(
