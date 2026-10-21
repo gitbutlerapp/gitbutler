@@ -284,7 +284,7 @@ impl Navigator {
                         el.child(uncommitted_counts((files.len(), 0, lines), style))
                     })
                     .when(!open, |el| el.children(style.unpushed(unpushed)))
-                    .when(active, |el| el.child(style.active_dot(("mesh-active", ix))))
+                    .when(active, |el| el.child(style.active(("mesh-active", ix))))
                     .when(folds, |el| el.on_click(double_click(toggle, cx)))
             }
             _ => return None,

@@ -333,11 +333,15 @@ impl RowStyle<'_> {
             .child(relative_time(at))
     }
 
-    /// The dot on a checkout written to in the last two minutes, likely by an agent at work.
-    fn active_dot(&self, id: impl Into<ElementId>) -> Stateful<Div> {
+    /// "active", in green, on a checkout written to in the last two minutes, likely by an
+    /// agent at work: a word, as but.dev greens the age, so it isn't taken for the unread dot.
+    fn active(&self, id: impl Into<ElementId>) -> Stateful<Div> {
         div()
             .id(id)
-            .child(dot(self.meta(self.theme.safe)))
+            .flex_none()
+            .text_size(px(11.))
+            .text_color(self.meta(self.theme.safe))
+            .child("active")
             .tooltip(Tooltip::text("Changed in the last 2 minutes"))
     }
 }
@@ -2037,14 +2041,7 @@ impl Navigator {
                         .when_some(activity, |el, at| {
                             if just_now(at) {
                                 el.child(
-                                    h_flex()
-                                        .id(ElementId::Name(format!("active-{id}").into()))
-                                        .gap(px(4.))
-                                        .text_size(px(11.))
-                                        .text_color(style.meta(theme.safe))
-                                        .child(dot(style.meta(theme.safe)))
-                                        .child("active")
-                                        .tooltip(Tooltip::text("Changed in the last 2 minutes")),
+                                    style.active(ElementId::Name(format!("active-{id}").into())),
                                 )
                             } else {
                                 let age = relative_time(at);
@@ -2350,9 +2347,7 @@ impl Navigator {
                 el.children(style.unpushed(unpushed_n))
                     .when(unread, |el| el.child(dot(style.meta(theme.pop))))
             })
-            .when(active, |el| {
-                el.child(style.active_dot(("worktree-active", ix)))
-            })
+            .when(active, |el| el.child(style.active(("worktree-active", ix))))
             .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
             .when(folds, |el| el.on_click(double_click(toggle, cx)));
         // The worktree's checked files while it's shown, else all of them.
