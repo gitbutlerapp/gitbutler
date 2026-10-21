@@ -151,18 +151,27 @@ impl AppView {
         let subscriptions = vec![
             // A menu's items and the palette's commands act on the selection and the picks, so
             // when an agent's change moves them off what they opened on, they go rather than
-            // act on something else.
+            // act on something else; a prompt on a branch goes with the branch. Menu items can
+            // hold the commit they opened on, so a menu goes when an agent only rewrote it too;
+            // the palette's commands read the selection when run.
             cx.observe_in(&store, window, |this, store, window, cx| {
-                let now = store.read(cx).acting_on();
-                this.menu.take_if(|menu| menu.acting_on != now);
-                if (this.palette.as_ref()).is_some_and(|palette| palette.acting_on != now) {
+                let store = store.read(cx);
+                let menu_gone =
+                    (this.menu.as_ref()).is_some_and(|m| m.acting_on != store.acting_on());
+                let palette_gone =
+                    (this.palette.as_ref()).is_some_and(|p| !store.still_acting_on(&p.acting_on));
+                let prompt_gone = (this.prompt.as_ref())
+                    .and_then(|prompt| prompt.on_branch.as_ref())
+                    .is_some_and(|(project, from)| {
+                        (store.workspace(project)).is_some_and(|ws| ws.find_branch(from).is_none())
+                    });
+                if menu_gone {
+                    this.menu = None;
+                }
+                if palette_gone {
                     this.close_palette(window, cx);
                 }
-                let on_branch = this.prompt.as_ref().and_then(|p| p.on_branch.as_ref());
-                if on_branch.is_some_and(|(project, from)| {
-                    (store.read(cx).workspace(project))
-                        .is_some_and(|ws| ws.find_branch(from).is_none())
-                }) {
+                if prompt_gone {
                     this.cancel_prompt(window, cx);
                 }
                 cx.notify()

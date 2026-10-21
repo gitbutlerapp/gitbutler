@@ -397,6 +397,17 @@ impl Store {
         (self.selection.clone(), self.picked.len())
     }
 
+    /// Whether [`Self::acting_on`] is still `was`, or the same commit under the id an agent's
+    /// rewrite gave it.
+    pub fn still_acting_on(&self, was: &(Option<Selection>, usize)) -> bool {
+        match (was, self.acting_on()) {
+            ((Some(Selection::Commit(p, from)), picks), (Some(Selection::Commit(q, to)), now)) => {
+                *p == q && *picks == now && (*from == to || self.followed(*from, to))
+            }
+            (was, now) => *was == now,
+        }
+    }
+
     /// The linked worktree whose branches `selection`, a branch or a commit, is on, and not
     /// the workspace's too. Its agent works on them there, so nothing here changes them.
     pub fn worktree_of(&self, selection: &Selection) -> Option<&Worktree> {
