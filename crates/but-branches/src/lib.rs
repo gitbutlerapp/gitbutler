@@ -591,7 +591,6 @@ impl<'a> ListingContext<'a> {
         })
     }
 
-    /// The author and committer time of the tip commit, if it could be read.
     /// The description of `ref_name` if it is a local branch that has one.
     fn description_of(&self, ref_name: &FullName) -> Option<BString> {
         (ref_name.category() == Some(Category::LocalBranch))
@@ -686,21 +685,24 @@ fn applied_branch_ref_names(meta: &impl RefMetadata) -> anyhow::Result<BTreeSet<
         .collect())
 }
 
-/// Read the author and the committer time of the branch tip; `None` if the commit
-/// is unreadable. The author identifies who worked on the branch, while the
-/// committer time reflects when it last changed.
 /// What the listing shows of a branch's tip commit.
 struct TipInfo {
     author: gix::actor::Signature,
     /// The committer time in milliseconds since the epoch.
     time_ms: i64,
+    /// The first line of its message.
     subject: BString,
 }
 
+/// Read the author, the committer time and the subject of the branch tip; `None` if the
+/// commit is unreadable. The author identifies who worked on the branch, while the
+/// committer time reflects when it last changed.
 fn tip_commit_info(repo: &gix::Repository, tip: gix::ObjectId) -> Option<TipInfo> {
     let commit = repo.find_commit(tip).ok()?;
     let time_ms = commit.committer().ok()?.time().ok()?.seconds * 1000;
-    let subject = commit.message().ok()?.title.trim().into();
+    // Its first line, as a title runs to the first blank line and may span several.
+    let title = commit.message().ok()?.title;
+    let subject = title.lines().next().unwrap_or_default().trim().into();
     Some(TipInfo {
         author: commit.author().ok()?.to_owned().ok()?,
         time_ms,
@@ -724,7 +726,7 @@ fn branch_descriptions(repo: &gix::Repository) -> anyhow::Result<BTreeMap<BStrin
         .collect())
 }
 
-/// Read the author and committer time of every tip, in parallel when there are many.
+/// Read the author, committer time and subject of every tip, in parallel when there are many.
 fn tip_commit_infos(
     repo: &gix::Repository,
     tips: BTreeSet<gix::ObjectId>,

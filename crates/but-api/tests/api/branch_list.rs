@@ -218,3 +218,35 @@ fn set_description_is_listed_and_can_be_cleared() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn a_description_moves_with_a_rename_and_goes_with_a_delete() -> anyhow::Result<()> {
+    let (repo, _tmp) = repo_with_feature_branch()?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let description_of = |ctx: &but_ctx::Context, name: &str| -> anyhow::Result<Option<String>> {
+        let config = but_core::git_config::open_repo_local_config_for_reading(&*ctx.repo.get()?)?;
+        Ok(config
+            .string(format!("branch.{name}.description").as_str())
+            .map(|description| description.to_str_lossy().into_owned()))
+    };
+    let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
+    but_api::branch::branch_set_description(&mut ctx, feature.clone(), Some("Explain".into()))?;
+
+    let renamed = but_api::branch::branch_rename(&mut ctx, feature, "feature-2".into())?.new_ref;
+    assert_eq!(
+        (
+            description_of(&ctx, "feature-2")?,
+            description_of(&ctx, "feature")?
+        ),
+        (Some("Explain".into()), None),
+        "it moves to the new name, so a branch made again under the old one starts without it"
+    );
+
+    but_api::branch::branch_remove(&mut ctx, renamed)?;
+    assert_eq!(
+        description_of(&ctx, "feature-2")?,
+        None,
+        "it goes with the branch"
+    );
+    Ok(())
+}

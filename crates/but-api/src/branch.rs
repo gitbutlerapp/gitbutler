@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::BTreeMap};
 
 use crate::WorkspaceState;
 use anyhow::{Context as _, bail};
-use bstr::ByteSlice;
+use bstr::{BStr, ByteSlice};
 use but_api_macros::but_api;
 use but_core::{
     DryRun, RefMetadata, WORKSPACE_REF_NAME,
@@ -1305,6 +1305,14 @@ pub fn branch_remove_with_perm(
     if changed && let Some(snapshot) = maybe_oplog_entry {
         snapshot.commit(ctx, perm).ok();
     }
+    // Its description goes with it, as with `git branch -d`, so a branch made later under the
+    // name starts without one.
+    if changed {
+        let repo = ctx.repo.get()?;
+        if let Err(err) = set_branch_description(&repo, ref_name.shorten(), None) {
+            tracing::warn!(?err, "couldn't remove the deleted branch's description");
+        }
+    }
     let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let workspace = WorkspaceState::from_workspace_with_db(
@@ -1455,6 +1463,12 @@ pub fn branch_rename_with_perm(
     if let Some(snapshot) = maybe_oplog_entry {
         snapshot.commit(ctx, perm).ok();
     }
+    {
+        let repo = ctx.repo.get()?;
+        if let Err(err) = move_branch_description(&repo, ref_name.shorten(), new_ref.shorten()) {
+            tracing::warn!(?err, "couldn't move the renamed branch's description");
+        }
+    }
     let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let workspace = WorkspaceState::from_workspace_with_db(
@@ -1481,7 +1495,20 @@ pub fn branch_set_description(
     #[but_api(crate::json::FullNameBytes)] ref_name: gix::refs::FullName,
     description: Option<String>,
 ) -> anyhow::Result<()> {
-    let _guard = ctx.exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
+    branch_set_description_with_perm(ctx, ref_name, description, guard.write_permission())
+}
+
+/// Set the description of the local branch `ref_name` under caller-held exclusive
+/// repository access.
+///
+/// See [`branch_set_description()`] for the higher-level behaviour.
+pub fn branch_set_description_with_perm(
+    ctx: &mut but_ctx::Context,
+    ref_name: gix::refs::FullName,
+    description: Option<String>,
+    _perm: &mut RepoExclusive,
+) -> anyhow::Result<()> {
     if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
         bail!(
             "Can only describe local branches under refs/heads, got '{}'",
@@ -1491,16 +1518,47 @@ pub fn branch_set_description(
     let repo = ctx.repo.get()?;
     repo.find_reference(ref_name.as_ref())
         .with_context(|| format!("Branch '{}' does not exist", ref_name.shorten()))?;
-    let key = format!("branch.{}.description", ref_name.shorten());
     let description = description
         .as_deref()
         .map(str::trim)
         .filter(|description| !description.is_empty());
-    but_core::git_config::edit_repo_config(&repo, gix::config::Source::Local, |config| {
-        match description {
-            Some(description) => but_core::git_config::set_config_value(config, &key, description),
-            None => but_core::git_config::remove_config_value(config, &key),
+    set_branch_description(&repo, ref_name.shorten(), description)
+}
+
+/// Write `description` as `branch.<name>.description` in the repository-local Git config, or
+/// remove it with `None`. The section is found by the name's own bytes, which a dotted key
+/// would pass through lossy text.
+fn set_branch_description(
+    repo: &gix::Repository,
+    name: &BStr,
+    description: Option<&str>,
+) -> anyhow::Result<()> {
+    but_core::git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
+        if let Ok(mut section) = config.section_mut("branch", Some(name)) {
+            section.remove("description");
         }
+        if let Some(description) = description {
+            config
+                .section_mut_or_create_new("branch", Some(name))?
+                .set("description", description)?;
+        }
+        Ok(())
+    })?;
+    Ok(())
+}
+
+/// Move the description of local branch `from` to `to`, as `git branch -m` moves it, since
+/// Git config keys it by the name.
+fn move_branch_description(repo: &gix::Repository, from: &BStr, to: &BStr) -> anyhow::Result<()> {
+    but_core::git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
+        let description = (config.section_mut("branch", Some(from)).ok())
+            .and_then(|mut section| section.remove("description"));
+        if let Some(description) = description {
+            config
+                .section_mut_or_create_new("branch", Some(to))?
+                .set("description", description.as_bstr())?;
+        }
+        Ok(())
     })?;
     Ok(())
 }
