@@ -1801,6 +1801,9 @@ impl Navigator {
         let card_folded = expanded && store.project_folded(id);
         let manual = store.prefs.watched_order == WatchedOrder::Manual;
         let hovered = self.watch_hovered.as_ref() == Some(id);
+        // Its target's New on … row, when listed, counts the new commits and has Update.
+        let new_on = (self.rows.iter())
+            .any(|row| matches!(row, Row::UpstreamHeading(project, None) if project == id));
         // Folded, the row sums up the whole card; open, it leaves out what the rows under it
         // say: their uncommitted files, unpushed commits and worktrees.
         let summary = workspace.filter(|ws| ws.editing.is_none()).map(|ws| {
@@ -1809,7 +1812,7 @@ impl Navigator {
             (
                 folded(ws.uncommitted.len() + in_worktrees.sum::<usize>()),
                 folded(ws.unpushed_commits()),
-                ws.target.as_ref(),
+                ws.target.as_ref().filter(|_| !new_on),
                 folded(ws.worktrees.len()),
             )
         });
@@ -1990,35 +1993,8 @@ impl Navigator {
                 )
                 // Only a watched project's: an unwatched one updates from its page or its menu,
                 // which keeps the list of the others quiet.
-                .when(expanded && needs_update, |el| {
-                    let project = id.clone();
-                    let updating = store.updating(id);
-                    // Pressing it leaves the selection where it is, as pressing the row wouldn't.
-                    el.child(
-                        div()
-                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                            .child(
-                                button(
-                                    ElementId::Name(format!("update-{id}").into()),
-                                    if updating { "Updating…" } else { "Update" },
-                                )
-                                .small()
-                                .style(ButtonStyle::Gray)
-                                .inverted(style.solid)
-                                .disabled_because(updating.then_some("Updating already"))
-                                .tooltip("Rebase your branches onto the target's new commits")
-                                .on_click(cx.listener(
-                                    move |this, _, _, cx| {
-                                        let project = project.clone();
-                                        this.app
-                                            .update(cx, |app, cx| {
-                                                app.update_from_target(project, cx)
-                                            })
-                                            .ok();
-                                    },
-                                )),
-                            ),
-                    )
+                .when(expanded && needs_update && !new_on, |el| {
+                    el.child(self.target_update_button(id, style.solid, cx))
                 })
                 // A watched project's card folds to this row, still watched.
                 .when(expanded, |el| {
@@ -2949,6 +2925,32 @@ impl Navigator {
     /// Over the commits only branch `ref_name`'s remote has, or with `None` the target's new
     /// ones, a section heading as Network worktrees has: where they are, how many while
     /// folded and whether any is unread, which a click lists or folds, and for a branch, Pull.
+    /// Update, which rebases `project`'s branches onto its target's new commits; `inverted`
+    /// on a solid selection. Pressing it leaves the selection where it is.
+    fn target_update_button(&self, project: &ProjectId, inverted: bool, cx: &Context<Self>) -> Div {
+        let updating = self.store.read(cx).updating(project);
+        let project = project.clone();
+        div()
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .child(
+                button(
+                    ElementId::Name(format!("update-{project}").into()),
+                    if updating { "Updating…" } else { "Update" },
+                )
+                .small()
+                .style(ButtonStyle::Gray)
+                .inverted(inverted)
+                .disabled_because(updating.then_some("Updating already"))
+                .tooltip("Rebase your branches onto the target's new commits")
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    let project = project.clone();
+                    (this.app)
+                        .update(cx, |app, cx| app.update_from_target(project, cx))
+                        .ok();
+                })),
+            )
+    }
+
     fn upstream_heading(
         &self,
         ix: usize,
@@ -2960,22 +2962,36 @@ impl Navigator {
         let store = self.store.read(cx);
         let workspace = store.workspace(project);
         let open = self.upstream_open(store, project, ref_name);
-        let (remote, count) = match ref_name {
+        let target = workspace.and_then(|ws| ws.target.as_ref());
+        let (label, count, tip) = match ref_name {
             Some(ref_name) => {
                 let branch = workspace.and_then(|ws| ws.find_branch(ref_name));
-                (
-                    branch.and_then(|b| b.remote.clone()),
-                    branch.map_or(0, |b| b.incoming.len()),
-                )
+                let count = branch.map_or(0, |b| b.incoming.len());
+                let label = match branch.and_then(|b| b.remote.as_ref()) {
+                    Some(remote) => format!("On {remote}"),
+                    None => "On the remote".to_owned(),
+                };
+                (label, count, plural(count, "commit"))
             }
             None => {
-                let target = workspace.and_then(|ws| ws.target.as_ref());
-                (
-                    target.map(|t| t.name.clone()),
-                    target.map_or(0, |t| t.behind),
-                )
+                let count = target.map_or(0, |t| t.behind);
+                let label = match target {
+                    Some(target) => format!("New on {}", target.name),
+                    None => "New on the target".to_owned(),
+                };
+                // Each merge counts once, as the project's page lists them.
+                let tip = match target.filter(|t| t.commits_behind > count) {
+                    Some(t) => format!(
+                        "{} ({} with what they merged)",
+                        plural(count, "commit"),
+                        t.commits_behind
+                    ),
+                    None => plural(count, "commit"),
+                };
+                (label, count, tip)
             }
         };
+        let update = ref_name.is_none() && target.is_some_and(|t| t.needs_update);
         // Only a branch's are marked read.
         let unread = (ref_name.zip(workspace)).is_some_and(|(ref_name, ws)| {
             (ws.upstream(Some(ref_name)).iter()).any(|commit| store.is_unread(project, commit))
@@ -2996,21 +3012,17 @@ impl Navigator {
             .hover(move |el| el.bg(hover))
             .child(step(Some(open), theme.text_3))
             .child(
-                section_label(
-                    match remote {
-                        Some(remote) => format!("On {remote}"),
-                        None => "On the remote".to_owned(),
-                    },
-                    theme,
-                )
-                .flex_1()
-                .min_w(px(0.))
-                .truncate(),
+                section_label(label, theme)
+                    .flex_1()
+                    .min_w(px(0.))
+                    .truncate(),
             )
             .when(!open, |el| {
-                let tip = plural(count, "commit");
                 el.children(meta_count(Icon::ArrowDown, count, theme.warn, tip))
                     .when(unread, |el| el.child(dot(theme.pop)))
+            })
+            .when(update, |el| {
+                el.child(self.target_update_button(project, false, cx))
             })
             .children(pull.map(|(project, ref_name)| {
                 button(ElementId::Name(format!("pull-{ix}").into()), "Pull")
