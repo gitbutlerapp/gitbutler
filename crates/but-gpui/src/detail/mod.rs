@@ -319,6 +319,9 @@ pub struct Detail {
     /// history is filtered to; and the bar a shift-click extends them from.
     activity_days: Option<(ProjectId, usize, usize)>,
     activity_anchor: Option<usize>,
+    /// How tall a merge's commits were dragged to be over its files or its diff; `None` for
+    /// as tall as they need, up to a limit.
+    merged_split: Option<f32>,
     /// The images each project's README shows, as loaded, by where they're from.
     readme_images: HashMap<ProjectId, HashMap<String, Arc<gpui::RenderImage>>>,
     /// The images asked for, loaded or not, so each is asked for once.
@@ -577,6 +580,7 @@ impl Detail {
             merged_scroll: UniformListScrollHandle::new(),
             activity_days: None,
             activity_anchor: None,
+            merged_split: None,
             readme_images: HashMap::new(),
             readme_images_asked: HashSet::new(),
             header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),

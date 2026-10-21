@@ -52,8 +52,14 @@ const BESIDE_FILES: f32 = 260.;
 /// How wide a merge's commits are beside its diff, and how many are listed.
 const COMMITS_COLUMN: f32 = 320.;
 const MERGED_SHOWN: usize = 200;
-/// How many of them show over the diff without room beside it, the rest scrolling.
+/// How many of them show over the diff without room beside it, the rest scrolling; and how
+/// short and, over the diff, how tall they can be dragged.
 const MERGED_OVER_ROWS: usize = 6;
+const MERGED_MIN: f32 = 64.;
+const MERGED_OVER_MAX: f32 = 480.;
+
+/// What dragging the line under a merge's commits carries.
+struct MergedSplit;
 const MIN_DIFF: f32 = 560.;
 
 /// How many of the team the page lists.
@@ -389,7 +395,65 @@ impl Detail {
             return 0.;
         }
         let rows = merged.len() + usize::from(merged.len() > 1);
-        rows.min(MERGED_OVER_ROWS) as f32 * crate::ui::ROW_HEIGHT + 8. + 1.
+        let fits = rows.min(MERGED_OVER_ROWS) as f32 * crate::ui::ROW_HEIGHT + 8.;
+        let dragged = self
+            .merged_split
+            .map(|h| h.clamp(MERGED_MIN, MERGED_OVER_MAX));
+        dragged.unwrap_or(fits) + 1.
+    }
+
+    /// How tall a merge's commits are over its files: as dragged, or as tall as they need.
+    fn merged_split_height(&self, project: &ProjectId) -> f32 {
+        let rows = (self.selected_merge(project))
+            .and_then(|(_, merged)| merged)
+            .map_or(1, |merged| merged.len() + usize::from(merged.len() > 1));
+        let fits = rows as f32 * crate::ui::ROW_HEIGHT + 8.;
+        self.merged_split.unwrap_or(fits).max(MERGED_MIN)
+    }
+
+    /// The line under a merge's commits, which drags to make them taller or shorter, and a
+    /// double-click puts back to as tall as they need.
+    fn merged_split_handle(&self, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
+        div()
+            .id("merged-split")
+            .absolute()
+            .left_0()
+            .right_0()
+            .bottom(px(-3.))
+            .h(px(5.))
+            .group("merged-split")
+            .cursor(gpui::CursorStyle::ResizeUpDown)
+            .block_mouse_except_scroll()
+            .child(
+                div()
+                    .absolute()
+                    .left_0()
+                    .right_0()
+                    .top(px(2.))
+                    .h(px(1.))
+                    .group_hover("merged-split", |el| el.bg(theme.border_1)),
+            )
+            .on_drag(MergedSplit, |_, _, _, cx| cx.new(|_| gpui::EmptyView))
+            .on_click(cx.listener(|this, event: &gpui::ClickEvent, _, cx| {
+                if event.click_count() == 2 {
+                    this.merged_split = None;
+                    cx.notify();
+                    this.app.update(cx, |_, cx| cx.notify()).ok();
+                }
+            }))
+    }
+
+    /// Follow the split's drag: the commits as tall as from their top to the pointer.
+    fn drag_merged_split(
+        &mut self,
+        event: &gpui::DragMoveEvent<MergedSplit>,
+        cx: &mut Context<Self>,
+    ) {
+        let height = f32::from(event.event.position.y - event.bounds.top());
+        self.merged_split = Some(height.max(MERGED_MIN));
+        cx.notify();
+        // The diff under them starts lower or higher.
+        self.app.update(cx, |_, cx| cx.notify()).ok();
     }
 
     /// How far right of the project page's list the diff starts: past a merge's commits on
@@ -522,12 +586,17 @@ impl Detail {
                 .flex_1()
                 .child(
                     v_flex()
+                        .relative()
                         .flex_none()
                         .h(px(self.merged_over_height(project) - 1.))
                         .py(px(4.))
                         .border_b_1()
                         .border_color(theme.border_3)
-                        .child(self.render_merged_list(project, theme, cx)),
+                        .on_drag_move(
+                            cx.listener(|this, event, _, cx| this.drag_merged_split(event, cx)),
+                        )
+                        .child(self.render_merged_list(project, theme, cx))
+                        .child(self.merged_split_handle(theme, cx)),
                 )
                 .into_any_element()
         } else if commits {
@@ -542,18 +611,35 @@ impl Detail {
                         .h_full()
                         .border_r_1()
                         .border_color(theme.border_3)
-                        .child(self.render_merged_list(project, theme, cx))
-                        // Without room for the files beside them, they go under the commits,
-                        // each half scrolling.
-                        .when(offset == COMMITS_COLUMN, |el| {
-                            el.child(
-                                v_flex()
-                                    .flex_1()
-                                    .min_h(px(0.))
-                                    .border_t_1()
-                                    .border_color(theme.border_3)
-                                    .child(self.render_diff_file_list(theme, cx)),
-                            )
+                        .map(|el| match offset == COMMITS_COLUMN {
+                            // Without room for the files beside them, they go under the
+                            // commits, which take as much of the column as they need, up to a
+                            // limit, or as dragged; each scrolls.
+                            true => el
+                                .child(
+                                    v_flex()
+                                        .relative()
+                                        .flex_none()
+                                        .h(px(self.merged_split_height(project)))
+                                        .max_h(gpui::relative(match self.merged_split {
+                                            Some(_) => 0.85,
+                                            None => 0.6,
+                                        }))
+                                        .border_b_1()
+                                        .border_color(theme.border_3)
+                                        .on_drag_move(cx.listener(|this, event, _, cx| {
+                                            this.drag_merged_split(event, cx)
+                                        }))
+                                        .child(self.render_merged_list(project, theme, cx))
+                                        .child(self.merged_split_handle(theme, cx)),
+                                )
+                                .child(
+                                    v_flex()
+                                        .flex_1()
+                                        .min_h(px(0.))
+                                        .child(self.render_diff_file_list(theme, cx)),
+                                ),
+                            false => el.child(self.render_merged_list(project, theme, cx)),
                         }),
                 )
                 .when(offset > COMMITS_COLUMN, |el| {
