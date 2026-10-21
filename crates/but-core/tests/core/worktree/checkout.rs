@@ -117,6 +117,62 @@ fn deleting_below_a_directory_the_worktree_turned_into_a_symlink_leaves_no_index
 }
 
 #[test]
+fn checkout_keeps_a_staged_modification_the_worktree_deleted() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let x = repo.workdir().expect("non-bare").join("x");
+    std::fs::write(&x, "staged\n")?;
+    but_testsupport::git(&repo).args(["add", "x"]).run();
+    std::fs::remove_file(&x)?;
+    let staged = but_testsupport::git(&repo)
+        .args(["ls-files", "-s", "x"])
+        .output()?
+        .stdout;
+
+    let target = repo.rev_parse_single("b")?.detach();
+    safe_checkout_from_head(target, &repo, Default::default())?;
+
+    // `git checkout b` refuses to lose the staged content. The checkout keeps it in the index.
+    assert_eq!(
+        but_testsupport::git(&repo)
+            .args(["ls-files", "-s", "x"])
+            .output()?
+            .stdout
+            .as_bstr(),
+        staged.as_bstr()
+    );
+    Ok(())
+}
+
+#[test]
+fn checkout_keeps_a_staged_mode_change_the_worktree_deleted() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let x = repo.workdir().expect("non-bare").join("x");
+    std::fs::write(&x, "one\n")?;
+    but_testsupport::git(&repo)
+        .args(["update-index", "--chmod=+x", "x"])
+        .run();
+    std::fs::remove_file(&x)?;
+    let staged = but_testsupport::git(&repo)
+        .args(["ls-files", "-s", "x"])
+        .output()?
+        .stdout;
+    assert!(staged.starts_with(b"100755"), "the mode change is staged");
+
+    let target = repo.rev_parse_single("b")?.detach();
+    safe_checkout_from_head(target, &repo, Default::default())?;
+
+    assert_eq!(
+        but_testsupport::git(&repo)
+            .args(["ls-files", "-s", "x"])
+            .output()?
+            .stdout
+            .as_bstr(),
+        staged.as_bstr()
+    );
+    Ok(())
+}
+
+#[test]
 fn checkout_keeps_a_staged_addition_the_worktree_deleted() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("staged-addition-deleted-from-worktree");
     snapbox::assert_data_eq!(

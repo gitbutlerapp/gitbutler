@@ -206,7 +206,8 @@ pub fn safe_checkout_from_head(
     })
 }
 
-/// Remove the index entries of files that both `new_tree` and the user deleted, as Git does.
+/// Remove the index entries of files that both `new_tree` and the user deleted, as Git does,
+/// unless the user staged changes to them.
 /// The checkout never touches them, as they aren't in the worktree snapshot.
 fn remove_index_entries_deleted_on_both_sides(
     repo: &gix::Repository,
@@ -223,7 +224,10 @@ fn remove_index_entries_deleted_on_both_sides(
     let mut deleted_on_both_sides = Vec::<bstr::BString>::new();
     for entry in index.entries() {
         let path = entry.path(&index);
-        if old_tree.entry_by_path(path).is_none() || new_tree.entry_by_path(path).is_some() {
+        let staged = old_tree
+            .entry_by_path(path)
+            .is_none_or(|old| old.id != entry.id || old.mode != entry.mode);
+        if staged || new_tree.entry_by_path(path).is_some() {
             continue;
         }
         // Like Git, a path behind a symlinked or missing directory isn't in the worktree.
