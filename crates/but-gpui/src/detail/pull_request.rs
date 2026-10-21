@@ -28,7 +28,8 @@ const STALE_AFTER: i64 = 30 * 60;
 
 impl Detail {
     /// The selected branch's pull request, if it has one: the branch page's, the Branches
-    /// page's, or the one the project page's selected target commit landed.
+    /// page's, or the one the target commit selected, on the project page or in the
+    /// navigator, landed.
     pub(super) fn selected_review<'a>(&'a self, cx: &'a App) -> Option<&'a Review> {
         let store = self.store.read(cx);
         match store.selection.as_ref()? {
@@ -39,6 +40,12 @@ impl Detail {
                 .as_ref(),
             Selection::Branches(project) => self.selected_other_branch(project)?.review.as_ref(),
             Selection::Project(project) => self.selected_target_review(project),
+            Selection::Upstream(project, ref_name, id) => (store.workspace(project)?)
+                .upstream(ref_name.as_deref())
+                .iter()
+                .find(|commit| commit.id == *id)?
+                .review
+                .as_ref(),
             _ => None,
         }
     }
@@ -59,8 +66,12 @@ impl Detail {
         // page's list stays, and keeps the keys.
         let focus = match (&self.store.read(cx).selection, on) {
             (Some(Selection::Branches(_)), _) => Some(self.side_focus.clone()),
-            (Some(Selection::Branch(..)), true) => Some(self.focus.clone()),
-            (Some(Selection::Branch(..)), false) => Some(self.files_focus.clone()),
+            (Some(Selection::Branch(..) | Selection::Upstream(..)), true) => {
+                Some(self.focus.clone())
+            }
+            (Some(Selection::Branch(..) | Selection::Upstream(..)), false) => {
+                Some(self.files_focus.clone())
+            }
             _ => None,
         };
         if let Some(focus) = focus {

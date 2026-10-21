@@ -448,6 +448,8 @@ pub struct RemoteCommit {
     pub time: i64,
     /// It has more than one parent, bringing in the commits of the others.
     pub merge: bool,
+    /// The pull request a target's commit landed, as the project's page names it.
+    pub review: Option<Review>,
 }
 
 /// A coding agent, or a bot, that wrote a commit a person committed.
@@ -1074,6 +1076,7 @@ mod tests {
                     agent: None,
                     time: 0,
                     merge: false,
+                    review: None,
                 };
                 incoming
             ],

@@ -665,7 +665,8 @@ impl Detail {
             }));
         let main = v_flex().gap(px(10.)).child(title).child(meta);
         let target = Selection::Upstream(project.clone(), ref_name.map(str::to_owned), id);
-        self.page_header(main, target, None, None, theme, cx)
+        let tabs = (self.selected_review(cx)).map(|review| self.review_tabs(review, theme, cx));
+        self.page_header(main, target, None, tabs, theme, cx)
     }
 
     /// The header across a page, over its files and its diff: `main` beside `extra`, if

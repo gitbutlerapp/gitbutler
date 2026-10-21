@@ -56,8 +56,8 @@ pub(super) fn incoming(ctx: &but_ctx::Context, limit: usize) -> Result<Vec<Remot
             id: commit.id,
             key: String::new(),
             authored: String::new(),
-            title: (commit.review)
-                .map(|review| review.title)
+            title: (commit.review.as_ref())
+                .map(|review| review.title.clone())
                 .filter(|title| !title.is_empty())
                 .unwrap_or(commit.title),
             author: commit.author,
@@ -65,6 +65,7 @@ pub(super) fn incoming(ctx: &but_ctx::Context, limit: usize) -> Result<Vec<Remot
             agent: commit.agent,
             time: commit.time,
             merge: commit.merge,
+            review: commit.review,
         })
         .collect())
 }

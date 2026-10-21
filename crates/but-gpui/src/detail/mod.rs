@@ -1941,7 +1941,9 @@ impl Render for Detail {
                 };
                 let files_shown = self.files_shown(cx);
                 let panes = match selection {
-                    Selection::Branch(project, _) if self.showing_review(cx) => {
+                    Selection::Branch(project, _) | Selection::Upstream(project, ..)
+                        if self.showing_review(cx) =>
+                    {
                         self.render_review_tab(project, &theme, cx)
                     }
                     Selection::Branches(project) if self.branches_table => {

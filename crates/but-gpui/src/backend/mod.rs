@@ -455,6 +455,7 @@ fn branch_from(
                     agent,
                     time: commit.author.time.seconds,
                     merge: commit.parent_ids.len() > 1,
+                    review: None,
                 }
             })
             .collect(),
