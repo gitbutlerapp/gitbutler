@@ -121,6 +121,94 @@ fn target_page(
     Ok((commits, page.has_more || forked_above_root))
 }
 
+/// How many days back the project's page counts the target's activity.
+pub const ACTIVITY_DAYS: usize = 30;
+
+const DAY: i64 = 24 * 60 * 60;
+
+/// The target as the project's page sums it up: its README, and who's been committing to it.
+#[derive(Debug, Clone, Default)]
+pub struct Overview {
+    /// The README's file name and text at the target's tip.
+    pub readme: Option<(String, String)>,
+    /// How many commits landed each day of the last [`ACTIVITY_DAYS`], counted in 24 hours
+    /// back from now, oldest first.
+    pub daily: Vec<u32>,
+    /// Who wrote them, merges left out, most commits first: name, email and how many.
+    pub team: Vec<(String, String, u32)>,
+}
+
+/// `target` (a short name, like `origin/main`) summed up as of `now`, in seconds since the epoch.
+pub fn overview(path: &Path, target: &str, now: i64) -> Result<Overview> {
+    use gix::revision::walk::Sorting;
+    use gix::traverse::commit::simple::CommitTimeOrder;
+    let ctx = open(path)?;
+    let repo = ctx.repo.get()?;
+    let tip = repo.rev_parse_single(target)?.object()?.peel_to_commit()?;
+    let since = now - ACTIVITY_DAYS as i64 * DAY;
+    let mut daily = vec![0; ACTIVITY_DAYS];
+    let mut team: Vec<(String, String, u32)> = Vec::new();
+    let walk = (repo.rev_walk([tip.id]))
+        .sorting(Sorting::ByCommitTimeCutoff {
+            order: CommitTimeOrder::NewestFirst,
+            seconds: since,
+        })
+        .all()?;
+    for info in walk {
+        let commit = info?.object()?;
+        let time = commit.time()?.seconds;
+        if time < since {
+            continue;
+        }
+        // A clock ahead of this one counts as today.
+        let ago = ((now - time).max(0) / DAY) as usize;
+        daily[ACTIVITY_DAYS - 1 - ago.min(ACTIVITY_DAYS - 1)] += 1;
+        if commit.parent_ids().count() > 1 {
+            continue;
+        }
+        let author = commit.author()?;
+        let email = author.email.to_str_lossy().to_lowercase();
+        match team.iter_mut().find(|(_, known, _)| *known == email) {
+            Some(person) => person.2 += 1,
+            None => team.push((author.name.to_str_lossy().into_owned(), email, 1)),
+        }
+    }
+    team.sort_by_key(|person| std::cmp::Reverse(person.2));
+    Ok(Overview {
+        readme: readme(&repo, &tip)?,
+        daily,
+        team,
+    })
+}
+
+/// The README at the top of `commit`'s tree, Markdown first, by its file name and text.
+fn readme(repo: &gix::Repository, commit: &gix::Commit<'_>) -> Result<Option<(String, String)>> {
+    const NAMES: [&str; 5] = [
+        "readme.md",
+        "readme.markdown",
+        "readme",
+        "readme.txt",
+        "readme.rst",
+    ];
+    let tree = commit.tree()?;
+    let found = (tree.iter())
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let name = entry.filename().to_str_lossy();
+            let rank = NAMES.iter().position(|n| name.eq_ignore_ascii_case(n))?;
+            (entry.mode().is_blob()).then(|| (rank, name.into_owned(), entry.object_id()))
+        })
+        .min_by_key(|(rank, ..)| *rank);
+    let Some((_, name, id)) = found else {
+        return Ok(None);
+    };
+    let blob = repo.find_object(id)?;
+    Ok(Some((
+        name,
+        String::from_utf8_lossy(&blob.data).into_owned(),
+    )))
+}
+
 /// When the project last fetched, in seconds since the epoch, and why the last attempt
 /// failed if it did. `None` when it has no remote to fetch from.
 pub fn fetch_status(path: &Path) -> Result<Option<(Option<i64>, Option<String>)>> {
@@ -503,7 +591,82 @@ pub fn land(path: &Path, branch: &str, tip: CommitId, whole_stack: bool) -> Resu
 
 #[cfg(test)]
 mod tests {
-    use super::push_refusal;
+    use super::{ACTIVITY_DAYS, DAY, overview, push_refusal};
+
+    #[test]
+    fn sums_up_the_target_by_day_and_author() {
+        use std::process::Command;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path();
+        let git = |args: &[&str], at: i64| {
+            let date = format!("@{at} +0000");
+            let out = Command::new("git")
+                .current_dir(path)
+                .args(["-c", "commit.gpgsign=false"])
+                .args(args)
+                .env("GIT_AUTHOR_DATE", &date)
+                .env("GIT_COMMITTER_DATE", &date)
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "git {args:?}: {out:?}");
+        };
+        let now = 2_000_000_000;
+        git(&["init", "-q", "-b", "main"], now);
+        let commit = |who: &str, at: i64| {
+            let author = format!("{who} <{}@example.com>", who.to_lowercase());
+            let message = format!("by {who}");
+            git(&["config", "user.name", who], at);
+            git(
+                &[
+                    "config",
+                    "user.email",
+                    &format!("{}@example.com", who.to_lowercase()),
+                ],
+                at,
+            );
+            git(
+                &[
+                    "commit",
+                    "-q",
+                    "--allow-empty",
+                    "--author",
+                    &author,
+                    "-m",
+                    &message,
+                ],
+                at,
+            );
+        };
+        commit("Old", now - 40 * DAY);
+        std::fs::write(path.join("notes.txt"), "not it").unwrap();
+        std::fs::write(path.join("README.md"), "# Hello\n").unwrap();
+        git(&["add", "."], now - 3 * DAY);
+        commit("Ann", now - 3 * DAY);
+        commit("Bob", now - 2 * DAY);
+        commit("Ann", now - 60);
+
+        let summed = overview(path, "main", now).unwrap();
+        assert_eq!(
+            summed.readme,
+            Some(("README.md".to_owned(), "# Hello\n".to_owned())),
+            "the README at the tip, by its name"
+        );
+        assert_eq!(summed.daily.len(), ACTIVITY_DAYS, "a bar a day");
+        assert_eq!(
+            summed.daily.iter().sum::<u32>(),
+            3,
+            "the commit from before the window isn't counted"
+        );
+        assert_eq!(summed.daily[ACTIVITY_DAYS - 1], 1, "the last day ends now");
+        assert_eq!(
+            summed.team,
+            [
+                ("Ann".to_owned(), "ann@example.com".to_owned(), 2),
+                ("Bob".to_owned(), "bob@example.com".to_owned(), 1),
+            ],
+            "most commits first"
+        );
+    }
 
     #[test]
     fn a_refused_push_keeps_only_what_the_remote_said() {

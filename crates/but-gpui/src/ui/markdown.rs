@@ -72,6 +72,36 @@ fn safe_link(url: &str) -> bool {
         .any(|scheme| lower.starts_with(scheme))
 }
 
+/// `html`'s text onto `text`, its common entities as the characters they stand for, as a
+/// README spaces out its links with `&nbsp;`.
+fn push_decoded(text: &mut String, html: &str) {
+    const ENTITIES: [(&str, char); 7] = [
+        ("&nbsp;", ' '),
+        ("&amp;", '&'),
+        ("&lt;", '<'),
+        ("&gt;", '>'),
+        ("&quot;", '"'),
+        ("&#39;", '\''),
+        ("&apos;", '\''),
+    ];
+    let mut rest = html;
+    while let Some(at) = rest.find('&') {
+        text.push_str(&rest[..at]);
+        let tail = &rest[at..];
+        match ENTITIES.iter().find(|(name, _)| tail.starts_with(name)) {
+            Some((name, ch)) => {
+                text.push(*ch);
+                rest = &tail[name.len()..];
+            }
+            None => {
+                text.push('&');
+                rest = &tail[1..];
+            }
+        }
+    }
+    text.push_str(rest);
+}
+
 /// HTML's text, without its tags or comments, a `<br>` breaking the line. `in_comment` carries
 /// a comment left open into the next piece, as an HTML block comes a line at a time; an
 /// unclosed tag runs to the end.
@@ -87,10 +117,10 @@ fn html_text(html: &str, in_comment: &mut bool) -> String {
             rest = &rest[end + 3..];
         }
         let Some(start) = rest.find('<') else {
-            text.push_str(rest);
+            push_decoded(&mut text, rest);
             return text;
         };
-        text.push_str(&rest[..start]);
+        push_decoded(&mut text, &rest[..start]);
         let tag = &rest[start..];
         match tag.strip_prefix("<!--") {
             Some(comment) => {
@@ -557,6 +587,16 @@ mod tests {
                 (&Kind::Paragraph, "C"),
             ],
             "a <br> breaks the line, an HTML block's lines stay apart, and so do two blocks"
+        );
+    }
+
+    #[test]
+    fn html_entities_read_as_their_characters() {
+        let blocks = parse("<p>Website&nbsp;•&nbsp;Blog &amp; more &copy;</p>\n");
+        assert_eq!(
+            texts(&blocks),
+            [(&Kind::Paragraph, "Website • Blog & more &copy;")],
+            "the common entities decode; one it doesn't know stays as written"
         );
     }
 

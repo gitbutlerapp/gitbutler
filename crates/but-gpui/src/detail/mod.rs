@@ -303,6 +303,7 @@ pub struct Detail {
     /// Whether the pull request's checks that passed are listed, not just counted.
     passed_checks_open: bool,
     review_scroll: ScrollHandle,
+    readme_scroll: ScrollHandle,
     /// How tall a commit's header across the page was drawn, which the diff starts below.
     header_height: Rc<Cell<f32>>,
     /// Directories folded shut in tree-shaped file lists, by path.
@@ -548,6 +549,7 @@ impl Detail {
             review_tab: false,
             passed_checks_open: false,
             review_scroll: ScrollHandle::new(),
+            readme_scroll: ScrollHandle::new(),
             header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),
             collapsed_dirs: HashSet::new(),
             text_selection: None,
@@ -1830,7 +1832,7 @@ impl Render for Detail {
                             &theme,
                             cx,
                         ),
-                        None => self.render_upstream_side(project, &theme, cx),
+                        None => self.render_upstream_side(project, &theme, window, cx),
                     },
                 };
                 let width = self.files_width(window, cx);
@@ -1857,9 +1859,17 @@ impl Render for Detail {
                 // Beside a list, the selected branch or commit's tabs when it has a pull
                 // request, over the pull request or the diff.
                 let beside = match selection {
-                    Selection::Branches(project) | Selection::Project(project) => (self
-                        .selected_review(cx))
-                    .map(|review| self.render_list_tabs(project, review, &theme, cx)),
+                    Selection::Branches(project) | Selection::Project(project) => {
+                        match self.selected_review(cx) {
+                            Some(review) => {
+                                Some(self.render_list_tabs(project, review, &theme, cx))
+                            }
+                            None if self.showing_readme(cx) => {
+                                Some(self.render_readme(project, &theme, cx))
+                            }
+                            None => None,
+                        }
+                    }
                     // What the selected operation did, over the files it changed.
                     Selection::History(project) => {
                         self.render_operation_header(project, &theme, cx)

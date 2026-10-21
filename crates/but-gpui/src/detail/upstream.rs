@@ -1,7 +1,9 @@
-//! A project's page: where it is, when it last fetched, and its target's history, the
-//! commits the workspace doesn't have yet first, each with the pull request that landed
-//! it. Selecting one shows its diff.
+//! A project's page: where it is, when it last fetched, its target's README, how busy the
+//! target has been and who's been committing to it, and its history, the commits the
+//! workspace doesn't have yet first, each with the pull request that landed it. Selecting
+//! the README shows it; selecting a commit shows its diff.
 
+use std::cell::Cell;
 use std::time::{Duration, Instant};
 
 use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
@@ -11,16 +13,18 @@ use super::panes::{
     Crumb, list_heading, meta_item, meta_row, quiet, side_header, side_list, side_row, title_text,
 };
 use crate::app::{SelectNext, SelectPrevious};
-use crate::backend::upstream::{self, TargetCommit};
+use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, Forge, Review};
 use crate::state::{Overlay, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::emoji::ProjectIcon;
 use crate::ui::illustration::Illustration;
-use crate::ui::person::byline_avatar;
+use crate::ui::markdown;
+use crate::ui::person::{author_avatar, byline_avatar};
+use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
-    Icon, Tooltip, age_column, error_summary, h_flex, icon, list_row, muted, plural, shortcut,
-    small_icon, v_flex,
+    Icon, Tooltip, age_column, error_summary, faint, h_flex, icon, list_row, muted, plural,
+    section_label, shortcut, small_icon, v_flex,
 };
 
 /// What a target commit is called: the pull request it landed, by its title, as Lite names
@@ -38,11 +42,41 @@ const PAGE: u32 = 50;
 /// fetch time.
 const STALE_AFTER: Duration = Duration::from_secs(60);
 
+/// How many of the team the page lists.
+const TEAM_SHOWN: usize = 5;
+
+/// What's picked on the page: the README, or a commit of the target.
+#[derive(Clone, Copy, PartialEq)]
+enum Picked {
+    Readme,
+    Commit(CommitId),
+}
+
+/// The target summed up, its README read as Markdown off the UI thread.
+struct Summary {
+    readme: Option<(String, Vec<markdown::Block>)>,
+    daily: Vec<u32>,
+    team: Vec<(String, String, u32)>,
+}
+
+impl From<Overview> for Summary {
+    fn from(overview: Overview) -> Self {
+        Summary {
+            readme: (overview.readme).map(|(name, text)| (name, markdown::parse(&text))),
+            daily: overview.daily,
+            team: overview.team,
+        }
+    }
+}
+
 pub(super) struct Upstream {
     project: ProjectId,
     commits: Vec<TargetCommit>,
     more: bool,
-    selected: Option<CommitId>,
+    selected: Option<Picked>,
+    /// The README and the activity, read with the newest page; `None` until read, or when
+    /// there's no target to read them from.
+    summary: Option<Summary>,
     /// When the project last fetched successfully, and why the last fetch failed; `None`
     /// when it has no remote to fetch from.
     fetch: Option<(Option<i64>, Option<String>)>,
@@ -52,6 +86,16 @@ pub(super) struct Upstream {
     seen: (u64, Instant),
     /// Why reading the history failed, shown in place of the list.
     failed: Option<String>,
+    /// Reading the next page, which starts once its row scrolls into view.
+    paging: Cell<Paging>,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Paging {
+    Idle,
+    Loading,
+    /// Reading it failed, so it waits for a click rather than trying again every frame.
+    Failed,
 }
 
 enum Row {
@@ -96,29 +140,43 @@ impl Detail {
             false => current.map_or(PAGE, |u| (u.commits.len() as u32).max(PAGE)),
         };
         let project = project.clone();
-        let forge = self
-            .store
-            .read(cx)
-            .workspace(&project)
-            .and_then(|ws| ws.forge);
+        let workspace = self.store.read(cx).workspace(&project);
+        let forge = workspace.and_then(|ws| ws.forge);
+        // Only with the newest page: paging further back keeps what was read.
+        let target = (workspace.and_then(|ws| ws.target.as_ref()))
+            .map(|target| target.name.clone())
+            .filter(|_| after.is_none());
+        let now = crate::ui::now();
         self._upstream_load = cx.spawn(async move |this, cx| {
             let result = backend::run(move || {
                 let page = upstream::target_commits(&path, after, limit)?;
                 let connected = forge.is_none_or(|forge| {
                     (backend::accounts::accounts().iter()).any(|account| account.forge == forge)
                 });
+                // The history shows without it.
+                let summary = target.and_then(|target| {
+                    (upstream::overview(&path, &target, now))
+                        .inspect_err(|err| tracing::warn!(?err, "couldn't sum up the target"))
+                        .ok()
+                        .map(Summary::from)
+                });
                 Ok((
                     page,
                     upstream::fetch_status(&path)?,
                     forge.filter(|_| !connected),
+                    summary,
                 ))
             })
             .await;
             this.update(cx, |this, cx| {
-                let ((commits, has_more), fetch, unconnected_forge) = match result {
+                let ((commits, has_more), fetch, unconnected_forge, summary) = match result {
                     Ok(loaded) => loaded,
                     // Paging further back keeps what's listed.
                     Err(err) if after.is_some() => {
+                        if let Some(upstream) = this.upstream_for(&project) {
+                            upstream.paging.set(Paging::Failed);
+                            cx.notify();
+                        }
                         this.store.update(cx, |store, cx| {
                             store.error("Couldn't read more of the history", format!("{err:#}"), cx)
                         });
@@ -133,10 +191,12 @@ impl Detail {
                             commits: Vec::new(),
                             more: false,
                             selected: None,
+                            summary: None,
                             fetch,
                             unconnected_forge: None,
                             seen: (seen, Instant::now()),
                             failed: Some(format!("{err:#}")),
+                            paging: Cell::new(Paging::Idle),
                         });
                         this.refresh_diff(false, cx);
                         return cx.notify();
@@ -146,29 +206,42 @@ impl Detail {
                 // A page further back says nothing of whether the newest are current, as when
                 // it cut short the reload after a fetch.
                 let now = (seen, Instant::now());
-                let (mut list, selected, seen) = match previous {
-                    Some(previous) if after.is_some() => {
-                        (previous.commits, previous.selected, previous.seen)
-                    }
-                    Some(previous) => (Vec::new(), previous.selected, now),
-                    None => (Vec::new(), None, now),
+                let (mut list, selected, seen, summary) = match previous {
+                    Some(previous) if after.is_some() => (
+                        previous.commits,
+                        previous.selected,
+                        previous.seen,
+                        previous.summary,
+                    ),
+                    Some(previous) => (Vec::new(), previous.selected, now, summary),
+                    None => (Vec::new(), None, now, summary),
                 };
                 list.extend(commits);
+                // The README first, as a repository's page opens on it.
+                let readme = summary.as_ref().is_some_and(|s| s.readme.is_some());
                 let selected = selected
-                    .filter(|id| list.iter().any(|c| c.id == *id))
-                    .or_else(|| list.first().map(|c| c.id));
+                    .filter(|picked| match picked {
+                        Picked::Readme => readme,
+                        Picked::Commit(id) => list.iter().any(|c| c.id == *id),
+                    })
+                    .or_else(|| readme.then_some(Picked::Readme))
+                    .or_else(|| list.first().map(|c| Picked::Commit(c.id)));
                 this.upstream = Some(Upstream {
                     project,
                     commits: list,
                     more: has_more,
                     selected,
+                    summary,
                     fetch,
                     unconnected_forge,
                     seen,
                     failed: None,
+                    paging: Cell::new(Paging::Idle),
                 });
                 this.refresh_diff(false, cx);
                 cx.notify();
+                // The window draws the diff beside the list, or the README doesn't need it.
+                this.app.update(cx, |_, cx| cx.notify()).ok();
             })
             .ok();
         });
@@ -199,13 +272,34 @@ impl Detail {
 
     /// The pull request the selected target commit landed, if it landed one.
     pub(super) fn selected_target_review(&self, project: &ProjectId) -> Option<&Review> {
+        self.selected_target_commit(project)?.review.as_ref()
+    }
+
+    fn selected_target_commit(&self, project: &ProjectId) -> Option<&TargetCommit> {
         let upstream = self.upstream_for(project)?;
-        let commit = (upstream.commits.iter()).find(|c| Some(c.id) == upstream.selected)?;
-        commit.review.as_ref()
+        let Picked::Commit(id) = upstream.selected? else {
+            return None;
+        };
+        upstream.commits.iter().find(|c| c.id == id)
     }
 
     pub(super) fn upstream_source(&self, project: &ProjectId) -> Option<DiffSource> {
-        Some(DiffSource::Commit(self.upstream_for(project)?.selected?))
+        match self.upstream_for(project)?.selected? {
+            Picked::Commit(id) => Some(DiffSource::Commit(id)),
+            Picked::Readme => None,
+        }
+    }
+
+    /// Whether the project's page shows its README, in place of a diff.
+    pub fn showing_readme(&self, cx: &gpui::App) -> bool {
+        match self.store.read(cx).selection.as_ref() {
+            Some(Selection::Project(project)) => {
+                self.editing(project, cx).is_none()
+                    && (self.upstream_for(project))
+                        .is_some_and(|u| u.selected == Some(Picked::Readme))
+            }
+            _ => false,
+        }
     }
 
     fn upstream_rows(&self, upstream: &Upstream, target: &str) -> Vec<Row> {
@@ -243,22 +337,32 @@ impl Detail {
         let Some(upstream) = self.upstream_for(project) else {
             return;
         };
-        let Some(commit) = (upstream.commits.iter()).find(|c| Some(c.id) == upstream.selected)
-        else {
+        let picked = match upstream.selected {
+            Some(Picked::Readme) => (upstream.summary.as_ref())
+                .and_then(|s| s.readme.as_ref())
+                .map(|(name, _)| name.clone()),
+            Some(Picked::Commit(_)) => {
+                (self.selected_target_commit(project)).map(|commit| label(commit).to_owned())
+            }
+            None => None,
+        };
+        let Some(picked) = picked else {
             return;
         };
         let target = (self.store.read(cx).workspace(project))
             .and_then(|ws| ws.target.as_ref())
             .map_or("Target".to_owned(), |target| target.name.clone());
         crumbs.push((target.into(), None));
-        crumbs.push((label(commit).to_owned().into(), None));
+        crumbs.push((picked.into(), None));
     }
 
-    fn select_target_commit(&mut self, id: CommitId, cx: &mut Context<Self>) {
+    fn pick_on_page(&mut self, picked: Picked, cx: &mut Context<Self>) {
         if let Some(upstream) = &mut self.upstream {
-            upstream.selected = Some(id);
+            upstream.selected = Some(picked);
         }
         self.show_picked(cx);
+        // The window draws the diff beside the list, or the README doesn't need it.
+        self.app.update(cx, |_, cx| cx.notify()).ok();
     }
 
     /// Select the target commit `delta` rows from the selected one, keeping it in view.
@@ -266,20 +370,61 @@ impl Detail {
         let Some(upstream) = &self.upstream else {
             return;
         };
-        // In the order shown: the new commits first, under their own heading.
-        let commits: Vec<_> = (self.upstream_rows(upstream, "").iter().enumerate())
-            .filter_map(|(row, r)| match r {
-                Row::Commit(ix) => Some((row, upstream.commits[*ix].id)),
-                _ => None,
-            })
+        // In the order shown: the README over the list, then the new commits first, under
+        // their own heading.
+        let readme = (upstream.summary.as_ref()).is_some_and(|s| s.readme.is_some());
+        let picks: Vec<_> = (readme.then_some((0, Picked::Readme)).into_iter())
+            .chain(
+                (self.upstream_rows(upstream, "").iter().enumerate()).filter_map(
+                    |(row, r)| match r {
+                        Row::Commit(ix) => Some((row, Picked::Commit(upstream.commits[*ix].id))),
+                        _ => None,
+                    },
+                ),
+            )
             .collect();
-        let at = (commits.iter()).position(|(_, id)| Some(*id) == upstream.selected);
+        let at = (picks.iter()).position(|(_, picked)| Some(*picked) == upstream.selected);
         let next = at.map_or(0, |at| at as isize + delta);
-        let Some(&(row, id)) = usize::try_from(next).ok().and_then(|ix| commits.get(ix)) else {
+        let Some(&(row, picked)) = usize::try_from(next).ok().and_then(|ix| picks.get(ix)) else {
             return;
         };
-        self.select_target_commit(id, cx);
+        self.pick_on_page(picked, cx);
         (self.upstream_scroll).scroll_to_item(row, gpui::ScrollStrategy::Nearest);
+    }
+
+    /// The target's README, beside the list in place of a diff.
+    pub(super) fn render_readme(
+        &self,
+        project: &ProjectId,
+        theme: &Theme,
+        _cx: &Context<Self>,
+    ) -> AnyElement {
+        let readme = (self.upstream_for(project)).and_then(|u| u.summary.as_ref()?.readme.as_ref());
+        let Some((_, blocks)) = readme else {
+            return div().flex_1().into_any_element();
+        };
+        let doc = v_flex()
+            .w_full()
+            .max_w(px(760.))
+            .px(px(24.))
+            .py(px(20.))
+            .child(markdown::render("readme", blocks, theme));
+        let page = div()
+            .id("readme")
+            .size_full()
+            .overflow_y_scroll()
+            .track_scroll(&self.readme_scroll)
+            .child(doc);
+        scrolled(
+            page,
+            "readme-scrollbar",
+            Scroll::Div(self.readme_scroll.clone()),
+            theme,
+        )
+        .flex_1()
+        .h_full()
+        .min_w(px(0.))
+        .into_any_element()
     }
 
     /// A project's header: its icon, which opens the picker, and its name, over where it is
@@ -379,6 +524,7 @@ impl Detail {
         &self,
         project: &ProjectId,
         theme: &Theme,
+        window: &gpui::Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
@@ -571,7 +717,7 @@ impl Detail {
             Some(upstream) => {
                 let target = target.unwrap_or_else(|| "the target".into());
                 let rows = self.upstream_rows(upstream, &target);
-                side_list(
+                let list = side_list(
                     "target-commits",
                     rows.len(),
                     &self.upstream_scroll,
@@ -584,7 +730,7 @@ impl Detail {
                             Row::Commit(commit_ix) => {
                                 let commit = &upstream.commits[*commit_ix];
                                 let id = commit.id;
-                                let selected = upstream.selected == Some(id);
+                                let selected = upstream.selected == Some(Picked::Commit(id));
                                 let solid = this.side_focus.is_focused(window);
                                 let on = selected && solid;
                                 let glyph = match (on, commit.incoming) {
@@ -642,30 +788,72 @@ impl Detail {
                                     .child(quiet(age_column(Some(commit.time), theme), on, theme))
                                     .on_click(cx.listener(move |this, _, window, cx| {
                                         window.focus(&this.side_focus, cx);
-                                        this.select_target_commit(id, cx)
+                                        this.pick_on_page(Picked::Commit(id), cx)
                                     }))
                                     .into_any_element()
                             }
+                            // Drawn once it scrolls into view, which reads the next page.
                             Row::More => {
                                 let project = upstream.project.clone();
-                                list_row("target-more", false, theme)
-                                    .text_color(theme.text_2)
-                                    .child("Show older")
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        this.load_upstream(&project, true, false, cx)
-                                    }))
-                                    .into_any_element()
+                                if upstream.paging.get() == Paging::Idle {
+                                    upstream.paging.set(Paging::Loading);
+                                    let project = project.clone();
+                                    cx.spawn(async move |this, cx| {
+                                        this.update(cx, |this, cx| {
+                                            this.load_upstream(&project, true, false, cx)
+                                        })
+                                        .ok();
+                                    })
+                                    .detach();
+                                }
+                                match upstream.paging.get() {
+                                    Paging::Failed => list_row("target-more", false, theme)
+                                        .text_color(theme.text_2)
+                                        .child("Show older")
+                                        .on_click(cx.listener(move |this, _, _, cx| {
+                                            this.load_upstream(&project, true, false, cx)
+                                        }))
+                                        .into_any_element(),
+                                    _ => list_row("target-more", false, theme)
+                                        .text_color(theme.text_3)
+                                        .child("Loading…")
+                                        .into_any_element(),
+                                }
                             }
                         })
                     },
-                )
-                .track_focus(&self.side_focus)
-                .key_context("SideList")
-                .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.step_upstream(1, cx)))
-                .on_action(
-                    cx.listener(|this, _: &SelectPrevious, _, cx| this.step_upstream(-1, cx)),
-                )
-                .into_any_element()
+                );
+                let summary = upstream.summary.as_ref();
+                // The README and the activity over the history, which scrolls between them
+                // and the team.
+                v_flex()
+                    .size_full()
+                    .track_focus(&self.side_focus)
+                    .key_context("SideList")
+                    .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.step_upstream(1, cx)))
+                    .on_action(
+                        cx.listener(|this, _: &SelectPrevious, _, cx| this.step_upstream(-1, cx)),
+                    )
+                    .children((summary.and_then(|s| s.readme.as_ref())).map(|(name, _)| {
+                        let selected = upstream.selected == Some(Picked::Readme);
+                        let solid = self.side_focus.is_focused(window);
+                        let on = selected && solid;
+                        side_row("readme", selected, solid, theme)
+                            .mt(px(6.))
+                            .child(small_icon(Icon::TextBlock).text_color(match on {
+                                true => theme.text_inverted,
+                                false => theme.text_3,
+                            }))
+                            .child(div().flex_1().min_w(px(0.)).truncate().child(name.clone()))
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                window.focus(&this.side_focus, cx);
+                                this.pick_on_page(Picked::Readme, cx)
+                            }))
+                    }))
+                    .children(summary.map(|s| activity(&s.daily, theme)))
+                    .child(list.flex_1().min_h(px(0.)))
+                    .children(summary.and_then(|s| team(&s.team, theme)))
+                    .into_any_element()
             }
         };
         v_flex()
@@ -674,4 +862,132 @@ impl Detail {
             .child(list)
             .into_any_element()
     }
+}
+
+/// How busy the target has been: a bar for each day, the last week's stronger.
+fn activity(daily: &[u32], theme: &Theme) -> AnyElement {
+    const HEIGHT: f32 = 36.;
+    let total: u32 = daily.iter().sum();
+    let week: u32 = daily.iter().rev().take(7).sum();
+    let most = daily.iter().copied().max().unwrap_or(0).max(1);
+    let bars = daily.iter().enumerate().map(|(ix, &n)| {
+        let days_ago = daily.len() - 1 - ix;
+        let when = match days_ago {
+            0 => "in the last day".to_owned(),
+            1 => "a day ago".to_owned(),
+            days => format!("{days} days ago"),
+        };
+        let recent = days_ago < 7;
+        div()
+            .id(("activity-day", ix))
+            .flex_1()
+            .h_full()
+            .flex()
+            .items_end()
+            .tooltip(Tooltip::text(format!(
+                "{}, {when}",
+                plural(n as usize, "commit")
+            )))
+            .child(
+                div()
+                    .w_full()
+                    .h(px((n as f32 / most as f32 * HEIGHT).max(2.)))
+                    .rounded_t(px(1.))
+                    .bg(match (n, recent) {
+                        (0, _) => theme.border_2,
+                        (_, true) => theme.pop,
+                        (_, false) => theme.pop.opacity(0.4),
+                    }),
+            )
+    });
+    v_flex()
+        .px(px(14.))
+        .pt(px(14.))
+        .pb(px(6.))
+        .gap(px(6.))
+        .child(
+            h_flex()
+                .gap(px(8.))
+                .child(section_label("Activity", theme).flex_grow(1.))
+                .child(faint(
+                    format!(
+                        "{}, {week} in the last week",
+                        plural(total as usize, "commit")
+                    ),
+                    theme,
+                )),
+        )
+        .child(
+            h_flex()
+                .h(px(HEIGHT))
+                .gap(px(2.))
+                .items_end()
+                .children(bars),
+        )
+        .child(
+            h_flex()
+                .text_size(px(11.))
+                .child(faint(format!("{ACTIVITY_DAYS} days ago"), theme).flex_grow(1.))
+                .child(faint("Today", theme)),
+        )
+        .into_any_element()
+}
+
+/// Who's been committing to the target, most first, each with a bar of how much.
+fn team(team: &[(String, String, u32)], theme: &Theme) -> Option<AnyElement> {
+    let most = team.first()?.2.max(1);
+    let rows = team.iter().take(TEAM_SHOWN).map(|(name, email, n)| {
+        h_flex()
+            .gap(px(8.))
+            .child(author_avatar(name, email, 20., theme))
+            .child(
+                v_flex()
+                    .flex_grow(1.)
+                    .min_w(px(0.))
+                    .gap(px(3.))
+                    .child(
+                        h_flex()
+                            .gap(px(8.))
+                            .child(
+                                div()
+                                    .flex_grow(1.)
+                                    .min_w(px(0.))
+                                    .truncate()
+                                    .child(name.clone()),
+                            )
+                            .child(faint(n.to_string(), theme)),
+                    )
+                    .child(
+                        div().h(px(4.)).rounded(px(2.)).bg(theme.border_3).child(
+                            div()
+                                .h_full()
+                                .rounded(px(2.))
+                                .w(gpui::relative(*n as f32 / most as f32))
+                                .bg(theme.pop),
+                        ),
+                    ),
+            )
+    });
+    let rest = team.len().saturating_sub(TEAM_SHOWN);
+    Some(
+        v_flex()
+            .flex_none()
+            .m(px(12.))
+            .p(px(12.))
+            .gap(px(10.))
+            .border_1()
+            .border_color(theme.border_3)
+            .rounded(px(8.))
+            .child(
+                h_flex()
+                    .gap(px(8.))
+                    .child(section_label("Team", theme).flex_grow(1.))
+                    .child(faint(format!("commits · {ACTIVITY_DAYS} days"), theme)),
+            )
+            .children(rows)
+            .when(rest > 0, |el| {
+                el.child(faint(format!("and {}", plural(rest, "other")), theme))
+            })
+            .into_any_element(),
+    )
 }
