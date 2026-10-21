@@ -571,6 +571,18 @@ impl Store {
         };
         let gone_from = gone_from
             .filter(|branch| !branch.is_empty() && workspace.find_branch(branch).is_some());
+        // Gone from a linked worktree still there, as when an agent checked out another branch
+        // in it, the worktree stays selected rather than the main checkout.
+        let home = (self.selection.as_ref())
+            .filter(|s| s.project() == id && rewritten.is_none() && gone_from.is_none())
+            .filter(|s| match s {
+                Selection::Branch(_, branch) => workspace.find_branch(branch).is_none(),
+                Selection::Commit(_, commit) => workspace.find_commit(*commit).is_none(),
+                _ => false,
+            })
+            .and_then(|s| self.worktree_of(s))
+            .map(|worktree| worktree.name.clone())
+            .filter(|name| workspace.worktrees.iter().any(|w| w.name == *name));
         // Picks follow rewritten commits the same way, and go when a commit is gone.
         if !self.picked.is_empty() && self.selection.as_ref().is_some_and(|s| s.project() == id) {
             let mut picks = std::mem::take(&mut self.picked);
@@ -627,6 +639,9 @@ impl Store {
         }
         if let Some(branch) = gone_from {
             self.select(Some(Selection::Branch(id.clone(), branch)), cx);
+        }
+        if let Some(name) = home {
+            self.select(Some(Selection::Worktree(id.clone(), name)), cx);
         }
         for (from, to) in renamed {
             cx.emit(StoreEvent::Renamed(id.clone(), from, to));
