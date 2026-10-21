@@ -299,6 +299,19 @@ fn resolve(
             RouteCommitOperationError::Other(cli_error) => cli_error,
         })?
     };
+    if let InvokedFrom::LinkedWorktree(worktree) = invoked_from
+        && commit_op.will_create_unstacked_reference()
+    {
+        let checked_out = worktree_branch(&*ctx.repo.get()?, worktree.as_ref())
+            .map_or_else(|_| "<branch>".into(), |name| name.shorten().to_string());
+        return Err(bad_input(format!(
+            "Cannot commit to an unstacked branch from worktree {worktree}"
+        ))
+        .hint(format!(
+            "Stack the new branch on this worktree first with `but branch new <name> --above {checked_out}`"
+        ))
+        .into());
+    }
 
     {
         let repo = ctx.repo.get()?;

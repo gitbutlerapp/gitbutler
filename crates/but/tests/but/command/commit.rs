@@ -3775,6 +3775,83 @@ Hint: run `but diff` to see uncommitted changes and `but commit -b <branch> -m "
 }
 
 #[test]
+fn commit_to_a_new_branch_in_a_linked_worktree_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    env.but("status").assert().success();
+    let wt_dir = add_dirty_worktree(&env, "wt-feature", "A");
+
+    for command in ["commit -b fresh -m 'from wt'", "commit -b -m 'from wt'"] {
+        env.but(command)
+            .current_dir(&wt_dir)
+            .assert()
+            .failure()
+            .stdout_eq(snapbox::str![])
+            .stderr_eq(snapbox::str![[r#"
+Error: Cannot commit to an unstacked branch from worktree wt-feature
+
+Hint: Stack the new branch on this worktree first with `but branch new <name> --above wt-feature`
+
+"#]]);
+    }
+    assert!(
+        wt_dir.join("note.txt").exists(),
+        "the worktree keeps its change"
+    );
+
+    // The hinted way keeps the change in the worktree, on a branch stacked on its own.
+    env.but("branch new fresh --above wt-feature")
+        .current_dir(&wt_dir)
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created branch 'fresh' above branch 'wt-feature'
+
+"#]]);
+    env.but("commit -b fresh -m 'from wt'")
+        .current_dir(&wt_dir)
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit lpo on branch 'fresh'
+
+"#]]);
+    env.but("status -f")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ fr:@ [uncommitted] {wt-feature} (no changes)
+┊┊├┄ fr [fresh]
+┊┊●   lpo from wt
+┊┊│     lpo:u A note.txt
+┊┊│
+┊┊├┄ wt [wt-feature] (no commits)
+┊├╯
+┊●   tpm add A
+┊│     tpm:t A A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+┊│     lrm:p A B
+├╯
+┊
+┴ 0dc3733 (common base, main, origin/main) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
 fn empty_commit_in_a_linked_worktree_goes_to_its_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
