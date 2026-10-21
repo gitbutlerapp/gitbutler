@@ -315,6 +315,9 @@ pub struct Prefs {
     /// Changed lines go without their green and red ground, keeping the bar beside them.
     pub plain_lines: bool,
     pub code_size: crate::theme::CodeSize,
+    /// Code shows the font's ligatures, `->` as one arrow. Off unless picked, as in the
+    /// desktop app.
+    pub ligatures: bool,
     /// Diffs leave out what deltoids reads from the code around each hunk, and skip reading
     /// it: the function or type the hunk changes, and the rest of that when it's short.
     pub no_semantic_context: bool,

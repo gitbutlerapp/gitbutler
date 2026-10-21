@@ -408,6 +408,19 @@ impl SettingsView {
         let mut diff = vec![
             Row::new("Code size", "How large code shows in diffs.", code),
             Row::new(
+                "Font ligatures",
+                "Code joins pairs of characters like != and == into one symbol.",
+                switch("ligatures", prefs.ligatures, theme).on_click(cx.listener(
+                    |this, _, _, cx| {
+                        this.store.update(cx, |store, cx| {
+                            store.set_prefs(|prefs| prefs.ligatures ^= true, cx)
+                        });
+                        // The diff is a cached view, which only a refresh draws again.
+                        cx.refresh_windows();
+                    },
+                )),
+            ),
+            Row::new(
                 "Wrap long lines",
                 "Diff lines wider than the pane continue on the next row. ⌥Z in a diff turns it \
                  on and off.",

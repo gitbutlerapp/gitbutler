@@ -2,8 +2,8 @@
 //! and the actions that work anywhere in the window. `overlays.rs` draws what opens above.
 
 use gpui::{
-    AnyView, App, ClipboardItem, Context, Entity, FocusHandle, Focusable, KeyBinding, PromptLevel,
-    Role, StyleRefinement, Subscription, Window, actions, div, prelude::*, px,
+    AnyView, App, ClipboardItem, Context, Entity, FocusHandle, Focusable, FontFeatures, KeyBinding,
+    PromptLevel, Role, StyleRefinement, Subscription, Window, actions, div, prelude::*, px,
 };
 
 use crate::backend::{self, short_ref};
@@ -748,6 +748,7 @@ impl Render for AppView {
             || self.icon_picker.is_some();
         crate::ui::Covered::note(covered, window, cx);
         let theme = Theme::get(cx).clone();
+        let ligatures = self.store.read(cx).prefs.ligatures;
         div()
             .id("root")
             .role(Role::Application)
@@ -813,6 +814,10 @@ impl Render for AppView {
             .bg(theme.bg_1)
             .text_color(theme.text_1)
             .font_family(theme.ui_font)
+            // Only the code font has ligatures (`liga`), so this leaves the UI font as it is.
+            .when(!ligatures, |el| {
+                el.font_features(FontFeatures(std::sync::Arc::new(vec![("liga".into(), 0)])))
+            })
             .text_size(px(13.))
             .line_height(px(18.))
             .child(
