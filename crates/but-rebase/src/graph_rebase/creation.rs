@@ -320,22 +320,26 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 })
                 .collect();
 
-            if graph_parent_ids == c.parent_ids {
+            let parents_match_git = graph_parent_ids == c.parent_ids;
+            let is_mutable = matches!(&graph[pick_ix], Step::Pick(Pick { mutable: true, .. }));
+            if parents_match_git && is_mutable {
                 continue;
             }
 
-            tracing::warn!(
-                "but-graph inconsistent with the commit graph.\nParents for commit {} do not match.\n\nFound:{:?}\nExpected:{:?}\n\nThese IDs may be in memory, but may be helpful for debugging.",
-                c.id,
-                graph_parent_ids
-                    .iter()
-                    .map(|p| p.to_string())
-                    .collect::<Vec<_>>(),
-                c.parent_ids
-                    .iter()
-                    .map(|p| p.to_string())
-                    .collect::<Vec<_>>(),
-            );
+            if !parents_match_git {
+                tracing::warn!(
+                    "but-graph inconsistent with the commit graph.\nParents for commit {} do not match.\n\nFound:{:?}\nExpected:{:?}\n\nThese IDs may be in memory, but may be helpful for debugging.",
+                    c.id,
+                    graph_parent_ids
+                        .iter()
+                        .map(|p| p.to_string())
+                        .collect::<Vec<_>>(),
+                    c.parent_ids
+                        .iter()
+                        .map(|p| p.to_string())
+                        .collect::<Vec<_>>(),
+                );
+            }
 
             let outgoing_edge_ids: Vec<_> = graph
                 .edges_directed(pick_ix, Direction::Outgoing)

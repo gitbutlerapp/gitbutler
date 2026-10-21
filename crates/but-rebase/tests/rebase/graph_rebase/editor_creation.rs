@@ -837,15 +837,19 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
 ◎  refs/heads/explicit-const (immutable)
 ◎  refs/heads/main (immutable)
 ●  be4ae80 d
-◎  refs/heads/implicit-const (immutable)
-●  120e3a9 c
-◎  refs/heads/explicit-mut
-●  a96434e b
 │ ◎  refs/heads/explicit-const-2 (immutable)
 │ ●  d9fa122 g
-│ ◎  refs/heads/implicit-const-2 (immutable)
+│ │ ◎  refs/heads/explicit-mut
+│ │ │ ◎  refs/heads/implicit-const (immutable)
+├─────╯
+● │ │  120e3a9 c
+├───╯
+● │  a96434e b
+│ │ ◎  refs/heads/implicit-const-2 (immutable)
+│ ├─╯
 │ ●  85bccf0 f
-│ ◎  refs/heads/implicit-mut
+│ │ ◎  refs/heads/implicit-mut
+│ ├─╯
 │ ●  c8dd361 e
 ├─╯
 ◎  refs/heads/foo

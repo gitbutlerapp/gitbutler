@@ -741,6 +741,11 @@ pub struct RevisionHistory {
 }
 
 impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
+    /// Returns the ref-metadata the editor was created with.
+    pub fn meta(&self) -> &M {
+        self.meta
+    }
+
     pub(crate) fn new_selector(&self, id: StepGraphIndex) -> Selector {
         Selector {
             id,
