@@ -545,14 +545,7 @@ impl Store {
         // One that's gone, as squashed away, leaves its branch selected, if that's still there.
         // A selected branch renamed, as an agent names one, is followed by its newest commit.
         let old = self.workspace(id);
-        let renamed: Vec<(String, String)> = (old.iter().flat_map(|old| old.branches()))
-            .filter(|branch| workspace.find_branch(&branch.ref_name).is_none())
-            .filter_map(|branch| {
-                let newest = follow_by_key(old, &workspace, branch.commits.first()?.id)?;
-                let (now, _) = workspace.find_commit(newest)?;
-                Some((branch.ref_name.clone(), now.ref_name.clone()))
-            })
-            .collect();
+        let renamed = renamed(old, &workspace);
         let (rewritten, gone_from) = match &self.selection {
             Some(Selection::Commit(project, commit)) if project == id => {
                 match follow_by_key(old, &workspace, *commit) {
@@ -643,11 +636,35 @@ impl Store {
         if let Some(name) = home {
             self.select(Some(Selection::Worktree(id.clone(), name)), cx);
         }
+        // A stack goes by its bottom branch, so it follows that one's rename.
+        if let Some(Selection::Stack(project, bottom)) = &self.selection
+            && project == id
+            && let Some((_, to)) = renamed.iter().find(|(from, _)| from == bottom)
+        {
+            self.select(Some(Selection::Stack(id.clone(), to.clone())), cx);
+        }
         for (from, to) in renamed {
             cx.emit(StoreEvent::Renamed(id.clone(), from, to));
         }
         self.save_soon(cx);
     }
+}
+
+/// The branches of `old` renamed in `new`, by full ref, from and to: gone by name while their
+/// newest commit is on a branch `new` named, in a linked worktree too. One deleted from a
+/// stack isn't renamed to the branch that was there before and took its commits, nor to no
+/// name, as its commits left unnamed.
+fn renamed(old: Option<&Workspace>, new: &Workspace) -> Vec<(String, String)> {
+    (old.iter().flat_map(|old| old.lanes().flatten()))
+        .filter(|branch| new.find_branch(&branch.ref_name).is_none())
+        .filter_map(|branch| {
+            let newest = follow_by_key(old, new, branch.commits.first()?.id)?;
+            let (now, _) = new.find_commit(newest)?;
+            let named = !now.ref_name.is_empty()
+                && old.is_some_and(|old| old.find_branch(&now.ref_name).is_none());
+            named.then(|| (branch.ref_name.clone(), now.ref_name.clone()))
+        })
+        .collect()
 }
 
 /// Follow what's cut or dragged from `old` to where its commits are in `new`. False once it
@@ -729,4 +746,87 @@ fn watch(
     backend::watch::watch(project, move |git, linked| {
         changes.unbounded_send((id.clone(), git, linked)).ok();
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::backend::{
+        Branch, Commit, CommitId, CommitState, PushState, Stack, Workspace, Worktree,
+    };
+
+    fn branch(name: &str, commits: &[u8]) -> Branch {
+        let id = |n: u8| gix::ObjectId::from_bytes_or_panic(&[n; 20]);
+        Branch {
+            name: name.into(),
+            ref_name: if name.is_empty() {
+                String::new()
+            } else {
+                format!("refs/heads/{name}")
+            },
+            commits: (commits.iter())
+                .map(|&n| Commit {
+                    id: CommitId(id(n)),
+                    key: format!("key{n}"),
+                    authored: String::new(),
+                    title: String::new(),
+                    message: String::new(),
+                    author: String::new(),
+                    email: String::new(),
+                    agent: None,
+                    time: 0,
+                    state: CommitState::Local,
+                    conflicted: false,
+                    parent: None,
+                    tree: id(n),
+                })
+                .collect(),
+            incoming: Vec::new(),
+            push: PushState::NeverPushed,
+            review: None,
+        }
+    }
+
+    fn workspace(stacks: Vec<Vec<Branch>>, linked: Vec<Branch>) -> Workspace {
+        Workspace {
+            stacks: stacks
+                .into_iter()
+                .map(|branches| Stack { branches })
+                .collect(),
+            worktrees: vec![Worktree {
+                name: "agent".into(),
+                path: "/agent".into(),
+                branch: None,
+                branches: linked,
+                uncommitted: Vec::new(),
+                git_operation: None,
+                tree: None,
+                updated_at: None,
+            }],
+            ..Workspace::default()
+        }
+    }
+
+    #[test]
+    fn renames_are_new_named_branches_holding_a_gone_branchs_commits() {
+        let old = workspace(
+            vec![vec![branch("a", &[1]), branch("c", &[2])]],
+            vec![branch("y", &[3])],
+        );
+        let new = workspace(
+            vec![vec![branch("b", &[1]), branch("c", &[2])]],
+            vec![branch("yy", &[3])],
+        );
+        let renamed =
+            |from: &str, to: &str| (format!("refs/heads/{from}"), format!("refs/heads/{to}"));
+        assert_eq!(
+            super::renamed(Some(&old), &new),
+            [renamed("a", "b"), renamed("y", "yy")],
+            "in the workspace and in a linked worktree alike"
+        );
+        let deleted = workspace(vec![vec![branch("c", &[1, 2])]], vec![branch("", &[3])]);
+        assert!(
+            super::renamed(Some(&old), &deleted).is_empty(),
+            "a branch whose commits went to one already there, or to no name, was deleted"
+        );
+    }
 }

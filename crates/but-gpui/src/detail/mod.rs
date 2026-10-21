@@ -417,7 +417,7 @@ impl Detail {
                 }
                 // What's picked to commit to follows a branch an agent renames.
                 StoreEvent::Renamed(project, from, to) => {
-                    if this.checks_project.as_ref() == Some(project) && !to.is_empty() {
+                    if this.checks_project.as_ref() == Some(project) {
                         this.branch_renamed(from, to, cx);
                     }
                 }

@@ -83,7 +83,7 @@ impl ReviewView {
             }
             // What's written stays for the branch under its new name, as an agent renamed it.
             StoreEvent::Renamed(project, from, to)
-                if *project == this.project && *from == this.branch && !to.is_empty() =>
+                if *project == this.project && *from == this.branch =>
             {
                 this.branch = to.clone();
                 cx.notify();
