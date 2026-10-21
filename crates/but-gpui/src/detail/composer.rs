@@ -188,14 +188,6 @@ fn covers_same_lines(a: HunkKey, b: HunkKey) -> bool {
     a.start < b.end && b.start < a.end
 }
 
-/// Which checkout a message being written is kept for, in `Store::drafts`.
-pub(super) fn draft_key(project: &ProjectId, worktree: Option<&str>) -> String {
-    match worktree {
-        Some(worktree) => format!("{project}#{worktree}"),
-        None => project.to_string(),
-    }
-}
-
 impl Detail {
     /// Close the composer for `project`'s checkout `worktree` to show next. The checks of the
     /// one left wait for coming back, as looking elsewhere shouldn't put back in what was
@@ -215,15 +207,17 @@ impl Detail {
             self.other_checks.insert(left.clone(), checks);
         }
         // A message the AI was still writing goes back to what was written by hand.
-        if let (Some((_, notes)), (Some(project), worktree)) = (self.writing.take(), &left) {
-            let key = draft_key(project, worktree.as_deref());
-            (self.store).update(cx, |store, _| store.drafts.insert(key, notes));
+        if let (Some((_, notes)), (Some(project), worktree)) = (self.writing.take(), left) {
+            (self.store).update(cx, |store, _| {
+                store.drafts.insert((project, worktree), notes)
+            });
         }
         (self.checks_project, self.checks_worktree) = (project, worktree);
         // The message being written there, as checks are.
-        let draft = (self.checks_project.as_ref())
-            .map(|project| draft_key(project, self.checks_worktree.as_deref()))
-            .and_then(|key| self.store.read(cx).drafts.get(&key).cloned())
+        let key = (self.checks_project.clone()).map(|p| (p, self.checks_worktree.clone()));
+        let drafts = &self.store.read(cx).drafts;
+        let draft = key
+            .and_then(|key| drafts.get(&key).cloned())
             .unwrap_or_default();
         self.message.update(cx, |input, cx| input.load(draft, cx));
         self.composing = false;
@@ -704,7 +698,7 @@ impl Detail {
                 },
                 move |store, (branch, (_id, left_out, hook_failed)), cx| {
                     // The message is done with, even kept for a checkout left meanwhile.
-                    let key = draft_key(&finished, from.as_deref());
+                    let key = (finished.clone(), from.clone());
                     if (store.drafts.get(&key)).is_some_and(|d| d.trim() == committed) {
                         store.drafts.remove(&key);
                     }

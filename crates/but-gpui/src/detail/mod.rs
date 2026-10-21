@@ -465,7 +465,7 @@ impl Detail {
                 InputEvent::Changed => {
                     let message = this.message.read(cx).text().to_owned();
                     if let Some(project) = &this.checks_project {
-                        let key = composer::draft_key(project, this.checks_worktree.as_deref());
+                        let key = (project.clone(), this.checks_worktree.clone());
                         (this.store).update(cx, |store, _| match message.trim().is_empty() {
                             true => store.drafts.remove(&key),
                             false => store.drafts.insert(key, message),
