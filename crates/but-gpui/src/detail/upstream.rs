@@ -1389,17 +1389,23 @@ impl Detail {
                     }
                 })
             });
-        // What's going on in it, in counts.
+        // What's going on in it, in counts, after where it is on the same line, which gives
+        // way first.
         let workspace = entry.workspace.as_ref();
         let applied = workspace.map_or(0, |ws| ws.branches().count());
         let unapplied = (self.upstream_for(project)).and_then(|u| u.summary.as_ref()?.unapplied);
         let worktrees = workspace.map_or(0, |ws| ws.worktrees.len());
         let network = store.mesh_checkouts(project);
         let network_branches: usize = network.iter().map(|c| c.branches.len()).sum();
-        let counts = meta_row(theme)
-            .child(meta_item(Icon::Branch, theme).child(format!("{applied} applied")))
+        let meta = meta
+            .child(
+                meta_item(Icon::Branch, theme)
+                    .flex_none()
+                    .child(format!("{applied} applied")),
+            )
             .children(unapplied.map(|n| {
                 meta_item(Icon::Branch, theme)
+                    .flex_none()
                     .id("unapplied-count")
                     .child(format!("{n} not applied"))
                     .tooltip(Tooltip::text(
@@ -1407,10 +1413,14 @@ impl Detail {
                     ))
             }))
             .when(worktrees > 0, |el| {
-                el.child(meta_item(Icon::Folder, theme).child(plural(worktrees, "linked worktree")))
+                el.child(
+                    meta_item(Icon::Folder, theme)
+                        .flex_none()
+                        .child(plural(worktrees, "linked worktree")),
+                )
             })
             .when(!network.is_empty(), |el| {
-                el.child(meta_item(Icon::Globe, theme).child(format!(
+                el.child(meta_item(Icon::Globe, theme).flex_none().child(format!(
                     "{} on other machines, {}",
                     plural(network.len(), "worktree"),
                     match network_branches {
@@ -1428,8 +1438,7 @@ impl Detail {
                     .child(trigger)
                     .child(title_text(entry.project.name.clone())),
             )
-            .child(meta)
-            .child(counts);
+            .child(meta);
         let target = Selection::Project(project.clone());
         self.page_header(main, target, None, None, theme, cx)
     }
