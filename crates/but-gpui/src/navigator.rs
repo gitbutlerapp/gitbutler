@@ -227,9 +227,9 @@ fn upstream_indent(ref_name: Option<&str>) -> f32 {
 }
 
 /// Where the middles of a remote's heading's chevron and of its merges' chevrons sit: the
-/// target's under the worktree chevrons, a branch's under its commit glyphs.
+/// target's as the worktree sections' headings have theirs, a branch's under its commit glyphs.
 fn upstream_chevrons(ref_name: Option<&str>) -> (f32, f32) {
-    let heading = if ref_name.is_some() { 47. } else { 23. };
+    let heading = if ref_name.is_some() { 47. } else { GUIDE_AT };
     (heading, 3. + 8. + upstream_indent(ref_name) + 6.)
 }
 
@@ -550,7 +550,13 @@ impl Navigator {
             if let Some(err) = &entry.error {
                 rows.push(Row::Note(err.clone(), true));
             }
+            // The target's new commits are a section of their own, as Network worktrees is,
+            // ruled off from the worktrees.
+            let before = rows.rows.len();
             self.upstream_rows(store, workspace, id, None, &mut rows);
+            if rows.rows.len() > before {
+                rows.push(Row::WorktreeDivider);
+            }
             // Nothing but the edit goes on while a commit is checked out, its files listed
             // where the uncommitted ones are.
             if workspace.editing.is_some() {
@@ -3004,13 +3010,16 @@ impl Navigator {
             .id(("upstream-heading", ix))
             .h(px(ROW_HEIGHT))
             .mx(px(3.))
-            // Its chevron under a branch's commit glyphs, or the project's worktree chevrons.
+            // Its chevron under a branch's commit glyphs, or as Network worktrees has its own.
             .pl(px(upstream_chevrons(ref_name).0 - 10.))
             .pr(px(8.))
             .gap(px(6.))
             .rounded(px(4.))
             .hover(move |el| el.bg(hover))
             .child(step(Some(open), theme.text_3))
+            .when(ref_name.is_none(), |el| {
+                el.child(small_icon(Icon::ArrowLineDown).text_color(theme.text_3))
+            })
             .child(
                 section_label(label, theme)
                     .flex_1()
