@@ -372,7 +372,7 @@ impl Detail {
             let result =
                 backend::run(move || backend::history::list(&path, after, limit, now)).await;
             this.update(cx, |this, cx| {
-                let (operations, more) = match result {
+                let (mut operations, mut more) = match result {
                     Ok(page) => page,
                     // What's listed stays, Show older too, to try again.
                     Err(err) => {
@@ -392,17 +392,27 @@ impl Detail {
                         history
                     }
                     _ => {
-                        let previous = this
-                            .history
-                            .take()
-                            .filter(|history| history.project == project)
-                            .and_then(|history| history.selected);
+                        let mut selected = None;
+                        if let Some(mut previous) =
+                            (this.history.take()).filter(|h| h.project == project)
+                        {
+                            // New operations push the oldest of the rows asked for out: those
+                            // already listed stay, older pages and the selection with them, as
+                            // the log only grows at the top.
+                            let last = operations.last().map(|op| op.id);
+                            let ops = &previous.operations;
+                            if let Some(at) = ops.iter().position(|op| Some(op.id) == last) {
+                                operations.extend(previous.operations.split_off(at + 1));
+                                more = previous.more;
+                            }
+                            selected = previous.selected;
+                        }
                         this.history.insert(History {
                             project: project.clone(),
                             operations,
                             more: false,
                             loading: false,
-                            selected: previous,
+                            selected,
                         })
                     }
                 };
