@@ -14,7 +14,7 @@ use but_core::tree::create_tree::RejectionReason;
 use but_core::{DiffSpec, DryRun};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 
-use super::{ChangeKind, CommitId, Selected, checkout, open, written};
+use super::{ChangeKind, CommitId, Selected, checkout, open, short_ref, written};
 
 /// Where a commit or a set of changes lands.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -481,7 +481,13 @@ pub fn name_branch(path: &Path, top: CommitId, name: &str) -> Result<String> {
 
 pub fn remove_branch(path: &Path, ref_name: &str) -> Result<()> {
     let mut ctx = open(path)?;
-    but_api::branch::branch_remove(&mut ctx, full_name(ref_name)?)?;
+    let name = full_name(ref_name)?;
+    // Removing a ref that's gone does nothing, so say so rather than that it went, as after
+    // an agent renamed the branch while the confirmation was up.
+    if ctx.repo.get()?.try_find_reference(name.as_ref())?.is_none() {
+        bail!("{} was renamed or deleted meanwhile", short_ref(ref_name));
+    }
+    but_api::branch::branch_remove(&mut ctx, name)?;
     Ok(())
 }
 
