@@ -142,10 +142,15 @@ impl Detail {
                     }
                 };
                 let previous = this.upstream.take().filter(|u| u.project == project);
-                let (mut list, selected) = match previous {
-                    Some(previous) if after.is_some() => (previous.commits, previous.selected),
-                    Some(previous) => (Vec::new(), previous.selected),
-                    None => (Vec::new(), None),
+                // A page further back says nothing of whether the newest are current, as when
+                // it cut short the reload after a fetch.
+                let now = (seen, Instant::now());
+                let (mut list, selected, seen) = match previous {
+                    Some(previous) if after.is_some() => {
+                        (previous.commits, previous.selected, previous.seen)
+                    }
+                    Some(previous) => (Vec::new(), previous.selected, now),
+                    None => (Vec::new(), None, now),
                 };
                 list.extend(commits);
                 let selected = selected
@@ -158,7 +163,7 @@ impl Detail {
                     selected,
                     fetch,
                     unconnected_forge,
-                    seen: (seen, Instant::now()),
+                    seen,
                     failed: None,
                 });
                 this.refresh_diff(false, cx);
