@@ -66,30 +66,12 @@ fn read_marks<'a, C: Seeable + 'a>(
     items
 }
 
-/// Starting a branch from a project or its main worktree: one more in the workspace, beside
-/// the others, while there is one; one of its own, switched to, leaving the workspace, as
-/// an agent's single-branch work starts; or, with linked worktrees on, one in a new linked
-/// worktree, as `but worktree new` makes.
+/// Starting a branch from a project or its main worktree: a new one beside the others, or on
+/// top of the one checked out; or, with linked worktrees on, one in a new linked worktree, as
+/// `but worktree new` makes.
 fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuItem> {
     let managed = store.workspace(project).is_some_and(|ws| ws.managed);
-    let mut items = Vec::new();
-    if managed {
-        items.push(MenuItem::action("New branch in workspace…", &NewBranch, cx));
-    }
-    let switching = project.clone();
-    items.push(MenuItem::new(
-        "New branch and switch to it…",
-        move |app, window, cx| {
-            app.prompt_new_branch(
-                switching.clone(),
-                "New branch and switch to it",
-                false,
-                window,
-                cx,
-                |path, _, name| crate::backend::switch_to_new_branch(path, Some(name)),
-            )
-        },
-    ));
+    let mut items = vec![MenuItem::action("New branch…", &NewBranch, cx)];
     if managed && crate::backend::settings::worktrees_enabled() {
         let project = project.clone();
         items.push(MenuItem::new("New worktree…", move |app, window, cx| {
@@ -493,13 +475,15 @@ impl Navigator {
                 if edits.new_branch_here && !linked {
                     items.push(action("New branch ending here…", &NewBranchHere));
                 }
-                items.extend([
-                    action("Move to a new branch", &MoveToNewBranch).separated(),
+                if store.workspace(project).is_some_and(|ws| ws.managed) {
+                    items.push(action("Move to a new branch", &MoveToNewBranch).separated());
+                }
+                items.push(
                     keyed("Copy commit ID", &CopySelection, cx, move |app, _, cx| {
                         app.copy_text(id.0.to_string(), cx)
                     })
                     .separated(),
-                ]);
+                );
                 if edits.change_id {
                     items.push(action("Copy change ID", &CopyChangeId));
                 }

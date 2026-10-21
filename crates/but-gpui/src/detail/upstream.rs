@@ -19,7 +19,7 @@ use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, TargetCommit};
 
 const DAY: i64 = 24 * 60 * 60;
 use crate::backend::{self, CommitId, DiffSource, Forge};
-use crate::state::{Overlay, ProjectId, Selection};
+use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::emoji::ProjectIcon;
 use crate::ui::illustration::Illustration;
@@ -1192,7 +1192,7 @@ impl Detail {
                     .id("unapplied-count")
                     .child(format!("{n} not applied"))
                     .tooltip(Tooltip::text(
-                        "Branches with commits of their own that aren't in your workspace",
+                        "Branches with commits of their own that aren't applied",
                     ))
             }))
             .when(worktrees > 0, |el| {
@@ -1251,9 +1251,6 @@ impl Detail {
         let upstream = self.upstream_for(project);
         let missing = !entry.project.path.exists();
         let fetch_error = upstream.and_then(|u| u.fetch.as_ref()?.1.clone());
-        // Checked out outside the workspace, with one to go back to.
-        let outside = (entry.workspace.as_ref())
-            .filter(|ws| !ws.managed && ws.editing.is_none() && ws.target.is_some());
         // Said in or outside the workspace, as the uncommitted changes say it.
         let unfinished = (entry.workspace.as_ref())
             .and_then(|ws| ws.git_operation)
@@ -1291,45 +1288,6 @@ impl Detail {
                                     .ok();
                             })),
                     )
-                    .into_any_element()
-            }),
-            outside.map(|ws| {
-                let text = match &ws.checked_out {
-                    Some(branch) => format!(
-                        "Working on {branch} directly. Use the GitButler workspace to work on \
-                         several branches at once."
-                    ),
-                    None => "Working outside the workspace. Use the GitButler workspace to \
-                             work on several branches at once."
-                        .to_owned(),
-                };
-                let project = project.clone();
-                callout(theme.hover())
-                    .child(div().text_color(theme.text_1).child(text))
-                    // Until Git finishes, switching to the workspace has to wait.
-                    .when(ws.git_operation.is_none(), |el| {
-                        el.child(
-                            crate::ui::button("switch-back", "Switch to the workspace")
-                                .small()
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    this.store.update(cx, |store, cx| {
-                                        store.run(
-                                            &project,
-                                            "Switch to the workspace",
-                                            Overlay::default(),
-                                            |path, _| backend::switch_back_to_workspace(path),
-                                            |store, (), cx| {
-                                                store.snack(
-                                                    "Switched to the GitButler workspace",
-                                                    cx,
-                                                )
-                                            },
-                                            cx,
-                                        )
-                                    })
-                                })),
-                        )
-                    })
                     .into_any_element()
             }),
             missing.then(|| {

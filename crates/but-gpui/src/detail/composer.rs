@@ -624,20 +624,16 @@ impl Detail {
             let branch = workspace.find_worktree(name)?.branch.as_ref()?;
             return Some(format!("refs/heads/{branch}"));
         }
-        // A branch merged upstream is done with, even before an update takes it out, as is
-        // one being unapplied.
-        let open = |branch: &Branch| {
-            branch.push != PushState::Integrated && !store.hides_branch(project, &branch.ref_name)
-        };
         // One of its own branches: a linked worktree's are committed to there.
         if let Some(target) = &self.commit_target
-            && (workspace.branches()).any(|branch| branch.ref_name == *target && open(branch))
+            && (workspace.branches())
+                .any(|branch| branch.ref_name == *target && takes_commits(store, project, branch))
         {
             return Some(target.clone());
         }
         (workspace.stacks.iter())
             .filter_map(|stack| stack.branches.first())
-            .find(|branch| !branch.ref_name.is_empty() && open(branch))
+            .find(|branch| takes_commits(store, project, branch))
             .map(|branch| branch.ref_name.clone())
     }
 
@@ -1168,14 +1164,9 @@ impl Detail {
         let Some(workspace) = self.store.read(cx).workspace(&project) else {
             return;
         };
-        // Only those it commits to: not one merged upstream or being unapplied.
         let store = self.store.read(cx);
         let mut choices: Vec<Choice> = (workspace.branches())
-            .filter(|branch| {
-                !branch.ref_name.is_empty()
-                    && branch.push != PushState::Integrated
-                    && !store.hides_branch(&project, &branch.ref_name)
-            })
+            .filter(|branch| takes_commits(store, &project, branch))
             .map(|branch| {
                 let (detail, ref_name) = (detail.clone(), branch.ref_name.clone());
                 let (picked, name) = (project.clone(), branch.name.clone());
@@ -1229,6 +1220,17 @@ impl Detail {
         }))
         .ok();
     }
+}
+
+/// Whether the composer commits to `branch`. Not to the default branch, as new work goes on a
+/// branch of its own, as `but commit` does; nor to one merged upstream, even before an update
+/// takes it out, or being unapplied.
+fn takes_commits(store: &Store, project: &ProjectId, branch: &Branch) -> bool {
+    !branch.ref_name.is_empty()
+        && branch.push != PushState::Integrated
+        && !store.hides_branch(project, &branch.ref_name)
+        && (store.workspace(project))
+            .is_none_or(|ws| ws.target_branch.as_ref() != Some(&branch.ref_name))
 }
 
 #[cfg(test)]

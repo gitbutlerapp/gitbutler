@@ -166,12 +166,6 @@ pub fn activate(path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Check GitButler's workspace out again, after a plain `git checkout` of one branch left it.
-pub fn switch_back_to_workspace(path: &Path) -> Result<()> {
-    but_api::legacy::virtual_branches::switch_back_to_workspace(&mut open(path)?)?;
-    Ok(())
-}
-
 pub(crate) fn open(path: &Path) -> Result<Context> {
     Context::open(path).with_context(|| format!("Couldn't open {}", path.display()))
 }
@@ -231,9 +225,6 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     let head = repo.head_name()?;
     let managed =
         (head.as_ref()).is_some_and(|name| name.as_bstr() == but_core::WORKSPACE_REF_NAME);
-    let checked_out = head
-        .filter(|_| !managed)
-        .map(|name| name.shorten().to_string());
     let tree = head_tree(&repo);
     let git_operation = git_operation(&repo);
     // The uncommitted files and the refs are read beside the workspace's graph, which takes
@@ -370,7 +361,9 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         uncommitted,
         tree,
         managed,
-        checked_out,
+        target_branch: (ctx.project_meta().ok())
+            .and_then(|meta| meta.target_ref)
+            .map(|name| name.to_string()),
         git_operation,
         editing: None,
         worktrees,

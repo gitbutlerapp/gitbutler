@@ -150,6 +150,7 @@ impl AppView {
         let picked = store.picked.len() > 1;
         match &store.selection {
             Some(Selection::Commit(project, id)) => {
+                let managed = store.workspace(project).is_some_and(|ws| ws.managed);
                 let edits = (store.find_commit(project, *id))
                     .map_or_else(CommitEdits::default, |(branch, commit)| {
                         CommitEdits::of(branch, commit)
@@ -161,25 +162,20 @@ impl AppView {
                     this.add_empty_commit(false, cx)
                 }))
                 .on_action(cx.listener(Self::cherry_pick))
-                .on_action(cx.listener(|this, _: &MoveToNewBranch, _, cx| {
-                    let Some((project, commit)) = this.selected_commit(cx) else {
-                        return;
-                    };
-                    let id = commit.id;
-                    this.store.update(cx, |store, cx| {
-                        // A branch of its own sits beside the others, which only the
-                        // workspace has.
-                        if store.workspace(&project).is_some_and(|ws| !ws.managed) {
-                            return store.snack(
-                                "Switch to the workspace first, to move a commit to a new branch",
-                                cx,
-                            );
-                        }
-                        // With the commits picked with it, as dropping them on New branch does.
-                        let ids = store.with_picks(&project, id);
-                        store.move_to_new_branch(&project, ids, cx)
-                    });
-                }))
+                // A branch of its own sits beside the others, which only the workspace has.
+                .when(managed, |el| {
+                    el.on_action(cx.listener(|this, _: &MoveToNewBranch, _, cx| {
+                        let Some((project, commit)) = this.selected_commit(cx) else {
+                            return;
+                        };
+                        let id = commit.id;
+                        this.store.update(cx, |store, cx| {
+                            // With the commits picked with it, as dropping them on New branch does.
+                            let ids = store.with_picks(&project, id);
+                            store.move_to_new_branch(&project, ids, cx)
+                        });
+                    }))
+                })
                 .when(picked, |el| el.on_action(cx.listener(Self::squash_picked)))
                 .when(edits.new_branch_here && !linked, |el| {
                     el.on_action(cx.listener(Self::new_branch_here))

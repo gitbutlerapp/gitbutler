@@ -610,18 +610,11 @@ impl Detail {
                 app.store
                     .update(cx, |store, cx| store.select(Some(shown), cx))
             }),
-            None => MenuItem::new("Apply to workspace", move |app, _, cx| {
+            None => MenuItem::new("Apply", move |app, _, cx| {
                 app.detail
                     .update(cx, |detail, cx| detail.apply_branch(&p, &r, cx))
             }),
         });
-        if worktree.is_none() {
-            let (p, r) = (project.clone(), ref_name.to_owned());
-            items.push(MenuItem::new("Switch to branch", move |app, _, cx| {
-                app.detail
-                    .update(cx, |detail, cx| detail.switch_to_branch(&p, &r, cx))
-            }));
-        }
         if let Some(url) = (branch.review.as_ref()).and_then(|r| r.url.clone()) {
             items.push(MenuItem::new("Open pull request", move |_, _, cx| {
                 cx.open_url(&url)
@@ -749,28 +742,6 @@ impl Detail {
                         format!("It conflicts with {}", stacks.join(", ")),
                         cx,
                     ),
-                },
-                cx,
-            )
-        });
-    }
-
-    /// Leave the workspace for just branch `ref_name`, checked out on its own.
-    fn switch_to_branch(&mut self, project: &ProjectId, ref_name: &str, cx: &mut Context<Self>) {
-        let Some(branch) = self.listed_branch(project, ref_name) else {
-            return;
-        };
-        let (ref_name, name) = (branch.ref_name.clone(), branch.name.clone());
-        let selected = project.clone();
-        self.store.update(cx, |store, cx| {
-            store.run(
-                project,
-                format!("Switch to {name}"),
-                Overlay::default(),
-                move |path, _| backend::switch_to_branch(path, &ref_name),
-                move |store, local, cx| {
-                    store.select(Some(Selection::Branch(selected, local)), cx);
-                    store.snack_undoable(format!("Switched to {name}"), cx)
                 },
                 cx,
             )

@@ -44,12 +44,13 @@ pub struct Workspace {
     /// The tree of the main checkout's `HEAD` that `uncommitted` was read against. While it's
     /// the same, an operation on commits left the files as they were: see [`super::Kept`].
     pub tree: Option<gix::ObjectId>,
-    /// `HEAD` is GitButler's workspace. Otherwise one branch is checked out, as in a new
-    /// project or after a plain `git checkout`, and the stacks are just that branch.
+    /// `HEAD` is GitButler's workspace, merging two or more branches. Otherwise one branch is
+    /// checked out, as in a new project or after a plain `git checkout`, and the stacks are
+    /// just that branch, or none on the default branch with nothing of its own.
     pub managed: bool,
-    /// The branch checked out instead of the workspace, by its short name. The stacks leave
-    /// it out when it's the target's own branch, as in a new project.
-    pub checked_out: Option<String>,
+    /// The project's default branch, by its full name, like `refs/heads/main`: a new commit
+    /// goes on a branch of its own rather than onto it, as `but commit` does.
+    pub target_branch: Option<String>,
     /// The Git command a rebase, merge, cherry-pick or revert that stopped partway was
     /// started with, like `git rebase`, to finish it with.
     pub git_operation: Option<&'static str>,

@@ -570,18 +570,11 @@ impl Navigator {
                 let stacks = (workspace.stacks.iter()).filter(|stack| {
                     !(stack.branches.iter()).any(|b| store.hides_branch(id, &b.ref_name))
                 });
+                // Whether a branch is checked out on its own or several share the workspace,
+                // they're listed alike; with none, as on the default branch, there's nothing to
+                // list, and the next commit starts one.
                 for stack in stacks {
                     self.lane_rows(store, id, &stack.branches, &mut rows);
-                }
-                if workspace.stacks.is_empty() {
-                    // Off the workspace, as after a plain `git checkout`, the branches are
-                    // still there, just not applied.
-                    let note = match (workspace.managed, &workspace.checked_out) {
-                        (true, _) => "No branches yet".into(),
-                        (false, Some(branch)) => format!("Working on {branch} directly").into(),
-                        (false, None) => "Working outside the workspace".into(),
-                    };
-                    rows.push(Row::Note(note, false));
                 }
             }
             if headed {
@@ -1701,7 +1694,7 @@ impl Navigator {
             Selection::Branch(id, ref_name) => self.branch_row(item, id, ref_name, style, cx),
             Selection::Commit(id, commit_id) => self.commit_row(item, id, commit_id, style, cx),
             Selection::Branches(_) => {
-                let tip = Some("Branches not applied in your workspace");
+                let tip = Some("Branches not applied");
                 Some(self.page_row(item, Icon::Branch, "Branches", tip, style, cx))
             }
             Selection::History(_) => {

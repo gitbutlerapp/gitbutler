@@ -314,34 +314,6 @@ pub fn create_branch(path: &Path, name: Option<&str>) -> Result<String> {
     Ok(created.new_ref.to_string())
 }
 
-/// Make branch `name` at the target, or one with a made-up name, and switch to it on its own,
-/// leaving the workspace, as Lite's New Branch and Switch to It does. Returns its full name.
-pub fn switch_to_new_branch(path: &Path, name: Option<&str>) -> Result<String> {
-    let mut ctx = open(path)?;
-    let name = match name.map(str::trim).filter(|name| !name.is_empty()) {
-        Some(name) => name.to_owned(),
-        None => but_api::branch::branch_canned_name(&ctx)?,
-    };
-    let ref_name = branch_ref(&name)?;
-    but_api::branch::branch_checkout_new(&mut ctx, Some(name))?;
-    Ok(ref_name.to_string())
-}
-
-/// Switch to `ref_name` (a full ref name) on its own, leaving the workspace; one only a
-/// remote has gets its local branch first. Returns the local branch's full name.
-pub fn switch_to_branch(path: &Path, ref_name: &str) -> Result<String> {
-    let mut ctx = open(path)?;
-    let name = full_name(ref_name)?;
-    let local = match name.category() {
-        Some(gix::refs::Category::RemoteBranch) => {
-            but_workspace::branch::local_tracking_branch(&*ctx.repo.get()?, name.as_ref())?
-        }
-        _ => name.clone(),
-    };
-    but_api::branch::branch_checkout(&mut ctx, name)?;
-    Ok(local.to_string())
-}
-
 /// Stack a new branch on top of `below` (a full ref name).
 pub fn create_dependent_branch(path: &Path, below: &str, name: &str) -> Result<String> {
     let relative_to = but_api::commit::json::RelativeTo::Reference(full_name(below)?);
@@ -1309,7 +1281,50 @@ mod tests {
         );
         let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
         assert!(!workspace.managed, "still outside the workspace");
-        assert_eq!(workspace.checked_out.as_deref(), Some("feature"));
+        assert_eq!(
+            (workspace.stacks.iter().flat_map(|s| &s.branches))
+                .map(|b| b.ref_name.as_str())
+                .collect::<Vec<_>>(),
+            ["refs/heads/feature"],
+            "the branch checked out is listed as the only one"
+        );
+    }
+
+    #[test]
+    fn commits_made_on_the_default_branch_stay_below_the_next_branch() {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        target_origin_main(path);
+        git(path, &["commit", "-q", "--allow-empty", "-m", "on main"]);
+        let branches = |path: &Path| {
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            assert_eq!(
+                workspace.target_branch.as_deref(),
+                Some("refs/heads/main"),
+                "the composer knows which branch not to commit to"
+            );
+            (workspace.stacks.iter().flat_map(|s| &s.branches))
+                .map(|b| (b.name.clone(), b.commits.len()))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            branches(path),
+            [("main".to_owned(), 1)],
+            "main is listed while it has a commit origin doesn't"
+        );
+
+        let new = create_branch(path, None).unwrap();
+        let name = new.strip_prefix("refs/heads/").unwrap().to_owned();
+        assert_eq!(
+            branches(path),
+            [(name, 0), ("main".to_owned(), 1)],
+            "the composer's new branch goes on top of main's commit, which stays where it is"
+        );
+        assert_eq!(
+            git(path, &["symbolic-ref", "HEAD"]).trim(),
+            new,
+            "the new branch is checked out, so the commit lands on it"
+        );
     }
 
     #[test]
