@@ -1,20 +1,27 @@
-//! Markdown, as pull request descriptions are written, drawn as formatted text.
+//! Markdown, as pull request descriptions and READMEs are written, drawn as formatted text.
 //!
 //! Only what can't reach outside the app is kept. Links open only to the web and to mail,
-//! with where they go shown on hover, as a link's words can say anything; images are never
-//! fetched, so a description can't learn you've read it, and show their words instead; HTML
-//! is never interpreted, only its text kept. What's past [`MAX_BYTES`] isn't parsed, and
-//! nesting past [`MAX_DEPTH`] steps in no further.
+//! with where they go shown on hover, as a link's words can say anything. A description's
+//! images are never fetched, so it can't learn you've read it, and show their words instead;
+//! a README's ([`parse_showing_images`]) are listed for the caller to load. HTML is read only
+//! as far as a README lays itself out with it: headings, paragraphs and centring, bold,
+//! emphasis and code, links, line breaks and images; other tags leave only their text. What's
+//! past [`MAX_BYTES`] isn't parsed, and nesting past [`MAX_DEPTH`] steps in no further.
 //!
 //! Emphasis shows in the medium weight, not slanted: the app embeds no italic face, and
 //! asking for one could pick a variable font installed on the machine, which is slow to
 //! draw (see the crate's AGENTS.md).
 
+use std::cell::Cell;
+use std::collections::HashMap;
 use std::ops::Range;
+use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, Font, FontWeight, Hsla, InteractiveText, IntoElement, ParentElement,
-    SharedString, StrikethroughStyle, Styled, StyledText, TextRun, UnderlineStyle, div, px,
+    AnyElement, App, Font, FontWeight, Hsla, ImageSource, InteractiveElement, InteractiveText,
+    IntoElement, ParentElement, RenderImage, SharedString, StatefulInteractiveElement,
+    StrikethroughStyle, Styled, StyledText, TextRun, UnderlineStyle, div, img,
+    prelude::FluentBuilder, px, relative,
 };
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 
@@ -43,6 +50,69 @@ pub struct Block {
     pub styles: Vec<(Range<usize>, Style)>,
     /// Where each link goes, by the text it covers; only addresses that are safe to open.
     pub links: Vec<(Range<usize>, String)>,
+    /// Inside HTML that centres it, as a README's heading and badges are.
+    pub centered: bool,
+    /// An [`Kind::Images`] block's images, in a row.
+    pub images: Vec<Image>,
+}
+
+/// An image to show, by where it's loaded from.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Image {
+    /// A web address, or a path in the repository from its top, which the caller reads.
+    pub src: String,
+    pub alt: String,
+    /// The link it's in, which a click opens.
+    pub link: Option<String>,
+    pub width: Option<Width>,
+}
+
+/// How wide HTML asks an image to be.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Width {
+    Px(f32),
+    /// Of the text's width.
+    Fraction(f32),
+}
+
+/// Every image `blocks` show, each once.
+pub fn image_sources(blocks: &[Block]) -> Vec<String> {
+    let mut sources: Vec<String> = Vec::new();
+    for image in blocks.iter().flat_map(|block| &block.images) {
+        if !sources.contains(&image.src) {
+            sources.push(image.src.clone());
+        }
+    }
+    sources
+}
+
+/// Where an image is loaded from, when it can be: the web, or a path in the repository,
+/// which can't step out of it.
+fn image_source(url: &str) -> Option<String> {
+    let url = url.trim();
+    let lower = url.to_ascii_lowercase();
+    if lower.starts_with("https://") || lower.starts_with("http://") {
+        return Some(url.to_owned());
+    }
+    let path = url
+        .split(['?', '#'])
+        .next()?
+        .trim_start_matches("./")
+        .trim_start_matches('/');
+    let inside =
+        !path.is_empty() && !path.contains(':') && !path.split('/').any(|part| part == "..");
+    inside.then(|| path.to_owned())
+}
+
+/// The width an `<img>`'s `width` asks for: pixels, or a share of the text's width.
+fn html_width(value: &str) -> Option<Width> {
+    let value = value.trim();
+    if let Some(percent) = value.strip_suffix('%') {
+        let percent: f32 = percent.trim().parse().ok()?;
+        return Some(Width::Fraction((percent / 100.).clamp(0.01, 1.)));
+    }
+    let px: f32 = value.trim_end_matches("px").trim().parse().ok()?;
+    (px > 0.).then_some(Width::Px(px))
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -53,6 +123,8 @@ pub enum Kind {
     /// A list item, after its marker: "•", "3." or a box.
     Item(String),
     Rule,
+    /// Images with no words between them, as a row of badges or a screenshot.
+    Images,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -102,46 +174,134 @@ fn push_decoded(text: &mut String, html: &str) {
     text.push_str(rest);
 }
 
-/// HTML's text, without its tags or comments, a `<br>` breaking the line. `in_comment` carries
-/// a comment left open into the next piece, as an HTML block comes a line at a time; an
-/// unclosed tag runs to the end.
-fn html_text(html: &str, in_comment: &mut bool) -> String {
-    let mut text = String::new();
+/// A piece of HTML.
+#[derive(Debug, PartialEq)]
+enum Html {
+    Text(String),
+    /// A tag opening, by its lowercased name, with its attributes, their values decoded.
+    Open(String, Vec<(String, String)>),
+    Close(String),
+}
+
+/// `html` in pieces, comments left out. `in_comment` carries a comment left open into the
+/// next piece, as an HTML block comes a line at a time; an unclosed tag runs to the end.
+fn html_pieces(html: &str, in_comment: &mut bool) -> Vec<Html> {
+    let mut pieces = Vec::new();
+    let text = |pieces: &mut Vec<Html>, raw: &str| {
+        if !raw.is_empty() {
+            let mut text = String::new();
+            push_decoded(&mut text, raw);
+            pieces.push(Html::Text(text));
+        }
+    };
     let mut rest = html;
     loop {
         if *in_comment {
             let Some(end) = rest.find("-->") else {
-                return text;
+                return pieces;
             };
             *in_comment = false;
             rest = &rest[end + 3..];
         }
         let Some(start) = rest.find('<') else {
-            push_decoded(&mut text, rest);
-            return text;
+            text(&mut pieces, rest);
+            return pieces;
         };
-        push_decoded(&mut text, &rest[..start]);
+        text(&mut pieces, &rest[..start]);
         let tag = &rest[start..];
-        match tag.strip_prefix("<!--") {
-            Some(comment) => {
-                *in_comment = true;
-                rest = comment;
-            }
+        if let Some(comment) = tag.strip_prefix("<!--") {
+            *in_comment = true;
+            rest = comment;
+            continue;
+        }
+        let Some(end) = tag.find('>') else {
+            return pieces;
+        };
+        let inner = tag[1..end].trim().trim_end_matches('/');
+        rest = &tag[end + 1..];
+        match inner.strip_prefix('/') {
+            Some(name) => pieces.push(Html::Close(name.trim().to_ascii_lowercase())),
             None => {
-                if tag[1..]
-                    .get(..2)
-                    .is_some_and(|name| name.eq_ignore_ascii_case("br"))
-                {
-                    text.push('\n');
+                let (name, attributes) = tag_parts(inner);
+                if !name.is_empty() {
+                    pieces.push(Html::Open(name, attributes));
                 }
-                rest = tag.find('>').map_or("", |end| &tag[end + 1..])
             }
         }
     }
 }
 
-/// `markdown` as blocks to draw.
+/// A tag's name, lowercased, and its attributes, as `img src="a.png" width=100`.
+fn tag_parts(inner: &str) -> (String, Vec<(String, String)>) {
+    let inner = inner.trim();
+    let name_end = inner.find(char::is_whitespace).unwrap_or(inner.len());
+    let name = inner[..name_end].to_ascii_lowercase();
+    let mut attributes = Vec::new();
+    let mut rest = inner[name_end..].trim_start();
+    while !rest.is_empty() {
+        let key_end = (rest.find(|c: char| c == '=' || c.is_whitespace())).unwrap_or(rest.len());
+        let key = rest[..key_end].to_ascii_lowercase();
+        rest = rest[key_end..].trim_start();
+        let mut value = String::new();
+        if let Some(after) = rest.strip_prefix('=') {
+            let after = after.trim_start();
+            let (raw, left) = match after.chars().next() {
+                Some(quote @ ('"' | '\'')) => {
+                    let body = &after[1..];
+                    let close = body.find(quote).unwrap_or(body.len());
+                    (&body[..close], body.get(close + 1..).unwrap_or(""))
+                }
+                _ => {
+                    let end = after.find(char::is_whitespace).unwrap_or(after.len());
+                    (&after[..end], &after[end..])
+                }
+            };
+            push_decoded(&mut value, raw);
+            rest = left.trim_start();
+        }
+        if !key.is_empty() {
+            attributes.push((key, value));
+        }
+    }
+    (name, attributes)
+}
+
+fn attribute<'a>(attributes: &'a [(String, String)], name: &str) -> Option<&'a str> {
+    (attributes.iter())
+        .find(|(key, _)| key == name)
+        .map(|(_, value)| value.as_str())
+}
+
+/// HTML runs its spaces and line breaks together.
+fn collapse_spaces(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for (ix, word) in text.split_whitespace().enumerate() {
+        if ix > 0 {
+            out.push(' ');
+        }
+        out.push_str(word);
+    }
+    if text.starts_with(char::is_whitespace) {
+        out.insert(0, ' ');
+    }
+    if text.ends_with(char::is_whitespace) && !out.ends_with(' ') {
+        out.push(' ');
+    }
+    out
+}
+
+/// `markdown` as blocks to draw, its images by their words.
 pub fn parse(markdown: &str) -> Vec<Block> {
+    blocks(markdown, false)
+}
+
+/// `markdown` as blocks to draw, its images as [`Kind::Images`] blocks for the caller to
+/// load, as a README's are.
+pub fn parse_showing_images(markdown: &str) -> Vec<Block> {
+    blocks(markdown, true)
+}
+
+fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
     let mut end = markdown.len().min(MAX_BYTES);
     while !markdown.is_char_boundary(end) {
         end -= 1;
@@ -157,7 +317,13 @@ pub fn parse(markdown: &str) -> Vec<Block> {
     let mut quotes = 0;
     let mut in_comment = false;
     let mut link: Option<(usize, Option<String>)> = None;
-    let mut image: Option<(String, Option<String>)> = None;
+    // Its words, and where it's from.
+    let mut image: Option<(String, String)> = None;
+    // The HTML tags that make blocks, open around here, each with whether it centres them.
+    let mut html_open: Vec<(String, bool)> = Vec::new();
+    let centered = Cell::new(false);
+    // A block of HTML comes a line at a time, and lines apart read as one space.
+    let mut html_gap = false;
     // In a table row: whether it's the header, and how many of its cells came before.
     let (mut in_head, mut cells) = (false, 0);
     let depth = |lists: &Vec<Option<u64>>, quotes: usize| (lists.len() + quotes).min(MAX_DEPTH);
@@ -170,6 +336,8 @@ pub fn parse(markdown: &str) -> Vec<Block> {
         text: String::new(),
         styles: Vec::new(),
         links: Vec::new(),
+        centered: centered.get(),
+        images: Vec::new(),
     };
     fn push(block: &mut Block, text: &str, style: Style) {
         let start = block.text.len();
@@ -179,32 +347,103 @@ pub fn parse(markdown: &str) -> Vec<Block> {
         }
     }
     fn close(blocks: &mut Vec<Block>, current: &mut Option<Block>) {
+        // HTML's spaces at a block's end show nothing.
+        if let Some(block) = current.as_mut().filter(|block| block.kind != Kind::Code) {
+            let end = block.text.trim_end_matches(' ').len();
+            block.text.truncate(end);
+            let ranges = (block.styles.iter_mut().map(|(range, _)| range))
+                .chain(block.links.iter_mut().map(|(range, _)| range));
+            for range in ranges {
+                range.end = range.end.min(end);
+            }
+            block.styles.retain(|(range, _)| !range.is_empty());
+            block.links.retain(|(range, _)| !range.is_empty());
+        }
         if let Some(block) = current.take()
-            && (!block.text.trim().is_empty() || matches!(block.kind, Kind::Item(_)))
+            && (!block.text.trim().is_empty()
+                || matches!(block.kind, Kind::Item(_))
+                || !block.images.is_empty())
         {
             blocks.push(block);
         }
     }
+    /// The block text goes in: the current one, unless that's a row of images, which ends
+    /// where words start.
+    fn text_block<'a>(
+        blocks: &mut Vec<Block>,
+        current: &'a mut Option<Block>,
+        fresh: impl FnOnce() -> Block,
+    ) -> &'a mut Block {
+        if current
+            .as_ref()
+            .is_some_and(|block| block.kind == Kind::Images)
+        {
+            close(blocks, current);
+        }
+        current.get_or_insert_with(fresh)
+    }
+    /// Put `image` with the images before it when no words came between, or else, or when
+    /// images aren't shown, its words in its place.
+    fn put_image(
+        current: &mut Option<Block>,
+        image: Image,
+        fresh: impl FnOnce() -> Block,
+        style: Style,
+        in_link: bool,
+        shown: bool,
+    ) {
+        let wordless = |block: &Block| {
+            block.text.trim().is_empty() && matches!(block.kind, Kind::Paragraph | Kind::Images)
+        };
+        if shown && current.as_ref().is_none_or(wordless) {
+            let block = current.get_or_insert_with(fresh);
+            block.kind = Kind::Images;
+            block.text.clear();
+            block.styles.clear();
+            block.links.clear();
+            block.images.push(image);
+            return;
+        }
+        let block = current.get_or_insert_with(fresh);
+        let words = match image.alt.trim() {
+            "" => "Image".to_owned(),
+            alt => format!("Image: {alt}"),
+        };
+        let start = block.text.len();
+        push(block, &words, style);
+        // Inside a link, only the link opens: a click opens every link it's in.
+        if !in_link && safe_link(&image.src) {
+            block.links.push((start..block.text.len(), image.src));
+        }
+    }
 
     for event in Parser::new_ext(&markdown[..end], options) {
+        let html_line = matches!(event, Event::Html(_));
         // Text inside an image is its words, shown in its place.
         if let Some((alt, _)) = &mut image {
             match event {
                 Event::Text(text) | Event::Code(text) => alt.push_str(&text),
                 Event::End(TagEnd::Image) => {
                     let (alt, url) = image.take().expect("in an image");
-                    let block = current
-                        .get_or_insert_with(|| open(Kind::Paragraph, &lists, quotes, outermost));
-                    let words = match alt.trim() {
-                        "" => "Image".to_owned(),
-                        alt => format!("Image: {alt}"),
+                    let src = match show_images {
+                        true => image_source(&url),
+                        false => None,
                     };
-                    let start = block.text.len();
-                    push(block, &words, style);
-                    // Inside a link, only the link opens: a click opens every link it's in.
-                    if let Some(url) = url.filter(|_| link.is_none()) {
-                        block.links.push((start..block.text.len(), url));
-                    }
+                    let shown = src.is_some();
+                    let image = Image {
+                        src: src.unwrap_or(url),
+                        alt,
+                        link: link.as_ref().and_then(|(_, url)| url.clone()),
+                        width: None,
+                    };
+                    put_image(
+                        &mut current,
+                        image,
+                        || open(Kind::Paragraph, &lists, quotes, outermost),
+                        style,
+                        link.is_some(),
+                        shown,
+                    );
                 }
                 _ => {}
             }
@@ -326,19 +565,22 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                 }
             }
             Event::Start(Tag::Image { dest_url, .. }) => {
-                image = Some((
-                    String::new(),
-                    safe_link(&dest_url).then(|| dest_url.trim().to_owned()),
-                ));
+                image = Some((String::new(), dest_url.trim().to_owned()));
             }
+            // Spaces between images keep them in their row.
+            Event::Text(text)
+                if text.trim().is_empty()
+                    && current.as_ref().is_some_and(|b| b.kind == Kind::Images) => {}
             Event::Text(text) => {
-                let block =
-                    current.get_or_insert_with(|| open(Kind::Paragraph, &lists, quotes, outermost));
+                let block = text_block(&mut blocks, &mut current, || {
+                    open(Kind::Paragraph, &lists, quotes, outermost)
+                });
                 push(block, &text, style);
             }
             Event::Code(code) => {
-                let block =
-                    current.get_or_insert_with(|| open(Kind::Paragraph, &lists, quotes, outermost));
+                let block = text_block(&mut blocks, &mut current, || {
+                    open(Kind::Paragraph, &lists, quotes, outermost)
+                });
                 push(
                     block,
                     &code,
@@ -348,38 +590,137 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                     },
                 );
             }
-            // Within a paragraph, as a tag around words, or a `<br>` breaking its line.
-            Event::InlineHtml(html) => {
-                let text = html_text(&html, &mut in_comment);
-                if !text.is_empty() && (current.is_some() || !text.trim().is_empty()) {
-                    let block = current
-                        .get_or_insert_with(|| open(Kind::Paragraph, &lists, quotes, outermost));
-                    push(block, &text, style);
-                }
-            }
-            // A block of it comes a line at a time, each without its line break.
-            Event::Html(html) => {
-                let text = html_text(&html, &mut in_comment);
-                let text = text.trim_end_matches('\n');
-                if !text.trim().is_empty() {
-                    let block = current
-                        .get_or_insert_with(|| open(Kind::Paragraph, &lists, quotes, outermost));
-                    let apart = !block.text.is_empty()
-                        && !block.text.ends_with(char::is_whitespace)
-                        && !text.starts_with(char::is_whitespace);
-                    if apart {
-                        push(block, " ", style);
+            Event::Html(html) | Event::InlineHtml(html) => {
+                for piece in html_pieces(&html, &mut in_comment) {
+                    match piece {
+                        Html::Text(text) => {
+                            let text = collapse_spaces(&text);
+                            let gap = std::mem::take(&mut html_gap);
+                            if text.trim().is_empty() {
+                                if let Some(block) = &mut current
+                                    && block.kind != Kind::Images
+                                    && !block.text.is_empty()
+                                    && !block.text.ends_with(char::is_whitespace)
+                                {
+                                    push(block, " ", style);
+                                }
+                                continue;
+                            }
+                            let block = text_block(&mut blocks, &mut current, || {
+                                open(Kind::Paragraph, &lists, quotes, outermost)
+                            });
+                            let fresh =
+                                block.text.is_empty() || block.text.ends_with(char::is_whitespace);
+                            let text = match fresh {
+                                true => text.trim_start(),
+                                false => &text,
+                            };
+                            if gap && !fresh && !text.starts_with(' ') {
+                                push(block, " ", style);
+                            }
+                            push(block, text, style);
+                        }
+                        Html::Open(name, attributes) => match name.as_str() {
+                            "br" => {
+                                if let Some(block) = &mut current
+                                    && block.kind != Kind::Images
+                                {
+                                    block.text.truncate(block.text.trim_end_matches(' ').len());
+                                    push(block, "\n", style);
+                                }
+                            }
+                            "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "p" | "div" | "center"
+                            | "details" | "summary" => {
+                                close(&mut blocks, &mut current);
+                                let centres = name == "center"
+                                    || attribute(&attributes, "align")
+                                        .is_some_and(|a| a.eq_ignore_ascii_case("center"));
+                                html_open.push((name.clone(), centres));
+                                centered.set(html_open.iter().any(|(_, centres)| *centres));
+                                if let Some(level) =
+                                    name.strip_prefix('h').and_then(|l| l.parse::<u8>().ok())
+                                {
+                                    current = Some(open(
+                                        Kind::Heading(level.min(4)),
+                                        &lists,
+                                        quotes,
+                                        outermost,
+                                    ));
+                                }
+                            }
+                            "b" | "strong" => style.bold = true,
+                            "i" | "em" => style.italic = true,
+                            "code" | "kbd" | "tt" => style.code = true,
+                            "s" | "del" | "strike" => style.strike = true,
+                            "a" => {
+                                let at = current.as_ref().map_or(0, |block| block.text.len());
+                                let href = attribute(&attributes, "href").unwrap_or("");
+                                link = Some((at, safe_link(href).then(|| href.trim().to_owned())));
+                            }
+                            "img" => {
+                                let raw = attribute(&attributes, "src").unwrap_or("");
+                                let src = match show_images {
+                                    true => image_source(raw),
+                                    false => None,
+                                };
+                                let shown = src.is_some();
+                                let image = Image {
+                                    src: src.unwrap_or_else(|| raw.trim().to_owned()),
+                                    alt: attribute(&attributes, "alt").unwrap_or("").to_owned(),
+                                    link: link.as_ref().and_then(|(_, url)| url.clone()),
+                                    width: attribute(&attributes, "width").and_then(html_width),
+                                };
+                                put_image(
+                                    &mut current,
+                                    image,
+                                    || open(Kind::Paragraph, &lists, quotes, outermost),
+                                    style,
+                                    link.is_some(),
+                                    shown,
+                                );
+                            }
+                            _ => {}
+                        },
+                        Html::Close(name) => match name.as_str() {
+                            "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "p" | "div" | "center"
+                            | "details" | "summary" => {
+                                close(&mut blocks, &mut current);
+                                if let Some(at) =
+                                    html_open.iter().rposition(|(open, _)| *open == name)
+                                {
+                                    html_open.truncate(at);
+                                }
+                                centered.set(html_open.iter().any(|(_, centres)| *centres));
+                            }
+                            "b" | "strong" => style.bold = in_head,
+                            "i" | "em" => style.italic = false,
+                            "code" | "kbd" | "tt" => style.code = false,
+                            "s" | "del" | "strike" => style.strike = false,
+                            "a" => {
+                                if let (Some((start, Some(url))), Some(block)) =
+                                    (link.take(), &mut current)
+                                    && start < block.text.len()
+                                {
+                                    block.links.push((start..block.text.len(), url));
+                                }
+                            }
+                            _ => {}
+                        },
                     }
-                    push(block, text, style);
                 }
+                html_gap = html_line;
             }
             Event::SoftBreak => {
-                if let Some(block) = &mut current {
+                if let Some(block) = &mut current
+                    && block.kind != Kind::Images
+                {
                     push(block, " ", style);
                 }
             }
             Event::HardBreak => {
-                if let Some(block) = &mut current {
+                if let Some(block) = &mut current
+                    && block.kind != Kind::Images
+                {
                     push(block, "\n", style);
                 }
             }
@@ -407,8 +748,14 @@ pub fn parse(markdown: &str) -> Vec<Block> {
     blocks
 }
 
-/// `blocks` drawn as text, `id` telling apart the links of one description from another's.
-pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
+/// `blocks` drawn as text, `id` telling apart the links of one description from another's,
+/// their images from `images` by where they're from, or by their words until they're there.
+pub fn render(
+    id: &str,
+    blocks: &[Block],
+    images: &HashMap<String, Arc<RenderImage>>,
+    theme: &Theme,
+) -> AnyElement {
     v_flex()
         .children(blocks.iter().enumerate().map(|(ix, block)| {
             // A list's items sit together; other blocks, and other lists, stand apart.
@@ -433,15 +780,32 @@ pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
                     .line_height(px(18.))
                     .child(text(id, ix, block, theme))
                     .into_any_element(),
+                // As GitHub draws them, the top two over a rule.
                 Kind::Heading(level) => div()
-                    .pt(px(4.))
+                    .pt(px(8.))
                     .text_size(px(match level {
-                        1 => 17.,
-                        2 => 15.,
+                        1 => 22.,
+                        2 => 17.,
+                        3 => 15.,
                         _ => 14.,
                     }))
-                    .line_height(px(22.))
+                    .line_height(px(match level {
+                        1 => 30.,
+                        2 => 24.,
+                        _ => 22.,
+                    }))
+                    .when(*level <= 2 && !block.centered, |el| {
+                        el.pb(px(6.)).border_b_1().border_color(theme.border_3)
+                    })
                     .child(text(id, ix, block, theme))
+                    .into_any_element(),
+                Kind::Images => h_flex()
+                    .flex_wrap()
+                    .gap(px(4.))
+                    .when(block.centered, |el| el.justify_center())
+                    .children(block.images.iter().enumerate().map(|(n, image)| {
+                        picture(&format!("{id}-img-{ix}-{n}"), image, images, theme)
+                    }))
                     .into_any_element(),
                 Kind::Item(marker) => h_flex()
                     .items_start()
@@ -467,6 +831,7 @@ pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
                 .pl(px(block.depth as f32 * 16.))
                 .text_size(px(13.))
                 .line_height(px(20.))
+                .when(block.centered, |el| el.text_center())
                 .child(el);
             match block.quoted {
                 true => indented
@@ -480,6 +845,53 @@ pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
             }
         }))
         .into_any_element()
+}
+
+/// An image as loaded, at the width HTML asks for or its own, never wider than the text; or
+/// its words until it's there. In a link, a click opens the link.
+fn picture(
+    id: &str,
+    image: &Image,
+    images: &HashMap<String, Arc<RenderImage>>,
+    theme: &Theme,
+) -> AnyElement {
+    let el = match images.get(&image.src) {
+        Some(loaded) => {
+            let shown = img(ImageSource::Render(loaded.clone())).max_w_full();
+            match image.width {
+                Some(Width::Px(width)) => shown.w(px(width)),
+                Some(Width::Fraction(share)) => shown.w(relative(share)),
+                None => shown,
+            }
+            .into_any_element()
+        }
+        None => div()
+            .px(px(6.))
+            .rounded(px(4.))
+            .bg(theme.fill_gray.opacity(0.08))
+            .text_color(theme.text_2)
+            .text_size(px(12.))
+            .child(SharedString::from(match image.alt.trim() {
+                "" => "Image".to_owned(),
+                alt => alt.to_owned(),
+            }))
+            .into_any_element(),
+    };
+    let wide = matches!(image.width, Some(Width::Fraction(_)));
+    match image.link.clone() {
+        Some(url) => div()
+            .id(SharedString::from(id.to_owned()))
+            .when(wide, |el| el.w_full())
+            .cursor_pointer()
+            .tooltip(Tooltip::text(url.clone()))
+            .on_click(move |_, _, cx| cx.open_url(&url))
+            .child(el)
+            .into_any_element(),
+        None => div()
+            .when(wide, |el| el.w_full())
+            .child(el)
+            .into_any_element(),
+    }
 }
 
 /// A block's text in its styles, its links clickable and naming where they go on hover.
@@ -583,10 +995,11 @@ mod tests {
             texts(&blocks),
             [
                 (&Kind::Paragraph, "one\ntwo"),
-                (&Kind::Paragraph, "A B"),
+                (&Kind::Paragraph, "A"),
+                (&Kind::Paragraph, "B"),
                 (&Kind::Paragraph, "C"),
             ],
-            "a <br> breaks the line, an HTML block's lines stay apart, and so do two blocks"
+            "a <br> breaks the line, and each <p> and <div> is a block of its own"
         );
     }
 
@@ -685,8 +1098,75 @@ mod tests {
         let text: Vec<_> = blocks.iter().map(|block| block.text.as_str()).collect();
         assert_eq!(
             text,
-            ["Logs", "ok", "Hi there "],
-            "tags go, their text stays"
+            ["Logs", "ok", "Hi there Image"],
+            "tags go, their text stays, and an image shows its words as a Markdown one does"
+        );
+        assert!(
+            (blocks[2].styles.iter())
+                .any(|(range, style)| style.bold && blocks[2].text[range.clone()] == *"there"),
+            "<b> is bold"
+        );
+    }
+
+    #[test]
+    fn a_readme_lays_out_its_html_and_shows_its_images() {
+        let readme = "<div align=\"center\">\n  <img width=\"100px\" src=\"https://x.io/logo.png\" alt=\"Logo\" />\n  <h1 align=\"center\">Name</h1>\n  <p align=\"center\">\n   <b>Better</b>.\n   <a href=\"https://x.io\">Site</a>\n  </p>\n</div>\n\n[![CI][s0]][l0] [![Chat](docs/chat.svg)](https://chat.x.io)\n\n[s0]: https://ci.x.io/badge.svg\n[l0]: https://ci.x.io\n\nPlain ![inline](a.png) text.\n";
+        let blocks = parse_showing_images(readme);
+        assert_eq!(
+            texts(&blocks),
+            [
+                (&Kind::Images, ""),
+                (&Kind::Heading(1), "Name"),
+                (&Kind::Paragraph, "Better. Site"),
+                (&Kind::Images, ""),
+                (&Kind::Paragraph, "Plain Image: inline text."),
+            ],
+            "HTML headings and paragraphs are blocks, their spaces run together, and images \
+             with no words between them sit in a row; one among words shows its words"
+        );
+        assert!(
+            blocks[..3].iter().all(|block| block.centered)
+                && blocks[3..].iter().all(|block| !block.centered),
+            "what's inside a centred <div> is centred, and what's after its </div> isn't"
+        );
+        assert_eq!(
+            blocks[0].images[0].width,
+            Some(Width::Px(100.)),
+            "an <img>'s width is kept"
+        );
+        assert_eq!(
+            (blocks[3].images.iter())
+                .map(|image| (image.src.as_str(), image.link.as_deref()))
+                .collect::<Vec<_>>(),
+            [
+                ("https://ci.x.io/badge.svg", Some("https://ci.x.io")),
+                ("docs/chat.svg", Some("https://chat.x.io")),
+            ],
+            "a badge is loaded from the web or the repository, and opens its link"
+        );
+        assert_eq!(
+            image_sources(&blocks),
+            [
+                "https://x.io/logo.png",
+                "https://ci.x.io/badge.svg",
+                "docs/chat.svg"
+            ],
+            "each image to load, once"
+        );
+        assert_eq!(
+            blocks[2].links,
+            [(8..12, "https://x.io".to_owned())],
+            "an <a> links its words"
+        );
+        assert_eq!(
+            image_source("../secret.png"),
+            None,
+            "nothing outside the repository"
+        );
+        assert_eq!(
+            image_source("file:///etc/passwd"),
+            None,
+            "nor any other scheme"
         );
     }
 

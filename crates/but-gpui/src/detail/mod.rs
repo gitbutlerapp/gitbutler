@@ -304,6 +304,10 @@ pub struct Detail {
     passed_checks_open: bool,
     review_scroll: ScrollHandle,
     readme_scroll: ScrollHandle,
+    /// The images each project's README shows, as loaded, by where they're from.
+    readme_images: HashMap<ProjectId, HashMap<String, Arc<gpui::RenderImage>>>,
+    /// The images asked for, loaded or not, so each is asked for once.
+    readme_images_asked: HashSet<(ProjectId, String)>,
     /// How tall a commit's header across the page was drawn, which the diff starts below.
     header_height: Rc<Cell<f32>>,
     /// Directories folded shut in tree-shaped file lists, by path.
@@ -550,6 +554,8 @@ impl Detail {
             passed_checks_open: false,
             review_scroll: ScrollHandle::new(),
             readme_scroll: ScrollHandle::new(),
+            readme_images: HashMap::new(),
+            readme_images_asked: HashSet::new(),
             header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),
             collapsed_dirs: HashSet::new(),
             text_selection: None,

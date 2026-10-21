@@ -62,7 +62,8 @@ struct Summary {
 impl From<Overview> for Summary {
     fn from(overview: Overview) -> Self {
         Summary {
-            readme: (overview.readme).map(|(name, text)| (name, markdown::parse(&text))),
+            readme: (overview.readme)
+                .map(|(name, text)| (name, markdown::parse_showing_images(&text))),
             daily: overview.daily,
             team: overview.team,
         }
@@ -227,7 +228,7 @@ impl Detail {
                     .or_else(|| readme.then_some(Picked::Readme))
                     .or_else(|| list.first().map(|c| Picked::Commit(c.id)));
                 this.upstream = Some(Upstream {
-                    project,
+                    project: project.clone(),
                     commits: list,
                     more: has_more,
                     selected,
@@ -239,6 +240,7 @@ impl Detail {
                     paging: Cell::new(Paging::Idle),
                 });
                 this.refresh_diff(false, cx);
+                this.load_readme_images(&project, cx);
                 cx.notify();
                 // The window draws the diff beside the list, or the README doesn't need it.
                 this.app.update(cx, |_, cx| cx.notify()).ok();
@@ -392,6 +394,54 @@ impl Detail {
         (self.upstream_scroll).scroll_to_item(row, gpui::ScrollStrategy::Nearest);
     }
 
+    /// Load the images the project's README shows that haven't been asked for yet, each on
+    /// its own, decoded off the UI thread so each draws as it arrives.
+    fn load_readme_images(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        const MAX_IMAGES: usize = 40;
+        let store = self.store.read(cx);
+        let (Some(path), Some(target)) = (
+            store.path(project),
+            (store.workspace(project).and_then(|ws| ws.target.as_ref())).map(|t| t.name.clone()),
+        ) else {
+            return;
+        };
+        let Some((_, blocks)) =
+            (self.upstream_for(project)).and_then(|u| u.summary.as_ref()?.readme.as_ref())
+        else {
+            return;
+        };
+        let sources = markdown::image_sources(blocks);
+        for src in sources.into_iter().take(MAX_IMAGES) {
+            if !self
+                .readme_images_asked
+                .insert((project.clone(), src.clone()))
+            {
+                continue;
+            }
+            let (path, target, svg) = (path.clone(), target.clone(), cx.svg_renderer());
+            let project = project.clone();
+            cx.spawn(async move |this, cx| {
+                let source = src.clone();
+                let loaded = backend::run(move || {
+                    let bytes = upstream::readme_image(&path, &target, &source)?;
+                    let format = image_format(&bytes)
+                        .ok_or_else(|| anyhow::anyhow!("{source} isn't an image"))?;
+                    gpui::Image::from_bytes(format, bytes).to_image_data(svg)
+                })
+                .await;
+                this.update(cx, |this, cx| match loaded {
+                    Ok(image) => {
+                        (this.readme_images.entry(project).or_default()).insert(src, image);
+                        cx.notify();
+                    }
+                    Err(err) => tracing::debug!(?err, "couldn't load a README's image"),
+                })
+                .ok();
+            })
+            .detach();
+        }
+    }
+
     /// The target's README, beside the list in place of a diff.
     pub(super) fn render_readme(
         &self,
@@ -408,7 +458,14 @@ impl Detail {
             .max_w(px(760.))
             .px(px(24.))
             .py(px(20.))
-            .child(markdown::render("readme", blocks, theme));
+            .child(markdown::render(
+                "readme",
+                blocks,
+                self.readme_images
+                    .get(project)
+                    .unwrap_or(&Default::default()),
+                theme,
+            ));
         let page = div()
             .id("readme")
             .size_full()
@@ -990,4 +1047,33 @@ fn team(team: &[(String, String, u32)], theme: &Theme) -> Option<AnyElement> {
             })
             .into_any_element(),
     )
+}
+
+/// What kind of image `bytes` are, by how they start.
+fn image_format(bytes: &[u8]) -> Option<gpui::ImageFormat> {
+    use gpui::ImageFormat;
+    let text = String::from_utf8_lossy(&bytes[..bytes.len().min(512)]).to_ascii_lowercase();
+    Some(match bytes {
+        [0x89, b'P', b'N', b'G', ..] => ImageFormat::Png,
+        [0xff, 0xd8, 0xff, ..] => ImageFormat::Jpeg,
+        [b'G', b'I', b'F', b'8', ..] => ImageFormat::Gif,
+        [
+            b'R',
+            b'I',
+            b'F',
+            b'F',
+            _,
+            _,
+            _,
+            _,
+            b'W',
+            b'E',
+            b'B',
+            b'P',
+            ..,
+        ] => ImageFormat::Webp,
+        [b'B', b'M', ..] => ImageFormat::Bmp,
+        _ if text.contains("<svg") => ImageFormat::Svg,
+        _ => return None,
+    })
 }

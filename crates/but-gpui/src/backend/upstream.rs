@@ -209,6 +209,45 @@ fn readme(repo: &gix::Repository, commit: &gix::Commit<'_>) -> Result<Option<(St
     )))
 }
 
+/// How large an image a README shows may be.
+const MAX_IMAGE_BYTES: usize = 8 << 20;
+
+/// An image a README shows, by its `src`: a web address, fetched, or a path from the top of
+/// the repository, read from `target` (a short name, like `origin/main`).
+pub fn readme_image(path: &Path, target: &str, src: &str) -> Result<Vec<u8>> {
+    let lower = src.to_ascii_lowercase();
+    if lower.starts_with("https://") || lower.starts_with("http://") {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(20))
+            .build()?;
+        let bytes = runtime().block_on(async {
+            let response = client.get(src).send().await?.error_for_status()?;
+            if response
+                .content_length()
+                .is_some_and(|n| n as usize > MAX_IMAGE_BYTES)
+            {
+                anyhow::bail!("{src} is too large to show");
+            }
+            Ok(response.bytes().await?)
+        })?;
+        anyhow::ensure!(bytes.len() <= MAX_IMAGE_BYTES, "{src} is too large to show");
+        return Ok(bytes.to_vec());
+    }
+    let ctx = open(path)?;
+    let repo = ctx.repo.get()?;
+    let tree = (repo.rev_parse_single(target)?.object()?)
+        .peel_to_commit()?
+        .tree()?;
+    let entry = (tree.lookup_entry_by_path(src)?)
+        .ok_or_else(|| anyhow::anyhow!("{target} has no {src}"))?;
+    let blob = entry.object()?;
+    anyhow::ensure!(
+        blob.data.len() <= MAX_IMAGE_BYTES,
+        "{src} is too large to show"
+    );
+    Ok(blob.data.clone())
+}
+
 /// When the project last fetched, in seconds since the epoch, and why the last attempt
 /// failed if it did. `None` when it has no remote to fetch from.
 pub fn fetch_status(path: &Path) -> Result<Option<(Option<i64>, Option<String>)>> {
