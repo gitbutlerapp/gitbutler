@@ -489,6 +489,27 @@ impl Store {
         (workspace.worktrees.iter()).find(|wt| wt.branches.iter().any(|b| selection.on(b)))
     }
 
+    /// Where an action on `at` happens, for a prompt or a confirmation to say, named as the
+    /// breadcrumbs name it: the project, then the linked worktree or other machine's
+    /// checkout when it isn't the main one, as "shop › agent-x".
+    pub fn place(&self, at: &Selection) -> SharedString {
+        let project = at.project();
+        let name = self
+            .project(project)
+            .map_or("", |entry| &entry.project.name);
+        let elsewhere = match at {
+            Selection::Worktree(_, worktree) => Some(worktree.to_string()),
+            Selection::Mesh(_, id, _) => self.mesh_checkout(project, id).map(|c| c.label()),
+            _ => self
+                .worktree_of(at)
+                .map(|worktree| worktree.name.to_string()),
+        };
+        match elsewhere {
+            Some(elsewhere) => format!("{name} › {elsewhere}").into(),
+            None => name.to_owned().into(),
+        }
+    }
+
     /// Whether the selection is on a linked worktree's branches, saying to do `what`, as
     /// "Push it", there instead when it is.
     pub fn changes_elsewhere(&mut self, what: &str, cx: &mut Context<Self>) -> bool {

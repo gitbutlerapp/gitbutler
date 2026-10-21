@@ -156,6 +156,8 @@ impl Choice {
 /// The command palette, or another list to pick from the same way.
 pub struct Palette {
     input: Entity<TextInput>,
+    /// Where its choices act, as [`Store::place`] says, beside the input.
+    place: Option<SharedString>,
     choices: Vec<Choice>,
     /// What Enter does, for the hint at the bottom.
     verb: &'static str,
@@ -232,7 +234,7 @@ impl AppView {
                 }
             })
             .collect();
-        self.open_picker("Search commands", "Run", choices, window, cx);
+        self.open_picker(None, "Search commands", "Run", choices, window, cx);
     }
 
     /// Pick a branch of any loaded project by name or pull request title, and select it.
@@ -276,12 +278,13 @@ impl AppView {
                     })
             })
             .collect();
-        self.open_picker("Go to branch", "Go", choices, window, cx);
+        self.open_picker(None, "Go to branch", "Go", choices, window, cx);
     }
 
     /// Show `choices` to filter by typing and pick one with Enter or a click.
     pub fn open_picker(
         &mut self,
+        place: Option<SharedString>,
         placeholder: &'static str,
         verb: &'static str,
         choices: Vec<Choice>,
@@ -309,6 +312,7 @@ impl AppView {
         self.menu = None;
         self.palette = Some(Palette {
             input,
+            place,
             choices,
             verb,
             selected: 0,
@@ -429,9 +433,11 @@ impl AppView {
                     .px(px(12.))
                     .flex()
                     .items_center()
+                    .gap(px(12.))
                     .border_b_1()
                     .border_color(theme.border_3)
-                    .child(palette.input.clone()),
+                    .child(div().flex_1().min_w(px(0.)).child(palette.input.clone()))
+                    .children((palette.place.clone()).map(|place| muted(place, &theme))),
             )
             .child(
                 v_flex()

@@ -112,6 +112,8 @@ fn branch_name(name: &str) -> Result<String, SharedString> {
 /// A small modal asking for one line of text: a branch name, a repository to clone, a pull
 /// request number, a comment, or credentials for Git.
 pub struct Prompt {
+    /// Where it acts, as [`Store::place`] says, above the title.
+    place: Option<SharedString>,
     title: SharedString,
     detail: Option<SharedString>,
     confirm: SharedString,
@@ -144,13 +146,14 @@ impl AppView {
     }
 
     /// Ask for a branch name, then run `op` with it and hand `done` the full ref name of the
-    /// branch it returns. With the branch it's `renaming`, a full ref, that branch is being
-    /// renamed; without one, or an empty one for a branch without a name yet, it asks as
-    /// for a new branch.
+    /// branch it returns. `at` is what it acts on, the project or a branch or commit in it, for
+    /// the prompt to say where. With the branch it's `renaming`, a full ref, that branch is
+    /// being renamed; without one, or an empty one for a branch without a name yet, it asks
+    /// as for a new branch.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn prompt_branch(
         &mut self,
-        project: ProjectId,
+        at: Selection,
         title: &str,
         renaming: Option<String>,
         window: &mut Window,
@@ -158,6 +161,8 @@ impl AppView {
         op: impl FnOnce(&Path, &Remap, &str) -> Result<String> + Send + 'static,
         done: impl FnOnce(&mut Store, String, &mut Context<Store>) + 'static,
     ) {
+        let project = at.project().clone();
+        let place = self.store.read(cx).place(&at);
         let renaming = renaming.filter(|from| !from.is_empty());
         let initial = renaming.as_deref().map_or("", short_ref);
         let confirm = if initial.is_empty() {
@@ -197,6 +202,7 @@ impl AppView {
         });
         let renamed = renaming.clone().map(|from| (project.clone(), from));
         self.open_prompt(
+            Some(place),
             title,
             detail,
             confirm,
@@ -246,6 +252,7 @@ impl AppView {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn open_prompt(
         &mut self,
+        place: Option<SharedString>,
         title: &str,
         detail: Option<String>,
         confirm: &str,
@@ -306,6 +313,7 @@ impl AppView {
             );
         window.focus(&input.focus_handle(cx), cx);
         self.prompt = Some(Prompt {
+            place,
             title: title.to_owned().into(),
             detail: detail.map(Into::into),
             confirm: confirm.to_owned().into(),
@@ -348,6 +356,7 @@ impl AppView {
                         false => TextInput::new("Passphrase or password", false, cx).masked(),
                     });
                     this.open_prompt(
+                        None,
                         "Git needs your credentials",
                         Some(prompt.text),
                         "Continue",
@@ -472,10 +481,15 @@ impl AppView {
             .gap(px(12.))
             .rounded(px(10.))
             .child(
-                div()
-                    .text_size(px(14.))
-                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                    .child(prompt.title.clone()),
+                v_flex()
+                    .gap(px(2.))
+                    .children(prompt.place.clone().map(|place| muted(place, theme)))
+                    .child(
+                        div()
+                            .text_size(px(14.))
+                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                            .child(prompt.title.clone()),
+                    ),
             )
             .when_some(prompt.detail.clone(), |el, detail| {
                 el.child(muted(detail, theme))

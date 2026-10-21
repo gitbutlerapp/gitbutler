@@ -61,6 +61,7 @@ impl SettingsView {
                                 this.app
                                     .update(cx, |app, cx| {
                                         app.confirm_then(
+                                            None,
                                             message,
                                             "Its daemon stops, and your other machines no longer \
                                              see its work. Its repositories stay as they are.",

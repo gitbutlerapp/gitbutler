@@ -1165,6 +1165,7 @@ impl Detail {
             return;
         };
         let store = self.store.read(cx);
+        let place = store.place(&Selection::Uncommitted(project.clone()));
         let mut choices: Vec<Choice> = (workspace.branches())
             .filter(|branch| takes_commits(store, &project, branch))
             .map(|branch| {
@@ -1198,7 +1199,7 @@ impl Detail {
             // The new branch becomes the target, rather than the page shown.
             let handle = window.window_handle();
             this.prompt_branch(
-                project,
+                Selection::Project(project),
                 "New branch",
                 None,
                 window,
@@ -1216,7 +1217,14 @@ impl Detail {
             );
         }));
         (self.app.update(cx, |app, cx| {
-            app.open_picker("Commit to a branch", "Pick", choices, window, cx)
+            app.open_picker(
+                Some(place),
+                "Commit to a branch",
+                "Pick",
+                choices,
+                window,
+                cx,
+            )
         }))
         .ok();
     }

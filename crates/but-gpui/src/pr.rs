@@ -306,6 +306,13 @@ impl Render for ReviewView {
                     .px(px(20.))
                     .pt(px(18.))
                     .pb(px(12.))
+                    .child(muted(
+                        (self.store.read(cx)).place(&Selection::Branch(
+                            self.project.clone(),
+                            self.branch.clone(),
+                        )),
+                        &theme,
+                    ))
                     .child(
                         div()
                             .text_size(px(15.))
@@ -506,10 +513,14 @@ impl AppView {
         } else {
             &["Merge", "Squash and merge", "Rebase and merge", "Cancel"]
         };
+        let place =
+            (self.store.read(cx)).place(&Selection::Branch(project.clone(), branch.clone()));
         let answer = window.prompt(
             PromptLevel::Info,
             &format!("Merge #{number}, {}?", short_ref(&branch)),
-            Some("Its commits go into the branch it targets on the forge."),
+            Some(&format!(
+                "{place}\nIts commits go into the branch it targets on the forge."
+            )),
             methods,
             cx,
         );

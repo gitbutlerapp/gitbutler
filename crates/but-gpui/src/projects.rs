@@ -12,7 +12,7 @@ use crate::app::AppView;
 use crate::backend::{self, settings};
 use crate::overlays::floating;
 use crate::palette::Choice;
-use crate::state::ProjectId;
+use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::emoji::{self, ProjectIcon};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -55,6 +55,7 @@ impl AppView {
             None => Some("Enter the repository's URL".into()),
         };
         self.open_prompt(
+            None,
             "Clone a repository",
             Some("Next, pick the folder to clone it into.".into()),
             "Choose folder…",
@@ -147,7 +148,18 @@ impl AppView {
                 })
                 .collect();
             this.update_in(cx, |app, window, cx| {
-                app.open_picker("Pick the target branch", "Pick", choices, window, cx)
+                let place = app
+                    .store
+                    .read(cx)
+                    .place(&Selection::Project(project.clone()));
+                app.open_picker(
+                    Some(place),
+                    "Pick the target branch",
+                    "Pick",
+                    choices,
+                    window,
+                    cx,
+                )
             })
             .ok();
         })

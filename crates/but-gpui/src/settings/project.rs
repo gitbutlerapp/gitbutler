@@ -343,6 +343,7 @@ impl SettingsView {
         self.app
             .update(cx, |app, cx| {
                 app.confirm_then(
+                    None,
                     format!("Remove {name} from GitButler?"),
                     "The repository and its branches stay on disk; add it again any time.",
                     "Remove",

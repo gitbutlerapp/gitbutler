@@ -487,6 +487,7 @@ impl Detail {
         self.app
             .update(cx, |app, cx| {
                 app.confirm_then(
+                    Some(Selection::History(project.clone())),
                     format!("Restore to before \"{title}\"?"),
                     "Branches, commits and uncommitted changes go back to how they were. \
                      You can undo this with ⌘Z.",
@@ -718,7 +719,12 @@ impl Detail {
         let project = project.clone();
         (self.app.update(cx, |app, cx| {
             let input = cx.new(|cx| TextInput::new("What it's for (optional)", false, cx));
+            let place = app
+                .store
+                .read(cx)
+                .place(&Selection::Project(project.clone()));
             app.open_prompt(
+                Some(place),
                 "Take a snapshot",
                 Some("Saves the project as it is now, to restore later from its menu.".into()),
                 "Take snapshot",

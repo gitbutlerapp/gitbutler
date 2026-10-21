@@ -765,6 +765,7 @@ impl Detail {
         self.app
             .update(cx, |app, cx| {
                 app.confirm_then(
+                    Some(Selection::Branches(project.clone())),
                     format!("Delete branch {name}?"),
                     "Its commits go too, unless a remote has them. Undo can't bring back a branch \
                      outside the workspace.",
@@ -888,7 +889,12 @@ impl Detail {
         // Opened from a click, inside this view's update.
         window.defer(cx, move |window, cx| {
             app.update(cx, |app, cx| {
+                let place = app
+                    .store
+                    .read(cx)
+                    .place(&Selection::Project(project.clone()));
                 app.open_prompt(
+                    Some(place),
                     &title,
                     Some(
                         "Git keeps it as the branch's description, where git branch \

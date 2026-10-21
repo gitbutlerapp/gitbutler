@@ -265,7 +265,7 @@ impl AppView {
                 "Those running may stop partway, and the rest won't run.",
             ),
         };
-        self.confirm_then(message, detail, "Quit", window, cx, |_, cx| cx.quit());
+        self.confirm_then(None, message, detail, "Quit", window, cx, |_, cx| cx.quit());
         false
     }
 
@@ -324,7 +324,8 @@ impl AppView {
         }) else {
             return;
         };
-        self.prompt_new_branch(project, "New branch", true, window, cx, |path, _, name| {
+        let at = Selection::Project(project);
+        self.prompt_new_branch(at, "New branch", true, window, cx, |path, _, name| {
             backend::create_branch(path, Some(name))
         });
     }
@@ -345,6 +346,7 @@ impl AppView {
         let detail = "GitButler opens its web app to install it, then starts in this app if \
                       Settings › Experimental › Open this app at start is on.";
         self.confirm_then(
+            None,
             format!("Restart to update to GitButler {version}?"),
             detail,
             "Restart",
@@ -366,9 +368,12 @@ impl AppView {
         );
     }
 
-    /// Ask with a native dialog before doing something destructive.
+    /// Ask with a native dialog before doing something destructive. Acting on something in a
+    /// project, `at`, the detail starts with where, as [`Store::place`] says.
+    #[allow(clippy::too_many_arguments)]
     pub fn confirm_then(
         &mut self,
+        at: Option<Selection>,
         message: String,
         detail: &str,
         confirm: &str,
@@ -376,10 +381,14 @@ impl AppView {
         cx: &mut Context<Self>,
         then: impl FnOnce(&mut AppView, &mut Context<AppView>) + 'static,
     ) {
+        let detail = match at {
+            Some(at) => format!("{}\n{detail}", self.store.read(cx).place(&at)),
+            None => detail.to_owned(),
+        };
         let answer = window.prompt(
             PromptLevel::Warning,
             &message,
-            Some(detail),
+            Some(&detail),
             &[confirm, "Cancel"],
             cx,
         );

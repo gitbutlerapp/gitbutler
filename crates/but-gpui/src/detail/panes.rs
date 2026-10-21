@@ -325,6 +325,7 @@ impl Detail {
                     });
                     // What's picked goes in first, as finishing means the picking is done;
                     // finishing waits for it, so a resolve that fails finishes nothing.
+                    let at = Selection::Uncommitted(project.clone());
                     let finish = move |this: &mut Self, cx: &mut Context<Self>| {
                         if !this.apply_resolutions(true, cx) {
                             (this.store).update(cx, |store, cx| store.finish_editing(&project, cx))
@@ -336,6 +337,7 @@ impl Detail {
                     let detail = cx.entity();
                     (this.app.update(cx, |app, cx| {
                         app.confirm_then(
+                            Some(at),
                             format!("Finish with {} still conflicted?", plural(left, "file")),
                             "Their conflict markers go into the commit as they are.",
                             "Finish",

@@ -77,7 +77,7 @@ fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuIte
         items.push(MenuItem::new("New worktree…", move |app, window, cx| {
             let selected = project.clone();
             app.prompt_branch(
-                project.clone(),
+                Selection::Project(project.clone()),
                 "New worktree",
                 None,
                 window,
@@ -257,7 +257,18 @@ impl Navigator {
                                     )
                                 })
                                 .collect();
-                            this.open_picker("Show a worktree again", "Show", choices, window, cx)
+                            let place = this
+                                .store
+                                .read(cx)
+                                .place(&Selection::Project(project.clone()));
+                            this.open_picker(
+                                Some(place),
+                                "Show a worktree again",
+                                "Show",
+                                choices,
+                                window,
+                                cx,
+                            )
                         },
                     ));
                 }
@@ -540,6 +551,7 @@ impl Navigator {
                         };
                         let message = format!("Delete worktree {name}?");
                         this.confirm_then(
+                            Some(Selection::Project(project.clone())),
                             message,
                             &detail,
                             "Delete",

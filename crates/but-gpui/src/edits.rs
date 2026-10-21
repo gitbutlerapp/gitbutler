@@ -261,6 +261,7 @@ impl AppView {
         }
         let name = short_ref(&ref_name).to_owned();
         self.confirm_then(
+            Some(Selection::Branch(project.clone(), ref_name.clone())),
             format!("Replace {name} with the remote's version?"),
             "This drops its commits the remote doesn't have. You can undo this with ⌘Z.",
             "Replace",
@@ -378,6 +379,7 @@ impl AppView {
         };
         // Asked here, as the project's own protection is off unless turned on.
         self.confirm_then(
+            Some(Selection::Branch(project.clone(), ref_name.clone())),
             format!("Force push {}?", short_ref(&ref_name)),
             &detail,
             "Force push",
@@ -447,7 +449,7 @@ impl AppView {
                 let (selected, detail, from) =
                     (project.clone(), self.detail.downgrade(), ref_name.clone());
                 self.prompt_branch(
-                    project,
+                    Selection::Branch(project, ref_name.clone()),
                     title,
                     Some(ref_name.clone()),
                     window,
@@ -498,24 +500,26 @@ impl AppView {
         };
         let here = worktree.is_none();
         let on_branch = (project.clone(), below.clone());
-        self.prompt_new_branch(project, &title, here, window, cx, move |path, _, name| {
+        let at = Selection::Branch(project, below.clone());
+        self.prompt_new_branch(at, &title, here, window, cx, move |path, _, name| {
             backend::create_dependent_branch(path, &below, name)
         });
         self.prompt_on_branch(on_branch);
     }
 
-    /// Ask for a branch name and make the branch with `op`, then select it. One made on top
-    /// (`on_top`) is what the next commit goes to; one splitting a stack isn't.
+    /// Ask for a branch name and make the branch with `op` beside or in what's `at`, then
+    /// select it. One made on top (`on_top`) is what the next commit goes to; one splitting a
+    /// stack isn't.
     pub(crate) fn prompt_new_branch(
         &mut self,
-        project: ProjectId,
+        at: Selection,
         title: &str,
         on_top: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
         op: impl FnOnce(&Path, &Remap, &str) -> anyhow::Result<String> + Send + 'static,
     ) {
-        let (selected, detail) = (project.clone(), self.detail.downgrade());
+        let (selected, detail) = (at.project().clone(), self.detail.downgrade());
         let done = move |store: &mut Store, branch: String, cx: &mut Context<Store>| {
             if on_top {
                 (detail.update(cx, |detail, cx| {
@@ -525,7 +529,7 @@ impl AppView {
             }
             store.select(Some(Selection::Branch(selected, branch)), cx)
         };
-        self.prompt_branch(project, title, None, window, cx, op, done);
+        self.prompt_branch(at, title, None, window, cx, op, done);
     }
 
     fn uncommit_selection(
@@ -596,6 +600,7 @@ impl AppView {
             _ => undo.to_owned(),
         };
         self.confirm_then(
+            Some(selection.clone()),
             format!("Delete branch {name}?"),
             &detail,
             "Delete",
@@ -633,6 +638,7 @@ impl AppView {
             false => "Its changes are dropped from the worktree too. This can't be undone.",
         };
         self.confirm_then(
+            Some(Selection::Commit(project.clone(), id)),
             format!("Discard commit {}?", id.short()),
             detail,
             "Discard",
@@ -684,17 +690,21 @@ impl AppView {
                 format!("Discard changes to {} files?", changes.len()),
                 "You can undo this with ⌘Z.",
             )),
-            (Some(name), picked) => {
+            (Some(_), picked) => {
                 let what = match picked {
                     [one] if one.hunks.is_some() => format!("part of {}", one.file.path),
                     [one] => format!("changes to {}", one.file.path),
                     _ => format!("changes to {} files", picked.len()),
                 };
                 Some((
-                    format!("Discard {what} in {name}?"),
+                    format!("Discard {what}?"),
                     "Changes discarded in a linked worktree can't be undone.",
                 ))
             }
+        };
+        let at = match &worktree {
+            Some(name) => Selection::Worktree(project.clone(), name.clone()),
+            None => Selection::Uncommitted(project.clone()),
         };
         let run = move |this: &mut AppView, changes: Vec<Selected>, cx: &mut Context<AppView>| {
             let overlay = Overlay {
@@ -717,9 +727,9 @@ impl AppView {
         match ask {
             None => run(self, changes, cx),
             Some((message, detail)) => {
-                self.confirm_then(message, detail, "Discard", window, cx, move |this, cx| {
-                    run(this, changes, cx)
-                })
+                let run =
+                    move |this: &mut AppView, cx: &mut Context<AppView>| run(this, changes, cx);
+                self.confirm_then(Some(at), message, detail, "Discard", window, cx, run)
             }
         }
     }
@@ -843,7 +853,7 @@ impl AppView {
         };
         let title = format!("New branch below {}", short_ref(&ref_name));
         self.prompt_new_branch(
-            project,
+            Selection::Branch(project, ref_name),
             &title,
             false,
             window,
@@ -863,7 +873,7 @@ impl AppView {
         let id = commit.id;
         let title = format!("New branch ending at {}", id.short());
         self.prompt_new_branch(
-            project,
+            Selection::Commit(project, id),
             &title,
             false,
             window,
@@ -987,6 +997,7 @@ impl AppView {
             false => String::new(),
         };
         self.confirm_then(
+            Some(Selection::Branch(project.clone(), ref_name.clone())),
             format!("Land {what} on {target}?"),
             &format!(
                 "{whose} commits go straight onto {target} and get pushed, skipping review. \
@@ -1105,6 +1116,7 @@ impl AppView {
             false => "The commit, and the ones after it, lose the change. This can't be undone.",
         };
         self.confirm_then(
+            Some(Selection::Commit(project.clone(), commit)),
             format!("Discard {what} from commit {}?", commit.short()),
             detail,
             "Discard",
