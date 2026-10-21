@@ -140,7 +140,8 @@ pub fn list(
         }
         None => (now, meta.as_ref().and_then(|meta| meta.target_commit_id)),
     };
-    let target_name = (meta.and_then(|meta| meta.target_ref)).map_or_else(
+    // By what updates come from, as the navigator names the target.
+    let target_name = (meta.and_then(|meta| super::target_source(&repo, &meta))).map_or_else(
         || "the target".to_owned(),
         |name| name.shorten().to_string(),
     );
@@ -401,15 +402,18 @@ fn recorded(repo: &gix::Repository, commit: gix::ObjectId, data: &[u8]) -> Optio
 /// The target commit the workspace was on when snapshot `id` was taken, for a snapshot
 /// that records it.
 fn snapshot_target(repo: &gix::Repository, id: gix::ObjectId) -> Option<gix::ObjectId> {
+    // The stored target commit, or with none stored, the one it stood for then.
     #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
     struct Meta {
-        #[serde(rename = "targetCommitId")]
-        target: Option<String>,
+        target_commit_id: Option<String>,
+        resolved_target_commit_id: Option<String>,
     }
     let tree = repo.find_commit(id).ok()?.tree().ok()?;
     let meta = tree.lookup_entry_by_path("project_meta.toml").ok()??;
     let meta: Meta = toml::from_str(std::str::from_utf8(&meta.object().ok()?.data).ok()?).ok()?;
-    gix::ObjectId::from_hex(meta.target?.as_bytes()).ok()
+    let target = meta.target_commit_id.or(meta.resolved_target_commit_id)?;
+    gix::ObjectId::from_hex(target.as_bytes()).ok()
 }
 
 /// What changed from `before` to `after`: commits matched by their change ID, so a rebase

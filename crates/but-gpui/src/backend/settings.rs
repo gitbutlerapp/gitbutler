@@ -163,37 +163,58 @@ pub fn test_signing(path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// The project's remote branches, like `refs/remotes/origin/main`, to pick a target from:
-/// each remote's default branch first, then the rest by name.
-pub fn remote_branches(path: &Path) -> Result<Vec<String>> {
+/// The project's local branches, like `refs/heads/main`, to pick a target from, as the
+/// desktop app offers them: the one named as a remote's default branch and tracking it first,
+/// then others tracking it, then the rest by name, leaving out GitButler's own.
+pub fn target_branches(path: &Path) -> Result<Vec<String>> {
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
-    let (mut defaults, mut names) = (Vec::new(), Vec::new());
+    let mut defaults = Vec::new();
     for reference in repo.references()?.remote_branches()?.filter_map(Result::ok) {
-        let name = reference.name().as_bstr().to_string();
-        match reference.target() {
-            gix::refs::TargetRef::Symbolic(default) if name.ends_with("/HEAD") => {
-                defaults.push(default.as_bstr().to_string())
-            }
-            _ => names.push(name),
+        if let gix::refs::TargetRef::Symbolic(default) = reference.target() {
+            defaults.push(default.to_owned());
         }
     }
+    let mut names: Vec<(u8, String)> = Vec::new();
+    for reference in repo.references()?.local_branches()?.filter_map(Result::ok) {
+        let name = reference.name();
+        if name.as_bstr().starts_with(b"refs/heads/gitbutler/") {
+            continue;
+        }
+        let upstream = repo.branch_remote_tracking_ref_name(name, gix::remote::Direction::Fetch);
+        let rank = match upstream
+            .and_then(Result::ok)
+            .filter(|u| defaults.contains(u))
+        {
+            Some(default) if default.as_bstr().ends_with(name.shorten()) => 0,
+            Some(_) => 1,
+            None => 2,
+        };
+        names.push((rank, name.as_bstr().to_string()));
+    }
     names.sort();
-    names.sort_by_key(|name| !defaults.contains(name));
-    Ok(names)
+    Ok(names.into_iter().map(|(_, name)| name).collect())
 }
 
-/// Make `target` (a remote branch's full ref) what the workspace integrates into. Only the
-/// project's settings change: a new project stays on the branch it has checked out, and
-/// branches rebase onto a changed target at the next update.
+/// Make `target` what the workspace integrates into: a local branch's full ref, or a remote
+/// one that a single local branch tracks, as the CLI takes it. The branch's upstream is what
+/// pulls bring in. Only the project's settings change: a new project stays on the branch it
+/// has checked out, and branches rebase onto a changed target at the next update.
 pub fn set_target(path: &Path, target: &str) -> Result<()> {
     let mut ctx = open(path)?;
     anyhow::ensure!(
         !ctx.repo.get()?.head()?.is_unborn(),
         "The repository has no commits yet. Make the first one, then pick the target."
     );
-    let name = full_name(target)?;
-    but_api::workspace::set_target_ref_and_init_project(&mut ctx, name.as_ref(), None)
+    let local = but_core::ref_metadata::resolve_local_target(
+        full_name(target)?.as_ref(),
+        &*ctx.repo.get()?,
+    )?;
+    but_api::workspace::set_target_ref_and_init_project(
+        &mut ctx,
+        local.as_local_full_name_ref(),
+        None,
+    )
 }
 
 pub use but_api::ai::{AiConfiguration, AiConfigurationUpdate};
@@ -274,11 +295,14 @@ mod tests {
             "refs/remotes/origin/main",
         ]);
         git(&["update-ref", "refs/remotes/origin/feature", "HEAD"]);
+        git(&["branch", "--set-upstream-to=origin/main", "main"]);
+        git(&["branch", "another"]);
+        git(&["branch", "gitbutler/edit"]);
 
         assert_eq!(
-            super::remote_branches(path).unwrap(),
-            ["refs/remotes/origin/main", "refs/remotes/origin/feature"],
-            "the remote's default branch first"
+            super::target_branches(path).unwrap(),
+            ["refs/heads/main", "refs/heads/another"],
+            "the branch tracking the remote's default first, and none of GitButler's own"
         );
         super::set_target(path, "refs/remotes/origin/main").unwrap();
         assert_eq!(
@@ -286,10 +310,12 @@ mod tests {
             "refs/heads/main",
             "picking a target leaves the checked-out branch alone, as the desktop app does"
         );
-        assert!(
-            !crate::backend::load_workspace(path, Default::default())
-                .unwrap()
-                .managed
+        let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+        assert!(!workspace.managed);
+        assert_eq!(
+            workspace.target.map(|target| target.name).as_deref(),
+            Some("origin/main"),
+            "a remote ref picks the local branch tracking it, which goes by its upstream"
         );
     }
 }

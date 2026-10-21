@@ -692,6 +692,43 @@ impl Detail {
         rows
     }
 
+    /// `title` and `detail` over a button that picks `project`'s target branch.
+    fn pick_target_state(
+        &self,
+        project: &ProjectId,
+        title: String,
+        detail: impl Into<SharedString>,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let project = project.clone();
+        v_flex()
+            .flex_1()
+            .items_center()
+            .justify_center()
+            .gap(px(4.))
+            .px(px(16.))
+            .text_center()
+            .child(
+                div()
+                    .text_size(px(14.))
+                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .child(title),
+            )
+            .child(muted(detail.into(), theme).mb(px(8.)))
+            .child(
+                crate::ui::button("pick-target", "Choose a target branch…").on_click(cx.listener(
+                    move |this, _, window, cx| {
+                        let project = project.clone();
+                        (this.app)
+                            .update(cx, |app, cx| app.pick_target(project, window, cx))
+                            .ok();
+                    },
+                )),
+            )
+            .into_any_element()
+    }
+
     /// Pick the activity's day `day`, or with `extend` the days from the one picked before
     /// to it; picking the one day picked again shows every day.
     fn pick_days(&mut self, project: &ProjectId, day: i64, extend: bool, cx: &mut Context<Self>) {
@@ -1330,18 +1367,19 @@ impl Detail {
             // Its banner says so; reading its history fails with no more to say.
             _ if missing => div().flex_1().into_any_element(),
             None => crate::ui::empty_state(None, "Loading…", "", theme, cx),
+            // Picking the target again is the way out of what it most often is, as a target that
+            // more than one local branch tracks.
             Some(Upstream {
                 failed: Some(err), ..
-            }) => crate::ui::empty_state(
-                Some(Illustration::Papers),
-                "Couldn't read the target's history",
+            }) => self.pick_target_state(
+                project,
+                "Couldn't read the target's history".to_owned(),
                 error_summary(err),
                 theme,
                 cx,
             ),
             // The page lists what it read, whether or not the project is expanded and loaded.
             Some(upstream) if upstream.commits.is_empty() => {
-                let project = project.clone();
                 // A target the remote renamed or deleted is said so, not as if never picked.
                 let lost = (entry.workspace.as_ref()).and_then(|ws| ws.lost_target.clone());
                 let (title, detail) = match lost {
@@ -1351,34 +1389,10 @@ impl Detail {
                     ),
                     None => (
                         "No target branch".to_owned(),
-                        "Pick the branch your work goes into, like origin/main",
+                        "Pick the branch your work goes into, like main",
                     ),
                 };
-                v_flex()
-                    .flex_1()
-                    .items_center()
-                    .justify_center()
-                    .gap(px(4.))
-                    .px(px(16.))
-                    .text_center()
-                    .child(
-                        div()
-                            .text_size(px(14.))
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .child(title),
-                    )
-                    .child(muted(detail, theme).mb(px(8.)))
-                    .child(
-                        crate::ui::button("pick-target", "Choose a target branch…").on_click(
-                            cx.listener(move |this, _, window, cx| {
-                                let project = project.clone();
-                                this.app
-                                    .update(cx, |app, cx| app.pick_target(project, window, cx))
-                                    .ok();
-                            }),
-                        ),
-                    )
-                    .into_any_element()
+                self.pick_target_state(project, title, detail, theme, cx)
             }
             Some(upstream) => {
                 let target = target.unwrap_or_else(|| "the target".into());

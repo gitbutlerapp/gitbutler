@@ -100,12 +100,8 @@ pub fn load_diff(
             tree_changes(base, newest.0)?
         }
         DiffSource::Branch { tip, .. } => {
-            let target = ctx
-                .project_meta()?
-                .target_ref
-                .and_then(|name| repo.find_reference(name.as_ref()).ok())
-                .and_then(|mut target| target.peel_to_id().ok())
-                .map(|id| id.detach());
+            let target = super::target_source(&repo, &ctx.project_meta()?)
+                .and_then(|name| super::ref_tip(&repo, name.as_ref()));
             let base = target
                 .and_then(|target| repo.merge_base(tip.0, target).ok().flatten())
                 .map(|id| id.detach());

@@ -869,6 +869,18 @@ mod tests {
 
     /// A repository on `main` with one commit of `file` holding `content`. It signs nothing
     /// and reads hooks from its own `.git/hooks`, whatever the global config says.
+    /// Give the repository at `path` a remote whose `main` is at `HEAD`, tracked by the local
+    /// `main`, and make that the target.
+    fn target_origin_main(path: &Path) {
+        git(
+            path,
+            &["remote", "add", "origin", "https://example.com/repo.git"],
+        );
+        git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+        git(path, &["branch", "--set-upstream-to=origin/main", "main"]);
+        crate::backend::settings::set_target(path, "refs/heads/main").unwrap();
+    }
+
     fn repo_with(content: &str) -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path();
@@ -1284,12 +1296,7 @@ mod tests {
     fn a_new_branch_outside_the_workspace_goes_on_top_of_the_checked_out_one() {
         let dir = repo_with("one\n");
         let path = dir.path();
-        git(
-            path,
-            &["remote", "add", "origin", "https://example.com/repo.git"],
-        );
-        git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
-        crate::backend::settings::set_target(path, "refs/remotes/origin/main").unwrap();
+        target_origin_main(path);
 
         assert_eq!(
             create_branch(path, Some("feature")).unwrap(),
@@ -1309,12 +1316,7 @@ mod tests {
     fn history_shows_commits_made_outside_the_workspace() {
         let dir = repo_with("one\n");
         let path = dir.path();
-        git(
-            path,
-            &["remote", "add", "origin", "https://example.com/repo.git"],
-        );
-        git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
-        crate::backend::settings::set_target(path, "refs/remotes/origin/main").unwrap();
+        target_origin_main(path);
         git(path, &["checkout", "-q", "-b", "feature"]);
         let commit = |message: &str| git(path, &["commit", "-q", "--allow-empty", "-m", message]);
         commit("Lower");
@@ -1354,12 +1356,7 @@ mod tests {
     fn a_reload_of_the_commits_keeps_the_files_while_their_tree_stays() {
         let dir = repo_with("one\n");
         let path = dir.path();
-        git(
-            path,
-            &["remote", "add", "origin", "https://example.com/repo.git"],
-        );
-        git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
-        crate::backend::settings::set_target(path, "refs/remotes/origin/main").unwrap();
+        target_origin_main(path);
         git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
         git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
         let head = git(path, &["rev-parse", "HEAD"]);
@@ -1410,12 +1407,7 @@ mod tests {
     fn naming_an_unnamed_branch_makes_it_a_stack_and_undoes() {
         let dir = repo_with("one\n");
         let path = dir.path();
-        git(
-            path,
-            &["remote", "add", "origin", "https://example.com/repo.git"],
-        );
-        git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
-        crate::backend::settings::set_target(path, "refs/remotes/origin/main").unwrap();
+        target_origin_main(path);
         // A commit made with plain Git on the workspace branch belongs to no branch.
         git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
         git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
@@ -1565,12 +1557,7 @@ mod tests {
         let lines: Vec<String> = twenty_lines();
         let dir = repo_with(&lines.concat());
         let path = dir.path();
-        git(
-            path,
-            &["remote", "add", "origin", "https://example.com/repo.git"],
-        );
-        git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
-        crate::backend::settings::set_target(path, "refs/remotes/origin/main").unwrap();
+        target_origin_main(path);
         git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
         let mut edited = lines.clone();
         edited[4] = "five a\nfive b\n".into();

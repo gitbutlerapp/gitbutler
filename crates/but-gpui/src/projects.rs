@@ -88,7 +88,8 @@ impl AppView {
         );
     }
 
-    /// Offer the project's remote branches to pick its target from.
+    /// Offer the project's local branches to pick its target from; each one's upstream is what
+    /// pulls bring in.
     pub fn pick_target(&mut self, project: ProjectId, window: &mut Window, cx: &mut Context<Self>) {
         let Some(path) = self.store.read(cx).path(&project) else {
             return;
@@ -97,19 +98,16 @@ impl AppView {
         cx.spawn_in(window, async move |this, cx| {
             let listed = {
                 let path = path.clone();
-                backend::run(move || settings::remote_branches(&path)).await
+                backend::run(move || settings::target_branches(&path)).await
             };
             let names = match listed {
                 Ok(names) if !names.is_empty() => names,
                 Ok(_) => {
-                    let fetched = project.clone();
                     store.update(cx, |store, cx| {
-                        store.error_with_retry(
-                            "No remote branches to pick from",
-                            "Fetch to list the remote's branches, then choose again. A project \
-                             without a remote needs one added first.",
-                            "Fetch",
-                            move |store, cx| store.fetch(&fetched, cx),
+                        store.error(
+                            "No branches to pick from",
+                            "The target is a local branch, like main, tracking the remote's. \
+                             Create one, then choose again.",
                             cx,
                         )
                     });
@@ -117,7 +115,7 @@ impl AppView {
                 }
                 Err(err) => {
                     store.update(cx, |store, cx| {
-                        store.error("Couldn't list the remote branches", format!("{err:#}"), cx)
+                        store.error("Couldn't list the branches", format!("{err:#}"), cx)
                     });
                     return;
                 }
@@ -125,10 +123,7 @@ impl AppView {
             let choices = names
                 .into_iter()
                 .map(|name| {
-                    let short = name
-                        .strip_prefix("refs/remotes/")
-                        .unwrap_or(&name)
-                        .to_owned();
+                    let short = name.strip_prefix("refs/heads/").unwrap_or(&name).to_owned();
                     let (path, project) = (path.clone(), project.clone());
                     Choice::new(short.clone(), move |app, _, cx| {
                         let store = app.store.clone();

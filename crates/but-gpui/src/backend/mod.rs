@@ -159,7 +159,8 @@ pub fn activate(path: &Path) -> Result<()> {
     if ctx.project_meta()?.target_ref.is_none() {
         let inferred = but_workspace::init::infer_default_target_ref(&*ctx.repo.get()?)?;
         if let Some(target) = inferred {
-            but_api::workspace::set_target_ref_and_init_project(&mut ctx, target.as_ref(), None)?;
+            let target = target.as_local_full_name_ref();
+            but_api::workspace::set_target_ref_and_init_project(&mut ctx, target, None)?;
         }
     }
     Ok(())
@@ -288,29 +289,39 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     let stacks_behind = info.has_lanes_behind_target
         && (info.stacks.iter())
             .any(|stack| stack.base.is_some_and(|base| Some(base) != target_commit));
-    // Not `is_target_current`: a project added since its target last moved has no stored
-    // target commit, and nothing to bring in.
-    let target = info.target_ref.as_ref().map(|target| Target {
-        name: target.ref_name.shorten().to_string(),
-        behind: (target_commit.zip(ctx.repo.get().ok()))
-            .and_then(|(base, repo)| {
-                landed_since(&repo, target.ref_name.as_ref(), base, target.commits_ahead)
-            })
-            .unwrap_or(target.commits_ahead),
-        commits_behind: target.commits_ahead,
-        needs_update: target.commits_ahead > 0 || stacks_behind,
-        incoming: match target.commits_ahead {
-            0 => Vec::new(),
-            _ => upstream::incoming(&ctx, &cached, model::UPSTREAM_SHOWN).unwrap_or_else(|err| {
-                tracing::warn!("couldn't read the target's new commits: {err:#}");
-                Vec::new()
-            }),
-        },
+    // What's new is what the target branch's upstream has past the stored target commit: what
+    // a pull brings in. Without a stored commit, as for a project added since its target last
+    // moved, or without an upstream, which nothing can be pulled from, there's nothing to bring.
+    let repo = ctx.repo.get()?;
+    let upstream =
+        (ctx.project_meta().ok()).and_then(|meta| meta.remote_target_ref(&repo).ok().flatten());
+    let tip = (upstream.as_ref()).and_then(|name| ref_tip(&repo, name.as_ref()));
+    let target = upstream.as_ref().zip(tip).map(|(name, tip)| {
+        let ahead = target_commit.map_or(0, |base| commits_past(&repo, tip, base));
+        Target {
+            name: name.shorten().to_string(),
+            behind: (target_commit)
+                .and_then(|base| first_parent_steps(&repo, tip, base, ahead))
+                .unwrap_or(ahead),
+            commits_behind: ahead,
+            needs_update: ahead > 0 || stacks_behind,
+            incoming: match ahead {
+                0 => Vec::new(),
+                _ => {
+                    upstream::incoming(&ctx, &cached, model::UPSTREAM_SHOWN).unwrap_or_else(|err| {
+                        tracing::warn!("couldn't read the target's new commits: {err:#}");
+                        Vec::new()
+                    })
+                }
+            },
+        }
     });
-    let lost_target = (target.is_none())
-        .then(|| ctx.project_meta().ok()?.target_ref)
+    // An upstream that's configured but gone, as when the remote deleted it.
+    let lost_target = (tip.is_none())
+        .then_some(upstream)
         .flatten()
         .map(|name| name.shorten().to_string());
+    drop(repo);
     let listed = worktrees::linked(&ctx, &mut linked).unwrap_or_else(|err| {
         tracing::warn!("couldn't list the linked worktrees: {err:#}");
         None
@@ -470,19 +481,34 @@ fn branch_from(
 /// workspace was last updated to: each pull request merged one, as the project's page lists
 /// them, rather than one for each commit it merged too, of which there are `all`. `None` when
 /// `base` isn't on that line, as after the target was rewritten.
-fn landed_since(
+/// Where the target's new commits come from: the local target branch's upstream, as a pull
+/// brings in and a pull request compares against, or with none configured, the branch itself.
+pub(crate) fn target_source(
     repo: &gix::Repository,
-    target: &gix::refs::FullNameRef,
-    base: gix::ObjectId,
-    all: usize,
-) -> Option<usize> {
-    let tip = repo
-        .find_reference(target)
-        .ok()?
-        .peel_to_id()
-        .ok()?
-        .detach();
-    first_parent_steps(repo, tip, base, all)
+    meta: &but_core::ref_metadata::ProjectMeta,
+) -> Option<gix::refs::FullName> {
+    match meta.remote_target_ref(repo).ok()? {
+        Some(upstream) => Some(upstream),
+        None => Some(
+            meta.target_ref
+                .as_ref()?
+                .as_local_full_name_ref()
+                .to_owned(),
+        ),
+    }
+}
+
+/// The commit `name` points at, if it's there.
+pub(crate) fn ref_tip(
+    repo: &gix::Repository,
+    name: &gix::refs::FullNameRef,
+) -> Option<gix::ObjectId> {
+    Some(repo.find_reference(name).ok()?.peel_to_id().ok()?.detach())
+}
+
+/// How many commits `tip` has that `base` doesn't, merged ones included.
+fn commits_past(repo: &gix::Repository, tip: gix::ObjectId, base: gix::ObjectId) -> usize {
+    (repo.rev_walk([tip]).with_hidden([base]).all()).map_or(0, |walk| walk.count())
 }
 
 /// How many first parents lead back from `tip` to `base`, at most `max`; `None` when `base`
