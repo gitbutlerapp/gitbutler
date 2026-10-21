@@ -106,6 +106,27 @@ impl Navigator {
         items
     }
 
+    /// Commit… and discarding the changes the composer has checked, or all of them, for a
+    /// checkout with uncommitted changes; a `linked` worktree's discard asks first.
+    fn changes_items(&self, linked: bool, cx: &App) -> [MenuItem; 2] {
+        // Only the composer checks files; without it, discarding takes them all.
+        let detail = self.detail.read(cx);
+        let what = match detail.composing() {
+            true => "checked changes",
+            false => "all changes",
+        };
+        let count = detail.selected_changes(cx).len();
+        [
+            MenuItem::action("Commit…", &StartCommit, cx).separated(),
+            MenuItem::action(
+                crate::edits::discard_label(what, linked, count),
+                &DeleteSelection,
+                cx,
+            )
+            .danger(),
+        ]
+    }
+
     fn row_actions(&self, target: &Selection, cx: &App) -> Vec<MenuItem> {
         let store = self.store.read(cx);
         let action =
@@ -219,18 +240,7 @@ impl Navigator {
                 {
                     return items;
                 }
-                // Only the composer checks files; without it, discarding takes them all.
-                let detail = self.detail.read(cx);
-                let what = match detail.composing() {
-                    true => "checked changes",
-                    false => "all changes",
-                };
-                let discard =
-                    crate::edits::discard_label(what, false, detail.selected_changes(cx).len());
-                items.extend([
-                    action("Commit…", &StartCommit).separated(),
-                    MenuItem::action(discard, &DeleteSelection, cx).danger(),
-                ]);
+                items.extend(self.changes_items(false, cx));
                 items
             }
             Selection::Branch(project, ref_name) => {
@@ -433,7 +443,8 @@ impl Navigator {
                     .collect();
                 let (project, name) = (project.clone(), name.clone());
                 let (deleted_project, deleted) = (project.clone(), name.clone());
-                vec![
+                let changes = (!lost.is_empty()).then(|| self.changes_items(true, cx));
+                let mut items = vec![
                     MenuItem::new("Reveal in Finder", move |_, _, cx| cx.reveal_path(&path)),
                     MenuItem::new("Copy path", move |this, _, cx| {
                         this.copy_text(copied.clone(), cx)
@@ -471,7 +482,10 @@ impl Navigator {
                         )
                     })
                     .danger(),
-                ]
+                ];
+                // As Main worktree's, after where it is and before what happens to it.
+                items.splice(2..2, changes.into_iter().flatten());
+                items
             }
             Selection::Stack(project, bottom) => {
                 let key = (project.clone(), bottom.clone());

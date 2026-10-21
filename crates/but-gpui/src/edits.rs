@@ -414,6 +414,10 @@ impl AppView {
                 let changes = self.detail.read(cx).selected_changes(cx);
                 self.discard(project, None, changes, window, cx);
             }
+            Some(Selection::Worktree(project, name)) => {
+                let changes = self.detail.read(cx).selected_changes(cx);
+                self.discard(project, Some(name), changes, window, cx);
+            }
             _ => {}
         }
     }
