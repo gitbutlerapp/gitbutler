@@ -223,6 +223,9 @@ fn remove_index_entries_deleted_on_both_sides(
     let mut path_check = gix::status::plumbing::SymlinkCheck::new(workdir.to_owned());
     let mut deleted_on_both_sides = Vec::<bstr::BString>::new();
     for entry in index.entries() {
+        if entry.stage() != gix::index::entry::Stage::Unconflicted {
+            continue;
+        }
         let path = entry.path(&index);
         let staged = old_tree
             .entry_by_path(path)

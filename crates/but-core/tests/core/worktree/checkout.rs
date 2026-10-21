@@ -131,6 +131,47 @@ fn deleting_a_file_the_worktree_replaced_with_a_directory_leaves_no_index_entry(
 }
 
 #[test]
+fn checkout_keeps_the_stages_of_an_unresolved_conflict_the_worktree_deleted() -> anyhow::Result<()>
+{
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let base = repo.rev_parse_single("HEAD:x")?.detach();
+    let ours = repo.write_blob("ours\n")?.detach();
+    let theirs = repo.write_blob("theirs\n")?.detach();
+    but_testsupport::git(&repo)
+        .args(["update-index", "--force-remove", "x"])
+        .run();
+    let mut info = but_testsupport::git(&repo)
+        .args(["update-index", "--index-info"])
+        .stdin(std::process::Stdio::piped())
+        .spawn()?;
+    std::io::Write::write_all(
+        info.stdin.as_mut().expect("piped"),
+        format!("100644 {base} 1\tx\n100644 {ours} 2\tx\n100644 {theirs} 3\tx\n").as_bytes(),
+    )?;
+    assert!(info.wait()?.success());
+    let stages = but_testsupport::git(&repo)
+        .args(["ls-files", "-s", "x"])
+        .output()?
+        .stdout;
+    assert_eq!(stages.lines().count(), 3, "the conflict is in the index");
+
+    let target = repo.rev_parse_single("b")?.detach();
+    let _ = safe_checkout_from_head(target, &repo, Default::default());
+
+    // Git refuses to check out over an unresolved conflict. Whatever checkout does, the
+    // conflict stays.
+    assert_eq!(
+        but_testsupport::git(&repo)
+            .args(["ls-files", "-s", "x"])
+            .output()?
+            .stdout
+            .as_bstr(),
+        stages.as_bstr()
+    );
+    Ok(())
+}
+
+#[test]
 fn checkout_keeps_a_staged_modification_the_worktree_deleted() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let x = repo.workdir().expect("non-bare").join("x");
