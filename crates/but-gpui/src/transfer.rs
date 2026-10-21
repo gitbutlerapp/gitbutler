@@ -592,8 +592,10 @@ impl Render for DragPreview {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
         let store = self.store.read(cx);
+        // What's dragged as the store followed it, as an agent may have rewritten it.
         let hint = (store.drop_at.as_ref()).and_then(|(target, place)| {
-            Transfer::resolve(&self.payload, target, *place, store).map(|t| t.verb())
+            let payload = store.dragging.as_ref()?;
+            Transfer::resolve(payload, target, *place, store).map(|t| t.verb())
         });
         let glyph = match self.payload {
             Cut::Commit(..) | Cut::CherryPick(..) => Icon::Commit,

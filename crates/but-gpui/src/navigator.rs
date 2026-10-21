@@ -1229,16 +1229,17 @@ impl Navigator {
                 let zone = drop_zone(("new-branch-drop", ix), "New branch", theme)
                     .h(px(30.))
                     .on_drag_move(cx.listener(Self::over_zone))
-                    .on_drop(cx.listener(move |this, payload: &Cut, _, cx| {
+                    .on_drop(cx.listener(move |this, _: &Cut, _, cx| {
                         // A row still lit says where the pill told the drop goes, as when the
                         // zone slid under a pointer that didn't move.
-                        if let Cut::Commit(from, ids) = payload
+                        let store = this.store.read(cx);
+                        if let Some(Cut::Commit(from, ids)) = &store.dragging
                             && *from == project
-                            && this.store.read(cx).drop_at.is_none()
+                            && store.drop_at.is_none()
                         {
-                            let ids = ids.clone();
+                            let (from, ids) = (from.clone(), ids.clone());
                             this.store
-                                .update(cx, |store, cx| store.move_to_new_branch(from, ids, cx));
+                                .update(cx, |store, cx| store.move_to_new_branch(&from, ids, cx));
                         }
                     }));
                 div().py(px(2.)).child(zone).into_any_element()
@@ -2615,17 +2616,19 @@ impl Navigator {
                 None => el,
             })
             // Every row hears every move of a drag: the one under the pointer says where on
-            // it a drop lands, and the one it leaves lets go of it.
+            // it a drop lands, and the one it leaves lets go of it. What's dragged is the
+            // store's copy, which follows it as agents rewrite it; GPUI's stays as it began.
             .on_drag_move(
                 cx.listener(move |this, event: &DragMoveEvent<Cut>, window, cx| {
                     let (at, bounds) = (event.event.position, event.bounds);
                     let store = this.store.read(cx);
                     let next = if bounds.contains(&at) {
-                        let payload = event.drag(cx);
                         let y = (at.y - bounds.top()) / bounds.size.height;
-                        let place = place_at(payload, &move_target, y, window.modifiers());
-                        (Transfer::resolve(payload, &move_target, place, store))
-                            .map(|_| (move_target.clone(), place))
+                        (store.dragging.as_ref()).and_then(|payload| {
+                            let place = place_at(payload, &move_target, y, window.modifiers());
+                            Transfer::resolve(payload, &move_target, place, store)
+                                .map(|_| (move_target.clone(), place))
+                        })
                     } else if store
                         .drop_at
                         .as_ref()
@@ -2640,22 +2643,25 @@ impl Navigator {
                     }
                 }),
             )
-            .can_drop(move |payload, _, cx| {
+            .can_drop(move |_, _, cx| {
                 let store = store.read(cx);
-                (payload.downcast_ref::<Cut>()).is_some_and(|payload| {
+                (store.dragging.as_ref()).is_some_and(|payload| {
                     (store.drop_at.as_ref()).is_some_and(|(at, place)| {
                         *at == can_drop_target
                             && Transfer::resolve(payload, at, *place, store).is_some()
                     })
                 })
             })
-            .on_drop(cx.listener(move |this, payload: &Cut, window, cx| {
-                let Some((_, place)) = this.store.read(cx).drop_at.clone() else {
+            .on_drop(cx.listener(move |this, _: &Cut, window, cx| {
+                let store = this.store.read(cx);
+                let (Some(payload), Some((_, place))) =
+                    (store.dragging.clone(), store.drop_at.clone())
+                else {
                     return;
                 };
                 (this.app)
                     .update(cx, |app, cx| {
-                        app.transfer(payload, &target, place, window, cx)
+                        app.transfer(&payload, &target, place, window, cx)
                     })
                     .ok();
             }))

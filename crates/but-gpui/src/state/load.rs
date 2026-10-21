@@ -581,56 +581,19 @@ impl Store {
         // A cut commit follows the same way, and the cut goes with the commit; a commit
         // picked from elsewhere, as the target's history, stays as it is.
         if let Some(mut cut) = self.cut.take_if(|cut| cut.project() == id) {
-            let old = self.workspace(id);
-            let follow = |commit| match old.is_some_and(|old| old.find_commit(commit).is_some()) {
-                true => follow_by_key(old, &workspace, commit),
-                false => Some(commit),
-            };
-            let kept = match &mut cut {
-                Cut::Commit(_, commits) | Cut::CherryPick(_, commits) => {
-                    let followed: Option<Arc<[CommitId]>> =
-                        commits.iter().map(|commit| follow(*commit)).collect();
-                    followed.map(|followed| *commits = followed).is_some()
-                }
-                // Some of a commit's file goes once the commit is rewritten, as the lines
-                // picked may have moved with it.
-                Cut::Files {
-                    from: Some(commit),
-                    files,
-                    ..
-                } => follow(*commit)
-                    .filter(|new| new == commit || files.iter().all(|f| f.hunks.is_none()))
-                    .map(|new| *commit = new)
-                    .is_some(),
-                // Uncommitted files go when one of them is no longer uncommitted, and some of
-                // a file once it changed, as the lines picked may have moved under the pick;
-                // a branch goes when it's gone, as when renamed.
-                Cut::Files {
-                    from: None,
-                    worktree,
-                    files,
-                    ..
-                } => {
-                    let uncommitted = workspace.uncommitted_in(worktree.as_deref());
-                    let same = |f: &Selected, u: &FileChange| {
-                        f.hunks.is_none()
-                            || (u.modified, u.lines) == (f.file.modified, f.file.lines)
-                    };
-                    uncommitted.is_some_and(|uncommitted| {
-                        (files.iter()).all(|f| {
-                            uncommitted
-                                .iter()
-                                .any(|u| u.path == f.file.path && same(f, u))
-                        })
-                    })
-                }
-                Cut::Branch(_, ref_name) => workspace.find_branch(ref_name).is_some(),
-            };
+            let kept = follow_cut(&mut cut, self.workspace(id), &workspace);
             // Let go of one that changed out loud, rather than ⌘V doing nothing.
             self.cut = Some(cut);
             if !kept {
                 self.set_cut(None, cx);
                 self.snack("What was cut changed, so it was let go", cx);
+            }
+        }
+        // What's being dragged follows too, so letting go still lands it.
+        if let Some(mut dragged) = self.dragging.take_if(|cut| cut.project() == id) {
+            match follow_cut(&mut dragged, self.workspace(id), &workspace) {
+                true => self.dragging = Some(dragged),
+                false => self.snack("What's being dragged changed, so it won't land", cx),
             }
         }
         // The commit a drag is held over follows too, so letting go there without moving
@@ -669,6 +632,54 @@ impl Store {
             cx.emit(StoreEvent::Renamed(id.clone(), from, to));
         }
         self.save_soon(cx);
+    }
+}
+
+/// Follow what's cut or dragged from `old` to where its commits are in `new`. False once it
+/// changed past following.
+fn follow_cut(cut: &mut Cut, old: Option<&Workspace>, new: &Workspace) -> bool {
+    let follow = |commit| match old.is_some_and(|old| old.find_commit(commit).is_some()) {
+        true => follow_by_key(old, new, commit),
+        false => Some(commit),
+    };
+    match cut {
+        Cut::Commit(_, commits) | Cut::CherryPick(_, commits) => {
+            let followed: Option<Arc<[CommitId]>> =
+                commits.iter().map(|commit| follow(*commit)).collect();
+            followed.map(|followed| *commits = followed).is_some()
+        }
+        // Some of a commit's file goes once the commit is rewritten, as the lines
+        // picked may have moved with it.
+        Cut::Files {
+            from: Some(commit),
+            files,
+            ..
+        } => follow(*commit)
+            .filter(|new| new == commit || files.iter().all(|f| f.hunks.is_none()))
+            .map(|new| *commit = new)
+            .is_some(),
+        // Uncommitted files go when one of them is no longer uncommitted, and some of
+        // a file once it changed, as the lines picked may have moved under the pick;
+        // a branch goes when it's gone, as when renamed.
+        Cut::Files {
+            from: None,
+            worktree,
+            files,
+            ..
+        } => {
+            let uncommitted = new.uncommitted_in(worktree.as_deref());
+            let same = |f: &Selected, u: &FileChange| {
+                f.hunks.is_none() || (u.modified, u.lines) == (f.file.modified, f.file.lines)
+            };
+            uncommitted.is_some_and(|uncommitted| {
+                (files.iter()).all(|f| {
+                    uncommitted
+                        .iter()
+                        .any(|u| u.path == f.file.path && same(f, u))
+                })
+            })
+        }
+        Cut::Branch(_, ref_name) => new.find_branch(ref_name).is_some(),
     }
 }
 

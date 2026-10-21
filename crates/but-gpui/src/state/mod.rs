@@ -211,7 +211,8 @@ pub struct Store {
     followed: Option<(CommitId, CommitId)>,
     /// A project just added, until its first load says which page it opens on.
     added: Option<ProjectId>,
-    /// What the pointer is dragging. Only meaningful while GPUI has a drag active.
+    /// What the pointer is dragging, followed as agents rewrite it: GPUI's own copy stays as
+    /// the drag began. Only meaningful while GPUI has a drag active.
     pub dragging: Option<Cut>,
     /// The row the drag is over and where on it a drop lands, when it takes the drop.
     pub drop_at: Option<(Selection, crate::transfer::Place)>,
