@@ -25,7 +25,7 @@ use crate::state::{
 };
 use crate::theme::Theme;
 use crate::transfer::{Place, Transfer, drag_pill, drag_preview};
-use crate::ui::emoji::ProjectIcon;
+use crate::ui::emoji::{Colour, ProjectIcon};
 use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -1799,19 +1799,28 @@ impl Navigator {
                                     });
                                 })),
                         )
-                        // One picked, as but.dev's navigator: the glyph's outline is no icon.
-                        .children(store.project_icon(id).filter(|icon| !icon.is_empty()).map(
-                            |picked| {
-                                // In an icon's 16 points, an emoji a little smaller than the text.
-                                div()
-                                    .flex_none()
-                                    .w(px(16.))
-                                    .flex()
-                                    .justify_center()
-                                    .text_size(px(13.))
-                                    .child(ProjectIcon::parse(Some(picked)).render(px(16.), theme))
-                            },
-                        )),
+                        // Every project wears one, the glyph's outline until one's picked, so
+                        // their names line up. In an icon's 16 points, an emoji a little smaller
+                        // than the text.
+                        .child(
+                            div()
+                                .flex_none()
+                                .w(px(16.))
+                                .flex()
+                                .justify_center()
+                                .text_size(px(13.))
+                                .child(match ProjectIcon::parse(store.project_icon(id)) {
+                                    // Unpicked, it's quiet as the eye beside it, and takes the
+                                    // row's ink when it's selected.
+                                    ProjectIcon::Glyph(Colour { fill: None, .. }) => {
+                                        icon(Icon::Repo)
+                                            .size(px(16.))
+                                            .text_color(style.muted())
+                                            .into_any_element()
+                                    }
+                                    picked => picked.render(px(16.), theme),
+                                }),
+                        ),
                 )
                 // However narrow the navigator, the name stays: what the row sums up gives way
                 // first, a whole item at a time from its end, the age before the counts. Each
