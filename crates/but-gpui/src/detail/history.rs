@@ -827,6 +827,9 @@ impl Detail {
             return crate::ui::empty_state(None, "Loading history…", "", theme, cx);
         };
         let snapshot = project.clone();
+        // The oplog is kept against the target, so without one there's nothing to record.
+        let no_target =
+            (self.store.read(cx).workspace(project)).is_some_and(|ws| ws.target.is_none());
         // The filter, which kinds of operation it shows, and a snapshot of the project now.
         let narrowed = !self.history_hidden.is_empty();
         let bar = self
@@ -842,6 +845,7 @@ impl Detail {
                 icon_button("take-snapshot", Icon::Plus)
                     .small()
                     .tooltip("Take a snapshot of the project as it is, to restore later")
+                    .disabled_because(no_target.then_some("Pick a target branch first"))
                     .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                         this.take_snapshot(&snapshot, window, cx)
                     })),
@@ -851,7 +855,10 @@ impl Detail {
             list_empty(
                 Illustration::Cactus,
                 "Nothing here yet".to_owned(),
-                "Changes you make with GitButler show up here",
+                match no_target {
+                    true => "GitButler records history once the project has a target branch",
+                    false => "Changes you make with GitButler show up here",
+                },
                 theme,
                 cx,
             )
