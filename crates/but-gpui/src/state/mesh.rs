@@ -111,34 +111,42 @@ impl Store {
                 let Ok(due) = this.update(cx, |store, cx| store.set_mesh_state(state, cx)) else {
                     return;
                 };
-                for (project, path, report) in due {
-                    if report {
-                        let to_report = path.clone();
-                        let reported = backend::run(move || backend::mesh::report(&to_report)).await;
-                        // Asked again on the next read, as the daemon may only have been down.
-                        if let Err(err) = reported {
-                            tracing::debug!(%project, "mesh couldn't report the project: {err:#}");
-                            let path = path.clone();
-                            this.update(cx, |store, _| store.mesh.asked_to_report.remove(&path))
+                // All at once: each read takes seconds, and one after another the last project
+                // waited for all the others.
+                let reads = due.into_iter().map(|(project, path, report)| {
+                    let (this, mut cx) = (this.clone(), cx.clone());
+                    async move {
+                        if report {
+                            let to_report = path.clone();
+                            let reported =
+                                backend::run(move || backend::mesh::report(&to_report)).await;
+                            // Asked again on the next read, as the daemon may only have been down.
+                            if let Err(err) = reported {
+                                tracing::debug!(%project, "mesh couldn't report the project: {err:#}");
+                                let path = path.clone();
+                                (this.update(&mut cx, |store, _| {
+                                    store.mesh.asked_to_report.remove(&path)
+                                }))
                                 .ok();
-                        }
-                    }
-                    let id = project.to_string();
-                    let read = backend::run(move || backend::mesh::status(&path, &id)).await;
-                    tracing::debug!(%project, checkouts = ?read.as_ref().map(|s| s.checkouts.len()), "mesh read");
-                    let Ok(()) = this.update(cx, |store, cx| match read {
-                        Ok(status) => {
-                            if let Some(read) = status.project {
-                                store.set_mesh_project(&project, read, cx);
                             }
-                            store.set_mesh_checkouts(project, status.checkouts, cx)
                         }
-                        // What was read before stays.
-                        Err(err) => tracing::debug!(%project, "mesh read failed: {err:#}"),
-                    }) else {
-                        return;
-                    };
-                }
+                        let id = project.to_string();
+                        let read = backend::run(move || backend::mesh::status(&path, &id)).await;
+                        tracing::debug!(%project, checkouts = ?read.as_ref().map(|s| s.checkouts.len()), "mesh read");
+                        (this.update(&mut cx, |store, cx| match read {
+                            Ok(status) => {
+                                if let Some(read) = status.project {
+                                    store.set_mesh_project(&project, read, cx);
+                                }
+                                store.set_mesh_checkouts(project, status.checkouts, cx)
+                            }
+                            // What was read before stays.
+                            Err(err) => tracing::debug!(%project, "mesh read failed: {err:#}"),
+                        }))
+                        .ok();
+                    }
+                });
+                futures::future::join_all(reads).await;
                 let timer = cx.background_executor().timer(POLL);
                 futures::select! {
                     _ = timer.fuse() => {}
@@ -314,17 +322,36 @@ impl Store {
     /// Show `project`'s checkouts on other machines as they were last read, until the mesh
     /// answers, which takes seconds: its section is there with the rest of the card rather
     /// than arriving after it, and the read only changes what changed.
-    pub(super) fn seed_mesh(&mut self, project: &ProjectId) {
-        let known = matches!(
-            self.mesh.state,
-            MeshState::Unknown | MeshState::Connected(_)
-        );
-        if !known || self.mesh.checkouts.contains_key(project) {
+    pub(super) fn seed_mesh(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        if !self.mesh_may_show(project) {
             return;
         }
-        if let Some(status) = mesh::cached_status(project.as_ref()) {
-            (self.mesh.checkouts).insert(project.clone(), status.checkouts.into());
-        }
+        let project = project.clone();
+        // Off the UI thread: a busy project's read runs to a megabyte.
+        cx.spawn(async move |this, cx| {
+            let id = project.to_string();
+            let Ok(Some(status)) = backend::run(move || Ok(mesh::cached_status(&id))).await else {
+                return;
+            };
+            this.update(cx, |store, cx| {
+                // Unless the mesh answered meanwhile, or this machine left it.
+                if store.mesh_may_show(&project) {
+                    (store.mesh.checkouts).insert(project, status.checkouts.into());
+                    cx.notify();
+                }
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// Whether what was last read of `project` may stand in: nothing's been read of it this
+    /// run, and this machine is in the mesh, or not known yet not to be.
+    fn mesh_may_show(&self, project: &ProjectId) -> bool {
+        matches!(
+            self.mesh.state,
+            MeshState::Unknown | MeshState::Connected(_)
+        ) && !self.mesh.checkouts.contains_key(project)
     }
 
     /// `project`'s checkouts on other machines, as the mesh last said.
