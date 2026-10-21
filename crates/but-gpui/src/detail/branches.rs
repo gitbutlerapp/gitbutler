@@ -27,7 +27,7 @@ use crate::ui::person::byline_avatar;
 use crate::ui::text_input::TextInput;
 use crate::ui::{
     Icon, ROW_HEIGHT, Tooltip, age_column, empty_state, faint, h_flex, icon_button, relative_time,
-    review, small_icon, v_flex,
+    review, section_label, small_icon, v_flex,
 };
 
 pub(super) struct Branches {
@@ -147,9 +147,15 @@ impl Detail {
                 let previous = this.branches.take().filter(|b| b.project == project);
                 // The newest, which the list shows first.
                 let first = list.first();
-                let selected = (previous.as_ref().and_then(|b| b.selected.clone()))
+                let was = previous.as_ref().and_then(|b| b.selected.clone());
+                let selected = (was.clone())
                     .filter(|ref_name| list.iter().any(|b| b.ref_name == *ref_name))
                     .or_else(|| first.map(|b| b.ref_name.clone()));
+                // The branch opened went, as an agent renamed or deleted it: back to the table,
+                // rather than open another in its place.
+                if was.is_some_and(|was| !list.iter().any(|b| b.ref_name == was)) {
+                    this.branches_table = true;
+                }
                 // Which branches were open and their commits, of those still listed, and the
                 // selected commit while its branch stays selected.
                 let listed = |ref_name: &String| list.iter().any(|b| b.ref_name == *ref_name);
@@ -291,14 +297,16 @@ impl Detail {
     /// Load the open branches' commits that aren't loaded for them as they are now. A selected
     /// commit its branch no longer has is let go.
     fn load_open_commits(&mut self, cx: &mut Context<Self>) {
+        let table = self.branches_table;
         let Some(branches) = &self.branches else {
             return;
         };
-        // And the selected branch's, which it lists beside the list once opened.
+        // And the opened branch's, which it lists beside the list; not the table's selection,
+        // which nothing shows the commits of, as the keys step through it.
         let wanted: Vec<(String, Loaded)> = (branches.list.iter())
             .filter(|b| {
                 branches.open.contains(&b.ref_name)
-                    || branches.selected.as_ref() == Some(&b.ref_name)
+                    || (!table && branches.selected.as_ref() == Some(&b.ref_name))
             })
             .map(|b| (b.ref_name.clone(), (b.tip, b.ahead)))
             .filter(|(r, key)| (branches.commits.get(r)).is_none_or(|(loaded, _)| loaded != key))
@@ -327,16 +335,16 @@ impl Detail {
                     return;
                 };
                 for (r, key, commits) in loaded {
-                    // Unless the branch moved meanwhile; one that failed is tried again when
-                    // it's next opened.
+                    // Unless the branch moved meanwhile. One that failed shows none rather than
+                    // loading for good, and is read again once it moves.
                     let current =
                         (branches.list.iter()).any(|b| b.ref_name == r && (b.tip, b.ahead) == key);
-                    match commits {
-                        Ok(commits) if current => {
-                            branches.commits.insert(r, (key, commits));
-                        }
-                        Ok(_) => {}
-                        Err(err) => tracing::warn!("couldn't list the branch's commits: {err:#}"),
+                    let commits = commits.unwrap_or_else(|err| {
+                        tracing::warn!("couldn't list the branch's commits: {err:#}");
+                        Vec::new()
+                    });
+                    if current {
+                        branches.commits.insert(r, (key, commits));
                     }
                 }
                 let gone = (branches.commit.zip(branches.selected.as_ref()))
@@ -812,7 +820,7 @@ impl Detail {
                                 branches: HashSet::from([ref_name.clone()]),
                                 ..Overlay::default()
                             };
-                            let gone = ref_name.clone();
+                            let (gone, listed_in) = (ref_name.clone(), project.clone());
                             store.run(
                                 &project,
                                 "Delete branch",
@@ -822,7 +830,9 @@ impl Detail {
                                 // refs changed, lands after the overlay is gone.
                                 move |store, (), cx| {
                                     (detail.update(cx, |detail, _| {
-                                        if let Some(branches) = detail.branches.as_mut() {
+                                        let branches = (detail.branches.as_mut())
+                                            .filter(|b| b.project == listed_in);
+                                        if let Some(branches) = branches {
                                             branches.list.retain(|b| b.ref_name != gone);
                                         }
                                     }))
@@ -934,6 +944,9 @@ impl Detail {
         let Some(commits) = self.opened_branch_commits(project) else {
             return empty_state(None, "Loading…", "", theme, cx);
         };
+        if commits.is_empty() {
+            return empty_state(None, "No commits to list", "", theme, cx);
+        }
         let project = project.clone();
         side_list(
             "branch-commits",
@@ -1083,7 +1096,8 @@ impl Detail {
                     cx,
                     move |app, text, _, cx| {
                         let text = text.trim().to_owned();
-                        let (saved, gone) = (text.clone(), ref_name.clone());
+                        let (saved, gone, listed_in) =
+                            (text.clone(), ref_name.clone(), project.clone());
                         app.store.update(cx, |store, cx| {
                             store.run(
                                 &project,
@@ -1095,9 +1109,11 @@ impl Detail {
                                 // Its refs didn't change, so the list isn't read again.
                                 move |_, (), cx| {
                                     (detail.update(cx, |detail, cx| {
-                                        let listed = (detail.branches.as_mut()).and_then(|b| {
-                                            b.list.iter_mut().find(|b| b.ref_name == gone)
-                                        });
+                                        let listed = (detail.branches.as_mut())
+                                            .filter(|b| b.project == listed_in)
+                                            .and_then(|b| {
+                                                b.list.iter_mut().find(|b| b.ref_name == gone)
+                                            });
                                         if let Some(branch) = listed {
                                             branch.description =
                                                 (!saved.is_empty()).then_some(saved);
@@ -1171,9 +1187,7 @@ impl Detail {
                             .gap(px(6.))
                             .items_end()
                             .pb(px(4.))
-                            .text_size(px(12.))
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .child(*title)
+                            .child(section_label(*title, theme))
                             .child(faint(count.to_string(), theme))
                             .into_any_element(),
                         TableRow::Branch(branch_ix) => {
@@ -1250,8 +1264,8 @@ impl Detail {
                 div()
                     .min_w(px(0.))
                     .truncate()
-                    .font_family(theme.mono_font.clone())
-                    .text_size(px(12.))
+                    // Semibold UI type, as the navigator names branches.
+                    .font_weight(gpui::FontWeight::SEMIBOLD)
                     .text_color(ink(theme.text_1))
                     .child(SharedString::from(shown_name.to_owned())),
             )
@@ -1370,7 +1384,6 @@ impl Detail {
             MouseButton::Right,
             cx.listener(move |this, event: &MouseDownEvent, window, cx| {
                 window.focus(&this.side_focus, cx);
-                this.select_other_branch(Some(ref_name.clone()), cx);
                 this.branch_menu(&project, &ref_name, event.position, cx)
             }),
         )
@@ -1597,19 +1610,18 @@ impl Detail {
                                 .id(("other-branch-name", ix))
                                 .flex_1()
                                 .min_w(px(0.))
-                                .truncate();
+                                .truncate()
+                                .font_weight(gpui::FontWeight::SEMIBOLD);
                             let name = match &branch.review {
                                 Some(review) if !review.title.is_empty() => name
                                     .text_color(ink(review::title_color(review.state, theme)))
                                     .child(SharedString::from(review.title.clone())),
                                 // A branch only a remote has, by the remote's name for it.
                                 _ => name
-                                    .font_family(theme.mono_font.clone())
-                                    .text_size(px(12.))
                                     .text_color(ink(if merged.is_some() {
                                         theme.text_2
                                     } else {
-                                        theme.blue
+                                        theme.text_1
                                     }))
                                     .child(SharedString::from(shown_name.to_owned())),
                             };
