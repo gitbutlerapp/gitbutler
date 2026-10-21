@@ -779,11 +779,18 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let label = label.into();
-        let captured = self.workspace(project).map_or_else(HashMap::new, |ws| {
+        let mut captured = self.workspace(project).map_or_else(HashMap::new, |ws| {
             ws.commits()
                 .map(|commit| (commit.id, commit.key.clone()))
                 .collect()
         });
+        // The selected commit as it was before an agent rewrote it, which a prompt opened on
+        // it still names.
+        if let Some((from, to)) = self.followed
+            && let Some(key) = captured.get(&to).cloned()
+        {
+            captured.insert(from, key);
+        }
         // What's selected leaving with its branch or worktree, the selection goes now where
         // the reload after it would put it.
         let selection = self.selection.as_ref();
