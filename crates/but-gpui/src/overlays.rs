@@ -358,8 +358,9 @@ impl AppView {
             cx.subscribe_in(&view, window, |this, _, _: &DismissEvent, window, cx| {
                 this.close_modal(window, cx)
             });
-        window.focus(&view.focus_handle(cx), cx);
-        self.modal = Some((view.into(), subscription));
+        let focus = view.focus_handle(cx);
+        window.focus(&focus, cx);
+        self.modal = Some((view.into(), focus, subscription));
         cx.notify();
     }
 
@@ -376,7 +377,7 @@ impl AppView {
     }
 
     pub(crate) fn render_modal(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let (view, _) = self.modal.as_ref()?;
+        let (view, ..) = self.modal.as_ref()?;
         Some(
             div()
                 .id("modal-backdrop")

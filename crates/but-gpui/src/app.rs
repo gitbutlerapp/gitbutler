@@ -119,8 +119,8 @@ pub struct AppView {
     pub icon_picker: Option<crate::projects::IconPicker>,
     pub navigator_open: bool,
     pub palette: Option<Palette>,
-    /// The modal on screen, if any, and the subscription that closes it.
-    pub modal: Option<(AnyView, Subscription)>,
+    /// The modal on screen, if any, what takes its keys, and the subscription that closes it.
+    pub modal: Option<(AnyView, FocusHandle, Subscription)>,
     /// Palette commands by label, most recently run first.
     pub recent_commands: Vec<&'static str>,
     _subscriptions: Vec<Subscription>,
@@ -176,6 +176,13 @@ impl AppView {
                         store.recheck_folders(cx);
                     });
                 }
+            }),
+            // Keys go to what's focused, so when it leaves the screen, as the Branches page's
+            // list does once Apply selects the branch, they go to the navigator instead; to an
+            // open modal, as Settings, rather than what's under it.
+            cx.on_focus_lost(window, |this, window, cx| match &this.modal {
+                Some((_, focus, _)) => window.focus(focus, cx),
+                None => this.focus_main(window, cx),
             }),
         ];
         // Closing the window quits, so it asks the same as ⌘Q.
