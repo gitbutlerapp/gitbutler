@@ -12,7 +12,7 @@ use gpui::{
 
 use super::Detail;
 use super::panes::{Crumb, list_empty, quiet, side_list, side_row};
-use super::pull_request::{TABS_HEIGHT, tab};
+
 use crate::app::{Collapse, Confirm, Expand, SelectNext, SelectPrevious};
 use crate::backend::branches::{self, ApplyOutcome, OtherBranch};
 use crate::backend::upstream::TargetCommit;
@@ -263,9 +263,6 @@ impl Detail {
     /// Open branch `ref_name` from the table: the list, it selected there, beside its diff.
     fn open_from_table(&mut self, ref_name: String, window: &mut Window, cx: &mut Context<Self>) {
         self.branches_table = false;
-        // It opens on its commits, as a merge does, which come before the pull request tab
-        // the branch pages keep picked.
-        self.commits_tab = true;
         window.focus(&self.side_focus, cx);
         self.select_other_branch(Some(ref_name), cx);
         self.app.update(cx, |_, cx| cx.notify()).ok();
@@ -302,17 +299,11 @@ impl Detail {
     /// Load the open branches' commits that aren't loaded for them as they are now. A selected
     /// commit its branch no longer has is let go.
     fn load_open_commits(&mut self, cx: &mut Context<Self>) {
-        let table = self.branches_table;
         let Some(branches) = &self.branches else {
             return;
         };
-        // And the opened branch's, which it lists beside the list; not the table's selection,
-        // which nothing shows the commits of, as the keys step through it.
         let wanted: Vec<(String, Loaded)> = (branches.list.iter())
-            .filter(|b| {
-                branches.open.contains(&b.ref_name)
-                    || (!table && branches.selected.as_ref() == Some(&b.ref_name))
-            })
+            .filter(|b| branches.open.contains(&b.ref_name))
             .map(|b| (b.ref_name.clone(), (b.tip, b.ahead)))
             .filter(|(r, key)| (branches.commits.get(r)).is_none_or(|(loaded, _)| loaded != key))
             .collect();
@@ -885,17 +876,9 @@ impl Detail {
             .ok();
     }
 
-    /// The opened branch's own commits, newest first, once read for its tip.
-    pub(super) fn opened_branch_commits(&self, project: &ProjectId) -> Option<&[TargetCommit]> {
-        let branch = self.selected_other_branch(project)?;
-        let branches = self.branches_for(project)?;
-        let ((tip, _), _) = branches.commits.get(&branch.ref_name)?;
-        (*tip == branch.tip).then(|| branches.listed_commits(&branch.ref_name))
-    }
-
-    /// Beside the list, the opened branch as a merge shows on the project's page: tabs for its
-    /// commits, its changes and its pull request, and under them its commits and files, the
-    /// window drawing the diff over the rest.
+    /// Beside the list, the opened branch as a commit shows on the project's page: the message
+    /// of a commit of it picked, tabs when it has a pull request, and under them the pull
+    /// request, or the files when there's room, the window drawing the diff over the rest.
     pub(super) fn render_branch_beside(
         &self,
         project: &ProjectId,
@@ -906,53 +889,14 @@ impl Detail {
             return div().flex_1().into_any_element();
         };
         let review = branch.review.as_ref();
-        let commits = self.showing_commits(cx);
-        let reviewing = self.review_tab && review.is_some() && !commits;
+        let reviewing = self.review_tab && review.is_some();
         let below = match reviewing {
             true => self.render_review_tab(project, theme, cx),
-            false => self.render_commits_and_files(
-                self.render_branch_commit_list(project, theme, cx),
-                theme,
-                cx,
-            ),
+            false => self.render_files_beside(theme, cx),
         };
-        let changed = (self.shown_diff().map(|diff| diff.files.len())).filter(|n| *n > 0);
-        let count = (self.opened_branch_commits(project).map(<[_]>::len)).or(branch.own_commits);
-        let tabs = h_flex()
-            .flex_none()
-            .h(px(TABS_HEIGHT))
-            .px(px(16.))
-            .items_end()
-            .border_b_1()
-            .border_color(theme.border_3)
-            .child(
-                h_flex()
-                    .flex_grow(1.)
-                    .ml(px(-8.))
-                    .child(
-                        tab("tab-commits", "Commits", commits, theme)
-                            .children(count.map(|n| faint(n.to_string(), theme)))
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.set_list_tab(false, true, window, cx)
-                            })),
-                    )
-                    .child(
-                        tab("tab-changes", "Changes", !reviewing && !commits, theme)
-                            .children(changed.map(|n| faint(n.to_string(), theme)))
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.set_list_tab(false, false, window, cx)
-                            })),
-                    )
-                    .when(review.is_some(), |el| {
-                        el.child(
-                            tab("tab-review", "Pull request", reviewing, theme).on_click(
-                                cx.listener(|this, _, window, cx| {
-                                    this.set_list_tab(true, false, window, cx)
-                                }),
-                            ),
-                        )
-                    }),
-            );
+        let tabs = review
+            .is_some()
+            .then(|| self.list_tabs(reviewing, theme, cx));
         // A commit picked shows its message over the tabs, as a merge's does.
         let message = (self.picked_branch_commit(project))
             .map(|commit| self.render_target_message(commit, theme, cx));
@@ -962,77 +906,10 @@ impl Detail {
             .h_full()
             .min_w(px(0.))
             .children(message)
-            .child(tabs)
+            .children(tabs)
             .child(below)
             .child(self.measure_beside_width())
             .into_any_element()
-    }
-
-    /// The opened branch's own commits, under a row for all of them when there's more than
-    /// one; a click shows one in the diff.
-    fn render_branch_commit_list(
-        &self,
-        project: &ProjectId,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> AnyElement {
-        let Some(commits) = self.opened_branch_commits(project) else {
-            return empty_state(None, "Loading…", "", theme, cx);
-        };
-        if commits.is_empty() {
-            return empty_state(None, "No commits to list", "", theme, cx);
-        }
-        let project = project.clone();
-        side_list(
-            "branch-commits",
-            // One commit is all there is: no row for all of them.
-            commits.len() + usize::from(commits.len() > 1),
-            &self.merged_scroll,
-            "branch-commits-scrollbar",
-            cx,
-            move |this, ix, theme, _, cx| {
-                let commits = this.opened_branch_commits(&project)?;
-                let branches = this.branches_for(&project)?;
-                let ref_name = branches.selected.clone()?;
-                let pick = match (ix, commits.len()) {
-                    (_, 1) => Some(commits.first()?),
-                    (0, _) => None,
-                    (ix, _) => Some(commits.get(ix - 1)?),
-                };
-                let id = pick.map(|c| c.id);
-                let selected = branches.commit == id || commits.len() == 1;
-                let row = side_row(("branch-commit", ix), selected, false, theme).on_click(
-                    cx.listener(move |this, _, _, cx| match id {
-                        Some(id) => this.select_branch_commit(&ref_name, id, cx),
-                        None => this.select_other_branch(Some(ref_name.clone()), cx),
-                    }),
-                );
-                Some(match pick {
-                    None => row
-                        .child(small_icon(Icon::Branch).text_color(theme.text_3))
-                        .child(
-                            div()
-                                .flex_1()
-                                .child(format!("All {} commits", commits.len())),
-                        )
-                        .into_any_element(),
-                    Some(commit) => row
-                        .child(small_icon(Icon::Commit).text_color(theme.text_3))
-                        .child(
-                            div()
-                                .flex_1()
-                                .min_w(px(0.))
-                                .truncate()
-                                .child(SharedString::from(commit.title.clone())),
-                        )
-                        .child(quiet(age_column(Some(commit.time), theme), false, theme))
-                        .into_any_element(),
-                })
-            },
-        )
-        .flex_1()
-        .min_h(px(0.))
-        .into_any_element()
     }
 
     /// The table's lines: the branches the filter keeps, in the listing's order, the stacks

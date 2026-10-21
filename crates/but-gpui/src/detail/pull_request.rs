@@ -47,8 +47,7 @@ impl Detail {
     /// picked stays picked from branch to branch, as but.dev's does; a branch without a
     /// pull request shows its changes.
     pub fn showing_review(&self, cx: &App) -> bool {
-        // A Commits tab, which a merge or a branch opens on, comes first.
-        self.review_tab && self.selected_review(cx).is_some() && !self.showing_commits(cx)
+        self.review_tab && self.selected_review(cx).is_some()
     }
 
     fn set_review_tab(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
@@ -138,8 +137,7 @@ impl Detail {
     /// How tall the tabs beside a list are, which the diff starts below: nothing when the
     /// page has none.
     pub(super) fn list_tabs_height(&self, cx: &App) -> f32 {
-        match self.list_page(cx) && (self.selected_review(cx).is_some() || self.has_commits_tab(cx))
-        {
+        match self.list_page(cx) && self.selected_review(cx).is_some() {
             true => TABS_HEIGHT,
             false => 0.,
         }

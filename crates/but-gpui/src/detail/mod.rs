@@ -315,16 +315,14 @@ pub struct Detail {
     merged: HashMap<backend::CommitId, Option<(Vec<backend::upstream::TargetCommit>, bool)>>,
     /// The one of them shown in place of everything the merge brought in.
     merged_pick: Option<backend::CommitId>,
-    /// The project page's Commits tab is picked, over a merge's commits.
-    commits_tab: bool,
-    merged_scroll: UniformListScrollHandle,
+    /// The merges on a project's page whose commits show under them, and the one a click on
+    /// its row opened, which a click on another's folds again, as branches in the navigator.
+    open_merges: HashSet<backend::CommitId>,
+    merge_click_opened: Option<backend::CommitId>,
     /// The days of a project's activity picked, first to last, as `upstream::day_of` numbers
     /// them, which its history is filtered to; and the day a shift-click extends them from.
     activity_days: Option<(ProjectId, i64, i64)>,
     activity_anchor: Option<(ProjectId, i64)>,
-    /// How tall a merge's commits were dragged to be over its files or its diff; `None` for
-    /// as tall as they need, up to a limit.
-    merged_split: Option<f32>,
     /// The images each project's README shows, as loaded, by where they're from.
     readme_images: HashMap<ProjectId, HashMap<String, Arc<gpui::RenderImage>>>,
     /// The images asked for, loaded or not, so each is asked for once.
@@ -593,11 +591,10 @@ impl Detail {
             beside_width: Rc::new(Cell::new(0.)),
             merged: HashMap::new(),
             merged_pick: None,
-            commits_tab: false,
-            merged_scroll: UniformListScrollHandle::new(),
+            open_merges: HashSet::new(),
+            merge_click_opened: None,
             activity_days: None,
             activity_anchor: None,
-            merged_split: None,
             readme_images: HashMap::new(),
             readme_images_asked: HashSet::new(),
             header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),
@@ -1807,17 +1804,14 @@ impl Detail {
                     true => self.target_message_height.get(),
                     false => 0.,
                 };
-                self.header_height.get()
-                    + message
-                    + self.list_tabs_height(cx)
-                    + self.merged_over_height(cx)
+                self.header_height.get() + message + self.list_tabs_height(cx)
             }
             Some(Selection::Branches(project)) => {
                 let message = match self.picked_branch_commit(&project) {
                     Some(_) => self.target_message_height.get(),
                     None => 0.,
                 };
-                message + self.list_tabs_height(cx) + self.merged_over_height(cx)
+                message + self.list_tabs_height(cx)
             }
             Some(Selection::History(project)) if self.selected_operation(&project).is_some() => {
                 self.header_height.get()
