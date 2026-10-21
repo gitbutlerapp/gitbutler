@@ -446,6 +446,8 @@ pub struct RemoteCommit {
     pub agent: Option<Agent>,
     /// When it was written, in seconds since the Unix epoch.
     pub time: i64,
+    /// It has more than one parent, bringing in the commits of the others.
+    pub merge: bool,
 }
 
 /// A coding agent, or a bot, that wrote a commit a person committed.
@@ -1071,6 +1073,7 @@ mod tests {
                     email: String::new(),
                     agent: None,
                     time: 0,
+                    merge: false,
                 };
                 incoming
             ],

@@ -454,6 +454,7 @@ fn branch_from(
                     email,
                     agent,
                     time: commit.author.time.seconds,
+                    merge: commit.parent_ids.len() > 1,
                 }
             })
             .collect(),

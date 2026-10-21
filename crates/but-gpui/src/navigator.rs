@@ -95,11 +95,13 @@ pub fn bind_keys(cx: &mut App) {
     ]);
 }
 
-/// A branch whose commits a click on its row opened, here or on another machine.
+/// A branch whose commits a click on its row opened, here or on another machine, or a
+/// remote's merge whose commits it opened.
 #[derive(Clone, PartialEq)]
 enum ClickOpened {
     Here((ProjectId, String)),
     Elsewhere(crate::state::MeshBranch),
+    Merge(ProjectId, CommitId),
 }
 
 /// Rows in display order. Only [`Row::Item`] can be selected.
@@ -374,6 +376,8 @@ pub struct Navigator {
     /// The branch a click on its row opened, which a click on another's folds again; one
     /// opened or folded by hand since stays as it's left.
     click_opened: Option<ClickOpened>,
+    /// Merges only a remote has whose commits show under them.
+    open_merges: HashSet<CommitId>,
     /// The filter in the header, over every project's rows.
     filter: Entity<TextInput>,
     /// The first item the filter found, which Enter in it selects.
@@ -479,6 +483,7 @@ impl Navigator {
             unfolded_branches: HashSet::new(),
             flipped_branches: HashSet::new(),
             click_opened: None,
+            open_merges: HashSet::new(),
             open_upstream: HashSet::new(),
             folded_checkouts: HashSet::new(),
             flipped_mesh_branches: HashSet::new(),
@@ -1066,6 +1071,9 @@ impl Navigator {
                         toggle(&mut self.flipped_mesh_branches, key);
                     }
                 }
+                ClickOpened::Merge(_, id) => {
+                    self.open_merges.remove(&id);
+                }
             }
         }
         match &branch {
@@ -1075,6 +1083,10 @@ impl Navigator {
             }
             ClickOpened::Elsewhere(key) if !self.mesh_branch_open(key) => {
                 toggle(&mut self.flipped_mesh_branches, key.clone());
+                self.click_opened = Some(branch);
+            }
+            ClickOpened::Merge(project, id) if self.open_merges.insert(*id) => {
+                (self.store).update(cx, |store, cx| store.load_merged(project, *id, cx));
                 self.click_opened = Some(branch);
             }
             _ => {}
@@ -1087,6 +1099,37 @@ impl Navigator {
     fn upstream_selected(store: &Store, id: &ProjectId, ref_name: Option<&str>) -> bool {
         matches!(&store.selection, Some(Selection::Upstream(p, r, _))
             if p == id && r.as_deref() == ref_name)
+    }
+
+    /// Show the commits remote merge `id` brought in, or fold them, by hand: it stays as it's
+    /// left. Folding them over the one selected selects the merge.
+    fn toggle_merge(
+        &mut self,
+        project: &ProjectId,
+        ref_name: Option<String>,
+        id: CommitId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.click_opened == Some(ClickOpened::Merge(project.clone(), id)) {
+            self.click_opened = None;
+        }
+        if self.open_merges.insert(id) {
+            (self.store).update(cx, |store, cx| store.load_merged(project, id, cx));
+            return cx.notify();
+        }
+        self.open_merges.remove(&id);
+        let store = self.store.read(cx);
+        let inside = matches!(&store.selection, Some(Selection::Upstream(p, r, c))
+            if p == project && store.merged_upstream(p, r.as_deref(), *c).is_some_and(|(m, _)| m == id));
+        match inside {
+            true => self.select(
+                Selection::Upstream(project.clone(), ref_name, id),
+                window,
+                cx,
+            ),
+            false => cx.notify(),
+        }
     }
 
     /// Whether the commits only `ref_name`'s remote has, or with `None` the target's new
@@ -1117,10 +1160,26 @@ impl Navigator {
         if !self.upstream_open(store, id, ref_name) {
             return;
         }
-        rows.extend(
-            (commits.iter())
-                .map(|commit| Row::Item(Selection::Upstream(id.clone(), owner.clone(), commit.id))),
-        );
+        let selected = match &store.selection {
+            Some(Selection::Upstream(p, r, c)) if p == id && *r == owner => Some(*c),
+            _ => None,
+        };
+        for commit in commits {
+            rows.push(Row::Item(Selection::Upstream(
+                id.clone(),
+                owner.clone(),
+                commit.id,
+            )));
+            let Some((merged, _)) = (store.merged.get(&commit.id)).and_then(|m| m.as_ref()) else {
+                continue;
+            };
+            let holds = selected.is_some_and(|c| merged.iter().any(|m| m.id == c));
+            if commit.merge && (self.open_merges.contains(&commit.id) || holds) {
+                rows.extend(merged.iter().map(|merged| {
+                    Row::Item(Selection::Upstream(id.clone(), owner.clone(), merged.id))
+                }));
+            }
+        }
         let behind = (workspace.target.as_ref()).filter(|_| owner.is_none());
         let more = behind.map_or(0, |target| target.behind.saturating_sub(commits.len()));
         if more > 0 {
@@ -1163,6 +1222,13 @@ impl Navigator {
     fn collapse(&mut self, _: &Collapse, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         let selection = store.selection.clone();
+        // A commit a remote's merge brought in goes up to the merge.
+        if let Some(Selection::Upstream(project, ref_name, id)) = &selection
+            && let Some((merge, _)) = store.merged_upstream(project, ref_name.as_deref(), *id)
+        {
+            let up = Selection::Upstream(project.clone(), ref_name.clone(), merge);
+            return self.select(up, window, cx);
+        }
         let closes = matches!(&selection, Some(item @ Selection::Branch(project, ref_name))
             if store.branch_for(item).is_some_and(|branch| !branch.commits.is_empty())
                 && self.branch_open(&(project.clone(), ref_name.clone())));
@@ -2724,16 +2790,66 @@ impl Navigator {
     ) -> Option<AnyElement> {
         let store = self.store.read(cx);
         let workspace = store.workspace(id)?;
-        let commit = (workspace.upstream(ref_name).iter()).find(|c| c.id == *commit_id)?;
-        let title: SharedString = commit.title.clone().into();
-        let unread = ref_name.is_some() && store.is_unread(id, commit);
+        let listed = (workspace.upstream(ref_name).iter()).find(|c| c.id == *commit_id);
+        // One a merge listed brought in sits a step in under it.
+        let (title, time, merge, nested) = match listed {
+            Some(commit) => (commit.title.clone(), commit.time, commit.merge, false),
+            None => {
+                let (_, commit) = store.merged_upstream(id, ref_name, *commit_id)?;
+                (commit.title.clone(), commit.time, false, true)
+            }
+        };
+        let title: SharedString = title.into();
+        let unread = listed.is_some_and(|commit| ref_name.is_some() && store.is_unread(id, commit));
+        let warn = style.meta(style.theme.warn);
+        // A merge folds the commits it brought in behind a chevron in its ↓'s place.
+        let glyph = match merge {
+            false => small_icon(Icon::ArrowDown)
+                .text_color(warn)
+                .into_any_element(),
+            true => {
+                let open = self.open_merges.contains(commit_id)
+                    || matches!(&store.selection, Some(Selection::Upstream(_, _, c))
+                        if store.merged_upstream(id, ref_name, *c).is_some_and(|(m, _)| m == *commit_id));
+                let (project, owner, merge_id) =
+                    (id.clone(), ref_name.map(str::to_owned), *commit_id);
+                div()
+                    .id(ElementId::Name(
+                        format!("merge-fold-{}", commit_id.0).into(),
+                    ))
+                    .flex_none()
+                    .size(px(16.))
+                    .mx(px(-2.))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(px(3.))
+                    .hover(|el| el.bg(style.theme.hover()))
+                    .child(
+                        small_icon(match open {
+                            true => Icon::ChevronDown,
+                            false => Icon::ChevronRight,
+                        })
+                        .text_color(warn),
+                    )
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                    .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                        cx.stop_propagation();
+                        this.toggle_merge(&project, owner.clone(), merge_id, window, cx)
+                    }))
+                    .into_any_element()
+            }
+        };
         Some(
             style
                 // Under its heading's words, as a branch's commits are under its name.
-                .row(format!("upstream-{id}-{}", commit_id.0), 30.)
+                .row(
+                    format!("upstream-{id}-{}", commit_id.0),
+                    if nested { 52. } else { 30. },
+                )
                 .gap(px(10.))
                 .aria_label(title.clone())
-                .child(small_icon(Icon::ArrowDown).text_color(style.meta(style.theme.warn)))
+                .child(glyph)
                 .child(
                     div()
                         .flex_1()
@@ -2751,9 +2867,14 @@ impl Navigator {
                         .flex_none()
                         .text_size(px(11.))
                         .text_color(style.muted())
-                        .child(relative_time(commit.time)),
+                        .child(relative_time(time)),
                 )
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
+                // A click on a merge opens the commits it brought in, as on a branch.
+                .when(merge, |el| {
+                    let clicked = ClickOpened::Merge(id.clone(), *commit_id);
+                    el.on_click(open_on_click(clicked, cx))
+                })
                 .into_any_element(),
         )
     }

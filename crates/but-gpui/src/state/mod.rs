@@ -9,9 +9,10 @@ use std::time::{Duration, Instant};
 use futures::channel::mpsc;
 use gpui::{Context, EventEmitter, SharedString, Subscription, Task};
 
+use crate::backend::upstream::TargetCommit;
 use crate::backend::watch::Watcher;
 use crate::backend::{
-    Branch, Commit, CommitId, Project, Selected, SnapshotId, Workspace, Worktree, short_ref,
+    self, Branch, Commit, CommitId, Project, Selected, SnapshotId, Workspace, Worktree, short_ref,
 };
 
 mod account;
@@ -267,6 +268,9 @@ pub struct Store {
     /// Like the composer's checks they last the session, so a message never comes back
     /// without them.
     pub drafts: HashMap<(ProjectId, Option<Arc<str>>), String>,
+    /// The commits each merge of a remote brought in, by the merge, as read when its commits
+    /// were first shown, and whether it brought more than those; `None` while reading.
+    pub merged: HashMap<CommitId, Option<(Vec<TargetCommit>, bool)>>,
     /// The commits each project had before the app's last operation on it. Commits that
     /// appear after it are the app's own doing, so they load as already seen.
     rebaseline: HashMap<ProjectId, HashSet<String>>,
@@ -340,6 +344,7 @@ impl Store {
             next_toast: 0,
             seen: saved.seen,
             drafts: HashMap::new(),
+            merged: HashMap::new(),
             widths: saved.widths,
             file_tree: saved.file_tree,
             file_sort: saved.file_sort,
@@ -392,6 +397,49 @@ impl Store {
     /// `project`'s commit `id`, and the branch holding it.
     pub fn find_commit(&self, project: &str, id: CommitId) -> Option<(&Branch, &Commit)> {
         self.workspace(project)?.find_commit(id)
+    }
+
+    /// Read the commits a remote's merge `id` of `project` brought in, unless they've been
+    /// asked for.
+    pub fn load_merged(&mut self, project: &ProjectId, id: CommitId, cx: &mut Context<Self>) {
+        /// How many of a merge's commits are listed.
+        const MERGED_SHOWN: usize = 200;
+        let Some(path) = self
+            .path(project)
+            .filter(|_| !self.merged.contains_key(&id))
+        else {
+            return;
+        };
+        self.merged.insert(id, None);
+        cx.spawn(async move |this, cx| {
+            let read =
+                backend::run(move || backend::upstream::merged_commits(&path, id, MERGED_SHOWN))
+                    .await;
+            this.update(cx, |store, cx| {
+                let read = read
+                    .inspect_err(|err| tracing::warn!(?err, "couldn't read a merge's commits"))
+                    .unwrap_or_default();
+                store.merged.insert(id, Some(read));
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// Commit `id` of those the merges only `ref_name`'s remote has (the target's with
+    /// `None`) brought in, as read so far, and the merge that brought it.
+    pub fn merged_upstream(
+        &self,
+        project: &str,
+        ref_name: Option<&str>,
+        id: CommitId,
+    ) -> Option<(CommitId, &TargetCommit)> {
+        let merges = self.workspace(project)?.upstream(ref_name).iter();
+        merges.filter(|commit| commit.merge).find_map(|merge| {
+            let (merged, _) = self.merged.get(&merge.id)?.as_ref()?;
+            Some((merge.id, merged.iter().find(|commit| commit.id == id)?))
+        })
     }
 
     pub fn path(&self, id: &str) -> Option<PathBuf> {
@@ -558,8 +606,11 @@ impl Store {
             Selection::Stack(_, bottom) => workspace.lane(bottom).is_some_and(|b| b.len() > 1),
             // The mesh's reads keep it current.
             Selection::Mesh(..) => true,
-            Selection::Upstream(_, ref_name, id) => {
+            Selection::Upstream(project, ref_name, id) => {
                 (workspace.upstream(ref_name.as_deref()).iter()).any(|c| c.id == *id)
+                    || self
+                        .merged_upstream(project, ref_name.as_deref(), *id)
+                        .is_some()
             }
         };
         if !still_there {

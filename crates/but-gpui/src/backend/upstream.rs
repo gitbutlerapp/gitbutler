@@ -64,6 +64,7 @@ pub(super) fn incoming(ctx: &but_ctx::Context, limit: usize) -> Result<Vec<Remot
             email: commit.email,
             agent: commit.agent,
             time: commit.time,
+            merge: commit.merge,
         })
         .collect())
 }

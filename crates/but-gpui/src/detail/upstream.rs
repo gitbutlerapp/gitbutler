@@ -48,8 +48,6 @@ const STALE_AFTER: Duration = Duration::from_secs(60);
 /// How wide the files beside a target commit's diff are, and how wide the diff has to stay
 /// for them to show there rather than behind the button over the diff.
 const BESIDE_FILES: f32 = 260.;
-/// How many of a merge's commits are listed under it.
-const MERGED_SHOWN: usize = 200;
 const MIN_DIFF: f32 = 560.;
 
 /// How many of the team the page lists.
@@ -337,11 +335,15 @@ impl Detail {
         upstream.commits.iter().find(|c| c.id == id)
     }
 
-    pub(super) fn upstream_source(&self, project: &ProjectId) -> Option<DiffSource> {
+    pub(super) fn upstream_source(
+        &self,
+        project: &ProjectId,
+        cx: &gpui::App,
+    ) -> Option<DiffSource> {
         match self.upstream_for(project)?.selected? {
             // Or the commit of a merge picked to show in its place.
             Picked::Commit(id) => Some(DiffSource::Commit(
-                self.merged_commit(project).map_or(id, |c| c.id),
+                self.merged_commit(project, cx).map_or(id, |c| c.id),
             )),
             Picked::Readme => None,
         }
@@ -354,20 +356,25 @@ impl Detail {
     }
 
     /// The merge selected on the project's page, and the commits it brought in, once read.
-    fn selected_merge(
-        &self,
+    fn selected_merge<'a>(
+        &'a self,
         project: &ProjectId,
-    ) -> Option<(&TargetCommit, Option<&[TargetCommit]>)> {
+        cx: &'a gpui::App,
+    ) -> Option<(&'a TargetCommit, Option<&'a [TargetCommit]>)> {
         let commit = self.selected_target_commit(project).filter(|c| c.merge)?;
-        let merged = (self.merged.get(&commit.id))
+        let merged = (self.store.read(cx).merged.get(&commit.id))
             .and_then(|m| m.as_ref())
             .map(|(commits, _)| commits.as_slice());
         Some((commit, merged))
     }
 
     /// The commit of a merge picked to show in its place.
-    fn merged_commit(&self, project: &ProjectId) -> Option<&TargetCommit> {
-        let (_, merged) = self.selected_merge(project)?;
+    fn merged_commit<'a>(
+        &'a self,
+        project: &ProjectId,
+        cx: &'a gpui::App,
+    ) -> Option<&'a TargetCommit> {
+        let (_, merged) = self.selected_merge(project, cx)?;
         let pick = self.merged_pick?;
         merged?.iter().find(|c| c.id == pick)
     }
@@ -395,38 +402,14 @@ impl Detail {
         }
     }
 
-    /// Read the commits the merge `id` brought in, unless they've been read.
-    fn load_merged(&mut self, project: &ProjectId, id: CommitId, cx: &mut Context<Self>) {
-        let Some(path) = self.store.read(cx).path(project) else {
-            return;
-        };
-        if self.merged.contains_key(&id) {
-            return;
-        }
-        self.merged.insert(id, None);
-        cx.spawn(async move |this, cx| {
-            let read =
-                backend::run(move || upstream::merged_commits(&path, id, MERGED_SHOWN)).await;
-            this.update(cx, |this, cx| {
-                let commits = read
-                    .inspect_err(|err| tracing::warn!(?err, "couldn't read a merge's commits"))
-                    .unwrap_or_default();
-                this.merged.insert(id, Some(commits));
-                cx.notify();
-                this.app.update(cx, |_, cx| cx.notify()).ok();
-            })
-            .ok();
-        })
-        .detach();
-    }
-
     /// Read the selected commit's merged commits, if it's a merge.
     fn load_selected_merge(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
         let merge = (self.selected_target_commit(project))
             .filter(|c| c.merge)
             .map(|c| c.id);
         if let Some(id) = merge {
-            self.load_merged(project, id, cx);
+            self.store
+                .update(cx, |store, cx| store.load_merged(project, id, cx));
         }
     }
 
@@ -438,7 +421,8 @@ impl Detail {
         }
         if self.open_merges.insert(id) {
             self.merge_click_opened = Some(id);
-            self.load_merged(project, id, cx);
+            self.store
+                .update(cx, |store, cx| store.load_merged(project, id, cx));
         }
         cx.notify();
     }
@@ -450,7 +434,8 @@ impl Detail {
             self.merge_click_opened = None;
         }
         if self.open_merges.insert(id) {
-            self.load_merged(project, id, cx);
+            self.store
+                .update(cx, |store, cx| store.load_merged(project, id, cx));
         } else {
             self.open_merges.remove(&id);
             let shows = (self.upstream_for(project))
@@ -505,7 +490,7 @@ impl Detail {
         let tabs = review
             .is_some()
             .then(|| self.list_tabs(reviewing, theme, cx));
-        let message = self.merged_commit(project).unwrap_or(commit);
+        let message = self.merged_commit(project, cx).unwrap_or(commit);
         v_flex()
             .relative()
             .flex_1()
@@ -764,7 +749,7 @@ impl Detail {
         Some((upstream::day_start(*first), end))
     }
 
-    fn upstream_rows(&self, upstream: &Upstream, target: &str) -> Vec<Row> {
+    fn upstream_rows(&self, upstream: &Upstream, target: &str, cx: &gpui::App) -> Vec<Row> {
         let span = self.picked_span(upstream);
         let shown = |commit: &TargetCommit| {
             span.is_none_or(|(start, end)| (start..end).contains(&commit.time))
@@ -781,7 +766,7 @@ impl Detail {
                 if !(commit.merge && self.open_merges.contains(&commit.id)) {
                     continue;
                 }
-                match self.merged.get(&commit.id).and_then(|m| m.as_ref()) {
+                match (self.store.read(cx).merged.get(&commit.id)).and_then(|m| m.as_ref()) {
                     None => rows.push(Row::Note("Loading…")),
                     Some((merged, _)) if merged.is_empty() => {
                         rows.push(Row::Note("This clone doesn't have its commits"))
@@ -874,7 +859,7 @@ impl Detail {
             .map_or("Target".to_owned(), |target| target.name.clone());
         crumbs.push((target.into(), None));
         crumbs.push((picked.into(), None));
-        if let Some(commit) = self.merged_commit(project) {
+        if let Some(commit) = self.merged_commit(project, cx) {
             crumbs.push((commit.title.clone().into(), None));
         }
     }
@@ -903,21 +888,21 @@ impl Detail {
         let readme = (upstream.summary.as_ref()).is_some_and(|s| s.readme.is_some());
         let merged = |ix: usize, m: usize| {
             let merge = upstream.commits[ix].id;
-            let merged = self.merged.get(&merge)?.as_ref()?;
+            let merged = self.store.read(cx).merged.get(&merge)?.as_ref()?;
             Some((Picked::Commit(merge), Some(merged.0.get(m)?.id)))
         };
         // A merge's commit by the merge and it.
         let picks: Vec<_> = (readme.then_some((0, (Picked::Readme, None))).into_iter())
             .chain(
-                (self.upstream_rows(upstream, "").iter().enumerate()).filter_map(
-                    |(row, r)| match r {
+                (self.upstream_rows(upstream, "", cx).iter().enumerate()).filter_map(|(row, r)| {
+                    match r {
                         Row::Commit(ix) => {
                             Some((row, (Picked::Commit(upstream.commits[*ix].id), None)))
                         }
                         Row::Merged(ix, m) => Some((row, merged(*ix, *m)?)),
                         _ => None,
-                    },
-                ),
+                    }
+                }),
             )
             .collect();
         let current = (upstream.selected, self.merged_pick);
@@ -1493,7 +1478,7 @@ impl Detail {
             }
             Some(upstream) => {
                 let target = target.unwrap_or_else(|| "the target".into());
-                let rows = self.upstream_rows(upstream, &target);
+                let rows = self.upstream_rows(upstream, &target, cx);
                 let list = side_list(
                     "target-commits",
                     rows.len(),
@@ -1511,7 +1496,8 @@ impl Detail {
                                 .into_any_element(),
                             Row::Merged(merge_ix, merged_ix) => {
                                 let merge = upstream.commits[*merge_ix].id;
-                                let (merged, _) = this.merged.get(&merge)?.as_ref()?;
+                                let (merged, _) =
+                                    this.store.read(cx).merged.get(&merge)?.as_ref()?;
                                 let commit = merged.get(*merged_ix)?;
                                 let id = commit.id;
                                 let selected = upstream.selected == Some(Picked::Commit(merge))

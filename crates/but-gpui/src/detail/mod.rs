@@ -310,9 +310,6 @@ pub struct Detail {
     /// the space beside the project page's list is, measured as they're drawn.
     target_message_height: Rc<Cell<f32>>,
     beside_width: Rc<Cell<f32>>,
-    /// The commits each merge on a target brought in, by the merge, and whether it brought
-    /// more than those; `None` while loading.
-    merged: HashMap<backend::CommitId, Option<(Vec<backend::upstream::TargetCommit>, bool)>>,
     /// The one of them shown in place of everything the merge brought in.
     merged_pick: Option<backend::CommitId>,
     /// The merges on a project's page whose commits show under them, and the one a click on
@@ -589,7 +586,6 @@ impl Detail {
             readme_scroll: ScrollHandle::new(),
             target_message_height: Rc::new(Cell::new(0.)),
             beside_width: Rc::new(Cell::new(0.)),
-            merged: HashMap::new(),
             merged_pick: None,
             open_merges: HashSet::new(),
             merge_click_opened: None,
@@ -665,7 +661,7 @@ impl Detail {
         let store = self.store.read(cx);
         let source = match &selection {
             Selection::Project(project) if self.editing(project, cx).is_some() => return None,
-            Selection::Project(project) => self.upstream_source(project)?,
+            Selection::Project(project) => self.upstream_source(project, cx)?,
             Selection::History(project) => self.history_source(project)?,
             Selection::Branches(project) => self.branches_source(project)?,
             Selection::Uncommitted(_) => DiffSource::Worktree,

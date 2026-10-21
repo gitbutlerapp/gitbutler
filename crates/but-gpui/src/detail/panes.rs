@@ -628,33 +628,34 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let Some(ws) = self.store.read(cx).workspace(project) else {
+        let store = self.store.read(cx);
+        let Some(ws) = store.workspace(project) else {
             return div().into_any_element();
         };
-        let Some(commit) = ws.upstream(ref_name).iter().find(|c| c.id == id) else {
-            return div().into_any_element();
+        // Listed, or brought in by a merge that is.
+        let listed = ws.upstream(ref_name).iter().find(|c| c.id == id);
+        let commit = match listed {
+            Some(c) => (&c.title, &c.author, &c.email, c.agent.as_ref(), c.time),
+            None => match store.merged_upstream(project, ref_name, id) {
+                Some((_, c)) => (&c.title, &c.author, &c.email, c.agent.as_ref(), c.time),
+                None => return div().into_any_element(),
+            },
         };
+        let (title, author, email, agent, time) = commit;
         let remote = match ref_name {
             Some(ref_name) => ws.find_branch(ref_name).and_then(|b| b.remote.clone()),
             None => ws.target.as_ref().map(|target| target.name.clone()),
         };
-        let title =
-            page_title(Icon::ArrowDown, theme).child(title_text(commit_title(&commit.title)));
+        let title = page_title(Icon::ArrowDown, theme).child(title_text(commit_title(title)));
         let meta = meta_row(theme)
             .child(
                 h_flex()
                     .gap(px(8.))
-                    .child(byline_avatar(
-                        &commit.author,
-                        &commit.email,
-                        commit.agent.as_ref(),
-                        16.,
-                        theme,
-                    ))
+                    .child(byline_avatar(author, email, agent, 16., theme))
                     .child(format!(
                         "{} at {}",
-                        byline_text(&commit.author, commit.agent.as_ref()),
-                        local_time(commit.time)
+                        byline_text(author, agent),
+                        local_time(time)
                     )),
             )
             .child(self.sha_chip(id, theme, cx))
