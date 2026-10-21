@@ -437,6 +437,11 @@ impl Navigator {
                 };
                 let path = worktree.path.clone();
                 let copied = path.display().to_string();
+                // A detached `HEAD` has no branch to keep what was committed there.
+                let after = match worktree.branch {
+                    Some(_) => "Its branch stays.",
+                    None => "It has no branch, so commits made there that no branch has are lost.",
+                };
                 // As last written, so an agent's edit while the question is up isn't lost.
                 let lost: Vec<(String, Option<i64>)> = (worktree.uncommitted.iter())
                     .map(|f| (f.path.clone(), f.modified))
@@ -460,10 +465,10 @@ impl Navigator {
                         let (project, name, lost) =
                             (deleted_project.clone(), deleted.clone(), lost.clone());
                         let detail = match lost.len() {
-                            0 => "Its folder is removed from disk. Its branch stays.".to_owned(),
+                            0 => format!("Its folder is removed from disk. {after}"),
                             n => format!(
                                 "Its folder is removed from disk, with {}, which are lost. \
-                                 Its branch stays.",
+                                 {after}",
                                 plural(n, "uncommitted file")
                             ),
                         };
