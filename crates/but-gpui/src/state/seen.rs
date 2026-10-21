@@ -96,9 +96,10 @@ impl Store {
     }
 
     /// Bring what's been seen of `id` up to date with the `workspace` it just loaded: what's
-    /// gone is forgotten, and what's new is news unless the app made it. `latest` is false
-    /// when a newer load is already queued behind this one.
-    pub(super) fn update_seen(&mut self, id: &ProjectId, workspace: &Workspace, latest: bool) {
+    /// gone is forgotten, and what's new is news unless the app made it. `fresh` is false for
+    /// a load that started before the app's operation finished, which the reload after it
+    /// still compares with what was there before.
+    pub(super) fn update_seen(&mut self, id: &ProjectId, workspace: &Workspace, fresh: bool) {
         let amended = self.amended_since_last_load(id, workspace);
         let commits: HashSet<String> = (shown(workspace))
             .flat_map(|(_, keys)| keys.map(str::to_owned))
@@ -123,7 +124,7 @@ impl Store {
         for key in amended.iter().flat_map(|commit| commit.ids()) {
             seen.remove(key);
         }
-        if latest {
+        if fresh {
             self.rebaseline.remove(id);
         }
     }

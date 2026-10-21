@@ -786,10 +786,9 @@ impl AppView {
         if rest.is_empty() {
             return;
         }
-        let overlay = Overlay::commits(rest.iter().map(|c| c.key.clone()));
-        // Oldest first, so their messages follow in the order they were written.
-        let rest = rest.iter().rev().map(|c| c.id).collect();
-        self.squash(project, rest, oldest.id, overlay, "Squash all".into(), cx);
+        let (rest, oldest) = (rest.iter().map(|c| c.id).collect(), oldest.id);
+        self.store
+            .update(cx, |store, cx| store.squash(&project, rest, oldest, cx));
     }
 
     /// Squash the picked commits into the oldest of them.
@@ -808,54 +807,21 @@ impl AppView {
             return;
         };
         // The workspace lists commits newest first.
-        let picked: Vec<_> = workspace
-            .commits()
-            .filter(|c| store.picked.contains(&c.id))
+        let picked: Vec<_> = (workspace.commits())
+            .map(|c| c.id)
+            .filter(|id| store.picked.contains(id))
             .collect();
-        let oldest = picked.last().map(|c| c.id);
+        let oldest = picked.last().copied();
         let Some(into) = into.filter(|id| store.picked.contains(id)).or(oldest) else {
             return;
         };
-        let rest: Vec<_> = picked.into_iter().filter(|c| c.id != into).collect();
+        let rest: Vec<_> = picked.into_iter().filter(|id| *id != into).collect();
         if rest.is_empty() {
             return;
         }
-        let overlay = Overlay::commits(rest.iter().map(|c| c.key.clone()));
-        let label = format!("Squash {} commits", rest.len() + 1);
-        // Oldest first, so their messages follow `into`'s in the order they were written.
-        let rest = rest.iter().rev().map(|c| c.id).collect();
-        self.store.update(cx, |store, _| store.picked.clear());
-        self.squash(project, rest, into, overlay, label, cx);
-    }
-
-    fn squash(
-        &mut self,
-        project: ProjectId,
-        rest: Vec<CommitId>,
-        into: CommitId,
-        overlay: Overlay,
-        label: String,
-        cx: &mut Context<Self>,
-    ) {
         self.store.update(cx, |store, cx| {
-            let undoable = !(rest.iter().chain([&into])).any(|id| store.in_worktree(&project, *id));
-            store.run(
-                &project,
-                label,
-                overlay,
-                move |path, remap| {
-                    let rest = rest
-                        .iter()
-                        .map(|id| remap.get(*id))
-                        .collect::<anyhow::Result<Vec<_>>>()?;
-                    backend::squash(path, &rest, remap.get(into)?)
-                },
-                move |store, rewritten, cx| {
-                    store.follow(&rewritten, cx);
-                    store.snack_after(undoable, "Squashed into one commit", cx)
-                },
-                cx,
-            )
+            store.picked.clear();
+            store.squash(&project, rest, into, cx)
         });
     }
 
@@ -1111,8 +1077,7 @@ impl AppView {
                 move |path, remap| {
                     backend::split_off(path, remap.taken_from(commit, &files)?, &files)
                 },
-                move |store, (rewritten, new), cx| {
-                    store.follow(&rewritten, cx);
+                move |store, (_, new), cx| {
                     store.select(Some(Selection::Commit(selected, new)), cx);
                     store.snack_after(undoable, "Split into a new commit", cx)
                 },

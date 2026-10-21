@@ -1,6 +1,6 @@
 //! What the app remembers between launches, and the pane widths it keeps.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -68,13 +68,35 @@ impl Store {
             file_sort: self.file_sort,
             window: self.window.clone(),
             prefs: self.prefs.clone(),
-            kept_snapshots: {
-                let kept = self.kept_snapshots.lock().expect("not poisoned");
-                let mut ids: Vec<String> = kept.iter().map(|id| id.0.to_string()).collect();
-                ids.sort();
-                ids
-            },
+            kept_by_project: (self.kept_snapshots.lock().expect("not poisoned").iter())
+                .map(|(project, kept)| {
+                    let mut ids: Vec<String> = kept.iter().map(|id| id.0.to_string()).collect();
+                    ids.sort();
+                    (project.to_string(), ids)
+                })
+                .collect(),
         }
+    }
+
+    /// Forget what's kept for the projects not in the listing, as one removed, so it isn't
+    /// saved on and on.
+    pub(super) fn forget_unlisted(&mut self) {
+        let listed: HashSet<&str> = self.projects.iter().map(|entry| &*entry.id).collect();
+        let listed = |id: &str| listed.contains(id);
+        self.seen.commits.retain(|id, _| listed(id));
+        (self.kept_snapshots.lock().expect("not poisoned")).retain(|id, _| listed(id));
+        let prefs = &mut self.prefs;
+        let sets = [
+            &mut prefs.run_hooks,
+            &mut prefs.land_directly,
+            &mut prefs.folded_projects,
+            &mut prefs.shown_mesh,
+            &mut prefs.shown_inactive,
+        ];
+        for ids in sets {
+            ids.retain(|id| listed(id));
+        }
+        prefs.project_icons.retain(|id, _| listed(id));
     }
 
     pub fn runs_hooks(&self, project: &super::ProjectId) -> bool {
@@ -270,9 +292,10 @@ pub(super) struct Saved {
     pub(super) file_sort: FileSort,
     pub(super) window: Option<WindowPlace>,
     pub(super) prefs: Prefs,
-    /// The oplog entries ⌘Z mustn't take back, as the oplog can't restore all they changed,
-    /// which stays so after a restart.
-    pub(super) kept_snapshots: Vec<String>,
+    /// The oplog entries ⌘Z mustn't take back, by project, as the oplog can't restore all
+    /// they changed, which stays so after a restart. An older file's `kept_snapshots` isn't
+    /// read, as it doesn't say whose they are.
+    pub(super) kept_by_project: BTreeMap<String, Vec<String>>,
 }
 
 /// Choices from Settings, and how the navigator lists projects, that only this app keeps;
@@ -385,5 +408,21 @@ impl Saved {
         if std::fs::write(&temporary, bytes).is_ok() {
             std::fs::rename(&temporary, &path).ok();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Saved;
+
+    #[test]
+    fn a_file_from_before_kept_snapshots_went_by_project_still_loads() {
+        let old = r#"{ "expanded": ["a"], "kept_snapshots": ["0123456789abcdef0123456789abcdef01234567"] }"#;
+        let saved: Saved = serde_json::from_str(old).expect("one that fails is set aside whole");
+        assert_eq!(saved.expanded, ["a"], "the rest of what it saved is kept");
+        assert!(
+            saved.kept_by_project.is_empty(),
+            "the old list doesn't say whose they are"
+        );
     }
 }

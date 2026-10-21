@@ -174,17 +174,7 @@ impl Overlay {
         let Some(commit) = commit else {
             return Self::default();
         };
-        let (mut files, mut hunks) = (HashSet::new(), HashMap::new());
-        for s in selected {
-            match &s.hunks {
-                None => {
-                    files.insert(s.file.path.clone());
-                }
-                Some(keys) => {
-                    hunks.insert(s.file.path.clone(), keys.clone());
-                }
-            }
-        }
+        let Self { files, hunks, .. } = Self::files(selected);
         Self {
             commit_files: HashMap::from([(commit.clone(), files)]),
             commit_hunks: HashMap::from([(commit, hunks)]),
@@ -288,13 +278,13 @@ type Start = Box<dyn FnOnce(&mut Store, Remap, &mut Context<Store>)>;
 /// A project's operation running now, from when it starts until the reload after it lands.
 pub(super) struct Running {
     label: SharedString,
-    overlay: Overlay,
+    pub(super) overlay: Overlay,
     started: Instant,
     asked: Instant,
     /// It finished and waits for its reload. The next load to start ends it when it lands.
-    settling: bool,
+    pub(super) settling: bool,
     /// Reloads asked for while it ran, which the reload after it reads too.
-    deferred: Reload,
+    pub(super) deferred: Reload,
     moved: Option<Selection>,
 }
 
@@ -319,14 +309,14 @@ impl Store {
         } else {
             ("Undo", "Undone", "Nothing to undo")
         };
-        let kept = self.kept_snapshots.clone();
+        let (kept, of) = (self.kept_snapshots.clone(), project.clone());
         self.run(
             project,
             label,
             Overlay::rewriting_main(),
             move |path, _| {
-                let kept = kept.lock().expect("not poisoned").clone();
-                backend::history::undo(path, redo, &kept)
+                let kept = kept.lock().expect("not poisoned").get(&of).cloned();
+                backend::history::undo(path, redo, &kept.unwrap_or_default())
             },
             move |store, undone, cx| match undone {
                 Some(operation) => store.snack(format!("{done}: {operation}"), cx),
@@ -339,14 +329,14 @@ impl Store {
     /// Put `project` back to before the operation `snapshot` was taken for, unless that takes
     /// back one kept from undo.
     pub fn restore(&mut self, project: &ProjectId, snapshot: SnapshotId, cx: &mut Context<Self>) {
-        let kept = self.kept_snapshots.clone();
+        let (kept, of) = (self.kept_snapshots.clone(), project.clone());
         self.run(
             project,
             "Restore",
             Overlay::rewriting_main(),
             move |path, _| {
-                let kept = kept.lock().expect("not poisoned").clone();
-                backend::history::restore(path, snapshot, &kept)
+                let kept = kept.lock().expect("not poisoned").get(&of).cloned();
+                backend::history::restore(path, snapshot, &kept.unwrap_or_default())
             },
             |store, (), cx| store.snack_undoable("Restored", cx),
             cx,
@@ -576,16 +566,26 @@ impl Store {
                     drops.as_deref(),
                     run_hooks,
                 ) {
-                    Ok(_) => Ok(None),
-                    Err(err) => backend::push_refusal(&err).map(Some).ok_or(err),
+                    Ok((_, sync_failed)) => Ok(Ok(sync_failed)),
+                    Err(err) => backend::push_refusal(&err).map(Err).ok_or(err),
                 }
             },
-            move |store, refused: Option<String>, cx| {
+            move |store, outcome: Result<Option<String>, String>, cx| {
                 // A push can open or move a pull request's checks, and the branches below
                 // may have gone up before the one refused.
                 store.refresh_forge(&pushed);
-                let Some(reason) = refused else {
-                    return store.snack(format!("Pushed {name}"), cx);
+                let reason = match outcome {
+                    Err(reason) => reason,
+                    Ok(sync_failed) => {
+                        store.snack(format!("Pushed {name}"), cx);
+                        if let Some(message) = sync_failed {
+                            let title = format!(
+                                "Pushed {name}, but the stack's pull requests weren't updated"
+                            );
+                            store.error(title, message, cx);
+                        }
+                        return;
+                    }
                 };
                 let title = format!("{name} wasn't pushed");
                 if !reason.is_empty() {
@@ -673,8 +673,7 @@ impl Store {
             "Move to a new branch",
             Overlay::commits(keys.collect::<Vec<_>>()),
             move |path, remap| backend::move_to_new_branch(path, &remap.all(&ids)?),
-            move |store, (rewritten, branch), cx| {
-                store.follow(&rewritten, cx);
+            move |store, (_, branch), cx| {
                 store.select(Some(Selection::Branch(shown, branch)), cx);
                 store.snack_after(undoable, "Moved to a new branch", cx)
             },
@@ -721,6 +720,34 @@ impl Store {
                     store.error("Amended, but the post-commit hook failed", output, cx);
                 }
                 then(store, cx)
+            },
+            cx,
+        );
+    }
+
+    /// Squash commits `ids`, listed newest first, into commit `into`, its message first and
+    /// theirs after it in the order they were written.
+    pub fn squash(
+        &mut self,
+        project: &ProjectId,
+        ids: Vec<CommitId>,
+        into: CommitId,
+        cx: &mut Context<Self>,
+    ) {
+        let overlay = Overlay::commits(ids.iter().filter_map(|id| self.key_of(project, *id)));
+        // A linked worktree's commits, which the oplog can't put back.
+        let undoable = !(ids.iter().chain([&into])).any(|id| self.in_worktree(project, *id));
+        self.run(
+            project,
+            format!("Squash {} commits", ids.len() + 1),
+            overlay,
+            move |path, remap| {
+                let oldest_first: Vec<CommitId> = ids.iter().rev().copied().collect();
+                backend::squash(path, &remap.all(&oldest_first)?, remap.get(into)?)
+            },
+            move |store, rewritten, cx| {
+                store.follow(&rewritten, cx);
+                store.snack_after(undoable, "Squashed into one commit", cx)
             },
             cx,
         );
@@ -1046,15 +1073,6 @@ impl Store {
     /// Whether the next load of `id` to start ends its running mutation.
     pub(super) fn settles(&self, id: &ProjectId) -> bool {
         self.running.get(id).is_some_and(|r| r.settling)
-    }
-
-    /// Load `reload` of `id` now, unless an operation is changing `id`. Then the reload after
-    /// it reads this too, and loading now would only queue in front of that one.
-    pub(super) fn load_or_defer(&mut self, id: &ProjectId, reload: Reload, cx: &mut Context<Self>) {
-        match (self.running.get_mut(id)).filter(|r| !r.settling && !r.overlay.remote_only) {
-            Some(running) => running.deferred.merge(reload),
-            None => self.load(id, reload, cx),
-        }
     }
 
     /// Operations quitting now would cut off: the ones running, and the ones waiting.

@@ -105,7 +105,7 @@ impl Store {
                 }
                 let Ok(()) = this.update(cx, |store, cx| {
                     for (id, reload) in reloads {
-                        store.load_or_defer(&id, reload, cx);
+                        store.load(&id, reload, cx);
                     }
                 }) else {
                     break;
@@ -178,6 +178,8 @@ impl Store {
             })
             .collect();
         self.order_projects(&order);
+        // The listing has every project, loaded or not, so one it doesn't have was removed.
+        self.forget_unlisted();
         let first_load = !self.projects_loaded;
         // A single project is always open, and one left closed, as after removing the
         // others, has nothing loaded or watched yet. Only when the list changed: reading it
@@ -419,7 +421,8 @@ impl Store {
         .detach();
     }
 
-    /// Reload `id`'s workspace, coalescing requests that arrive while a load is running.
+    /// Reload `id`'s workspace, coalescing requests that arrive while a load or an operation
+    /// is running.
     pub fn reload(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
         self.load(id, Reload::full(), cx);
     }
@@ -443,6 +446,14 @@ impl Store {
     /// Load `id` again: all of it; or its commits and branches, keeping the files shown but
     /// for those `reload` names; or just those files, on top of the commits shown.
     pub(super) fn load(&mut self, id: &ProjectId, reload: Reload, cx: &mut Context<Self>) {
+        // While an operation changes `id`, the reload after it reads this too, and loading
+        // now would only queue in front of that one.
+        if let Some(running) =
+            (self.running.get_mut(id)).filter(|r| !r.settling && !r.overlay.remote_only)
+        {
+            running.deferred.merge(reload);
+            return;
+        }
         let Some(entry) = self.project_mut(id) else {
             self.settled(id, cx);
             return;
@@ -478,6 +489,9 @@ impl Store {
             })
             .await;
             this.update(cx, |store, cx| {
+                // One that started before the project's operation finished, landing in front
+                // of the reload after it, doesn't show what the operation did yet.
+                let fresh = settles || !store.settles(&id);
                 let Some(entry) = store.project_mut(&id) else {
                     store.settled(&id, cx);
                     return;
@@ -485,12 +499,11 @@ impl Store {
                 entry.loading = false;
                 let queued = entry.queued.take();
                 match result {
-                    Ok(workspace) => store.workspace_loaded(&id, workspace, queued.is_none(), cx),
+                    Ok(workspace) => store.workspace_loaded(&id, workspace, fresh, cx),
                     Err(err) => entry.error = Some(load_error(&entry.project, &err)),
                 }
-                // A queued reload has newer data; checking against this one could drop a
-                // selection a mutation just made.
-                if queued.is_none() {
+                // Checking against a stale one could drop a selection the operation just made.
+                if fresh {
                     store.validate_selection(&id, cx);
                 }
                 // A project just added opens on its page while it has no target: that's
@@ -516,12 +529,12 @@ impl Store {
         .detach();
     }
 
-    /// `latest` is false when a newer load is already queued behind this one.
+    /// `fresh` is false for a load that started before the project's operation finished.
     fn workspace_loaded(
         &mut self,
         id: &ProjectId,
         workspace: Workspace,
-        latest: bool,
+        fresh: bool,
         cx: &mut Context<Self>,
     ) {
         // While a commit is being edited there's nothing else to look at or act on than its
@@ -539,7 +552,7 @@ impl Store {
             }
             return;
         }
-        self.update_seen(id, &workspace, latest);
+        self.update_seen(id, &workspace, fresh);
         // An agent amending or rebasing the selected commit gives it a new id but keeps its
         // change id, or with plain Git its author, time and message; stay on it.
         // One that's gone, as squashed away, leaves its branch selected, if that's still there.

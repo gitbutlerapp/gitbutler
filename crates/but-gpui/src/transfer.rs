@@ -359,9 +359,6 @@ impl Transfer {
                 !ids.iter().any(|id| in_worktree(*id)) && !lands_in_worktree(to)
             }
             Transfer::CherryPick { to, .. } => !lands_in_worktree(to),
-            Transfer::Squash { ids, into } => {
-                !ids.iter().any(|id| in_worktree(*id)) && !in_worktree(*into)
-            }
             Transfer::StackBranch { branch, onto } => {
                 !branch_in_worktree(branch) && !branch_in_worktree(onto)
             }
@@ -369,8 +366,11 @@ impl Transfer {
                 !branch_in_worktree(branch) && !in_worktree(*commit)
             }
             Transfer::CommitOnBranch { .. } => false,
-            // Uncommitting and amending say for themselves.
-            Transfer::Uncommit(_) | Transfer::Amend { .. } | Transfer::StageOnBranch { .. } => true,
+            // Uncommitting, squashing and amending say for themselves.
+            Transfer::Uncommit(_)
+            | Transfer::Squash { .. }
+            | Transfer::Amend { .. }
+            | Transfer::StageOnBranch { .. } => true,
         };
         match self {
             Transfer::Uncommit(ids) => store.uncommit(project, ids.to_vec(), cx),
@@ -436,30 +436,11 @@ impl Transfer {
                 project,
                 label,
                 Overlay::default(),
-                move |path, remap| {
-                    // The remap knows the workspace's commits, not a linked worktree's.
-                    let commit = remap.get(commit).unwrap_or(commit);
-                    backend::move_branch_below(path, &branch, commit)
-                },
+                move |path, remap| backend::move_branch_below(path, &branch, remap.get(commit)?),
                 move |store, (), cx| store.snack_after(undoable, "Branch moved", cx),
                 cx,
             ),
-            Transfer::Squash { ids, into } => store.run(
-                project,
-                label,
-                Overlay::commits(keys(store, project, &ids)),
-                move |path, remap| {
-                    // Oldest first, so their messages follow `into`'s in the order they were
-                    // written.
-                    let ids: Vec<CommitId> = ids.iter().rev().copied().collect();
-                    backend::squash(path, &remap.all(&ids)?, remap.get(into)?)
-                },
-                move |store, rewritten, cx| {
-                    store.follow(&rewritten, cx);
-                    store.snack_after(undoable, "Squashed", cx)
-                },
-                cx,
-            ),
+            Transfer::Squash { ids, into } => store.squash(project, ids.to_vec(), into, cx),
             Transfer::Amend {
                 into,
                 files,

@@ -259,9 +259,10 @@ pub struct Store {
     /// The oplog entry the last mutation recorded, which the Undo offered for it restores.
     last_snapshot: Option<(ProjectId, SnapshotId)>,
     /// Oplog entries of mutations that changed more than the oplog snapshots (a linked
-    /// worktree, a branch outside the workspace), which ⌘Z doesn't take back. Shared
-    /// with a queued undo, which reads it once it runs, after what ran before it is kept.
-    kept_snapshots: Arc<Mutex<HashSet<SnapshotId>>>,
+    /// worktree, a branch outside the workspace), which ⌘Z doesn't take back, by project.
+    /// Shared with a queued undo, which reads it once it runs, after what ran before it is
+    /// kept.
+    kept_snapshots: Arc<Mutex<HashMap<ProjectId, HashSet<SnapshotId>>>>,
     next_toast: usize,
     seen: Seen,
     /// Commit messages being written, by project and linked worktree, for coming back to.
@@ -336,9 +337,14 @@ impl Store {
             queue: VecDeque::new(),
             last_snapshot: None,
             kept_snapshots: Arc::new(Mutex::new(
-                (saved.kept_snapshots.iter())
-                    .filter_map(|id| gix::ObjectId::from_hex(id.as_bytes()).ok())
-                    .map(SnapshotId)
+                (saved.kept_by_project.into_iter())
+                    .map(|(project, ids)| {
+                        let ids = (ids.iter())
+                            .filter_map(|id| gix::ObjectId::from_hex(id.as_bytes()).ok())
+                            .map(SnapshotId)
+                            .collect();
+                        (ProjectId::from(project), ids)
+                    })
                     .collect(),
             )),
             next_toast: 0,
@@ -727,9 +733,10 @@ impl Store {
     /// Keep ⌘Z, and the snackbar's Undo, from taking back the mutation that just ran: it
     /// changed what the oplog can't bring back, as a linked worktree.
     pub fn keep_last_snapshot(&mut self) {
-        if let Some((_, snapshot)) = self.last_snapshot.take() {
-            (self.kept_snapshots.lock())
-                .expect("not poisoned")
+        if let Some((project, snapshot)) = self.last_snapshot.take() {
+            (self.kept_snapshots.lock().expect("not poisoned"))
+                .entry(project)
+                .or_default()
                 .insert(snapshot);
         }
     }

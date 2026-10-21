@@ -48,7 +48,7 @@ impl Store {
                             (store.project(&project)).is_some_and(|entry| entry.watcher.is_some());
                         // A fetch writes refs, not files.
                         if fetched.is_err() || !watched {
-                            store.load_or_defer(&project, Reload::commits(), cx);
+                            store.load(&project, Reload::commits(), cx);
                         }
                     });
                     if reloaded.is_err() {
@@ -201,7 +201,7 @@ impl Store {
                         store.forge_synced.insert(id.clone(), crate::ui::now());
                         // The forge's answers are in the commits and branches, not the files.
                         if *changed {
-                            store.load_or_defer(&id, Reload::commits(), cx);
+                            store.load(&id, Reload::commits(), cx);
                         }
                     }
                     Err(_) => {
@@ -219,7 +219,7 @@ impl Store {
                 };
                 let reloaded = this.update(cx, |store, cx| {
                     match checked {
-                        Some(Ok(true)) => store.load_or_defer(&id, Reload::commits(), cx),
+                        Some(Ok(true)) => store.load(&id, Reload::commits(), cx),
                         Some(Ok(false)) | None => {}
                         Some(Err(err)) => tracing::debug!(%id, "CI refresh failed: {err:#}"),
                     }
