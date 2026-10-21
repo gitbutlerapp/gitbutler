@@ -135,7 +135,12 @@ impl Navigator {
             Selection::Project(project) => {
                 let expanded = store.project(project).is_some_and(|p| p.expanded);
                 let mut items = vec![if expanded {
-                    action("Stop watching", &Collapse)
+                    // At once: Collapse (h) folds an open card before it stops watching it.
+                    let id = project.clone();
+                    MenuItem::new("Stop watching", move |this, _, cx| {
+                        this.store
+                            .update(cx, |store, cx| store.set_expanded(&id, false, cx))
+                    })
                 } else {
                     action("Watch", &Expand)
                 }];
