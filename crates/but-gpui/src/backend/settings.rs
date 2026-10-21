@@ -163,12 +163,17 @@ pub fn test_signing(path: &Path) -> Result<()> {
     Ok(())
 }
 
+const NO_COMMITS: &str =
+    "The repository has no commits yet. Make the first one, then pick the target.";
+
 /// The project's local branches, like `refs/heads/main`, to pick a target from, as the
 /// desktop app offers them: the one named as a remote's default branch and tracking it first,
 /// then others tracking it, then the rest by name, leaving out GitButler's own.
 pub fn target_branches(path: &Path) -> Result<Vec<String>> {
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
+    // Its first branch comes with its first commit, so there's nothing to list yet.
+    anyhow::ensure!(!repo.head()?.is_unborn(), NO_COMMITS);
     let mut defaults = Vec::new();
     for reference in repo.references()?.remote_branches()?.filter_map(Result::ok) {
         if let gix::refs::TargetRef::Symbolic(default) = reference.target() {
@@ -202,10 +207,7 @@ pub fn target_branches(path: &Path) -> Result<Vec<String>> {
 /// has checked out, and branches rebase onto a changed target at the next update.
 pub fn set_target(path: &Path, target: &str) -> Result<()> {
     let mut ctx = open(path)?;
-    anyhow::ensure!(
-        !ctx.repo.get()?.head()?.is_unborn(),
-        "The repository has no commits yet. Make the first one, then pick the target."
-    );
+    anyhow::ensure!(!ctx.repo.get()?.head()?.is_unborn(), NO_COMMITS);
     let local = but_core::ref_metadata::resolve_local_target(
         full_name(target)?.as_ref(),
         &*ctx.repo.get()?,

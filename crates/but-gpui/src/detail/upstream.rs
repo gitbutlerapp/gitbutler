@@ -1248,6 +1248,12 @@ impl Detail {
                         format!("{name} is gone"),
                         "The remote no longer has it. Pick the branch your work goes into now",
                     ),
+                    // The history is the target's remote branch's, so a target picked here
+                    // shows none either.
+                    None if upstream.fetch.is_none() => (
+                        "No remote".to_owned(),
+                        "The target's history shows here once the repository has a remote",
+                    ),
                     None => (
                         "No target branch".to_owned(),
                         "Pick the branch your work goes into, like main",
