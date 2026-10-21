@@ -1552,15 +1552,29 @@ impl Detail {
                                     true => theme.text_inverted,
                                     false => theme.text_3,
                                 }))
+                                .child(div().flex_1().min_w(px(0.)).truncate().child(label.clone()))
+                                // Who wrote it and when, in the branch rows' columns, so the
+                                // two line up.
                                 .child(
                                     div()
-                                        .flex_1()
-                                        .min_w(px(0.))
-                                        .truncate()
-                                        .text_size(px(12.))
-                                        .child(label.clone()),
+                                        .id(("other-commit-author", ix))
+                                        .flex_none()
+                                        .child(byline_avatar(
+                                            &commit.author,
+                                            &commit.email,
+                                            commit.agent.as_ref(),
+                                            14.,
+                                            theme,
+                                        ))
+                                        .tooltip(Tooltip::text(match &commit.agent {
+                                            Some(agent) => format!(
+                                                "Committed by {}, written by {}",
+                                                commit.author, agent.name
+                                            ),
+                                            None => format!("Authored by {}", commit.author),
+                                        })),
                                 )
-                                .child(quiet(faint(relative_time(commit.time), theme), on, theme))
+                                .child(quiet(age_column(Some(commit.time), theme), on, theme))
                                 .on_click(cx.listener(
                                     move |this, event: &ClickEvent, window, cx| {
                                         window.focus(&this.side_focus, cx);
