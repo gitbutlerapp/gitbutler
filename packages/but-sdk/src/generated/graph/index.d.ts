@@ -326,6 +326,18 @@ export declare function branchRemove(projectId: string, refName: FullNameBytes):
 export declare function branchRename(projectId: string, refName: FullNameBytes, newName: string): Promise<BranchRenameResult>
 
 /**
+ * Set the description of the local branch `ref_name` to `description`, or remove it when
+ * `description` is `None` or blank.
+ *
+ * The description is stored as `branch.<name>.description` in the repository-local Git config,
+ * where `git branch --edit-description` keeps it. Git config is not part of oplog snapshots, so
+ * this mutation is intentionally left out of the undo timeline.
+ *
+ * {@link ../../../../../crates/but-api/src/branch.rs}
+ */
+export declare function branchSetDescription(projectId: string, refName: FullNameBytes, description: string | null): Promise<void>
+
+/**
  * See [`changes_in_worktree_with_perm()`].
  *
  * {@link ../../../../../crates/but-api/src/diff.rs}
@@ -3782,6 +3794,14 @@ export type ListedBranch = {
   lastAuthor: Author | null;
   /** The committer timestamp of the tip commit in milliseconds since the epoch. */
   updatedAtMs: number | null;
+  /** The subject (first line of the message) of the tip commit. */
+  tipSubject: string | null;
+  /**
+   * The local branch's `branch.<name>.description` from the repository-local Git
+   * config, as `git branch --edit-description` writes it. `null` for remote-only
+   * branches and local ones without a description.
+   */
+  description: string | null;
   /** The cached review (PR/MR) published for this branch, if any is known. */
   review: ListedForgeReview | null;
   /**

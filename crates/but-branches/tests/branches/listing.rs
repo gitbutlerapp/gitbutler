@@ -269,6 +269,34 @@ Target [main]
 }
 
 #[test]
+fn local_branches_carry_their_description_and_tip_subject() -> anyhow::Result<()> {
+    let (repo, meta, mut db) =
+        named_read_only_in_memory_scenario("no-ws-ref-no-ws-commit-two-branches", "")?;
+    let listing = but_branches::list(&repo, &*meta, &mut db, options_with_target(&repo)?)?;
+    let described: Vec<_> = listing
+        .stacks
+        .iter()
+        .flat_map(|stack| &stack.branches)
+        .map(|branch| {
+            format!(
+                "{}: {:?} / {:?}",
+                branch.display_name, branch.description, branch.tip_subject
+            )
+        })
+        .collect();
+    // Only `A` has `branch.A.description` set; every tip is the commit `A`.
+    snapbox::assert_data_eq!(
+        described.join("\n"),
+        snapbox::str![[r#"
+A: Some("Explain A") / Some("A")
+B: None / Some("A")
+main: None / Some("A")
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
 fn hard_limit_marks_incomplete_and_hides_clipped_counts() -> anyhow::Result<()> {
     let (repo, mut meta, mut db) = named_read_only_in_memory_scenario("branch-listing", "")?;
     add_stack_with_segments(

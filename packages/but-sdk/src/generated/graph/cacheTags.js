@@ -56,6 +56,7 @@ export const apiInvalidates = {
 	branchNameSegment: ["Branches", "Workspace"],
 	branchRemove: ["Branches", "Workspace"],
 	branchRename: ["Branches", "Workspace"],
+	branchSetDescription: ["Branches"],
 	createReviewComment: ["ReviewComments"],
 	createReviewThreadReply: ["ReviewThreads"],
 	deleteAllData: ["Projects"],

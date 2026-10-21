@@ -23,6 +23,7 @@ export declare const apiParamNames: {
 	readonly branchNameSegment: readonly ["projectId", "checkout", "commitId", "newRef"];
 	readonly branchRemove: readonly ["projectId", "refName"];
 	readonly branchRename: readonly ["projectId", "refName", "newName"];
+	readonly branchSetDescription: readonly ["projectId", "refName", "description"];
 	readonly changesInWorktree: readonly ["projectId", "changesSource", "computeDepsAndAssignments"];
 	readonly changesInWorktreeWithPerm: readonly ["projectId", "changesSource", "computeDepsAndAssignments"];
 	readonly checkGithubAuthStatus: readonly ["deviceCode"];

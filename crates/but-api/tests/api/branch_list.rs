@@ -178,3 +178,43 @@ fn groups_classifies_and_enriches_from_cache() -> anyhow::Result<()> {
     );
     Ok(())
 }
+
+#[test]
+fn set_description_is_listed_and_can_be_cleared() -> anyhow::Result<()> {
+    let (repo, _tmp) = repo_with_feature_branch()?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
+    let description_of_feature = |ctx: &but_ctx::Context| -> anyhow::Result<Option<String>> {
+        Ok(but_api::branch::branch_list(ctx)?
+            .into_iter()
+            .flat_map(|stack| stack.branches)
+            .find(|listed| listed.branch.ref_name == feature)
+            .and_then(|listed| listed.branch.description)
+            .map(|description| description.to_str_lossy().into_owned()))
+    };
+
+    but_api::branch::branch_set_description(
+        &mut ctx,
+        feature.clone(),
+        Some("  Explain the feature\n".into()),
+    )?;
+    assert_eq!(
+        description_of_feature(&ctx)?.as_deref(),
+        Some("Explain the feature"),
+        "the description is stored trimmed and listed from the local config file"
+    );
+
+    but_api::branch::branch_set_description(&mut ctx, feature.clone(), Some("   ".into()))?;
+    assert_eq!(
+        description_of_feature(&ctx)?,
+        None,
+        "a blank description removes the key"
+    );
+
+    let remote = gix::refs::FullName::try_from("refs/remotes/origin/feature")?;
+    assert!(
+        but_api::branch::branch_set_description(&mut ctx, remote, Some("nope".into())).is_err(),
+        "only local branches have a description"
+    );
+    Ok(())
+}

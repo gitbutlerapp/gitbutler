@@ -659,6 +659,12 @@ pub mod json {
         pub last_author: Option<but_workspace::ui::Author>,
         /// The committer timestamp of the tip commit in milliseconds since the epoch.
         pub updated_at_ms: Option<i64>,
+        /// The subject (first line of the message) of the tip commit.
+        pub tip_subject: Option<String>,
+        /// The local branch's `branch.<name>.description` from the repository-local Git
+        /// config, as `git branch --edit-description` writes it. `null` for remote-only
+        /// branches and local ones without a description.
+        pub description: Option<String>,
         /// The cached review (PR/MR) published for this branch, if any is known.
         pub review: Option<ListedForgeReview>,
         /// The lifecycle state of `review`, derived server-side so every client
@@ -780,6 +786,12 @@ pub mod json {
                 commits_ahead_of_target: branch.commits_ahead_of_target,
                 last_author: branch.last_author.map(Into::into),
                 updated_at_ms: branch.updated_at_ms,
+                tip_subject: branch
+                    .tip_subject
+                    .map(|subject| subject.to_str_lossy().into_owned()),
+                description: branch
+                    .description
+                    .map(|description| description.to_str_lossy().into_owned()),
                 review: review.as_ref().map(Into::into),
                 review_status,
             }
@@ -1454,6 +1466,43 @@ pub fn branch_rename_with_perm(
         &mut db,
     )?;
     Ok(BranchRenameResult { workspace, new_ref })
+}
+
+/// Set the description of the local branch `ref_name` to `description`, or remove it when
+/// `description` is `None` or blank.
+///
+/// The description is stored as `branch.<name>.description` in the repository-local Git config,
+/// where `git branch --edit-description` keeps it. Git config is not part of oplog snapshots, so
+/// this mutation is intentionally left out of the undo timeline.
+#[but_api(napi, invalidates = [Branches])]
+#[instrument(err(Debug))]
+pub fn branch_set_description(
+    ctx: &mut but_ctx::Context,
+    #[but_api(crate::json::FullNameBytes)] ref_name: gix::refs::FullName,
+    description: Option<String>,
+) -> anyhow::Result<()> {
+    let _guard = ctx.exclusive_worktree_access();
+    if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
+        bail!(
+            "Can only describe local branches under refs/heads, got '{}'",
+            ref_name.as_bstr()
+        );
+    }
+    let repo = ctx.repo.get()?;
+    repo.find_reference(ref_name.as_ref())
+        .with_context(|| format!("Branch '{}' does not exist", ref_name.shorten()))?;
+    let key = format!("branch.{}.description", ref_name.shorten());
+    let description = description
+        .as_deref()
+        .map(str::trim)
+        .filter(|description| !description.is_empty());
+    but_core::git_config::edit_repo_config(&repo, gix::config::Source::Local, |config| {
+        match description {
+            Some(description) => but_core::git_config::set_config_value(config, &key, description),
+            None => but_core::git_config::remove_config_value(config, &key),
+        }
+    })?;
+    Ok(())
 }
 
 /// Checks out a branch and returns the resulting workspace state.

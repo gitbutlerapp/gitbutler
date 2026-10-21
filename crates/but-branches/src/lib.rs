@@ -122,6 +122,11 @@ pub struct ListedBranch {
     pub last_author: Option<gix::actor::Signature>,
     /// The committer timestamp of the tip commit in milliseconds since the epoch.
     pub updated_at_ms: Option<i64>,
+    /// The subject (first line of the message) of the tip commit.
+    pub tip_subject: Option<BString>,
+    /// The local branch's `branch.<name>.description` from the repository-local Git config,
+    /// as `git branch --edit-description` writes it. `None` for remote-only branches.
+    pub description: Option<BString>,
 }
 
 /// List all local and remote branches of `repo`, grouped into stacks where known,
@@ -204,12 +209,14 @@ pub fn list(
             .filter_map(walk::segment_tip),
     );
     let tip_infos = tip_commit_infos(repo, tips);
+    let descriptions = branch_descriptions(repo)?;
 
     let ctx = ListingContext::new(
         &ws,
         remote_names,
         refs_by_identity,
         tip_infos,
+        descriptions,
         walk::local_target_of(&ws),
     );
 
@@ -265,8 +272,10 @@ struct ListingContext<'a> {
     remote_names: gix::remote::Names,
     /// All enumerated branch refs, grouped by branch name, in enumeration order.
     refs_by_identity: BTreeMap<BString, Vec<BranchRef>>,
-    /// The author and committer time of every branch tip, read up front.
-    tip_infos: BTreeMap<gix::ObjectId, (gix::actor::Signature, i64)>,
+    /// The author, committer time and subject of every branch tip, read up front.
+    tip_infos: BTreeMap<gix::ObjectId, TipInfo>,
+    /// The `branch.<name>.description` of every local branch that has one, by short name.
+    descriptions: BTreeMap<BString, BString>,
     /// The segment each ref name belongs to, along with the commit the ref points to:
     /// the segment's first commit, or for empty segments the peeled id recorded on the
     /// ref itself. Refs found on non-first commits map to the owning segment.
@@ -284,7 +293,8 @@ impl<'a> ListingContext<'a> {
         ws: &'a Workspace,
         remote_names: gix::remote::Names,
         refs_by_identity: BTreeMap<BString, Vec<BranchRef>>,
-        tip_infos: BTreeMap<gix::ObjectId, (gix::actor::Signature, i64)>,
+        tip_infos: BTreeMap<gix::ObjectId, TipInfo>,
+        descriptions: BTreeMap<BString, BString>,
         local_target: Option<(gix::ObjectId, SegmentIndex)>,
     ) -> Self {
         ListingContext {
@@ -296,6 +306,7 @@ impl<'a> ListingContext<'a> {
             remote_names,
             refs_by_identity,
             tip_infos,
+            descriptions,
             local_target_tip: local_target.map(|(tip, _)| tip),
             cutoff_id: ws.target_commit.as_ref().map(|target| target.commit_id),
         }
@@ -346,7 +357,8 @@ impl<'a> ListingContext<'a> {
             };
             let display_name = display_identity(ref_name.as_ref(), &self.remote_names);
             consumed.insert(display_name.clone());
-            let (last_author, updated_at_ms) = self.tip_info(tip);
+            let tip_info = self.tip_infos.get(&tip);
+            let description = self.description_of(&ref_name);
             // All enumerated remotes of the same name, like standalone branches
             // have, not just the segment's configured tracking ref.
             let remote_refs: Vec<FullName> = self
@@ -368,8 +380,10 @@ impl<'a> ListingContext<'a> {
                 tip,
                 commit_count: (!clipped).then_some(segment.commits.len()),
                 commits_ahead_of_target: self.commits_ahead_of_target(segment.id),
-                last_author,
-                updated_at_ms,
+                last_author: tip_info.map(|info| info.author.clone()),
+                updated_at_ms: tip_info.map(|info| info.time_ms),
+                tip_subject: tip_info.map(|info| info.subject.clone()),
+                description,
             });
         }
         if branches.is_empty() {
@@ -534,7 +548,8 @@ impl<'a> ListingContext<'a> {
                         // can be said about it.
                         None => (None, None),
                     };
-                let (last_author, updated_at_ms) = self.tip_info(member.tip);
+                let tip_info = self.tip_infos.get(&member.tip);
+                let description = self.description_of(&member.primary_ref);
                 ListedBranch {
                     display_name: member.identity,
                     has_local: member.has_local,
@@ -542,8 +557,10 @@ impl<'a> ListingContext<'a> {
                     tip: member.tip,
                     commit_count,
                     commits_ahead_of_target,
-                    last_author,
-                    updated_at_ms,
+                    last_author: tip_info.map(|info| info.author.clone()),
+                    updated_at_ms: tip_info.map(|info| info.time_ms),
+                    tip_subject: tip_info.map(|info| info.subject.clone()),
+                    description,
                     ref_name: member.primary_ref,
                 }
             })
@@ -575,11 +592,11 @@ impl<'a> ListingContext<'a> {
     }
 
     /// The author and committer time of the tip commit, if it could be read.
-    fn tip_info(&self, tip: gix::ObjectId) -> (Option<gix::actor::Signature>, Option<i64>) {
-        match self.tip_infos.get(&tip) {
-            Some((author, time_ms)) => (Some(author.clone()), Some(*time_ms)),
-            None => (None, None),
-        }
+    /// The description of `ref_name` if it is a local branch that has one.
+    fn description_of(&self, ref_name: &FullName) -> Option<BString> {
+        (ref_name.category() == Some(Category::LocalBranch))
+            .then(|| self.descriptions.get(ref_name.shorten()).cloned())
+            .flatten()
     }
 
     fn graph(&self) -> &Graph {
@@ -672,20 +689,46 @@ fn applied_branch_ref_names(meta: &impl RefMetadata) -> anyhow::Result<BTreeSet<
 /// Read the author and the committer time of the branch tip; `None` if the commit
 /// is unreadable. The author identifies who worked on the branch, while the
 /// committer time reflects when it last changed.
-fn tip_commit_info(
-    repo: &gix::Repository,
-    tip: gix::ObjectId,
-) -> Option<(gix::actor::Signature, i64)> {
+/// What the listing shows of a branch's tip commit.
+struct TipInfo {
+    author: gix::actor::Signature,
+    /// The committer time in milliseconds since the epoch.
+    time_ms: i64,
+    subject: BString,
+}
+
+fn tip_commit_info(repo: &gix::Repository, tip: gix::ObjectId) -> Option<TipInfo> {
     let commit = repo.find_commit(tip).ok()?;
     let time_ms = commit.committer().ok()?.time().ok()?.seconds * 1000;
-    Some((commit.author().ok()?.to_owned().ok()?, time_ms))
+    let subject = commit.message().ok()?.title.trim().into();
+    Some(TipInfo {
+        author: commit.author().ok()?.to_owned().ok()?,
+        time_ms,
+        subject,
+    })
+}
+
+/// Read every `branch.<name>.description` from the repository-local Git config, freshly from
+/// disk so a description set through another repository handle is seen.
+fn branch_descriptions(repo: &gix::Repository) -> anyhow::Result<BTreeMap<BString, BString>> {
+    let config = but_core::git_config::open_repo_local_config_for_reading(repo)?;
+    let Some(sections) = config.sections_by_name("branch") else {
+        return Ok(BTreeMap::new());
+    };
+    Ok(sections
+        .filter_map(|section| {
+            let name = section.header().subsection_name()?.to_owned();
+            let description = BString::from(section.value("description")?.as_bytes());
+            Some((name, description))
+        })
+        .collect())
 }
 
 /// Read the author and committer time of every tip, in parallel when there are many.
 fn tip_commit_infos(
     repo: &gix::Repository,
     tips: BTreeSet<gix::ObjectId>,
-) -> BTreeMap<gix::ObjectId, (gix::actor::Signature, i64)> {
+) -> BTreeMap<gix::ObjectId, TipInfo> {
     if tips.len() < 200 {
         return tips
             .into_iter()

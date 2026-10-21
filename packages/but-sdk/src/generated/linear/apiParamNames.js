@@ -23,6 +23,7 @@ export const apiParamNames = {
 	branchNameSegment: ["projectId", "checkout", "commitId", "newRef"],
 	branchRemove: ["projectId", "refName"],
 	branchRename: ["projectId", "refName", "newName"],
+	branchSetDescription: ["projectId", "refName", "description"],
 	changesInWorktree: ["projectId", "changesSource", "computeDepsAndAssignments"],
 	changesInWorktreeWithPerm: ["projectId", "changesSource", "computeDepsAndAssignments"],
 	checkGithubAuthStatus: ["deviceCode"],
