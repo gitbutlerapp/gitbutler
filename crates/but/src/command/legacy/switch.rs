@@ -21,7 +21,8 @@ use crate::{
     bad_input,
     theme::{self, Theme},
     utils::{
-        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, time::format_relative_time,
+        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, change_source::InvokedFrom,
+        time::format_relative_time,
     },
 };
 
@@ -31,7 +32,13 @@ pub fn switch(
     ctx: &mut Context,
     mut out: IntermediateChannel<'_>,
     args: Platform,
+    invoked_from: &InvokedFrom,
 ) -> CliResult<SwitchOutcome> {
+    if let InvokedFrom::LinkedWorktree(worktree) = invoked_from {
+        return Err(bad_input(format!("Cannot switch from worktree {worktree}"))
+            .hint("Run `but switch` from the main worktree")
+            .into());
+    }
     let mut guard = ctx.exclusive_worktree_access();
 
     let operation = resolve(ctx, guard.read_permission(), &mut out, args)?;

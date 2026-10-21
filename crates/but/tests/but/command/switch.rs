@@ -889,3 +889,38 @@ Hint: run `but help` for all commands
 "#]]
     );
 }
+
+#[test]
+fn switching_in_a_linked_worktree_is_refused() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    let wt_dir = super::util::add_dirty_worktree(&env, "wt-feature", "A");
+
+    for command in ["switch B", "switch --workspace"] {
+        env.but(command)
+            .current_dir(&wt_dir)
+            .assert()
+            .failure()
+            .stdout_eq(str![])
+            .stderr_eq(str![[r#"
+Error: Cannot switch from worktree wt-feature
+
+Hint: Run `but switch` from the main worktree
+
+"#]]);
+    }
+
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref HEAD"),
+        "gitbutler/workspace",
+        "the main checkout stays on the workspace"
+    );
+    assert_eq!(
+        env.invoke_git(&format!(
+            "-C '{}' rev-parse --abbrev-ref HEAD",
+            wt_dir.display()
+        )),
+        "wt-feature",
+        "the worktree stays on its branch"
+    );
+}
