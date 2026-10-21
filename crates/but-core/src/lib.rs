@@ -99,6 +99,9 @@ pub mod unified_diff;
 /// utilities for command-invocation.
 pub mod cmd;
 
+/// Utilities for running Git hooks.
+pub mod hooks;
+
 /// Various settings
 pub mod settings;
 pub use settings::git::types::GitConfigSettings;

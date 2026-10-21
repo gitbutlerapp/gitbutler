@@ -573,6 +573,7 @@ fn add_runs_post_checkout_and_retains_the_worktree_if_the_hook_fails() -> Result
     std::fs::write(
         &hook,
         br#"#!/bin/sh
+printf '%s\n' "$@" > checkout-args
 exit 1
 "#,
     )?;
@@ -584,12 +585,17 @@ exit 1
             .expect_err("hook failure is reported after checkout");
     assert!(
         err.to_string()
-            .contains("Worktree post-checkout hook failed (exit status: 1)"),
+            .contains("Post-checkout hook failed (exit status: 1)"),
         "the exit status explains failure even when the hook writes nothing to stderr: {err}"
     );
     assert!(
         path.join(".git").is_file(),
         "hook failure retains the completed worktree"
+    );
+    assert_eq!(
+        std::fs::read_to_string(path.join("checkout-args"))?,
+        format!("{}\n{base}\n1\n", repo.object_hash().null()),
+        "worktree hooks run in the new checkout with a null previous HEAD"
     );
     Ok(())
 }
