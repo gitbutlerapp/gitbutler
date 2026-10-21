@@ -1162,8 +1162,18 @@ impl Detail {
             })
             .map(|branch| {
                 let (detail, ref_name) = (detail.clone(), branch.ref_name.clone());
+                let (picked, name) = (project.clone(), branch.name.clone());
                 let choice = Choice::new(branch.name.clone(), move |_, _, cx| {
                     (detail.update(cx, |detail, cx| {
+                        // Gone since the picker opened, as an agent renamed it, the commit
+                        // would go to another branch.
+                        let store = detail.store.read(cx);
+                        if (store.workspace(&picked))
+                            .is_none_or(|ws| ws.find_branch(&ref_name).is_none())
+                        {
+                            let gone = format!("{name} was renamed or deleted meanwhile");
+                            return detail.store.update(cx, |store, cx| store.snack(gone, cx));
+                        }
                         detail.commit_target = Some(ref_name);
                         cx.notify();
                     }))
