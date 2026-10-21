@@ -321,6 +321,8 @@ fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
     let mut image: Option<(String, String)> = None;
     // The HTML tags that make blocks, open around here, each with whether it centres them.
     let mut html_open: Vec<(String, bool)> = Vec::new();
+    // How many of those centre what's in them.
+    let mut centring = 0;
     let centered = Cell::new(false);
     // A block of HTML comes a line at a time, and lines apart read as one space.
     let mut html_gap = false;
@@ -346,18 +348,22 @@ fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
             block.styles.push((start..block.text.len(), style));
         }
     }
+    /// Drop the spaces at the end of `block`'s text, which HTML shows nothing for, and the
+    /// styles and links over only them, so none ends past the text.
+    fn trim_spaces(block: &mut Block) {
+        let end = block.text.trim_end_matches(' ').len();
+        block.text.truncate(end);
+        let ranges = (block.styles.iter_mut().map(|(range, _)| range))
+            .chain(block.links.iter_mut().map(|(range, _)| range));
+        for range in ranges {
+            range.end = range.end.min(end);
+        }
+        block.styles.retain(|(range, _)| !range.is_empty());
+        block.links.retain(|(range, _)| !range.is_empty());
+    }
     fn close(blocks: &mut Vec<Block>, current: &mut Option<Block>) {
-        // HTML's spaces at a block's end show nothing.
         if let Some(block) = current.as_mut().filter(|block| block.kind != Kind::Code) {
-            let end = block.text.trim_end_matches(' ').len();
-            block.text.truncate(end);
-            let ranges = (block.styles.iter_mut().map(|(range, _)| range))
-                .chain(block.links.iter_mut().map(|(range, _)| range));
-            for range in ranges {
-                range.end = range.end.min(end);
-            }
-            block.styles.retain(|(range, _)| !range.is_empty());
-            block.links.retain(|(range, _)| !range.is_empty());
+            trim_spaces(block);
         }
         if let Some(block) = current.take()
             && (!block.text.trim().is_empty()
@@ -515,12 +521,17 @@ fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
                     *marker = if done { "☑" } else { "☐" }.to_owned();
                 }
             }
+            Event::End(TagEnd::Paragraph) => {
+                close(&mut blocks, &mut current);
+                // An inline tag left open ends with its paragraph, not the document.
+                style = Style {
+                    bold: in_head,
+                    ..Style::default()
+                };
+                link = None;
+            }
             Event::End(
-                TagEnd::Paragraph
-                | TagEnd::Heading(_)
-                | TagEnd::CodeBlock
-                | TagEnd::Item
-                | TagEnd::HtmlBlock,
+                TagEnd::Heading(_) | TagEnd::CodeBlock | TagEnd::Item | TagEnd::HtmlBlock,
             ) => close(&mut blocks, &mut current),
             // Each table row is one line, its cells apart and the header bold, because
             // columns can't line up in wrapped text.
@@ -625,18 +636,21 @@ fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
                                 if let Some(block) = &mut current
                                     && block.kind != Kind::Images
                                 {
-                                    block.text.truncate(block.text.trim_end_matches(' ').len());
+                                    trim_spaces(block);
                                     push(block, "\n", style);
                                 }
                             }
                             "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "p" | "div" | "center"
                             | "details" | "summary" => {
                                 close(&mut blocks, &mut current);
+                                // A link ends with its block, as GitHub ends it.
+                                link = None;
                                 let centres = name == "center"
                                     || attribute(&attributes, "align")
                                         .is_some_and(|a| a.eq_ignore_ascii_case("center"));
                                 html_open.push((name.clone(), centres));
-                                centered.set(html_open.iter().any(|(_, centres)| *centres));
+                                centring += usize::from(centres);
+                                centered.set(centring > 0);
                                 if let Some(level) =
                                     name.strip_prefix('h').and_then(|l| l.parse::<u8>().ok())
                                 {
@@ -685,12 +699,15 @@ fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
                             "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "p" | "div" | "center"
                             | "details" | "summary" => {
                                 close(&mut blocks, &mut current);
+                                link = None;
                                 if let Some(at) =
                                     html_open.iter().rposition(|(open, _)| *open == name)
                                 {
-                                    html_open.truncate(at);
+                                    let closed = html_open.split_off(at);
+                                    centring -=
+                                        closed.iter().filter(|(_, centres)| *centres).count();
                                 }
-                                centered.set(html_open.iter().any(|(_, centres)| *centres));
+                                centered.set(centring > 0);
                             }
                             "b" | "strong" => style.bold = in_head,
                             "i" | "em" => style.italic = false,
@@ -700,6 +717,7 @@ fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
                                 if let (Some((start, Some(url))), Some(block)) =
                                     (link.take(), &mut current)
                                     && start < block.text.len()
+                                    && block.text.is_char_boundary(start)
                                 {
                                     block.links.push((start..block.text.len(), url));
                                 }
@@ -737,7 +755,7 @@ fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
         let mut more = open(Kind::Paragraph, &Vec::new(), 0, 0);
         push(
             &mut more,
-            "The rest of the description is too long to show here.",
+            "The rest is too long to show here.",
             Style {
                 italic: true,
                 ..Style::default()
@@ -1000,6 +1018,39 @@ mod tests {
                 (&Kind::Paragraph, "C"),
             ],
             "a <br> breaks the line, and each <p> and <div> is a block of its own"
+        );
+    }
+
+    #[test]
+    fn styles_and_links_stay_on_whole_characters() {
+        for input in [
+            "<b>Note:  </b><br>Über alles",
+            "See <a href=\"https://x.io\">docs  </a><br>日本語",
+            "<p>abc <a href=\"https://x.io\">x</p><p>€€€€</a></p>",
+        ] {
+            for block in parse(input) {
+                let ranges = (block.styles.iter().map(|(range, _)| range))
+                    .chain(block.links.iter().map(|(range, _)| range));
+                for range in ranges {
+                    assert!(
+                        range.end <= block.text.len()
+                            && block.text.is_char_boundary(range.start)
+                            && block.text.is_char_boundary(range.end),
+                        "{input:?}: {range:?} over {:?} would split a character as it's drawn",
+                        block.text
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn an_unclosed_inline_tag_ends_with_its_paragraph() {
+        let blocks = parse("<b>Note: this\n\nPlain after\n");
+        assert_eq!(texts(&blocks)[1], (&Kind::Paragraph, "Plain after"));
+        assert!(
+            blocks[1].styles.is_empty(),
+            "a <b> never closed doesn't bold the rest of the document"
         );
     }
 
