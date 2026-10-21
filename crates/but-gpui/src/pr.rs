@@ -72,15 +72,23 @@ impl ReviewView {
         }
         // The store can turn the operation down before it starts, as while `but resolve`
         // edits a commit, and then nothing reports back: the form is free again.
-        cx.subscribe(&store, |this, store, event, cx| {
-            if let StoreEvent::Pending(project) = event
-                && this.submitting
-                && *project == this.project
-                && !store.read(cx).publishing(&this.project, &this.branch)
+        cx.subscribe(&store, |this, store, event, cx| match event {
+            StoreEvent::Pending(project)
+                if this.submitting
+                    && *project == this.project
+                    && !store.read(cx).publishing(&this.project, &this.branch) =>
             {
                 this.submitting = false;
                 cx.notify();
             }
+            // What's written stays for the branch under its new name, as an agent renamed it.
+            StoreEvent::Renamed(project, from, to)
+                if *project == this.project && *from == this.branch && !to.is_empty() =>
+            {
+                this.branch = to.clone();
+                cx.notify();
+            }
+            _ => {}
         })
         .detach();
         let path = store.read(cx).path(&project);
