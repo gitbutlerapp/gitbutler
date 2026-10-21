@@ -206,8 +206,8 @@ struct RowStyle<'a> {
     joined: (bool, bool),
 }
 
-/// A fold's glyph in a step as wide as a branch's: a chevron, down while `open`, or a dot
-/// with nothing to fold (`None`).
+/// A fold's glyph in a step as wide as a branch's: a chevron, down while `open`, or with
+/// nothing to fold (`None`) a dot at half strength, as ui-react's.
 fn step(open: Option<bool>, color: gpui::Hsla) -> Div {
     let glyph = match open {
         None => Icon::BulletDisc,
@@ -221,7 +221,10 @@ fn step(open: Option<bool>, color: gpui::Hsla) -> Div {
         .flex()
         .items_center()
         .justify_center()
-        .child(small_icon(glyph).text_color(color))
+        .child(small_icon(glyph).text_color(match open {
+            None => color.opacity(0.5),
+            Some(_) => color,
+        }))
 }
 
 /// A row's click handler that runs `toggle` on a double-click, as a folder opens.
@@ -1240,7 +1243,7 @@ impl Navigator {
         let theme = Theme::get(cx);
         let inset = self.insets.get(ix).copied().unwrap_or_default();
         let el = match self.rows.get(ix) {
-            None | Some(Row::Gap) => return div().h(px(10.)).into_any_element(),
+            None | Some(Row::Gap) => return div().h(px(12.)).into_any_element(),
             Some(Row::Item(item)) => self.render_item(ix, item, inset, window, theme, cx),
             Some(Row::MeshHeading(id)) => self.mesh_heading(id, theme, cx),
             // A dashed line, as ui-react's WorktreeDivider.
@@ -1566,22 +1569,18 @@ impl Navigator {
             .h_full()
             .gap(px(6.))
             .when(total > 0, |el| {
-                el.cursor_pointer()
-                    .child(
-                        small_icon(match folded {
-                            true => Icon::ChevronRight,
-                            false => Icon::ChevronDown,
-                        })
-                        .text_color(theme.text_3),
-                    )
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        (this.store).update(cx, |store, cx| {
-                            store.set_prefs(
-                                |prefs| prefs.projects_folded = !prefs.projects_folded,
-                                cx,
-                            )
-                        })
-                    }))
+                el.child(
+                    small_icon(match folded {
+                        true => Icon::ChevronRight,
+                        false => Icon::ChevronDown,
+                    })
+                    .text_color(theme.text_3),
+                )
+                .on_click(cx.listener(|this, _, _, cx| {
+                    (this.store).update(cx, |store, cx| {
+                        store.set_prefs(|prefs| prefs.projects_folded = !prefs.projects_folded, cx)
+                    })
+                }))
             })
             .child(section_label(title, theme).truncate())
             .when(total > 0, |el| {
@@ -2712,7 +2711,6 @@ impl Navigator {
             .pl(px(14.))
             .pr(px(12.))
             .gap(px(6.))
-            .cursor_pointer()
             .child(step(Some(open), theme.text_3))
             .child(small_icon(Icon::Clock).text_color(theme.text_3))
             .child(section_label("Inactive worktrees", theme))
@@ -2789,7 +2787,6 @@ impl Navigator {
             .gap(px(6.))
             .rounded(px(4.))
             .hover(move |el| el.bg(hover))
-            .cursor_pointer()
             .child(step(Some(open), theme.text_3))
             .child(
                 section_label(

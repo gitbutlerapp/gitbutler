@@ -187,7 +187,6 @@ impl Detail {
                                     let hover = theme.text_2.blend(theme.text_1.opacity(0.5));
                                     div()
                                         .id(("crumb", ix))
-                                        .cursor_pointer()
                                         .hover(move |el| el.text_color(hover))
                                         .truncate()
                                         .map(|mut el| {
@@ -535,7 +534,7 @@ impl Detail {
         let meta = meta_row(theme)
             .child(
                 h_flex()
-                    .gap(px(6.))
+                    .gap(px(8.))
                     .child(byline_avatar(
                         &commit.author,
                         &commit.email,
@@ -590,20 +589,21 @@ impl Detail {
         self.page_header(main, target, apply, None, theme, cx)
     }
 
-    /// A commit's short ID, which copies the whole one on a click.
+    /// A commit's short ID in its line's ink, as ui-react's `CopyableId`, which copies the
+    /// whole one on a click.
     fn sha_chip(&self, id: backend::CommitId, theme: &Theme, cx: &Context<Self>) -> Stateful<Div> {
         let sha = id.0.to_string();
+        let hover = theme.text_2.blend(theme.text_1.opacity(0.5));
         h_flex()
             .id("commit-sha")
             .gap(px(4.))
-            .cursor_pointer()
             .group("commit-sha")
-            .text_color(theme.text_3)
-            .hover(|el| el.text_color(theme.text_2))
+            .hover(move |el| el.text_color(hover))
             .child(
-                small_icon(Icon::Hash)
-                    .text_color(theme.text_3)
-                    .group_hover("commit-sha", |el| el.text_color(theme.text_2)),
+                icon(Icon::Hash)
+                    .size(px(14.))
+                    .text_color(theme.text_2.opacity(0.7))
+                    .group_hover("commit-sha", move |el| el.text_color(hover.opacity(0.7))),
             )
             .child(id.short())
             .tooltip(Tooltip::text("Copy commit ID"))
@@ -638,7 +638,7 @@ impl Detail {
         let meta = meta_row(theme)
             .child(
                 h_flex()
-                    .gap(px(6.))
+                    .gap(px(8.))
                     .child(byline_avatar(
                         &commit.author,
                         &commit.email,
@@ -831,7 +831,7 @@ impl Detail {
                     .py(px(8.))
                     .rounded(px(6.))
                     .border_1()
-                    .border_color(theme.pop)
+                    .border_color(theme.focus_border())
                     .line_height(px(19.))
                     .child(input.clone()),
             )
@@ -985,11 +985,14 @@ pub(super) fn meta_row(theme: &Theme) -> Div {
         .text_color(theme.text_2)
 }
 
-/// One of a header's facts in its `meta_row`: its quiet glyph, then what's added after.
+/// One of a header's facts in its `meta_row`: its glyph at 0.7 of the line's ink, as
+/// ui-react's meta glyphs are, then what's added after.
 pub(super) fn meta_item(glyph: Icon, theme: &Theme) -> Div {
-    h_flex()
-        .gap(px(4.))
-        .child(small_icon(glyph).text_color(theme.text_3))
+    h_flex().gap(px(3.)).child(
+        icon(glyph)
+            .size(px(14.))
+            .text_color(theme.text_2.opacity(0.7)),
+    )
 }
 
 /// The block at the top of a side panel, saying what's selected.

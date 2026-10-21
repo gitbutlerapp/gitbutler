@@ -261,7 +261,6 @@ impl AppView {
                 .justify_center()
                 .rounded(px(4.))
                 .text_size(px(18.))
-                .cursor_pointer()
                 .hover(|el| el.bg(theme.hover()))
                 .when(current == stored, |el| el.bg(theme.selected_unfocused()))
                 .tooltip(Tooltip::text(name))

@@ -772,8 +772,7 @@ impl Detail {
             .child(div().min_w(px(0.)).truncate().child(text))
             .child(faint(note, theme).flex_none().max_w(px(320.)).truncate())
             .when_some(here, |el, id| {
-                el.cursor_pointer()
-                    .hover(|el| el.text_color(theme.blue))
+                el.hover(|el| el.text_color(theme.blue))
                     .tooltip(Tooltip::text("Show this commit"))
                     .on_click(move |_, _, cx| {
                         let selection = Selection::Commit(project.clone(), id);

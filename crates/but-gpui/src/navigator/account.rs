@@ -51,7 +51,6 @@ impl Navigator {
             .id("account")
             .p(px(2.))
             .rounded_full()
-            .cursor_pointer()
             .hover(|el| el.bg(theme.hover()))
             .child(face)
             .on_mouse_down(

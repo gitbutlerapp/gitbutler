@@ -540,7 +540,7 @@ impl AppView {
                                 .py(px(6.))
                                 .rounded(px(4.))
                                 .border_1()
-                                .border_color(theme.pop)
+                                .border_color(theme.focus_border())
                                 .font_family(theme.mono_font.clone())
                                 .text_size(px(13.))
                                 .child(prompt.input.clone()),

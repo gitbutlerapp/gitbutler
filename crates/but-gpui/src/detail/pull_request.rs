@@ -420,7 +420,6 @@ fn row(id: impl Into<gpui::ElementId>, theme: &Theme) -> Stateful<Div> {
         .mx(px(-8.))
         .rounded(px(4.))
         .text_size(px(13.))
-        .cursor_pointer()
         .hover(move |el| el.bg(hover))
 }
 
@@ -453,30 +452,39 @@ fn check_row(ix: usize, run: &CheckRun, theme: &Theme) -> Stateful<Div> {
         .children(when.map(|when| faint(when, theme).flex_none()))
 }
 
-/// A tab of a page's header, underlined along the header's edge while `selected`.
+/// A tab of a page's header, as ui-react's: its label faded unless it's selected or under
+/// the pointer, and under the selected one a bar along the header's edge.
 fn tab(id: &'static str, label: &'static str, selected: bool, theme: &Theme) -> Stateful<Div> {
-    let hover = theme.text_1;
+    let hover = theme.hover();
     h_flex()
         .id(id)
+        .group(id)
         .relative()
+        .h(px(28.))
+        // Room for the bar, 6 below, down to the header's edge.
+        .mb(px(10.))
         .gap(px(6.))
         .px(px(8.))
-        .pt(px(4.))
-        .pb(px(10.))
+        .rounded(px(4.))
         .text_size(px(13.))
-        .text_color(if selected { theme.text_1 } else { theme.text_2 })
-        .cursor_pointer()
-        .hover(move |el| el.text_color(hover))
-        .child(label)
+        .font_weight(gpui::FontWeight::SEMIBOLD)
+        .text_color(theme.text_1)
+        .when(!selected, |el| el.hover(move |el| el.bg(hover)))
+        .child(
+            div()
+                .opacity(if selected { 0.9 } else { 0.63 })
+                .group_hover(id, |el| el.opacity(0.9))
+                .child(label),
+        )
         .when(selected, |el| {
             el.child(
                 div()
                     .absolute()
-                    .bottom_0()
+                    .top(px(34.))
                     .left(px(8.))
                     .right(px(8.))
-                    .h(px(2.))
-                    .bg(theme.text_1),
+                    .h(px(4.))
+                    .bg(theme.fill_gray),
             )
         })
 }

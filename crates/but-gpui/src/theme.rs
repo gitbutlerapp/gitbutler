@@ -199,7 +199,12 @@ impl Theme {
     }
 
     pub fn hover(&self) -> Hsla {
-        self.fill_gray.opacity(0.06)
+        self.fill_gray.opacity(0.05)
+    }
+
+    /// The ring of a focused field, as design-core's `--border-focus`.
+    pub fn focus_border(&self) -> Hsla {
+        self.fill_gray.opacity(0.7)
     }
 
     /// The border of a control, as design-core's `--border-control`.
@@ -209,6 +214,6 @@ impl Theme {
 
     /// Selection ground while the list does not have focus.
     pub fn selected_unfocused(&self) -> Hsla {
-        self.fill_gray.opacity(0.11)
+        self.fill_gray.opacity(0.1)
     }
 }

@@ -292,7 +292,11 @@ impl Render for ReviewView {
                 .py(px(7.))
                 .rounded(px(6.))
                 .border_1()
-                .border_color(if focused { theme.pop } else { theme.border_2 })
+                .border_color(if focused {
+                    theme.focus_border()
+                } else {
+                    theme.border_2
+                })
                 .text_size(px(13.))
                 .line_height(px(19.))
                 .when(tall, |el| {

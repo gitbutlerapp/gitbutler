@@ -741,7 +741,6 @@ impl SettingsView {
             .gap(px(10.))
             .rounded(px(6.))
             .text_size(px(13.))
-            .cursor_pointer()
             .map(|el| match selected {
                 true => el.bg(theme.fill_gray).text_color(theme.text_inverted),
                 false => el.text_color(theme.text_1).hover(move |el| el.bg(hover)),
@@ -796,8 +795,7 @@ impl Render for SettingsView {
                             })
                         })
                         .collect();
-                    el.cursor_pointer()
-                        .child(icon(Icon::ChevronDown).text_color(theme.text_3))
+                    el.child(icon(Icon::ChevronDown).text_color(theme.text_3))
                         .tooltip(Tooltip::text("Another project's settings"))
                         .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
                             this.open_menu(event, items.clone(), cx)

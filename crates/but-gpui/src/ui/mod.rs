@@ -425,7 +425,11 @@ pub fn field(input: &Entity<text_input::TextInput>, focused: bool, theme: &Theme
         .py(px(5.))
         .rounded(px(4.))
         .border_1()
-        .border_color(if focused { theme.pop } else { theme.border_2 })
+        .border_color(if focused {
+            theme.focus_border()
+        } else {
+            theme.border_2
+        })
         .bg(theme.bg_1)
         .text_size(px(13.))
         .child(input.clone())
@@ -577,7 +581,12 @@ impl RenderOnce for Button {
         let theme = Theme::get(cx);
         let (fg, bg, border, hover): (Hsla, Option<Hsla>, Option<Hsla>, Hsla) = match self.style {
             ButtonStyle::Ghost => (theme.text_1, None, None, theme.hover()),
-            ButtonStyle::Outline => (theme.text_1, None, Some(theme.border_2), theme.hover()),
+            ButtonStyle::Outline => (
+                theme.text_1,
+                None,
+                Some(theme.control_border()),
+                theme.hover(),
+            ),
             ButtonStyle::Gray => (
                 theme.text_1,
                 Some(theme.fill_gray.opacity(0.1)),
@@ -606,7 +615,11 @@ impl RenderOnce for Button {
             ),
             None => (fg, bg, hover),
         };
-        let height = if self.small { px(22.) } else { px(28.) };
+        // As ui-react's: small is 20 tall with a 14 icon, an icon alone 22 wide; regular 28.
+        let (height, width, icon_size) = match self.small {
+            true => (px(20.), px(22.), px(14.)),
+            false => (px(28.), px(28.), px(16.)),
+        };
         let has_label = self.label.is_some();
         // What a screen reader calls it: its text, or for an icon its tooltip.
         let name = self.label.clone().or_else(|| self.tooltip.clone());
@@ -616,11 +629,12 @@ impl RenderOnce for Button {
             .when_some(name, |el, name| el.aria_label(name))
             .flex_none()
             .h(height)
-            .gap(px(6.))
-            .when(has_label, |el| el.px(px(if self.small { 8. } else { 10. })))
-            .when(!has_label, |el| el.w(height).justify_center())
+            .gap(px(if self.small { 4. } else { 6. }))
+            .when(has_label, |el| el.px(px(if self.small { 6. } else { 10. })))
+            .when(!has_label, |el| el.w(width).justify_center())
             .rounded(px(4.))
             .text_size(px(if self.small { 12. } else { 13. }))
+            .font_weight(gpui::FontWeight::SEMIBOLD)
             .whitespace_nowrap()
             .text_color(fg)
             .when_some(bg, |el, bg| el.bg(bg))
@@ -630,9 +644,10 @@ impl RenderOnce for Button {
                     // Gives under the pointer while pressed.
                     .active(|el| el.opacity(0.8))
             })
-            .when(self.disabled.is_some(), |el| el.opacity(0.45))
+            .when(self.disabled.is_some(), |el| el.opacity(0.5))
             .when_some(self.icon, |el, kind| {
-                el.child(icon(kind).text_color(fg.opacity(if has_label { 0.7 } else { 0.8 })))
+                let opacity = if has_label { 0.7 } else { 0.8 };
+                el.child(icon(kind).size(icon_size).text_color(fg.opacity(opacity)))
             })
             .when_some(self.label, |el, label| el.child(label))
             .when_some(self.disabled.clone().or(self.tooltip), |el, tooltip| {
@@ -727,8 +742,10 @@ impl Render for Tooltip {
             .flex_row()
             .items_center()
             .mt(px(4.))
+            .max_w(px(240.))
+            .rounded(px(4.))
             .px(px(8.))
-            .py(px(4.))
+            .py(px(6.))
             .text_size(px(12.))
             .text_color(theme.text_1)
             .font_family(theme.ui_font.clone())

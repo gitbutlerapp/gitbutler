@@ -207,8 +207,9 @@ anything else.
 
 - Match Lite's wording and structure and the rules in `packages/ui-react/design/`. Adapt Lite,
   Tauri and but.dev rather than copy them, and leave out what GPUI has no data for.
-- Conflicts are `warn`, never danger red. One accent button per surface. A disabled control says
-  why in its tooltip. Tooltips are a few words, with the shortcut in its key slot. Snackbars are
+- Conflicts are `warn`, never danger red. One accent button per surface. Controls keep the
+  arrow cursor, as the desktop does, and a focused field rings in gray (`focus_border`), not
+  pop. A disabled control says why in its tooltip. Tooltips are a few words, with the shortcut in its key slot. Snackbars are
   fragments without a full stop. Misleading copy is a bug.
 - The app is reactive, so no reload buttons. Nothing added may make it slower.
 - Dropped on purpose, so ask before adding them back: PR conversations and management beyond

@@ -307,7 +307,6 @@ impl Detail {
             .items_center()
             .justify_center()
             .rounded(px(4.))
-            .cursor_pointer()
             .hover(|el| el.bg(theme.hover()))
             .text_size(px(16.))
             .child(mark)
@@ -349,7 +348,6 @@ impl Detail {
                         div()
                             .id("fetch-now")
                             .flex_none()
-                            .cursor_pointer()
                             .hover(move |el| el.text_color(hover))
                             .tooltip(Tooltip::keyed(
                                 "Fetch, and check pull requests and CI again",

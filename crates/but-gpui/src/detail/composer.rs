@@ -1022,7 +1022,7 @@ impl Detail {
                             .rounded(px(6.))
                             .border_1()
                             .border_color(if message_focused {
-                                theme.pop
+                                theme.focus_border()
                             } else {
                                 theme.border_2
                             })

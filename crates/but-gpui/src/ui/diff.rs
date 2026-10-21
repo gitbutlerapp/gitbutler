@@ -612,7 +612,7 @@ pub fn hunk_header(hunk: &Hunk, unmodified: u32, theme: &Theme, decor: HeaderDec
                 .whitespace_nowrap()
                 // The owner shows the hidden lines on a click.
                 .when(unmodified > 0, |el| {
-                    el.cursor_pointer().hover(|el| el.text_color(theme.text_1))
+                    el.hover(|el| el.text_color(theme.text_1))
                 })
                 .children(decor.leading)
                 .child(

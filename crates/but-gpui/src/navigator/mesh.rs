@@ -129,7 +129,6 @@ impl Navigator {
             .pl(px(14.))
             .pr(px(12.))
             .gap(px(6.))
-            .cursor_pointer()
             .child(step(Some(open), theme.text_3))
             .child(small_icon(Icon::Globe).text_color(theme.text_3))
             .child(section_label("Network worktrees", theme))

@@ -807,7 +807,6 @@ impl Detail {
                 .items_center()
                 .justify_center()
                 .rounded(px(4.))
-                .cursor_pointer()
                 .hover(|el| match solid {
                     true => el.bg(theme.text_inverted.opacity(0.1)),
                     false => el.bg(theme.hover()),
