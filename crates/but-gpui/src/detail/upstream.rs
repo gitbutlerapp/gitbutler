@@ -429,26 +429,9 @@ impl Detail {
         }
     }
 
-    /// Open merge `id`'s commits for a click on its row, and fold those the last click
-    /// opened, as a branch in the navigator does.
-    fn open_merge_on_click(&mut self, project: &ProjectId, id: CommitId, cx: &mut Context<Self>) {
-        if let Some(previous) = self.merge_click_opened.take_if(|previous| *previous != id) {
-            self.open_merges.remove(&previous);
-        }
-        if self.open_merges.insert(id) {
-            self.merge_click_opened = Some(id);
-            self.store
-                .update(cx, |store, cx| store.load_merged(project, id, cx));
-        }
-        cx.notify();
-    }
-
     /// Show merge `id`'s commits under it, or fold them away, by hand: it stays as it's left.
     /// Folding them over the one picked shows the merge.
     fn toggle_merge(&mut self, project: &ProjectId, id: CommitId, cx: &mut Context<Self>) {
-        if self.merge_click_opened == Some(id) {
-            self.merge_click_opened = None;
-        }
         if self.open_merges.insert(id) {
             self.store
                 .update(cx, |store, cx| store.load_merged(project, id, cx));
@@ -1500,7 +1483,6 @@ impl Detail {
                                         .into_any_element()
                                     }
                                 };
-                                let (merge, project) = (commit.merge, upstream.project.clone());
                                 side_row(("target-commit", ix), selected, solid, theme)
                                     .child(fold)
                                     .child(small_icon(mark).text_color(glyph))
@@ -1525,12 +1507,8 @@ impl Detail {
                                         on,
                                         theme,
                                     ))
-                                    // A click on a merge opens the commits it brought in too.
                                     .on_click(cx.listener(move |this, _, _, cx| {
-                                        this.pick_on_page(Picked::Commit(id), cx);
-                                        if merge {
-                                            this.open_merge_on_click(&project, id, cx);
-                                        }
+                                        this.pick_on_page(Picked::Commit(id), cx)
                                     }))
                                     .into_any_element()
                             }

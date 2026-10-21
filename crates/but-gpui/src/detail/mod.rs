@@ -310,10 +310,8 @@ pub struct Detail {
     /// the space beside the project page's list is, measured as they're drawn.
     target_message_height: Rc<Cell<f32>>,
     beside_width: Rc<Cell<f32>>,
-    /// The merges on a project's page whose commits show under them, and the one a click on
-    /// its row opened, which a click on another's folds again, as branches in the navigator.
+    /// The merges on a project's page whose commits show under them.
     open_merges: HashSet<backend::CommitId>,
-    merge_click_opened: Option<backend::CommitId>,
     /// The days of a project's activity picked, first to last, as `upstream::day_of` numbers
     /// them, which its history is filtered to; and the day a shift-click extends them from.
     activity_days: Option<(ProjectId, i64, i64)>,
@@ -581,7 +579,6 @@ impl Detail {
             target_message_height: Rc::new(Cell::new(0.)),
             beside_width: Rc::new(Cell::new(0.)),
             open_merges: HashSet::new(),
-            merge_click_opened: None,
             activity_days: None,
             activity_anchor: None,
             readme_images: HashMap::new(),

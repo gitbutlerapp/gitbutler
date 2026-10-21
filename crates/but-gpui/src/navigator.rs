@@ -96,8 +96,8 @@ pub fn bind_keys(cx: &mut App) {
     ]);
 }
 
-/// A branch whose commits a click on its row opened, here or on another machine, or a
-/// remote's merge whose commits it opened.
+/// What shows commits under it: a branch, here or on another machine, which a click on its
+/// row opens too, or a remote's merge, which only its chevron and → open.
 #[derive(Clone, PartialEq)]
 enum ClickOpened {
     Here((ProjectId, String)),
@@ -2841,11 +2841,6 @@ impl Navigator {
                 .when(unread, |el| el.child(dot(style.meta(style.theme.pop))))
                 .child(style.age(time))
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
-                // A click on a merge opens the commits it brought in, as on a branch.
-                .when(merge, |el| {
-                    let clicked = ClickOpened::Merge(id.clone(), *commit_id);
-                    el.on_click(open_on_click(clicked, cx))
-                })
                 .into_any_element(),
         )
     }
