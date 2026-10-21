@@ -123,7 +123,8 @@ impl Store {
                                 .ok();
                         }
                     }
-                    let read = backend::run(move || backend::mesh::status(&path)).await;
+                    let id = project.to_string();
+                    let read = backend::run(move || backend::mesh::status(&path, &id)).await;
                     tracing::debug!(%project, checkouts = ?read.as_ref().map(|s| s.checkouts.len()), "mesh read");
                     let Ok(()) = this.update(cx, |store, cx| match read {
                         Ok(status) => {
@@ -308,6 +309,22 @@ impl Store {
             .ok();
         })
         .detach();
+    }
+
+    /// Show `project`'s checkouts on other machines as they were last read, until the mesh
+    /// answers, which takes seconds: its section is there with the rest of the card rather
+    /// than arriving after it, and the read only changes what changed.
+    pub(super) fn seed_mesh(&mut self, project: &ProjectId) {
+        let known = matches!(
+            self.mesh.state,
+            MeshState::Unknown | MeshState::Connected(_)
+        );
+        if !known || self.mesh.checkouts.contains_key(project) {
+            return;
+        }
+        if let Some(status) = mesh::cached_status(project.as_ref()) {
+            (self.mesh.checkouts).insert(project.clone(), status.checkouts.into());
+        }
     }
 
     /// `project`'s checkouts on other machines, as the mesh last said.

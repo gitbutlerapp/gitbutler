@@ -376,6 +376,7 @@ impl Store {
 
     /// Prepare `id` for display and start watching it, then load it.
     fn open_project(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
+        self.seed_mesh(id);
         let Some(entry) = self.project_mut(id) else {
             return;
         };

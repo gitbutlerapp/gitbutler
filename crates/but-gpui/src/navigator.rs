@@ -609,10 +609,8 @@ impl Navigator {
                     }
                 }
             }
-            // Signed in to the mesh, its checkouts on the user's other machines, as worktrees.
-            if store.mesh.connection().is_some() {
-                self.mesh_rows(store, id, &mut rows);
-            }
+            // Its checkouts on the user's other machines, as worktrees: none while signed out.
+            self.mesh_rows(store, id, &mut rows);
             // After the worktrees, so a drag starting in one doesn't push its rows down. Outside
             // the workspace there's nowhere to put a branch of its own.
             if workspace.managed

@@ -245,9 +245,35 @@ pub struct Project {
     pub icon: String,
 }
 
-/// What the mesh has of the repository at `path`.
-pub fn status(path: &Path) -> Result<Status> {
-    parse_status(&mesh(Some(path), &["status", "--json"], READ_TIMEOUT)?)
+/// What the mesh has of the repository at `path`, kept for [`cached_status`] under
+/// `project`, the project's id here.
+pub fn status(path: &Path, project: &str) -> Result<Status> {
+    let out = mesh(Some(path), &["status", "--json"], READ_TIMEOUT)?;
+    let status = parse_status(&out)?;
+    if let Some(cache) = cache_path(project)
+        && std::fs::read_to_string(&cache).ok().as_deref() != Some(out.as_str())
+    {
+        let written = (cache.parent().map_or(Ok(()), std::fs::create_dir_all))
+            .and_then(|()| std::fs::write(&cache, &out));
+        if let Err(err) = written {
+            tracing::debug!(project, "couldn't keep the mesh's read: {err}");
+        }
+    }
+    Ok(status)
+}
+
+/// What [`status`] read of `project` last time, to show until the mesh answers again.
+pub fn cached_status(project: &str) -> Option<Status> {
+    parse_status(&std::fs::read_to_string(cache_path(project)?).ok()?).ok()
+}
+
+fn cache_path(project: &str) -> Option<PathBuf> {
+    Some(
+        but_path::app_cache_dir()
+            .ok()?
+            .join("mesh")
+            .join(format!("{project}.json")),
+    )
 }
 
 /// [`status()`] from what `but mesh status --json` printed.
