@@ -1784,7 +1784,10 @@ impl Detail {
                     true => self.target_message_height.get(),
                     false => 0.,
                 };
-                self.header_height.get() + message + self.list_tabs_height(cx)
+                self.header_height.get()
+                    + message
+                    + self.list_tabs_height(cx)
+                    + self.merged_over_height(&project)
             }
             Some(Selection::Branches(_)) => self.list_tabs_height(cx),
             Some(Selection::History(project)) if self.selected_operation(&project).is_some() => {
