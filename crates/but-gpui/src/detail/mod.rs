@@ -289,6 +289,8 @@ pub struct Detail {
     checks_worktree: Option<Arc<str>>,
     /// The commit message box is open; until then there are no checkboxes.
     composing: bool,
+    /// The checkout had changes when the composer opened, so it isn't for an empty commit.
+    composing_on_changes: bool,
     /// Where the focus was when writing a commit message started, to go back to after.
     composer_back: Option<FocusHandle>,
     /// What scrolls the commit message box, which keeps the caret in view.
@@ -542,6 +544,7 @@ impl Detail {
             checks_project: None,
             checks_worktree: None,
             composing: false,
+            composing_on_changes: false,
             composer_back: None,
             message_scroll,
             cursor: Cursor::default(),

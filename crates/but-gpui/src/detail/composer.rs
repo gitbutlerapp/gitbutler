@@ -409,15 +409,16 @@ impl Detail {
         }
         // A file a merge left conflicted can't be committed until it's marked resolved, so
         // it starts out of the commit.
-        if !self.composing
-            && let Some(files) = (self.checks_project.as_ref())
+        if !self.composing {
+            let files = (self.checks_project.as_ref())
                 .and_then(|project| self.store.read(cx).workspace(project))
                 .and_then(|ws| ws.uncommitted_in(self.checks_worktree.as_deref()))
-        {
+                .unwrap_or_default();
             let conflicted = (files.iter())
                 .filter(|file| file.conflicted)
                 .map(|file| file.path.clone());
             self.checks.unchecked.extend(conflicted.collect::<Vec<_>>());
+            self.composing_on_changes = !files.is_empty();
         }
         let message = self.message.focus_handle(cx);
         if !self.composing {
@@ -643,6 +644,13 @@ impl Detail {
         let nothing_changed = (self.store.read(cx).workspace(&project))
             .and_then(|ws| ws.uncommitted_in(worktree.as_deref()))
             .is_none_or(<[_]>::is_empty);
+        // Opened on changes that all went meanwhile, as an agent committed them, an empty
+        // commit isn't what was being written.
+        if nothing_changed && self.composing_on_changes {
+            let why = "What was here to commit was committed meanwhile";
+            self.store.update(cx, |store, cx| store.snack(why, cx));
+            return;
+        }
         if files.is_empty() && !nothing_changed {
             // Changes checked but none left are what an operation still running is taking,
             // most likely the last commit.
