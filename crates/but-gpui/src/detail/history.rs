@@ -357,10 +357,9 @@ impl Detail {
             true => PAGE,
             false => shown.map_or(PAGE, |history| history.operations.len().max(PAGE)),
         };
-        if let Some(history) = &mut self.history
-            && history.project == *project
-        {
-            history.loading = more;
+        // Another project's load replaces a page of this one still loading, which then isn't.
+        if let Some(history) = &mut self.history {
+            history.loading = more && history.project == *project;
         }
         // What the newest operation left, which its snapshot is compared with: the branches,
         // which snapshots don't record mid-edit.
