@@ -365,7 +365,8 @@ RefInfo {
     ],
     target_ref: None,
     target_commit: None,
-    is_target_current: false,
+    target_upstream: None,
+    can_fast_forward_local_target: false,
     lower_bound: None,
     ancestor_workspace_commit: None,
 }
