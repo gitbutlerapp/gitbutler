@@ -35,6 +35,8 @@ pub(crate) enum TargetRequirement {
     Required,
     /// Allow commands that inspect or set target configuration to run without one.
     Optional,
+    /// The target is optional but only if the repo is unborn, otherwise its required
+    OptionalIfUnborn,
 }
 
 /// Options for initializing the context via [`init_ctx`].
@@ -147,23 +149,22 @@ pub fn init_ctx(
             };
             let mut ctx =
                 Context::new_from_legacy_project_and_settings(&project, app_settings.clone())?;
-            if matches!(options.target_requirement, TargetRequirement::Required)
-                && ctx.project_meta()?.target_ref.is_none()
-            {
-                let target_ref = {
-                        let repo = ctx.repo.get()?;
-                        but_workspace::init::infer_default_target_ref(&repo)?
+
+            // now that we have a context we should use the repo from that
+            drop(repo);
+
+            match options.target_requirement {
+                TargetRequirement::Required => {
+                    infer_target(&mut ctx)?;
+                }
+                TargetRequirement::OptionalIfUnborn => {
+                    if ctx.repo.get()?.head()?.is_unborn() {
+                        // target is optional, so don't infer it
+                    } else {
+                        infer_target(&mut ctx)?;
                     }
-                    .ok_or_else(|| {
-                        anyhow::anyhow!(
-                            "No target branch is configured and none could be inferred. Run `but config target <remote>/<branch>` to configure one."
-                        )
-                    })?;
-                but_api::workspace::set_target_ref_and_init_project(
-                    &mut ctx,
-                    target_ref.as_ref(),
-                    None,
-                )?;
+                }
+                TargetRequirement::Optional => {}
             }
 
             let fetch_interval_minutes = ctx.settings.fetch.auto_fetch_interval_minutes;
@@ -218,6 +219,35 @@ pub fn init_ctx(
     }
 
     Ok(ctx)
+}
+
+fn infer_target(ctx: &mut Context) -> CliResult<()> {
+    if ctx.project_meta()?.target_ref.is_none() {
+        let target_ref = {
+            let repo = ctx.repo.get()?;
+            if let Some(target) = but_workspace::init::infer_default_target_ref(&repo)? {
+                target
+            } else if repo.head()?.is_unborn() {
+                return Err(bad_input("Checked out to branch without commits")
+                    .hint("Run `but commit` to create an initial commit")
+                    .into());
+            } else {
+                return Err(anyhow::anyhow!(
+                    "No target branch is configured and none could be inferred. \
+                                Run `but config target <remote>/<branch>` to configure one."
+                )
+                .into());
+            }
+        };
+
+        but_api::workspace::set_target_ref_and_init_project(
+            ctx,
+            target_ref.as_local_full_name_ref(),
+            None,
+        )?;
+    }
+
+    Ok(())
 }
 
 /// Tracks which background sync operations should be performed.

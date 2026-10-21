@@ -15,6 +15,7 @@ use crate::args::atoms::CliIdArg;
 use crate::utils::envs;
 
 pub mod atoms;
+#[cfg(feature = "legacy")]
 pub mod init;
 
 #[derive(Debug, clap::Parser)]
@@ -182,6 +183,7 @@ impl HelpTopic {
     name(SubcommandDiscriminant)
 )]
 pub enum Subcommands {
+    #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Init(init::Platform),
 

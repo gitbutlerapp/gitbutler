@@ -1434,7 +1434,7 @@ pub fn branch_checkout(
     branch_checkout_with_perm(ctx, branch, guard.write_permission())
 }
 
-/// Creates a new local branch at the project target SHA, checks it out, and
+/// Creates a new local branch at the selected project cutoff, checks it out, and
 /// returns the resulting workspace state.
 ///
 /// If `name` is provided, it is treated as a short branch name and normalized
@@ -1450,16 +1450,17 @@ pub fn branch_checkout_new(
     branch_checkout_new_with_perm(ctx, name, guard.write_permission())
 }
 
-/// Creates a new local branch at the project target SHA and checks it out under
+/// Creates a new local branch at the selected project cutoff and checks it out under
 /// caller-held exclusive repository access.
 pub fn branch_checkout_new_with_perm(
     ctx: &mut but_ctx::Context,
     name: Option<String>,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<BranchCheckoutResult> {
-    let target_commit_id = ctx.project_meta()?.target_commit_id_or_err()?;
+    let project_meta = ctx.project_meta()?;
     let branch = {
         let repo = ctx.repo.get()?;
+        let target_commit_id = project_meta.resolve_target_commit(&repo)?;
         let branch = match name {
             Some(name) => {
                 let normalized = but_core::branch::normalize_short_name(name.as_str())?;

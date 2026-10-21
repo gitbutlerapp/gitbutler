@@ -172,7 +172,12 @@ fn resolve(
         switch,
     } = args;
 
-    let merged = MergedUpstream::new(&*ctx.repo.get()?, head_info, allow_merged);
+    let merged = MergedUpstream::new(
+        &*ctx.repo.get()?,
+        &ctx.project_meta()?,
+        head_info,
+        allow_merged,
+    );
 
     let sources = {
         let repo = ctx.repo.get()?;

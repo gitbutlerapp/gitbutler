@@ -16,3 +16,4 @@ commit M
 git remote add gb-local .
 git update-ref refs/remotes/gb-local/main HEAD
 git symbolic-ref refs/remotes/gb-local/HEAD refs/remotes/gb-local/main
+git branch --set-upstream-to=gb-local/main main

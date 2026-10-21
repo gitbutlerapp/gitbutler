@@ -4,6 +4,8 @@ use super::util::{
 };
 use crate::utils::{CommandExt as _, Sandbox};
 
+mod unborn;
+
 #[test]
 fn rejects_unnamed_segment_as_target() {
     let env =
@@ -3125,6 +3127,64 @@ fn branch_flag_rejects_empty_merged_upstream_branch() {
 Error: Branch 'document-but-pr-skill' is merged upstream
 
 Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
+
+"#]]);
+}
+
+#[test]
+fn branch_flag_rejects_empty_merged_branch_when_local_target_lags() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-merged-empty-branch");
+    env.but("apply origin/document-but-pr-skill")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success();
+    env.invoke_git("update-ref refs/heads/main origin/main^");
+    env.file("file.txt", "Some text");
+
+    env.but("commit --no-message --branch document-but-pr-skill")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'document-but-pr-skill' is merged upstream
+
+Hint: Most likely you want `but pull`, which updates the workspace and removes landed work. In rare cases `--allow-merged` can bypass this check
+
+"#]]);
+}
+
+#[test]
+fn branch_flag_allows_empty_branch_without_target_upstream() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("upstream-merged-empty-branch");
+    env.but("apply origin/document-but-pr-skill")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success();
+    env.invoke_git("config branch.main.remote missing");
+    env.file("file.txt", "Some text");
+
+    // Local main contains the branch, but without an upstream that is not evidence of landing.
+    env.but("commit --no-message --branch document-but-pr-skill")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ do [document-but-pr-skill]
+┊●   opz (no commit message)
+┊│     opz:u A file.txt
+├╯
+┊
+┴ 080592b (common base) 2000-01-02 add document-but-pr-skill
+
+Hint: run `but help` for all commands
 
 "#]]);
 }

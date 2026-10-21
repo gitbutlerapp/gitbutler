@@ -376,9 +376,7 @@ pub async fn create_review(
 /// Make sure that the account that is about to be used in this repository's forge is correctly authenticated.
 async fn ensure_forge_authentication(ctx: &mut Context) -> Result<(), anyhow::Error> {
     let (storage, forge_repo_info, preferred_forge_user) = {
-        let remote_url = ctx
-            .project_meta()?
-            .remote_url_with_fallback(&*ctx.repo.get()?)?;
+        let remote_url = ctx.project_meta()?.target_remote_url(&*ctx.repo.get()?)?;
         let forge_repo_info = but_forge::derive_forge_repo_info(
             &remote_url,
             ctx.legacy_project

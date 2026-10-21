@@ -97,13 +97,7 @@ impl Graph {
         // traversal should have nothing to do with workspace details. It's just about laying
         // the foundation for figuring out our workspaces more easily.
         self.workspace_upgrades(meta, repo, &worktree_by_branch)?;
-        self.ad_hoc_branch_stack_upgrades(
-            repo,
-            meta,
-            &worktree_by_branch,
-            symbolic_remote_names,
-            configured_remote_tracking_branches,
-        )?;
+        self.ad_hoc_branch_stack_upgrades(repo, meta, &worktree_by_branch)?;
 
         // Point entrypoint to the right spot after all the virtual branches were added.
         self.set_entrypoint_to_ref_name(meta)?;
@@ -633,7 +627,9 @@ impl Graph {
                     .filter_map(|s| {
                         // This rule means that if there is no target, we'd want to put new independent stacks
                         // onto segments which then are ambiguous so they get pulled out.
-                        if target_ref.is_some() {
+                        // A local target may not have a named segment until postprocessing
+                        // finishes. Its resolved cutoff still provides a target boundary.
+                        if target_ref.is_some() || target_commit_sidx.is_some() {
                             return None;
                         }
                         // It's a very specialized filter… will that lead to strange behavior later?
@@ -1531,8 +1527,6 @@ impl Graph {
         repo: &OverlayRepo<'_>,
         meta: &OverlayMetadata<'_, T>,
         worktree_by_branch: &WorktreeByBranch,
-        symbolic_remote_names: &[String],
-        configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
     ) -> anyhow::Result<()> {
         let Some(entrypoint_ref) = self.entrypoint_ref.clone() else {
             return Ok(());
@@ -1609,12 +1603,33 @@ impl Graph {
             let containing_commit = self.node_weights().find_map(|segment| {
                 segment
                     .commit_index_of(commit_id)
-                    .filter(|commit_idx| *commit_idx > 0)
                     .map(|commit_idx| (segment.id, commit_idx))
             });
             let bottom_segment_id = if let Some(segment_id) =
                 ad_hoc_order_bottom_segment_id(self, bottom_ref.as_ref(), commit_id)
             {
+                if self[segment_id].commits.is_empty()
+                    && let Some((owner_sidx, 0)) = containing_commit
+                    && self[owner_sidx].ref_name().is_some_and(|name| {
+                        matching_refs.iter().any(|branch| branch.as_ref() == name)
+                    })
+                {
+                    // The bottom ref may already have an empty segment above another
+                    // ordered branch. Give it the commits and parent edges so the
+                    // existing branch segments can be reordered without duplicating refs.
+                    let parent_edges = self
+                        .inner
+                        .edges_directed(owner_sidx, Direction::Outgoing)
+                        .map(EdgeOwned::from)
+                        .collect();
+                    self[segment_id].commits = std::mem::take(&mut self[owner_sidx].commits);
+                    let last_commit_id = self[segment_id].commits.last().map(|commit| commit.id);
+                    reconnect_outgoing_edges(
+                        &mut self.inner,
+                        parent_edges,
+                        (segment_id, last_commit_id),
+                    );
+                }
                 segment_id
             } else if let Some((segment_id, commit_idx)) = containing_commit {
                 self.split_segment(
@@ -1640,7 +1655,7 @@ impl Graph {
         }
 
         // The target commit is the base below every segment, so an ordered branch owning it
-        // is an empty segment sitting on that base, unless the branch tracks the target itself.
+        // is an empty segment sitting on that base, unless the branch is the target itself.
         let Some(target_commit_id) = self.project_meta.target_commit_id else {
             return Ok(());
         };
@@ -1666,13 +1681,12 @@ impl Graph {
         let Some((sidx, ref_name)) = owner else {
             return Ok(());
         };
-        let tracks_target = remotes::lookup_remote_tracking_branch_or_deduce_it(
-            repo,
-            ref_name.as_ref(),
-            symbolic_remote_names,
-            configured_remote_tracking_branches,
-        )? == self.project_meta.target_ref;
-        if tracks_target {
+        let is_target = self
+            .project_meta
+            .target_ref
+            .as_ref()
+            .is_some_and(|target_ref| target_ref.as_local_full_name_ref() == ref_name.as_ref());
+        if is_target {
             return Ok(());
         }
         if self[sidx].ref_info.is_none() {

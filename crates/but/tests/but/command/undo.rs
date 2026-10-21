@@ -8,18 +8,19 @@ mod undo_redo;
 mod undo_squash;
 mod undo_uncommit;
 
-/// Run an undo test tests a roundtrip `mutate` -> `but undo`, and asserts that the status output is
-/// the same before and after the roundtrip.
+/// Run `mutate` -> `but undo`, asserting that undo restores the original status.
 #[track_caller]
-fn run_mutate_undo_roundtrip_test<F>(env: &Sandbox, mutate: F)
+pub fn run_mutate_undo_roundtrip_test<F>(env: &Sandbox, mutate: F)
 where
     F: FnOnce(&Sandbox),
 {
     run_mutate_undo_roundtrip_test_with_options(env, Options::default(), mutate)
 }
 
+/// Check undo and optionally redo. With redo enabled, leaves the repository in the
+/// post-mutation state; otherwise leaves it in the undone state.
 #[track_caller]
-fn run_mutate_undo_roundtrip_test_with_options<F>(env: &Sandbox, options: Options, mutate: F)
+pub fn run_mutate_undo_roundtrip_test_with_options<F>(env: &Sandbox, options: Options, mutate: F)
 where
     F: FnOnce(&Sandbox),
 {
@@ -84,16 +85,40 @@ Undid [..] (2000-01-02 00:00:00): [..]
         .success()
         .stdout_eq(status_output_before.stdout)
         .stderr_eq(status_output_before.stderr);
+
+    if !options.redo {
+        return;
+    }
+
+    env.but("redo")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Redid [..] (2000-01-02 00:00:00): [..]
+
+"#]]);
+
+    env.but("status")
+        .args(["--verbose", "--files"])
+        .assert()
+        .success()
+        .stdout_eq(status_output_after_mutate.stdout)
+        .stderr_eq(status_output_after_mutate.stderr);
 }
 
-struct Options {
-    require_status_changing_after_mutation: bool,
+#[derive(Clone, Copy)]
+pub struct Options {
+    /// Require the mutation to visibly change the status output.
+    pub require_status_changing_after_mutation: bool,
+    /// Also check that redo restores the post-mutation status.
+    pub redo: bool,
 }
 
 impl Default for Options {
-    fn default() -> Self {
-        Self {
+    fn default() -> Options {
+        Options {
             require_status_changing_after_mutation: true,
+            redo: false,
         }
     }
 }
@@ -483,10 +508,10 @@ fn can_undo_but_squash_with_two_commits() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-e940ce1 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (f45a6ee)
-f45a6ee 2000-01-02 00:00:00 [SQUASH] Squashed commit
-ed549de 2000-01-02 00:00:00 [COMMIT] Created commit
-f858e61 2000-01-02 00:00:00 [COMMIT] Created commit
+d804e9c 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (76dac26)
+76dac26 2000-01-02 00:00:00 [SQUASH] Squashed commit
+6bc0553 2000-01-02 00:00:00 [COMMIT] Created commit
+be389f5 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
 }
@@ -516,11 +541,11 @@ fn can_undo_but_squash_with_three_commits() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-1127adf 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (0a9b32d)
-0a9b32d 2000-01-02 00:00:00 [SQUASH] Squashed commit
-7c74cf0 2000-01-02 00:00:00 [COMMIT] Created commit
-ed549de 2000-01-02 00:00:00 [COMMIT] Created commit
-f858e61 2000-01-02 00:00:00 [COMMIT] Created commit
+61a3754 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (a3d272f)
+a3d272f 2000-01-02 00:00:00 [SQUASH] Squashed commit
+8cc2a4f 2000-01-02 00:00:00 [COMMIT] Created commit
+6bc0553 2000-01-02 00:00:00 [COMMIT] Created commit
+be389f5 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
 }
@@ -549,10 +574,10 @@ fn can_undo_but_squash_with_two_commits_with_message() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-7ffe829 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (f45a6ee)
-f45a6ee 2000-01-02 00:00:00 [SQUASH] Squashed commit
-ed549de 2000-01-02 00:00:00 [COMMIT] Created commit
-f858e61 2000-01-02 00:00:00 [COMMIT] Created commit
+b22f93e 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (76dac26)
+76dac26 2000-01-02 00:00:00 [SQUASH] Squashed commit
+6bc0553 2000-01-02 00:00:00 [COMMIT] Created commit
+be389f5 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
 }
@@ -577,10 +602,10 @@ fn can_undo_but_squash_with_branch() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-090591a 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (f45a6ee)
-f45a6ee 2000-01-02 00:00:00 [SQUASH] Squashed commit
-ed549de 2000-01-02 00:00:00 [COMMIT] Created commit
-f858e61 2000-01-02 00:00:00 [COMMIT] Created commit
+72952b8 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (76dac26)
+76dac26 2000-01-02 00:00:00 [SQUASH] Squashed commit
+6bc0553 2000-01-02 00:00:00 [COMMIT] Created commit
+be389f5 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
 }
@@ -605,10 +630,10 @@ fn can_undo_but_squash_with_branch_and_drop_message() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-e539a24 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (f45a6ee)
-f45a6ee 2000-01-02 00:00:00 [SQUASH] Squashed commit
-ed549de 2000-01-02 00:00:00 [COMMIT] Created commit
-f858e61 2000-01-02 00:00:00 [COMMIT] Created commit
+75379c6 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (76dac26)
+76dac26 2000-01-02 00:00:00 [SQUASH] Squashed commit
+6bc0553 2000-01-02 00:00:00 [COMMIT] Created commit
+be389f5 2000-01-02 00:00:00 [COMMIT] Created commit
 
 "#]]);
 }
@@ -811,6 +836,7 @@ Hint: run `but help` for all commands
         &env,
         Options {
             require_status_changing_after_mutation: false,
+            ..Default::default()
         },
         |env| {
             env.but("switch --workspace").assert().success();

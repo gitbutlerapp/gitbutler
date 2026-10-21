@@ -122,10 +122,13 @@ struct CloneRemote {
 fn clone_remote(repo: &gix::Repository, workdir: &Path) -> Result<CloneRemote> {
     let remote_names = repo.remote_names();
     let project_meta = but_core::ref_metadata::ProjectMeta::resolve(repo)?;
-    let target_remote = project_meta.target_ref.as_ref().and_then(|target| {
-        but_core::extract_remote_name_and_short_name(target.as_ref(), &remote_names)
-            .map(|(name, _branch)| name)
-    });
+    let target_remote = project_meta
+        .remote_target_ref(repo)?
+        .as_ref()
+        .and_then(|target| {
+            but_core::extract_remote_name_and_short_name(target.as_ref(), &remote_names)
+                .map(|(name, _branch)| name)
+        });
     let name = match target_remote {
         Some(name) if repo.find_remote(name.as_str()).is_ok() => name,
         _ => repo

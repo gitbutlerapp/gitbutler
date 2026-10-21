@@ -3,7 +3,7 @@
 	import ProjectNameLabel from "$components/shared/ProjectNameLabel.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import gerritLogoSvg from "$lib/assets/gerrit-logo.svg?raw";
-	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from "$lib/branches/branchUtils";
+	import { getBestRemote, getBranchRemoteFromRef } from "$lib/branches/branchUtils";
 	import { projectLandDirectly } from "$lib/config/config";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { classify, type ClassifiedError } from "$lib/error/errorClassification";
@@ -24,17 +24,27 @@
 		Toggle,
 	} from "@gitbutler/ui-svelte";
 	import type { RemoteBranchInfo } from "$lib/baseBranch/baseBranch";
+	import type { LocalTargetBranch } from "$lib/branches/branchEndpoints";
 
 	interface Props {
 		projectId: string;
 		projectName: string;
 		remoteBranches: RemoteBranchInfo[];
-		onBranchSelected: (branch: [branchName: string, pushRemote: string]) => Promise<void>;
+		localBranches: LocalTargetBranch[];
+		onBranchSelected: (
+			branch: [branchName: string, pushRemote: string | undefined],
+		) => Promise<void>;
 		onOpenProject: () => Promise<boolean>;
 	}
 
-	const { projectId, projectName, remoteBranches, onBranchSelected, onOpenProject }: Props =
-		$props();
+	const {
+		projectId,
+		projectName,
+		remoteBranches,
+		localBranches,
+		onBranchSelected,
+		onOpenProject,
+	}: Props = $props();
 
 	const posthog = inject(POSTHOG_WRAPPER);
 	const gitConfig = inject(GIT_CONFIG_SERVICE);
@@ -56,18 +66,21 @@
 		),
 	);
 
-	let selectedBranch = $state<RemoteBranchInfo | undefined>(undefined);
-	const defaultBranch = $derived(getBestBranch(remoteBranches.slice()));
+	let selectedBranch = $state<LocalTargetBranch | undefined>(undefined);
+	const defaultBranch = $derived(
+		localBranches.find((branch) => branch.isTarget) ??
+			localBranches.find((branch) => branch.name === "main") ??
+			localBranches.find((branch) => branch.name === "master") ??
+			localBranches[0],
+	);
 	const branch = $derived(selectedBranch ?? defaultBranch);
 
 	let selectedRemote = $state<string | undefined>(undefined);
-	const defaultRemote = $derived(
-		(branch && getBranchRemoteFromRef(branch.name)) ?? getBestRemote(remotes),
-	);
+	const defaultRemote = $derived(getBestRemote(remotes));
 	const remote = $derived(selectedRemote ?? defaultRemote);
 
 	async function onSetTargetClick() {
-		if (!branch || !remote || loading) return;
+		if (!branch || loading) return;
 		loading = true;
 		targetError = undefined;
 		if (!targetWasSet) {
@@ -75,7 +88,7 @@
 				landDirectly: $landDirectly,
 			});
 			try {
-				await onBranchSelected([branch.name, remote]);
+				await onBranchSelected([branch.refName, remote]);
 				targetWasSet = true;
 			} catch (error) {
 				const classified = classify(error);
@@ -108,26 +121,26 @@
 	<div class="project-setup__fields">
 		<div class="project-setup__field-wrap" data-testid={TestId.ProjectSetupPageTargetBranchSelect}>
 			<Select
-				value={branch?.name}
-				options={remoteBranches.map((b) => ({ label: b.name, value: b.name }))}
+				value={branch?.refName}
+				options={localBranches.map((b) => ({ label: b.name, value: b.refName }))}
 				disabled={loading || targetWasSet}
 				wide
 				onselect={(value) => {
-					selectedBranch = { name: value };
+					selectedBranch = localBranches.find((branch) => branch.refName === value);
 				}}
 				label="Target branch"
 				searchable
 			>
 				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={item.value === branch?.name} {highlighted}>
+					<SelectItem selected={item.value === branch?.refName} {highlighted}>
 						{item.label}
 					</SelectItem>
 				{/snippet}
 			</Select>
 
 			<p class="text-12 text-body project-setup__field-caption">
-				Your main "production" branch, typically <code class="code-string">origin/master</code> or
-				<code class="code-string">upstream/main</code>.
+				Your main "production" branch, typically <code class="code-string">master</code> or
+				<code class="code-string">main</code>. Its configured upstream is used for pulling.
 				<br />
 				<Link href="https://docs.gitbutler.com/overview#target-branch">Learn more</Link>
 			</p>
@@ -216,6 +229,7 @@
 		<Button
 			style="pop"
 			{loading}
+			disabled={!branch}
 			onclick={onSetTargetClick}
 			icon="chevron-right"
 			testId={TestId.ProjectSetupPageTargetContinueButton}

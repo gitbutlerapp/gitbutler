@@ -12,7 +12,7 @@ use petgraph::{Direction, prelude::EdgeRef, visit::NodeIndexable};
 use tracing::instrument;
 
 use crate::{
-    CommitFlags, Graph, Segment, SegmentIndex, SegmentMetadata, Workspace,
+    CommitFlags, FirstParent, Graph, Segment, SegmentIndex, SegmentMetadata, Workspace,
     init::WorktreeTip,
     utils::SegmentTable,
     workspace::{
@@ -22,7 +22,7 @@ use crate::{
 };
 
 /// The segment a workspace is projected from, and the target it is framed against.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Frame<'graph> {
     kind: WorkspaceKind,
     metadata: Option<&'graph ref_metadata::Workspace>,
@@ -163,13 +163,30 @@ impl Graph {
             .project_meta
             .target_ref
             .as_ref()
-            .and_then(|rn| TargetRef::from_ref_name_without_commits_ahead(rn, self))
+            .and_then(|rn| {
+                TargetRef::from_ref_name_without_commits_ahead(rn.as_local_full_name_ref(), self)
+            })
             .or_else(|| (!kind.has_managed_ref()).then(own_upstream).flatten());
-        let target_commit = self
-            .project_meta
-            .target_commit_id
-            .and_then(|id| TargetCommit::from_commit(id, self))
-            .or_else(|| self.target_commit_from_ref(target_ref.as_ref()?));
+        let target_commit = match self.project_meta.target_commit_id {
+            // An unavailable stored cutoff must not silently become a different boundary.
+            Some(id) => TargetCommit::from_commit(id, self),
+            None => {
+                // Select the ref before resolving it: an unavailable upstream must not become
+                // the local tip. Only unconfigured projects use the ad-hoc projected target.
+                let cutoff_ref = self
+                    .target_upstream_ref
+                    .as_ref()
+                    .map(|name| name.as_ref())
+                    .or_else(|| {
+                        self.project_meta
+                            .target_ref
+                            .as_ref()
+                            .map(|name| name.as_local_full_name_ref())
+                    })
+                    .or_else(|| target_ref.as_ref().map(|target| target.ref_name.as_ref()));
+                cutoff_ref.and_then(|name| self.target_commit_from_ref(name))
+            }
+        };
         Ok(Frame {
             kind,
             metadata,
@@ -179,21 +196,17 @@ impl Graph {
         })
     }
 
-    /// Without a usable stored target commit, the tip of the stored target ref stands in for it.
-    fn target_commit_from_ref(&self, target_ref: &TargetRef) -> Option<TargetCommit> {
-        let ref_name = &target_ref.ref_name;
-        let (commit, segment_index) =
-            self.resolve_to_unambiguously_pointed_to_commit(target_ref.segment_index)?;
-        let commit_id = commit.id;
+    /// Resolve the already selected fallback ref without substituting another boundary.
+    fn target_commit_from_ref(&self, ref_name: &gix::refs::FullNameRef) -> Option<TargetCommit> {
+        let (_, commit) = self.segment_and_commit_by_ref_name(ref_name)?;
+        let target = TargetCommit::from_commit(commit.id, self)?;
+        let commit_id = target.commit_id;
         tracing::info!(
             %ref_name,
             %commit_id,
-            "No usable stored target commit, using the tip of the target ref instead"
+            "No stored target commit, using the tip of the target ref instead"
         );
-        Some(TargetCommit {
-            commit_id,
-            segment_index,
-        })
+        Some(target)
     }
 
     fn project(&self, frame: Frame<'_>) -> WorkspaceState {
@@ -315,7 +328,15 @@ impl Graph {
                 WorktreeBase::InWorkspace(id)
             }
         });
-        let mut segments = self.lane_segments(lane, None, true, frame, remotes);
+        // A linked worktree's remote history is relative to its own HEAD, not the main
+        // workspace. Keep the shared target and metadata used to render its lane.
+        let frame = Frame {
+            ws: self
+                .worktree_tip_segment(tip)
+                .expect("worktree lanes have a tip in the graph"),
+            ..frame.clone()
+        };
+        let mut segments = self.lane_segments(lane, None, true, &frame, remotes);
         if tip.ref_name.is_none()
             && let Some(first) = segments.first_mut()
             && let Some(ref_info) = first.ref_info.take()
@@ -359,16 +380,16 @@ impl Graph {
         stop
     }
 
-    /// The local counterpart of the target ref while everything on it is upstream, unless the
+    /// The local target ref while everything on it is upstream, unless the
     /// workspace metadata lists it in a stack. It often sits at the base of stacks, and is no
     /// branch of theirs until it has commits of its own.
     fn upstream_local_target(&self, frame: &Frame<'_>) -> Option<SegmentIndex> {
-        let target = self
+        let local_target = self
             .project_meta
             .target_ref
             .as_ref()
-            .and_then(|name| self.segment_by_ref_name(name.as_ref()))?;
-        let local_target = target.sibling_segment_id?;
+            .and_then(|name| self.segment_by_ref_name(name.as_local_full_name_ref()))?
+            .id;
         let name = self[local_target].ref_name()?;
         let is_listed = frame
             .metadata
@@ -525,16 +546,13 @@ impl Graph {
             .project_meta
             .target_ref
             .as_ref()
-            .and_then(|name| self.segment_by_ref_name(name.as_ref()));
+            .and_then(|name| self.segment_by_ref_name(name.as_local_full_name_ref()));
 
-        let checked_out_branch_is_the_local_integration_branch = if let Some(integration_target) =
-            target_segment
-            && let Some(sibling_segment_id) = integration_target.sibling_segment_id
-        {
-            checked_out_segment.id == self[sibling_segment_id].id
-        } else {
-            false
-        };
+        let checked_out_branch_is_the_local_integration_branch =
+            target_segment.is_some_and(|target| {
+                checked_out_segment.id == target.id
+                    || target.sibling_segment_id == Some(checked_out_segment.id)
+            });
 
         let keep_first = frame.kind.has_adhoc_ref()
             && !(lane.base.is_some() && checked_out_branch_is_the_local_integration_branch);
@@ -670,7 +688,7 @@ impl Graph {
                 .collect(),
             commits_on_remote: head
                 .remote_tracking_branch_segment_id
-                .map(|remote_sidx| self.commits_on_remote(remote_sidx, above))
+                .map(|remote_sidx| self.commits_on_remote(frame.ws, remote_sidx, above))
                 .unwrap_or_default(),
             metadata: match &head.metadata {
                 Some(SegmentMetadata::Branch(md)) => Some(md.clone()),
@@ -679,11 +697,12 @@ impl Graph {
         }
     }
 
-    /// The commits only the remote tracking branch at `remote_sidx` has: its remote-only history
-    /// up to any other remote's, and commits of the segments `above` that it still points at
-    /// after a branch was split.
+    /// The commits the remote tracking branch at `remote_sidx` has but `workspace_sidx` doesn't,
+    /// up to any other remote's history, and commits of the segments `above` that it still
+    /// points at after a branch was split.
     fn commits_on_remote(
         &self,
+        workspace_sidx: SegmentIndex,
         remote_sidx: SegmentIndex,
         above: &HashSet<ObjectId>,
     ) -> Vec<StackCommit> {
@@ -691,12 +710,16 @@ impl Graph {
         let start = self
             .resolve_to_unambiguously_pointed_to_commit(remote_sidx)
             .map_or(remote_sidx, |(_, owner)| owner);
+        // Remote-only is relative to the projected workspace, not every local ref. An old
+        // workspace can still contain the pushed version of a commit rewritten on HEAD.
+        let remote_only: HashSet<_> = self
+            .find_segments_reachable_from_a_not_b(start, workspace_sidx, FirstParent::No)
+            .map(|segment| segment.id)
+            .collect();
         let mut commits = Vec::new();
         self.visit_all_segments_including_start_until(start, Direction::Outgoing, |s| {
             let prune = true;
-            if !s.commits.iter().all(|c| c.flags.is_remote())
-                || (s.id != start && is_remote_branch(s))
-            {
+            if !remote_only.contains(&s.id) || (s.id != start && is_remote_branch(s)) {
                 return prune;
             }
             commits.extend(s.commits.iter().map(StackCommit::from_graph_commit));

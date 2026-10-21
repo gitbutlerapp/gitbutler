@@ -21,7 +21,9 @@ use crate::ref_info::with_workspace_commit::utils::{
 
 fn target_project_meta(target_ref: &str, target_commit_id: gix::ObjectId) -> Result<ProjectMeta> {
     Ok(ProjectMeta {
-        target_ref: Some(target_ref.try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            target_ref.try_into()?,
+        )?),
         target_commit_id: Some(target_commit_id),
         push_remote: None,
     })
@@ -33,7 +35,7 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
         named_writable_scenario_with_description("diamond-partially-historically-integrated")?;
     let o1_id = repo.rev_parse_single("o1")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/master", o1_id)?;
+    let project_meta = target_project_meta("refs/heads/master", o1_id)?;
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -117,7 +119,7 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
         named_writable_scenario_with_description("diamond-partially-historically-integrated")?;
     let o1_id = repo.rev_parse_single("o1")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/master", o1_id)?;
+    let project_meta = target_project_meta("refs/heads/master", o1_id)?;
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -202,7 +204,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
         named_writable_scenario_with_description("diamond-partially-content-integrated")?;
     let o1_id = repo.rev_parse_single("o1")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/master", o1_id)?;
+    let project_meta = target_project_meta("refs/heads/master", o1_id)?;
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -238,7 +240,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/master⇣4 on 85aa44b
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/master⇣4 on 85aa44b
 └── ≡📙:E on 85aa44b {1}
     ├── 📙:E
     │   └── ·a6588cf (🏘️)
@@ -301,7 +303,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(materialized.workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/master on 162b064
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/master on 162b064
 └── ≡📙:E on 162b064 {1}
     ├── 📙:E
     │   └── ·cb866ec (🏘️)
@@ -319,7 +321,7 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
         named_writable_scenario_with_description("diamond-partially-content-integrated")?;
     let o1_id = repo.rev_parse_single("o1")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/master", o1_id)?;
+    let project_meta = target_project_meta("refs/heads/master", o1_id)?;
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -402,7 +404,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
 
     // No workspace branch, commit, or stack metadata: HEAD is checked out directly on `A`,
     // the top of a two-branch stack whose bottom branch `B` is integrated into the target.
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
         [
@@ -431,10 +433,28 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
     );
 
     let mut workspace = graph.into_workspace()?;
+    // The header describes local main; incoming history still comes from its upstream.
+    assert_eq!(
+        workspace
+            .graph
+            .project_meta
+            .remote_target_ref(&repo)?
+            .map(|name| name.to_string()),
+        Some("refs/remotes/origin/main".to_owned()),
+        "the fixture must configure the target upstream"
+    );
+    assert_eq!(
+        workspace.incoming_target_commit_ids(&repo)?,
+        Vec::from([
+            repo.rev_parse_single("origin/main")?.detach(),
+            repo.rev_parse_single("origin/main^")?.detach()
+        ]),
+        "incoming upstream commits must remain visible independently of the local target count"
+    );
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
+⌂:A[🌳] <> ✓refs/heads/main on 3183e43
 └── ≡:A[🌳] on 3183e43 {1}
     ├── :A[🌳]
     │   └── ·e792f40
@@ -492,7 +512,7 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
     git(&repo).args(["branch", "-f", "main", "B"]).run();
     git(&repo).args(["branch", "master", "B"]).run();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
         [
@@ -548,7 +568,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
 
     // No workspace branch, commit, or stack metadata: HEAD is checked out directly on `A`,
     // the top of a two-branch stack whose bottom branch `B` is integrated into the target.
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
         [
@@ -577,10 +597,28 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
     );
 
     let mut workspace = graph.into_workspace()?;
+    // The header describes local main; incoming history still comes from its upstream.
+    assert_eq!(
+        workspace
+            .graph
+            .project_meta
+            .remote_target_ref(&repo)?
+            .map(|name| name.to_string()),
+        Some("refs/remotes/origin/main".to_owned()),
+        "the fixture must configure the target upstream"
+    );
+    assert_eq!(
+        workspace.incoming_target_commit_ids(&repo)?,
+        Vec::from([
+            repo.rev_parse_single("origin/main")?.detach(),
+            repo.rev_parse_single("origin/main^")?.detach()
+        ]),
+        "incoming upstream commits must remain visible independently of the local target count"
+    );
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
+⌂:A[🌳] <> ✓refs/heads/main on 3183e43
 └── ≡:A[🌳] on 3183e43 {1}
     ├── :A[🌳]
     │   └── ·e792f40
@@ -646,7 +684,7 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
         named_writable_scenario_with_description("remote-diverged-with-workspace-conflicting")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/A", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/A", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -744,7 +782,7 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
         named_writable_scenario_with_description("fully-integrated-branch")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
@@ -773,7 +811,7 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
 ├── ≡📙:A on 3183e43 {1}
 │   └── 📙:A
 │       └── ·905d6e5 (🏘️|✓)
@@ -812,7 +850,7 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 905d6e5
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 905d6e5
 └── ≡📙:B on 905d6e5 {2}
     └── 📙:B
         └── ·c932222 (🏘️)
@@ -839,7 +877,7 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
         named_writable_scenario_with_description("fully-integrated-single-branch")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -863,7 +901,7 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
 └── ≡📙:A on 3183e43 {1}
     └── 📙:A
         └── ·905d6e5 (🏘️|✓)
@@ -894,7 +932,7 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 905d6e5
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 905d6e5
 
 "#]]
     );
@@ -917,7 +955,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
         named_writable_scenario_with_description("fully-integrated-single-branch-target-advanced")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -941,10 +979,25 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
     );
 
     let mut workspace = graph.into_workspace()?;
+    // The header describes local main; incoming history still comes from its upstream.
+    assert_eq!(
+        workspace
+            .graph
+            .project_meta
+            .remote_target_ref(&repo)?
+            .map(|name| name.to_string()),
+        Some("refs/remotes/origin/main".to_owned()),
+        "the fixture must configure the target upstream"
+    );
+    assert_eq!(
+        workspace.incoming_target_commit_ids(&repo)?,
+        Vec::from([repo.rev_parse_single("origin/main")?.detach()]),
+        "incoming upstream commits must remain visible independently of the local target count"
+    );
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 8d5739f
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 8d5739f
 └── ≡📙:A on 8d5739f {1}
     └── 📙:A
         ├── ·ffde79e (🏘️|✓)
@@ -976,7 +1029,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 6b20716
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 6b20716
 
 "#]]
     );
@@ -1001,7 +1054,7 @@ fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
         named_writable_scenario_with_description("squash-merged-branch")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -1028,10 +1081,28 @@ fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
 
     let mut workspace = graph.into_workspace()?;
     // Neither commit is marked integrated up front - per-commit matching cannot see the squash.
+    // The header describes local main; incoming history still comes from its upstream.
+    assert_eq!(
+        workspace
+            .graph
+            .project_meta
+            .remote_target_ref(&repo)?
+            .map(|name| name.to_string()),
+        Some("refs/remotes/origin/main".to_owned()),
+        "the fixture must configure the target upstream"
+    );
+    assert_eq!(
+        workspace.incoming_target_commit_ids(&repo)?,
+        Vec::from([
+            repo.rev_parse_single("origin/main")?.detach(),
+            repo.rev_parse_single("origin/main^")?.detach()
+        ]),
+        "incoming upstream commits must remain visible independently of the local target count"
+    );
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 9bede57
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 9bede57
 └── ≡📙:A on 9bede57 {1}
     └── 📙:A
         ├── ·860210a (🏘️)
@@ -1065,7 +1136,7 @@ fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 6204bf3
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 6204bf3
 
 "#]]
     );
@@ -1090,7 +1161,7 @@ fn squash_merged_branch_below_stacked_work_is_pruned() -> Result<()> {
         named_writable_scenario_with_description("squash-merged-branch-below-stacked-work")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -1118,10 +1189,28 @@ fn squash_merged_branch_below_stacked_work_is_pruned() -> Result<()> {
 
     let mut workspace = graph.into_workspace()?;
     // One stack, two segments: B's commit on top of A's two squash-merged ones.
+    // The header describes local main; incoming history still comes from its upstream.
+    assert_eq!(
+        workspace
+            .graph
+            .project_meta
+            .remote_target_ref(&repo)?
+            .map(|name| name.to_string()),
+        Some("refs/remotes/origin/main".to_owned()),
+        "the fixture must configure the target upstream"
+    );
+    assert_eq!(
+        workspace.incoming_target_commit_ids(&repo)?,
+        Vec::from([
+            repo.rev_parse_single("origin/main")?.detach(),
+            repo.rev_parse_single("origin/main^")?.detach()
+        ]),
+        "incoming upstream commits must remain visible independently of the local target count"
+    );
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 9bede57
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 9bede57
 └── ≡📙:B on 9bede57 {1}
     ├── 📙:B
     │   └── ·d96a0bd (🏘️)
@@ -1158,7 +1247,7 @@ fn squash_merged_branch_below_stacked_work_is_pruned() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 6204bf3
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 6204bf3
 └── ≡:B on 6204bf3 {1}
     └── :B
         └── ·3f21b99 (🏘️)
@@ -1187,7 +1276,7 @@ fn canceling_segments_above_squash_merged_bottom_are_not_swept_up() -> Result<()
         named_writable_scenario_with_description("squash-merged-bottom-below-canceling-segments")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack_with_segments(&mut meta, 1, "C", StackState::InWorkspace, &["B", "A"]);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -1217,10 +1306,28 @@ fn canceling_segments_above_squash_merged_bottom_are_not_swept_up() -> Result<()
 
     let mut workspace = graph.into_workspace()?;
     // One stack, three segments; nothing is detected as integrated up front.
+    // The header describes local main; incoming history still comes from its upstream.
+    assert_eq!(
+        workspace
+            .graph
+            .project_meta
+            .remote_target_ref(&repo)?
+            .map(|name| name.to_string()),
+        Some("refs/remotes/origin/main".to_owned()),
+        "the fixture must configure the target upstream"
+    );
+    assert_eq!(
+        workspace.incoming_target_commit_ids(&repo)?,
+        Vec::from([
+            repo.rev_parse_single("origin/main")?.detach(),
+            repo.rev_parse_single("origin/main^")?.detach()
+        ]),
+        "incoming upstream commits must remain visible independently of the local target count"
+    );
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 9bede57
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 9bede57
 └── ≡📙:C on 9bede57 {1}
     ├── 📙:C
     │   └── ·c63394f (🏘️)
@@ -1258,7 +1365,7 @@ fn canceling_segments_above_squash_merged_bottom_are_not_swept_up() -> Result<()
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on cfc7fef
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on cfc7fef
 └── ≡:C on cfc7fef {1}
     ├── :C
     │   └── ·1b83941 (🏘️)
@@ -1293,7 +1400,7 @@ fn fully_integrated_single_branch_with_stale_target_parent_reparents_workspace_c
     )?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -1335,7 +1442,7 @@ fn fully_integrated_branch_with_selected_empty_sibling_keeps_following_it() -> R
     )?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
@@ -1388,7 +1495,7 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
         named_writable_scenario_with_description("fully-integrated-single-branch-target-advanced")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -1419,10 +1526,25 @@ fn non_bottom_update_selector_does_not_prune_fully_integrated_stack() -> Result<
     let graph =
         but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
+    // The header describes local main; incoming history still comes from its upstream.
+    assert_eq!(
+        workspace
+            .graph
+            .project_meta
+            .remote_target_ref(&repo)?
+            .map(|name| name.to_string()),
+        Some("refs/remotes/origin/main".to_owned()),
+        "the fixture must configure the target upstream"
+    );
+    assert_eq!(
+        workspace.incoming_target_commit_ids(&repo)?,
+        Vec::from([repo.rev_parse_single("origin/main")?.detach()]),
+        "incoming upstream commits must remain visible independently of the local target count"
+    );
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 8d5739f
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 8d5739f
 └── ≡📙:A on 8d5739f {1}
     └── 📙:A
         ├── ·ffde79e (🏘️|✓)
@@ -1442,7 +1564,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
     )?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -1471,10 +1593,28 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
     );
 
     let mut workspace = graph.into_workspace()?;
+    // The header describes local main; incoming history still comes from its upstream.
+    assert_eq!(
+        workspace
+            .graph
+            .project_meta
+            .remote_target_ref(&repo)?
+            .map(|name| name.to_string()),
+        Some("refs/remotes/origin/main".to_owned()),
+        "the fixture must configure the target upstream"
+    );
+    assert_eq!(
+        workspace.incoming_target_commit_ids(&repo)?,
+        Vec::from([
+            repo.rev_parse_single("origin/main")?.detach(),
+            repo.rev_parse_single("origin/main^")?.detach()
+        ]),
+        "incoming upstream commits must remain visible independently of the local target count"
+    );
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 8d5739f
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 8d5739f
 └── ≡📙:A on 8d5739f {1}
     └── 📙:A
         ├── ·ffde79e (🏘️|✓)
@@ -1506,7 +1646,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on f27db86
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on f27db86
 
 "#]]
     );
@@ -1530,17 +1670,109 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
 }
 
 #[test]
-fn fully_integrated_direct_checkout_without_local_target_creates_unique_canned_branch() -> Result<()>
-{
+fn direct_checkout_with_deleted_local_target_rejects_integration() -> Result<()> {
+    let (_tmp, repo, mut meta, _description, mut db) =
+        named_writable_scenario_with_description("fully-integrated-single-branch-target-advanced")?;
+    git(&repo).args(["checkout", "A"]).run();
+    remove_managed_workspace_ref(&repo)?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+    git(&repo).args(["branch", "-D", "main"]).run();
+    // Git also removes branch.main's tracking configuration. Reopen to observe that change.
+    let repo = gix::open(repo.path())?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
+    assert!(
+        project_meta.remote_target_ref(&repo)?.is_none(),
+        "deleting main removes its upstream mapping"
+    );
+    assert!(
+        repo.try_find_reference("refs/remotes/origin/main")?
+            .is_some(),
+        "the remote-tracking ref remains, but must not be guessed as an upstream"
+    );
+    let refs_before = git(&repo).args(["show-ref"]).output()?.stdout;
+    let status_before = git(&repo)
+        .args(["status", "--porcelain=v1"])
+        .output()?
+        .stdout;
+    let config_before = git(&repo)
+        .args(["config", "--local", "--list"])
+        .output()?
+        .stdout;
+    let head_before = repo.head_name()?;
+    let mut workspace = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta.clone(),
+        &mut db,
+        Options::limited(),
+    )?
+    .into_workspace()?;
+    let error = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        &mut db,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A^")?.detach()),
+        }],
+    )
+    .err()
+    .expect("pull must reject a deleted local target");
+    assert_eq!(
+        error.to_string(),
+        "The configured target branch 'refs/heads/main' is missing. Restore it or configure another target before pulling.",
+        "report the missing local target before attempting upstream integration"
+    );
+    assert_eq!(
+        repo.head_name()?,
+        head_before,
+        "rejection keeps A checked out"
+    );
+    assert_eq!(
+        git(&repo).args(["show-ref"]).output()?.stdout,
+        refs_before,
+        "rejection neither removes A nor creates replacement branches"
+    );
+    assert_eq!(
+        git(&repo)
+            .args(["status", "--porcelain=v1"])
+            .output()?
+            .stdout,
+        status_before,
+        "rejection leaves index and worktree state unchanged"
+    );
+    assert_eq!(
+        git(&repo)
+            .args(["config", "--local", "--list"])
+            .output()?
+            .stdout,
+        config_before,
+        "rejection leaves target configuration unchanged"
+    );
+    Ok(())
+}
+
+#[test]
+fn fully_integrated_direct_checkout_with_diverged_local_target_creates_unique_canned_branch()
+-> Result<()> {
     let (_tmp, mut repo, mut meta, _description, mut db) =
         named_writable_scenario_with_description("fully-integrated-single-branch-target-advanced")?;
-    force_prefixless_canned_branch_name(&mut repo)?;
     git(&repo).args(["checkout", "A"]).run();
     remove_managed_workspace_ref(&repo)?;
     let target_sha = repo.rev_parse_single("main")?.detach();
     let target_tip = repo.rev_parse_single("origin/main")?.detach();
-    // Without a local target, integration must still create a collision-free fallback.
-    git(&repo).args(["branch", "-D", "main"]).run();
+    // A diverged local target must stay untouched, so checkout needs a collision-free fallback.
+    let local_tip = repo
+        .commit(
+            "refs/heads/main",
+            "local target divergence",
+            repo.find_commit(target_sha)?.tree_id()?,
+            [target_sha],
+        )?
+        .detach();
+    force_prefixless_canned_branch_name(&mut repo)?;
     let branch_1: gix::refs::FullName = "refs/heads/branch-1".try_into()?;
     let branch_2: gix::refs::FullName = "refs/heads/branch-2".try_into()?;
 
@@ -1550,7 +1782,7 @@ fn fully_integrated_direct_checkout_without_local_target_creates_unique_canned_b
         PreviousValue::MustNotExist,
         "reserve first canned branch name",
     )?;
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
@@ -1596,6 +1828,11 @@ fn fully_integrated_direct_checkout_without_local_target_creates_unique_canned_b
         "the pre-existing canned branch collision should be left untouched"
     );
     assert_eq!(
+        repo.rev_parse_single("main")?.detach(),
+        local_tip,
+        "integration must preserve the diverged local target"
+    );
+    assert_eq!(
         repo.find_reference(branch_2.as_ref())?.id(),
         target_tip,
         "replacement canned branch should point at the latest target tip"
@@ -1631,7 +1868,7 @@ fn empty_integrated_direct_checkout_is_replaced() -> Result<()> {
         "the tracking tip should be reachable from the target"
     );
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
@@ -1689,7 +1926,7 @@ fn local_only_empty_direct_checkout_is_preserved() -> Result<()> {
     let target_sha = repo.rev_parse_single("main")?.detach();
     let target_tip = repo.rev_parse_single("origin/main")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
@@ -1744,7 +1981,7 @@ fn checked_out_local_target_workspace() -> Result<(
         named_writable_scenario_with_description("checked-out-local-target-behind")?;
     remove_managed_workspace_ref(&repo)?;
     let target_sha = repo.rev_parse_single("main")?.detach();
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     let graph =
         but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
@@ -1833,7 +2070,7 @@ fn empty_direct_checkout_with_merged_review_for_pushed_branch_is_replaced() -> R
     let target_tip = repo.rev_parse_single("origin/main")?.detach();
     let review_head = repo.rev_parse_single("topic")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
@@ -1892,7 +2129,7 @@ fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Resul
         "the colliding review head must differ from the checked-out branch tip"
     );
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
@@ -1935,95 +2172,12 @@ fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Resul
 }
 
 #[test]
-fn fully_integrated_direct_checkout_without_local_target_creates_canned_branch_at_merge_tip()
--> Result<()> {
-    let (_tmp, mut repo, mut meta, _description, mut db) =
-        named_writable_scenario_with_description(
-            "fully-integrated-single-branch-target-advanced-through-merge",
-        )?;
-    force_prefixless_canned_branch_name(&mut repo)?;
-    git(&repo).args(["checkout", "A"]).run();
-    remove_managed_workspace_ref(&repo)?;
-    let target_sha = repo.rev_parse_single("main")?.detach();
-    let target_tip = repo.rev_parse_single("origin/main")?.detach();
-    git(&repo).args(["branch", "-D", "main"]).run();
-    let target_tip_parent = repo
-        .find_commit(target_tip)?
-        .parent_ids()
-        .next()
-        .context("target tip should have a parent")?
-        .detach();
-    assert_eq!(
-        repo.find_commit(target_tip_parent)?.parent_ids().count(),
-        2,
-        "this fixture must exercise a target tip based on a merge commit"
-    );
-    let branch_1: gix::refs::FullName = "refs/heads/branch-1".try_into()?;
-    let branch_2: gix::refs::FullName = "refs/heads/branch-2".try_into()?;
-
-    repo.reference(
-        branch_1.as_ref(),
-        target_tip,
-        PreviousValue::MustNotExist,
-        "reserve first canned branch name",
-    )?;
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
-    let mut workspace = graph.into_workspace()?;
-    let project_meta = workspace.graph.project_meta.clone();
-    let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
-        &mut workspace,
-        &mut meta,
-        project_meta,
-        &repo,
-        &mut db,
-        vec![BottomUpdate {
-            kind: BottomUpdateKind::Rebase,
-            selector: RelativeTo::Commit(repo.rev_parse_single("A^")?.detach()),
-        }],
-    )?;
-
-    let preview = rebase.overlayed_graph()?.into_workspace()?;
-    assert_eq!(
-        preview.ref_name(),
-        Some(branch_2.as_ref()),
-        "dry-run overlay should show the replacement canned branch as the checked-out branch"
-    );
-    drop(preview);
-
-    rebase.materialize(Default::default())?;
-
-    assert!(
-        repo.try_find_reference("A")?.is_none(),
-        "fully integrated checked-out branch should be removed"
-    );
-    assert_eq!(
-        repo.find_reference(branch_2.as_ref())?.id(),
-        target_tip,
-        "replacement canned branch should point at the exact merge target tip, not a replayed merge"
-    );
-    assert_eq!(
-        repo.head_name()?,
-        Some(branch_2),
-        "HEAD should stay attached to the replacement canned branch"
-    );
-
-    Ok(())
-}
-
-#[test]
 fn empty_workspace_reparents_workspace_commit_to_advanced_target() -> Result<()> {
     let (_tmp, repo, meta, _description, mut db) =
         named_writable_scenario_with_description("empty-workspace-target-advanced")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     let mut meta = empty_managed_workspace_metadata(&meta)?;
     let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
@@ -2060,7 +2214,7 @@ fn empty_workspace_reparents_workspace_commit_to_merge_advanced_target() -> Resu
         named_writable_scenario_with_description("empty-workspace-target-advanced-through-merge")?;
     let target_sha = repo.rev_parse_single("main~2")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     let mut meta = empty_managed_workspace_metadata(&meta)?;
     let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
@@ -2100,7 +2254,7 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
     let target_sha = repo.rev_parse_single("target-sha")?.detach();
     let anonymous_commit_c2 = repo.rev_parse_single("gitbutler/workspace^")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -2129,7 +2283,7 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on fe9ae6e
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main⇣1 on fe9ae6e
 ├── ≡:anon: on fe9ae6e
 │   └── :anon:
 │       └── ·0d97cc1 (🏘️)
@@ -2161,7 +2315,7 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fe9ae6e
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on fe9ae6e
 ├── ≡:anon: on fe9ae6e
 │   └── :anon:
 │       └── ·0d97cc1 (🏘️)
@@ -2202,7 +2356,7 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
         named_writable_scenario_with_description("upstream-integration-worktree-conflict")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -2249,7 +2403,7 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
         named_writable_scenario_with_description("upstream-integration-worktree-conflict")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -2291,7 +2445,7 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
         named_writable_scenario_with_description("partially-integrated-multi-branch-stack")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["C"]);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
@@ -2321,7 +2475,7 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
 ├── ≡📙:A on 3183e43 {1}
 │   ├── 📙:A
 │   │   └── ·44c9428 (🏘️)
@@ -2362,7 +2516,7 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on f1e7451
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on f1e7451
 ├── ≡📙:A on f1e7451 {1}
 │   └── 📙:A
 │       └── ·44c9428 (🏘️)
@@ -2396,7 +2550,7 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
         named_writable_scenario_with_description("fully-integrated-multi-branch-stack")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["C"]);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
@@ -2426,7 +2580,7 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
 ├── ≡📙:A on 3183e43 {1}
 │   ├── 📙:A
 │   │   └── ·44c9428 (🏘️|✓)
@@ -2467,7 +2621,7 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 44c9428
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 44c9428
 └── ≡📙:B on 44c9428 {2}
     └── 📙:B
         └── ·f59d71f (🏘️)
@@ -2497,7 +2651,7 @@ fn fully_integrated_two_stacks_checkout_local_target_at_target_tip() -> Result<(
     let target_tip = repo.rev_parse_single("origin/main")?.detach();
     let local_target_ref: gix::refs::FullName = "refs/heads/main".try_into()?;
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
@@ -2533,7 +2687,7 @@ fn fully_integrated_two_stacks_checkout_local_target_at_target_tip() -> Result<(
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main⇣2 on 3183e43
 ├── ≡📙:A on 3183e43 {1}
 │   └── 📙:A
 │       └── ·905d6e5 (🏘️|✓)
@@ -2608,7 +2762,7 @@ fn orphan_reparent_content_integrated_stack_to_target_tip() -> Result<()> {
     )?;
     let target_sha = repo.rev_parse_single("main~3")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -2646,7 +2800,7 @@ fn content_integrated_stack_does_not_reparent_while_stack_parent_remains() -> Re
     )?;
     let target_sha = repo.rev_parse_single("main~2")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
@@ -2684,7 +2838,7 @@ fn orphan_reparent_does_not_run_when_parent_remains() -> Result<()> {
         named_writable_scenario_with_description("fully-integrated-branch")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
@@ -2727,7 +2881,7 @@ fn orphan_reparent_empty_stack_to_target_tip() -> Result<()> {
         named_writable_scenario_with_description("fully-integrated-empty-stack-target-advanced")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -2764,7 +2918,7 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
         named_writable_scenario_with_description("empty-branch-remote-tip-integrated")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "topic", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -2793,7 +2947,7 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 563a7fc
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main⇣1 on 563a7fc
 └── ≡📙:topic <> origin/topic on 563a7fc {1}
     └── 📙:topic <> origin/topic
         └── ❄️6ba217e (🏘️|✓)
@@ -2820,7 +2974,7 @@ fn empty_branch_with_integrated_remote_tip_is_removed() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 563a7fc
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 563a7fc
 └── ≡:main <> origin/main on 563a7fc
     └── :main <> origin/main
         └── ❄️364a08f (🏘️|✓)
@@ -2850,7 +3004,7 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
         named_writable_scenario_with_description("non-empty-branch-remote-tip-integrated")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "topic", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -2881,7 +3035,7 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 563a7fc
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main⇣1 on 563a7fc
 └── ≡📙:topic <> origin/topic⇡1 on 563a7fc {1}
     └── 📙:topic <> origin/topic⇡1
         ├── ·f1a3cba (🏘️)
@@ -2918,7 +3072,7 @@ fn non_empty_branch_with_integrated_remote_tip_keeps_local_work() -> Result<()> 
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 364a08f
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 364a08f
 └── ≡📙:topic <> origin/topic⇡1 on 364a08f {1}
     └── 📙:topic <> origin/topic⇡1
         └── ·f3ceb3d (🏘️)
@@ -2949,7 +3103,7 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
         named_writable_scenario_with_description("merged-branch-below-empty-branch")?;
     let target_sha = repo.rev_parse_single("main^")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack_with_segments(&mut meta, 1, "top", StackState::InWorkspace, &["bottom"]);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -2978,7 +3132,7 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 563a7fc
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main⇣1 on 563a7fc
 └── ≡📙:top <> origin/top on 563a7fc {1}
     ├── 📙:top <> origin/top
     └── 📙:bottom <> origin/bottom
@@ -3007,7 +3161,7 @@ fn empty_branch_above_integrated_branch_is_preserved() -> Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 563a7fc
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 563a7fc
 └── ≡📙:top <> origin/top on 563a7fc {1}
     └── 📙:top <> origin/top
         └── ·334227d (🏘️|✓)
@@ -3045,7 +3199,7 @@ fn integrated_bottom_under_empty_direct_checkout_is_removed_and_top_is_preserved
         "the checked-out top branch should initially be empty above bottom"
     );
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
@@ -3091,7 +3245,7 @@ fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
         named_writable_scenario_with_description("fully-integrated-single-branch")?;
     let target_sha = repo.rev_parse_single("main")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -3136,7 +3290,7 @@ fn fully_integrated_two_stacks_checkout_local_target_at_merge_target() -> Result
     let target_tip = repo.rev_parse_single("origin/main")?.detach();
     let local_target_ref: gix::refs::FullName = "refs/heads/main".try_into()?;
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
@@ -3191,7 +3345,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
     let target_sha = repo.rev_parse_single("main")?.detach();
     let review_head = repo.rev_parse_single("A")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
         [
@@ -3247,7 +3401,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     let target_sha = repo.rev_parse_single("main")?.detach();
     let review_head = repo.rev_parse_single("A")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
@@ -3276,10 +3430,25 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     );
 
     let mut workspace = graph.into_workspace()?;
+    // The header describes local main; incoming history still comes from its upstream.
+    assert_eq!(
+        workspace
+            .graph
+            .project_meta
+            .remote_target_ref(&repo)?
+            .map(|name| name.to_string()),
+        Some("refs/remotes/origin/main".to_owned()),
+        "the fixture must configure the target upstream"
+    );
+    assert_eq!(
+        workspace.incoming_target_commit_ids(&repo)?,
+        Vec::from([repo.rev_parse_single("origin/main")?.detach()]),
+        "incoming upstream commits must remain visible independently of the local target count"
+    );
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
 ├── ≡📙:A on 3183e43 {1}
 │   └── 📙:A
 │       ├── ·ad1d22b (🏘️)
@@ -3313,10 +3482,15 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     let graph =
         but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
+    assert_eq!(
+        workspace.incoming_target_commit_ids(&repo)?,
+        Vec::from([repo.rev_parse_single("origin/main")?.detach()]),
+        "the upstream commit must remain incoming after the operation"
+    );
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
 └── ≡📙:B on 3183e43 {2}
     └── 📙:B
         └── ·b38b04b (🏘️)
@@ -3359,7 +3533,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
     let target_sha = repo.rev_parse_single("main")?.detach();
     let review_head = repo.rev_parse_single("A")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
         [
@@ -3387,10 +3561,25 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
     );
 
     let mut workspace = graph.into_workspace()?;
+    // The header describes local main; incoming history still comes from its upstream.
+    assert_eq!(
+        workspace
+            .graph
+            .project_meta
+            .remote_target_ref(&repo)?
+            .map(|name| name.to_string()),
+        Some("refs/remotes/origin/main".to_owned()),
+        "the fixture must configure the target upstream"
+    );
+    assert_eq!(
+        workspace.incoming_target_commit_ids(&repo)?,
+        Vec::from([repo.rev_parse_single("origin/main")?.detach()]),
+        "incoming upstream commits must remain visible independently of the local target count"
+    );
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:A[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+⌂:A[🌳] <> ✓refs/heads/main on 3183e43
 └── ≡:A[🌳] on 3183e43 {1}
     └── :A[🌳]
         ├── ·ad1d22b
@@ -3423,7 +3612,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:main[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+⌂:main[🌳] <> ✓refs/heads/main⇣1 on 3183e43
 └── ≡:main[🌳] <> origin/main on 3183e43 {1}
     └── :main[🌳] <> origin/main
         └── ❄️56057f2 (✓)
@@ -3461,7 +3650,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
     let target_sha = repo.rev_parse_single("main")?.detach();
     let review_head = repo.rev_parse_single("A^")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     let graph = but_graph::Graph::from_head(
         &repo,
@@ -3486,10 +3675,25 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
     );
 
     let mut workspace = graph.into_workspace()?;
+    // The header describes local main; incoming history still comes from its upstream.
+    assert_eq!(
+        workspace
+            .graph
+            .project_meta
+            .remote_target_ref(&repo)?
+            .map(|name| name.to_string()),
+        Some("refs/remotes/origin/main".to_owned()),
+        "the fixture must configure the target upstream"
+    );
+    assert_eq!(
+        workspace.incoming_target_commit_ids(&repo)?,
+        Vec::from([repo.rev_parse_single("origin/main")?.detach()]),
+        "incoming upstream commits must remain visible independently of the local target count"
+    );
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on 3183e43
 └── ≡📙:A on 3183e43 {1}
     └── 📙:A
         ├── ·f015e95 (🏘️)
@@ -3525,7 +3729,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e2f5892
+📕🏘️:gitbutler/workspace[🌳] <> ✓refs/heads/main on e2f5892
 └── ≡📙:A on e2f5892 {1}
     └── 📙:A
         └── ·92f1780 (🏘️)
@@ -3555,7 +3759,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
     let target_sha = repo.rev_parse_single("main")?.detach();
     let review_head = repo.rev_parse_single("A^")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
         [
@@ -3585,10 +3789,25 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
     );
 
     let mut workspace = graph.into_workspace()?;
+    // The header describes local main; incoming history still comes from its upstream.
+    assert_eq!(
+        workspace
+            .graph
+            .project_meta
+            .remote_target_ref(&repo)?
+            .map(|name| name.to_string()),
+        Some("refs/remotes/origin/main".to_owned()),
+        "the fixture must configure the target upstream"
+    );
+    assert_eq!(
+        workspace.incoming_target_commit_ids(&repo)?,
+        Vec::from([repo.rev_parse_single("origin/main")?.detach()]),
+        "incoming upstream commits must remain visible independently of the local target count"
+    );
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:A[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+⌂:A[🌳] <> ✓refs/heads/main on 3183e43
 └── ≡:A[🌳] on 3183e43 {1}
     └── :A[🌳]
         ├── ·f015e95
@@ -3639,7 +3858,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
         snapbox::str![[r#"
-⌂:A[🌳] <> ✓refs/remotes/origin/main on e2f5892
+⌂:A[🌳] <> ✓refs/heads/main on e2f5892
 └── ≡:A[🌳] on e2f5892 {1}
     └── :A[🌳]
         └── ·92f1780
@@ -3666,7 +3885,7 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
     let target_sha = repo.rev_parse_single("main")?.detach();
     let review_head = repo.rev_parse_single("A")?.detach();
 
-    let project_meta = target_project_meta("refs/remotes/origin/main", target_sha)?;
+    let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     std::fs::write(
         repo.workdir()
             .context("fixture repos should be writable")?
@@ -3886,18 +4105,17 @@ fn leaves_diverged_local_target_branch_unchanged() -> Result<()> {
 }
 
 #[test]
-fn leaves_local_target_refs_unchanged() -> Result<()> {
+fn fast_forwards_explicit_local_target() -> Result<()> {
     let (repo, _tmp) = repo_with_local_target_branches()?;
     let local_target: gix::refs::FullName = "refs/heads/feature".try_into()?;
-    let local_id = repo.find_reference(&local_target)?.id().detach();
     let newer_id = repo.find_reference("refs/heads/main")?.id().detach();
 
     fast_forward_local_tracking_branch(&repo, local_target.as_ref(), newer_id)?;
 
     assert_eq!(
         repo.find_reference(&local_target)?.id().detach(),
-        local_id,
-        "local target refs must not be updated"
+        newer_id,
+        "an explicit local target must fast-forward without reverse upstream lookup"
     );
     Ok(())
 }
@@ -3994,7 +4212,7 @@ fn worktree_heads_are_collected_as_stack_heads() -> Result<()> {
     let (_tmp, repo, mut meta, mut db) = worktree_workspace()?;
 
     let old_target = repo.rev_parse_single("main~1")?.detach();
-    let project_meta = target_project_meta("refs/remotes/origin/main", old_target)?;
+    let project_meta = target_project_meta("refs/heads/main", old_target)?;
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
@@ -4105,10 +4323,8 @@ fn integrated_worktree_branches_are_replaced_with_new_ones() -> Result<()> {
             "refs/heads/wt-stacked",
         ])
         .run();
-    let project_meta = target_project_meta(
-        "refs/remotes/origin/main",
-        repo.rev_parse_single("main")?.detach(),
-    )?;
+    let project_meta =
+        target_project_meta("refs/heads/main", repo.rev_parse_single("main")?.detach())?;
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
@@ -4202,10 +4418,7 @@ fn lanes_left_out_of_an_update_are_behind_the_target() -> Result<()> {
         but_graph::Graph::from_head(
             &repo,
             meta,
-            target_project_meta(
-                "refs/remotes/origin/main",
-                repo.rev_parse_single(target)?.detach(),
-            )?,
+            target_project_meta("refs/heads/main", repo.rev_parse_single(target)?.detach())?,
             db,
             Options {
                 worktrees: true,
@@ -4216,7 +4429,12 @@ fn lanes_left_out_of_an_update_are_behind_the_target() -> Result<()> {
     };
     let target_state = |workspace: &but_graph::Workspace| -> Result<(bool, bool)> {
         let info = but_workspace::graph_to_ref_info(workspace, &repo, Default::default())?;
-        Ok((info.is_target_current, info.has_lanes_behind_target))
+        Ok((
+            info.target_upstream
+                .expect("configured upstream")
+                .cutoff_matches_tip,
+            info.has_lanes_behind_target,
+        ))
     };
     let update = |workspace: &mut but_graph::Workspace,
                   meta: &mut but_meta::VirtualBranchesTomlMetadata,
@@ -4285,10 +4503,8 @@ fn integrated_worktree_leaves_the_direct_checkout_on_its_branch() -> Result<()> 
             "refs/heads/wt-outside",
         ])
         .run();
-    let project_meta = target_project_meta(
-        "refs/remotes/origin/main",
-        repo.rev_parse_single("main")?.detach(),
-    )?;
+    let project_meta =
+        target_project_meta("refs/heads/main", repo.rev_parse_single("main")?.detach())?;
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,

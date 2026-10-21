@@ -818,8 +818,9 @@ async fn dispatch_subcommand(
             })
             .map(|()| DispatchOutcome::Return);
         }
-        Subcommands::Init(_) => {
-            let outcome = command::init::run(&args.current_dir)?;
+        #[cfg(feature = "legacy")]
+        Subcommands::Init(init_args) => {
+            let outcome = command::legacy::init::run(init_args, &args.current_dir, out)?;
             out.print_cli_output(outcome)?;
             return Ok(DispatchOutcome::Return);
         }
@@ -869,6 +870,19 @@ async fn dispatch_subcommand(
             setup::init_ctx(&args, InitCtxOptions::default(), out)
         }
         #[cfg(feature = "legacy")]
+        Subcommands::Commit(..) | Subcommands::Status { .. } | Subcommands::Diff(..) => {
+            setup::init_ctx(
+                &args,
+                InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled { silent: false },
+                    // to create the initial commit in an unborn repo
+                    target_requirement: TargetRequirement::OptionalIfUnborn,
+                    ..Default::default()
+                },
+                out,
+            )
+        }
+        #[cfg(feature = "legacy")]
         Subcommands::Actions { .. }
         | Subcommands::Pull { .. }
         | Subcommands::Fetch
@@ -880,10 +894,7 @@ async fn dispatch_subcommand(
         | Subcommands::Merge { .. } => setup::init_ctx(&args, InitCtxOptions::default(), out),
         #[cfg(feature = "legacy")]
         Subcommands::Clean { .. }
-        | Subcommands::Status { .. }
-        | Subcommands::Diff(..)
         | Subcommands::Show { .. }
-        | Subcommands::Commit(..)
         | Subcommands::Squash(..)
         | Subcommands::Move(..)
         | Subcommands::Split(..)
@@ -946,6 +957,8 @@ async fn dispatch_subcommand(
     #[cfg(feature = "legacy")]
     let mut command_outcome = None;
     let ws: Option<WorkspaceState> = match cmd {
+        #[cfg(feature = "legacy")]
+        Subcommands::Init(..) => unreachable!("handled above"),
         Subcommands::Metrics { .. }
         | Subcommands::Gui { .. }
         | Subcommands::Completions { .. }
@@ -953,7 +966,6 @@ async fn dispatch_subcommand(
         | Subcommands::Help { .. }
         | Subcommands::Onboarding
         | Subcommands::Setup { .. }
-        | Subcommands::Init(..)
         | Subcommands::Config(..)
         | Subcommands::Alias(..)
         | Subcommands::Skill(..)

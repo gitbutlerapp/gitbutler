@@ -644,7 +644,8 @@ but oplog restore <snapshot-id>
 Create an empty Git repository.
 
 ```bash
-but init                     # Initialize the current directory
+but init                      # Initialize the current directory
+but init --commit             # Initialize the current directory with an initial empty commit
 but -C path/to/repo init      # Create and initialize another directory
 ```
 

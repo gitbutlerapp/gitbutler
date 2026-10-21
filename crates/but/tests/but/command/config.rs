@@ -86,6 +86,7 @@ fn target_configures_distinct_push_remote_for_fork() {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
     env.invoke_git("remote add upstream .");
     env.invoke_git("update-ref refs/remotes/upstream/main refs/remotes/origin/main");
+    env.invoke_git("branch --set-upstream-to=upstream/main main");
 
     env.but("config target upstream/main --push-remote origin")
         .assert()
@@ -93,11 +94,53 @@ fn target_configures_distinct_push_remote_for_fork() {
 
     assert_eq!(
         env.invoke_git("config --local --get gitbutler.project.targetRef"),
-        "refs/remotes/upstream/main"
+        "refs/heads/main",
+        "remote input resolves to its local tracking branch"
     );
     assert_eq!(
         env.invoke_git("config --local --get gitbutler.project.pushRemote"),
         "origin"
+    );
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn target_accepts_local_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.but("config target main").assert().success();
+    assert_eq!(
+        env.invoke_git("config --local --get gitbutler.project.targetRef"),
+        "refs/heads/main",
+        "local input is stored directly"
+    );
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn target_prefers_local_branch_over_remote_shorthand() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.invoke_git("branch origin/main main");
+    env.but("config target origin/main").assert().success();
+    assert_eq!(
+        env.invoke_git("config --local --get gitbutler.project.targetRef"),
+        "refs/heads/origin/main",
+        "an exact local branch name takes precedence over remote shorthand"
+    );
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn target_accepts_qualified_remote_despite_local_name_collision() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.invoke_git("branch origin/main main");
+    env.invoke_git("branch --set-upstream-to=refs/remotes/origin/main main");
+    env.but("config target refs/remotes/origin/main")
+        .assert()
+        .success();
+    assert_eq!(
+        env.invoke_git("config --local --get gitbutler.project.targetRef"),
+        "refs/heads/main",
+        "a qualified remote name bypasses the colliding local name"
     );
 }
 
@@ -301,6 +344,7 @@ fn ai_openai_defaults_to_global_config() {
 fn ai_ollama_local_writes_repo_config() {
     let env = Sandbox::empty();
     env.invoke_bash("git init repo");
+
     env.but("-C repo config ai --local ollama --endpoint localhost:11434 --model llama3.1")
         .assert()
         .success();
@@ -370,6 +414,7 @@ fn ai_show_outputs_current_global_configuration_json() {
 fn ai_show_outputs_current_local_configuration_json() {
     let env = Sandbox::empty();
     env.invoke_bash("git init repo");
+
     env.but("-C repo config ai --local ollama --endpoint localhost:11434 --model llama3.1")
         .assert()
         .success();

@@ -1,5 +1,6 @@
 use super::*;
 use but_core::RefMetadata as _;
+use but_testsupport::CommandExt as _;
 use gitbutler_oplog::OplogExt as _;
 use gix::bstr::ByteSlice as _;
 
@@ -72,6 +73,10 @@ fn unrelated_target_is_an_actionable_precondition_failure() {
             std::iter::empty::<gix::ObjectId>(),
         )
         .unwrap();
+    but_testsupport::git(&gix_repo)
+        .args(["branch", "--track", "unrelated", "origin/unrelated"])
+        .run();
+    ctx.repo.get_mut().unwrap().reload().unwrap();
 
     let mut guard = ctx.exclusive_worktree_access();
     let err = gitbutler_branch_actions::set_base_branch(
@@ -197,7 +202,7 @@ fn reconfiguring_base_branch_records_snapshot() {
 fn switching_the_target_is_observed_within_the_same_context() {
     let Test { repo, ctx, .. } = &mut Test::default();
 
-    // A second remote branch to switch to.
+    // A second local target with a configured upstream to switch to.
     {
         let gix_repo = repo.open();
         let head_id = gix_repo.head_id().unwrap().detach();
@@ -211,6 +216,10 @@ fn switching_the_target_is_observed_within_the_same_context() {
             .unwrap();
     }
 
+    but_testsupport::git(&repo.open())
+        .args(["branch", "--track", "other", "origin/other"])
+        .run();
+    ctx.repo.get_mut().unwrap().reload().unwrap();
     let mut guard = ctx.exclusive_worktree_access();
     // The first call ports project metadata into Git config.
     gitbutler_branch_actions::set_base_branch(
@@ -232,7 +241,8 @@ fn switching_the_target_is_observed_within_the_same_context() {
     let project_meta = ctx.project_meta().unwrap();
     assert_eq!(
         project_meta.target_ref.map(|name| name.to_string()),
-        Some("refs/remotes/origin/other".to_string())
+        Some("refs/heads/other".to_string()),
+        "metadata stores the local target, not its upstream"
     );
 }
 
@@ -252,6 +262,10 @@ fn switching_the_target_outside_the_workspace_does_not_partially_update_the_proj
             )
             .unwrap();
     }
+    but_testsupport::git(&gix_repo)
+        .args(["branch", "--track", "other", "origin/other"])
+        .run();
+    ctx.repo.get_mut().unwrap().reload().unwrap();
     repo.checkout(&"refs/heads/some-feature".parse().unwrap());
     std::fs::write(repo.path().join("feature.txt"), "feature").unwrap();
     repo.commit_all("feature");
@@ -338,6 +352,10 @@ fn switching_a_missing_target_outside_the_workspace_is_rejected() {
             "test",
         )
         .unwrap();
+    but_testsupport::git(&gix_repo)
+        .args(["branch", "--track", "other", "origin/other"])
+        .run();
+    ctx.repo.get_mut().unwrap().reload().unwrap();
     repo.checkout(&"refs/heads/some-feature".parse().unwrap());
     std::fs::write(repo.path().join("feature.txt"), "feature").unwrap();
     repo.commit_all("feature");
@@ -352,9 +370,9 @@ fn switching_a_missing_target_outside_the_workspace_is_rejected() {
     .unwrap();
     drop(guard);
 
-    // Here is the key - the target we try to set later is deleted.
+    // Delete the configured local target, leaving the replacement available.
     gix_repo
-        .find_reference("refs/remotes/origin/master")
+        .find_reference("refs/heads/master")
         .unwrap()
         .delete()
         .unwrap();
@@ -411,7 +429,9 @@ fn fills_missing_target_commit_id_from_existing_target_ref() {
         .id;
 
     let mut project_meta = ctx.project_meta().unwrap();
-    project_meta.target_ref = Some(target_ref.try_into().unwrap());
+    project_meta.target_ref = Some(
+        but_core::ref_metadata::LocalRefName::new("refs/heads/master".try_into().unwrap()).unwrap(),
+    );
     project_meta.target_commit_id = None;
     ctx.set_project_meta(project_meta).unwrap();
 
@@ -439,6 +459,13 @@ mod error {
     #[test]
     fn missing() {
         let Test { ctx, .. } = &mut Test::default();
+        // Keep a local counterpart so the setter reaches the missing-upstream check.
+        ctx.repo
+            .get_mut()
+            .unwrap()
+            .config_snapshot_mut()
+            .set_raw_value("branch.master.merge", "refs/heads/missing")
+            .unwrap();
 
         let mut guard = ctx.exclusive_worktree_access();
         assert_eq!(
@@ -476,7 +503,7 @@ mod error {
 
         let message = format!("{error:#}");
         assert!(
-            message.contains("failed to get fetch url for remote origin"),
+            message.contains("failed to get fetch url for target branch refs/heads/master"),
             "{message}"
         );
         assert_eq!(ctx.project_meta().unwrap(), before);
@@ -743,10 +770,19 @@ mod symbolic_target {
 
     use super::*;
 
-    fn set_target_ref(ctx: &Context, target_ref: &str) {
-        let mut project_meta = ctx.project_meta().unwrap();
-        project_meta.target_ref = Some(target_ref.try_into().unwrap());
-        ctx.set_project_meta(project_meta).unwrap();
+    fn set_target_upstream(ctx: &mut Context, merge_ref: &str) {
+        but_core::git_config::edit_repo_config(
+            &ctx.repo.get().unwrap(),
+            gix::config::Source::Local,
+            |config| {
+                but_core::git_config::set_config_value(config, "branch.master.merge", merge_ref)?;
+                Ok(())
+            },
+        )
+        .unwrap();
+        let mut guard = ctx.exclusive_worktree_access();
+        ctx.reload_repo_and_invalidate_workspace(guard.write_permission())
+            .unwrap();
     }
 
     fn set_symbolic_ref(repo: &gix::Repository, name: &str, target: &str) {
@@ -807,7 +843,7 @@ mod symbolic_target {
             "refs/remotes/origin/HEAD",
             "refs/remotes/origin/master",
         );
-        set_target_ref(ctx, "refs/remotes/origin/HEAD");
+        set_target_upstream(ctx, "refs/heads/HEAD");
         let symbolic = base_branch_data(ctx).unwrap();
 
         assert_eq!(
@@ -841,7 +877,7 @@ mod symbolic_target {
             "refs/remotes/origin/HEAD",
             "refs/remotes/origin/missing",
         );
-        set_target_ref(ctx, "refs/remotes/origin/HEAD");
+        set_target_upstream(ctx, "refs/heads/HEAD");
         assert!(
             base_branch_data(ctx).is_err(),
             "a dangling symbolic target cannot be resolved"
@@ -856,7 +892,7 @@ mod symbolic_target {
                 "test",
             )
             .unwrap();
-        set_target_ref(ctx, "refs/remotes/origin/tree");
+        set_target_upstream(ctx, "refs/heads/tree");
         assert!(
             base_branch_data(ctx).is_err(),
             "a target that does not point to a commit cannot be resolved"

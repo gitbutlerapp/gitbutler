@@ -58,7 +58,7 @@ fn dry_run_does_not_sign_the_commits_it_rebases() -> anyhow::Result<()> {
 
     let mut ctx =
         but_ctx::Context::from_repo_for_testing(open_repo(root)?)?.with_memory_app_cache();
-    let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+    let target_ref = gix::refs::FullName::try_from("refs/heads/main")?;
     but_api::workspace::set_target_ref_and_init_project(&mut ctx, target_ref.as_ref(), None)?;
     git_at_dir(root)
         .args(["update-ref", "refs/remotes/origin/main", "main"])

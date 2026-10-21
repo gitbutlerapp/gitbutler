@@ -10,7 +10,7 @@ mod messaging;
 
 use std::fmt::Write;
 
-use anyhow::bail;
+use anyhow::{Context as _, bail};
 use but_core::ChangeId;
 use but_ctx::Context;
 
@@ -37,8 +37,9 @@ pub fn handle(
         let mut guard = ctx.exclusive_worktree_access();
 
         {
-            let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+            let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
             but_api::land::ensure_landable_checkout(&ws)?;
+            but_api::land::ensure_landable_target(&ws.graph.project_meta, &repo)?;
         }
 
         let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
@@ -64,10 +65,23 @@ pub fn handle(
     // Display strings for the prompt and the final report. The API recomputes the target/remote
     // configuration internally; the CLI only needs these names to describe what's about to happen.
     let target_branch_name = base_branch.short_name.clone();
-    let push_remote_name = if base_branch.push_remote_name.is_empty() {
-        base_branch.remote_name.clone()
+    let push_remote_name = if base_branch
+        .push_remote_name
+        .as_ref()
+        .context("Merging without a remote isn't supported yet")?
+        .is_empty()
+    {
+        base_branch
+            .remote_name
+            .as_ref()
+            .context("Merging without a remote isn't supported yet")?
+            .clone()
     } else {
-        base_branch.push_remote_name.clone()
+        base_branch
+            .push_remote_name
+            .as_ref()
+            .context("Merging without a remote isn't supported yet")?
+            .clone()
     };
     let target_display = format!("{push_remote_name}/{target_branch_name}");
 

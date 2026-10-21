@@ -108,15 +108,16 @@ pub fn list_branches(
         .into_iter()
         .filter_map(|s| GitButlerStack::try_new(s, &remote_names, &reviews_by_head).transpose())
         .collect::<Result<Vec<_>, _>>()?;
-    let workspace_target_ref_name = info.target_ref.map(|r| r.ref_name);
-
     branches.extend(stacks.iter().map(|s| GroupBranch::Virtual(s.clone())));
-    let target_ref_name = if let Some(target_ref_name) = workspace_target_ref_name {
-        target_ref_name
-    } else {
-        ctx.project_meta()?.target_ref_or_err()?.clone()
-    };
-    let mut branches = combine_branches(branches, &repo, target_ref_name.as_ref())?;
+    let project_meta = ctx.project_meta()?;
+    let local_target = project_meta.target_ref_or_err()?;
+    let upstream_target = project_meta.remote_target_ref(&repo)?;
+    let mut branches = combine_branches(
+        branches,
+        &repo,
+        local_target,
+        upstream_target.as_ref().map(AsRef::as_ref),
+    )?;
 
     // Apply the filter
     branches.retain(|branch| !has_filter || matches_all(branch, filter));
@@ -188,10 +189,13 @@ fn configured_workspace_target(
         return Ok(None);
     };
     let project_meta = ctx.project_meta()?;
-    Ok(project_meta
-        .target_ref
-        .clone()
-        .zip(project_meta.target_commit_id))
+    let Some(target_ref) = project_meta.target_ref.as_ref() else {
+        return Ok(None);
+    };
+    Ok(Some((
+        target_ref.as_local_full_name_ref().to_owned(),
+        project_meta.resolve_target_commit(repo)?,
+    )))
 }
 
 fn matches_all(branch: &BranchListing, filter: BranchListingFilter) -> bool {
@@ -212,17 +216,18 @@ fn matches_all(branch: &BranchListing, filter: BranchListingFilter) -> bool {
 fn combine_branches(
     group_branches: Vec<GroupBranch>,
     repo: &gix::Repository,
-    target_ref_name: &gix::refs::FullNameRef,
+    local_target: &but_core::ref_metadata::LocalRefName,
+    upstream_target: Option<&gix::refs::FullNameRef>,
 ) -> Result<Vec<BranchListing>> {
     let remotes = repo.remote_names();
     let packed = repo.refs.cached_packed_buffer()?;
-    let target_branch_identity = target_identity_from_ref_name(target_ref_name, &remotes)?;
+    let target_branch_identity = local_target.shorten().try_into()?;
 
     // Group branches by identity
     let mut groups: HashMap<BranchIdentity, Vec<GroupBranch>> = HashMap::new();
     for branch in group_branches {
-        // Skip the target branch, like 'main' or 'master'
-        if branch.is_remote_branch(target_ref_name) {
+        // Exclude the configured upstream, which need not share the local target's name.
+        if upstream_target.is_some_and(|name| branch.is_remote_branch(name)) {
             continue;
         }
 
@@ -261,25 +266,6 @@ fn combine_branches(
             }
         })
         .collect())
-}
-
-/// Derive the target branch identity while tolerating stale target remotes.
-///
-/// Branch listing should keep working when GitButler's stored target points to a
-/// preserved remote-tracking ref like `refs/remotes/origin/main`, even if the
-/// matching remote has since been removed or renamed in `.git/config`. When the
-/// remote is configured, keep using it so remote names containing slashes remain
-/// unambiguous.
-fn target_identity_from_ref_name(
-    target_ref_name: &gix::refs::FullNameRef,
-    remotes: &gix::remote::Names,
-) -> Result<BranchIdentity> {
-    if let Ok(identity) = target_ref_name.identity(remotes) {
-        return Ok(identity);
-    }
-    let (_remote, short_name) = extract_remote_name_and_short_name(target_ref_name, remotes)
-        .context("failed to derive target branch identity from target ref")?;
-    Ok(short_name.as_bstr().try_into()?)
 }
 
 /// Converts a group of branches with the same identity into a single branch entry
@@ -715,10 +701,10 @@ pub fn get_branch_listing_details(
         } else {
             let project_meta = ctx.project_meta()?;
             (
-                repo.find_reference(project_meta.target_ref_or_err()?.as_ref())?
+                repo.find_reference(project_meta.target_ref_or_err()?.as_local_full_name_ref())?
                     .peel_to_commit()?
                     .id,
-                project_meta.target_commit_id_or_err()?,
+                project_meta.resolve_target_commit(&repo)?,
             )
         }
     };
@@ -915,37 +901,172 @@ but_schemars::register_sdk_type!(BranchListingDetails);
 
 #[cfg(test)]
 mod tests {
-    use super::target_identity_from_ref_name;
-
-    use bstr::ByteSlice;
-
-    fn remote_names(names: &[&str]) -> gix::remote::Names {
-        names
-            .iter()
-            .map(|name| name.as_bytes().as_bstr().to_owned())
-            .collect()
-    }
-
     #[test]
-    fn target_identity_from_remote_ref_without_configured_remote() -> anyhow::Result<()> {
-        let remote_names = remote_names(&["origin"]);
-        let ref_name: gix::refs::FullName = "refs/remotes/non-existing/feature".try_into()?;
-
+    fn listing_distinguishes_local_target_from_differently_named_upstream() -> anyhow::Result<()> {
+        let (mut repo, _tmp) = but_testsupport::writable_scenario("local-target-upstream-ahead");
+        let upstream = repo.rev_parse_single("origin/main")?.detach();
+        repo.reference(
+            "refs/remotes/origin/trunk",
+            upstream,
+            gix::refs::transaction::PreviousValue::Any,
+            "test upstream",
+        )?;
+        repo.reference(
+            "refs/heads/trunk",
+            upstream,
+            gix::refs::transaction::PreviousValue::Any,
+            "unrelated local branch",
+        )?;
+        repo.reference(
+            "refs/remotes/origin/feature",
+            upstream,
+            gix::refs::transaction::PreviousValue::Any,
+            "unrelated remote branch",
+        )?;
+        {
+            let mut config = repo.config_snapshot_mut();
+            config.set_raw_value("branch.main.merge", "refs/heads/trunk")?;
+        }
+        let project_meta = but_core::ref_metadata::ProjectMeta {
+            target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                "refs/heads/main".try_into()?,
+            )?),
+            ..Default::default()
+        };
+        let branches = Vec::from([
+            super::GroupBranch::Local(repo.find_reference("refs/heads/main")?),
+            super::GroupBranch::Local(repo.find_reference("refs/heads/trunk")?),
+            super::GroupBranch::Remote(repo.find_reference("refs/remotes/origin/trunk")?),
+            super::GroupBranch::Remote(repo.find_reference("refs/remotes/origin/feature")?),
+        ]);
+        let upstream = project_meta.remote_target_ref(&repo)?;
+        let listing = super::combine_branches(
+            branches,
+            &repo,
+            project_meta.target_ref_or_err()?,
+            upstream.as_ref().map(AsRef::as_ref),
+        )?;
         assert_eq!(
-            target_identity_from_ref_name(ref_name.as_ref(), &remote_names)?.to_string(),
-            "feature"
+            listing.len(),
+            2,
+            "hide main but retain unrelated local and remote branches"
+        );
+        let trunk = listing
+            .iter()
+            .find(|branch| branch.name.to_string() == "trunk")
+            .expect("local trunk is not the configured target");
+        assert!(trunk.has_local, "local trunk remains visible");
+        assert!(
+            trunk.remotes.is_empty(),
+            "the target upstream origin/trunk must not appear in the listing"
+        );
+        assert!(
+            listing
+                .iter()
+                .any(|branch| branch.name.to_string() == "feature"),
+            "unrelated remote feature remains visible"
         );
         Ok(())
     }
 
     #[test]
-    fn target_identity_preserves_configured_nested_remote() -> anyhow::Result<()> {
-        let remote_names = remote_names(&["nested/remote"]);
-        let ref_name: gix::refs::FullName = "refs/remotes/nested/remote/feature/a".try_into()?;
-
+    fn listing_keeps_the_local_target_when_it_has_workspace_work() -> anyhow::Result<()> {
+        let (repo, _tmp) = but_testsupport::writable_scenario("local-target-upstream-ahead");
+        let local_target =
+            but_core::ref_metadata::LocalRefName::new("refs/heads/main".try_into()?)?;
+        let upstream: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
+        let stack = super::GitButlerStack {
+            id: but_core::ref_metadata::StackId::generate(),
+            in_workspace: true,
+            name: "main".into(),
+            source_refname: Some(local_target.as_local_full_name_ref().to_owned()),
+            upstream: None,
+            updated_timestamp_ms: 0,
+            unarchived_segments: Vec::from([super::GitbutlerStackSegment {
+                tip: local_target.as_local_full_name_ref().to_owned(),
+                pr_or_mr: None,
+            }]),
+        };
+        let listing = super::combine_branches(
+            Vec::from([
+                super::GroupBranch::Local(
+                    repo.find_reference(local_target.as_local_full_name_ref())?,
+                ),
+                super::GroupBranch::Remote(repo.find_reference(upstream.as_ref())?),
+                super::GroupBranch::Virtual(stack),
+            ]),
+            &repo,
+            &local_target,
+            Some(upstream.as_ref()),
+        )?;
         assert_eq!(
-            target_identity_from_ref_name(ref_name.as_ref(), &remote_names)?.to_string(),
-            "feature/a"
+            listing.len(),
+            1,
+            "an active local target must remain visible"
+        );
+        assert_eq!(
+            listing[0].name.to_string(),
+            "main",
+            "the visible group uses local identity"
+        );
+        assert!(
+            listing[0]
+                .stack
+                .as_ref()
+                .is_some_and(|stack| stack.in_workspace),
+            "workspace work is retained"
+        );
+        assert!(
+            listing[0].remotes.is_empty(),
+            "the target upstream is excluded even for an active target"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn listing_without_upstream_keeps_unrelated_remote_branches() -> anyhow::Result<()> {
+        let (mut repo, _tmp) = but_testsupport::writable_scenario("local-target-upstream-ahead");
+        {
+            let mut config = repo.config_snapshot_mut();
+            config.set_raw_value("branch.main.remote", "missing")?;
+        }
+        let project_meta = but_core::ref_metadata::ProjectMeta {
+            target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+                "refs/heads/main".try_into()?,
+            )?),
+            ..Default::default()
+        };
+        let upstream = project_meta.remote_target_ref(&repo)?;
+        assert!(
+            upstream.is_none(),
+            "the local target has no configured upstream remote"
+        );
+        let branches = Vec::from([
+            super::GroupBranch::Local(repo.find_reference("refs/heads/main")?),
+            super::GroupBranch::Remote(repo.find_reference("refs/remotes/origin/main")?),
+        ]);
+        let listing = super::combine_branches(
+            branches,
+            &repo,
+            project_meta.target_ref_or_err()?,
+            upstream.as_ref().map(AsRef::as_ref),
+        )?;
+        assert!(
+            listing.is_empty(),
+            "the inactive local target's group remains hidden"
+        );
+        let remote_only = super::combine_branches(
+            Vec::from([super::GroupBranch::Remote(
+                repo.find_reference("refs/remotes/origin/main")?,
+            )]),
+            &repo,
+            project_meta.target_ref_or_err()?,
+            None,
+        )?;
+        assert_eq!(
+            remote_only.len(),
+            1,
+            "a same-named remote is not automatically the upstream"
         );
         Ok(())
     }

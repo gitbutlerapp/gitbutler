@@ -51,6 +51,8 @@ async function renderModal({
 				baseBranch: () => ({
 					response: {
 						branchName: "main",
+						remoteName: "origin",
+						currentSha: "upstream-tip",
 						targetShaAheadOfRef: null,
 						upstreamCommits: [],
 					},

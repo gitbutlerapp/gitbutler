@@ -545,7 +545,7 @@ fn unapply_last_branch_uses_the_targets_local_tracking_branch() {
 }
 
 #[test]
-fn unapply_last_branch_without_local_tracking_branch_fails() {
+fn unapply_last_branch_without_local_target_fails() {
     let env = Sandbox::open_with_default_settings("single-branch-mode");
     env.but("commit -b one -m one").assert().success();
     env.invoke_git("branch -D main");
@@ -555,7 +555,7 @@ fn unapply_last_branch_without_local_tracking_branch_fails() {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: Cannot unapply the last branch because the target has no local tracking branch
+Error: Cannot unapply the last branch because no local target branch is available
 
 "#]]);
 

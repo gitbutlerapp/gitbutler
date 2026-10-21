@@ -40,6 +40,16 @@ git init only-remote-advanced
   add_main_remote_setup
 )
 
+git init single-branch-local-target
+(cd single-branch-local-target
+  commit M
+)
+
+cp -R single-branch-local-target single-branch-local-target-empty-feature
+(cd single-branch-local-target-empty-feature
+  git checkout -b feature
+)
+
 git init single-branch-in-sync
 (cd single-branch-in-sync
   commit M
@@ -578,7 +588,7 @@ mkdir ws
     setup_remote_tracking soon-remote main "move"
   )
 
-  # The remote of 'main' is just deduced by name.
+  # Feature publication-remote selection without a project target.
   git init deduced-remote-ahead
   (cd deduced-remote-ahead
     commit init
@@ -762,6 +772,7 @@ EOF
     create_workspace_commit_once workspace
 
     setup_remote_tracking soon-remote-main main "move"
+    add_main_remote_setup
   )
 
   # like above, but triggers a different case where 'main' can't be reached easily.
@@ -814,6 +825,7 @@ EOF
     create_workspace_commit_once workspace
 
     setup_remote_tracking soon-remote-main main "move"
+    add_main_remote_setup
   )
   git init multi-lane-with-shared-segment
   (cd multi-lane-with-shared-segment
@@ -841,6 +853,7 @@ EOF
 
     git checkout gitbutler/workspace
     setup_remote_tracking soon-remote-main main "move"
+    add_main_remote_setup
   )
 
   git init multi-lane-with-shared-segment-one-integrated
@@ -939,6 +952,7 @@ EOF
     commit "disjoint remote target"
 
     setup_remote_tracking disjoint-target-tracking main 'move'
+    add_main_remote_setup
     git checkout gitbutler/workspace
   )
 
@@ -967,6 +981,9 @@ EOF
 
   git init no-target-without-ws-commit
   (cd no-target-without-ws-commit
+    git remote add origin ./fake/local/path/which-is-fine-as-we-dont-fetch-or-push
+    git config branch.A.remote origin
+    git config branch.A.merge refs/heads/A
     commit init
     git checkout -b A
       commit A1
@@ -980,6 +997,9 @@ EOF
 
   git init no-target-without-ws-commit-ambiguous
   (cd no-target-without-ws-commit-ambiguous
+    git remote add origin ./fake/local/path/which-is-fine-as-we-dont-fetch-or-push
+    git config branch.A.remote origin
+    git config branch.A.merge refs/heads/A
     commit init
     git checkout -b A
       commit A1
@@ -1003,6 +1023,7 @@ EOF
     add_main_remote_setup
     remote_tracking_caught_up A
     remote_tracking_caught_up B
+    git branch --set-upstream-to=origin/B B
   )
 
   cp -R no-target-without-ws-commit-ambiguous-with-remotes no-target-without-ws-commit-ambiguous-with-remotes-ahead
@@ -1014,6 +1035,9 @@ EOF
 
   git init no-target-with-ws-commit
   (cd no-target-with-ws-commit
+    git remote add origin ./fake/local/path/which-is-fine-as-we-dont-fetch-or-push
+    git config branch.A.remote origin
+    git config branch.A.merge refs/heads/A
     commit init
     git checkout -b A
       commit A1
@@ -1034,6 +1058,7 @@ EOF
     create_workspace_commit_once A
     git checkout -b soon-main-remote
       setup_remote_tracking soon-main-remote main "move"
+    add_main_remote_setup
 
     git checkout gitbutler/workspace
   )

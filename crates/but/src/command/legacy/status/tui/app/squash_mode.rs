@@ -614,7 +614,12 @@ impl App {
 
         let mut guard = ctx.exclusive_worktree_access();
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
-        let merged = MergedUpstream::new(&*ctx.repo.get()?, &head_info, AllowMergedArg::default());
+        let merged = MergedUpstream::new(
+            &*ctx.repo.get()?,
+            &ctx.project_meta()?,
+            &head_info,
+            AllowMergedArg::default(),
+        );
         let (repo, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
         let mut meta = ctx.meta()?;
 

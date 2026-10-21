@@ -186,7 +186,10 @@ pub fn switch_back_to_workspace_with_perm(
         gitbutler_branch_actions::base::get_base_branch_data(ctx, perm.read_permission())
             .context("Failed to get base branch data")?;
 
-    let branch_name = format!("refs/remotes/{}", base_branch.branch_name)
+    let branch_name = ctx
+        .project_meta()?
+        .target_ref_or_err()?
+        .to_string()
         .parse()
         .context("Invalid branch name")?;
 
@@ -743,11 +746,12 @@ pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseB
             .collect::<std::result::Result<Vec<_>, _>>()?
     };
     let target_fetch_remote: Option<String> = {
-        let guard = ctx.shared_worktree_access();
-        gitbutler_branch_actions::base::get_base_branch_data(ctx, guard.read_permission())
-            .ok()
-            .map(|base| base.remote_name)
-            .filter(|name| !name.is_empty())
+        let project_meta = ctx.project_meta()?;
+        let repo = ctx.repo.get()?;
+        project_meta.remote_target_ref(&repo)?.and_then(|name| {
+            but_core::extract_remote_name_and_short_name(name.as_ref(), &repo.remote_names())
+                .map(|(remote, _)| remote)
+        })
     };
     let askpass = Some(action.unwrap_or_else(|| "unknown".to_string()));
     let fetch_errors: Vec<(String, String)> = remotes

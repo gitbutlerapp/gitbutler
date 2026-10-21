@@ -73,6 +73,7 @@ Graph {
         target_commit_id: None,
         push_remote: None,
     },
+    target_upstream_ref: None,
     symbolic_remote_names: [],
 }
 
@@ -222,6 +223,7 @@ Graph {
         target_commit_id: None,
         push_remote: None,
     },
+    target_upstream_ref: None,
     symbolic_remote_names: [],
 }
 
@@ -2465,7 +2467,7 @@ fn ad_hoc_order_keeps_bottom_branch_sitting_on_target() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:top <> ✓refs/remotes/origin/main on 960152d
+⌂:top <> ✓refs/heads/main on 960152d
 └── ≡:top on 960152d {1}
     ├── :top
     ├── :middle
@@ -2480,6 +2482,7 @@ fn ad_hoc_order_keeps_bottom_branch_sitting_on_target() -> anyhow::Result<()> {
 fn ad_hoc_order_hides_target_branch_at_base() -> anyhow::Result<()> {
     let (tmp, repo) = empty_repo()?;
     let tip = commit(&repo, "same tip")?;
+    // A remote ref alone does not configure an upstream: main is a local-only target.
     create_branches(&repo, tip, ["refs/heads/top", "refs/remotes/origin/main"])?;
     let meta = in_memory_meta(tmp.as_ref())?;
     let order = ["refs/heads/top", "refs/heads/main"];
@@ -2499,9 +2502,7 @@ fn ad_hoc_order_hides_target_branch_at_base() -> anyhow::Result<()> {
         graph_dag(&graph),
         snapbox::str![[r#"
 ◎  👉top
-│ ◎  origin/main
-├─╯
-◎  main[🌳] <> origin/main
+◎  main[🌳]
 ●  🏁·960152d (⌂|✓)
 "#]]
     );
@@ -2509,7 +2510,57 @@ fn ad_hoc_order_hides_target_branch_at_base() -> anyhow::Result<()> {
     snapbox::assert_data_eq!(
         graph_workspace(&graph.into_workspace()?).to_string(),
         snapbox::str![[r#"
-⌂:top <> ✓refs/remotes/origin/main on 960152d
+⌂:top <> ✓refs/heads/main on 960152d
+└── ≡:top on 960152d {1}
+    └── :top
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn ad_hoc_order_hides_target_branch_at_base_with_upstream() -> anyhow::Result<()> {
+    let (tmp, mut repo) = empty_repo()?;
+    let tip = commit(&repo, "same tip")?;
+    create_branches(&repo, tip, ["refs/heads/top", "refs/remotes/origin/main"])?;
+    {
+        let mut config = repo.config_snapshot_mut();
+        config.set_raw_value("remote.origin.url", "https://example.com/upstream.git")?;
+        config.set_raw_value("remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")?;
+        config.set_raw_value("branch.main.remote", "origin")?;
+        config.set_raw_value("branch.main.merge", "refs/heads/main")?;
+    }
+    let meta = in_memory_meta(tmp.as_ref())?;
+    let order = ["refs/heads/top", "refs/heads/main"];
+    let overlay = Overlay::default().with_branch_stack_order_override(order.map(ref_name));
+    let graph = Graph::from_commit_traversal(
+        tip.attach(&repo),
+        Some(ref_name("refs/heads/top")),
+        &*meta,
+        default_project_meta(&repo),
+        &mut but_testsupport::in_memory_db(),
+        standard_options(),
+    )?
+    .redo_traversal_with_overlay(&repo, &*meta, overlay)?
+    .validated()?;
+
+    // Each ordered branch appears once, with main retaining its configured upstream.
+    snapbox::assert_data_eq!(
+        graph_dag(&graph),
+        snapbox::str![[r#"
+◎  👉top
+│ ◎  origin/main
+├─╯
+◎  main[🌳] <> origin/main
+●  🏁·960152d (⌂|✓)
+"#]]
+    );
+    // Tracking does not turn the local target into a feature segment.
+    snapbox::assert_data_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        snapbox::str![[r#"
+⌂:top <> ✓refs/heads/main on 960152d
 └── ≡:top on 960152d {1}
     └── :top
 
@@ -2521,7 +2572,7 @@ fn ad_hoc_order_hides_target_branch_at_base() -> anyhow::Result<()> {
 #[test]
 fn ad_hoc_branch_at_target_tip() -> anyhow::Result<()> {
     let tmp = but_testsupport::gix_testtools::tempfile::TempDir::new()?;
-    let repo = gix::ThreadSafeRepository::init_opts(
+    let mut repo = gix::ThreadSafeRepository::init_opts(
         tmp.path(),
         gix::create::Kind::WithWorktree,
         gix::create::Options::default(),
@@ -2529,7 +2580,7 @@ fn ad_hoc_branch_at_target_tip() -> anyhow::Result<()> {
     )?
     .to_thread_local();
     let m1 = commit(&repo, "M1")?;
-    create_branches(&repo, m1, ["refs/heads/feature"])?;
+    create_branches(&repo, m1, ["refs/heads/main", "refs/heads/feature"])?;
     repo.edit_reference(gix::refs::transaction::RefEdit::update(
         ref_name("HEAD"),
         ref_name("refs/heads/feature"),
@@ -2537,12 +2588,20 @@ fn ad_hoc_branch_at_target_tip() -> anyhow::Result<()> {
         "",
     ))?;
     let f1 = commit_with_parent(&repo, "F1", m1)?;
-    // The checked-out branch and the target both point at F1, while the target's local
-    // tracking branch `main` stayed behind at M1.
+    // The feature branch and remote target point at F1, while local main stays at M1.
     create_branches(&repo, f1, ["refs/remotes/origin/main"])?;
+    {
+        let mut config = repo.config_snapshot_mut();
+        config.set_raw_value("remote.origin.url", "https://example.com/upstream.git")?;
+        config.set_raw_value("remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*")?;
+        config.set_raw_value("branch.main.remote", "origin")?;
+        config.set_raw_value("branch.main.merge", "refs/heads/main")?;
+    }
     let meta = in_memory_meta(tmp.path())?;
     let project_meta = but_core::ref_metadata::ProjectMeta {
-        target_ref: Some(ref_name("refs/remotes/origin/main")),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(ref_name(
+            "refs/heads/main",
+        ))?),
         ..Default::default()
     };
     let ws = Graph::from_head(
@@ -2555,12 +2614,23 @@ fn ad_hoc_branch_at_target_tip() -> anyhow::Result<()> {
     .validated()?
     .into_workspace()?;
 
-    // Without a stored target commit, the target ref's tip bounds the walk.
+    assert_eq!(
+        ws.target_ref_name().map(ToString::to_string),
+        Some("refs/heads/main".into()),
+        "the named target stays local"
+    );
+    assert_eq!(
+        ws.target_commit.as_ref().map(|target| target.commit_id),
+        Some(f1),
+        "the remote target supplies the cutoff despite the local target trailing behind"
+    );
+
+    // Without a stored target commit, the remote target's tip bounds the walk.
     // The empty feature branch remains visible because it isn't the local integration branch.
     snapbox::assert_data_eq!(
         graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-⌂:feature[🌳] <> ✓refs/remotes/origin/main on d1b2aed
+⌂:feature[🌳] <> ✓refs/heads/main on d1b2aed
 └── ≡:feature[🌳] on d1b2aed {1}
     └── :feature[🌳]
 
@@ -2568,7 +2638,6 @@ fn ad_hoc_branch_at_target_tip() -> anyhow::Result<()> {
     );
     Ok(())
 }
-
 mod overlay;
 mod with_workspace;
 

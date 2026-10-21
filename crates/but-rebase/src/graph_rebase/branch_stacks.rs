@@ -5,7 +5,6 @@ use std::collections::HashSet;
 use anyhow::Result;
 use but_core::{
     RefMetadata, WORKSPACE_REF_NAME,
-    branch::resolve_tracking_branch_ref_name,
     ref_metadata::{
         StackId, StackKind, Workspace, WorkspaceCommitRelation, WorkspaceStack,
         WorkspaceStackBranch,
@@ -141,13 +140,40 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
     pub fn branch_stacks(&self) -> Result<BranchStacks> {
         let graph = &self.graph;
         let project_meta = &self.workspace.graph.project_meta;
-        let base = project_meta
-            .target_commit_id
-            .and_then(|id| find_pick(graph, id))
-            .or_else(|| {
-                let target_ref = project_meta.target_ref.as_ref()?;
-                first_commit(graph, find_reference(graph, target_ref.as_ref())?)
-            });
+        let base = match project_meta.target_commit_id {
+            Some(id) => {
+                let mappings = self.history.commit_mappings();
+                let rewritten = mappings.get(&id).copied().unwrap_or(id);
+                // An excluded boundary has no step. Do not replace it with another cutoff.
+                find_pick(graph, rewritten)
+            }
+            None => {
+                let target = project_meta.remote_target_ref(&self.repo)?.or_else(|| {
+                    project_meta
+                        .target_ref
+                        .as_ref()
+                        .map(|name| name.as_local_full_name_ref().to_owned())
+                });
+                // Prefer the rewritten ref position so pending ref-only moves are visible.
+                // A traversal may omit the ref node but still include its tip commit.
+                match target {
+                    Some(name) => match find_reference(graph, name.as_ref()) {
+                        Some(reference) => first_commit(graph, reference),
+                        None => self
+                            .repo
+                            .try_find_reference(name.as_ref())?
+                            .map(|mut reference| reference.peel_to_commit().map(|commit| commit.id))
+                            .transpose()?
+                            .and_then(|id| {
+                                let mappings = self.history.commit_mappings();
+                                let rewritten = mappings.get(&id).copied().unwrap_or(id);
+                                find_pick(graph, rewritten)
+                            }),
+                    },
+                    None => None,
+                }
+            }
+        };
 
         let mut head = None;
         let mut worktrees = Vec::new();
@@ -178,7 +204,7 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
         let workspace_ref: FullName = WORKSPACE_REF_NAME.try_into()?;
         let workspace_metadata = self.meta.workspace(workspace_ref.as_ref())?;
         let upstream: HashSet<_> = project_meta
-            .target_ref
+            .remote_target_ref(&self.repo)?
             .as_ref()
             .and_then(|target_ref| find_reference(graph, target_ref.as_ref()))
             .and_then(|target_ref| first_commit(graph, target_ref))
@@ -274,30 +300,20 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
         };
         let is_user_branch = refname.category() == Some(Category::LocalBranch)
             && !refname.as_bstr().starts_with_str("refs/heads/gitbutler/");
-        // The local counterpart of the target often sits at the base of stacks, and is no
-        // branch of theirs until it has commits of its own, or the metadata says so.
+        // The target is not part of a stack while it is upstream, unless explicitly applied.
         let is_upstream_target_branch = first_commit(&self.graph, ix)
             .is_some_and(|commit| upstream.contains(&commit))
-            && self.is_local_target(refname.as_ref())
+            && self.is_target(refname.as_ref())
             && workspace
                 .find_owner_indexes_by_name(refname.as_ref(), StackKind::Applied)
                 .is_none();
         (is_user_branch && !is_upstream_target_branch).then(|| refname.clone())
     }
 
-    fn is_local_target(&self, name: &gix::refs::FullNameRef) -> bool {
+    fn is_target(&self, name: &gix::refs::FullNameRef) -> bool {
         let Some(target_ref) = self.workspace.graph.project_meta.target_ref.as_ref() else {
             return false;
         };
-        match self
-            .repo
-            .upstream_branch_and_remote_for_tracking_branch(target_ref.as_ref())
-            .ok()
-            .flatten()
-        {
-            Some((local_target, _remote)) => local_target.as_ref() == name,
-            None => resolve_tracking_branch_ref_name(name, &self.repo)
-                .is_ok_and(|tracking| tracking.as_ref() == target_ref.as_ref()),
-        }
+        name == target_ref.as_local_full_name_ref()
     }
 }

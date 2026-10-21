@@ -283,6 +283,8 @@ pub enum TipRole {
     /// A target/integration tip whose reachable history is considered integrated,
     /// and that reachable/unintegrated tips want to connect with.
     ///
+    /// This can be a local target when no upstream is available.
+    ///
     /// This tip receives [`CommitFlags::Integrated`] and an indirect goal for
     /// the entrypoint commit with no extra allowance once that goal is found. It
     /// walks just far enough to connect target history to the entrypoint's
@@ -321,12 +323,15 @@ impl TipRole {
     }
 }
 
-/// A local branch ref and the commit it points to, when it tracks a workspace
-/// target ref.
-type LocalTrackingTip = (gix::refs::FullName, gix::ObjectId);
+/// A remote-tracking ref and the commit it points to.
+type RemoteTrackingTip = (gix::refs::FullName, gix::ObjectId);
 
-/// A workspace target ref, its commit, and optionally the local branch tracking it.
-type WorkspaceTargetTip = (gix::refs::FullName, gix::ObjectId, Option<LocalTrackingTip>);
+/// A local workspace target ref, its commit, and optionally its remote-tracking tip.
+type WorkspaceTargetTip = (
+    gix::refs::FullName,
+    gix::ObjectId,
+    Option<RemoteTrackingTip>,
+);
 
 /// The complete pre-traversal plan derived from either explicit tips or
 /// workspace metadata.
@@ -587,6 +592,7 @@ impl Graph {
         let (tip, maybe_name) = match head.kind {
             gix::head::Kind::Unborn(ref_name) => {
                 let mut graph = Graph {
+                    target_upstream_ref: project_meta.remote_target_ref(repo)?,
                     project_meta,
                     ..Default::default()
                 };
@@ -912,6 +918,17 @@ impl Graph {
         let mut graph = Graph {
             options: options.clone(),
             entrypoint_ref: ref_name.clone(),
+            target_upstream_ref: project_meta
+                .target_ref
+                .as_ref()
+                .and_then(|target| {
+                    repo.branch_remote_tracking_ref_name(
+                        target.as_local_full_name_ref(),
+                        gix::remote::Direction::Fetch,
+                    )
+                })
+                .transpose()?
+                .map(|name| name.into_owned()),
             project_meta,
             worktree_tips: worktree_tips.clone(),
             ..Graph::default()
@@ -1418,9 +1435,9 @@ fn initial_tips_from_tips(
     let include_tip_refs = !tips
         .iter()
         .any(|tip| matches!(tip.metadata, Some(SegmentMetadata::Workspace(_))));
-    let target_refs = target_refs_from_tips(&tips, project_meta, include_tip_refs);
+    let target_refs = target_refs_from_tips(&tips, include_tip_refs);
     let symbolic_remote_names =
-        symbolic_remote_names_from_tips(repo, &tips, project_meta, include_tip_refs);
+        symbolic_remote_names_from_tips(repo, &tips, project_meta, include_tip_refs)?;
     let target_local_links = target_local_links_from_tips(repo, &tips);
     let tips = append_worktree_tips(repo, tips, worktree_tips)?;
 
@@ -1538,11 +1555,10 @@ fn has_workspace_related_tips(tips: &[Tip], project_meta: &ProjectMeta) -> bool 
             tip.role,
             TipRole::Workspace | TipRole::TargetLocal { .. } | TipRole::WorkspaceStackBranch { .. }
         ) || matches!(tip.metadata, Some(SegmentMetadata::Workspace(_)))
-            || matches!(tip.role, TipRole::TargetRemote)
-                && project_meta
-                    .target_ref
-                    .as_ref()
-                    .is_some_and(|target_ref| tip.ref_name.as_ref() == Some(target_ref))
+            || project_meta.target_ref.as_ref().is_some_and(|target_ref| {
+                tip.ref_name.as_ref().map(AsRef::as_ref)
+                    == Some(target_ref.as_local_full_name_ref())
+            })
     })
 }
 
@@ -1739,10 +1755,10 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
             &mut additional_target_commits,
         )?;
         queued_ids.push(ws_tip);
-        if let Some((target_ref_id, local_tip)) = target {
-            queued_ids.push(target_ref_id);
-            if let Some(local_tip) = local_tip {
-                queued_ids.push(local_tip);
+        if let Some((local_tip, remote_tip)) = target {
+            queued_ids.push(local_tip);
+            if let Some(remote_tip) = remote_tip {
+                queued_ids.push(remote_tip);
             }
         }
     }
@@ -1801,7 +1817,7 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
     Ok(tips)
 }
 
-/// Seed project-level targets and return the remote and optional local tip IDs.
+/// Seed project-level targets and return the local and optional remote tip IDs.
 ///
 /// An ad-hoc `HEAD` may no longer reach the current target after upstream integrates it, so both
 /// the named target and its previously stored position must be explicit traversal tips.
@@ -1813,21 +1829,29 @@ fn append_project_target_tips(
     additional_target_commits: &mut Vec<gix::ObjectId>,
 ) -> anyhow::Result<Option<(gix::ObjectId, Option<gix::ObjectId>)>> {
     additional_target_commits.extend(project_meta.target_commit_id);
-    if let Some((target_ref, target_ref_id, local_info)) =
+    if let Some((local_ref_name, local_tip, remote_info)) =
         workspace_target_tip(repo, project_meta.target_ref.as_ref())?
     {
-        let local_info =
-            local_info.filter(|(_local_ref_name, local_tip)| !queued_ids.contains(local_tip));
-        let local_tip = local_info.as_ref().map(|(_, local_tip)| *local_tip);
-        tips.push(
-            Tip::new(target_ref_id)
-                .with_ref_name(Some(target_ref))
-                .with_role(TipRole::TargetRemote),
-        );
-        if let Some((local_ref_name, local_tip)) = local_info {
-            tips.push(Tip::new(local_tip).with_role(TipRole::TargetLocal { local_ref_name }));
+        let remote_tip = remote_info.as_ref().map(|(_, remote_tip)| *remote_tip);
+        if let Some((remote_ref_name, remote_tip)) = remote_info {
+            tips.push(
+                Tip::new(remote_tip)
+                    .with_ref_name(Some(remote_ref_name))
+                    .with_role(TipRole::TargetRemote),
+            );
+            if !queued_ids.contains(&local_tip) {
+                tips.push(Tip::new(local_tip).with_role(TipRole::TargetLocal { local_ref_name }));
+            }
+        } else {
+            // Without an upstream, the local target itself supplies integrated history.
+            // Keep its name even when another branch already queued the same commit.
+            tips.push(
+                Tip::new(local_tip)
+                    .with_ref_name(Some(local_ref_name))
+                    .with_role(TipRole::TargetRemote),
+            );
         }
-        return Ok(Some((target_ref_id, local_tip)));
+        return Ok(Some((local_tip, remote_tip)));
     }
     Ok(None)
 }
@@ -1846,44 +1870,48 @@ fn push_tip_once(tips: &mut Vec<Tip>, tip: Tip) {
     }
 }
 
-/// Resolve a workspace target ref and, when possible, its local tracking branch
-/// tip.
+/// Resolve the local workspace target tip and, when available, its remote-tracking tip.
 fn workspace_target_tip(
     repo: &OverlayRepo<'_>,
-    target_ref: Option<&gix::refs::FullName>,
+    target_ref: Option<&but_core::ref_metadata::LocalRefName>,
 ) -> anyhow::Result<Option<WorkspaceTargetTip>> {
     let Some(target_ref) = target_ref else {
         return Ok(None);
     };
-    let target_ref_id = match try_refname_to_id(repo, target_ref.as_ref()).map_err(|err| {
-        tracing::warn!("Ignoring non-existing target branch {target_ref}: {err}");
-        err
-    }) {
-        Ok(Some(target_ref_id)) => target_ref_id,
-        Ok(None) | Err(_) => return Ok(None),
-    };
-    let local_info = repo
-        .upstream_branch_and_remote_for_tracking_branch(target_ref.as_ref())
-        .ok()
-        .flatten()
-        .and_then(|(local_tracking_name, _remote_name)| {
-            let target_local_tip = try_refname_to_id(repo, local_tracking_name.as_ref()).ok()??;
-            Some((local_tracking_name, target_local_tip))
+    let target_ref_id =
+        match try_refname_to_id(repo, target_ref.as_local_full_name_ref()).map_err(|err| {
+            tracing::warn!("Ignoring non-existing target branch {target_ref}: {err}");
+            err
+        }) {
+            Ok(Some(target_ref_id)) => target_ref_id,
+            Ok(None) | Err(_) => return Ok(None),
+        };
+    let remote_info = repo
+        .branch_remote_tracking_ref_name(
+            target_ref.as_local_full_name_ref(),
+            gix::remote::Direction::Fetch,
+        )
+        .transpose()?
+        .and_then(|remote_ref_name| {
+            let remote_tip = try_refname_to_id(repo, remote_ref_name.as_ref()).ok()??;
+            Some((remote_ref_name.into_owned(), remote_tip))
         });
-    Ok(Some((target_ref.clone(), target_ref_id, local_info)))
+    Ok(Some((
+        target_ref.as_local_full_name_ref().to_owned(),
+        target_ref_id,
+        remote_info,
+    )))
 }
 
 /// Return remote target refs that are already represented by initial tips.
 ///
 /// The result is passed to remote-tracking discovery so it does not queue a
 /// target ref a second time when walking a local branch that tracks it.
-/// Workspace traversals get this from the project metadata target ref, which
-/// is where their target lives now. Explicit traversals have no workspace
-/// discovery source, so named integrated tips may also act as target refs
+/// Workspace traversals get these from named remote target tips. Explicit traversals
+/// have no workspace discovery source, so named integrated tips may also act as target refs
 /// when `include_integrated_tip_refs` is set.
 fn target_refs_from_tips(
     tips: &[Tip],
-    project_meta: &ProjectMeta,
     include_integrated_tip_refs: bool,
 ) -> Vec<gix::refs::FullName> {
     let has_workspace_metadata_tip = tips
@@ -1891,13 +1919,11 @@ fn target_refs_from_tips(
         .any(|tip| matches!(tip.metadata, Some(SegmentMetadata::Workspace(_))));
     let mut target_refs: Vec<_> = tips
         .iter()
-        .filter(|tip| include_integrated_tip_refs && tip.role.is_integrated())
+        .filter(|tip| {
+            (include_integrated_tip_refs && tip.role.is_integrated())
+                || (has_workspace_metadata_tip && matches!(tip.role, TipRole::TargetRemote))
+        })
         .filter_map(|tip| tip.ref_name.clone())
-        .chain(
-            has_workspace_metadata_tip
-                .then(|| project_meta.target_ref.clone())
-                .flatten(),
-        )
         .collect();
     target_refs.sort();
     target_refs.dedup();
@@ -1956,7 +1982,7 @@ fn symbolic_remote_names_from_tips(
     tips: &[Tip],
     project_meta: &ProjectMeta,
     include_tip_refs: bool,
-) -> Vec<String> {
+) -> anyhow::Result<Vec<String>> {
     let remote_names = repo.remote_names();
     let refs = tips
         .iter()
@@ -1993,20 +2019,30 @@ fn symbolic_remote_names_from_tips(
         | TipRole::TargetLocal { .. }
         | TipRole::TargetRemote => None,
     });
-    let target_ref = project_meta.target_ref.as_ref().and_then(|target_ref| {
-        extract_remote_name_and_short_name(target_ref.as_ref(), &remote_names)
-            .map(|(remote, _short_name)| (1, remote))
-    });
+    let target_remote = project_meta
+        .target_ref
+        .as_ref()
+        .and_then(|target_ref| {
+            repo.branch_remote_tracking_ref_name(
+                target_ref.as_local_full_name_ref(),
+                gix::remote::Direction::Fetch,
+            )
+        })
+        .transpose()?
+        .and_then(|upstream| {
+            extract_remote_name_and_short_name(upstream.as_ref(), &remote_names)
+                .map(|(remote, _short_name)| (1, remote))
+        });
     let push_remote = project_meta
         .push_remote
         .as_ref()
         .map(|push_remote| (0, push_remote.clone()));
-    sorted_symbolic_remote_names(
+    Ok(sorted_symbolic_remote_names(
         refs.chain(workspace_metadata_names)
             .chain(desired_refs)
-            .chain(target_ref)
+            .chain(target_remote)
             .chain(push_remote),
-    )
+    ))
 }
 
 /// Sort and deduplicate remote names, preserving explicit push remotes before
@@ -2052,10 +2088,15 @@ fn queue_initial_tips<T: RefMetadata>(
             }
             TipRole::TargetRemote
                 if tip
-                    .is_auxiliary_integrated_tip(initial_tips.frontload_workspace_related_tips)
-                    && next.iter().any(|(info, _, _, _)| info.id == tip.id) =>
+                    .is_auxiliary_integrated_tip(initial_tips.frontload_workspace_related_tips) =>
             {
-                continue;
+                if let Some((_, flags, _, _)) =
+                    next.iter_mut().find(|(info, _, _, _)| info.id == tip.id)
+                {
+                    // Reuse the traversal, but retain the stored cutoff's integration context.
+                    *flags |= CommitFlags::Integrated;
+                    continue;
+                }
             }
             _ => {}
         }
@@ -2065,7 +2106,8 @@ fn queue_initial_tips<T: RefMetadata>(
                 .clone()
                 .map(|ref_name| (ref_name, tip.metadata.clone())),
             meta,
-            Some((&ctx.refs_by_id, tip.id)),
+            // A stored cutoff is commit context, not another copy of the branch at it.
+            (!tip.is_anonymous_integrated_target_context()).then_some((&ctx.refs_by_id, tip.id)),
             &ctx.worktree_by_branch,
         )?;
         if let TipRole::WorkspaceStackBranch { desired_ref_name } = &tip.role {

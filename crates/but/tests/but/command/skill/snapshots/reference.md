@@ -251,6 +251,7 @@ Configure the template to use for review descriptions
 
 ### but init
 Create an empty Git repository in the current directory
+- `--commit` Also create an initial empty commit
 
 ### but update check
 Check if a new version of the GitButler CLI is available

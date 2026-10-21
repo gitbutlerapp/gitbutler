@@ -33,7 +33,9 @@ fn workspace_with_worktree_tips(
     meta: &impl but_core::RefMetadata,
 ) -> Result<but_graph::Workspace> {
     let project_meta = but_core::ref_metadata::ProjectMeta {
-        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            "refs/heads/main".try_into()?,
+        )?),
         target_commit_id: Some(repo.rev_parse_single("main")?.detach()),
         push_remote: None,
     };
@@ -983,7 +985,7 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
     snapbox::assert_data_eq!(
         but_testsupport::graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on cad9051
+📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/heads/main on cad9051
 ├── ≡📙:A on cad9051 {[..]}
 │   └── 📙:A
 │       ├── ·19f4fc0 (🏘️)
@@ -1043,7 +1045,7 @@ fn references_can_be_created_at_commits_of_worktree_lanes() -> Result<()> {
     snapbox::assert_data_eq!(
         but_testsupport::graph_workspace(&ws).to_string(),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on cad9051
+📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/heads/main on cad9051
 ├── ≡📙:A on cad9051 {[..]}
 │   └── 📙:A
 │       ├── ·19f4fc0 (🏘️)
@@ -1229,7 +1231,7 @@ refs/heads/wt-inside: wt-inside > below-inside
     snapbox::assert_data_eq!(
         stacks(&workspace_with_worktree_tips(&repo, &meta)?),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on cad9051
+📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/heads/main on cad9051
 ├── ≡📙:B on cad9051 {[..]}
 │   └── 📙:B
 │       └── ·5881e28 (🏘️)
@@ -1267,7 +1269,7 @@ fn worktree_orders_leave_branches_claimed_elsewhere_alone() -> Result<()> {
     snapbox::assert_data_eq!(
         stacks(&ws),
         snapbox::str![[r#"
-📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main on cad9051
+📕🏘️:gitbutler/workspace[🌳@repo] <> ✓refs/heads/main on cad9051
 ├── ≡📙:A on cad9051 {1}
 │   └── 📙:A
 │       ├── ·19f4fc0 (🏘️)

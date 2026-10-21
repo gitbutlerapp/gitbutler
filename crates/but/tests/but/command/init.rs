@@ -37,6 +37,43 @@ Git repository already exists in [..]/.git
 }
 
 #[test]
+fn commit_flag_creates_an_empty_initial_commit() {
+    let env = Sandbox::empty();
+    env.file("existing.txt", "keep me\n");
+
+    env.but("init --commit")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Initialized empty Git repository in [..]/.git with initial commit [..]
+
+"#]])
+        .stderr_eq(snapbox::str![]);
+
+    env.but("init --commit")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Git repository already exists in [..]/.git
+
+"#]])
+        .stderr_eq(snapbox::str![]);
+    env.but("status --verbose")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted]
+┊   pr A existing.txt
+┊
+┴ [..] (common base, main, HEAD) 2000-01-02 Initial commit
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]])
+        .stderr_eq(snapbox::str![]);
+}
+
+#[test]
 fn nested_repository_does_not_select_parent() {
     let env = Sandbox::open_with_default_settings("repo-no-remote");
     let head = env.invoke_git("rev-parse HEAD");

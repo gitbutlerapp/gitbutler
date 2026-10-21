@@ -758,8 +758,63 @@ Workspace {
 }
 
 mod project_meta {
-    use but_core::ref_metadata::ProjectMeta;
+    use but_core::ref_metadata::{LocalRefName, ProjectMeta};
     use but_testsupport::read_only_in_memory_scenario;
+
+    fn repo() -> anyhow::Result<gix::Repository> {
+        read_only_in_memory_scenario("project-target-metadata")
+    }
+
+    fn local_target(name: &str) -> anyhow::Result<ProjectMeta> {
+        Ok(ProjectMeta {
+            target_ref: Some(LocalRefName::new(name.try_into()?)?),
+            ..ProjectMeta::default()
+        })
+    }
+
+    fn legacy_config() -> anyhow::Result<gix::config::File> {
+        Ok(gix::config::File::try_from(
+            "[gitbutler \"project\"]\n\ttargetRef = refs/remotes/origin/trunk\n",
+        )?)
+    }
+
+    #[test]
+    fn migration_repair_preserves_an_unset_cutoff() -> anyhow::Result<()> {
+        let meta = local_target("refs/heads/main")?;
+        let repaired =
+            but_core::ref_metadata::repair_target_metadata_for_migration(&meta, &repo()?);
+        assert_eq!(
+            repaired, meta,
+            "repair must not pin an unset cutoff to local history"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn persisting_metadata_preserves_an_unset_cutoff() -> anyhow::Result<()> {
+        let (repo, _tmp) = but_testsupport::writable_scenario("project-target-metadata");
+        let meta = local_target("refs/heads/main")?;
+        meta.persist(&repo)?;
+        assert_eq!(
+            ProjectMeta::resolve(&repo)?,
+            meta,
+            "persistence must retain dynamic cutoff selection"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn porting_metadata_preserves_an_unset_cutoff() -> anyhow::Result<()> {
+        let (repo, _tmp) = but_testsupport::writable_scenario("project-target-metadata");
+        let meta = local_target("refs/heads/main")?;
+        ProjectMeta::port_if_needed(&repo, || Ok(meta.clone()))?;
+        assert_eq!(
+            ProjectMeta::resolve(&repo)?,
+            meta,
+            "migration must not invent a stored cutoff"
+        );
+        Ok(())
+    }
 
     #[test]
     fn malformed_target_ref_and_commit_id_read_as_none() -> anyhow::Result<()> {
@@ -769,70 +824,40 @@ mod project_meta {
              \ttargetCommitId = not-a-commit-id\n\
              \tpushRemote = upstream\n",
         )?;
-
-        let actual = ProjectMeta::try_from_config(&config)?;
-        assert_eq!(
-            actual.target_ref, None,
-            "a target ref that isn't a full ref name is ignored instead of failing the whole read"
-        );
+        let actual = ProjectMeta::try_from_config(&config, &repo()?)?;
+        assert_eq!(actual.target_ref, None, "malformed ref names are ignored");
         assert_eq!(
             actual.target_commit_id, None,
-            "a target commit id that isn't a hexadecimal object id is ignored as well"
+            "malformed commit IDs are ignored"
         );
         assert_eq!(
             actual.push_remote.as_deref(),
             Some("upstream"),
-            "well-formed values are still read despite malformed siblings"
+            "valid siblings survive"
         );
         Ok(())
     }
 
     #[test]
-    fn non_remote_target_ref_reads_as_none() -> anyhow::Result<()> {
+    fn local_target_ref_is_read() -> anyhow::Result<()> {
         let config = gix::config::File::try_from(
-            "[gitbutler \"project\"]\n\
-             \ttargetRef = refs/heads/main\n",
+            "[gitbutler \"project\"]\n\ttargetRef = refs/heads/main\n",
         )?;
-
-        let actual = ProjectMeta::try_from_config(&config)?;
+        let actual = ProjectMeta::try_from_config(&config, &repo()?)?;
         assert_eq!(
-            actual.target_ref, None,
-            "a target ref that isn't a remote tracking branch would wrongly be seeded as remote \
-             target tip, so it's ignored"
+            actual,
+            local_target("refs/heads/main")?,
+            "local targets are accepted"
         );
         Ok(())
     }
 
     #[test]
-    fn push_remote_name_falls_back_to_textual_remote_name() -> anyhow::Result<()> {
-        let repo = read_only_in_memory_scenario("multiple-remotes-with-tracking-branches")?;
-
-        let meta = ProjectMeta {
-            target_ref: Some(gix::refs::FullName::try_from(
-                "refs/remotes/gone/release/1.x".to_owned(),
-            )?),
-            target_commit_id: None,
-            push_remote: None,
-        };
-        assert_eq!(
-            meta.push_remote_name(&repo)?,
-            "gone",
-            "with no matching configured remote and a slash in the branch name, \
-             the first path component after refs/remotes/ is used, like legacy metadata stored"
-        );
-
-        let meta = ProjectMeta {
-            target_ref: Some(gix::refs::FullName::try_from(
-                "refs/remotes/nested/remote/feature/a".to_owned(),
-            )?),
-            target_commit_id: None,
-            push_remote: None,
-        };
-        assert_eq!(
-            meta.push_remote_name(&repo)?,
-            "nested/remote",
-            "configured remotes remain the primary path so remote names containing '/' still work"
-        );
+    fn tag_target_ref_reads_as_none() -> anyhow::Result<()> {
+        let config =
+            gix::config::File::try_from("[gitbutler \"project\"]\n\ttargetRef = refs/tags/main\n")?;
+        let actual = ProjectMeta::try_from_config(&config, &repo()?)?;
+        assert_eq!(actual.target_ref, None, "tags are not integration targets");
         Ok(())
     }
 
@@ -840,18 +865,288 @@ mod project_meta {
     fn null_target_commit_id_reads_as_none() -> anyhow::Result<()> {
         let config = gix::config::File::try_from(
             "[gitbutler \"project\"]\n\
-             \ttargetRef = refs/remotes/origin/main\n\
+             \ttargetRef = refs/heads/main\n\
              \ttargetCommitId = 0000000000000000000000000000000000000000\n",
         )?;
-
-        let actual = ProjectMeta::try_from_config(&config)?;
+        let actual = ProjectMeta::try_from_config(&config, &repo()?)?;
         assert_eq!(
-            actual.target_ref.map(|name| name.to_string()),
-            Some("refs/remotes/origin/main".to_string())
+            actual,
+            local_target("refs/heads/main")?,
+            "the null commit ID means absent"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn tracking_lookup_returns_unique_local_branch() -> anyhow::Result<()> {
+        let actual = but_core::ref_metadata::find_local_tracking_branch(
+            "refs/remotes/origin/trunk".try_into()?,
+            &repo()?,
+        )?;
+        assert_eq!(
+            actual,
+            but_core::ref_metadata::LocalTrackingBranchMatch::Unique(LocalRefName::new(
+                "refs/heads/main".try_into()?
+            )?),
+            "the lookup follows configured upstreams, not matching branch names"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn tracking_lookup_returns_no_match() -> anyhow::Result<()> {
+        let actual = but_core::ref_metadata::find_local_tracking_branch(
+            "refs/remotes/origin/missing".try_into()?,
+            &repo()?,
+        )?;
+        assert_eq!(
+            actual,
+            but_core::ref_metadata::LocalTrackingBranchMatch::None,
+            "a missing counterpart is a match result, not a repository error"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn tracking_lookup_reports_ambiguous_branches() -> anyhow::Result<()> {
+        let mut repo = repo()?;
+        {
+            let mut config = repo.config_snapshot_mut();
+            config.set_raw_value("branch.other.remote", "origin")?;
+            config.set_raw_value("branch.other.merge", "refs/heads/trunk")?;
+        }
+        let actual = but_core::ref_metadata::find_local_tracking_branch(
+            "refs/remotes/origin/trunk".try_into()?,
+            &repo,
+        )?;
+        assert_eq!(
+            actual,
+            but_core::ref_metadata::LocalTrackingBranchMatch::Ambiguous {
+                first: LocalRefName::new("refs/heads/main".try_into()?)?,
+                second: LocalRefName::new("refs/heads/other".try_into()?)?,
+            },
+            "ambiguity preserves both names for explicit-resolution diagnostics"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn resolve_local_target_accepts_local_name_without_lookup() -> anyhow::Result<()> {
+        let repo = repo()?;
+        let name: &gix::refs::FullNameRef = "refs/heads/not-created".try_into()?;
+        let actual = but_core::ref_metadata::resolve_local_target(name, &repo)?;
+        assert_eq!(
+            actual.as_local_full_name_ref(),
+            name,
+            "local names are validated without requiring an existing branch or upstream"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn resolve_local_target_rejects_tag() -> anyhow::Result<()> {
+        let repo = repo()?;
+        let err = but_core::ref_metadata::resolve_local_target("refs/tags/main".try_into()?, &repo)
+            .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("must be a local or remote-tracking branch"),
+            "non-branch refs must fail before tracking lookup: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn local_ref_name_rejects_remote_branch() -> anyhow::Result<()> {
+        assert!(
+            LocalRefName::new("refs/remotes/origin/main".try_into()?).is_err(),
+            "the type must reject remote-tracking refs"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn local_ref_name_rejects_tag() -> anyhow::Result<()> {
+        assert!(
+            LocalRefName::new("refs/tags/main".try_into()?).is_err(),
+            "the type must reject tags"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn legacy_remote_resolves_differently_named_local_branch() -> anyhow::Result<()> {
+        let actual = ProjectMeta::try_from_config(&legacy_config()?, &repo()?)?;
+        assert_eq!(
+            actual,
+            local_target("refs/heads/main")?,
+            "upstream configuration determines the local target"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn legacy_remote_without_local_match_errors() -> anyhow::Result<()> {
+        let config = gix::config::File::try_from(
+            "[gitbutler \"project\"]\n\ttargetRef = refs/remotes/origin/missing\n",
+        )?;
+        let err = ProjectMeta::try_from_config(&config, &repo()?).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("no local branch tracks refs/remotes/origin/missing"),
+            "missing local counterparts require an explicit choice: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn legacy_remote_with_multiple_local_matches_errors() -> anyhow::Result<()> {
+        let mut repo = repo()?;
+        {
+            let mut config = repo.config_snapshot_mut();
+            config.set_raw_value("branch.other.remote", "origin")?;
+            config.set_raw_value("branch.other.merge", "refs/heads/trunk")?;
+        }
+        let err = ProjectMeta::try_from_config(&legacy_config()?, &repo).unwrap_err();
+        assert!(
+            err.to_string().contains("multiple local branches track"),
+            "ambiguous local counterparts must not be guessed: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn legacy_conversion_preserves_commit_ahead_of_local_target() -> anyhow::Result<()> {
+        let repo = repo()?;
+        let upstream = repo
+            .find_reference("refs/remotes/origin/trunk")?
+            .peel_to_commit()?
+            .id;
+        let local = repo.find_reference("refs/heads/main")?.peel_to_commit()?.id;
+        assert_ne!(
+            upstream, local,
+            "the fixture's local target trails upstream"
+        );
+        let config = gix::config::File::try_from(format!(
+            "[gitbutler \"project\"]\n\ttargetRef = refs/remotes/origin/trunk\n\ttargetCommitId = {upstream}\n"
+        ).as_str())?;
+        let actual = ProjectMeta::try_from_config(&config, &repo)?;
+        assert_eq!(
+            actual.target_ref,
+            local_target("refs/heads/main")?.target_ref,
+            "the ref is converted"
         );
         assert_eq!(
-            actual.target_commit_id, None,
-            "the null id is a placeholder for an unknown commit and must read as absent"
+            actual.target_commit_id,
+            Some(upstream),
+            "migration preserves the stable cutoff"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn remote_target_uses_configured_upstream_name() -> anyhow::Result<()> {
+        let actual = local_target("refs/heads/main")?.remote_target_ref(&repo()?)?;
+        assert_eq!(
+            actual,
+            Some("refs/remotes/origin/trunk".try_into()?),
+            "upstream names need not match local names"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn remote_target_does_not_require_existing_ref() -> anyhow::Result<()> {
+        let mut repo = repo()?;
+        repo.config_snapshot_mut()
+            .set_raw_value("branch.main.merge", "refs/heads/not-fetched")?;
+        let actual = local_target("refs/heads/main")?.remote_target_ref(&repo)?;
+        assert_eq!(
+            actual,
+            Some("refs/remotes/origin/not-fetched".try_into()?),
+            "resolution returns a name, not an existence check"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn local_target_without_upstream_has_no_remote_target() -> anyhow::Result<()> {
+        let meta = local_target("refs/heads/other")?;
+        let repo = repo()?;
+        assert_eq!(
+            meta.remote_target_ref(&repo)?,
+            None,
+            "local-only targets are supported"
+        );
+        assert!(
+            meta.remote_target_ref_or_err(&repo).is_err(),
+            "remote-required operations reject local-only targets"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn missing_target_has_no_remote_target() -> anyhow::Result<()> {
+        let meta = ProjectMeta::default();
+        let repo = repo()?;
+        assert_eq!(
+            meta.remote_target_ref(&repo)?,
+            None,
+            "no target means no upstream"
+        );
+        let err = meta.remote_target_ref_or_err(&repo).unwrap_err();
+        assert!(
+            matches!(
+                err.downcast_ref::<but_error::Code>(),
+                Some(but_error::Code::DefaultTargetNotFound)
+            ),
+            "the required accessor preserves the missing-target error code"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn push_remote_name_falls_back_to_target_fetch_remote() -> anyhow::Result<()> {
+        assert_eq!(
+            local_target("refs/heads/main")?.push_remote_name(&repo()?)?,
+            "origin",
+            "feature publishing falls back to the target's fetch remote"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn explicit_push_remote_overrides_target_remote() -> anyhow::Result<()> {
+        let repo = repo()?;
+        let mut meta = local_target("refs/heads/main")?;
+        meta.push_remote = Some("fork".into());
+        assert_eq!(
+            meta.push_remote_name(&repo)?,
+            "fork",
+            "explicit publishing remote wins"
+        );
+        assert_eq!(
+            meta.push_remote_url(&repo)?,
+            "https://example.com/fork.git",
+            "publishing uses the override URL"
+        );
+        assert_eq!(
+            meta.target_remote_url(&repo)?,
+            "https://example.com/upstream.git",
+            "target fetch URL ignores the publishing override"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn target_remote_url_uses_fetch_url() -> anyhow::Result<()> {
+        let mut repo = repo()?;
+        repo.config_snapshot_mut()
+            .set_raw_value("remote.origin.pushurl", "https://example.com/push.git")?;
+        assert_eq!(
+            local_target("refs/heads/main")?.target_remote_url(&repo)?,
+            "https://example.com/upstream.git",
+            "target remote URL is for fetching, not pushing"
         );
         Ok(())
     }

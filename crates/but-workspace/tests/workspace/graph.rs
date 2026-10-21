@@ -40,7 +40,9 @@ fn detailed(
             .join("should-never-be-written.toml"),
     )?;
     let project_meta = ProjectMeta {
-        target_ref: target.map(gix::refs::FullName::try_from).transpose()?,
+        target_ref: target
+            .map(|name| but_core::ref_metadata::LocalRefName::new(name.try_into()?))
+            .transpose()?,
         // Bound the graph at the target commit too, so the projection is
         // actually trimmed (matching how a real workspace target behaves).
         target_commit_id: target
@@ -60,7 +62,7 @@ fn detailed(
 /// fixtures after applying stack metadata.
 fn detailed_writable(
     fixture: &str,
-    target_remote: &str,
+
     target_branch: &str,
     target_rev: &str,
     mut configure_stacks: impl FnMut(&mut VirtualBranchesTomlMetadata),
@@ -70,7 +72,9 @@ fn detailed_writable(
     configure_stacks(&mut meta);
 
     let project_meta = ProjectMeta {
-        target_ref: Some(format!("refs/remotes/{target_remote}/{target_branch}").try_into()?),
+        target_ref: Some(but_core::ref_metadata::LocalRefName::new(
+            format!("refs/heads/{target_branch}").try_into()?,
+        )?),
         target_commit_id: Some(target_sha),
         push_remote: None,
     };
@@ -864,16 +868,10 @@ refs/heads/main push=NothingToPush                  combined=NothingToPush      
 /// is `CompletelyUnpushed`.
 #[test]
 fn integration_status_marks_fully_integrated_branch() -> Result<()> {
-    let (_tmp, detailed) = detailed_writable(
-        "fully-integrated-branch",
-        "origin",
-        "main",
-        "main",
-        |meta| {
-            add_stack(meta, 1, "A", StackState::InWorkspace);
-            add_stack(meta, 2, "B", StackState::InWorkspace);
-        },
-    )?;
+    let (_tmp, detailed) = detailed_writable("fully-integrated-branch", "main", "main", |meta| {
+        add_stack(meta, 1, "A", StackState::InWorkspace);
+        add_stack(meta, 2, "B", StackState::InWorkspace);
+    })?;
     snapbox::assert_data_eq!(
         render_push_status(&detailed),
         snapbox::str![[r#"
@@ -905,7 +903,6 @@ b38b04b add B1   state=local
 fn commit_state_marks_content_integrated_commits() -> Result<()> {
     let (_tmp, detailed) = detailed_writable(
         "diamond-partially-content-integrated",
-        "origin",
         "master",
         "o1",
         |meta| {
@@ -932,7 +929,6 @@ f5b02d3 A        state=integrated
 fn commit_state_marks_historically_integrated_commits() -> Result<()> {
     let (_tmp, detailed) = detailed_writable(
         "diamond-partially-historically-integrated",
-        "origin",
         "master",
         "o1",
         |meta| {
@@ -960,7 +956,6 @@ d6a7004 D        state=local
 fn integration_status_marks_partially_integrated_multi_branch_stack() -> Result<()> {
     let (_tmp, detailed) = detailed_writable(
         "partially-integrated-multi-branch-stack",
-        "origin",
         "main",
         "main",
         |meta| {
@@ -992,7 +987,6 @@ b38b04b add B1   state=local
 fn integration_status_marks_fully_integrated_multi_branch_stack() -> Result<()> {
     let (_tmp, detailed) = detailed_writable(
         "fully-integrated-multi-branch-stack",
-        "origin",
         "main",
         "main",
         |meta| {
@@ -1022,16 +1016,11 @@ b38b04b add B1   state=local
 /// commits on the target.
 #[test]
 fn integration_status_marks_fully_integrated_two_stacks() -> Result<()> {
-    let (_tmp, detailed) = detailed_writable(
-        "fully-integrated-two-stacks",
-        "origin",
-        "main",
-        "main~2",
-        |meta| {
+    let (_tmp, detailed) =
+        detailed_writable("fully-integrated-two-stacks", "main", "main~2", |meta| {
             add_stack(meta, 1, "A", StackState::InWorkspace);
             add_stack(meta, 2, "B", StackState::InWorkspace);
-        },
-    )?;
+        })?;
     snapbox::assert_data_eq!(
         render_statuses(&detailed),
         snapbox::str![[r#"
@@ -1055,7 +1044,6 @@ b38b04b add B1   state=integrated
 fn empty_branch_remote_tip_marks_reference_integrated() -> Result<()> {
     let (_tmp, detailed) = detailed_writable(
         "empty-branch-remote-tip-integrated",
-        "origin",
         "main",
         "main^",
         |meta| {
@@ -1081,7 +1069,6 @@ refs/heads/topic push=Integrated                     combined=Integrated        
 fn non_empty_branch_remote_tip_keeps_local_work_unintegrated() -> Result<()> {
     let (_tmp, detailed) = detailed_writable(
         "non-empty-branch-remote-tip-integrated",
-        "origin",
         "main",
         "main^",
         |meta| {
@@ -1109,7 +1096,6 @@ f1a3cba add local state=local
 fn commit_state_marks_pushed_unintegrated_commit_local_and_remote() -> Result<()> {
     let (_tmp, detailed) = detailed_writable(
         "remote-advanced-with-empty-top-branch",
-        "origin",
         "main",
         "main",
         |meta| {
