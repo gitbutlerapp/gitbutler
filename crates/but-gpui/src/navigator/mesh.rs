@@ -11,7 +11,7 @@ use gpui::{
 
 use super::{
     ClickOpened, NEST, Navigator, Row, RowStyle, Rows, double_click, found, matches, open_on_click,
-    step, toggle,
+    toggle,
 };
 use crate::app::CopySelection;
 use crate::backend::mesh::{self, BranchStatus};
@@ -19,8 +19,8 @@ use crate::overlays::MenuItem;
 use crate::state::{MeshBranch, MeshPick, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::{
-    Icon, ROW_HEIGHT, Tooltip, commit_title, dot, faint, h_flex, icon, just_now, meta_count,
-    plural, relative_time, section_label, small_icon,
+    Icon, ROW_HEIGHT, Tooltip, commit_title, dot, faint, fold_button, fold_glyph, h_flex, icon,
+    just_now, meta_count, plural, relative_time, section_label, small_icon,
 };
 
 impl Navigator {
@@ -132,7 +132,7 @@ impl Navigator {
             .pl(px(14.))
             .pr(px(12.))
             .gap(px(6.))
-            .child(step(Some(open), theme.text_3))
+            .child(fold_glyph(Some(open), theme.text_3))
             .child(small_icon(Icon::Globe).text_color(theme.text_3))
             .child(section_label("Network worktrees", theme))
             .when(!open, |el| {
@@ -213,7 +213,7 @@ impl Navigator {
                 };
                 (style.row(format!("mesh-branch-{project}-{key}-{name}"), 6.))
                     .aria_label(format!("Branch {name}"))
-                    .child(self.fold_step(
+                    .child(fold_button(
                         ("mesh-branch-fold", ix),
                         (n > 0).then_some(open),
                         quiet,
@@ -279,7 +279,7 @@ impl Navigator {
                 (style.row(format!("mesh-{project}-{key}"), 6.))
                     .aria_label(checkout.label())
                     .aria_expanded(open)
-                    .child(self.fold_step(
+                    .child(fold_button(
                         ("mesh-fold", ix),
                         folds.then_some(open),
                         quiet,

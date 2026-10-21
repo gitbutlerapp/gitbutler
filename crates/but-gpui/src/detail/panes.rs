@@ -5,8 +5,8 @@ use std::ops::Range;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, ElementId, Entity, Focusable as _, Pixels, Point,
-    SharedString, Stateful, UniformListScrollHandle, Window, div, prelude::*, px, uniform_list,
+    AnyElement, App, ClickEvent, Context, Div, Entity, Focusable as _, Pixels, Point, SharedString,
+    Stateful, UniformListScrollHandle, Window, div, prelude::*, px, uniform_list,
 };
 
 use super::Detail;
@@ -21,8 +21,8 @@ use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title,
-    empty_state, faint, field, h_flex, icon, icon_button, list_row, local_time, plural,
-    section_label, shortcut, small_icon, v_flex,
+    empty_state, faint, field, h_flex, icon, icon_button, local_time, plural, section_label,
+    shortcut, small_icon, v_flex,
 };
 
 impl Detail {
@@ -1050,25 +1050,6 @@ pub(super) fn side_list(
     let theme = Theme::get(cx);
     let scroll = Scroll::Div(scroll.0.borrow().base_handle.clone());
     scrolled(list, scrollbar, scroll, theme)
-}
-
-/// A row of a page's side list: its selection solid while the list holds the focus, as the
-/// navigator's and the file list's are.
-pub(super) fn side_row(
-    id: impl Into<ElementId>,
-    selected: bool,
-    solid: bool,
-    theme: &Theme,
-) -> Stateful<Div> {
-    list_row(id, selected, theme).when(selected && solid, |el| {
-        el.bg(theme.fill_gray).text_color(theme.text_inverted)
-    })
-}
-
-/// `el`, a row's secondary text, softened against a solid selection `on` it.
-pub(super) fn quiet(el: gpui::Div, on: bool, theme: &Theme) -> gpui::Div {
-    el.flex_none()
-        .when(on, |el| el.text_color(theme.text_inverted.opacity(0.7)))
 }
 
 /// A group's heading in a side list, sitting on the rows under it.

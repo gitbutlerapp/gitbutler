@@ -11,7 +11,7 @@ use gpui::{
 };
 
 use super::Detail;
-use super::panes::{Crumb, list_empty, quiet, side_list, side_row};
+use super::panes::{Crumb, list_empty, side_list};
 
 use crate::app::{Collapse, Confirm, Expand, SelectNext, SelectPrevious};
 use crate::backend::branches::{self, ApplyOutcome, OtherBranch};
@@ -26,8 +26,8 @@ use crate::ui::illustration::Illustration;
 use crate::ui::person::byline_avatar;
 use crate::ui::text_input::TextInput;
 use crate::ui::{
-    Icon, ROW_HEIGHT, Tooltip, age_column, empty_state, faint, guide, h_flex, icon_button,
-    relative_time, review, section_label, small_icon, v_flex,
+    Icon, ROW_HEIGHT, Tooltip, age_column, empty_state, faint, guide, h_flex, icon_button, quiet,
+    relative_time, review, section_label, side_row, small_icon, v_flex,
 };
 
 pub(super) struct Branches {

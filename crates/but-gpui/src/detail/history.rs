@@ -9,7 +9,7 @@ use gpui::{
 
 use super::Detail;
 use super::panes::{
-    list_empty, list_heading, meta_item, meta_row, page_title, side_list, side_row, title_text,
+    list_empty, list_heading, meta_item, meta_row, page_title, side_list, title_text,
 };
 use crate::app::{SelectNext, SelectPrevious};
 use crate::backend::history::{Change, Operation, Recorded};
@@ -23,7 +23,7 @@ use but_oplog::legacy::OperationKind;
 
 use crate::ui::{
     Icon, Tooltip, clock_time, commit_title, day_label, faint, h_flex, icon, icon_button, list_row,
-    local_day, plural, small_icon, v_flex,
+    local_day, plural, side_row, small_icon, v_flex,
 };
 
 /// How many of an operation's changes its header lists; the rest it counts.

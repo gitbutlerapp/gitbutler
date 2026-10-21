@@ -31,8 +31,9 @@ use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, count_badge, dot,
-    empty_state, faint, field, guide, h_flex, icon, icon_button, just_now, list_row, meta_count,
-    plural, relative_time, resize_handle, review, section_label, shortcut, small_icon, v_flex,
+    empty_state, faint, field, fold_button, fold_glyph, guide, h_flex, icon, icon_button, just_now,
+    list_row, meta_count, plural, relative_time, resize_handle, review, section_label, shortcut,
+    small_icon, v_flex,
 };
 
 mod account;
@@ -233,27 +234,6 @@ fn upstream_chevrons(ref_name: Option<&str>) -> (f32, f32) {
     (heading, 3. + 8. + upstream_indent(ref_name) + 6.)
 }
 
-/// A fold's glyph in a step as wide as a branch's: a chevron, down while `open`, or with
-/// nothing to fold (`None`) a dot at half strength, as ui-react's.
-fn step(open: Option<bool>, color: gpui::Hsla) -> Div {
-    let glyph = match open {
-        None => Icon::BulletDisc,
-        Some(true) => Icon::ChevronDown,
-        Some(false) => Icon::ChevronRight,
-    };
-    div()
-        .flex_none()
-        .w(px(14.))
-        .h(px(16.))
-        .flex()
-        .items_center()
-        .justify_center()
-        .child(small_icon(glyph).text_color(match open {
-            None => color.opacity(0.5),
-            Some(_) => color,
-        }))
-}
-
 /// A branch row's click handler: a plain click opens its commits, as
 /// [`Navigator::open_on_click`] does; one with ⌘ or ⇧, picking commits, doesn't.
 fn open_on_click(
@@ -278,33 +258,6 @@ fn double_click(
             toggle(this, window, cx)
         }
     })
-}
-
-impl Navigator {
-    /// A row's fold, as a branch's: a chevron that folds it without selecting it, down while
-    /// `open`, or a dot when there's nothing to fold (`None`).
-    fn fold_step(
-        &self,
-        id: impl Into<ElementId>,
-        open: Option<bool>,
-        color: gpui::Hsla,
-        cx: &Context<Self>,
-        toggle: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
-    ) -> Stateful<Div> {
-        let theme = Theme::get(cx);
-        let el = div().id(id).child(step(open, color));
-        match open {
-            None => el,
-            Some(_) => el
-                .rounded(px(3.))
-                .hover(|el| el.bg(theme.hover()))
-                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                    cx.stop_propagation();
-                    toggle(this, window, cx)
-                })),
-        }
-    }
 }
 
 impl RowStyle<'_> {
@@ -2289,7 +2242,7 @@ impl Navigator {
             }
         };
         let folds = !branches.is_empty();
-        let step = self.fold_step(
+        let step = fold_button(
             ("worktree-fold", ix),
             folds.then_some(open),
             style.quiet(),
@@ -2466,7 +2419,7 @@ impl Navigator {
                 this.toggle_stack(&project, &bottom, open, window, cx)
             }
         };
-        let step = self.fold_step(
+        let step = fold_button(
             ("stack-fold", ix),
             Some(open),
             style.quiet(),
@@ -2610,7 +2563,7 @@ impl Navigator {
             }
         };
         let folds = !branch.commits.is_empty();
-        let step = self.fold_step(
+        let step = fold_button(
             ElementId::Name(format!("fold-{id}-{ref_name}").into()),
             folds.then_some(open),
             style.quiet(),
@@ -2913,7 +2866,7 @@ impl Navigator {
             .pl(px(14.))
             .pr(px(12.))
             .gap(px(6.))
-            .child(step(Some(open), theme.text_3))
+            .child(fold_glyph(Some(open), theme.text_3))
             .child(small_icon(Icon::Clock).text_color(theme.text_3))
             .child(section_label("Inactive worktrees", theme))
             .when(!open, |el| el.child(faint(n.to_string(), theme)))
@@ -3029,7 +2982,7 @@ impl Navigator {
             .gap(px(6.))
             .rounded(px(4.))
             .hover(move |el| el.bg(hover))
-            .child(step(Some(open), theme.text_3))
+            .child(fold_glyph(Some(open), theme.text_3))
             .when(ref_name.is_none(), |el| {
                 el.child(small_icon(Icon::ArrowLineDown).text_color(theme.text_3))
             })

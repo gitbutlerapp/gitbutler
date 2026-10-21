@@ -15,9 +15,9 @@ pub mod text_input;
 use std::borrow::Cow;
 
 use gpui::{
-    Action, AnyElement, App, AssetSource, ClickEvent, CursorStyle, Div, DragMoveEvent, ElementId,
-    EmptyView, Entity, Hsla, Pixels, Point, Role, SharedString, Stateful, Svg, Toggled, Window,
-    div, prelude::*, px, svg,
+    Action, AnyElement, App, AssetSource, ClickEvent, Context, CursorStyle, Div, DragMoveEvent,
+    ElementId, EmptyView, Entity, Hsla, MouseButton, Pixels, Point, Role, SharedString, Stateful,
+    Svg, Toggled, Window, div, prelude::*, px, svg,
 };
 
 use crate::state::{Pane, Store};
@@ -308,6 +308,69 @@ pub fn guide(at: f32, theme: &Theme) -> Div {
         .left(px(at))
         .w(px(1.))
         .bg(theme.text_2.opacity(0.2))
+}
+
+/// A fold's glyph in a step as wide as a branch's chevron: a chevron, down while `open`, or
+/// with nothing to fold (`None`) a dot at half strength, as ui-react's.
+pub fn fold_glyph(open: Option<bool>, color: Hsla) -> Div {
+    let glyph = match open {
+        None => Icon::BulletDisc,
+        Some(true) => Icon::ChevronDown,
+        Some(false) => Icon::ChevronRight,
+    };
+    div()
+        .flex_none()
+        .w(px(14.))
+        .h(px(16.))
+        .flex()
+        .items_center()
+        .justify_center()
+        .child(small_icon(glyph).text_color(match open {
+            None => color.opacity(0.5),
+            Some(_) => color,
+        }))
+}
+
+/// A row's fold: [`fold_glyph`] that runs `toggle` on a click without selecting the row,
+/// or just the dot when there's nothing to fold (`None`).
+pub fn fold_button<V: 'static>(
+    id: impl Into<ElementId>,
+    open: Option<bool>,
+    color: Hsla,
+    cx: &Context<V>,
+    toggle: impl Fn(&mut V, &mut Window, &mut Context<V>) + 'static,
+) -> Stateful<Div> {
+    let el = div().id(id).child(fold_glyph(open, color));
+    match open {
+        None => el,
+        Some(_) => el
+            .rounded(px(3.))
+            .hover(|el| el.bg(Theme::get(cx).hover()))
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                cx.stop_propagation();
+                toggle(this, window, cx)
+            })),
+    }
+}
+
+/// A row of a side list: its selection solid while the list holds the focus, as the
+/// navigator's and the file list's are.
+pub fn side_row(
+    id: impl Into<ElementId>,
+    selected: bool,
+    solid: bool,
+    theme: &Theme,
+) -> Stateful<Div> {
+    list_row(id, selected, theme).when(selected && solid, |el| {
+        el.bg(theme.fill_gray).text_color(theme.text_inverted)
+    })
+}
+
+/// `el`, a row's secondary text, softened against a solid selection `on` it.
+pub fn quiet(el: Div, on: bool, theme: &Theme) -> Div {
+    el.flex_none()
+        .when(on, |el| el.text_color(theme.text_inverted.opacity(0.7)))
 }
 
 /// A row of a list or menu, shaded when `selected` and otherwise under the pointer.

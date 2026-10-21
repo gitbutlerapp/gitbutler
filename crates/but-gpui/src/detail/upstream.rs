@@ -9,9 +9,7 @@ use std::time::{Duration, Instant};
 use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
 
 use super::Detail;
-use super::panes::{
-    Crumb, list_heading, meta_item, meta_row, quiet, side_header, side_list, side_row, title_text,
-};
+use super::panes::{Crumb, list_heading, meta_item, meta_row, side_header, side_list, title_text};
 use super::pull_request::tab;
 use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, TargetCommit};
@@ -27,7 +25,7 @@ use crate::ui::person::{author_avatar, byline_avatar, byline_text};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, age_column, button, error_summary, faint, guide, h_flex, icon,
-    list_row, muted, plural, section_label, shortcut, small_icon, v_flex,
+    list_row, muted, plural, quiet, section_label, shortcut, side_row, small_icon, v_flex,
 };
 
 /// Where the middle of a merge's chevron sits in its row: the row's padding and half the
