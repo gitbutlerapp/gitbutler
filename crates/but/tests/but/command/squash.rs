@@ -1393,7 +1393,7 @@ Error: --target cannot be an empty branch
 "#]]);
 
     // middle and bottom are stil empty even if they're stacked
-    env.but("branch new middle -a bottom").assert().success();
+    env.but("branch new middle -A bottom").assert().success();
     env.but("squash file -t middle -u")
         .assert()
         .failure()
@@ -3123,7 +3123,7 @@ fn squashing_into_branch_that_sits_below_empty_branch() {
 
     env.file("file", "content");
 
-    env.but("branch new -a A").assert().success();
+    env.but("branch new -A A").assert().success();
 
     env.but("status -f")
         .assert()

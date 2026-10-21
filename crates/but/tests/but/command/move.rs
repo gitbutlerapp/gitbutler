@@ -3879,7 +3879,7 @@ fn unstack_empty_branch() {
     env.setup_metadata(&[]);
 
     env.but("branch new bottom").assert().success();
-    env.but("branch new -a bottom top").assert().success();
+    env.but("branch new -A bottom top").assert().success();
 
     env.but("status")
         .assert()

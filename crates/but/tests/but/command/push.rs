@@ -335,7 +335,7 @@ fn push_refuses_conflicted_commits_on_ancestors() {
     let env = sandbox_with_conflicted_commit();
 
     // Stack a clean branch on top of the conflicted one.
-    env.but("branch new B --anchor A").assert().success();
+    env.but("branch new B --above A").assert().success();
     env.file("on-top.txt", "content\n");
     env.but("commit -b B -m 'work on top'").assert().success();
 

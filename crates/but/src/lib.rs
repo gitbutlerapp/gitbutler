@@ -515,6 +515,7 @@ fn print_err_infallible<T: std::fmt::Display>(err: T) {
     let _ = write!(std::io::stderr(), "{err}");
 }
 
+#[expect(dead_code, reason = "Retained for future CLI deprecations")]
 fn print_deprecation_warning(message: impl AsRef<str>) {
     use std::io::Write;
     let t = theme::get();

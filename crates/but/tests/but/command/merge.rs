@@ -528,7 +528,7 @@ fn merge_refuses_non_bottom_stack_segment() {
     env.but("commit -b bottom-seg -m 'bottom commit'")
         .assert()
         .success();
-    env.but("branch new top-seg --anchor bottom-seg")
+    env.but("branch new top-seg --above bottom-seg")
         .assert()
         .success();
     env.file("top.txt", "top");
@@ -578,7 +578,7 @@ fn merge_whole_stack_lands_top_segment() {
     env.but("commit -b bottom-seg -m 'bottom commit'")
         .assert()
         .success();
-    env.but("branch new top-seg --anchor bottom-seg")
+    env.but("branch new top-seg --above bottom-seg")
         .assert()
         .success();
     env.file("top.txt", "top");
@@ -628,7 +628,7 @@ fn merge_whole_stack_refuses_conflicted_lower_segment() {
     let env = super::util::sandbox_with_conflicted_commit();
 
     // Stack a clean segment on top of branch A, which carries the conflicted commit.
-    env.but("branch new top-seg --anchor A").assert().success();
+    env.but("branch new top-seg --above A").assert().success();
     env.file("top.txt", "top");
     env.but("commit -b top-seg -m 'clean top commit'")
         .assert()
@@ -665,7 +665,7 @@ fn merge_whole_stack_refuses_non_top_segment() {
     env.but("commit -b bottom-seg -m 'bottom commit'")
         .assert()
         .success();
-    env.but("branch new top-seg --anchor bottom-seg")
+    env.but("branch new top-seg --above bottom-seg")
         .assert()
         .success();
     env.file("top.txt", "top");

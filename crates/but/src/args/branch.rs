@@ -171,16 +171,6 @@ pub struct NewPlatform {
     )]
     pub above: Option<CliIdArg>,
 
-    /// Deprecated flag that will be removed in a future release. Use `--above` instead.
-    #[clap(
-        short,
-        long,
-        value_name = "BRANCH_OR_COMMIT",
-        group = "targeting",
-        hide = true
-    )]
-    pub anchor: Option<CliIdArg>,
-
     /// Place the branch below `BRANCH_OR_COMMIT`, which must be an applied branch or commit.
     ///
     /// If `BRANCH_OR_COMMIT` is a commit, the new branch is created below the commit.

@@ -368,7 +368,7 @@ fn can_undo_but_branch_in_stack() {
 
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but("branch")
-            .args(["new", "bar", "-a", "foo"])
+            .args(["new", "bar", "-A", "foo"])
             .assert()
             .success();
     });
@@ -465,7 +465,7 @@ fn can_undo_but_branch_delete_in_stack() {
 
     env.but("branch").args(["new", "foo"]).assert().success();
     env.but("branch")
-        .args(["new", "bar", "-a", "foo"])
+        .args(["new", "bar", "-A", "foo"])
         .assert()
         .success();
 

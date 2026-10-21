@@ -1092,10 +1092,10 @@ Hint: run `but branch new` to create a new branch to work on
 "#]]);
 
     env.but("branch new bottom").assert().success();
-    env.but("branch new middle --anchor bottom")
+    env.but("branch new middle --above bottom")
         .assert()
         .success();
-    env.but("branch new top -a middle").assert().success();
+    env.but("branch new top -A middle").assert().success();
 
     env.but("status").assert().success().stdout_eq(str![[r#"
 ╭┄ @ [uncommitted] (no changes)
