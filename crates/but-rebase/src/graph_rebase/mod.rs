@@ -400,47 +400,57 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         })
     }
 
-    fn landing(&self, id: gix::ObjectId) -> Result<gix::ObjectId> {
-        let commit = but_core::Commit::from_id(id.attach(&self.repo))?;
-        if !commit.is_conflicted() {
-            return Ok(id);
-        }
-        padding::create(&commit).context(but_error::Code::ConflictedCommitCheckout)
+    fn padded_checkouts(&self) -> Result<Vec<PaddedCheckout<'_>>> {
+        self.checkouts
+            .iter()
+            .map(|checkout| {
+                let (Checkout::Head { selector, .. } | Checkout::Worktree { selector, .. }) =
+                    checkout;
+                let tip = self
+                    .checkout_target(*selector)?
+                    .map(|(commit, ref_name)| {
+                        let conflicted = but_core::Commit::from_id(commit.attach(&self.repo))?;
+                        let padding = conflicted
+                            .is_conflicted()
+                            .then(|| padding::create(&conflicted))
+                            .transpose()
+                            .context(but_error::Code::ConflictedCommitCheckout)?;
+                        anyhow::Ok(PaddedTip {
+                            commit,
+                            padding,
+                            ref_name,
+                        })
+                    })
+                    .transpose()?;
+                Ok(PaddedCheckout { checkout, tip })
+            })
+            .collect()
     }
 
-    fn landed_checkout_target(
-        &self,
-        selector: Selector,
-    ) -> Result<Option<(gix::ObjectId, Option<gix::refs::FullName>)>> {
-        self.checkout_target(selector)?
-            .map(|(id, ref_name)| Ok((self.landing(id)?, ref_name)))
-            .transpose()
-    }
-
-    fn landed_ref_edits(&self) -> Result<Vec<RefEdit>> {
+    fn padded_ref_edits(&self, checkouts: &[PaddedCheckout<'_>]) -> Result<Vec<RefEdit>> {
         let mut edits = self.ref_edits.clone();
-        for checkout in &self.checkouts {
-            let (Checkout::Head { selector, .. } | Checkout::Worktree { selector, .. }) = checkout;
-            let Some((id, Some(ref_name))) = self.checkout_target(*selector)? else {
-                continue;
-            };
-            let landing = self.landing(id)?;
-            if landing == id {
-                continue;
-            }
-            match edits.iter_mut().find(|edit| edit.name == ref_name) {
+        let padded_refs = checkouts.iter().filter_map(|checkout| match &checkout.tip {
+            Some(PaddedTip {
+                commit,
+                padding: Some(padding),
+                ref_name: Some(ref_name),
+            }) => Some((*commit, *padding, ref_name)),
+            _ => None,
+        });
+        for (commit, padding, ref_name) in padded_refs {
+            match edits.iter_mut().find(|edit| &edit.name == ref_name) {
                 Some(RefEdit {
                     change: Change::Update { new, .. },
                     ..
-                }) => *new = Target::Object(landing),
+                }) => *new = Target::Object(padding),
                 Some(RefEdit {
                     change: Change::Delete { .. },
                     ..
                 }) => bail!("BUG: the checked out reference {ref_name} is deleted"),
                 None => edits.push(RefEdit::update(
-                    ref_name,
-                    landing,
-                    PreviousValue::MustExistAndMatch(Target::Object(id)),
+                    ref_name.clone(),
+                    padding,
+                    PreviousValue::MustExistAndMatch(Target::Object(commit)),
                     "",
                 )),
             }
@@ -459,15 +469,27 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     }
 
     fn worktree_tips_after_rebase(&self) -> Result<Vec<but_graph::init::WorktreeTip>> {
-        Ok(self
-            .linked_checkout_specs()?
-            .into_iter()
-            .map(|spec| but_graph::init::WorktreeTip {
-                name: spec.name,
-                ref_name: spec.ref_name,
-                id: spec.target,
+        self.checkouts
+            .iter()
+            .filter_map(|checkout| match checkout {
+                Checkout::Worktree {
+                    worktree_name,
+                    selector,
+                    ..
+                } => Some((worktree_name, selector)),
+                Checkout::Head { .. } => None,
             })
-            .collect())
+            .map(|(worktree_name, selector)| {
+                let (id, ref_name) = self.checkout_target(*selector)?.with_context(|| {
+                    format!("Visible worktree {worktree_name} HEAD was removed")
+                })?;
+                Ok(but_graph::init::WorktreeTip {
+                    name: worktree_name.clone(),
+                    ref_name,
+                    id,
+                })
+            })
+            .collect()
     }
 
     /// Return the commit targeted by `ref_name` in the post-rebase step graph.
@@ -596,40 +618,48 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
     ///
     /// Materialization will be a no-op
     pub fn references_updated(&self) -> Result<bool> {
-        if !self.landed_ref_edits()?.is_empty() {
-            return Ok(true);
-        }
+        let checkouts = self.padded_checkouts()?;
+        let ref_edits = self.padded_ref_edits(&checkouts)?;
+        Ok(self.updates_references(&checkouts, &ref_edits))
+    }
 
-        for co in &self.checkouts {
-            match co {
-                Checkout::Head { selector, .. } => {
-                    let target = self.landed_checkout_target(*selector)?;
-                    let head = self
-                        .repo()
-                        .head_id()
-                        .ok()
-                        .map(|id| (id.detach(), self.repo().head_name().ok().flatten()));
-
-                    if target != head {
-                        return Ok(true);
+    fn updates_references(&self, checkouts: &[PaddedCheckout<'_>], ref_edits: &[RefEdit]) -> bool {
+        !ref_edits.is_empty()
+            || checkouts.iter().any(|PaddedCheckout { checkout, tip }| {
+                let target = tip.as_ref().map(|tip| (tip.target(), tip.ref_name.clone()));
+                match checkout {
+                    Checkout::Head { .. } => {
+                        let head = self
+                            .repo()
+                            .head_id()
+                            .ok()
+                            .map(|id| (id.detach(), self.repo().head_name().ok().flatten()));
+                        target != head
                     }
+                    Checkout::Worktree {
+                        ref_name,
+                        initial_head,
+                        ..
+                    } => target != Some((*initial_head, ref_name.clone())),
                 }
-                Checkout::Worktree {
-                    selector,
-                    ref_name,
-                    initial_head,
-                    ..
-                } => {
-                    if self.landed_checkout_target(*selector)?
-                        != Some((*initial_head, ref_name.clone()))
-                    {
-                        return Ok(true);
-                    }
-                }
-            }
-        }
+            })
+    }
+}
 
-        Ok(false)
+struct PaddedCheckout<'a> {
+    checkout: &'a Checkout,
+    tip: Option<PaddedTip>,
+}
+
+struct PaddedTip {
+    commit: gix::ObjectId,
+    padding: Option<gix::ObjectId>,
+    ref_name: Option<gix::refs::FullName>,
+}
+
+impl PaddedTip {
+    fn target(&self) -> gix::ObjectId {
+        self.padding.unwrap_or(self.commit)
     }
 }
 

@@ -12,15 +12,15 @@ use gix::{
     },
 };
 
-use crate::graph_rebase::{Checkout, MaterializeOutcome, SuccessfulRebase};
+use crate::graph_rebase::{Checkout, MaterializeOutcome, PaddedCheckout, SuccessfulRebase};
 
-pub(super) struct LinkedCheckoutSpec {
-    pub(super) name: BString,
-    pub(super) initial_head: gix::ObjectId,
-    pub(super) initial_ref_name: Option<gix::refs::FullName>,
-    pub(super) ref_name: Option<gix::refs::FullName>,
-    pub(super) target: gix::ObjectId,
-    pub(super) merge_base_override: Option<gix::ObjectId>,
+struct LinkedCheckoutSpec {
+    name: BString,
+    initial_head: gix::ObjectId,
+    initial_ref_name: Option<gix::refs::FullName>,
+    ref_name: Option<gix::refs::FullName>,
+    target: gix::ObjectId,
+    merge_base_override: Option<gix::ObjectId>,
 }
 
 struct HeadCheckout {
@@ -158,59 +158,70 @@ pub struct MaterializeOptions {
     pub without_checkout: bool,
 }
 
-impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
-    /// The linked worktrees this edit has to move, with where the rewrite put each one.
-    pub(super) fn linked_checkout_specs(&self) -> Result<Vec<LinkedCheckoutSpec>> {
-        let mut specs = Vec::new();
-        for checkout in &self.checkouts {
-            let Checkout::Worktree {
+/// The linked worktrees this edit has to move, with where the rewrite put each one.
+fn linked_checkout_specs(checkouts: &[PaddedCheckout<'_>]) -> Result<Vec<LinkedCheckoutSpec>> {
+    checkouts
+        .iter()
+        .filter_map(|PaddedCheckout { checkout, tip }| match checkout {
+            Checkout::Worktree {
                 worktree_name,
-                selector,
-                ref_name: initial_ref_name,
+                ref_name,
                 initial_head,
                 merge_base_override,
-            } = checkout
-            else {
-                continue;
-            };
-            let (target, ref_name) = self
-                .checkout_target(*selector)?
-                .with_context(|| format!("Visible worktree {worktree_name} HEAD was removed"))?;
-            specs.push(LinkedCheckoutSpec {
-                name: worktree_name.clone(),
-                initial_head: *initial_head,
-                initial_ref_name: initial_ref_name.clone(),
+                ..
+            } => Some((
+                worktree_name,
                 ref_name,
-                target,
-                merge_base_override: *merge_base_override,
-            });
-        }
-        Ok(specs)
-    }
+                initial_head,
+                merge_base_override,
+                tip,
+            )),
+            Checkout::Head { .. } => None,
+        })
+        .map(
+            |(worktree_name, initial_ref_name, initial_head, merge_base_override, tip)| {
+                let tip = tip.as_ref().with_context(|| {
+                    format!("Visible worktree {worktree_name} HEAD was removed")
+                })?;
+                Ok(LinkedCheckoutSpec {
+                    name: worktree_name.clone(),
+                    initial_head: *initial_head,
+                    initial_ref_name: initial_ref_name.clone(),
+                    ref_name: tip.ref_name.clone(),
+                    target: tip.target(),
+                    merge_base_override: *merge_base_override,
+                })
+            },
+        )
+        .collect()
+}
 
-    /// The editor's own `HEAD` checkout, if it recorded one.
-    fn head_checkout(&self) -> Result<Option<HeadCheckout>> {
-        let Some((selector, merge_base_override)) =
-            self.checkouts.iter().find_map(|checkout| match checkout {
+/// The editor's own `HEAD` checkout, if it recorded one.
+fn head_checkout(checkouts: &[PaddedCheckout<'_>]) -> Result<Option<HeadCheckout>> {
+    let Some((merge_base_override, tip)) =
+        checkouts
+            .iter()
+            .find_map(|PaddedCheckout { checkout, tip }| match checkout {
                 Checkout::Head {
-                    selector,
                     merge_base_override,
-                } => Some((*selector, *merge_base_override)),
+                    ..
+                } => Some((*merge_base_override, tip)),
                 Checkout::Worktree { .. } => None,
             })
-        else {
-            return Ok(None);
-        };
-        let (target, ref_name) = self
-            .landed_checkout_target(selector)?
-            .context("Checkout selector is pointing to none")?;
-        Ok(Some(HeadCheckout {
-            target,
-            ref_name,
-            merge_base_override,
-        }))
-    }
+    else {
+        return Ok(None);
+    };
+    let tip = tip
+        .as_ref()
+        .context("Checkout selector is pointing to none")?;
+    Ok(Some(HeadCheckout {
+        target: tip.target(),
+        ref_name: tip.ref_name.clone(),
+        merge_base_override,
+    }))
+}
 
+impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     fn refresh_workspace(&mut self, repo: &gix::Repository) -> Result<()> {
         let project_meta = self.workspace.graph.project_meta.clone();
         self.workspace
@@ -224,7 +235,9 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
     ) -> Result<MaterializeOutcome<'ws, 'graph, M>> {
         let branch_stacks = self.branch_stacks()?;
         let repo = self.repo.clone();
-        if !self.references_updated()? {
+        let checkouts = self.padded_checkouts()?;
+        let mut ref_edits = self.padded_ref_edits(&checkouts)?;
+        if !self.updates_references(&checkouts, &ref_edits) {
             if branch_stacks.persist(self.meta)? {
                 self.refresh_workspace(&repo)?;
             }
@@ -238,21 +251,11 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             });
         }
 
-        let mut ref_edits = self.landed_ref_edits()?;
-        let specs = self
-            .linked_checkout_specs()?
-            .into_iter()
-            .map(|spec| {
-                Ok(LinkedCheckoutSpec {
-                    target: self.landing(spec.target)?,
-                    ..spec
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
+        let specs = linked_checkout_specs(&checkouts)?;
         let head = if materialize_options.without_checkout {
             None
         } else {
-            self.head_checkout()?
+            head_checkout(&checkouts)?
         };
 
         if let Some(memory) = self.repo.objects.take_object_memory() {
