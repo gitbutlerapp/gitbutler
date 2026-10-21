@@ -125,8 +125,14 @@ impl Detail {
         // Dragging on over the same line picks nothing new.
         if self.line_picks.as_ref().map(|picks| &picks.lines) != before.as_ref() {
             self.place_cursor(cursor);
+            self.refresh_grip();
             cx.notify();
         }
+    }
+
+    /// Work out again what the grip under the pointer takes, as the picks or the lines changed.
+    pub(super) fn refresh_grip(&mut self) {
+        self.grip_over = (self.grip_over.take()).map(|(at, _)| (at, self.grip_takes(at)));
     }
 
     /// How many lines are picked.
@@ -172,6 +178,7 @@ impl Detail {
     pub fn clear_line_picks(&mut self, cx: &mut Context<Self>) -> bool {
         let had = self.line_picks.take().is_some();
         if had {
+            self.refresh_grip();
             cx.notify();
         }
         had

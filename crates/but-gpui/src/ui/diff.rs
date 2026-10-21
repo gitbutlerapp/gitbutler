@@ -148,7 +148,7 @@ pub fn rows(
     hidden_line: impl Fn(&FileDiff, &Hunk, &DiffLine) -> bool,
     whole: impl Fn(&FileDiff) -> Option<u32>,
     split: bool,
-    view: impl Fn(&Conflict) -> conflict::View,
+    view: impl Fn(&FileDiff, &Conflict) -> conflict::View,
 ) -> Vec<DiffRow> {
     let mut rows = Vec::new();
     for (file_ix, file) in files.iter().enumerate() {
@@ -183,7 +183,8 @@ pub fn rows(
                                 context_rows(rows, file_ix, *next..found.at, ahead);
                                 *next = found.at + found.new_base.len() as u32;
                             }
-                            conflict::rows(rows, file_ix, found, view(found), total.is_none());
+                            let view = view(file, found);
+                            conflict::rows(rows, file_ix, found, view, total.is_none());
                         }
                     };
                 for (hunk_ix, hunk) in hunks.iter().enumerate() {
@@ -317,6 +318,11 @@ pub fn split_path(path: &str) -> (&str, &str) {
         Some((dir, name)) => (name, dir),
         None => (path, ""),
     }
+}
+
+/// The lines `files` add and remove, all together.
+pub fn total_stats<'a>(files: impl IntoIterator<Item = &'a FileDiff>) -> (u32, u32) {
+    (files.into_iter().map(FileDiff::stats)).fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr))
 }
 
 pub fn stats(added: u32, removed: u32, theme: &Theme) -> gpui::Div {
@@ -635,15 +641,15 @@ pub fn hunk_header(hunk: &Hunk, unmodified: u32, theme: &Theme, decor: HeaderDec
         .into_any_element()
 }
 
-/// What a conflicted file says before its actions, as ui-react's danger `Badge`.
+/// What a conflicted file says before its actions, as ui-react's warn `Badge`.
 fn conflicted_badge(theme: &Theme) -> gpui::Div {
     div()
         .flex_none()
         .px(px(6.))
         .py(px(1.))
         .rounded(px(9.))
-        .bg(theme.danger.opacity(0.12))
-        .text_color(theme.danger)
+        .bg(theme.warn.opacity(0.12))
+        .text_color(theme.warn)
         .text_size(px(11.))
         .child("Conflicted")
 }
@@ -765,7 +771,8 @@ pub(super) fn number_cell(
         })
         .when_some(gutter, |el, Gutter { pick, grip, .. }| {
             let drag = pick.clone();
-            el.cursor(CursorStyle::PointingHand)
+            // The arrow over the line's I-beam, as over any control.
+            el.cursor(CursorStyle::Arrow)
                 .on_mouse_down(MouseButton::Left, move |event, window, cx| {
                     cx.stop_propagation();
                     pick(event.modifiers, false, window, cx)
@@ -802,13 +809,11 @@ pub(super) fn number_cell(
             )
         })
         .when_some(toggle, |el, toggle| {
-            el.cursor(CursorStyle::PointingHand).on_mouse_down(
-                MouseButton::Left,
-                move |_, window, cx| {
+            el.cursor(CursorStyle::Arrow)
+                .on_mouse_down(MouseButton::Left, move |_, window, cx| {
                     cx.stop_propagation();
                     toggle(window, cx)
-                },
-            )
+                })
         })
         .child(n.map(|n| n.to_string()).unwrap_or_default())
 }

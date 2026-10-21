@@ -17,8 +17,8 @@ use super::file_list::At;
 use super::find::Spot;
 use super::lines::Pick;
 use super::{
-    Cursor, Detail, DiscardHunk, FILES_POPOVER_DELAY, LoadedDiff, TextPoint, ToggleFiles,
-    TogglePlainLines, ToggleSplit, ToggleWrap,
+    Cursor, Detail, DiscardHunk, FILES_POPOVER_DELAY, FileLines, LoadedDiff, TextPoint,
+    ToggleFiles, TogglePlainLines, ToggleSplit, ToggleWrap,
 };
 use crate::app::AppView;
 use crate::backend::{
@@ -32,8 +32,8 @@ use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, button, checkbox, empty_state, h_flex, icon, icon_button,
-    icon_toggle, segmented, shortcut, small_icon, toggle_group, v_flex,
+    ButtonStyle, Icon, Tooltip, button, checkbox, count_badge, empty_state, h_flex, icon,
+    icon_button, icon_toggle, segmented, shortcut, small_icon, toggle_group, v_flex,
 };
 
 /// The diff, drawn by a view of its own over the space [`Detail`] leaves for it. A scrolled
@@ -98,7 +98,7 @@ impl Render for DiffPane {
                 (top.item_ix, top.offset_in_item),
                 detail.focus.clone(),
                 detail.render_diff_tools(&theme, cx),
-                detail.render_diff(&theme, cx),
+                detail.render_diff(window, &theme, cx),
                 detail.render_find(window, &theme, cx),
             )
         });
@@ -134,6 +134,15 @@ impl Render for DiffPane {
 }
 
 impl Detail {
+    /// `file`'s lines, while it's shown whole and they were read for its patch as it is now.
+    /// Until they're read again after an edit, the file shows only its hunks.
+    pub(super) fn whole_lines(&self, file: &FileDiff) -> Option<&FileLines> {
+        match self.whole.get(&file.file.path) {
+            Some(Some(lines)) if lines.0 == file.fingerprint => Some(lines),
+            _ => None,
+        }
+    }
+
     /// The diff line at `row`, if that row is one.
     fn line_at(&self, row: usize) -> Option<&DiffLine> {
         self.line_of(*self.diff.as_ref()?.rows.get(row)?)
@@ -150,9 +159,9 @@ impl Detail {
             // scope a hunk shows around it.
             DiffRow::Context { file, new, .. } => {
                 let file = diff.files.get(file)?;
-                match self.whole.get(&file.file.path) {
-                    Some(Some((_, lines, _))) => lines.get((new as usize).checked_sub(1)?),
-                    _ => (file.hunks().iter())
+                match self.whole_lines(file) {
+                    Some((_, lines, _)) => lines.get((new as usize).checked_sub(1)?),
+                    None => (file.hunks().iter())
                         .flat_map(|hunk| hunk.lead.iter().chain(&hunk.tail))
                         .find(|line| line.new == Some(new)),
                 }
@@ -190,12 +199,12 @@ impl Detail {
                 .saturating_sub(1)
                 + hunk.tail.len() as u32
         });
-        let (length, whole_columns) = match self.whole.get(&file.file.path) {
-            Some(Some((_, lines, columns))) => {
+        let (length, whole_columns) = match self.whole_lines(file) {
+            Some((_, lines, columns)) => {
                 let new = lines.len() as u32;
                 (new.max((new + removed).saturating_sub(*added)), *columns)
             }
-            _ => (0, 0),
+            None => (0, 0),
         };
         layout.digits = last.max(length).to_string().len();
         let columns = widest.map(|side| side.max(whole_columns));
@@ -287,16 +296,17 @@ impl Detail {
             },
         };
         self.selecting = true;
-        if let Some(DiffRow::Line { file, hunk, .. }) = self
-            .diff
-            .as_ref()
-            .and_then(|diff| diff.rows.get(row))
-            .copied()
-        {
-            self.place_cursor(Cursor {
+        // The keys then act on what was pressed: its hunk, or an unchanged line's file.
+        let cursor = match (self.diff.as_ref()).and_then(|diff| diff.rows.get(row)) {
+            Some(&DiffRow::Line { file, hunk, .. }) => Some(Cursor {
                 file,
                 hunk: Some(hunk),
-            });
+            }),
+            Some(&DiffRow::Context { file, .. }) => Some(Cursor { file, hunk: None }),
+            _ => None,
+        };
+        if let Some(cursor) = cursor {
+            self.place_cursor(cursor);
         }
         window.focus(&self.focus, cx);
         cx.notify();
@@ -319,7 +329,7 @@ impl Detail {
         had
     }
 
-    fn render_diff(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+    fn render_diff(&self, window: &Window, theme: &Theme, cx: &Context<Self>) -> AnyElement {
         let ground = || div().flex_1().min_w(px(0.)).h_full().bg(theme.bg_1);
         if let Some(err) = &self.diff_error {
             let message = empty_state(
@@ -398,7 +408,7 @@ impl Detail {
                         // rounded corners.
                         .bg(theme.bg_1)
                         .block_mouse_except_scroll()
-                        .child(self.render_diff_row(ix, entity.clone(), cx)),
+                        .child(self.render_diff_row(ix, entity.clone(), window, cx)),
                 )
         });
         let scrollbar = scrollbar("diff-scrollbar", Scroll::List(self.list.clone()), theme);
@@ -420,11 +430,11 @@ impl Detail {
                     .relative()
                     .size_full()
                     .child(
-                        list(self.list.clone(), move |ix, _window, cx| {
+                        list(self.list.clone(), move |ix, window, cx| {
                             let Some(detail) = entity.upgrade() else {
                                 return div().into_any_element();
                             };
-                            (detail.read(cx)).render_diff_row(ix, detail.downgrade(), cx)
+                            (detail.read(cx)).render_diff_row(ix, detail.downgrade(), window, cx)
                         })
                         .size_full(),
                     )
@@ -464,29 +474,25 @@ impl Detail {
             return "No changes".into();
         };
         let workspace = store.workspace(selection.project());
+        let integrated = match selection {
+            Selection::Commit(..) => return "This commit changes no files".into(),
+            // A stack's branches all, as it has no branch of its own.
+            Selection::Stack(_, bottom) => (workspace.and_then(|ws| ws.lane(bottom)))
+                .is_some_and(|lane| lane.iter().all(|b| b.push == PushState::Integrated)),
+            Selection::Branch(..) => {
+                (store.branch_for(selection)).is_some_and(|b| b.push == PushState::Integrated)
+            }
+            _ => return "No changes".into(),
+        };
         let target =
             (workspace.and_then(|ws| ws.target.as_ref())).map_or("the target", |t| t.name.as_str());
-        match selection {
-            Selection::Commit(..) => "This commit changes no files".into(),
-            Selection::Branch(..) | Selection::Stack(..)
-                if match selection {
-                    // A stack's branches all, as it has no branch of its own.
-                    Selection::Stack(_, bottom) => (workspace.and_then(|ws| ws.lane(bottom)))
-                        .is_some_and(|lane| lane.iter().all(|b| b.push == PushState::Integrated)),
-                    _ => (store.branch_for(selection))
-                        .is_some_and(|b| b.push == PushState::Integrated),
-                } =>
-            {
-                format!(
-                    "{target} already has these commits, so the branch changes nothing against it"
-                )
-                .into()
-            }
-            Selection::Branch(..) | Selection::Stack(..) => {
-                format!("Nothing changed against {target}").into()
-            }
-            _ => "No changes".into(),
+        match integrated {
+            true => format!(
+                "{target} already has these commits, so the branch changes nothing against it"
+            ),
+            false => format!("Nothing changed against {target}"),
         }
+        .into()
     }
 
     /// The button came up: what a press began ends. A grip held without being dragged lets
@@ -525,8 +531,7 @@ impl Detail {
     fn render_diff_tools(&self, theme: &Theme, cx: &Context<Self>) -> Option<AnyElement> {
         let diff = self.shown_diff()?;
         let prefs = &self.store.read(cx).prefs;
-        let (added, removed) = (diff.files.iter().map(FileDiff::stats))
-            .fold((0, 0), |(a, r), (added, removed)| (a + added, r + removed));
+        let (added, removed) = diff::total_stats(diff.files.iter());
         // To the detail's own handlers, wherever focus is.
         let act = |action: &'static dyn Action| {
             let focus = self.focus.clone();
@@ -553,16 +558,8 @@ impl Detail {
             .hover(|el| el.bg(theme.hover()))
             .child(icon(glyph).text_color(theme.text_2))
             .when(hidden, |el| {
-                el.child(
-                    div()
-                        .px(px(6.))
-                        .rounded_full()
-                        .bg(theme.fill_gray.opacity(0.1))
-                        .text_size(px(11.))
-                        .text_color(theme.text_2)
-                        .child(diff.files.len().to_string()),
-                )
-                .child(diff::stats(added, removed, theme))
+                el.child(count_badge(diff.files.len(), theme))
+                    .child(diff::stats(added, removed, theme))
             })
             .on_hover(
                 cx.listener(|this, hovered: &bool, _, cx| this.hover_files_button(*hovered, cx)),
@@ -682,7 +679,13 @@ impl Detail {
         Some((header, lift))
     }
 
-    fn render_diff_row(&self, ix: usize, entity: WeakEntity<Detail>, cx: &App) -> AnyElement {
+    fn render_diff_row(
+        &self,
+        ix: usize,
+        entity: WeakEntity<Detail>,
+        window: &Window,
+        cx: &App,
+    ) -> AnyElement {
         let theme = Theme::get(cx);
         let Some(diff) = self.diff.as_ref().filter(|diff| ix < diff.rows.len()) else {
             return div().into_any_element();
@@ -690,16 +693,15 @@ impl Detail {
         let row = diff.rows[ix];
         // A folded file's header ends its card too.
         let last = diff::ends_card(&diff.rows, ix);
-        let worktree = self.worktree_diff().is_some();
         let store = self.store.read(cx);
         // Every file has its path to copy, even where nothing can change it.
         let menu =
             |menu: Option<Cut>, file: usize, line: Option<u32>, entity: WeakEntity<Detail>| {
                 let path = diff.files[file].file.path.clone();
-                move |event: &gpui::MouseDownEvent, _: &mut Window, cx: &mut App| {
+                move |position: Point<Pixels>, cx: &mut App| {
                     let at = At::File(path.clone(), line);
                     (entity.update(cx, |detail, cx| {
-                        detail.changes_menu(menu.clone(), at, event.position, cx)
+                        detail.changes_menu(menu.clone(), at, position, cx)
                     }))
                     .ok();
                 }
@@ -712,21 +714,13 @@ impl Detail {
                 let drawn = self.drawing_button(ix, file, &diff.files[file], entity.clone());
                 let toggle = entity.clone();
                 // What right-clicking the header offers, behind a ⋯ as well.
-                let header_menu = self.diff_cut(file, None, cx);
-                let more = {
-                    let (menu, entity) = (header_menu.clone(), entity.clone());
-                    let path = diff.files[file].file.path.clone();
-                    icon_button(("file-more", ix), Icon::Kebab)
-                        .small()
-                        .on_click(move |event, _, cx| {
-                            let (menu, position) = (menu.clone(), event.position());
-                            let at = At::File(path.clone(), None);
-                            (entity.update(cx, |detail, cx| {
-                                detail.changes_menu(menu, at, position, cx)
-                            }))
-                            .ok();
-                        })
-                };
+                let open = menu(self.diff_cut(file, None, cx), file, None, entity.clone());
+                let more = icon_button(("file-more", ix), Icon::Kebab)
+                    .small()
+                    .on_click({
+                        let open = open.clone();
+                        move |event, _, cx| open(event.position(), cx)
+                    });
                 let trailing = h_flex()
                     .flex_none()
                     .gap(px(4.))
@@ -750,11 +744,10 @@ impl Detail {
                 padded
                     .id(("file-header", ix))
                     .child(header)
-                    .on_mouse_down(MouseButton::Left, press_off(entity.clone()))
-                    .on_mouse_down(
-                        MouseButton::Right,
-                        menu(header_menu, file, None, toggle.clone()),
-                    )
+                    .on_mouse_down(MouseButton::Left, press_off(entity.clone(), None))
+                    .on_mouse_down(MouseButton::Right, move |event, _, cx| {
+                        open(event.position, cx)
+                    })
                     .on_click(move |_, _, cx| {
                         toggle
                             .update(cx, |detail, cx| detail.toggle_fold(file, cx))
@@ -768,12 +761,12 @@ impl Detail {
                     return padded.into_any_element();
                 };
                 let path = &diff.files[file].file.path;
-                let current = self.cursor
-                    == Cursor {
-                        file,
-                        hunk: Some(hunk),
-                    };
-                let composing = self.composing && worktree;
+                let at = Cursor {
+                    file,
+                    hunk: Some(hunk),
+                };
+                let current = self.cursor == at;
+                let composing = self.composes();
                 let leading = composing.then(|| {
                     let check = self.checks.hunk_check(path, key);
                     let (path, entity) = (path.clone(), entity.clone());
@@ -797,8 +790,7 @@ impl Detail {
                         discard_button(ix, project, linked, change, current, self.app.clone(), cx)
                     });
                 // The lines before the hunk, unless the file shown whole has them above.
-                let shown = matches!(self.whole.get(&diff.files[file].file.path), Some(Some(_)));
-                let unmodified = if shown {
+                let unmodified = if self.whole_lines(&diff.files[file]).is_some() {
                     0
                 } else {
                     diff::unmodified_before(hunks, hunk)
@@ -822,10 +814,10 @@ impl Detail {
                     .id(("hunk", ix))
                     .group("hunk-row")
                     .child(header)
-                    .on_mouse_down(
-                        MouseButton::Right,
-                        menu(carried.clone(), file, Some(line), entity),
-                    )
+                    .on_mouse_down(MouseButton::Right, {
+                        let open = menu(carried.clone(), file, Some(line), entity);
+                        move |event, _, cx| open(event.position, cx)
+                    })
                     .when(unmodified > 0, |el| {
                         el.tooltip(Tooltip::text("Show the whole file")).on_click(
                             move |_, _, cx| {
@@ -835,7 +827,7 @@ impl Detail {
                             },
                         )
                     })
-                    .on_mouse_down(MouseButton::Left, press_off(dragged.clone()))
+                    .on_mouse_down(MouseButton::Left, press_off(dragged.clone(), Some(at)))
                     .when_some(carried, |el, carried| {
                         let lines: Vec<_> =
                             (0..hunks[hunk].lines.len()).map(|l| (hunk, l)).collect();
@@ -899,23 +891,14 @@ impl Detail {
                 let layout = self.layout(&diff.files[file], &store.prefs);
                 let pair = diff::pair_row(sides, halves, place, last, theme, &layout);
                 let menu = line_menu(ix, entity.clone());
-                // A click puts the cursor on the hunk, so its keys act on what was clicked.
-                let entity = entity.clone();
+                let cursor = Some(Cursor {
+                    file,
+                    hunk: Some(hunk),
+                });
                 padded
                     .child(pair)
                     .on_mouse_down(MouseButton::Right, menu)
-                    .on_mouse_down(MouseButton::Left, move |_, _, cx| {
-                        entity
-                            .update(cx, |detail, cx| {
-                                detail.press_off_picks(cx);
-                                detail.place_cursor(Cursor {
-                                    file,
-                                    hunk: Some(hunk),
-                                });
-                                cx.notify();
-                            })
-                            .ok();
-                    })
+                    .on_mouse_down(MouseButton::Left, press_off(entity, cursor))
                     .into_any_element()
             }
             DiffRow::Context { file, old, new } => {
@@ -946,7 +929,9 @@ impl Detail {
                     return padded.into_any_element();
                 };
                 let layout = self.layout(&diff.files[file], &store.prefs);
-                let element = self.conflict_row(found, part, &layout, last, entity, cx);
+                let path = &diff.files[file].file.path;
+                let element =
+                    self.conflict_row(path, found, part, &layout, last, entity, window, cx);
                 padded.child(element).into_any_element()
             }
             DiffRow::Note(file) => padded
@@ -1124,7 +1109,7 @@ impl Detail {
         let Some(hunk) = diff.files[file].hunks().get(hunk) else {
             return (false, None);
         };
-        if !self.composing || self.worktree_diff().is_none() {
+        if !self.composes() {
             return (false, None);
         }
         let (path, key) = (diff.files[file].file.path.clone(), hunk.key);
@@ -1158,7 +1143,7 @@ impl Detail {
         let changed = (diff_file.hunks()[hunk].lines.get(line))
             .is_some_and(|line| line.kind != LineKind::Context);
         // The composer's checks own the numbers while it's open.
-        if !changed || (self.composing && self.worktree_diff().is_some()) {
+        if !changed || self.composes() {
             return None;
         }
         // Lines of a diff that can't be cut from have no grip, nor numbers to pick.
@@ -1250,10 +1235,21 @@ impl Detail {
     }
 }
 
-/// A press on a row off its line numbers: see [`Detail::press_off_picks`].
-fn press_off(entity: WeakEntity<Detail>) -> impl Fn(&MouseDownEvent, &mut Window, &mut App) {
+/// A press on a row off its line numbers: see [`Detail::press_off_picks`]. With `cursor`, the
+/// cursor goes there, so the keys act on what was pressed.
+fn press_off(
+    entity: WeakEntity<Detail>,
+    cursor: Option<Cursor>,
+) -> impl Fn(&MouseDownEvent, &mut Window, &mut App) {
     move |_, _, cx| {
-        (entity.update(cx, |detail, cx| detail.press_off_picks(cx))).ok();
+        (entity.update(cx, |detail, cx| {
+            detail.press_off_picks(cx);
+            if let Some(cursor) = cursor {
+                detail.place_cursor(cursor);
+                cx.notify();
+            }
+        }))
+        .ok();
     }
 }
 

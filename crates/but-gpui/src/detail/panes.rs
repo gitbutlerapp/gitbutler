@@ -1,28 +1,31 @@
 //! The column beside the diff and the header above both: what's selected, its files,
 //! and the actions that fit it.
 
+use std::cell::Cell;
 use std::ops::Range;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, Entity, Focusable as _, Pixels, Point, SharedString,
-    Stateful, UniformListScrollHandle, Window, div, prelude::*, px, uniform_list,
+    AnyElement, App, Bounds, ClickEvent, Context, Div, Entity, Focusable as _, Pixels, Point,
+    SharedString, Stateful, UniformListScrollHandle, WeakEntity, Window, div, prelude::*, px,
+    uniform_list,
 };
 
 use super::Detail;
-use crate::app::StartCommit;
+use crate::app::{AppView, StartCommit};
 use crate::backend::{self, CommitState, PushState, short_ref};
 use crate::overlays::MenuItem;
 use crate::state::{Cut, MeshPick, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
-use crate::ui::person::{byline_avatar, byline_text};
+use crate::ui::person::byline;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title,
-    empty_state, faint, field, h_flex, icon, icon_button, local_time, plural, section_label,
-    shortcut, small_icon, v_flex,
+    empty_state, faint, field, h_flex, icon, icon_button, plural, section_label, shortcut,
+    small_icon, v_flex,
 };
 
 impl Detail {
@@ -379,24 +382,11 @@ impl Detail {
         // would be made.
         let editing = worktree.is_none() && workspace.editing.is_some();
         let footer = if editing {
-            h_flex()
-                .flex_none()
-                .h(px(super::FOOTER_HEIGHT))
-                .px(px(12.))
-                .gap(px(8.))
-                .border_t_1()
-                .border_color(theme.border_3)
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w(px(0.))
-                        .truncate()
-                        .text_size(px(12.))
-                        .text_color(theme.text_3)
-                        .child("Editing the commit"),
-                )
-                .children(self.editing_actions(project, cx))
-                .into_any_element()
+            footer(
+                "Editing the commit",
+                self.editing_actions(project, cx),
+                theme,
+            )
         } else if !self.composing {
             let target = self.effective_target(project, cx);
             let target = match (target.as_deref(), worktree) {
@@ -404,31 +394,11 @@ impl Detail {
                 (None, None) => "Commit to a new branch".to_owned(),
                 (None, Some(_)) => "No branch checked out".to_owned(),
             };
-            h_flex()
-                .flex_none()
-                .h(px(super::FOOTER_HEIGHT))
-                .px(px(12.))
-                .gap(px(8.))
-                .border_t_1()
-                .border_color(theme.border_3)
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w(px(0.))
-                        .truncate()
-                        .text_size(px(12.))
-                        .text_color(theme.text_3)
-                        .child(target),
-                )
-                .child(
-                    button("open-composer", "Commit…")
-                        .small()
-                        .tooltip_with_key("Write a commit message", shortcut(&StartCommit, cx))
-                        .on_click(
-                            cx.listener(|this, _, window, cx| this.focus_message(window, cx)),
-                        ),
-                )
-                .into_any_element()
+            let open = button("open-composer", "Commit…")
+                .small()
+                .tooltip_with_key("Write a commit message", shortcut(&StartCommit, cx))
+                .on_click(cx.listener(|this, _, window, cx| this.focus_message(window, cx)));
+            footer(target, [open], theme)
         } else {
             self.render_composer(project, files, theme, window, cx)
         };
@@ -482,6 +452,7 @@ impl Detail {
         project: &ProjectId,
         id: backend::CommitId,
         theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
@@ -532,22 +503,13 @@ impl Detail {
                 }
             }));
         let meta = meta_row(theme)
-            .child(
-                h_flex()
-                    .gap(px(8.))
-                    .child(byline_avatar(
-                        &commit.author,
-                        &commit.email,
-                        commit.agent.as_ref(),
-                        16.,
-                        theme,
-                    ))
-                    .child(format!(
-                        "{} at {}",
-                        byline_text(&commit.author, commit.agent.as_ref()),
-                        local_time(commit.time)
-                    )),
-            )
+            .child(byline(
+                &commit.author,
+                &commit.email,
+                commit.agent.as_ref(),
+                commit.time,
+                theme,
+            ))
             .child(self.sha_chip(id, theme, cx))
             .when_some(self.signers.get(&id).copied().flatten(), |el, signer| {
                 el.child(
@@ -560,13 +522,13 @@ impl Detail {
             })
             .child(div().text_color(color).child(state))
             .when(commit.conflicted, |el| {
-                el.child(div().text_color(theme.danger).child("conflicted"))
+                el.child(div().text_color(theme.warn).child("conflicted"))
             });
         let rewording = (self.rewording.as_ref()).filter(|(key, ..)| *key == commit.key);
         let main = v_flex()
             .gap(px(10.))
             .map(|el| match rewording {
-                Some((_, input, _)) => el.child(self.reword_editor(input, theme)),
+                Some((_, input, _)) => el.child(self.reword_editor(input, theme, window, cx)),
                 None => el
                     .child(title)
                     // Further off the lines around it than they stand from each other.
@@ -648,16 +610,7 @@ impl Detail {
         };
         let title = page_title(Icon::ArrowDown, theme).child(title_text(commit_title(title)));
         let meta = meta_row(theme)
-            .child(
-                h_flex()
-                    .gap(px(8.))
-                    .child(byline_avatar(author, email, agent, 16., theme))
-                    .child(format!(
-                        "{} at {}",
-                        byline_text(author, agent),
-                        local_time(time)
-                    )),
-            )
+            .child(byline(author, email, agent, time, theme))
             .child(self.sha_chip(id, theme, cx))
             .child(div().text_color(theme.warn).child(match remote {
                 Some(remote) => format!("only on {remote}"),
@@ -704,23 +657,11 @@ impl Detail {
         theme: &Theme,
     ) -> AnyElement {
         let menu = h_flex().h(px(22.)).gap(px(8.)).children(extra).child(menu);
-        // The diff beside the files starts below this, however tall it's drawn.
-        let (height, app) = (self.header_height.clone(), self.app.clone());
-        let measure = gpui::canvas(
-            move |bounds, _, cx| {
-                // And the rule along its bottom, which this, inside the header, doesn't cover.
-                let drawn = f32::from(bounds.size.height) + 1.;
-                // After this frame: a view told to draw while one is drawing isn't drawn again.
-                if height.replace(drawn) != drawn {
-                    cx.defer(move |cx| {
-                        app.update(cx, |_, cx| cx.notify()).ok();
-                    });
-                }
-            },
-            |_, _, _, _| {},
-        )
-        .absolute()
-        .size_full();
+        // The diff beside the files starts below this, however tall it's drawn, and the rule
+        // along its bottom, which this, inside the header, doesn't cover.
+        let measure = measured(&self.header_height, &self.app, |bounds| {
+            f32::from(bounds.size.height) + 1.
+        });
         v_flex()
             .relative()
             .flex_none()
@@ -779,7 +720,7 @@ impl Detail {
                 .when(conflicted > 0, |el| {
                     el.child(
                         div()
-                            .text_color(theme.danger)
+                            .text_color(theme.warn)
                             .child(format!("{conflicted} conflicted")),
                     )
                 }),
@@ -829,18 +770,22 @@ impl Detail {
     }
 
     /// The box editing a commit's message, with how to save or leave it.
-    fn reword_editor(&self, input: &Entity<TextInput>, theme: &Theme) -> AnyElement {
+    fn reword_editor(
+        &self,
+        input: &Entity<TextInput>,
+        theme: &Theme,
+        window: &Window,
+        cx: &App,
+    ) -> AnyElement {
+        let focused = input.focus_handle(cx).is_focused(window);
         v_flex()
             .gap(px(8.))
             .child(
-                div()
+                field(input, focused, theme)
                     .px(px(10.))
                     .py(px(8.))
                     .rounded(px(6.))
-                    .border_1()
-                    .border_color(theme.focus_border())
-                    .line_height(px(19.))
-                    .child(input.clone()),
+                    .line_height(px(19.)),
             )
             .child(
                 h_flex()
@@ -1010,6 +955,57 @@ pub(super) fn side_header(theme: &Theme) -> Div {
         .gap(px(6.))
         .border_b_1()
         .border_color(theme.border_3)
+}
+
+/// The bar along the bottom of a checkout's uncommitted changes: what committing there does,
+/// in `label`, and the buttons that do it.
+fn footer(
+    label: impl IntoElement,
+    actions: impl IntoIterator<Item = impl IntoElement>,
+    theme: &Theme,
+) -> AnyElement {
+    h_flex()
+        .flex_none()
+        .h(px(super::FOOTER_HEIGHT))
+        .px(px(12.))
+        .gap(px(8.))
+        .border_t_1()
+        .border_color(theme.border_3)
+        .child(
+            div()
+                .flex_1()
+                .min_w(px(0.))
+                .truncate()
+                .text_size(px(12.))
+                .text_color(theme.text_3)
+                .child(label),
+        )
+        .children(actions)
+        .into_any_element()
+}
+
+/// What measures the element it's drawn over into `cell`, as `measure` reads its bounds, and
+/// redraws the window when that changed: after this frame, as a view told to draw while one
+/// is drawing isn't drawn again.
+pub(super) fn measured(
+    cell: &Rc<Cell<f32>>,
+    app: &WeakEntity<AppView>,
+    measure: impl FnOnce(Bounds<Pixels>) -> f32 + 'static,
+) -> impl IntoElement {
+    let (cell, app) = (cell.clone(), app.clone());
+    gpui::canvas(
+        move |bounds, _, cx| {
+            let drawn = measure(bounds);
+            if cell.replace(drawn) != drawn {
+                cx.defer(move |cx| {
+                    app.update(cx, |_, cx| cx.notify()).ok();
+                });
+            }
+        },
+        |_, _, _, _| {},
+    )
+    .absolute()
+    .size_full()
 }
 
 /// Says a checkout is stopped partway through Git's `op`, which committing there leaves

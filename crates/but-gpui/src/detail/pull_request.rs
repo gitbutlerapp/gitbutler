@@ -39,7 +39,9 @@ impl Detail {
                 .review
                 .as_ref(),
             Selection::Branches(project) => self.selected_other_branch(project)?.review.as_ref(),
-            Selection::Project(project) => self.selected_target_review(project),
+            Selection::Project(project) if self.showing_target_commit(project, cx) => {
+                self.selected_target_commit(project)?.review.as_ref()
+            }
             Selection::Upstream(project, ref_name, id) => (store.workspace(project)?)
                 .upstream(ref_name.as_deref())
                 .iter()
@@ -58,14 +60,12 @@ impl Detail {
     }
 
     fn set_review_tab(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
-        if self.review_tab == on {
-            return;
-        }
-        self.review_tab = on;
-        // The branch page's file list isn't drawn beside its pull request. The Branches
-        // page's list stays, and keeps the keys.
+        // The branch page's file list isn't drawn beside its pull request. A list page's list
+        // stays, and keeps the keys, which the click on a tab took, picked already or not.
         let focus = match (&self.store.read(cx).selection, on) {
-            (Some(Selection::Branches(_)), _) => Some(self.side_focus.clone()),
+            (Some(Selection::Branches(_) | Selection::Project(_)), _) => {
+                Some(self.side_focus.clone())
+            }
             (Some(Selection::Branch(..) | Selection::Upstream(..)), true) => {
                 Some(self.focus.clone())
             }
@@ -77,9 +77,10 @@ impl Detail {
         if let Some(focus) = focus {
             window.focus(&focus, cx);
         }
-        cx.notify();
-        // The window draws the diff beside the files, or doesn't.
-        self.app.update(cx, |_, cx| cx.notify()).ok();
+        if self.review_tab != on {
+            self.review_tab = on;
+            cx.notify();
+        }
     }
 
     /// A branch or commit's tabs: its changes, with how many files, and its pull request,
@@ -112,36 +113,6 @@ impl Detail {
                         cx.listener(|this, _, window, cx| this.set_review_tab(true, window, cx)),
                     ),
             )
-            .into_any_element()
-    }
-
-    /// Beside the list of the Branches page or a project's page, the tabs of the selected
-    /// branch or commit with a pull request, over the pull request or the diff.
-    pub(super) fn render_list_tabs(
-        &self,
-        project: &ProjectId,
-        review: &Review,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> AnyElement {
-        v_flex()
-            .flex_1()
-            .h_full()
-            .min_w(px(0.))
-            .child(
-                h_flex()
-                    .flex_none()
-                    .h(px(TABS_HEIGHT))
-                    .px(px(16.))
-                    .items_end()
-                    .border_b_1()
-                    .border_color(theme.border_3)
-                    .child(self.review_tabs(review, theme, cx)),
-            )
-            .child(match self.review_tab {
-                true => self.render_review_tab(project, theme, cx),
-                false => div().flex_1().into_any_element(),
-            })
             .into_any_element()
     }
 
@@ -466,12 +437,7 @@ fn check_row(ix: usize, run: &CheckRun, theme: &Theme) -> Stateful<Div> {
 
 /// A tab of a page's header, as ui-react's: its label faded unless it's selected or under
 /// the pointer, and under the selected one a bar along the header's edge.
-pub(super) fn tab(
-    id: &'static str,
-    label: &'static str,
-    selected: bool,
-    theme: &Theme,
-) -> Stateful<Div> {
+fn tab(id: &'static str, label: &'static str, selected: bool, theme: &Theme) -> Stateful<Div> {
     let hover = theme.hover();
     h_flex()
         .id(id)

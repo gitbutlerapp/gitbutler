@@ -64,18 +64,30 @@ enum Keeping {
     Text { text: String, suggested: bool },
 }
 
-/// The conflicts of the commit shown, as they're being resolved, by each conflict's id.
+/// A conflict by its file's path and its id. The id alone is the same for the same conflict
+/// in two files, as a version bump in two manifests is.
+type Key = (String, String);
+
+fn key(path: &str, c: &Conflict) -> Key {
+    (path.to_owned(), c.id.clone())
+}
+
+fn is(key: &Key, path: &str, c: &Conflict) -> bool {
+    key.0 == path && key.1 == c.id
+}
+
+/// The conflicts of the commit shown, as they're being resolved, by [`Key`].
 #[derive(Default)]
 pub(super) struct Resolving {
-    keeping: HashMap<String, Keeping>,
+    keeping: HashMap<Key, Keeping>,
     /// The conflict being written by hand, its editor, and what listens to it.
-    editing: Option<(String, Entity<TextInput>, Subscription)>,
+    editing: Option<(Key, Entity<TextInput>, Subscription)>,
     /// Suggestions streaming in: the text so far, and what writes it.
-    suggesting: HashMap<String, (String, Task<()>)>,
+    suggesting: HashMap<Key, (String, Task<()>)>,
     /// Conflicts showing the lines before either side changed them.
-    ancestors: HashSet<String>,
+    ancestors: HashSet<Key>,
     /// The conflict the keyboard's picks go to.
-    current: Option<String>,
+    current: Option<Key>,
 }
 
 impl Detail {
@@ -122,27 +134,33 @@ impl Detail {
             .is_some_and(|file| {
                 let conflicts = file.conflicts();
                 !conflicts.is_empty()
-                    && (conflicts.iter()).all(|c| self.resolving.keeping.contains_key(&c.id))
+                    && (conflicts.iter())
+                        .all(|c| self.resolving.keeping.contains_key(&key(path, c)))
             })
     }
 
-    /// The shown diff's conflicts in file order, each with its file's place in the diff.
-    fn conflicts(&self) -> impl Iterator<Item = (usize, &Conflict)> {
+    /// The shown diff's conflicts in file order, each with its file's place in the diff and
+    /// its path.
+    fn conflicts(&self) -> impl Iterator<Item = (usize, &str, &Conflict)> {
         (self.diff.iter())
             .flat_map(|diff| diff.files.iter().enumerate())
-            .flat_map(|(ix, file)| file.conflicts().iter().map(move |c| (ix, c)))
+            .flat_map(|(ix, file)| {
+                let path = file.file.path.as_str();
+                file.conflicts().iter().map(move |c| (ix, path, c))
+            })
     }
 
-    pub(super) fn conflict_view(&self, conflict: &Conflict) -> conflict::View {
+    /// How `conflict`, of the file at `path`, lays out.
+    pub(super) fn conflict_view(&self, path: &str, conflict: &Conflict) -> conflict::View {
         let r = &self.resolving;
-        let id = &conflict.id;
+        let key = key(path, conflict);
         conflict::View {
-            settled: r.keeping.contains_key(id)
-                || r.suggesting.contains_key(id)
+            settled: r.keeping.contains_key(&key)
+                || r.suggesting.contains_key(&key)
                 || r.editing
                     .as_ref()
-                    .is_some_and(|(editing, ..)| editing == id),
-            ancestor: r.ancestors.contains(id),
+                    .is_some_and(|(editing, ..)| *editing == key),
+            ancestor: r.ancestors.contains(&key),
         }
     }
 
@@ -196,7 +214,9 @@ impl Detail {
 
     /// Forget what was kept of conflicts no longer shown, as after applying them.
     pub(super) fn prune_resolving(&mut self) {
-        let shown: HashSet<String> = self.conflicts().map(|(_, c)| c.id.clone()).collect();
+        let shown: HashSet<Key> = (self.conflicts())
+            .map(|(_, path, c)| key(path, c))
+            .collect();
         let r = &mut self.resolving;
         r.keeping.retain(|id, _| shown.contains(id));
         r.suggesting.retain(|id, _| shown.contains(id));
@@ -213,30 +233,32 @@ impl Detail {
     }
 
     /// The conflict the keyboard acts on: the one picked last, else the first undecided.
-    fn current_conflict(&self) -> Option<String> {
+    fn current_conflict(&self) -> Option<Key> {
         let r = &self.resolving;
         r.current.clone().or_else(|| self.next_undecided(None))
     }
 
     /// The first conflict after `after` with nothing kept yet, wrapping around.
-    fn next_undecided(&self, after: Option<&str>) -> Option<String> {
-        let conflicts: Vec<&Conflict> = self.conflicts().map(|(_, c)| c).collect();
+    fn next_undecided(&self, after: Option<&Key>) -> Option<Key> {
+        let conflicts: Vec<(&str, &Conflict)> = self.conflicts().map(|(_, p, c)| (p, c)).collect();
         let start = after
-            .and_then(|after| conflicts.iter().position(|c| c.id == after))
+            .and_then(|after| conflicts.iter().position(|(path, c)| is(after, path, c)))
             .map_or(0, |at| at + 1);
         (conflicts[start..].iter().chain(&conflicts[..start]))
-            .find(|c| !self.conflict_view(c).settled)
-            .map(|c| c.id.clone())
+            .find(|(path, c)| !self.conflict_view(path, c).settled)
+            .map(|(path, c)| key(path, c))
     }
 
-    /// Conflict `id`, with its file's place in the diff.
-    fn find_conflict(&self, id: &str) -> Option<(usize, &Conflict)> {
-        self.conflicts().find(|(_, c)| c.id == id)
+    /// Conflict `key`, with its file's place in the diff.
+    fn find_conflict(&self, key: &Key) -> Option<(usize, &Conflict)> {
+        (self.conflicts())
+            .find(|(_, path, c)| is(key, path, c))
+            .map(|(ix, _, c)| (ix, c))
     }
 
-    /// The row showing `part` of conflict `id`.
-    fn conflict_row_ix(&self, id: &str, part: Part) -> Option<usize> {
-        let (file, found) = self.find_conflict(id)?;
+    /// The row showing `part` of conflict `key`.
+    fn conflict_row_ix(&self, key: &Key, part: Part) -> Option<usize> {
+        let (file, found) = self.find_conflict(key)?;
         let row = DiffRow::Conflict {
             file,
             conflict: found.index,
@@ -249,20 +271,17 @@ impl Detail {
             .position(|shown| *shown == row)
     }
 
-    /// Bring `id` up as the one the keyboard acts on, scrolled into view.
-    fn focus_conflict(&mut self, id: Option<String>, cx: &mut Context<Self>) {
-        if let Some(row) = id
-            .as_deref()
-            .and_then(|id| self.conflict_row_ix(id, Part::Bar))
-        {
+    /// Bring `key` up as the one the keyboard acts on, scrolled into view.
+    fn focus_conflict(&mut self, key: Option<Key>, cx: &mut Context<Self>) {
+        if let Some(row) = (key.as_ref()).and_then(|key| self.conflict_row_ix(key, Part::Bar)) {
             self.reveal_row(row);
         }
-        self.resolving.current = id;
+        self.resolving.current = key;
         cx.notify();
     }
 
     /// Keep `pick` for conflict `id`, then go on to the next one without a pick.
-    pub(super) fn keep(&mut self, id: String, pick: Pick, cx: &mut Context<Self>) {
+    pub(super) fn keep(&mut self, id: Key, pick: Pick, cx: &mut Context<Self>) {
         self.resolving.suggesting.remove(&id);
         if self
             .resolving
@@ -281,7 +300,7 @@ impl Detail {
     }
 
     /// Back to the conflict's two sides.
-    fn change(&mut self, id: &str, cx: &mut Context<Self>) {
+    fn change(&mut self, id: &Key, cx: &mut Context<Self>) {
         let r = &mut self.resolving;
         r.keeping.remove(id);
         r.suggesting.remove(id);
@@ -291,21 +310,21 @@ impl Detail {
         {
             r.editing = None;
         }
-        r.current = Some(id.to_owned());
+        r.current = Some(id.clone());
         self.rebuild_rows(cx);
     }
 
-    fn toggle_ancestor(&mut self, id: &str, cx: &mut Context<Self>) {
+    fn toggle_ancestor(&mut self, id: &Key, cx: &mut Context<Self>) {
         let ancestors = &mut self.resolving.ancestors;
         if !ancestors.remove(id) {
-            ancestors.insert(id.to_owned());
+            ancestors.insert(id.clone());
         }
         self.rebuild_rows(cx);
     }
 
     /// Write conflict `id`'s lines by hand, from what's kept so far or the user's own: the
     /// commit's, or the uncommitted changes, the first side of a merge's markers.
-    fn edit(&mut self, id: String, window: &mut Window, cx: &mut Context<Self>) {
+    fn edit(&mut self, id: Key, window: &mut Window, cx: &mut Context<Self>) {
         // A commit being edited starts from its own side, as a commit's conflict does.
         let files = matches!(self.conflicted(), Some((_, Conflicted::Files(_))))
             && !self.editing_commit(cx);
@@ -366,8 +385,8 @@ impl Detail {
 
     /// Ask the AI set up in Settings for a merge of conflict `id`, streaming it in place, to
     /// keep or change like any other pick.
-    fn suggest(&mut self, id: String, cx: &mut Context<Self>) {
-        let Some((file, found)) = self.find_conflict(&id) else {
+    fn suggest(&mut self, id: Key, cx: &mut Context<Self>) {
+        let Some((_, found)) = self.find_conflict(&id) else {
             return;
         };
         let found = found.clone();
@@ -380,16 +399,13 @@ impl Detail {
                 .map_or(own_name.1, |(_, c)| format!("the commit \"{}\"", c.title)),
             Conflicted::Files(_) => own_name.1,
         };
-        let path = (self.diff.as_ref())
-            .map(|diff| diff.files[file].file.path.clone())
-            .unwrap_or_default();
         let lines = |lines: &[backend::DiffLine]| {
             (lines.iter().map(|line| line.text.as_ref()))
                 .collect::<Vec<_>>()
                 .join("\n")
         };
         let prompt = ai::resolve_prompt(
-            &path,
+            &id.0,
             [&base_name.1, &own],
             [&found.new_base_text, &found.commit_text],
             found.ancestor.as_deref().map(lines).as_deref(),
@@ -451,7 +467,7 @@ impl Detail {
     }
 
     /// Measure the rows of conflict `id` again, as its suggestion grows.
-    fn remeasure_conflict(&self, id: &str) {
+    fn remeasure_conflict(&self, id: &Key) {
         if let Some(row) = self.conflict_row_ix(id, Part::Result) {
             self.list.remeasure_items(row..row + 1);
         }
@@ -470,7 +486,7 @@ impl Detail {
         let keep: Vec<(String, &Conflict, Keep)> = (diff.files.iter())
             .flat_map(|file| file.conflicts().iter().map(move |c| (file, c)))
             .filter_map(|(file, c)| {
-                let keep = match self.resolving.keeping.get(&c.id)? {
+                let keep = match self.resolving.keeping.get(&key(&file.file.path, c))? {
                     Keeping::Pick(Pick::NewBase) => Keep::NewBase,
                     Keeping::Pick(Pick::Commit) => Keep::Commit,
                     Keeping::Pick(Pick::Both) => Keep::Text(kept_text(c, Pick::Both)),
@@ -484,7 +500,7 @@ impl Detail {
         }
         // Once applied, those conflicts are gone, and the ones left are numbered again: an
         // id applied could be another's by then, which mustn't take its pick.
-        let applied: Vec<String> = keep.iter().map(|(_, c, _)| c.id.clone()).collect();
+        let applied: Vec<Key> = (keep.iter()).map(|(path, c, _)| key(path, c)).collect();
         let detail = cx.entity().downgrade();
         let forget = move |cx: &mut App| {
             (detail.update(cx, |detail, _| {
@@ -599,20 +615,24 @@ impl Detail {
         true
     }
 
-    /// One of the conflict's rows, acting on it through `entity`.
+    /// One of the rows of `found`, a conflict of the file at `path`, acting on it through
+    /// `entity`.
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn conflict_row(
         &self,
+        path: &str,
         found: &Conflict,
         part: Part,
         layout: &Layout,
         last: bool,
         entity: WeakEntity<Detail>,
+        window: &Window,
         cx: &App,
     ) -> AnyElement {
         let theme = Theme::get(cx);
         let r = &self.resolving;
-        let id = found.id.clone();
-        let number = (self.conflicts().position(|(_, c)| c.id == id)).map_or(1, |at| at + 1);
+        let id = key(path, found);
+        let number = (self.conflicts().position(|(_, p, c)| is(&id, p, c))).map_or(1, |at| at + 1);
         let total = self.conflicts().count();
         let kept = match (
             r.editing.as_ref(),
@@ -634,7 +654,7 @@ impl Detail {
             _ => None,
         };
         let names = self.side_names(found, cx);
-        let act = |f: fn(&mut Detail, String, &mut Window, &mut Context<Detail>)| -> OnToggle {
+        let act = |f: fn(&mut Detail, Key, &mut Window, &mut Context<Detail>)| -> OnToggle {
             let (entity, id) = (entity.clone(), id.clone());
             Rc::new(move |window: &mut Window, cx: &mut App| {
                 entity
@@ -664,7 +684,10 @@ impl Detail {
                 _ => [Icon::Branch, Icon::Commit],
             },
             kept,
-            current: self.current_conflict().as_deref() == Some(id.as_str()),
+            current: self.current_conflict().as_ref() == Some(&id),
+            focused: (r.editing.as_ref()).is_some_and(|(editing, input, _)| {
+                *editing == id && input.focus_handle(cx).is_focused(window)
+            }),
             ancestor: r.ancestors.contains(&id),
             last,
             layout,
@@ -702,7 +725,7 @@ impl Detail {
         };
         let total = self.conflicts().count();
         let decided = (self.conflicts())
-            .filter(|(_, c)| self.resolving.keeping.contains_key(&c.id))
+            .filter(|(_, path, c)| self.resolving.keeping.contains_key(&key(path, c)))
             .count();
         let files = || self.diff.iter().flat_map(|diff| diff.files.iter());
         // Conflicted files with nothing to pick between, which another way resolves.
@@ -725,20 +748,11 @@ impl Detail {
             Conflicted::Files(_) => None,
         };
         let [base, own] = (self.conflicts().next())
-            .map(|(_, c)| self.side_names(c, cx))
+            .map(|(_, _, c)| self.side_names(c, cx))
             .unwrap_or_default();
         let apply = (matches!(conflicted, Conflicted::Files(_)) && decided > 0).then(|| {
-            banner_action("apply-resolutions", "Apply", theme)
-                .tooltip_with_key(
-                    format!("Resolve {}", plural(decided, "conflict")),
-                    crate::ui::shortcut(&ApplyResolutions, cx),
-                )
-                .on_click(move |_, _, cx| {
-                    entity
-                        .update(cx, |this, cx| this.apply_resolutions(false, cx))
-                        .ok();
-                })
-                .into_any_element()
+            let style = banner_action("apply-resolutions", "Apply", theme);
+            apply_with(style, decided, entity, cx)
         });
         let (title, detail, action): (String, String, Option<AnyElement>) = match older {
             Some(older) => {
@@ -981,17 +995,25 @@ pub(super) fn apply_button(
     detail.conflicted_commit()?;
     let kept = detail.resolving.keeping.len();
     (kept > 0).then(|| {
-        button("apply-resolutions", "Apply")
-            .style(ButtonStyle::Pop)
-            .tooltip_with_key(
-                format!("Resolve {}", plural(kept, "conflict")),
-                crate::ui::shortcut(&ApplyResolutions, cx),
-            )
-            .on_click(move |_, _, cx| {
-                entity
-                    .update(cx, |this, cx| this.apply_resolutions(false, cx))
-                    .ok();
-            })
-            .into_any_element()
+        let style = button("apply-resolutions", "Apply").style(ButtonStyle::Pop);
+        apply_with(style, kept, entity, cx)
     })
+}
+
+/// `button`, styled for where it sits, applying the `kept` conflicts' picks.
+fn apply_with(
+    button: crate::ui::Button,
+    kept: usize,
+    entity: WeakEntity<Detail>,
+    cx: &App,
+) -> AnyElement {
+    button
+        .tooltip_with_key(
+            format!("Resolve {}", plural(kept, "conflict")),
+            crate::ui::shortcut(&ApplyResolutions, cx),
+        )
+        .on_click(move |_, _, cx| {
+            (entity.update(cx, |this, cx| this.apply_resolutions(false, cx))).ok();
+        })
+        .into_any_element()
 }

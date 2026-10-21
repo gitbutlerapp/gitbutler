@@ -900,7 +900,6 @@ fn picture(
         Some(url) => div()
             .id(SharedString::from(id.to_owned()))
             .when(wide, |el| el.w_full())
-            .cursor_pointer()
             .tooltip(Tooltip::text(url.clone()))
             .on_click(move |_, _, cx| cx.open_url(&url))
             .child(el)

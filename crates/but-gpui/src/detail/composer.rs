@@ -19,8 +19,8 @@ use crate::state::{NewAt, Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, button, faint, h_flex, icon_button, plural, shortcut, small_icon,
-    v_flex,
+    ButtonStyle, Icon, Tooltip, button, faint, field, h_flex, icon_button, plural, shortcut,
+    small_icon, v_flex,
 };
 
 actions!(composer, [PickCommitTarget]);
@@ -132,7 +132,11 @@ impl Checks {
     }
 
     /// A file with every one of its `hunks` left out is left out whole, as unchecking it does.
+    /// No hunks say nothing, as while another checkout's diff is still shown.
     fn settle(&mut self, path: &str, hunks: &[Hunk]) {
+        if hunks.is_empty() {
+            return;
+        }
         let out =
             (hunks.iter()).all(|hunk| self.unchecked_hunks.contains(&(path.to_owned(), hunk.key)));
         if out {
@@ -317,6 +321,12 @@ impl Detail {
             self.checks_project.as_ref() == Some(&diff.key.project)
                 && diff.key.checkout() == Some(worktree)
         })
+    }
+
+    /// Whether the open composer's checks own the diff shown: not while another checkout's
+    /// is still on screen.
+    pub(super) fn composes(&self) -> bool {
+        self.composing && self.checks_diff().is_some()
     }
 
     pub(super) fn toggle_hunk(&mut self, path: &str, key: HunkKey, cx: &mut Context<Self>) {
@@ -1009,31 +1019,22 @@ impl Detail {
                 div()
                     .relative()
                     .child(
-                        div()
-                            .id("message-box")
-                            .min_h(px(84.))
-                            .max_h(px(260.))
-                            .overflow_y_scroll()
-                            .track_scroll(&self.message_scroll)
+                        field(&self.message, message_focused, theme)
                             .pl(px(10.))
                             // Clear of the AI button in the corner.
                             .pr(px(30.))
                             .py(px(8.))
                             .rounded(px(6.))
-                            .border_1()
-                            .border_color(if message_focused {
-                                theme.focus_border()
-                            } else {
-                                theme.border_2
-                            })
-                            .bg(theme.bg_1)
-                            .text_size(px(13.))
                             .line_height(px(19.))
                             .cursor_text()
+                            .id("message-box")
+                            .min_h(px(84.))
+                            .max_h(px(260.))
+                            .overflow_y_scroll()
+                            .track_scroll(&self.message_scroll)
                             .on_click(
                                 cx.listener(|this, _, window, cx| this.focus_message(window, cx)),
-                            )
-                            .child(self.message.clone()),
+                            ),
                     )
                     .child(
                         div().absolute().top(px(4.)).right(px(4.)).child(
@@ -1358,6 +1359,18 @@ mod tests {
             checks.hunk_check("a.rs", key(11, 2)),
             Toggled::False,
             "a hunk an edit above moved is left out under its new header too"
+        );
+    }
+
+    #[test]
+    fn settling_without_hunks_leaves_the_file_as_it_was() {
+        let mut checks = Checks::default();
+        checks.unchecked_hunks.insert(("a.rs".into(), key(10, 2)));
+        checks.settle("a.rs", &[]);
+        assert_eq!(
+            checks.file_check("a.rs"),
+            Toggled::Mixed,
+            "no hunks to go by, as while another checkout's diff is shown, takes nothing out"
         );
     }
 }

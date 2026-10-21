@@ -11,7 +11,7 @@ use super::diff::{
 };
 use super::text_input::TextInput;
 use super::{
-    ButtonStyle, Icon, Tooltip, button, h_flex, icon_button, segmented, small_icon, v_flex,
+    ButtonStyle, Icon, Tooltip, button, field, h_flex, icon_button, segmented, small_icon, v_flex,
 };
 use crate::backend::{Conflict, DiffLine, LineKind};
 use crate::theme::Theme;
@@ -74,7 +74,7 @@ pub type OnPick = Rc<dyn Fn(Pick, &mut Window, &mut App)>;
 pub struct Actions {
     pub pick: OnPick,
     pub edit: OnToggle,
-    /// None without an AI provider to ask.
+    /// Asks the AI set up in Settings for a merge.
     pub suggest: OnToggle,
     /// Back to the two sides.
     pub change: OnToggle,
@@ -105,6 +105,8 @@ pub struct Row<'a> {
     pub kept: Option<Kept<'a>>,
     /// The keyboard's picks go to it.
     pub current: bool,
+    /// Its editor holds the focus.
+    pub focused: bool,
     /// The lines before either side changed them show.
     pub ancestor: bool,
     pub last: bool,
@@ -532,16 +534,12 @@ fn editor(input: Entity<TextInput>, row: &Row, theme: &Theme) -> AnyElement {
         .p(px(8.))
         .gap(px(6.))
         .child(
-            div()
+            field(&input, row.focused, theme)
                 .p(px(6.))
                 .rounded(px(6.))
-                .border_1()
-                .border_color(theme.border_2)
-                .bg(theme.bg_1)
                 .font_family(theme.mono_font.clone())
                 .text_size(px(theme.code_text))
-                .line_height(px(theme.code_line))
-                .child(input),
+                .line_height(px(theme.code_line)),
         )
         .child(
             h_flex()
@@ -670,7 +668,7 @@ mod tests {
     fn conflicts_sit_among_the_hunks_by_line() {
         let files = [file()];
         let none = |_: &FileDiff| false;
-        let open = |_: &Conflict| View::default();
+        let open = |_: &FileDiff, _: &Conflict| View::default();
         let shown = rows(
             &files,
             none,
@@ -728,7 +726,7 @@ mod tests {
     fn a_settled_conflict_shows_what_it_keeps_and_a_whole_file_its_own_context() {
         let files = [file()];
         let none = |_: &FileDiff| false;
-        let settled = |_: &Conflict| View {
+        let settled = |_: &FileDiff, _: &Conflict| View {
             settled: true,
             ancestor: false,
         };

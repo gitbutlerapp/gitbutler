@@ -12,6 +12,7 @@ use gpui::{
 
 use super::Detail;
 use super::panes::{Crumb, list_empty, side_list};
+use super::upstream::commit_author;
 
 use crate::app::{Collapse, Confirm, Expand, SelectNext, SelectPrevious};
 use crate::backend::branches::{self, ApplyOutcome, OtherBranch};
@@ -26,8 +27,8 @@ use crate::ui::illustration::Illustration;
 use crate::ui::person::byline_avatar;
 use crate::ui::text_input::TextInput;
 use crate::ui::{
-    Icon, ROW_HEIGHT, Tooltip, age_column, empty_state, faint, guide, h_flex, icon_button, quiet,
-    relative_time, review, section_label, side_row, small_icon, v_flex,
+    Icon, ROW_HEIGHT, Tooltip, age_column, empty_state, faint, fold_button, fold_glyph, guide,
+    h_flex, icon_button, quiet, relative_time, review, section_label, side_row, small_icon, v_flex,
 };
 
 pub(super) struct Branches {
@@ -231,12 +232,6 @@ impl Detail {
     }
 
     /// Go back to the table of every branch, letting go of a selected commit.
-    pub(super) fn show_branches_table(&mut self, cx: &mut Context<Self>) {
-        self.close_branch(cx);
-        // The diff beside the list goes with it.
-        self.app.update(cx, |_, cx| cx.notify()).ok();
-    }
-
     fn close_branch(&mut self, cx: &mut Context<Self>) {
         self.branches_table = true;
         if let Some(branches) = &mut self.branches {
@@ -271,7 +266,6 @@ impl Detail {
         self.branches_table = false;
         window.focus(&self.side_focus, cx);
         self.select_other_branch(Some(ref_name), cx);
-        self.app.update(cx, |_, cx| cx.notify()).ok();
     }
 
     /// Branch `ref_name` of `project`'s list, while it's still listed: what a menu opened on
@@ -280,11 +274,13 @@ impl Detail {
         self.branches_for(project)?.branch(ref_name)
     }
 
+    /// None while the table shows, even with a commit of the branch last opened still picked,
+    /// which would load behind it and take the diff's keys.
     pub(super) fn branches_source(&self, project: &ProjectId) -> Option<DiffSource> {
+        let branch = self.selected_other_branch(project)?;
         if let Some(id) = self.selected_branch_commit(project) {
             return Some(DiffSource::Commit(id));
         }
-        let branch = self.selected_other_branch(project)?;
         Some(DiffSource::Branch {
             tip: branch.tip,
             ahead: branch.ahead,
@@ -293,13 +289,6 @@ impl Detail {
 
     fn selected_branch_commit(&self, project: &ProjectId) -> Option<CommitId> {
         self.branches_for(project)?.commit
-    }
-
-    fn selected_branch_commit_title(&self, project: &ProjectId) -> Option<String> {
-        let branches = self.branches_for(project)?;
-        let (_, commits) = branches.commits.get(branches.selected.as_ref()?)?;
-        let commit = commits.iter().find(|c| Some(c.id) == branches.commit)?;
-        Some(commit.title.clone())
     }
 
     /// Load the open branches' commits that aren't loaded for them as they are now. A selected
@@ -882,42 +871,6 @@ impl Detail {
             .ok();
     }
 
-    /// Beside the list, the opened branch as a commit shows on the project's page: the message
-    /// of a commit of it picked, tabs when it has a pull request, and under them the pull
-    /// request, or the files when there's room, the window drawing the diff over the rest.
-    pub(super) fn render_branch_beside(
-        &self,
-        project: &ProjectId,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> AnyElement {
-        let Some(branch) = self.selected_other_branch(project) else {
-            return div().flex_1().into_any_element();
-        };
-        let review = branch.review.as_ref();
-        let reviewing = self.review_tab && review.is_some();
-        let below = match reviewing {
-            true => self.render_review_tab(project, theme, cx),
-            false => self.render_files_beside(theme, cx),
-        };
-        let tabs = review
-            .is_some()
-            .then(|| self.list_tabs(reviewing, theme, cx));
-        // A commit picked shows its message over the tabs, as a merge's does.
-        let message = (self.picked_branch_commit(project))
-            .map(|commit| self.render_target_message(commit, theme, cx));
-        v_flex()
-            .relative()
-            .flex_1()
-            .h_full()
-            .min_w(px(0.))
-            .children(message)
-            .children(tabs)
-            .child(below)
-            .child(self.measure_beside_width())
-            .into_any_element()
-    }
-
     /// The table's lines: the branches the filter keeps, in the listing's order, the stacks
     /// changed in the last 30 days first. A stack goes by its newest branch, as the listing
     /// orders them, so its branches stay together.
@@ -1063,32 +1016,10 @@ impl Detail {
         let Some(branches) = self.branches_for(project) else {
             return empty_state(None, "Loading branches…", "", theme, cx);
         };
-        let prefs = &self.store.read(cx).prefs;
-        let changed =
-            prefs.branches_with_empty || prefs.branches_local_only || prefs.branches_with_merged;
-        let filter = self
-            .filter_bar(
-                &self.branch_filter,
-                "Branch filters",
-                Self::branch_filters_menu,
-                changed,
-                window,
-                cx,
-            )
-            .children(self.fetch_button(project, cx));
+        let filter = self.branch_filter_bar(project, window, cx);
         let rows = self.table_rows(branches, cx);
         let body = if rows.is_empty() {
-            let (drawing, empty) = if branches.list.is_empty() {
-                (Illustration::Cactus, "Every branch is applied".to_owned())
-            } else {
-                let filter = self.branch_filter.read(cx).text();
-                let miss = match filter.trim() {
-                    "" => "The filters hide every branch".to_owned(),
-                    filter => format!("No branches match \"{filter}\""),
-                };
-                (Illustration::Papers, miss)
-            };
-            list_empty(drawing, empty, "", theme, cx)
+            self.no_branches(branches, theme, cx)
         } else {
             side_list(
                 "branch-table",
@@ -1300,8 +1231,7 @@ impl Detail {
         }))
         .on_mouse_down(
             MouseButton::Right,
-            cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-                window.focus(&this.side_focus, cx);
+            cx.listener(move |this, event: &MouseDownEvent, _, cx| {
                 this.branch_menu(&project, &ref_name, event.position, cx)
             }),
         )
@@ -1318,33 +1248,10 @@ impl Detail {
         let Some(branches) = self.branches_for(project) else {
             return empty_state(None, "Loading branches…", "", theme, cx);
         };
-        let prefs = &self.store.read(cx).prefs;
-        // Lit while the filters aren't as they are at rest, as Lite counts them.
-        let changed =
-            prefs.branches_with_empty || prefs.branches_local_only || prefs.branches_with_merged;
-        let filter = self
-            .filter_bar(
-                &self.branch_filter,
-                "Branch filters",
-                Self::branch_filters_menu,
-                changed,
-                window,
-                cx,
-            )
-            .children(self.fetch_button(project, cx));
+        let filter = self.branch_filter_bar(project, window, cx);
         let rows = self.branch_rows(branches, cx);
         let list = if rows.is_empty() {
-            let (drawing, empty) = if branches.list.is_empty() {
-                (Illustration::Cactus, "Every branch is applied".to_owned())
-            } else {
-                let filter = self.branch_filter.read(cx).text();
-                let miss = match filter.trim() {
-                    "" => "The filters hide every branch".to_owned(),
-                    filter => format!("No branches match \"{filter}\""),
-                };
-                (Illustration::Papers, miss)
-            };
-            list_empty(drawing, empty, "", theme, cx)
+            self.no_branches(branches, theme, cx)
         } else {
             side_list(
                 "other-branches",
@@ -1360,10 +1267,6 @@ impl Detail {
                         // click folds them away; folded, it names its top branch.
                         Row::Stack(top, count, folded) => {
                             let top_ref = branches.list[*top].ref_name.clone();
-                            let chevron = match folded {
-                                true => Icon::ChevronRight,
-                                false => Icon::ChevronDown,
-                            };
                             h_flex()
                                 .id(("stack-caption", ix))
                                 .h(px(ROW_HEIGHT))
@@ -1375,14 +1278,7 @@ impl Detail {
                                 .hover(|el| el.bg(theme.hover()))
                                 .text_size(px(12.))
                                 .text_color(theme.text_2)
-                                .child(
-                                    div()
-                                        .flex_none()
-                                        .w(px(14.))
-                                        .flex()
-                                        .justify_center()
-                                        .child(small_icon(chevron).text_color(theme.text_3)),
-                                )
+                                .child(fold_glyph(Some(!*folded), theme.text_3))
                                 .child(small_icon(Icon::Stack).text_color(theme.text_3))
                                 .child(div().flex_none().child(format!("Stack of {count}")))
                                 .when(*folded, |el| {
@@ -1447,41 +1343,24 @@ impl Detail {
                                 .child(div().flex_1().min_w(px(0.)).truncate().child(label.clone()))
                                 // Who wrote it and when, in the branch rows' columns, so the
                                 // two line up.
-                                .child(
-                                    div()
-                                        .id(("other-commit-author", ix))
-                                        .flex_none()
-                                        .child(byline_avatar(
-                                            &commit.author,
-                                            &commit.email,
-                                            commit.agent.as_ref(),
-                                            14.,
-                                            theme,
-                                        ))
-                                        .tooltip(Tooltip::text(match &commit.agent {
-                                            Some(agent) => format!(
-                                                "Committed by {}, written by {}",
-                                                commit.author, agent.name
-                                            ),
-                                            None => format!("Authored by {}", commit.author),
-                                        })),
-                                )
-                                .child(quiet(age_column(Some(commit.time), theme), on, theme))
-                                .on_click(cx.listener(
-                                    move |this, event: &ClickEvent, window, cx| {
-                                        window.focus(&this.side_focus, cx);
-                                        let held = event.modifiers();
-                                        match held.secondary() || held.shift {
-                                            true => this
-                                                .pick_branch_commit(&ref_name, id, held.shift, cx),
-                                            false => this.select_branch_commit(&ref_name, id, cx),
-                                        }
-                                    },
+                                .child(commit_author(
+                                    ("other-commit-author", ix),
+                                    commit,
+                                    on,
+                                    theme,
                                 ))
+                                .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
+                                    let held = event.modifiers();
+                                    match held.secondary() || held.shift {
+                                        true => {
+                                            this.pick_branch_commit(&ref_name, id, held.shift, cx)
+                                        }
+                                        false => this.select_branch_commit(&ref_name, id, cx),
+                                    }
+                                }))
                                 .on_mouse_down(
                                     MouseButton::Right,
-                                    cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-                                        window.focus(&this.side_focus, cx);
+                                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
                                         let at = event.position;
                                         this.branch_commit_menu(&project, &menu_ref, id, at, cx)
                                     }),
@@ -1506,44 +1385,18 @@ impl Detail {
                             };
                             let on = selected && solid;
                             let ink = |color| if on { theme.text_inverted } else { color };
-                            // As in the navigator: a chevron folds its commits away, and a
-                            // branch with none to show has a dot there instead.
-                            let step = div()
-                                .id(("other-branch-fold", ix))
-                                .flex_none()
-                                .w(px(14.))
-                                .h(px(16.))
-                                .flex()
-                                .items_center()
-                                .justify_center();
-                            let step = match branch.own_commits == Some(0) {
-                                true => step.child(
-                                    small_icon(Icon::BulletDisc).text_color(ink(theme.text_3)),
-                                ),
-                                false => {
-                                    let open = branches.open.contains(&ref_name);
-                                    let fold = ref_name.clone();
-                                    step.rounded(px(3.))
-                                        .hover(|el| el.bg(theme.hover()))
-                                        .child(
-                                            small_icon(match open {
-                                                true => Icon::ChevronDown,
-                                                false => Icon::ChevronRight,
-                                            })
-                                            .text_color(ink(theme.text_3)),
-                                        )
-                                        // Folding the branch doesn't select it.
-                                        .on_mouse_down(MouseButton::Left, |_, _, cx| {
-                                            cx.stop_propagation()
-                                        })
-                                        .on_click(cx.listener(
-                                            move |this, _: &ClickEvent, _, cx| {
-                                                cx.stop_propagation();
-                                                this.toggle_branch(&fold, cx)
-                                            },
-                                        ))
-                                }
-                            };
+                            // As in the navigator: a chevron folds its commits away, without
+                            // selecting it, and a branch with none to show has a dot there.
+                            let open = (branch.own_commits != Some(0))
+                                .then(|| branches.open.contains(&ref_name));
+                            let fold = ref_name.clone();
+                            let step = fold_button(
+                                ("other-branch-fold", ix),
+                                open,
+                                ink(theme.text_3),
+                                cx,
+                                move |this, _, cx| this.toggle_branch(&fold, cx),
+                            );
                             let shown_name = (branch.ref_name.strip_prefix("refs/remotes/"))
                                 .filter(|_| !branch.local)
                                 .unwrap_or(&branch.name);
@@ -1610,19 +1463,15 @@ impl Detail {
                                 })
                                 // A click selects it and looks inside, opening its commits; the
                                 // chevron, ← and → fold them.
-                                .on_click(cx.listener(
-                                    move |this, event: &ClickEvent, window, cx| {
-                                        window.focus(&this.side_focus, cx);
-                                        if event.click_count() == 1 {
-                                            this.select_other_branch(Some(ref_name.clone()), cx);
-                                            this.open_on_click(&ref_name, cx);
-                                        }
-                                    },
-                                ))
+                                .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
+                                    if event.click_count() == 1 {
+                                        this.select_other_branch(Some(ref_name.clone()), cx);
+                                        this.open_on_click(&ref_name, cx);
+                                    }
+                                }))
                                 .on_mouse_down(
                                     MouseButton::Right,
-                                    cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-                                        window.focus(&this.side_focus, cx);
+                                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
                                         this.branch_menu(&project, &menu_ref, event.position, cx)
                                     }),
                                 )
@@ -1650,6 +1499,44 @@ impl Detail {
             .child(filter)
             .child(list)
             .into_any_element()
+    }
+
+    /// The filter bar over the table and the list, with a fetch button.
+    fn branch_filter_bar(
+        &self,
+        project: &ProjectId,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> gpui::Div {
+        let prefs = &self.store.read(cx).prefs;
+        // Lit while the filters aren't as they are at rest, as Lite counts them.
+        let changed =
+            prefs.branches_with_empty || prefs.branches_local_only || prefs.branches_with_merged;
+        self.filter_bar(
+            &self.branch_filter,
+            "Branch filters",
+            Self::branch_filters_menu,
+            changed,
+            window,
+            cx,
+        )
+        .children(self.fetch_button(project, cx))
+    }
+
+    /// What the table and the list show without a branch to list: that every one is applied,
+    /// or that the filters hide them.
+    fn no_branches(&self, branches: &Branches, theme: &Theme, cx: &Context<Self>) -> AnyElement {
+        let (drawing, empty) = if branches.list.is_empty() {
+            (Illustration::Cactus, "Every branch is applied".to_owned())
+        } else {
+            let filter = self.branch_filter.read(cx).text();
+            let miss = match filter.trim() {
+                "" => "The filters hide every branch".to_owned(),
+                filter => format!("No branches match \"{filter}\""),
+            };
+            (Illustration::Papers, miss)
+        };
+        list_empty(drawing, empty, "", theme, cx)
     }
 
     /// Lite's branch filters: branches with no commits of their own, left out at rest, and
@@ -1692,8 +1579,8 @@ impl Detail {
             return;
         };
         crumbs.push((branch.name.clone().into(), None));
-        if let Some(title) = self.selected_branch_commit_title(project) {
-            crumbs.push((title.into(), None));
+        if let Some(commit) = self.picked_branch_commit(project) {
+            crumbs.push((commit.title.clone().into(), None));
         }
     }
 }

@@ -20,8 +20,8 @@ use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
 use crate::ui::{
-    Icon, ROW_HEIGHT, checkbox, count_badge, faint, h_flex, icon_button, list_row, muted, popover,
-    relative_time, shortcut, small_icon, v_flex,
+    Icon, ROW_HEIGHT, checkbox, count_badge, faint, h_flex, icon_button, muted, popover, quiet,
+    relative_time, shortcut, side_row, small_icon, v_flex,
 };
 
 /// Where a file list's files come from.
@@ -65,9 +65,10 @@ const STEP: f32 = 12.;
 /// The group a file row's hover reaches its checkbox through.
 const ROW_GROUP: &str = "file-row";
 
-/// A row of a file list, inset in the panel as GitButler's other file lists are.
-fn file_row(id: impl Into<ElementId>, selected: bool, theme: &Theme) -> Stateful<Div> {
-    list_row(id, selected, theme)
+/// A row of a file list, inset in the panel as GitButler's other file lists are, its
+/// selection `solid` while the list holds the focus.
+fn file_row(id: impl Into<ElementId>, selected: bool, solid: bool, theme: &Theme) -> Stateful<Div> {
+    side_row(id, selected, solid, theme)
         .mx(px(12.))
         .pl(px(8.))
         .pr(px(4.))
@@ -107,7 +108,7 @@ fn files_heading(count: usize, (added, removed): (u32, u32), theme: &Theme) -> D
         .child(
             div()
                 .text_size(px(14.))
-                .font_weight(gpui::FontWeight::BOLD)
+                .font_weight(gpui::FontWeight::SEMIBOLD)
                 .child("Files"),
         )
         .child(count_badge(count, theme))
@@ -286,7 +287,9 @@ impl Detail {
         // Which rows are picked, while some are, so picked files next to each other join up.
         let picks: HashSet<&str> = self.file_picks.iter().map(String::as_str).collect();
         // A picked file's menu is all the picks'.
-        let picked = (!picks.is_empty()).then(|| self.picked_cut(cx)).flatten();
+        let picked = (!picks.is_empty())
+            .then(|| self.owned_cut(self.picked_changes(), cx))
+            .flatten();
         let lit: Vec<bool> = match picks.is_empty() {
             true => Vec::new(),
             false => (rows.iter())
@@ -432,14 +435,6 @@ impl Detail {
     ) -> Option<Cut> {
         let part = self.diff.as_ref()?.files.get(file)?.part(hunks);
         self.owned_cut(vec![part], cx)
-    }
-
-    /// What right-clicking or dragging any of the picked files takes: all of them.
-    fn picked_cut(&self, cx: &App) -> Option<Cut> {
-        if self.file_picks.is_empty() {
-            return None;
-        }
-        self.owned_cut(self.picked_changes(), cx)
     }
 
     /// The loaded diff's picked files, whole, in its order: not those it doesn't show.
@@ -593,14 +588,15 @@ impl Detail {
         // The lines its files add and remove, shown on hover: always there, they'd crowd the
         // names. Summed from the diff's files, as each file's own counts are.
         let under = format!("{path}/");
-        let (added, removed) = (self.diff.iter())
-            .flat_map(|diff| diff.files.iter())
-            .filter(|file| file.file.path.starts_with(&under))
-            .map(FileDiff::stats)
-            .fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr));
+        let (added, removed) = diff::total_stats(
+            (self.diff.iter())
+                .flat_map(|diff| diff.files.iter())
+                .filter(|file| file.file.path.starts_with(&under)),
+        );
         let row = file_row(
             ElementId::Name(format!("dir-{path}").into()),
             holds_cursor,
+            false,
             theme,
         )
         .group(DIR_GROUP)
@@ -690,9 +686,12 @@ impl Detail {
                         .on_click(cx.listener(|this, _, window, cx| this.close_filter(window, cx))),
                 );
         }
-        let stats = (diffs.map(FileDiff::stats)).fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr));
         header_row()
-            .child(files_heading(paths.count(), stats, theme))
+            .child(files_heading(
+                paths.count(),
+                diff::total_stats(diffs),
+                theme,
+            ))
             .child(div().flex_1())
             .child(
                 icon_button("filter-files", Icon::Search)
@@ -824,7 +823,7 @@ impl Detail {
             div()
                 .group_hover(ROW_GROUP, |s| s.invisible())
                 .map(|el| match file.conflicted {
-                    true => el.child(small_icon(Icon::Warning).text_color(theme.danger)),
+                    true => el.child(small_icon(Icon::Warning).text_color(theme.warn)),
                     false => el
                         .text_size(px(11.))
                         .font_weight(gpui::FontWeight::SEMIBOLD)
@@ -841,10 +840,7 @@ impl Detail {
             .justify_center()
             .child(mark)
             .child(more);
-        let mut row = file_row(("file", ix), current || picked, theme)
-            .when(solid, |el| {
-                el.bg(theme.fill_gray).text_color(theme.text_inverted)
-            })
+        let mut row = file_row(("file", ix), current || picked, solid, theme)
             .map(|el| crate::ui::joined(el, extras.joined, solid, theme))
             .aria_label(file.path.clone())
             .aria_description(file.kind.word())
@@ -890,11 +886,7 @@ impl Detail {
                 (!file.conflicted)
                     .then_some(file.modified)
                     .flatten()
-                    .map(|ms| {
-                        faint(relative_time(ms / 1000), theme)
-                            .text_size(px(11.))
-                            .when(solid, |el| el.text_color(muted))
-                    }),
+                    .map(|ms| quiet(faint(relative_time(ms / 1000), theme), solid, theme)),
             )
             .child(end)
             .when_some(diff_ix, |el, diff_ix| {

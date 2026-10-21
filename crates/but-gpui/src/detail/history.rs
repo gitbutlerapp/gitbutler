@@ -60,71 +60,64 @@ fn rows(history: &History, shown: &[usize]) -> Vec<Row> {
     rows
 }
 
-/// The glyph for a kind of operation, which tells what it did at a glance: a commit made,
-/// changes amended into one, commits squashed, something edited, thrown away, done to a
-/// branch, brought in from the target, taken back, or kept as a snapshot.
-fn operation_icon(kind: Option<OperationKind>) -> Icon {
+/// What a kind of operation did: its glyph, which tells at a glance, and its [`Group`]. A
+/// commit made, changes amended into one, commits squashed, something edited, thrown away, done
+/// to a branch, brought in from the target, taken back, or kept as a snapshot.
+fn describe(kind: Option<OperationKind>) -> (Icon, Group) {
     use OperationKind as K;
+    let Some(kind) = kind else {
+        return (Icon::Commit, Group::Other);
+    };
     match kind {
-        Some(
-            K::DiscardLines
-            | K::DiscardHunk
-            | K::DiscardFile
-            | K::DiscardChanges
-            | K::Discard
-            | K::DiscardCommit
-            | K::CleanWorkspace
-            | K::DeleteBranch
-            | K::RemoveDependentBranch,
-        ) => Icon::Bin,
-        Some(K::CreateCommit | K::AutoCommit | K::InsertBlankCommit | K::CherryPick)
-        | Some(K::MoveCommit | K::ReorderCommit) => Icon::Commit,
-        Some(K::AmendCommit | K::Absorb) => Icon::Absorb,
-        Some(K::SquashCommit) => Icon::ArrowDoubleDown,
-        Some(
-            K::UpdateCommitMessage
-            | K::UpdateBranchName
-            | K::UpdateBranchNotes
-            | K::UpdateBranchRemoteName
-            | K::UpdateDependentBranchName
-            | K::UpdateDependentBranchDescription
-            | K::UpdateDependentBranchPrNumber
-            | K::EnterEditMode
-            | K::ResolveConflicts
-            | K::ResolveConflictsAi,
-        ) => Icon::Edit,
-        Some(
-            K::CreateBranch
-            | K::CreateDependentBranch
-            | K::StashIntoBranch
-            | K::ApplyBranch
-            | K::UnapplyBranch
-            | K::SwitchBranch
-            | K::SwitchToWorkspace
-            | K::ReorderBranches
-            | K::MoveBranch
-            | K::TearOffBranch
-            | K::SplitBranch
-            | K::SetBaseBranch
-            | K::GenericBranchUpdate,
-        ) => Icon::Branch,
-        Some(
-            K::UndoCommit
-            | K::RestoreFromSnapshot
-            | K::RestoreFromSnapshotViaUndo
-            | K::RestoreFromSnapshotViaRedo,
-        ) => Icon::Undo,
-        Some(
-            K::MoveHunk
-            | K::MoveCommitFile
-            | K::FileChanges
-            | K::AutoHandleChangesBefore
-            | K::AutoHandleChangesAfter,
-        ) => Icon::File,
-        Some(K::MergeUpstream | K::UpdateWorkspaceBase) => Icon::ArrowLineDown,
-        Some(K::SyncWorkspace) => Icon::Refresh,
-        Some(K::OnDemandSnapshot) => Icon::Camera,
-        Some(K::Unknown) | None => Icon::Commit,
+        K::CreateCommit | K::AutoCommit | K::InsertBlankCommit | K::CherryPick => {
+            (Icon::Commit, Group::Commits)
+        }
+        K::MoveCommit | K::ReorderCommit => (Icon::Commit, Group::Rewrites),
+        K::AmendCommit | K::Absorb => (Icon::Absorb, Group::Rewrites),
+        K::SquashCommit => (Icon::ArrowDoubleDown, Group::Rewrites),
+        K::UpdateCommitMessage | K::EnterEditMode | K::ResolveConflicts | K::ResolveConflictsAi => {
+            (Icon::Edit, Group::Rewrites)
+        }
+        K::MoveHunk | K::MoveCommitFile => (Icon::File, Group::Rewrites),
+        K::DiscardLines
+        | K::DiscardHunk
+        | K::DiscardFile
+        | K::DiscardChanges
+        | K::Discard
+        | K::DiscardCommit
+        | K::CleanWorkspace
+        | K::DeleteBranch
+        | K::RemoveDependentBranch => (Icon::Bin, Group::Discards),
+        K::UndoCommit => (Icon::Undo, Group::Discards),
+        K::UpdateBranchName
+        | K::UpdateBranchNotes
+        | K::UpdateBranchRemoteName
+        | K::UpdateDependentBranchName
+        | K::UpdateDependentBranchDescription
+        | K::UpdateDependentBranchPrNumber => (Icon::Edit, Group::Branches),
+        K::CreateBranch
+        | K::CreateDependentBranch
+        | K::StashIntoBranch
+        | K::ApplyBranch
+        | K::UnapplyBranch
+        | K::SwitchBranch
+        | K::SwitchToWorkspace
+        | K::ReorderBranches
+        | K::MoveBranch
+        | K::TearOffBranch
+        | K::SplitBranch
+        | K::GenericBranchUpdate => (Icon::Branch, Group::Branches),
+        K::SetBaseBranch => (Icon::Branch, Group::Updates),
+        K::MergeUpstream | K::UpdateWorkspaceBase => (Icon::ArrowLineDown, Group::Updates),
+        K::SyncWorkspace => (Icon::Refresh, Group::Updates),
+        K::RestoreFromSnapshot | K::RestoreFromSnapshotViaUndo | K::RestoreFromSnapshotViaRedo => {
+            (Icon::Undo, Group::TakeBacks)
+        }
+        K::OnDemandSnapshot => (Icon::Camera, Group::Snapshots),
+        K::FileChanges | K::AutoHandleChangesBefore | K::AutoHandleChangesAfter => {
+            (Icon::File, Group::Other)
+        }
+        K::Unknown => (Icon::Commit, Group::Other),
     }
 }
 
@@ -152,68 +145,6 @@ impl Group {
         Group::Snapshots,
         Group::Other,
     ];
-
-    fn of(kind: Option<OperationKind>) -> Self {
-        use OperationKind as K;
-        let Some(kind) = kind else {
-            return Group::Other;
-        };
-        match kind {
-            K::CreateCommit | K::AutoCommit | K::InsertBlankCommit | K::CherryPick => {
-                Group::Commits
-            }
-            K::AmendCommit
-            | K::Absorb
-            | K::SquashCommit
-            | K::UpdateCommitMessage
-            | K::MoveCommit
-            | K::MoveHunk
-            | K::MoveCommitFile
-            | K::ReorderCommit
-            | K::EnterEditMode
-            | K::ResolveConflicts
-            | K::ResolveConflictsAi => Group::Rewrites,
-            K::DiscardLines
-            | K::DiscardHunk
-            | K::DiscardFile
-            | K::DiscardChanges
-            | K::Discard
-            | K::DiscardCommit
-            | K::CleanWorkspace
-            | K::UndoCommit
-            | K::DeleteBranch
-            | K::RemoveDependentBranch => Group::Discards,
-            K::CreateBranch
-            | K::CreateDependentBranch
-            | K::StashIntoBranch
-            | K::UpdateBranchName
-            | K::UpdateDependentBranchName
-            | K::UpdateBranchNotes
-            | K::UpdateBranchRemoteName
-            | K::GenericBranchUpdate
-            | K::UpdateDependentBranchDescription
-            | K::UpdateDependentBranchPrNumber
-            | K::ApplyBranch
-            | K::UnapplyBranch
-            | K::SwitchBranch
-            | K::SwitchToWorkspace
-            | K::MoveBranch
-            | K::ReorderBranches
-            | K::TearOffBranch
-            | K::SplitBranch => Group::Branches,
-            K::MergeUpstream | K::UpdateWorkspaceBase | K::SetBaseBranch | K::SyncWorkspace => {
-                Group::Updates
-            }
-            K::RestoreFromSnapshot
-            | K::RestoreFromSnapshotViaUndo
-            | K::RestoreFromSnapshotViaRedo => Group::TakeBacks,
-            K::OnDemandSnapshot => Group::Snapshots,
-            K::FileChanges
-            | K::AutoHandleChangesBefore
-            | K::AutoHandleChangesAfter
-            | K::Unknown => Group::Other,
-        }
-    }
 
     fn label(self) -> &'static str {
         match self {
@@ -254,7 +185,7 @@ fn summary(operation: &Operation) -> Option<String> {
 /// What hovering a row's glyph says it did: its title, and for an undo what it took back.
 fn glyph_tooltip(operation: &Operation) -> String {
     match (
-        Group::of(operation.kind) == Group::TakeBacks,
+        describe(operation.kind).1 == Group::TakeBacks,
         &operation.detail,
     ) {
         (true, Some(undone)) => format!("{}: {undone}", operation.title),
@@ -486,7 +417,7 @@ impl Detail {
         let query = self.history_filter.read(cx).text().trim().to_lowercase();
         let matches = |text: &str| text.to_lowercase().contains(&query);
         (history.operations.iter().enumerate())
-            .filter(|(_, op)| !self.history_hidden.contains(&Group::of(op.kind)))
+            .filter(|(_, op)| !self.history_hidden.contains(&describe(op.kind).1))
             .filter(|(_, op)| {
                 query.is_empty() || matches(&op.title) || summary(op).is_some_and(|s| matches(&s))
             })
@@ -621,7 +552,7 @@ impl Detail {
                 branches.push(branch);
             }
         }
-        let undone = Group::of(operation.kind) == Group::TakeBacks;
+        let undone = describe(operation.kind).1 == Group::TakeBacks;
         let when = format!(
             "{} {}",
             day_label(operation.time),
@@ -647,7 +578,7 @@ impl Detail {
         let main = v_flex()
             .gap(px(10.))
             .child(
-                page_title(operation_icon(operation.kind), theme)
+                page_title(describe(operation.kind).0, theme)
                     .child(title_text(operation.title.clone())),
             )
             .child(meta)
@@ -893,17 +824,14 @@ impl Detail {
                                 Some(text) => (text, true),
                                 None => (operation.title.clone(), false),
                             };
-                            let tint = Group::of(operation.kind).tint(theme);
+                            let (glyph, group) = describe(operation.kind);
                             side_row(("operation", ix), selected, on, theme)
                                 .child(
                                     div()
                                         .id(("operation-glyph", ix))
                                         .flex_none()
                                         .tooltip(Tooltip::text(glyph_tooltip(operation)))
-                                        .child(
-                                            icon(operation_icon(operation.kind))
-                                                .text_color(quiet(tint)),
-                                        ),
+                                        .child(icon(glyph).text_color(quiet(group.tint(theme)))),
                                 )
                                 .child(
                                     div()

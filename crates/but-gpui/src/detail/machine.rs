@@ -5,16 +5,16 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
+use gpui::{AnyElement, App, Context, SharedString, div, prelude::*, px};
 
 use super::Detail;
 use crate::backend::mesh::{self, Checkout};
 use crate::backend::{self, CommitId, DiffSource};
 use crate::state::{MeshBranch, MeshPick, ProjectId, Selection};
 use crate::theme::Theme;
-use crate::ui::{
-    ButtonStyle, Icon, button, empty_state, faint, h_flex, plural, small_icon, v_flex,
-};
+use crate::ui::diff;
+use crate::ui::file_icons::file_icon;
+use crate::ui::{ButtonStyle, Icon, button, empty_state, faint, h_flex, plural, v_flex};
 
 /// How many of a checkout's uncommitted files its view lists; the rest open on but.dev.
 const LISTED: usize = 50;
@@ -215,14 +215,14 @@ impl Detail {
     ) -> AnyElement {
         let store = self.store.read(cx);
         match (pick, store.mesh_checkout(project, id)) {
-            (MeshPick::Checkout, Some(checkout)) => uncommitted_list(checkout, theme),
+            (MeshPick::Checkout, Some(checkout)) => uncommitted_list(checkout, theme, cx),
             _ => self.render_diff_file_list(theme, cx),
         }
     }
 }
 
 /// A checkout's uncommitted files, as that machine reported them.
-fn uncommitted_list(checkout: &Checkout, theme: &Theme) -> AnyElement {
+fn uncommitted_list(checkout: &Checkout, theme: &Theme, cx: &App) -> AnyElement {
     let files = &checkout.uncommitted;
     let title = match files.len() {
         0 => "Nothing uncommitted".to_owned(),
@@ -232,7 +232,7 @@ fn uncommitted_list(checkout: &Checkout, theme: &Theme) -> AnyElement {
     let listed = files.iter().take(LISTED).map(|file| {
         h_flex()
             .gap(px(8.))
-            .child(small_icon(Icon::File).text_color(theme.warn))
+            .child(file_icon(&file.path, cx))
             .child(
                 div()
                     .flex_1()
@@ -240,8 +240,9 @@ fn uncommitted_list(checkout: &Checkout, theme: &Theme) -> AnyElement {
                     .truncate()
                     .child(file.path.clone()),
             )
-            .child(faint(
-                format!("+{} −{}", file.additions, file.deletions),
+            .child(diff::stats(
+                file.additions as u32,
+                file.deletions as u32,
                 theme,
             ))
     });

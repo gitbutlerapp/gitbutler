@@ -37,7 +37,7 @@ use gpui::{
 use crate::app::{AddProject, AppView, Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::edit::Editing;
 use crate::backend::{self, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected};
-use crate::state::{FileSort, Pane, Picks, Prefs, ProjectId, Selection, Store, StoreEvent};
+use crate::state::{Cut, FileSort, Pane, Picks, Prefs, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -310,8 +310,6 @@ pub struct Detail {
     /// the space beside the project page's list is, measured as they're drawn.
     target_message_height: Rc<Cell<f32>>,
     beside_width: Rc<Cell<f32>>,
-    /// The one of them shown in place of everything the merge brought in.
-    merged_pick: Option<backend::CommitId>,
     /// The merges on a project's page whose commits show under them, and the one a click on
     /// its row opened, which a click on another's folds again, as branches in the navigator.
     open_merges: HashSet<backend::CommitId>,
@@ -428,11 +426,7 @@ impl Detail {
                     this.refresh_diff(true, cx);
                 }
                 StoreEvent::Reopened => {
-                    if matches!(this.selection(cx), Some(Selection::Branches(_)))
-                        && !this.branches_table
-                    {
-                        this.show_branches_table(cx);
-                    }
+                    this.close_opened_branch(cx);
                 }
                 StoreEvent::Loaded(project) => {
                     if this.selected_project(cx).as_ref() == Some(project) {
@@ -586,7 +580,6 @@ impl Detail {
             readme_scroll: ScrollHandle::new(),
             target_message_height: Rc::new(Cell::new(0.)),
             beside_width: Rc::new(Cell::new(0.)),
-            merged_pick: None,
             open_merges: HashSet::new(),
             merge_click_opened: None,
             activity_days: None,
@@ -706,14 +699,17 @@ impl Detail {
         }
     }
 
-    /// Forget how the last diff was looked at: its text selection, cursor and folds. For a
-    /// new selection, or another item picked on the same page.
+    /// Forget how the last diff was looked at: its text selection, cursor and folds, and how
+    /// far the pull request and the README were scrolled. For a new selection, or another
+    /// item picked on the same page.
     fn reset_view(&mut self) {
         self.text_selection = None;
         self.file_picks.clear();
         self.line_picks = None;
         self.cursor = Cursor::default();
         self.folded.clear();
+        self.review_scroll.set_offset(Default::default());
+        self.readme_scroll.set_offset(Default::default());
     }
 
     /// Show the diff of what was just picked on the selected page, from its top.
@@ -1074,11 +1070,13 @@ impl Detail {
             selection,
         });
         self.settle_line_picks();
+        self.refresh_grip();
         self.prune_resolving();
         for file in stale {
             self.load_whole(file, cx);
         }
-        self.run_find(false, cx);
+        // Another diff's matches count from its first.
+        self.run_find(!same, cx);
         self.diff_error = None;
     }
 
@@ -1194,14 +1192,9 @@ impl Detail {
             |file, hunk, line| {
                 parts_of(file).is_some_and(|keys| keys.iter().any(|key| key.takes(hunk, line)))
             },
-            |file| match self.whole.get(&file.file.path) {
-                Some(Some((fingerprint, lines, _))) if *fingerprint == file.fingerprint => {
-                    Some(lines.len() as u32)
-                }
-                _ => None,
-            },
+            |file| (self.whole_lines(file)).map(|(_, lines, _)| lines.len() as u32),
             store.prefs.split && !unfolded,
-            |conflict| self.conflict_view(conflict),
+            |file, conflict| self.conflict_view(&file.file.path, conflict),
         )
     }
 
@@ -1443,22 +1436,16 @@ impl Detail {
     /// The files the file list shows, in its order: not those a filter or a pending
     /// operation hides, nor, in the tree, those of a directory folded shut.
     fn listed_files(&self, cx: &App) -> Vec<usize> {
-        // Not into a directory folded shut in the tree, whose files the list doesn't show.
-        let folded_away = |file: &usize| {
-            let path = (self.diff.as_ref()).and_then(|diff| diff.files.get(*file));
-            path.is_some_and(|f| {
-                (self.collapsed_dirs.iter()).any(|dir| {
-                    (f.file.path.strip_prefix(dir.as_str()))
-                        .is_some_and(|rest| rest.starts_with('/'))
-                })
-            })
+        let shown = self.shown_files();
+        let Some(diff) = self.diff.as_ref().filter(|_| self.store.read(cx).file_tree) else {
+            return shown;
         };
-        let tree = self.store.read(cx).file_tree;
-        let mut shown = self.shown_files();
-        if tree {
-            shown.retain(|file| !folded_away(file));
-        }
-        shown
+        let paths: Vec<&str> = (shown.iter())
+            .map(|ix| diff.files[*ix].file.path.as_str())
+            .collect();
+        (unfolded(&paths, &self.collapsed_dirs).into_iter())
+            .map(|pos| shown[pos])
+            .collect()
     }
 
     fn move_hunk(&mut self, forward: bool, cx: &mut Context<Self>) {
@@ -1742,6 +1729,24 @@ impl Detail {
             .ok();
     }
 
+    /// Discard the picked lines of a diff of uncommitted changes.
+    fn discard_picked_lines(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(Cut::Files {
+            project,
+            from: None,
+            worktree,
+            files,
+        }) = self.line_picks_cut(cx)
+        else {
+            return;
+        };
+        self.app
+            .update(cx, |app, cx| {
+                app.discard(project, worktree, files.to_vec(), window, cx)
+            })
+            .ok();
+    }
+
     /// Discard the picked files of a diff of uncommitted changes.
     fn discard_picked(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(diff) = (self.diff.as_ref()).filter(|diff| diff.key.source.live()) else {
@@ -1794,7 +1799,7 @@ impl Detail {
                 | Selection::Upstream(..)
                 | Selection::Branch(..)
                 | Selection::Stack(..),
-            ) => self.header_height.get() + self.list_tabs_height(cx),
+            ) => self.header_height.get(),
             Some(Selection::Project(project)) => {
                 let message = match self.showing_target_commit(&project, cx) {
                     true => self.target_message_height.get(),
@@ -1899,7 +1904,7 @@ impl Render for Detail {
                 // does. `view_header_height` lists the same pages.
                 let header = match selection {
                     Selection::Commit(project, id) => {
-                        Some(self.render_commit_header(project, *id, &theme, cx))
+                        Some(self.render_commit_header(project, *id, &theme, window, cx))
                     }
                     Selection::Branch(project, ref_name) => {
                         Some(self.render_branch_header(project, ref_name, &theme, cx))
@@ -1919,27 +1924,26 @@ impl Render for Detail {
                 // request, over the pull request or the diff.
                 let beside = match selection {
                     Selection::Project(project) if self.showing_target_commit(project, cx) => {
-                        Some(self.render_target_beside(project, &theme, cx))
+                        let message = self.shown_target_commit(project, cx);
+                        Some(self.list_beside(project, message, &theme, cx))
                     }
                     // An opened branch: its commits, its files and its pull request, as a
-                    // merge on the project's page has them.
+                    // merge on the project's page has them, and a commit of it picked shows
+                    // its message, as a merge's does.
                     Selection::Branches(project) => {
-                        Some(self.render_branch_beside(project, &theme, cx))
+                        let message = self.picked_branch_commit(project);
+                        Some(self.list_beside(project, message, &theme, cx))
                     }
-                    Selection::Project(project) => match self.selected_review(cx) {
-                        Some(review) => Some(self.render_list_tabs(project, review, &theme, cx)),
-                        None if self.showing_readme(cx) => {
-                            Some(self.render_readme(project, &theme, cx))
-                        }
-                        None => None,
-                    },
+                    Selection::Project(project) if self.showing_readme(cx) => {
+                        Some(self.render_readme(project, &theme, cx))
+                    }
                     // What the selected operation did, over the files it changed.
                     Selection::History(project) => {
                         self.render_operation_header(project, &theme, cx)
                     }
                     _ => None,
                 };
-                let files_shown = self.files_shown(cx);
+                let (files_shown, list_page) = (self.files_shown(cx), self.list_page(cx));
                 let panes = match selection {
                     Selection::Branch(project, _) | Selection::Upstream(project, ..)
                         if self.showing_review(cx) =>
@@ -1965,7 +1969,9 @@ impl Render for Detail {
                                     .border_r_1()
                                     .border_color(theme.border_3)
                                     .track_focus(&self.files_focus)
-                                    .key_context("Files")
+                                    // A list page's list takes the arrows itself; ⇧↑, ⇧↓ and
+                                    // ⌘A, which it has no use for, don't pick the diff's files.
+                                    .when(!list_page, |el| el.key_context("Files"))
                                     .child(side)
                                     .child(resize_handle(Pane::Files, self.store.clone(), &theme)),
                             )
@@ -1994,15 +2000,21 @@ impl Render for Detail {
             .on_action(cx.listener(|this, _: &PickAllFiles, _, cx| this.pick_all_files(cx)))
             .on_action(cx.listener(|this, _: &NextHunk, _, cx| this.move_hunk(true, cx)))
             .on_action(cx.listener(|this, _: &PreviousHunk, _, cx| this.move_hunk(false, cx)))
+            // Picked lines go first, as ⌘X takes them first.
             .on_action(cx.listener(|this, _: &DiscardHunk, window, cx| {
-                if let Some(hunk) = this.cursor.hunk {
-                    this.discard(this.cursor.file, Some(hunk), window, cx);
+                if this.line_picks.is_some() {
+                    this.discard_picked_lines(window, cx)
+                } else if let Some(hunk) = this.cursor.hunk {
+                    this.discard(this.cursor.file, Some(hunk), window, cx)
                 }
             }))
             .on_action(cx.listener(|this, _: &DiscardFile, window, cx| {
-                match this.file_picks.is_empty() {
-                    true => this.discard(this.cursor.file, None, window, cx),
-                    false => this.discard_picked(window, cx),
+                if this.line_picks.is_some() {
+                    this.discard_picked_lines(window, cx)
+                } else if this.file_picks.is_empty() {
+                    this.discard(this.cursor.file, None, window, cx)
+                } else {
+                    this.discard_picked(window, cx)
                 }
             }))
             .on_action(
@@ -2047,6 +2059,17 @@ impl Render for Detail {
             .child(self.render_header(selection.as_ref(), &theme, cx))
             .child(div().flex_1().min_h(px(0.)).child(body))
     }
+}
+
+/// Which of `paths`, by position, a tree of them lists with the directories in `collapsed`
+/// folded shut, in its order. A row the tree merges, as `src/backend`, folds by its own path.
+fn unfolded(paths: &[&str], collapsed: &HashSet<String>) -> Vec<usize> {
+    (file_tree::tree_rows(paths, collapsed).into_iter())
+        .filter_map(|row| match row {
+            file_tree::TreeRow::File { pos, .. } => Some(pos),
+            file_tree::TreeRow::Dir { .. } => None,
+        })
+        .collect()
 }
 
 /// Whether `path` has every one of `terms` in it.
@@ -2145,8 +2168,34 @@ fn list_filter(
 
 #[cfg(test)]
 mod tests {
-    use super::follow_hunk;
+    use std::collections::HashSet;
+
+    use super::{follow_hunk, unfolded};
     use crate::backend::HunkKey;
+
+    #[test]
+    fn the_keys_skip_only_files_the_tree_folds_away() {
+        let collapsed =
+            |dirs: &[&str]| -> HashSet<String> { dirs.iter().map(|dir| dir.to_string()).collect() };
+        assert_eq!(
+            unfolded(&["src/backend/x.rs"], &collapsed(&["src"])),
+            [0],
+            "`src` holds only `backend`, so the tree has one `src/backend` row, not folded"
+        );
+        assert_eq!(
+            unfolded(&["src/backend/x.rs"], &collapsed(&["src/backend"])),
+            [] as [usize; 0],
+            "the merged row folds by its own path"
+        );
+        assert_eq!(
+            unfolded(
+                &["src/backend/x.rs", "src/y.rs", "z.rs"],
+                &collapsed(&["src"])
+            ),
+            [2],
+            "`src` has a file of its own here, so it's a row of its own, folding all under it"
+        );
+    }
 
     fn key(old_start: u32, new_start: u32) -> HunkKey {
         HunkKey(but_core::HunkHeader {
