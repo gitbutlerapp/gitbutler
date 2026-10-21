@@ -18,6 +18,8 @@ use super::{Agent, CommitId, RemoteCommit, Review, ReviewState, open, runtime, s
 pub struct TargetCommit {
     pub id: CommitId,
     pub title: String,
+    /// The rest of its message, after the title.
+    pub body: String,
     /// Seconds since the epoch.
     pub time: i64,
     /// Who it's shown by, as [`super::byline`] picks.
@@ -87,6 +89,12 @@ fn target_page(
             TargetCommit {
                 id: CommitId(commit.id),
                 title: title(&commit.message),
+                body: (commit.message.lines().skip(1))
+                    .map(|line| line.to_str_lossy())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+                    .trim()
+                    .to_owned(),
                 time: (commit.committed_at / 1000) as i64,
                 author,
                 email,

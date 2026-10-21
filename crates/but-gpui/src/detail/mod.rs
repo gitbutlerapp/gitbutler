@@ -304,6 +304,10 @@ pub struct Detail {
     passed_checks_open: bool,
     review_scroll: ScrollHandle,
     readme_scroll: ScrollHandle,
+    /// How tall the selected target commit's message is drawn over its diff, and how wide
+    /// the space beside the project page's list is, measured as they're drawn.
+    target_message_height: Rc<Cell<f32>>,
+    beside_width: Rc<Cell<f32>>,
     /// The images each project's README shows, as loaded, by where they're from.
     readme_images: HashMap<ProjectId, HashMap<String, Arc<gpui::RenderImage>>>,
     /// The images asked for, loaded or not, so each is asked for once.
@@ -554,6 +558,8 @@ impl Detail {
             passed_checks_open: false,
             review_scroll: ScrollHandle::new(),
             readme_scroll: ScrollHandle::new(),
+            target_message_height: Rc::new(Cell::new(0.)),
+            beside_width: Rc::new(Cell::new(0.)),
             readme_images: HashMap::new(),
             readme_images_asked: HashSet::new(),
             header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),
@@ -1754,9 +1760,15 @@ impl Detail {
                 Selection::Commit(..)
                 | Selection::Upstream(..)
                 | Selection::Branch(..)
-                | Selection::Stack(..)
-                | Selection::Project(..),
+                | Selection::Stack(..),
             ) => self.header_height.get() + self.list_tabs_height(cx),
+            Some(Selection::Project(project)) => {
+                let message = match self.showing_target_commit(&project) {
+                    true => self.target_message_height.get(),
+                    false => 0.,
+                };
+                self.header_height.get() + message + self.list_tabs_height(cx)
+            }
             Some(Selection::Branches(_)) => self.list_tabs_height(cx),
             Some(Selection::History(project)) if self.selected_operation(&project).is_some() => {
                 self.header_height.get()
@@ -1865,6 +1877,9 @@ impl Render for Detail {
                 // Beside a list, the selected branch or commit's tabs when it has a pull
                 // request, over the pull request or the diff.
                 let beside = match selection {
+                    Selection::Project(project) if self.showing_target_commit(project) => {
+                        Some(self.render_target_beside(project, &theme, cx))
+                    }
                     Selection::Branches(project) | Selection::Project(project) => {
                         match self.selected_review(cx) {
                             Some(review) => {

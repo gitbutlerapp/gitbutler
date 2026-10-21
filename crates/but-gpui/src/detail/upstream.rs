@@ -42,6 +42,11 @@ const PAGE: u32 = 50;
 /// fetch time.
 const STALE_AFTER: Duration = Duration::from_secs(60);
 
+/// How wide the files beside a target commit's diff are, and how wide the diff has to stay
+/// for them to show there rather than behind the button over the diff.
+const BESIDE_FILES: f32 = 260.;
+const MIN_DIFF: f32 = 560.;
+
 /// How many of the team the page lists.
 const TEAM_SHOWN: usize = 5;
 
@@ -57,6 +62,9 @@ struct Summary {
     readme: Option<(String, Vec<markdown::Block>)>,
     daily: Vec<u32>,
     team: Vec<(String, String, u32)>,
+    /// How many branches aren't applied, as the Branches page lists them at first: with
+    /// commits of their own, and no merged pull request.
+    unapplied: Option<usize>,
 }
 
 impl From<Overview> for Summary {
@@ -66,6 +74,7 @@ impl From<Overview> for Summary {
                 .map(|(name, text)| (name, markdown::parse_showing_images(&text))),
             daily: overview.daily,
             team: overview.team,
+            unapplied: None,
         }
     }
 }
@@ -159,7 +168,22 @@ impl Detail {
                     (upstream::overview(&path, &target, now))
                         .inspect_err(|err| tracing::warn!(?err, "couldn't sum up the target"))
                         .ok()
-                        .map(Summary::from)
+                        .map(|overview| Summary {
+                            unapplied: (backend::branches::other_branches(&path))
+                                .inspect_err(|err| tracing::warn!(?err, "couldn't count branches"))
+                                .ok()
+                                .map(|branches| {
+                                    (branches.iter())
+                                        .filter(|b| b.own_commits.unwrap_or(0) > 0)
+                                        .filter(|b| {
+                                            (b.review.as_ref()).is_none_or(|r| {
+                                                r.state != backend::ReviewState::Merged
+                                            })
+                                        })
+                                        .count()
+                                }),
+                            ..Summary::from(overview)
+                        })
                 });
                 Ok((
                     page,
@@ -292,6 +316,202 @@ impl Detail {
         }
     }
 
+    /// Whether the project's page shows a commit of its target, with its message over its
+    /// diff, as it does unless it's editing a commit.
+    pub(super) fn showing_target_commit(&self, project: &ProjectId) -> bool {
+        self.selected_target_commit(project).is_some()
+    }
+
+    /// How wide the files listed between the project page's list and the diff are, when
+    /// there's room for them beside it; 0 when they're left to the button over the diff.
+    pub fn beside_files_width(&self, cx: &gpui::App) -> f32 {
+        let on_commit = match self.store.read(cx).selection.as_ref() {
+            Some(Selection::Project(project)) => {
+                self.showing_target_commit(project) && !self.showing_review(cx)
+            }
+            _ => false,
+        };
+        match on_commit && self.beside_width.get() >= BESIDE_FILES + MIN_DIFF {
+            true => BESIDE_FILES,
+            false => 0.,
+        }
+    }
+
+    /// Beside the project page's list, its selected commit: its message, then its tabs when
+    /// it landed a pull request, over its files, when there's room, and the diff, which the
+    /// window draws over the rest.
+    pub(super) fn render_target_beside(
+        &self,
+        project: &ProjectId,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let Some(commit) = self.selected_target_commit(project) else {
+            return div().flex_1().into_any_element();
+        };
+        let (width, app) = (self.beside_width.clone(), self.app.clone());
+        let measure_width = gpui::canvas(
+            move |bounds, _, cx| {
+                let drawn = f32::from(bounds.size.width);
+                if width.replace(drawn) != drawn {
+                    cx.defer(move |cx| {
+                        app.update(cx, |_, cx| cx.notify()).ok();
+                    });
+                }
+            },
+            |_, _, _, _| {},
+        )
+        .absolute()
+        .size_full();
+        let review = commit.review.as_ref();
+        let files = self.beside_files_width(cx);
+        let below = match (review, self.review_tab) {
+            (Some(_), true) => self.render_review_tab(project, theme, cx),
+            _ => h_flex()
+                .flex_1()
+                .min_h(px(0.))
+                .items_start()
+                .when(files > 0., |el| {
+                    el.child(
+                        v_flex()
+                            .w(px(files))
+                            .flex_none()
+                            .h_full()
+                            .border_r_1()
+                            .border_color(theme.border_3)
+                            .child(self.render_diff_file_list(theme, cx)),
+                    )
+                })
+                .into_any_element(),
+        };
+        v_flex()
+            .relative()
+            .flex_1()
+            .h_full()
+            .min_w(px(0.))
+            .child(self.render_target_message(commit, theme, cx))
+            .children(review.map(|review| {
+                h_flex()
+                    .flex_none()
+                    .h(px(super::pull_request::TABS_HEIGHT))
+                    .px(px(16.))
+                    .items_end()
+                    .border_b_1()
+                    .border_color(theme.border_3)
+                    .child(self.review_tabs(review, theme, cx))
+            }))
+            .child(below)
+            .child(measure_width)
+            .into_any_element()
+    }
+
+    /// A target commit's message: its title, who wrote it and when, and the first lines of
+    /// the rest, with a button to show it all.
+    fn render_target_message(
+        &self,
+        commit: &TargetCommit,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        const LINES: usize = 3;
+        // A merge names the pull request by its title, which the body often repeats.
+        let body = (commit.body.lines())
+            .filter(|line| {
+                commit
+                    .review
+                    .as_ref()
+                    .is_none_or(|r| line.trim() != r.title)
+            })
+            .collect::<Vec<_>>();
+        let start = body
+            .iter()
+            .position(|line| !line.trim().is_empty())
+            .unwrap_or(body.len());
+        let body = &body[start..];
+        let long = body.len() > LINES;
+        let open = self.message_open;
+        let shown = match open || !long {
+            true => body.join("\n"),
+            false => body[..LINES].join("\n"),
+        };
+        let (height, app) = (self.target_message_height.clone(), self.app.clone());
+        let measure = gpui::canvas(
+            move |bounds, _, cx| {
+                // And the rule along its bottom.
+                let drawn = f32::from(bounds.size.height) + 1.;
+                if height.replace(drawn) != drawn {
+                    cx.defer(move |cx| {
+                        app.update(cx, |_, cx| cx.notify()).ok();
+                    });
+                }
+            },
+            |_, _, _, _| {},
+        )
+        .absolute()
+        .size_full();
+        v_flex()
+            .relative()
+            .flex_none()
+            .gap(px(6.))
+            .px(px(16.))
+            .py(px(12.))
+            .border_b_1()
+            .border_color(theme.border_3)
+            .child(
+                div()
+                    .text_size(px(15.))
+                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .child(SharedString::from(label(commit).to_owned())),
+            )
+            .child(
+                h_flex()
+                    .gap(px(6.))
+                    .text_size(px(12.))
+                    .text_color(theme.text_2)
+                    .child(byline_avatar(
+                        &commit.author,
+                        &commit.email,
+                        commit.agent.as_ref(),
+                        14.,
+                        theme,
+                    ))
+                    .child(format!(
+                        "{} · {} · {}",
+                        commit.author,
+                        crate::ui::ago(commit.time),
+                        commit.id.short()
+                    )),
+            )
+            .when(!shown.is_empty(), |el| {
+                el.child(
+                    div()
+                        .text_color(theme.text_2)
+                        .whitespace_normal()
+                        .child(SharedString::from(shown)),
+                )
+            })
+            .when(long, |el| {
+                el.child(
+                    div()
+                        .id("target-message-more")
+                        .text_size(px(12.))
+                        .text_color(theme.blue)
+                        .cursor_pointer()
+                        .child(match open {
+                            true => "Show less",
+                            false => "Show more",
+                        })
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.message_open = !this.message_open;
+                            cx.notify();
+                            this.app.update(cx, |_, cx| cx.notify()).ok();
+                        })),
+                )
+            })
+            .child(measure)
+            .into_any_element()
+    }
+
     /// Whether the project's page shows its README, in place of a diff.
     pub fn showing_readme(&self, cx: &gpui::App) -> bool {
         match self.store.read(cx).selection.as_ref() {
@@ -362,6 +582,7 @@ impl Detail {
         if let Some(upstream) = &mut self.upstream {
             upstream.selected = Some(picked);
         }
+        self.message_open = false;
         self.show_picked(cx);
         // The window draws the diff beside the list, or the README doesn't need it.
         self.app.update(cx, |_, cx| cx.notify()).ok();
@@ -563,6 +784,36 @@ impl Detail {
                     }
                 })
             });
+        // What's going on in it, in counts.
+        let workspace = entry.workspace.as_ref();
+        let applied = workspace.map_or(0, |ws| ws.branches().count());
+        let unapplied = (self.upstream_for(project)).and_then(|u| u.summary.as_ref()?.unapplied);
+        let worktrees = workspace.map_or(0, |ws| ws.worktrees.len());
+        let network = store.mesh_checkouts(project);
+        let network_branches: usize = network.iter().map(|c| c.branches.len()).sum();
+        let counts = meta_row(theme)
+            .child(meta_item(Icon::Branch, theme).child(format!("{applied} applied")))
+            .children(unapplied.map(|n| {
+                meta_item(Icon::Branch, theme)
+                    .id("unapplied-count")
+                    .child(format!("{n} not applied"))
+                    .tooltip(Tooltip::text(
+                        "Branches with commits of their own that aren't in your workspace",
+                    ))
+            }))
+            .when(worktrees > 0, |el| {
+                el.child(meta_item(Icon::Folder, theme).child(plural(worktrees, "linked worktree")))
+            })
+            .when(!network.is_empty(), |el| {
+                el.child(meta_item(Icon::Globe, theme).child(format!(
+                    "{} on other machines, {}",
+                    plural(network.len(), "worktree"),
+                    match network_branches {
+                        1 => "1 branch".to_owned(),
+                        n => format!("{n} branches"),
+                    }
+                )))
+            });
         let main = v_flex()
             .gap(px(10.))
             .child(
@@ -572,7 +823,8 @@ impl Detail {
                     .child(trigger)
                     .child(title_text(entry.project.name.clone())),
             )
-            .child(meta);
+            .child(meta)
+            .child(counts);
         let target = Selection::Project(project.clone());
         self.page_header(main, target, None, None, theme, cx)
     }

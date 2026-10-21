@@ -135,7 +135,7 @@ impl AppView {
             store.selection.is_some() && !detail.showing_review(cx) && !detail.showing_readme(cx);
         has_diff.then(|| match detail.files_shown(cx) {
             false => 0.,
-            true => detail.files_width(window, cx),
+            true => detail.files_width(window, cx) + detail.beside_files_width(cx),
         })
     }
 

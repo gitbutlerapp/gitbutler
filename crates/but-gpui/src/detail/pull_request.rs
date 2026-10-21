@@ -20,7 +20,7 @@ use crate::ui::{
 };
 
 /// How tall the tabs over the diff beside a list are.
-const TABS_HEIGHT: f32 = 40.;
+pub(super) const TABS_HEIGHT: f32 = 40.;
 
 /// How old, in seconds, what the pull request tab shows can get before a failed refresh
 /// warns about it.
