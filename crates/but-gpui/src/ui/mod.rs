@@ -972,23 +972,17 @@ pub fn short_path(path: &std::path::Path) -> String {
 }
 
 /// What to show of an error: Git's own complaints when it ran Git, like "fatal: Could not
-/// read from remote repository.", and what the remote said back, as a server's hook does
-/// when it refuses a push, as the rest repeats the command it ran; else its first lines,
-/// without the codes libgit2 appends ("; class=Index (10); code=Locked (-14)").
+/// read from remote repository." and why ssh couldn't get there, said just before it, and
+/// what the remote said back, as a server's hook does when it refuses a push, as the rest
+/// repeats the command it ran; else its first lines, without the codes libgit2 appends
+/// ("; class=Index (10); code=Locked (-14)").
 pub fn error_summary(text: &str) -> String {
     let lines: Vec<&str> = (text.lines())
-        .map(|line| line.split("; class=").next().unwrap_or(line))
+        .map(|line| line.split("; class=").next().unwrap_or(line).trim())
         .collect();
+    let git = |line: &str| line.starts_with("fatal:") || line.starts_with("error:");
     let mut said: Vec<&str> = Vec::new();
-    for line in lines.iter().map(|line| line.trim()) {
-        let (remote, line) = match line.strip_prefix("remote:") {
-            Some(said) => (true, said.trim()),
-            None => (false, line),
-        };
-        let git = line.starts_with("fatal:") || line.starts_with("error:");
-        if line.is_empty() || !(remote || git) {
-            continue;
-        }
+    let mut keep = |line| {
         // Git's line again with a wrapper's ": …" after it keeps its short form.
         let wraps = |long: &str, short: &str| {
             (long.strip_prefix(short)).is_some_and(|rest| rest.is_empty() || rest.starts_with(':'))
@@ -998,6 +992,24 @@ pub fn error_summary(text: &str) -> String {
             Some(_) => {}
             None => said.push(line),
         }
+    };
+    for (ix, &line) in lines.iter().enumerate() {
+        let (remote, line) = match line.strip_prefix("remote:") {
+            Some(said) => (true, said.trim()),
+            None => (false, line),
+        };
+        if line.is_empty() || !(remote || git(line)) {
+            continue;
+        }
+        let before = ix.checked_sub(1).map(|ix| lines[ix]);
+        if line == "fatal: Could not read from remote repository."
+            // Not the label a wrapper puts over Git's output, when ssh said nothing.
+            && let Some(cause) =
+                before.filter(|before| !before.is_empty() && !git(before) && !before.ends_with(':'))
+        {
+            keep(cause);
+        }
+        keep(line);
     }
     match said.is_empty() {
         true => lines[..lines.len().min(4)].join("\n"),
@@ -1250,6 +1262,23 @@ mod tests {
             error_summary(declined),
             "pushes are frozen for the release\nerror: failed to push some refs to '/u.git'",
             "the remote's reason, as its hook gave it"
+        );
+        let denied = "fetching remote `origin` failed: git command exited with code 128:\n\n\
+            STDERR:\ngit@github.com: Permission denied (publickey).\n\
+            fatal: Could not read from remote repository.\n\n\
+            Please make sure you have the correct access rights\nand the repository exists.\n";
+        assert_eq!(
+            error_summary(denied),
+            "git@github.com: Permission denied (publickey).\n\
+             fatal: Could not read from remote repository.",
+            "why ssh couldn't get in, which Git gives up after"
+        );
+        let silent = "git command exited with code 128:\n\nSTDERR:\n\
+            fatal: Could not read from remote repository.\n";
+        assert_eq!(
+            error_summary(silent),
+            "fatal: Could not read from remote repository.",
+            "not the wrapper's label over Git's output, when ssh said nothing"
         );
         assert_eq!(
             error_summary("the index is locked; class=Index (10); code=Locked (-14)"),
