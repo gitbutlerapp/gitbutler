@@ -353,7 +353,13 @@ fn declared_param_names<'a>(declarations: &'a str, js_name: &str) -> Option<Vec<
         split
             .into_iter()
             .filter_map(|param| param.split(':').next())
-            .map(|name| name.trim().trim_start_matches("...").trim())
+            // napi marks a trailing `Option` optional with `?`, which isn't part of its name.
+            .map(|name| {
+                name.trim()
+                    .trim_start_matches("...")
+                    .trim_end_matches('?')
+                    .trim()
+            })
             .filter(|name| !name.is_empty())
             .collect(),
     )
@@ -887,6 +893,17 @@ export declare function many(projectId: string, commitId: string): void
             api_declarations_with_source_links(&linked, &entries),
             linked,
             "regenerating source links is idempotent"
+        );
+    }
+
+    #[test]
+    fn a_trailing_optional_parameter_is_named_without_its_question_mark() {
+        let declarations = "export declare function land(projectId: string, expectedTip?: \
+                            string | undefined | null): Promise<void>\n";
+        assert_eq!(
+            declared_param_names(declarations, "land"),
+            Some(vec!["projectId", "expectedTip"]),
+            "napi declares a trailing Option as `expectedTip?`, whose name has no `?`"
         );
     }
 

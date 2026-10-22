@@ -25,8 +25,8 @@ pub(super) enum LandOutcome {
 }
 
 /// Decide how to land `branch_name` onto the target and, for the merge case, build a signed,
-/// rename-aware merge commit. Conflicts, and a diverged branch with `ff_only`, bail here, before
-/// anything is pushed or moved.
+/// rename-aware merge commit. Conflicts, a diverged branch with `ff_only`, and a branch whose tip
+/// isn't `expected_tip` (when given) bail here, before anything is pushed or moved.
 pub(super) fn decide_land_outcome(
     repo: &gix::Repository,
     branch_name: &str,
@@ -34,6 +34,7 @@ pub(super) fn decide_land_outcome(
     target_branch_name: &str,
     no_ff: bool,
     ff_only: bool,
+    expected_tip: Option<gix::ObjectId>,
 ) -> anyhow::Result<LandOutcome> {
     let feature_ref_name = format!("refs/heads/{branch_name}");
     let feature_oid = repo
@@ -41,6 +42,12 @@ pub(super) fn decide_land_outcome(
         .ok_or_else(|| anyhow::anyhow!("Branch {branch_name} not found"))?
         .into_fully_peeled_id()?
         .detach();
+    if expected_tip.is_some_and(|tip| tip != feature_oid) {
+        bail!(
+            "Refusing to land `{branch_name}`: it changed after you confirmed landing it. Look at \
+             its commits again first."
+        );
+    }
 
     let target_ref_name = format!("refs/remotes/{fetch_remote_name}/{target_branch_name}");
     let target_oid = repo
@@ -133,4 +140,71 @@ pub(super) fn decide_land_outcome(
     let oid = but_core::commit::create(repo, commit, None, SignCommit::IfSignCommitsEnabled)?;
 
     Ok(LandOutcome::Merge { oid, target_oid })
+}
+
+#[cfg(test)]
+mod tests {
+    use but_testsupport::{CommandExt as _, git_at_dir, open_repo};
+
+    use super::{LandOutcome, decide_land_outcome};
+
+    /// A branch that moved after the land was confirmed is refused, as the push can't be undone,
+    /// and at the tip the caller showed it lands.
+    #[test]
+    fn refuses_a_branch_that_moved_after_it_was_confirmed() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let git = || {
+            let mut cmd = git_at_dir(tmp.path());
+            cmd.args([
+                "-c",
+                "user.name=GitButler",
+                "-c",
+                "user.email=gitbutler@example.com",
+            ]);
+            cmd
+        };
+        git().args(["init", "-q"]).run();
+        git()
+            .args(["commit", "-q", "--allow-empty", "-m", "base"])
+            .run();
+        git()
+            .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
+            .run();
+        git().args(["checkout", "-q", "-b", "feature"]).run();
+        git()
+            .args(["commit", "-q", "--allow-empty", "-m", "shown"])
+            .run();
+        let repo = open_repo(tmp.path())?;
+        let shown = repo.rev_parse_single("feature")?.detach();
+        git()
+            .args(["commit", "-q", "--allow-empty", "-m", "added after"])
+            .run();
+
+        let err = decide_land_outcome(
+            &repo,
+            "feature",
+            "origin",
+            "main",
+            false,
+            false,
+            Some(shown),
+        )
+        .err()
+        .expect("feature moved past the tip that was shown");
+        assert_eq!(
+            err.to_string(),
+            "Refusing to land `feature`: it changed after you confirmed landing it. Look at its \
+             commits again first.",
+            "the commit added after the confirmation must not be landed"
+        );
+
+        let tip = repo.rev_parse_single("feature")?.detach();
+        let outcome =
+            decide_land_outcome(&repo, "feature", "origin", "main", false, false, Some(tip))?;
+        assert!(
+            matches!(outcome, LandOutcome::FastForward { feature_oid, .. } if feature_oid == tip),
+            "at the tip that was shown, feature is ahead of the target and fast-forwards it"
+        );
+        Ok(())
+    }
 }

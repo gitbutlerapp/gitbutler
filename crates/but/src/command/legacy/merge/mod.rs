@@ -33,7 +33,7 @@ pub fn handle(
     // so the user is never asked to confirm a land that can't happen; the API enforces it again,
     // along with the bottom-segment, conflicted-commit, and triangular-remote guards, before
     // mutating anything.
-    let (branch_name, base_branch) = {
+    let (branch_name, base_branch, tip) = {
         let mut guard = ctx.exclusive_worktree_access();
 
         {
@@ -55,11 +55,17 @@ pub fn handle(
             CliId::Branch(branch) => branch.name.clone(),
             other => bail!("Expected a branch ID, got {}", other.kind_for_humans()),
         };
+        // The tip the user is asked about: the land refuses if the branch moves before it's
+        // decided, as when an agent commits during the prompt or the fetch.
+        let tip = (ctx.repo.get()?)
+            .try_find_reference(&format!("refs/heads/{branch_name}"))?
+            .map(|mut reference| reference.peel_to_id().map(|id| id.detach()))
+            .transpose()?;
 
         let base_branch =
             but_api::legacy::virtual_branches::get_base_branch_data(ctx, guard.write_permission())?
                 .ok_or_else(|| anyhow::anyhow!("No base branch configured"))?;
-        (branch_name, base_branch)
+        (branch_name, base_branch, tip)
     };
 
     // Display strings for the prompt and the final report. The API recomputes the target/remote
@@ -110,7 +116,8 @@ pub fn handle(
     }
 
     let head_before = ctx.repo.get()?.head_name()?;
-    let result = but_api::land::branch_land(ctx, branch_name.clone(), no_ff, ff_only, whole_stack)?;
+    let result =
+        but_api::land::branch_land(ctx, branch_name.clone(), no_ff, ff_only, whole_stack, tip)?;
 
     messaging::report_land_result(
         out,
