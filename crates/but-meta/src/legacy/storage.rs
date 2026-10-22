@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Context as _, anyhow, bail};
-use but_core::ref_metadata::{ProjectMeta, StackId};
+use but_core::ref_metadata::{AmbiguousLegacyTargetRefError, ProjectMeta, StackId};
 use but_db::{VbStack, VbStackHead, VbState, VirtualBranchesSnapshot};
 use gitbutler_reference::{Refname, RemoteRefname};
 use sha2::{Digest, Sha256};
@@ -29,6 +29,8 @@ struct LegacyTarget {
 /// Read the project metadata that older versions stored in `virtual_branches.toml` without
 /// opening or migrating the project database.
 /// Legacy remote targets must resolve to exactly one local tracking branch in `repo`.
+/// If multiple local branches track it, the [`AmbiguousLegacyTargetRefError`] carries the stored
+/// cutoff and push remote.
 pub fn read_legacy_project_meta(
     path: &Path,
     repo: &gix::Repository,
@@ -42,12 +44,23 @@ pub fn read_legacy_project_meta(
         return Ok(None);
     };
     let target_commit_id = gix::ObjectId::from_str(&target.sha)?;
+    let target_commit_id = (!target_commit_id.is_null()).then_some(target_commit_id);
     let remote_target: gix::refs::FullName =
         format!("refs/remotes/{}/{}", target.remote_name, target.branch_name).try_into()?;
-    let target_ref = but_core::ref_metadata::resolve_local_target(remote_target.as_ref(), repo)?;
+    let target_ref =
+        match but_core::ref_metadata::resolve_local_target(remote_target.as_ref(), repo) {
+            Ok(target_ref) => target_ref,
+            Err(mut err) => {
+                if let Some(ambiguous) = err.downcast_mut::<AmbiguousLegacyTargetRefError>() {
+                    ambiguous.target_commit_id = target_commit_id;
+                    ambiguous.push_remote = target.push_remote_name;
+                }
+                return Err(err);
+            }
+        };
     Ok(Some(ProjectMeta {
         target_ref: Some(target_ref),
-        target_commit_id: (!target_commit_id.is_null()).then_some(target_commit_id),
+        target_commit_id,
         push_remote: target.push_remote_name,
     }))
 }
