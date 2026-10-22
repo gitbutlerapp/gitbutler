@@ -171,6 +171,40 @@ fn branch_rename_rejects_a_name_that_already_exists() -> anyhow::Result<()> {
 }
 
 #[test]
+fn branch_rename_rejects_a_name_another_branch_nests_with() -> anyhow::Result<()> {
+    use but_testsupport::{CommandExt as _, git_at_dir};
+    let (repo, tmp) = repo_with_feature_branch()?;
+    git_at_dir(tmp.path())
+        .args(["branch", "dir/inner", "feature"])
+        .run();
+    // Packed and without a reflog, `feature` goes unnoticed by the ref edit, which would then
+    // write `feature/sub` beside it.
+    git_at_dir(tmp.path()).args(["pack-refs", "--all"]).run();
+    std::fs::remove_file(tmp.path().join(".git/logs/refs/heads/feature"))?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let main = gix::refs::FullName::try_from("refs/heads/main")?;
+    let tip = gix::refs::FullName::try_from("refs/heads/tip")?;
+    create_empty_branch_above(&mut ctx, &tip, &main)?;
+
+    for (name, in_the_way) in [("feature/sub", "feature"), ("dir", "dir/inner")] {
+        let err = but_api::branch::branch_rename(&mut ctx, tip.clone(), name.into())
+            .expect_err("Git can't hold a branch and another nested in its name");
+        assert_eq!(
+            err.to_string(),
+            format!("Branch name '{name}' collides with existing branch '{in_the_way}'")
+        );
+    }
+
+    let repo = ctx.repo.get()?;
+    assert!(
+        repo.try_find_reference("refs/heads/feature/sub")?.is_none(),
+        "nothing was written beside the packed branch"
+    );
+    assert!(repo.try_find_reference(tip.as_ref())?.is_some());
+    Ok(())
+}
+
+#[test]
 fn branch_rename_same_name_rejects_a_missing_source() -> anyhow::Result<()> {
     let (repo, _tmp) = repo_with_feature_branch()?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
