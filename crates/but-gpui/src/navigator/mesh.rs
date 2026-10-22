@@ -194,7 +194,7 @@ impl Navigator {
                 let n = branch.commits.len();
                 let unpushed = branch.commits.iter().filter(|c| !c.pushed).count();
                 let (glyph, color) = match branch.status {
-                    BranchStatus::Integrated => (Icon::Tick, theme.safe),
+                    BranchStatus::Integrated => (Icon::BranchMerge, theme.purple),
                     BranchStatus::Diverged => (Icon::Branch, theme.warn),
                     BranchStatus::Other => (Icon::Branch, style.muted()),
                 };

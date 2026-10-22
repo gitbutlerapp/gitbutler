@@ -1612,9 +1612,9 @@ impl Detail {
                                     // under the merge's, a line down from the merge's chevron.
                                     .child(guide(FOLD_MIDDLE, theme))
                                     .child(div().flex_none().w(px(14.)))
-                                    .child(small_icon(Icon::Commit).text_color(match on {
+                                    .child(small_icon(Icon::CommitFill).text_color(match on {
                                         true => theme.text_inverted,
-                                        false => theme.text_3,
+                                        false => theme.purple,
                                     }))
                                     .child(
                                         div()
@@ -1643,10 +1643,12 @@ impl Detail {
                                     && upstream.merged_pick.is_none();
                                 let solid = this.side_focus.is_focused(window);
                                 let on = selected && solid;
+                                // Landed, as everything here has, in purple, as the app marks what
+                                // landed; amber while the workspace doesn't have it yet.
                                 let glyph = match (on, commit.incoming) {
                                     (true, _) => theme.text_inverted,
                                     (false, true) => theme.warn,
-                                    (false, false) => theme.text_3,
+                                    (false, false) => theme.purple,
                                 };
                                 // One that landed a pull request by the request, as Lite
                                 // names it, its number, merge commit and ID on hover.
@@ -1656,7 +1658,7 @@ impl Detail {
                                 });
                                 let mark = match commit.review {
                                     Some(_) => Icon::BranchMerge,
-                                    None => Icon::Commit,
+                                    None => Icon::CommitFill,
                                 };
                                 // A merge's chevron folds the commits it brought in, by hand;
                                 // the others keep its room, so the titles line up.

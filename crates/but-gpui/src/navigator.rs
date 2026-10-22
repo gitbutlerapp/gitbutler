@@ -2528,7 +2528,8 @@ impl Navigator {
         let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
         let (glyph, glyph_color) = match (&branch.review, branch.push) {
             (Some(review), _) => review::state_glyph(store.review_state(id, review), theme),
-            (None, PushState::Integrated) => (Icon::Tick, theme.safe),
+            // Landed without a pull request, as one that landed with one shows.
+            (None, PushState::Integrated) => (Icon::BranchMerge, theme.purple),
             (None, _) => (Icon::Branch, style.muted()),
         };
         // A pull request's title names the row (see `branch_name`); its branch's name, number
@@ -2688,7 +2689,7 @@ impl Navigator {
             match commit.state {
                 CommitState::Local => (Icon::Commit, theme.blue),
                 CommitState::Pushed => (Icon::CommitFill, style.muted()),
-                CommitState::Integrated => (Icon::Tick, theme.safe),
+                CommitState::Integrated => (Icon::CommitFill, theme.purple),
             }
         };
         // A picked commit takes the other picks along.

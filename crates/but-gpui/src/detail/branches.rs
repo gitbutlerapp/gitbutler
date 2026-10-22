@@ -1303,8 +1303,12 @@ impl Detail {
                             let branch = &branches.list[*branch_ix];
                             let selected = is_selected(branches, row);
                             let ref_name = branch.ref_name.clone();
+                            // The target has it all: landed, as a merged pull request shows.
                             let (glyph, glyph_color) = match &branch.review {
                                 Some(review) => review::state_glyph(review.state, theme),
+                                None if branch.ahead == Some(0) => {
+                                    (Icon::BranchMerge, theme.purple)
+                                }
                                 None => (Icon::Branch, theme.text_2),
                             };
                             let on = selected && solid;
