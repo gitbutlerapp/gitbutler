@@ -365,7 +365,11 @@ impl Detail {
     ) -> AnyElement {
         let store = self.store.read(cx);
         let Some(workspace) = store.workspace(project) else {
-            return empty_state(None, "Loading…", "", theme, cx);
+            // One that couldn't be read says so here too, rather than seeming to load.
+            return match store.project(project).and_then(|entry| entry.error.clone()) {
+                Some(err) => empty_state(None, "Couldn't read the project", err, theme, cx),
+                None => empty_state(None, "Loading…", "", theme, cx),
+            };
         };
         let (files, git_operation) = match worktree.map(|name| workspace.find_worktree(name)) {
             None => (&workspace.uncommitted, workspace.git_operation),
