@@ -1617,6 +1617,65 @@ fn checkout_refuses_to_overwrite_a_file_turned_symlink_after_the_snapshot() -> a
 
 #[test]
 #[cfg(unix)]
+fn checkout_refuses_to_overwrite_an_executable_turned_symlink_without_filemode()
+-> anyhow::Result<()> {
+    let (repo, _tmp) = repo_with_meddling_filter("one", "rm -f a && ln -s one a")?;
+    git(&repo).args(["config", "core.filemode", "false"]).run();
+    git(&repo).args(["update-index", "--chmod=+x", "a"]).run();
+    git(&repo).args(["commit", "-qm", "a is executable"]).run();
+    let head = repo.head_id()?.detach();
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"two")?;
+            tree.upsert("a", EntryKind::BlobExecutable, blob_id)?;
+            Ok(())
+        },
+        "change a",
+    )?;
+
+    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+        .expect_err("like Git, the type change counts even when the executable bit isn't tracked");
+
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["Uncommitted files would be overwritten by checkout: \"a\""]
+    );
+    assert_eq!(repo.head_id()?.detach(), head, "HEAD stays");
+    assert!(repo.workdir_path("a").unwrap().is_symlink());
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn checkout_replaces_a_read_only_file_like_git() -> anyhow::Result<()> {
+    use std::os::unix::fs::PermissionsExt as _;
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let path = repo.workdir_path("keep").unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o444))?;
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"changed\n")?;
+            tree.upsert("keep", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "change keep",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    assert_eq!(repo.head_id()?, new_commit.id);
+    assert_eq!(
+        std::fs::read_to_string(&path)?,
+        "changed\n",
+        "like Git, a new file replaces the read-only one, as its directory allows it"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
 fn checkout_refuses_to_delete_a_file_made_executable_after_the_snapshot() -> anyhow::Result<()> {
     use std::os::unix::fs::PermissionsExt as _;
     let (repo, _tmp) = repo_with_meddling_filter("one\n", "chmod +x a")?;

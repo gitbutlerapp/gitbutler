@@ -98,7 +98,7 @@ pub(super) fn write_to_worktree(
         remove_from_worktree(&mut path_check, path.as_ref())?;
     }
     if num_to_write > 0 {
-        unlink_hard_linked_files(&mut path_check, &target)?;
+        unlink_files_to_replace(&mut path_check, &target)?;
         let mut opts =
             repo.checkout_options(gix::worktree::stack::state::attributes::Source::IdMapping)?;
         opts.overwrite_existing = true;
@@ -311,16 +311,16 @@ mod tests {
     }
 }
 
-/// Remove the files about to be replaced by `target` that share their content with other hard links.
+/// Remove the files about to be replaced by `target`.
 ///
-/// gix overwrites an existing file in place, which would change all of its links. Like Git, which
-/// writes a new file, this leaves the other links with their content.
+/// gix writes over an existing file in place. Like Git, which writes a new file instead, this
+/// leaves other hard links with their content, and replaces read-only files the directory allows
+/// to be replaced.
 #[cfg(unix)]
-fn unlink_hard_linked_files(
+fn unlink_files_to_replace(
     path_check: &mut gix::status::plumbing::SymlinkCheck,
     target: &gix::index::State,
 ) -> anyhow::Result<()> {
-    use std::os::unix::fs::MetadataExt as _;
     for entry in target.entries() {
         if entry
             .flags
@@ -331,7 +331,7 @@ fn unlink_hard_linked_files(
         let Ok(path) = path_check.verified_path(entry.path(target)) else {
             continue;
         };
-        if std::fs::symlink_metadata(path).is_ok_and(|md| md.is_file() && md.nlink() > 1) {
+        if std::fs::symlink_metadata(path).is_ok_and(|md| md.is_file()) {
             std::fs::remove_file(path)?;
         }
     }
@@ -339,7 +339,7 @@ fn unlink_hard_linked_files(
 }
 
 #[cfg(not(unix))]
-fn unlink_hard_linked_files(
+fn unlink_files_to_replace(
     _path_check: &mut gix::status::plumbing::SymlinkCheck,
     _target: &gix::index::State,
 ) -> anyhow::Result<()> {
@@ -409,10 +409,16 @@ fn refuse_to_overwrite_newer_edits(
         if expected.mode == gix::index::entry::Mode::COMMIT {
             continue;
         }
-        if expected
-            .mode
-            .change_to_match_fs(&md, fs.symlink, fs.executable_bit)
-            .is_some()
+        // gix doesn't see an executable entry turn into a symlink without `core.fileMode`.
+        let file_is_gone = matches!(
+            expected.mode,
+            gix::index::entry::Mode::FILE | gix::index::entry::Mode::FILE_EXECUTABLE
+        ) && !md.is_file();
+        if file_is_gone
+            || expected
+                .mode
+                .change_to_match_fs(&md, fs.symlink, fs.executable_bit)
+                .is_some()
         {
             changed.push(format!("{rela_path:?}"));
             continue;
