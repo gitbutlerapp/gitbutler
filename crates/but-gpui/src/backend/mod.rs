@@ -127,6 +127,10 @@ pub fn add_project(path: &Path) -> Result<(String, bool)> {
         O::PathNotFound => "it doesn't exist",
         O::NotADirectory => "it isn't a folder",
         O::NotAGitRepository(_) | O::NoDotGitDirectory => "it isn't a Git repository",
+        // A worktree of a bare clone has files, a layout some keep agents' worktrees in.
+        O::BareRepository if gix::discover(path).is_ok_and(|repo| repo.workdir().is_some()) => {
+            "it's a worktree of a bare repository, and GitButler needs one with a main worktree"
+        }
         O::BareRepository | O::NoWorkdir => "it's a Git repository without files to work on",
         O::NonMainWorktree => "it's a linked worktree. Add the repository it belongs to",
         O::ReftableRefFormatUnsupported => "GitButler can't read its reftable references yet",
