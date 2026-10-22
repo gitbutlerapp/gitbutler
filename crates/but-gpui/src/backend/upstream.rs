@@ -572,7 +572,8 @@ pub fn fetch_status(path: &Path) -> Result<Option<(Option<i64>, Option<String>)>
     }
     let status = but_api::workspace::workspace_fetch_status(&ctx)?;
     // A fetch in a terminal counts too: Git notes every fetch in FETCH_HEAD, one for each
-    // worktree, as an agent fetching in its own leaves one there.
+    // worktree, as an agent fetching in its own leaves one there. One that failed leaves it
+    // empty, which doesn't count.
     let fetch_head = super::last_written(ctx.repo.get()?.common_dir(), &["FETCH_HEAD"]);
     let fetched = status.last_successful_ms.map(|ms| (ms / 1000) as i64);
     // Not a failure: an error from before a later fetch elsewhere, or from a remote the

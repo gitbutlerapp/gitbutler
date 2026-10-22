@@ -98,7 +98,8 @@ pub fn list_projects() -> Result<Vec<Project>> {
 }
 
 /// When one of `files` was last written in the repository at `git_dir` or in one of its
-/// linked worktrees, in seconds since the epoch.
+/// linked worktrees, in seconds since the epoch. An empty one, as a failed fetch leaves
+/// FETCH_HEAD, doesn't count.
 fn last_written(git_dir: &Path, files: &[&str]) -> Option<i64> {
     let linked = std::fs::read_dir(git_dir.join("worktrees"))
         .into_iter()
@@ -106,7 +107,9 @@ fn last_written(git_dir: &Path, files: &[&str]) -> Option<i64> {
     std::iter::once(git_dir.to_owned())
         .chain(linked.flatten().map(|entry| entry.path()))
         .flat_map(|dir| files.iter().map(move |file| dir.join(file)))
-        .filter_map(|file| file.metadata().and_then(|m| m.modified()).ok())
+        .filter_map(|file| file.metadata().ok())
+        .filter(|metadata| metadata.len() > 0)
+        .filter_map(|metadata| metadata.modified().ok())
         .max()
         .and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|since| since.as_secs() as i64)
