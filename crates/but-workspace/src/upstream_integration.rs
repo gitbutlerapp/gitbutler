@@ -743,13 +743,33 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
 
         for (node, attrs) in nodes.iter_mut() {
             let step = editor.lookup_step(*node)?;
-            let is_local_reference = matches!(
-                &step,
+            let local_reference = match &step {
                 Step::Reference { refname, .. }
-                    if refname.category() == Some(gix::refs::Category::LocalBranch)
-            );
-            if from_target_ref.contains(node)
-                && !(!head_is_workspace_commit && is_local_reference && stack.heads.contains(node))
+                    if refname.category() == Some(gix::refs::Category::LocalBranch) =>
+                {
+                    Some(refname.clone())
+                }
+                _ => None,
+            };
+            // A local branch without GitButler metadata is a plain git ref: on integrated
+            // history it is integrated history and must not be rebased along with the stack.
+            let loose_ref_on_integrated_history = match &local_reference {
+                Some(ref_name) => {
+                    editor.meta().branch_opt(ref_name.as_ref())?.is_none()
+                        && editor
+                            .repo()
+                            .try_find_reference(ref_name.as_ref())?
+                            .and_then(|mut reference| reference.peel_to_id().ok())
+                            .and_then(|id| editor.try_select_commit(id.detach()))
+                            .is_some_and(|commit| from_target_ref.contains(&commit))
+                }
+                None => false,
+            };
+            let is_checkout_head = !head_is_workspace_commit
+                && local_reference.is_some()
+                && stack.heads.contains(node);
+            if (from_target_ref.contains(node) || loose_ref_on_integrated_history)
+                && !is_checkout_head
             {
                 attrs.historically_integrated = true;
             }
@@ -856,6 +876,17 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
                 }
             }
 
+            // A local branch without GitButler metadata is a plain git ref, integrated when the
+            // commit it points at is.
+            let points_at_integrated_commit = is_local_reference
+                && editor.meta().branch_opt(r_name.as_ref())?.is_none()
+                && editor
+                    .repo()
+                    .try_find_reference(r_name.as_ref())?
+                    .and_then(|mut reference| reference.peel_to_id().ok())
+                    .and_then(|id| editor.try_select_commit(id.detach()))
+                    .and_then(|commit| stack.nodes.get(&commit))
+                    .is_some_and(|attrs| attrs.is_integrated());
             let Some(node) = stack.nodes.get_mut(r_sel) else {
                 continue;
             };
@@ -893,6 +924,17 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
                             )
                         });
                 if remote_tip_integrated || review_integrated {
+                    node.reference_integrated = Some(r_name.clone());
+                }
+            } else if is_local_reference {
+                // Being reached by the walk from the target is no evidence for a local branch:
+                // an empty branch stacked on a merged one sits on the merge's parent path
+                // without having been merged itself.
+                if node.content_integrated
+                    || node.review_integrated
+                    || remote_tip_integrated
+                    || points_at_integrated_commit
+                {
                     node.reference_integrated = Some(r_name.clone());
                 }
             } else if node.is_integrated() || remote_tip_integrated {
