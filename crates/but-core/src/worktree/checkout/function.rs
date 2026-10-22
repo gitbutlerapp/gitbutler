@@ -5,7 +5,7 @@ use tracing::instrument;
 
 use crate::{RepositoryExt, update_head_reference};
 
-use super::{Options, Outcome};
+use super::{Options, Outcome, write};
 
 /// Perform all file operations necessary to turn the *worktree* of `repo` into
 /// `new_head_id^{tree}`.
@@ -140,14 +140,13 @@ pub fn safe_checkout_from_head(
             }
         }
 
-        super::write::write_to_worktree(
+        let trees = write::Trees::new(
             &repo,
             old_tree.id().to_gix(),
             new_tree.id().to_gix(),
-            wd_tree_id,
-            checkout_target_id,
-            conflict_occurred.then_some(&outcome),
+            [wd_tree_id, checkout_target_id],
         )?;
+        write::write_to_worktree(&repo, trees, conflict_occurred.then_some(&outcome))?;
     }
 
     let mut head_update = None;
@@ -171,80 +170,8 @@ pub fn safe_checkout_from_head(
         }
     }
 
-    if old_tree.id() != new_tree.id() {
-        remove_index_entries_deleted_on_both_sides(
-            repo,
-            old_tree.id().to_gix(),
-            new_tree.id().to_gix(),
-        )?;
-    }
-
     Ok(Outcome {
         head_update,
         conflict_occurred,
     })
-}
-
-/// Remove the index entries of files that both `new_tree` and the user deleted, as Git does,
-/// unless the user staged changes to them.
-/// The checkout never touches them, as they aren't in the worktree snapshot.
-fn remove_index_entries_deleted_on_both_sides(
-    repo: &gix::Repository,
-    old_tree: gix::ObjectId,
-    new_tree: gix::ObjectId,
-) -> anyhow::Result<()> {
-    let workdir = repo
-        .workdir()
-        .ok_or_else(|| anyhow::anyhow!("checkout needs a worktree"))?;
-    let old_tree = repo.index_from_tree(&old_tree)?;
-    let new_tree = repo.index_from_tree(&new_tree)?;
-    let mut index = repo.index_or_empty()?.into_owned_or_cloned();
-    let mut path_check = gix::status::plumbing::SymlinkCheck::new(workdir.to_owned());
-    let mut deleted_on_both_sides = Vec::<bstr::BString>::new();
-    for entry in index.entries() {
-        if entry.stage() != gix::index::entry::Stage::Unconflicted {
-            continue;
-        }
-        let path = entry.path(&index);
-        let staged = old_tree
-            .entry_by_path(path)
-            .is_none_or(|old| old.id != entry.id || old.mode != entry.mode);
-        if staged || new_tree.entry_by_path(path).is_some() {
-            continue;
-        }
-        // Like Git, a path behind a symlinked or missing directory, or replaced by a directory,
-        // isn't in the worktree.
-        let in_worktree = match path_check
-            .verified_path(path)
-            .and_then(|path| path.symlink_metadata())
-        {
-            Ok(md) => !md.is_dir(),
-            Err(err)
-                if matches!(
-                    err.kind(),
-                    std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
-                ) || is_symlinked_parent_error(&err) =>
-            {
-                false
-            }
-            Err(err) => return Err(err.into()),
-        };
-        if !in_worktree {
-            deleted_on_both_sides.push(path.to_owned());
-        }
-    }
-    let mut edit = crate::index::Edit::new(&mut index);
-    for path in &deleted_on_both_sides {
-        edit.remove(path.as_ref());
-    }
-    if edit.finish() {
-        index.write(Default::default())?;
-    }
-    Ok(())
-}
-
-/// `SymlinkCheck` reports a symlinked parent directory as its only validation error.
-fn is_symlinked_parent_error(err: &std::io::Error) -> bool {
-    err.get_ref()
-        .is_some_and(|source| gix::error::classify(source).is_validation())
 }
