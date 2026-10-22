@@ -15,8 +15,13 @@ pub enum ModalSize {
     Large,
 }
 
+/// How round a modal's corners are.
+pub const MODAL_RADIUS: f32 = 10.;
+
 /// The card a modal is drawn on, as wide as its size says but never wider than the window
-/// leaves it (see `render_modal`).
+/// leaves it (see `render_modal`). Clipping its content keeps it in the card's square, not
+/// its rounded corners: a part with a ground of its own along an edge rounds those corners
+/// itself, by [`MODAL_RADIUS`] less the border.
 pub fn modal(size: ModalSize, theme: &Theme) -> Div {
     let width = match size {
         ModalSize::Medium => 520.,
@@ -26,6 +31,6 @@ pub fn modal(size: ModalSize, theme: &Theme) -> Div {
         .w(px(width))
         .max_w_full()
         .max_h_full()
-        .rounded(px(10.))
+        .rounded(px(MODAL_RADIUS))
         .overflow_hidden()
 }

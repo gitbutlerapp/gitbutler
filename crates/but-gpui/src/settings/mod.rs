@@ -19,7 +19,7 @@ use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::overlays::MenuItem;
 use crate::state::{ProjectId, ScopeLines, Store};
 use crate::theme::{Appearance, CodeSize, Theme};
-use crate::ui::modal::{ModalSize, modal};
+use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     self, ButtonStyle, Icon, Tooltip, button, dropdown, field, h_flex, icon, muted, side_row,
@@ -823,6 +823,8 @@ impl Render for SettingsView {
                     .pb(px(12.))
                     .overflow_y_scroll()
                     .bg(theme.bg_2)
+                    // Its ground fills the modal's left corners, which it rounds as the modal does.
+                    .rounded_l(px(MODAL_RADIUS - 1.))
                     .child(
                         div()
                             .px(px(20.))
@@ -851,6 +853,7 @@ impl Render for SettingsView {
                     .border_l_1()
                     .border_color(theme.border_3)
                     .bg(theme.bg_1)
+                    .rounded_r(px(MODAL_RADIUS - 1.))
                     .child(
                         v_flex()
                             .p(px(20.))

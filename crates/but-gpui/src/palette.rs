@@ -24,7 +24,7 @@ use crate::state::{Notice, Selection};
 use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{h_flex, keycap, list_row, muted, popover, shortcut, v_flex};
+use crate::ui::{POPOVER_RADIUS, h_flex, keycap, list_row, muted, popover, shortcut, v_flex};
 
 actions!(palette, [PaletteUp, PaletteDown, GoToBranch, ShowActions]);
 
@@ -540,6 +540,9 @@ impl AppView {
                     .border_t_1()
                     .border_color(theme.border_3)
                     .bg(theme.bg_2)
+                    // Its ground fills the card's bottom corners, which it rounds as the card
+                    // does, inside its border.
+                    .rounded_b(px(POPOVER_RADIUS - 1.))
                     .text_size(px(12.))
                     .text_color(theme.text_2)
                     .children(

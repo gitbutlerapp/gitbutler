@@ -532,10 +532,13 @@ pub fn field(input: &Entity<text_input::TextInput>, focused: bool, theme: &Theme
         .child(input.clone())
 }
 
+/// How round a popover's corners are.
+pub const POPOVER_RADIUS: f32 = 8.;
+
 /// The card that menus, dialogs, toasts and tooltips float on.
 pub fn popover(theme: &Theme) -> Div {
     v_flex()
-        .rounded(px(8.))
+        .rounded(px(POPOVER_RADIUS))
         .bg(theme.bg_1)
         .border_1()
         .border_color(theme.border_2)
