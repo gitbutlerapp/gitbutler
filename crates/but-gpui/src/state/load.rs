@@ -718,11 +718,11 @@ fn follow_cut(cut: &mut Cut, old: Option<&Workspace>, new: &Workspace) -> bool {
                 f.hunks.is_none() || (u.modified, u.lines) == (f.file.modified, f.file.lines)
             };
             uncommitted.is_some_and(|uncommitted| {
-                (files.iter()).all(|f| {
-                    uncommitted
-                        .iter()
-                        .any(|u| u.path == f.file.path && same(f, u))
-                })
+                // By path, as all of thousands can be cut, and this runs on every reload.
+                let by_path: HashMap<&str, &FileChange> =
+                    (uncommitted.iter()).map(|u| (u.path.as_str(), u)).collect();
+                (files.iter())
+                    .all(|f| (by_path.get(f.file.path.as_str())).is_some_and(|u| same(f, u)))
             })
         }
         Cut::Branch(_, ref_name) => new.find_branch(ref_name).is_some(),
