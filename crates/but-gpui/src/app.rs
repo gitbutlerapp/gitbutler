@@ -788,6 +788,7 @@ impl Render for AppView {
             .map(|el| self.pr_actions(el, cx))
             .map(|el| self.resolve_actions(el, cx))
             .on_action(cx.listener(Self::go_to_branch))
+            .on_action(cx.listener(Self::show_actions))
             .on_action(cx.listener(Self::open_selected_in_terminal))
             .on_action(cx.listener(|this, _: &Undo, _, cx| this.undo(false, cx)))
             .on_action(cx.listener(|this, _: &Redo, _, cx| this.undo(true, cx)))

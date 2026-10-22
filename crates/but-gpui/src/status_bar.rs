@@ -74,7 +74,7 @@ impl AppView {
             (
                 store.picked.len(),
                 "commit",
-                Some("drag them together, or right-click to squash or uncommit them"),
+                Some("drag them together, or press M to squash or uncommit them"),
             ),
             (
                 detail.picked_line_count(),

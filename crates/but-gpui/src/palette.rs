@@ -26,10 +26,13 @@ use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{h_flex, keycap, list_row, muted, popover, shortcut, v_flex};
 
-actions!(palette, [PaletteUp, PaletteDown, GoToBranch]);
+actions!(palette, [PaletteUp, PaletteDown, GoToBranch, ShowActions]);
 
 pub fn bind_keys(cx: &mut gpui::App) {
-    cx.bind_keys([KeyBinding::new("cmd-p", GoToBranch, None)]);
+    cx.bind_keys([
+        KeyBinding::new("cmd-p", GoToBranch, None),
+        KeyBinding::new("m", ShowActions, Some("Workspace && !TextInput")),
+    ]);
     // Registered after the text field's own keys, so these win inside the palette.
     let c = Some("Palette > TextInput");
     cx.bind_keys([
@@ -279,6 +282,30 @@ impl AppView {
             })
             .collect();
         self.open_picker(None, "Go to branch", "Go", choices, window, cx);
+    }
+
+    /// What right-clicking the selected row offers, to pick from with the keys.
+    pub fn show_actions(&mut self, _: &ShowActions, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(selection) = self.store.read(cx).selection.clone() else {
+            return;
+        };
+        let choices = (self
+            .navigator
+            .read(cx)
+            .menu_items(&selection, cx)
+            .into_iter())
+        .map(|item| {
+            let handler = item.handler;
+            Choice {
+                label: item.label,
+                key: item.key,
+                detail: item.detail,
+                run: Box::new(move |this, window, cx| handler(this, window, cx)),
+            }
+        })
+        .collect();
+        let place = self.store.read(cx).place(&selection);
+        self.open_picker(Some(place), "Actions", "Run", choices, window, cx);
     }
 
     /// Show `choices` to filter by typing and pick one with Enter or a click.
