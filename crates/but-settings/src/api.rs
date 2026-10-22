@@ -169,6 +169,23 @@ mod tests {
     }
 
     #[test]
+    fn numbers_are_written_as_plain_json_numbers() {
+        let (dir, settings) = create_test_settings();
+        settings
+            .update_fetch(super::FetchUpdate {
+                auto_fetch_interval_minutes: Some(-1),
+            })
+            .unwrap();
+
+        // Read as text: this crate's own JSON parsing would accept what other readers can't.
+        let written = std::fs::read_to_string(dir.path().join("settings.json")).unwrap();
+        assert!(
+            written.contains(r#""autoFetchIntervalMinutes": -1"#),
+            "other readers of settings.json, like older versions, need a number there: {written}"
+        );
+    }
+
+    #[test]
     fn empty_feature_flags_update_preserves_existing_value() {
         let (_dir, settings) = create_test_settings();
         settings

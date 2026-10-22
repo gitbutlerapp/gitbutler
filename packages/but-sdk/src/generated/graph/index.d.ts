@@ -198,7 +198,8 @@ export declare function branchCheckout(projectId: string, branch: FullNameBytes)
  *
  * If `name` is provided, it is treated as a short branch name and normalized
  * before creating `refs/heads/<name>`. If omitted, a unique canned branch name
- * is generated. The resulting branch must not already exist.
+ * is generated. The resulting branch must not already exist. Records an oplog
+ * snapshot on success, which undo restores by deleting the branch again.
  *
  * {@link ../../../../../crates/but-api/src/branch.rs}
  */

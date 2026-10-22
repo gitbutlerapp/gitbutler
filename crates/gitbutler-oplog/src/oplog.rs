@@ -377,11 +377,21 @@ impl OplogExt for Context {
             Some(child_id) => tree_from_applied_vbranches(&repo, child_id)?,
             None => {
                 // This is the oplog head (most recent snapshot). The operation has
-                // completed but no subsequent snapshot exists yet, so diff against the
-                // current workspace commit tree.
-                let workspace_ref: &gix::refs::FullNameRef = WORKSPACE_REF_NAME.try_into()?;
-                let ws_commit = repo.find_reference(workspace_ref)?.peel_to_commit()?;
-                ws_commit.tree_id()?.detach()
+                // completed but no subsequent snapshot exists yet, so diff against what's
+                // checked out now: a branch checked out on its own, or else the workspace
+                // commit, which a commit being edited goes back to.
+                let own_branch = repo
+                    .head_name()?
+                    .filter(|name| !is_gitbutler_branch(name.as_ref()));
+                let commit = match own_branch {
+                    Some(_) => repo.head_commit()?,
+                    None => {
+                        let workspace_ref: &gix::refs::FullNameRef =
+                            WORKSPACE_REF_NAME.try_into()?;
+                        repo.find_reference(workspace_ref)?.peel_to_commit()?
+                    }
+                };
+                commit.tree_id()?.detach()
             }
         };
 
@@ -569,6 +579,12 @@ pub fn prepare_snapshot(ctx: &Context, shared_access: &RepoShared) -> Result<gix
 struct PreparedSnapshot {
     tree_id: gix::ObjectId,
     target_base_oid: gix::ObjectId,
+}
+
+/// Whether `name` is a branch GitButler checks out itself: its workspace, or the branch a
+/// commit being edited is checked out on.
+fn is_gitbutler_branch(name: &gix::refs::FullNameRef) -> bool {
+    name.as_bstr().starts_with(b"refs/heads/gitbutler/")
 }
 
 /// The branch checkout to restore from a snapshot.
@@ -1579,6 +1595,14 @@ fn tree_from_applied_vbranches(
     let snapshot_commit = repo.find_commit(snapshot_commit_id)?;
     let snapshot_tree = snapshot_commit.tree()?;
 
+    // A branch checked out on its own keeps the managed workspace aside in the snapshot, as
+    // it was when last used: what was checked out is the commit recorded with the branch.
+    // Not so a commit being edited, which goes back into the workspace.
+    if let Some(checkout) = snapshot_checkout(&snapshot_tree, repo)?
+        && !is_gitbutler_branch(checkout.ref_name.as_ref())
+    {
+        return Ok(repo.find_commit(checkout.commit_id)?.tree_id()?.detach());
+    }
     // Prefer the workspace commit tree over the worktree tree.
     // The worktree tree captures the entire working directory state (including uncommitted
     // and untracked files), so diffing consecutive worktree trees shows all file changes

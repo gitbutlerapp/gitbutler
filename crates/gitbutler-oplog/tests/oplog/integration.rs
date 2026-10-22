@@ -1222,6 +1222,56 @@ fn first_snapshot_diff_works() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn snapshot_diff_of_an_ad_hoc_checkout_shows_what_was_committed_there() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::default();
+    // A branch checked out on its own, the managed workspace's ref left as it was.
+    repo.invoke_git("checkout -q -b ad-hoc");
+    let paths = |diff: Vec<but_core::TreeChange>| -> Vec<String> {
+        diff.into_iter().map(|c| c.path.to_string()).collect()
+    };
+    let before = snapshot(ctx)?;
+    repo.invoke_bash("echo new >new-file && git add new-file && git commit -qm new");
+
+    assert_eq!(
+        paths(ctx.snapshot_diff(before, None)?),
+        ["new-file"],
+        "the newest operation, against what's checked out now"
+    );
+    let after = snapshot(ctx)?;
+    assert_eq!(
+        paths(ctx.snapshot_diff(before, Some(after))?),
+        ["new-file"],
+        "an older one, against what the next snapshot had checked out"
+    );
+    Ok(())
+}
+
+#[test]
+fn snapshot_diff_while_a_commit_is_edited_reads_the_workspace() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::default();
+    let before = snapshot(ctx)?;
+    // Editing a commit checks it out on a branch of GitButler's own, which the workspace
+    // doesn't match.
+    repo.invoke_bash(
+        "git checkout -q -b gitbutler/edit && echo edited >>M && git commit -qam edit",
+    );
+    assert_eq!(
+        ctx.snapshot_diff(before, None)?.len(),
+        0,
+        "the workspace didn't change, which editing a commit goes back to"
+    );
+    Ok(())
+}
+
+fn snapshot(ctx: &mut Context) -> anyhow::Result<gix::ObjectId> {
+    let mut guard = ctx.exclusive_worktree_access();
+    ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::CreateCommit),
+        guard.write_permission(),
+    )
+}
+
 struct Test {
     repo: Sandbox,
     ctx: Context,
