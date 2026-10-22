@@ -158,6 +158,15 @@ impl Workspace {
         self.shown_branches().flat_map(|branch| &branch.incoming)
     }
 
+    /// The target's name: its remote counterpart once there is one, else the branch picked,
+    /// as one never pushed or of a repository with no remote.
+    pub fn target_name(&self) -> Option<&str> {
+        match &self.target {
+            Some(target) => Some(&target.name),
+            None => self.target_branch.as_deref().map(super::short_ref),
+        }
+    }
+
     /// The commits only a remote has: branch `ref_name`'s remote, or with `None` the
     /// target's that the workspace doesn't have yet, newest first.
     pub fn upstream(&self, ref_name: Option<&str>) -> &[RemoteCommit] {

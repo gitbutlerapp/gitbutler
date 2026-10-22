@@ -11,8 +11,8 @@ use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
 
 use super::Detail;
 use super::panes::{
-    Crumb, list_heading, measured, meta_item, meta_row, side_header, side_list, title_text,
-    unfinished_banner,
+    Crumb, CrumbTo, list_heading, measured, meta_item, meta_row, side_header, side_list,
+    title_text, unfinished_banner,
 };
 use super::pull_request::TABS_HEIGHT;
 use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
@@ -36,6 +36,12 @@ use crate::ui::{
 /// Where the middle of a merge's chevron sits in its row: the row's padding and half the
 /// chevron's step.
 const FOLD_MIDDLE: f32 = 8. + 7.;
+
+/// What the page opens on: the README first, as a repository's page does, else the newest
+/// commit.
+fn opening(readme: bool, commits: &[TargetCommit]) -> Option<Picked> {
+    (readme.then_some(Picked::Readme)).or_else(|| commits.first().map(|c| Picked::Commit(c.id)))
+}
 
 /// What a target commit is called: the pull request it landed, by its title, as Lite names
 /// it, or else the commit's own title.
@@ -279,15 +285,13 @@ impl Detail {
                 };
                 list.extend(commits);
                 list.extend(older);
-                // The README first, as a repository's page opens on it.
                 let readme = summary.as_ref().is_some_and(|s| s.readme.is_some());
                 let selected = was
                     .filter(|picked| match picked {
                         Picked::Readme => readme,
                         Picked::Commit(id) => list.iter().any(|c| c.id == *id),
                     })
-                    .or_else(|| readme.then_some(Picked::Readme))
-                    .or_else(|| list.first().map(|c| Picked::Commit(c.id)));
+                    .or_else(|| opening(readme, &list));
                 this.upstream = Some(Upstream {
                     project: project.clone(),
                     commits: list,
@@ -764,21 +768,42 @@ impl Detail {
                 .and_then(|s| s.readme.as_ref())
                 .map(|(name, _)| name.clone()),
             Some(Picked::Commit(_)) => {
-                (self.selected_target_commit(project)).map(|commit| label(commit).to_owned())
+                (self.selected_target_commit(project)).map(|commit| commit.id.short())
             }
             None => None,
         };
         let Some(picked) = picked else {
             return;
         };
-        let target = (self.store.read(cx).workspace(project))
-            .and_then(|ws| ws.target.as_ref())
-            .map_or("Target".to_owned(), |target| target.name.clone());
-        crumbs.push((target.into(), None));
-        crumbs.push((picked.into(), None));
-        if let Some(commit) = self.merged_commit(project, cx) {
-            crumbs.push((commit.title.clone().into(), None));
+        // The target goes back to how the page opens, as the project's crumb does.
+        let target = (self.store.read(cx).workspace(project)).and_then(|ws| ws.target_name());
+        let page = Selection::Project(project.clone()).into();
+        crumbs.push((target.unwrap_or("Target").to_owned().into(), Some(page)));
+        let merged = self.merged_commit(project, cx);
+        // A merge's commit shown in its place goes back to the merge.
+        let merge = match upstream.selected {
+            Some(Picked::Commit(id)) if merged.is_some() => Some(CrumbTo::Merge(id)),
+            _ => None,
+        };
+        crumbs.push((picked.into(), merge));
+        if let Some(commit) = merged {
+            crumbs.push((commit.id.short().into(), None));
         }
+    }
+
+    /// Back to what the page opens on, as when it's picked again.
+    pub(super) fn pick_opening(&mut self, cx: &mut Context<Self>) {
+        let Some(upstream) = &self.upstream else {
+            return;
+        };
+        let readme = (upstream.summary.as_ref()).is_some_and(|s| s.readme.is_some());
+        if let Some(picked) = opening(readme, &upstream.commits) {
+            self.pick_on_page(picked, cx)
+        }
+    }
+
+    pub(super) fn pick_target_commit(&mut self, id: CommitId, cx: &mut Context<Self>) {
+        self.pick_on_page(Picked::Commit(id), cx)
     }
 
     fn pick_on_page(&mut self, picked: Picked, cx: &mut Context<Self>) {

@@ -14,7 +14,7 @@ use gpui::{
 
 use super::Detail;
 use crate::app::{AppView, StartCommit};
-use crate::backend::{self, CommitState, PushState, short_ref};
+use crate::backend::{self, CommitId, CommitState, PushState, short_ref};
 use crate::overlays::MenuItem;
 use crate::state::{Cut, MeshPick, ProjectId, Selection};
 use crate::theme::Theme;
@@ -43,7 +43,7 @@ impl Detail {
         {
             crumbs.push((
                 entry.project.name.clone().into(),
-                Some(Selection::Project(entry.id.clone())),
+                Some(Selection::Project(entry.id.clone()).into()),
             ));
             let workspace = entry.workspace.as_ref();
             // The worktree a branch, stack or commit is in, named as its navigator heading is.
@@ -52,11 +52,11 @@ impl Detail {
                 match store.worktree_of(item) {
                     Some(worktree) => (
                         worktree.name.to_string().into(),
-                        Some(Selection::Worktree(project, worktree.name.clone())),
+                        Some(Selection::Worktree(project, worktree.name.clone()).into()),
                     ),
                     None => (
                         "Main worktree".into(),
-                        Some(Selection::Uncommitted(project)),
+                        Some(Selection::Uncommitted(project).into()),
                     ),
                 }
             };
@@ -80,7 +80,7 @@ impl Detail {
                     crumbs.push((name.to_owned().into(), None));
                 }
                 Selection::Branches(project) => {
-                    crumbs.push(("Branches".into(), Some(selection.clone())));
+                    crumbs.push(("Branches".into(), Some(selection.clone().into())));
                     self.branches_crumbs(project, &mut crumbs);
                 }
                 Selection::Worktree(_, name) => {
@@ -89,7 +89,8 @@ impl Detail {
                 Selection::Mesh(project, id, pick) => {
                     if let Some(checkout) = store.mesh_checkout(project, id) {
                         // Each but the last goes to what it names.
-                        let at = |pick| Some(Selection::Mesh(project.clone(), id.clone(), pick));
+                        let at =
+                            |pick| Some(Selection::Mesh(project.clone(), id.clone(), pick).into());
                         let up = |on: bool, pick| if on { at(pick) } else { None };
                         let below = pick.branch().is_some();
                         crumbs.push((checkout.label().into(), up(below, MeshPick::Checkout)));
@@ -112,7 +113,15 @@ impl Detail {
                     crumbs.push(heading(selection));
                     crumbs.push((format!("Stack of {n}").into(), None));
                 }
-                Selection::History(_) => crumbs.push(("Operations history".into(), None)),
+                // Then the operation picked, as the Branches page names its branch.
+                Selection::History(project) => {
+                    let operation = self.selected_operation(project);
+                    let back = operation.map(|_| selection.clone().into());
+                    crumbs.push(("Operations history".into(), back));
+                    if let Some(operation) = operation {
+                        crumbs.push((operation.title.clone().into(), None));
+                    }
+                }
                 // After what has it, the branch or the target, which go to their pages.
                 Selection::Upstream(project, ref_name, id) => {
                     match ref_name
@@ -124,14 +133,21 @@ impl Detail {
                                 Selection::Branch(project.clone(), ref_name.clone());
                             crumbs.push(heading(&branch_selection));
                             let name = store.name_of(project, branch).to_owned();
-                            crumbs.push((name.into(), Some(branch_selection)));
+                            crumbs.push((name.into(), Some(branch_selection.into())));
                         }
                         None => {
-                            let target = workspace.and_then(|ws| ws.target.as_ref());
-                            let name = target.map_or("Target", |t| t.name.as_str());
+                            let name = workspace.and_then(|ws| ws.target_name());
                             let page = Selection::Project(project.clone());
-                            crumbs.push((name.to_owned().into(), Some(page)));
+                            let name = name.unwrap_or("Target").to_owned();
+                            crumbs.push((name.into(), Some(page.into())));
                         }
+                    }
+                    // A commit a merge brought in, after the merge, as the project's page has it.
+                    if let Some((merge, _)) =
+                        store.merged_upstream(project, ref_name.as_deref(), *id)
+                    {
+                        let up = Selection::Upstream(project.clone(), ref_name.clone(), merge);
+                        crumbs.push((merge.short().into(), Some(up.into())));
                     }
                     crumbs.push((id.short().into(), None));
                 }
@@ -141,7 +157,7 @@ impl Detail {
                             Selection::Branch(project.clone(), branch.ref_name.clone());
                         crumbs.push(heading(selection));
                         let name = store.name_of(project, branch).to_owned();
-                        crumbs.push((name.into(), Some(branch_selection)));
+                        crumbs.push((name.into(), Some(branch_selection.into())));
                         crumbs.push((commit.id.short().into(), None));
                     }
                 }
@@ -185,7 +201,7 @@ impl Detail {
                             let shrink = crumb.chars().count() as f32;
                             let el = match target.filter(|_| ix != last) {
                                 Some(target) => {
-                                    let app = self.app.clone();
+                                    let (app, detail) = (self.app.clone(), cx.entity().downgrade());
                                     // A step darker under the pointer: it's still a quiet trail.
                                     let hover = theme.text_2.blend(theme.text_1.opacity(0.5));
                                     div()
@@ -197,11 +213,26 @@ impl Detail {
                                             el
                                         })
                                         .child(crumb)
-                                        .on_click(move |_, window, cx| {
-                                            (app.update(cx, |app, cx| {
-                                                app.select(target.clone(), window, cx)
-                                            }))
-                                            .ok();
+                                        .on_click(move |_, window, cx| match &target {
+                                            CrumbTo::Select(selection) => {
+                                                (app.update(cx, |app, cx| {
+                                                    app.select(selection.clone(), window, cx)
+                                                }))
+                                                .ok();
+                                            }
+                                            CrumbTo::OtherBranch(ref_name) => {
+                                                let ref_name = Some(ref_name.clone());
+                                                (detail.update(cx, |detail, cx| {
+                                                    detail.select_other_branch(ref_name, cx)
+                                                }))
+                                                .ok();
+                                            }
+                                            CrumbTo::Merge(id) => {
+                                                (detail.update(cx, |detail, cx| {
+                                                    detail.pick_target_commit(*id, cx)
+                                                }))
+                                                .ok();
+                                            }
                                         })
                                         .into_any_element()
                                 }
@@ -913,8 +944,23 @@ impl Detail {
     }
 }
 
-/// A crumb of the header: what it names, and what clicking it selects.
-pub(super) type Crumb = (SharedString, Option<Selection>);
+/// A crumb of the header: what it names, and where clicking it goes.
+pub(super) type Crumb = (SharedString, Option<CrumbTo>);
+
+/// Where clicking a crumb goes: what it names, selected, or picked on the page shown.
+pub(super) enum CrumbTo {
+    Select(Selection),
+    /// On the Branches page, the branch over the commit of it picked.
+    OtherBranch(String),
+    /// On a project's page, the merge over the commit of it shown.
+    Merge(CommitId),
+}
+
+impl From<Selection> for CrumbTo {
+    fn from(selection: Selection) -> Self {
+        Self::Select(selection)
+    }
+}
 
 /// How tall a commit's header across the page is with its message closed, until it's drawn.
 pub(super) const COMMIT_HEADER_HEIGHT: f32 = 85.;

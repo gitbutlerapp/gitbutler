@@ -460,6 +460,17 @@ impl Detail {
             .ok();
     }
 
+    /// Back to the newest operation listed, as the page opens on, when it's picked again.
+    pub(super) fn pick_newest_operation(&mut self, cx: &mut Context<Self>) {
+        let Some(history) = &self.history else {
+            return;
+        };
+        let newest = self.shown_operations(history, cx).first().copied();
+        if let Some(id) = newest.map(|ix| history.operations[ix].id) {
+            self.select_operation(id, cx);
+        }
+    }
+
     /// The selected operation, which [`Self::render_operation_header`] draws a header for.
     pub(crate) fn selected_operation(&self, project: &ProjectId) -> Option<&Operation> {
         let history = self.history_for(project)?;

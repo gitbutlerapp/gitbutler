@@ -433,9 +433,14 @@ impl Detail {
                     this.reload_page(true, cx);
                     this.refresh_diff(true, cx);
                 }
-                StoreEvent::Reopened => {
-                    this.close_opened_branch(cx);
-                }
+                // Picked again, as by the crumb naming it, a page goes back to how it opens.
+                StoreEvent::Reopened => match this.selection(cx) {
+                    Some(Selection::Project(_)) => this.pick_opening(cx),
+                    Some(Selection::History(_)) => this.pick_newest_operation(cx),
+                    _ => {
+                        this.close_opened_branch(cx);
+                    }
+                },
                 StoreEvent::Loaded(project) => {
                     if this.selected_project(cx).as_ref() == Some(project) {
                         this.reload_page(false, cx);

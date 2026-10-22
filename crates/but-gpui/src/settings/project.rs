@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use gpui::{App, ClickEvent, Context, DismissEvent, Window, div, prelude::*, px};
 
 use super::{Card, Page, Row, SettingsView, field_with_save};
-use crate::backend::{Forge, settings as backend, short_ref};
+use crate::backend::{Forge, settings as backend};
 use crate::state::{Prefs, ProjectId};
 use crate::theme::Theme;
 use crate::ui::{ButtonStyle, button, h_flex, muted, switch};
@@ -167,12 +167,7 @@ impl SettingsView {
             &mut prefs.run_hooks
         });
         let workspace = self.store.read(cx).workspace(project);
-        // Its remote counterpart once there is one, else the branch picked, as one never
-        // pushed or of a repository with no remote.
-        let target = workspace.and_then(|ws| match &ws.target {
-            Some(target) => Some(target.name.clone()),
-            None => ws.target_branch.as_deref().map(|b| short_ref(b).into()),
-        });
+        let target = workspace.and_then(|ws| ws.target_name()).map(str::to_owned);
         // With stacks applied, their commits would be read against the new target from
         // where the old one forked; GitButler's other apps don't allow it either. Outside
         // the workspace, the branch checked out shows as a stack, but a new target leaves it

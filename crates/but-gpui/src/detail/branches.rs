@@ -12,7 +12,7 @@ use gpui::{
 
 use super::Detail;
 use super::panes::{
-    Crumb, list_empty, measured, meta_item, meta_row, page_title, side_list, title_text,
+    Crumb, CrumbTo, list_empty, measured, meta_item, meta_row, page_title, side_list, title_text,
 };
 use super::upstream::{DayGesture, DayPick, activity_strip, commit_author};
 
@@ -594,7 +594,7 @@ impl Detail {
         }
     }
 
-    fn select_other_branch(&mut self, ref_name: Option<String>, cx: &mut Context<Self>) {
+    pub(super) fn select_other_branch(&mut self, ref_name: Option<String>, cx: &mut Context<Self>) {
         self.select_listed(ref_name, false, cx)
     }
 
@@ -1766,9 +1766,12 @@ impl Detail {
                 .count();
             return crumbs.push((format!("Stack of {count}").into(), None));
         }
-        crumbs.push((branch.name.clone().into(), None));
-        if let Some(commit) = self.picked_branch_commit(project) {
-            crumbs.push((commit.title.clone().into(), None));
+        let commit = self.picked_branch_commit(project);
+        // Over a commit of it, the branch goes back to the branch.
+        let back = commit.map(|_| CrumbTo::OtherBranch(branch.ref_name.clone()));
+        crumbs.push((branch.name.clone().into(), back));
+        if let Some(commit) = commit {
+            crumbs.push((commit.id.short().into(), None));
         }
     }
 }
