@@ -481,7 +481,7 @@ pub struct Agent {
 /// Who a commit is shown by, from its author's and its committer's name and email: its author,
 /// unless that's an agent and the committer a person, who then leads, with the agent. Not the
 /// committer in general: a rebase or a cherry-pick makes whoever ran it that.
-pub fn byline(
+pub(super) fn byline(
     author: (String, String),
     committer: (String, String),
 ) -> ((String, String), Option<Agent>) {
@@ -540,7 +540,7 @@ pub struct Commit {
 }
 
 /// What [`Commit::authored`] is made of.
-pub fn authored(author: &gix::actor::Signature, message: &[u8]) -> String {
+pub(super) fn authored(author: &gix::actor::Signature, message: &[u8]) -> String {
     let time = author.time.seconds.to_string();
     let parts: [&[u8]; 4] = [&author.name, &author.email, time.as_bytes(), message];
     format!("{:x}", md5::compute(parts.join(&0)))

@@ -10,7 +10,8 @@ use bstr::ByteSlice;
 use but_ctx::Context;
 
 use super::{
-    FileChange, KeptWorktree, Workspace, Worktree, git_operation, head_tree, open, worktree_files,
+    FileChange, KeptWorktree, Workspace, Worktree, checkout, git_operation, head_tree, open,
+    worktree_files,
 };
 
 /// The active linked worktrees with their uncommitted changes, and the names of the
@@ -31,11 +32,10 @@ pub(super) fn linked(
         let guard = ctx.shared_worktree_access();
         but_api::worktrees::worktrees_list_with_perm(ctx, guard.read_permission())?
     };
-    let repo = ctx.repo.get()?;
     let active = (listing.active.into_iter())
         .filter_map(|listed| {
             let name: Arc<str> = listed.name.to_str_lossy().into();
-            let checkout = checkout(&repo, &name)?;
+            let checkout = opened(ctx, &name)?;
             let tree = head_tree(&checkout);
             // What Git is partway through is cheap to read, and changes without the files.
             let (uncommitted, git_operation) = match kept.remove(&name) {
@@ -81,7 +81,7 @@ pub fn reload_uncommitted(
         if !linked.contains(&worktree.name) {
             return true;
         }
-        let Some(checkout) = checkout(&repo, &worktree.name) else {
+        let Some(checkout) = opened(&ctx, &worktree.name) else {
             return false;
         };
         match read(&checkout, &worktree.name) {
@@ -110,8 +110,8 @@ fn read(checkout: &gix::Repository, name: &str) -> Option<(Vec<FileChange>, Opti
 
 /// Worktree `name`'s own repository, to read its checkout from, or nothing when it can't be
 /// opened, as [`read`] says.
-fn checkout(repo: &gix::Repository, name: &str) -> Option<gix::Repository> {
-    (but_workspace::worktrees::open_worktree_repo(repo, name.as_bytes().as_bstr()))
+fn opened(ctx: &Context, name: &str) -> Option<gix::Repository> {
+    (checkout(ctx, Some(name)))
         .inspect_err(|err| tracing::warn!("couldn't open worktree {name}: {err:#}"))
         .ok()
 }
@@ -141,13 +141,19 @@ pub fn create(path: &Path, name: &str) -> Result<String> {
 
 /// Remove worktree `name` from disk as `git worktree remove` does, with the uncommitted
 /// files `lost` as last written, which the user agreed to lose. Its branch stays. One with
-/// other uncommitted files, or those written to since, as by an agent meanwhile, is refused.
+/// other uncommitted files, or those written to since, as by an agent meanwhile, is refused,
+/// and so is one with `lost` files that can't be read to check them.
 pub fn remove(path: &Path, name: &str, lost: &[(String, Option<i64>)]) -> Result<()> {
     let mut ctx = open(path)?;
-    let worktree = checkout(&*ctx.repo.get()?, name);
-    let files = worktree.map(|repo| worktree_files(&repo)).transpose()?;
+    // With nothing to lose, nothing is forced, and Git refuses a worktree with changes, so
+    // one that can't be opened, as when its folder is gone, can still be removed.
+    let files = match checkout(&ctx, Some(name)) {
+        Ok(worktree) => worktree_files(&worktree)?,
+        Err(_) if lost.is_empty() => Vec::new(),
+        Err(err) => return Err(err.context(format!("Couldn't check {name}'s files"))),
+    };
     let asked = |file: &FileChange| lost.contains(&(file.path.clone(), file.modified));
-    if let Some(file) = (files.iter().flatten()).find(|file| !asked(file)) {
+    if let Some(file) = files.iter().find(|file| !asked(file)) {
         anyhow::bail!(
             "{name} has a change you weren't asked about, {}. Look at it before deleting.",
             file.path

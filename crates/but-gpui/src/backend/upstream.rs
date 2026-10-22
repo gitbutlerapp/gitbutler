@@ -13,7 +13,10 @@ use but_core::sync::RepoExclusive;
 
 use super::ops::{full_name, holds};
 use super::reviews::{cached_reviews, from_cache};
-use super::{Agent, CommitId, RemoteCommit, Review, ReviewState, open, runtime, short_ref, title};
+use super::{
+    Agent, CommitId, RemoteCommit, Review, ReviewState, open, present_first_parent, runtime,
+    short_ref, title,
+};
 
 #[derive(Debug, Clone)]
 pub struct TargetCommit {
@@ -85,12 +88,10 @@ fn target_page(
 ) -> Result<(Vec<TargetCommit>, bool)> {
     let repo = ctx.repo.get()?;
     let meta = ctx.project_meta()?;
-    if meta.remote_target_ref(&repo)?.is_none()
-        && let Some(target) = meta.target_ref.as_ref()
+    if let Some(local) = (super::target_source(&repo, &meta))
+        .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
     {
-        let tip = repo
-            .find_reference(target.as_local_full_name_ref())?
-            .peel_to_id()?;
+        let tip = repo.find_reference(local.as_ref())?.peel_to_id()?;
         return local_target_page(&repo, tip.detach(), meta.target_commit_id, after, limit);
     }
     drop(repo);
@@ -128,9 +129,7 @@ fn target_page(
     // unless it's where the history starts.
     let forked_above_root = after.is_none()
         && (commits.last()).is_some_and(|last| {
-            // A shallow clone's oldest commits name parents it doesn't have.
-            (repo.find_commit(last.id.0))
-                .is_ok_and(|c| c.parent_ids().next().is_some_and(|p| repo.has_object(p)))
+            (repo.find_commit(last.id.0)).is_ok_and(|c| present_first_parent(&c).is_some())
         });
     Ok((commits, page.has_more || forked_above_root))
 }
@@ -145,14 +144,8 @@ fn local_target_page(
     after: Option<CommitId>,
     limit: u32,
 ) -> Result<(Vec<TargetCommit>, bool)> {
-    // A shallow clone's oldest commits name parents it doesn't have.
-    let first_parent = |commit: &gix::Commit<'_>| {
-        (commit.parent_ids().next())
-            .map(|id| id.detach())
-            .filter(|id| repo.has_object(id))
-    };
     let mut cursor = match after {
-        Some(after) => first_parent(&repo.find_commit(after.0)?),
+        Some(after) => present_first_parent(&repo.find_commit(after.0)?),
         None => Some(tip),
     };
     let mut incoming = true;
@@ -166,7 +159,7 @@ fn local_target_page(
                 .map_or(true, |at| at.is_none_or(|at| at != id))
         });
         let commit = repo.find_commit(id)?;
-        cursor = first_parent(&commit);
+        cursor = present_first_parent(&commit);
         commits.push(TargetCommit {
             incoming,
             ..target_commit(&commit)?
@@ -321,9 +314,7 @@ pub fn overview(path: &Path, target: &str, now: i64) -> Result<Overview> {
         let day = ((day - first_day) as usize).min(ACTIVITY_DAYS - 1);
         daily[day] += 1;
         // Theirs land on the day it did: the commit itself, or what a merge brought in.
-        let first = (landed.parent_ids().next())
-            .map(|id| id.detach())
-            .filter(|id| repo.has_object(id));
+        let first = present_first_parent(landed);
         let brought = match first.is_some() && landed.parent_ids().count() > 1 {
             true => brought.remove(&landed.id).unwrap_or_default(),
             false => vec![landed.clone()],
@@ -383,9 +374,7 @@ fn brought_in<'repo>(
     let Some(oldest) = line.last() else {
         return Ok(HashMap::new());
     };
-    let before = (oldest.parent_ids().next())
-        .map(|id| id.detach())
-        .filter(|id| repo.has_object(id));
+    let before = present_first_parent(oldest);
     let window: HashMap<gix::ObjectId, gix::Commit<'repo>> = (repo.rev_walk([tip]))
         .with_hidden(before)
         .all()?

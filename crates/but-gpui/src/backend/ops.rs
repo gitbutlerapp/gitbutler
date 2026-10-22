@@ -1,7 +1,8 @@
 //! Mutations of commits, branches and uncommitted changes. Each opens the project, calls
 //! the matching `but-api` function and returns; the UI reloads the workspace afterwards.
 //! Undo history comes from `but-api`'s own oplog snapshots, except that [`discard`],
-//! [`split_off`] and [`move_to_new_branch`] record their own.
+//! [`split_off`], [`move_to_new_branch`] and [`create_beside_checkout`] record their own, as
+//! does [`super::conflicts::resolve_markers`] through [`record_undo`].
 
 use gitbutler_repo::hooks::{ErrorData, HookResult, MessageHookResult};
 use std::collections::HashMap;
@@ -134,7 +135,7 @@ pub(super) fn record_undo(
 }
 
 /// Where changes are read from: the main checkout, or the linked `worktree`.
-fn changes_source(worktree: Option<&str>) -> ChangesSource {
+pub(super) fn changes_source(worktree: Option<&str>) -> ChangesSource {
     worktree.map_or(ChangesSource::Head, |name| {
         ChangesSource::Worktree(name.to_owned())
     })
@@ -949,7 +950,7 @@ pub fn mark_resolved(path: &Path, worktree: Option<&str>, files: Vec<String>) ->
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use std::collections::HashSet;
     use std::process::Command;
 
@@ -967,7 +968,7 @@ mod tests {
         (1..=20).map(|n| format!("line {n}\n")).collect()
     }
 
-    fn git(dir: &Path, args: &[&str]) -> String {
+    pub(in crate::backend) fn git(dir: &Path, args: &[&str]) -> String {
         let out = Command::new("git")
             .current_dir(dir)
             .args(args)
@@ -985,8 +986,6 @@ mod tests {
             .uncommitted
     }
 
-    /// A repository on `main` with one commit of `file` holding `content`. It signs nothing
-    /// and reads hooks from its own `.git/hooks`, whatever the global config says.
     /// Give the repository at `path` a remote whose `main` is at `HEAD`, tracked by the local
     /// `main`, and make that the target.
     fn target_origin_main(path: &Path) {
@@ -999,7 +998,9 @@ mod tests {
         crate::backend::settings::set_target(path, "refs/heads/main").unwrap();
     }
 
-    fn repo_with(content: &str) -> tempfile::TempDir {
+    /// A repository on `main` with one commit of `file` holding `content`. It signs nothing
+    /// and reads hooks from its own `.git/hooks`, whatever the global config says.
+    pub(in crate::backend) fn repo_with(content: &str) -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path();
         git(path, &["init", "-q", "-b", "main"]);
@@ -1256,6 +1257,14 @@ mod tests {
         assert!(
             format!("{err:#}").contains("file"),
             "nor what was written to a file named since: {err:#}"
+        );
+
+        let moved = outside.path().join("moved");
+        std::fs::rename(&linked, &moved).unwrap();
+        let err = remove(path, "agent", &asked).unwrap_err();
+        assert!(
+            format!("{err:#}").starts_with("Couldn't check agent's files"),
+            "a worktree it can't read, it can't check, so it refuses: {err:#}"
         );
     }
 

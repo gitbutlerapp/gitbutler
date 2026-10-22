@@ -9,7 +9,7 @@ use std::path::Path;
 
 use anyhow::{Context as _, Result, bail};
 use but_api::legacy::oplog::{self, RestoreKind};
-use but_oplog::legacy::OperationKind;
+use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use gix::bstr::ByteSlice as _;
 use serde::Deserialize;
 
@@ -551,10 +551,7 @@ pub fn undo(path: &Path, redo: bool, kept: &HashSet<SnapshotId>) -> Result<Optio
     if kept.contains(&SnapshotId(snapshot.commit_id)) {
         bail!(UNRECORDED);
     }
-    let title = snapshot
-        .details
-        .map(|details| operation_title(details.operation));
-    restore_titled(&mut ctx, snapshot.commit_id, title, kind).map(Some)
+    restore_titled(&mut ctx, snapshot.commit_id, snapshot.details, kind).map(Some)
 }
 
 /// The newest entry in the project's operation log.
@@ -574,11 +571,8 @@ pub fn undo_snapshot(path: &Path, snapshot: SnapshotId) -> Result<&'static str> 
     let target = oplog::get_undo_target_snapshot(&ctx)?
         .filter(|target| target.commit_id == snapshot.0)
         .context("Something else changed the workspace since. ⌘Z undoes one step at a time.")?;
-    let title = target
-        .details
-        .map(|details| operation_title(details.operation));
     let kind = RestoreKind::RestoreFromSnapshotViaUndo;
-    restore_titled(&mut ctx, snapshot.0, title, kind)
+    restore_titled(&mut ctx, snapshot.0, target.details, kind)
 }
 
 /// What the app calls an operation, where the oplog's name for it is another client's.
@@ -595,21 +589,21 @@ fn operation_title(kind: OperationKind) -> &'static str {
     }
 }
 
-/// Restore snapshot `id` and name the operation it takes back, as the CLI does: when `id`
-/// is itself an undo or redo, it's the operation that one restored.
+/// Restore snapshot `id`, recorded with `details`, and name the operation it takes back, as
+/// the CLI does: when `id` is itself an undo or redo, it's the operation that one restored.
 fn restore_titled(
     ctx: &mut but_ctx::Context,
     id: gix::ObjectId,
-    title: Option<&'static str>,
+    details: Option<SnapshotDetails>,
     kind: oplog::RestoreKind,
 ) -> Result<&'static str> {
-    let title = oplog::peel_restore_snapshot(ctx, id)?
-        .map_or(title, |peeled| {
-            peeled
-                .details
-                .map(|details| operation_title(details.operation))
-        })
-        .unwrap_or("Unknown operation");
+    let details = match oplog::peel_restore_snapshot(ctx, id)? {
+        Some(peeled) => peeled.details,
+        None => details,
+    };
+    let title = details.map_or("Unknown operation", |details| {
+        operation_title(details.operation)
+    });
     oplog::restore_snapshot_with_kind(ctx, kind, id)?;
     Ok(title)
 }

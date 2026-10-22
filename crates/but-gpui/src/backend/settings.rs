@@ -8,7 +8,7 @@ use but_api::legacy::{config, projects};
 use but_core::settings::git::ui::GitConfigSettings;
 use but_settings::AppSettingsWithDiskSync;
 
-use super::ops::full_name;
+use super::ops::{changes_source, full_name};
 use super::{Forge, open};
 
 /// A program to open files or the project in, by id and name.
@@ -38,11 +38,8 @@ pub fn open_in_editor(
     file: &str,
     line: Option<u32>,
 ) -> Result<()> {
-    use but_api::commit::json::ChangesSource;
     let mut ctx = open(path)?;
-    let source = worktree.map_or(ChangesSource::Head, |name| {
-        ChangesSource::Worktree(name.to_owned())
-    });
+    let source = changes_source(worktree);
     but_api::open::open_in_program(&mut ctx, editor.to_owned(), source, file.to_owned(), line)
 }
 
@@ -269,37 +266,29 @@ pub(super) fn app_settings() -> Result<AppSettingsWithDiskSync> {
 
 #[cfg(test)]
 mod tests {
-    use std::process::Command;
+    use crate::backend::ops::tests::{git, repo_with};
 
     #[test]
     fn the_default_branch_lists_first_and_picking_it_stays_on_the_branch() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = repo_with("one\n");
         let path = dir.path();
-        let git = |args: &[&str]| {
-            let out = Command::new("git")
-                .current_dir(path)
-                .args(args)
-                .output()
-                .unwrap();
-            assert!(out.status.success(), "git {args:?}: {out:?}");
-            String::from_utf8(out.stdout).unwrap()
-        };
-        git(&["init", "-q", "-b", "main"]);
-        git(&["config", "user.name", "T"]);
-        git(&["config", "user.email", "t@example.com"]);
-        git(&["config", "commit.gpgsign", "false"]);
-        git(&["commit", "-q", "--allow-empty", "-m", "first"]);
-        git(&["remote", "add", "origin", "https://example.com/repo.git"]);
-        git(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
-        git(&[
-            "symbolic-ref",
-            "refs/remotes/origin/HEAD",
-            "refs/remotes/origin/main",
-        ]);
-        git(&["update-ref", "refs/remotes/origin/feature", "HEAD"]);
-        git(&["branch", "--set-upstream-to=origin/main", "main"]);
-        git(&["branch", "another"]);
-        git(&["branch", "gitbutler/edit"]);
+        git(
+            path,
+            &["remote", "add", "origin", "https://example.com/repo.git"],
+        );
+        git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+        git(
+            path,
+            &[
+                "symbolic-ref",
+                "refs/remotes/origin/HEAD",
+                "refs/remotes/origin/main",
+            ],
+        );
+        git(path, &["update-ref", "refs/remotes/origin/feature", "HEAD"]);
+        git(path, &["branch", "--set-upstream-to=origin/main", "main"]);
+        git(path, &["branch", "another"]);
+        git(path, &["branch", "gitbutler/edit"]);
 
         assert_eq!(
             super::target_branches(path).unwrap(),
@@ -308,7 +297,7 @@ mod tests {
         );
         super::set_target(path, "refs/remotes/origin/main").unwrap();
         assert_eq!(
-            git(&["symbolic-ref", "HEAD"]).trim(),
+            git(path, &["symbolic-ref", "HEAD"]).trim(),
             "refs/heads/main",
             "picking a target leaves the checked-out branch alone, as the desktop app does"
         );

@@ -28,18 +28,13 @@ fn forge_from(ctx: &Context, overridden: Option<ForgeName>) -> Option<ForgeName>
 }
 
 /// [`forge_from`] with the project's settings' pick.
-fn forge_name(ctx: &Context) -> Option<ForgeName> {
+pub(super) fn forge_name(ctx: &Context) -> Option<ForgeName> {
     forge_from(ctx, saved_forge(ctx))
 }
 
 /// The forge the project's settings pick, for when nothing else names one.
 fn saved_forge(ctx: &Context) -> Option<ForgeName> {
     (ctx.legacy_project.forge_override.as_deref()).and_then(ForgeName::from_override_str)
-}
-
-/// [`forge_name`] as the app names forges.
-pub(super) fn forge_of(ctx: &Context) -> Option<Forge> {
-    forge_name(ctx).map(app_forge)
 }
 
 /// The forge the project's remote or accounts name, and the one its settings pick.
@@ -50,7 +45,8 @@ pub(super) fn detected_and_saved_forge(ctx: &Context) -> (Option<Forge>, Option<
     )
 }
 
-fn app_forge(name: ForgeName) -> Forge {
+/// `name` as the app names forges.
+pub(super) fn app_forge(name: ForgeName) -> Forge {
     match name {
         ForgeName::GitHub => Forge::GitHub,
         ForgeName::GitLab => Forge::GitLab,

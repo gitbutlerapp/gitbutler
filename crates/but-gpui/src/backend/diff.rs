@@ -10,7 +10,8 @@ use bstr::ByteSlice;
 
 use super::{
     CommitId, Conflict, DiffBody, DiffLine, FileChange, FileDiff, Hunk, HunkKey, LineKind, Picture,
-    SnapshotId, annotate, checkout, columns, file_change, highlight, markers, open, worktree_files,
+    SnapshotId, annotate, checkout, columns, file_change, highlight, markers, open,
+    present_first_parent, worktree_files,
 };
 
 /// What a diff is about.
@@ -49,14 +50,16 @@ impl DiffSource {
 
 /// The diff of `source`. A worktree diff takes the `worktree` files the workspace just
 /// listed, rather than looking at the worktree a second time. Files whose patch is the same
-/// as in `previous` keep their highlighting, which is most of what loading costs. A hunk's
-/// scope adds at most `scope_lines` unchanged lines around it, and isn't read with `None`.
+/// as in `previous` keep their highlighting, which is most of what loading costs. With
+/// `annotate_first`, only that many files, those shown first, are highlighted and given scope
+/// names, and only the short ones, so a load with `None` does the rest. A hunk's scope adds at
+/// most `scope_lines` unchanged lines around it, and isn't read with `None`.
 pub fn load_diff(
     path: &Path,
     source: DiffSource,
     worktree: Option<Vec<FileChange>>,
     previous: Option<Arc<Vec<FileDiff>>>,
-    annotate: Option<usize>,
+    annotate_first: Option<usize>,
     scope_lines: Option<usize>,
 ) -> Result<Vec<FileDiff>> {
     let started = std::time::Instant::now();
@@ -80,24 +83,11 @@ pub fn load_diff(
         },
         // At the edge of a shallow clone a commit's parent isn't here; Git shows it as a
         // root then, everything in it added.
-        DiffSource::Commit(id) if !first_parent_here(&repo, id.0)? => tree_changes(None, id.0)?,
         DiffSource::Commit(id) => {
-            let details =
-                but_api::diff::commit_details(&ctx, id.0, but_api::diff::ComputeLineStats::No)?;
-            details
-                .diff_with_first_parent
-                .into_iter()
-                .map(file_change)
-                .collect()
+            tree_changes(present_first_parent(&repo.find_commit(id.0)?), id.0)?
         }
         DiffSource::Range { oldest, newest } => {
-            let base = repo
-                .find_commit(oldest.0)?
-                .parent_ids()
-                .next()
-                .map(|id| id.detach())
-                .filter(|id| repo.has_object(id));
-            tree_changes(base, newest.0)?
+            tree_changes(present_first_parent(&repo.find_commit(oldest.0)?), newest.0)?
         }
         DiffSource::Branch { tip, .. } => {
             let target = super::target_source(&repo, &ctx.project_meta()?)
@@ -120,9 +110,8 @@ pub fn load_diff(
         .flat_map(|files| files.iter())
         .map(|file| (file.file.path.as_str(), file))
         .collect();
-    // Only the first `annotate` files are highlighted and given scope names; the rest stay
-    // plain unless reused. Those first files are what shows first, so a long one waits too.
-    let (first, limit) = match annotate {
+    // Files past the first stay plain unless reused, and a long one among the first waits too.
+    let (first, limit) = match annotate_first {
         Some(first) => (first, FIRST_HIGHLIGHT_LIMIT),
         None => (usize::MAX, HIGHLIGHT_LIMIT),
     };
@@ -376,6 +365,14 @@ fn load_file(
 ) -> Result<FileDiff> {
     // Annotated as this load would, its scopes no wider or narrower.
     let up_to_date = |old: &FileDiff| old.annotated && old.scope_lines == scope_lines;
+    let reuse = |old: &FileDiff, file| FileDiff {
+        file,
+        body: old.body.clone(),
+        fingerprint: old.fingerprint,
+        annotated: up_to_date(old),
+        scope_lines,
+        drawing: old.drawing.clone(),
+    };
     // An uncommitted file last written at the same moment, against the same base, has the
     // same patch, so it isn't computed again, much as git skips files whose stat is unchanged.
     if let Some(old) = previous.filter(|old| {
@@ -388,14 +385,7 @@ fn load_file(
             // Conflicts replace the diff, which a file resolved since needs back.
             && !old.file.conflicted
     }) {
-        return Ok(FileDiff {
-            file,
-            body: old.body.clone(),
-            fingerprint: old.fingerprint,
-            annotated: up_to_date(old),
-            scope_lines,
-            drawing: old.drawing.clone(),
-        });
+        return Ok(reuse(old, file));
     }
     let mut filter = but_core::unified_diff::filter_from_state(
         repo,
@@ -409,14 +399,7 @@ fn load_file(
     if let Some(old) = (previous.filter(|old| old.fingerprint == fingerprint && up_to_date(old)))
         .filter(|old| !old.file.conflicted)
     {
-        return Ok(FileDiff {
-            file,
-            body: old.body.clone(),
-            fingerprint,
-            annotated: true,
-            scope_lines,
-            drawing: old.drawing.clone(),
-        });
+        return Ok(reuse(old, file));
     }
     let mut body = match patch {
         None => DiffBody::Empty,
@@ -738,13 +721,6 @@ fn parallel_map<T: Send, S, R: Send>(
     });
     results.sort_unstable_by_key(|(index, _)| *index);
     results.into_iter().map(|(_, result)| result).collect()
-}
-
-/// Whether `commit` is a root or its first parent is in the repository, which a shallow
-/// clone's oldest commits' aren't.
-fn first_parent_here(repo: &gix::Repository, commit: gix::ObjectId) -> Result<bool> {
-    let parent = repo.find_commit(commit)?.parent_ids().next();
-    Ok(parent.is_none_or(|parent| repo.has_object(parent)))
 }
 
 /// A hash of a file's patch, hunk headers included, so two equal ones have the same lines.

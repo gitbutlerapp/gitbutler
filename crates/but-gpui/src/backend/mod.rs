@@ -86,19 +86,15 @@ pub fn list_projects() -> Result<Vec<Project>> {
             Some(Project {
                 id: project.id.to_string(),
                 name: project.title.clone(),
-                last_active: last_active(git_dir),
+                // When Git last wrote its reflog or index: a few file times, cheap enough for
+                // every project, unlike reading its status.
+                last_active: last_written(git_dir, &["logs/HEAD", "index"]),
                 path,
             })
         })
         .collect();
     projects.sort_by_key(|project| project.name.to_lowercase());
     Ok(projects)
-}
-
-/// When Git last wrote the reflog or index of the repository at `git_dir` or one of its linked
-/// worktrees: a few file times, cheap enough for every project, unlike reading its status.
-fn last_active(git_dir: &Path) -> Option<i64> {
-    last_written(git_dir, &["logs/HEAD", "index"])
 }
 
 /// When one of `files` was last written in the repository at `git_dir` or in one of its
@@ -279,6 +275,48 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
                 .collect(),
         })
         .collect();
+    let meta = ctx.project_meta().ok();
+    let (target, lost_target) = target(&ctx, meta.as_ref(), &info, &cached)?;
+    let listed = worktrees::linked(&ctx, &mut linked).unwrap_or_else(|err| {
+        tracing::warn!("couldn't list the linked worktrees: {err:#}");
+        None
+    });
+    let (mut worktrees, archived_worktrees) = listed.unwrap_or_default();
+    for worktree in &mut worktrees {
+        let lane = (info.worktrees.iter()).find(|lane| lane.name == worktree.name.as_ref());
+        let segments = lane.iter().flat_map(|lane| &lane.segments);
+        worktree.branches = worktree_branches(&ctx, &cached, segments, &stacks);
+    }
+    tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "loaded workspace");
+    Ok(Workspace {
+        target,
+        lost_target,
+        forge: reviews::forge_name(&ctx).map(reviews::app_forge),
+        stacks,
+        uncommitted,
+        tree,
+        managed,
+        target_branch: meta
+            .and_then(|meta| meta.target_ref)
+            .map(|name| name.to_string()),
+        git_operation,
+        unrecorded: head.is_none() || tree.is_none(),
+        editing: None,
+        worktrees,
+        archived_worktrees,
+        refs: refs ^ reviews_fingerprint(&cached),
+    })
+}
+
+/// The target as `info` and the project's `meta` have it, with its new commits named by the
+/// pull requests the forge cache has, `cached`; or the name of its upstream when that's
+/// configured but gone, as when the remote deleted it.
+fn target(
+    ctx: &Context,
+    meta: Option<&but_core::ref_metadata::ProjectMeta>,
+    info: &but_workspace::RefInfo,
+    cached: &HashMap<u64, but_forge::ForgeReview>,
+) -> Result<(Option<Target>, Option<String>)> {
     // Linked worktrees' lanes count as behind too, but an update only rebases the stacks.
     let target_commit = info.target_commit.as_ref().map(|target| target.commit_id);
     let stacks_behind = info.has_lanes_behind_target
@@ -289,93 +327,70 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     // as from a land or a `git merge` into it. Without a stored commit, as for a project added
     // since its target last moved, there's nothing to bring.
     let repo = ctx.repo.get()?;
-    let upstream = (ctx.project_meta().ok()).and_then(|meta| target_source(&repo, &meta));
-    let tip = (upstream.as_ref()).and_then(|name| ref_tip(&repo, name.as_ref()));
-    let target = upstream.as_ref().zip(tip).map(|(name, tip)| {
-        let ahead = target_commit.map_or(0, |base| commits_past(&repo, tip, base));
-        Target {
-            name: name.shorten().to_string(),
-            local: name.category() == Some(gix::refs::Category::LocalBranch),
-            behind: (target_commit)
-                .and_then(|base| first_parent_steps(&repo, tip, base, ahead))
-                .unwrap_or(ahead),
-            commits_behind: ahead,
-            needs_update: ahead > 0 || stacks_behind,
-            incoming: match ahead {
-                0 => Vec::new(),
-                _ => {
-                    upstream::incoming(&ctx, &cached, model::UPSTREAM_SHOWN).unwrap_or_else(|err| {
-                        tracing::warn!("couldn't read the target's new commits: {err:#}");
-                        Vec::new()
-                    })
-                }
-            },
-        }
-    });
-    // An upstream that's configured but gone, as when the remote deleted it.
-    let lost_target = (tip.is_none())
-        .then_some(upstream)
-        .flatten()
-        .map(|name| name.shorten().to_string());
-    drop(repo);
-    let listed = worktrees::linked(&ctx, &mut linked).unwrap_or_else(|err| {
-        tracing::warn!("couldn't list the linked worktrees: {err:#}");
-        None
-    });
-    let (mut worktrees, archived_worktrees) = listed.unwrap_or_default();
-    for worktree in &mut worktrees {
-        let lane = (info.worktrees.iter()).find(|lane| lane.name == worktree.name.as_ref());
-        let segments = lane.iter().flat_map(|lane| &lane.segments);
-        let mut past_theirs = false;
-        worktree.branches = segments
-            .filter_map(|segment| {
-                use but_workspace::ref_info::LocalCommitRelation as R;
-                // A lane started from a newer target than the workspace's runs on down through
-                // the target's own commits, which aren't the worktree's work. The branch the
-                // worktree's work starts from shows, even with no commits of its own, but not
-                // the target's branches further down.
-                let theirs = (segment.commits.iter()).position(
-                    |commit| matches!(commit.relation, R::Integrated(by) if by == commit.inner.id),
-                );
-                if past_theirs {
-                    return None;
-                }
-                past_theirs = theirs.is_some();
-                // A detached run of commits has no ref to tell it apart by, and a branch the
-                // workspace has applied is listed there.
-                let ref_name = segment.ref_name()?.to_string();
-                if (stacks.iter().flat_map(|stack| &stack.branches))
-                    .any(|stacked| stacked.ref_name == ref_name)
-                {
-                    return None;
-                }
-                let mut branch = branch_from(&ctx, &cached, segment);
-                if let Some(theirs) = theirs {
-                    branch.commits.truncate(theirs);
-                }
-                Some(branch)
-            })
-            .collect();
-    }
-    tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "loaded workspace");
-    Ok(Workspace {
-        target,
-        lost_target,
-        forge: reviews::forge_of(&ctx),
-        stacks,
-        uncommitted,
-        tree,
-        managed,
-        target_branch: (ctx.project_meta().ok())
-            .and_then(|meta| meta.target_ref)
-            .map(|name| name.to_string()),
-        git_operation,
-        unrecorded: head.is_none() || tree.is_none(),
-        editing: None,
-        worktrees,
-        archived_worktrees,
-        refs: refs ^ reviews_fingerprint(&cached),
-    })
+    let Some(source) = meta.and_then(|meta| target_source(&repo, meta)) else {
+        return Ok((None, None));
+    };
+    let Some(tip) = ref_tip(&repo, source.as_ref()) else {
+        return Ok((None, Some(source.shorten().to_string())));
+    };
+    let ahead = target_commit.map_or(0, |base| commits_past(&repo, tip, base));
+    let target = Target {
+        name: source.shorten().to_string(),
+        local: source.category() == Some(gix::refs::Category::LocalBranch),
+        behind: (target_commit)
+            .and_then(|base| first_parent_steps(&repo, tip, base, ahead))
+            .unwrap_or(ahead),
+        commits_behind: ahead,
+        needs_update: ahead > 0 || stacks_behind,
+        incoming: match ahead {
+            0 => Vec::new(),
+            _ => upstream::incoming(ctx, cached, model::UPSTREAM_SHOWN).unwrap_or_else(|err| {
+                tracing::warn!("couldn't read the target's new commits: {err:#}");
+                Vec::new()
+            }),
+        },
+    };
+    Ok((Some(target), None))
+}
+
+/// The branches of a linked worktree's lane, from its `segments`, that are the worktree's own
+/// work, with their pull requests as the forge cache, `cached`, has them.
+fn worktree_branches<'a>(
+    ctx: &Context,
+    cached: &HashMap<u64, but_forge::ForgeReview>,
+    segments: impl Iterator<Item = &'a but_workspace::ref_info::Segment>,
+    stacks: &[Stack],
+) -> Vec<Branch> {
+    use but_workspace::ref_info::LocalCommitRelation as R;
+    let mut past_theirs = false;
+    segments
+        .filter_map(|segment| {
+            // A lane started from a newer target than the workspace's runs on down through
+            // the target's own commits, which aren't the worktree's work. The branch the
+            // worktree's work starts from shows, even with no commits of its own, but not
+            // the target's branches further down.
+            let theirs = (segment.commits.iter()).position(
+                |commit| matches!(commit.relation, R::Integrated(by) if by == commit.inner.id),
+            );
+            if past_theirs {
+                return None;
+            }
+            past_theirs = theirs.is_some();
+            // A detached run of commits has no ref to tell it apart by, and a branch the
+            // workspace has applied is listed there.
+            let ref_name = segment.ref_name()?.to_string();
+            if (stacks.iter().flat_map(|stack| &stack.branches))
+                .any(|stacked| stacked.ref_name == ref_name)
+            {
+                return None;
+            }
+            let mut branch = branch_from(ctx, cached, segment);
+            if let Some(theirs) = theirs {
+                branch.commits.truncate(theirs);
+            }
+            Some(branch)
+        })
+        .collect()
 }
 
 /// A hash of the pull requests the forge cache knows, so a refresh that learns of one, or
@@ -530,25 +545,26 @@ fn byline_of(
     author: &gix::actor::Signature,
     committer: &gix::actor::Signature,
 ) -> ((String, String), Option<Agent>) {
-    let signature = |s: &gix::actor::Signature| signature(s.name.as_ref(), s.email.as_ref());
-    byline(signature(author), signature(committer))
-}
-
-/// A signature's `name` and `email`, as [`byline`] takes them.
-fn signature(name: &gix::bstr::BStr, email: &gix::bstr::BStr) -> (String, String) {
-    (
-        name.to_str_lossy().into_owned(),
-        email.to_str_lossy().into_owned(),
-    )
+    let owned = |who: &gix::actor::Signature| {
+        let (name, email) = (who.name.to_str_lossy(), who.email.to_str_lossy());
+        (name.into_owned(), email.into_owned())
+    };
+    byline(owned(author), owned(committer))
 }
 
 /// Who `commit` is shown by: see [`byline`].
 fn commit_byline(commit: &gix::Commit<'_>) -> Result<((String, String), Option<Agent>)> {
-    let (author, committer) = (commit.author()?, commit.committer()?);
-    Ok(byline(
-        signature(author.name, author.email),
-        signature(committer.name, committer.email),
+    Ok(byline_of(
+        &commit.author()?.into(),
+        &commit.committer()?.into(),
     ))
+}
+
+/// `commit`'s first parent, if this clone has it: a shallow clone's oldest commits name
+/// parents it doesn't have.
+fn present_first_parent(commit: &gix::Commit<'_>) -> Option<gix::ObjectId> {
+    let parent = commit.parent_ids().next()?.detach();
+    commit.repo.has_object(parent).then_some(parent)
 }
 
 fn commit_from(local: &but_workspace::ref_info::LocalCommit) -> Commit {
