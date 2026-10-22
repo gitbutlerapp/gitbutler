@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::Context as _;
-use bstr::{BStr, BString};
+use bstr::{BStr, BString, ByteSlice as _};
 use gix::merge::tree::TreatAsUnresolved;
 
 use crate::index::{ConflictStage, Edit, Stat};
@@ -349,9 +349,9 @@ fn unlink_hard_linked_files(
 /// Fail if a file that is about to be written or `deleted` changed after the worktree was
 /// snapshotted into `baseline`, so the checkout doesn't replace an edit it never saw.
 /// Like Git, a change of type or executable bit counts, and files are hashed through the worktree
-/// filters, like the snapshot. A missing file loses nothing. Of the paths `baseline` doesn't have,
-/// ignored files are left to be replaced, as with Git, while any other file appeared after the
-/// snapshot.
+/// filters, like the snapshot. A missing file loses nothing. Files `baseline` doesn't have that a
+/// written path would replace appeared after the snapshot, unless they're ignored, which Git
+/// replaces too.
 fn refuse_to_overwrite_newer_edits(
     repo: &gix::Repository,
     path_check: &mut gix::status::plumbing::SymlinkCheck,
@@ -371,7 +371,7 @@ fn refuse_to_overwrite_newer_edits(
         .checkout_options(gix::worktree::stack::state::attributes::Source::IdMapping)?
         .stat_options;
     let mut buf = Vec::new();
-    let written = target
+    let written: Vec<&BStr> = target
         .entries()
         .iter()
         .filter(|entry| {
@@ -379,9 +379,24 @@ fn refuse_to_overwrite_newer_edits(
                 .flags
                 .contains(gix::index::entry::Flags::SKIP_WORKTREE)
         })
-        .map(|entry| entry.path(target));
+        .map(|entry| entry.path(target))
+        .collect();
+    let workdir = path_check.inner.root().to_owned();
     let mut changed = Vec::new();
-    for rela_path in written.chain(deleted.iter().map(|path| path.as_ref())) {
+    for rela_path in &written {
+        collect_files_created_in_the_way(
+            &workdir,
+            rela_path,
+            baseline,
+            &mut excludes,
+            &mut changed,
+        )?;
+    }
+    for rela_path in written
+        .iter()
+        .copied()
+        .chain(deleted.iter().map(|path| path.as_ref()))
+    {
         let Ok(path) = path_check.verified_path(rela_path) else {
             continue;
         };
@@ -389,13 +404,6 @@ fn refuse_to_overwrite_newer_edits(
             continue;
         };
         let Some(expected) = baseline.entry_by_path(rela_path) else {
-            let created_after_snapshot = !md.is_dir()
-                && !excludes
-                    .at_entry(rela_path, Some(gix::index::entry::Mode::FILE))?
-                    .is_excluded();
-            if created_after_snapshot {
-                changed.push(format!("{rela_path:?}"));
-            }
             continue;
         };
         if expected.mode == gix::index::entry::Mode::COMMIT {
@@ -438,6 +446,68 @@ fn refuse_to_overwrite_newer_edits(
             "Uncommitted files would be overwritten by checkout: {}",
             changed.join(", ")
         );
+    }
+    Ok(())
+}
+
+/// Collect files and symlinks that the snapshot `baseline` doesn't have, that aren't ignored, and
+/// that writing `rela_path` would remove: a leading component that isn't a directory, the path
+/// itself, or anything below it if it's a directory.
+fn collect_files_created_in_the_way(
+    workdir: &std::path::Path,
+    rela_path: &BStr,
+    baseline: &gix::index::State,
+    excludes: &mut gix::AttributeStack<'_>,
+    changed: &mut Vec<String>,
+) -> anyhow::Result<()> {
+    let mut is_new = |rela_path: &BStr| -> anyhow::Result<bool> {
+        Ok(baseline.entry_by_path(rela_path).is_none()
+            && !excludes.at_entry(rela_path, None)?.is_excluded())
+    };
+    let metadata = |rela_path: &BStr| -> anyhow::Result<Option<std::fs::Metadata>> {
+        match std::fs::symlink_metadata(workdir.join(gix::path::from_bstr(rela_path)?)) {
+            Ok(md) => Ok(Some(md)),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(err) => Err(err.into()),
+        }
+    };
+    for (at, _) in rela_path
+        .iter()
+        .enumerate()
+        .filter(|(_, byte)| **byte == b'/')
+    {
+        let ancestor: &BStr = rela_path[..at].as_ref();
+        match metadata(ancestor)? {
+            Some(md) if md.is_dir() => continue,
+            Some(_) => {
+                if is_new(ancestor)? {
+                    changed.push(format!("{ancestor:?}"));
+                }
+                return Ok(());
+            }
+            None => return Ok(()),
+        }
+    }
+    let mut pending = vec![rela_path.to_owned()];
+    while let Some(rela_path) = pending.pop() {
+        let Some(md) = metadata(rela_path.as_ref())? else {
+            continue;
+        };
+        if !is_new(rela_path.as_ref())? {
+            continue;
+        }
+        if md.is_dir() {
+            for entry in
+                std::fs::read_dir(workdir.join(gix::path::from_bstr(rela_path.as_bstr())?))?
+            {
+                let mut below = rela_path.clone();
+                below.push(b'/');
+                below.extend_from_slice(gix::path::os_str_into_bstr(&entry?.file_name())?);
+                pending.push(below);
+            }
+        } else {
+            changed.push(format!("{rela_path:?}"));
+        }
     }
     Ok(())
 }

@@ -1481,6 +1481,112 @@ fn checkout_refuses_to_overwrite_a_file_created_after_the_snapshot() -> anyhow::
     Ok(())
 }
 
+/// Check out a commit that adds `files` on top of [`repo_with_meddling_filter`] running `meddle`,
+/// and return the outcome along with the HEAD it started from.
+#[cfg(unix)]
+fn checkout_adding_after_meddling(
+    meddle: &str,
+    files: &[&str],
+) -> anyhow::Result<(
+    gix::Repository,
+    but_testsupport::gix_testtools::tempfile::TempDir,
+    gix::ObjectId,
+    anyhow::Result<checkout::Outcome>,
+)> {
+    let (repo, tmp) = repo_with_meddling_filter("one\n", meddle)?;
+    std::fs::write(repo.git_dir().join("info/exclude"), "*.log\ncache/\n")?;
+    let head = repo.head_id()?.detach();
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            for file in files {
+                let blob_id = repo.write_blob(b"theirs\n")?;
+                tree.upsert(*file, EntryKind::Blob, blob_id)?;
+            }
+            Ok(())
+        },
+        "add files",
+    )?
+    .id;
+    let out = safe_checkout_from_head(new_commit, &repo, Default::default());
+    Ok((repo, tmp, head, out))
+}
+
+#[test]
+#[cfg(unix)]
+fn checkout_refuses_to_replace_a_parent_file_created_after_the_snapshot() -> anyhow::Result<()> {
+    let (repo, _tmp, head, out) = checkout_adding_after_meddling("printf 'mine\\n' > d", &["d/x"])?;
+
+    let err = out.expect_err("like Git, an untracked file in the way of a directory is kept");
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["Uncommitted files would be overwritten by checkout: \"d\""]
+    );
+    assert_eq!(repo.head_id()?.detach(), head, "HEAD stays");
+    assert_eq!(
+        std::fs::read_to_string(repo.workdir_path("d").unwrap())?,
+        "mine\n"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn checkout_refuses_to_replace_a_parent_symlink_created_after_the_snapshot() -> anyhow::Result<()> {
+    let (repo, _tmp, head, out) = checkout_adding_after_meddling("ln -s elsewhere d", &["d/x"])?;
+
+    let err = out.expect_err("like Git, an untracked symlink in the way of a directory is kept");
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["Uncommitted files would be overwritten by checkout: \"d\""]
+    );
+    assert_eq!(repo.head_id()?.detach(), head, "HEAD stays");
+    assert!(repo.workdir_path("d").unwrap().is_symlink());
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn checkout_refuses_to_replace_a_directory_with_files_created_after_the_snapshot()
+-> anyhow::Result<()> {
+    let (repo, _tmp, head, out) =
+        checkout_adding_after_meddling("mkdir n && printf 'mine\\n' > n/local", &["n"])?;
+
+    let err =
+        out.expect_err("like Git, untracked files in a directory the target replaces are kept");
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["Uncommitted files would be overwritten by checkout: \"n/local\""]
+    );
+    assert_eq!(repo.head_id()?.detach(), head, "HEAD stays");
+    assert_eq!(
+        std::fs::read_to_string(repo.workdir_path("n/local").unwrap())?,
+        "mine\n"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn checkout_replaces_a_directory_created_after_the_snapshot_without_files_to_lose()
+-> anyhow::Result<()> {
+    for meddle in [
+        "mkdir n",
+        "mkdir -p n/empty n/cache && printf 'mine\\n' > n/build.log && printf 'x\\n' > n/cache/x",
+    ] {
+        let (repo, _tmp, _head, out) = checkout_adding_after_meddling(meddle, &["n"])?;
+
+        let out = out.map_err(|err| err.context(format!("after `{meddle}`")))?;
+        assert!(out.head_update.is_some());
+        assert_eq!(
+            std::fs::read_to_string(repo.workdir_path("n").unwrap())?,
+            "theirs\n",
+            "like Git, an empty directory or one with only ignored files is replaced"
+        );
+    }
+    Ok(())
+}
+
 #[test]
 #[cfg(unix)]
 fn checkout_refuses_to_overwrite_a_file_turned_symlink_after_the_snapshot() -> anyhow::Result<()> {
