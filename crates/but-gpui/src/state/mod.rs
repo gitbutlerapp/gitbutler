@@ -4,7 +4,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use futures::channel::mpsc;
 use gpui::{Context, EventEmitter, SharedString, Subscription, Task};
@@ -189,6 +189,8 @@ pub enum Notice {
 pub struct Toast {
     pub id: usize,
     pub notice: Notice,
+    /// When it goes, by the wall clock: its timer stops while the Mac sleeps.
+    until: SystemTime,
 }
 
 pub struct ProjectEntry {
@@ -868,7 +870,8 @@ impl Store {
             ) => (title, detail) != (t, d),
             _ => true,
         });
-        self.toasts.push(Toast { id, notice });
+        let until = SystemTime::now() + linger;
+        self.toasts.push(Toast { id, notice, until });
         cx.spawn(async move |this, cx| {
             cx.background_executor().timer(linger).await;
             this.update(cx, |store, cx| {
@@ -884,6 +887,19 @@ impl Store {
     pub fn dismiss_toast(&mut self, id: usize, cx: &mut Context<Self>) {
         self.toasts.retain(|toast| toast.id != id);
         cx.notify();
+    }
+
+    /// Dismiss card `id` to go ahead with what it offers, and whether it's still current:
+    /// one shown before the Mac slept can outlast its time, offering to go ahead on what
+    /// has changed since.
+    pub fn take_toast(&mut self, id: usize, cx: &mut Context<Self>) -> bool {
+        let now = SystemTime::now();
+        let current = (self.toasts.iter()).any(|toast| toast.id == id && now < toast.until);
+        self.dismiss_toast(id, cx);
+        if !current {
+            self.snack("That was a while ago, so try it again", cx);
+        }
+        current
     }
 
     pub fn set_cut(&mut self, cut: Option<Cut>, cx: &mut Context<Self>) {

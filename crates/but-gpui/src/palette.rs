@@ -251,8 +251,9 @@ impl AppView {
                     let (id, run) = (toast.id, run.clone());
                     let choice = Choice::new(label.clone(), move |this, _, cx| {
                         this.store.update(cx, |store, cx| {
-                            store.dismiss_toast(id, cx);
-                            run(store, cx)
+                            if store.take_toast(id, cx) {
+                                run(store, cx)
+                            }
                         })
                     });
                     Some(choice.detail(title.clone()))

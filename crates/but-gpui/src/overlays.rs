@@ -633,8 +633,9 @@ impl AppView {
                         button(("retry", id), label).small().on_click(cx.listener(
                             move |this, _: &ClickEvent, _, cx| {
                                 this.store.update(cx, |store, cx| {
-                                    store.dismiss_toast(id, cx);
-                                    run(store, cx)
+                                    if store.take_toast(id, cx) {
+                                        run(store, cx)
+                                    }
                                 })
                             },
                         ))
