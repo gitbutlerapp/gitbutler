@@ -240,7 +240,7 @@ impl Detail {
     }
 
     /// The branch whose diff shows; none while the overview does.
-    pub(super) fn selected_other_branch(&self, project: &ProjectId) -> Option<&OtherBranch> {
+    pub(crate) fn selected_other_branch(&self, project: &ProjectId) -> Option<&OtherBranch> {
         self.branches_for(project)?.selected_branch()
     }
 
@@ -768,9 +768,24 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         self.select_other_branch(Some(ref_name.to_owned()), cx);
+        let items = self.branch_menu_items(project, ref_name, cx);
+        if !items.is_empty() {
+            self.app
+                .update(cx, |app, cx| app.open_menu(at, items, cx))
+                .ok();
+        }
+    }
+
+    /// What the Branches page offers for its branch `ref_name`, as right-clicking it does.
+    pub(crate) fn branch_menu_items(
+        &self,
+        project: &ProjectId,
+        ref_name: &str,
+        cx: &App,
+    ) -> Vec<MenuItem> {
         // By its name, as the table has none opened.
         let Some(branch) = self.listed_branch(project, ref_name) else {
-            return;
+            return Vec::new();
         };
         let mut items = Vec::new();
         let worktree = self.checked_out_in(project, branch, cx);
@@ -829,9 +844,7 @@ impl Detail {
                 .separated(),
             );
         }
-        self.app
-            .update(cx, |app, cx| app.open_menu(at, items, cx))
-            .ok();
+        items
     }
 
     /// The linked worktree that has `branch` checked out, if one does: applying or deleting it
@@ -840,7 +853,7 @@ impl Detail {
         &self,
         project: &ProjectId,
         branch: &OtherBranch,
-        cx: &Context<Self>,
+        cx: &App,
     ) -> Option<Arc<str>> {
         let ws = self
             .store

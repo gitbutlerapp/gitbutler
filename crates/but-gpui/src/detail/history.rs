@@ -461,7 +461,7 @@ impl Detail {
     }
 
     /// The selected operation, which [`Self::render_operation_header`] draws a header for.
-    pub(super) fn selected_operation(&self, project: &ProjectId) -> Option<&Operation> {
+    pub(crate) fn selected_operation(&self, project: &ProjectId) -> Option<&Operation> {
         let history = self.history_for(project)?;
         let id = history.selected?;
         history.operations.iter().find(|op| op.id == id)
@@ -512,8 +512,17 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         self.select_operation(id, cx);
+        let items = Self::operation_menu_items(project, id);
+        self.app
+            .update(cx, |app, cx| app.open_menu(at, items, cx))
+            .ok();
+    }
+
+    /// What Operations history offers for the operation before snapshot `id`, as
+    /// right-clicking it does.
+    pub(crate) fn operation_menu_items(project: &ProjectId, id: SnapshotId) -> Vec<MenuItem> {
         let project = project.clone();
-        let items = vec![
+        vec![
             // Once the menu's done with the app, which asking to confirm updates too.
             MenuItem::new("Restore to before this…", move |app, window, cx| {
                 let (detail, project) = (app.detail.clone(), project.clone());
@@ -527,10 +536,7 @@ impl Detail {
                 app.copy_text(id.0.to_string(), cx)
             })
             .separated(),
-        ];
-        self.app
-            .update(cx, |app, cx| app.open_menu(at, items, cx))
-            .ok();
+        ]
     }
 
     /// Over the diff, what the selected operation was: what and when, the branch it was on,

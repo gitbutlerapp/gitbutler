@@ -170,6 +170,8 @@ pub struct Palette {
     pub(crate) restore_focus: Option<FocusHandle>,
     /// What it opened on: see [`Store::acting_on`].
     pub acting_on: (Option<Selection>, usize),
+    /// Its choices hold what they act on, as a menu's do, rather than read it when run.
+    pub holds_ids: bool,
     _subscription: Subscription,
 }
 
@@ -310,23 +312,33 @@ impl AppView {
         let Some(selection) = self.store.read(cx).selection.clone() else {
             return;
         };
-        let choices = (self
-            .navigator
-            .read(cx)
-            .menu_items(&selection, cx)
-            .into_iter())
-        .map(|item| {
-            let handler = item.handler;
-            Choice {
+        // On the Branches and Operations history pages, what's opened there.
+        let detail = self.detail.read(cx);
+        let items = match &selection {
+            Selection::Branches(project) => (detail.selected_other_branch(project))
+                .map(|branch| detail.branch_menu_items(project, &branch.ref_name, cx)),
+            Selection::History(project) => (detail.selected_operation(project)).map(|operation| {
+                crate::detail::Detail::operation_menu_items(project, operation.id)
+            }),
+            _ => None,
+        };
+        let items = items.unwrap_or_else(|| self.navigator.read(cx).menu_items(&selection, cx));
+        let choices: Vec<Choice> = (items.into_iter())
+            .map(|item| Choice {
                 label: item.label,
                 key: item.key,
                 detail: item.detail,
-                run: Box::new(move |this, window, cx| handler(this, window, cx)),
-            }
-        })
-        .collect();
+                run: Box::new(move |this, window, cx| (item.handler)(this, window, cx)),
+            })
+            .collect();
+        if choices.is_empty() {
+            return;
+        }
         let place = self.store.read(cx).place(&selection);
         self.open_picker(Some(place), "Actions", "Run", choices, window, cx);
+        if let Some(palette) = &mut self.palette {
+            palette.holds_ids = true;
+        }
     }
 
     /// Show `choices` to filter by typing and pick one with Enter or a click.
@@ -367,6 +379,7 @@ impl AppView {
             scroll: ScrollHandle::new(),
             restore_focus,
             acting_on: self.store.read(cx).acting_on(),
+            holds_ids: false,
             _subscription: subscription,
         });
         cx.notify();

@@ -150,14 +150,16 @@ impl AppView {
             // A menu's items and the palette's commands act on the selection and the picks, so
             // when an agent's change moves them off what they opened on, they go rather than
             // act on something else; a prompt on a branch goes with the branch. Menu items can
-            // hold the commit they opened on, so a menu goes when an agent only rewrote it too;
-            // the palette's commands read the selection when run.
+            // hold the commit they opened on, so a menu goes when an agent only rewrote it too,
+            // as does M's list of them; the palette's commands read the selection when run.
             cx.observe_in(&store, window, |this, store, window, cx| {
                 let store = store.read(cx);
                 let menu_gone =
                     (this.menu.as_ref()).is_some_and(|m| m.acting_on != store.acting_on());
-                let palette_gone =
-                    (this.palette.as_ref()).is_some_and(|p| !store.still_acting_on(&p.acting_on));
+                let palette_gone = (this.palette.as_ref()).is_some_and(|p| match p.holds_ids {
+                    true => p.acting_on != store.acting_on(),
+                    false => !store.still_acting_on(&p.acting_on),
+                });
                 let prompt_gone = (this.prompt.as_ref())
                     .and_then(|prompt| prompt.on_branch.as_ref())
                     .is_some_and(|(project, from)| {
