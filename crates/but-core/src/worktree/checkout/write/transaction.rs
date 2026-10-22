@@ -113,8 +113,13 @@ pub(super) fn commit(
             return Err(err);
         }
     };
+    let submodules = staged
+        .submodules
+        .iter()
+        .map(|rela_path| join(workdir, rela_path))
+        .collect::<anyhow::Result<Vec<_>>>()?;
     for clearance in clearances {
-        remove_emptied_parents(workdir, clearance.rela_path.as_ref())?;
+        remove_emptied_parents(workdir, clearance.rela_path.as_ref(), &submodules)?;
     }
     Ok(placed)
 }
@@ -250,10 +255,16 @@ fn trusted_stat(staged: &gix::index::entry::Stat, dest: &Path) -> anyhow::Result
     })
 }
 
-/// Remove the directories leading to `rela_path` that are now empty, as Git does.
-fn remove_emptied_parents(workdir: &Path, rela_path: &BStr) -> anyhow::Result<()> {
+/// Remove the directories leading to `rela_path` that are now empty, as Git does, except the
+/// directories of `submodules`, which the target needs even when empty.
+fn remove_emptied_parents(
+    workdir: &Path,
+    rela_path: &BStr,
+    submodules: &[PathBuf],
+) -> anyhow::Result<()> {
     let path = join(workdir, rela_path)?;
-    for dir in path.ancestors().skip(1).take_while(|dir| *dir != workdir) {
+    let leading_dirs = path.ancestors().skip(1).take_while(|dir| *dir != workdir);
+    for dir in leading_dirs.take_while(|dir| !submodules.iter().any(|sm| sm == dir)) {
         if std::fs::remove_dir(dir).is_err() {
             break;
         }

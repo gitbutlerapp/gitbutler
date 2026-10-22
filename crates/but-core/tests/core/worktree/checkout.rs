@@ -2072,6 +2072,35 @@ fn checkout_replaces_a_file_where_a_submodule_needs_a_directory_like_git() -> an
 }
 
 #[test]
+fn checkout_keeps_the_directory_of_a_submodule_that_replaces_a_directory_like_git()
+-> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    commit_in_worktree(&repo, &[("sm/f", "f\n")])?;
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            tree.remove("sm")?;
+            tree.upsert("sm", EntryKind::Commit, repo.head_id()?.detach())?;
+            Ok(())
+        },
+        "turn the directory sm into a submodule",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    assert_eq!(repo.head_id()?, new_commit.id);
+    assert!(
+        repo.workdir_path("sm").unwrap().is_dir(),
+        "like Git, the submodule's directory stays"
+    );
+    assert!(
+        !repo.workdir_path("sm/f").unwrap().exists(),
+        "the file the target removed is gone"
+    );
+    Ok(())
+}
+
+#[test]
 fn checkout_removes_the_empty_directory_of_a_submodule_the_target_deletes() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let workdir = repo.workdir().expect("non-bare");
