@@ -14,12 +14,11 @@ mod overview;
 
 use super::Detail;
 use super::panes::{
-    Crumb, CrumbTo, LIST_MIN_HEIGHT, list_empty, measured, meta_item, meta_row, page_title,
-    side_list, title_text,
+    Crumb, CrumbTo, LIST_MIN_HEIGHT, list_empty, list_filtered_out, list_heading, measured,
+    meta_item, meta_row, page_title, side_list, step_from, title_text,
 };
 use super::upstream::commit_author;
 
-use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::branches::{self, ApplyOutcome, OtherBranch};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, ReviewState};
@@ -32,14 +31,14 @@ use crate::ui::illustration::Illustration;
 use crate::ui::person::{byline, byline_avatar};
 use crate::ui::text_input::TextInput;
 use crate::ui::{
-    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, age_column, button, faint, fold_button, guide, h_flex,
-    icon, loading_state, plural, quiet, review, section_label, side_row, small_icon, v_flex,
+    ButtonStyle, Icon, Tooltip, age_column, button, error_summary, faint, fold_button, guide,
+    h_flex, icon, loading_state, plural, quiet, review, side_row, small_icon, v_flex,
 };
 
 pub(super) struct Branches {
     project: ProjectId,
     /// The project's branches when the list loaded; a reload that changes none of them
-    /// leaves the list as it is. `None` until it has loaded.
+    /// leaves the list as it is.
     seen: u64,
     list: Vec<OtherBranch>,
     /// The workspace's applied branches, which the list leaves to the navigator and the
@@ -66,6 +65,8 @@ pub(super) struct Branches {
     who: Option<String>,
     /// How recently the branches the list keeps changed.
     recency: Recency,
+    /// Why reading the branches failed, shown in place of the list.
+    failed: Option<String>,
 }
 
 impl Branches {
@@ -153,6 +154,7 @@ impl Branches {
             picked,
             who,
             recency,
+            failed: None,
         }
     }
 }
@@ -259,7 +261,6 @@ impl Detail {
         let Some(path) = self.store.read(cx).path(project) else {
             return;
         };
-        self.bring_back_branches(project);
         let seen = self.branches_fingerprint(project, cx);
         if !force && self.branches_for(project).is_some_and(|b| b.seen == seen) {
             return;
@@ -273,17 +274,24 @@ impl Detail {
                     matches!(this.selection(cx), Some(Selection::Branches(p)) if p == project);
                 let all = match result {
                     Ok(all) => all,
-                    // What's listed stays, to be read again on the next change.
-                    Err(err) if shown => {
-                        return this.store.update(cx, |store, cx| {
-                            store.error("Couldn't list the branches", format!("{err:#}"), cx)
-                        });
+                    // Said in place of the list, which comes back as it was once a read on a
+                    // later change works.
+                    Err(err) => {
+                        tracing::warn!(?err, "couldn't list the branches");
+                        let key = project.clone();
+                        let empty = || Branches::read(project, seen, Vec::new(), None);
+                        let branches = this.branches.entry(key).or_insert_with(empty);
+                        branches.failed = Some(format!("{err:#}"));
+                        if shown {
+                            this.refresh_diff(false, cx);
+                        }
+                        return cx.notify();
                     }
-                    Err(err) => return tracing::warn!(?err, "couldn't list the branches"),
                 };
-                let previous = this.branches.take().filter(|b| b.project == project);
-                this.branches = Some(Branches::read(project, seen, all, previous));
-                this.load_open_commits(cx);
+                let previous = this.branches.remove(&project);
+                let branches = Branches::read(project.clone(), seen, all, previous);
+                this.branches.insert(project.clone(), branches);
+                this.load_open_commits(&project, cx);
                 if shown {
                     // The filter may hide what's selected now.
                     this.select_shown_branch(cx);
@@ -293,17 +301,6 @@ impl Detail {
             })
             .ok();
         });
-    }
-
-    /// Make `project`'s branches the ones held, keeping those of the project left and
-    /// bringing back `project`'s if they were read before, so its page shows them at once.
-    pub(super) fn bring_back_branches(&mut self, project: &ProjectId) {
-        if let Some(left) = self.branches.take_if(|b| b.project != *project) {
-            self.branches_left.insert(left.project.clone(), left);
-        }
-        if self.branches.is_none() {
-            self.branches = self.branches_left.remove(project);
-        }
     }
 
     /// How many of `project`'s branches aren't applied, as its Branches page lists them at
@@ -327,8 +324,27 @@ impl Detail {
             .map_or(0, |ws| ws.refs)
     }
 
+    /// `project`'s branches, once read.
     fn branches_for(&self, project: &ProjectId) -> Option<&Branches> {
-        self.branches.as_ref().filter(|b| b.project == *project)
+        self.branches.get(project).filter(|b| b.failed.is_none())
+    }
+
+    /// The branches of the Branches page selected.
+    fn page_branches(&self, cx: &App) -> Option<&Branches> {
+        match &self.store.read(cx).selection {
+            Some(Selection::Branches(project)) => self.branches_for(project),
+            _ => None,
+        }
+    }
+
+    fn page_branches_mut(&mut self, cx: &App) -> Option<&mut Branches> {
+        match &self.store.read(cx).selection {
+            Some(Selection::Branches(project)) => self
+                .branches
+                .get_mut(project)
+                .filter(|b| b.failed.is_none()),
+            _ => None,
+        }
     }
 
     /// The branch whose diff shows; none while the overview does.
@@ -393,10 +409,10 @@ impl Detail {
         self.branches_for(project)?.commit
     }
 
-    /// Load the open branches' commits that aren't loaded for them as they are now. A selected
-    /// commit its branch no longer has is let go.
-    fn load_open_commits(&mut self, cx: &mut Context<Self>) {
-        let Some(branches) = &self.branches else {
+    /// Load `project`'s open branches' commits that aren't loaded for them as they are now. A
+    /// selected commit its branch no longer has is let go.
+    fn load_open_commits(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        let Some(branches) = self.branches_for(project) else {
             return;
         };
         let wanted: Vec<(String, Loaded)> = (branches.list.iter())
@@ -404,14 +420,10 @@ impl Detail {
             .map(|b| (b.ref_name.clone(), (b.tip, b.ahead)))
             .filter(|(r, key)| (branches.commits.get(r)).is_none_or(|(loaded, _)| loaded != key))
             .collect();
-        let Some(path) = self
-            .store
-            .read(cx)
-            .path(&branches.project)
-            .filter(|_| !wanted.is_empty())
-        else {
+        let Some(path) = (self.store.read(cx).path(project)).filter(|_| !wanted.is_empty()) else {
             return;
         };
+        let project = project.clone();
         self._branch_commits_load = cx.spawn(async move |this, cx| {
             let loaded = backend::run(move || {
                 Ok(wanted
@@ -424,7 +436,7 @@ impl Detail {
             })
             .await;
             this.update(cx, |this, cx| {
-                let (Ok(loaded), Some(branches)) = (loaded, this.branches.as_mut()) else {
+                let (Ok(loaded), Some(branches)) = (loaded, this.branches.get_mut(&project)) else {
                     return;
                 };
                 for (r, key, commits) in loaded {
@@ -457,7 +469,7 @@ impl Detail {
     /// Fold a stack's branches away under its caption, or show them again, by its top branch.
     /// Folding it over its selected branch or commit selects the caption.
     fn toggle_stack(&mut self, top: &str, cx: &mut Context<Self>) {
-        let Some(branches) = &mut self.branches else {
+        let Some(branches) = self.page_branches_mut(cx) else {
             return;
         };
         if branches.folded.remove(top) {
@@ -475,11 +487,12 @@ impl Detail {
     /// Show a branch's commits under it, or fold them away, as a navigator branch does.
     /// Folding it over its selected commit selects the branch.
     fn toggle_branch(&mut self, ref_name: &str, cx: &mut Context<Self>) {
-        let Some(branches) = &mut self.branches else {
+        let Some(branches) = self.page_branches_mut(cx) else {
             return;
         };
         if branches.open.insert(ref_name.to_owned()) {
-            self.load_open_commits(cx);
+            let project = branches.project.clone();
+            self.load_open_commits(&project, cx);
         } else {
             branches.open.remove(ref_name);
             if branches.selected.as_deref() == Some(ref_name) && branches.commit.take().is_some() {
@@ -655,7 +668,7 @@ impl Detail {
 
     /// List only `who`'s branches, or everyone's.
     pub(crate) fn filter_person(&mut self, who: Option<String>, cx: &mut Context<Self>) {
-        if let Some(branches) = &mut self.branches {
+        if let Some(branches) = self.page_branches_mut(cx) {
             branches.who = who;
         }
         self.select_shown_branch(cx);
@@ -673,7 +686,7 @@ impl Detail {
 
     /// List the branches changed as recently as `recency` says.
     fn filter_recency(&mut self, recency: Recency, cx: &mut Context<Self>) {
-        if let Some(branches) = &mut self.branches {
+        if let Some(branches) = self.page_branches_mut(cx) {
             branches.recency = recency;
         }
         self.select_shown_branch(cx);
@@ -683,7 +696,7 @@ impl Detail {
     /// Let go of the opened branch once the filters hide it, so the overview shows rather
     /// than the diff of one the list doesn't.
     pub(super) fn select_shown_branch(&mut self, cx: &mut Context<Self>) {
-        let Some(branches) = &self.branches else {
+        let Some(branches) = self.page_branches(cx) else {
             return;
         };
         // A caption stays while it's listed, though the filter hides its top branch.
@@ -715,20 +728,21 @@ impl Detail {
 
     fn select_listed(&mut self, ref_name: Option<String>, stack: bool, cx: &mut Context<Self>) {
         self.message_open = false;
-        if let Some(branches) = &mut self.branches {
+        if let Some(branches) = self.page_branches_mut(cx) {
             branches.selected = ref_name;
             branches.stack = stack;
             branches.commit = None;
             branches.picked.clear();
+            let project = branches.project.clone();
+            self.load_open_commits(&project, cx);
         }
-        self.load_open_commits(cx);
         self.show_picked(cx);
     }
 
     /// Select commit `id` of the branch `ref_name`, which it's listed under, alone.
     fn select_branch_commit(&mut self, ref_name: &str, id: CommitId, cx: &mut Context<Self>) {
         self.message_open = false;
-        if let Some(branches) = &mut self.branches {
+        if let Some(branches) = self.page_branches_mut(cx) {
             branches.selected = Some(ref_name.to_owned());
             branches.stack = false;
             branches.commit = Some(id);
@@ -747,7 +761,7 @@ impl Detail {
         run: bool,
         cx: &mut Context<Self>,
     ) {
-        let Some(branches) = &mut self.branches else {
+        let Some(branches) = self.page_branches_mut(cx) else {
             return;
         };
         let Some(at) = branches
@@ -774,28 +788,23 @@ impl Detail {
     /// ↓ or ↑ (`delta`) in the list: the next or previous stack, branch or commit shown, kept
     /// in view.
     fn step_branches(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let Some(branches) = &self.branches else {
+        let Some(branches) = self.page_branches(cx) else {
             return;
         };
         let rows = self.branch_rows(branches, cx);
+        // Over the headings, which aren't selected.
+        let selectable: Vec<usize> = (0..rows.len())
+            .filter(|ix| !matches!(rows[*ix], Row::Heading(_)))
+            .collect();
         // A selected branch folded away in its stack steps from the stack's row.
         let in_stack = |top: usize| {
             (branches.selected_branch()).is_some_and(|b| b.stack == branches.list[top].stack)
         };
-        let at = rows.iter().position(|row| {
+        let at = selectable.iter().position(|ix| {
+            let row = &rows[*ix];
             is_selected(branches, row) || matches!(*row, Row::Stack(top, _, true) if in_stack(top))
         });
-        // Over the headings, which aren't selected.
-        let selectable = |ix: &usize| !matches!(rows[*ix], Row::Heading(_));
-        let next = match at {
-            Some(at) => (1..rows.len() as isize)
-                .map(|step| at as isize + delta * step)
-                .take_while(|ix| (0..rows.len() as isize).contains(ix))
-                .map(|ix| ix as usize)
-                .find(selectable),
-            None => (0..rows.len()).find(selectable),
-        };
-        if let Some(next) = next {
+        if let Some(&next) = step_from(&selectable, at, delta) {
             self.select_branch_row(&rows[next], cx);
             (self.branches_scroll).scroll_to_item(next, gpui::ScrollStrategy::Nearest);
         }
@@ -804,7 +813,7 @@ impl Detail {
     /// → in the list: open the selected stack or branch, or step into it when it's open.
     /// ← folds it, or steps from one of its commits or branches back up to it.
     fn fold_branches(&mut self, open: bool, cx: &mut Context<Self>) {
-        let Some(branches) = &self.branches else {
+        let Some(branches) = self.page_branches(cx) else {
             return;
         };
         let Some(branch) = branches.selected_branch() else {
@@ -847,7 +856,7 @@ impl Detail {
     }
 
     fn select_branch_row(&mut self, row: &Row, cx: &mut Context<Self>) {
-        let Some(branches) = &self.branches else {
+        let Some(branches) = self.page_branches(cx) else {
             return;
         };
         match *row {
@@ -987,14 +996,14 @@ impl Detail {
         at: Point<Pixels>,
         cx: &mut Context<Self>,
     ) {
-        match &mut self.branches {
+        match self.page_branches_mut(cx) {
             Some(branches) if branches.picked.contains(&id) => {
                 branches.commit = Some(id);
                 self.show_picked(cx);
             }
             _ => self.select_branch_commit(ref_name, id, cx),
         }
-        if let Some(ids) = self.branches.as_ref().map(|b| b.cherry_picks(id)) {
+        if let Some(ids) = self.page_branches(cx).map(|b| b.cherry_picks(id)) {
             self.commit_menu(project, ids, id, at, cx);
         }
     }
@@ -1084,9 +1093,8 @@ impl Detail {
                                 // refs changed, lands after the overlay is gone.
                                 move |store, (), cx| {
                                     (detail.update(cx, |detail, _| {
-                                        let branches = (detail.branches.as_mut())
-                                            .filter(|b| b.project == listed_in);
-                                        if let Some(branches) = branches {
+                                        if let Some(branches) = detail.branches.get_mut(&listed_in)
+                                        {
                                             branches.list.retain(|b| b.ref_name != gone);
                                         }
                                     }))
@@ -1170,8 +1178,7 @@ impl Detail {
                                 // Its refs didn't change, so the list isn't read again.
                                 move |_, (), cx| {
                                     (detail.update(cx, |detail, cx| {
-                                        let listed = (detail.branches.as_mut())
-                                            .filter(|b| b.project == listed_in)
+                                        let listed = (detail.branches.get_mut(&listed_in))
                                             .and_then(|b| {
                                                 b.list.iter_mut().find(|b| b.ref_name == gone)
                                             });
@@ -1200,9 +1207,13 @@ impl Detail {
         window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let Some(branches) = self.branches_for(project) else {
+        let Some(branches) = self.branches.get(project) else {
             return loading_state("Loading branches…", theme, cx);
         };
+        if let Some(err) = &branches.failed {
+            let title = "Couldn't list the branches".to_owned();
+            return list_empty(Illustration::Papers, title, error_summary(err), theme, cx);
+        }
         let filter = self.branch_filter_bar(project, window, cx);
         let chips = self.branch_filter_chips(cx);
         let rows = self.branch_rows(branches, cx);
@@ -1213,6 +1224,7 @@ impl Detail {
         let list = if rows.is_empty() {
             self.no_branches(branches, theme, cx)
         } else {
+            let shown = project.clone();
             side_list(
                 "other-branches",
                 rows.len(),
@@ -1220,18 +1232,10 @@ impl Detail {
                 "branches-scrollbar",
                 cx,
                 move |this, ix, theme, window, cx| {
-                    let branches = this.branches.as_ref()?;
+                    let branches = this.branches_for(&shown)?;
                     let solid = this.side_focus.is_focused(window);
                     Some(match rows.get(ix)? {
-                        // On the rows under it, as a side list's group headings are.
-                        Row::Heading(heading) => div()
-                            .h(px(ROW_HEIGHT))
-                            .px(px(14.))
-                            .pb(px(2.))
-                            .flex()
-                            .items_end()
-                            .child(section_label(*heading, theme))
-                            .into_any_element(),
+                        Row::Heading(heading) => list_heading(*heading, theme),
                         // As the navigator's caption, its branches a step in under it: a
                         // click selects it and its chevron folds them away; folded, it names
                         // its top branch.
@@ -1453,14 +1457,7 @@ impl Detail {
             .min_h(px(LIST_MIN_HEIGHT))
             .into_any_element()
         };
-        v_flex()
-            .size_full()
-            .track_focus(&self.side_focus)
-            .key_context("SideList")
-            .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.step_branches(1, cx)))
-            .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.step_branches(-1, cx)))
-            .on_action(cx.listener(|this, _: &Expand, _, cx| this.fold_branches(true, cx)))
-            .on_action(cx.listener(|this, _: &Collapse, _, cx| this.fold_branches(false, cx)))
+        self.list_column(Self::step_branches, Some(Self::fold_branches), cx)
             .when(self.selected_branch_commit(project).is_some(), |el| {
                 let project = project.clone();
                 el.on_action(cx.listener(move |this, _: &CherryPick, _, cx| {
@@ -1546,23 +1543,18 @@ impl Detail {
     /// What the list shows without a branch to list: that every one is applied, or that the
     /// filters hide them.
     fn no_branches(&self, branches: &Branches, theme: &Theme, cx: &Context<Self>) -> AnyElement {
-        let (drawing, empty) = if branches.list.is_empty() {
-            (Illustration::Cactus, "Every branch is applied".to_owned())
-        } else {
-            let filter = self.branch_filter.read(cx).text();
-            let miss = match filter.trim() {
-                "" => "The filters hide every branch".to_owned(),
-                filter => format!("No branches match \"{filter}\""),
-            };
-            (Illustration::Papers, miss)
-        };
-        list_empty(drawing, empty, "", theme, cx)
+        if branches.list.is_empty() {
+            let empty = "Every branch is applied".to_owned();
+            return list_empty(Illustration::Cactus, empty, "", theme, cx);
+        }
+        let query = self.branch_filter.read(cx).text();
+        list_filtered_out(query, ("branch", "branches"), theme, cx)
     }
 
     /// Whose branches the list shows, how recently changed, and which by their pull request,
     /// each choice with how many it would show; and whether only local ones.
     fn branch_filters_menu(&self, position: Point<Pixels>, cx: &mut Context<Self>) {
-        let Some(branches) = self.branches.as_ref() else {
+        let Some(branches) = self.page_branches(cx) else {
             return;
         };
         let prefs = &self.store.read(cx).prefs;

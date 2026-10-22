@@ -7,16 +7,16 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, Bounds, ClickEvent, Context, Div, Entity, Focusable as _, Pixels, Point,
-    SharedString, Stateful, UniformListScrollHandle, WeakEntity, Window, div, prelude::*, px,
-    uniform_list,
+    AnyElement, App, Bounds, ClickEvent, Context, Div, Entity, FocusHandle, Focusable as _,
+    MouseDownEvent, Pixels, Point, SharedString, Stateful, UniformListScrollHandle, WeakEntity,
+    Window, div, prelude::*, px, uniform_list,
 };
 
-use super::Detail;
+use super::{Detail, machine};
 use crate::app::{AppView, Collapse, Expand, SelectNext, SelectPrevious, StartCommit};
 use crate::backend::{self, CommitId, CommitState, PushState, short_ref};
 use crate::overlays::MenuItem;
-use crate::state::{Cut, MeshPick, ProjectId, Selection};
+use crate::state::{Cut, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
 use crate::ui::person::{author_avatar, byline};
@@ -25,7 +25,7 @@ use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title,
     empty_state, faint, field, fold_row, h_flex, icon, icon_button, plural, quiet, section_label,
-    shortcut, side_row, small_icon, v_flex,
+    side_row, small_icon, v_flex,
 };
 
 impl Detail {
@@ -87,24 +87,7 @@ impl Detail {
                     crumbs.push((name.to_string().into(), None));
                 }
                 Selection::Mesh(project, id, pick) => {
-                    if let Some(checkout) = store.mesh_checkout(project, id) {
-                        // Each but the last goes to what it names.
-                        let at =
-                            |pick| Some(Selection::Mesh(project.clone(), id.clone(), pick).into());
-                        let up = |on: bool, pick| if on { at(pick) } else { None };
-                        let below = pick.branch().is_some();
-                        crumbs.push((checkout.label().into(), up(below, MeshPick::Checkout)));
-                        if let Some(name) = pick.branch() {
-                            let on = matches!(pick, MeshPick::Commit(..));
-                            crumbs.push((
-                                name.to_owned().into(),
-                                up(on, MeshPick::Branch(name.into())),
-                            ));
-                        }
-                        if let MeshPick::Commit(_, commit) = pick {
-                            crumbs.push((commit.short().into(), None));
-                        }
-                    }
+                    machine::mesh_crumbs(store, project, id, pick, &mut crumbs)
                 }
                 Selection::Stack(_, bottom) => {
                     let n = workspace
@@ -167,10 +150,7 @@ impl Detail {
         // As ui-react's LocationBar: on the window's second ground, the navigator's toggle, a
         // hairline, then the trail, every crumb quiet and joined by chevrons.
         let toggle = icon_button("toggle-navigator", Icon::Sidebar)
-            .tooltip_with_key(
-                "Toggle navigator",
-                shortcut(&crate::app::ToggleNavigator, cx),
-            )
+            .tooltip("Toggle navigator")
             .dispatch(&crate::app::ToggleNavigator);
         h_flex()
             .h(px(HEADER_HEIGHT))
@@ -327,9 +307,9 @@ impl Detail {
         Some(
             icon_button("fetch", Icon::Refresh)
                 .small()
-                .tooltip_with_key(
+                .tooltip_for(
                     "Fetch, and check pull requests and CI again",
-                    shortcut(&crate::app::Fetch, cx),
+                    &crate::app::Fetch,
                 )
                 .disabled_because(busy.then_some("Fetching already"))
                 .dispatch(&crate::app::Fetch),
@@ -449,7 +429,7 @@ impl Detail {
             };
             let open = button("open-composer", "Commit…")
                 .small()
-                .tooltip_with_key("Write a commit message", shortcut(&StartCommit, cx))
+                .tooltip_for("Write a commit message", &StartCommit)
                 .on_click(cx.listener(|this, _, window, cx| this.focus_message(window, cx)));
             footer(target, [open], theme)
         } else {
@@ -601,7 +581,7 @@ impl Detail {
             })
             .child(meta);
         let target = Selection::Commit(project.clone(), id);
-        let apply = super::resolve::apply_button(self, cx.entity().downgrade(), cx);
+        let apply = super::resolve::apply_button(self, cx.entity().downgrade());
         self.page_header(main, target, apply, None, theme, cx)
     }
 
@@ -1133,7 +1113,7 @@ pub(super) fn list_heading(text: impl IntoElement, theme: &Theme) -> AnyElement 
 pub(super) fn list_empty(
     drawing: Illustration,
     title: String,
-    detail: &'static str,
+    detail: impl Into<SharedString>,
     theme: &Theme,
     cx: &App,
 ) -> AnyElement {
@@ -1144,7 +1124,63 @@ pub(super) fn list_empty(
         .into_any_element()
 }
 
+/// What a side list shows when its filters keep none of its items: that none match the
+/// filter's `query`, or with none typed, that the other filters hide every one. `one` and
+/// `several` name its items, as "branch" and "branches".
+pub(super) fn list_filtered_out(
+    query: &str,
+    (one, several): (&str, &str),
+    theme: &Theme,
+    cx: &App,
+) -> AnyElement {
+    let miss = match query.trim() {
+        "" => format!("The filters hide every {one}"),
+        query => format!("No {several} match \"{query}\""),
+    };
+    list_empty(Illustration::Papers, miss, "", theme, cx)
+}
+
+/// The item `delta` steps on from the one at `at` in `items`, or the first when none is;
+/// none past either end.
+pub(super) fn step_from<T>(items: &[T], at: Option<usize>, delta: isize) -> Option<&T> {
+    items.get(at.map_or(Some(0), |at| at.checked_add_signed(delta))?)
+}
+
+/// For `on_mouse_down_out` of a card on a list page that takes the focus with `focus`, as the
+/// People card does: a click anywhere else gives the focus back to the page's list.
+pub(super) fn back_to_list(
+    focus: &FocusHandle,
+    cx: &Context<Detail>,
+) -> impl Fn(&MouseDownEvent, &mut Window, &mut App) + 'static {
+    let focus = focus.clone();
+    cx.listener(move |this, _, window, cx| {
+        if focus.is_focused(window) {
+            window.focus(&this.side_focus, cx);
+        }
+    })
+}
+
 impl Detail {
+    /// A list page's column, whose list takes the focus: ↑ and ↓ `step` through it, and
+    /// → and ← `fold` what's selected, on a page whose rows fold.
+    pub(super) fn list_column(
+        &self,
+        step: fn(&mut Self, isize, &mut Context<Self>),
+        fold: Option<fn(&mut Self, bool, &mut Context<Self>)>,
+        cx: &Context<Self>,
+    ) -> Div {
+        v_flex()
+            .size_full()
+            .track_focus(&self.side_focus)
+            .key_context("SideList")
+            .on_action(cx.listener(move |this, _: &SelectNext, _, cx| step(this, 1, cx)))
+            .on_action(cx.listener(move |this, _: &SelectPrevious, _, cx| step(this, -1, cx)))
+            .when_some(fold, |el, fold| {
+                el.on_action(cx.listener(move |this, _: &Expand, _, cx| fold(this, true, cx)))
+                    .on_action(cx.listener(move |this, _: &Collapse, _, cx| fold(this, false, cx)))
+            })
+    }
+
     /// A People card, under a list, with a focus of its own: a click in it takes the focus,
     /// and a click anywhere else gives it back to the list. Its `people` are everyone, most
     /// first, each with what picks them, their name, email and how many: it lists the busiest
@@ -1242,11 +1278,7 @@ impl Detail {
             .on_action(cx.listener(move |this, _: &SelectPrevious, _, cx| step(this, -1, cx)))
             .on_action(cx.listener(move |this, _: &Expand, _, cx| fold_to(this, true, cx)))
             .on_action(cx.listener(move |this, _: &Collapse, _, cx| fold_to(this, false, cx)))
-            .on_mouse_down_out(cx.listener(|this, _, window, cx| {
-                if this.people_focus.is_focused(window) {
-                    window.focus(&this.side_focus, cx);
-                }
-            }))
+            .on_mouse_down_out(back_to_list(&self.people_focus, cx))
             // As tall with Clear as without, so picking someone moves no row.
             .child(
                 h_flex()
@@ -1397,10 +1429,7 @@ fn person_row(
 ) -> Stateful<Div> {
     let on = picked && solid;
     let (track, bar) = match on {
-        true => (
-            theme.text_inverted.opacity(0.25),
-            theme.text_inverted.opacity(0.7),
-        ),
+        true => (theme.text_inverted.opacity(0.25), theme.muted_on_solid()),
         false => (theme.border_3, theme.text_3),
     };
     side_row(id, picked, solid, theme)

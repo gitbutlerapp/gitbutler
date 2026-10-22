@@ -13,13 +13,10 @@ mod shipped;
 use super::Detail;
 use super::panes::{
     Crumb, CrumbTo, LIST_MIN_HEIGHT, list_heading, measured, meta_item, meta_row, side_header,
-    side_list, title_text, unfinished_banner,
+    side_list, step_from, title_text, unfinished_banner,
 };
 use super::pull_request::TABS_HEIGHT;
-use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, Person, TargetCommit};
-
-const DAY: i64 = 24 * 60 * 60;
 use crate::backend::{self, CommitId, DiffSource, Forge};
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
@@ -94,6 +91,34 @@ pub(super) struct Upstream {
     paging: Cell<Paging>,
     /// A commit picked off what landed lately, not listed yet: the pages are read until it is.
     pending: Option<CommitId>,
+    view: View,
+}
+
+impl Upstream {
+    /// The activity's days picked, if any, and which day is today.
+    fn picked_days(&self) -> Option<(&DayPick, i64)> {
+        let pick = Some(&self.view.days).filter(|pick| !pick.days.is_empty())?;
+        let summary = self.summary.as_ref()?;
+        Some((pick, summary.first_day + summary.daily.len() as i64 - 1))
+    }
+
+    /// The person picked, if any.
+    fn picked_person(&self) -> Option<&Person> {
+        let email = self.view.person.as_ref()?;
+        let summary = self.summary.as_ref()?;
+        summary.people.iter().find(|person| person.email == *email)
+    }
+}
+
+/// What the history is filtered to, by the activity's days, whose commits by email and the
+/// part of the repository by what landed there, and the merges whose commits show under them.
+/// A reload keeps it.
+#[derive(Default)]
+struct View {
+    days: DayPick,
+    person: Option<String>,
+    area: Option<String>,
+    open_merges: HashSet<CommitId>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -132,9 +157,8 @@ impl Detail {
         if self.editing(project, cx).is_some() {
             return;
         }
-        self.bring_back_upstream(project);
         let seen = self.upstream_fingerprint(project, cx);
-        let current = self.upstream.as_ref().filter(|u| u.project == *project);
+        let current = self.upstream_for(project);
         if !force
             && !more
             && current.is_some_and(|u| {
@@ -153,10 +177,9 @@ impl Detail {
             .map(|commit| commit.id);
         // Reading back for a commit picked off Shipped or for a filter, a few pages at once
         // rather than a frame's wait between each.
-        let reading_back = current.is_some_and(|u| u.pending.is_some())
-            || self.picked_area(project).is_some()
-            || self.picked_email(project).is_some()
-            || !self.target_filter.read(cx).text().trim().is_empty();
+        let reading_back = current.is_some_and(|u| {
+            u.pending.is_some() || u.view.area.is_some() || u.view.person.is_some()
+        }) || !self.target_filter.read(cx).text().trim().is_empty();
         let limit = match more {
             true if reading_back => PAGE * 8,
             true => PAGE,
@@ -211,42 +234,47 @@ impl Detail {
                     Ok(loaded) => loaded,
                     // Paging further back keeps what's listed.
                     Err(err) if after.is_some() => {
-                        if let Some(upstream) =
-                            this.upstream.as_mut().filter(|u| u.project == project)
-                        {
+                        if let Some(upstream) = this.upstream.get_mut(&project) {
                             upstream.paging.set(Paging::Failed);
                             // A commit waited for isn't, rather than with every reload.
                             upstream.pending = None;
                             cx.notify();
                         }
                         this.store.update(cx, |store, cx| {
-                            store.error("Couldn't read more of the history", format!("{err:#}"), cx)
+                            store.failed("Couldn't read more of the history", &err, cx)
                         });
                         return;
                     }
                     Err(err) => {
-                        // When it last fetched is still known, though the history can't be read.
-                        let fetch = (this.upstream_for(&project).map(|u| u.fetch.clone()))
-                            .unwrap_or(Some((None, None)));
-                        this.upstream = Some(Upstream {
-                            project,
-                            commits: Vec::new(),
-                            more: false,
-                            selected: None,
-                            merged_pick: None,
-                            summary: None,
-                            fetch,
-                            unconnected_forge: None,
-                            seen: (seen, Instant::now()),
-                            failed: Some(backend::read_failure(&err)),
-                            paging: Cell::new(Paging::Idle),
-                            pending: None,
-                        });
+                        // When it last fetched is still known, though the history can't be read,
+                        // and what it's filtered to stays.
+                        let (fetch, view) = (this.upstream.remove(&project))
+                            .map_or((Some((None, None)), View::default()), |u| (u.fetch, u.view));
+                        this.upstream.insert(
+                            project.clone(),
+                            Upstream {
+                                project,
+                                commits: Vec::new(),
+                                more: false,
+                                selected: None,
+                                merged_pick: None,
+                                summary: None,
+                                fetch,
+                                unconnected_forge: None,
+                                seen: (seen, Instant::now()),
+                                failed: Some(backend::read_failure(&err)),
+                                paging: Cell::new(Paging::Idle),
+                                pending: None,
+                                view,
+                            },
+                        );
                         this.refresh_diff(false, cx);
                         return cx.notify();
                     }
                 };
-                let previous = this.upstream.take().filter(|u| u.project == project);
+                let mut previous = this.upstream.remove(&project);
+                let view =
+                    (previous.as_mut().map(|u| std::mem::take(&mut u.view))).unwrap_or_default();
                 let pending = previous.as_ref().and_then(|u| u.pending);
                 // Read before its project's target was known, as an unwatched one's first page
                 // is, the page fell back to its newest commit: it opens properly now.
@@ -296,26 +324,30 @@ impl Detail {
                 let within = (summary.as_ref().zip(list.last()))
                     .is_some_and(|(s, oldest)| oldest.time >= upstream::day_start(s.first_day));
                 let pending = pending.filter(|_| found.is_none() && has_more && within);
-                this.upstream = Some(Upstream {
-                    project: project.clone(),
-                    commits: list,
-                    more: has_more,
-                    selected,
-                    // A merge's commit stays picked while the merge stays selected.
-                    merged_pick: pick.filter(|_| selected == was),
-                    summary,
-                    fetch,
-                    unconnected_forge,
-                    seen,
-                    failed: None,
-                    paging: Cell::new(Paging::Idle),
-                    pending,
-                });
+                this.upstream.insert(
+                    project.clone(),
+                    Upstream {
+                        project: project.clone(),
+                        commits: list,
+                        more: has_more,
+                        selected,
+                        // A merge's commit stays picked while the merge stays selected.
+                        merged_pick: pick.filter(|_| selected == was),
+                        summary,
+                        fetch,
+                        unconnected_forge,
+                        seen,
+                        failed: None,
+                        paging: Cell::new(Paging::Idle),
+                        pending,
+                        view,
+                    },
+                );
                 this.refresh_diff(false, cx);
                 this.load_selected_merge(&project, cx);
                 if let Some(id) = found {
-                    this.pick_on_page(Picked::Commit(id), cx);
-                    this.scroll_to_picked(cx);
+                    this.pick_on_page(&project, Picked::Commit(id), None, cx);
+                    this.scroll_to_picked(&project, cx);
                 }
                 if pending.is_some() {
                     this.load_upstream(&project, true, false, cx);
@@ -346,7 +378,7 @@ impl Detail {
     }
 
     fn upstream_for(&self, project: &ProjectId) -> Option<&Upstream> {
-        self.upstream.as_ref().filter(|u| u.project == *project)
+        self.upstream.get(project)
     }
 
     pub(super) fn selected_target_commit(&self, project: &ProjectId) -> Option<&TargetCommit> {
@@ -448,27 +480,19 @@ impl Detail {
     /// Show merge `id`'s commits under it, or fold them away, by hand: it stays as it's left.
     /// Folding them over the one picked shows the merge.
     fn toggle_merge(&mut self, project: &ProjectId, id: CommitId, cx: &mut Context<Self>) {
-        if self.open_merges.insert(id) {
+        let Some(upstream) = self.upstream.get_mut(project) else {
+            return;
+        };
+        if upstream.view.open_merges.insert(id) {
             self.store
                 .update(cx, |store, cx| store.load_merged(project, id, cx));
         } else {
-            self.open_merges.remove(&id);
-            let shows = (self.upstream_for(project))
-                .is_some_and(|u| u.selected == Some(Picked::Commit(id)) && u.merged_pick.is_some());
-            if shows {
-                self.pick_merged(None, cx);
+            upstream.view.open_merges.remove(&id);
+            if upstream.selected == Some(Picked::Commit(id)) && upstream.merged_pick.is_some() {
+                self.pick_on_page(project, Picked::Commit(id), None, cx);
             }
         }
         cx.notify();
-    }
-
-    /// Show the merge's commit `pick` in its place, or with `None` all it brought in.
-    fn pick_merged(&mut self, pick: Option<CommitId>, cx: &mut Context<Self>) {
-        if let Some(upstream) = &mut self.upstream {
-            upstream.merged_pick = pick;
-        }
-        self.message_open = false;
-        self.show_picked(cx);
     }
 
     /// Beside a list page's list, what's selected in it: its `header`, a commit's message or a
@@ -669,55 +693,20 @@ impl Detail {
                 u.summary.is_some() && !matches!(u.selected, None | Some(Picked::Shipped))
             });
         if opened {
-            self.pick_on_page(Picked::Shipped, cx);
+            self.pick_on_page(&project, Picked::Shipped, None, cx);
         }
         opened
     }
 
-    /// The activity's days picked, if any, and which day is today.
-    fn picked_days(&self, upstream: &Upstream) -> Option<(&DayPick, i64)> {
-        let (project, pick) = self.activity_days.as_ref()?;
-        let summary = upstream
-            .summary
-            .as_ref()
-            .filter(|_| *project == upstream.project && !pick.days.is_empty())?;
-        Some((pick, summary.first_day + summary.daily.len() as i64 - 1))
-    }
-
-    /// Make `project`'s page the one held, keeping the one of the project left and bringing
-    /// back `project`'s if it was read before, so going back shows it at once.
-    pub(super) fn bring_back_upstream(&mut self, project: &ProjectId) {
-        if let Some(left) = self.upstream.take_if(|u| u.project != *project) {
-            self.upstream_left.insert(left.project.clone(), left);
-        }
-        if self.upstream.is_none() {
-            self.upstream = self.upstream_left.remove(project).map(|left| {
-                // A read cut short when it was left isn't still going.
-                left.paging.set(Paging::Idle);
-                Upstream {
-                    pending: None,
-                    ..left
-                }
-            });
-        }
-    }
-
-    /// The person picked on `upstream`'s page, if any.
-    fn picked_person<'a>(&self, upstream: &'a Upstream) -> Option<&'a Person> {
-        let email = self.picked_email(&upstream.project)?;
-        let summary = upstream.summary.as_ref()?;
-        summary.people.iter().find(|person| person.email == *email)
-    }
-
     fn upstream_rows(&self, upstream: &Upstream, target: &str, cx: &gpui::App) -> Vec<Row> {
-        let picked = self.picked_days(upstream);
+        let picked = upstream.picked_days();
         // A person picked who's no longer among the summary's matches nothing, rather than
         // letting go of the filter unseen.
-        let who = self.picked_email(&upstream.project);
-        let person = self.picked_person(upstream);
+        let who = upstream.view.person.as_ref();
+        let person = upstream.picked_person();
         // What landed in the area picked, of what the summary has; with no summary to say, the
         // area doesn't filter.
-        let area = (self.picked_area(&upstream.project)).filter(|_| upstream.summary.is_some());
+        let area = (upstream.view.area.as_ref()).filter(|_| upstream.summary.is_some());
         let in_area: HashSet<CommitId> = (area.zip(upstream.summary.as_ref()))
             .map(|(area, summary)| {
                 (summary.landings.iter())
@@ -760,7 +749,7 @@ impl Detail {
             rows.push(Row::Commit(ix));
             let commit = &upstream.commits[ix];
             // An open merge lists the commits it brought in under it.
-            if !(commit.merge && self.open_merges.contains(&commit.id)) {
+            if !(commit.merge && upstream.view.open_merges.contains(&commit.id)) {
                 continue;
             }
             match (self.store.read(cx).merged.get(&commit.id)).and_then(|m| m.as_ref()) {
@@ -845,23 +834,18 @@ impl Detail {
 
     /// Pick the activity's days as `gesture` does, which filters the history to them.
     fn day_gesture(&mut self, project: &ProjectId, gesture: DayGesture, cx: &mut Context<Self>) {
-        if self
-            .activity_days
-            .as_ref()
-            .is_none_or(|(p, _)| p != project)
-        {
-            self.activity_days = Some((project.clone(), DayPick::default()));
-        }
-        if let Some((_, pick)) = &mut self.activity_days
-            && pick.apply(gesture)
+        if let Some(upstream) = self.upstream.get_mut(project)
+            && upstream.view.days.apply(gesture)
         {
             self.show_newest_kept(cx);
             cx.notify();
         }
     }
 
-    fn clear_days(&mut self, cx: &mut Context<Self>) {
-        self.activity_days = None;
+    fn clear_days(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        if let Some(upstream) = self.upstream.get_mut(project) {
+            upstream.view.days = DayPick::default();
+        }
         cx.notify();
     }
 
@@ -872,37 +856,35 @@ impl Detail {
         email: Option<String>,
         cx: &mut Context<Self>,
     ) {
-        self.activity_person = email.map(|email| (project.clone(), email));
+        if let Some(upstream) = self.upstream.get_mut(project) {
+            upstream.view.person = email;
+        }
         self.show_newest_kept(cx);
         cx.notify();
     }
 
     /// The part of the repository `project`'s history is filtered to, if any.
     fn picked_area(&self, project: &ProjectId) -> Option<&String> {
-        (self.activity_area.as_ref())
-            .filter(|(p, _)| p == project)
-            .map(|(_, area)| area)
+        self.upstream_for(project)?.view.area.as_ref()
     }
 
     /// Filter the history to what landed in `area`, or let go of the area.
     fn filter_area(&mut self, project: &ProjectId, area: Option<String>, cx: &mut Context<Self>) {
-        self.activity_area = area.map(|area| (project.clone(), area));
+        if let Some(upstream) = self.upstream.get_mut(project) {
+            upstream.view.area = area;
+        }
         self.show_newest_kept(cx);
         cx.notify();
     }
 
     /// The days picked off `project`'s activity, while any are.
     fn days_picked(&self, project: &ProjectId) -> Option<&BTreeSet<i64>> {
-        (self.activity_days.as_ref())
-            .filter(|(p, pick)| p == project && !pick.days.is_empty())
-            .map(|(_, pick)| &pick.days)
+        Some(&self.upstream_for(project)?.view.days.days).filter(|days| !days.is_empty())
     }
 
     /// The email of the person whose commits `project`'s history is filtered to, if any.
     fn picked_email(&self, project: &ProjectId) -> Option<&String> {
-        (self.activity_person.as_ref())
-            .filter(|(p, _)| p == project)
-            .map(|(_, email)| email)
+        self.upstream_for(project)?.view.person.as_ref()
     }
 
     /// Whose commits landed on the target, with how many on the days picked or all the
@@ -1010,38 +992,45 @@ impl Detail {
     /// Opening the project's page, wherever from: it shows what landed lately, rather than
     /// what was picked on it last, as the Branches page shows its overview.
     pub(super) fn open_on_shipped(&mut self, project: &ProjectId) {
-        if let Some(upstream) =
-            (self.upstream.as_mut()).filter(|u| u.project == *project && u.summary.is_some())
-        {
+        let Some(upstream) = self.upstream.get_mut(project) else {
+            return;
+        };
+        // A read cut short when the page was left isn't still going.
+        upstream.paging.set(Paging::Idle);
+        upstream.pending = None;
+        if upstream.summary.is_some() {
             upstream.selected = Some(Picked::Shipped);
             upstream.merged_pick = None;
-            upstream.pending = None;
         }
     }
 
     /// Back to what the page opens on, as when it's picked again.
-    pub(super) fn pick_opening(&mut self, cx: &mut Context<Self>) {
-        let Some(upstream) = &self.upstream else {
+    pub(super) fn pick_opening(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        let Some(upstream) = self.upstream_for(project) else {
             return;
         };
         if let Some(picked) = opening(upstream.summary.as_ref(), &upstream.commits) {
-            self.pick_on_page(picked, cx)
+            self.pick_on_page(project, picked, None, cx)
         }
     }
 
+    /// Pick commit `id` on the project page shown, as the crumb of a merge does over a commit
+    /// of it.
     pub(super) fn pick_target_commit(&mut self, id: CommitId, cx: &mut Context<Self>) {
-        self.pick_on_page(Picked::Commit(id), cx)
+        if let Some(project) = self.selected_project(cx) {
+            self.pick_on_page(&project, Picked::Commit(id), None, cx)
+        }
     }
 
     /// Open commit `id` of what landed lately, reading older pages of the history until
     /// it's listed.
     fn pick_landed(&mut self, project: &ProjectId, id: CommitId, cx: &mut Context<Self>) {
-        let Some(upstream) = self.upstream.as_mut().filter(|u| u.project == *project) else {
+        let Some(upstream) = self.upstream.get_mut(project) else {
             return;
         };
         if upstream.commits.iter().any(|c| c.id == id) {
-            self.pick_on_page(Picked::Commit(id), cx);
-            return self.scroll_to_picked(cx);
+            self.pick_on_page(project, Picked::Commit(id), None, cx);
+            return self.scroll_to_picked(project, cx);
         }
         if !upstream.more {
             return;
@@ -1051,8 +1040,8 @@ impl Detail {
     }
 
     /// Bring the commit picked into view in the history, as it was picked from elsewhere.
-    fn scroll_to_picked(&mut self, cx: &mut Context<Self>) {
-        let Some(upstream) = &self.upstream else {
+    fn scroll_to_picked(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+        let Some(upstream) = self.upstream_for(project) else {
             return;
         };
         let Some(Picked::Commit(id)) = upstream.selected else {
@@ -1066,47 +1055,58 @@ impl Detail {
         }
     }
 
-    fn pick_on_page(&mut self, picked: Picked, cx: &mut Context<Self>) {
-        if let Some(upstream) = &mut self.upstream {
+    /// Pick `picked` on `project`'s page, and with `merged` a commit of that merge to show in
+    /// its place.
+    fn pick_on_page(
+        &mut self,
+        project: &ProjectId,
+        picked: Picked,
+        merged: Option<CommitId>,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(upstream) = self.upstream.get_mut(project) {
             upstream.selected = Some(picked);
-            upstream.merged_pick = None;
+            upstream.merged_pick = merged;
             // Picked now, a commit still waited for no longer is.
             upstream.pending = None;
         }
         self.message_open = false;
-        if let Some(Selection::Project(project)) = self.store.read(cx).selection.clone() {
-            self.load_selected_merge(&project, cx);
-        }
+        self.load_selected_merge(project, cx);
         self.show_picked(cx);
     }
 
-    /// Select the target commit `delta` rows from the selected one, keeping it in view.
     /// → in the list: open the picked merge, or step into its commits when it's open, as
     /// on the Branches page. ← folds it, or steps from one of its commits back up to it.
     fn fold_upstream(&mut self, open: bool, cx: &mut Context<Self>) {
-        let Some(upstream) = &self.upstream else {
+        let Some(project) = self.selected_project(cx) else {
+            return;
+        };
+        let Some(upstream) = self.upstream_for(&project) else {
             return;
         };
         let Some(Picked::Commit(id)) = upstream.selected else {
             return;
         };
         let merge = (upstream.commits.iter()).any(|commit| commit.id == id && commit.merge);
-        let project = upstream.project.clone();
         match (
             open,
             upstream.merged_pick.is_some(),
-            self.open_merges.contains(&id),
+            upstream.view.open_merges.contains(&id),
         ) {
             (true, false, false) if merge => self.toggle_merge(&project, id, cx),
             (true, false, true) => self.step_upstream(1, cx),
-            (false, true, _) => self.pick_merged(None, cx),
+            (false, true, _) => self.pick_on_page(&project, Picked::Commit(id), None, cx),
             (false, false, true) => self.toggle_merge(&project, id, cx),
             _ => {}
         }
     }
 
+    /// Select the target commit `delta` rows from the selected one, keeping it in view.
     fn step_upstream(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let Some(upstream) = &self.upstream else {
+        let Some(project) = self.selected_project(cx) else {
+            return;
+        };
+        let Some(upstream) = self.upstream_for(&project) else {
             return;
         };
         let merged = |ix: usize, m: usize| {
@@ -1128,15 +1128,10 @@ impl Detail {
         }
         let current = (upstream.selected, upstream.merged_pick);
         let at = (picks.iter()).position(|(_, (picked, pick))| (Some(*picked), *pick) == current);
-        let next = at.map_or(0, |at| at as isize + delta);
-        let Some(&(row, (picked, pick))) = usize::try_from(next).ok().and_then(|ix| picks.get(ix))
-        else {
+        let Some(&(row, (picked, pick))) = step_from(&picks, at, delta) else {
             return;
         };
-        self.pick_on_page(picked, cx);
-        if pick.is_some() {
-            self.pick_merged(pick, cx);
-        }
+        self.pick_on_page(&project, picked, pick, cx);
         (self.upstream_scroll).scroll_to_item(row, gpui::ScrollStrategy::Nearest);
     }
 
@@ -1151,7 +1146,7 @@ impl Detail {
     ) -> AnyElement {
         let none = BTreeSet::new();
         let picked = self.days_picked(project).unwrap_or(&none);
-        let project = project.clone();
+        let (project, cleared) = (project.clone(), project.clone());
         activity_strip(
             &summary.daily,
             summary.first_day,
@@ -1159,7 +1154,7 @@ impl Detail {
             theme,
             cx,
             move |this, gesture, cx| this.day_gesture(&project, gesture, cx),
-            |this, cx| this.clear_days(cx),
+            move |this, cx| this.clear_days(&cleared, cx),
         )
     }
 
@@ -1263,8 +1258,6 @@ impl Detail {
         let applied = workspace.map_or(0, |ws| ws.branches().count());
         let unapplied = self.unapplied(project);
         let worktrees = workspace.map_or(0, |ws| ws.worktrees.len());
-        let network = store.mesh_checkouts(project);
-        let network_branches: usize = network.iter().map(|c| c.branches.len()).sum();
         let meta = meta
             .child(
                 meta_item(Icon::Branch, theme)
@@ -1278,16 +1271,7 @@ impl Detail {
                         .child(plural(worktrees, "linked worktree")),
                 )
             })
-            .when(!network.is_empty(), |el| {
-                el.child(meta_item(Icon::Globe, theme).flex_none().child(format!(
-                    "{} on other machines, {}",
-                    plural(network.len(), "worktree"),
-                    match network_branches {
-                        1 => "1 branch".to_owned(),
-                        n => format!("{n} branches"),
-                    }
-                )))
-            })
+            .children(self.mesh_meta(project, theme, cx))
             // Last, as it's read after the rest, so nothing moves when it shows.
             .children(unapplied.map(|n| {
                 meta_item(Icon::Branch, theme)
@@ -1454,6 +1438,7 @@ impl Detail {
             Some(upstream) => {
                 let target = target.unwrap_or_else(|| "the target".into());
                 let rows = self.upstream_rows(upstream, &target, cx);
+                let shown = project.clone();
                 let list = side_list(
                     "target-commits",
                     rows.len(),
@@ -1461,7 +1446,7 @@ impl Detail {
                     "target-scrollbar",
                     cx,
                     move |this, ix, theme, window, cx| {
-                        let upstream = this.upstream.as_ref()?;
+                        let upstream = this.upstream_for(&shown)?;
                         Some(match rows.get(ix)? {
                             Row::Heading(heading) => list_heading(heading.clone(), theme),
                             // Under a merge's commits' titles.
@@ -1505,9 +1490,12 @@ impl Detail {
                                         on,
                                         theme,
                                     ))
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        this.pick_on_page(Picked::Commit(merge), cx);
-                                        this.pick_merged(Some(id), cx);
+                                    .on_click(cx.listener({
+                                        let project = upstream.project.clone();
+                                        move |this, _, _, cx| {
+                                            let picked = Picked::Commit(merge);
+                                            this.pick_on_page(&project, picked, Some(id), cx)
+                                        }
                                     }))
                                     .into_any_element()
                             }
@@ -1541,7 +1529,7 @@ impl Detail {
                                     false => div().flex_none().w(px(14.)).into_any_element(),
                                     true => {
                                         let project = upstream.project.clone();
-                                        let open = this.open_merges.contains(&id);
+                                        let open = upstream.view.open_merges.contains(&id);
                                         let ink = match on {
                                             true => theme.text_inverted,
                                             false => theme.text_3,
@@ -1580,8 +1568,16 @@ impl Detail {
                                         on,
                                         theme,
                                     ))
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        this.pick_on_page(Picked::Commit(id), cx)
+                                    .on_click(cx.listener({
+                                        let project = upstream.project.clone();
+                                        move |this, _, _, cx| {
+                                            this.pick_on_page(
+                                                &project,
+                                                Picked::Commit(id),
+                                                None,
+                                                cx,
+                                            )
+                                        }
                                     }))
                                     .into_any_element()
                             }
@@ -1636,18 +1632,7 @@ impl Detail {
                 );
                 let summary = upstream.summary.as_ref();
                 // The activity over the history, which scrolls between it and the people.
-                v_flex()
-                    .size_full()
-                    .track_focus(&self.side_focus)
-                    .key_context("SideList")
-                    .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.step_upstream(1, cx)))
-                    .on_action(
-                        cx.listener(|this, _: &SelectPrevious, _, cx| this.step_upstream(-1, cx)),
-                    )
-                    .on_action(cx.listener(|this, _: &Expand, _, cx| this.fold_upstream(true, cx)))
-                    .on_action(
-                        cx.listener(|this, _: &Collapse, _, cx| this.fold_upstream(false, cx)),
-                    )
+                self.list_column(Self::step_upstream, Some(Self::fold_upstream), cx)
                     .child(self.filter_field(&self.target_filter, window, cx))
                     .children(summary.map(|s| self.render_activity(project, s, theme, cx)))
                     .child(list.flex_1().min_h(px(LIST_MIN_HEIGHT)))
@@ -1718,6 +1703,7 @@ fn joined<T>(read: std::thread::Result<anyhow::Result<T>>, what: &str) -> Option
 
 /// A day's noon, clear of a clock change, to date it by.
 pub(super) fn noon(day: i64) -> i64 {
+    const DAY: i64 = 24 * 60 * 60;
     upstream::day_start(day) + DAY / 2
 }
 

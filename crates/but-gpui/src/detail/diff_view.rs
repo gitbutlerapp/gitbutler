@@ -349,10 +349,15 @@ impl Detail {
                 let message = self.machine_placeholder(project, id, pick, theme, cx);
                 return ground().child(message).into_any_element();
             }
+            // Loading is said once the wait is long, as `shown_diff` decides, so a quick read
+            // doesn't flash it. Not with `loading_state`: its fade redraws this pane every
+            // frame, which would draw the new diff in the same frame as the detail.
             let message = match (self.loading.is_some(), self.nothing_committed(cx)) {
-                (true, _) => empty_state(None, "Loading diff…", "", theme, cx),
+                (true, _) if self.slow_to_load() => {
+                    empty_state(None, "Loading diff…", "", theme, cx)
+                }
                 (false, Some(line)) => empty_state(Some(Illustration::Cactus), "", line, theme, cx),
-                (false, None) => empty_state(None, "", "", theme, cx),
+                _ => empty_state(None, "", "", theme, cx),
             };
             return ground().child(message).into_any_element();
         };
@@ -1085,7 +1090,7 @@ impl Detail {
                     Err(err) => {
                         this.whole.remove(&path);
                         this.store.update(cx, |store, cx| {
-                            store.error("Couldn't read the file", format!("{err:#}"), cx)
+                            store.failed("Couldn't read the file", &err, cx)
                         });
                     }
                 }
@@ -1400,7 +1405,7 @@ fn discard_button(
             button(("hunk-discard", ix), "Discard")
                 .small()
                 .style(ButtonStyle::Ghost)
-                .tooltip_with_key("Throw this hunk away", shortcut(&DiscardHunk, cx))
+                .tooltip_for("Throw this hunk away", &DiscardHunk)
                 .on_click(move |_, window, cx| {
                     let (changes, linked) = (vec![change.clone()], linked.clone());
                     app.update(cx, |app, cx| {

@@ -12,8 +12,8 @@ use crate::backend::CommitId;
 use crate::backend::upstream::{ACTIVITY_DAYS, Landing, Overview};
 use crate::detail::Detail;
 use crate::detail::panes::{
-    OVERVIEW_COUNT_WIDTH, OVERVIEW_TIME_WIDTH, grouped, overview_column, overview_heading,
-    overview_tiles, overview_title,
+    OVERVIEW_COUNT_WIDTH, OVERVIEW_TIME_WIDTH, back_to_list, grouped, overview_column,
+    overview_heading, overview_tiles, overview_title,
 };
 use crate::state::ProjectId;
 use crate::theme::Theme;
@@ -131,7 +131,7 @@ impl Detail {
         let upstream = self.upstream_for(project).expect("summed up above");
         let days = self.days_picked(project);
         let who = self.picked_email(project);
-        let person = self.picked_person(upstream);
+        let person = upstream.picked_person();
         let area = self.picked_area(project);
         // A person picked who's no longer among those who landed anything matches nothing.
         let nobody = HashSet::new();
@@ -179,12 +179,7 @@ impl Detail {
             .min_w(px(0.))
             .overflow_y_scroll()
             .track_focus(&self.shipped_focus)
-            // As the People card's, a click elsewhere gives the focus back to the history.
-            .on_mouse_down_out(cx.listener(|this, _, window, cx| {
-                if this.shipped_focus.is_focused(window) {
-                    window.focus(&this.side_focus, cx);
-                }
-            }))
+            .on_mouse_down_out(back_to_list(&self.shipped_focus, cx))
             .child(
                 v_flex()
                     .w_full()
@@ -314,10 +309,7 @@ impl Detail {
             .map(|(ix, (area, n))| {
                 let on = picked == Some(&area) && solid;
                 let (track, bar) = match on {
-                    true => (
-                        theme.text_inverted.opacity(0.25),
-                        theme.text_inverted.opacity(0.7),
-                    ),
+                    true => (theme.text_inverted.opacity(0.25), theme.muted_on_solid()),
                     false => (theme.border_3, theme.pop.opacity(0.7)),
                 };
                 let project = project.clone();
@@ -345,7 +337,7 @@ impl Detail {
                             .text_right()
                             .text_size(px(11.))
                             .text_color(match on {
-                                true => theme.text_inverted.opacity(0.7),
+                                true => theme.muted_on_solid(),
                                 false => theme.text_3,
                             })
                             .child(n.to_string()),

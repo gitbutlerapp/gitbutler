@@ -15,7 +15,7 @@ use super::{Detail, DiffSource};
 use crate::app::AppView;
 use crate::backend::conflicts::{self, Keep};
 use crate::backend::{self, CommitId, Conflict, Workspace, ai};
-use crate::state::{Overlay, ProjectId, Rereads, Selection};
+use crate::state::{OpKind, Overlay, ProjectId, Rereads, Selection};
 use crate::theme::Theme;
 use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
 use crate::ui::diff::{DiffRow, Layout, OnToggle};
@@ -450,7 +450,7 @@ impl Detail {
                             );
                         }
                         Err(err) => this.store.update(cx, |store, cx| {
-                            store.error("Couldn't suggest a merge", format!("{err:#}"), cx)
+                            store.failed("Couldn't suggest a merge", &err, cx)
                         }),
                     }
                     this.rebuild_rows(cx);
@@ -535,6 +535,7 @@ impl Detail {
                         &project,
                         "Resolve",
                         Overlay {
+                            kind: OpKind::Resolve,
                             rereads: Rereads::Files,
                             files_in: worktree.clone(),
                             ..Overlay::default()
@@ -579,7 +580,10 @@ impl Detail {
             store.run(
                 &project,
                 "Resolve",
-                Overlay::default(),
+                Overlay {
+                    kind: OpKind::Resolve,
+                    ..Overlay::default()
+                },
                 move |path, remap| {
                     // The picks are by each conflict's place in the commit as it was shown.
                     let now = remap.get(commit)?;
@@ -760,7 +764,7 @@ impl Detail {
             .unwrap_or_default();
         let apply = (matches!(conflicted, Conflicted::Files(_)) && decided > 0).then(|| {
             let style = banner_action("apply-resolutions", "Apply", theme);
-            apply_with(style, decided, entity, cx)
+            apply_with(style, decided, entity)
         });
         let (title, detail, action): (String, String, Option<AnyElement>) = match older {
             Some(older) => {
@@ -995,30 +999,21 @@ pub(super) fn conflict_keys(
 }
 
 /// The Apply button for the commit's header, while something is kept to apply.
-pub(super) fn apply_button(
-    detail: &Detail,
-    entity: WeakEntity<Detail>,
-    cx: &App,
-) -> Option<AnyElement> {
+pub(super) fn apply_button(detail: &Detail, entity: WeakEntity<Detail>) -> Option<AnyElement> {
     detail.conflicted_commit()?;
     let kept = detail.resolving.keeping.len();
     (kept > 0).then(|| {
         let style = button("apply-resolutions", "Apply").style(ButtonStyle::Pop);
-        apply_with(style, kept, entity, cx)
+        apply_with(style, kept, entity)
     })
 }
 
 /// `button`, styled for where it sits, applying the `kept` conflicts' picks.
-fn apply_with(
-    button: crate::ui::Button,
-    kept: usize,
-    entity: WeakEntity<Detail>,
-    cx: &App,
-) -> AnyElement {
+fn apply_with(button: crate::ui::Button, kept: usize, entity: WeakEntity<Detail>) -> AnyElement {
     button
-        .tooltip_with_key(
+        .tooltip_for(
             format!("Resolve {}", plural(kept, "conflict")),
-            crate::ui::shortcut(&ApplyResolutions, cx),
+            &ApplyResolutions,
         )
         .on_click(move |_, _, cx| {
             (entity.update(cx, |this, cx| this.apply_resolutions(false, cx))).ok();

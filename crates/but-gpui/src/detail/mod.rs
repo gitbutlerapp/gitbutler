@@ -42,8 +42,7 @@ use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, button, commit_title, empty_state, h_flex, resize_handle, resize_pane, shortcut,
-    v_flex,
+    ButtonStyle, button, commit_title, empty_state, h_flex, resize_handle, resize_pane, v_flex,
 };
 
 actions!(
@@ -228,7 +227,8 @@ pub struct Detail {
     focus: FocusHandle,
     /// The file list's own, where ↑ and ↓ step through the files.
     files_focus: FocusHandle,
-    /// The History or Branches page's list, which a click on one of its rows focuses.
+    /// A list page's list, the project's, Branches' or Operations history's, which a click
+    /// on one of its rows focuses.
     side_focus: FocusHandle,
     /// A People card's, which a click on it takes and a click anywhere else gives back to the
     /// list it's under: its person picked shows as a focused selection only then.
@@ -325,14 +325,6 @@ pub struct Detail {
     /// the space beside the project page's list is, measured as they're drawn.
     target_message_height: Rc<Cell<f32>>,
     beside_width: Rc<Cell<f32>>,
-    /// The merges on a project's page whose commits show under them.
-    open_merges: HashSet<backend::CommitId>,
-    /// The days of a project's activity picked, which its history is filtered to.
-    activity_days: Option<(ProjectId, upstream::DayPick)>,
-    /// Whose commits a project's history is filtered to, by email.
-    activity_person: Option<(ProjectId, String)>,
-    /// The part of the repository a project's history is filtered to, by what landed there.
-    activity_area: Option<(ProjectId, String)>,
     /// The Shipped pane's, which a click on it takes, so its area picked shows solid then,
     /// as the People card's does.
     shipped_focus: FocusHandle,
@@ -353,17 +345,13 @@ pub struct Detail {
     find: Option<find::Find>,
     /// What's picked for the shown commit's conflicts, until it's applied.
     resolving: resolve::Resolving,
-    /// The project page's target history, for the project it shows.
-    upstream: Option<upstream::Upstream>,
-    /// The project pages of the projects left, so going back to one shows it at once, while
-    /// it's read again.
-    upstream_left: HashMap<ProjectId, upstream::Upstream>,
+    /// Each project page's target history, by project, kept so going back to one shows it
+    /// at once, while it's read again.
+    upstream: HashMap<ProjectId, upstream::Upstream>,
     upstream_scroll: UniformListScrollHandle,
     _upstream_load: Task<()>,
-    /// The Branches page's branches, for the project it shows, and its filter.
-    branches: Option<branches::Branches>,
-    /// The same for the projects left.
-    branches_left: HashMap<ProjectId, branches::Branches>,
+    /// Each Branches page's branches, the same way, and the filter over them.
+    branches: HashMap<ProjectId, branches::Branches>,
     branch_filter: Entity<TextInput>,
     /// The project page's, over its history.
     target_filter: Entity<TextInput>,
@@ -372,9 +360,9 @@ pub struct Detail {
     /// What's fetched of other machines' branches; see `detail/machine.rs`.
     mesh: machine::MeshFetches,
     _branch_commits_load: Task<()>,
-    /// The History page's operations, for the project it shows, its filter, and the kinds of
-    /// operation it leaves out.
-    history: Option<history::History>,
+    /// Each History page's operations, the same way, its filter, and the kinds of operation
+    /// it leaves out.
+    history: HashMap<ProjectId, history::History>,
     history_filter: Entity<TextInput>,
     history_hidden: HashSet<history::Group>,
     history_scroll: UniformListScrollHandle,
@@ -443,16 +431,10 @@ impl Detail {
                         // Checks are of one checkout's files, which another's share paths with.
                         this.switch_checkout(project, worktree, cx);
                     }
-                    // A page read before comes back first, to open on its overview too.
+                    // A page read before opens on its overview too.
                     match this.selection(cx) {
-                        Some(Selection::Branches(project)) => {
-                            this.bring_back_branches(&project);
-                            this.close_branch(cx)
-                        }
-                        Some(Selection::Project(project)) => {
-                            this.bring_back_upstream(&project);
-                            this.open_on_shipped(&project)
-                        }
+                        Some(Selection::Branches(_)) => this.close_branch(cx),
+                        Some(Selection::Project(project)) => this.open_on_shipped(&project),
                         _ => {}
                     }
                     this.reload_page(true, cx);
@@ -460,7 +442,7 @@ impl Detail {
                 }
                 // Picked again, as by the crumb naming it, a page goes back to how it opens.
                 StoreEvent::Reopened => match this.selection(cx) {
-                    Some(Selection::Project(_)) => this.pick_opening(cx),
+                    Some(Selection::Project(project)) => this.pick_opening(&project, cx),
                     Some(Selection::History(_)) => this.pick_newest_operation(cx),
                     _ => {
                         this.close_opened_branch(cx);
@@ -622,10 +604,6 @@ impl Detail {
             review_scroll: ScrollHandle::new(),
             target_message_height: Rc::new(Cell::new(0.)),
             beside_width: Rc::new(Cell::new(0.)),
-            open_merges: HashSet::new(),
-            activity_days: None,
-            activity_person: None,
-            activity_area: None,
             shipped_focus: cx.focus_handle(),
             header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),
             collapsed_dirs: HashSet::new(),
@@ -635,20 +613,17 @@ impl Detail {
             writing: None,
             find: None,
             resolving: Default::default(),
-            upstream: None,
-            upstream_left: HashMap::new(),
+            upstream: HashMap::new(),
             upstream_scroll: UniformListScrollHandle::new(),
             _upstream_load: Task::ready(()),
-            branches: None,
-            branches_left: HashMap::new(),
-
+            branches: HashMap::new(),
             branch_filter,
             target_filter,
             branches_scroll: UniformListScrollHandle::new(),
             _branches_load: Task::ready(()),
             mesh: machine::MeshFetches::default(),
             _branch_commits_load: Task::ready(()),
-            history: None,
+            history: HashMap::new(),
             history_filter,
             history_hidden: HashSet::new(),
             history_scroll: UniformListScrollHandle::new(),
@@ -1149,13 +1124,13 @@ impl Detail {
     /// Focus the file list, or the diff while the list is hidden. On the Branches, Operations
     /// history and project pages, focus their list instead, as it takes the arrow keys itself.
     pub fn focus_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let handle = match &self.store.read(cx).selection {
-            Some(Selection::Branches(_) | Selection::History(_) | Selection::Project(_)) => {
-                &self.side_focus
-            }
-            // A pull request's tab draws no file list.
-            _ if self.files_shown(cx) && !self.showing_review(cx) => &self.files_focus,
-            _ => &self.focus,
+        // Not the file list under a pull request's tab, which draws none.
+        let handle = if self.list_page(cx) {
+            &self.side_focus
+        } else if self.files_shown(cx) && !self.showing_review(cx) {
+            &self.files_focus
+        } else {
+            &self.focus
         };
         window.focus(handle, cx);
         cx.notify();
@@ -1207,9 +1182,9 @@ impl Detail {
         self.focus.contains_focused(window, cx)
     }
 
-    /// The diff's rows. Files folded by hand show only their header; uncommitted files and hunks, or files of the commit shown, that a pending
-    /// operation takes away are left out until it's done.
-    /// The rows `files` show; `unfolded`, as they would with every file open and one line a
+    /// The rows `files` show: files folded by hand show only their header, and uncommitted
+    /// files and hunks, or files of the commit shown, that a pending operation takes away are
+    /// left out until it's done. `unfolded`, as they would with every file open and one line a
     /// row, as Find searches them.
     fn build_rows(
         &self,
@@ -1300,10 +1275,12 @@ impl Detail {
     fn shown_diff(&self) -> Option<&LoadedDiff> {
         let diff = self.diff.as_ref()?;
         let waiting = self.loading.as_ref().is_some_and(|key| *key != diff.key);
-        let slow = self
-            .waiting_since
-            .is_some_and(|since| since.elapsed() >= SHOW_LOADING);
-        (!waiting || !slow).then_some(diff)
+        (!waiting || !self.slow_to_load()).then_some(diff)
+    }
+
+    /// Whether the diff waited for has taken long enough to say it's loading.
+    fn slow_to_load(&self) -> bool {
+        (self.waiting_since).is_some_and(|since| since.elapsed() >= SHOW_LOADING)
     }
 
     /// Scroll the diff by most of a screen, keeping a few lines in view for context.
@@ -1896,7 +1873,7 @@ impl Render for Detail {
         let theme = Theme::get(cx).clone();
         let selection = self.selection(cx);
         let body: AnyElement = match &selection {
-            None if self.store.read(cx).projects.is_empty() => welcome(&theme, cx),
+            None if self.store.read(cx).projects.is_empty() => welcome(&theme),
             None => empty_state(
                 None,
                 "Nothing selected",
@@ -2139,7 +2116,7 @@ fn keeps_path(terms: &[String], path: &str) -> bool {
 }
 
 /// What the app shows before it has a project: what it's for, and the two ways in.
-fn welcome(theme: &Theme, cx: &Context<Detail>) -> AnyElement {
+fn welcome(theme: &Theme) -> AnyElement {
     v_flex()
         .size_full()
         .items_center()
@@ -2170,10 +2147,7 @@ fn welcome(theme: &Theme, cx: &Context<Detail>) -> AnyElement {
                 .child(
                     button("welcome-add", "Add a repository…")
                         .style(ButtonStyle::Pop)
-                        .tooltip_with_key(
-                            "Pick a folder with a Git repository",
-                            shortcut(&AddProject, cx),
-                        )
+                        .tooltip("Pick a folder with a Git repository")
                         .dispatch(&AddProject),
                 )
                 .child(

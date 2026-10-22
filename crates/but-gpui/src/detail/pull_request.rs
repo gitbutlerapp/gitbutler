@@ -18,7 +18,7 @@ use crate::ui::review as ui_review;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, ago, button, count_badge, duration, faint, h_flex, icon,
-    keep_focus_on_press, local_time, muted, now, shortcut, small_icon, v_flex,
+    keep_focus_on_press, local_time, muted, now, small_icon, v_flex,
 };
 
 /// How tall the tabs over the diff beside a list are.
@@ -64,9 +64,9 @@ impl Detail {
     fn set_review_tab(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
         // A list page's list keeps the keys. The branch page's file list isn't drawn beside
         // its pull request.
-        let focus = match (&self.store.read(cx).selection, on) {
-            (Some(Selection::Branches(_) | Selection::Project(_)), _) => &self.side_focus,
-            (Some(Selection::Branch(..) | Selection::Upstream(..)), false) => &self.files_focus,
+        let focus = match &self.store.read(cx).selection {
+            _ if self.list_page(cx) => &self.side_focus,
+            Some(Selection::Branch(..) | Selection::Upstream(..)) if !on => &self.files_focus,
             _ => &self.focus,
         };
         window.focus(focus, cx);
@@ -202,7 +202,6 @@ impl Detail {
                 forge,
                 fresh.map(IntoElement::into_any_element),
                 theme,
-                cx,
             ))
             .children(stale)
             .when(!body.is_empty(), |el| {
@@ -280,7 +279,6 @@ fn head(
     forge: &str,
     fresh: Option<AnyElement>,
     theme: &Theme,
-    cx: &Context<Detail>,
 ) -> Div {
     let (glyph, color) = ui_review::state_glyph(state, theme);
     let title = match review.title.as_str() {
@@ -349,10 +347,7 @@ fn head(
             .icon(Icon::Link)
             .small()
             .style(ButtonStyle::Ghost)
-            .tooltip_with_key(
-                "Open the pull request",
-                shortcut(&crate::app::OpenPullRequest, cx),
-            )
+            .tooltip_for("Open the pull request", &crate::app::OpenPullRequest)
             .on_click(move |_, _, cx| cx.open_url(&url))
     });
     v_flex()

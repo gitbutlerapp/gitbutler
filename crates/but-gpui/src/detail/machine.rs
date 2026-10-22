@@ -5,12 +5,13 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use gpui::{AnyElement, App, Context, SharedString, div, prelude::*, px};
+use gpui::{AnyElement, App, Context, Div, SharedString, div, prelude::*, px};
 
 use super::Detail;
+use super::panes::{Crumb, meta_item};
 use crate::backend::mesh::{self, Checkout};
 use crate::backend::{self, CommitId, DiffSource};
-use crate::state::{MeshBranch, MeshPick, ProjectId, Selection};
+use crate::state::{MeshBranch, MeshPick, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
@@ -218,6 +219,47 @@ impl Detail {
             (MeshPick::Checkout, Some(checkout)) => uncommitted_list(checkout, theme, cx),
             _ => self.render_diff_file_list(theme, cx),
         }
+    }
+
+    /// What the project's header counts of its checkouts on other machines, while it has any.
+    pub(super) fn mesh_meta(&self, project: &ProjectId, theme: &Theme, cx: &App) -> Option<Div> {
+        let checkouts = self.store.read(cx).mesh_checkouts(project);
+        let branches = checkouts.iter().map(|c| c.branches.len()).sum();
+        (!checkouts.is_empty()).then(|| {
+            meta_item(Icon::Globe, theme).flex_none().child(format!(
+                "{} on other machines, {}",
+                plural(checkouts.len(), "worktree"),
+                plural(branches, "branch"),
+            ))
+        })
+    }
+}
+
+/// The crumbs after the project's for `pick` in its checkout `id` on another machine: the
+/// checkout, the branch and the commit, each but the last going to what it names.
+pub(super) fn mesh_crumbs(
+    store: &Store,
+    project: &ProjectId,
+    id: &Arc<str>,
+    pick: &MeshPick,
+    crumbs: &mut Vec<Crumb>,
+) {
+    let Some(checkout) = store.mesh_checkout(project, id) else {
+        return;
+    };
+    let at = |pick| Some(Selection::Mesh(project.clone(), id.clone(), pick).into());
+    let up = |on: bool, pick| if on { at(pick) } else { None };
+    let below = pick.branch().is_some();
+    crumbs.push((checkout.label().into(), up(below, MeshPick::Checkout)));
+    if let Some(name) = pick.branch() {
+        let on = matches!(pick, MeshPick::Commit(..));
+        crumbs.push((
+            name.to_owned().into(),
+            up(on, MeshPick::Branch(name.into())),
+        ));
+    }
+    if let MeshPick::Commit(_, commit) = pick {
+        crumbs.push((commit.short().into(), None));
     }
 }
 

@@ -9,9 +9,9 @@ use gpui::{
 
 use super::Detail;
 use super::panes::{
-    list_empty, list_heading, meta_item, meta_row, page_title, side_list, title_text,
+    list_empty, list_filtered_out, list_heading, meta_item, meta_row, page_title, side_list,
+    step_from, title_text,
 };
-use crate::app::{SelectNext, SelectPrevious};
 use crate::backend::history::{Change, Operation, Recorded};
 use crate::backend::{self, CommitId, DiffSource, SnapshotId};
 use crate::overlays::MenuItem;
@@ -22,8 +22,8 @@ use crate::ui::text_input::TextInput;
 use but_oplog::legacy::OperationKind;
 
 use crate::ui::{
-    Icon, Tooltip, clock_time, commit_title, day_label, faint, h_flex, icon, icon_button, list_row,
-    local_day, plural, side_row, small_icon, v_flex,
+    Icon, Tooltip, clock_time, commit_title, day_label, error_summary, faint, h_flex, icon,
+    icon_button, list_row, loading_state, local_day, plural, side_row, small_icon, v_flex,
 };
 
 /// How many of an operation's changes its header lists; the rest it counts.
@@ -262,13 +262,17 @@ fn subject(operation: &Operation) -> Option<String> {
         .or(branch)
 }
 
+#[derive(Default)]
 pub(super) struct History {
-    project: ProjectId,
     operations: Vec<Operation>,
     /// Whether older operations remain to load.
     more: bool,
     loading: bool,
+    /// A reload came while an older page was loading, and follows it.
+    reload_queued: bool,
     selected: Option<SnapshotId>,
+    /// Why reading the newest operations failed, shown in place of the list.
+    failed: Option<String>,
 }
 
 impl Detail {
@@ -278,11 +282,12 @@ impl Detail {
         let Some(path) = self.store.read(cx).path(project) else {
             return;
         };
-        let shown = self.history_for(project);
         // A reload waits for an older page still loading, which replacing it would cancel.
-        if !more && shown.is_some_and(|history| history.loading) {
+        if let Some(history) = self.history.get_mut(project).filter(|h| !more && h.loading) {
+            history.reload_queued = true;
             return;
         }
+        let shown = self.history.get(project);
         let after = (shown.filter(|_| more))
             .and_then(|history| history.operations.last())
             .map(|operation| operation.id);
@@ -290,9 +295,10 @@ impl Detail {
             true => PAGE,
             false => shown.map_or(PAGE, |history| history.operations.len().max(PAGE)),
         };
-        // Another project's load replaces a page of this one still loading, which then isn't.
-        if let Some(history) = &mut self.history {
-            history.loading = more && history.project == *project;
+        // One load runs at a time, so another project's older page still loading no longer is.
+        for (p, history) in &mut self.history {
+            history.loading = more && p == project;
+            history.reload_queued &= p == project;
         }
         // What the newest operation left, which its snapshot is compared with: the branches,
         // which snapshots don't record mid-edit.
@@ -304,52 +310,35 @@ impl Detail {
             let result =
                 backend::run(move || backend::history::list(&path, after, limit, now)).await;
             this.update(cx, |this, cx| {
-                let (mut operations, mut more) = match result {
-                    Ok(page) => page,
-                    // What's listed stays, Show older too, to try again.
-                    Err(err) => {
-                        this.store.update(cx, |store, cx| {
-                            store.error("Couldn't read the history", format!("{err:#}"), cx)
-                        });
-                        if let Some(history) = &mut this.history {
-                            history.loading = false;
-                        }
-                        return cx.notify();
-                    }
-                };
-                let selected_before = this.history.as_ref().and_then(|h| h.selected);
-                let history = match &mut this.history {
-                    Some(history) if history.project == project && after.is_some() => {
-                        history.operations.extend(operations);
-                        history
-                    }
-                    _ => {
-                        let mut selected = None;
-                        if let Some(mut previous) =
-                            (this.history.take()).filter(|h| h.project == project)
-                        {
-                            // New operations push the oldest of the rows asked for out: those
-                            // already listed stay, older pages and the selection with them, as
-                            // the log only grows at the top.
-                            let last = operations.last().map(|op| op.id);
-                            let ops = &previous.operations;
-                            if let Some(at) = ops.iter().position(|op| Some(op.id) == last) {
-                                operations.extend(previous.operations.split_off(at + 1));
-                                more = previous.more;
-                            }
-                            selected = previous.selected;
-                        }
-                        this.history.insert(History {
-                            project: project.clone(),
-                            operations,
-                            more: false,
-                            loading: false,
-                            selected,
-                        })
-                    }
-                };
-                history.more = more;
+                let history = this.history.entry(project.clone()).or_default();
                 history.loading = false;
+                let queued = std::mem::take(&mut history.reload_queued);
+                let selected_before = history.selected;
+                match result {
+                    // What's listed stays, Show older too, to try again.
+                    Err(err) if after.is_some() => this.store.update(cx, |store, cx| {
+                        store.failed("Couldn't read the history", &err, cx)
+                    }),
+                    Err(err) => history.failed = Some(format!("{err:#}")),
+                    Ok((operations, more)) if after.is_some() => {
+                        history.operations.extend(operations);
+                        history.more = more;
+                    }
+                    Ok((mut operations, mut more)) => {
+                        // New operations push the oldest of the rows asked for out: those
+                        // already listed stay, older pages and the selection with them, as the
+                        // log only grows at the top.
+                        let last = operations.last().map(|op| op.id);
+                        let ops = &history.operations;
+                        if let Some(at) = ops.iter().position(|op| Some(op.id) == last) {
+                            operations.extend(history.operations.split_off(at + 1));
+                            more = history.more;
+                        }
+                        history.operations = operations;
+                        history.more = more;
+                        history.failed = None;
+                    }
+                }
                 // Keep the selection when it's still listed, else take the newest.
                 let listed = |id| history.operations.iter().any(|op| op.id == id);
                 if !history.selected.is_some_and(listed) {
@@ -359,14 +348,26 @@ impl Detail {
                 this.refresh_diff(moved, cx);
                 // Not one the filter or the kinds hide.
                 this.select_shown_operation(cx);
+                if queued {
+                    this.load_history(&project, false, cx);
+                }
                 cx.notify();
             })
             .ok();
         });
     }
 
+    /// `project`'s operations, once read.
     fn history_for(&self, project: &ProjectId) -> Option<&History> {
-        self.history.as_ref().filter(|h| h.project == *project)
+        self.history.get(project).filter(|h| h.failed.is_none())
+    }
+
+    /// The operations of the History page selected.
+    fn page_history(&self, cx: &App) -> Option<&History> {
+        match &self.store.read(cx).selection {
+            Some(Selection::History(project)) => self.history_for(project),
+            _ => None,
+        }
     }
 
     /// The diff of the selected operation: what changed between its snapshot and the next.
@@ -382,7 +383,10 @@ impl Detail {
     }
 
     fn select_operation(&mut self, id: SnapshotId, cx: &mut Context<Self>) {
-        let Some(history) = &mut self.history else {
+        let Some(Selection::History(project)) = self.selection(cx) else {
+            return;
+        };
+        let Some(history) = self.history.get_mut(&project) else {
             return;
         };
         // Selected already, as when its menu opens, how its diff is looked at stays.
@@ -393,13 +397,12 @@ impl Detail {
 
     /// ↓ or ↑ (`delta`) in the list: the next or previous operation, kept in view.
     fn step_history(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let Some(history) = &self.history else {
+        let Some(history) = self.page_history(cx) else {
             return;
         };
         let shown = self.shown_operations(history, cx);
         let at = (shown.iter()).position(|&ix| Some(history.operations[ix].id) == history.selected);
-        let next = at.map_or(0, |at| at as isize + delta);
-        let Some(&next) = usize::try_from(next).ok().and_then(|at| shown.get(at)) else {
+        let Some(&next) = step_from(&shown, at, delta) else {
             return;
         };
         let id = history.operations[next].id;
@@ -430,7 +433,7 @@ impl Detail {
     /// Select the first operation the list shows when it hides the selected one, so the
     /// header and diff are of one in the list.
     pub(super) fn select_shown_operation(&mut self, cx: &mut Context<Self>) {
-        let Some(history) = &self.history else {
+        let Some(history) = self.page_history(cx) else {
             return;
         };
         let shown = self.shown_operations(history, cx);
@@ -464,7 +467,7 @@ impl Detail {
 
     /// Back to the newest operation listed, as the page opens on, when it's picked again.
     pub(super) fn pick_newest_operation(&mut self, cx: &mut Context<Self>) {
-        let Some(history) = &self.history else {
+        let Some(history) = self.page_history(cx) else {
             return;
         };
         let newest = self.shown_operations(history, cx).first().copied();
@@ -777,9 +780,13 @@ impl Detail {
         window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let Some(history) = self.history_for(project) else {
-            return crate::ui::empty_state(None, "Loading history…", "", theme, cx);
+        let Some(history) = self.history.get(project) else {
+            return loading_state("Loading history…", theme, cx);
         };
+        if let Some(err) = &history.failed {
+            let title = "Couldn't read the history".to_owned();
+            return list_empty(Illustration::Papers, title, error_summary(err), theme, cx);
+        }
         let snapshot = project.clone();
         // The oplog is kept against the target, so without one there's nothing to record.
         let no_target =
@@ -817,13 +824,11 @@ impl Detail {
                 cx,
             )
         } else if shown.is_empty() && !history.more {
-            let miss = match self.history_filter.read(cx).text().trim() {
-                "" => "The filters hide every operation".to_owned(),
-                query => format!("No operations match \"{query}\""),
-            };
-            list_empty(Illustration::Papers, miss, "", theme, cx)
+            let query = self.history_filter.read(cx).text();
+            list_filtered_out(query, ("operation", "operations"), theme, cx)
         } else {
             let rows = rows(history, &shown);
+            let project = project.clone();
             side_list(
                 "history",
                 rows.len(),
@@ -831,7 +836,7 @@ impl Detail {
                 "history-scrollbar",
                 cx,
                 move |this, ix, theme, window, cx| {
-                    let history = this.history.as_ref()?;
+                    let history = this.history_for(&project)?;
                     let row = match rows.get(ix)? {
                         Row::Day(time) => return Some(list_heading(day_label(*time), theme)),
                         Row::Operation(op) => {
@@ -839,7 +844,7 @@ impl Detail {
                             let selected = history.selected == Some(operation.id);
                             let on = selected && this.side_focus.is_focused(window);
                             let quiet = |color: gpui::Hsla| match on {
-                                true => theme.text_inverted.opacity(0.7),
+                                true => theme.muted_on_solid(),
                                 false => color,
                             };
                             let id = operation.id;
@@ -871,20 +876,20 @@ impl Detail {
                                         .flex_none()
                                         .text_color(quiet(theme.text_3)),
                                 )
-                                .on_click(cx.listener(move |this, _, window, cx| {
-                                    window.focus(&this.side_focus, cx);
-                                    this.select_operation(id, cx)
-                                }))
+                                .on_click(
+                                    cx.listener(move |this, _, _, cx| {
+                                        this.select_operation(id, cx)
+                                    }),
+                                )
                                 .on_mouse_down(MouseButton::Right, {
-                                    let project = history.project.clone();
-                                    cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-                                        window.focus(&this.side_focus, cx);
+                                    let project = project.clone();
+                                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
                                         this.operation_menu(&project, id, event.position, cx)
                                     })
                                 })
                         }
                         Row::More => {
-                            let project = history.project.clone();
+                            let project = project.clone();
                             list_row("history-more", false, theme)
                                 .text_color(theme.text_2)
                                 .child(if history.loading {
@@ -902,12 +907,7 @@ impl Detail {
             )
             .into_any_element()
         };
-        v_flex()
-            .size_full()
-            .track_focus(&self.side_focus)
-            .key_context("SideList")
-            .on_action(cx.listener(|this, _: &SelectNext, _, cx| this.step_history(1, cx)))
-            .on_action(cx.listener(|this, _: &SelectPrevious, _, cx| this.step_history(-1, cx)))
+        self.list_column(Self::step_history, None, cx)
             .child(bar)
             .child(list)
             .into_any_element()

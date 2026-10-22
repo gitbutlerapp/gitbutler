@@ -15,13 +15,13 @@ use super::{Detail, FilterFiles, keeps_path};
 use crate::app::AppView;
 use crate::backend::{self, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
-use crate::state::{Cut, FileSort, Overlay, ProjectId, Rereads, Selection};
+use crate::state::{Cut, FileSort, OpKind, Overlay, ProjectId, Rereads, Selection};
 use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
 use crate::ui::{
     Icon, ROW_HEIGHT, checkbox, count_badge, faint, h_flex, icon_button, muted, popover, quiet,
-    relative_time, shortcut, side_row, small_icon, v_flex,
+    relative_time, side_row, small_icon, v_flex,
 };
 
 /// Where a file list's files come from.
@@ -696,7 +696,7 @@ impl Detail {
             .child(
                 icon_button("filter-files", Icon::Search)
                     .small()
-                    .tooltip_with_key("Filter files", shortcut(&FilterFiles, cx))
+                    .tooltip_for("Filter files", &FilterFiles)
                     .on_click(cx.listener(|this, _, window, cx| this.open_filter(window, cx))),
             )
             .child(
@@ -754,7 +754,7 @@ impl Detail {
         let solid = (current || picked) && solid;
         // On the solid ground, as ui-react's FileList inverts a selected row's contents.
         let muted = match solid {
-            true => theme.text_inverted.opacity(0.7),
+            true => theme.muted_on_solid(),
             false => theme.text_2,
         };
         // In a tree a file sits under its directory, which names its path.
@@ -1036,7 +1036,9 @@ impl Detail {
                                     &project,
                                     "Mark resolved",
                                     Overlay {
+                                        kind: OpKind::MarkResolved,
                                         rereads: Rereads::Files,
+                                        files_in: worktree.clone(),
                                         ..Overlay::default()
                                     },
                                     move |path, _| {

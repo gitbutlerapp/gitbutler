@@ -986,7 +986,7 @@ impl Detail {
                         this.message
                             .update(cx, |input, cx| input.set_text(notes, cx));
                         this.store.update(cx, |store, cx| {
-                            store.error("Couldn't write the message", format!("{err:#}"), cx)
+                            store.failed("Couldn't write the message", &err, cx)
                         });
                     }
                 }
@@ -1131,19 +1131,18 @@ impl Detail {
                         let target = self.amend_target(project, cx);
                         button("amend", "Amend")
                             .small()
-                            .style(ButtonStyle::Outline)
                             .disabled_because(match &target {
                                 None => Some("No commit to add to"),
                                 Some(_) => (checked == 0).then_some("Check some changes first"),
                             })
-                            .tooltip_with_key(
+                            .tooltip_for(
                                 match &target {
                                     Some((_, title)) => {
                                         format!("Add the checked changes to \"{title}\"")
                                     }
                                     None => "Add the checked changes to the newest commit".into(),
                                 },
-                                shortcut(&super::AmendTop, cx),
+                                &super::AmendTop,
                             )
                             .on_click(cx.listener(|this, _, window, cx| this.amend_top(window, cx)))
                     })
