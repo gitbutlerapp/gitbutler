@@ -663,7 +663,7 @@ impl AppView {
     /// Throw away uncommitted changes of the main checkout, or of the linked `worktree`.
     /// One file or hunk of the main checkout goes at once, with Undo on the snackbar as in
     /// Zed's review; several files ask first. A linked worktree's always ask, as the oplog
-    /// can't bring them back.
+    /// can't bring them back, and so do the main checkout's while it can't record them.
     pub fn discard(
         &mut self,
         project: ProjectId,
@@ -683,25 +683,30 @@ impl AppView {
                 }
             }
         });
-        let ask = match (&worktree, &changes[..]) {
+        let lasting = match &worktree {
+            Some(_) => Some("Changes discarded in a linked worktree can't be undone."),
+            None if (store.workspace(&project)).is_some_and(|ws| ws.unrecorded) => Some(
+                "With no commits yet, or no branch checked out, discarded changes can't be undone.",
+            ),
+            None => None,
+        };
+        let ask = match (lasting, &changes[..]) {
             (_, []) => return,
             (None, [_]) => None,
             (None, _) => Some((
                 format!("Discard changes to {} files?", changes.len()),
                 "You can undo this with ⌘Z.",
             )),
-            (Some(_), picked) => {
+            (Some(why), picked) => {
                 let what = match picked {
                     [one] if one.hunks.is_some() => format!("part of {}", one.file.path),
                     [one] => format!("changes to {}", one.file.path),
                     _ => format!("changes to {} files", picked.len()),
                 };
-                Some((
-                    format!("Discard {what}?"),
-                    "Changes discarded in a linked worktree can't be undone.",
-                ))
+                Some((format!("Discard {what}?"), why))
             }
         };
+        let undoable = lasting.is_none();
         let at = match &worktree {
             Some(name) => Selection::Worktree(project.clone(), name.clone()),
             None => Selection::Uncommitted(project.clone()),
@@ -712,7 +717,6 @@ impl AppView {
                 files_in: worktree.clone(),
                 ..Overlay::files(&changes)
             };
-            let undoable = worktree.is_none();
             this.store.update(cx, |store, cx| {
                 store.run(
                     &project,

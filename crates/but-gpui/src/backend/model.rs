@@ -54,6 +54,9 @@ pub struct Workspace {
     /// The Git command a rebase, merge, cherry-pick or revert that stopped partway was
     /// started with, like `git rebase`, to finish it with.
     pub git_operation: Option<&'static str>,
+    /// `HEAD` is detached or has no commits yet, which GitButler's history can't record or
+    /// go back to: what's done in the main checkout can't be undone.
+    pub unrecorded: bool,
     /// The commit checked out to edit, while the project is in edit mode. There are no
     /// stacks to show then.
     pub editing: Option<super::edit::Editing>,

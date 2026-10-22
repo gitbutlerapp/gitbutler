@@ -365,6 +365,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
             .and_then(|meta| meta.target_ref)
             .map(|name| name.to_string()),
         git_operation,
+        unrecorded: head.is_none() || tree.is_none(),
         editing: None,
         worktrees,
         archived_worktrees,

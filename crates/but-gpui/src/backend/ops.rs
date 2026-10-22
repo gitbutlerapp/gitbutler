@@ -1560,6 +1560,30 @@ mod tests {
     }
 
     #[test]
+    fn a_detached_or_unborn_checkout_is_unrecorded() {
+        let load = |path: &Path| crate::backend::load_workspace(path, Default::default());
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        target_origin_main(path);
+        assert!(
+            !load(path).unwrap().unrecorded,
+            "on a branch, undo can go back"
+        );
+        git(path, &["checkout", "-q", "--detach"]);
+        assert!(
+            load(path).unwrap().unrecorded,
+            "the oplog won't restore a detached HEAD"
+        );
+
+        let unborn = tempfile::tempdir().unwrap();
+        git(unborn.path(), &["init", "-q"]);
+        assert!(
+            load(unborn.path()).unwrap().unrecorded,
+            "with no commits, there's no target to record a snapshot against"
+        );
+    }
+
+    #[test]
     fn history_doesnt_say_the_checked_out_target_was_removed() {
         let dir = repo_with("one\n");
         let path = dir.path();
