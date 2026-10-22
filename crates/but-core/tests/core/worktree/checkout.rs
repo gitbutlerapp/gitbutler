@@ -1684,6 +1684,41 @@ fn checkout_renames_a_file_by_case_only_like_git() -> anyhow::Result<()> {
 
 #[test]
 #[cfg(unix)]
+fn checkout_refuses_a_case_folded_alias_edited_after_the_snapshot() -> anyhow::Result<()> {
+    let (repo, _tmp) = repo_with_meddling_filter("one\n", "printf 'edit\\n' >> a")?;
+    if !gix::fs::Capabilities::probe(repo.git_dir()).ignore_case {
+        // Only a case-insensitive filesystem finds `a` when looking for `A`.
+        return Ok(());
+    }
+    let head = repo.head_id()?.detach();
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"one\n")?;
+            tree.remove("a")?;
+            tree.upsert("A", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "rename a to A",
+    )?;
+
+    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+        .expect_err("the file found under `A` is `a`, edited after the snapshot");
+
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["Uncommitted files would be overwritten by checkout: \"a\""]
+    );
+    assert_eq!(repo.head_id()?.detach(), head, "HEAD stays");
+    assert_eq!(
+        std::fs::read_to_string(repo.workdir_path("a").unwrap())?,
+        "one\nedit\n"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
 fn checkout_replaces_a_read_only_file_like_git() -> anyhow::Result<()> {
     use std::os::unix::fs::PermissionsExt as _;
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");

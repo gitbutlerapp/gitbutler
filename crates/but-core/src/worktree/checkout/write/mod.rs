@@ -26,7 +26,7 @@ pub(super) fn write_to_worktree(
 ) -> anyhow::Result<()> {
     let plan = Plan::new(repo, &trees, conflicts)?;
     protect::staged_content(repo, &trees, &plan)?;
-    protect::newer_edits(repo, &trees.baseline, &plan)?;
+    let _clearances = protect::worktree(repo, &trees.baseline, &plan)?;
     let placed = transaction::write_in_place(repo, &trees.target, &plan)?;
     plan.record_in_index(repo, &placed)
 }
