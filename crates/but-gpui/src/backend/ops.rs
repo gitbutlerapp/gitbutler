@@ -540,8 +540,18 @@ pub fn cherry_pick(path: &Path, commits: &[CommitId], to: &Destination) -> Resul
 /// Rename a branch and return its new full ref name.
 pub fn rename_branch(path: &Path, ref_name: &str, new_name: &str) -> Result<String> {
     let mut ctx = open(path)?;
+    let from = full_name(ref_name)?;
     let outcome =
-        but_api::branch::branch_rename(&mut ctx, full_name(ref_name)?, new_name.trim().to_owned())?;
+        but_api::branch::branch_rename(&mut ctx, from.clone(), new_name.trim().to_owned())?;
+    // Its description goes with it, as Git keeps it by the name.
+    let moved = super::branches::move_description(
+        &*ctx.repo.get()?,
+        from.shorten(),
+        Some(outcome.new_ref.shorten()),
+    );
+    if let Err(err) = moved {
+        tracing::warn!(?err, "couldn't move the renamed branch's description");
+    }
     Ok(outcome.new_ref.to_string())
 }
 
@@ -563,7 +573,11 @@ pub fn remove_branch(path: &Path, ref_name: &str) -> Result<()> {
     if ctx.repo.get()?.try_find_reference(name.as_ref())?.is_none() {
         bail!("{} was renamed or deleted meanwhile", short_ref(ref_name));
     }
-    but_api::branch::branch_remove(&mut ctx, name)?;
+    but_api::branch::branch_remove(&mut ctx, name.clone())?;
+    // So a branch made later under its name starts without its description.
+    if let Err(err) = super::branches::move_description(&*ctx.repo.get()?, name.shorten(), None) {
+        tracing::warn!(?err, "couldn't drop the deleted branch's description");
+    }
     Ok(())
 }
 
@@ -971,6 +985,47 @@ mod tests {
         git(path, &["add", "file"]);
         git(path, &["commit", "-q", "-m", "first"]);
         dir
+    }
+
+    #[test]
+    fn a_description_is_listed_and_follows_its_branch() {
+        use crate::backend::branches::{all_branches, move_description, set_branch_description};
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        target_origin_main(path);
+        git(path, &["checkout", "-q", "-b", "topic"]);
+        git(path, &["commit", "-q", "--allow-empty", "-m", "Topic"]);
+        git(path, &["checkout", "-q", "main"]);
+
+        set_branch_description(path, "refs/heads/topic", "  Why it's there \n").unwrap();
+        let listed = (all_branches(path).unwrap().into_iter())
+            .find(|branch| branch.name == "topic")
+            .and_then(|branch| branch.description);
+        assert_eq!(
+            listed.as_deref(),
+            Some("Why it's there"),
+            "kept where Git keeps it, trimmed, and listed with the branch"
+        );
+
+        let repo = gix::open(path).unwrap();
+        let kept = |name: &str| {
+            let config = but_core::git_config::open_repo_local_config_for_reading(&repo).unwrap();
+            config
+                .string(format!("branch.{name}.description").as_str())
+                .map(|d| d.to_string())
+        };
+        move_description(&repo, "topic".into(), Some("renamed".into())).unwrap();
+        assert_eq!(
+            (kept("topic"), kept("renamed").as_deref()),
+            (None, Some("Why it's there")),
+            "it moves to the new name, as `git branch -m` moves it"
+        );
+        move_description(&repo, "renamed".into(), None).unwrap();
+        assert_eq!(
+            kept("renamed"),
+            None,
+            "and goes with the branch, as `git branch -d` drops it"
+        );
     }
 
     /// A repository mid-merge, with `file` changed on both sides and left conflicted.

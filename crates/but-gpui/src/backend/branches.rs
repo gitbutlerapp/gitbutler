@@ -1,10 +1,11 @@
 //! The project's branches: local ones, applied or not, and ones only a remote has, like a
 //! teammate's.
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::Result;
-use bstr::ByteSlice;
+use bstr::{BStr, BString, ByteSlice};
 use but_branches::ListedStackStatus;
 
 use super::ops::full_name;
@@ -62,6 +63,7 @@ pub struct OwnCommit {
 pub fn all_branches(path: &Path) -> Result<Vec<OtherBranch>> {
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
+    let descriptions = descriptions(&repo);
     Ok(but_api::branch::branch_list(&ctx)?
         .into_iter()
         .filter(|stack| stack.status != ListedStackStatus::Target)
@@ -94,7 +96,9 @@ pub fn all_branches(path: &Path) -> Result<Vec<OtherBranch>> {
                 stack,
                 tip: CommitId(branch.tip),
                 review: listed.review.as_ref().map(from_cache),
-                description: (branch.description.as_ref())
+                description: (branch.ref_name.category())
+                    .filter(|c| *c == gix::refs::Category::LocalBranch)
+                    .and_then(|_| descriptions.get(branch.ref_name.shorten()))
                     .map(|d| d.to_str_lossy().trim().to_owned())
                     .filter(|d| !d.is_empty()),
             }
@@ -135,15 +139,74 @@ fn own_commits(
     (people, commits)
 }
 
+/// Every local branch's description, by its short name, as `git branch --edit-description`
+/// keeps them in the repository's own config: read afresh, so one just set is seen.
+fn descriptions(repo: &gix::Repository) -> HashMap<BString, BString> {
+    let Ok(config) = but_core::git_config::open_repo_local_config_for_reading(repo) else {
+        return HashMap::new();
+    };
+    (config.sections_by_name("branch").into_iter().flatten())
+        .filter_map(|section| {
+            let name = section.header().subsection_name()?.to_owned();
+            Some((name, section.value("description")?))
+        })
+        .collect()
+}
+
 /// Set local branch `ref_name`'s description where Git keeps it, as `git branch
-/// --edit-description` does; a blank one removes it.
+/// --edit-description` does; a blank one removes it. Git config isn't in the oplog, so it
+/// isn't a step to undo.
 pub fn set_branch_description(path: &Path, ref_name: &str, description: &str) -> Result<()> {
     let mut ctx = open(path)?;
-    but_api::branch::branch_set_description(
-        &mut ctx,
-        full_name(ref_name)?,
-        Some(description.to_owned()),
-    )
+    let name = full_name(ref_name)?;
+    anyhow::ensure!(
+        name.category() == Some(gix::refs::Category::LocalBranch),
+        "Only a local branch has a description"
+    );
+    let _guard = ctx.exclusive_worktree_access();
+    let repo = ctx.repo.get()?;
+    let description = Some(description.trim()).filter(|d| !d.is_empty());
+    write_description(&repo, name.shorten(), description.map(BStr::new))
+}
+
+/// Move branch `from`'s description to `to`, as `git branch -m` does, or drop it with no `to`,
+/// as `git branch -d` does.
+pub(super) fn move_description(
+    repo: &gix::Repository,
+    from: &BStr,
+    to: Option<&BStr>,
+) -> Result<()> {
+    let description = (but_core::git_config::open_repo_local_config_for_reading(repo)?)
+        .section("branch", Some(from))
+        .ok()
+        .and_then(|section| section.value("description"));
+    if description.is_none() {
+        return Ok(());
+    }
+    write_description(repo, from, None)?;
+    match to {
+        Some(to) => write_description(repo, to, description.as_ref().map(|d| d.as_bstr())),
+        None => Ok(()),
+    }
+}
+
+fn write_description(
+    repo: &gix::Repository,
+    name: &BStr,
+    description: Option<&BStr>,
+) -> Result<()> {
+    but_core::git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
+        if let Ok(mut section) = config.section_mut("branch", Some(name)) {
+            section.remove("description");
+        }
+        if let Some(description) = description {
+            config
+                .section_mut_or_create_new("branch", Some(name))?
+                .set("description", description)?;
+        }
+        Ok(())
+    })?;
+    Ok(())
 }
 
 /// The commits `ref_name` has that the target doesn't, newest first, as the project's page
