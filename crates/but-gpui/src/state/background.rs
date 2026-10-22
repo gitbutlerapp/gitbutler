@@ -154,7 +154,7 @@ impl Store {
     }
 
     /// Pull requests and CI change on the forge, where no watcher sees them: opening a
-    /// project asks about them, and this asks again every minute.
+    /// project asks about them, and this asks again every minute, when it also redraws.
     pub(super) fn poll_forge(cx: &mut Context<Self>) -> Task<()> {
         cx.spawn(async move |this, cx| {
             loop {
@@ -164,12 +164,15 @@ impl Store {
                 // Not the projects that failed last time: that's a missing account or a
                 // keychain prompt the user turned down, and asking again every minute
                 // would only nag. Opening a project or pushing asks again.
-                let Ok(()) = this.update(cx, |store, _| {
+                let Ok(()) = this.update(cx, |store, cx| {
                     for id in store.expanded_ids() {
                         if !store.forge_failed.contains(&id) {
                             store.refresh_forge(&id);
                         }
                     }
+                    // What says how long ago, or that a project is active, moves on with
+                    // the minute, forge or not.
+                    cx.notify();
                 }) else {
                     break;
                 };
