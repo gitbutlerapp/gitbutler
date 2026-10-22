@@ -24,7 +24,7 @@ use crate::backend::upstream::{
 
 const DAY: i64 = 24 * 60 * 60;
 use crate::backend::{self, CommitId, DiffSource, Forge};
-use crate::state::{BranchStatus, ProjectId, Selection};
+use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::emoji::ProjectIcon;
 use crate::ui::illustration::Illustration;
@@ -86,9 +86,6 @@ struct Summary {
     releases: Vec<Release>,
     /// The day the first of `daily` counts, as [`upstream::day_of`] numbers days.
     first_day: i64,
-    /// How many branches aren't applied, as the Branches page lists them at first: with
-    /// commits of their own, and no merged or closed pull request.
-    unapplied: Option<usize>,
 }
 
 impl From<Overview> for Summary {
@@ -101,7 +98,6 @@ impl From<Overview> for Summary {
             landings: overview.landings,
             releases: overview.releases,
             first_day: overview.first_day,
-            unapplied: None,
         }
     }
 }
@@ -167,6 +163,7 @@ impl Detail {
         if self.editing(project, cx).is_some() {
             return;
         }
+        self.bring_back_upstream(project);
         let seen = self.upstream_fingerprint(project, cx);
         let current = self.upstream.as_ref().filter(|u| u.project == *project);
         if !force
@@ -185,7 +182,14 @@ impl Detail {
             .filter(|_| more)
             .and_then(|u| u.commits.last())
             .map(|commit| commit.id);
+        // Reading back for a commit picked off Shipped or for a filter, a few pages at once
+        // rather than a frame's wait between each.
+        let reading_back = current.is_some_and(|u| u.pending.is_some())
+            || self.picked_area(project).is_some()
+            || self.picked_email(project).is_some()
+            || !self.target_filter.read(cx).text().trim().is_empty();
         let limit = match more {
+            true if reading_back => PAGE * 8,
             true => PAGE,
             false => current.map_or(PAGE, |u| (u.commits.len() as u32).max(PAGE)),
         };
@@ -197,41 +201,37 @@ impl Detail {
             .map(|target| target.name.clone())
             .filter(|_| after.is_none());
         let now = crate::ui::now();
+        // The branches the header counts are the Branches page's, read on their own rather
+        // than waited for; that page then opens with them.
+        if target.is_some() {
+            self.load_branches(&project, false, cx);
+        }
         self._upstream_load = cx.spawn(async move |this, cx| {
             let result = backend::run(move || {
-                let page = upstream::target_commits(&path, after, limit)?;
-                let connected = forge.is_none_or(|forge| {
-                    (backend::accounts::accounts().iter()).any(|account| account.forge == forge)
-                });
-                // The history shows without it.
-                let summary = target.and_then(|target| {
-                    (upstream::overview(&path, &target, now))
-                        .inspect_err(|err| tracing::warn!(?err, "couldn't sum up the target"))
-                        .ok()
-                        .map(|overview| Summary {
-                            unapplied: (backend::branches::all_branches(&path))
-                                .inspect_err(|err| tracing::warn!(?err, "couldn't count branches"))
-                                .ok()
-                                .map(|branches| {
-                                    (branches.iter())
-                                        .filter(|b| !b.applied && b.own_commits != Some(0))
-                                        .filter(|b| {
-                                            super::branches::status_keeps(
-                                                BranchStatus::NotMerged,
-                                                b,
-                                            )
-                                        })
-                                        .count()
-                                }),
-                            ..Summary::from(overview)
-                        })
-                });
-                Ok((
-                    page,
-                    upstream::fetch_status(&path)?,
-                    forge.filter(|_| !connected),
-                    summary,
-                ))
+                // What landed lately takes longest, so it's read beside the page rather than
+                // after it.
+                std::thread::scope(|scope| {
+                    let summary = (target.as_deref()).map(|target| {
+                        scope.spawn(|| upstream::overview(&path, target, now).map(Summary::from))
+                    });
+                    let (mut commits, mut more) = upstream::target_commits(&path, after, limit)?;
+                    // The newest page stops where the workspace forked off, often a commit or
+                    // two in, so the rest of a page is read with it rather than a wait after.
+                    let short = PAGE.saturating_sub(commits.len() as u32);
+                    if let Some(last) = commits.last().map(|c| c.id).filter(|_| more && short > 0) {
+                        let (older, older_more) =
+                            upstream::target_commits(&path, Some(last), short)?;
+                        commits.extend(older);
+                        more = older_more;
+                    }
+                    let page = (commits, more);
+                    let connected = forge.is_none_or(|forge| {
+                        (backend::accounts::accounts().iter()).any(|account| account.forge == forge)
+                    });
+                    let fetch = upstream::fetch_status(&path)?;
+                    let summary = summary.and_then(|s| joined(s.join(), "what landed"));
+                    Ok((page, fetch, forge.filter(|_| !connected), summary))
+                })
             })
             .await;
             this.update(cx, |this, cx| {
@@ -717,6 +717,24 @@ impl Detail {
             .as_ref()
             .filter(|_| *project == upstream.project && !pick.days.is_empty())?;
         Some((pick, summary.first_day + summary.daily.len() as i64 - 1))
+    }
+
+    /// Make `project`'s page the one held, keeping the one of the project left and bringing
+    /// back `project`'s if it was read before, so going back shows it at once.
+    pub(super) fn bring_back_upstream(&mut self, project: &ProjectId) {
+        if let Some(left) = self.upstream.take_if(|u| u.project != *project) {
+            self.upstream_left.insert(left.project.clone(), left);
+        }
+        if self.upstream.is_none() {
+            self.upstream = self.upstream_left.remove(project).map(|left| {
+                // A read cut short when it was left isn't still going.
+                left.paging.set(Paging::Idle);
+                Upstream {
+                    pending: None,
+                    ..left
+                }
+            });
+        }
     }
 
     /// The person picked on `upstream`'s page, if any.
@@ -1387,7 +1405,7 @@ impl Detail {
         // way first.
         let workspace = entry.workspace.as_ref();
         let applied = workspace.map_or(0, |ws| ws.branches().count());
-        let unapplied = (self.upstream_for(project)).and_then(|u| u.summary.as_ref()?.unapplied);
+        let unapplied = self.unapplied(project);
         let worktrees = workspace.map_or(0, |ws| ws.worktrees.len());
         let network = store.mesh_checkouts(project);
         let network_branches: usize = network.iter().map(|c| c.branches.len()).sum();
@@ -1397,16 +1415,6 @@ impl Detail {
                     .flex_none()
                     .child(format!("{applied} applied")),
             )
-            .children(unapplied.map(|n| {
-                meta_item(Icon::Branch, theme)
-                    .flex_none()
-                    .id("unapplied-count")
-                    .child(format!("{n} not applied"))
-                    .tooltip(Tooltip::text(
-                        "Branches in progress that aren't applied: with commits of their own, \
-                         and no merged or closed pull request",
-                    ))
-            }))
             .when(worktrees > 0, |el| {
                 el.child(
                     meta_item(Icon::Folder, theme)
@@ -1423,7 +1431,18 @@ impl Detail {
                         n => format!("{n} branches"),
                     }
                 )))
-            });
+            })
+            // Last, as it's read after the rest, so nothing moves when it shows.
+            .children(unapplied.map(|n| {
+                meta_item(Icon::Branch, theme)
+                    .flex_none()
+                    .id("unapplied-count")
+                    .child(format!("{n} not applied"))
+                    .tooltip(Tooltip::text(
+                        "Branches in progress that aren't applied: with commits of their own, \
+                         and no merged or closed pull request",
+                    ))
+            }));
         let main = v_flex()
             .gap(px(10.))
             .child(
@@ -1536,7 +1555,7 @@ impl Detail {
         let list = match upstream {
             // Its banner says so; reading its history fails with no more to say.
             _ if missing => div().flex_1().into_any_element(),
-            None => crate::ui::empty_state(None, "Loading…", "", theme, cx),
+            None => crate::ui::loading_state("Loading…", theme, cx),
             // Picking the target again is the way out of what it most often is, as a target that
             // more than one local branch tracks.
             Some(Upstream {
@@ -1847,6 +1866,13 @@ fn days_said(picked: &BTreeSet<i64>) -> Option<String> {
         len if (last - first + 1) as usize == len => format!("{} – {}", date(first), date(last)),
         len => format!("{len} days"),
     })
+}
+
+/// What a thread reading `what` found, or nothing, saying why it couldn't.
+fn joined<T>(read: std::thread::Result<anyhow::Result<T>>, what: &str) -> Option<T> {
+    read.ok()?
+        .inspect_err(|err| tracing::warn!(?err, "couldn't read {what}"))
+        .ok()
 }
 
 /// A day's noon, clear of a clock change, to date it by.

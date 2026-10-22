@@ -408,7 +408,7 @@ impl Detail {
             // One that couldn't be read says so here too, rather than seeming to load.
             return match store.project(project).and_then(|entry| entry.error.clone()) {
                 Some(err) => empty_state(None, "Couldn't read the project", err, theme, cx),
-                None => empty_state(None, "Loading…", "", theme, cx),
+                None => crate::ui::loading_state("Loading…", theme, cx),
             };
         };
         let (files, git_operation) = match worktree.map(|name| workspace.find_worktree(name)) {

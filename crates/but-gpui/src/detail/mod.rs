@@ -360,10 +360,15 @@ pub struct Detail {
     resolving: resolve::Resolving,
     /// The project page's target history, for the project it shows.
     upstream: Option<upstream::Upstream>,
+    /// The project pages of the projects left, so going back to one shows it at once, while
+    /// it's read again.
+    upstream_left: HashMap<ProjectId, upstream::Upstream>,
     upstream_scroll: UniformListScrollHandle,
     _upstream_load: Task<()>,
     /// The Branches page's branches, for the project it shows, and its filter.
     branches: Option<branches::Branches>,
+    /// The same for the projects left.
+    branches_left: HashMap<ProjectId, branches::Branches>,
     branch_filter: Entity<TextInput>,
     /// The project page's, over its history.
     target_filter: Entity<TextInput>,
@@ -443,9 +448,16 @@ impl Detail {
                         // Checks are of one checkout's files, which another's share paths with.
                         this.switch_checkout(project, worktree, cx);
                     }
+                    // A page read before comes back first, to open on its overview too.
                     match this.selection(cx) {
-                        Some(Selection::Branches(_)) => this.close_branch(cx),
-                        Some(Selection::Project(project)) => this.open_on_shipped(&project),
+                        Some(Selection::Branches(project)) => {
+                            this.bring_back_branches(&project);
+                            this.close_branch(cx)
+                        }
+                        Some(Selection::Project(project)) => {
+                            this.bring_back_upstream(&project);
+                            this.open_on_shipped(&project)
+                        }
                         _ => {}
                     }
                     this.reload_page(true, cx);
@@ -632,9 +644,11 @@ impl Detail {
             find: None,
             resolving: Default::default(),
             upstream: None,
+            upstream_left: HashMap::new(),
             upstream_scroll: UniformListScrollHandle::new(),
             _upstream_load: Task::ready(()),
             branches: None,
+            branches_left: HashMap::new(),
 
             branch_filter,
             target_filter,

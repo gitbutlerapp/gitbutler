@@ -1146,6 +1146,21 @@ pub fn clock_time(seconds: i64) -> String {
     local(seconds, "%H:%M")
 }
 
+/// What a page shows while it's first read: nothing at first, then `title` fading in, so a
+/// read done in a blink doesn't flash it.
+pub fn loading_state(title: &'static str, theme: &Theme, cx: &App) -> AnyElement {
+    use gpui::{Animation, AnimationExt as _};
+    div()
+        .size_full()
+        .child(empty_state(None, title, "", theme, cx))
+        .with_animation(
+            "page-loading",
+            Animation::new(std::time::Duration::from_millis(600)),
+            |el, delta| el.opacity(((delta - 0.5) * 2.).clamp(0., 1.)),
+        )
+        .into_any_element()
+}
+
 /// A surface with nothing in it, as ui-react's EmptyState: a drawing picked by what the state
 /// means, a title naming it, and a line saying what happens next, each left out when there's
 /// none. Its foot is padded so the block sits a little above the middle, where it reads as

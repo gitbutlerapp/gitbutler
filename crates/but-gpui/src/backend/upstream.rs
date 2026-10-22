@@ -3,7 +3,7 @@
 //! the workspace doesn't have yet, the pull request each commit landed, and when the
 //! project last fetched.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::Path;
 
 use anyhow::Result;
@@ -211,7 +211,7 @@ pub struct Landing {
     /// Who wrote the newest commit it brought in, by email as [`Person`]s are keyed: a pull
     /// request's author, most likely.
     pub by: Option<String>,
-    /// The parts of the repository it changed, as [`area`] names them, each once.
+    /// The parts of the repository it changed, as [`areas`] names them, each once.
     pub areas: Vec<String>,
 }
 
@@ -221,17 +221,6 @@ pub struct Release {
     pub name: String,
     pub id: CommitId,
     pub day: i64,
-}
-
-/// The part of the repository `path` is in: its first two folders, as `crates/but`, or its
-/// folder when it's only one deep, or the top level for a file there.
-pub fn area(path: &[u8]) -> String {
-    let parts: Vec<_> = path.split(|byte| *byte == b'/').collect();
-    match parts.len() {
-        0 | 1 => "Top level".to_owned(),
-        2 => parts[0].to_str_lossy().into_owned(),
-        _ => format!("{}/{}", parts[0].to_str_lossy(), parts[1].to_str_lossy()),
-    }
 }
 
 /// Someone whose commits landed on the target lately, by [`super::byline`].
@@ -249,38 +238,33 @@ pub struct Person {
 /// `target` (a short name, like `origin/main`) summed up as of `now`, in seconds since the
 /// epoch. A commit that can't be read is left out rather than failing the rest.
 pub fn overview(path: &Path, target: &str, now: i64) -> Result<Overview> {
-    use gix::revision::walk::Sorting;
-    use gix::traverse::commit::simple::CommitTimeOrder;
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
     let tip = repo.rev_parse_single(target)?.object()?.peel_to_commit()?;
     let first_day = day_of(now) - (ACTIVITY_DAYS as i64 - 1);
     let since = day_start(first_day);
-    let newest_since = Sorting::ByCommitTimeCutoff {
-        order: CommitTimeOrder::NewestFirst,
-        seconds: since,
-    };
     let mut daily = vec![0; ACTIVITY_DAYS];
     let mut people: Vec<Person> = Vec::new();
     let mut landings = Vec::new();
-    let line = (repo.rev_walk([tip.id]))
-        .first_parent_only()
-        .sorting(newest_since)
-        .all()?;
-    for landed in commits_since(line, since) {
+    // A walk of first parents only ignores a time cutoff, so it stops at the first commit
+    // from before the window itself rather than reading the whole history.
+    let line: Vec<_> = (repo.rev_walk([tip.id]).first_parent_only().all()?)
+        .filter_map(|info| info.ok()?.object().ok())
+        .take_while(|commit| commit.time().is_ok_and(|time| time.seconds >= since))
+        .collect();
+    let mut brought = brought_in(&repo, tip.id, &line)?;
+    for landed in &line {
         let day = landed.time().map_or(first_day, |time| day_of(time.seconds));
         // A clock ahead of this one counts as today.
         let day = ((day - first_day) as usize).min(ACTIVITY_DAYS - 1);
         daily[day] += 1;
         // Theirs land on the day it did: the commit itself, or what a merge brought in.
-        let mut parents = landed.parent_ids().map(|id| id.detach());
-        let first = parents.next().filter(|id| repo.has_object(id));
-        let others: Vec<_> = parents.filter(|id| repo.has_object(id)).collect();
-        let brought = match (first, others.is_empty()) {
-            (Some(first), false) => (repo.rev_walk(others).with_hidden([first]).all()?)
-                .filter_map(|info| info.ok()?.object().ok())
-                .collect(),
-            _ => vec![landed.clone()],
+        let first = (landed.parent_ids().next())
+            .map(|id| id.detach())
+            .filter(|id| repo.has_object(id));
+        let brought = match first.is_some() && landed.parent_ids().count() > 1 {
+            true => brought.remove(&landed.id).unwrap_or_default(),
+            false => vec![landed.clone()],
         };
         for commit in brought.iter().filter(|c| c.parent_ids().count() < 2) {
             let Ok(((name, email), _)) = super::commit_byline(commit) else {
@@ -306,7 +290,7 @@ pub fn overview(path: &Path, target: &str, now: i64) -> Result<Overview> {
         }
         landings.push(landing(
             &repo,
-            &landed,
+            landed,
             first,
             &brought,
             first_day + day as i64,
@@ -326,6 +310,109 @@ pub fn overview(path: &Path, target: &str, now: i64) -> Result<Overview> {
         releases,
         first_day,
     })
+}
+
+/// What each merge of `line`, the target's own commits from `tip` back, newest first, brought
+/// in: what its other parents reach that its first doesn't, the tip of its branch first.
+///
+/// One walk reads everything the line took in. A merge's first parent reaches all that the
+/// merges before it brought, so going oldest first, each merge takes what it reaches that no
+/// older one took, which is the same answer as one walk for each merge.
+fn brought_in<'repo>(
+    repo: &'repo gix::Repository,
+    tip: gix::ObjectId,
+    line: &[gix::Commit<'repo>],
+) -> Result<HashMap<gix::ObjectId, Vec<gix::Commit<'repo>>>> {
+    let Some(oldest) = line.last() else {
+        return Ok(HashMap::new());
+    };
+    let before = (oldest.parent_ids().next())
+        .map(|id| id.detach())
+        .filter(|id| repo.has_object(id));
+    let window: HashMap<gix::ObjectId, gix::Commit<'repo>> = (repo.rev_walk([tip]))
+        .with_hidden(before)
+        .all()?
+        .filter_map(|info| info.ok()?.object().ok())
+        .map(|commit| (commit.id, commit))
+        .collect();
+    let mut taken: HashSet<gix::ObjectId> = line.iter().map(|c| c.id).collect();
+    let mut brought = HashMap::new();
+    for landed in line.iter().rev() {
+        let mut next: Vec<gix::ObjectId> = (landed.parent_ids().skip(1))
+            .map(|id| id.detach())
+            .collect();
+        let mut theirs = Vec::new();
+        while let Some(id) = next.pop() {
+            let Some(commit) = window.get(&id).filter(|_| taken.insert(id)) else {
+                continue;
+            };
+            // Its first parent next, to follow its own branch first.
+            let parents: Vec<_> = commit.parent_ids().map(|id| id.detach()).collect();
+            next.extend(parents.into_iter().rev());
+            theirs.push(commit.clone());
+        }
+        brought.insert(landed.id, theirs);
+    }
+    Ok(brought)
+}
+
+/// The parts of the repository where trees `old` and `new` differ, sorted: the first two
+/// folders of a file that changed, as `crates/but`, or its folder when it's only one deep, or
+/// the top level for a file there. So it reads only two folders deep.
+fn areas(
+    repo: &gix::Repository,
+    old: Option<gix::ObjectId>,
+    new: Option<gix::ObjectId>,
+) -> Vec<String> {
+    let mut areas = BTreeSet::new();
+    for (name, file, [old, new]) in differing(repo, old, new) {
+        if file {
+            areas.insert("Top level".to_owned());
+        }
+        for (inner, file, folders) in differing(repo, old, new) {
+            if file {
+                areas.insert(name.to_str_lossy().into_owned());
+            }
+            if folders.iter().any(Option::is_some) {
+                areas.insert(format!("{}/{}", name.to_str_lossy(), inner.to_str_lossy()));
+            }
+        }
+    }
+    areas.into_iter().collect()
+}
+
+/// The entries where trees `old` and `new` differ, by name: whether a file is among what
+/// differs there, and the folder each side has there.
+fn differing(
+    repo: &gix::Repository,
+    old: Option<gix::ObjectId>,
+    new: Option<gix::ObjectId>,
+) -> Vec<(bstr::BString, bool, [Option<gix::ObjectId>; 2])> {
+    let entries = |tree: Option<gix::ObjectId>| -> HashMap<bstr::BString, _> {
+        (tree.and_then(|id| repo.find_tree(id).ok()).iter())
+            .flat_map(|tree| tree.iter())
+            .filter_map(|entry| {
+                let entry = entry.ok()?;
+                Some((
+                    entry.filename().to_owned(),
+                    (entry.mode(), entry.object_id()),
+                ))
+            })
+            .collect()
+    };
+    let (old, new) = (entries(old), entries(new));
+    let names: BTreeSet<_> = old.keys().chain(new.keys()).collect();
+    (names.into_iter())
+        .filter_map(|name| {
+            let sides = [old.get(name), new.get(name)];
+            (sides[0] != sides[1]).then(|| {
+                let file = sides.iter().flatten().any(|(mode, _)| !mode.is_tree());
+                let folders =
+                    sides.map(|side| side.filter(|(mode, _)| mode.is_tree()).map(|(_, id)| *id));
+                (name.clone(), file, folders)
+            })
+        })
+        .collect()
 }
 
 /// `landed` summed up as it landed on `day`: from its `first` parent, `brought` in.
@@ -350,22 +437,13 @@ fn landing(
     let by = (own.clone().next())
         .and_then(|c| super::commit_byline(c).ok())
         .map(|((_, email), _)| email.to_lowercase());
-    // What it changed from where the line was, which for a merge is all it brought; only
-    // where, so without the cost of telling renames apart.
-    let mut options = gix::diff::Options::default().with_rewrites(None);
-    options.track_path();
-    let tree = |id: gix::ObjectId| repo.find_commit(id).ok()?.tree().ok();
-    let (old, new) = (first.and_then(tree), landed.tree().ok());
-    let mut areas: Vec<String> = (repo.diff_tree_to_tree(old.as_ref(), new.as_ref(), options))
-        .inspect_err(|err| tracing::warn!(?err, "couldn't diff a landed commit"))
-        .unwrap_or_default()
-        .iter()
-        // Its files, not the folders holding them, which the diff lists as changed too.
-        .filter(|change| !change.entry_mode().is_tree())
-        .map(|change| area(change.location()))
-        .collect();
-    areas.sort();
-    areas.dedup();
+    // What it changed from where the line was, which for a merge is all it brought.
+    let tree = |id: gix::ObjectId| Some(repo.find_commit(id).ok()?.tree_id().ok()?.detach());
+    let areas = areas(
+        repo,
+        first.and_then(tree),
+        landed.tree_id().ok().map(|id| id.detach()),
+    );
     Landing {
         id: CommitId(landed.id),
         title: (review.as_ref())
@@ -403,16 +481,6 @@ fn releases(repo: &gix::Repository, landings: &[Landing]) -> Vec<Release> {
         .collect();
     releases.sort_by(|(a, x), (b, y)| a.cmp(b).then_with(|| x.name.cmp(&y.name)));
     releases.into_iter().map(|(_, release)| release).collect()
-}
-
-/// The commits of `walk` from `since` on, in seconds since the epoch, leaving out any that
-/// can't be read.
-fn commits_since(
-    walk: gix::revision::Walk<'_>,
-    since: i64,
-) -> impl Iterator<Item = gix::Commit<'_>> {
-    walk.filter_map(|info| info.ok()?.object().ok())
-        .filter(move |commit| commit.time().is_ok_and(|time| time.seconds >= since))
 }
 
 /// The README at the top of `commit`'s tree, Markdown first, by its file name and text.
@@ -1014,6 +1082,19 @@ mod tests {
             &["merge", "-q", "--no-ff", "-m", "merge side", "side"],
             now - DAY / 2,
         );
+        // Built on the branch merged before, so it holds Cat's commit too.
+        git(&["checkout", "-q", "-b", "later", "side"], now - DAY / 3);
+        std::fs::create_dir_all(path.join("crates/but/src")).unwrap();
+        std::fs::create_dir_all(path.join("docs")).unwrap();
+        std::fs::write(path.join("crates/but/src/lib.rs"), "").unwrap();
+        std::fs::write(path.join("docs/guide.md"), "").unwrap();
+        git(&["add", "."], now - DAY / 3);
+        commit("Dan", now - DAY / 3);
+        git(&["checkout", "-q", "main"], now - DAY / 4);
+        git(
+            &["merge", "-q", "--no-ff", "-m", "merge later", "later"],
+            now - DAY / 4,
+        );
         commit("Ann", now - 60);
 
         let summed = overview(path, "main", now).unwrap();
@@ -1025,9 +1106,9 @@ mod tests {
         assert_eq!(summed.daily.len(), ACTIVITY_DAYS, "a bar a day");
         assert_eq!(
             summed.daily.iter().sum::<u32>(),
-            4,
-            "the target's own line, as its history lists it: the merge once, not the commit it \
-             brought, and not the commit from before the window"
+            5,
+            "the target's own line, as its history lists it: each merge once, not the commits \
+             they brought, and not the commit from before the window"
         );
         assert_eq!(summed.daily[ACTIVITY_DAYS - 1], 1, "the last day is today");
         let people: Vec<(&str, &str, u32)> = (summed.people.iter())
@@ -1037,20 +1118,48 @@ mod tests {
             people,
             [
                 ("Ann", "ann@example.com", 2),
+                ("Dan", "dan@example.com", 1),
                 ("Cat", "cat@example.com", 1),
                 ("Bob", "bob@example.com", 1),
             ],
-            "most commits first, the merged branch's author too and the merge left out"
+            "most commits first, the merged branches' authors too and the merges left out"
         );
-        let merge = gix::open(path)
-            .unwrap()
-            .rev_parse_single("main~1")
-            .unwrap()
-            .detach();
+        let repo = gix::open(path).unwrap();
+        let landed_by = |name: &str| {
+            let person = summed.people.iter().find(|p| p.name == name).unwrap();
+            person.landed.clone()
+        };
+        let main = |back: usize| {
+            let at = repo.rev_parse_single(format!("main~{back}").as_str());
+            [super::CommitId(at.unwrap().detach())].into()
+        };
         assert_eq!(
-            summed.people[1].landed,
-            [super::CommitId(merge)].into(),
-            "the merge landed Cat's commit, which the target's own line lists in its place"
+            landed_by("Cat"),
+            main(2),
+            "the first merge landed Cat's commit, which the target's own line lists in its \
+             place, and the later merge, whose branch holds it too, didn't land it again"
+        );
+        assert_eq!(landed_by("Dan"), main(1), "the later merge landed Dan's");
+        let landings: Vec<(&str, u32, Vec<&str>)> = (summed.landings.iter())
+            .map(|l| {
+                (
+                    l.title.as_str(),
+                    l.commits,
+                    l.areas.iter().map(String::as_str).collect(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            landings,
+            [
+                ("by Ann", 1, vec![]),
+                ("merge later", 1, vec!["crates/but", "docs"]),
+                ("merge side", 1, vec![]),
+                ("by Bob", 1, vec![]),
+                ("by Ann", 1, vec!["Top level"]),
+            ],
+            "newest first, each with the commits it brought and where it changed things: the \
+             first two folders of a file, its folder when one deep, the top level for one there"
         );
     }
 

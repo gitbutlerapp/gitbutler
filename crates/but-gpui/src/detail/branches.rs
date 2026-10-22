@@ -32,8 +32,8 @@ use crate::ui::illustration::Illustration;
 use crate::ui::person::{byline, byline_avatar};
 use crate::ui::text_input::TextInput;
 use crate::ui::{
-    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, age_column, button, empty_state, faint, fold_button,
-    guide, h_flex, icon, plural, quiet, review, section_label, side_row, small_icon, v_flex,
+    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, age_column, button, faint, fold_button, guide, h_flex,
+    icon, loading_state, plural, quiet, review, section_label, side_row, small_icon, v_flex,
 };
 
 pub(super) struct Branches {
@@ -102,6 +102,58 @@ impl Branches {
             .map(|commit| commit.id)
             .filter(|id| self.picked.contains(id))
             .collect()
+    }
+
+    /// `all` of `project`'s branches as read when its workspace was `seen`, the applied ones
+    /// apart, keeping what of `previous` still applies: the branch opened, those open and
+    /// their commits, and the filters.
+    fn read(
+        project: ProjectId,
+        seen: u64,
+        all: Vec<OtherBranch>,
+        previous: Option<Branches>,
+    ) -> Self {
+        let (applied, list): (Vec<_>, Vec<_>) = all.into_iter().partition(|b| b.applied);
+        // The branch opened, while it's listed: once it goes, as an agent renamed or
+        // deleted it, the overview shows rather than another branch in its place.
+        let selected = (previous.as_ref())
+            .and_then(|b| b.selected.clone())
+            .filter(|ref_name| list.iter().any(|b| b.ref_name == *ref_name));
+        // Which branches were open and their commits, of those still listed, and the
+        // selected commit while its branch stays selected.
+        let listed = |ref_name: &String| list.iter().any(|b| b.ref_name == *ref_name);
+        let (who, recency) = (previous.as_ref())
+            .map(|b| (b.who.clone(), b.recency))
+            .unwrap_or_default();
+        let (open, folded, commits, commit, picked, stack) = match previous {
+            Some(b) => {
+                let same = b.selected == selected;
+                (
+                    b.open.into_iter().filter(|r| listed(r)).collect(),
+                    b.folded.into_iter().filter(|r| listed(r)).collect(),
+                    b.commits.into_iter().filter(|(r, _)| listed(r)).collect(),
+                    b.commit.filter(|_| same),
+                    if same { b.picked } else { Picks::default() },
+                    b.stack && same,
+                )
+            }
+            None => Default::default(),
+        };
+        Branches {
+            project,
+            seen,
+            list,
+            applied,
+            selected,
+            stack,
+            open,
+            folded,
+            commits,
+            commit,
+            picked,
+            who,
+            recency,
+        }
     }
 }
 
@@ -207,6 +259,7 @@ impl Detail {
         let Some(path) = self.store.read(cx).path(project) else {
             return;
         };
+        self.bring_back_branches(project);
         let seen = self.branches_fingerprint(project, cx);
         if !force && self.branches_for(project).is_some_and(|b| b.seen == seen) {
             return;
@@ -215,64 +268,54 @@ impl Detail {
         self._branches_load = cx.spawn(async move |this, cx| {
             let result = backend::run(move || branches::all_branches(&path)).await;
             this.update(cx, |this, cx| {
-                let (applied, list): (Vec<_>, Vec<_>) = match result {
-                    Ok(all) => all.into_iter().partition(|b| b.applied),
+                // When read for the project page's count, that page stays as it is.
+                let shown =
+                    matches!(this.selection(cx), Some(Selection::Branches(p)) if p == project);
+                let all = match result {
+                    Ok(all) => all,
                     // What's listed stays, to be read again on the next change.
-                    Err(err) => {
+                    Err(err) if shown => {
                         return this.store.update(cx, |store, cx| {
                             store.error("Couldn't list the branches", format!("{err:#}"), cx)
                         });
                     }
+                    Err(err) => return tracing::warn!(?err, "couldn't list the branches"),
                 };
                 let previous = this.branches.take().filter(|b| b.project == project);
-                // The branch opened, while it's listed: once it goes, as an agent renamed or
-                // deleted it, the overview shows rather than another branch in its place.
-                let selected = (previous.as_ref())
-                    .and_then(|b| b.selected.clone())
-                    .filter(|ref_name| list.iter().any(|b| b.ref_name == *ref_name));
-                // Which branches were open and their commits, of those still listed, and the
-                // selected commit while its branch stays selected.
-                let listed = |ref_name: &String| list.iter().any(|b| b.ref_name == *ref_name);
-                let (who, recency) = (previous.as_ref())
-                    .map(|b| (b.who.clone(), b.recency))
-                    .unwrap_or_default();
-                let (open, folded, commits, commit, picked, stack) = match previous {
-                    Some(b) => {
-                        let same = b.selected == selected;
-                        (
-                            b.open.into_iter().filter(|r| listed(r)).collect(),
-                            b.folded.into_iter().filter(|r| listed(r)).collect(),
-                            b.commits.into_iter().filter(|(r, _)| listed(r)).collect(),
-                            b.commit.filter(|_| same),
-                            if same { b.picked } else { Picks::default() },
-                            b.stack && same,
-                        )
-                    }
-                    None => Default::default(),
-                };
-                this.branches = Some(Branches {
-                    project,
-                    seen,
-                    list,
-                    applied,
-                    selected,
-                    stack,
-                    open,
-                    folded,
-                    commits,
-                    commit,
-                    picked,
-                    who,
-                    recency,
-                });
-                // The filter may hide what's selected now.
-                this.select_shown_branch(cx);
+                this.branches = Some(Branches::read(project, seen, all, previous));
                 this.load_open_commits(cx);
-                this.refresh_diff(false, cx);
+                if shown {
+                    // The filter may hide what's selected now.
+                    this.select_shown_branch(cx);
+                    this.refresh_diff(false, cx);
+                }
                 cx.notify();
             })
             .ok();
         });
+    }
+
+    /// Make `project`'s branches the ones held, keeping those of the project left and
+    /// bringing back `project`'s if they were read before, so its page shows them at once.
+    pub(super) fn bring_back_branches(&mut self, project: &ProjectId) {
+        if let Some(left) = self.branches.take_if(|b| b.project != *project) {
+            self.branches_left.insert(left.project.clone(), left);
+        }
+        if self.branches.is_none() {
+            self.branches = self.branches_left.remove(project);
+        }
+    }
+
+    /// How many of `project`'s branches aren't applied, as its Branches page lists them at
+    /// first: with commits of their own, and no merged or closed pull request.
+    pub(super) fn unapplied(&self, project: &ProjectId) -> Option<usize> {
+        let branches = self.branches_for(project)?;
+        Some(
+            (branches.list.iter())
+                .filter(|b| b.own_commits != Some(0))
+                .filter(|b| status_keeps(BranchStatus::NotMerged, b))
+                .count(),
+        )
     }
 
     /// What a branch listing depends on: the project's branches, as its last full load saw
@@ -1158,7 +1201,7 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         let Some(branches) = self.branches_for(project) else {
-            return empty_state(None, "Loading branches…", "", theme, cx);
+            return loading_state("Loading branches…", theme, cx);
         };
         let filter = self.branch_filter_bar(project, window, cx);
         let chips = self.branch_filter_chips(cx);
