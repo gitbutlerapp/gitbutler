@@ -80,8 +80,8 @@ fn ambiguous_local_counterparts_error() -> anyhow::Result<()> {
     std::fs::write(&path, legacy_target(repo.head_id()?.detach()))?;
     let err = read_legacy_project_meta(&path, &repo).unwrap_err();
     assert!(
-        err.to_string().contains("multiple local branches track"),
-        "ambiguous counterparts must not be guessed: {err}"
+        err.is::<but_core::ref_metadata::AmbiguousLegacyTargetRefError>(),
+        "ambiguous counterparts must not be guessed: {err:#}"
     );
     Ok(())
 }

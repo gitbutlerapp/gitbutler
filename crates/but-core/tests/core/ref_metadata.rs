@@ -1009,8 +1009,8 @@ mod project_meta {
         }
         let err = ProjectMeta::try_from_config(&legacy_config()?, &repo).unwrap_err();
         assert!(
-            err.to_string().contains("multiple local branches track"),
-            "ambiguous local counterparts must not be guessed: {err}"
+            err.is::<but_core::ref_metadata::AmbiguousLegacyTargetRefError>(),
+            "ambiguous local counterparts must not be guessed: {err:#}"
         );
         Ok(())
     }
