@@ -4,10 +4,12 @@
 //! the README shows it; selecting a commit shows its diff.
 
 use std::cell::Cell;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 use std::time::{Duration, Instant};
 
 use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
+
+mod shipped;
 
 use super::Detail;
 use super::panes::{
@@ -16,7 +18,9 @@ use super::panes::{
 };
 use super::pull_request::TABS_HEIGHT;
 use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
-use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, Person, TargetCommit};
+use crate::backend::upstream::{
+    self, ACTIVITY_DAYS, Landing, Overview, Person, Release, TargetCommit,
+};
 
 const DAY: i64 = 24 * 60 * 60;
 use crate::backend::{self, CommitId, DiffSource, Forge};
@@ -37,10 +41,12 @@ use crate::ui::{
 /// chevron's step.
 const FOLD_MIDDLE: f32 = 8. + 7.;
 
-/// What the page opens on: the README first, as a repository's page does, else the newest
-/// commit.
-fn opening(readme: bool, commits: &[TargetCommit]) -> Option<Picked> {
-    (readme.then_some(Picked::Readme)).or_else(|| commits.first().map(|c| Picked::Commit(c.id)))
+/// What the page opens on: what landed lately, even when nothing did, once the target's
+/// summed up, else the newest commit. The README is a click away rather than the page, as
+/// one with pictures can take it over.
+fn opening(summary: Option<&Summary>, commits: &[TargetCommit]) -> Option<Picked> {
+    (summary.is_some().then_some(Picked::Shipped))
+        .or_else(|| commits.first().map(|c| Picked::Commit(c.id)))
 }
 
 /// What a target commit is called: the pull request it landed, by its title, as Lite names
@@ -63,9 +69,10 @@ const STALE_AFTER: Duration = Duration::from_secs(60);
 const BESIDE_FILES: f32 = 260.;
 const MIN_DIFF: f32 = 560.;
 
-/// What's picked on the page: the README, or a commit of the target.
+/// What's picked on the page: what landed lately, the README, or a commit of the target.
 #[derive(Clone, Copy, PartialEq)]
 enum Picked {
+    Shipped,
     Readme,
     Commit(CommitId),
 }
@@ -75,6 +82,8 @@ struct Summary {
     readme: Option<(String, Vec<markdown::Block>)>,
     daily: Vec<u32>,
     people: Vec<Person>,
+    landings: Vec<Landing>,
+    releases: Vec<Release>,
     /// The day the first of `daily` counts, as [`upstream::day_of`] numbers days.
     first_day: i64,
     /// How many branches aren't applied, as the Branches page lists them at first: with
@@ -89,6 +98,8 @@ impl From<Overview> for Summary {
                 .map(|(name, text)| (name, markdown::parse_showing_images(&text))),
             daily: overview.daily,
             people: overview.people,
+            landings: overview.landings,
+            releases: overview.releases,
             first_day: overview.first_day,
             unapplied: None,
         }
@@ -116,6 +127,8 @@ pub(super) struct Upstream {
     failed: Option<String>,
     /// Reading the next page, which starts once its row scrolls into view, or on Show older.
     paging: Cell<Paging>,
+    /// A commit picked off what landed lately, not listed yet: the pages are read until it is.
+    pending: Option<CommitId>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -226,8 +239,12 @@ impl Detail {
                     Ok(loaded) => loaded,
                     // Paging further back keeps what's listed.
                     Err(err) if after.is_some() => {
-                        if let Some(upstream) = this.upstream_for(&project) {
+                        if let Some(upstream) =
+                            this.upstream.as_mut().filter(|u| u.project == project)
+                        {
                             upstream.paging.set(Paging::Failed);
+                            // A commit waited for isn't, rather than with every reload.
+                            upstream.pending = None;
                             cx.notify();
                         }
                         this.store.update(cx, |store, cx| {
@@ -251,12 +268,17 @@ impl Detail {
                             seen: (seen, Instant::now()),
                             failed: Some(format!("{err:#}")),
                             paging: Cell::new(Paging::Idle),
+                            pending: None,
                         });
                         this.refresh_diff(false, cx);
                         return cx.notify();
                     }
                 };
                 let previous = this.upstream.take().filter(|u| u.project == project);
+                let pending = previous.as_ref().and_then(|u| u.pending);
+                // Read before its project's target was known, as an unwatched one's first page
+                // is, the page fell back to its newest commit: it opens properly now.
+                let first_summed = previous.as_ref().is_some_and(|u| u.summary.is_none());
                 // A page further back says nothing of whether the newest are current, as when
                 // it cut short the reload after a fetch.
                 let now = (seen, Instant::now());
@@ -291,11 +313,19 @@ impl Detail {
                 list.extend(older);
                 let readme = summary.as_ref().is_some_and(|s| s.readme.is_some());
                 let selected = was
+                    .filter(|_| !(first_summed && summary.is_some()))
                     .filter(|picked| match picked {
+                        Picked::Shipped => summary.is_some(),
                         Picked::Readme => readme,
                         Picked::Commit(id) => list.iter().any(|c| c.id == *id),
                     })
-                    .or_else(|| opening(readme, &list));
+                    .or_else(|| opening(summary.as_ref(), &list));
+                // A commit picked before it was listed, once it is, while it can be: what landed
+                // lately goes back no further than the summary's first day.
+                let found = pending.filter(|id| list.iter().any(|c| c.id == *id));
+                let within = (summary.as_ref().zip(list.last()))
+                    .is_some_and(|(s, oldest)| oldest.time >= upstream::day_start(s.first_day));
+                let pending = pending.filter(|_| found.is_none() && has_more && within);
                 this.upstream = Some(Upstream {
                     project: project.clone(),
                     commits: list,
@@ -309,10 +339,18 @@ impl Detail {
                     seen,
                     failed: None,
                     paging: Cell::new(Paging::Idle),
+                    pending,
                 });
                 this.refresh_diff(false, cx);
                 this.load_readme_images(&project, cx);
                 this.load_selected_merge(&project, cx);
+                if let Some(id) = found {
+                    this.pick_on_page(Picked::Commit(id), cx);
+                    this.scroll_to_picked(cx);
+                }
+                if pending.is_some() {
+                    this.load_upstream(&project, true, false, cx);
+                }
                 cx.notify();
             })
             .ok();
@@ -360,7 +398,7 @@ impl Detail {
             Picked::Commit(id) => Some(DiffSource::Commit(
                 self.merged_commit(project, cx).map_or(id, |c| c.id),
             )),
-            Picked::Readme => None,
+            Picked::Shipped | Picked::Readme => None,
         }
     }
 
@@ -407,7 +445,10 @@ impl Detail {
     /// Whether the window leaves the diff out, as a pull request and the README take its
     /// place.
     pub fn diff_hidden(&self, cx: &gpui::App) -> bool {
-        self.showing_review(cx) || self.showing_readme(cx) || self.showing_branches_overview(cx)
+        self.showing_review(cx)
+            || self.showing_readme(cx)
+            || self.showing_shipped(cx)
+            || self.showing_branches_overview(cx)
     }
 
     /// How far right of a list page's list the diff starts: past the files, when there's room
@@ -634,14 +675,38 @@ impl Detail {
 
     /// Whether the project's page shows its README, in place of a diff.
     pub fn showing_readme(&self, cx: &gpui::App) -> bool {
+        self.showing_on_page(Picked::Readme, cx)
+    }
+
+    /// Whether the project's page shows what landed lately, in place of a diff.
+    pub fn showing_shipped(&self, cx: &gpui::App) -> bool {
+        self.showing_on_page(Picked::Shipped, cx)
+    }
+
+    fn showing_on_page(&self, picked: Picked, cx: &gpui::App) -> bool {
         match self.store.read(cx).selection.as_ref() {
             Some(Selection::Project(project)) => {
                 self.editing(project, cx).is_none()
-                    && (self.upstream_for(project))
-                        .is_some_and(|u| u.selected == Some(Picked::Readme))
+                    && (self.upstream_for(project)).is_some_and(|u| u.selected == Some(picked))
             }
             _ => false,
         }
+    }
+
+    /// Esc on the project's page with a commit or the README shown: back to what landed
+    /// lately, whether it did.
+    pub fn close_opened_target(&mut self, cx: &mut Context<Self>) -> bool {
+        let Some(Selection::Project(project)) = self.store.read(cx).selection.clone() else {
+            return false;
+        };
+        let opened = self.editing(&project, cx).is_none()
+            && (self.upstream_for(&project)).is_some_and(|u| {
+                u.summary.is_some() && !matches!(u.selected, None | Some(Picked::Shipped))
+            });
+        if opened {
+            self.pick_on_page(Picked::Shipped, cx);
+        }
+        opened
     }
 
     /// The activity's days picked, if any, and which day is today.
@@ -667,6 +732,17 @@ impl Detail {
         // letting go of the filter unseen.
         let who = self.picked_email(&upstream.project);
         let person = self.picked_person(upstream);
+        // What landed in the area picked, of what the summary has; with no summary to say, the
+        // area doesn't filter.
+        let area = (self.picked_area(&upstream.project)).filter(|_| upstream.summary.is_some());
+        let in_area: HashSet<CommitId> = (area.zip(upstream.summary.as_ref()))
+            .map(|(area, summary)| {
+                (summary.landings.iter())
+                    .filter(|l| l.areas.iter().any(|a| a == area))
+                    .map(|l| l.id)
+                    .collect()
+            })
+            .unwrap_or_default();
         let query = self.target_filter.read(cx).text().trim().to_lowercase();
         let says = |text: &str| text.to_lowercase().contains(&query);
         // By its words, who it's by, its pull request's title or number, or its ID.
@@ -685,13 +761,18 @@ impl Detail {
         let shown = |commit: &TargetCommit| {
             picked.is_none_or(|(pick, today)| pick.keeps(commit.time, today))
                 && who.is_none_or(|_| person.is_some_and(|p| p.landed.contains(&commit.id)))
+                && area.is_none_or(|_| in_area.contains(&commit.id))
                 && found(commit)
         };
         let mut rows = Vec::new();
         // The navigator lists the new ones on their own, so here they're only marked.
         for ix in (0..upstream.commits.len()).filter(|ix| shown(&upstream.commits[*ix])) {
             if rows.is_empty() {
-                rows.push(Row::Heading(format!("On {target}")));
+                // The area picked says so here too, as what picks it hides behind a commit.
+                rows.push(Row::Heading(match area {
+                    Some(area) => format!("On {target} · {area}"),
+                    None => format!("On {target}"),
+                }));
             }
             rows.push(Row::Commit(ix));
             let commit = &upstream.commits[ix];
@@ -716,7 +797,7 @@ impl Detail {
         // days, which all of a person's are on; a filter by words reads that far on its own,
         // and older ones a click at a time, rather than the whole history.
         // Without a summary to say where they start, a filter reads on a click from the first.
-        let bounded = who.is_some() || filtered;
+        let bounded = who.is_some() || area.is_some() || filtered;
         let first = (picked.and_then(|(pick, _)| pick.days.first()).copied())
             .or_else(|| {
                 (upstream.summary.as_ref())
@@ -735,7 +816,8 @@ impl Detail {
         } else if rows.is_empty() && bounded {
             rows.push(Row::Heading(format!("No commits on {target} match")));
         }
-        if upstream.more && past && filtered && picked.is_none() && who.is_none() {
+        if upstream.more && past && filtered && picked.is_none() && who.is_none() && area.is_none()
+        {
             rows.push(Row::Older);
         }
         rows
@@ -808,6 +890,20 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         self.activity_person = email.map(|email| (project.clone(), email));
+        self.show_newest_kept(cx);
+        cx.notify();
+    }
+
+    /// The part of the repository `project`'s history is filtered to, if any.
+    fn picked_area(&self, project: &ProjectId) -> Option<&String> {
+        (self.activity_area.as_ref())
+            .filter(|(p, _)| p == project)
+            .map(|(_, area)| area)
+    }
+
+    /// Filter the history to what landed in `area`, or let go of the area.
+    fn filter_area(&mut self, project: &ProjectId, area: Option<String>, cx: &mut Context<Self>) {
+        self.activity_area = area.map(|area| (project.clone(), area));
         self.show_newest_kept(cx);
         cx.notify();
     }
@@ -899,6 +995,11 @@ impl Detail {
         let Some(upstream) = self.upstream_for(project) else {
             return;
         };
+        // Over what landed lately, the target names the page, last.
+        let target = (self.store.read(cx).workspace(project)).and_then(|ws| ws.target_name());
+        if upstream.selected == Some(Picked::Shipped) {
+            return crumbs.push((target.unwrap_or("Target").to_owned().into(), None));
+        }
         let picked = match upstream.selected {
             Some(Picked::Readme) => (upstream.summary.as_ref())
                 .and_then(|s| s.readme.as_ref())
@@ -906,13 +1007,12 @@ impl Detail {
             Some(Picked::Commit(_)) => {
                 (self.selected_target_commit(project)).map(|commit| commit.id.short())
             }
-            None => None,
+            None | Some(Picked::Shipped) => None,
         };
         let Some(picked) = picked else {
             return;
         };
         // The target goes back to how the page opens, as the project's crumb does.
-        let target = (self.store.read(cx).workspace(project)).and_then(|ws| ws.target_name());
         let page = Selection::Project(project.clone()).into();
         crumbs.push((target.unwrap_or("Target").to_owned().into(), Some(page)));
         let merged = self.merged_commit(project, cx);
@@ -927,13 +1027,24 @@ impl Detail {
         }
     }
 
+    /// Opening the project's page, wherever from: it shows what landed lately, rather than
+    /// what was picked on it last, as the Branches page shows its overview.
+    pub(super) fn open_on_shipped(&mut self, project: &ProjectId) {
+        if let Some(upstream) =
+            (self.upstream.as_mut()).filter(|u| u.project == *project && u.summary.is_some())
+        {
+            upstream.selected = Some(Picked::Shipped);
+            upstream.merged_pick = None;
+            upstream.pending = None;
+        }
+    }
+
     /// Back to what the page opens on, as when it's picked again.
     pub(super) fn pick_opening(&mut self, cx: &mut Context<Self>) {
         let Some(upstream) = &self.upstream else {
             return;
         };
-        let readme = (upstream.summary.as_ref()).is_some_and(|s| s.readme.is_some());
-        if let Some(picked) = opening(readme, &upstream.commits) {
+        if let Some(picked) = opening(upstream.summary.as_ref(), &upstream.commits) {
             self.pick_on_page(picked, cx)
         }
     }
@@ -942,10 +1053,45 @@ impl Detail {
         self.pick_on_page(Picked::Commit(id), cx)
     }
 
+    /// Open commit `id` of what landed lately, reading older pages of the history until
+    /// it's listed.
+    fn pick_landed(&mut self, project: &ProjectId, id: CommitId, cx: &mut Context<Self>) {
+        let Some(upstream) = self.upstream.as_mut().filter(|u| u.project == *project) else {
+            return;
+        };
+        if upstream.commits.iter().any(|c| c.id == id) {
+            self.pick_on_page(Picked::Commit(id), cx);
+            return self.scroll_to_picked(cx);
+        }
+        if !upstream.more {
+            return;
+        }
+        upstream.pending = Some(id);
+        self.load_upstream(project, true, false, cx);
+    }
+
+    /// Bring the commit picked into view in the history, as it was picked from elsewhere.
+    fn scroll_to_picked(&mut self, cx: &mut Context<Self>) {
+        let Some(upstream) = &self.upstream else {
+            return;
+        };
+        let Some(Picked::Commit(id)) = upstream.selected else {
+            return;
+        };
+        let row = (self.upstream_rows(upstream, "", cx).iter())
+            .position(|row| matches!(row, Row::Commit(ix) if upstream.commits[*ix].id == id));
+        if let Some(row) = row {
+            self.upstream_scroll
+                .scroll_to_item(row, gpui::ScrollStrategy::Center);
+        }
+    }
+
     fn pick_on_page(&mut self, picked: Picked, cx: &mut Context<Self>) {
         if let Some(upstream) = &mut self.upstream {
             upstream.selected = Some(picked);
             upstream.merged_pick = None;
+            // Picked now, a commit still waited for no longer is.
+            upstream.pending = None;
         }
         self.message_open = false;
         if let Some(Selection::Project(project)) = self.store.read(cx).selection.clone() {
@@ -1004,6 +1150,10 @@ impl Detail {
                 }),
             )
             .collect();
+        // From what landed lately, which sits over the list, only down.
+        if upstream.selected == Some(Picked::Shipped) && delta < 0 {
+            return;
+        }
         let current = (upstream.selected, upstream.merged_pick);
         let at = (picks.iter()).position(|(_, (picked, pick))| (Some(*picked), *pick) == current);
         let next = at.map_or(0, |at| at as isize + delta);
@@ -1685,6 +1835,18 @@ pub(super) fn commit_author(
         .child(quiet(age_column(Some(commit.time), theme), on, theme))
 }
 
+/// The days picked, said short: one by its date, a span by its ends, days apart by how
+/// many; `None` while none is.
+fn days_said(picked: &BTreeSet<i64>) -> Option<String> {
+    let date = |day: i64| crate::ui::local_date(noon(day));
+    let (&first, &last) = picked.first().zip(picked.last())?;
+    Some(match picked.len() {
+        1 => date(first),
+        len if (last - first + 1) as usize == len => format!("{} – {}", date(first), date(last)),
+        len => format!("{len} days"),
+    })
+}
+
 /// A day's noon, clear of a clock change, to date it by.
 pub(super) fn noon(day: i64) -> i64 {
     upstream::day_start(day) + DAY / 2
@@ -1752,17 +1914,8 @@ fn activity_strip(
                 )
         })
         .collect();
-    let date = |day: i64| crate::ui::local_date(noon(day));
-    let said = match picked.first().zip(picked.last()) {
-        Some((&first, &last)) => {
-            // A span by its ends; days picked apart, by how many.
-            let days = match picked.len() {
-                1 => date(first),
-                len if (last - first + 1) as usize == len => {
-                    format!("{} – {}", date(first), date(last))
-                }
-                len => format!("{len} days"),
-            };
+    let said = match days_said(picked) {
+        Some(days) => {
             let n: u32 = (daily.iter().enumerate())
                 .filter(|(ix, _)| picked.contains(&(first_day + *ix as i64)))
                 .map(|(_, n)| n)

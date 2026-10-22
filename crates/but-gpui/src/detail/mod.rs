@@ -332,6 +332,11 @@ pub struct Detail {
     activity_days: Option<(ProjectId, upstream::DayPick)>,
     /// Whose commits a project's history is filtered to, by email.
     activity_person: Option<(ProjectId, String)>,
+    /// The part of the repository a project's history is filtered to, by what landed there.
+    activity_area: Option<(ProjectId, String)>,
+    /// The Shipped pane's, which a click on it takes, so its area picked shows solid then,
+    /// as the People card's does.
+    shipped_focus: FocusHandle,
     /// The images each project's README shows, as loaded, by where they're from.
     readme_images: HashMap<ProjectId, HashMap<String, Arc<gpui::RenderImage>>>,
     /// The images asked for, loaded or not, so each is asked for once.
@@ -438,8 +443,10 @@ impl Detail {
                         // Checks are of one checkout's files, which another's share paths with.
                         this.switch_checkout(project, worktree, cx);
                     }
-                    if matches!(this.selection(cx), Some(Selection::Branches(_))) {
-                        this.close_branch(cx);
+                    match this.selection(cx) {
+                        Some(Selection::Branches(_)) => this.close_branch(cx),
+                        Some(Selection::Project(project)) => this.open_on_shipped(&project),
+                        _ => {}
                     }
                     this.reload_page(true, cx);
                     this.refresh_diff(true, cx);
@@ -612,6 +619,8 @@ impl Detail {
             open_merges: HashSet::new(),
             activity_days: None,
             activity_person: None,
+            activity_area: None,
+            shipped_focus: cx.focus_handle(),
             readme_images: HashMap::new(),
             readme_images_asked: HashSet::new(),
             header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),
@@ -1155,6 +1164,7 @@ impl Detail {
             &self.files_focus,
             &self.side_focus,
             &self.people_focus,
+            &self.shipped_focus,
         ]
         .contains(&handle)
     }
@@ -1975,6 +1985,9 @@ impl Render for Detail {
                     }
                     Selection::Project(project) if self.showing_readme(cx) => {
                         Some(self.render_readme(project, &theme, cx))
+                    }
+                    Selection::Project(project) if self.showing_shipped(cx) => {
+                        Some(self.render_shipped(project, window, cx))
                     }
                     // What the selected operation did, over the files it changed.
                     Selection::History(project) => {

@@ -116,6 +116,7 @@ icons! {
     Sidebar => "sidebar",
     SidebarNarrow => "sidebar-narrow",
     Stack => "stack",
+    Tag => "tag",
     TextBlock => "text-block",
     TextCode => "text-code",
     TextWrap => "text-wrap",

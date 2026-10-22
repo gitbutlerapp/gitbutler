@@ -1293,6 +1293,91 @@ impl Detail {
     }
 }
 
+/// An overview's title, beside a list until something's opened: what it shows, and over what.
+pub(super) fn overview_title(title: &'static str, scope: String, theme: &Theme) -> Div {
+    h_flex()
+        .px(px(14.))
+        .pb(px(4.))
+        .gap(px(8.))
+        .child(
+            div()
+                .flex_1()
+                .text_size(px(15.))
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .child(title),
+        )
+        .child(faint(scope, theme))
+}
+
+/// An overview's headline numbers, a tile each: what it counts, the number, and more of what
+/// it counts on hover.
+pub(super) fn overview_tiles(
+    tiles: impl IntoIterator<Item = (&'static str, String, &'static str)>,
+    theme: &Theme,
+) -> Div {
+    h_flex()
+        .gap(px(8.))
+        .px(px(6.))
+        .children(tiles.into_iter().enumerate().map(|(ix, (label, n, tip))| {
+            v_flex()
+                .id(("overview-tile", ix))
+                .flex_1()
+                .min_w(px(0.))
+                .px(px(12.))
+                .py(px(10.))
+                .gap(px(2.))
+                .border_1()
+                .border_color(theme.border_3)
+                .rounded(px(8.))
+                .tooltip(Tooltip::text(tip))
+                .child(faint(label, theme).truncate())
+                .child(
+                    div()
+                        .text_size(px(22.))
+                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .child(n),
+                )
+        }))
+}
+
+/// How wide an overview row's columns on the right are, so they line up from one section to
+/// the next: a count and what it counts, then a short time or a bare number.
+pub(super) const OVERVIEW_COUNT_WIDTH: f32 = 110.;
+pub(super) const OVERVIEW_TIME_WIDTH: f32 = 40.;
+
+/// One of an overview row's columns on the right: `text`, faint and flush right, `width` wide.
+pub(super) fn overview_column(text: String, width: f32, theme: &Theme) -> Div {
+    faint(text, theme).flex_none().w(px(width)).text_right()
+}
+
+/// `n` with its thousands set apart, as 1,434 reads more easily than 1434.
+pub(super) fn grouped(n: usize) -> String {
+    let digits = n.to_string();
+    let mut out = String::new();
+    for (ix, digit) in digits.chars().enumerate() {
+        if ix > 0 && (digits.len() - ix).is_multiple_of(3) {
+            out.push(',');
+        }
+        out.push(digit);
+    }
+    out
+}
+
+/// A section of an overview's heading: `title`, and what its numbers count.
+pub(super) fn overview_heading(
+    title: &'static str,
+    detail: impl IntoElement,
+    theme: &Theme,
+) -> Div {
+    h_flex()
+        .mt(px(14.))
+        .px(px(14.))
+        .pb(px(2.))
+        .gap(px(8.))
+        .child(section_label(title, theme).flex_grow(1.))
+        .child(detail)
+}
+
 /// How tall a side list stays however much else its column holds, as a short window's
 /// would otherwise give it all to the cards under it.
 pub(super) const LIST_MIN_HEIGHT: f32 = ROW_HEIGHT * 4.;

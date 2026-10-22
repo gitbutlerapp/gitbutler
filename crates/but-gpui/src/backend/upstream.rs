@@ -185,8 +185,53 @@ pub struct Overview {
     pub daily: Vec<u32>,
     /// Whose commits landed on it in those days, merges left out, most first.
     pub people: Vec<Person>,
+    /// The commits of its own line in those days, newest first.
+    pub landings: Vec<Landing>,
+    /// The tags on its own line in those days, newest first.
+    pub releases: Vec<Release>,
     /// The day the first of `daily` counts, as [`day_of`] numbers days.
     pub first_day: i64,
+}
+
+/// A commit of the target's own line: one of its own, or a merge bringing others in.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Landing {
+    pub id: CommitId,
+    /// What it's called: its pull request's title when it merged one, else its own.
+    pub title: String,
+    /// The day it landed, as [`day_of`] numbers days.
+    pub day: i64,
+    /// It landed a pull request: a merge, or a commit whose message names the one it merged.
+    pub pull: bool,
+    /// How many commits it brought in, merges left out.
+    pub commits: u32,
+    /// For a merge, seconds from the first commit it brought being written to it landing. A
+    /// squashed pull request's commit was written as it landed, so it has none.
+    pub took: Option<i64>,
+    /// Who wrote the newest commit it brought in, by email as [`Person`]s are keyed: a pull
+    /// request's author, most likely.
+    pub by: Option<String>,
+    /// The parts of the repository it changed, as [`area`] names them, each once.
+    pub areas: Vec<String>,
+}
+
+/// A tag on the target's own line.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Release {
+    pub name: String,
+    pub id: CommitId,
+    pub day: i64,
+}
+
+/// The part of the repository `path` is in: its first two folders, as `crates/but`, or its
+/// folder when it's only one deep, or the top level for a file there.
+pub fn area(path: &[u8]) -> String {
+    let parts: Vec<_> = path.split(|byte| *byte == b'/').collect();
+    match parts.len() {
+        0 | 1 => "Top level".to_owned(),
+        2 => parts[0].to_str_lossy().into_owned(),
+        _ => format!("{}/{}", parts[0].to_str_lossy(), parts[1].to_str_lossy()),
+    }
 }
 
 /// Someone whose commits landed on the target lately, by [`super::byline`].
@@ -217,6 +262,7 @@ pub fn overview(path: &Path, target: &str, now: i64) -> Result<Overview> {
     };
     let mut daily = vec![0; ACTIVITY_DAYS];
     let mut people: Vec<Person> = Vec::new();
+    let mut landings = Vec::new();
     let line = (repo.rev_walk([tip.id]))
         .first_parent_only()
         .sorting(newest_since)
@@ -258,7 +304,15 @@ pub fn overview(path: &Path, target: &str, now: i64) -> Result<Overview> {
             people[at].daily[day] += 1;
             people[at].landed.insert(CommitId(landed.id));
         }
+        landings.push(landing(
+            &repo,
+            &landed,
+            first,
+            &brought,
+            first_day + day as i64,
+        ));
     }
+    let releases = releases(&repo, &landings);
     people.sort_by_key(|person| std::cmp::Reverse(person.daily.iter().sum::<u32>()));
     let readme = readme(&repo, &tip)
         .inspect_err(|err| tracing::warn!(?err, "couldn't read the README"))
@@ -268,8 +322,87 @@ pub fn overview(path: &Path, target: &str, now: i64) -> Result<Overview> {
         readme,
         daily,
         people,
+        landings,
+        releases,
         first_day,
     })
+}
+
+/// `landed` summed up as it landed on `day`: from its `first` parent, `brought` in.
+fn landing(
+    repo: &gix::Repository,
+    landed: &gix::Commit<'_>,
+    first: Option<gix::ObjectId>,
+    brought: &[gix::Commit<'_>],
+    day: i64,
+) -> Landing {
+    let message = (landed.message_raw().ok()).map_or(String::new(), |m| m.to_str_lossy().into());
+    let merge = landed.parent_ids().count() > 1;
+    let review = but_forge::merged_review_from_message(&but_forge::ForgeName::GitHub, &message);
+    let own = brought.iter().filter(|c| c.parent_ids().count() < 2);
+    let written = (own.clone())
+        .filter_map(|c| Some(c.author().ok()?.time().ok()?.seconds))
+        .min();
+    let took = (landed.time().ok())
+        .zip(written)
+        .filter(|_| merge)
+        .map(|(t, w)| t.seconds - w);
+    let by = (own.clone().next())
+        .and_then(|c| super::commit_byline(c).ok())
+        .map(|((_, email), _)| email.to_lowercase());
+    // What it changed from where the line was, which for a merge is all it brought; only
+    // where, so without the cost of telling renames apart.
+    let mut options = gix::diff::Options::default().with_rewrites(None);
+    options.track_path();
+    let tree = |id: gix::ObjectId| repo.find_commit(id).ok()?.tree().ok();
+    let (old, new) = (first.and_then(tree), landed.tree().ok());
+    let mut areas: Vec<String> = (repo.diff_tree_to_tree(old.as_ref(), new.as_ref(), options))
+        .inspect_err(|err| tracing::warn!(?err, "couldn't diff a landed commit"))
+        .unwrap_or_default()
+        .iter()
+        // Its files, not the folders holding them, which the diff lists as changed too.
+        .filter(|change| !change.entry_mode().is_tree())
+        .map(|change| area(change.location()))
+        .collect();
+    areas.sort();
+    areas.dedup();
+    Landing {
+        id: CommitId(landed.id),
+        title: (review.as_ref())
+            .map(|r| r.title)
+            .filter(|t| !t.is_empty())
+            .map_or_else(|| title(message.as_bytes()), str::to_owned),
+        day,
+        pull: merge || review.is_some(),
+        commits: own.count() as u32,
+        took,
+        by,
+        areas,
+    }
+}
+
+/// The tags on the commits of `landings`, newest first.
+fn releases(repo: &gix::Repository, landings: &[Landing]) -> Vec<Release> {
+    let at: HashMap<CommitId, (usize, i64)> = (landings.iter().enumerate())
+        .map(|(ix, l)| (l.id, (ix, l.day)))
+        .collect();
+    let Ok(references) = repo.references() else {
+        return Vec::new();
+    };
+    let Ok(tags) = references.tags() else {
+        return Vec::new();
+    };
+    let mut releases: Vec<(usize, Release)> = tags
+        .filter_map(|tag| {
+            let mut tag = tag.ok()?;
+            let id = CommitId(tag.peel_to_id().ok()?.detach());
+            let &(ix, day) = at.get(&id)?;
+            let name = tag.name().shorten().to_string();
+            Some((ix, Release { name, id, day }))
+        })
+        .collect();
+    releases.sort_by(|(a, x), (b, y)| a.cmp(b).then_with(|| x.name.cmp(&y.name)));
+    releases.into_iter().map(|(_, release)| release).collect()
 }
 
 /// The commits of `walk` from `since` on, in seconds since the epoch, leaving out any that

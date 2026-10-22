@@ -12,13 +12,14 @@ use crate::backend::ReviewState;
 use crate::backend::branches::OtherBranch;
 use crate::backend::upstream::{self, ACTIVITY_DAYS};
 use crate::detail::Detail;
+use crate::detail::panes::{
+    OVERVIEW_TIME_WIDTH, grouped, overview_heading, overview_tiles, overview_title,
+};
 use crate::detail::upstream::noon;
 use crate::state::{BranchStatus, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::person::author_avatar;
-use crate::ui::{
-    Icon, Tooltip, faint, h_flex, list_row, plural, review, section_label, small_icon, v_flex,
-};
+use crate::ui::{Icon, Tooltip, faint, h_flex, list_row, plural, review, small_icon, v_flex};
 
 /// How many of the busiest branches get a lane.
 const LANES: usize = 7;
@@ -145,16 +146,16 @@ impl Detail {
         let tiles = [
             (
                 "Branches",
-                summary.lanes.len().to_string(),
+                grouped(summary.lanes.len()),
                 "Branches with commits then",
             ),
-            ("Commits", summary.commits.to_string(), "Their commits then"),
+            ("Commits", grouped(summary.commits), "Their commits then"),
             (
                 "Started",
-                summary.started.to_string(),
+                grouped(summary.started),
                 "Of those, how many had their first commit then",
             ),
-            ("People", summary.people.to_string(), "Who wrote them"),
+            ("People", grouped(summary.people), "Who wrote them"),
         ];
         // Each branch that moved is still cooking, with a commit in the last week, or has
         // gone quiet since; one whose pull request merged or closed is done, not quiet.
@@ -202,53 +203,28 @@ impl Detail {
                     .px(px(14.))
                     .py(px(16.))
                     .gap(px(6.))
-                    .child(
-                        h_flex()
-                            .px(px(14.))
-                            .pb(px(4.))
-                            .gap(px(8.))
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .text_size(px(15.))
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                                    .child(listed),
-                            )
-                            .child(faint(
-                                scope.into_iter().flatten().collect::<Vec<_>>().join(" · "),
-                                theme,
-                            )),
-                    )
-                    .child(h_flex().gap(px(8.)).px(px(6.)).children(
-                        tiles.into_iter().enumerate().map(|(ix, (label, n, tip))| {
-                            v_flex()
-                                .id(("overview-tile", ix))
-                                .flex_1()
-                                .min_w(px(0.))
-                                .px(px(12.))
-                                .py(px(10.))
-                                .gap(px(2.))
-                                .border_1()
-                                .border_color(theme.border_3)
-                                .rounded(px(8.))
-                                .tooltip(Tooltip::text(tip))
-                                .child(faint(label, theme).truncate())
-                                .child(
-                                    div()
-                                        .text_size(px(22.))
-                                        .font_weight(gpui::FontWeight::SEMIBOLD)
-                                        .child(n),
-                                )
-                        }),
+                    .child(overview_title(
+                        listed,
+                        scope.into_iter().flatten().collect::<Vec<_>>().join(" · "),
+                        theme,
                     ))
+                    .child(overview_tiles(tiles, theme))
                     .children(review_split(&summary, theme))
-                    .child(heading("Cooking", "commits a day", theme).mt(px(14.)))
+                    .child(overview_heading(
+                        "Cooking",
+                        faint("commits a day", theme),
+                        theme,
+                    ))
                     .when(cooking_lanes.is_empty(), |el| {
                         el.child(faint(nothing, theme).px(px(14.)).py(px(4.)))
                     })
                     .children(cooking_lanes)
                     .when(!quiet_lanes.is_empty(), |el| {
-                        el.child(heading("Gone quiet", "no commits for a week", theme).mt(px(14.)))
+                        el.child(overview_heading(
+                            "Gone quiet",
+                            faint("no commits for a week", theme),
+                            theme,
+                        ))
                     })
                     .children(quiet_lanes),
             )
@@ -419,9 +395,9 @@ fn lane_row(
                 .children(cells),
         )
         .child(
-            faint(lane.n.to_string(), theme)
+            faint(grouped(lane.n), theme)
                 .flex_none()
-                .w(px(26.))
+                .w(px(OVERVIEW_TIME_WIDTH))
                 .text_right(),
         )
         .on_click(cx.listener(move |this, _, window, cx| match &applied {
@@ -433,16 +409,6 @@ fn lane_row(
             None => this.select_other_branch(Some(ref_name.clone()), cx),
         }))
         .into_any_element()
-}
-
-/// A section's heading: `title`, and what its numbers count.
-fn heading(title: &'static str, detail: &'static str, theme: &Theme) -> gpui::Div {
-    h_flex()
-        .px(px(14.))
-        .pb(px(2.))
-        .gap(px(8.))
-        .child(section_label(title, theme).flex_grow(1.))
-        .child(faint(detail, theme))
 }
 
 #[cfg(test)]

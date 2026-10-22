@@ -509,6 +509,7 @@ impl AppView {
                     || detail.clear_file_picks(cx)
                     || detail.close_open_filter(window, cx)
                     || detail.close_opened_branch(cx)
+                    || detail.close_opened_target(cx)
             });
             if handled {
                 return cx.notify();
@@ -524,9 +525,9 @@ impl AppView {
         let store = self.store.read(cx);
         if store.cut.is_none()
             && store.picked.is_empty()
-            && self
-                .detail
-                .update(cx, |detail, cx| detail.close_opened_branch(cx))
+            && self.detail.update(cx, |detail, cx| {
+                detail.close_opened_branch(cx) || detail.close_opened_target(cx)
+            })
         {
             return cx.notify();
         }
