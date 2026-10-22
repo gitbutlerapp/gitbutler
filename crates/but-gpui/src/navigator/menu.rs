@@ -138,20 +138,32 @@ impl Navigator {
         items
     }
 
-    /// Commit… and discarding the changes the composer has checked, or all of them, for a
-    /// checkout with uncommitted changes; a `linked` worktree's discard asks first.
-    fn changes_items(&self, linked: bool, cx: &App) -> [MenuItem; 2] {
-        // Only the composer checks files; without it, discarding takes them all.
+    /// Commit… and discarding the changes the composer has checked, or all of them, for
+    /// `project`'s main checkout or its `linked` worktree with uncommitted changes; a linked
+    /// worktree's discard asks first.
+    fn changes_items(
+        &self,
+        project: &ProjectId,
+        linked: Option<std::sync::Arc<str>>,
+        cx: &App,
+    ) -> [MenuItem; 2] {
+        // Only the composer checks files, and only its own checkout's: without it, or for
+        // another checkout right-clicked while it's open, discarding takes them all.
         let detail = self.detail.read(cx);
-        let what = match detail.composing() {
-            true => "checked changes",
-            false => "all changes",
-        };
-        let count = detail.selected_changes(cx).len();
+        let checkout = (project.clone(), linked.clone());
+        let (what, count) =
+            match detail.composing() && detail.selected_checkout(cx).as_ref() == Some(&checkout) {
+                true => ("checked changes", detail.selected_changes(cx).len()),
+                false => {
+                    let files = (self.store.read(cx).workspace(project))
+                        .and_then(|ws| ws.uncommitted_in(linked.as_deref()));
+                    ("all changes", files.map_or(0, <[_]>::len))
+                }
+            };
         [
             MenuItem::action("Commit…", &StartCommit, cx).separated(),
             MenuItem::action(
-                crate::edits::discard_label(what, linked, count),
+                crate::edits::discard_label(what, linked.is_some(), count),
                 &DeleteSelection,
                 cx,
             )
@@ -314,7 +326,7 @@ impl Navigator {
                 {
                     return items;
                 }
-                items.extend(self.changes_items(false, cx));
+                items.extend(self.changes_items(project, None, cx));
                 items
             }
             Selection::Branch(project, ref_name) => {
@@ -535,7 +547,8 @@ impl Navigator {
                     .collect();
                 let (project, name) = (project.clone(), name.clone());
                 let (deleted_project, deleted) = (project.clone(), name.clone());
-                let changes = (!lost.is_empty()).then(|| self.changes_items(true, cx));
+                let linked = Some(name.clone());
+                let changes = (!lost.is_empty()).then(|| self.changes_items(&project, linked, cx));
                 let mut items = vec![
                     MenuItem::new("Reveal in Finder", move |_, _, cx| cx.reveal_path(&path)),
                     MenuItem::new("Copy path", move |this, _, cx| {
