@@ -479,19 +479,21 @@ impl Detail {
             return "No changes".into();
         };
         let workspace = store.workspace(selection.project());
-        let integrated = match selection {
+        let branches: Vec<_> = match selection {
             Selection::Commit(..) => return "This commit changes no files".into(),
             // A stack's branches all, as it has no branch of its own.
             Selection::Stack(_, bottom) => (workspace.and_then(|ws| ws.lane(bottom)))
-                .is_some_and(|lane| lane.iter().all(|b| b.push == PushState::Integrated)),
-            Selection::Branch(..) => {
-                (store.branch_for(selection)).is_some_and(|b| b.push == PushState::Integrated)
-            }
+                .map_or_else(Vec::new, |lane| lane.iter().collect()),
+            Selection::Branch(..) => store.branch_for(selection).into_iter().collect(),
             _ => return "No changes".into(),
         };
         let target =
             (workspace.and_then(|ws| ws.target.as_ref())).map_or("the target", |t| t.name.as_str());
-        match integrated {
+        // A conflicted commit's tree leaves out what it changes until it's resolved.
+        if (branches.iter()).any(|b| b.commits.iter().any(|commit| commit.conflicted)) {
+            return "Its conflicted commits show their changes once they're resolved".into();
+        }
+        match !branches.is_empty() && branches.iter().all(|b| b.push == PushState::Integrated) {
             true => format!(
                 "{target} already has these commits, so the branch changes nothing against it"
             ),
