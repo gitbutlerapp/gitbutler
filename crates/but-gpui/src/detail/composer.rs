@@ -416,7 +416,7 @@ impl Detail {
             let refused = if worktree.is_none() && workspace.editing.is_some() {
                 Some("Finish or cancel editing the commit first")
             } else if worktree.is_some() && self.effective_target(&project, cx).is_none() {
-                Some("Check out a branch in the worktree to commit")
+                Some("Check out a branch of its own in the worktree to commit")
             } else {
                 None
             };
@@ -630,7 +630,9 @@ impl Detail {
         let workspace = store.workspace(project)?;
         if let Some(name) = &self.checks_worktree {
             let branch = workspace.find_worktree(name)?.branch.as_ref()?;
-            return Some(format!("refs/heads/{branch}"));
+            let branch = format!("refs/heads/{branch}");
+            // Not the default branch, which a worktree can have checked out.
+            return (workspace.target_branch.as_ref() != Some(&branch)).then_some(branch);
         }
         // One of its own branches: a linked worktree's are committed to there.
         if let Some(target) = &self.commit_target
@@ -714,7 +716,9 @@ impl Detail {
                 move |path, _| {
                     let (branch, created) = match target {
                         Some(branch) => (branch, false),
-                        None if linked => anyhow::bail!("The worktree has no branch checked out"),
+                        None if linked => {
+                            anyhow::bail!("The worktree has no branch of its own checked out")
+                        }
                         None => (backend::create_branch(path, None)?, true),
                     };
                     let committed = backend::commit(

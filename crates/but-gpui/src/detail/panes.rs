@@ -405,7 +405,7 @@ impl Detail {
             let target = match (target.as_deref(), worktree) {
                 (Some(target), _) => format!("Commit to {}", short_ref(target)),
                 (None, None) => "Commit to a new branch".to_owned(),
-                (None, Some(_)) => "No branch checked out".to_owned(),
+                (None, Some(_)) => "No branch of its own checked out".to_owned(),
             };
             let open = button("open-composer", "Commit…")
                 .small()
