@@ -67,6 +67,7 @@ actions!(
         ToggleSplit,
         ToggleFiles,
         FilterFiles,
+        ToggleCheck,
     ]
 );
 
@@ -96,6 +97,14 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("shift-space", PageUp, c),
         KeyBinding::new("f", ToggleFiles, c),
         KeyBinding::new("/", FilterFiles, c),
+        // While committing, as a click on the checkbox does: space a file in the list, as in
+        // Lite, and x the hunk under the diff's cursor.
+        KeyBinding::new(
+            "space",
+            ToggleCheck,
+            Some("Files && Composing && !TextInput"),
+        ),
+        KeyBinding::new("x", ToggleCheck, c),
         // From the navigator too: they change how every diff shows. The app passes them on.
         KeyBinding::new(
             "alt-z",
@@ -1970,7 +1979,10 @@ impl Render for Detail {
                                     .track_focus(&self.files_focus)
                                     // A list page's list takes the arrows itself; ⇧↑, ⇧↓ and
                                     // ⌘A, which it has no use for, don't pick the diff's files.
-                                    .when(!list_page, |el| el.key_context("Files"))
+                                    .when(!list_page, |el| match self.composing {
+                                        true => el.key_context("Files Composing"),
+                                        false => el.key_context("Files"),
+                                    })
                                     .child(side)
                                     .child(resize_handle(Pane::Files, self.store.clone(), &theme)),
                             )
@@ -2052,6 +2064,9 @@ impl Render for Detail {
                 el.on_action(
                     cx.listener(|this, _: &AmendTop, window, cx| this.amend_top(window, cx)),
                 )
+                .on_action(cx.listener(|this, _: &ToggleCheck, window, cx| {
+                    this.toggle_cursor_check(window, cx)
+                }))
             })
             .size_full()
             .bg(theme.bg_1)
