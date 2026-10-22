@@ -5,55 +5,43 @@ use std::collections::BTreeMap;
 
 use bstr::{BStr, BString, ByteSlice as _};
 
-use super::{Trees, is_symlinked_parent_error, plan::Plan};
+use super::{
+    Trees,
+    plan::{Content, Plan},
+    transaction::Placed,
+};
 
 /// Fail if the index has content the user staged, which differs from `head` and isn't in the
-/// worktree (`baseline`) either, at a path whose index entry checkout replaces.
+/// worktree (`baseline`) either, that recording the checkout in the index would replace or drop.
 pub(super) fn staged_content(
     repo: &gix::Repository,
     trees: &Trees,
     plan: &Plan,
 ) -> anyhow::Result<()> {
     let index = repo.index_or_empty()?;
+    let mut recorded = index.clone().into_owned_or_cloned();
+    plan.edit(&mut recorded, &Placed::default());
     let lost = index
         .entries()
         .iter()
         .filter(|entry| {
             let path = entry.path(&index);
-            only_staged(trees, path, entry) && replaced(plan, path, entry)
+            only_staged(trees, path, entry) && !kept(&recorded, path, entry)
         })
         .map(|entry| format!("{:?}", entry.path(&index)))
         .collect();
     refuse_unless_empty(lost, "Staged changes would be overwritten by checkout")
 }
 
-/// Whether `entry` holds content found in neither `head` nor the worktree.
-fn only_staged(trees: &Trees, path: &BStr, entry: &gix::index::Entry) -> bool {
-    let same = |state: &gix::index::State| {
-        state
-            .entry_by_path(path)
-            .is_some_and(|other| other.id == entry.id && other.mode == entry.mode)
-    };
-    !same(&trees.head) && !same(&trees.baseline)
+/// Whether `recorded` still has `entry`'s content at `path`.
+fn kept(recorded: &gix::index::State, path: &BStr, entry: &gix::index::Entry) -> bool {
+    Content::at(recorded, path) == Some(Content::of(entry))
 }
 
-/// Whether checkout replaces `entry` at `path`: it records other content there, deletes it,
-/// records a conflict there, turns it into a directory, or writes a file in place of a
-/// directory leading to it.
-fn replaced(plan: &Plan, path: &BStr, entry: &gix::index::Entry) -> bool {
-    let rewritten = plan
-        .updated(path)
-        .is_some_and(|content| content.id != entry.id || content.mode != entry.mode);
-    let below_updated_file = path
-        .iter()
-        .enumerate()
-        .filter(|(_, byte)| **byte == b'/')
-        .any(|(at, _)| plan.updated(path[..at].as_bstr()).is_some());
-    rewritten
-        || plan.is_deleted(path)
-        || plan.is_conflicted(path)
-        || plan.updates_below(path)
-        || below_updated_file
+/// Whether `entry` holds content found in neither `head` nor the worktree.
+fn only_staged(trees: &Trees, path: &BStr, entry: &gix::index::Entry) -> bool {
+    let content = Some(Content::of(entry));
+    Content::at(&trees.head, path) != content && Content::at(&trees.baseline, path) != content
 }
 
 /// A filesystem object the commit moves aside to make room for the target.
@@ -133,7 +121,6 @@ fn clearances(mut removals: Vec<Removal>) -> Vec<Clearance> {
 struct Judge<'a> {
     repo: &'a gix::Repository,
     workdir: std::path::PathBuf,
-    path_check: gix::status::plumbing::SymlinkCheck,
     baseline: &'a gix::index::State,
     /// Baseline paths by their lowercase form, if the filesystem ignores case.
     baseline_folded: Option<BTreeMap<BString, BString>>,
@@ -155,7 +142,6 @@ impl<'a> Judge<'a> {
         let workdir = repo.workdir().expect("checked by the caller").to_owned();
         let fs = repo.filesystem_options()?;
         Ok(Judge {
-            path_check: gix::status::plumbing::SymlinkCheck::new(workdir.clone()),
             workdir,
             baseline_folded: fs.ignore_case.then(|| folded_paths(baseline)),
             excludes: repo.excludes(
@@ -175,22 +161,18 @@ impl<'a> Judge<'a> {
         })
     }
 
-    /// The object at the deleted `rela_path`. Like Git, a path behind a missing or symlinked
-    /// directory isn't in the worktree, and a directory, like a submodule's, only goes if empty.
-    fn deleted_object(&mut self, rela_path: &BStr) -> anyhow::Result<Option<Removal>> {
-        let md = match self.path_check.verified_path(rela_path) {
-            Ok(path) => path.symlink_metadata(),
-            Err(err) if is_not_in_worktree(&err) => return Ok(None),
-            Err(err) => return Err(err.into()),
-        };
-        let judged = match md {
-            Ok(md) if md.is_dir() && !is_empty_dir(&self.path(rela_path.as_ref())?)? => {
-                return Ok(None);
-            }
-            Ok(md) if md.is_dir() => Vec::new(),
-            Ok(_) => vec![rela_path.to_owned()],
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-            Err(err) => return Err(err.into()),
+    /// The object at the deleted `rela_path`. Like Git, a path behind a missing directory, or
+    /// a file or symlink where a directory should be, isn't in the worktree, and a directory, like a
+    /// submodule's, only goes if empty.
+    fn deleted_object(&self, rela_path: &BStr) -> anyhow::Result<Option<Removal>> {
+        if self.blocking_ancestor(rela_path)?.is_some() {
+            return Ok(None);
+        }
+        let judged = match self.metadata(rela_path)? {
+            Some(md) if md.is_dir() && !is_empty_dir(&self.path(rela_path)?)? => return Ok(None),
+            Some(md) if md.is_dir() => Vec::new(),
+            Some(_) => vec![rela_path.to_owned()],
+            None => return Ok(None),
         };
         Ok(Some(Removal {
             rela_path: rela_path.to_owned(),
@@ -380,11 +362,6 @@ fn type_or_mode_changed(
             .mode
             .change_to_match_fs(md, fs.symlink, fs.executable_bit)
             .is_some()
-}
-
-/// `SymlinkCheck` errors for paths that aren't in the worktree: missing or symlinked parents.
-fn is_not_in_worktree(err: &std::io::Error) -> bool {
-    err.kind() == std::io::ErrorKind::NotFound || is_symlinked_parent_error(err)
 }
 
 fn is_empty_dir(path: &std::path::Path) -> anyhow::Result<bool> {

@@ -68,12 +68,6 @@ impl Trees {
     }
 }
 
-/// `SymlinkCheck` reports a symlinked parent directory as its only validation error.
-fn is_symlinked_parent_error(err: &std::io::Error) -> bool {
-    err.get_ref()
-        .is_some_and(|source| gix::error::classify(source).is_validation())
-}
-
 #[cfg(all(test, unix))]
 mod tests {
     use gix::object::tree::EntryKind;

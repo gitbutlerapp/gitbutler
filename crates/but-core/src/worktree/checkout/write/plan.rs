@@ -16,14 +16,14 @@ pub(super) struct Content {
 }
 
 impl Content {
-    fn of(entry: &gix::index::Entry) -> Self {
+    pub fn of(entry: &gix::index::Entry) -> Self {
         Content {
             id: entry.id,
             mode: entry.mode,
         }
     }
 
-    fn at(state: &gix::index::State, path: &BStr) -> Option<Self> {
+    pub fn at(state: &gix::index::State, path: &BStr) -> Option<Self> {
         state.entry_by_path(path).map(Content::of)
     }
 
@@ -103,45 +103,21 @@ impl Plan {
             })
     }
 
-    /// The content the index records at `path` after checkout, if checkout updates it.
-    pub fn updated(&self, path: &BStr) -> Option<Content> {
-        match self.changes.get(path) {
-            Some(Change::Write(content)) => Some(*content),
-            Some(Change::Delete) => None,
-            None => self.records.get(path).copied(),
-        }
-    }
-
-    /// Whether checkout updates any path below the directory `dir`.
-    pub fn updates_below(&self, dir: &BStr) -> bool {
-        let mut prefix = dir.to_owned();
-        prefix.push(b'/');
-        let below = |path: &&BString| path.starts_with(&prefix);
-        let writes = self.changes.range(prefix.clone()..);
-        let records = self.records.range(prefix.clone()..);
-        writes
-            .take_while(|(path, _)| below(path))
-            .any(|(_, change)| matches!(change, Change::Write(_)))
-            || records.take_while(|(path, _)| below(path)).next().is_some()
-    }
-
-    pub fn is_deleted(&self, path: &BStr) -> bool {
-        matches!(self.changes.get(path), Some(Change::Delete))
-    }
-
-    pub fn is_conflicted(&self, path: &BStr) -> bool {
-        self.conflicts.iter().any(|conflict| conflict.path == path)
-    }
-
     /// Update `.git/index` to what checkout did, writing it once if anything changed.
     pub fn record_in_index(&self, repo: &gix::Repository, placed: &Placed) -> anyhow::Result<()> {
         let mut index = repo.index_or_empty()?.into_owned_or_cloned();
-        let mut edit = Edit::new(&mut index);
-        self.apply(&mut edit, placed);
-        if edit.finish() {
+        if self.edit(&mut index, placed) {
             index.write(Default::default())?;
         }
         Ok(())
+    }
+
+    /// Change `index` to what checkout records, with the stat of the files it `placed`, and
+    /// return `true` if it changed.
+    pub fn edit(&self, index: &mut gix::index::State, placed: &Placed) -> bool {
+        let mut edit = Edit::new(index);
+        self.apply(&mut edit, placed);
+        edit.finish()
     }
 
     fn apply(&self, edit: &mut Edit<'_>, placed: &Placed) {
