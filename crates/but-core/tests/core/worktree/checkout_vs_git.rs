@@ -51,6 +51,8 @@ enum Worktree {
     Symlink,
     /// A symlink to an existing directory, which checkout must not write through.
     SymlinkToDirectory,
+    /// The directory at the path moved elsewhere, and a symlink to it in its place.
+    DirectoryMovedBehindSymlink,
     DirectoryWithUntrackedFile,
     IgnoredFile,
     IgnoredDirectory,
@@ -69,13 +71,14 @@ const ENTRIES: [Entry; 6] = [
     Entry::Submodule,
 ];
 const INDEXES: [Index; 3] = [Index::LikeHead, Index::Staged, Index::StagedRemoval];
-const WORKTREES: [Worktree; 11] = [
+const WORKTREES: [Worktree; 12] = [
     Worktree::Clean,
     Worktree::Edited,
     Worktree::Deleted,
     Worktree::File,
     Worktree::Symlink,
     Worktree::SymlinkToDirectory,
+    Worktree::DirectoryMovedBehindSymlink,
     Worktree::DirectoryWithUntrackedFile,
     Worktree::IgnoredFile,
     Worktree::IgnoredDirectory,
@@ -182,9 +185,9 @@ fn put(entry: Entry, path: &str, content: &str, submodule: &str) -> String {
             format!("printf '{content}\\n' >{path} && chmod +x {path} && git add -A")
         }
         Entry::Symlink => format!("ln -s {content} {path} && git add -A"),
-        Entry::Directory => {
-            format!("mkdir {path} && printf '{content}\\n' >{path}/x && git add -A")
-        }
+        Entry::Directory => format!(
+            "mkdir {path} && printf '{content}\\n' >{path}/x && printf '{content}2\\n' >{path}/x2 && git add -A"
+        ),
         Entry::Submodule => format!(
             "git add -A && git update-index --add --cacheinfo 160000,$(cat ../{submodule}),{path} && mkdir -p {path}"
         ),
@@ -215,6 +218,9 @@ fn change_worktree(worktree: Worktree) -> &'static str {
         Worktree::File => "rm -rf p && printf 'w\\n' >p",
         Worktree::Symlink => "rm -rf p && ln -s w p",
         Worktree::SymlinkToDirectory => "rm -rf p && mkdir -p elsewhere && ln -s elsewhere p",
+        Worktree::DirectoryMovedBehindSymlink => {
+            "if [ -d p ] && [ ! -L p ]; then mv p elsewhere && ln -s elsewhere p; else touch ../impossible; fi"
+        }
         Worktree::DirectoryWithUntrackedFile => "rm -rf p && mkdir p && printf 'w\\n' >p/y",
         Worktree::IgnoredFile => {
             "if git ls-files --error-unmatch p >/dev/null 2>&1; then touch ../impossible; else rm -rf p && printf 'w\\n' >p && echo /p >>.git/info/exclude; fi"

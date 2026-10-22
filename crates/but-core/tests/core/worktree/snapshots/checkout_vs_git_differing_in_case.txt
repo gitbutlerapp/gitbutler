@@ -1,37 +1,47 @@
-74 cases: 63 like `git checkout`, 4 like `git checkout -m`, 7 different
+76 cases: 63 like `git checkout`, 4 like `git checkout -m`, 9 different
 
 HEAD File P, target Directory p, index LikeHead, worktree DirectoryWithUntrackedFile
   git:       refused, HEAD head, index [P Mode(FILE) "h"], disk [p/; p/y "w"]
-  git -m:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
-  GitButler: done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"; p/y "w"]
+  git -m:    done, HEAD target, index [p/x Mode(FILE) "m"; p/x2 Mode(FILE) "m2"], disk [p/; p/x "m"; p/x2 "m2"]
+  GitButler: done, HEAD target, index [p/x Mode(FILE) "m"; p/x2 Mode(FILE) "m2"], disk [p/; p/x "m"; p/x2 "m2"; p/y "w"]
 
 HEAD File P, target Directory p, index LikeHead, worktree IgnoredDirectory
   git:       refused, HEAD head, index [P Mode(FILE) "h"], disk [p/; p/y "w"]
-  git -m:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
-  GitButler: done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"; p/y "w"]
+  git -m:    done, HEAD target, index [p/x Mode(FILE) "m"; p/x2 Mode(FILE) "m2"], disk [p/; p/x "m"; p/x2 "m2"]
+  GitButler: done, HEAD target, index [p/x Mode(FILE) "m"; p/x2 Mode(FILE) "m2"], disk [p/; p/x "m"; p/x2 "m2"; p/y "w"]
 
 HEAD File P, target Directory p, index Staged, worktree DirectoryWithUntrackedFile
   git:       refused, HEAD head, index [P Mode(FILE) "h"], disk [p/; p/y "w"]
-  git -m:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
-  GitButler: done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"; p/y "w"]
+  git -m:    done, HEAD target, index [p/x Mode(FILE) "m"; p/x2 Mode(FILE) "m2"], disk [p/; p/x "m"; p/x2 "m2"]
+  GitButler: done, HEAD target, index [p/x Mode(FILE) "m"; p/x2 Mode(FILE) "m2"], disk [p/; p/x "m"; p/x2 "m2"; p/y "w"]
 
 HEAD File P, target Directory p, index Staged, worktree IgnoredDirectory
   git:       refused, HEAD head, index [P Mode(FILE) "h"], disk [p/; p/y "w"]
-  git -m:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
-  GitButler: done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"; p/y "w"]
+  git -m:    done, HEAD target, index [p/x Mode(FILE) "m"; p/x2 Mode(FILE) "m2"], disk [p/; p/x "m"; p/x2 "m2"]
+  GitButler: done, HEAD target, index [p/x Mode(FILE) "m"; p/x2 Mode(FILE) "m2"], disk [p/; p/x "m"; p/x2 "m2"; p/y "w"]
+
+HEAD Directory P, target File p, index LikeHead, worktree Clean
+  git:       done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+  git -m:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+  GitButler: refused, HEAD head, index [P/x Mode(FILE) "h"; P/x2 Mode(FILE) "h2"], disk [P/; P/x "h"; P/x2 "h2"]
+
+HEAD Directory P, target Directory p, index LikeHead, worktree Clean
+  git:       done, HEAD target, index [p/x Mode(FILE) "m"; p/x2 Mode(FILE) "m2"], disk [p/; p/x "m"; p/x2 "m2"]
+  git -m:    done, HEAD target, index [p/x Mode(FILE) "m"; p/x2 Mode(FILE) "m2"], disk [p/; p/x "m"; p/x2 "m2"]
+  GitButler: refused, HEAD head, index [P/x Mode(FILE) "h"; P/x2 Mode(FILE) "h2"], disk [P/; P/x "h"; P/x2 "h2"]
 
 HEAD Directory P, target Directory p, index Staged, worktree Deleted
-  git:       done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
-  git -m:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
-  GitButler: refused, HEAD head, index [P/x Mode(FILE) "h"; p Mode(FILE) "s"], disk []
+  git:       done, HEAD target, index [p/x Mode(FILE) "m"; p/x2 Mode(FILE) "m2"], disk [p/; p/x "m"; p/x2 "m2"]
+  git -m:    done, HEAD target, index [p/x Mode(FILE) "m"; p/x2 Mode(FILE) "m2"], disk [p/; p/x "m"; p/x2 "m2"]
+  GitButler: refused, HEAD head, index [P/x Mode(FILE) "h"; P/x2 Mode(FILE) "h2"; p Mode(FILE) "s"], disk []
 
 HEAD Directory P, target Directory p, index Staged, worktree DirectoryWithUntrackedFile
-  git:       done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"; p/y "w"]
-  git -m:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"; p/y "w"]
-  GitButler: refused, HEAD head, index [P/x Mode(FILE) "h"; p Mode(FILE) "s"], disk [p/; p/y "w"]
+  git:       done, HEAD target, index [p/x Mode(FILE) "m"; p/x2 Mode(FILE) "m2"], disk [p/; p/x "m"; p/x2 "m2"; p/y "w"]
+  git -m:    done, HEAD target, index [p/x Mode(FILE) "m"; p/x2 Mode(FILE) "m2"], disk [p/; p/x "m"; p/x2 "m2"; p/y "w"]
+  GitButler: refused, HEAD head, index [P/x Mode(FILE) "h"; P/x2 Mode(FILE) "h2"; p Mode(FILE) "s"], disk [p/; p/y "w"]
 
 HEAD Directory P, target Directory p, index Staged, worktree IgnoredDirectory
-  git:       done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"; p/y "w"]
-  git -m:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"; p/y "w"]
-  GitButler: refused, HEAD head, index [P/x Mode(FILE) "h"; p Mode(FILE) "s"], disk [p/; p/y "w"]
+  git:       done, HEAD target, index [p/x Mode(FILE) "m"; p/x2 Mode(FILE) "m2"], disk [p/; p/x "m"; p/x2 "m2"; p/y "w"]
+  git -m:    done, HEAD target, index [p/x Mode(FILE) "m"; p/x2 Mode(FILE) "m2"], disk [p/; p/x "m"; p/x2 "m2"; p/y "w"]
+  GitButler: refused, HEAD head, index [P/x Mode(FILE) "h"; P/x2 Mode(FILE) "h2"; p Mode(FILE) "s"], disk [p/; p/y "w"]
 
