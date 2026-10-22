@@ -1374,6 +1374,32 @@ mod tests {
     }
 
     #[test]
+    fn a_change_only_another_branch_can_take_makes_no_commit() {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        target_origin_main(path);
+        git(path, &["checkout", "-q", "-b", "first"]);
+        std::fs::write(path.join("file"), "first's\n").unwrap();
+        git(path, &["commit", "-q", "-am", "First's line"]);
+        create_branch(path, Some("second")).unwrap();
+        // Builds on the line only `first` has.
+        std::fs::write(path.join("file"), "first's, edited\n").unwrap();
+
+        let changes = vec![Selected::whole(&uncommitted(path)[0])];
+        let second = Destination::Branch("refs/heads/second".into());
+        let refused = commit(path, &second, &changes, None, "Edit", false).unwrap_err();
+        assert!(
+            format!("{refused:#}").contains("Nothing could be committed"),
+            "{refused:#}"
+        );
+        assert_eq!(
+            git(path, &["rev-parse", "second"]),
+            git(path, &["merge-base", "first", "second"]),
+            "no empty commit lands on the other branch"
+        );
+    }
+
+    #[test]
     fn a_new_branch_from_a_detached_head_is_refused() {
         let dir = repo_with("one\n");
         let path = dir.path();
