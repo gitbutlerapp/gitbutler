@@ -110,11 +110,23 @@ impl Store {
         // Nothing is news the first time a project shows up, and neither is what the
         // app's own operations created. A commit seen by one of its ids is seen by both, so
         // it stays seen when a rebase by Git changes its key, or a reword its message.
-        let before = self.rebaseline.get(id);
+        // Only those in the checkouts it made commits in: an agent's in another are news.
+        let before = self.rebaseline.get(id).map(|(before, checkouts)| {
+            let there: HashSet<&str> = (workspace.worktrees.iter())
+                .filter(|worktree| checkouts.contains(&Some(worktree.name.clone())))
+                .flat_map(|worktree| &worktree.branches)
+                .chain(workspace.branches().filter(|_| checkouts.contains(&None)))
+                .flat_map(|branch| &branch.commits)
+                .map(|commit| commit.key.as_str())
+                .collect();
+            (before, there)
+        });
         let now_seen: Vec<String> = (shown(workspace))
             .filter(|(_, [key, authored])| {
                 first_sight
-                    || before.is_some_and(|before| !before.contains(*key))
+                    || before.as_ref().is_some_and(|(before, there)| {
+                        !before.contains(*key) && there.contains(key)
+                    })
                     || was_seen(seen, [key, authored])
             })
             .flat_map(|(_, keys)| keys.map(str::to_owned))

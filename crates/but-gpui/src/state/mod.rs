@@ -275,9 +275,10 @@ pub struct Store {
     /// The commits each merge of a remote brought in, by the merge, as read when its commits
     /// were first shown, and whether it brought more than those; `None` while reading.
     pub merged: HashMap<CommitId, Option<(Vec<TargetCommit>, bool)>>,
-    /// The commits each project had before the app's last operation on it. Commits that
-    /// appear after it are the app's own doing, so they load as already seen.
-    rebaseline: HashMap<ProjectId, HashSet<String>>,
+    /// The commits each project had before the app's last operation on it, and the checkouts
+    /// it made commits in: see [`Overlay::checkouts`]. Commits that appear there after it are
+    /// the app's own doing, so they load as already seen.
+    rebaseline: HashMap<ProjectId, (HashSet<String>, mutation::Checkouts)>,
     save_task: Task<()>,
     save_queued: bool,
     _save_on_quit: Subscription,

@@ -14,7 +14,7 @@ use super::{Notice, ProjectId, Reload, Selection, Store, StoreEvent};
 use crate::backend::upstream::{UpdateConflicts, UpdateOutcome};
 use crate::backend::{
     self, Branch, Commit, CommitId, Destination, FileChange, HunkKey, Review, ReviewState,
-    Selected, SnapshotId, short_ref,
+    Selected, SnapshotId, Workspace, short_ref,
 };
 
 /// How long a mutation runs before the status bar says how long it's taking.
@@ -93,7 +93,34 @@ pub enum NewAt {
     Below(String),
 }
 
+/// Checkouts of a project: a linked worktree by name, the main one as `None`.
+pub(super) type Checkouts = HashSet<Option<Arc<str>>>;
+
 impl Overlay {
+    /// The checkouts it makes commits in: the one whose files it takes, the one its new commit
+    /// goes in, and those of the commits it changes. An agent's commits in another, made
+    /// meanwhile, aren't its own.
+    pub(super) fn checkouts(&self, ws: &Workspace) -> Checkouts {
+        let worktree_with = |has: &dyn Fn(&Branch) -> bool| {
+            (ws.worktrees.iter())
+                .find(|worktree| worktree.branches.iter().any(has))
+                .map(|worktree| worktree.name.clone())
+        };
+        let of_commit = |key: &str| worktree_with(&|b| b.commits.iter().any(|c| c.key == key));
+        let landing = (self.new_commit.iter()).map(|(at, _)| match at {
+            NewAt::Top(ref_name) => worktree_with(&|b| b.ref_name == *ref_name),
+            NewAt::Above(key) | NewAt::Below(key) => of_commit(key),
+        });
+        let changed = (self.commits.iter())
+            .chain(self.commit_files.keys())
+            .chain(self.commit_hunks.keys())
+            .chain(self.reworded.iter().map(|(key, _)| key))
+            .map(|key| of_commit(key));
+        (landing.chain(changed))
+            .chain([self.files_in.clone()])
+            .collect()
+    }
+
     pub fn push(ref_name: &str, publishes: bool) -> Self {
         Self {
             pushes: Some(ref_name.to_owned()),
@@ -935,14 +962,18 @@ impl Store {
         // While editing there are no commits to compare with afterwards; every commit would
         // count as the operation's own and lose its unread mark, as an agent's commit that
         // lands during a push would: one that only talks to the remote makes none.
-        let remote_only = (self.running.get(project)).is_some_and(|r| r.overlay.remote_only);
+        let running = self.running.get(project);
+        let remote_only = running.is_some_and(|r| r.overlay.remote_only);
         // Those only a remote has too, so pulling them keeps their read marks.
-        let before: Option<HashSet<String>> = (!editing && !remote_only).then(|| {
-            self.workspace(project).map_or_else(HashSet::new, |ws| {
+        let before = (!editing && !remote_only).then(|| {
+            let ws = self.workspace(project);
+            let keys = ws.map_or_else(HashSet::new, |ws| {
                 super::seen::shown(ws)
                     .map(|(_, [key, _])| key.to_owned())
                     .collect()
-            })
+            });
+            let checkouts = (running.zip(ws)).map(|(r, ws)| r.overlay.checkouts(ws));
+            (keys, checkouts.unwrap_or_default())
         });
         cx.notify();
         let project = project.clone();
