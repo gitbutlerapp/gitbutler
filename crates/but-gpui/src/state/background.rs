@@ -2,7 +2,7 @@
 //! and the pull requests and CI the forge has.
 
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
+use std::time::{Duration, SystemTime};
 
 use futures::{StreamExt as _, channel::mpsc};
 use gpui::{Context, Task};
@@ -37,10 +37,19 @@ impl Store {
                         // Only a fetch that worked says when it last fetched.
                         match fetched {
                             Ok(_) => {
-                                store.fetched.insert(project.clone(), Instant::now());
+                                store.fetched.insert(project.clone(), SystemTime::now());
                                 store.fetch_failed.remove(&project)
                             }
-                            Err(_) => store.fetch_failed.insert(project.clone(), Instant::now()),
+                            // Once may be the network not back yet, as just after the Mac
+                            // wakes, so the next check tries again; twice holds off a while.
+                            Err(_) => {
+                                let again = store.fetch_failed.contains_key(&project);
+                                let at = match again {
+                                    true => SystemTime::now(),
+                                    false => SystemTime::UNIX_EPOCH,
+                                };
+                                store.fetch_failed.insert(project.clone(), at)
+                            }
                         };
                         // What a fetch changes is in the git directory, which the watcher
                         // reloads for.
@@ -93,7 +102,7 @@ impl Store {
     }
 
     /// When the app last fetched `id`.
-    pub fn fetched_at(&self, id: &ProjectId) -> Option<Instant> {
+    pub fn fetched_at(&self, id: &ProjectId) -> Option<SystemTime> {
         self.fetched.get(id).copied()
     }
 
@@ -103,12 +112,12 @@ impl Store {
             .filter(|entry| entry.expanded && entry.workspace.is_some())
             .filter(|entry| {
                 const AFTER_FAILING: Duration = Duration::from_secs(30 * 60);
-                (self.fetch_failed.get(&entry.id)).is_none_or(|at| at.elapsed() >= AFTER_FAILING)
+                (self.fetch_failed.get(&entry.id)).is_none_or(|at| since(at) >= AFTER_FAILING)
             })
             .filter(|entry| {
                 self.fetched
                     .get(&entry.id)
-                    .is_none_or(|at| at.elapsed() >= interval)
+                    .is_none_or(|at| since(at) >= interval)
             })
             .map(|entry| (entry.id.clone(), entry.project.path.clone()))
             .collect()
@@ -232,4 +241,9 @@ impl Store {
             }
         })
     }
+}
+
+/// How long ago `at` was, by the wall clock; long ago when the clock was set back past it.
+fn since(at: &SystemTime) -> Duration {
+    at.elapsed().unwrap_or(Duration::MAX)
 }

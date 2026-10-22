@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use anyhow::{Context as _, Result, bail};
 use gpui::{Context, SharedString, Task};
@@ -442,7 +442,7 @@ impl Store {
             |path, _| backend::fetch(path),
             move |store, any_remote, cx| {
                 store.fetch_failed.remove(&fetched);
-                store.fetched.insert(fetched, Instant::now());
+                store.fetched.insert(fetched, SystemTime::now());
                 store.snack(
                     match any_remote {
                         true => "Fetched",

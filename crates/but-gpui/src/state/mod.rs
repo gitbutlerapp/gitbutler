@@ -4,7 +4,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, SystemTime};
 
 use futures::channel::mpsc;
 use gpui::{Context, EventEmitter, SharedString, Subscription, Task};
@@ -288,12 +288,13 @@ pub struct Store {
     changes: mpsc::UnboundedSender<Change>,
     _change_listener: Task<()>,
     _forge_poll: Task<()>,
-    /// When each project was last fetched, in the background or when asked.
-    fetched: HashMap<ProjectId, Instant>,
+    /// When each project was last fetched, in the background or when asked, by the wall
+    /// clock, which counts the time the Mac slept.
+    fetched: HashMap<ProjectId, SystemTime>,
     /// When each project's background fetch last failed, as on credentials the user turned
     /// down or being offline; it waits a while before asking again, unless a fetch the user
     /// asks for works.
-    fetch_failed: HashMap<ProjectId, Instant>,
+    fetch_failed: HashMap<ProjectId, SystemTime>,
     _auto_fetch: Task<()>,
     _update_check: Task<()>,
     forge_requests: mpsc::UnboundedSender<ProjectId>,

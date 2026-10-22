@@ -118,10 +118,9 @@ impl AppView {
             let summary = store.selection.as_ref().and_then(|selection| {
                 let entry = store.project(selection.project())?;
                 let target = entry.workspace.as_ref()?.target.as_ref()?;
-                let fetched = (store.fetched_at(&entry.id)).map(|at| {
-                    let at = crate::ui::now() - at.elapsed().as_secs() as i64;
-                    format!(" · fetched {}", crate::ui::ago(at))
-                });
+                let fetched = (store.fetched_at(&entry.id))
+                    .and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|at| format!(" · fetched {}", crate::ui::ago(at.as_secs() as i64)));
                 // A stack can be on an older target commit, as one just applied can.
                 let standing = match target.behind {
                     0 if target.needs_update => {
