@@ -167,7 +167,7 @@ impl Recency {
 /// The pull request choices, as the filter menu and the chip name them. Not only merged ones:
 /// the page is for what's under way, which the merged would read as a list of.
 const STATUSES: [(BranchStatus, &str); 6] = [
-    (BranchStatus::NotMerged, "Not merged"),
+    (BranchStatus::NotMerged, "In progress"),
     (BranchStatus::Open, "Open"),
     (BranchStatus::Draft, "Draft"),
     (BranchStatus::Closed, "Closed"),
@@ -1765,10 +1765,12 @@ fn shown_name(branch: &OtherBranch) -> &str {
 }
 
 /// Whether `status` keeps `branch`, by its pull request.
-fn status_keeps(status: BranchStatus, branch: &OtherBranch) -> bool {
+pub(super) fn status_keeps(status: BranchStatus, branch: &OtherBranch) -> bool {
     let state = branch.review.as_ref().map(|review| review.state);
     match status {
-        BranchStatus::NotMerged => state != Some(ReviewState::Merged),
+        BranchStatus::NotMerged => {
+            !matches!(state, Some(ReviewState::Merged | ReviewState::Closed))
+        }
         BranchStatus::Open => state == Some(ReviewState::Open),
         BranchStatus::Draft => state == Some(ReviewState::Draft),
         BranchStatus::Closed => state == Some(ReviewState::Closed),

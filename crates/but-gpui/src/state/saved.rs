@@ -257,7 +257,8 @@ pub enum WatchedOrder {
 /// Which branches the Branches page lists by their pull request.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BranchStatus {
-    /// Every one but those whose pull request merged. Only merged ones was a choice once.
+    /// Those under way: with an open or draft pull request, or none. Only merged ones was a
+    /// choice once.
     #[default]
     #[serde(alias = "Merged")]
     NotMerged,

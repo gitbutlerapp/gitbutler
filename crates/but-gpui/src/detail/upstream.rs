@@ -20,7 +20,7 @@ use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, Person, TargetComm
 
 const DAY: i64 = 24 * 60 * 60;
 use crate::backend::{self, CommitId, DiffSource, Forge};
-use crate::state::{ProjectId, Selection};
+use crate::state::{BranchStatus, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::emoji::ProjectIcon;
 use crate::ui::illustration::Illustration;
@@ -78,7 +78,7 @@ struct Summary {
     /// The day the first of `daily` counts, as [`upstream::day_of`] numbers days.
     first_day: i64,
     /// How many branches aren't applied, as the Branches page lists them at first: with
-    /// commits of their own, and no merged pull request.
+    /// commits of their own, and no merged or closed pull request.
     unapplied: Option<usize>,
 }
 
@@ -199,9 +199,10 @@ impl Detail {
                                     (branches.iter())
                                         .filter(|b| b.own_commits != Some(0))
                                         .filter(|b| {
-                                            (b.review.as_ref()).is_none_or(|r| {
-                                                r.state != backend::ReviewState::Merged
-                                            })
+                                            super::branches::status_keeps(
+                                                BranchStatus::NotMerged,
+                                                b,
+                                            )
                                         })
                                         .count()
                                 }),
@@ -1266,7 +1267,8 @@ impl Detail {
                     .id("unapplied-count")
                     .child(format!("{n} not applied"))
                     .tooltip(Tooltip::text(
-                        "Branches with commits of their own that aren't applied",
+                        "Branches in progress that aren't applied: with commits of their own, \
+                         and no merged or closed pull request",
                     ))
             }))
             .when(worktrees > 0, |el| {
