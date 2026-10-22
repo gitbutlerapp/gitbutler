@@ -726,6 +726,10 @@ pub fn failure_detail(err: &anyhow::Error) -> String {
              on in your global Git config. Check Sign commits in Project settings.\n{}",
             err.root_cause()
         ),
+        // As on a new machine, where the engine's own words name its code.
+        Some(but_error::Code::AuthorMissing) => "Git doesn't know your name and email yet. \
+            Set user.name and user.email with git config --global, then try again."
+            .to_owned(),
         // A precondition says what stopped it in the user's words; the context wrapped
         // around it names refs and hashes, which a short card fills up with.
         _ => match err.downcast_ref::<but_error::Context>() {
@@ -770,6 +774,12 @@ mod failure_tests {
             failure_detail(&err),
             "Uncommitted files would be overwritten by checkout: \"a.rs\"",
             "what the engine says stopped it, not the hashes of what it was doing"
+        );
+        let err = anyhow::anyhow!("No author is configured in Git")
+            .context(but_error::Code::AuthorMissing);
+        assert!(
+            failure_detail(&err).starts_with("Git doesn't know your name and email yet."),
+            "what to set, without the engine's code name"
         );
     }
 }
