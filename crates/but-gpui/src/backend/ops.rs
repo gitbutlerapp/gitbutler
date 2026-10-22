@@ -363,6 +363,7 @@ fn create_beside_checkout(
             Some(new_ref) => new_ref,
             None => but_core::branch::unique_canned_refname(&repo)?,
         };
+        but_core::branch::refuse_colliding_refname(&repo, new_ref.as_ref(), None)?;
         let target = ctx.project_meta()?.resolve_target_commit(&repo)?;
         let base = (repo.merge_base(repo.head_id()?, target)?)
             .with_context(|| format!("{} shares no history with the target", head.shorten()))?;
@@ -1503,6 +1504,8 @@ mod tests {
         for packed in [false, true] {
             if packed {
                 git(path, &["pack-refs", "--all"]);
+                // Without reflogs, a ref edit would write a clashing branch beside a packed one.
+                std::fs::remove_dir_all(path.join(".git/logs/refs/heads")).unwrap();
             }
             let before = refs(path);
             // `main` is where the new branch would start; the others clash with a branch's
