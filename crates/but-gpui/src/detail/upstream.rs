@@ -1334,6 +1334,8 @@ impl Detail {
         let upstream = self.upstream_for(project);
         let missing = !entry.project.path.exists();
         let fetch_error = upstream.and_then(|u| u.fetch.as_ref()?.1.clone());
+        let fetched = upstream.and_then(|u| u.fetch.as_ref()?.0);
+        let fetching = store.fetching(project);
         // Said in or outside the workspace, as the uncommitted changes say it.
         let unfinished = (entry.workspace.as_ref())
             .and_then(|ws| ws.git_operation)
@@ -1350,11 +1352,20 @@ impl Detail {
         };
         // Where it is and when it fetched head its page; here, what needs doing, if anything.
         let needs_doing: Vec<AnyElement> = [
+            // As a conflict is, a condition with its fix rather than an alarm: what Git said
+            // shows on hover, the column being narrow.
             fetch_error.map(|err| {
-                div()
-                    .text_color(theme.danger)
-                    .child(format!("The last fetch failed: {}", error_summary(&err)))
-                    .into_any_element()
+                let last = fetched.map(|at| format!(" It last fetched {}.", crate::ui::ago(at)));
+                let again = super::resolve::banner_action("fetch-again", "Try again", theme)
+                    .disabled_because(fetching.then_some("Fetching…"))
+                    .dispatch(&crate::app::Fetch);
+                super::resolve::warn_banner(
+                    "Couldn't fetch",
+                    format!("{}{}", git_said(&err), last.unwrap_or_default()),
+                    Some(again.into_any_element()),
+                    theme,
+                )
+                .into_any_element()
             }),
             upstream.and_then(|u| u.unconnected_forge).map(|forge| {
                 callout(theme.hover())
@@ -1915,6 +1926,29 @@ impl DayPick {
     fn keeps(&self, time: i64, today: i64) -> bool {
         self.days.is_empty() || self.days.contains(&upstream::day_of(time).min(today))
     }
+}
+
+/// What Git said, as sentences: its lines without `fatal:` or `error:`, each capitalised and
+/// ending in a full stop.
+fn git_said(err: &str) -> String {
+    (error_summary(err).lines())
+        .map(|line| {
+            line.trim_start_matches("fatal:")
+                .trim_start_matches("error:")
+                .trim()
+        })
+        .filter(|line| !line.is_empty())
+        .map(|line| {
+            let mut chars = line.chars();
+            let first = chars.next().map(|c| c.to_uppercase().to_string());
+            let mut said = first.unwrap_or_default() + chars.as_str();
+            if !said.ends_with(['.', '!', '?']) {
+                said.push('.');
+            }
+            said
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 #[cfg(test)]
