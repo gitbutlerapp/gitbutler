@@ -42,6 +42,9 @@ pub(super) struct Branches {
     /// leaves the list as it is. `None` until it has loaded.
     seen: u64,
     list: Vec<OtherBranch>,
+    /// The workspace's applied branches, which the list leaves to the navigator and the
+    /// overview counts too.
+    applied: Vec<OtherBranch>,
     /// The selected branch, by ref, whose diff shows; none while the overview does.
     selected: Option<String>,
     /// The selection is the caption of `selected`'s stack, which names its top branch: that
@@ -204,10 +207,10 @@ impl Detail {
         }
         let project = project.clone();
         self._branches_load = cx.spawn(async move |this, cx| {
-            let result = backend::run(move || branches::other_branches(&path)).await;
+            let result = backend::run(move || branches::all_branches(&path)).await;
             this.update(cx, |this, cx| {
-                let list = match result {
-                    Ok(list) => list,
+                let (applied, list): (Vec<_>, Vec<_>) = match result {
+                    Ok(all) => all.into_iter().partition(|b| b.applied),
                     // What's listed stays, to be read again on the next change.
                     Err(err) => {
                         return this.store.update(cx, |store, cx| {
@@ -245,6 +248,7 @@ impl Detail {
                     project,
                     seen,
                     list,
+                    applied,
                     selected,
                     stack,
                     open,
@@ -505,6 +509,17 @@ impl Detail {
 
     /// The branches the filters keep but `skip`, which is left out to count its choices.
     fn kept_branches(&self, branches: &Branches, skip: Option<Facet>, cx: &App) -> Vec<usize> {
+        self.kept_in(branches, &branches.list, skip, cx)
+    }
+
+    /// Those of `list`, the list's or the applied ones, the filters keep but `skip`.
+    fn kept_in(
+        &self,
+        branches: &Branches,
+        list: &[OtherBranch],
+        skip: Option<Facet>,
+        cx: &App,
+    ) -> Vec<usize> {
         let query = self.branch_filter.read(cx).text().trim().to_lowercase();
         let store = self.store.read(cx);
         let prefs = &store.prefs;
@@ -528,9 +543,7 @@ impl Detail {
                     || (branches.who.as_ref()).is_none_or(|who| branch.people.contains(who)))
                 && (skip == Some(Facet::Recency) || branches.recency.keeps(branch.time, today))
         };
-        (0..branches.list.len())
-            .filter(|ix| keeps(&branches.list[*ix]))
-            .collect()
+        (0..list.len()).filter(|ix| keeps(&list[*ix])).collect()
     }
 
     /// The people at work lately: whose branches the filters keep but the person, of those

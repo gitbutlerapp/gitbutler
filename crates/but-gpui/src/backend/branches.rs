@@ -18,6 +18,9 @@ pub struct OtherBranch {
     pub ref_name: String,
     pub name: String,
     pub local: bool,
+    /// The workspace has it applied: the Branches page lists only the others, and its
+    /// overview counts both.
+    pub applied: bool,
     /// Who its newest commit is shown by, as [`super::byline`] picks.
     pub author: Option<String>,
     /// Everyone its own commits are shown by, newest first, as `author` is.
@@ -53,22 +56,20 @@ pub struct OwnCommit {
     pub person: usize,
 }
 
-/// Every branch the workspace doesn't have applied, newest first, a stack's branches together
-/// from the top; not the target.
-pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
+/// Every branch but the target, newest first, a stack's branches together from the top, those
+/// the workspace has applied too.
+pub fn all_branches(path: &Path) -> Result<Vec<OtherBranch>> {
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
     Ok(but_api::branch::branch_list(&ctx)?
         .into_iter()
-        .filter(|stack| {
-            matches!(
-                stack.status,
-                ListedStackStatus::Unapplied | ListedStackStatus::Standalone
-            )
-        })
+        .filter(|stack| stack.status != ListedStackStatus::Target)
         .enumerate()
-        .flat_map(|(stack, listed)| listed.branches.into_iter().map(move |b| (stack, b)))
-        .map(|(stack, listed)| {
+        .flat_map(|(stack, listed)| {
+            let applied = listed.status == ListedStackStatus::Applied;
+            (listed.branches.into_iter()).map(move |b| (stack, applied, b))
+        })
+        .map(|(stack, applied, listed)| {
             let branch = listed.branch;
             let byline =
                 (repo.find_commit(branch.tip).ok()).and_then(|tip| super::commit_byline(&tip).ok());
@@ -80,6 +81,7 @@ pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
                 ref_name: branch.ref_name.to_string(),
                 name: branch.display_name.to_str_lossy().into_owned(),
                 local: branch.has_local,
+                applied,
                 people,
                 commits,
                 author,

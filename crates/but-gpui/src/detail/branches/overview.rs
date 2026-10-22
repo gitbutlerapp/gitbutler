@@ -13,7 +13,7 @@ use crate::backend::branches::OtherBranch;
 use crate::backend::upstream::{self, ACTIVITY_DAYS};
 use crate::detail::Detail;
 use crate::detail::upstream::noon;
-use crate::state::{BranchStatus, ProjectId};
+use crate::state::{BranchStatus, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::person::author_avatar;
 use crate::ui::{
@@ -28,8 +28,8 @@ const QUIET_SHOWN: usize = 5;
 const QUIET_DAYS: i64 = 7;
 
 /// A branch with commits on the days summed up.
-struct Lane {
-    ix: usize,
+struct Lane<'a> {
+    branch: &'a OtherBranch,
     /// Its commits on each of the activity's days, oldest first.
     daily: Vec<u32>,
     /// Its commits on the days summed up.
@@ -40,25 +40,24 @@ struct Lane {
     people: Vec<usize>,
 }
 
-struct Summary {
+struct Summary<'a> {
     commits: usize,
     /// How many people wrote them.
     people: usize,
     /// How many of the lanes' branches had their first commit on the days summed up.
     started: usize,
     /// Every branch with commits then, the busiest first.
-    lanes: Vec<Lane>,
+    lanes: Vec<Lane<'a>>,
 }
 
-/// The `kept` of `list` summed up on `days`, or the activity's last 30 up to `today` while
+/// The `kept` branches summed up on `days`, or the activity's last 30 up to `today` while
 /// none is picked, counting only `who`'s commits when there's someone.
-fn sum_up(
-    list: &[OtherBranch],
-    kept: &[usize],
+fn sum_up<'a>(
+    kept: &[&'a OtherBranch],
     who: Option<&str>,
     days: &BTreeSet<i64>,
     today: i64,
-) -> Summary {
+) -> Summary<'a> {
     let first_day = today - (ACTIVITY_DAYS as i64 - 1);
     let summed = |day: i64| match days.is_empty() {
         true => day >= first_day,
@@ -71,14 +70,13 @@ fn sum_up(
         lanes: Vec::new(),
     };
     let mut people = HashSet::new();
-    for &ix in kept {
-        let branch = &list[ix];
+    for &branch in kept {
         // Its tip changed last, and none of its commits was written after that.
         if (branch.time).is_some_and(|time| upstream::day_of(time) < first_day) {
             continue;
         }
         let mut lane = Lane {
-            ix,
+            branch,
             daily: vec![0; ACTIVITY_DAYS],
             n: 0,
             latest: i64::MIN,
@@ -134,9 +132,14 @@ impl Detail {
             return div().flex_1().into_any_element();
         };
         let today = upstream::day_of(crate::ui::now());
-        let kept = self.shown_branches(branches, cx);
+        // The applied ones too, as the filters keep them: they're cooking as much.
+        let listed = self.shown_branches(branches, cx).into_iter();
+        let applied = (self.kept_in(branches, &branches.applied, None, cx)).into_iter();
+        let kept: Vec<&OtherBranch> = (listed.map(|ix| &branches.list[ix]))
+            .chain(applied.map(|ix| &branches.applied[ix]))
+            .collect();
         let days = recent_days(branches, today);
-        let summary = sum_up(&branches.list, &kept, branches.who.as_deref(), &days, today);
+        let summary = sum_up(&kept, branches.who.as_deref(), &days, today);
         // What the list keeps, by its pull request, so it reads as work under way at rest.
         let listed = match self.store.read(cx).prefs.branches_status {
             BranchStatus::NotMerged => "In progress",
@@ -176,7 +179,7 @@ impl Detail {
         let quiet: Vec<_> = (summary.lanes.iter().skip(LANES))
             .filter(|lane| today - lane.latest >= QUIET_DAYS)
             .filter(|lane| {
-                let review = branches.list[lane.ix].review.as_ref();
+                let review = lane.branch.review.as_ref();
                 review.is_none_or(|r| matches!(r.state, ReviewState::Open | ReviewState::Draft))
             })
             .take(QUIET_SHOWN)
@@ -240,7 +243,7 @@ impl Detail {
                                 )
                         }),
                     ))
-                    .children(self.review_split(&summary, branches, theme))
+                    .children(self.review_split(&summary, theme))
                     .child(heading("Cooking", "commits a day", theme).mt(px(14.)))
                     .when(lanes.is_empty(), |el| {
                         el.child(faint(nothing, theme).px(px(14.)).py(px(4.)))
@@ -256,12 +259,7 @@ impl Detail {
 
     /// The moving branches by their pull request, as a bar of each kind's share over what
     /// each is and how many.
-    fn review_split(
-        &self,
-        summary: &Summary,
-        branches: &Branches,
-        theme: &Theme,
-    ) -> Option<AnyElement> {
+    fn review_split(&self, summary: &Summary, theme: &Theme) -> Option<AnyElement> {
         let kinds = [
             Some(ReviewState::Open),
             Some(ReviewState::Draft),
@@ -272,7 +270,7 @@ impl Detail {
         let split: Vec<(Icon, Hsla, String, usize)> = (kinds.into_iter())
             .map(|kind| {
                 let n = (summary.lanes.iter())
-                    .filter(|lane| branches.list[lane.ix].review.as_ref().map(|r| r.state) == kind)
+                    .filter(|lane| lane.branch.review.as_ref().map(|r| r.state) == kind)
                     .count();
                 let (glyph, color, said) = match kind {
                     Some(state) => {
@@ -343,7 +341,6 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let branch = &branches.list[lane.ix];
         let days = recent_days(branches, today);
         let first_day = today - (ACTIVITY_DAYS as i64 - 1);
         let cells = lane.daily.iter().enumerate().map(|(day_ix, &n)| {
@@ -367,7 +364,7 @@ impl Detail {
                 .bg(if dim { color.opacity(0.3) } else { color })
                 .tooltip(Tooltip::text(tip))
         });
-        branch_row(("cooking-lane", ix), branch, lane, branches, theme, cx)
+        branch_row(("cooking-lane", ix), lane, branches, theme, cx)
             .child(
                 h_flex()
                     .flex_none()
@@ -394,8 +391,7 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let branch = &branches.list[lane.ix];
-        branch_row(("quiet-branch", ix), branch, lane, branches, theme, cx)
+        branch_row(("quiet-branch", ix), lane, branches, theme, cx)
             .child(faint(plural(lane.n, "commit"), theme).flex_none())
             .child(
                 div()
@@ -410,41 +406,60 @@ impl Detail {
     }
 }
 
-/// A row naming `branch`, as the list does, with whose its commits are; clicking it opens it.
+/// A row naming a lane's branch, as the list does, with whose its commits are, and that it's
+/// applied when it is; clicking it opens it, an applied one in the navigator.
 fn branch_row(
     id: (&'static str, usize),
-    branch: &OtherBranch,
     lane: &Lane,
     branches: &Branches,
     theme: &Theme,
     cx: &Context<Detail>,
 ) -> gpui::Stateful<gpui::Div> {
+    let branch = lane.branch;
     let (glyph, color) = match &branch.review {
         Some(review) => review::state_glyph(review.state, theme),
         None => (Icon::Branch, theme.text_2),
     };
     let avatars = lane.people.iter().take(3).enumerate().map(|(at, person)| {
         let name = &branch.people[*person];
-        author_avatar(name, &email_of(&branches.list, name), 16., theme)
+        let email = Some(email_of(&branches.list, name))
+            .filter(|email| !email.is_empty())
+            .unwrap_or_else(|| email_of(&branches.applied, name));
+        author_avatar(name, &email, 16., theme)
             .flex_none()
             .when(at > 0, |el| el.ml(px(-4.)))
     });
     let ref_name = branch.ref_name.clone();
+    let applied =
+        (branch.applied).then(|| Selection::Branch(branches.project.clone(), ref_name.clone()));
     list_row(id, false, theme)
         .h_auto()
         .py(px(4.))
         .child(small_icon(glyph).text_color(color))
         .child(
-            div()
+            h_flex()
                 .flex_1()
                 .min_w(px(0.))
-                .truncate()
-                .child(title(branch).to_owned()),
+                .gap(px(6.))
+                .child(
+                    div()
+                        .min_w(px(0.))
+                        .truncate()
+                        .child(title(branch).to_owned()),
+                )
+                .when(branch.applied, |el| {
+                    el.child(faint("applied", theme).flex_none())
+                }),
         )
         .child(h_flex().flex_none().w(px(40.)).children(avatars))
-        .on_click(
-            cx.listener(move |this, _, _, cx| this.select_other_branch(Some(ref_name.clone()), cx)),
-        )
+        .on_click(cx.listener(move |this, _, window, cx| match &applied {
+            Some(selection) => {
+                (this.app)
+                    .update(cx, |app, cx| app.select(selection.clone(), window, cx))
+                    .ok();
+            }
+            None => this.select_other_branch(Some(ref_name.clone()), cx),
+        }))
 }
 
 /// The days the list's last activity reaches back over, up to `today`; none, which
@@ -488,6 +503,7 @@ mod tests {
             ref_name: format!("refs/heads/{name}"),
             name: name.to_owned(),
             local: true,
+            applied: false,
             author: None,
             people: people.iter().map(|p| p.to_string()).collect(),
             email: None,
@@ -510,15 +526,17 @@ mod tests {
             branch("b", &["Bob"], &[(10, 0), (12, 0)]),
             branch("c", &["Cat"], &[(50, 0)]),
         ];
-        let kept = [0, 1, 2];
-        let lanes = |summary: &super::Summary| -> Vec<(usize, usize)> {
-            summary.lanes.iter().map(|l| (l.ix, l.n)).collect()
+        let kept: Vec<&OtherBranch> = list.iter().collect();
+        let lanes = |summary: &super::Summary| -> Vec<(String, usize)> {
+            (summary.lanes.iter())
+                .map(|l| (l.branch.name.clone(), l.n))
+                .collect()
         };
 
-        let all = sum_up(&list, &kept, None, &BTreeSet::new(), TODAY);
+        let all = sum_up(&kept, None, &BTreeSet::new(), TODAY);
         assert_eq!(
             lanes(&all),
-            [(0, 3), (1, 2)],
+            [("a".into(), 3), ("b".into(), 2)],
             "the last 30 days' commits, the busiest first, and none of c's from before"
         );
         assert_eq!(
@@ -537,13 +555,21 @@ mod tests {
             "Ann's two commits, then Bob's one"
         );
 
-        let bob = sum_up(&list, &kept, Some("Bob"), &BTreeSet::new(), TODAY);
-        assert_eq!(lanes(&bob), [(1, 2), (0, 1)], "only Bob's commits count");
+        let bob = sum_up(&kept, Some("Bob"), &BTreeSet::new(), TODAY);
+        assert_eq!(
+            lanes(&bob),
+            [("b".into(), 2), ("a".into(), 1)],
+            "only Bob's commits count"
+        );
         assert_eq!(bob.lanes[1].latest, TODAY - 3, "his last on a, not Ann's");
 
         let two: BTreeSet<i64> = (TODAY - 1..=TODAY).collect();
-        let picked = sum_up(&list, &kept, None, &two, TODAY);
-        assert_eq!(lanes(&picked), [(0, 2)], "b had nothing on those two days");
+        let picked = sum_up(&kept, None, &two, TODAY);
+        assert_eq!(
+            lanes(&picked),
+            [("a".into(), 2)],
+            "b had nothing on those two days"
+        );
         assert_eq!(
             picked.lanes[0].daily.iter().sum::<u32>(),
             3,

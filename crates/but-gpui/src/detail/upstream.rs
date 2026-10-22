@@ -192,12 +192,12 @@ impl Detail {
                         .inspect_err(|err| tracing::warn!(?err, "couldn't sum up the target"))
                         .ok()
                         .map(|overview| Summary {
-                            unapplied: (backend::branches::other_branches(&path))
+                            unapplied: (backend::branches::all_branches(&path))
                                 .inspect_err(|err| tracing::warn!(?err, "couldn't count branches"))
                                 .ok()
                                 .map(|branches| {
                                     (branches.iter())
-                                        .filter(|b| b.own_commits != Some(0))
+                                        .filter(|b| !b.applied && b.own_commits != Some(0))
                                         .filter(|b| {
                                             super::branches::status_keeps(
                                                 BranchStatus::NotMerged,

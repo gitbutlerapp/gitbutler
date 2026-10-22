@@ -1520,7 +1520,7 @@ mod tests {
         }
         git(path, &["checkout", "-q", "main"]);
 
-        let listed = crate::backend::branches::other_branches(path).unwrap();
+        let listed = crate::backend::branches::all_branches(path).unwrap();
         let feature = listed.iter().find(|b| b.name == "feature").unwrap();
         assert_eq!(
             feature.people,
