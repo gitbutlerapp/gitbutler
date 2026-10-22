@@ -287,6 +287,12 @@ impl Navigator {
                         MenuItem::new("Reveal in Finder", move |_, _, cx| cx.reveal_path(&path)),
                     ]);
                 }
+                // The note saying why the project can't be read may name a command to run.
+                if let Some(error) = store.project(project).and_then(|p| p.error.clone()) {
+                    items.push(MenuItem::new("Copy error message", move |_, _, cx| {
+                        cx.write_to_clipboard(gpui::ClipboardItem::new_string(error.to_string()))
+                    }));
+                }
                 let settings_project = project.clone();
                 items.push(
                     MenuItem::new("Project settings…", move |this, window, cx| {
