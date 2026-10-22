@@ -949,6 +949,13 @@ impl Store {
         cx.spawn(async move |this, cx| {
             // Which oplog entry the operation recorded, if it did, for its Undo button.
             let result = backend::run(move || {
+                // Left by a Git that crashed or was killed, as an agent's can be, the lock
+                // stops an operation partway, after it has written files.
+                anyhow::ensure!(
+                    remote_only || !path.join(".git/index.lock").exists(),
+                    "Another Git process is using the repository, or one that stopped left \
+                     .git/index.lock behind. Delete it if no Git command is running."
+                );
                 let before = backend::history::oplog_head(&path);
                 let heads = backend::worktrees::heads(&path);
                 let value = op(&path, &remap)?;

@@ -78,7 +78,7 @@ Changes to commits, branches and the main checkout's files undo with ⌘Z, and t
 
 With no projects yet, the window says what the app is for and offers to add or clone a repository. File → Clone Repository… asks for a URL and a folder, clones it there and adds it. A project whose folder moved stays listed and says so, with Remove. A project with no target branch offers to pick one from its remote branches.
 
-The Help menu links the docs, the release notes and where to report an issue, shows the folder GitButler keeps its settings in, and opens the command palette as the list of shortcuts. When a commit or amend has to leave changes out, the error says why for each, in plain words.
+The Help menu links the docs, the release notes and where to report an issue, shows the folder GitButler keeps its settings in, and opens the command palette as the list of shortcuts. When a commit or amend has to leave changes out, the error says why for each, in plain words. While Git's index is locked, as by a Git that crashed and left `.git/index.lock` behind, operations that change files refuse up front, saying so, rather than stop partway; fetching and pushing still run.
 
 | Anywhere | |
 |---|---|
