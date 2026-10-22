@@ -724,7 +724,7 @@ pub fn failure_detail(err: &anyhow::Error) -> String {
         Some(but_error::Code::CommitSigningFailed) => format!(
             "Signing it failed, which turns commit signing off for this project unless it's \
              on in your global Git config. Check Sign commits in Project settings.\n{}",
-            err.root_cause()
+            signing_failure(err)
         ),
         // As on a new machine, where the engine's own words name its code.
         Some(but_error::Code::AuthorMissing) => "Git doesn't know your name and email yet. \
@@ -736,6 +736,37 @@ pub fn failure_detail(err: &anyhow::Error) -> String {
             Some(said) if said.code == but_error::Code::PreconditionFailed => said.to_string(),
             _ => format!("{err:#}"),
         },
+    }
+}
+
+/// Why signing failed, in the signing program's own last words, as gpg's "signing failed: No
+/// secret key", rather than how it was run, which a card cuts off before them; or which
+/// program couldn't be run.
+fn signing_failure(err: &anyhow::Error) -> String {
+    let values = err
+        .downcast_ref::<gix::Error>()
+        .map(gix::Error::metadata_merged);
+    let value = |key: &str| match values.as_ref()?.get(key)? {
+        gix::error::MetadataValue::Bytes(bytes) => {
+            Some(String::from_utf8_lossy(bytes).into_owned())
+        }
+        gix::error::MetadataValue::Path(path) => Some(path.display().to_string()),
+        other => Some(other.to_string()),
+    };
+    // gpg reports its status on the same stream, in lines of its own.
+    let said = value("stderr").and_then(|said| {
+        (said.lines().map(str::trim))
+            .rfind(|l| !l.is_empty() && !l.starts_with("[GNUPG:]"))
+            .map(str::to_owned)
+    });
+    // With no exit code, it never ran.
+    match (
+        said,
+        value("program").filter(|_| value("exit_code").is_none()),
+    ) {
+        (Some(said), _) => said,
+        (None, Some(program)) => format!("Couldn't run {program}: {}", err.root_cause()),
+        (None, None) => err.root_cause().to_string(),
     }
 }
 
@@ -764,6 +795,23 @@ mod failure_tests {
         assert!(
             failure_detail(&err).contains("turns commit signing off"),
             "the engine turned signing off, which the next commit would otherwise not show"
+        );
+        use gix::error::ErrorExt as _;
+        let refused = gix::error::message("Signing program failed")
+            .with_program("/usr/local/bin/gpg")
+            .with(
+                "stderr",
+                b"gpg: skipped \"ABC\": No secret key\n[GNUPG:] INV_SGNR 9 ABC\n\
+                  gpg: signing failed: No secret key\n[GNUPG:] FAILURE sign 17\n"
+                    .to_vec(),
+            )
+            .raise();
+        let err = anyhow::Error::from(refused)
+            .context("Failed to sign commit")
+            .context(but_error::Code::CommitSigningFailed);
+        assert!(
+            failure_detail(&err).ends_with("\ngpg: signing failed: No secret key"),
+            "gpg's own last line says why, not how it was run, nor its status lines"
         );
         let err = anyhow::anyhow!(
             but_error::Context::new("Uncommitted files would be overwritten by checkout: \"a.rs\"")
