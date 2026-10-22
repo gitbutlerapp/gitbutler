@@ -1334,31 +1334,22 @@ fn checkout_refuses_to_overwrite_an_edit_hidden_from_the_stat_of_a_racy_entry() 
 
 #[test]
 #[cfg(unix)]
-fn checkout_refuses_to_overwrite_a_file_reverted_after_the_snapshot() -> anyhow::Result<()> {
-    // Resetting `a` after the snapshot, with its stat recorded outside the racy window, leaves an
-    // entry that matches the disk and HEAD, but not the snapshot's staged `a`.
-    let (repo, _tmp) = repo_with_meddling_filter(
-        "one\n",
-        "git checkout HEAD -- a && touch -t 200101010000 a && git update-index -q --refresh",
-    )?;
-    // Staged, so the snapshot takes `a` from the index instead of reading the file, whatever
-    // order it hashes files in.
+fn checkout_keeps_the_index_locked_while_it_runs() -> anyhow::Result<()> {
+    // Another Git process tries to discard the staged edit to `a` while checkout snapshots the
+    // worktree, like a user running `git checkout -- a` in a terminal.
+    let (repo, _tmp) = repo_with_meddling_filter("one\n", "git checkout HEAD -- a")?;
     std::fs::write(repo.workdir_path("a").unwrap(), "one\nuncommitted\n")?;
     git(&repo).args(["add", "a"]).run();
-    let head = repo.head_id()?.detach();
     let new_commit = commit_files(&repo, "change a", &[("a", Some("zero\none\n"))])?;
 
-    let err = safe_checkout_from_head(new_commit, &repo, Default::default())
-        .expect_err("the merge used the snapshot's `a`, which the reset discarded");
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
 
-    snapbox::assert_data_eq!(
-        err.to_string(),
-        snapbox::str!["Uncommitted files would be overwritten by checkout: \"a\""]
-    );
-    assert_eq!(repo.head_id()?.detach(), head, "HEAD stays");
+    assert_eq!(repo.head_id()?, new_commit);
     assert_eq!(
         std::fs::read_to_string(repo.workdir_path("a").unwrap())?,
-        "one\n"
+        "zero\none\nuncommitted\n",
+        "like Git, checkout holds the index lock throughout, so the other process can't change \
+         `a` and the staged edit is merged with the target"
     );
     Ok(())
 }
@@ -2067,6 +2058,89 @@ fn checkout_replaces_a_file_where_a_submodule_needs_a_directory_like_git() -> an
     assert!(
         repo.workdir_path("a/sm").unwrap().is_dir(),
         "like Git, the file `a` makes way for the directory holding the submodule"
+    );
+    Ok(())
+}
+
+#[test]
+fn checkout_after_a_commit_changes_nothing_when_it_refuses() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    commit_in_worktree(&repo, &[("a", "one\n"), ("b", "one\n")])?;
+    let workdir = repo.workdir().expect("non-bare");
+    std::fs::write(workdir.join("a"), "mine\n")?;
+    std::fs::write(workdir.join("b"), "two\n")?;
+    // `b` was committed, as the override says, while the target changes `a` like the worktree
+    // doesn't, so the merge conflicts.
+    let consumed = repo
+        .find_commit(commit_files(&repo, "commit b", &[("b", Some("two\n"))])?)?
+        .tree_id()?
+        .detach();
+    let new_commit = commit_files(
+        &repo,
+        "commit b and change a",
+        &[("a", Some("theirs\n")), ("b", Some("two\n"))],
+    )?;
+    let before = repo_state(&repo)?;
+
+    safe_checkout_from_head(
+        new_commit,
+        &repo,
+        checkout::Options {
+            merge_base_override: Some(consumed),
+            ..Default::default()
+        },
+    )
+    .expect_err("the edit to `a` conflicts with the target");
+
+    assert_eq!(
+        repo_state(&repo)?,
+        before,
+        "HEAD, the index and every file stay as they were"
+    );
+    Ok(())
+}
+
+#[test]
+fn checkout_after_a_commit_changes_nothing_when_a_required_smudge_filter_fails()
+-> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("required-filter-binary-git-form");
+    commit_in_worktree(&repo, &[("plain", "one\n")])?;
+    std::fs::write(repo.workdir_path("plain").unwrap(), "two\n")?;
+    let consumed = repo
+        .find_commit(commit_files(
+            &repo,
+            "commit plain",
+            &[("plain", Some("two\n"))],
+        )?)?
+        .tree_id()?
+        .detach();
+    let new_commit = commit_files(
+        &repo,
+        "commit plain and change a filtered file",
+        &[
+            ("plain", Some("two\n")),
+            ("a.secret", Some("SECRET\0yvar1\npunatrq\nyvar3\n")),
+        ],
+    )?;
+    git(&repo)
+        .args(["config", "filter.secret.smudge", "false"])
+        .run();
+    let before = repo_state(&repo)?;
+
+    safe_checkout_from_head(
+        new_commit,
+        &repo,
+        checkout::Options {
+            merge_base_override: Some(consumed),
+            ..Default::default()
+        },
+    )
+    .expect_err("the required smudge filter fails");
+
+    assert_eq!(
+        repo_state(&repo)?,
+        before,
+        "HEAD, the index and every file stay as they were"
     );
     Ok(())
 }

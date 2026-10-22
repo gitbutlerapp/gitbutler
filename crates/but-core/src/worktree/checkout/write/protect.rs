@@ -14,21 +14,20 @@ use super::{
 /// Fail if the index has content the user staged, which differs from `head` and isn't in the
 /// worktree (`baseline`) either, that recording the checkout in the index would replace or drop.
 pub(super) fn staged_content(
-    repo: &gix::Repository,
+    index: &gix::index::State,
     trees: &Trees,
     plan: &Plan,
 ) -> anyhow::Result<()> {
-    let index = repo.index_or_empty()?;
-    let mut recorded = index.clone().into_owned_or_cloned();
+    let mut recorded = index.clone();
     plan.edit(&mut recorded, &Placed::default());
     let lost = index
         .entries()
         .iter()
         .filter(|entry| {
-            let path = entry.path(&index);
+            let path = entry.path(index);
             only_staged(trees, path, entry) && !kept(&recorded, path, entry)
         })
-        .map(|entry| format!("{:?}", entry.path(&index)))
+        .map(|entry| format!("{:?}", entry.path(index)))
         .collect();
     refuse_unless_empty(lost, "Staged changes would be overwritten by checkout")
 }
@@ -263,7 +262,7 @@ impl<'a> Judge<'a> {
     ) -> anyhow::Result<Verdict> {
         let same = expected.mode == gix::index::entry::Mode::COMMIT
             || (!type_or_mode_changed(expected, md, &self.fs)
-                && (self.unchanged_since_indexed(rela_path, expected, md)
+                && (self.unchanged_since_indexed(rela_path, md)
                     || self.content_matches(rela_path, expected, md)?));
         Ok(match same {
             true => Verdict::Snapshotted,
@@ -286,19 +285,14 @@ impl<'a> Judge<'a> {
         Some((path, entry))
     }
 
-    /// Whether the index entry at `rela_path` has `expected`'s id and a stat that still
-    /// matches the file, so the file can't have changed since it was hashed.
-    fn unchanged_since_indexed(
-        &self,
-        rela_path: &BStr,
-        expected: &gix::index::Entry,
-        md: &gix::index::fs::Metadata,
-    ) -> bool {
+    /// Whether the index entry at `rela_path` has a stat that still matches the file, so the
+    /// file can't have changed since it was hashed. The snapshot took such a file's id from the
+    /// index, which checkout keeps locked, so the file is the snapshot's.
+    fn unchanged_since_indexed(&self, rela_path: &BStr, md: &gix::index::fs::Metadata) -> bool {
         self.index.entry_by_path(rela_path).is_some_and(|entry| {
-            entry.id == expected.id
-                && !entry
-                    .stat
-                    .is_racy(self.index.timestamp(), self.stat_options)
+            !entry
+                .stat
+                .is_racy(self.index.timestamp(), self.stat_options)
                 && gix::index::entry::Stat::from_fs(md)
                     .is_ok_and(|on_disk| entry.stat.matches(&on_disk, self.stat_options))
         })

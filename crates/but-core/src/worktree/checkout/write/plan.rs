@@ -60,19 +60,15 @@ pub(super) struct Plan {
 }
 
 impl Plan {
-    pub fn new(
-        repo: &gix::Repository,
-        trees: &Trees,
-        conflicts: Conflicts<'_>,
-    ) -> anyhow::Result<Self> {
-        let index = repo.index_or_empty()?;
+    /// Plan the checkout of `trees` over an index that has `index`'s entries.
+    pub fn new(index: &gix::index::State, trees: &Trees, conflicts: Conflicts<'_>) -> Self {
         let changes = changes(&trees.baseline, &trees.target);
-        Ok(Plan {
-            records: already_in_worktree(trees, &index, &changes),
-            removals: deleted_by_new_head(trees, &index),
+        Plan {
+            records: already_in_worktree(trees, index, &changes),
+            removals: deleted_by_new_head(trees, index),
             conflicts: conflict_stages(conflicts),
             changes,
-        })
+        }
     }
 
     /// The paths checkout writes, with their content.
@@ -101,21 +97,6 @@ impl Plan {
                 Change::Delete => Some(path.as_ref()),
                 Change::Write(_) => None,
             })
-    }
-
-    /// Update `.git/index` to what checkout did, writing it through `index_lock`.
-    pub fn record_in_index(
-        &self,
-        repo: &gix::Repository,
-        placed: &Placed,
-        index_lock: gix::lock::File,
-    ) -> anyhow::Result<()> {
-        let mut index = repo.index_or_empty()?.into_owned_or_cloned();
-        self.edit(&mut index, placed);
-        let mut out = std::io::BufWriter::new(index_lock);
-        index.write_to(&mut out, Default::default())?;
-        out.into_inner().map_err(|err| err.into_error())?.commit()?;
-        Ok(())
     }
 
     /// Change `index` to what checkout records, with the stat of the files it `placed`, and

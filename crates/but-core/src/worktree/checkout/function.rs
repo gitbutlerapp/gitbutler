@@ -48,105 +48,29 @@ pub fn safe_checkout_from_head(
     let git2_repo = but_oxidize::open_git2_repo(repo.git_dir())?;
     let head_tree_id = repo.head_tree_id_or_empty()?;
     let head_tree = git2_repo.find_tree(head_tree_id.to_git2())?;
-    let old_tree = if let Some(id) = merge_base_override {
-        let mut opts = git2::DiffOptions::new();
-        opts.context_lines(1);
-        // Also write the index.
-        let tree = git2_repo.find_object(id.to_git2(), None)?.peel_to_tree()?;
-        let diff = git2_repo.diff_tree_to_tree(Some(&head_tree), Some(&tree), Some(&mut opts))?;
-        if git2_repo
-            .apply(&diff, git2::ApplyLocation::Index, None)
-            .is_err()
-        {
-            // Just overwrite the index.
-            let mut index = git2_repo.index()?;
-            index.read_tree(&tree)?;
-            index.write()?;
-        }
-        tree
-    } else {
-        head_tree
+    let old_tree = match merge_base_override {
+        Some(id) => git2_repo.find_object(id.to_git2(), None)?.peel_to_tree()?,
+        None => git2_repo.find_tree(head_tree_id.to_git2())?,
     };
-
     let new_tree = git2_repo
         .find_object(new_head_id.to_git2(), None)?
         .peel_to_tree()?;
     let mut conflict_occurred = false;
-    if old_tree.id() != new_tree.id() {
-        // Reopen to ensure that there is no "object memory" (i.e. all object
-        // writes actually happen on disk).
-        let mut repo = gix::open(repo.git_dir())?;
-        // Like Git, don't write over an unresolved conflict, as the write would replace its stages.
-        let index = repo.index_or_empty()?;
-        let mut conflicted: Vec<_> = index
-            .entries()
-            .iter()
-            .filter(|entry| entry.stage() != gix::index::entry::Stage::Unconflicted)
-            .map(|entry| format!("{:?}", entry.path(&index)))
-            .collect();
-        if !conflicted.is_empty() {
-            conflicted.dedup();
-            bail_precondition!(
-                "Unresolved conflicts in the index must be resolved before checkout: {}",
-                conflicted.join(", ")
-            );
+    if merge_base_override.is_some() || old_tree.id() != new_tree.id() {
+        let mut index = write::LockedIndex::acquire(repo)?;
+        if merge_base_override.is_some() {
+            index.entries = index_with_changes_applied(&git2_repo, repo, &head_tree, &old_tree)?;
         }
-        drop(index);
-        #[allow(deprecated)]
-        let wd_tree_id = repo.create_wd_tree(u64::MAX)?;
-        repo.config_snapshot_mut()
-            .set_value(&gix::config::tree::Merge::RENORMALIZE, "true")?;
-        let mut outcome = repo.merge_trees(
-            old_tree.id().to_gix(),
-            wd_tree_id,
-            new_tree.id().to_gix(),
-            repo.default_merge_labels(),
-            repo.tree_merge_options()?.with_rewrites(None),
-        )?;
-        let checkout_target_id = outcome.tree.write()?.detach();
-
-        let unresolved = TreatAsUnresolved::git();
-        if outcome.has_unresolved_conflicts(unresolved) {
-            conflict_occurred = true;
-            if allow_uncommitted_changes_to_conflict_with_new_head {
-                for conflict in outcome.conflicts.iter() {
-                    if !conflict.is_unresolved(unresolved) {
-                        continue;
-                    }
-                    let [base, ours, theirs] = conflict.entries();
-                    if base.is_some_and(|c| c.mode.is_tree())
-                        || ours.is_some_and(|c| c.mode.is_tree())
-                        || theirs.is_some_and(|c| c.mode.is_tree())
-                    {
-                        bail_precondition!(
-                            "Cannot checkout file-directory conflict: {}",
-                            conflict.ours.location()
-                        );
-                    }
-                }
-            } else {
-                let mut paths = outcome
-                    .conflicts
-                    .iter()
-                    .filter(|c| c.is_unresolved(unresolved))
-                    .map(|c| format!("{:?}", c.ours.location()))
-                    .collect::<Vec<_>>();
-                paths.sort();
-                paths.dedup();
-                bail_precondition!(
-                    "Uncommitted files would be overwritten by checkout: {}",
-                    paths.join(", ")
-                );
-            }
+        if old_tree.id() == new_tree.id() {
+            index.write()?;
+        } else {
+            conflict_occurred = write_merged_worktree(
+                repo,
+                [old_tree.id().to_gix(), new_tree.id().to_gix()],
+                index,
+                allow_uncommitted_changes_to_conflict_with_new_head,
+            )?;
         }
-
-        let trees = write::Trees::new(
-            &repo,
-            old_tree.id().to_gix(),
-            new_tree.id().to_gix(),
-            [wd_tree_id, checkout_target_id],
-        )?;
-        write::write_to_worktree(&repo, trees, conflict_occurred.then_some(&outcome))?;
     }
 
     let mut head_update = None;
@@ -174,4 +98,118 @@ pub fn safe_checkout_from_head(
         head_update,
         conflict_occurred,
     })
+}
+
+/// Merge the worktree into the change from `old_tree` to `new_tree`, and write the result to the
+/// worktree and `index`. Return `true` if conflicts were written, which `allow_conflicts` permits.
+fn write_merged_worktree(
+    repo: &gix::Repository,
+    [old_tree, new_tree]: [gix::ObjectId; 2],
+    index: write::LockedIndex,
+    allow_conflicts: bool,
+) -> anyhow::Result<bool> {
+    // Reopen to ensure that there is no "object memory" (i.e. all object
+    // writes actually happen on disk).
+    let mut repo = gix::open(repo.git_dir())?;
+    // Like Git, don't write over an unresolved conflict, as the write would replace its stages.
+    let mut conflicted: Vec<_> = index
+        .entries
+        .entries()
+        .iter()
+        .filter(|entry| entry.stage() != gix::index::entry::Stage::Unconflicted)
+        .map(|entry| format!("{:?}", entry.path(&index.entries)))
+        .collect();
+    if !conflicted.is_empty() {
+        conflicted.dedup();
+        bail_precondition!(
+            "Unresolved conflicts in the index must be resolved before checkout: {}",
+            conflicted.join(", ")
+        );
+    }
+    #[allow(deprecated)]
+    let wd_tree_id = repo.create_wd_tree(u64::MAX)?;
+    repo.config_snapshot_mut()
+        .set_value(&gix::config::tree::Merge::RENORMALIZE, "true")?;
+    let mut outcome = repo.merge_trees(
+        old_tree,
+        wd_tree_id,
+        new_tree,
+        repo.default_merge_labels(),
+        repo.tree_merge_options()?.with_rewrites(None),
+    )?;
+    let checkout_target_id = outcome.tree.write()?.detach();
+
+    let unresolved = TreatAsUnresolved::git();
+    if outcome.has_unresolved_conflicts(unresolved) {
+        if allow_conflicts {
+            for conflict in outcome.conflicts.iter() {
+                if !conflict.is_unresolved(unresolved) {
+                    continue;
+                }
+                let [base, ours, theirs] = conflict.entries();
+                if base.is_some_and(|c| c.mode.is_tree())
+                    || ours.is_some_and(|c| c.mode.is_tree())
+                    || theirs.is_some_and(|c| c.mode.is_tree())
+                {
+                    bail_precondition!(
+                        "Cannot checkout file-directory conflict: {}",
+                        conflict.ours.location()
+                    );
+                }
+            }
+        } else {
+            let mut paths = outcome
+                .conflicts
+                .iter()
+                .filter(|c| c.is_unresolved(unresolved))
+                .map(|c| format!("{:?}", c.ours.location()))
+                .collect::<Vec<_>>();
+            paths.sort();
+            paths.dedup();
+            bail_precondition!(
+                "Uncommitted files would be overwritten by checkout: {}",
+                paths.join(", ")
+            );
+        }
+    }
+
+    let conflict_occurred = outcome.has_unresolved_conflicts(unresolved);
+    let trees = write::Trees::new(&repo, old_tree, new_tree, [wd_tree_id, checkout_target_id])?;
+    write::write_to_worktree(&repo, trees, conflict_occurred.then_some(&outcome), index)?;
+    Ok(conflict_occurred)
+}
+
+/// `.git/index` with the changes from `head_tree` to `tree` applied as libgit2 applies them, or
+/// `tree` itself if they don't apply.
+///
+/// libgit2 applies them to a copy, so `.git/index` only changes when the checkout writes it.
+fn index_with_changes_applied(
+    git2_repo: &git2::Repository,
+    repo: &gix::Repository,
+    head_tree: &git2::Tree<'_>,
+    tree: &git2::Tree<'_>,
+) -> anyhow::Result<gix::index::File> {
+    let dir = tempfile::tempdir_in(repo.git_dir())?;
+    let copy = dir.path().join("index");
+    if repo.index_path().exists() {
+        std::fs::copy(repo.index_path(), &copy)?;
+    }
+    let mut index = git2::Index::open(&copy)?;
+    git2_repo.set_index(&mut index)?;
+    let mut opts = git2::DiffOptions::new();
+    opts.context_lines(1);
+    let diff = git2_repo.diff_tree_to_tree(Some(head_tree), Some(tree), Some(&mut opts))?;
+    if git2_repo
+        .apply(&diff, git2::ApplyLocation::Index, None)
+        .is_err()
+    {
+        index.read_tree(tree)?;
+        index.write()?;
+    }
+    Ok(gix::index::File::at_or_default(
+        &copy,
+        repo.object_hash(),
+        false,
+        Default::default(),
+    )?)
 }

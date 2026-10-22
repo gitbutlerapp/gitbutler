@@ -23,30 +23,53 @@ use plan::Plan;
 /// content that differs from `trees.head`, the tree the checkout leaves, and isn't in the
 /// worktree either. Paths the worktree already has as `trees.new_head` has them aren't written,
 /// but their index entries follow `trees.new_head` unless the user staged something there.
+/// `index` is what the index records before the checkout, and is written as the last step.
 pub(super) fn write_to_worktree(
     repo: &gix::Repository,
     trees: Trees,
     conflicts: Conflicts<'_>,
+    mut index: LockedIndex,
 ) -> anyhow::Result<()> {
-    let index_lock = lock_index(repo)?;
-    let plan = Plan::new(repo, &trees, conflicts)?;
-    protect::staged_content(repo, &trees, &plan)?;
+    let plan = Plan::new(&index.entries, &trees, conflicts);
+    protect::staged_content(&index.entries, &trees, &plan)?;
     let staged = transaction::stage(repo, &trees.target, &plan)?;
     let clearances = protect::worktree(repo, &trees.baseline, &plan)?;
     let placed = transaction::commit(repo, staged, &clearances)?;
-    plan.record_in_index(repo, &placed, index_lock)
+    plan.edit(&mut index.entries, &placed);
+    index.write()
 }
 
-/// Hold the index lock for the whole checkout, like Git. Checkout then refuses before touching
-/// anything while another process holds it, and nothing else changes the index meanwhile.
-fn lock_index(repo: &gix::Repository) -> anyhow::Result<gix::lock::File> {
-    gix::lock::File::acquire_to_update_resource(
-        repo.index_path(),
-        gix::lock::acquire::Fail::Immediately,
-        None,
-        0,
-    )
-    .context("Repository index is locked by another process")
+/// `.git/index`, locked for the whole checkout, and the entries the checkout works with.
+pub(super) struct LockedIndex {
+    lock: gix::lock::File,
+    /// What `.git/index` records, or what it will record once written.
+    pub entries: gix::index::File,
+}
+
+impl LockedIndex {
+    /// Lock `.git/index` and read it. Like Git, checkout then refuses before touching anything
+    /// while another process holds the lock, and nothing else changes the index meanwhile.
+    pub fn acquire(repo: &gix::Repository) -> anyhow::Result<Self> {
+        let lock = gix::lock::File::acquire_to_update_resource(
+            repo.index_path(),
+            gix::lock::acquire::Fail::Immediately,
+            None,
+            0,
+        )
+        .context("Repository index is locked by another process")?;
+        Ok(LockedIndex {
+            lock,
+            entries: repo.index_or_empty()?.into_owned_or_cloned(),
+        })
+    }
+
+    /// Write `entries` to `.git/index` and release the lock.
+    pub fn write(self) -> anyhow::Result<()> {
+        let mut out = std::io::BufWriter::new(self.lock);
+        self.entries.write_to(&mut out, Default::default())?;
+        out.into_inner().map_err(|err| err.into_error())?.commit()?;
+        Ok(())
+    }
 }
 
 /// The unresolved conflicts of the merge that produced the target, if any.
@@ -104,7 +127,7 @@ mod tests {
         std::os::unix::fs::symlink("../outside", repo.workdir().unwrap().join("dir"))?;
 
         let trees = Trees::new(&repo, baseline, target, [baseline, target])?;
-        super::write_to_worktree(&repo, trees, None)?;
+        super::write_to_worktree(&repo, trees, None, super::LockedIndex::acquire(&repo)?)?;
 
         assert!(
             outside.join("f").is_file(),
