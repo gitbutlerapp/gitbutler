@@ -12,7 +12,10 @@ use std::{
 use anyhow::Context as _;
 use bstr::{BStr, BString};
 
-use super::{plan::Plan, protect::Clearance};
+use super::{
+    plan::Plan,
+    protect::{Clearance, Reason},
+};
 use crate::index::Stat;
 
 /// Files checked out into a staging directory, ready to be moved into the worktree.
@@ -121,16 +124,19 @@ fn apply(
     staged: &Staged,
     clearances: &[Clearance],
 ) -> anyhow::Result<Placed> {
-    for Clearance { rela_path } in clearances {
-        journal.move_aside(
-            &join(workdir, rela_path)?,
-            &join(&staged.aside(), rela_path)?,
-        )?;
+    // Like Git, remove the directories that the deletions leave empty while the files to be
+    // replaced are still in place, so a directory the target still needs keeps its permissions,
+    // and one it names differently, or needs as a submodule, is created afresh.
+    let with_reason = |reason| clearances.iter().filter(move |c| c.reason == reason);
+    let aside = staged.aside();
+    for Clearance { rela_path, .. } in with_reason(Reason::Deleted) {
+        journal.move_aside(&join(workdir, rela_path)?, &join(&aside, rela_path)?)?;
     }
-    // Like Git, clear the way completely before writing, so a directory the target names
-    // differently, or needs as a submodule, is created afresh.
-    for Clearance { rela_path } in clearances {
+    for Clearance { rela_path, .. } in with_reason(Reason::Deleted) {
         journal.remove_emptied_parents(workdir, &join(workdir, rela_path)?)?;
+    }
+    for Clearance { rela_path, .. } in with_reason(Reason::InTheWay) {
+        journal.move_aside(&join(workdir, rela_path)?, &join(&aside, rela_path)?)?;
     }
     let mut stats = BTreeMap::new();
     for StagedFile { rela_path, stat } in &staged.files {
@@ -151,8 +157,14 @@ struct Journal {
 }
 
 enum Step {
-    MovedAside { from: PathBuf, to: PathBuf },
-    RemovedDir(PathBuf),
+    MovedAside {
+        from: PathBuf,
+        to: PathBuf,
+    },
+    RemovedDir {
+        path: PathBuf,
+        permissions: std::fs::Permissions,
+    },
     Placed(PathBuf),
     CreatedDir(PathBuf),
 }
@@ -207,10 +219,14 @@ impl Journal {
     /// Remove the directories leading to `path` that are now empty, as Git does.
     fn remove_emptied_parents(&mut self, workdir: &Path, path: &Path) -> anyhow::Result<()> {
         for dir in path.ancestors().skip(1).take_while(|dir| *dir != workdir) {
+            let permissions = std::fs::symlink_metadata(dir)?.permissions();
             if std::fs::remove_dir(dir).is_err() {
                 break;
             }
-            self.steps.push(Step::RemovedDir(dir.to_owned()));
+            self.steps.push(Step::RemovedDir {
+                path: dir.to_owned(),
+                permissions,
+            });
         }
         Ok(())
     }
@@ -221,7 +237,8 @@ impl Journal {
             let undone = match &step {
                 Step::Placed(path) => gix::fs::symlink::remove(path),
                 Step::CreatedDir(dir) => std::fs::remove_dir(dir),
-                Step::RemovedDir(dir) => std::fs::create_dir(dir),
+                Step::RemovedDir { path, permissions } => std::fs::create_dir(path)
+                    .and_then(|()| std::fs::set_permissions(path, permissions.clone())),
                 Step::MovedAside { from, to } => std::fs::rename(to, from),
             };
             if let Err(err) = undone {

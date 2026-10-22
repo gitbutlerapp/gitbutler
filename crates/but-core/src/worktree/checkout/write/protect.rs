@@ -46,6 +46,16 @@ fn only_staged(trees: &Trees, path: &BStr, entry: &gix::index::Entry) -> bool {
 /// A filesystem object the commit moves aside to make room for the target.
 pub(super) struct Clearance {
     pub rela_path: BString,
+    pub reason: Reason,
+}
+
+/// Why checkout moves an object aside.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Reason {
+    /// The target deletes it.
+    Deleted,
+    /// It's in the way of a file the target writes.
+    InTheWay,
 }
 
 /// Fail if anything checkout removes from the worktree changed after the worktree was
@@ -79,6 +89,7 @@ pub(super) fn worktree(
 /// An object checkout removes, and the files in it whose content must be the snapshot's.
 struct Removal {
     rela_path: BString,
+    reason: Reason,
     judged: Vec<BString>,
 }
 
@@ -123,7 +134,11 @@ fn clearances(mut removals: Vec<Removal>) -> Vec<Clearance> {
     });
     removals
         .into_iter()
-        .map(|Removal { rela_path, .. }| Clearance { rela_path })
+        .map(
+            |Removal {
+                 rela_path, reason, ..
+             }| Clearance { rela_path, reason },
+        )
         .collect()
 }
 
@@ -186,6 +201,7 @@ impl<'a> Judge<'a> {
         };
         Ok(Some(Removal {
             rela_path: rela_path.to_owned(),
+            reason: Reason::Deleted,
             judged,
         }))
     }
@@ -215,6 +231,7 @@ impl<'a> Judge<'a> {
         };
         Ok(Some(Removal {
             rela_path: in_the_way,
+            reason: Reason::InTheWay,
             judged,
         }))
     }

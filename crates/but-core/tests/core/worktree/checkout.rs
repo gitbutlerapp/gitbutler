@@ -2602,6 +2602,32 @@ fn checkout_changes_nothing_when_a_filter_never_delivers_a_delayed_file() -> any
 
 #[test]
 #[cfg(unix)]
+fn checkout_keeps_the_permissions_of_a_directory_whose_only_file_it_replaces_like_git()
+-> anyhow::Result<()> {
+    use std::os::unix::fs::PermissionsExt as _;
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    commit_in_worktree(&repo, &[("private/secret", "one\n")])?;
+    let new_commit = commit_files(
+        &repo,
+        "change the secret",
+        &[("private/secret", Some("two\n"))],
+    )?;
+    let private = repo.workdir_path("private").unwrap();
+    std::fs::set_permissions(&private, std::fs::Permissions::from_mode(0o700))?;
+
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
+
+    assert_eq!(std::fs::read_to_string(private.join("secret"))?, "two\n");
+    assert_eq!(
+        std::fs::metadata(&private)?.permissions().mode() & 0o777,
+        0o700,
+        "like Git, the directory stays as it was, so the new file is as private as the old one"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
 fn checkout_undoes_the_commit_when_placing_a_file_fails() -> anyhow::Result<()> {
     use std::os::unix::fs::PermissionsExt as _;
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
@@ -2618,6 +2644,7 @@ fn checkout_undoes_the_commit_when_placing_a_file_fails() -> anyhow::Result<()> 
             ("ro/new", Some("two\n")),
         ],
     )?;
+    std::fs::set_permissions(workdir.join("gone"), std::fs::Permissions::from_mode(0o700))?;
     std::fs::set_permissions(workdir.join("ro"), std::fs::Permissions::from_mode(0o555))?;
     if std::fs::write(workdir.join("ro/probe"), "").is_ok() {
         // Directory permissions don't apply to root.
@@ -2630,6 +2657,14 @@ fn checkout_undoes_the_commit_when_placing_a_file_fails() -> anyhow::Result<()> 
     std::fs::set_permissions(workdir.join("ro"), std::fs::Permissions::from_mode(0o755))?;
 
     out.expect_err("`ro/new` can't be created");
+    assert_eq!(
+        std::fs::metadata(workdir.join("gone"))?
+            .permissions()
+            .mode()
+            & 0o777,
+        0o700,
+        "the emptied directory is recreated as it was"
+    );
     assert_eq!(
         after, before,
         "the files and directories placed before the failure are removed, and `a` and the \
