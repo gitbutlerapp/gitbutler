@@ -86,7 +86,7 @@ pub(super) fn worktree(
         changed,
         "Uncommitted files would be overwritten by checkout",
     )?;
-    Ok(outermost(removals))
+    Ok(clearances(removals))
 }
 
 /// An object checkout removes, and the files in it whose content must be the snapshot's.
@@ -101,8 +101,6 @@ enum Verdict {
     Snapshotted,
     /// The snapshot doesn't have it, and Git may replace it.
     Ignored,
-    /// It's gone, so removing it loses nothing.
-    Missing,
     /// It changed after the snapshot, which knows it as the given path.
     Changed(BString),
 }
@@ -115,31 +113,20 @@ fn objects_to_remove(judge: &mut Judge<'_>, plan: &Plan) -> anyhow::Result<Vec<R
         removals.extend(judge.deleted_object(rela_path)?);
     }
     for (rela_path, content) in plan.writes() {
-        if content.mode != gix::index::entry::Mode::COMMIT {
+        if !content.is_submodule() {
             removals.extend(judge.object_in_the_way(rela_path)?);
         }
     }
     Ok(removals)
 }
 
-/// The removals whose paths aren't inside another removal, which moves them along.
-fn outermost(mut removals: Vec<Removal>) -> Vec<Clearance> {
+/// The objects to move aside, a directory before anything in it, which moves along with it.
+fn clearances(mut removals: Vec<Removal>) -> Vec<Clearance> {
     removals.sort_by(|a, b| a.rela_path.cmp(&b.rela_path));
-    let mut clearances: Vec<Clearance> = Vec::new();
-    for Removal { rela_path, .. } in removals {
-        let inside_previous = clearances
-            .last()
-            .is_some_and(|previous| is_inside(rela_path.as_ref(), previous.rela_path.as_ref()));
-        if !inside_previous {
-            clearances.push(Clearance { rela_path });
-        }
-    }
-    clearances
-}
-
-/// Whether `path` is `dir` or below it.
-fn is_inside(path: &BStr, dir: &BStr) -> bool {
-    path == dir || (path.starts_with(dir) && path.get(dir.len()) == Some(&b'/'))
+    removals
+        .into_iter()
+        .map(|Removal { rela_path, .. }| Clearance { rela_path })
+        .collect()
 }
 
 /// What judging worktree objects against the snapshot needs.
@@ -214,18 +201,15 @@ impl<'a> Judge<'a> {
     /// What writing `rela_path` removes: a leading component that isn't a directory, or the
     /// object at the path itself, including all files below it if it's a directory.
     fn object_in_the_way(&mut self, rela_path: &BStr) -> anyhow::Result<Option<Removal>> {
-        let in_the_way = match self.blocking_ancestor(rela_path)? {
-            Ancestors::Directories => rela_path.to_owned(),
-            Ancestors::Missing => return Ok(None),
-            Ancestors::Blocked(ancestor) => ancestor,
-        };
+        let in_the_way = self
+            .blocking_ancestor(rela_path)?
+            .unwrap_or_else(|| rela_path.to_owned());
         let Some(md) = self.metadata(in_the_way.as_ref())? else {
             return Ok(None);
         };
         let judged = match md.is_dir() {
             // A submodule the snapshot has is judged as a whole.
             true if self.baseline_entry(in_the_way.as_ref()).is_some() => vec![in_the_way.clone()],
-            true if self.is_ignored(in_the_way.as_ref())? => Vec::new(),
             true => self.files_below(in_the_way.as_ref())?,
             false => vec![in_the_way.clone()],
         };
@@ -235,8 +219,9 @@ impl<'a> Judge<'a> {
         }))
     }
 
-    /// Classify the leading components of `rela_path`.
-    fn blocking_ancestor(&self, rela_path: &BStr) -> anyhow::Result<Ancestors> {
+    /// The first leading component of `rela_path` that is a file or symlink, which a directory
+    /// must replace. A missing component ends the search, as nothing below it exists.
+    fn blocking_ancestor(&self, rela_path: &BStr) -> anyhow::Result<Option<BString>> {
         let separators = rela_path
             .iter()
             .enumerate()
@@ -245,15 +230,15 @@ impl<'a> Judge<'a> {
             let ancestor = rela_path[..at].as_bstr();
             match self.metadata(ancestor)? {
                 Some(md) if md.is_dir() => continue,
-                Some(_) => return Ok(Ancestors::Blocked(ancestor.to_owned())),
-                None => return Ok(Ancestors::Missing),
+                Some(_) => return Ok(Some(ancestor.to_owned())),
+                None => return Ok(None),
             }
         }
-        Ok(Ancestors::Directories)
+        Ok(None)
     }
 
-    /// The files and symlinks below `rela_dir`, skipping ignored directories, which Git replaces.
-    fn files_below(&mut self, rela_dir: &BStr) -> anyhow::Result<Vec<BString>> {
+    /// The files and symlinks below `rela_dir`.
+    fn files_below(&self, rela_dir: &BStr) -> anyhow::Result<Vec<BString>> {
         let mut files = Vec::new();
         let mut pending = vec![rela_dir.to_owned()];
         while let Some(dir) = pending.pop() {
@@ -263,7 +248,6 @@ impl<'a> Judge<'a> {
                 below.push(b'/');
                 below.extend_from_slice(gix::path::os_str_into_bstr(&entry.file_name())?);
                 match entry.file_type()?.is_dir() {
-                    true if self.is_ignored(below.as_ref())? => {}
                     true => pending.push(below),
                     false => files.push(below),
                 }
@@ -273,9 +257,7 @@ impl<'a> Judge<'a> {
     }
 
     fn judge(&mut self, rela_path: &BStr) -> anyhow::Result<Verdict> {
-        let Some(md) = self.fs_metadata(rela_path)? else {
-            return Ok(Verdict::Missing);
-        };
+        let md = gix::index::fs::Metadata::from_path_no_follow(&self.path(rela_path)?)?;
         match self.baseline_entry(rela_path) {
             Some((path, expected)) => self.compare(rela_path, path, &expected, &md),
             None if self.is_ignored(rela_path)? => Ok(Verdict::Ignored),
@@ -370,24 +352,6 @@ impl<'a> Judge<'a> {
             Err(err) => Err(err.into()),
         }
     }
-
-    fn fs_metadata(&self, rela_path: &BStr) -> anyhow::Result<Option<gix::index::fs::Metadata>> {
-        match gix::index::fs::Metadata::from_path_no_follow(&self.path(rela_path)?) {
-            Ok(md) => Ok(Some(md)),
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(err) => Err(err.into()),
-        }
-    }
-}
-
-/// The leading components of a path, as found in the worktree.
-enum Ancestors {
-    /// They are all directories.
-    Directories,
-    /// One is missing, so nothing below it exists.
-    Missing,
-    /// This one is a file or symlink, which a directory must replace.
-    Blocked(BString),
 }
 
 /// The baseline's paths by their lowercase form.

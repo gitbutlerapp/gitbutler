@@ -1,11 +1,37 @@
-//! Writing a checkout's changes to the worktree.
+//! Writing a checkout's changes so that they either all happen or none do.
+//!
+//! Files are first checked out into a staging directory, where the worktree filters run. Only
+//! then are the objects in their way moved aside and the staged files moved into place, with each
+//! step journaled so a failure can put everything back.
 
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
+use anyhow::Context as _;
 use bstr::{BStr, BString};
 
-use super::{is_symlinked_parent_error, plan::Plan};
+use super::{plan::Plan, protect::Clearance};
 use crate::index::Stat;
+
+/// Files checked out into a staging directory, ready to be moved into the worktree.
+pub(super) struct Staged {
+    /// Removed when dropped, along with the objects moved aside into it.
+    dir: tempfile::TempDir,
+    files: Vec<BString>,
+    submodules: Vec<BString>,
+}
+
+impl Staged {
+    fn new_files(&self) -> PathBuf {
+        self.dir.path().join("new")
+    }
+
+    fn aside(&self) -> PathBuf {
+        self.dir.path().join("old")
+    }
+}
 
 /// The stat of each file checkout placed in the worktree.
 #[derive(Default)]
@@ -23,37 +49,152 @@ impl Placed {
     }
 }
 
-/// Delete and write the files `plan` changes, in place.
-pub(super) fn write_in_place(
+/// Check out the files `plan` writes into a staging directory, running the worktree filters.
+///
+/// Without `keep_going`, a file that fails to be written, or that a filter delays and never
+/// delivers, fails here, before the worktree is touched.
+pub(super) fn stage(
     repo: &gix::Repository,
     target: &gix::index::State,
     plan: &Plan,
-) -> anyhow::Result<Placed> {
-    let workdir = repo.workdir().expect("checked by the caller");
-    let mut path_check = gix::status::plumbing::SymlinkCheck::new(workdir.to_owned());
-    for path in plan.deletions() {
-        remove_from_worktree(&mut path_check, path)?;
-    }
-    if plan.writes().next().is_none() {
-        return Ok(Placed::default());
-    }
-    let mut index = checkout_index(target, plan);
-    unlink_files_to_replace(&mut path_check, plan)?;
-    let mut opts =
-        repo.checkout_options(gix::worktree::stack::state::attributes::Source::IdMapping)?;
-    opts.overwrite_existing = true;
-    // Without `keep_going`, files that fail to be written, or that a filter delays and never
-    // delivers, fail the checkout here, before the index records them.
+) -> anyhow::Result<Staged> {
+    let (files, submodules) = plan
+        .writes()
+        .map(|(path, content)| (path.to_owned(), content.is_submodule()))
+        .partition::<Vec<_>, _>(|(_, is_submodule)| !is_submodule);
+    let staged = Staged {
+        dir: staging_dir(repo)?,
+        files: files.into_iter().map(|(path, _)| path).collect(),
+        submodules: submodules.into_iter().map(|(path, _)| path).collect(),
+    };
+    std::fs::create_dir(staged.new_files())?;
+    let opts = repo.checkout_options(gix::worktree::stack::state::attributes::Source::IdMapping)?;
     gix::worktree::state::checkout(
-        &mut index,
-        workdir,
+        &mut checkout_index(target, plan),
+        staged.new_files(),
         repo.objects.clone().into_arc()?,
         &gix::progress::Discard,
         &gix::progress::Discard,
         &gix::interrupt::IS_INTERRUPTED,
         opts,
     )?;
-    Ok(placed(&index, plan))
+    Ok(staged)
+}
+
+/// Move the `clearances` aside and the staged files into place. On failure, undo every step and
+/// return the error, leaving the worktree as it was.
+pub(super) fn commit(
+    repo: &gix::Repository,
+    staged: Staged,
+    clearances: &[Clearance],
+) -> anyhow::Result<Placed> {
+    let workdir = repo.workdir().expect("checked by the caller");
+    let mut journal = Journal::default();
+    if let Err(err) = apply(&mut journal, workdir, &staged, clearances) {
+        journal.undo();
+        return Err(err);
+    }
+    let placed = placed(workdir, &staged)?;
+    for clearance in clearances {
+        remove_emptied_parents(workdir, clearance.rela_path.as_ref())?;
+    }
+    Ok(placed)
+}
+
+fn apply(
+    journal: &mut Journal,
+    workdir: &Path,
+    staged: &Staged,
+    clearances: &[Clearance],
+) -> anyhow::Result<()> {
+    for Clearance { rela_path } in clearances {
+        journal.move_aside(
+            &join(workdir, rela_path)?,
+            &join(&staged.aside(), rela_path)?,
+        )?;
+    }
+    for rela_path in &staged.files {
+        let dest = join(workdir, rela_path)?;
+        journal.place(&join(&staged.new_files(), rela_path)?, &dest)?;
+    }
+    for rela_path in &staged.submodules {
+        journal.ensure_dir(&join(workdir, rela_path)?)?;
+    }
+    Ok(())
+}
+
+/// What the commit did, in order, so it can be undone.
+#[derive(Default)]
+struct Journal {
+    steps: Vec<Step>,
+}
+
+enum Step {
+    MovedAside { from: PathBuf, to: PathBuf },
+    Placed(PathBuf),
+    CreatedDir(PathBuf),
+}
+
+impl Journal {
+    /// Move the object at `from` to `to`. An object that is gone loses nothing.
+    fn move_aside(&mut self, from: &Path, to: &Path) -> anyhow::Result<()> {
+        std::fs::create_dir_all(to.parent().expect("below the staging directory"))?;
+        match std::fs::rename(from, to) {
+            Ok(()) => {}
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(err) => return Err(err).with_context(|| format!("moving {from:?} aside")),
+        }
+        self.steps.push(Step::MovedAside {
+            from: from.to_owned(),
+            to: to.to_owned(),
+        });
+        Ok(())
+    }
+
+    /// Move the `staged` file to `dest`, where nothing is left after the clearances moved aside.
+    fn place(&mut self, staged: &Path, dest: &Path) -> anyhow::Result<()> {
+        self.create_parents(dest)?;
+        std::fs::rename(staged, dest).with_context(|| format!("placing {dest:?}"))?;
+        self.steps.push(Step::Placed(dest.to_owned()));
+        Ok(())
+    }
+
+    /// Create the directory `dir` and its parents, unless it exists.
+    fn ensure_dir(&mut self, dir: &Path) -> anyhow::Result<()> {
+        self.create_parents(dir)?;
+        if !dir.is_dir() {
+            std::fs::create_dir(dir).with_context(|| format!("creating {dir:?}"))?;
+            self.steps.push(Step::CreatedDir(dir.to_owned()));
+        }
+        Ok(())
+    }
+
+    fn create_parents(&mut self, path: &Path) -> anyhow::Result<()> {
+        let missing: Vec<&Path> = path
+            .ancestors()
+            .skip(1)
+            .take_while(|dir| dir.symlink_metadata().is_err())
+            .collect();
+        for dir in missing.into_iter().rev() {
+            std::fs::create_dir(dir).with_context(|| format!("creating {dir:?}"))?;
+            self.steps.push(Step::CreatedDir(dir.to_owned()));
+        }
+        Ok(())
+    }
+
+    /// Undo every step in reverse. Failures are logged, as there is nothing left to fall back to.
+    fn undo(self) {
+        for step in self.steps.into_iter().rev() {
+            let undone = match &step {
+                Step::Placed(path) => gix::fs::symlink::remove(path),
+                Step::CreatedDir(dir) => std::fs::remove_dir(dir),
+                Step::MovedAside { from, to } => std::fs::rename(to, from),
+            };
+            if let Err(err) = undone {
+                tracing::error!(?err, "could not undo a checkout step");
+            }
+        }
+    }
 }
 
 /// The full `target`, with every entry `plan` doesn't write flagged so gix's checkout skips it.
@@ -68,84 +209,61 @@ fn checkout_index(target: &gix::index::State, plan: &Plan) -> gix::index::State 
     index
 }
 
-/// The stat gix recorded for each file it wrote into `index`.
-fn placed(index: &gix::index::State, plan: &Plan) -> Placed {
-    let stats = plan
-        .writes()
-        .filter_map(|(path, _)| {
-            index
-                .entry_by_path(path)
-                .map(|entry| (path.to_owned(), entry.stat))
-        })
-        .collect();
-    Placed { stats }
+/// The stat of each placed file. Renaming may change a file's ctime, so it's read again.
+fn placed(workdir: &Path, staged: &Staged) -> anyhow::Result<Placed> {
+    let mut stats = BTreeMap::new();
+    for rela_path in &staged.files {
+        let md = gix::index::fs::Metadata::from_path_no_follow(&join(workdir, rela_path)?)?;
+        stats.insert(rela_path.clone(), gix::index::entry::Stat::from_fs(&md)?);
+    }
+    Ok(Placed { stats })
 }
 
-/// Delete `rela_path` and the directories it leaves empty.
-///
-/// Like Git's checkout, delete nothing if a directory leading to `rela_path` is missing or a
-/// symlink, as the file then isn't in the worktree, and deleting through the symlink would reach
-/// outside of it.
-fn remove_from_worktree(
-    path_check: &mut gix::status::plumbing::SymlinkCheck,
-    rela_path: &BStr,
-) -> anyhow::Result<()> {
-    let workdir = path_check.inner.root().to_owned();
-    let path = match path_check.verified_path(rela_path) {
-        Ok(path) => path.to_owned(),
-        Err(err)
-            if err.kind() == std::io::ErrorKind::NotFound || is_symlinked_parent_error(&err) =>
-        {
-            return Ok(());
-        }
-        Err(err) => return Err(err.into()),
-    };
-    match std::fs::symlink_metadata(&path) {
-        // On Windows, a symlink to a directory must be removed like a directory.
-        Ok(md) if md.is_symlink() => gix::fs::symlink::remove(&path)?,
-        Ok(md) if md.is_dir() => {
-            // A submodule or a directory that already became one; only remove it when empty.
-            std::fs::remove_dir(&path).ok();
-        }
-        Ok(_) => std::fs::remove_file(&path)?,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
-        Err(err) => return Err(err.into()),
-    }
-    let mut dir = path.parent();
-    while let Some(parent) = dir.filter(|dir| *dir != workdir.as_path()) {
-        if std::fs::remove_dir(parent).is_err() {
+/// Remove the directories leading to `rela_path` that are now empty, as Git does.
+fn remove_emptied_parents(workdir: &Path, rela_path: &BStr) -> anyhow::Result<()> {
+    let path = join(workdir, rela_path)?;
+    for dir in path.ancestors().skip(1).take_while(|dir| *dir != workdir) {
+        if std::fs::remove_dir(dir).is_err() {
             break;
         }
-        dir = parent.parent();
     }
     Ok(())
 }
 
-/// Remove the files about to be replaced.
-///
-/// gix writes over an existing file in place. Like Git, which writes a new file instead, this
-/// leaves other hard links with their content, and replaces read-only files the directory allows
-/// to be replaced.
+/// A new staging directory on the worktree's filesystem, so files can be renamed into place.
+/// It goes into the Git directory, or into the worktree if that is on another filesystem.
+fn staging_dir(repo: &gix::Repository) -> anyhow::Result<tempfile::TempDir> {
+    let workdir = repo.workdir().expect("checked by the caller");
+    let in_git_dir = repo.git_dir().join("gitbutler");
+    std::fs::create_dir_all(&in_git_dir)?;
+    let parent = match same_filesystem(&in_git_dir, workdir)? {
+        true => in_git_dir.as_path(),
+        false => workdir,
+    };
+    Ok(tempfile::Builder::new()
+        .prefix(".gitbutler-checkout-")
+        .tempdir_in(parent)?)
+}
+
 #[cfg(unix)]
-fn unlink_files_to_replace(
-    path_check: &mut gix::status::plumbing::SymlinkCheck,
-    plan: &Plan,
-) -> anyhow::Result<()> {
-    for (rela_path, _) in plan.writes() {
-        let Ok(path) = path_check.verified_path(rela_path) else {
-            continue;
-        };
-        if std::fs::symlink_metadata(path).is_ok_and(|md| md.is_file()) {
-            std::fs::remove_file(path)?;
-        }
-    }
-    Ok(())
+fn same_filesystem(a: &Path, b: &Path) -> std::io::Result<bool> {
+    use std::os::unix::fs::MetadataExt as _;
+    Ok(a.metadata()?.dev() == b.metadata()?.dev())
 }
 
+/// Different drives are different filesystems.
 #[cfg(not(unix))]
-fn unlink_files_to_replace(
-    _path_check: &mut gix::status::plumbing::SymlinkCheck,
-    _plan: &Plan,
-) -> anyhow::Result<()> {
-    Ok(())
+fn same_filesystem(a: &Path, b: &Path) -> std::io::Result<bool> {
+    let prefix = |path: &Path| -> std::io::Result<_> {
+        Ok(gix::path::realpath(path)
+            .map_err(std::io::Error::other)?
+            .components()
+            .next()
+            .map(|c| c.as_os_str().to_owned()))
+    };
+    Ok(prefix(a)? == prefix(b)?)
+}
+
+fn join(dir: &Path, rela_path: impl AsRef<BStr>) -> anyhow::Result<PathBuf> {
+    Ok(dir.join(gix::path::from_bstr(rela_path.as_ref())?))
 }

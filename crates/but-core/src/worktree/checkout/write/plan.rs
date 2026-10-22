@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use bstr::{BStr, BString};
 use gix::{index::entry::Mode, merge::tree::TreatAsUnresolved};
 
-use super::{Conflicts, Trees, is_symlinked_parent_error, transaction::Placed};
+use super::{Conflicts, Trees, transaction::Placed};
 use crate::index::{ConflictStage, Edit, Stat};
 
 /// What an index entry records about content.
@@ -25,6 +25,11 @@ impl Content {
 
     fn at(state: &gix::index::State, path: &BStr) -> Option<Self> {
         state.entry_by_path(path).map(Content::of)
+    }
+
+    /// Submodules are directories checkout ensures exist, but never fills.
+    pub fn is_submodule(&self) -> bool {
+        self.mode == Mode::COMMIT
     }
 }
 
@@ -48,7 +53,7 @@ pub(super) struct Plan {
     changes: BTreeMap<BString, Change>,
     /// Paths the worktree already has as `new_head` has them. Only their index entries change.
     records: BTreeMap<BString, Content>,
-    /// Index entries of paths both `new_head` and the worktree deleted.
+    /// Index entries of paths `new_head` deletes.
     removals: Vec<BString>,
     /// The stages of unresolved conflicts.
     conflicts: Vec<ConflictEntry>,
@@ -64,7 +69,7 @@ impl Plan {
         let changes = changes(&trees.baseline, &trees.target);
         Ok(Plan {
             records: already_in_worktree(trees, &index, &changes),
-            removals: deleted_on_both_sides(repo, trees, &index)?,
+            removals: deleted_by_new_head(trees, &index),
             conflicts: conflict_stages(conflicts),
             changes,
         })
@@ -213,78 +218,49 @@ fn index_follows_new_head(
         && current != Some(content)
 }
 
-/// Index entries of files that both `new_head` and the user deleted, which Git removes, unless
-/// the user staged changes to them. The worktree snapshot doesn't have them, so checkout never
-/// touches these paths.
-fn deleted_on_both_sides(
-    repo: &gix::Repository,
-    trees: &Trees,
-    index: &gix::index::State,
-) -> anyhow::Result<Vec<BString>> {
-    let workdir = repo.workdir().expect("checked by the caller");
-    let mut path_check = gix::status::plumbing::SymlinkCheck::new(workdir.to_owned());
-    let mut deleted = Vec::new();
-    for entry in index.entries() {
-        let path = entry.path(index);
-        let unstaged = Content::at(&trees.head, path) == Some(Content::of(entry));
-        let candidate = entry.stage() == gix::index::entry::Stage::Unconflicted
-            && unstaged
-            && trees.new_head.entry_by_path(path).is_none();
-        if candidate && !in_worktree(&mut path_check, path)? {
-            deleted.push(path.to_owned());
-        }
-    }
-    Ok(deleted)
-}
-
-/// Like Git, a path behind a symlinked or missing directory, or replaced by a directory, isn't
-/// in the worktree.
-fn in_worktree(
-    path_check: &mut gix::status::plumbing::SymlinkCheck,
-    path: &BStr,
-) -> anyhow::Result<bool> {
-    match path_check
-        .verified_path(path)
-        .and_then(|path| path.symlink_metadata())
-    {
-        Ok(md) => Ok(!md.is_dir()),
-        Err(err)
-            if matches!(
-                err.kind(),
-                std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
-            ) || is_symlinked_parent_error(&err) =>
-        {
-            Ok(false)
-        }
-        Err(err) => Err(err.into()),
-    }
+/// Index entries of files `new_head` deletes, which Git removes, unless the user staged
+/// changes to them. Those still in the worktree are deleted by checkout too, and those that
+/// aren't, which the user deleted as well, aren't in the worktree snapshot.
+fn deleted_by_new_head(trees: &Trees, index: &gix::index::State) -> Vec<BString> {
+    index
+        .entries()
+        .iter()
+        .filter(|entry| {
+            let path = entry.path(index);
+            Content::at(&trees.head, path) == Some(Content::of(entry))
+                && trees.new_head.entry_by_path(path).is_none()
+        })
+        .map(|entry| entry.path(index).to_owned())
+        .collect()
 }
 
 /// The stages of the unresolved conflicts in `conflicts`.
 fn conflict_stages(conflicts: Conflicts<'_>) -> Vec<ConflictEntry> {
-    let unresolved = conflicts
+    conflicts
         .into_iter()
         .flat_map(|outcome| outcome.conflicts.iter())
-        .filter(|conflict| conflict.is_unresolved(TreatAsUnresolved::git()));
-    let mut stages = Vec::new();
-    for conflict in unresolved {
-        let [base, ours, theirs] = conflict.entries();
-        let sides = [
-            (ConflictStage::Base, base),
-            (ConflictStage::Ours, ours),
-            (ConflictStage::Theirs, theirs),
-        ];
-        for (stage, entry) in sides {
-            let Some(entry) = entry else { continue };
-            stages.push(ConflictEntry {
-                path: conflict.ours.location().to_owned(),
-                stage,
-                content: Content {
-                    id: entry.id,
-                    mode: entry.mode.into(),
-                },
-            });
-        }
-    }
-    stages
+        .filter(|conflict| conflict.is_unresolved(TreatAsUnresolved::git()))
+        .flat_map(|conflict| {
+            let path = conflict.ours.location();
+            let stages = [
+                ConflictStage::Base,
+                ConflictStage::Ours,
+                ConflictStage::Theirs,
+            ];
+            stages
+                .into_iter()
+                .zip(conflict.entries())
+                .filter_map(move |(stage, entry)| {
+                    let entry = entry?;
+                    Some(ConflictEntry {
+                        path: path.to_owned(),
+                        stage,
+                        content: Content {
+                            id: entry.id,
+                            mode: entry.mode.into(),
+                        },
+                    })
+                })
+        })
+        .collect()
 }

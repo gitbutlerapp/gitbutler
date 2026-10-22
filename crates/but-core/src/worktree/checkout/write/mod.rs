@@ -11,8 +11,12 @@ use plan::Plan;
 /// Turn the worktree of `repo`, which matched `trees.baseline` (in Git form) when it was
 /// snapshotted, into `trees.target`, writing only the entries that differ.
 ///
-/// Files are written through the repository's worktree filters, so clean/smudge drivers like
-/// git-crypt or Git LFS see the same conversions as with Git.
+/// Nothing changes if checkout refuses or fails. Files are written through the repository's
+/// worktree filters, so clean/smudge drivers like git-crypt or Git LFS see the same conversions
+/// as with Git, and the filters run before anything in the worktree is removed. Everything
+/// checkout removes is checked against the snapshot after the filters ran, and a failure while
+/// moving files into place is undone. A crash in the middle leaves the originals in a staging
+/// directory below the Git directory.
 /// `.git/index` is updated for the written and deleted paths only, keeping all other entries as
 /// they are. If `conflicts` is set, its unresolved conflicts are recorded as index stages.
 /// Like Git, it refuses before changing anything if a path it would write or delete has staged
@@ -26,8 +30,9 @@ pub(super) fn write_to_worktree(
 ) -> anyhow::Result<()> {
     let plan = Plan::new(repo, &trees, conflicts)?;
     protect::staged_content(repo, &trees, &plan)?;
-    let _clearances = protect::worktree(repo, &trees.baseline, &plan)?;
-    let placed = transaction::write_in_place(repo, &trees.target, &plan)?;
+    let staged = transaction::stage(repo, &trees.target, &plan)?;
+    let clearances = protect::worktree(repo, &trees.baseline, &plan)?;
+    let placed = transaction::commit(repo, staged, &clearances)?;
     plan.record_in_index(repo, &placed)
 }
 
