@@ -850,7 +850,10 @@ impl Store {
         let linger = match notice {
             Notice::Snackbar { undo: None, .. } => Duration::from_secs(3),
             Notice::Snackbar { undo: Some(_), .. } => Duration::from_secs(6),
-            Notice::Error { .. } => Duration::from_secs(15),
+            // Long enough to read what going ahead anyway would do, but not to go ahead on
+            // what has changed since, as a push forced over newer commits.
+            Notice::Error { retry: Some(_), .. } => Duration::from_secs(60),
+            Notice::Error { retry: None, .. } => Duration::from_secs(15),
         };
         // One snackbar at a time; errors stack, though the same failure again replaces its card.
         self.toasts.retain(|toast| match (&toast.notice, &notice) {

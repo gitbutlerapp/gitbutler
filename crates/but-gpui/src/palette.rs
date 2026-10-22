@@ -20,7 +20,7 @@ use crate::edits::{
     NewBranchBelow, NewBranchHere, RewrapMessage, SquashAll, UnapplyStack, Unstack,
 };
 use crate::overlays::backdrop;
-use crate::state::Selection;
+use crate::state::{Notice, Selection};
 use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -218,7 +218,7 @@ impl AppView {
                 .position(|recent| recent == label)
                 .unwrap_or(usize::MAX)
         });
-        let choices = commands
+        let mut choices: Vec<Choice> = commands
             .into_iter()
             .map(|(label, action)| {
                 let key = shortcut(action, cx);
@@ -237,6 +237,27 @@ impl AppView {
                 }
             })
             .collect();
+        // What an error card offers to try instead, as Update anyway, found by typing: last,
+        // so ⌘K then Enter never runs one.
+        choices.extend((self.store.read(cx).toasts.iter()).filter_map(
+            |toast| match &toast.notice {
+                Notice::Error {
+                    title,
+                    retry: Some((label, run)),
+                    ..
+                } => {
+                    let (id, run) = (toast.id, run.clone());
+                    let choice = Choice::new(label.clone(), move |this, _, cx| {
+                        this.store.update(cx, |store, cx| {
+                            store.dismiss_toast(id, cx);
+                            run(store, cx)
+                        })
+                    });
+                    Some(choice.detail(title.clone()))
+                }
+                _ => None,
+            },
+        ));
         self.open_picker(None, "Search commands", "Run", choices, window, cx);
     }
 
