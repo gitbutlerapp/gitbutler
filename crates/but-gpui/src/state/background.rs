@@ -29,6 +29,12 @@ impl Store {
                     return;
                 };
                 for (project, path) in due {
+                    // The fetches before it take a while, and an operation started meanwhile
+                    // would write refs beside it: it's due again in a minute.
+                    let busy = this.update(cx, |store, _| store.pending(&project, None, false));
+                    if busy.unwrap_or(true) {
+                        continue;
+                    }
                     let fetched = backend::run(move || backend::fetch(&path)).await;
                     if let Err(err) = &fetched {
                         tracing::warn!(%project, "background fetch failed: {err:#}");

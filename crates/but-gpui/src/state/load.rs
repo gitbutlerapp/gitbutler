@@ -105,7 +105,11 @@ impl Store {
                 }
                 let Ok(()) = this.update(cx, |store, cx| {
                     for (id, reload) in reloads {
-                        match store.hidden {
+                        // An operation under way reads these with its own reload, which the
+                        // operations queued after it find their commits by, hidden or not.
+                        let busy = (store.running.get(&id))
+                            .is_some_and(|r| !r.settling && !r.overlay.remote_only);
+                        match store.hidden && !busy {
                             true => store.unseen.entry(id).or_default().merge(reload),
                             false => store.load(&id, reload, cx),
                         }
