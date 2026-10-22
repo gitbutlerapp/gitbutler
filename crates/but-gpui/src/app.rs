@@ -671,6 +671,29 @@ impl AppView {
         }
     }
 
+    /// Do `act` in the composer, if it's open, once this update ends: it opens its pickers
+    /// and prompts through this view.
+    fn in_composer(
+        &self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        act: impl FnOnce(&mut crate::detail::Detail, &mut Window, &mut Context<crate::detail::Detail>)
+        + 'static,
+    ) {
+        // Not from what's open over it.
+        if self.prompt.is_some() || self.modal.is_some() || self.palette.is_some() {
+            return;
+        }
+        let detail = self.detail.clone();
+        window.defer(cx, move |window, cx| {
+            detail.update(cx, |detail, cx| {
+                if detail.composing() {
+                    act(detail, window, cx)
+                }
+            })
+        });
+    }
+
     /// What right-clicking `target`'s row in the navigator offers, opened at `position`.
     pub fn open_row_menu(
         &mut self,
@@ -814,6 +837,17 @@ impl Render for AppView {
             .on_action(cx.listener(Self::update_selected_project))
             .on_action(cx.listener(Self::toggle_navigator))
             .on_action(cx.listener(Self::command_palette))
+            // The composer's keys, pressed with the focus elsewhere, like the navigator.
+            .on_action(
+                cx.listener(|this, _: &crate::detail::AmendTop, window, cx| {
+                    this.in_composer(window, cx, Detail::amend_top)
+                }),
+            )
+            .on_action(
+                cx.listener(|this, _: &crate::detail::PickCommitTarget, window, cx| {
+                    this.in_composer(window, cx, Detail::pick_commit_target)
+                }),
+            )
             // The diff's own keys, pressed with the focus elsewhere, like the navigator.
             .on_action(cx.listener(|this, _: &crate::detail::ToggleSplit, _, cx| {
                 this.detail.update(cx, |detail, cx| detail.toggle_split(cx))

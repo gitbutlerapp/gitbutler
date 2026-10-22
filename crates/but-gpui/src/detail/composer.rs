@@ -5,11 +5,11 @@ use std::hash::{Hash as _, Hasher as _};
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, AnyWindowHandle, App, Context, Focusable as _, Toggled, WeakEntity, Window,
-    actions, div, prelude::*, px,
+    AnyElement, AnyWindowHandle, App, Context, Focusable as _, Toggled, WeakEntity, Window, div,
+    prelude::*, px,
 };
 
-use super::{ChecksChanged, Detail, DiffKey};
+use super::{ChecksChanged, Detail, DiffKey, PickCommitTarget};
 use crate::backend::{
     self, Branch, CommitId, Destination, DiffBody, DiffSource, FileChange, FileDiff, Hunk, HunkKey,
     LineKind, PushState, Selected, ai, short_ref,
@@ -22,8 +22,6 @@ use crate::ui::{
     ButtonStyle, Icon, Tooltip, button, faint, field, h_flex, icon_button, plural, shortcut,
     small_icon, v_flex,
 };
-
-actions!(composer, [PickCommitTarget]);
 
 /// What the next commit leaves out of the uncommitted changes; the rest goes in.
 #[derive(Default)]
@@ -882,7 +880,7 @@ impl Detail {
 
     /// Add the checked changes to the newest commit of the target branch, keeping its
     /// message.
-    pub(super) fn amend_top(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn amend_top(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some((project, worktree)) = self.selected_checkout(cx) else {
             return;
         };
@@ -1042,9 +1040,6 @@ impl Detail {
         let message_focused = self.message.focus_handle(cx).is_focused(window);
         v_flex()
             .flex_none()
-            .on_action(cx.listener(|this, _: &PickCommitTarget, window, cx| {
-                this.pick_commit_target(window, cx)
-            }))
             .p(px(12.))
             .gap(px(8.))
             .border_t_1()
@@ -1202,7 +1197,7 @@ impl Detail {
     }
 
     /// Pick the branch the next commit goes to, or make a new one for it, typing to filter.
-    fn pick_commit_target(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn pick_commit_target(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(Selection::Uncommitted(project)) = self.selection(cx) else {
             return;
         };

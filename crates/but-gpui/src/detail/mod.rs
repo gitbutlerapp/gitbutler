@@ -62,6 +62,7 @@ actions!(
         PageDown,
         PageUp,
         AmendTop,
+        PickCommitTarget,
         ToggleWrap,
         TogglePlainLines,
         ToggleSplit,
@@ -125,9 +126,9 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("l", Expand, side),
         KeyBinding::new("left", Collapse, side),
         KeyBinding::new("h", Collapse, side),
-        // Works while typing the message too, as the composer's other key does.
-        KeyBinding::new("alt-cmd-enter", AmendTop, Some("Detail")),
-        KeyBinding::new("cmd-shift-b", composer::PickCommitTarget, Some("Detail")),
+        // While committing, with the focus anywhere, typing the message too, as ⌘↩ commits.
+        KeyBinding::new("alt-cmd-enter", AmendTop, Some("Workspace")),
+        KeyBinding::new("cmd-shift-b", PickCommitTarget, Some("Workspace")),
     ]);
     find::bind_keys(cx);
     resolve::bind_keys(cx);
@@ -2061,10 +2062,7 @@ impl Render for Detail {
                 }),
             )
             .when(self.composing, |el| {
-                el.on_action(
-                    cx.listener(|this, _: &AmendTop, window, cx| this.amend_top(window, cx)),
-                )
-                .on_action(cx.listener(|this, _: &ToggleCheck, window, cx| {
+                el.on_action(cx.listener(|this, _: &ToggleCheck, window, cx| {
                     this.toggle_cursor_check(window, cx)
                 }))
             })
