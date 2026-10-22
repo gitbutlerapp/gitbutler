@@ -14,7 +14,7 @@ use bstr::{BStr, BString};
 
 use super::{
     plan::Plan,
-    protect::{Clearance, Reason},
+    protect::{self, Clearance, Reason},
 };
 use crate::index::Stat;
 
@@ -108,6 +108,7 @@ pub(super) fn commit(
     clearances: &[Clearance],
 ) -> anyhow::Result<Placed> {
     let workdir = repo.workdir().expect("checked by the caller");
+    protect::still_as_checked(workdir, clearances)?;
     let mut journal = Journal::default();
     match apply(&mut journal, workdir, &staged, clearances) {
         Ok(placed) => Ok(placed),
@@ -185,9 +186,15 @@ impl Journal {
         Ok(())
     }
 
-    /// Move the `staged` file to `dest`, where nothing is left after the clearances moved aside.
+    /// Move the `staged` file to `dest`, where nothing is left after the clearances moved aside,
+    /// unless something was created there after the worktree was checked.
     fn place(&mut self, staged: &Path, dest: &Path) -> anyhow::Result<()> {
         self.create_parents(dest)?;
+        if dest.symlink_metadata().is_ok() {
+            but_error::bail_precondition!(
+                "Uncommitted files would be overwritten by checkout: {dest:?}"
+            );
+        }
         std::fs::rename(staged, dest).with_context(|| format!("placing {dest:?}"))?;
         self.steps.push(Step::Placed(dest.to_owned()));
         Ok(())

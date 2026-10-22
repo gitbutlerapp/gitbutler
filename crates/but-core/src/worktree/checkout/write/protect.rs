@@ -47,6 +47,14 @@ fn only_staged(trees: &Trees, path: &BStr, entry: &gix::index::Entry) -> bool {
 pub(super) struct Clearance {
     pub rela_path: BString,
     pub reason: Reason,
+    /// The objects in it that were checked against the snapshot, with their stat back then.
+    observed: Vec<Observed>,
+}
+
+/// An object checked against the snapshot, and its stat when it was checked.
+struct Observed {
+    rela_path: BString,
+    stat: gix::index::entry::Stat,
 }
 
 /// Why checkout moves an object aside.
@@ -72,11 +80,15 @@ pub(super) fn worktree(
 ) -> anyhow::Result<Vec<Clearance>> {
     let (pipeline, index) = repo.filter_pipeline(None)?;
     let mut judge = Judge::new(repo, baseline, &index, pipeline)?;
-    let removals = objects_to_remove(&mut judge, plan)?;
+    let mut removals = objects_to_remove(&mut judge, plan)?;
     let mut changed = Vec::new();
-    for rela_path in removals.iter().flat_map(|removal| &removal.judged) {
-        if let Verdict::Changed(path) = judge.judge(rela_path.as_ref())? {
-            changed.push(format!("{path:?}"));
+    for removal in &mut removals {
+        for rela_path in std::mem::take(&mut removal.judged) {
+            match judge.judge(rela_path.as_ref())? {
+                Verdict::Snapshotted(stat) => removal.observed.push(Observed { rela_path, stat }),
+                Verdict::Ignored => {}
+                Verdict::Changed(path) => changed.push(format!("{path:?}")),
+            }
         }
     }
     refuse_unless_empty(
@@ -86,17 +98,51 @@ pub(super) fn worktree(
     Ok(clearances(removals))
 }
 
+/// Fail if an object checked against the snapshot changed since, which no filter run in
+/// between can then hide: an edit saved while the check ran clean filters on other files.
+/// Gone objects lose nothing.
+pub(super) fn still_as_checked(
+    workdir: &std::path::Path,
+    clearances: &[Clearance],
+) -> anyhow::Result<()> {
+    let all_fields = gix::index::entry::stat::Options {
+        trust_ctime: true,
+        check_stat: true,
+        use_nsec: true,
+        use_stdev: false,
+    };
+    let mut changed = Vec::new();
+    for Observed { rela_path, stat } in clearances.iter().flat_map(|c| &c.observed) {
+        let path = workdir.join(gix::path::from_bstr(rela_path.as_bstr())?);
+        let now = match gix::index::fs::Metadata::from_path_no_follow(&path) {
+            Ok(md) => gix::index::entry::Stat::from_fs(&md)?,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(err) => return Err(err.into()),
+        };
+        if !stat.matches(&now, all_fields) {
+            changed.push(format!("{rela_path:?}"));
+        }
+    }
+    refuse_unless_empty(
+        changed,
+        "Uncommitted files would be overwritten by checkout",
+    )
+}
+
 /// An object checkout removes, and the files in it whose content must be the snapshot's.
 struct Removal {
     rela_path: BString,
     reason: Reason,
     judged: Vec<BString>,
+    /// The directories walked to find what to judge, and the judged objects that matched the
+    /// snapshot, with their stat when seen.
+    observed: Vec<Observed>,
 }
 
 /// What an object about to be removed is, compared with the snapshot.
 enum Verdict {
-    /// It has the snapshot's content.
-    Snapshotted,
+    /// It has the snapshot's content, and had this stat when it was checked.
+    Snapshotted(gix::index::entry::Stat),
     /// The snapshot doesn't have it, and Git may replace it.
     Ignored,
     /// It changed after the snapshot, which knows it as the given path.
@@ -136,8 +182,15 @@ fn clearances(mut removals: Vec<Removal>) -> Vec<Clearance> {
         .into_iter()
         .map(
             |Removal {
-                 rela_path, reason, ..
-             }| Clearance { rela_path, reason },
+                 rela_path,
+                 reason,
+                 observed,
+                 ..
+             }| Clearance {
+                rela_path,
+                reason,
+                observed,
+            },
         )
         .collect()
 }
@@ -193,16 +246,27 @@ impl<'a> Judge<'a> {
         if self.blocking_ancestor(rela_path)?.is_some() {
             return Ok(None);
         }
-        let judged = match self.metadata(rela_path)? {
-            Some(md) if md.is_dir() && !is_empty_dir(&self.path(rela_path)?)? => return Ok(None),
-            Some(md) if md.is_dir() => Vec::new(),
-            Some(_) => vec![rela_path.to_owned()],
+        let path = self.path(rela_path)?;
+        let (judged, observed) = match self.metadata(rela_path)? {
+            Some(md) if md.is_dir() && !is_empty_dir(&path)? => return Ok(None),
+            // Nothing to judge in it, but what appears in it later shows in its stat.
+            Some(md) if md.is_dir() => (
+                Vec::new(),
+                vec![Observed {
+                    rela_path: rela_path.to_owned(),
+                    stat: gix::index::entry::Stat::from_fs(
+                        &gix::index::fs::Metadata::from_path_no_follow(&path)?,
+                    )?,
+                }],
+            ),
+            Some(_) => (vec![rela_path.to_owned()], Vec::new()),
             None => return Ok(None),
         };
         Ok(Some(Removal {
             rela_path: rela_path.to_owned(),
             reason: Reason::Deleted,
             judged,
+            observed,
         }))
     }
 
@@ -223,16 +287,19 @@ impl<'a> Judge<'a> {
         if md.is_dir() && content.is_submodule() {
             return Ok(None);
         }
-        let judged = match md.is_dir() {
+        let (judged, observed) = match md.is_dir() {
             // A submodule the snapshot has is judged as a whole.
-            true if self.baseline_entry(in_the_way.as_ref()).is_some() => vec![in_the_way.clone()],
+            true if self.baseline_entry(in_the_way.as_ref()).is_some() => {
+                (vec![in_the_way.clone()], Vec::new())
+            }
             true => self.files_below(in_the_way.as_ref())?,
-            false => vec![in_the_way.clone()],
+            false => (vec![in_the_way.clone()], Vec::new()),
         };
         Ok(Some(Removal {
             rela_path: in_the_way,
             reason: Reason::InTheWay,
             judged,
+            observed,
         }))
     }
 
@@ -254,12 +321,17 @@ impl<'a> Judge<'a> {
         Ok(None)
     }
 
-    /// The files and symlinks below `rela_dir`.
-    fn files_below(&self, rela_dir: &BStr) -> anyhow::Result<Vec<BString>> {
-        let mut files = Vec::new();
+    /// The files and symlinks below `rela_dir`, and the directories walked to find them, as
+    /// seen before walking them, so a file added to one later shows in its stat.
+    fn files_below(&self, rela_dir: &BStr) -> anyhow::Result<(Vec<BString>, Vec<Observed>)> {
+        let (mut files, mut dirs) = (Vec::new(), Vec::new());
         let mut pending = vec![rela_dir.to_owned()];
         while let Some(dir) = pending.pop() {
-            for entry in std::fs::read_dir(self.path(dir.as_ref())?)? {
+            let path = self.path(dir.as_ref())?;
+            let stat = gix::index::entry::Stat::from_fs(
+                &gix::index::fs::Metadata::from_path_no_follow(&path)?,
+            )?;
+            for entry in std::fs::read_dir(path)? {
                 let entry = entry?;
                 let mut below = dir.clone();
                 below.push(b'/');
@@ -269,8 +341,12 @@ impl<'a> Judge<'a> {
                     false => files.push(below),
                 }
             }
+            dirs.push(Observed {
+                rela_path: dir,
+                stat,
+            });
         }
-        Ok(files)
+        Ok((files, dirs))
     }
 
     fn judge(&mut self, rela_path: &BStr) -> anyhow::Result<Verdict> {
@@ -296,7 +372,7 @@ impl<'a> Judge<'a> {
                 || self.unchanged_since_indexed(rela_path, md)
                 || self.content_matches(rela_path, expected, md)?);
         Ok(match same {
-            true => Verdict::Snapshotted,
+            true => Verdict::Snapshotted(gix::index::entry::Stat::from_fs(md)?),
             false => Verdict::Changed(snapshot_path),
         })
     }
@@ -407,4 +483,53 @@ fn refuse_unless_empty(mut paths: Vec<String>, message: &str) -> anyhow::Result<
     paths.sort();
     paths.dedup();
     but_error::bail_precondition!("{message}: {}", paths.join(", "))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, SystemTime};
+
+    use super::{Clearance, Observed, Reason};
+
+    fn stat(path: &std::path::Path) -> anyhow::Result<gix::index::entry::Stat> {
+        Ok(gix::index::entry::Stat::from_fs(
+            &gix::index::fs::Metadata::from_path_no_follow(path)?,
+        )?)
+    }
+
+    fn set_modified(path: &std::path::Path, time: SystemTime) -> std::io::Result<()> {
+        std::fs::File::options()
+            .write(true)
+            .open(path)?
+            .set_modified(time)
+    }
+
+    #[test]
+    fn an_edit_in_the_same_second_after_the_check_is_refused() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let path = tmp.path().join("p");
+        std::fs::write(&path, "h\n")?;
+        let checked_at = SystemTime::UNIX_EPOCH + Duration::from_secs(1_000_000);
+        set_modified(&path, checked_at)?;
+        let clearances = [Clearance {
+            rela_path: "p".into(),
+            reason: Reason::Deleted,
+            observed: vec![Observed {
+                rela_path: "p".into(),
+                stat: stat(&path)?,
+            }],
+        }];
+        // An editor saving within the same second, keeping the size and the file.
+        std::fs::write(&path, "w\n")?;
+        set_modified(&path, checked_at + Duration::from_micros(1))?;
+
+        let err = super::still_as_checked(tmp.path(), &clearances)
+            .expect_err("the edit came after the check");
+
+        assert_eq!(
+            err.to_string(),
+            "Uncommitted files would be overwritten by checkout: \"p\""
+        );
+        Ok(())
+    }
 }
