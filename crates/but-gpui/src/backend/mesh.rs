@@ -545,7 +545,12 @@ pub fn log_out() -> Result<()> {
 pub fn link(server: &str, checkout: &str, branch: Option<&str>) -> String {
     let server = server.trim_end_matches('/');
     match branch {
-        Some(branch) => format!("{server}/c/{checkout}/b/{branch}"),
+        // Git allows `#` and `%` in a branch name, which a URL would take as a fragment or an
+        // escape.
+        Some(branch) => {
+            let branch = branch.replace('%', "%25").replace('#', "%23");
+            format!("{server}/c/{checkout}/b/{branch}")
+        }
         None => format!("{server}/c/{checkout}"),
     }
 }
@@ -671,6 +676,11 @@ mod tests {
             link("https://but.dev", "c1", Some("feat")),
             "https://but.dev/c/c1/b/feat",
             "a branch of it"
+        );
+        assert_eq!(
+            link("https://but.dev", "c1", Some("fix/#12-100%")),
+            "https://but.dev/c/c1/b/fix/%2312-100%25",
+            "a branch whose name has what a URL reads otherwise"
         );
     }
 }
