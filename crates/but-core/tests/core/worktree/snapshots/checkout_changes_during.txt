@@ -1,2 +1,517 @@
-170 cases
+340 cases
+
+HEAD Absent, target File, worktree File while Checking
+  the change:            unchanged, HEAD head, index [], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+
+HEAD Absent, target File, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+
+HEAD Absent, target Executable, worktree File while Checking
+  the change:            unchanged, HEAD head, index [], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
+
+HEAD Absent, target Executable, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
+
+HEAD Absent, target Symlink, worktree File while Checking
+  the change:            unchanged, HEAD head, index [], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
+
+HEAD Absent, target Symlink, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
+
+HEAD File, target Absent, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD File, target Absent, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD File, target Absent, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD File, target Absent, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout after it:     done, HEAD target, index [], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD File, target Absent, worktree IgnoredDirectory while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout after it:     done, HEAD target, index [], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD File, target Executable, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
+
+HEAD File, target Executable, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
+
+HEAD File, target Executable, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
+
+HEAD File, target Executable, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
+
+HEAD File, target Executable, worktree IgnoredDirectory while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
+
+HEAD File, target Symlink, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
+
+HEAD File, target Symlink, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
+
+HEAD File, target Symlink, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
+
+HEAD File, target Symlink, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
+
+HEAD File, target Symlink, worktree IgnoredDirectory while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
+
+HEAD File, target Directory, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD File, target Directory, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD File, target Directory, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD File, target Directory, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout after it:     done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"; p/y "w"]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD File, target Directory, worktree IgnoredDirectory while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout after it:     done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"; p/y "w"]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD File, target Submodule, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
+
+HEAD File, target Submodule, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
+
+HEAD File, target Submodule, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
+
+HEAD File, target Submodule, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
+
+HEAD File, target Submodule, worktree IgnoredDirectory while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
+
+HEAD Executable, target Absent, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w" (x)]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w" (x)]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD Executable, target Absent, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD Executable, target Absent, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD Executable, target Absent, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p/; p/y "w"]
+  checkout after it:     done, HEAD target, index [], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD Executable, target Absent, worktree IgnoredDirectory while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p/; p/y "w"]
+  checkout after it:     done, HEAD target, index [], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD Executable, target File, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w" (x)]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w" (x)]
+  checkout during it:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+
+HEAD Executable, target File, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+
+HEAD Executable, target File, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+
+HEAD Executable, target File, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+
+HEAD Executable, target File, worktree IgnoredDirectory while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+
+HEAD Executable, target Symlink, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w" (x)]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w" (x)]
+  checkout during it:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
+
+HEAD Executable, target Symlink, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
+
+HEAD Executable, target Symlink, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
+
+HEAD Executable, target Symlink, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
+
+HEAD Executable, target Symlink, worktree IgnoredDirectory while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
+
+HEAD Executable, target Directory, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w" (x)]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w" (x)]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD Executable, target Directory, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD Executable, target Directory, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD Executable, target Directory, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p/; p/y "w"]
+  checkout after it:     done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"; p/y "w"]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD Executable, target Directory, worktree IgnoredDirectory while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p/; p/y "w"]
+  checkout after it:     done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"; p/y "w"]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD Executable, target Submodule, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w" (x)]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w" (x)]
+  checkout during it:    done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
+
+HEAD Executable, target Submodule, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
+
+HEAD Executable, target Submodule, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
+
+HEAD Executable, target Submodule, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
+
+HEAD Executable, target Submodule, worktree IgnoredDirectory while Checking
+  the change:            unchanged, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(FILE | FILE_EXECUTABLE) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
+
+HEAD Symlink, target Absent, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD Symlink, target Absent, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD Symlink, target Absent, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD Symlink, target Absent, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p/; p/y "w"]
+  checkout after it:     done, HEAD target, index [], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD Symlink, target Absent, worktree IgnoredDirectory while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p/; p/y "w"]
+  checkout after it:     done, HEAD target, index [], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD Symlink, target File, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+
+HEAD Symlink, target File, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+
+HEAD Symlink, target File, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+
+HEAD Symlink, target File, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+
+HEAD Symlink, target File, worktree IgnoredDirectory while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+
+HEAD Symlink, target Executable, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
+
+HEAD Symlink, target Executable, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
+
+HEAD Symlink, target Executable, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
+
+HEAD Symlink, target Executable, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
+
+HEAD Symlink, target Executable, worktree IgnoredDirectory while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
+
+HEAD Symlink, target Directory, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD Symlink, target Directory, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD Symlink, target Directory, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD Symlink, target Directory, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p/; p/y "w"]
+  checkout after it:     done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"; p/y "w"]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD Symlink, target Directory, worktree IgnoredDirectory while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p/; p/y "w"]
+  checkout after it:     done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"; p/y "w"]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD Symlink, target Submodule, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
+
+HEAD Symlink, target Submodule, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
+
+HEAD Symlink, target Submodule, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
+
+HEAD Symlink, target Submodule, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
+
+HEAD Symlink, target Submodule, worktree IgnoredDirectory while Checking
+  the change:            unchanged, HEAD head, index [p Mode(SYMLINK) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(SYMLINK) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
+
+HEAD Directory, target Absent, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p/x Mode(FILE) "h"], disk [p/; p/x "w"]
+  checkout after it:     refused, HEAD head, index [p/x Mode(FILE) "h"], disk [p/; p/x "w"]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD Directory, target File, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p/x Mode(FILE) "h"], disk [p/; p/x "w"]
+  checkout after it:     refused, HEAD head, index [p/x Mode(FILE) "h"], disk [p/; p/x "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+
+HEAD Directory, target File, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p/x Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p/x Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+
+HEAD Directory, target Executable, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p/x Mode(FILE) "h"], disk [p/; p/x "w"]
+  checkout after it:     refused, HEAD head, index [p/x Mode(FILE) "h"], disk [p/; p/x "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
+
+HEAD Directory, target Executable, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p/x Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p/x Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
+
+HEAD Directory, target Symlink, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p/x Mode(FILE) "h"], disk [p/; p/x "w"]
+  checkout after it:     refused, HEAD head, index [p/x Mode(FILE) "h"], disk [p/; p/x "w"]
+  checkout during it:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
+
+HEAD Directory, target Symlink, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p/x Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout after it:     refused, HEAD head, index [p/x Mode(FILE) "h"], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
+
+HEAD Directory, target Submodule, worktree Edited while Checking
+  the change:            unchanged, HEAD head, index [p/x Mode(FILE) "h"], disk [p/; p/x "w"]
+  checkout after it:     refused, HEAD head, index [p/x Mode(FILE) "h"], disk [p/; p/x "w"]
+  checkout during it:    done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
+
+HEAD Submodule, target Absent, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD Submodule, target Absent, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD Submodule, target Absent, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p/; p/y "w"]
+  checkout after it:     done, HEAD target, index [], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD Submodule, target Absent, worktree IgnoredDirectory while Checking
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p/; p/y "w"]
+  checkout after it:     done, HEAD target, index [], disk [p/; p/y "w"]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD Submodule, target File, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+
+HEAD Submodule, target File, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+
+HEAD Submodule, target Executable, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
+
+HEAD Submodule, target Executable, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
+
+HEAD Submodule, target Symlink, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
+
+HEAD Submodule, target Symlink, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
+
+HEAD Submodule, target Directory, worktree File while Checking
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD Submodule, target Directory, worktree Symlink while Checking
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD Submodule, target Directory, worktree DirectoryWithUntrackedFile while Checking
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p/; p/y "w"]
+  checkout after it:     done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"; p/y "w"]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD Submodule, target Directory, worktree IgnoredDirectory while Checking
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p/; p/y "w"]
+  checkout after it:     done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"; p/y "w"]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
 

@@ -127,7 +127,7 @@ impl Pair {
     }
 
     /// A script that builds the repository `base`, where `main` is `HEAD` and `target` the
-    /// target. The target also changes `z.f`, so checkout always runs `z.f`'s filter.
+    /// target. The target also changes `z.f`, so checkout always writes it and runs its filters.
     fn script(&self) -> String {
         let head = put(self.head, self.head_path, "h", "sub-a");
         let target = put(self.target, self.target_path, "m", "sub-b");
@@ -536,39 +536,60 @@ impl During {
     }
 }
 
-/// Make each worktree change in `pair` while checkout runs, through `z.f`'s smudge filter.
+/// When during checkout a change is made.
+#[derive(Clone, Copy, Debug)]
+enum When {
+    /// While checkout writes the target's files to its staging directory, through the smudge
+    /// filter of `z.f`.
+    Staging,
+    /// While checkout checks what it removes against the snapshot, through the clean filter of
+    /// `z.f`, whose modification time no longer matches the index so the check must clean it.
+    /// `p` sorts first, so it's already checked by then.
+    Checking,
+}
+
+/// Make each worktree change in `pair` while checkout runs, at each time a filter runs.
 fn change_during_checkout(pair: Pair) -> anyhow::Result<Vec<During>> {
     let tmp = but_testsupport::gix_testtools::tempfile::TempDir::new()?;
     let mut script = pair.script();
     script.push_str("cd ..\n");
-    for (at, worktree) in WORKTREES.into_iter().enumerate().skip(1) {
-        let name = format!("{}, worktree {worktree:?} during checkout", pair.name());
-        let change = change_worktree(worktree);
-        write!(
-            script,
-            r#"printf '{at}\t{name}\n' >>variants
-mkdir {at} && cp -a base {at}/changed && cp -a base {at}/during
+    let mut at = 0;
+    let mut timings = Vec::new();
+    for when in [When::Staging, When::Checking] {
+        for worktree in WORKTREES.into_iter().skip(1) {
+            at += 1;
+            timings.push(when);
+            let name = format!("{}, worktree {worktree:?} while {when:?}", pair.name());
+            let change = change_worktree(worktree);
+            let edit_z = match when {
+                When::Staging => "true",
+                When::Checking => "touch -m -t 200001010000 z.f",
+            };
+            write!(
+                script,
+                r#"printf '{at}\t{name}\n' >>variants
+mkdir {at} && cp -a base {at}/changed
+(cd {at}/changed && {edit_z}) && cp -a {at}/changed {at}/during
 (cd {at}/changed && {change}) && cp -a {at}/changed {at}/after
 cat >{at}/during/.git/meddle.sh <<'EOF'
 cd "$GIT_DIR/.." && ({change}) >/dev/null 2>&1
 EOF
 "#
-        )?;
+            )?;
+        }
     }
     let variants = variants(tmp.path(), script)?;
     let names = Names::read(tmp.path())?;
     let unchanged = disk(&tmp.path().join("base"))?;
     let mut cases = Vec::new();
     for (dir, name) in variants {
+        let at: usize = dir
+            .file_name()
+            .and_then(|n| n.to_str())
+            .expect("numbered")
+            .parse()?;
         let during = dir.join("during");
-        std::fs::write(during.join(".git/info/attributes"), "*.f filter=meddle\n")?;
-        but_testsupport::git_at_dir(&during)
-            .args([
-                "config",
-                "filter.meddle.smudge",
-                r#"sh -c '. "$GIT_DIR/meddle.sh" >&2; cat'"#,
-            ])
-            .status()?;
+        configure_meddling(&during, timings[at - 1])?;
         let created: Vec<String> = disk(&dir.join("changed"))?
             .into_iter()
             .filter(|entry| !unchanged.contains(entry))
@@ -584,4 +605,30 @@ EOF
         });
     }
     Ok(cases)
+}
+
+/// Make `z.f`'s filter run `.git/meddle.sh` in the repository at `dir`, once, at `when`.
+fn configure_meddling(dir: &Path, when: When) -> anyhow::Result<()> {
+    std::fs::write(dir.join(".git/info/attributes"), "*.f filter=meddle\n")?;
+    let meddle = r#". "$GIT_DIR/meddle.sh" >&2"#;
+    let (smudge, clean) = match when {
+        When::Staging => (format!("sh -c '{meddle}; cat'"), "cat".to_owned()),
+        // The snapshot and the merge clean `z.f` too, but only before checkout creates its
+        // staging directory below `.git/gitbutler`, which exists while the check runs.
+        When::Checking => (
+            "cat".to_owned(),
+            format!(
+                r#"sh -c 'if [ ! -e "$GIT_DIR/meddled" ] && ls -d "$GIT_DIR"/gitbutler/.gitbutler-checkout-* >/dev/null 2>&1; then touch "$GIT_DIR/meddled"; {meddle}; fi; cat'"#
+            ),
+        ),
+    };
+    for (key, value) in [
+        ("filter.meddle.smudge", smudge),
+        ("filter.meddle.clean", clean),
+    ] {
+        but_testsupport::git_at_dir(dir)
+            .args(["config", key, &value])
+            .status()?;
+    }
+    Ok(())
 }
