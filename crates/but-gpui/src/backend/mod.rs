@@ -170,11 +170,6 @@ pub fn activate(path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// The target's branch on its remote, as the project names it, like `refs/remotes/origin/main`.
-pub(crate) fn remote_target(ctx: &Context, repo: &gix::Repository) -> Option<gix::refs::FullName> {
-    (ctx.project_meta().ok()).and_then(|meta| meta.remote_target_ref(repo).ok().flatten())
-}
-
 pub(crate) fn open(path: &Path) -> Result<Context> {
     Context::open(path).with_context(|| format!("Couldn't open {}", path.display()))
 }
@@ -290,15 +285,17 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         && (info.stacks.iter())
             .any(|stack| stack.base.is_some_and(|base| Some(base) != target_commit));
     // What's new is what the target branch's upstream has past the stored target commit: what
-    // a pull brings in. Without a stored commit, as for a project added since its target last
-    // moved, or without an upstream, which nothing can be pulled from, there's nothing to bring.
+    // a pull brings in. Without an upstream, it's what the local target branch itself gained,
+    // as from a land or a `git merge` into it. Without a stored commit, as for a project added
+    // since its target last moved, there's nothing to bring.
     let repo = ctx.repo.get()?;
-    let upstream = remote_target(&ctx, &repo);
+    let upstream = (ctx.project_meta().ok()).and_then(|meta| target_source(&repo, &meta));
     let tip = (upstream.as_ref()).and_then(|name| ref_tip(&repo, name.as_ref()));
     let target = upstream.as_ref().zip(tip).map(|(name, tip)| {
         let ahead = target_commit.map_or(0, |base| commits_past(&repo, tip, base));
         Target {
             name: name.shorten().to_string(),
+            local: name.category() == Some(gix::refs::Category::LocalBranch),
             behind: (target_commit)
                 .and_then(|base| first_parent_steps(&repo, tip, base, ahead))
                 .unwrap_or(ahead),
@@ -479,10 +476,6 @@ fn branch_from(
     }
 }
 
-/// How many commits along `target`'s own line of history its tip is past `base`, what the
-/// workspace was last updated to: each pull request merged one, as the project's page lists
-/// them, rather than one for each commit it merged too, of which there are `all`. `None` when
-/// `base` isn't on that line, as after the target was rewritten.
 /// Where the target's new commits come from: the local target branch's upstream, as a pull
 /// brings in and a pull request compares against, or with none configured, the branch itself.
 pub(crate) fn target_source(

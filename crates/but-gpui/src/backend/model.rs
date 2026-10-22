@@ -253,7 +253,8 @@ impl Workspace {
     /// the remote of the target's upstream, and a conflicted commit would go along.
     pub fn push_refused(&self, ref_name: &str) -> Option<&'static str> {
         let pushed = self.pushed_with(ref_name);
-        if self.target.is_none() && self.target_branch.is_some() {
+        let unpushed = (self.target.as_ref()).map_or(self.target_branch.is_some(), |t| t.local);
+        if unpushed {
             Some("The target branch isn't on the remote yet: push it once, with `git push -u`")
         } else if self.target.is_none() {
             Some("Pick the project's target branch first")
@@ -303,6 +304,9 @@ impl Workspace {
 pub struct Target {
     /// Short name, like `origin/main`.
     pub name: String,
+    /// It's the local target branch itself, like `main`, as it has no upstream, as in a
+    /// repository with no remote: a land moves it rather than pushing it.
+    pub local: bool,
     /// Commits on the target's own line of history the workspace doesn't have yet: each pull
     /// request merged counts once, as the project's page lists them.
     pub behind: usize,

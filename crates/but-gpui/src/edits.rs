@@ -942,8 +942,8 @@ impl AppView {
     }
 
     /// Put the selected branch onto the target and push it there, after asking: the push
-    /// can't be undone. The bottom branch of a stack lands alone; the top one with the
-    /// branches below it.
+    /// can't be undone. A target with no upstream just moves, which can be. The bottom branch
+    /// of a stack lands alone; the top one with the branches below it.
     fn land_branch(&mut self, _: &LandBranch, window: &mut Window, cx: &mut Context<Self>) {
         let Some((project, ref_name)) = self.selected_named_branch(cx) else {
             return;
@@ -952,8 +952,8 @@ impl AppView {
         let Some(workspace) = store.workspace(&project) else {
             return;
         };
-        let Some((target, behind)) =
-            (workspace.target.as_ref()).map(|t| (t.name.clone(), t.needs_update))
+        let Some((target, behind, local)) =
+            (workspace.target.as_ref()).map(|t| (t.name.clone(), t.needs_update, t.local))
         else {
             return;
         };
@@ -1003,10 +1003,13 @@ impl AppView {
         self.confirm_then(
             Some(Selection::Branch(project.clone(), ref_name.clone())),
             format!("Land {what} on {target}?"),
-            &format!(
-                "{whose} commits go straight onto {target} and get pushed, skipping review. \
-                 A push can't be undone.{update}"
-            ),
+            &match local {
+                true => format!("{whose} commits go straight onto {target}.{update}"),
+                false => format!(
+                    "{whose} commits go straight onto {target} and get pushed, skipping \
+                     review. A push can't be undone.{update}"
+                ),
+            },
             "Land",
             window,
             cx,

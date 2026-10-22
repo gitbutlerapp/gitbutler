@@ -83,6 +83,17 @@ fn target_page(
     after: Option<CommitId>,
     limit: u32,
 ) -> Result<(Vec<TargetCommit>, bool)> {
+    let repo = ctx.repo.get()?;
+    let meta = ctx.project_meta()?;
+    if meta.remote_target_ref(&repo)?.is_none()
+        && let Some(target) = meta.target_ref.as_ref()
+    {
+        let tip = repo
+            .find_reference(target.as_local_full_name_ref())?
+            .peel_to_id()?;
+        return local_target_page(&repo, tip.detach(), meta.target_commit_id, after, limit);
+    }
+    drop(repo);
     let page = but_api::target_commits::workspace_target_commits(
         ctx,
         after.map(|id| but_api::json::HexHash(id.0)),
@@ -122,6 +133,49 @@ fn target_page(
                 .is_ok_and(|c| c.parent_ids().next().is_some_and(|p| repo.has_object(p)))
         });
     Ok((commits, page.has_more || forked_above_root))
+}
+
+/// [`target_page`] for a target with no upstream, which the API lists nothing of: the local
+/// branch's own history from `tip`, along first parents, with those `base`, what the workspace
+/// was last updated to, doesn't have incoming. The first page stops where the workspace is.
+fn local_target_page(
+    repo: &gix::Repository,
+    tip: gix::ObjectId,
+    base: Option<gix::ObjectId>,
+    after: Option<CommitId>,
+    limit: u32,
+) -> Result<(Vec<TargetCommit>, bool)> {
+    // A shallow clone's oldest commits name parents it doesn't have.
+    let first_parent = |commit: &gix::Commit<'_>| {
+        (commit.parent_ids().next())
+            .map(|id| id.detach())
+            .filter(|id| repo.has_object(id))
+    };
+    let mut cursor = match after {
+        Some(after) => first_parent(&repo.find_commit(after.0)?),
+        None => Some(tip),
+    };
+    let mut incoming = true;
+    let mut commits = Vec::new();
+    while commits.len() < limit as usize
+        && let Some(id) = cursor
+    {
+        // Once one is in `base`'s history, so is every commit below it.
+        incoming &= base.is_some_and(|base| {
+            repo.merge_base(id, base)
+                .map_or(true, |at| at.is_none_or(|at| at != id))
+        });
+        let commit = repo.find_commit(id)?;
+        cursor = first_parent(&commit);
+        commits.push(TargetCommit {
+            incoming,
+            ..target_commit(&commit)?
+        });
+        if after.is_none() && !incoming {
+            break;
+        }
+    }
+    Ok((commits, cursor.is_some()))
 }
 
 /// `commit` as a target's history lists it. Whether it's incoming, and the pull request it
@@ -239,7 +293,8 @@ pub struct Person {
 pub fn target_name(path: &Path) -> Option<String> {
     let ctx = open(path).ok()?;
     let repo = ctx.repo.get().ok()?;
-    Some(super::remote_target(&ctx, &repo)?.shorten().to_string())
+    let meta = ctx.project_meta().ok()?;
+    Some(super::target_source(&repo, &meta)?.shorten().to_string())
 }
 
 /// `target` (a short name, like `origin/main`) summed up as of `now`, in seconds since the
@@ -877,7 +932,7 @@ pub fn fetch(path: &Path) -> Result<bool> {
 }
 
 /// Put `branch` (a short name), or with `whole_stack` it and every branch below it,
-/// straight onto the target and push the target. Returns whether the other branches still
+/// straight onto the target and push the target, or with no upstream, just move it. Returns whether the other branches still
 /// need an update to sit on the moved target.
 pub fn land(path: &Path, branch: &str, tip: CommitId, whole_stack: bool) -> Result<bool> {
     let mut ctx = open(path)?;

@@ -1494,6 +1494,45 @@ mod tests {
     }
 
     #[test]
+    fn a_target_without_a_remote_is_its_own_branch_to_update_from_and_land_on() {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        crate::backend::settings::set_target(path, "refs/heads/main").unwrap();
+        git(path, &["checkout", "-q", "-b", "feature"]);
+        git(path, &["commit", "-q", "--allow-empty", "-m", "Feature"]);
+        // A commit `main` gains while it isn't checked out, as from a `git merge` into it.
+        let gained = git(
+            path,
+            &["commit-tree", "main^{tree}", "-p", "main", "-m", "On main"],
+        );
+        git(path, &["update-ref", "refs/heads/main", gained.trim()]);
+
+        let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+        let target = workspace.target.as_ref().expect("main is the target");
+        assert_eq!(
+            (target.name.as_str(), target.local, target.needs_update),
+            ("main", true, true),
+            "the local branch is the target, with something new to update from"
+        );
+        assert_eq!(
+            (target.incoming.iter())
+                .map(|c| c.title.as_str())
+                .collect::<Vec<_>>(),
+            ["On main"],
+            "what main gained is listed as new on it"
+        );
+
+        let tip = workspace.find_branch("refs/heads/feature").unwrap().commits[0].id;
+        crate::backend::upstream::land(path, "feature", tip, false).unwrap();
+        assert!(
+            git(path, &["log", "--format=%s", "main"])
+                .lines()
+                .any(|s| s == "Feature"),
+            "main moved to take the branch in, with no remote to push to"
+        );
+    }
+
+    #[test]
     fn a_new_branch_from_a_detached_head_is_refused() {
         let dir = repo_with("one\n");
         let path = dir.path();
