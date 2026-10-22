@@ -109,6 +109,8 @@ fn describe(kind: Option<OperationKind>) -> (Icon, Group) {
         | K::GenericBranchUpdate => (Icon::Branch, Group::Branches),
         K::SetBaseBranch => (Icon::Branch, Group::Updates),
         K::MergeUpstream | K::UpdateWorkspaceBase => (Icon::ArrowLineDown, Group::Updates),
+        // A branch landed on the target, as a land onto a target without a remote records.
+        K::MergeBranch => (Icon::BranchMerge, Group::Updates),
         K::SyncWorkspace => (Icon::Refresh, Group::Updates),
         K::RestoreFromSnapshot | K::RestoreFromSnapshotViaUndo | K::RestoreFromSnapshotViaRedo => {
             (Icon::Undo, Group::TakeBacks)

@@ -418,11 +418,11 @@ fn create_beside_checkout(
         (new_ref, base.detach())
     };
     // It lists the new branch, so undo deletes it again.
-    let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_ref_and_perm(
+    let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
         ctx,
         SnapshotDetails::new(OperationKind::CreateBranch)
             .with_trailers([Trailer::Name(new_ref.to_string())]),
-        Some(new_ref.as_ref()),
+        &[new_ref.as_ref()],
         perm.read_permission(),
         DryRun::No,
     );
