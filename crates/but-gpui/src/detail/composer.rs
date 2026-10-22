@@ -567,6 +567,12 @@ impl Detail {
         }) else {
             return;
         };
+        // Already open, as after a click elsewhere: back to what's written there.
+        if let Some((editing, input, _)) = &self.rewording
+            && *editing == key
+        {
+            return window.focus(&input.focus_handle(cx), cx);
+        }
         let input = cx.new(|cx| {
             let mut input = TextInput::new("Commit message", true, cx);
             input.set_text(message, cx);
