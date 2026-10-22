@@ -5,12 +5,13 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context as _, Result, bail};
 use gpui::{Context, SharedString, Task};
 
 use super::{Notice, ProjectId, Reload, Selection, Store, StoreEvent};
+use crate::backend::history::Undone;
 use crate::backend::upstream::{UpdateConflicts, UpdateOutcome};
 use crate::backend::{
     self, Branch, Commit, CommitId, Destination, FileChange, HunkKey, Review, ReviewState,
@@ -85,6 +86,9 @@ pub enum OpKind {
     MarkResolved,
     FinishEditing,
     CancelEditing,
+    /// ⌘Z and ⌘⇧Z, of the step with this oplog entry, which keep the undo history themselves.
+    Undo(SnapshotId),
+    Redo(SnapshotId),
 }
 
 impl OpKind {
@@ -343,6 +347,21 @@ pub(super) struct Running {
     moved: Option<Selection>,
 }
 
+/// An operation of the user's that ⌘Z takes back: the oplog entry it recorded in its project,
+/// when it was asked for, which orders it among the others, and when it finished, in
+/// milliseconds since the Unix epoch as file times are.
+pub(super) struct UndoStep {
+    pub(super) project: ProjectId,
+    pub(super) snapshot: SnapshotId,
+    asked: Instant,
+    done: i64,
+}
+
+/// Now, in milliseconds since the Unix epoch, as file times are.
+fn now_millis() -> i64 {
+    (SystemTime::now().duration_since(UNIX_EPOCH)).map_or(0, |t| t.as_millis() as i64)
+}
+
 impl Store {
     /// Confirm an operation, or warn about the changes it had to leave out.
     pub fn report_left_out(&mut self, done: &str, left_out: &[String], cx: &mut Context<Self>) {
@@ -357,25 +376,101 @@ impl Store {
         }
     }
 
-    /// Restore `project` to before its last operation, or with `redo` take back the last undo.
-    pub fn undo(&mut self, project: &ProjectId, redo: bool, cx: &mut Context<Self>) {
-        let (label, done, nothing) = if redo {
-            ("Redo", "Redone", "Nothing to redo")
-        } else {
-            ("Undo", "Undone", "Nothing to undo")
-        };
-        let (kept, of) = (self.kept_snapshots.clone(), project.clone());
-        self.run(
+    /// Undo what the user last did, in whichever project they did it.
+    pub fn undo_last(&mut self, cx: &mut Context<Self>) {
+        // The newest step not being undone already, as by a ⌘Z just before.
+        let undoing: Vec<SnapshotId> = (self.unfinished_asked())
+            .filter_map(|(o, _)| match o.kind {
+                OpKind::Undo(snapshot) => Some(snapshot),
+                _ => None,
+            })
+            .collect();
+        let last = (self.undo_steps.iter().rev()).find(|step| !undoing.contains(&step.snapshot));
+        // Asked for after it and still running, an operation, a redo too, is what the user
+        // means to undo.
+        let newer = |asked: Instant| last.is_none_or(|step| asked > step.asked);
+        if (self.unfinished_asked())
+            .any(|(o, asked)| !o.remote_only && !matches!(o.kind, OpKind::Undo(_)) && newer(asked))
+        {
+            return self.snack("Wait for the running operation to finish, then undo it", cx);
+        }
+        match last.map(|step| (step.project.clone(), step.snapshot)) {
+            Some((project, snapshot)) => self.undo_snapshot(&project, snapshot, true, cx),
+            None => self.snack("Nothing to undo", cx),
+        }
+    }
+
+    /// Every operation waiting or running, but for one waiting only for its reload, with when
+    /// it was asked for.
+    fn unfinished_asked(&self) -> impl Iterator<Item = (&Overlay, Instant)> {
+        let running = self.running.values().filter(|r| !r.settling);
+        (running.map(|r| (&r.overlay, r.asked)))
+            .chain(self.queue.iter().map(|q| (&q.overlay, q.asked)))
+    }
+
+    /// Make the operation that recorded `snapshot` in `project` one ⌘Z takes back, among the
+    /// others by when it was asked for.
+    fn push_undo_step(&mut self, project: ProjectId, snapshot: SnapshotId, asked: Instant) {
+        let done = now_millis();
+        (self.undo_steps).push(UndoStep {
             project,
-            label,
-            Overlay::rewriting_main(),
+            snapshot,
+            asked,
+            done,
+        });
+        self.undo_steps.sort_by_key(|step| step.asked);
+    }
+
+    /// Redo what ⌘Z last took back, unless the user has done something since.
+    pub fn redo_last(&mut self, cx: &mut Context<Self>) {
+        if (self.unfinished_asked()).any(|(o, _)| matches!(o.kind, OpKind::Undo(_))) {
+            return self.snack("Wait for the undo to finish, then redo it", cx);
+        }
+        // The newest not being redone already.
+        let redoing: Vec<SnapshotId> = (self.unfinished_asked())
+            .filter_map(|(o, _)| match o.kind {
+                OpKind::Redo(undo) => Some(undo),
+                _ => None,
+            })
+            .collect();
+        let Some((project, undo)) = (self.redo_steps.iter().rev())
+            .find(|(_, undo)| !redoing.contains(undo))
+            .cloned()
+        else {
+            return self.snack("Nothing to redo", cx);
+        };
+        let (kept, of, again, asked) = (
+            self.kept_snapshots.clone(),
+            project.clone(),
+            project.clone(),
+            Instant::now(),
+        );
+        self.run(
+            &project,
+            "Redo",
+            Overlay {
+                kind: OpKind::Redo(undo),
+                ..Overlay::rewriting_main()
+            },
             move |path, _| {
                 let kept = kept.lock().expect("not poisoned").get(&of).cloned();
-                backend::history::undo(path, redo, &kept.unwrap_or_default())
+                let started = now_millis();
+                let redone = backend::history::redo_snapshot(path, undo, &kept.unwrap_or_default());
+                Ok((redone?, (started, now_millis())))
             },
-            move |store, undone, cx| match undone {
-                Some(operation) => store.snack(format!("{done}: {operation}"), cx),
-                None => store.snack(nothing, cx),
+            move |store, (redone, span), cx| {
+                // Done, or something changed the project since, it's no longer to redo.
+                (store.redo_steps).retain(|step| *step != (again.clone(), undo));
+                let Some(operation) = redone else {
+                    let why = "Something changed the project since the undo, so it can't be redone";
+                    return store.snack(store.card_title(&again, why.into()), cx);
+                };
+                store.undid.entry(again).or_default().push(span);
+                // Back on top of what ⌘Z takes back.
+                if let Some((project, snapshot)) = store.last_snapshot.clone() {
+                    store.push_undo_step(project, snapshot, asked);
+                }
+                store.snack_undoable(format!("Redone: {operation}"), cx)
             },
             cx,
         );
@@ -398,19 +493,82 @@ impl Store {
         );
     }
 
-    /// Undo the operation that recorded `snapshot`, as long as nothing came after it.
+    /// Undo the operation that recorded `snapshot` in `project`, as long as nothing came
+    /// after it there and, with `guard`, no file was written since; for ⌘⇧Z to redo. Its step
+    /// stays among those ⌘Z takes back until it's undone, or can't ever be on its own.
     pub fn undo_snapshot(
         &mut self,
         project: &ProjectId,
         snapshot: SnapshotId,
+        guard: bool,
         cx: &mut Context<Self>,
     ) {
+        if (self.workspace(project)).is_some_and(|ws| ws.editing.is_some()) {
+            return self.snack("Finish or cancel editing the commit first", cx);
+        }
+        let step = (self.undo_steps.iter())
+            .find(|step| step.project == *project && step.snapshot == snapshot);
+        let asked = step.map(|step| step.asked);
+        let undid = self.undid.get(project).cloned().unwrap_or_default();
+        let newer_than = (step.filter(|_| guard)).map(|step| (step.done, undid));
+        // The snackbar offering to undo it goes with it.
+        let offered = (project.clone(), snapshot);
+        self.toasts.retain(|toast| {
+            !matches!(&toast.notice, Notice::Snackbar { undo: Some(undo), .. } if *undo == offered)
+        });
+        let again = project.clone();
         self.run(
             project,
             "Undo",
-            Overlay::rewriting_main(),
-            move |path, _| backend::history::undo_snapshot(path, snapshot),
-            |store, operation, cx| store.snack(format!("Undone: {operation}"), cx),
+            Overlay {
+                kind: OpKind::Undo(snapshot),
+                ..Overlay::rewriting_main()
+            },
+            move |path, _| {
+                let started = now_millis();
+                let newer_than = (newer_than.as_ref()).map(|(at, undid)| (*at, undid.as_slice()));
+                let undone = backend::history::undo_snapshot(path, snapshot, newer_than);
+                Ok((undone, (started, now_millis())))
+            },
+            move |store, (undone, span), cx| {
+                let title = |store: &Store| store.card_title(&again, "Undo failed".into());
+                match undone {
+                    Ok(Undone::Done(operation)) => {
+                        (store.undo_steps)
+                            .retain(|step| step.project != again || step.snapshot != snapshot);
+                        store.undid.entry(again.clone()).or_default().push(span);
+                        let done = store.card_title(&again, format!("Undone: {operation}"));
+                        if let Some((_, undo)) = store.last_snapshot {
+                            store.redo_steps.push((again, undo));
+                        }
+                        store.snack(done, cx)
+                    }
+                    // It, and the project's steps before it, are behind what came after.
+                    Ok(Undone::Behind(why)) => {
+                        store.undo_steps.retain(|step| {
+                            step.project != again || asked.is_some_and(|asked| step.asked > asked)
+                        });
+                        store.error(title(store), why, cx)
+                    }
+                    Ok(Undone::Newer(files)) => {
+                        let what = match files.as_slice() {
+                            [file] => file.clone(),
+                            files => crate::ui::plural(files.len(), "file"),
+                        };
+                        store.error_with_retry(
+                            store.card_title(&again, "Undo takes back newer changes too".into()),
+                            format!(
+                                "{what} changed after the operation it undoes. Undo puts files \
+                                 back as they were before it, and Redo brings the changes back."
+                            ),
+                            "Undo anyway",
+                            move |store, cx| store.undo_snapshot(&again, snapshot, false, cx),
+                            cx,
+                        )
+                    }
+                    Err(err) => store.failed(title(store), &err, cx),
+                }
+            },
             cx,
         );
     }
@@ -1046,7 +1204,13 @@ impl Store {
                 // and branches, if that's all it changed, and what was asked for while it ran.
                 let mut reload = Reload::full();
                 let mut moved = None;
+                let (mut undo, mut asked) = (false, Instant::now());
                 if let Some(running) = store.running.get_mut(&project) {
+                    let kind = &running.overlay.kind;
+                    (undo, asked) = (
+                        matches!(kind, OpKind::Undo(_) | OpKind::Redo(_)),
+                        running.asked,
+                    );
                     running.settling = true;
                     moved = running.moved.take();
                     let overlay = &running.overlay;
@@ -1091,6 +1255,14 @@ impl Store {
                         store.last_snapshot = recorded.map(|snapshot| (project.clone(), snapshot));
                         if moved_worktree {
                             store.keep_last_snapshot();
+                        }
+                        // Something new done, ⌘Z takes it back first, and what it took back
+                        // before can't be redone over it.
+                        if let Some((project, snapshot)) =
+                            store.last_snapshot.clone().filter(|_| !undo)
+                        {
+                            store.push_undo_step(project, snapshot, asked);
+                            store.redo_steps.clear();
                         }
                         // Gone on to another project meanwhile, the user stays there: what this
                         // finished selects, as the commit it made, doesn't take them back.

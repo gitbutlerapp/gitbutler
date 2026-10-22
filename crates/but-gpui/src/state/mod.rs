@@ -265,6 +265,16 @@ pub struct Store {
     queue: VecDeque<Queued>,
     /// The oplog entry the last mutation recorded, which the Undo offered for it restores.
     last_snapshot: Option<(ProjectId, SnapshotId)>,
+    /// What ⌘Z takes back, newest last: the oplog entries the user's operations recorded, in
+    /// whichever project each ran. So ⌘Z undoes what the user last did, wherever the
+    /// selection is, rather than what last happened in the selected project.
+    undo_steps: Vec<mutation::UndoStep>,
+    /// What ⌘⇧Z redoes, newest last: the oplog entries ⌘Z recorded taking something back, in
+    /// whichever project, since the user last did something.
+    redo_steps: Vec<(ProjectId, SnapshotId)>,
+    /// When, in milliseconds since the Unix epoch, ⌘Z and ⌘⇧Z wrote files, by project: what's
+    /// written then isn't a change of the user's that a later ⌘Z asks about.
+    undid: HashMap<ProjectId, Vec<(i64, i64)>>,
     /// Oplog entries of mutations that changed more than the oplog snapshots (a linked
     /// worktree, a branch outside the workspace), which ⌘Z doesn't take back, by project.
     /// Shared with a queued undo, which reads it once it runs, after what ran before it is
@@ -353,6 +363,9 @@ impl Store {
             busy_ticker: Task::ready(()),
             queue: VecDeque::new(),
             last_snapshot: None,
+            undo_steps: Vec::new(),
+            redo_steps: Vec::new(),
+            undid: HashMap::new(),
             kept_snapshots: Arc::new(Mutex::new(
                 (saved.kept_by_project.into_iter())
                     .map(|(project, ids)| {
@@ -771,10 +784,16 @@ impl Store {
         self.snack_undoable(message, cx)
     }
 
+    /// Whether ⌘Z has something the user did to take back.
+    pub fn can_undo(&self) -> bool {
+        !self.undo_steps.is_empty()
+    }
+
     /// Keep ⌘Z, and the snackbar's Undo, from taking back the mutation that just ran: it
     /// changed what the oplog can't bring back, as a linked worktree.
     pub fn keep_last_snapshot(&mut self) {
         if let Some((project, snapshot)) = self.last_snapshot.take() {
+            (self.undo_steps).retain(|step| step.project != project || step.snapshot != snapshot);
             (self.kept_snapshots.lock().expect("not poisoned"))
                 .entry(project)
                 .or_default()
@@ -816,13 +835,12 @@ impl Store {
     /// A snackbar offering to undo the mutation that just ran.
     pub fn snack_undoable(&mut self, message: impl Into<SharedString>, cx: &mut Context<Self>) {
         let undo = self.last_snapshot.clone();
-        self.notify_user(
-            Notice::Snackbar {
-                message: message.into(),
-                undo,
-            },
-            cx,
-        );
+        // Done in another project than the one shown, it says which its Undo takes back.
+        let message = match &undo {
+            Some((project, _)) => self.card_title(project, message.into().to_string()).into(),
+            None => message.into(),
+        };
+        self.notify_user(Notice::Snackbar { message, undo }, cx);
     }
 
     pub fn error(

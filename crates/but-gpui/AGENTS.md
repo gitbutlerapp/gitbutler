@@ -157,6 +157,15 @@ unseen is what a laptop's battery pays for.
   anything that touched a linked worktree, in older snapshots too. Commits in a linked worktree
   skip hooks, which would run against the main checkout's files. Branches move only within their
   own side.
+- ⌘Z follows the user, not the selection. `Store::undo_steps` takes the oplog entry of every
+  operation the app runs, in any project, ordered by when it was asked for, and ⌘Z undoes the
+  newest only while it's still its project's undo target, so it never takes back an agent's or
+  the CLI's work. Undo and Redo are `OpKind::Undo` and `OpKind::Redo` and keep the lists
+  themselves; an operation the oplog can't undo calls `keep_last_snapshot`, which drops it.
+- An oplog restore puts the whole worktree back, so `history::undo_snapshot` first checks for
+  files written after the operation, leaving out the spans the app's own undos wrote in
+  (`Store::undid`), and returns `Undone::Newer` for ⌘Z to ask about. A step stays on the list
+  unless it was undone or `Undone::Behind` says something came after it.
 - A snapshot taken with one branch checked out outside the workspace keeps no stacks: only the
   branch's ref and tip under `checkout/`, and the refs below it under `additional-refs/`. History
   reads those branches' commits from the repository, down to the snapshot's target.

@@ -219,7 +219,9 @@ impl AppView {
                 }
                 _ => Vec::new(),
             };
-            hints.push((&Undo, "undo"));
+            if store.can_undo() {
+                hints.push((&Undo, "undo"));
+            }
             hints
         };
 

@@ -84,6 +84,9 @@ impl Store {
         let listed: HashSet<&str> = self.projects.iter().map(|entry| &*entry.id).collect();
         let listed = |id: &str| listed.contains(id);
         self.seen.commits.retain(|id, _| listed(id));
+        self.undo_steps.retain(|step| listed(&step.project));
+        self.redo_steps.retain(|(id, _)| listed(id));
+        self.undid.retain(|id, _| listed(id));
         (self.kept_snapshots.lock().expect("not poisoned")).retain(|id, _| listed(id));
         let prefs = &mut self.prefs;
         let sets = [

@@ -1616,7 +1616,8 @@ pub(super) mod tests {
             "the uncommitted change comes along"
         );
 
-        crate::backend::history::undo(path, false, &Default::default()).unwrap();
+        let last = crate::backend::history::oplog_head(path).unwrap();
+        crate::backend::history::undo_snapshot(path, last, None).unwrap();
         assert_eq!(
             head(path),
             "refs/heads/feature",
@@ -1891,6 +1892,47 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn an_undo_stops_for_what_came_after_and_for_files_written_since() {
+        use crate::backend::history::{Undone, oplog_head, take_snapshot, undo_snapshot};
+        let now = || {
+            let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+            since.unwrap().as_millis() as i64
+        };
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        target_origin_main(path);
+        git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+        git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
+        let head = git(path, &["rev-parse", "HEAD"]);
+        let top = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+        name_branch(path, top, "named").unwrap();
+        let named = oplog_head(path).unwrap();
+        let done = now();
+        // Later than it, as an edit in an editor is.
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        std::fs::write(path.join("file"), "two\n").unwrap();
+        assert!(
+            matches!(undo_snapshot(path, named, Some((done, &[]))).unwrap(),
+                Undone::Newer(files) if files == ["file"]),
+            "a file written after the operation is one undoing it puts back"
+        );
+
+        take_snapshot(path, None).unwrap();
+        let snapshot = oplog_head(path).unwrap();
+        assert!(
+            matches!(undo_snapshot(path, named, None).unwrap(), Undone::Behind(_)),
+            "the snapshot came after it, and undoing it would take that back too"
+        );
+        assert!(
+            matches!(
+                undo_snapshot(path, snapshot, Some((done, &[(done, now())]))).unwrap(),
+                Undone::Done(_)
+            ),
+            "written while the app's own undo ran, the file isn't the user's change"
+        );
+    }
+
+    #[test]
     fn naming_an_unnamed_branch_makes_it_a_stack_and_undoes() {
         let dir = repo_with("one\n");
         let path = dir.path();
@@ -1911,7 +1953,8 @@ pub(super) mod tests {
         assert_eq!(name_branch(path, top, "named").unwrap(), "refs/heads/named");
         assert_eq!(branch_at_top(path).as_deref(), Some("refs/heads/named"));
 
-        crate::backend::history::undo(path, false, &Default::default()).unwrap();
+        let last = crate::backend::history::oplog_head(path).unwrap();
+        crate::backend::history::undo_snapshot(path, last, None).unwrap();
         assert_eq!(
             branch_at_top(path).as_deref(),
             Some(""),

@@ -533,25 +533,23 @@ pub fn take_snapshot(path: &Path, message: Option<String>) -> Result<()> {
     Ok(())
 }
 
-/// Restore the workspace to before the last operation, or with `redo` restore what the
-/// last undo took back, refusing when that operation is one of `kept`. Returns what it was,
-/// or `None` when there's nothing to undo or redo.
-pub fn undo(path: &Path, redo: bool, kept: &HashSet<SnapshotId>) -> Result<Option<&'static str>> {
+/// Redo what the undo that recorded `undo` took back, while that's still the last undo and
+/// isn't one of `kept`: what it was, or `None` when something changed the project since.
+pub fn redo_snapshot(
+    path: &Path,
+    undo: SnapshotId,
+    kept: &HashSet<SnapshotId>,
+) -> Result<Option<&'static str>> {
     let mut ctx = open(path)?;
-    let (snapshot, kind) = if redo {
-        let snapshot = oplog::get_redo_target_snapshot(&ctx)?;
-        (snapshot, RestoreKind::RestoreFromSnapshotViaRedo)
-    } else {
-        let snapshot = oplog::get_undo_target_snapshot(&ctx)?;
-        (snapshot, RestoreKind::RestoreFromSnapshotViaUndo)
-    };
-    let Some(snapshot) = snapshot else {
+    let target = oplog::get_redo_target_snapshot(&ctx)?;
+    let Some(target) = target.filter(|target| target.commit_id == undo.0) else {
         return Ok(None);
     };
-    if kept.contains(&SnapshotId(snapshot.commit_id)) {
+    if kept.contains(&SnapshotId(target.commit_id)) {
         bail!(UNRECORDED);
     }
-    restore_titled(&mut ctx, snapshot.commit_id, snapshot.details, kind).map(Some)
+    let kind = RestoreKind::RestoreFromSnapshotViaRedo;
+    restore_titled(&mut ctx, target.commit_id, target.details, kind).map(Some)
 }
 
 /// The newest entry in the project's operation log.
@@ -563,16 +561,56 @@ pub fn oplog_head(path: &Path) -> Option<SnapshotId> {
         .map(|snapshot| SnapshotId(snapshot.commit_id))
 }
 
+/// What undoing an operation came to.
+pub enum Undone {
+    /// It was undone: what it was.
+    Done(&'static str),
+    /// Something came after it in the project, which undoing it would take back too.
+    Behind(String),
+    /// Uncommitted files written since it, which undoing it would put back as they were.
+    Newer(Vec<String>),
+}
+
 /// Undo the operation that recorded `snapshot`, but only while it's the latest thing to
 /// undo: the log is shared with the CLI and agents, and restoring anything else would take
-/// back more than the user asked for.
-pub fn undo_snapshot(path: &Path, snapshot: SnapshotId) -> Result<&'static str> {
+/// back more than the user asked for. With `newer_than`, it also stops for uncommitted files
+/// written after that time, in milliseconds since the Unix epoch, outside its spans: the
+/// app's own undos, which write files too.
+pub fn undo_snapshot(
+    path: &Path,
+    snapshot: SnapshotId,
+    newer_than: Option<(i64, &[(i64, i64)])>,
+) -> Result<Undone> {
     let mut ctx = open(path)?;
-    let target = oplog::get_undo_target_snapshot(&ctx)?
-        .filter(|target| target.commit_id == snapshot.0)
-        .context("Something else changed the workspace since. ⌘Z undoes one step at a time.")?;
+    let target = oplog::get_undo_target_snapshot(&ctx)?.context("It was undone already.")?;
+    if target.commit_id != snapshot.0 {
+        let ours = titled(
+            &ctx,
+            snapshot.0,
+            oplog::get_snapshot(&ctx, snapshot.0)?.details,
+        )?;
+        let since = titled(&ctx, target.commit_id, target.details)?;
+        return Ok(Undone::Behind(format!(
+            "\"{ours}\" can't be undone on its own: \"{since}\" came after it. Operations \
+             history can restore to before both."
+        )));
+    }
+    if let Some((after, spans)) = newer_than {
+        let repo = ctx.repo.get()?;
+        let newer: Vec<String> = (but_core::diff::worktree_changes(&repo)?.changes.iter())
+            .filter(|change| {
+                super::written(&repo, change.path.as_bstr()).is_some_and(|at| {
+                    at > after && !spans.iter().any(|(from, to)| (*from..=*to).contains(&at))
+                })
+            })
+            .map(|change| change.path.to_str_lossy().into_owned())
+            .collect();
+        if !newer.is_empty() {
+            return Ok(Undone::Newer(newer));
+        }
+    }
     let kind = RestoreKind::RestoreFromSnapshotViaUndo;
-    restore_titled(&mut ctx, snapshot.0, target.details, kind)
+    restore_titled(&mut ctx, snapshot.0, target.details, kind).map(Undone::Done)
 }
 
 /// What the app calls an operation, where the oplog's name for it is another client's.
@@ -589,21 +627,30 @@ fn operation_title(kind: OperationKind) -> &'static str {
     }
 }
 
-/// Restore snapshot `id`, recorded with `details`, and name the operation it takes back, as
-/// the CLI does: when `id` is itself an undo or redo, it's the operation that one restored.
+/// What the app calls the operation snapshot `id`, recorded with `details`, was taken for, as
+/// the CLI names it: when `id` is itself an undo or redo, it's the operation that one restored.
+fn titled(
+    ctx: &but_ctx::Context,
+    id: gix::ObjectId,
+    details: Option<SnapshotDetails>,
+) -> Result<&'static str> {
+    let details = match oplog::peel_restore_snapshot(ctx, id)? {
+        Some(peeled) => peeled.details,
+        None => details,
+    };
+    Ok(details.map_or("Unknown operation", |details| {
+        operation_title(details.operation)
+    }))
+}
+
+/// Restore snapshot `id`, recorded with `details`, and name the operation it takes back.
 fn restore_titled(
     ctx: &mut but_ctx::Context,
     id: gix::ObjectId,
     details: Option<SnapshotDetails>,
     kind: oplog::RestoreKind,
 ) -> Result<&'static str> {
-    let details = match oplog::peel_restore_snapshot(ctx, id)? {
-        Some(peeled) => peeled.details,
-        None => details,
-    };
-    let title = details.map_or("Unknown operation", |details| {
-        operation_title(details.operation)
-    });
+    let title = titled(ctx, id, details)?;
     oplog::restore_snapshot_with_kind(ctx, kind, id)?;
     Ok(title)
 }

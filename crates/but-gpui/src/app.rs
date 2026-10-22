@@ -12,7 +12,7 @@ use crate::navigator::Navigator;
 use crate::overlays::{ContextMenu, Prompt};
 use crate::palette::Palette;
 use crate::projects::pick_folder;
-use crate::state::{Cut, MeshPick, Notice, Pane, ProjectId, Selection, Store, StoreEvent};
+use crate::state::{Cut, MeshPick, Pane, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::{Theme, UiScale};
 use crate::transfer::{Place, Transfer};
 use crate::ui::{HEADER_HEIGHT, dp, fixed, resize_pane};
@@ -326,26 +326,13 @@ impl AppView {
         .detach();
     }
 
-    /// Undo the selected project's last operation, or with `redo` what was undone. While the
-    /// snackbar offers to undo another project's, as one that finished after the user moved
-    /// on, ⌘Z takes that one back, as its Undo does.
+    /// Undo what the user last did, in whichever project, or with `redo` what ⌘Z last took
+    /// back. The selection doesn't decide: an operation that finished in another project is
+    /// still the last thing done.
     fn undo(&mut self, redo: bool, cx: &mut Context<Self>) {
-        let selected = self.selected_project(cx);
-        // Only the newest snackbar shows.
-        let shown = (self.store.read(cx).toasts.iter().rev())
-            .find_map(|toast| match &toast.notice {
-                Notice::Snackbar { undo, .. } => Some((toast.id, undo.clone())),
-                Notice::Error { .. } => None,
-            })
-            .and_then(|(id, undo)| undo.map(|undo| (id, undo)))
-            .filter(|(_, (project, _))| !redo && selected.as_ref() != Some(project));
-        self.store.update(cx, |store, cx| match (shown, selected) {
-            (Some((id, (project, snapshot))), _) => {
-                store.dismiss_toast(id, cx);
-                store.undo_snapshot(&project, snapshot, cx);
-            }
-            (None, Some(project)) => store.undo(&project, redo, cx),
-            (None, None) => {}
+        self.store.update(cx, |store, cx| match redo {
+            true => store.redo_last(cx),
+            false => store.undo_last(cx),
         });
     }
 
