@@ -1647,6 +1647,42 @@ fn checkout_refuses_to_overwrite_an_executable_turned_symlink_without_filemode()
 }
 
 #[test]
+fn checkout_renames_a_file_by_case_only_like_git() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let workdir = repo.workdir().expect("non-bare");
+    if !gix::fs::Capabilities::probe(repo.git_dir()).ignore_case {
+        // Only a case-insensitive filesystem finds `foo` when looking for `Foo`.
+        return Ok(());
+    }
+    std::fs::write(workdir.join("foo"), "content\n")?;
+    git(&repo).args(["add", "foo"]).run();
+    git(&repo).args(["commit", "-qm", "foo"]).run();
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"content\n")?;
+            tree.remove("foo")?;
+            tree.upsert("Foo", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "rename foo to Foo",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    assert_eq!(repo.head_id()?, new_commit.id);
+    let names: Vec<_> = std::fs::read_dir(workdir)?
+        .map(|entry| entry.map(|entry| entry.file_name()))
+        .collect::<Result<_, _>>()?;
+    assert!(
+        names.iter().any(|name| name == "Foo") && !names.iter().any(|name| name == "foo"),
+        "like Git, the file is renamed: {names:?}"
+    );
+    assert_eq!(std::fs::read_to_string(workdir.join("Foo"))?, "content\n");
+    Ok(())
+}
+
+#[test]
 #[cfg(unix)]
 fn checkout_replaces_a_read_only_file_like_git() -> anyhow::Result<()> {
     use std::os::unix::fs::PermissionsExt as _;

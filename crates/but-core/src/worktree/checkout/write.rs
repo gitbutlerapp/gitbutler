@@ -382,12 +382,24 @@ fn refuse_to_overwrite_newer_edits(
         .map(|entry| entry.path(target))
         .collect();
     let workdir = path_check.inner.root().to_owned();
+    // On a case-insensitive filesystem, a file of the snapshot can be found under another case.
+    let baseline_folded: Option<BTreeSet<BString>> = fs.ignore_case.then(|| {
+        baseline
+            .entries()
+            .iter()
+            .map(|entry| entry.path(baseline).to_lowercase().into())
+            .collect()
+    });
+    let in_baseline = |rela_path: &BStr| match &baseline_folded {
+        Some(folded) => folded.contains(rela_path.to_lowercase().as_bstr()),
+        None => baseline.entry_by_path(rela_path).is_some(),
+    };
     let mut changed = Vec::new();
     for rela_path in &written {
         collect_files_created_in_the_way(
             &workdir,
             rela_path,
-            baseline,
+            &in_baseline,
             &mut excludes,
             &mut changed,
         )?;
@@ -456,19 +468,18 @@ fn refuse_to_overwrite_newer_edits(
     Ok(())
 }
 
-/// Collect files and symlinks that the snapshot `baseline` doesn't have, that aren't ignored, and
+/// Collect files and symlinks that aren't `in_baseline`, the snapshot, that aren't ignored, and
 /// that writing `rela_path` would remove: a leading component that isn't a directory, the path
 /// itself, or anything below it if it's a directory.
 fn collect_files_created_in_the_way(
     workdir: &std::path::Path,
     rela_path: &BStr,
-    baseline: &gix::index::State,
+    in_baseline: &dyn Fn(&BStr) -> bool,
     excludes: &mut gix::AttributeStack<'_>,
     changed: &mut Vec<String>,
 ) -> anyhow::Result<()> {
     let mut is_new = |rela_path: &BStr| -> anyhow::Result<bool> {
-        Ok(baseline.entry_by_path(rela_path).is_none()
-            && !excludes.at_entry(rela_path, None)?.is_excluded())
+        Ok(!in_baseline(rela_path) && !excludes.at_entry(rela_path, None)?.is_excluded())
     };
     let metadata = |rela_path: &BStr| -> anyhow::Result<Option<std::fs::Metadata>> {
         match std::fs::symlink_metadata(workdir.join(gix::path::from_bstr(rela_path)?)) {
