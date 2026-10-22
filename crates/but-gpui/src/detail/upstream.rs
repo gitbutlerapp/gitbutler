@@ -1372,14 +1372,29 @@ impl Detail {
                     .child(crate::ui::short_path(&entry.project.path)),
             )
             .when(entry.project.path.exists(), |el| {
-                let busy = store.fetching(project);
                 let said = match &fetch {
                     Some(None) => "No remote to fetch from".into(),
-                    _ if busy => "Fetching…".into(),
                     Some(Some((Some(at), _))) => format!("Fetched {}", crate::ui::ago(*at)),
                     _ => "Not fetched yet".into(),
                 };
-                let item = meta_item(Icon::Refresh, theme).flex_none().child(said);
+                let busy = store.fetching(project) && !matches!(fetch, Some(None));
+                // Fetching says so over what it said, which keeps its room, so nothing beside
+                // it moves; it's shorter than any of them.
+                let item = meta_item(Icon::Refresh, theme).flex_none().child(
+                    div()
+                        .relative()
+                        .child(div().when(busy, |el| el.invisible()).child(said))
+                        .when(busy, |el| {
+                            el.child(
+                                div()
+                                    .absolute()
+                                    .top_0()
+                                    .left_0()
+                                    .whitespace_nowrap()
+                                    .child("Fetching…"),
+                            )
+                        }),
+                );
                 // When it last fetched, which fetches again on a click, as ⌥⇧F does.
                 el.child(match fetch {
                     Some(None) => item.into_any_element(),
@@ -1976,8 +1991,10 @@ fn activity_strip(
         .pt(px(14.))
         .pb(px(6.))
         .gap(px(6.))
+        // As tall with Clear as without, so picking a day moves nothing under it.
         .child(
             h_flex()
+                .h(px(20.))
                 .gap(px(8.))
                 .child(section_label("Activity", theme).flex_grow(1.))
                 .child(said),

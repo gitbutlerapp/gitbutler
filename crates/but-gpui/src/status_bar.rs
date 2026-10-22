@@ -173,14 +173,15 @@ impl AppView {
                 0 => detail.on_hunk().then_some("discard hunk"),
                 _ => Some("discard lines"),
             };
+            // First, as the hints line up from the right, so the others stay put as the cursor
+            // moves on and off a hunk.
             let discard = discard.map(|label| (&DiscardHunk as &dyn Action, label));
-            [
-                (&NextHunk as &dyn Action, "next hunk"),
-                (&CutSelection, "cut"),
-            ]
-            .into_iter()
-            .chain(discard)
-            .collect()
+            (discard.into_iter())
+                .chain([
+                    (&NextHunk as &dyn Action, "next hunk"),
+                    (&CutSelection, "cut"),
+                ])
+                .collect()
         } else if detail_focused && detail.cursor_cut(cx).is_some() {
             vec![(&NextHunk, "next hunk"), (&CutSelection, "cut")]
         } else if detail_focused {

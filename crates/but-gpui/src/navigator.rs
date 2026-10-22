@@ -32,8 +32,8 @@ use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, count_badge, dot,
     empty_state, faint, field, fold_button, fold_glyph, fold_row, guide, h_flex, icon, icon_button,
-    just_now, list_row, meta_count, plural, relative_time, resize_handle, review, section_label,
-    shortcut, small_icon, v_flex,
+    just_now, list_row, meta_count, plural, pulsing, relative_time, resize_handle, review,
+    section_label, shortcut, small_icon, v_flex,
 };
 
 mod account;
@@ -2645,10 +2645,15 @@ impl Navigator {
                         ),
                     ))
                 })
-                .children(style.unpushed(unpushed))
-                .when(store.pushing(id, ref_name), |el| {
-                    el.child(faint("pushing", theme))
-                })
+                // While it pushes, its count pulses where it is.
+                .children(
+                    style
+                        .unpushed(unpushed)
+                        .map(|count| match store.pushing(id, ref_name) {
+                            true => pulsing(count).into_any_element(),
+                            false => count.into_any_element(),
+                        }),
+                )
                 // Folded, how many commits it holds; open, they're listed under it.
                 .when(!open, |el| {
                     let n = branch.commits.len();
@@ -2888,25 +2893,28 @@ impl Navigator {
     fn target_update_button(&self, project: &ProjectId, inverted: bool, cx: &Context<Self>) -> Div {
         let updating = self.store.read(cx).updating(project);
         let project = project.clone();
+        let update = button(
+            ElementId::Name(format!("update-{project}").into()),
+            "Update",
+        )
+        .small()
+        .style(ButtonStyle::Gray)
+        .inverted(inverted)
+        .disabled_because(updating.then_some("Updating already"))
+        .tooltip("Rebase your branches onto the target's new commits")
+        .on_click(cx.listener(move |this, _, _, cx| {
+            let project = project.clone();
+            (this.app)
+                .update(cx, |app, cx| app.update_from_target(project, cx))
+                .ok();
+        }));
         div()
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-            .child(
-                button(
-                    ElementId::Name(format!("update-{project}").into()),
-                    if updating { "Updating…" } else { "Update" },
-                )
-                .small()
-                .style(ButtonStyle::Gray)
-                .inverted(inverted)
-                .disabled_because(updating.then_some("Updating already"))
-                .tooltip("Rebase your branches onto the target's new commits")
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    let project = project.clone();
-                    (this.app)
-                        .update(cx, |app, cx| app.update_from_target(project, cx))
-                        .ok();
-                })),
-            )
+            // Pulsing while it updates, rather than a longer label moving what's beside it.
+            .child(match updating {
+                true => pulsing(div().child(update)).into_any_element(),
+                false => update.into_any_element(),
+            })
     }
 
     /// Over the commits only branch `ref_name`'s remote has, or with `None` the target's new
@@ -3472,23 +3480,27 @@ impl Render for Navigator {
             .pl(px(84.))
             .pr(px(8.))
             .gap(px(6.))
+            // Its clear button inside it, so typing the first letter doesn't narrow it.
             .child(
                 field(&self.filter, filter_focused, &theme)
+                    .relative()
                     .flex_1()
                     .min_w(px(0.))
-                    .py(px(3.)),
+                    .py(px(3.))
+                    .when(filtering, |el| {
+                        el.pr(px(26.)).child(
+                            h_flex().absolute().top_0().bottom_0().right(px(2.)).child(
+                                icon_button("clear-filter", Icon::Cross)
+                                    .small()
+                                    .tooltip("Clear the filter")
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.filter.update(cx, |input, cx| input.set_text("", cx));
+                                        this.filter_changed(cx);
+                                    })),
+                            ),
+                        )
+                    }),
             )
-            .when(filtering, |el| {
-                el.child(
-                    icon_button("clear-filter", Icon::Cross)
-                        .small()
-                        .tooltip("Clear the filter")
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.filter.update(cx, |input, cx| input.set_text("", cx));
-                            this.filter_changed(cx);
-                        })),
-                )
-            })
             .children(self.update_button(cx))
             .child(self.view_button(cx))
             .child(self.account(&theme, cx));

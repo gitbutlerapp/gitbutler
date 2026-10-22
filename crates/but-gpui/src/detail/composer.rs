@@ -1125,22 +1125,27 @@ impl Detail {
                                 cx.listener(|this, _, window, cx| this.leave_composer(window, cx)),
                             ),
                     )
-                    .when_some(self.amend_target(project, cx), |el, (_, title)| {
-                        el.child(
-                            button("amend", "Amend")
-                                .small()
-                                .style(ButtonStyle::Outline)
-                                .disabled_because(
-                                    (checked == 0).then_some("Check some changes first"),
-                                )
-                                .tooltip_with_key(
-                                    format!("Add the checked changes to \"{title}\""),
-                                    shortcut(&super::AmendTop, cx),
-                                )
-                                .on_click(
-                                    cx.listener(|this, _, window, cx| this.amend_top(window, cx)),
-                                ),
-                        )
+                    // There without a commit to add to too, so Cancel stays put as the branch
+                    // picked changes or a commit goes in.
+                    .child({
+                        let target = self.amend_target(project, cx);
+                        button("amend", "Amend")
+                            .small()
+                            .style(ButtonStyle::Outline)
+                            .disabled_because(match &target {
+                                None => Some("No commit to add to"),
+                                Some(_) => (checked == 0).then_some("Check some changes first"),
+                            })
+                            .tooltip_with_key(
+                                match &target {
+                                    Some((_, title)) => {
+                                        format!("Add the checked changes to \"{title}\"")
+                                    }
+                                    None => "Add the checked changes to the newest commit".into(),
+                                },
+                                shortcut(&super::AmendTop, cx),
+                            )
+                            .on_click(cx.listener(|this, _, window, cx| this.amend_top(window, cx)))
                     })
                     .child(
                         button("commit", "Commit")

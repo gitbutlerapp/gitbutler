@@ -564,6 +564,11 @@ impl Detail {
                 theme,
             ))
             .child(self.sha_chip(id, theme, cx))
+            .child(div().text_color(color).child(state))
+            .when(commit.conflicted, |el| {
+                el.child(div().text_color(theme.warn).child("conflicted"))
+            })
+            // Last, as it's read after the rest, so nothing moves when it shows.
             .when_some(self.signers.get(&id).copied().flatten(), |el, signer| {
                 el.child(
                     meta_item(Icon::Lock, theme)
@@ -572,10 +577,6 @@ impl Detail {
                         .child("Signed")
                         .tooltip(Tooltip::text(format!("Signed with {signer}, not verified"))),
                 )
-            })
-            .child(div().text_color(color).child(state))
-            .when(commit.conflicted, |el| {
-                el.child(div().text_color(theme.warn).child("conflicted"))
             });
         let rewording = (self.rewording.as_ref()).filter(|(key, ..)| *key == commit.key);
         let main = v_flex()

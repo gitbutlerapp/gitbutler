@@ -1161,6 +1161,20 @@ pub fn loading_state(title: &'static str, theme: &Theme, cx: &App) -> AnyElement
         .into_any_element()
 }
 
+/// `el` pulsing, fading in and out, while what it stands for is under way, where it is, rather
+/// than a word beside it that would move what's around it. The status bar names what's under
+/// way.
+pub fn pulsing<E: IntoElement + Styled + 'static>(el: E) -> impl IntoElement {
+    use gpui::{Animation, AnimationExt as _};
+    el.with_animation(
+        "pulsing",
+        Animation::new(std::time::Duration::from_millis(1600))
+            .repeat()
+            .with_easing(gpui::pulsating_between(0.35, 1.)),
+        |el, delta| el.opacity(delta),
+    )
+}
+
 /// A surface with nothing in it, as ui-react's EmptyState: a drawing picked by what the state
 /// means, a title naming it, and a line saying what happens next, each left out when there's
 /// none. Its foot is padded so the block sits a little above the middle, where it reads as
