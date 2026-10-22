@@ -1334,6 +1334,59 @@ fn checkout_refuses_to_overwrite_an_edit_hidden_from_the_stat_of_a_racy_entry() 
 
 #[test]
 #[cfg(unix)]
+fn checkout_refuses_to_overwrite_a_revert_made_after_the_snapshot() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let workdir = repo.workdir().expect("non-bare");
+    let indexed = "one\ntwo\nthree\nfour\nfive\n";
+    commit_in_worktree(&repo, &[("a", indexed), ("z.f", "z\n")])?;
+    git(&repo)
+        .args(["config", "core.trustctime", "false"])
+        .run();
+    // Without a racy entry, the index's stat of `a` proves the file has the indexed content.
+    record_index_stat_with_mtime(&repo, "a", long_ago())?;
+    let original = repo.git_dir().join("a-original");
+    std::fs::write(&original, indexed)?;
+    std::fs::File::options()
+        .write(true)
+        .open(&original)?
+        .set_modified(long_ago())?;
+    std::fs::write(workdir.join("a"), "one, edited\ntwo\nthree\nfour\nfive\n")?;
+    // Cleaning `z.f` reverts `a` in place after the snapshot read the edit, and restores the
+    // mtime, so `a` matches the index's stat again.
+    std::fs::write(
+        repo.git_dir().join("info/attributes"),
+        "*.f filter=meddle\n",
+    )?;
+    git(&repo)
+        .args([
+            "config",
+            "filter.meddle.clean",
+            r#"sh -c 'cat "$GIT_DIR/a-original" > "$GIT_DIR/../a"; touch -r "$GIT_DIR/a-original" "$GIT_DIR/../a"; cat'"#,
+        ])
+        .run();
+    std::fs::write(workdir.join("z.f"), "z changed\n")?;
+    let head = repo.head_id()?.detach();
+    let new_commit = commit_files(
+        &repo,
+        "change a",
+        &[("a", Some("one\ntwo\nthree\nfour\nfive, changed\n"))],
+    )?;
+
+    let err = safe_checkout_from_head(new_commit, &repo, Default::default()).expect_err(
+        "the snapshot has the edit, which merges, so writing the result loses the revert",
+    );
+
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["Uncommitted files would be overwritten by checkout: \"a\""]
+    );
+    assert_eq!(repo.head_id()?.detach(), head, "HEAD stays");
+    assert_eq!(std::fs::read_to_string(workdir.join("a"))?, indexed);
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
 fn checkout_keeps_the_index_locked_while_it_runs() -> anyhow::Result<()> {
     // Another Git process tries to discard the staged edit to `a` while checkout snapshots the
     // worktree, like a user running `git checkout -- a` in a terminal.

@@ -355,7 +355,7 @@ impl<'a> Judge<'a> {
         // A submodule's directory must still be one, but what's in it isn't checkout's to judge.
         let same = !type_or_mode_changed(expected, md, &self.fs)
             && (expected.mode == gix::index::entry::Mode::COMMIT
-                || self.unchanged_since_indexed(rela_path, md)
+                || self.unchanged_since_indexed(rela_path, expected, md)
                 || self.content_matches(rela_path, expected, md)?);
         Ok(match same {
             true => Verdict::Snapshotted(gix::index::entry::Stat::from_fs(md)?),
@@ -378,14 +378,21 @@ impl<'a> Judge<'a> {
         Some((path, entry))
     }
 
-    /// Whether the index entry at `rela_path` has a stat that still matches the file, so the
-    /// file can't have changed since it was hashed. The snapshot took such a file's id from the
-    /// index, which checkout keeps locked, so the file is the snapshot's.
-    fn unchanged_since_indexed(&self, rela_path: &BStr, md: &gix::index::fs::Metadata) -> bool {
+    /// Whether the index entry at `rela_path` has the content `expected` of the snapshot, and a
+    /// stat that still matches the file, so the file has that content. Checkout keeps the index
+    /// locked, but the file can change: a file the snapshot found edited can be reverted to the
+    /// indexed content and stat.
+    fn unchanged_since_indexed(
+        &self,
+        rela_path: &BStr,
+        expected: &gix::index::Entry,
+        md: &gix::index::fs::Metadata,
+    ) -> bool {
         self.index.entry_by_path(rela_path).is_some_and(|entry| {
-            !entry
-                .stat
-                .is_racy(self.index.timestamp(), self.stat_options)
+            entry.id == expected.id
+                && !entry
+                    .stat
+                    .is_racy(self.index.timestamp(), self.stat_options)
                 && gix::index::entry::Stat::from_fs(md)
                     .is_ok_and(|on_disk| entry.stat.matches(&on_disk, self.stat_options))
         })
