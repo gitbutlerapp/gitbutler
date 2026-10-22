@@ -19,8 +19,14 @@ use crate::index::Stat;
 pub(super) struct Staged {
     /// Removed when dropped, along with the objects moved aside into it.
     dir: tempfile::TempDir,
-    files: Vec<BString>,
+    files: Vec<StagedFile>,
     submodules: Vec<BString>,
+}
+
+/// A file checked out into the staging directory, with the stat it got there.
+struct StagedFile {
+    rela_path: BString,
+    stat: gix::index::entry::Stat,
 }
 
 impl Staged {
@@ -33,19 +39,16 @@ impl Staged {
     }
 }
 
-/// The stat of each file checkout placed in the worktree.
+/// What the index should record about each file checkout placed in the worktree.
 #[derive(Default)]
 pub(super) struct Placed {
-    stats: BTreeMap<BString, gix::index::entry::Stat>,
+    stats: BTreeMap<BString, Stat>,
 }
 
 impl Placed {
     /// What the index should record about the file at `path`.
     pub fn stat(&self, path: &BStr) -> Stat {
-        match self.stats.get(path) {
-            Some(stat) => Stat::Known(*stat),
-            None => Stat::Unknown,
-        }
+        self.stats.get(path).copied().unwrap_or(Stat::Unknown)
     }
 }
 
@@ -58,27 +61,40 @@ pub(super) fn stage(
     target: &gix::index::State,
     plan: &Plan,
 ) -> anyhow::Result<Staged> {
-    let (files, submodules) = plan
-        .writes()
-        .map(|(path, content)| (path.to_owned(), content.is_submodule()))
-        .partition::<Vec<_>, _>(|(_, is_submodule)| !is_submodule);
-    let staged = Staged {
-        dir: staging_dir(repo)?,
-        files: files.into_iter().map(|(path, _)| path).collect(),
-        submodules: submodules.into_iter().map(|(path, _)| path).collect(),
-    };
-    std::fs::create_dir(staged.new_files())?;
+    let dir = staging_dir(repo)?;
+    let new_files = dir.path().join("new");
+    std::fs::create_dir(&new_files)?;
+    let mut index = checkout_index(target, plan);
     let opts = repo.checkout_options(gix::worktree::stack::state::attributes::Source::IdMapping)?;
     gix::worktree::state::checkout(
-        &mut checkout_index(target, plan),
-        staged.new_files(),
+        &mut index,
+        new_files,
         repo.objects.clone().into_arc()?,
         &gix::progress::Discard,
         &gix::progress::Discard,
         &gix::interrupt::IS_INTERRUPTED,
         opts,
     )?;
-    Ok(staged)
+    let (submodules, files) = plan
+        .writes()
+        .partition::<Vec<_>, _>(|(_, content)| content.is_submodule());
+    Ok(Staged {
+        dir,
+        files: files
+            .into_iter()
+            .map(|(path, _)| StagedFile {
+                rela_path: path.to_owned(),
+                stat: index
+                    .entry_by_path(path)
+                    .expect("written by the checkout")
+                    .stat,
+            })
+            .collect(),
+        submodules: submodules
+            .into_iter()
+            .map(|(path, _)| path.to_owned())
+            .collect(),
+    })
 }
 
 /// Move the `clearances` aside and the staged files into place. On failure, undo every step and
@@ -90,11 +106,13 @@ pub(super) fn commit(
 ) -> anyhow::Result<Placed> {
     let workdir = repo.workdir().expect("checked by the caller");
     let mut journal = Journal::default();
-    if let Err(err) = apply(&mut journal, workdir, &staged, clearances) {
-        journal.undo();
-        return Err(err);
-    }
-    let placed = placed(workdir, &staged)?;
+    let placed = match apply(&mut journal, workdir, &staged, clearances) {
+        Ok(placed) => placed,
+        Err(err) => {
+            journal.undo();
+            return Err(err);
+        }
+    };
     for clearance in clearances {
         remove_emptied_parents(workdir, clearance.rela_path.as_ref())?;
     }
@@ -106,21 +124,23 @@ fn apply(
     workdir: &Path,
     staged: &Staged,
     clearances: &[Clearance],
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Placed> {
     for Clearance { rela_path } in clearances {
         journal.move_aside(
             &join(workdir, rela_path)?,
             &join(&staged.aside(), rela_path)?,
         )?;
     }
-    for rela_path in &staged.files {
+    let mut stats = BTreeMap::new();
+    for StagedFile { rela_path, stat } in &staged.files {
         let dest = join(workdir, rela_path)?;
         journal.place(&join(&staged.new_files(), rela_path)?, &dest)?;
+        stats.insert(rela_path.clone(), trusted_stat(stat, &dest)?);
     }
     for rela_path in &staged.submodules {
         journal.ensure_dir(&join(workdir, rela_path)?)?;
     }
-    Ok(())
+    Ok(Placed { stats })
 }
 
 /// What the commit did, in order, so it can be undone.
@@ -209,14 +229,25 @@ fn checkout_index(target: &gix::index::State, plan: &Plan) -> gix::index::State 
     index
 }
 
-/// The stat of each placed file. Renaming may change a file's ctime, so it's read again.
-fn placed(workdir: &Path, staged: &Staged) -> anyhow::Result<Placed> {
-    let mut stats = BTreeMap::new();
-    for rela_path in &staged.files {
-        let md = gix::index::fs::Metadata::from_path_no_follow(&join(workdir, rela_path)?)?;
-        stats.insert(rela_path.clone(), gix::index::entry::Stat::from_fs(&md)?);
-    }
-    Ok(Placed { stats })
+/// What the index may record about the file placed at `dest`, which had the `staged` stat in the
+/// staging directory.
+///
+/// Renaming keeps everything but the ctime, which is why the stat is read again. A file that
+/// doesn't match its staged stat otherwise was changed after it was placed, so its stat can't
+/// vouch for the staged content, and Git has to compare the content instead.
+fn trusted_stat(staged: &gix::index::entry::Stat, dest: &Path) -> anyhow::Result<Stat> {
+    let md = gix::index::fs::Metadata::from_path_no_follow(dest)?;
+    let placed = gix::index::entry::Stat::from_fs(&md)?;
+    let all_but_ctime = gix::index::entry::stat::Options {
+        trust_ctime: false,
+        check_stat: true,
+        use_nsec: true,
+        use_stdev: false,
+    };
+    Ok(match staged.matches(&placed, all_but_ctime) {
+        true => Stat::Known(placed),
+        false => Stat::Unknown,
+    })
 }
 
 /// Remove the directories leading to `rela_path` that are now empty, as Git does.
@@ -266,4 +297,88 @@ fn same_filesystem(a: &Path, b: &Path) -> std::io::Result<bool> {
 
 fn join(dir: &Path, rela_path: impl AsRef<BStr>) -> anyhow::Result<PathBuf> {
     Ok(dir.join(gix::path::from_bstr(rela_path.as_ref())?))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{path::Path, time::SystemTime};
+
+    use crate::index::Stat;
+
+    fn set_mtime(path: &Path, mtime: SystemTime) -> std::io::Result<()> {
+        std::fs::File::options()
+            .write(true)
+            .open(path)?
+            .set_modified(mtime)
+    }
+
+    fn stat(path: &Path) -> anyhow::Result<gix::index::entry::Stat> {
+        Ok(gix::index::entry::Stat::from_fs(
+            &gix::index::fs::Metadata::from_path_no_follow(path)?,
+        )?)
+    }
+
+    /// A file staged at a whole second, then placed at `placed`, and its staged stat.
+    fn place(dir: &Path) -> anyhow::Result<(std::path::PathBuf, gix::index::entry::Stat)> {
+        let staged_path = dir.join("staged");
+        std::fs::write(&staged_path, "staged\n")?;
+        set_mtime(
+            &staged_path,
+            SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000),
+        )?;
+        let staged = stat(&staged_path)?;
+        let placed = dir.join("placed");
+        std::fs::rename(&staged_path, &placed)?;
+        Ok((placed, staged))
+    }
+
+    #[test]
+    fn a_placed_file_is_trusted_with_its_new_stat() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let (placed, staged) = place(tmp.path())?;
+
+        assert!(
+            matches!(super::trusted_stat(&staged, &placed)?, Stat::Known(_)),
+            "renaming keeps the file's identity"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_placed_file_edited_in_the_same_second_is_not_trusted() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let (placed, staged) = place(tmp.path())?;
+        std::fs::write(&placed, "edited\n")?;
+        set_mtime(
+            &placed,
+            SystemTime::UNIX_EPOCH + std::time::Duration::new(1_000_000, 1_000),
+        )?;
+
+        assert!(
+            matches!(super::trusted_stat(&staged, &placed)?, Stat::Unknown),
+            "an edit after placing, like an editor saving the file, makes its stat untrustworthy"
+        );
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn a_placed_file_replaced_by_a_new_file_is_not_trusted() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let (placed, staged) = place(tmp.path())?;
+        // Editors often save by writing a new file and renaming it over the old one.
+        let saved = tmp.path().join("saved");
+        std::fs::write(&saved, "edited\n")?;
+        set_mtime(
+            &saved,
+            SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000),
+        )?;
+        std::fs::rename(&saved, &placed)?;
+
+        assert!(
+            matches!(super::trusted_stat(&staged, &placed)?, Stat::Unknown),
+            "a new file with the same size and time is still another file"
+        );
+        Ok(())
+    }
 }
