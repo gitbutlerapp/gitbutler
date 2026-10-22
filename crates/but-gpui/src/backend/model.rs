@@ -611,6 +611,10 @@ impl FileChange {
             (state.kind == gix::object::tree::EntryKind::Commit).then(|| CommitId(state.id).short())
         };
         Some(match &self.change.status {
+            // A repository added in the worktree, not yet recorded, has no commit read for it.
+            S::Addition { state, .. } if state.id.is_null() => {
+                at(state).map(|_| "New submodule".to_owned())?
+            }
             S::Addition { state, .. } => format!("Submodule at {}", at(state)?),
             S::Deletion { previous_state } => {
                 format!("Removed submodule at {}", at(previous_state)?)
