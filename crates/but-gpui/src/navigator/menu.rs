@@ -95,25 +95,29 @@ fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuIte
 impl Navigator {
     /// What right-clicking `target` offers. Right-clicking selects the row first, so the
     /// items run the same actions as their keys. A branch with commits starts with hiding
-    /// or showing them, and marking its unread ones read.
+    /// or showing them, and one with unread commits, its own or its remote's, with marking
+    /// them read.
     pub(crate) fn menu_items(&self, target: &Selection, cx: &App) -> Vec<MenuItem> {
         let mut items = self.row_actions(target, cx);
         let store = self.store.read(cx);
         if let Selection::Branch(project, ref_name) = target
-            && let Some(branch) = store.branch_for(target).filter(|b| !b.commits.is_empty())
+            && let Some(branch) = store.branch_for(target)
         {
+            let mut view = Vec::new();
             // On the navigator, as the page header's ⋯ has the detail focused, where the keys
             // don't reach the navigator.
-            let key = (project.clone(), ref_name.clone());
-            let open = self.branch_open(&key);
-            let (label, keys): (_, &dyn Action) = match open {
-                true => ("Hide commits", &Collapse),
-                false => ("Show commits", &Expand),
-            };
-            let mut view = vec![keyed(label, keys, cx, move |this, _, cx| {
-                let key = ClickOpened::Here(key.clone());
-                (this.navigator).update(cx, |nav, cx| nav.set_open(key, !open, cx))
-            })];
+            if !branch.commits.is_empty() {
+                let key = (project.clone(), ref_name.clone());
+                let open = self.branch_open(&key);
+                let (label, keys): (_, &dyn Action) = match open {
+                    true => ("Hide commits", &Collapse),
+                    false => ("Show commits", &Expand),
+                };
+                view.push(keyed(label, keys, cx, move |this, _, cx| {
+                    let key = ClickOpened::Here(key.clone());
+                    (this.navigator).update(cx, |nav, cx| nav.set_open(key, !open, cx))
+                }));
+            }
             let unread: Vec<CommitId> = (branch.commits.iter())
                 .filter(|commit| store.is_unread(project, *commit))
                 .map(|commit| commit.id)
@@ -126,7 +130,7 @@ impl Navigator {
             if !unread.is_empty() {
                 view.push(mark_read("Mark all as read", project, unread, true));
             }
-            if let Some(first) = items.first_mut() {
+            if let Some(first) = items.first_mut().filter(|_| !view.is_empty()) {
                 first.separated = true;
             }
             items.splice(0..0, view);
