@@ -10,14 +10,16 @@ use crate::{
 };
 
 /// Render the outcome of a land: the headline, a note when the remaining branches were left
-/// un-reconciled, stale pull-request warnings for rebased siblings, and the undo caveat.
+/// un-reconciled, stale pull-request warnings for rebased siblings, and, when the target has a
+/// `push_remote_name`, the undo caveat. A target without one was landed locally, which `but undo`
+/// reverts like any other operation.
 pub(super) fn report_land_result(
     out: &mut OutputChannel,
     ctx: &Context,
     result: &BranchLandResult,
     branch_name: &str,
     target_display: &str,
-    push_remote_name: &str,
+    push_remote_name: Option<&str>,
     target_branch_name: &str,
 ) -> anyhow::Result<()> {
     let t = theme::get();
@@ -28,7 +30,7 @@ pub(super) fn report_land_result(
                 format!("{branch_name} was already on {target_display}.")
             }
             BranchLandKind::Updated { .. } => {
-                format!("Landed {branch_name} onto {target_display}.")
+                format!("Landed {branch_name} onto {target_display}")
             }
         };
         let style = if result.reconcile_skipped {
@@ -36,14 +38,18 @@ pub(super) fn report_land_result(
         } else {
             t.success
         };
-        writeln!(out, "\n{}", style.paint(headline))?;
-        for name in &result.deleted_remote_branches {
-            writeln!(
-                out,
-                "{}",
-                t.hint
-                    .paint(format!("Deleted {push_remote_name}/{name} (landed)"))
-            )?;
+        // The blank line separates the headline from the warning and progress a remote land prints.
+        let separator = if push_remote_name.is_some() { "\n" } else { "" };
+        writeln!(out, "{separator}{}", style.paint(headline))?;
+        if let Some(push_remote_name) = push_remote_name {
+            for name in &result.deleted_remote_branches {
+                writeln!(
+                    out,
+                    "{}",
+                    t.hint
+                        .paint(format!("Deleted {push_remote_name}/{name} (landed)"))
+                )?;
+            }
         }
     }
 
@@ -68,6 +74,7 @@ pub(super) fn report_land_result(
     if let BranchLandKind::Updated {
         prev_target_oid, ..
     } = &result.landed
+        && let Some(push_remote_name) = push_remote_name
     {
         print_undo_caveat(
             out,

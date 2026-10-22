@@ -333,15 +333,18 @@ pub enum Subcommands {
     /// Merges the branch onto the configured target (for example `origin/master`) without going
     /// through a pull request — the "just push to the target" workflow. By default the target is
     /// fast-forwarded to the branch tip when possible (no merge commit); otherwise a merge commit
-    /// is created, or with `--ff-only` the merge is refused. For a local (`gb-local`) target the
+    /// is created, or with `--ff-only` the merge is refused. When the target branch has no upstream
+    /// (for example in a repository without a remote), or for a local (`gb-local`) target, the
     /// refs are moved locally; otherwise the result is pushed to the remote. After merging, the
     /// remaining applied branches are reconciled onto the moved target, just like `but pull`.
     ///
     /// Requires the GitButler workspace or, in single-branch mode, a checked-out branch. In
     /// single-branch mode, merging the checked-out branch checks out the target branch afterwards,
     /// like `but pull` does once a branch is merged upstream, or a generated branch when the target
-    /// can't be reused; the output names the branch checked out. Updating the target is direct and
-    /// not easily reversible, so a confirmation is required (use `--yes` to skip it in scripts).
+    /// can't be reused; the output names the branch checked out. Updating a target that has an
+    /// upstream is direct and not easily reversible, so a confirmation is required (use `--yes` to
+    /// skip it in scripts). Merging into a target without an upstream publishes nothing, so it
+    /// needs no confirmation and `but undo` reverts it.
     ///
     /// When NOT to use this: if your project merges changes through pull requests / code review,
     /// use `but push` and open a PR (`but pr new`) instead — `but merge` deliberately bypasses that
@@ -480,6 +483,10 @@ pub enum Subcommands {
     ///
     /// This fetches the latest changes from the remote and rebases all applied branches
     /// and linked worktrees on top of the updated target branch.
+    ///
+    /// When the target branch has no upstream, for example in a repository without a remote,
+    /// there is nothing to fetch: this updates the branches onto the local target branch
+    /// instead, for example after merging branches into `main` with `git merge`.
     ///
     /// You should run this regularly to keep your branches up to date with the latest
     /// changes from the main development line.

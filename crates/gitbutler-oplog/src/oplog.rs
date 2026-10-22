@@ -172,12 +172,12 @@ pub trait OplogExt {
     /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
     fn prepare_snapshot(&self, perm: &RepoShared) -> Result<gix::ObjectId>;
 
-    /// Like [`prepare_snapshot`](Self::prepare_snapshot), additionally preserving one reference.
-    /// If another worktree has it checked out, restoring moves it there too and leaves that
-    /// worktree's files alone.
-    fn prepare_snapshot_with_ref(
+    /// Like [`prepare_snapshot`](Self::prepare_snapshot), additionally preserving `ref_names`.
+    /// If another worktree has one of them checked out, restoring moves it there too and leaves
+    /// that worktree's files alone.
+    fn prepare_snapshot_with_refs(
         &self,
-        ref_name: &gix::refs::FullNameRef,
+        ref_names: &[&gix::refs::FullNameRef],
         perm: &RepoShared,
     ) -> Result<gix::ObjectId>;
 
@@ -268,12 +268,12 @@ impl OplogExt for Context {
         prepare_snapshot(self, perm)
     }
 
-    fn prepare_snapshot_with_ref(
+    fn prepare_snapshot_with_refs(
         &self,
-        ref_name: &gix::refs::FullNameRef,
+        ref_names: &[&gix::refs::FullNameRef],
         perm: &RepoShared,
     ) -> Result<gix::ObjectId> {
-        prepare_snapshot_with_target_and_refs(self, perm, &[ref_name], &[ref_name])
+        prepare_snapshot_with_target_and_refs(self, perm, ref_names, ref_names)
             .map(|snapshot| snapshot.tree_id)
     }
 

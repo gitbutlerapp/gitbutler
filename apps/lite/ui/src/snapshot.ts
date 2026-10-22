@@ -53,6 +53,8 @@ export const presentableOperation = (
 			return { text: "Generic branch update", icon: "branch" };
 		case "InsertBlankCommit":
 			return { text: "Insert blank commit", icon: "plus" };
+		case "MergeBranch":
+			return { text: "Merge branch", icon: "branch-merge" };
 		case "MergeUpstream":
 			return { text: "Merge upstream", icon: "pr" };
 		case "MoveBranch":

@@ -56,19 +56,6 @@ fn assert_target_rejected_without_changes(
 }
 
 #[test]
-fn land_refuses_a_target_without_upstream() -> anyhow::Result<()> {
-    let (repo, tmp) = repo_with_feature_branch()?;
-    set_project_target_to_feature(&repo)?;
-    git_at_dir(tmp.path())
-        .args(["config", "--remove-section", "branch.main"])
-        .run();
-    assert_target_rejected_without_changes(
-        tmp.path(),
-        "Merging without a remote isn't supported yet",
-    )
-}
-
-#[test]
 fn land_refuses_differently_named_target_upstream() -> anyhow::Result<()> {
     let (repo, tmp) = repo_with_feature_branch()?;
     set_project_target_to_feature(&repo)?;

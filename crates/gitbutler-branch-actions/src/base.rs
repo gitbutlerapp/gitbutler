@@ -359,14 +359,7 @@ pub(crate) fn target_to_base_branch(
         Some(upstream_tip) => {
             let target_sha_not_ref = first_parent_commit_ids_until(repo, target_sha, upstream_tip)
                 .context("failed to get fork point")?;
-            let mut commits = upstream_commits_per_stack_head(ws, repo, upstream_tip)?
-                .into_iter()
-                .max_by_key(|commits| commits.len())
-                .unwrap_or_default();
-            if commits.is_empty() && upstream_tip != target_sha {
-                commits = first_parent_commit_ids_until(repo, upstream_tip, target_sha)
-                    .context("failed to get target commits since stored base")?;
-            }
+            let commits = incoming_commit_ids(ws, repo, upstream_tip, target_sha)?;
             (!target_sha_not_ref.is_empty(), commits)
         }
         None => (false, Vec::new()),
@@ -462,6 +455,29 @@ fn first_parent_commit_ids_with_limit(
         .take(limit)
         .map(|info| Ok(info?.id))
         .collect()
+}
+
+/// The first-parent commits on `tip` that the workspace doesn't have yet, newest first: the ones
+/// the branch furthest behind lacks, or, when no branch lacks any, the ones after `target_sha`.
+///
+/// `tip` is the target's upstream tip, or the local target's tip when it has no upstream.
+/// Measuring from the branches and not only from `target_sha` matters because updating only some
+/// lanes moves `target_sha` past the branches that were left behind.
+pub fn incoming_commit_ids(
+    ws: &but_graph::Workspace,
+    repo: &gix::Repository,
+    tip: gix::ObjectId,
+    target_sha: gix::ObjectId,
+) -> Result<Vec<gix::ObjectId>> {
+    let commits = upstream_commits_per_stack_head(ws, repo, tip)?
+        .into_iter()
+        .max_by_key(|commits| commits.len())
+        .unwrap_or_default();
+    if commits.is_empty() && tip != target_sha {
+        return first_parent_commit_ids_until(repo, tip, target_sha)
+            .context("failed to get target commits since stored base");
+    }
+    Ok(commits)
 }
 
 fn upstream_commits_per_stack_head(

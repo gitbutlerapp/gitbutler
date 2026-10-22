@@ -61,7 +61,7 @@ fn merge_checked_out_branch_in_single_branch_mode_checks_out_target() {
         .stdout_eq(str![[r#"
 This lands A directly onto origin/main without a pull request — skipping any code review, CI checks, or branch protections your team may rely on.
 
-Landed A onto origin/main.
+Landed A onto origin/main
 Pushed to origin/main; `but undo` cannot un-push it. To revert the remote: git push --force-with-lease origin b1540e5a91f63d3be3cb887e0db29bcc6cd008b3:refs/heads/main — or, if the branch is protected against force-pushes, revert with a new commit or via your forge instead.
 Checked out main.
 
@@ -246,6 +246,12 @@ fn merge_first_branch_into_origin() {
         env.invoke_git("rev-parse origin/main"),
         "second-branch should be rebased on top of the moved target"
     );
+
+    // The reconcile is recorded as the merge it is part of, not as a `but pull`.
+    env.but("undo").assert().success().stdout_eq(str![[r#"
+Undid [..] ([..]): Merged branch
+
+"#]]);
 }
 
 /// Landing the bottom branch in single-branch mode must free its metadata so the surviving
@@ -1009,22 +1015,205 @@ fn merge_never_deletes_a_differently_named_upstream() {
     );
 }
 
-/// A sandbox whose `origin` is a real bare repository holding `main`, with the workspace set up —
-/// the shape the remote-copy cleanup tests need to observe deletions on the remote side.
+/// Without an upstream the target is a local branch: landing moves it instead of pushing, asks for
+/// no confirmation since nothing is published, and is a single `but undo`/`but redo` step.
 #[test]
-fn merge_refuses_target_without_upstream_before_confirmation() {
+fn merge_without_remote_lands_locally_and_is_undoable() {
+    let env = sandbox_without_remote();
+    env.file("feat.txt", "feat\n");
+    env.but("commit -b feat -m 'add feat'").assert().success();
+    env.file("other.txt", "other\n");
+    env.but("commit -b other -m 'add other'").assert().success();
+    let feat_tip = env.invoke_git("rev-parse feat");
+    let log_before = env.git_log();
+    let status_before = status_text(&env);
+
+    // No `--yes`, and no TTY: there is nothing to confirm when nothing leaves the machine.
+    env.but("merge feat")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Landed feat onto main
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("rev-parse main"),
+        feat_tip,
+        "the local target fast-forwards to the landed branch"
+    );
+    let log_after = env.git_log();
+    // feat is gone and other was rebased onto the moved target.
+    snapbox::assert_data_eq!(
+        log_after.clone(),
+        str![[r#"
+* [..] (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* [..] (other) add other
+* [..] (main) add feat
+* [..] (gitbutler/target) Initial commit
+
+"#]]
+    );
+    let status_after = status_text(&env);
+
+    env.but("undo").assert().success().stdout_eq(str![[r#"
+Undid [..] ([..]): Merged branch
+
+"#]]);
+    assert_eq!(
+        env.git_log(),
+        log_before,
+        "undo moves the target back and restores the landed branch"
+    );
+    assert_eq!(
+        status_text(&env),
+        status_before,
+        "undo restores the workspace"
+    );
+
+    env.but("redo").assert().success().stdout_eq(str![[r#"
+Redid [..] ([..]): Merged branch
+
+"#]]);
+    assert_eq!(env.git_log(), log_after, "redo lands the branch again");
+    assert_eq!(
+        status_text(&env),
+        status_after,
+        "redo restores the reconciled workspace"
+    );
+}
+
+/// Landing a whole stack locally removes every landed segment, and redo removes them again after
+/// undo brought them back.
+#[test]
+fn merge_whole_stack_without_remote_is_undoable() {
+    let env = sandbox_without_remote();
+    env.file("A.txt", "A\n");
+    env.but("commit -b A -m 'add A'").assert().success();
+    env.but("branch new B --above A").assert().success();
+    env.file("B.txt", "B\n");
+    env.but("commit -b B -m 'add B'").assert().success();
+    let log_before = env.git_log();
+
+    env.but("merge B --whole-stack").assert().success();
+    let log_after = env.git_log();
+    // Both segments are gone, and main points at the top of the landed stack.
+    snapbox::assert_data_eq!(
+        log_after.clone(),
+        str![[r#"
+* [..] (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* [..] (main) add B
+* [..] add A
+* [..] (gitbutler/target) Initial commit
+
+"#]]
+    );
+
+    env.but("undo").assert().success();
+    assert_eq!(env.git_log(), log_before, "undo restores both segments");
+    env.but("redo").assert().success();
+    assert_eq!(env.git_log(), log_after, "redo removes both segments again");
+}
+
+/// If another branch has the same changes as the merged branch, merging removes both branches.
+/// Redo after an undo must remove both again.
+#[test]
+fn merge_without_remote_redo_removes_branches_with_the_same_changes() {
+    let env = sandbox_without_remote();
+    env.file("shared.txt", "shared\n");
+    env.but("commit -b A -m 'add shared'").assert().success();
+    // B has its own commit with exactly the same change as A's.
+    env.invoke_bash(
+        r#"git update-ref refs/heads/B "$(git commit-tree 'A^{tree}' -p 'A^' -m 'add shared too')""#,
+    );
+    env.but("apply B").assert().success();
+    let log_before = env.git_log();
+
+    env.but("merge A").assert().success();
+    let log_after = env.git_log();
+    // Merging A also removes B, because B's change is now on main. With no branches left, HEAD
+    // moves to main.
+    snapbox::assert_data_eq!(
+        log_after.clone(),
+        str![[r#"
+* [..] (HEAD -> main) add shared
+* [..] (gitbutler/target) Initial commit
+
+"#]]
+    );
+
+    env.but("undo").assert().success();
+    assert_eq!(env.git_log(), log_before, "undo restores both branches");
+    env.but("redo").assert().success();
+    assert_eq!(env.git_log(), log_after, "redo removes both branches again");
+}
+
+/// In single-branch mode without an upstream, landing the checked-out branch checks out the moved
+/// local target, as it does on the remote path.
+#[test]
+fn merge_checked_out_branch_without_remote_checks_out_target() {
+    let env = Sandbox::empty();
+    env.but("init --commit").assert().success();
+    env.file("A.txt", "A\n");
+    env.but("commit -b A -m 'add A'").assert().success();
+    let a_tip = env.invoke_git("rev-parse A");
+
+    env.but("merge A")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Landed A onto main
+Checked out main.
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("rev-parse main"),
+        a_tip,
+        "the local target fast-forwards to the landed branch"
+    );
+    snapbox::assert_data_eq!(env.invoke_git("symbolic-ref HEAD"), str!["refs/heads/main"]);
+}
+
+/// A target without an upstream is landed locally even when the repository has remotes: nothing
+/// is pushed, and no confirmation is needed.
+#[test]
+fn merge_target_without_upstream_lands_locally() {
     let (env, remote) = sandbox_with_bare_origin();
     env.but("branch new topic").assert().success();
     env.file("topic.txt", "topic");
     env.but("commit -b topic -m topic").assert().success();
     env.invoke_git("config --remove-section branch.main");
-    assert_target_rejection_preserves_repository(
-        &env,
-        &remote,
-        str![[r#"
-Failed to merge branch. Merging without a remote isn't supported yet
+    let topic_tip = env.invoke_git("rev-parse topic");
+    let remote_refs = format!("--git-dir={} show-ref", remote.display());
+    let remote_before = env.invoke_git(&remote_refs);
+    let origin_main_before = env.invoke_git("rev-parse origin/main");
 
-"#]],
+    env.but("merge topic")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Landed topic onto main
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("rev-parse main"),
+        topic_tip,
+        "the local target fast-forwards to the landed branch"
+    );
+    assert_eq!(
+        env.invoke_git(&remote_refs),
+        remote_before,
+        "nothing was published"
+    );
+    assert_eq!(
+        env.invoke_git("rev-parse origin/main"),
+        origin_main_before,
+        "the remote-tracking ref is left alone"
     );
 }
 
@@ -1103,6 +1292,8 @@ fn assert_target_rejection_preserves_repository(
     );
 }
 
+/// A sandbox whose `origin` is a real bare repository holding `main`, with the workspace set up —
+/// the shape the remote-copy cleanup tests need to observe deletions on the remote side.
 fn sandbox_with_bare_origin() -> (Sandbox, std::path::PathBuf) {
     let (env, remote) = sandbox_from_with_bare_origin("repo-with-remote-and-head");
     env.but("config target main").assert().success();
@@ -1123,6 +1314,26 @@ fn sandbox_from_with_bare_origin(fixture: &str) -> (Sandbox, std::path::PathBuf)
     env.invoke_git("push origin main:main");
     env.invoke_git("fetch origin");
     (env, remote)
+}
+
+/// A repository without any remote, whose target is the local `main`, in the managed workspace.
+fn sandbox_without_remote() -> Sandbox {
+    let env = Sandbox::empty();
+    env.but("init --commit").assert().success();
+    env.but("switch --workspace").assert().success();
+    env
+}
+
+fn status_text(env: &Sandbox) -> String {
+    let stdout = env
+        .but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    String::from_utf8(stdout).unwrap()
 }
 
 fn status_json(env: &Sandbox) -> serde_json::Value {

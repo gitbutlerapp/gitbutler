@@ -200,22 +200,28 @@ fn target_state(
     Ok(ui.target.expect("local target is retained"))
 }
 
+/// Without an upstream the local target is the integration target, so moving it (as a local
+/// `but merge` does) is what integration applies.
 #[test]
-fn integration_rejects_a_local_target_without_an_upstream() -> Result<()> {
+fn integration_applies_a_local_target_without_an_upstream() -> Result<()> {
     // TODO(david): move this into one of the existing integration tests when they compile
     #[expect(unused_variables)]
     let todo_ = ();
 
     let (mut repo, _tmp) = but_testsupport::writable_scenario("integrate-local-target");
-    {
-        let mut config = repo.config_snapshot_mut();
-        config.set_raw_value("branch.main.remote", "missing")?;
-    }
-    let local = repo.rev_parse_single("main")?.detach();
-    let head = repo.head_id()?.detach();
+    repo.config_snapshot_mut()
+        .remove_section("branch", Some("main".into()));
+    let cutoff = repo.rev_parse_single("main")?.detach();
+    let advanced = repo.rev_parse_single("origin/main")?.detach();
+    repo.reference(
+        "refs/heads/main",
+        advanced,
+        gix::refs::transaction::PreviousValue::Any,
+        "test: advance the local target",
+    )?;
     let project_meta = ProjectMeta {
         target_ref: Some(LocalRefName::new("refs/heads/main".try_into()?)?),
-        target_commit_id: Some(local),
+        target_commit_id: Some(cutoff),
         ..Default::default()
     };
     let mut meta = InMemoryRefMetadata {
@@ -231,7 +237,7 @@ fn integration_rejects_a_local_target_without_an_upstream() -> Result<()> {
         but_graph::init::Options::limited(),
     )?
     .into_workspace()?;
-    let error = but_workspace::integrate_upstream_with_hints(
+    let outcome = but_workspace::integrate_upstream_with_hints(
         &mut workspace,
         &mut meta,
         project_meta,
@@ -240,22 +246,22 @@ fn integration_rejects_a_local_target_without_an_upstream() -> Result<()> {
         Vec::new(),
         &[],
         but_core::commit::SignCommit::IfSignCommitsEnabled,
-    )
-    .err()
-    .expect("integration requires an upstream");
-    assert!(
-        error.to_string().contains("without a target upstream"),
-        "missing upstream is reported: {error:#}"
-    );
+    )?;
     assert_eq!(
-        repo.head_id()?.detach(),
-        head,
-        "rejection leaves the workspace untouched"
+        outcome.project_meta.target_commit_id,
+        Some(advanced),
+        "the cutoff advances to the local target"
+    );
+    outcome.rebase.materialize(Default::default())?;
+    assert_eq!(
+        repo.rev_parse_single("gitbutler/workspace^")?.detach(),
+        advanced,
+        "the workspace moves onto the local target"
     );
     assert_eq!(
         repo.rev_parse_single("main")?.detach(),
-        local,
-        "rejection leaves local main untouched"
+        advanced,
+        "the local target itself is left where it is"
     );
     Ok(())
 }

@@ -1,7 +1,8 @@
-//! Deciding the merge topology and building the commit that lands on the target.
+//! Working out what the target points at after landing a branch, and creating the merge commit
+//! when one is needed.
 //!
-//! Lifted from the `but merge` CLI command. This is pure `gix`/topology logic with no
-//! workspace, stack, or `Context` dependency — it takes a repository and two refs.
+//! Lifted from the `but merge` CLI command. It only needs a repository and two refs, not a
+//! workspace, stacks or a `Context`.
 
 use anyhow::bail;
 use bstr::ByteSlice;
@@ -11,27 +12,45 @@ use but_core::{
 };
 use gix::prelude::ObjectIdExt;
 
-/// The merge topology decision for a single landing attempt.
+/// Where the target should point after landing a branch, as worked out by
+/// [`merge_or_fast_forward`]. For a merge, the merge commit has already been created, but no ref
+/// points at it yet: moving the target is up to the caller.
 pub(super) enum LandOutcome {
+    /// The target already contains the branch, so there is nothing to do.
     AlreadyIntegrated,
+    /// The target can move straight to the branch tip, `feature_oid`. It points at `target_oid`
+    /// now.
     FastForward {
         feature_oid: gix::ObjectId,
         target_oid: gix::ObjectId,
     },
+    /// `oid` is a new merge commit of the target and the branch. The target points at
+    /// `target_oid` now.
     Merge {
         oid: gix::ObjectId,
         target_oid: gix::ObjectId,
     },
 }
 
-/// Decide how to land `branch_name` onto the target and, for the merge case, build a signed,
-/// rename-aware merge commit. Conflicts, a diverged branch with `ff_only`, and a branch whose tip
-/// isn't `expected_tip` (when given) bail here, before anything is pushed or moved.
-pub(super) fn decide_land_outcome(
+/// Merge `branch_name` into `target_ref`, or fast-forward to it, without moving any refs.
+///
+/// `target_ref` is the target's remote-tracking ref, or the local target branch when it has no
+/// upstream.
+///
+/// - If the target already contains the branch, this returns [`LandOutcome::AlreadyIntegrated`].
+/// - If the target can be fast-forwarded to the branch and `no_ff` isn't set, this returns
+///   [`LandOutcome::FastForward`].
+/// - Otherwise this creates a merge commit, signed if commit signing is configured, and returns
+///   [`LandOutcome::Merge`]. The commit is only written to the object database; it is up to the
+///   caller to move the target to it.
+///
+/// Fails, without moving anything, if the branch shares no history with the target, if merging
+/// them conflicts, if `ff_only` is set and the branch has diverged from the target, or if
+/// `expected_tip` is given and the branch no longer points at it.
+pub(super) fn merge_or_fast_forward(
     repo: &gix::Repository,
     branch_name: &str,
-    fetch_remote_name: &str,
-    target_branch_name: &str,
+    target_ref: &gix::refs::FullNameRef,
     no_ff: bool,
     ff_only: bool,
     expected_tip: Option<gix::ObjectId>,
@@ -49,18 +68,16 @@ pub(super) fn decide_land_outcome(
         );
     }
 
-    let target_ref_name = format!("refs/remotes/{fetch_remote_name}/{target_branch_name}");
     let target_oid = repo
-        .try_find_reference(&target_ref_name)?
-        .ok_or_else(|| anyhow::anyhow!("Target branch {target_ref_name} not found"))?
+        .try_find_reference(target_ref)?
+        .ok_or_else(|| anyhow::anyhow!("Target branch {target_ref} not found"))?
         .into_fully_peeled_id()?
         .detach();
+    let target_display = target_ref.shorten();
 
     // No common ancestor: refuse rather than merge two unrelated histories onto the target.
     let Some(merge_base) = super::merge_base_opt(repo, feature_oid, target_oid)? else {
-        bail!(
-            "Cannot merge {branch_name}: it shares no history with {fetch_remote_name}/{target_branch_name}"
-        );
+        bail!("Cannot merge {branch_name}: it shares no history with {target_display}");
     };
 
     if merge_base == feature_oid {
@@ -74,7 +91,7 @@ pub(super) fn decide_land_outcome(
     }
     if ff_only {
         bail!(
-            "Cannot fast-forward {fetch_remote_name}/{target_branch_name} to {branch_name}: the \
+            "Cannot fast-forward {target_display} to {branch_name}: the \
              branch has diverged from the target. Rebase {branch_name} onto the target (`but pull`), \
              or re-run without `--ff-only` to create a merge commit."
         );
@@ -116,7 +133,7 @@ pub(super) fn decide_land_outcome(
             format!(" Conflicting paths: {}.", paths.join(", "))
         };
         bail!(
-            "Cannot merge {branch_name}: merging into {fetch_remote_name}/{target_branch_name} \
+            "Cannot merge {branch_name}: merging into {target_display} \
              resulted in conflicts.{detail} Rebase {branch_name} onto the target and resolve, then \
              re-run `but merge {branch_name}`."
         );
@@ -146,7 +163,7 @@ pub(super) fn decide_land_outcome(
 mod tests {
     use but_testsupport::{CommandExt as _, git_at_dir, open_repo};
 
-    use super::{LandOutcome, decide_land_outcome};
+    use super::{LandOutcome, merge_or_fast_forward};
 
     /// A branch that moved after the land was confirmed is refused, as the push can't be undone,
     /// and at the tip the caller showed it lands.
@@ -180,11 +197,11 @@ mod tests {
             .args(["commit", "-q", "--allow-empty", "-m", "added after"])
             .run();
 
-        let err = decide_land_outcome(
+        let target_ref: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
+        let err = merge_or_fast_forward(
             &repo,
             "feature",
-            "origin",
-            "main",
+            target_ref.as_ref(),
             false,
             false,
             Some(shown),
@@ -199,8 +216,14 @@ mod tests {
         );
 
         let tip = repo.rev_parse_single("feature")?.detach();
-        let outcome =
-            decide_land_outcome(&repo, "feature", "origin", "main", false, false, Some(tip))?;
+        let outcome = merge_or_fast_forward(
+            &repo,
+            "feature",
+            target_ref.as_ref(),
+            false,
+            false,
+            Some(tip),
+        )?;
         assert!(
             matches!(outcome, LandOutcome::FastForward { feature_oid, .. } if feature_oid == tip),
             "at the tip that was shown, feature is ahead of the target and fast-forwards it"

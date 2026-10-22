@@ -128,6 +128,8 @@
 				return { text: "Generic branch update", icon: "branch" };
 			case "SplitBranch":
 				return { text: "Split branch", icon: "branch" };
+			case "MergeBranch":
+				return { text: "Merge branch", icon: "branch-merge" };
 			case "MoveBranch":
 			case "TearOffBranch":
 				return { text: camelToTitleCase(snapshotDetails.operation), icon: "branch" };

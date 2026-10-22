@@ -1087,11 +1087,11 @@ pub fn branch_name_segment_with_perm(
     // The snapshot lists `new_ref` so that undo deletes it again. Not when a linked worktree
     // gets it checked out: undo can't restore that worktree, and won't delete a ref it has.
     let undone_ref = matches!(checkout, but_graph::WorktreeKind::Main).then_some(new_ref.as_ref());
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_ref_and_perm(
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
         ctx,
         SnapshotDetails::new(OperationKind::CreateBranch)
             .with_trailers([Trailer::Name(new_ref.to_string())]),
-        undone_ref,
+        undone_ref.as_slice(),
         perm.read_permission(),
         DryRun::No,
     );
@@ -1170,11 +1170,11 @@ pub fn branch_remove_with_perm(
     }
 
     // Name the branch so undo recreates it even when it isn't in the workspace.
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_ref_and_perm(
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
         ctx,
         SnapshotDetails::new(OperationKind::DeleteBranch)
             .with_trailers([Trailer::Name(ref_name.to_string())]),
-        Some(ref_name.as_ref()),
+        &[ref_name.as_ref()],
         perm.read_permission(),
         DryRun::No,
     );
