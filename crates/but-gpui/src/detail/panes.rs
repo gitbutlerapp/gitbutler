@@ -1134,6 +1134,9 @@ pub(super) fn list_empty(
         .into_any_element()
 }
 
+/// How many people an overview's People card lists, the most active first.
+pub(super) const PEOPLE_SHOWN: usize = 5;
+
 /// A card of an overview: `title` and `detail` over its `rows`.
 pub(super) fn overview_box(
     title: &str,

@@ -22,6 +22,8 @@ pub struct OtherBranch {
     pub author: Option<String>,
     /// Everyone its own commits are shown by, newest first, as `author` is.
     pub people: Vec<String>,
+    /// Its own commits, newest first, as its overview sums them up.
+    pub commits: Vec<OwnCommit>,
     /// Theirs, for their picture.
     pub email: Option<String>,
     /// The agent that wrote its newest commit, when `author` is the person who committed it.
@@ -40,6 +42,15 @@ pub struct OtherBranch {
     pub review: Option<Review>,
     /// A local branch's description, as `git branch --edit-description` writes it.
     pub description: Option<String>,
+}
+
+/// One of a branch's own commits.
+#[derive(Debug, Clone)]
+pub struct OwnCommit {
+    /// When it was written, in seconds since the epoch: a rebase leaves that be.
+    pub time: i64,
+    /// Who it's shown by, by where they are in [`OtherBranch::people`].
+    pub person: usize,
 }
 
 /// Every branch the workspace doesn't have applied, newest first, a stack's branches together
@@ -63,11 +74,14 @@ pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
                 (repo.find_commit(branch.tip).ok()).and_then(|tip| super::commit_byline(&tip).ok());
             let (person, agent) = byline.unzip();
             let (author, email) = person.unzip();
+            let (people, commits) =
+                own_commits(&repo, branch.tip, branch.commit_count.unwrap_or(1));
             OtherBranch {
                 ref_name: branch.ref_name.to_string(),
                 name: branch.display_name.to_str_lossy().into_owned(),
                 local: branch.has_local,
-                people: people(&repo, branch.tip, branch.commit_count.unwrap_or(1)),
+                people,
+                commits,
                 author,
                 email,
                 agent: agent.flatten(),
@@ -85,23 +99,39 @@ pub fn other_branches(path: &Path) -> Result<Vec<OtherBranch>> {
         .collect())
 }
 
-/// Who the `count` commits from `tip` down its first parents are shown by, newest first,
-/// each once.
-fn people(repo: &gix::Repository, tip: gix::ObjectId, count: usize) -> Vec<String> {
-    let mut people = Vec::new();
+/// The `count` commits from `tip` down its first parents, newest first, and who they're
+/// shown by, each once.
+fn own_commits(
+    repo: &gix::Repository,
+    tip: gix::ObjectId,
+    count: usize,
+) -> (Vec<String>, Vec<OwnCommit>) {
+    let (mut people, mut commits) = (Vec::new(), Vec::new());
     let mut next = Some(tip);
     for _ in 0..count {
         let Some(commit) = next.and_then(|id| repo.find_commit(id).ok()) else {
             break;
         };
-        if let Ok(((name, _), _)) = super::commit_byline(&commit)
-            && !people.contains(&name)
-        {
-            people.push(name);
-        }
         next = commit.parent_ids().next().map(|id| id.detach());
+        let Ok(((name, _), _)) = super::commit_byline(&commit) else {
+            continue;
+        };
+        let Ok(time) = commit.author().and_then(|author| author.time()) else {
+            continue;
+        };
+        let person = match people.iter().position(|known| *known == name) {
+            Some(at) => at,
+            None => {
+                people.push(name);
+                people.len() - 1
+            }
+        };
+        commits.push(OwnCommit {
+            time: time.seconds,
+            person,
+        });
     }
-    people
+    (people, commits)
 }
 
 /// Set local branch `ref_name`'s description where Git keeps it, as `git branch

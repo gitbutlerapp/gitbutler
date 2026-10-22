@@ -11,8 +11,8 @@ use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
 
 use super::Detail;
 use super::panes::{
-    Crumb, CrumbTo, list_heading, measured, meta_item, meta_row, overview_box, person_row,
-    side_header, side_list, title_text, unfinished_banner,
+    Crumb, CrumbTo, PEOPLE_SHOWN, list_heading, measured, meta_item, meta_row, overview_box,
+    person_row, side_header, side_list, title_text, unfinished_banner,
 };
 use super::pull_request::TABS_HEIGHT;
 use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
@@ -62,9 +62,6 @@ const STALE_AFTER: Duration = Duration::from_secs(60);
 /// for them to show there rather than behind the button over the diff.
 const BESIDE_FILES: f32 = 260.;
 const MIN_DIFF: f32 = 560.;
-
-/// How many people the page lists, the most active first.
-const PEOPLE_SHOWN: usize = 5;
 
 /// What's picked on the page: the README, or a commit of the target.
 #[derive(Clone, Copy, PartialEq)]
@@ -1636,6 +1633,23 @@ pub(super) fn commit_author(
         .child(quiet(age_column(Some(commit.time), theme), on, theme))
 }
 
+/// A day's noon, clear of a clock change, to date it by.
+pub(super) fn noon(day: i64) -> i64 {
+    upstream::day_start(day) + DAY / 2
+}
+
+/// The days picked, said short: one by its date, a span by its ends, days apart by how
+/// many; `None` while none is.
+pub(super) fn days_said(picked: &BTreeSet<i64>) -> Option<String> {
+    let date = |day: i64| crate::ui::local_date(noon(day));
+    let (&first, &last) = picked.first().zip(picked.last())?;
+    Some(match picked.len() {
+        1 => date(first),
+        len if (last - first + 1) as usize == len => format!("{} – {}", date(first), date(last)),
+        len => format!("{len} days"),
+    })
+}
+
 /// How busy something has been: a bar for each day of `daily`, from `first_day`, the last
 /// week's stronger, counting `unit`s. Pressing a day, shift-pressing another or dragging
 /// across them hands `gesture` what the pointer did, for a [`DayPick`]; Clear, beside the days
@@ -1656,9 +1670,6 @@ pub(super) fn activity_strip(
     let week: u32 = daily.iter().rev().take(7).sum();
     let most = daily.iter().copied().max().unwrap_or(0).max(1);
     let today = first_day + daily.len() as i64 - 1;
-    // A day's noon, clear of a clock change, to date it by.
-    let noon = |day: i64| upstream::day_start(day) + DAY / 2;
-    let date = |day: i64| crate::ui::local_date(noon(day));
     let bars: Vec<_> = daily
         .iter()
         .enumerate()
@@ -1703,20 +1714,12 @@ pub(super) fn activity_strip(
                 )
         })
         .collect();
-    let said = match picked.first().zip(picked.last()) {
-        Some((&first, &last)) => {
+    let said = match days_said(picked) {
+        Some(days) => {
             let n: u32 = (daily.iter().enumerate())
                 .filter(|(ix, _)| picked.contains(&(first_day + *ix as i64)))
                 .map(|(_, n)| n)
                 .sum();
-            // A span by its ends; days picked apart, by how many.
-            let days = match picked.len() {
-                1 => date(first),
-                len if (last - first + 1) as usize == len => {
-                    format!("{} – {}", date(first), date(last))
-                }
-                len => format!("{len} days"),
-            };
             h_flex()
                 .gap(px(6.))
                 .child(faint(

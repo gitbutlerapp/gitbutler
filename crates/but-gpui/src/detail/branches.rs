@@ -10,10 +10,12 @@ use gpui::{
     Window, div, prelude::*, px,
 };
 
+mod overview;
+
 use super::Detail;
 use super::panes::{
-    Crumb, CrumbTo, list_empty, measured, meta_item, meta_row, overview_box, page_title,
-    person_row, side_list, title_text,
+    Crumb, CrumbTo, PEOPLE_SHOWN, list_empty, measured, meta_item, meta_row, overview_box,
+    page_title, person_row, side_list, title_text,
 };
 use super::upstream::{DayGesture, DayPick, activity_strip, commit_author};
 
@@ -112,9 +114,6 @@ const STACKED_CHEVRON: f32 = 16. + 7.;
 
 /// How many people the filter menu offers, the most active first.
 const PEOPLE_IN_MENU: usize = 10;
-
-/// How many people the overview lists, the most active first.
-const PEOPLE_IN_OVERVIEW: usize = 8;
 
 /// The list's filters, besides the text: whose branches, by their pull request, and from
 /// which days; one left out counts what each of its choices would show.
@@ -516,12 +515,8 @@ impl Detail {
                 }
             }
         }
-        // Their email from any branch they made the newest commit of, filtered or not.
         for (name, email, _) in &mut people {
-            *email = (branches.list.iter())
-                .find(|b| b.author.as_ref() == Some(name))
-                .and_then(|b| b.email.clone())
-                .unwrap_or_default();
+            *email = email_of(&branches.list, name);
         }
         people.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.0.cmp(&b.0)));
         people
@@ -1107,6 +1102,7 @@ impl Detail {
         let chips = self.branch_filter_chips(branches, cx);
         let activity = self.branch_activity(branches, theme, cx);
         let rows = self.branch_rows(branches, cx);
+        let people = self.branch_people_card(branches, theme, cx);
         let target = (self.store.read(cx).workspace(project))
             .and_then(|ws| ws.target.as_ref())
             .map(|target| target.name.clone());
@@ -1367,6 +1363,7 @@ impl Detail {
             .children(chips)
             .child(activity)
             .child(list)
+            .child(people)
             .into_any_element()
     }
 
@@ -1538,63 +1535,24 @@ impl Detail {
             .ok();
     }
 
-    /// Beside the list until a branch is opened: how the branches the filters keep stand by
-    /// their pull request, and whose they are, most first, each a filter of its own.
-    pub(super) fn render_branches_overview(
+    /// Under the list, as the project's page has its own: whose the branches the filters keep
+    /// are, most first, each a filter of its own.
+    fn branch_people_card(
         &self,
-        project: &ProjectId,
+        branches: &Branches,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let Some(branches) = self.branches_for(project) else {
-            return div().flex_1().into_any_element();
-        };
-        let shown = self.shown_branches(branches, cx).len();
-        let picked_status = self.store.read(cx).prefs.branches_status;
-        let statuses = (self.status_counts(branches, cx).into_iter().enumerate())
-            .filter(|(_, (status, _))| {
-                !matches!(status, BranchStatus::NotMerged | BranchStatus::Any)
-            })
-            .map(|(ix, (status, n))| {
-                let (glyph, color) = match status {
-                    BranchStatus::Open => review::state_glyph(ReviewState::Open, theme),
-                    BranchStatus::Draft => review::state_glyph(ReviewState::Draft, theme),
-                    BranchStatus::Closed => review::state_glyph(ReviewState::Closed, theme),
-                    _ => (Icon::Branch, theme.text_2),
-                };
-                let picked = picked_status == status;
-                // One with none to list is quiet and can't be picked, unless it is.
-                let none = n == 0 && !picked;
-                // Picked, it's a filter on, drawn as a focused selection.
-                side_row(("overview-status", ix), picked, true, theme)
-                    .when(none, |el| el.text_color(theme.text_3))
-                    .child(small_icon(glyph).text_color(match (picked, none) {
-                        (true, _) => theme.text_inverted,
-                        (false, true) => theme.text_3,
-                        (false, false) => color,
-                    }))
-                    .child(div().flex_1().child(STATUSES[ix].1))
-                    .child(quiet(faint(n.to_string(), theme), picked, theme))
-                    .when(!none, |el| {
-                        el.on_click(cx.listener(move |this, _, _, cx| {
-                            let status = match picked {
-                                true => BranchStatus::NotMerged,
-                                false => status,
-                            };
-                            this.filter_status(status, cx)
-                        }))
-                    })
-            });
         let people = self.branch_people(branches, cx);
         let most = people.first().map_or(1, |(.., n)| (*n).max(1));
         // The one picked stays listed, however few branches it has, as in the filter menu.
-        let listed = |ix: usize, name: &String| {
-            ix < PEOPLE_IN_OVERVIEW || branches.who.as_ref() == Some(name)
-        };
+        let listed =
+            |ix: usize, name: &String| ix < PEOPLE_SHOWN || branches.who.as_ref() == Some(name);
         let rest = (people.iter().enumerate())
             .filter(|(ix, (name, ..))| !listed(*ix, name))
             .count();
-        let people = (people.into_iter().enumerate())
+        let nobody = people.is_empty();
+        let rows = (people.into_iter().enumerate())
             .filter(|(ix, (name, ..))| listed(*ix, name))
             .map(|(ix, (name, email, n))| {
                 let picked = branches.who.as_ref() == Some(&name);
@@ -1609,41 +1567,19 @@ impl Detail {
                     this.filter_person((!picked).then(|| name.clone()), cx)
                 }))
             });
-        let people: Vec<_> = people.collect();
-        let nobody = people.is_empty();
         let counted = match branches.days.days.is_empty() {
-            true => "branches · 30 days",
-            false => "branches · days picked",
+            true => format!("branches · {ACTIVITY_DAYS} days"),
+            false => "branches · days picked".to_owned(),
         };
-        // Who first, as the page is for what the team is at, then their pull requests below.
-        v_flex()
-            .id("branches-overview")
-            .flex_1()
-            .h_full()
-            .min_w(px(0.))
-            .overflow_y_scroll()
-            .child(
-                v_flex()
-                    .p(px(6.))
-                    .child(
-                        overview_box("People", counted.to_owned(), people, theme)
-                            .when(nobody, |el| {
-                                el.child(faint("No branches listed", theme).px(px(14.)).py(px(4.)))
-                            })
-                            .when(rest > 0, |el| {
-                                el.child(
-                                    faint(format!("and {}", plural(rest, "other")), theme)
-                                        .px(px(14.)),
-                                )
-                            }),
-                    )
-                    .child(overview_box(
-                        "Pull requests",
-                        format!("{} listed", plural(shown, "branch")),
-                        statuses,
-                        theme,
-                    )),
-            )
+        overview_box("People", counted, rows, theme)
+            .flex_none()
+            .m(px(12.))
+            .when(nobody, |el| {
+                el.child(faint("No branches listed", theme).px(px(14.)).py(px(4.)))
+            })
+            .when(rest > 0, |el| {
+                el.child(faint(format!("and {}", plural(rest, "other")), theme).px(px(14.)))
+            })
             .into_any_element()
     }
 
@@ -1793,6 +1729,14 @@ fn is_picked(branches: &Branches, row: &Row) -> bool {
         && (branches.commits.get(ref_name))
             .and_then(|(_, commits)| commits.get(commit))
             .is_some_and(|c| branches.picked.contains(&c.id))
+}
+
+/// `name`'s email, from any branch they made the newest commit of, filtered or not.
+fn email_of(list: &[OtherBranch], name: &str) -> String {
+    (list.iter())
+        .find(|b| b.author.as_deref() == Some(name))
+        .and_then(|b| b.email.clone())
+        .unwrap_or_default()
 }
 
 /// What the list calls a branch, as the navigator does: its pull request's title once known,
