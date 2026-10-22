@@ -350,6 +350,28 @@ pub fn create_branch(path: &Path, name: Option<&str>) -> Result<String> {
     Ok(created.new_ref.to_string())
 }
 
+/// A reference keeping `name` from being made, as Git can't hold both `a` and `a/b`: one named
+/// as a folder `name` would be in, or one in the folder `name` would be. A ref edit notices
+/// only a loose one, and with a packed one would write both.
+fn colliding_ref(
+    repo: &gix::Repository,
+    name: &gix::refs::FullNameRef,
+) -> Result<Option<gix::refs::FullName>> {
+    let full_name = name.as_bstr().to_str_lossy();
+    // Past `refs/` and its category, as `refs/heads/`.
+    for (at, _) in full_name.match_indices('/').skip(2) {
+        let outer = gix::refs::FullName::try_from(full_name[..at].to_owned())?;
+        if repo.try_find_reference(outer.as_ref())?.is_some() {
+            return Ok(Some(outer));
+        }
+    }
+    Ok((repo.references()?)
+        .prefixed(format!("{full_name}/").as_str())?
+        .filter_map(Result::ok)
+        .map(|inner| inner.name().to_owned())
+        .next())
+}
+
 /// Make branch `new_ref` (or one with a made-up name) where `head`, the branch checked out,
 /// leaves the target, and apply it beside `head`, which brings in GitButler's workspace for the
 /// two. Returns its full name. Starting there, as `but branch new` does, the two merge without
@@ -383,7 +405,13 @@ fn create_beside_checkout(
             Some(new_ref) => new_ref,
             None => but_core::branch::unique_canned_refname(&repo)?,
         };
-        but_core::branch::refuse_colliding_refname(&repo, new_ref.as_ref(), None)?;
+        if let Some(colliding) = colliding_ref(&repo, new_ref.as_ref())? {
+            bail!(
+                "Branch name '{}' collides with existing branch '{}'",
+                new_ref.shorten(),
+                colliding.shorten()
+            );
+        }
         let target = ctx.project_meta()?.resolve_target_commit(&repo)?;
         let base = (repo.merge_base(repo.head_id()?, target)?)
             .with_context(|| format!("{} shares no history with the target", head.shorten()))?;
