@@ -1,4 +1,5 @@
-//! The GitButler account at the top of the navigator: its picture and menu, or Sign in.
+//! The top of the navigator's right end: New version, when the app has an update, and the
+//! GitButler account's picture and menu, or Sign in.
 
 use gpui::{AnyElement, Context, MouseButton, MouseDownEvent, div, img, prelude::*, px};
 

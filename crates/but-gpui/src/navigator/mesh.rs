@@ -11,8 +11,8 @@ use gpui::{
 
 use super::menu::keyed;
 use super::{
-    COMMIT_INDENT, ClickOpened, NEST, Navigator, Row, RowStyle, Rows, found, matches,
-    open_on_click, section_heading, uncommitted_counts,
+    COMMIT_INDENT, ClickOpened, NEST, Navigator, Row, RowStyle, Rows, click_opens, found, matches,
+    section_heading, uncommitted_counts,
 };
 use crate::app::CopySelection;
 use crate::backend::mesh::{self, BranchStatus};
@@ -20,8 +20,7 @@ use crate::overlays::MenuItem;
 use crate::state::{MeshBranch, MeshPick, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::{
-    Icon, Tooltip, commit_title, dot, faint, icon, just_now, meta_count, plural, section_label,
-    small_icon,
+    Icon, Tooltip, dot, faint, icon, just_now, meta_count, plural, section_label, small_icon,
 };
 
 impl Navigator {
@@ -33,9 +32,7 @@ impl Navigator {
         if checkouts.is_empty() {
             return;
         }
-        if !matches!(rows.rows.last(), Some(Row::WorktreeDivider)) {
-            rows.push(Row::WorktreeDivider);
-        }
+        rows.rule_off();
         rows.push(Row::MeshHeading(id.clone()));
         let selected = match &store.selection {
             Some(Selection::Mesh(project, checkout, pick)) if project == id => {
@@ -53,14 +50,14 @@ impl Navigator {
             rows.push(at(MeshPick::Checkout));
             let inside = pick.and_then(MeshPick::branch).is_some();
             if inside || !self.folded_checkouts.contains(&(id.clone(), key.clone())) {
-                rows.open();
-                rows.inset = NEST;
+                rows.open_in(NEST);
                 for branch in &checkout.branches {
                     rows.push(at(MeshPick::Branch(branch.name.clone())));
                     let on_commit =
                         matches!(pick, Some(MeshPick::Commit(name, _)) if *name == branch.name);
-                    let key = (id.clone(), key.clone(), branch.name.clone());
-                    if on_commit || self.mesh_branch_open(&key) {
+                    let key =
+                        ClickOpened::Elsewhere((id.clone(), key.clone(), branch.name.clone()));
+                    if on_commit || self.is_open(&key) {
                         rows.open();
                         rows.extend(
                             (branch.commits.iter())
@@ -69,7 +66,6 @@ impl Navigator {
                         rows.close();
                     }
                 }
-                rows.inset = 0.;
                 rows.close();
             }
             rows.push(Row::WorktreeDivider);
@@ -77,7 +73,8 @@ impl Navigator {
     }
 
     /// [`Self::mesh_rows`] under the filter, with `held` the words found in the project's
-    /// name: the checkouts that match, or have branches that do, with those branches.
+    /// name: the checkouts that match, or have branches that do, with those branches, ruled
+    /// off from the rows above as there.
     pub(super) fn filtered_mesh_rows(
         &self,
         store: &Store,
@@ -87,7 +84,9 @@ impl Navigator {
         rows: &mut Rows,
     ) {
         let start = rows.rows.len();
+        rows.rule_off();
         rows.push(Row::MeshHeading(id.clone()));
+        let heading_end = rows.rows.len();
         for checkout in store.mesh_checkouts(id) {
             let own = found(terms, &[&checkout.label()]);
             let hit = matches(terms, held, own);
@@ -100,15 +99,13 @@ impl Navigator {
             let key: Arc<str> = checkout.id.as_str().into();
             let at = |pick| Selection::Mesh(id.clone(), key.clone(), pick);
             rows.push_found(at(MeshPick::Checkout), hit);
-            rows.open();
-            rows.inset = NEST;
+            rows.open_in(NEST);
             for branch in branches {
                 rows.push_found(at(MeshPick::Branch(branch.name.clone())), true);
             }
-            rows.inset = 0.;
             rows.close();
         }
-        if rows.rows.len() == start + 1 {
+        if rows.rows.len() == heading_end {
             rows.truncate(start);
         }
     }
@@ -172,25 +169,16 @@ impl Navigator {
                     false => (Icon::Commit, theme.blue),
                 };
                 let id = format!("mesh-commit-{project}-{key}-{:?}", commit.id);
-                (style.row(id, COMMIT_INDENT))
-                    .gap(px(10.))
-                    .aria_label(commit.title.clone())
-                    .child(small_icon(glyph).text_color(style.meta(color)))
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w(px(0.))
-                            .truncate()
-                            .child(commit_title(&commit.title)),
-                    )
-                    .children(commit.created_at.map(|at| style.age(at)))
+                let glyph = small_icon(glyph).text_color(style.meta(color));
+                let title = commit.title.clone().into();
+                style.commit_line(id, COMMIT_INDENT, glyph, title, false, commit.created_at)
             }
             (MeshPick::Branch(name), Some(branch)) => {
                 let fold = (project.clone(), key.clone(), name.clone());
                 let clicked = ClickOpened::Elsewhere(fold.clone());
                 let on_commit = matches!(&store.selection,
                     Some(Selection::Mesh(p, i, MeshPick::Commit(n, _))) if (p, i, n) == (project, key, name));
-                let open = self.mesh_branch_open(&fold) || on_commit;
+                let open = self.is_open(&clicked) || on_commit;
                 let n = branch.commits.len();
                 let unpushed = branch.commits.iter().filter(|c| !c.pushed).count();
                 let (glyph, color) = match branch.status {
@@ -228,7 +216,7 @@ impl Navigator {
                             plural(n, "commit"),
                         ))
                     })
-                    .when(n > 0, |el| el.on_click(open_on_click(clicked, cx)))
+                    .when(n > 0, |el| el.on_click(click_opens(clicked, cx)))
             }
             (MeshPick::Checkout, _) => {
                 let fold = (project.clone(), key.clone());
@@ -288,12 +276,6 @@ impl Navigator {
         )
     }
 
-    /// Whether `key`'s commits show: as Settings start branches, unless folded or opened
-    /// since, as a branch here.
-    pub(super) fn mesh_branch_open(&self, key: &MeshBranch) -> bool {
-        self.branches_start_open != self.flipped_mesh_branches.contains(key)
-    }
-
     /// Whether `project`'s work elsewhere shows under its heading: unfolded, with the
     /// selection in it, or found by the filter.
     fn mesh_open(&self, project: &ProjectId, cx: &App) -> bool {
@@ -341,13 +323,12 @@ impl Navigator {
         let (project, id, name) = key;
         let on_commit = matches!(&self.store.read(cx).selection,
             Some(Selection::Mesh(p, i, MeshPick::Commit(n, _))) if (p, i, n) == (&project, &id, &name));
-        match open && on_commit {
-            true => self.select(
+        if open && on_commit {
+            self.select(
                 Selection::Mesh(project, id, MeshPick::Branch(name)),
                 window,
                 cx,
-            ),
-            false => cx.notify(),
+            )
         }
     }
 
@@ -362,13 +343,13 @@ impl Navigator {
         match pick {
             MeshPick::Checkout => {
                 self.folded_checkouts.remove(&(project, id));
+                cx.notify();
             }
             MeshPick::Branch(name) => {
                 self.set_open(ClickOpened::Elsewhere((project, id, name)), true, cx)
             }
             MeshPick::Commit(..) => {}
         }
-        cx.notify();
     }
 
     /// ← on a mesh row, as a tree steps out: fold an open checkout or branch, or else go up to
@@ -397,7 +378,7 @@ impl Navigator {
                 let has_commits =
                     (checkout.branches.iter()).any(|b| b.name == name && !b.commits.is_empty());
                 let key = (project.clone(), id.clone(), name);
-                match has_commits && self.mesh_branch_open(&key) {
+                match has_commits && self.is_open(&ClickOpened::Elsewhere(key.clone())) {
                     true => self.toggle_mesh_branch(key, true, window, cx),
                     false => {
                         self.select(Selection::Mesh(project, id, MeshPick::Checkout), window, cx)

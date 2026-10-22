@@ -107,14 +107,14 @@ impl Navigator {
             // On the navigator, as the page header's ⋯ has the detail focused, where the keys
             // don't reach the navigator.
             if !branch.commits.is_empty() {
-                let key = (project.clone(), ref_name.clone());
-                let open = self.branch_open(&key);
+                let key = ClickOpened::Here((project.clone(), ref_name.clone()));
+                let open = self.is_open(&key);
                 let (label, keys): (_, &dyn Action) = match open {
                     true => ("Hide commits", &Collapse),
                     false => ("Show commits", &Expand),
                 };
                 view.push(keyed(label, keys, cx, move |this, _, cx| {
-                    let key = ClickOpened::Here(key.clone());
+                    let key = key.clone();
                     (this.navigator).update(cx, |nav, cx| nav.set_open(key, !open, cx))
                 }));
             }

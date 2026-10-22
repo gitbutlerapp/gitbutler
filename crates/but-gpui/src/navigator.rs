@@ -2,7 +2,6 @@
 //! stacks, branches and commits as one tree of rows.
 
 use std::collections::HashSet;
-use std::hash::Hash;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -16,7 +15,8 @@ use gpui::{
 
 use crate::app::{AddProject, AppView, Collapse, Confirm, Expand, SelectNext, SelectPrevious};
 use crate::backend::{
-    Branch, CommitId, CommitState, FileChange, PushState, Review, ReviewState, Workspace, Worktree,
+    Branch, CommitId, CommitState, FileChange, PushState, Review, ReviewState, Target, Workspace,
+    Worktree,
 };
 use crate::detail::{ChecksChanged, Detail};
 use crate::overlays::MenuItem;
@@ -33,7 +33,7 @@ use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, count_badge, dot,
     empty_state, faint, field, fold_button, fold_glyph, fold_row, guide, h_flex, icon, icon_button,
     just_now, list_row, meta_count, plural, pulsing, relative_time, resize_handle, review,
-    section_label, shortcut, small_icon, v_flex,
+    section_label, small_icon, v_flex,
 };
 
 mod account;
@@ -96,13 +96,11 @@ pub fn bind_keys(cx: &mut App) {
     ]);
 }
 
-/// What shows commits under it: a branch, here or on another machine, which a click on its
-/// row opens too, or a remote's merge, which only its chevron and → open.
-#[derive(Clone, PartialEq)]
+/// A branch, here or on another machine, whose commits a click on its row opens.
+#[derive(Clone, PartialEq, Eq, Hash)]
 enum ClickOpened {
     Here((ProjectId, String)),
     Elsewhere(crate::state::MeshBranch),
-    Merge(ProjectId, CommitId),
 }
 
 /// Rows in display order. Only [`Row::Item`] can be selected.
@@ -110,7 +108,8 @@ enum ClickOpened {
 enum Row {
     /// The space between two cards.
     Gap,
-    /// A project, its uncommitted changes, a branch or a commit.
+    /// Whatever the [`Selection`] names: a project, a worktree, a stack, a branch, a commit,
+    /// one of a project's pages, or one of these on another machine.
     Item(Selection),
     Note(SharedString, bool),
     /// Over the projects not expanded: what it calls them, how many it lists, and how many
@@ -155,6 +154,8 @@ struct Rows {
     inset: f32,
     /// Where the guides of the rows pushed next run.
     open: Vec<f32>,
+    /// What the rows sat in by before each guide in `open` began, which closing it restores.
+    outer: Vec<f32>,
     /// The first item the filter found, which Enter in it selects.
     first_hit: Option<Selection>,
 }
@@ -188,10 +189,25 @@ impl Rows {
     fn open_at(&mut self, at: f32) {
         let under = self.insets.last().copied().unwrap_or_default();
         self.open.push(at + under);
+        self.outer.push(self.inset);
+    }
+
+    /// As [`Self::open`], with the rows stepped in `by` further.
+    fn open_in(&mut self, by: f32) {
+        self.open();
+        self.inset += by;
     }
 
     fn close(&mut self) {
         self.open.pop();
+        self.inset = self.outer.pop().unwrap_or_default();
+    }
+
+    /// Rule what follows off from the rows above with a line, unless one already does.
+    fn rule_off(&mut self) {
+        if !matches!(self.rows.last(), Some(Row::WorktreeDivider)) {
+            self.push(Row::WorktreeDivider);
+        }
     }
 
     /// Push `item`, the filter's first hit if it's `hit` and none came before it.
@@ -250,7 +266,7 @@ fn upstream_chevrons(ref_name: Option<&str>) -> (f32, f32) {
 /// A branch row's click handler: with Open branches on click on in Settings, a plain click
 /// opens its commits, as [`Navigator::open_on_click`] does; one with ⌘ or ⇧, picking
 /// commits, doesn't, and nor does any while the filter lists what it finds.
-fn open_on_click(
+fn click_opens(
     branch: ClickOpened,
     cx: &Context<Navigator>,
 ) -> impl Fn(&ClickEvent, &mut Window, &mut App) + 'static {
@@ -283,7 +299,7 @@ impl RowStyle<'_> {
 
     fn muted(&self) -> Hsla {
         if self.solid {
-            self.theme.text_inverted.opacity(0.7)
+            self.theme.muted_on_solid()
         } else {
             self.theme.text_2
         }
@@ -321,6 +337,36 @@ impl RowStyle<'_> {
             .child(relative_time(at))
     }
 
+    /// A commit's row, `indent` in: `glyph`, its title, a dot while it's unread, and how old
+    /// it is when that's known. The title is quieter once read, so branch names and unread
+    /// commits stand out, but in full on a solid selection.
+    fn commit_line(
+        &self,
+        id: String,
+        indent: f32,
+        glyph: impl IntoElement,
+        title: SharedString,
+        unread: bool,
+        at: Option<i64>,
+    ) -> Stateful<Div> {
+        let quiet = title.is_empty() || !(unread || self.solid);
+        self.row(id, indent)
+            .gap(px(10.))
+            .aria_label(title.clone())
+            .child(glyph)
+            .child(
+                div()
+                    .flex_1()
+                    .min_w(px(0.))
+                    .truncate()
+                    .when(quiet, |el| el.text_color(self.muted()))
+                    .when(unread, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
+                    .child(commit_title(&title)),
+            )
+            .when(unread, |el| el.child(dot(self.meta(self.theme.pop))))
+            .children(at.map(|at| self.age(at)))
+    }
+
     /// "active", in green, on a checkout written to in the last two minutes, likely by an
     /// agent at work: a word, as but.dev greens the age, so it isn't taken for the unread dot.
     fn active(&self, id: impl Into<ElementId>) -> Stateful<Div> {
@@ -350,9 +396,10 @@ pub struct Navigator {
     reveal_selection: bool,
     /// Branches showing all their commits instead of the first few.
     unfolded_branches: HashSet<(ProjectId, String)>,
-    /// Branches folded or opened against how Settings say branches start: folded, unless
-    /// they say open. A branch with the selected commit shows its commits either way.
-    flipped_branches: HashSet<(ProjectId, String)>,
+    /// Branches, here or on other machines, folded or opened against how Settings say
+    /// branches start: folded, unless they say open. A branch with the selected commit shows
+    /// its commits either way.
+    flipped: HashSet<ClickOpened>,
     /// Whether branches start open, as the flips were made against. When Settings change
     /// it, the flips go and every branch starts over.
     branches_start_open: bool,
@@ -365,9 +412,6 @@ pub struct Navigator {
     /// The commits only a remote has listed under their heading, a branch's (by its full
     /// ref) or with `None` the target's. They start folded to the heading.
     open_upstream: HashSet<(ProjectId, Option<String>)>,
-    /// Branches on other machines folded or opened against how Settings say branches start,
-    /// as [`Self::flipped_branches`].
-    flipped_mesh_branches: HashSet<crate::state::MeshBranch>,
     /// The branch a click on its row opened, which a click on another's folds again; one
     /// opened or folded by hand since stays as it's left.
     click_opened: Option<ClickOpened>,
@@ -432,8 +476,7 @@ impl Navigator {
                 let start_open = store.read(cx).prefs.branches_start_open;
                 if this.branches_start_open != start_open {
                     this.branches_start_open = start_open;
-                    this.flipped_branches.clear();
-                    this.flipped_mesh_branches.clear();
+                    this.flipped.clear();
                     this.click_opened = None;
                 }
                 cx.notify()
@@ -443,15 +486,15 @@ impl Navigator {
                 StoreEvent::Loaded(_) | StoreEvent::MeshRead(_) => this.hold_still = true,
                 // A renamed branch stays open or folded as it was.
                 StoreEvent::Renamed(project, from, to) => {
-                    let sets = [
-                        &mut this.flipped_branches,
-                        &mut this.unfolded_branches,
-                        &mut this.folded_stacks,
-                    ];
-                    for set in sets {
+                    for set in [&mut this.unfolded_branches, &mut this.folded_stacks] {
                         if set.remove(&(project.clone(), from.clone())) {
                             set.insert((project.clone(), to.clone()));
                         }
+                    }
+                    let here =
+                        |ref_name: &String| ClickOpened::Here((project.clone(), ref_name.clone()));
+                    if this.flipped.remove(&here(from)) {
+                        this.flipped.insert(here(to));
                     }
                     if (this.open_upstream).remove(&(project.clone(), Some(from.clone()))) {
                         (this.open_upstream).insert((project.clone(), Some(to.clone())));
@@ -480,12 +523,11 @@ impl Navigator {
             list: ListState::new(0, ListAlignment::Top, px(56.)),
             reveal_selection: false,
             unfolded_branches: HashSet::new(),
-            flipped_branches: HashSet::new(),
+            flipped: HashSet::new(),
             click_opened: None,
             open_merges: HashSet::new(),
             open_upstream: HashSet::new(),
             folded_checkouts: HashSet::new(),
-            flipped_mesh_branches: HashSet::new(),
             branches_start_open,
             folded_worktrees: HashSet::new(),
             folded_stacks: HashSet::new(),
@@ -513,7 +555,6 @@ impl Navigator {
         let store = self.store.read(cx);
         let mut rows = Rows::default();
         for entry in self.watched(store) {
-            rows.inset = 0.;
             if !rows.rows.is_empty() {
                 rows.push(Row::Gap);
             }
@@ -555,8 +596,7 @@ impl Navigator {
             // Always listed, with nothing uncommitted too, so where to commit is always there.
             rows.push(Row::Item(Selection::Uncommitted(id.clone())));
             if headed {
-                rows.open();
-                rows.inset = NEST;
+                rows.open_in(NEST);
             }
             if main_open {
                 // A stack being unapplied leaves at once.
@@ -572,7 +612,6 @@ impl Navigator {
             }
             if headed {
                 rows.close();
-                rows.inset = 0.;
                 rows.push(Row::WorktreeDivider);
                 let on_branches =
                     |wt: &Worktree| selection.is_some_and(|s| within(s, wt.branches.iter()));
@@ -606,15 +645,12 @@ impl Navigator {
             }
             // The pages are another kind of row than the worktrees', so a line rules them off,
             // as the last worktree's does when there are linked ones.
-            if !matches!(rows.rows.last(), Some(Row::WorktreeDivider)) {
-                rows.push(Row::WorktreeDivider);
-            }
+            rows.rule_off();
             rows.push(Row::Item(Selection::Branches(id.clone())));
             rows.push(Row::Item(Selection::History(id.clone())));
         }
         // The rest share one card under a heading that also adds projects, so it's there
         // when every project is expanded too.
-        rows.inset = 0.;
         let title = match rows.rows.is_empty() {
             true => "All projects",
             false => "More projects",
@@ -677,7 +713,6 @@ impl Navigator {
         for entry in self.watched(store) {
             let id = &entry.id;
             let start = rows.rows.len();
-            rows.inset = 0.;
             if start > 0 {
                 rows.push(Row::Gap);
             }
@@ -691,8 +726,7 @@ impl Navigator {
                 let main = rows.rows.len();
                 if headed {
                     rows.push(Row::Item(Selection::Uncommitted(id.clone())));
-                    rows.open();
-                    rows.inset = NEST;
+                    rows.open_in(NEST);
                 }
                 let heading_end = rows.rows.len();
                 for stack in &workspace.stacks {
@@ -700,7 +734,6 @@ impl Navigator {
                 }
                 if headed {
                     rows.close();
-                    rows.inset = 0.;
                     if rows.rows.len() == heading_end {
                         rows.truncate(main);
                     }
@@ -712,10 +745,8 @@ impl Navigator {
                     let wt_own = found(terms, &[&wt.name]);
                     let item = Selection::Worktree(id.clone(), wt.name.clone());
                     rows.push_found(item, hit(own, wt_own));
-                    rows.open();
-                    rows.inset = NEST;
+                    rows.open_in(NEST);
                     self.filtered_lane(store, id, &wt.branches, terms, own | wt_own, &mut rows);
-                    rows.inset = 0.;
                     rows.close();
                     if rows.rows.len() == wt_start + 1 && !hit(own, wt_own) {
                         rows.truncate(wt_start);
@@ -732,7 +763,6 @@ impl Navigator {
         let listed: Vec<_> = others
             .filter(|entry| hit(0, found(terms, &[&entry.project.name])))
             .collect();
-        rows.inset = 0.;
         if !listed.is_empty() {
             let title = match rows.rows.is_empty() {
                 true => "All projects",
@@ -769,15 +799,14 @@ impl Navigator {
             return;
         }
         let branches = &*store.after_deletes(id, branches);
-        let (start, base) = (rows.rows.len(), rows.inset);
+        let start = rows.rows.len();
         let stacked = branches.len() > 1;
         if let [_, .., bottom] = branches {
             rows.push(Row::Item(Selection::Stack(
                 id.clone(),
                 bottom.ref_name.clone(),
             )));
-            rows.open();
-            rows.inset = base + STACK_STEP;
+            rows.open_in(STACK_STEP);
         }
         let caption_end = rows.rows.len();
         for branch in branches {
@@ -808,7 +837,6 @@ impl Navigator {
         if stacked {
             rows.close();
         }
-        rows.inset = base;
         if rows.rows.len() == caption_end {
             rows.truncate(start);
         }
@@ -819,7 +847,6 @@ impl Navigator {
     /// with its commits, up to the fold, unless it's closed.
     fn lane_rows(&self, store: &Store, id: &ProjectId, branches: &[Branch], rows: &mut Rows) {
         let branches = &*store.after_deletes(id, branches);
-        let base = rows.inset;
         let stacked = branches.len() > 1;
         if let [_, .., bottom] = branches {
             let key = (id.clone(), bottom.ref_name.clone());
@@ -829,8 +856,7 @@ impl Navigator {
             if self.folded_stacks.contains(&key) && !selected {
                 return;
             }
-            rows.open();
-            rows.inset = base + STACK_STEP;
+            rows.open_in(STACK_STEP);
         }
         for branch in branches {
             let key = (id.clone(), branch.ref_name.clone());
@@ -849,9 +875,9 @@ impl Navigator {
             };
             let upstream = Some(branch.ref_name.as_str());
             let closed = !branch.commits.is_empty()
-                && !self.branch_open(&key)
                 && selected_at.is_none()
-                && !Self::upstream_selected(store, id, upstream);
+                && !Self::upstream_selected(store, id, upstream)
+                && !self.is_open(&ClickOpened::Here(key.clone()));
             rows.push(Row::Item(Selection::Branch(key.0, key.1)));
             if closed {
                 continue;
@@ -898,7 +924,6 @@ impl Navigator {
         if stacked {
             rows.close();
         }
-        rows.inset = base;
     }
 
     /// A linked worktree's heading, its uncommitted changes, and, unless it's folded without
@@ -914,10 +939,8 @@ impl Navigator {
         let name = worktree.name.clone();
         rows.push(Row::Item(Selection::Worktree(id.clone(), name.clone())));
         if self.worktree_open(id, Some(&name), selected) {
-            rows.open();
-            rows.inset = NEST;
+            rows.open_in(NEST);
             self.lane_rows(store, id, &worktree.branches, rows);
-            rows.inset = 0.;
             rows.close();
         }
         rows.push(Row::WorktreeDivider);
@@ -954,10 +977,10 @@ impl Navigator {
         color: Hsla,
         cx: &Context<Self>,
         toggle: impl Fn(&mut Self, &mut Window, &mut Context<Self>) + 'static,
-    ) -> Stateful<Div> {
+    ) -> AnyElement {
         match open.is_some() && self.filtering(cx) {
-            true => div().id(id).child(fold_glyph(Some(true), color)),
-            false => fold_button(id, open, color, cx, toggle),
+            true => fold_glyph(Some(true), color).into_any_element(),
+            false => fold_button(id, open, color, cx, toggle).into_any_element(),
         }
     }
 
@@ -1066,42 +1089,24 @@ impl Navigator {
         }
     }
 
-    /// Whether `key`'s branch shows its commits: as Settings start branches, unless folded or
+    /// Whether `branch` shows its commits: as Settings start branches, unless folded or
     /// opened since.
-    fn branch_open(&self, key: &(ProjectId, String)) -> bool {
-        self.branches_start_open != self.flipped_branches.contains(key)
+    fn is_open(&self, branch: &ClickOpened) -> bool {
+        self.branches_start_open != self.flipped.contains(branch)
     }
 
-    /// Whether `what` shows its commits: a branch as [`Self::branch_open`] and
-    /// [`Self::mesh_branch_open`] say, a merge once opened.
-    fn is_open(&self, what: &ClickOpened) -> bool {
-        match what {
-            ClickOpened::Here(key) => self.branch_open(key),
-            ClickOpened::Elsewhere(key) => self.mesh_branch_open(key),
-            ClickOpened::Merge(_, id) => self.open_merges.contains(id),
-        }
-    }
-
-    /// Show `what`'s commits, or fold them, by hand: it stays as it's left. A merge's
-    /// commits load as it opens.
-    fn set_open(&mut self, what: ClickOpened, open: bool, cx: &mut Context<Self>) {
-        if self.click_opened.as_ref() == Some(&what) {
+    /// Show `branch`'s commits, or fold them, by hand: it stays as it's left.
+    fn set_open(&mut self, branch: ClickOpened, open: bool, cx: &mut Context<Self>) {
+        if self.click_opened.as_ref() == Some(&branch) {
             self.click_opened = None;
         }
-        if self.is_open(&what) == open {
+        if self.is_open(&branch) == open {
             return;
         }
-        match what {
-            ClickOpened::Here(key) => toggle(&mut self.flipped_branches, key),
-            ClickOpened::Elsewhere(key) => toggle(&mut self.flipped_mesh_branches, key),
-            ClickOpened::Merge(project, id) if open => {
-                self.open_merges.insert(id);
-                (self.store).update(cx, |store, cx| store.load_merged(&project, id, cx));
-            }
-            ClickOpened::Merge(_, id) => {
-                self.open_merges.remove(&id);
-            }
+        if !self.flipped.remove(&branch) {
+            self.flipped.insert(branch);
         }
+        cx.notify();
     }
 
     /// Open a branch's commits for a plain click on its row, and fold the ones the last
@@ -1115,7 +1120,6 @@ impl Navigator {
             self.set_open(branch.clone(), true, cx);
             self.click_opened = Some(branch);
         }
-        cx.notify();
     }
 
     /// Whether one of the commits only `ref_name`'s remote has, or with `None` the target's
@@ -1125,8 +1129,8 @@ impl Navigator {
             if p == id && r.as_deref() == ref_name)
     }
 
-    /// Show the commits remote merge `id` brought in, or fold them, by hand: it stays as it's
-    /// left. Folding them over the one selected selects the merge.
+    /// Show the commits remote merge `id` brought in, which load as they open, or fold them,
+    /// by hand: it stays as it's left. Folding them over the one selected selects the merge.
     fn toggle_merge(
         &mut self,
         project: &ProjectId,
@@ -1135,12 +1139,11 @@ impl Navigator {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let merge = ClickOpened::Merge(project.clone(), id);
-        let open = !self.is_open(&merge);
-        self.set_open(merge, open, cx);
-        if open {
+        if self.open_merges.insert(id) {
+            (self.store).update(cx, |store, cx| store.load_merged(project, id, cx));
             return cx.notify();
         }
+        self.open_merges.remove(&id);
         let store = self.store.read(cx);
         let inside = matches!(&store.selection, Some(Selection::Upstream(p, r, c))
             if p == project && store.merged_upstream(p, r.as_deref(), *c).is_some_and(|(m, _)| m == id));
@@ -1228,8 +1231,7 @@ impl Navigator {
                 }
             }),
             Some(Selection::Branch(project, ref_name)) => {
-                self.set_open(ClickOpened::Here((project, ref_name)), true, cx);
-                cx.notify();
+                self.set_open(ClickOpened::Here((project, ref_name)), true, cx)
             }
             Some(Selection::Uncommitted(project)) => {
                 self.folded_worktrees.remove(&(project, None));
@@ -1271,7 +1273,7 @@ impl Navigator {
         }
         let closes = matches!(&selection, Some(item @ Selection::Branch(project, ref_name))
             if store.branch_for(item).is_some_and(|branch| !branch.commits.is_empty())
-                && self.branch_open(&(project.clone(), ref_name.clone())));
+                && self.is_open(&ClickOpened::Here((project.clone(), ref_name.clone()))));
         let folds = (self.rows.iter())
             .position(|row| matches!(row, Row::Item(item) if Some(item) == selection.as_ref()))
             .is_some_and(|ix| self.section_open(ix));
@@ -1286,8 +1288,7 @@ impl Navigator {
                 }
             }),
             Some(Selection::Branch(project, ref_name)) if closes => {
-                self.set_open(ClickOpened::Here((project, ref_name)), false, cx);
-                cx.notify();
+                self.set_open(ClickOpened::Here((project, ref_name)), false, cx)
             }
             Some(Selection::Commit(project, id)) => {
                 let branch = store
@@ -1760,18 +1761,15 @@ impl Navigator {
             true => total.to_string(),
             false => format!("{listed} of {total}"),
         };
-        // The filter lists what it finds, folded or not.
-        let filtering = self.filtering(cx);
-        let folded = self.store.read(cx).prefs.projects_folded && !filtering;
+        let folded = self.store.read(cx).prefs.projects_folded;
         // Only its chevron folds it, as only a project card's does.
         let fold = h_flex()
             .flex_1()
             .min_w(px(0.))
             .h_full()
             .gap(px(6.))
-            .when(total > 0, |el| match filtering {
-                true => el.child(fold_glyph(Some(true), theme.text_3)),
-                false => el.child(fold_button(
+            .when(total > 0, |el| {
+                el.child(self.fold(
                     "projects-fold",
                     Some(!folded),
                     theme.text_3,
@@ -1781,7 +1779,7 @@ impl Navigator {
                             store.set_prefs(|p| p.projects_folded = !p.projects_folded, cx)
                         })
                     },
-                )),
+                ))
             })
             .child(section_label(title, theme).truncate())
             .when(total > 0, |el| {
@@ -1791,7 +1789,7 @@ impl Navigator {
             .child(
                 icon_button("add-project", Icon::Plus)
                     .small()
-                    .tooltip_with_key("Add project", shortcut(&AddProject, cx))
+                    .tooltip("Add project")
                     .dispatch(&AddProject),
             )
             .when(total > 0, |el| {
@@ -2007,16 +2005,8 @@ impl Navigator {
                                 plural(unpushed, "unpushed commit"),
                             ))
                             .children(target.and_then(|t| {
-                                let tip =
-                                    format!("{} behind {}", plural(t.behind, "commit"), t.name);
-                                // Each merge counts once, as the project's page lists them.
-                                let tip = match t.commits_behind > t.behind {
-                                    true => format!(
-                                        "{tip} ({} with what they merged)",
-                                        t.commits_behind
-                                    ),
-                                    false => tip,
-                                };
+                                let behind = plural(t.behind, "commit");
+                                let tip = format!("{behind} behind {}{}", t.name, with_merged(t));
                                 meta_count(Icon::ArrowDown, t.behind, warn, tip)
                             }))
                             .children(meta_count(
@@ -2393,13 +2383,13 @@ impl Navigator {
 
     /// Whether row `ix` heads rows stepped in under it that show: an open worktree or stack.
     /// The main worktree's branches, alone, aren't stepped in: its heading is open while
-    /// they, or the note that there are none, follow it.
+    /// they follow it.
     fn section_open(&self, ix: usize) -> bool {
         let next = self.insets.get(ix + 1);
         match self.rows.get(ix) {
             Some(Row::Item(Selection::Uncommitted(_))) if next == self.insets.get(ix) => matches!(
                 self.rows.get(ix + 1),
-                Some(Row::Item(Selection::Stack(..) | Selection::Branch(..)) | Row::Note(..))
+                Some(Row::Item(Selection::Stack(..) | Selection::Branch(..)))
             ),
             _ => next.is_some_and(|next| *next > self.insets[ix]),
         }
@@ -2530,11 +2520,7 @@ impl Navigator {
         let theme = style.theme;
         let branch = store.branch_for(item)?;
         let name = store.name_of(id, branch);
-        let unpushed = branch
-            .commits
-            .iter()
-            .filter(|c| c.state == CommitState::Local)
-            .count();
+        let unpushed_n = unpushed(std::iter::once(branch));
         let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
         let (glyph, glyph_color) = match (&branch.review, branch.push) {
             (Some(review), _) => review::state_glyph(store.review_state(id, review), theme),
@@ -2554,7 +2540,7 @@ impl Navigator {
             });
         let key = (id.clone(), ref_name.to_owned());
         let clicked = ClickOpened::Here(key.clone());
-        let closed = !self.branch_open(&key) && !branch.commits.is_empty();
+        let closed = !self.is_open(&clicked) && !branch.commits.is_empty();
         // A selected commit keeps its branch open, as does one only its remote has.
         let holds_selected = matches!(&store.selection, Some(Selection::Commit(p, c))
             if p == id && branch.commits.iter().any(|commit| commit.id == *c))
@@ -2565,12 +2551,9 @@ impl Navigator {
         let toggle = move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
             this.set_open(ClickOpened::Here(key.clone()), !open, cx);
             // Folding it over its selected commit takes the selection up to it, as ← does.
-            match open && holds_selected {
-                true => {
-                    let (project, ref_name) = key.clone();
-                    this.select(Selection::Branch(project, ref_name), window, cx)
-                }
-                false => cx.notify(),
+            if open && holds_selected {
+                let (project, ref_name) = key.clone();
+                this.select(Selection::Branch(project, ref_name), window, cx)
             }
         };
         let folds = !branch.commits.is_empty();
@@ -2656,14 +2639,12 @@ impl Navigator {
                     ))
                 })
                 // While it pushes, its count pulses where it is.
-                .children(
-                    style
-                        .unpushed(unpushed)
-                        .map(|count| match store.pushing(id, ref_name) {
-                            true => pulsing(count).into_any_element(),
-                            false => count.into_any_element(),
-                        }),
-                )
+                .children(style.unpushed(unpushed_n).map(
+                    |count| match store.pushing(id, ref_name) {
+                        true => pulsing(count).into_any_element(),
+                        false => count.into_any_element(),
+                    },
+                ))
                 // Folded, how many commits it holds; open, they're listed under it.
                 .when(!open, |el| {
                     let n = branch.commits.len();
@@ -2677,7 +2658,7 @@ impl Navigator {
                 .when(unread, |el| el.child(dot(style.meta(theme.pop))))
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
                 // A click looks inside, opening its commits; the chevron, ← and → fold them.
-                .when(folds, |el| el.on_click(open_on_click(clicked, cx)))
+                .when(folds, |el| el.on_click(click_opens(clicked, cx)))
                 .when(!ref_name.is_empty(), |el| {
                     let payload = Cut::Branch(id.clone(), ref_name.to_owned());
                     let label = store.label_of(id, branch).to_owned();
@@ -2717,28 +2698,16 @@ impl Navigator {
             true => format!("{} commits", moved.len()).into(),
         };
         let payload = Cut::Commit(id.clone(), moved);
-        let unread = store.is_unread(id, commit);
         Some(
             style
-                .row(format!("commit-{id}-{}", commit_id.0), COMMIT_INDENT)
-                .gap(px(10.))
-                .aria_label(label.clone())
-                .child(small_icon(glyph).text_color(style.meta(color)))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w(px(0.))
-                        .truncate()
-                        // Quieter once read, so branch names and unread commits stand out,
-                        // but in full on a solid selection.
-                        .when(title.is_empty() || !(unread || style.solid), |el| {
-                            el.text_color(style.muted())
-                        })
-                        .when(unread, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
-                        .child(commit_title(title)),
+                .commit_line(
+                    format!("commit-{id}-{}", commit_id.0),
+                    COMMIT_INDENT,
+                    small_icon(glyph).text_color(style.meta(color)),
+                    label,
+                    store.is_unread(id, commit),
+                    Some(commit.time),
                 )
-                .when(unread, |el| el.child(dot(style.meta(theme.pop))))
-                .child(style.age(commit.time))
                 // Selected but on its way out.
                 .when(store.hides_commit(id, &commit.key), |el| el.opacity(0.5))
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
@@ -2805,26 +2774,14 @@ impl Navigator {
         Some(
             style
                 // Under its heading's words, as a branch's commits are under its name.
-                .row(
+                .commit_line(
                     format!("upstream-{id}-{}", commit_id.0),
                     upstream_indent(ref_name) + if nested { STACK_STEP } else { 0. },
+                    glyph,
+                    title,
+                    unread,
+                    Some(time),
                 )
-                .gap(px(10.))
-                .aria_label(title.clone())
-                .child(glyph)
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w(px(0.))
-                        .truncate()
-                        .map(|el| match unread {
-                            true => el.font_weight(gpui::FontWeight::SEMIBOLD),
-                            false => el.text_color(style.muted()),
-                        })
-                        .child(title),
-                )
-                .when(unread, |el| el.child(dot(style.meta(style.theme.pop))))
-                .child(style.age(time))
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
                 .into_any_element(),
         )
@@ -2962,15 +2919,7 @@ impl Navigator {
                     Some(target) => format!("New on {}", target.name),
                     None => "New on the target".to_owned(),
                 };
-                // Each merge counts once, as the project's page lists them.
-                let tip = match target.filter(|t| t.commits_behind > count) {
-                    Some(t) => format!(
-                        "{} ({} with what they merged)",
-                        plural(count, "commit"),
-                        t.commits_behind
-                    ),
-                    None => plural(count, "commit"),
-                };
+                let tip = plural(count, "commit") + &target.map(with_merged).unwrap_or_default();
                 (label, count, tip)
             }
         };
@@ -3360,6 +3309,16 @@ fn uncommitted_counts(tally: Tally, style: RowStyle) -> Div {
         })
 }
 
+/// How many commits the target's merges brought in besides, as " (N with what they
+/// merged)" after its count, which counts each merge once as the project's page lists them,
+/// or nothing when they brought in none.
+fn with_merged(target: &Target) -> String {
+    match target.commits_behind > target.behind {
+        true => format!(" ({} with what they merged)", target.commits_behind),
+        false => String::new(),
+    }
+}
+
 /// Whether `selection` is one of `branches`, a commit on one, or a stack of them.
 fn within<'a>(selection: &Selection, mut branches: impl Iterator<Item = &'a Branch>) -> bool {
     branches.any(|branch| {
@@ -3444,13 +3403,6 @@ fn insertion_line(above: bool, color: Hsla) -> Div {
     match above {
         true => line.top(px(-1.)),
         false => line.bottom(px(-1.)),
-    }
-}
-
-/// Take `key` out of `set`, or put it in when it isn't there.
-fn toggle<T: Eq + Hash>(set: &mut HashSet<T>, key: T) {
-    if !set.remove(&key) {
-        set.insert(key);
     }
 }
 
