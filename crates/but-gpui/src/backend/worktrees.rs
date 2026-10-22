@@ -42,7 +42,8 @@ pub(super) fn linked(
                 Some((files, read_against)) if read_against == tree => {
                     (files, git_operation(&checkout))
                 }
-                _ => read(&checkout, &name)?,
+                Some((files, _)) => read(&checkout, &name, &files)?,
+                None => read(&checkout, &name, &[])?,
             };
             Some(Worktree {
                 name,
@@ -74,7 +75,7 @@ pub fn reload_uncommitted(
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
     if main {
-        shown.uncommitted = worktree_files(&repo)?;
+        shown.uncommitted = worktree_files(&repo, &shown.uncommitted)?;
         shown.tree = head_tree(&repo);
     }
     shown.worktrees.retain_mut(|worktree| {
@@ -84,7 +85,7 @@ pub fn reload_uncommitted(
         let Some(checkout) = opened(&ctx, &worktree.name) else {
             return false;
         };
-        match read(&checkout, &worktree.name) {
+        match read(&checkout, &worktree.name, &worktree.uncommitted) {
             Some((files, operation)) => {
                 worktree.uncommitted = files;
                 worktree.git_operation = operation;
@@ -101,8 +102,12 @@ pub fn reload_uncommitted(
 /// The uncommitted files of worktree `name` and the Git command it's partway through, or
 /// nothing when it can't be read, as when an agent just removed it: the next full load lists
 /// the worktrees as they are.
-fn read(checkout: &gix::Repository, name: &str) -> Option<(Vec<FileChange>, Option<&'static str>)> {
-    (worktree_files(checkout))
+fn read(
+    checkout: &gix::Repository,
+    name: &str,
+    previous: &[FileChange],
+) -> Option<(Vec<FileChange>, Option<&'static str>)> {
+    (worktree_files(checkout, previous))
         .inspect_err(|err| tracing::warn!("couldn't read worktree {name}: {err:#}"))
         .ok()
         .map(|files| (files, git_operation(checkout)))
@@ -148,7 +153,7 @@ pub fn remove(path: &Path, name: &str, lost: &[(String, Option<i64>)]) -> Result
     // With nothing to lose, nothing is forced, and Git refuses a worktree with changes, so
     // one that can't be opened, as when its folder is gone, can still be removed.
     let files = match checkout(&ctx, Some(name)) {
-        Ok(worktree) => worktree_files(&worktree)?,
+        Ok(worktree) => worktree_files(&worktree, &[])?,
         Err(_) if lost.is_empty() => Vec::new(),
         Err(err) => return Err(err.context(format!("Couldn't check {name}'s files"))),
     };

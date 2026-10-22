@@ -79,7 +79,7 @@ pub fn load_diff(
         // With modification times, as the workspace's file list has them.
         DiffSource::Worktree | DiffSource::Linked(_) => match worktree {
             Some(files) => files,
-            None => worktree_files(&repo)?,
+            None => worktree_files(&repo, &[])?,
         },
         // At the edge of a shallow clone a commit's parent isn't here; Git shows it as a
         // root then, everything in it added.

@@ -236,7 +236,8 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
             .spawn_scoped(scope, move || -> Result<_> {
                 let files = match main {
                     Some((files, read_against)) if read_against == tree => files,
-                    _ => worktree_files(&repo)?,
+                    Some((files, _)) => worktree_files(&repo, &files)?,
+                    None => worktree_files(&repo, &[])?,
                 };
                 Ok((files, refs_fingerprint(&repo)?))
             })?;
@@ -646,31 +647,57 @@ const COUNT_LINES_UP_TO: usize = 300;
 
 /// Uncommitted files, each with when it was last written and, while there are few enough,
 /// the lines it adds and removes, and the files the index has conflicted, as a merge leaves
-/// them.
-fn worktree_files(repo: &gix::Repository) -> Result<Vec<FileChange>> {
+/// them. A file `previous` has with the same change, written at the same time, keeps the lines
+/// counted then: while an agent writes, most files stay as they were between reads.
+fn worktree_files(repo: &gix::Repository, previous: &[FileChange]) -> Result<Vec<FileChange>> {
     let changes = but_core::diff::worktree_changes(repo)?;
     // Status leaves out files with unresolved index conflicts; they're changes too.
     let conflicted = conflicted_changes(repo, &changes.ignored_changes)?;
     let count = conflicted.len() + changes.changes.len() <= COUNT_LINES_UP_TO;
-    let lines = |change: &but_core::TreeChange| match change.unified_patch(repo, 0) {
-        Ok(Some(but_core::UnifiedPatch::Patch {
-            lines_added,
-            lines_removed,
-            ..
-        })) => Some((lines_added, lines_removed)),
-        _ => None,
+    let counted: HashMap<&str, &FileChange> = (previous.iter())
+        .filter(|file| file.lines.is_some())
+        .map(|file| (file.path.as_str(), file))
+        .collect();
+    let lines = |change: &but_core::TreeChange, modified: Option<i64>| {
+        let kept = counted.get(&*change.path.to_str_lossy()).filter(|old| {
+            old.modified == modified && same_change(&old.change.status, &change.status)
+        });
+        if let Some(old) = kept {
+            return old.lines;
+        }
+        match change.unified_patch(repo, 0) {
+            Ok(Some(but_core::UnifiedPatch::Patch {
+                lines_added,
+                lines_removed,
+                ..
+            })) => Some((lines_added, lines_removed)),
+            _ => None,
+        }
     };
     let changes = changes.changes.into_iter().map(|change| (change, false));
     // Conflicted first, as a conflicted commit lists them: they're what needs doing.
     Ok((conflicted.into_iter().map(|change| (change, true)))
         .chain(changes)
-        .map(|(change, conflicted)| FileChange {
-            modified: written(repo, change.path.as_bstr()),
-            conflicted,
-            lines: count.then(|| lines(&change)).flatten(),
-            ..file_change(change)
+        .map(|(change, conflicted)| {
+            let modified = written(repo, change.path.as_bstr());
+            FileChange {
+                modified,
+                conflicted,
+                lines: count.then(|| lines(&change, modified)).flatten(),
+                ..file_change(change)
+            }
         })
         .collect())
+}
+
+/// Whether `a` and `b` are the same kind of change from the same base to the same state, as
+/// far as status knows it: a worktree file's state isn't hashed, so its write time tells.
+fn same_change(a: &but_core::TreeStatus, b: &but_core::TreeStatus) -> bool {
+    let state = |s: but_core::ChangeState| (s.id, s.kind);
+    let before = |status: &but_core::TreeStatus| {
+        (status.previous_state_and_path()).map(|(s, path)| (state(s), path.map(ToOwned::to_owned)))
+    };
+    a.kind() == b.kind() && before(a) == before(b) && a.state().map(state) == b.state().map(state)
 }
 
 /// When the file at `path` in `repo`'s checkout was last written, in milliseconds since the
