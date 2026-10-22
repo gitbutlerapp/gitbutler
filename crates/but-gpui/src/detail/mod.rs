@@ -116,8 +116,6 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("l", Expand, side),
         KeyBinding::new("left", Collapse, side),
         KeyBinding::new("h", Collapse, side),
-        // Opens the branch picked in the Branches page's table.
-        KeyBinding::new("enter", crate::app::Confirm, side),
         // Works while typing the message too, as the composer's other key does.
         KeyBinding::new("alt-cmd-enter", AmendTop, Some("Detail")),
         KeyBinding::new("cmd-shift-b", composer::PickCommitTarget, Some("Detail")),

@@ -1691,12 +1691,11 @@ impl DayPick {
                 self.drag_from = None;
             }
             DayGesture::Press { day, .. } => {
-                match self.days.len() == 1 && self.days.contains(&day) {
-                    true => self.days.clear(),
-                    false => self.days = BTreeSet::from([day]),
-                }
+                // Clicking the one day picked lets go of it, with nothing to drag from then.
+                let clears = self.days.len() == 1 && self.days.contains(&day);
+                self.drag_from = (!clears).then_some(day);
+                self.days = self.drag_from.into_iter().collect();
                 self.anchor = Some(day);
-                self.drag_from = Some(day);
             }
             DayGesture::Drag(day) => {
                 if let Some(from) = self.drag_from {
@@ -1852,9 +1851,9 @@ mod tests {
         );
         assert_eq!(days(&[Drag(5)]), [17, 18, 19, 20], "only while pressed");
         assert_eq!(
-            days(&[press(12), Release, press(12), Release]),
+            days(&[press(12), Release, press(12), Drag(12), Release]),
             [] as [i64; 0],
-            "clicking the one day picked again lets go"
+            "clicking the one day picked again lets go, though the pointer moves a little"
         );
     }
 }

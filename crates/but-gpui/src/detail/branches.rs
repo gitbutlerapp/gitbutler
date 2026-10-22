@@ -552,8 +552,12 @@ impl Detail {
             return;
         };
         if branches.days.apply(gesture) {
-            self.select_shown_branch(cx);
             cx.notify();
+        }
+        // Once the pointer lets go, so a drag passing over other days doesn't close the
+        // branch partway.
+        if let DayGesture::Release = gesture {
+            self.select_shown_branch(cx);
         }
     }
 
@@ -570,13 +574,17 @@ impl Detail {
         let Some(branches) = &self.branches else {
             return;
         };
+        // A caption stays while it's listed, though the filter hides its top branch.
+        let rows = self.branch_rows(branches, cx);
+        if branches.stack && rows.iter().any(|row| is_selected(branches, row)) {
+            return;
+        }
         // One folded away in its stack still counts.
         let selected =
             |ix: &usize| Some(&branches.list[*ix].ref_name) == branches.selected.as_ref();
         if self.shown_branches(branches, cx).iter().any(selected) {
             // A stack the filter leaves one branch of has no caption to stay on.
-            let rows = self.branch_rows(branches, cx);
-            if branches.stack && !rows.iter().any(|row| is_selected(branches, row)) {
+            if branches.stack {
                 self.select_other_branch(branches.selected.clone(), cx);
             }
         } else if branches.selected.is_some() {
@@ -958,6 +966,15 @@ impl Detail {
                                         }
                                     }))
                                     .ok();
+                                    // The overview, rather than its diff, once it's gone: after
+                                    // this update of the store, which the list reads.
+                                    let detail = detail.clone();
+                                    cx.defer(move |cx| {
+                                        (detail.update(cx, |detail, cx| {
+                                            detail.select_shown_branch(cx)
+                                        }))
+                                        .ok();
+                                    });
                                     // The oplog can't bring it back, so ⌘Z won't try.
                                     store.keep_last_snapshot();
                                     store.snack("Branch deleted", cx)
