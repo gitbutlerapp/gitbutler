@@ -6,6 +6,7 @@ import { Icon } from "./Icon.tsx";
 import type { IconName } from "./iconNames.ts";
 import { MetaCount } from "./MetaCount.tsx";
 import styles from "./SidebarRow.module.css";
+import { StatusLed } from "./StatusLed.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 
 /**
@@ -200,25 +201,6 @@ const Row: FC<
 		}),
 	});
 };
-
-/**
- * A machine's online light: lit green while it is connected, grey once it isn't. Say when it was
- * last seen in a `Tooltip` around it.
- *
- * @import import { StatusLed } from "@gitbutler/ui-react/SidebarRow.tsx";
- */
-export const StatusLed: FC<{ online: boolean } & ComponentProps<"span">> = ({
-	online,
-	...props
-}) => (
-	<span
-		// oxlint-disable-next-line jsx_a11y/prefer-tag-over-role -- A drawn dot with a name, not a picture with a source.
-		role="img"
-		aria-label={online ? "Online" : "Offline"}
-		{...props}
-		className={classes(props.className, styles.led, online && styles.online)}
-	/>
-);
 
 /**
  * A machine in the sidebar: the card's header when the sidebar is grouped by machine, a row

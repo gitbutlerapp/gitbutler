@@ -5,6 +5,7 @@ import { Button } from "./Button.tsx";
 import { Icon } from "./Icon.tsx";
 import { LocationBar, LocationBarDivider } from "./LocationBar.tsx";
 import { MenuRadioGroup, MenuRadioItem } from "./Menu.tsx";
+import { StatusLed } from "./StatusLed.tsx";
 import { Tooltip } from "./Tooltip.tsx";
 
 const meta = preview.meta({
@@ -85,10 +86,7 @@ const Elsewhere: FC = () => (
 const Live: FC = () => (
 	<>
 		<span style={{ display: "inline-flex", alignItems: "center", columnGap: 6 }}>
-			<span
-				aria-hidden
-				style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: "var(--text-safe)" }}
-			/>
+			<StatusLed online aria-hidden />
 			live
 		</span>
 		<Tooltip content="Refresh">
