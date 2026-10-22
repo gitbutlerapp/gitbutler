@@ -49,6 +49,8 @@ enum Worktree {
     Deleted,
     File,
     Symlink,
+    /// A symlink to an existing directory, which checkout must not write through.
+    SymlinkToDirectory,
     DirectoryWithUntrackedFile,
     IgnoredFile,
     IgnoredDirectory,
@@ -67,12 +69,13 @@ const ENTRIES: [Entry; 6] = [
     Entry::Submodule,
 ];
 const INDEXES: [Index; 3] = [Index::LikeHead, Index::Staged, Index::StagedRemoval];
-const WORKTREES: [Worktree; 10] = [
+const WORKTREES: [Worktree; 11] = [
     Worktree::Clean,
     Worktree::Edited,
     Worktree::Deleted,
     Worktree::File,
     Worktree::Symlink,
+    Worktree::SymlinkToDirectory,
     Worktree::DirectoryWithUntrackedFile,
     Worktree::IgnoredFile,
     Worktree::IgnoredDirectory,
@@ -211,6 +214,7 @@ fn change_worktree(worktree: Worktree) -> &'static str {
         Worktree::Deleted => "if [ -e p ] || [ -L p ]; then rm -rf p; else touch ../impossible; fi",
         Worktree::File => "rm -rf p && printf 'w\\n' >p",
         Worktree::Symlink => "rm -rf p && ln -s w p",
+        Worktree::SymlinkToDirectory => "rm -rf p && mkdir -p elsewhere && ln -s elsewhere p",
         Worktree::DirectoryWithUntrackedFile => "rm -rf p && mkdir p && printf 'w\\n' >p/y",
         Worktree::IgnoredFile => {
             "if git ls-files --error-unmatch p >/dev/null 2>&1; then touch ../impossible; else rm -rf p && printf 'w\\n' >p && echo /p >>.git/info/exclude; fi"
@@ -515,11 +519,12 @@ fn changes_during_checkout_are_refused_or_carried_like_before_it() -> anyhow::Re
                 changed,
                 checked_out_after,
                 checked_out_during,
+                behind_symlinks,
                 ..
             } = case;
             writeln!(
                 violations,
-                "{name}\n  the change:            {changed}\n  checkout after it:     {checked_out_after}\n  checkout during it:    {checked_out_during}\n"
+                "{name}\n  the change:            {changed}\n  checkout after it:     {checked_out_after}\n  checkout during it:    {checked_out_during}\n  behind a symlink:      {behind_symlinks:?}\n"
             )?;
         }
     }
@@ -541,17 +546,23 @@ struct During {
     checked_out_during: String,
     /// Whether every file the change created is still on disk after the checkout during it.
     change_kept: bool,
+    /// Index entries behind a symlinked directory after the checkout during the change. Git
+    /// never records them, as the worktree doesn't have them there, so a checkout that did
+    /// wrote through a symlink.
+    behind_symlinks: Vec<String>,
 }
 
 impl During {
-    /// The change must not be lost: checkout refuses and changes nothing, ends as if the change
-    /// had been made before it, or keeps everything the change created.
+    /// The change must not be lost: checkout refuses and changes nothing, or succeeds without
+    /// writing through a symlink and ends as if the change had been made before it, or keeps
+    /// everything the change created.
     fn is_kept_or_refused(&self) -> bool {
         let refused_without_changes =
             self.checked_out_during == self.changed.replacen("unchanged", "refused", 1);
+        let done = self.checked_out_during.starts_with("done");
         refused_without_changes
-            || self.checked_out_during == self.checked_out_after
-            || (self.checked_out_during.starts_with("done") && self.change_kept)
+            || (done && self.behind_symlinks.is_empty())
+                && (self.checked_out_during == self.checked_out_after || self.change_kept)
     }
 }
 
@@ -621,6 +632,7 @@ EOF
             checked_out_after: check_out_with_gitbutler(&dir.join("after"), &names)?,
             checked_out_during,
             change_kept: created.iter().all(|entry| after_during.contains(entry)),
+            behind_symlinks: behind_symlinks(&during)?,
         });
     }
     Ok(cases)
@@ -650,4 +662,27 @@ fn configure_meddling(dir: &Path, when: When) -> anyhow::Result<()> {
             .status()?;
     }
     Ok(())
+}
+
+/// The index entries of the repository at `dir` that have a symlink among their leading
+/// directories in its worktree.
+fn behind_symlinks(dir: &Path) -> anyhow::Result<Vec<String>> {
+    let repo = open_repo(dir)?;
+    let index = repo.open_index()?;
+    let mut out = Vec::new();
+    for entry in index.entries() {
+        let path = entry.path(&index).to_str_lossy().into_owned();
+        let mut leading = std::path::Path::new(&path).ancestors().skip(1);
+        let through_symlink = leading.any(|ancestor| {
+            !ancestor.as_os_str().is_empty()
+                && dir
+                    .join(ancestor)
+                    .symlink_metadata()
+                    .is_ok_and(|md| md.is_symlink())
+        });
+        if through_symlink {
+            out.push(path);
+        }
+    }
+    Ok(out)
 }

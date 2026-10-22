@@ -1,2 +1,8 @@
-380 cases
+440 cases
+
+HEAD Absent, target Directory, worktree SymlinkToDirectory while Checking
+  the change:            unchanged, HEAD head, index [], disk [elsewhere/; p -> elsewhere]
+  checkout after it:     refused, HEAD head, index [], disk [elsewhere/; p -> elsewhere]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [elsewhere/; elsewhere/x "m"; p -> elsewhere]
+  behind a symlink:      ["p/x"]
 

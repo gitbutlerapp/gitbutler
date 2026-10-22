@@ -1,4 +1,4 @@
-580 cases: 515 like `git checkout`, 1 like `git checkout -m`, 64 different
+665 cases: 593 like `git checkout`, 1 like `git checkout -m`, 71 different
 
 HEAD Absent, target Directory, index Staged, worktree Deleted
   git:       done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
@@ -220,6 +220,11 @@ HEAD Directory, target Absent, index Staged, worktree Symlink
   git -m:    refused, HEAD head, index [p Mode(FILE) "s"], disk [p -> w]
   GitButler: done, HEAD target, index [p Mode(FILE) "s"], disk [p -> w]
 
+HEAD Directory, target Absent, index Staged, worktree SymlinkToDirectory
+  git:       refused, HEAD head, index [p Mode(FILE) "s"], disk [elsewhere/; p -> elsewhere]
+  git -m:    refused, HEAD head, index [p Mode(FILE) "s"], disk [elsewhere/; p -> elsewhere]
+  GitButler: done, HEAD target, index [p Mode(FILE) "s"], disk [elsewhere/; p -> elsewhere]
+
 HEAD Directory, target Absent, index StagedRemoval, worktree File
   git:       refused, HEAD head, index [], disk [p "w"]
   git -m:    refused, HEAD head, index [], disk [p "w"]
@@ -229,6 +234,11 @@ HEAD Directory, target Absent, index StagedRemoval, worktree Symlink
   git:       refused, HEAD head, index [], disk [p -> w]
   git -m:    refused, HEAD head, index [], disk [p -> w]
   GitButler: done, HEAD target, index [], disk [p -> w]
+
+HEAD Directory, target Absent, index StagedRemoval, worktree SymlinkToDirectory
+  git:       refused, HEAD head, index [], disk [elsewhere/; p -> elsewhere]
+  git -m:    refused, HEAD head, index [], disk [elsewhere/; p -> elsewhere]
+  GitButler: done, HEAD target, index [], disk [elsewhere/; p -> elsewhere]
 
 HEAD Directory, target Submodule, index LikeHead, worktree DirectoryWithUntrackedFile
   git:       done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/; p/y "w"]
@@ -249,6 +259,11 @@ HEAD Submodule, target Absent, index LikeHead, worktree Symlink
   git:       done, HEAD target, index [], disk [p -> w]
   git -m:    done, HEAD target, index [], disk [p -> w]
   GitButler: refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+
+HEAD Submodule, target Absent, index LikeHead, worktree SymlinkToDirectory
+  git:       done, HEAD target, index [], disk [elsewhere/; p -> elsewhere]
+  git -m:    done, HEAD target, index [], disk [elsewhere/; p -> elsewhere]
+  GitButler: refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [elsewhere/; p -> elsewhere]
 
 HEAD Submodule, target Absent, index Staged, worktree Deleted
   git:       refused, HEAD head, index [p Mode(FILE) "s"], disk []
@@ -280,6 +295,11 @@ HEAD Submodule, target File, index LikeHead, worktree Symlink
   git -m:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
   GitButler: refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
 
+HEAD Submodule, target File, index LikeHead, worktree SymlinkToDirectory
+  git:       done, HEAD target, index [p Mode(FILE) "m"], disk [elsewhere/; p "m"]
+  git -m:    done, HEAD target, index [p Mode(FILE) "m"], disk [elsewhere/; p "m"]
+  GitButler: refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [elsewhere/; p -> elsewhere]
+
 HEAD Submodule, target Executable, index LikeHead, worktree Deleted
   git:       done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
   git -m:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
@@ -294,6 +314,11 @@ HEAD Submodule, target Executable, index LikeHead, worktree Symlink
   git:       done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
   git -m:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
   GitButler: refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+
+HEAD Submodule, target Executable, index LikeHead, worktree SymlinkToDirectory
+  git:       done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [elsewhere/; p "m" (x)]
+  git -m:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [elsewhere/; p "m" (x)]
+  GitButler: refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [elsewhere/; p -> elsewhere]
 
 HEAD Submodule, target Symlink, index LikeHead, worktree Deleted
   git:       done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
@@ -310,6 +335,11 @@ HEAD Submodule, target Symlink, index LikeHead, worktree Symlink
   git -m:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
   GitButler: refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
 
+HEAD Submodule, target Symlink, index LikeHead, worktree SymlinkToDirectory
+  git:       done, HEAD target, index [p Mode(SYMLINK) "m"], disk [elsewhere/; p -> m]
+  git -m:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [elsewhere/; p -> m]
+  GitButler: refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [elsewhere/; p -> elsewhere]
+
 HEAD Submodule, target Directory, index LikeHead, worktree File
   git:       done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
   git -m:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
@@ -319,4 +349,9 @@ HEAD Submodule, target Directory, index LikeHead, worktree Symlink
   git:       done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
   git -m:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
   GitButler: refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+
+HEAD Submodule, target Directory, index LikeHead, worktree SymlinkToDirectory
+  git:       done, HEAD target, index [p/x Mode(FILE) "m"], disk [elsewhere/; p/; p/x "m"]
+  git -m:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [elsewhere/; p/; p/x "m"]
+  GitButler: refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [elsewhere/; p -> elsewhere]
 

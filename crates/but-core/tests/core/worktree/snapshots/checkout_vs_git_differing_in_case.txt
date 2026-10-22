@@ -1,4 +1,4 @@
-66 cases: 55 like `git checkout`, 4 like `git checkout -m`, 7 different
+74 cases: 63 like `git checkout`, 4 like `git checkout -m`, 7 different
 
 HEAD File P, target Directory p, index LikeHead, worktree DirectoryWithUntrackedFile
   git:       refused, HEAD head, index [P Mode(FILE) "h"], disk [p/; p/y "w"]
