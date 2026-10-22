@@ -282,7 +282,7 @@ impl Detail {
     /// all of its changes, else one per run, shaped for what reads them. Lines a commit gives
     /// up name the hunk they leave; uncommitted ones name just themselves, as a commit takes
     /// them, and a discard finds their hunk.
-    fn part_keys(&self, hunk: &Hunk, lines: &BTreeSet<usize>) -> Vec<HunkKey> {
+    pub(super) fn part_keys(&self, hunk: &Hunk, lines: &BTreeSet<usize>) -> Vec<HunkKey> {
         let all = (hunk.lines.iter().enumerate())
             .filter(|(_, line)| line.kind != LineKind::Context)
             .all(|(ix, _)| lines.contains(&ix));

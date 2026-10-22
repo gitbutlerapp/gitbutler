@@ -793,11 +793,24 @@ impl Detail {
                 // What discarding this hunk means, fixed now: by the time a click lands, a
                 // reload may have moved other hunks into this row's indices.
                 // A conflicted file goes whole or not at all; see `backend::discard`.
+                // Of a hunk with lines picked, just those, as ⌥⌘Z takes.
                 let discard =
                     (diff.key.source.live() && !diff.files[file].file.conflicted).then(|| {
-                        let change = diff.files[file].part(Some(vec![key]));
-                        let (project, linked) = (diff.key.project.clone(), diff.key.linked());
-                        discard_button(ix, project, linked, change, current, self.app.clone(), cx)
+                        let picked: std::collections::BTreeSet<usize> =
+                            (0..hunks[hunk].lines.len())
+                                .filter(|line| self.line_picked(path, key, *line))
+                                .collect();
+                        let (keys, tip) = match picked.is_empty() {
+                            true => (vec![key], "Throw this hunk away"),
+                            false => (
+                                self.part_keys(&hunks[hunk], &picked),
+                                "Throw the picked lines away",
+                            ),
+                        };
+                        let change = diff.files[file].part(Some(keys));
+                        let checkout = (diff.key.project.clone(), diff.key.linked());
+                        let app = self.app.clone();
+                        discard_button(ix, checkout, change, current, tip, app, cx)
                     });
                 // The lines before the hunk, unless the file shown whole has them above.
                 let unmodified = if self.whole_lines(&diff.files[file]).is_some() {
@@ -1389,14 +1402,15 @@ fn line_select(ix: usize, entity: WeakEntity<Detail>) -> LineSelect {
     }
 }
 
-/// Discard for an uncommitted hunk, of the main checkout or of the `linked` worktree, shown
-/// on the hunk under the cursor and on the one under the pointer.
+/// Discard for an uncommitted hunk, of a project's main checkout or linked worktree, shown
+/// on the hunk under the cursor and on the one under the pointer: of what `change` has,
+/// which `tip` says.
 fn discard_button(
     ix: usize,
-    project: ProjectId,
-    linked: Option<Arc<str>>,
+    (project, linked): (ProjectId, Option<Arc<str>>),
     change: Selected,
     current: bool,
+    tip: &'static str,
     app: WeakEntity<AppView>,
     cx: &App,
 ) -> AnyElement {
@@ -1410,7 +1424,7 @@ fn discard_button(
             button(("hunk-discard", ix), "Discard")
                 .small()
                 .style(ButtonStyle::Ghost)
-                .tooltip_for("Throw this hunk away", &DiscardHunk)
+                .tooltip_for(tip, &DiscardHunk)
                 .on_click(move |_, window, cx| {
                     let (changes, linked) = (vec![change.clone()], linked.clone());
                     app.update(cx, |app, cx| {
