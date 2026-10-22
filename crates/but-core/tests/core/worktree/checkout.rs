@@ -2024,6 +2024,54 @@ fn checkout_changes_nothing_while_another_process_holds_the_index_lock() -> anyh
 }
 
 #[test]
+fn checkout_replaces_a_file_with_the_directory_of_a_submodule_like_git() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    commit_in_worktree(&repo, &[("sm", "file\n")])?;
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            tree.remove("sm")?;
+            tree.upsert("sm", EntryKind::Commit, repo.head_id()?.detach())?;
+            Ok(())
+        },
+        "turn sm into a submodule",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    assert_eq!(repo.head_id()?, new_commit.id);
+    assert!(
+        repo.workdir_path("sm").unwrap().is_dir(),
+        "like Git, the file makes way for the submodule's directory"
+    );
+    Ok(())
+}
+
+#[test]
+fn checkout_replaces_a_file_where_a_submodule_needs_a_directory_like_git() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    commit_in_worktree(&repo, &[("a", "file\n")])?;
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            tree.remove("a")?;
+            tree.upsert("a/sm", EntryKind::Commit, repo.head_id()?.detach())?;
+            Ok(())
+        },
+        "add a submodule at a/sm",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    assert_eq!(repo.head_id()?, new_commit.id);
+    assert!(
+        repo.workdir_path("a/sm").unwrap().is_dir(),
+        "like Git, the file `a` makes way for the directory holding the submodule"
+    );
+    Ok(())
+}
+
+#[test]
 fn checkout_removes_the_empty_directory_of_a_submodule_the_target_deletes() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let workdir = repo.workdir().expect("non-bare");

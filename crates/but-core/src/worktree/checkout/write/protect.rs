@@ -101,9 +101,7 @@ fn objects_to_remove(judge: &mut Judge<'_>, plan: &Plan) -> anyhow::Result<Vec<R
         removals.extend(judge.deleted_object(rela_path)?);
     }
     for (rela_path, content) in plan.writes() {
-        if !content.is_submodule() {
-            removals.extend(judge.object_in_the_way(rela_path)?);
-        }
+        removals.extend(judge.object_in_the_way(rela_path, content)?);
     }
     Ok(removals)
 }
@@ -180,15 +178,23 @@ impl<'a> Judge<'a> {
         }))
     }
 
-    /// What writing `rela_path` removes: a leading component that isn't a directory, or the
-    /// object at the path itself, including all files below it if it's a directory.
-    fn object_in_the_way(&mut self, rela_path: &BStr) -> anyhow::Result<Option<Removal>> {
+    /// What writing `content` at `rela_path` removes: a leading component that isn't a
+    /// directory, or the object at the path itself, including all files below it if it's a
+    /// directory. Like Git, a submodule keeps the directory it finds, with everything in it.
+    fn object_in_the_way(
+        &mut self,
+        rela_path: &BStr,
+        content: Content,
+    ) -> anyhow::Result<Option<Removal>> {
         let in_the_way = self
             .blocking_ancestor(rela_path)?
             .unwrap_or_else(|| rela_path.to_owned());
         let Some(md) = self.metadata(in_the_way.as_ref())? else {
             return Ok(None);
         };
+        if md.is_dir() && content.is_submodule() {
+            return Ok(None);
+        }
         let judged = match md.is_dir() {
             // A submodule the snapshot has is judged as a whole.
             true if self.baseline_entry(in_the_way.as_ref()).is_some() => vec![in_the_way.clone()],
