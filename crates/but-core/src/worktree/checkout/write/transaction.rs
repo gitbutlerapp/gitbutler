@@ -109,7 +109,7 @@ pub(super) fn commit(
 ) -> anyhow::Result<Placed> {
     let workdir = repo.workdir().expect("checked by the caller");
     protect::still_as_checked(workdir, clearances)?;
-    let mut journal = Journal::default();
+    let mut journal = Journal::new(workdir);
     match apply(&mut journal, workdir, &staged, clearances) {
         Ok(placed) => Ok(placed),
         Err(err) => {
@@ -152,8 +152,8 @@ fn apply(
 }
 
 /// What the commit did, in order, so it can be undone.
-#[derive(Default)]
 struct Journal {
+    workdir: PathBuf,
     steps: Vec<Step>,
 }
 
@@ -171,6 +171,13 @@ enum Step {
 }
 
 impl Journal {
+    fn new(workdir: &Path) -> Self {
+        Journal {
+            workdir: workdir.to_owned(),
+            steps: Vec::new(),
+        }
+    }
+
     /// Move the object at `from` to `to`. An object that is gone loses nothing.
     /// Move the object at `from` into its own place in the directory `aside`, so objects moved
     /// aside never collide, even if one was inside another. An object that is gone loses
@@ -195,9 +202,7 @@ impl Journal {
     fn place(&mut self, staged: &Path, dest: &Path) -> anyhow::Result<()> {
         self.create_parents(dest)?;
         if dest.symlink_metadata().is_ok() {
-            but_error::bail_precondition!(
-                "Uncommitted files would be overwritten by checkout: {dest:?}"
-            );
+            return Err(self.appeared_after_the_check(dest));
         }
         std::fs::rename(staged, dest).with_context(|| format!("placing {dest:?}"))?;
         self.steps.push(Step::Placed(dest.to_owned()));
@@ -207,24 +212,47 @@ impl Journal {
     /// Create the directory `dir` and its parents, unless it exists.
     fn ensure_dir(&mut self, dir: &Path) -> anyhow::Result<()> {
         self.create_parents(dir)?;
-        if !dir.is_dir() {
-            std::fs::create_dir(dir).with_context(|| format!("creating {dir:?}"))?;
-            self.steps.push(Step::CreatedDir(dir.to_owned()));
+        self.ensure_one_dir(dir)
+    }
+
+    /// Create the missing directories leading to `path`, from the worktree's root down.
+    fn create_parents(&mut self, path: &Path) -> anyhow::Result<()> {
+        let workdir = self.workdir.clone();
+        let leading: Vec<&Path> = path
+            .ancestors()
+            .skip(1)
+            .take_while(|dir| *dir != workdir)
+            .collect();
+        for dir in leading.into_iter().rev() {
+            self.ensure_one_dir(dir)?;
         }
         Ok(())
     }
 
-    fn create_parents(&mut self, path: &Path) -> anyhow::Result<()> {
-        let missing: Vec<&Path> = path
-            .ancestors()
-            .skip(1)
-            .take_while(|dir| dir.symlink_metadata().is_err())
-            .collect();
-        for dir in missing.into_iter().rev() {
-            std::fs::create_dir(dir).with_context(|| format!("creating {dir:?}"))?;
-            self.steps.push(Step::CreatedDir(dir.to_owned()));
+    /// Create the directory `dir` unless it is one. A file or symlink there appeared after the
+    /// worktree was checked, so refuse rather than write through it, maybe outside the worktree.
+    fn ensure_one_dir(&mut self, dir: &Path) -> anyhow::Result<()> {
+        match dir.symlink_metadata() {
+            Ok(md) if md.is_dir() => Ok(()),
+            Ok(_) => Err(self.appeared_after_the_check(dir)),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                std::fs::create_dir(dir).with_context(|| format!("creating {dir:?}"))?;
+                self.steps.push(Step::CreatedDir(dir.to_owned()));
+                Ok(())
+            }
+            Err(err) => Err(err.into()),
         }
-        Ok(())
+    }
+
+    fn appeared_after_the_check(&self, path: &Path) -> anyhow::Error {
+        let rela_path = path.strip_prefix(&self.workdir).unwrap_or(path);
+        anyhow::anyhow!(
+            but_error::Context::new(format!(
+                "Uncommitted files would be overwritten by checkout: {:?}",
+                rela_path.display().to_string()
+            ))
+            .with_code(but_error::Code::PreconditionFailed)
+        )
     }
 
     /// Remove the directories leading to `path` that are now empty, as Git does.
