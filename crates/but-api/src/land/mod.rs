@@ -204,6 +204,10 @@ pub fn ensure_landable_target(
 /// `no_ff` always creates a merge commit; `ff_only` refuses to land unless the target can be
 /// fast-forwarded to the branch tip. Passing both is an error.
 ///
+/// `expected_tip`, when given, is the branch tip the caller showed the user: the land is refused
+/// if the branch moved since, as by an agent committing during the confirmation or the fetch,
+/// because the push can't be undone. It's compared under the worktree lock that decides the land.
+///
 /// This fetches the target, lands the branch (fast-forward or signed merge commit, retrying when
 /// the target moves underneath us), then reconciles the remaining applied branches onto the moved
 /// target. The remote push is not undoable; see [`BranchLandResult::reconcile_skipped`] and the
@@ -216,6 +220,7 @@ pub fn branch_land(
     no_ff: bool,
     ff_only: bool,
     whole_stack: bool,
+    expected_tip: Option<gix::ObjectId>,
 ) -> anyhow::Result<BranchLandResult> {
     if no_ff && ff_only {
         bail!("Cannot land with both `no_ff` and `ff_only`");
@@ -311,6 +316,7 @@ pub fn branch_land(
                 &target_branch_name,
                 no_ff,
                 ff_only,
+                expected_tip,
             )
         }?;
 

@@ -245,6 +245,10 @@ export declare function branchDiff(projectId: string, branch: string): Promise<T
  * `no_ff` always creates a merge commit; `ff_only` refuses to land unless the target can be
  * fast-forwarded to the branch tip. Passing both is an error.
  *
+ * `expected_tip`, when given, is the branch tip the caller showed the user: the land is refused
+ * if the branch moved since, as by an agent committing during the confirmation or the fetch,
+ * because the push can't be undone. It's compared under the worktree lock that decides the land.
+ *
  * This fetches the target, lands the branch (fast-forward or signed merge commit, retrying when
  * the target moves underneath us), then reconciles the remaining applied branches onto the moved
  * target. The remote push is not undoable; see [`BranchLandResult::reconcile_skipped`] and the
@@ -252,7 +256,7 @@ export declare function branchDiff(projectId: string, branch: string): Promise<T
  *
  * {@link ../../../../../crates/but-api/src/land/mod.rs}
  */
-export declare function branchLand(projectId: string, branch: string, noFf: boolean, ffOnly: boolean, wholeStack: boolean): Promise<BranchLandResult>
+export declare function branchLand(projectId: string, branch: string, noFf: boolean, ffOnly: boolean, wholeStack: boolean, expectedTip?: string | undefined | null): Promise<BranchLandResult>
 
 /**
  * Lists all local and remote branches of the project, grouped into stacks where

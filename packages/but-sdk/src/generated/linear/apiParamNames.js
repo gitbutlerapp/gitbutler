@@ -18,7 +18,7 @@ export const apiParamNames = {
 	branchCreate: ["projectId", "newRef", "placement"],
 	branchDetails: ["projectId", "branchName", "remote"],
 	branchDiff: ["projectId", "branch"],
-	branchLand: ["projectId", "branch", "noFf", "ffOnly", "wholeStack"],
+	branchLand: ["projectId", "branch", "noFf", "ffOnly", "wholeStack", "expectedTip"],
 	branchList: ["projectId"],
 	branchNameSegment: ["projectId", "checkout", "commitId", "newRef"],
 	branchRemove: ["projectId", "refName"],
