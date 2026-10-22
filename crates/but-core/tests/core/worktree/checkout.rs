@@ -1235,6 +1235,77 @@ fn checkout_refuses_to_replace_staged_content_with_a_directory() -> anyhow::Resu
 }
 
 #[test]
+fn checkout_keeps_index_flags_of_files_it_does_not_change() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    git(&repo)
+        .args(["update-index", "--assume-unchanged", "keep"])
+        .run();
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"new\n")?;
+            tree.upsert("z", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "add z",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    snapbox::assert_data_eq!(
+        git(&repo).args(["ls-files", "-v", "keep"]).output()?.stdout,
+        snapbox::str![[r#"
+h keep
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
+fn checkout_refuses_to_replace_staged_content_below_a_file_the_worktree_already_has()
+-> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let workdir = repo.workdir().expect("non-bare");
+    std::fs::create_dir(workdir.join("d"))?;
+    std::fs::write(workdir.join("d/x"), "saved\n")?;
+    git(&repo).args(["add", "d/x"]).run();
+    std::fs::remove_dir_all(workdir.join("d"))?;
+    std::fs::write(workdir.join("d"), "file\n")?;
+    let staged = git(&repo)
+        .args(["ls-files", "--stage", "d/x"])
+        .output()?
+        .stdout;
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"file\n")?;
+            tree.upsert("d", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "add the file d the worktree already has",
+    )?;
+
+    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+        .expect_err("recording `d` in the index would drop the staged `d/x`");
+
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["Staged changes would be overwritten by checkout: \"d/x\""]
+    );
+    assert_eq!(
+        git(&repo)
+            .args(["ls-files", "--stage", "d/x"])
+            .output()?
+            .stdout
+            .as_bstr(),
+        staged.as_bstr(),
+        "the staged content stays"
+    );
+    Ok(())
+}
+
+#[test]
 fn a_file_the_worktree_already_changed_like_the_target_is_recorded() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let x = repo.workdir().expect("non-bare").join("x");
