@@ -95,6 +95,11 @@
 	const landDirectly = $derived(projectLandDirectly(projectId));
 	const baseBranchResponse = $derived(baseBranchService.baseBranch(projectId));
 	const landTargetName = $derived(baseBranchResponse.response?.branchName);
+	// Without an upstream the target is only moved locally. Until the base branch has loaded,
+	// assume it has one so landing still asks first.
+	const landsLocally = $derived(
+		!!baseBranchResponse.response && !baseBranchResponse.response.remoteName,
+	);
 
 	// Compute stack-wide derived values once per render so the per-iteration
 	// segmentContext() call below stays O(1) instead of O(n) per index.
@@ -410,7 +415,12 @@
 	/>
 {/if}
 
-<LandBranchModal bind:this={landBranchModal} {projectId} targetBranchName={landTargetName} />
+<LandBranchModal
+	bind:this={landBranchModal}
+	{projectId}
+	targetBranchName={landTargetName}
+	localTarget={landsLocally}
+/>
 
 <style lang="postcss">
 	.branches-wrapper {

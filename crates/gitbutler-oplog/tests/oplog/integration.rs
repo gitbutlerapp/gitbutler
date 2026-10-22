@@ -81,7 +81,7 @@ fn restore_legacy_single_additional_ref() -> anyhow::Result<()> {
     repo.invoke_git("branch extra A");
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
-    let tree_id = ctx.prepare_snapshot_with_ref(reference.as_ref(), perm.read_permission())?;
+    let tree_id = ctx.prepare_snapshot_with_refs(&[reference.as_ref()], perm.read_permission())?;
     let legacy_tree = {
         let git = repo.open_repo();
         let tree = git.find_tree(tree_id)?;
@@ -123,7 +123,7 @@ fn restore_additional_refs_rejects_other_worktrees() -> anyhow::Result<()> {
     repo.invoke_git("branch extra A");
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
-    let tree = ctx.prepare_snapshot_with_ref(reference.as_ref(), perm.read_permission())?;
+    let tree = ctx.prepare_snapshot_with_refs(&[reference.as_ref()], perm.read_permission())?;
     let snapshot = ctx.commit_snapshot(
         tree,
         SnapshotDetails::new(OperationKind::OnDemandSnapshot),
@@ -164,7 +164,7 @@ fn redo_rejects_a_ref_checked_out_elsewhere_only_after_the_snapshot() -> anyhow:
     repo.invoke_git("branch extra A");
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
-    let tree = ctx.prepare_snapshot_with_ref(reference.as_ref(), perm.read_permission())?;
+    let tree = ctx.prepare_snapshot_with_refs(&[reference.as_ref()], perm.read_permission())?;
     let snapshot = ctx.commit_snapshot(
         tree,
         SnapshotDetails::new(OperationKind::OnDemandSnapshot),
@@ -200,7 +200,7 @@ fn snapshot_with_additional_ref_includes_branch_order() -> anyhow::Result<()> {
     let additional_ref: gix::refs::FullName = "refs/heads/A".try_into()?;
     let mut guard = ctx.exclusive_worktree_access();
     let tree_id =
-        ctx.prepare_snapshot_with_ref(additional_ref.as_ref(), guard.read_permission())?;
+        ctx.prepare_snapshot_with_refs(&[additional_ref.as_ref()], guard.read_permission())?;
     let snapshot_id = ctx.commit_snapshot(
         tree_id,
         SnapshotDetails::new(OperationKind::OnDemandSnapshot),

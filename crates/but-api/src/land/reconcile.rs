@@ -14,7 +14,8 @@
 
 use std::collections::BTreeMap;
 
-use but_core::DryRun;
+use but_core::{DryRun, sync::RepoExclusive};
+use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_workspace::BottomUpdate;
 
 use crate::WorkspaceState;
@@ -31,7 +32,7 @@ pub(super) struct Reconciled {
 
 /// Reconcile the remaining applied branches onto the moved target, reusing the modern graph
 /// integration path. Acquires its own exclusive worktree access and records the integration in the
-/// oplog (the target move itself is not undoable — see the CLI's undo caveats).
+/// oplog as a `MergeBranch` (the target move itself is not undoable — see the CLI's undo caveats).
 pub(super) fn reconcile_after_land(ctx: &mut but_ctx::Context) -> anyhow::Result<Reconciled> {
     let mut guard = ctx.exclusive_worktree_access();
 
@@ -48,10 +49,11 @@ pub(super) fn reconcile_after_land(ctx: &mut but_ctx::Context) -> anyhow::Result
     // be overwritten. Treat that one abort as a partial success (the branches just need a later
     // `but pull`) rather than failing the whole command after the push; any other error is real.
     // The aborted rebase may write unreferenced commit objects, which Git's gc reclaims.
-    match crate::workspace::workspace_integrate_upstream_with_perm(
+    match crate::workspace::workspace_integrate_upstream_with_details_and_perm(
         ctx,
         updates,
         DryRun::No,
+        SnapshotDetails::new(OperationKind::MergeBranch),
         guard.write_permission(),
     ) {
         Ok(outcome) => Ok(Reconciled {
@@ -64,6 +66,28 @@ pub(super) fn reconcile_after_land(ctx: &mut but_ctx::Context) -> anyhow::Result
         }),
         Err(err) => Err(err),
     }
+}
+
+/// Like [`reconcile_after_land`], but under the caller's `perm` and without an oplog entry, for a
+/// caller that records the whole land as one undo step. Uncommitted changes blocking the checkout
+/// are an error here, like any other.
+pub(super) fn reconcile_after_land_only_with_perm(
+    ctx: &mut but_ctx::Context,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<WorkspaceState> {
+    let updates = bottom_updates(ctx, perm.read_permission())?;
+    if updates.is_empty() {
+        return current_state(ctx, perm.read_permission());
+    }
+    Ok(
+        crate::workspace::workspace_integrate_upstream_only_with_perm(
+            ctx,
+            updates,
+            DryRun::No,
+            perm,
+        )?
+        .workspace_state,
+    )
 }
 
 /// Whether the error is the checkout precondition that aborts when uncommitted worktree changes

@@ -550,9 +550,10 @@ project-local and shared with Desktop.
 ### `but merge <branch>`
 
 Merge a branch directly onto the target (e.g. `origin/master`), skipping a pull request. Fast-forwards
-when possible, otherwise makes a signed merge commit; for a `gb-local` target it moves the refs
-locally. Then reconciles the remaining branches like `but pull`, and deletes each landed branch's
-copy on the push remote (only when fully contained in the landed target), reported as
+when possible, otherwise makes a signed merge commit; when the target branch has no upstream (e.g.
+the repository has no remote), or for a `gb-local` target, it moves the refs locally. Then
+reconciles the remaining branches like `but pull`, and deletes each landed branch's copy on the
+push remote (only when fully contained in the landed target), reported as
 `Deleted <remote>/<branch> (landed)`. In single-branch mode, merging the checked-out branch then
 checks out the target branch, or a generated branch when the target can't be reused;
 `Checked out <branch>.` names the branch actually checked out.
@@ -564,7 +565,9 @@ but merge <branch-selector> --ff-only --yes        # Refuse unless the target ca
 but merge <top-branch> --whole-stack --yes   # Merge an entire stack by naming its top segment
 ```
 
-Direct target updates are hard to reverse, so confirmation is required (agents must pass `--yes`).
+Updating a target that has an upstream is hard to reverse, so confirmation is required (agents
+must pass `--yes`). A target without an upstream is merged without asking, and `but undo` reverts
+the merge; `--yes` is accepted there too, so always passing it is safe.
 A branch stacked on other segments is refused (its tip would also publish them); `--whole-stack`
 is the explicit opt-in, and only the stack's top segment can be named with it.
 

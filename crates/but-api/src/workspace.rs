@@ -844,6 +844,24 @@ pub fn workspace_integrate_upstream_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
+    workspace_integrate_upstream_with_details_and_perm(
+        ctx,
+        updates,
+        dry_run,
+        SnapshotDetails::new(OperationKind::MergeUpstream),
+        perm,
+    )
+}
+
+/// Like [`workspace_integrate_upstream_with_perm()`], but records the oplog snapshot with
+/// `details`, for operations that integrate as one of their steps, like landing a branch.
+pub(crate) fn workspace_integrate_upstream_with_details_and_perm(
+    ctx: &mut but_ctx::Context,
+    updates: Vec<but_workspace::BottomUpdate>,
+    dry_run: DryRun,
+    details: SnapshotDetails,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
     let local_target_ref = (|| -> anyhow::Result<Option<gix::refs::FullName>> {
         let project_meta = ctx.project_meta()?;
         let Some(target_ref) = project_meta.target_ref.as_ref() else {
@@ -872,10 +890,13 @@ pub fn workspace_integrate_upstream_with_perm(
             None
         }
     };
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_ref_and_perm(
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
         ctx,
-        SnapshotDetails::new(OperationKind::MergeUpstream),
-        local_target_ref.as_ref().map(|name| name.as_ref()),
+        details,
+        local_target_ref
+            .as_ref()
+            .map(|name| name.as_ref())
+            .as_slice(),
         perm.read_permission(),
         dry_run,
     );
