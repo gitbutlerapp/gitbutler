@@ -183,6 +183,9 @@ impl Journal {
     /// aside never collide, even if one was inside another. An object that is gone loses
     /// nothing.
     fn move_aside(&mut self, from: &Path, aside: &Path) -> anyhow::Result<()> {
+        if !self.has_real_leading_dirs(from)? {
+            return Ok(());
+        }
         std::fs::create_dir_all(aside)?;
         let to = aside.join(self.steps.len().to_string());
         match std::fs::rename(from, &to) {
@@ -217,16 +220,25 @@ impl Journal {
 
     /// Create the missing directories leading to `path`, from the worktree's root down.
     fn create_parents(&mut self, path: &Path) -> anyhow::Result<()> {
-        let workdir = self.workdir.clone();
-        let leading: Vec<&Path> = path
-            .ancestors()
-            .skip(1)
-            .take_while(|dir| *dir != workdir)
-            .collect();
-        for dir in leading.into_iter().rev() {
+        for dir in leading_dirs(&self.workdir.clone(), path) {
             self.ensure_one_dir(dir)?;
         }
         Ok(())
+    }
+
+    /// Whether the directories leading to `path` are all directories, so the object there can be
+    /// moved without following a symlink, maybe out of the worktree. A missing one means the
+    /// object is gone. A file or symlink appeared after the worktree was checked, so refuse.
+    fn has_real_leading_dirs(&self, path: &Path) -> anyhow::Result<bool> {
+        for dir in leading_dirs(&self.workdir, path) {
+            match dir.symlink_metadata() {
+                Ok(md) if md.is_dir() => {}
+                Ok(_) => return Err(self.appeared_after_the_check(dir)),
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+                Err(err) => return Err(err.into()),
+            }
+        }
+        Ok(true)
     }
 
     /// Create the directory `dir` unless it is one. A file or symlink there appeared after the
@@ -290,6 +302,17 @@ impl Journal {
             }
         }
     }
+}
+
+/// The directories between `workdir` and `path`, from the root down.
+fn leading_dirs<'a>(workdir: &Path, path: &'a Path) -> Vec<&'a Path> {
+    let mut dirs: Vec<&Path> = path
+        .ancestors()
+        .skip(1)
+        .take_while(|dir| *dir != workdir)
+        .collect();
+    dirs.reverse();
+    dirs
 }
 
 /// The full `target`, with every entry `plan` doesn't write flagged so gix's checkout skips it.

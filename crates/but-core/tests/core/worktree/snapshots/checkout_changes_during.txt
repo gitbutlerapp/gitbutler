@@ -1,8 +1,2 @@
 460 cases
 
-HEAD Directory, target Absent, worktree DirectoryMovedBehindSymlink while Checking
-  the change:            unchanged, HEAD head, index [p/x Mode(FILE) "h"; p/x2 Mode(FILE) "h2"], disk [elsewhere/; elsewhere/x "h"; elsewhere/x2 "h2"; p -> elsewhere]
-  checkout after it:     done, HEAD target, index [], disk [elsewhere/; elsewhere/x "h"; elsewhere/x2 "h2"; p -> elsewhere]
-  checkout during it:    done, HEAD target, index [], disk [elsewhere/; p -> elsewhere]
-  behind a symlink:      []
-
