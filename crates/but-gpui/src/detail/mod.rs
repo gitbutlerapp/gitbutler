@@ -357,6 +357,8 @@ pub struct Detail {
     /// The Branches page's branches, for the project it shows, and its filter.
     branches: Option<branches::Branches>,
     branch_filter: Entity<TextInput>,
+    /// The project page's, over its history.
+    target_filter: Entity<TextInput>,
     branches_scroll: UniformListScrollHandle,
     _branches_load: Task<()>,
     /// What's fetched of other machines' branches; see `detail/machine.rs`.
@@ -403,6 +405,7 @@ impl Detail {
             TextInput::new("Commit message", true, cx).scrolled_by(message_scroll.clone())
         });
         let branch_filter = cx.new(|cx| TextInput::new("Filter branches", false, cx));
+        let target_filter = cx.new(|cx| TextInput::new("Filter commits", false, cx));
         let history_filter = cx.new(|cx| TextInput::new("Filter operations", false, cx));
         let file_filter = cx.new(|cx| TextInput::new("Filter files", false, cx));
         let subscriptions = vec![
@@ -520,6 +523,7 @@ impl Detail {
             }),
             list_filter(&history_filter, Self::select_shown_operation, window, cx),
             list_filter(&branch_filter, Self::select_shown_branch, window, cx),
+            list_filter(&target_filter, Self::show_newest_kept, window, cx),
             // What the side panel shows comes from the store, and the diff's files go in the
             // file list's order, as the keys step through them.
             cx.observe(&store, |this, store, cx| {
@@ -619,6 +623,7 @@ impl Detail {
             branches: None,
 
             branch_filter,
+            target_filter,
             branches_scroll: UniformListScrollHandle::new(),
             _branches_load: Task::ready(()),
             mesh: machine::MeshFetches::default(),
@@ -1233,12 +1238,11 @@ impl Detail {
     }
 
     fn open_filter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        // The Branches and History pages filter their lists, as the navigator does; the
-        // project's page has no filter.
+        // The project, Branches and History pages filter their lists, as the navigator does.
         let page = match self.store.read(cx).selection {
             Some(Selection::Branches(_)) => Some(self.branch_filter.clone()),
             Some(Selection::History(_)) => Some(self.history_filter.clone()),
-            Some(Selection::Project(_)) => return,
+            Some(Selection::Project(_)) => Some(self.target_filter.clone()),
             _ => None,
         };
         if let Some(input) = page {

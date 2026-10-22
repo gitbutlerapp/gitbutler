@@ -1099,7 +1099,7 @@ impl Detail {
             return empty_state(None, "Loading branches…", "", theme, cx);
         };
         let filter = self.branch_filter_bar(project, window, cx);
-        let chips = self.branch_filter_chips(branches, cx);
+        let chips = self.branch_filter_chips(cx);
         let activity = self.branch_activity(branches, theme, cx);
         let rows = self.branch_rows(branches, cx);
         let people = self.branch_people_card(branches, theme, window, cx);
@@ -1391,7 +1391,7 @@ impl Detail {
     }
 
     /// The filters narrowing the list, a chip each that lets go of it; none at rest.
-    fn branch_filter_chips(&self, branches: &Branches, cx: &Context<Self>) -> Option<gpui::Div> {
+    fn branch_filter_chips(&self, cx: &Context<Self>) -> Option<gpui::Div> {
         let prefs = &self.store.read(cx).prefs;
         let chip = |id: &'static str, label: String| {
             button(id, label)
@@ -1403,29 +1403,23 @@ impl Detail {
         let status = (STATUSES.iter())
             .find(|(status, _)| *status == prefs.branches_status)
             .filter(|(status, _)| *status != BranchStatus::NotMerged)
-            .map(|(_, name)| *name);
-        let chips: Vec<_> = (branches.who.clone())
-            .map(|who| {
-                chip("branches-who", who)
-                    .on_click(cx.listener(|this, _, _, cx| this.filter_person(None, cx)))
-            })
-            .into_iter()
-            .chain(status.map(|status| {
-                chip("branches-status", status.to_owned()).on_click(
+            .map(|(_, name)| {
+                chip("branches-status", (*name).to_owned()).on_click(
                     cx.listener(|this, _, _, cx| this.filter_status(BranchStatus::NotMerged, cx)),
                 )
-            }))
-            .chain(prefs.branches_local_only.then(|| {
-                chip("branches-local", "Only local".to_owned()).on_click(cx.listener(
-                    |this, _, _, cx| {
-                        (this.store).update(cx, |store, cx| {
-                            store.set_prefs(|prefs| prefs.branches_local_only = false, cx)
-                        });
-                        cx.notify();
-                    },
-                ))
-            }))
-            .collect();
+            });
+        let local = prefs.branches_local_only.then(|| {
+            chip("branches-local", "Only local".to_owned()).on_click(cx.listener(
+                |this, _, _, cx| {
+                    (this.store).update(cx, |store, cx| {
+                        store.set_prefs(|prefs| prefs.branches_local_only = false, cx)
+                    });
+                    cx.notify();
+                },
+            ))
+        });
+        // Not the person picked, whom the People card's Clear lets go of.
+        let chips: Vec<_> = [status, local].into_iter().flatten().collect();
         (!chips.is_empty()).then(|| {
             h_flex()
                 .flex_none()

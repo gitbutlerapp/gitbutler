@@ -134,6 +134,8 @@ enum Row {
     /// What there is to say under a merge instead of its commits.
     Note(&'static str),
     More,
+    /// Past the activity's days, while filtering: older ones, read on a click.
+    Older,
 }
 
 impl Detail {
@@ -660,9 +662,25 @@ impl Detail {
     fn upstream_rows(&self, upstream: &Upstream, target: &str, cx: &gpui::App) -> Vec<Row> {
         let picked = self.picked_days(upstream);
         let person = self.picked_person(upstream);
+        let query = self.target_filter.read(cx).text().trim().to_lowercase();
+        let says = |text: &str| text.to_lowercase().contains(&query);
+        // By its words, who it's by, its pull request's title or number, or its ID.
+        let found = |commit: &TargetCommit| {
+            query.is_empty()
+                || says(&commit.title)
+                || says(&commit.body)
+                || says(&commit.author)
+                || (commit.review.as_ref()).is_some_and(|review| {
+                    says(&review.title)
+                        || query.trim_start_matches('#') == review.number.to_string()
+                })
+                || commit.id.0.to_string().starts_with(&query)
+        };
+        let filtered = !query.is_empty();
         let shown = |commit: &TargetCommit| {
             picked.is_none_or(|(pick, today)| pick.keeps(Some(commit.time), today))
                 && person.is_none_or(|person| person.landed.contains(&commit.id))
+                && found(commit)
         };
         let mut rows = Vec::new();
         // The navigator lists the new ones on their own, so here they're only marked.
@@ -690,16 +708,27 @@ impl Detail {
             }
         }
         // Read further back only while the picked days may have more, or the activity's
-        // days, which all of a person's are on.
+        // days, which all of a person's are on; a filter by words reads that far on its own,
+        // and older ones a click at a time, rather than the whole history.
         let first = (picked.and_then(|(pick, _)| pick.days.first()).copied())
-            .or_else(|| person.and(upstream.summary.as_ref()).map(|s| s.first_day))
+            .or_else(|| {
+                let bounded = person.is_some() || filtered;
+                (upstream.summary.as_ref())
+                    .filter(|_| bounded)
+                    .map(|s| s.first_day)
+            })
             .map(upstream::day_start);
         let past =
             (first.zip(upstream.commits.last())).is_some_and(|(start, oldest)| oldest.time < start);
         if upstream.more && !past {
             rows.push(Row::More);
-        } else if rows.is_empty() && (picked.is_some() || person.is_some()) {
+        } else if rows.is_empty() && picked.is_some() {
             rows.push(Row::Heading(format!("No commits on {target} then")));
+        } else if rows.is_empty() && (person.is_some() || filtered) {
+            rows.push(Row::Heading(format!("No commits on {target} match")));
+        }
+        if upstream.more && past && filtered && picked.is_none() && person.is_none() {
+            rows.push(Row::Older);
         }
         rows
     }
@@ -777,6 +806,46 @@ impl Detail {
         cx.notify();
     }
 
+    /// The email of the person whose commits `project`'s history is filtered to, if any.
+    fn picked_email(&self, project: &ProjectId) -> Option<&String> {
+        (self.activity_person.as_ref())
+            .filter(|(p, _)| p == project)
+            .map(|(_, email)| email)
+    }
+
+    /// Whose commits landed on the target, with how many on the days picked or all the
+    /// activity's, most first; the one picked stays, however few they have then.
+    fn people_on_days<'a>(
+        &self,
+        project: &ProjectId,
+        summary: &'a Summary,
+    ) -> Vec<(&'a Person, usize)> {
+        let days = (self.activity_days.as_ref())
+            .filter(|(p, pick)| p == project && !pick.days.is_empty())
+            .map(|(_, pick)| &pick.days);
+        let who = self.picked_email(project);
+        let on_days = |person: &Person| -> usize {
+            (person.daily.iter().enumerate())
+                .filter(|(ix, _)| {
+                    days.is_none_or(|d| d.contains(&(summary.first_day + *ix as i64)))
+                })
+                .map(|(_, n)| *n as usize)
+                .sum()
+        };
+        let mut people: Vec<(&Person, usize)> = (summary.people.iter())
+            .map(|person| (person, on_days(person)))
+            .filter(|(person, n)| *n > 0 || who == Some(&person.email))
+            .collect();
+        people.sort_by_key(|(_, n)| std::cmp::Reverse(*n));
+        people
+    }
+
+    /// Back to the top of the history, its newest commit kept, as a filter changes.
+    pub(super) fn show_newest_kept(&mut self, _cx: &mut Context<Self>) {
+        self.upstream_scroll
+            .scroll_to_item(0, gpui::ScrollStrategy::Top);
+    }
+
     /// Whose commits landed on the target, most first, counted on the days picked or all
     /// the activity's. Clicking one filters the history to what landed theirs.
     fn render_people(
@@ -793,23 +862,8 @@ impl Detail {
         let days = (self.activity_days.as_ref())
             .filter(|(p, pick)| p == project && !pick.days.is_empty())
             .map(|(_, pick)| &pick.days);
-        let who = (self.activity_person.as_ref())
-            .filter(|(p, _)| p == project)
-            .map(|(_, email)| email);
-        let on_days = |person: &Person| -> usize {
-            (person.daily.iter().enumerate())
-                .filter(|(ix, _)| {
-                    days.is_none_or(|d| d.contains(&(summary.first_day + *ix as i64)))
-                })
-                .map(|(_, n)| *n as usize)
-                .sum()
-        };
-        // The one picked stays listed, however few they have then.
-        let mut people: Vec<(&Person, usize)> = (summary.people.iter())
-            .map(|person| (person, on_days(person)))
-            .filter(|(person, n)| *n > 0 || who == Some(&person.email))
-            .collect();
-        people.sort_by_key(|(_, n)| std::cmp::Reverse(*n));
+        let who = self.picked_email(project);
+        let people = self.people_on_days(project, summary);
         let most = people.first().map_or(1, |(_, n)| *n);
         let listed = |ix: usize, person: &Person| ix < PEOPLE_SHOWN || who == Some(&person.email);
         let rest = (people.iter().enumerate())
@@ -1517,6 +1571,16 @@ impl Detail {
                                     .into_any_element()
                             }
                             // Drawn once it scrolls into view, which reads the next page.
+                            Row::Older => {
+                                let project = upstream.project.clone();
+                                list_row("target-older", false, theme)
+                                    .text_color(theme.text_2)
+                                    .child("Show older")
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        this.load_upstream(&project, true, false, cx)
+                                    }))
+                                    .into_any_element()
+                            }
                             Row::More => {
                                 let project = upstream.project.clone();
                                 if upstream.paging.get() == Paging::Idle {
@@ -1562,12 +1626,12 @@ impl Detail {
                     .on_action(
                         cx.listener(|this, _: &Collapse, _, cx| this.fold_upstream(false, cx)),
                     )
+                    .child(self.filter_field(&self.target_filter, window, cx))
                     .children((summary.and_then(|s| s.readme.as_ref())).map(|(name, _)| {
                         let selected = upstream.selected == Some(Picked::Readme);
                         let solid = self.side_focus.is_focused(window);
                         let on = selected && solid;
                         side_row("readme", selected, solid, theme)
-                            .mt(px(6.))
                             .child(small_icon(Icon::TextBlock).text_color(match on {
                                 true => theme.text_inverted,
                                 false => theme.text_3,

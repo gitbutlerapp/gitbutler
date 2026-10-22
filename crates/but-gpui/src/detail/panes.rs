@@ -279,6 +279,21 @@ impl Detail {
             .ok();
     }
 
+    /// A list's filter field, over the list.
+    pub(super) fn filter_field(
+        &self,
+        input: &Entity<TextInput>,
+        window: &Window,
+        cx: &Context<Self>,
+    ) -> Div {
+        let focused = input.focus_handle(cx).is_focused(window);
+        h_flex()
+            .flex_none()
+            .m(px(10.))
+            .gap(px(4.))
+            .child(field(input, focused, Theme::get(cx)).flex_1())
+    }
+
     /// A side list's filter field, then the button whose `menu` picks what the list shows,
     /// lit while that leaves some out.
     pub(super) fn filter_bar(
@@ -290,21 +305,15 @@ impl Detail {
         window: &Window,
         cx: &Context<Self>,
     ) -> Div {
-        let focused = input.focus_handle(cx).is_focused(window);
-        h_flex()
-            .flex_none()
-            .m(px(10.))
-            .gap(px(4.))
-            .child(field(input, focused, Theme::get(cx)).flex_1())
-            .child(
-                icon_button("list-filters", Icon::Filter)
-                    .small()
-                    .selected(narrowed)
-                    .tooltip(tooltip)
-                    .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
-                        menu(this, event.position(), cx)
-                    })),
-            )
+        self.filter_field(input, window, cx).child(
+            icon_button("list-filters", Icon::Filter)
+                .small()
+                .selected(narrowed)
+                .tooltip(tooltip)
+                .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
+                    menu(this, event.position(), cx)
+                })),
+        )
     }
 
     /// Fetch, as ⌥⇧F does, to go beside a list's filter: nothing for a project whose folder is
