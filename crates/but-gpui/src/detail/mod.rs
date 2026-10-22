@@ -2141,7 +2141,8 @@ fn follow_hunk(old: &[HunkKey], ix: usize, now: &[HunkKey]) -> Option<usize> {
 }
 
 /// The subscription to a side list's filter: typing keeps the list's selection among what it
-/// shows, and Esc empties it, then goes back to the list, as the navigator's filter does.
+/// shows, Enter goes on to the list as filtered, and Esc empties it, then goes back to the
+/// list, as the navigator's filter does.
 fn list_filter(
     input: &Entity<TextInput>,
     select_shown: fn(&mut Detail, &mut Context<Detail>),
@@ -2160,7 +2161,7 @@ fn list_filter(
                 window.focus(&this.side_focus, cx)
             }
             InputEvent::Cancel => input.update(cx, |input, cx| input.set_text("", cx)),
-            InputEvent::Submit => {}
+            InputEvent::Submit => window.focus(&this.side_focus, cx),
         },
     )
 }
