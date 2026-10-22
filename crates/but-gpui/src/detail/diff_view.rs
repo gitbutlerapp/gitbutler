@@ -10,7 +10,7 @@ use std::time::Instant;
 use gpui::{
     Action, AnyElement, App, ClickEvent, Context, CursorStyle, Entity, MouseButton, MouseDownEvent,
     Pixels, Point, SharedString, Subscription, WeakEntity, Window, anchored, deferred, div, list,
-    prelude::*, px,
+    prelude::*,
 };
 
 use super::file_list::At;
@@ -32,8 +32,8 @@ use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, button, checkbox, count_badge, empty_state, h_flex, icon,
-    icon_button, icon_toggle, segmented, shortcut, small_icon, toggle_group, v_flex,
+    ButtonStyle, Icon, Tooltip, button, checkbox, count_badge, dp, empty_state, fixed, h_flex,
+    icon, icon_button, icon_toggle, segmented, shortcut, small_icon, toggle_group, v_flex,
 };
 
 /// The diff, drawn by a view of its own over the space [`Detail`] leaves for it. A scrolled
@@ -59,7 +59,7 @@ impl DiffPane {
             detail: detail.downgrade(),
             shown: None,
             deferred: false,
-            top: (0, px(0.)),
+            top: (0, Pixels::ZERO),
             // Whatever changes the detail can change the diff; scrolling only notifies this.
             _observe: cx.observe_in(detail, window, |this, detail, window, cx| {
                 if this.deferred {
@@ -125,7 +125,7 @@ impl Render for DiffPane {
             .child(
                 h_flex()
                     .flex_1()
-                    .min_h(px(0.))
+                    .min_h_0()
                     .relative()
                     .child(diff)
                     .children(find),
@@ -330,7 +330,7 @@ impl Detail {
     }
 
     fn render_diff(&self, window: &Window, theme: &Theme, cx: &Context<Self>) -> AnyElement {
-        let ground = || div().flex_1().min_w(px(0.)).h_full().bg(theme.bg_1);
+        let ground = || div().flex_1().min_w_0().h_full().bg(theme.bg_1);
         if let Some(err) = &self.diff_error {
             let message = empty_state(
                 Some(Illustration::Papers),
@@ -394,13 +394,13 @@ impl Detail {
         let entity = cx.entity().downgrade();
         // A copy of the header of the file at the top, while the file scrolls under it. It's
         // clipped to the list, so the next file can push it out the top.
-        let sticky = self.sticky_header(diff).map(|(ix, lift)| {
+        let sticky = self.sticky_header(diff, theme).map(|(ix, lift)| {
             div()
                 .absolute()
                 .top_0()
                 .left_0()
                 .right_0()
-                .h(px(diff::FILE_HEADER_HEIGHT))
+                .h(dp(diff::FILE_HEADER_HEIGHT))
                 .overflow_hidden()
                 .child(
                     div()
@@ -419,7 +419,7 @@ impl Detail {
         let scrollbar = scrollbar("diff-scrollbar", Scroll::List(self.list.clone()), theme);
         ground()
             // With the bar above it, as far down as but.dev starts its first card.
-            .pt(px(7.))
+            .pt(dp(7.))
             // A press anywhere ends the last drag; one on a line starts a new one after this.
             .capture_any_mouse_down(cx.listener(|this, _, _, _| this.selecting = false))
             .on_mouse_up(
@@ -556,10 +556,10 @@ impl Detail {
         let toggle = h_flex()
             .id("diff-files")
             .flex_none()
-            .h(px(28.))
-            .px(px(6.))
-            .gap(px(6.))
-            .rounded(px(4.))
+            .h(dp(28.))
+            .px(dp(6.))
+            .gap(dp(6.))
+            .rounded(dp(4.))
             .hover(|el| el.bg(theme.hover()))
             .child(icon(glyph).text_color(theme.text_2))
             .when(hidden, |el| {
@@ -580,12 +580,12 @@ impl Detail {
         let open = hidden && (rested || self.files_hover.1);
         self.files_popover_shown.set(open);
         let list = open.then(|| {
-            div().absolute().top(px(28.)).left_0().child(
+            div().absolute().top(dp(28.)).left_0().child(
                 deferred(
-                    anchored().snap_to_window_with_margin(px(8.)).child(
+                    anchored().snap_to_window_with_margin(fixed(8.)).child(
                         div()
                             .id("files-popover")
-                            .pt(px(4.))
+                            .pt(dp(4.))
                             .occlude()
                             .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
                                 this.files_hover.1 = *hovered;
@@ -616,9 +616,9 @@ impl Detail {
         Some(
             h_flex()
                 .flex_none()
-                .h(px(40.))
-                .px(px(12.))
-                .gap(px(8.))
+                .h(dp(40.))
+                .px(dp(12.))
+                .gap(dp(8.))
                 .bg(theme.bg_1)
                 .child(files)
                 .child(div().flex_1())
@@ -661,11 +661,11 @@ impl Detail {
 
     /// The header to keep at the top of the diff while its file scrolls under it, by row, and
     /// how far the file's end has pushed it up. Nothing while a header is at the top itself.
-    fn sticky_header(&self, diff: &LoadedDiff) -> Option<(usize, Pixels)> {
+    fn sticky_header(&self, diff: &LoadedDiff, theme: &Theme) -> Option<(usize, Pixels)> {
         let top = self.list.logical_scroll_top();
         let row = *diff.rows.get(top.item_ix)?;
         let file = row.file()?;
-        if row == DiffRow::File(file) && top.offset_in_item <= px(0.) {
+        if row == DiffRow::File(file) && top.offset_in_item <= Pixels::ZERO {
             return None;
         }
         let header = (0..=top.item_ix)
@@ -677,10 +677,13 @@ impl Detail {
             .find(|&ix| diff.rows[ix].file() != Some(file))
             .unwrap_or(diff.rows.len())
             - 1;
-        let lift = self.list.bounds_for_item(last).map_or(px(0.), |last| {
-            let room = last.top() - self.list.viewport_bounds().top();
-            (room - px(diff::FILE_HEADER_HEIGHT)).min(px(0.))
-        });
+        let lift = self
+            .list
+            .bounds_for_item(last)
+            .map_or(Pixels::ZERO, |last| {
+                let room = last.top() - self.list.viewport_bounds().top();
+                (room - theme.scaled(diff::FILE_HEADER_HEIGHT)).min(Pixels::ZERO)
+            });
         Some((header, lift))
     }
 
@@ -712,7 +715,7 @@ impl Detail {
                 }
             };
         // The margin between the cards and the sides of the pane.
-        let padded = div().w_full().px(px(12.));
+        let padded = div().w_full().px(dp(12.));
         match row {
             DiffRow::File(file) => {
                 let whole = self.whole_button(ix, file, &diff.files[file], entity.clone());
@@ -728,7 +731,7 @@ impl Detail {
                     });
                 let trailing = h_flex()
                     .flex_none()
-                    .gap(px(4.))
+                    .gap(dp(4.))
                     // The toggle last but one: showing text adds the whole-file button, which
                     // mustn't move it from under the pointer.
                     .children(whole)
@@ -945,7 +948,7 @@ impl Detail {
                     None => diff::note(&diff.files[file], theme),
                 })
                 .into_any_element(),
-            DiffRow::Gap => padded.h(px(10.)).into_any_element(),
+            DiffRow::Gap => padded.h(dp(10.)).into_any_element(),
         }
     }
 }
@@ -1191,7 +1194,7 @@ impl Detail {
         let grip = div()
             .id(("line-grip", (file << 40) | (hunk << 20) | line))
             .h_full()
-            .px(px(2.))
+            .px(dp(2.))
             .flex()
             .items_center()
             .cursor(CursorStyle::OpenHand)

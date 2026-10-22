@@ -6,7 +6,7 @@ use std::cmp::Reverse;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, DragMoveEvent, Pixels, Point, SharedString,
-    Stateful, Window, div, prelude::*, px,
+    Stateful, Window, div, prelude::*,
 };
 
 use super::Navigator;
@@ -16,7 +16,7 @@ use crate::overlays::MenuItem;
 use crate::state::{Prefs, ProjectEntry, ProjectId, Store, WatchedOrder};
 use crate::theme::Theme;
 use crate::transfer::drag_pill;
-use crate::ui::{Icon, icon_button};
+use crate::ui::{Icon, dp, icon_button};
 
 impl Navigator {
     /// The watched projects, in the order picked.
@@ -149,7 +149,7 @@ impl Navigator {
             .absolute()
             .left_0()
             .right_0()
-            .top(px(-10.))
+            .top(dp(-10.))
             .bottom_0()
             .on_drag_move(
                 cx.listener(move |this, event: &DragMoveEvent<ProjectDrag>, _, cx| {

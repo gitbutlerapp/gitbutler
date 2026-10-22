@@ -6,7 +6,7 @@ use std::cell::Cell;
 use std::collections::{BTreeSet, HashSet};
 use std::time::{Duration, Instant};
 
-use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
+use gpui::{AnyElement, Context, Pixels, SharedString, div, prelude::*};
 
 mod shipped;
 
@@ -25,9 +25,9 @@ use crate::ui::illustration::Illustration;
 use crate::ui::markdown;
 use crate::ui::person::{byline, byline_avatar};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, age_column, button, error_summary, faint, fold_button, guide,
-    h_flex, icon, list_row, muted, plural, quiet, section_label, shortcut, side_row, small_icon,
-    v_flex,
+    ButtonStyle, Icon, Tooltip, age_column, button, dp, error_summary, faint, fixed, fold_button,
+    guide, h_flex, icon, list_row, muted, plural, quiet, section_label, shortcut, side_row,
+    small_icon, v_flex,
 };
 
 /// Where the middle of a merge's chevron sits in its row: the row's padding and half the
@@ -524,8 +524,8 @@ impl Detail {
         let tabs = self.selected_review(cx).map(|review| {
             h_flex()
                 .flex_none()
-                .h(px(TABS_HEIGHT))
-                .px(px(16.))
+                .h(dp(TABS_HEIGHT))
+                .px(dp(16.))
                 .items_end()
                 .border_b_1()
                 .border_color(theme.border_3)
@@ -539,7 +539,7 @@ impl Detail {
             .relative()
             .flex_1()
             .h_full()
-            .min_w(px(0.))
+            .min_w_0()
             .children(header)
             .children(tabs)
             .child(below)
@@ -553,12 +553,12 @@ impl Detail {
         let offset = self.beside_offset(cx);
         h_flex()
             .flex_1()
-            .min_h(px(0.))
+            .min_h_0()
             .items_start()
             .when(offset > 0., |el| {
                 el.child(
                     v_flex()
-                        .w(px(offset))
+                        .w(dp(offset))
                         .flex_none()
                         .h_full()
                         .border_r_1()
@@ -632,16 +632,16 @@ impl Detail {
         v_flex()
             .relative()
             .flex_none()
-            .gap(px(6.))
-            .px(px(16.))
-            .py(px(12.))
+            .gap(dp(6.))
+            .px(dp(16.))
+            .py(dp(12.))
             .border_b_1()
             .border_color(theme.border_3)
             .child(
                 div()
                     .id("target-message-title")
-                    .text_size(px(15.))
-                    .line_height(px(22.))
+                    .text_size(dp(15.))
+                    .line_height(dp(22.))
                     .font_weight(gpui::FontWeight::SEMIBOLD)
                     .when(!open, |el| {
                         el.truncate().tooltip(Tooltip::text(title.clone()))
@@ -665,12 +665,12 @@ impl Detail {
                 el.child(
                     div()
                         .id("target-message-body")
-                        .text_size(px(13.))
-                        .line_height(px(LINE))
+                        .text_size(dp(13.))
+                        .line_height(dp(LINE))
                         .text_color(theme.text_2)
                         .whitespace_normal()
                         // A long one scrolls rather than push the diff out of the window.
-                        .max_h(px(LINE * 12.))
+                        .max_h(dp(LINE * 12.))
                         .overflow_y_scroll()
                         .child(SharedString::from(shown)),
                 )
@@ -821,16 +821,16 @@ impl Detail {
             .flex_1()
             .items_center()
             .justify_center()
-            .gap(px(4.))
-            .px(px(16.))
+            .gap(dp(4.))
+            .px(dp(16.))
             .text_center()
             .child(
                 div()
-                    .text_size(px(14.))
+                    .text_size(dp(14.))
                     .font_weight(gpui::FontWeight::SEMIBOLD)
                     .child(title),
             )
-            .child(muted(detail.into(), theme).mb(px(8.)))
+            .child(muted(detail.into(), theme).mb(dp(8.)))
             .child(
                 crate::ui::button("pick-target", "Choose a target branch…").on_click(cx.listener(
                     move |this, _, window, cx| {
@@ -1182,27 +1182,28 @@ impl Detail {
         let Some(entry) = store.project(project) else {
             return div().into_any_element();
         };
-        let mark = ProjectIcon::parse(store.project_icon(project)).render(px(16.), theme);
+        let mark = ProjectIcon::parse(store.project_icon(project)).render(theme.scaled(16.), theme);
         let fetch = self.upstream_for(project).map(|u| u.fetch.clone());
         let picked = project.clone();
         // As wide as the other pages' icons, so the titles line up.
         let trigger = div()
             .id("project-icon")
             .flex_none()
-            .w(px(16.))
-            .h(px(22.))
+            .w(dp(16.))
+            .h(dp(22.))
             .flex()
             .items_center()
             .justify_center()
-            .rounded(px(4.))
+            .rounded(dp(4.))
             .hover(|el| el.bg(theme.hover()))
-            .text_size(px(16.))
+            .text_size(dp(16.))
             .child(mark)
             // No tooltip: it would sit over the picker's search field.
             .on_click(
                 cx.listener(move |this, event: &gpui::ClickEvent, window, cx| {
                     // Just under the button, which the click is half its height above.
-                    let at = event.position() + gpui::point(px(0.), px(14.));
+                    let at =
+                        event.position() + gpui::point(Pixels::ZERO, Theme::get(cx).scaled(14.));
                     let project = picked.clone();
                     (this.app)
                         .update(cx, |app, cx| app.open_icon_picker(project, at, window, cx))
@@ -1212,7 +1213,7 @@ impl Detail {
         let meta = meta_row(theme)
             .child(
                 div()
-                    .min_w(px(0.))
+                    .min_w_0()
                     // Cut in the middle, keeping the folder's own name at its end.
                     .overflow_hidden()
                     .whitespace_nowrap()
@@ -1296,11 +1297,11 @@ impl Detail {
                     ))
             }));
         let main = v_flex()
-            .gap(px(10.))
+            .gap(dp(10.))
             .child(
                 h_flex()
                     .items_start()
-                    .gap(px(8.))
+                    .gap(dp(8.))
                     .child(trigger)
                     .child(title_text(entry.project.name.clone())),
             )
@@ -1344,10 +1345,10 @@ impl Detail {
         let callout = |ground: gpui::Hsla| {
             v_flex()
                 .items_start()
-                .mt(px(4.))
-                .gap(px(8.))
-                .p(px(8.))
-                .rounded(px(6.))
+                .mt(dp(4.))
+                .gap(dp(8.))
+                .p(dp(8.))
+                .rounded(dp(6.))
                 .bg(ground)
         };
         // Where it is and when it fetched head its page; here, what needs doing, if anything.
@@ -1405,10 +1406,10 @@ impl Detail {
             }),
             entry.error.clone().filter(|_| !missing).map(|err| {
                 h_flex()
-                    .gap(px(8.))
+                    .gap(dp(8.))
                     .text_color(theme.danger)
                     .child(icon(Icon::Warning).text_color(theme.danger))
-                    .child(div().flex_1().min_w(px(0.)).child(err))
+                    .child(div().flex_1().min_w_0().child(err))
                     .into_any_element()
             }),
         ]
@@ -1474,9 +1475,9 @@ impl Detail {
                             Row::Heading(heading) => list_heading(heading.clone(), theme),
                             // Under a merge's commits' titles.
                             Row::Note(note) => h_flex()
-                                .h(px(crate::ui::ROW_HEIGHT))
-                                .mx(px(6.))
-                                .pl(px(8. + 14. + 8. + 12. + 8.))
+                                .h(dp(crate::ui::ROW_HEIGHT))
+                                .mx(dp(6.))
+                                .pl(dp(8. + 14. + 8. + 12. + 8.))
                                 .child(guide(FOLD_MIDDLE, theme))
                                 .child(faint(*note, theme))
                                 .into_any_element(),
@@ -1494,7 +1495,7 @@ impl Detail {
                                     // As a branch's commits are under it: its glyph and title
                                     // under the merge's, a line down from the merge's chevron.
                                     .child(guide(FOLD_MIDDLE, theme))
-                                    .child(div().flex_none().w(px(14.)))
+                                    .child(div().flex_none().w(dp(14.)))
                                     .child(small_icon(Icon::CommitFill).text_color(match on {
                                         true => theme.text_inverted,
                                         false => theme.purple,
@@ -1502,7 +1503,7 @@ impl Detail {
                                     .child(
                                         div()
                                             .flex_1()
-                                            .min_w(px(0.))
+                                            .min_w_0()
                                             .truncate()
                                             .when(!on, |el| el.text_color(theme.text_2))
                                             .child(SharedString::from(commit.title.clone())),
@@ -1549,7 +1550,7 @@ impl Detail {
                                 // A merge's chevron folds the commits it brought in, by hand;
                                 // the others keep its room, so the titles line up.
                                 let fold = match commit.merge {
-                                    false => div().flex_none().w(px(14.)).into_any_element(),
+                                    false => div().flex_none().w(dp(14.)).into_any_element(),
                                     true => {
                                         let project = upstream.project.clone();
                                         let open = upstream.view.open_merges.contains(&id);
@@ -1574,7 +1575,7 @@ impl Detail {
                                         div()
                                             .id(("target-commit-title", ix))
                                             .flex_1()
-                                            .min_w(px(0.))
+                                            .min_w_0()
                                             .truncate()
                                             .when(!commit.incoming && !on, |el| {
                                                 el.text_color(theme.text_2)
@@ -1658,7 +1659,7 @@ impl Detail {
                 self.list_column(Self::step_upstream, Some(Self::fold_upstream), cx)
                     .child(self.filter_field(&self.target_filter, window, cx))
                     .children(summary.map(|s| self.render_activity(project, s, theme, cx)))
-                    .child(list.flex_1().min_h(px(LIST_MIN_HEIGHT)))
+                    .child(list.flex_1().min_h(dp(LIST_MIN_HEIGHT)))
                     .children(summary.and_then(|s| self.render_people(project, s, window, cx)))
                     .into_any_element()
             }
@@ -1667,7 +1668,7 @@ impl Detail {
             .size_full()
             .children(unfinished)
             .when(!needs_doing.is_empty(), |el| {
-                el.child(side_header(theme).text_size(px(12.)).children(needs_doing))
+                el.child(side_header(theme).text_size(dp(12.)).children(needs_doing))
             })
             .child(list)
             .into_any_element()
@@ -1688,7 +1689,7 @@ pub(super) fn commit_author(
     };
     h_flex()
         .flex_none()
-        .gap(px(8.))
+        .gap(dp(8.))
         .child(
             div()
                 .id(id)
@@ -1780,8 +1781,8 @@ fn activity_strip(
                 .child(
                     div()
                         .w_full()
-                        .h(px((n as f32 / most as f32 * HEIGHT).max(2.)))
-                        .rounded_t(px(1.))
+                        .h(dp((n as f32 / most as f32 * HEIGHT).max(2.)))
+                        .rounded_t(fixed(1.))
                         .bg(match (n, !picked.is_empty(), inside, recent) {
                             (_, true, true, _) => theme.pop,
                             (0, ..) => theme.border_2,
@@ -1799,7 +1800,7 @@ fn activity_strip(
                 .map(|(_, n)| n)
                 .sum();
             h_flex()
-                .gap(px(6.))
+                .gap(dp(6.))
                 .child(faint(
                     format!("{days}: {}", plural(n as usize, "commit")),
                     theme,
@@ -1822,15 +1823,15 @@ fn activity_strip(
         .into_any_element(),
     };
     v_flex()
-        .px(px(14.))
-        .pt(px(14.))
-        .pb(px(6.))
-        .gap(px(6.))
+        .px(dp(14.))
+        .pt(dp(14.))
+        .pb(dp(6.))
+        .gap(dp(6.))
         // As tall with Clear as without, so picking a day moves nothing under it.
         .child(
             h_flex()
-                .h(px(20.))
-                .gap(px(8.))
+                .h(dp(20.))
+                .gap(dp(8.))
                 .child(section_label("Activity", theme).flex_grow(1.))
                 .child(said),
         )
@@ -1842,8 +1843,8 @@ fn activity_strip(
                 gesture(this, DayGesture::Release, cx)
             };
             h_flex()
-                .h(px(HEIGHT))
-                .gap(px(2.))
+                .h(dp(HEIGHT))
+                .gap(dp(2.))
                 .items_end()
                 .on_mouse_up(gpui::MouseButton::Left, cx.listener(release.clone()))
                 .on_mouse_up_out(gpui::MouseButton::Left, cx.listener(release))
@@ -1851,7 +1852,7 @@ fn activity_strip(
         })
         .child(
             h_flex()
-                .text_size(px(11.))
+                .text_size(dp(11.))
                 .child(faint(format!("{ACTIVITY_DAYS} days ago"), theme).flex_grow(1.))
                 .child(faint("Today", theme)),
         )

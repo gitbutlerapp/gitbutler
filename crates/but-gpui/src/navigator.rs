@@ -8,7 +8,7 @@ use gpui::{
     AnyElement, App, ClickEvent, Context, Div, DragMoveEvent, ElementId, Entity, FocusHandle,
     Focusable, Hsla, KeyBinding, ListAlignment, ListOffset, ListState, MouseButton, MouseDownEvent,
     Pixels, ScrollWheelEvent, SharedString, Stateful, Subscription, Task, WeakEntity, Window,
-    actions, div, list, prelude::*, px,
+    actions, div, list, prelude::*,
 };
 
 use crate::app::{AddProject, AppView, Collapse, Confirm, Expand, SelectNext, SelectPrevious};
@@ -25,9 +25,9 @@ use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, count_badge, dot,
-    empty_state, faint, field, fold_button, fold_glyph, fold_row, guide, h_flex, icon, icon_button,
-    just_now, list_row, meta_count, plural, pulsing, relative_time, resize_handle, review,
-    section_label, small_icon, v_flex,
+    dp, empty_state, faint, field, fixed, fold_button, fold_glyph, fold_row, guide, h_flex, icon,
+    icon_button, just_now, list_row, meta_count, plural, pulsing, relative_time, resize_handle,
+    review, section_label, small_icon, v_flex,
 };
 
 mod account;
@@ -54,7 +54,7 @@ fn watch_glyph(watched: bool) -> gpui::Svg {
         true => Icon::Eye,
         false => Icon::EyeOff,
     };
-    gpui::svg().path(eye.path()).size(px(14.)).flex_none()
+    gpui::svg().path(eye.path()).size(dp(14.)).flex_none()
 }
 
 actions!(
@@ -145,8 +145,8 @@ impl RowStyle<'_> {
     fn row(&self, id: String, indent: f32) -> Stateful<Div> {
         let theme = self.theme;
         list_row(ElementId::Name(id.into()), self.selected, theme)
-            .mx(px(3.))
-            .pl(px(8. + indent + self.inset))
+            .mx(dp(3.))
+            .pl(dp(8. + indent + self.inset))
             .when(self.solid, |el| {
                 el.bg(theme.fill_gray).text_color(theme.text_inverted)
             })
@@ -194,7 +194,7 @@ impl RowStyle<'_> {
     fn age(&self, at: i64) -> Div {
         div()
             .flex_none()
-            .text_size(px(11.))
+            .text_size(dp(11.))
             .text_color(self.muted())
             .child(relative_time(at))
     }
@@ -213,13 +213,13 @@ impl RowStyle<'_> {
     ) -> Stateful<Div> {
         let quiet = title.is_empty() || !(unread || self.solid);
         self.row(id, indent)
-            .gap(px(10.))
+            .gap(dp(10.))
             .aria_label(title.clone())
             .child(glyph)
             .child(
                 div()
                     .flex_1()
-                    .min_w(px(0.))
+                    .min_w_0()
                     .truncate()
                     .when(quiet, |el| el.text_color(self.muted()))
                     .when(unread, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
@@ -235,7 +235,7 @@ impl RowStyle<'_> {
         div()
             .id(id)
             .flex_none()
-            .text_size(px(11.))
+            .text_size(dp(11.))
             .text_color(self.meta(self.theme.safe))
             .child("active")
             .tooltip(Tooltip::text("Changed in the last 2 minutes"))
@@ -253,7 +253,7 @@ pub struct Navigator {
     insets: Vec<f32>,
     /// Where each row's guides run.
     guides: Vec<Vec<f32>>,
-    list: ListState,
+    pub(crate) list: ListState,
     /// The selection changed: scroll to it once the rows are up to date.
     reveal_selection: bool,
     /// Branches showing all their commits instead of the first few.
@@ -382,7 +382,7 @@ impl Navigator {
             rows: Vec::new(),
             insets: Vec::new(),
             guides: Vec::new(),
-            list: ListState::new(0, ListAlignment::Top, px(56.)),
+            list: ListState::new(0, ListAlignment::Top, fixed(56.)),
             reveal_selection: false,
             unfolded_branches: HashSet::new(),
             flipped: HashSet::new(),
@@ -769,7 +769,7 @@ impl Navigator {
         // At the very top the list stays there, showing what's added, as the diff does;
         // scrolled, the row under the pointer stays where it is.
         let top = self.list.logical_scroll_top();
-        let at_top = top.item_ix == 0 && top.offset_in_item == px(0.);
+        let at_top = top.item_ix == 0 && top.offset_in_item == Pixels::ZERO;
         let hovered = (std::mem::take(&mut self.hold_still) && !at_top)
             .then(|| self.hovered_row(window))
             .flatten();
@@ -796,11 +796,13 @@ impl Navigator {
         self.rows = rows;
         if changed {
             // Rows not drawn yet count as one row tall. The clone shares the list's state.
-            self.list.clone().with_uniform_item_height(px(ROW_HEIGHT));
+            self.list
+                .clone()
+                .with_uniform_item_height(Theme::get(cx).scaled(ROW_HEIGHT));
             if let Some((_, item_ix, offset)) = anchor {
                 self.list.scroll_to(ListOffset {
                     item_ix,
-                    offset_in_item: px(0.),
+                    offset_in_item: Pixels::ZERO,
                 });
                 self.list.scroll_by(-offset);
             }
@@ -840,13 +842,13 @@ impl Navigator {
             fold_row((id, ix), glyph, at, at + 12. + 10., theme)
         };
         let el = match self.rows.get(ix) {
-            None | Some(Row::Gap) => return div().h(px(12.)).into_any_element(),
+            None | Some(Row::Gap) => return div().h(dp(12.)).into_any_element(),
             Some(Row::Item(item)) => self.render_item(ix, item, inset, window, theme, cx),
             Some(Row::MeshHeading(id)) => self.mesh_heading(id, theme, cx),
             // A dashed line, as ui-react's WorktreeDivider.
             Some(Row::WorktreeDivider) => h_flex()
-                .h(px(12.))
-                .px(px(12.))
+                .h(dp(12.))
+                .px(dp(12.))
                 .child(
                     div()
                         .flex_1()
@@ -856,11 +858,11 @@ impl Navigator {
                 )
                 .into_any_element(),
             Some(Row::Note(text, is_error)) => h_flex()
-                .min_h(px(ROW_HEIGHT))
-                .px(px(12.))
-                .py(px(4.))
-                .gap(px(6.))
-                .text_size(px(12.))
+                .min_h(dp(ROW_HEIGHT))
+                .px(dp(12.))
+                .py(dp(4.))
+                .gap(dp(6.))
+                .text_size(dp(12.))
                 .text_color(if *is_error {
                     theme.danger
                 } else {
@@ -869,28 +871,28 @@ impl Navigator {
                 .when(*is_error, |el| {
                     el.child(small_icon(Icon::Warning).text_color(theme.danger))
                 })
-                .child(div().flex_1().min_w(px(0.)).child(text.clone()))
+                .child(div().flex_1().min_w_0().child(text.clone()))
                 .into_any_element(),
             // As made at once, set in as a commit row is, a stand-in title quiet as one's;
             // dimmed, with an ellipsis, only once it's taking a while.
             Some(Row::Pending(title, slow)) => h_flex()
-                .min_h(px(ROW_HEIGHT))
-                .mx(px(3.))
-                .pl(px(8. + COMMIT_INDENT))
-                .pr(px(12.))
-                .gap(px(10.))
+                .min_h(dp(ROW_HEIGHT))
+                .mx(dp(3.))
+                .pl(dp(8. + COMMIT_INDENT))
+                .pr(dp(12.))
+                .gap(dp(10.))
                 .when(*slow, |el| el.opacity(0.5))
                 .child(small_icon(Icon::Commit).text_color(theme.blue))
                 .child(
                     div()
                         .flex_1()
-                        .min_w(px(0.))
+                        .min_w_0()
                         .truncate()
                         .when(title.is_empty(), |el| el.text_color(theme.text_2))
                         .child(commit_title(title)),
                 )
                 .when(*slow, |el| {
-                    el.child(div().text_size(px(11.)).text_color(theme.text_2).child("…"))
+                    el.child(div().text_size(dp(11.)).text_color(theme.text_2).child("…"))
                 })
                 .into_any_element(),
             Some(Row::ProjectsHeading(title, listed, total)) => {
@@ -956,7 +958,7 @@ impl Navigator {
         };
         // Items step in by their style, keeping the highlight full width; the rest as a whole.
         let el = match inset > 0. && !matches!(self.rows[ix], Row::Item(_)) {
-            true => div().pl(px(inset)).child(el).into_any_element(),
+            true => div().pl(dp(inset)).child(el).into_any_element(),
             false => el,
         };
         let first = ix == 0 || matches!(self.rows[ix - 1], Row::Gap);
@@ -980,7 +982,7 @@ impl Navigator {
         };
         // Padded, not margined: a list lays its rows out from their left edge.
         div()
-            .px(px(10.))
+            .px(dp(10.))
             .child(
                 div()
                     .relative()
@@ -988,8 +990,8 @@ impl Navigator {
                     .border_color(theme.border_3)
                     .border_l_1()
                     .border_r_1()
-                    .when(first, |el| el.border_t_1().rounded_t(px(6.)).pt(px(3.)))
-                    .when(last, |el| el.border_b_1().rounded_b(px(6.)).pb(px(3.)))
+                    .when(first, |el| el.border_t_1().rounded_t(dp(6.)).pt(dp(3.)))
+                    .when(last, |el| el.border_b_1().rounded_b(dp(6.)).pb(dp(3.)))
                     .child(el)
                     .children(guides),
             )
@@ -1000,8 +1002,8 @@ impl Navigator {
                     // In the middle of the gap between the cards; over the first card's top
                     // edge, which has no gap above it in the list.
                     .when(lit, |el| {
-                        let line = insertion_line(true, theme.pop).right(px(10.));
-                        el.child(line.when(ix > 0, |line| line.top(px(-6.))))
+                        let line = insertion_line(true, theme.pop).right(dp(10.));
+                        el.child(line.when(ix > 0, |line| line.top(dp(-6.))))
                     })
             })
             .into_any_element()
@@ -1121,10 +1123,10 @@ impl Navigator {
     ) -> AnyElement {
         // The chevron over the projects' chevrons.
         let row = h_flex()
-            .h(px(ROW_HEIGHT))
-            .pl(px(11.))
-            .pr(px(4.))
-            .gap(px(2.));
+            .h(dp(ROW_HEIGHT))
+            .pl(dp(11.))
+            .pr(dp(4.))
+            .gap(dp(2.));
         let count = match listed == total {
             true => total.to_string(),
             false => format!("{listed} of {total}"),
@@ -1133,9 +1135,9 @@ impl Navigator {
         // Only its chevron folds it, as only a project card's does.
         let fold = h_flex()
             .flex_1()
-            .min_w(px(0.))
+            .min_w_0()
             .h_full()
-            .gap(px(6.))
+            .gap(dp(6.))
             .when(total > 0, |el| {
                 el.child(self.fold(
                     "projects-fold",
@@ -1151,7 +1153,7 @@ impl Navigator {
             })
             .child(section_label(title, theme).truncate())
             .when(total > 0, |el| {
-                el.child(faint(count, theme).text_size(px(12.)))
+                el.child(faint(count, theme).text_size(dp(12.)))
             });
         row.child(fold)
             .child(
@@ -1231,11 +1233,11 @@ impl Navigator {
             div()
                 .id(ElementId::Name(format!("{name}-{id}").into()))
                 .flex_none()
-                .size(px(20.))
+                .size(dp(20.))
                 .flex()
                 .items_center()
                 .justify_center()
-                .rounded(px(4.))
+                .rounded(dp(4.))
                 .hover(|el| el.bg(theme.hover()))
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
@@ -1248,14 +1250,14 @@ impl Navigator {
                 .row(format!("project-{id}"), 0.)
                 .aria_label(entry.project.name.clone())
                 .aria_expanded(expanded)
-                .h(px(if expanded { 32. } else { ROW_HEIGHT }))
-                .pl(px(11.))
+                .h(dp(if expanded { 32. } else { ROW_HEIGHT }))
+                .pl(dp(11.))
                 // The eye over the chevrons of the rows below and the emoji, 5 points on,
                 // over their icons, so the name sits over theirs.
                 .child(
                     h_flex()
                         .flex_none()
-                        .gap(px(5.))
+                        .gap(dp(5.))
                         .child(
                             // Whether the app watches the project, as an open one is loaded and
                             // kept current, and under the pointer what a click makes it.
@@ -1292,20 +1294,20 @@ impl Navigator {
                         .child(
                             div()
                                 .flex_none()
-                                .w(px(16.))
+                                .w(dp(16.))
                                 .flex()
                                 .justify_center()
-                                .text_size(px(13.))
+                                .text_size(dp(13.))
                                 .child(match ProjectIcon::parse(store.project_icon(id)) {
                                     // Unpicked, it's quiet as the eye beside it, and takes the
                                     // row's ink when it's selected.
                                     ProjectIcon::Glyph(Colour { fill: None, .. }) => {
                                         icon(Icon::Repo)
-                                            .size(px(16.))
+                                            .size(dp(16.))
                                             .text_color(style.muted())
                                             .into_any_element()
                                     }
-                                    picked => picked.render(px(16.), theme),
+                                    picked => picked.render(theme.scaled(16.), theme),
                                 }),
                         ),
                 )
@@ -1315,7 +1317,7 @@ impl Navigator {
                 .child(
                     div()
                         .flex_grow(1.)
-                        .min_w(px(0.))
+                        .min_w_0()
                         .truncate()
                         .when(expanded, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
                         .child(entry.project.name.clone()),
@@ -1323,11 +1325,11 @@ impl Navigator {
                 .child(
                     h_flex()
                         .flex_shrink(1000.)
-                        .min_w(px(0.))
-                        .h(px(16.))
+                        .min_w_0()
+                        .h(dp(16.))
                         .flex_wrap()
                         .overflow_hidden()
-                        .gap(px(8.))
+                        .gap(dp(8.))
                         .when(unread, |el| el.child(dot(style.meta(theme.pop))))
                         .when_some(summary, |el, (files, unpushed, target, worktrees)| {
                             let (warn, blue) = (style.meta(theme.warn), style.meta(theme.blue));
@@ -1370,7 +1372,7 @@ impl Navigator {
                                 el.child(
                                     div()
                                         .id(ElementId::Name(format!("quiet-{id}").into()))
-                                        .text_size(px(11.))
+                                        .text_size(dp(11.))
                                         .text_color(style.muted())
                                         .tooltip(Tooltip::text(format!("Last active {age} ago")))
                                         .child(age),
@@ -1440,7 +1442,7 @@ impl Navigator {
             .child(
                 div()
                     .flex_1()
-                    .min_w(px(0.))
+                    .min_w_0()
                     .truncate()
                     .child("Editing a commit"),
             )
@@ -1520,7 +1522,7 @@ impl Navigator {
                 div()
                     .id(("worktree-name", ix))
                     .flex_grow(1.)
-                    .min_w(px(0.))
+                    .min_w_0()
                     .truncate()
                     .font_weight(gpui::FontWeight::MEDIUM)
                     .tooltip(Tooltip::text(path.display().to_string()))
@@ -1655,8 +1657,8 @@ impl Navigator {
                     h_flex()
                         .id(("stack-name", ix))
                         .flex_1()
-                        .min_w(px(0.))
-                        .gap(px(6.))
+                        .min_w_0()
+                        .gap(dp(6.))
                         .font_weight(gpui::FontWeight::SEMIBOLD)
                         .tooltip(Tooltip::text(format!("Stack: {}", names.join(" ← "))))
                         .child(count_badge(branches.len(), theme).when(style.solid, |el| {
@@ -1668,7 +1670,7 @@ impl Navigator {
                         // under it.
                         .children(branches.first().filter(|_| !open).map(|top| {
                             div()
-                                .min_w(px(0.))
+                                .min_w_0()
                                 .truncate()
                                 .text_color(quiet)
                                 .child(store.label_of(id, top).to_owned())
@@ -1792,8 +1794,8 @@ impl Navigator {
                         h_flex()
                             .id(ElementId::Name(format!("empty-{id}-{ref_name}").into()))
                             .flex_none()
-                            .gap(px(3.))
-                            .text_size(px(11.))
+                            .gap(dp(3.))
+                            .text_size(dp(11.))
                             .text_color(quiet)
                             .child(small_icon(Icon::Commit).text_color(quiet).opacity(0.7))
                             .child("empty")
@@ -1973,7 +1975,7 @@ impl Navigator {
                 fold_button(fold, Some(open), warn, cx, move |this, window, cx| {
                     this.toggle_merge(&project, owner.clone(), merge_id, window, cx)
                 })
-                .mx(px(-1.))
+                .mx(fixed(-1.))
                 .into_any_element()
             }
         };
@@ -2140,12 +2142,9 @@ impl Navigator {
         // Its chevron under a branch's commit glyphs, or as Network worktrees has its own.
         let indent = upstream_chevrons(ref_name).0 - 7. - ROW_LEFT;
         let glyph = ref_name.is_none().then_some(Icon::ArrowLineDown);
-        let label = section_label(label, theme)
-            .flex_1()
-            .min_w(px(0.))
-            .truncate();
+        let label = section_label(label, theme).flex_1().min_w_0().truncate();
         section_heading(("upstream-heading", ix), indent, open, glyph, label, theme)
-            .pr(px(8.))
+            .pr(dp(8.))
             .when(!open, |el| {
                 el.children(meta_count(Icon::ArrowDown, count, theme.warn, tip))
                     .when(unread, |el| el.child(dot(theme.pop)))
@@ -2216,12 +2215,12 @@ fn section_heading(
     let hover = theme.hover();
     h_flex()
         .id(id)
-        .h(px(ROW_HEIGHT))
-        .mx(px(3.))
-        .pl(px(8. + indent))
-        .pr(px(12.))
-        .gap(px(6.))
-        .rounded(px(4.))
+        .h(dp(ROW_HEIGHT))
+        .mx(dp(3.))
+        .pl(dp(8. + indent))
+        .pr(dp(12.))
+        .gap(dp(6.))
+        .rounded(dp(4.))
         .hover(move |el| el.bg(hover))
         .child(fold_glyph(Some(open), theme.text_3))
         .children(glyph.map(|glyph| small_icon(glyph).text_color(theme.text_3)))
@@ -2329,15 +2328,15 @@ fn uncommitted_counts(tally: Tally, style: RowStyle) -> Div {
         .flex_row_reverse()
         .flex_wrap()
         .flex_shrink(1000.)
-        .min_w(px(0.))
-        .h(px(16.))
+        .min_w_0()
+        .h(dp(16.))
         .overflow_hidden()
-        .gap(px(8.))
+        .gap(dp(8.))
         .children(counts.into_iter().rev())
         .when(files > 0, |el| {
             el.child(
                 div()
-                    .text_size(px(11.))
+                    .text_size(dp(11.))
                     .text_color(style.quiet())
                     .child("uncommitted"),
             )
@@ -2374,7 +2373,7 @@ fn branch_name(
     // Read, it's as quiet as a read commit, unless its pull request's state quiets it more.
     let quiet = !unread && !style.solid;
     let el = div()
-        .min_w(px(0.))
+        .min_w_0()
         .truncate()
         .font_weight(gpui::FontWeight::SEMIBOLD);
     match review.filter(|(review, _)| !review.title.is_empty()) {
@@ -2420,28 +2419,28 @@ impl Render for Navigator {
         // Once the cards scroll under it, a rule along its bottom, as but.dev draws one, and
         // level with the location bar's: the same height and border, from the window's top.
         let top = self.list.logical_scroll_top();
-        let under = top.item_ix > 0 || top.offset_in_item > px(0.);
+        let under = top.item_ix > 0 || top.offset_in_item > Pixels::ZERO;
         let header = h_flex()
-            .h(px(HEADER_HEIGHT))
+            .h(dp(HEADER_HEIGHT))
             .flex_none()
             .border_b_1()
             .border_color(match under {
                 true => theme.border_3,
                 false => gpui::transparent_black(),
             })
-            .pl(px(84.))
-            .pr(px(8.))
-            .gap(px(6.))
+            .pl(fixed(84.))
+            .pr(dp(8.))
+            .gap(dp(6.))
             // Its clear button inside it, so typing the first letter doesn't narrow it.
             .child(
                 field(&self.filter, filter_focused, &theme)
                     .relative()
                     .flex_1()
-                    .min_w(px(0.))
-                    .py(px(3.))
+                    .min_w_0()
+                    .py(dp(3.))
                     .when(filtering, |el| {
-                        el.pr(px(26.)).child(
-                            h_flex().absolute().top_0().bottom_0().right(px(2.)).child(
+                        el.pr(dp(26.)).child(
+                            h_flex().absolute().top_0().bottom_0().right(dp(2.)).child(
                                 icon_button("clear-filter", Icon::Cross)
                                     .small()
                                     .tooltip("Clear the filter")
@@ -2513,7 +2512,7 @@ impl Render for Navigator {
             .child(header)
             .map(|el| {
                 if empty {
-                    el.child(div().flex_1().min_h(px(0.)).child(empty_state(
+                    el.child(div().flex_1().min_h_0().child(empty_state(
                         Some(Illustration::Cactus),
                         "No projects yet",
                         "Add a Git repository with ⌘O",
@@ -2526,8 +2525,8 @@ impl Render for Navigator {
                         cx.processor(|this, ix: usize, window, cx| this.render_row(ix, window, cx)),
                     )
                     .size_full()
-                    .pt(px(2.))
-                    .pb(px(12.));
+                    .pt(dp(2.))
+                    .pb(dp(12.));
                     let scroll = Scroll::List(self.list.clone());
                     el.child(
                         scrolled(rows, "navigator-scrollbar", scroll, &theme)

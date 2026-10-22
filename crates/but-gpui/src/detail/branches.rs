@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, MouseButton, MouseDownEvent, Pixels, Point, SharedString,
-    Window, div, prelude::*, px,
+    Window, div, prelude::*,
 };
 
 mod overview;
@@ -31,7 +31,7 @@ use crate::ui::illustration::Illustration;
 use crate::ui::person::{byline, byline_avatar};
 use crate::ui::text_input::TextInput;
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, age_column, button, error_summary, faint, fold_button, guide,
+    ButtonStyle, Icon, Tooltip, age_column, button, dp, error_summary, faint, fold_button, guide,
     h_flex, icon, loading_state, plural, quiet, review, side_row, small_icon, v_flex,
 };
 
@@ -1253,8 +1253,8 @@ impl Detail {
                                 move |this, _, cx| this.toggle_stack(&fold, cx),
                             );
                             side_row(("stack-caption", ix), selected, solid, theme)
-                                .pl(px(2.))
-                                .text_size(px(12.))
+                                .pl(dp(2.))
+                                .text_size(dp(12.))
                                 .text_color(ink(theme.text_2))
                                 .child(step)
                                 .child(small_icon(Icon::Stack).text_color(ink(theme.text_3)))
@@ -1262,7 +1262,7 @@ impl Detail {
                                 .when(*folded, |el| {
                                     el.child(
                                         div()
-                                            .min_w(px(0.))
+                                            .min_w_0()
                                             .truncate()
                                             .text_color(ink(theme.text_1))
                                             .child(title(&branches.list[*top]).to_owned()),
@@ -1303,7 +1303,7 @@ impl Detail {
                             side_row(("other-commit", ix), selected, solid, theme)
                                 .map(|el| crate::ui::joined(el, joined, solid, theme))
                                 // Its glyph under its branch's, its title under the name.
-                                .pl(px(if *stacked { 38. } else { 24. }))
+                                .pl(dp(if *stacked { 38. } else { 24. }))
                                 // Lines down from its stack's chevron and its branch's.
                                 .children(stacked.then(|| guide(STACK_CHEVRON, theme)))
                                 .child(guide(
@@ -1318,7 +1318,7 @@ impl Detail {
                                     true => theme.text_inverted,
                                     false => theme.text_3,
                                 }))
-                                .child(div().flex_1().min_w(px(0.)).truncate().child(label.clone()))
+                                .child(div().flex_1().min_w_0().truncate().child(label.clone()))
                                 // Who wrote it and when, in the branch rows' columns, so the
                                 // two line up.
                                 .child(commit_author(
@@ -1381,7 +1381,7 @@ impl Detail {
                             };
                             let name = div()
                                 .flex_1()
-                                .min_w(px(0.))
+                                .min_w_0()
                                 .truncate()
                                 .font_weight(gpui::FontWeight::SEMIBOLD)
                                 .text_color(ink(title_color))
@@ -1393,7 +1393,7 @@ impl Detail {
                             });
                             let (project, menu_ref) = (branches.project.clone(), ref_name.clone());
                             side_row(("other-branch", ix), selected, solid, theme)
-                                .pl(px(if *stacked { 16. } else { 2. }))
+                                .pl(dp(if *stacked { 16. } else { 2. }))
                                 .children(stacked.then(|| guide(STACK_CHEVRON, theme)))
                                 .child(step)
                                 .child(small_icon(glyph).text_color(ink(glyph_color)))
@@ -1454,7 +1454,7 @@ impl Detail {
                 },
             )
             .flex_1()
-            .min_h(px(LIST_MIN_HEIGHT))
+            .min_h(dp(LIST_MIN_HEIGHT))
             .into_any_element()
         };
         self.list_column(Self::step_branches, Some(Self::fold_branches), cx)
@@ -1534,8 +1534,8 @@ impl Detail {
             h_flex()
                 .flex_none()
                 .flex_wrap()
-                .gap(px(4.))
-                .px(px(10.))
+                .gap(dp(4.))
+                .px(dp(10.))
                 .children(chips)
         })
     }
@@ -1688,8 +1688,8 @@ impl Detail {
                 };
                 h_flex()
                     .flex_none()
-                    .gap(px(3.))
-                    .child(icon(glyph).size(px(14.)).text_color(color))
+                    .gap(dp(3.))
+                    .child(icon(glyph).size(dp(14.)).text_color(color))
                     .child(format!("{state} #{}", review.number))
             });
         let commits = match (branch.ahead, branches.stack) {
@@ -1712,9 +1712,9 @@ impl Detail {
             v_flex()
                 .relative()
                 .flex_none()
-                .gap(px(8.))
-                .px(px(16.))
-                .py(px(12.))
+                .gap(dp(8.))
+                .px(dp(16.))
+                .py(dp(12.))
                 .border_b_1()
                 .border_color(theme.border_3)
                 .child(page_title(glyph, theme).child(title_text(title.clone()).truncate()))
@@ -1724,8 +1724,8 @@ impl Detail {
                         .when(name != title, |el| {
                             el.child(
                                 meta_item(Icon::Branch, theme)
-                                    .min_w(px(0.))
-                                    .child(div().min_w(px(0.)).truncate().child(name)),
+                                    .min_w_0()
+                                    .child(div().min_w_0().truncate().child(name)),
                             )
                         })
                         .children(review)
@@ -1734,7 +1734,7 @@ impl Detail {
                 )
                 .children(description.map(|description| {
                     div()
-                        .text_size(px(13.))
+                        .text_size(dp(13.))
                         .text_color(theme.text_2)
                         .whitespace_normal()
                         .child(description)

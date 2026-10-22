@@ -30,8 +30,8 @@ use std::time::{Duration, Instant};
 
 use gpui::{
     AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding,
-    ListAlignment, ListOffset, ListState, RenderImage, ScrollHandle, SharedString, Subscription,
-    Task, UniformListScrollHandle, WeakEntity, Window, actions, div, prelude::*, px,
+    ListAlignment, ListOffset, ListState, Pixels, RenderImage, ScrollHandle, SharedString,
+    Subscription, Task, UniformListScrollHandle, WeakEntity, Window, actions, div, prelude::*,
 };
 
 use crate::app::{AddProject, AppView, Collapse, Expand, SelectNext, SelectPrevious};
@@ -42,7 +42,8 @@ use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, button, commit_title, empty_state, h_flex, resize_handle, resize_pane, v_flex,
+    ButtonStyle, button, commit_title, dp, empty_state, fixed, h_flex, resize_handle, resize_pane,
+    v_flex,
 };
 
 actions!(
@@ -569,7 +570,7 @@ impl Detail {
             _load: Task::ready(()),
             waiting_since: None,
             _waiting: Task::ready(()),
-            list: ListState::new(0, ListAlignment::Top, px(40.)),
+            list: ListState::new(0, ListAlignment::Top, fixed(40.)),
             uncommitted_files: UniformListScrollHandle::new(),
             diff_files: UniformListScrollHandle::new(),
             listed_cursor: Default::default(),
@@ -1051,7 +1052,7 @@ impl Detail {
         let top = same.then(|| self.keep_place(&rows, &files));
         // Most rows are a line tall: rows not drawn yet count as one, so the scrollbar's thumb
         // is about the right size before they are.
-        (self.list).reset_with_uniform_height(rows.len(), px(Theme::get(cx).code_line));
+        (self.list).reset_with_uniform_height(rows.len(), code_line(cx));
         if let Some(top) = top {
             self.list.scroll_to(top);
             self.cursor = self.cursor_in(&files);
@@ -1297,7 +1298,7 @@ impl Detail {
         let top = self.list.logical_scroll_top();
         // At the very top, what's added above shows: a file a merge left conflicted lists
         // first.
-        let at_top = top.item_ix == 0 && top.offset_in_item == px(0.);
+        let at_top = top.item_ix == 0 && top.offset_in_item == Pixels::ZERO;
         let Some(diff) = self.diff.as_ref().filter(|_| !at_top) else {
             return top;
         };
@@ -1339,7 +1340,7 @@ impl Detail {
                     .and_then(DiffRow::file)
                     .and_then(|file| rows.iter().position(|r| *r == DiffRow::File(file)))
                     .unwrap_or(top.item_ix),
-                offset_in_item: px(0.),
+                offset_in_item: Pixels::ZERO,
             },
         }
     }
@@ -1354,7 +1355,7 @@ impl Detail {
         if rows != diff.rows {
             self.text_selection = None;
             let scroll_to = self.keep_place(&rows, &diff.files);
-            (self.list).reset_with_uniform_height(rows.len(), px(Theme::get(cx).code_line));
+            (self.list).reset_with_uniform_height(rows.len(), code_line(cx));
             self.list.scroll_to(scroll_to);
             if let Some(diff) = &mut self.diff {
                 diff.rows = rows;
@@ -1422,10 +1423,10 @@ impl Detail {
     }
 
     /// Have the diff's rows measured again, as their heights changed, keeping its place.
-    fn remeasure(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn remeasure(&mut self, cx: &mut Context<Self>) {
         let top = self.list.logical_scroll_top();
         let count = self.diff.as_ref().map_or(0, |diff| diff.rows.len());
-        (self.list).reset_with_uniform_height(count, px(Theme::get(cx).code_line));
+        (self.list).reset_with_uniform_height(count, code_line(cx));
         self.list.scroll_to(top);
         cx.notify();
     }
@@ -1666,7 +1667,7 @@ impl Detail {
 
     /// How wide the file list is drawn while it's shown.
     pub(crate) fn files_width(&self, window: &Window, cx: &App) -> f32 {
-        let window = window.viewport_size().width.into();
+        let window = f32::from(window.viewport_size().width) / Theme::get(cx).scale;
         (self.store.read(cx)).fitted_width(Pane::Files, window, !self.beside_traffic_lights, true)
     }
 
@@ -1796,7 +1797,7 @@ impl Detail {
         if !shown {
             self.list.scroll_to(ListOffset {
                 item_ix: row.saturating_sub(2),
-                offset_in_item: px(0.),
+                offset_in_item: Pixels::ZERO,
             });
         }
     }
@@ -1809,7 +1810,7 @@ impl Detail {
         if let Some(row) = self.row_of(|row| matches!(row, DiffRow::File(ix) if *ix == file_ix)) {
             self.list.scroll_to(ListOffset {
                 item_ix: row,
-                offset_in_item: px(0.),
+                offset_in_item: Pixels::ZERO,
             });
             cx.notify();
         }
@@ -1984,13 +1985,13 @@ impl Render for Detail {
                     _ => h_flex()
                         .w_full()
                         .flex_1()
-                        .min_h(px(0.))
+                        .min_h_0()
                         .items_start()
                         .on_drag_move(resize_pane(Pane::Files, self.store.clone()))
                         .when(files_shown, |el| {
                             el.child(
                                 v_flex()
-                                    .w(px(width))
+                                    .w(dp(width))
                                     .flex_none()
                                     .relative()
                                     .h_full()
@@ -2091,7 +2092,7 @@ impl Render for Detail {
             .size_full()
             .bg(theme.bg_1)
             .child(self.render_header(selection.as_ref(), &theme, cx))
-            .child(div().flex_1().min_h(px(0.)).child(body))
+            .child(div().flex_1().min_h_0().child(body))
     }
 }
 
@@ -2121,19 +2122,19 @@ fn welcome(theme: &Theme) -> AnyElement {
         .size_full()
         .items_center()
         .justify_center()
-        .gap(px(10.))
+        .gap(dp(10.))
         .child(
             div()
-                .text_size(px(18.))
+                .text_size(dp(18.))
                 .font_weight(gpui::FontWeight::SEMIBOLD)
                 .text_color(theme.text_1)
                 .child("Welcome to GitButler"),
         )
         .child(
             div()
-                .max_w(px(420.))
+                .max_w(dp(420.))
                 .text_center()
-                .text_size(px(13.))
+                .text_size(dp(13.))
                 .text_color(theme.text_2)
                 .child(
                     "Add a repository your coding agents work in. What they change shows up \
@@ -2142,8 +2143,8 @@ fn welcome(theme: &Theme) -> AnyElement {
         )
         .child(
             h_flex()
-                .mt(px(6.))
-                .gap(px(8.))
+                .mt(dp(6.))
+                .gap(dp(8.))
                 .child(
                     button("welcome-add", "Add a repository…")
                         .style(ButtonStyle::Pop)
@@ -2196,6 +2197,12 @@ fn list_filter(
             InputEvent::Submit => window.focus(&this.side_focus, cx),
         },
     )
+}
+
+/// A line of code's height, at the interface scale, for rows not drawn yet.
+fn code_line(cx: &App) -> Pixels {
+    let theme = Theme::get(cx);
+    theme.scaled(theme.code_line)
 }
 
 #[cfg(test)]

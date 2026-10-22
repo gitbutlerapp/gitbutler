@@ -4,7 +4,7 @@
 //! old what it shows is.
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, MouseButton, Stateful, Window, div, prelude::*, px,
+    AnyElement, App, ClickEvent, Context, Div, MouseButton, Stateful, Window, div, prelude::*,
 };
 
 use super::Detail;
@@ -17,7 +17,7 @@ use crate::ui::markdown;
 use crate::ui::review as ui_review;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, ago, button, count_badge, duration, faint, h_flex, icon,
+    ButtonStyle, Icon, Tooltip, ago, button, count_badge, dp, duration, faint, h_flex, icon,
     keep_focus_on_press, local_time, muted, now, small_icon, v_flex,
 };
 
@@ -88,7 +88,7 @@ impl Detail {
         let checks = review.checks.filter(|c| c.failed > 0 || c.running > 0);
         h_flex()
             // The first tab's label, not its hover ground, lines up with the text above.
-            .ml(px(-8.))
+            .ml(dp(-8.))
             .child(
                 tab(
                     "tab-changes",
@@ -192,10 +192,10 @@ impl Detail {
         let body = markdown::parse(&review.body);
         let doc = v_flex()
             .w_full()
-            .max_w(px(760.))
-            .px(px(24.))
-            .py(px(20.))
-            .gap(px(24.))
+            .max_w(dp(760.))
+            .px(dp(24.))
+            .py(dp(20.))
+            .gap(dp(24.))
             .child(head(
                 review,
                 state,
@@ -304,7 +304,7 @@ fn head(
             .child(review.target_branch.clone());
         facts.push(
             h_flex()
-                .gap(px(4.))
+                .gap(dp(4.))
                 .child("into")
                 .child(target)
                 .into_any_element(),
@@ -320,10 +320,10 @@ fn head(
         );
     }
     let mut row = h_flex()
-        .pl(px(24.))
+        .pl(dp(24.))
         .flex_wrap()
-        .gap(px(6.))
-        .text_size(px(12.))
+        .gap(dp(6.))
+        .text_size(dp(12.))
         .text_color(theme.text_2);
     for (ix, fact) in facts.into_iter().enumerate() {
         if ix > 0 {
@@ -334,11 +334,11 @@ fn head(
     let row = row
         .children(review.labels.iter().map(|label| {
             div()
-                .px(px(6.))
-                .rounded(px(4.))
+                .px(dp(6.))
+                .rounded(dp(4.))
                 .border_1()
                 .border_color(theme.border_2)
-                .text_size(px(11.))
+                .text_size(dp(11.))
                 .child(label.clone())
         }))
         .children(fresh);
@@ -351,14 +351,14 @@ fn head(
             .on_click(move |_, _, cx| cx.open_url(&url))
     });
     v_flex()
-        .gap(px(8.))
+        .gap(dp(8.))
         .child(
             h_flex()
                 .items_start()
-                .gap(px(8.))
+                .gap(dp(8.))
                 .child(
                     div()
-                        .h(px(22.))
+                        .h(dp(22.))
                         .flex()
                         .items_center()
                         .child(icon(glyph).text_color(color)),
@@ -369,19 +369,19 @@ fn head(
         .child(row)
         .when(!review.reviewers.is_empty(), |el| {
             let reviewers = review.reviewers.join(", ");
-            el.child(muted(format!("Review requested from {reviewers}"), theme).pl(px(24.)))
+            el.child(muted(format!("Review requested from {reviewers}"), theme).pl(dp(24.)))
         })
 }
 
 /// A section of the pull request tab: its title, and what it comes to beside it.
 fn section(title: &'static str, hint: Option<String>, theme: &Theme) -> Div {
-    v_flex().gap(px(6.)).child(
+    v_flex().gap(dp(6.)).child(
         h_flex()
-            .gap(px(8.))
-            .pb(px(2.))
+            .gap(dp(8.))
+            .pb(dp(2.))
             .child(
                 div()
-                    .text_size(px(13.))
+                    .text_size(dp(13.))
                     .font_weight(gpui::FontWeight::SEMIBOLD)
                     .child(title),
             )
@@ -394,12 +394,12 @@ fn row(id: impl Into<gpui::ElementId>, theme: &Theme) -> Stateful<Div> {
     let hover = theme.hover();
     h_flex()
         .id(id)
-        .h(px(28.))
-        .gap(px(8.))
-        .px(px(8.))
-        .mx(px(-8.))
-        .rounded(px(4.))
-        .text_size(px(13.))
+        .h(dp(28.))
+        .gap(dp(8.))
+        .px(dp(8.))
+        .mx(dp(-8.))
+        .rounded(dp(4.))
+        .text_size(dp(13.))
         .hover(move |el| el.bg(hover))
 }
 
@@ -426,7 +426,7 @@ fn check_row(ix: usize, run: &CheckRun, theme: &Theme) -> Stateful<Div> {
                 .on_click(move |_, _, cx| cx.open_url(&url))
         })
         .child(small_icon(glyph).text_color(color))
-        .child(div().min_w(px(0.)).truncate().child(run.name.clone()))
+        .child(div().min_w_0().truncate().child(run.name.clone()))
         .child(faint(status, theme).flex_none())
         .child(div().flex_1())
         .children(when.map(|when| faint(when, theme).flex_none()))
@@ -446,13 +446,13 @@ fn tab(
         .id(id)
         .group(id)
         .relative()
-        .h(px(28.))
+        .h(dp(28.))
         // Room for the bar, 6 below, down to the header's edge.
-        .mb(px(10.))
-        .gap(px(6.))
-        .px(px(8.))
-        .rounded(px(4.))
-        .text_size(px(13.))
+        .mb(dp(10.))
+        .gap(dp(6.))
+        .px(dp(8.))
+        .rounded(dp(4.))
+        .text_size(dp(13.))
         .font_weight(gpui::FontWeight::SEMIBOLD)
         .text_color(theme.text_1)
         .when(!selected, |el| el.hover(move |el| el.bg(hover)))
@@ -468,10 +468,10 @@ fn tab(
             el.child(
                 div()
                     .absolute()
-                    .top(px(34.))
-                    .left(px(8.))
-                    .right(px(8.))
-                    .h(px(4.))
+                    .top(dp(34.))
+                    .left(dp(8.))
+                    .right(dp(8.))
+                    .h(dp(4.))
                     .bg(theme.fill_gray),
             )
         })

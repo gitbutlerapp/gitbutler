@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, App, Context, Entity, Focusable as _, KeyBinding, Window, actions, point,
-    prelude::*, px,
+    AnyElement, App, Context, Entity, Focusable as _, KeyBinding, Pixels, Window, actions, point,
+    prelude::*,
 };
 
 use super::Detail;
@@ -14,7 +14,7 @@ use crate::backend::{self, DiffLine, LineKind};
 use crate::theme::Theme;
 use crate::ui::diff::DiffRow;
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{Icon, field, h_flex, icon_button, muted, popover};
+use crate::ui::{Icon, dp, field, h_flex, icon_button, muted, popover};
 
 actions!(find, [FindInDiff, FindNext, FindPrevious]);
 
@@ -210,13 +210,16 @@ impl Detail {
             (true, LineKind::Context) => &[0, 1],
             _ => &[1],
         };
-        let digit = crate::ui::diff::digit_width(Theme::get(cx));
-        let start = px(backend::columns(&text.text[..range.start]) as f32 * digit);
-        let end = start + px(backend::columns(&text.text[range]) as f32 * digit);
+        let theme = Theme::get(cx);
+        let digit = crate::ui::diff::digit_width(theme);
+        let start = theme.scaled(backend::columns(&text.text[..range.start]) as f32 * digit);
+        let end = start + theme.scaled(backend::columns(&text.text[range]) as f32 * digit);
         for handle in sides.iter().map(|side| &scroll[*side]) {
-            let (offset, width) = (-handle.offset().x, handle.bounds().size.width - px(8.));
+            let width = handle.bounds().size.width - theme.scaled(8.);
+            let offset = -handle.offset().x;
             if start < offset || end > offset + width {
-                handle.set_offset(point(-(start - px(4. * digit)).max(px(0.)), px(0.)));
+                let left = (start - theme.scaled(4. * digit)).max(Pixels::ZERO);
+                handle.set_offset(point(-left, Pixels::ZERO));
             }
         }
     }
@@ -257,14 +260,14 @@ impl Detail {
                 // Clicks on the bar stay off the diff under it.
                 .occlude()
                 .absolute()
-                .top(px(8.))
-                .right(px(24.))
+                .top(dp(8.))
+                .right(dp(24.))
                 .flex_row()
                 .items_center()
-                .gap(px(4.))
-                .p(px(6.))
-                .child(field(&find.input, focused, theme).w(px(220.)))
-                .child(muted(count, theme).min_w(px(64.)))
+                .gap(dp(4.))
+                .p(dp(6.))
+                .child(field(&find.input, focused, theme).w(dp(220.)))
+                .child(muted(count, theme).min_w(dp(64.)))
                 .child(
                     h_flex()
                         .child(

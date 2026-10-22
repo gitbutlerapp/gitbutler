@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Duration;
 
-use gpui::{App, AppContext as _, Bounds, Context, DisplayId, Pixels, Window, point, px, size};
+use gpui::{App, AppContext as _, Bounds, Context, DisplayId, Pixels, Window, point, size};
 use serde::{Deserialize, Serialize};
 
 use super::{Seen, Store};
@@ -214,8 +214,11 @@ pub fn saved_window_place(cx: &App) -> Option<(DisplayId, Bounds<Pixels>)> {
             .is_ok_and(|uuid| uuid.to_string() == place.display)
     })?;
     let [x, y, width, height] = place.bounds;
-    let bounds = Bounds::new(point(px(x), px(y)), size(px(width), px(height)));
-    let screen = Bounds::new(point(px(0.), px(0.)), display.bounds().size);
+    let bounds = Bounds::new(
+        point(Pixels::from(x), Pixels::from(y)),
+        size(Pixels::from(width), Pixels::from(height)),
+    );
+    let screen = Bounds::new(point(Pixels::ZERO, Pixels::ZERO), display.bounds().size);
     screen.intersects(&bounds).then(|| (display.id(), bounds))
 }
 
@@ -344,6 +347,8 @@ pub struct Prefs {
     /// Changed lines go without their green and red ground, keeping the bar beside them.
     pub plain_lines: bool,
     pub code_size: crate::theme::CodeSize,
+    /// How large the whole interface draws, as ⌘+ and ⌘− set it.
+    pub ui_scale: crate::theme::UiScale,
     /// Code shows the font's ligatures, `->` as one arrow. Off unless picked, as in the
     /// desktop app.
     pub ligatures: bool,

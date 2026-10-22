@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, ElementId, MouseButton, MouseDownEvent, Pixels,
-    Point, ScrollStrategy, SharedString, Stateful, Toggled, div, img, prelude::*, px,
+    Point, ScrollStrategy, SharedString, Stateful, Toggled, div, img, prelude::*,
 };
 
 use super::file_tree::{self, TreeRow};
@@ -20,8 +20,8 @@ use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
 use crate::ui::{
-    Icon, ROW_HEIGHT, checkbox, count_badge, faint, h_flex, icon_button, muted, popover, quiet,
-    relative_time, side_row, small_icon, v_flex,
+    Icon, ROW_HEIGHT, checkbox, count_badge, dp, faint, fixed, h_flex, icon_button, muted, popover,
+    quiet, relative_time, side_row, small_icon, v_flex,
 };
 
 /// Where a file list's files come from.
@@ -69,10 +69,10 @@ const ROW_GROUP: &str = "file-row";
 /// selection `solid` while the list holds the focus.
 fn file_row(id: impl Into<ElementId>, selected: bool, solid: bool, theme: &Theme) -> Stateful<Div> {
     side_row(id, selected, solid, theme)
-        .mx(px(12.))
-        .pl(px(8.))
-        .pr(px(4.))
-        .text_size(px(13.))
+        .mx(dp(12.))
+        .pl(dp(8.))
+        .pr(dp(4.))
+        .text_size(dp(13.))
 }
 
 /// A tree row's indent, as ui-react's FileListItem draws it: a step per level, each with a
@@ -81,7 +81,7 @@ fn file_row(id: impl Into<ElementId>, selected: bool, solid: bool, theme: &Theme
 fn steps(depth: usize, chevron: Option<gpui::Svg>, theme: &Theme) -> Div {
     let step = || {
         div()
-            .w(px(STEP))
+            .w(dp(STEP))
             .h_full()
             .flex_none()
             .flex()
@@ -90,10 +90,10 @@ fn steps(depth: usize, chevron: Option<gpui::Svg>, theme: &Theme) -> Div {
     h_flex()
         .flex_none()
         .h_full()
-        .gap(px(4.))
+        .gap(dp(4.))
         .children(
             (0..depth)
-                .map(|_| step().child(div().w(px(1.)).h_full().bg(theme.text_2.opacity(0.2)))),
+                .map(|_| step().child(div().w(fixed(1.)).h_full().bg(theme.text_2.opacity(0.2)))),
         )
         .children(chevron.map(|chevron| step().items_center().child(chevron)))
 }
@@ -104,10 +104,10 @@ const DIR_GROUP: &str = "dir-row";
 /// The panel's heading: Files, how many, and their lines added and removed.
 fn files_heading(count: usize, (added, removed): (u32, u32), theme: &Theme) -> Div {
     h_flex()
-        .gap(px(8.))
+        .gap(dp(8.))
         .child(
             div()
-                .text_size(px(14.))
+                .text_size(dp(14.))
                 .font_weight(gpui::FontWeight::SEMIBOLD)
                 .child("Files"),
         )
@@ -119,12 +119,12 @@ fn files_heading(count: usize, (added, removed): (u32, u32), theme: &Theme) -> D
 fn header_row() -> Div {
     h_flex()
         .flex_none()
-        .pt(px(12.))
-        .pb(px(10.))
-        .pl(px(16.))
-        .pr(px(12.))
-        .gap(px(8.))
-        .text_size(px(12.))
+        .pt(dp(12.))
+        .pb(dp(10.))
+        .pl(dp(16.))
+        .pr(dp(12.))
+        .gap(dp(8.))
+        .text_size(dp(12.))
 }
 
 impl Detail {
@@ -155,9 +155,9 @@ impl Detail {
         );
         v_flex()
             .flex_1()
-            .min_h(px(0.))
+            .min_h_0()
             .child(header)
-            .child(v_flex().flex_1().min_h(px(0.)).child(rows))
+            .child(v_flex().flex_1().min_h_0().child(rows))
             .into_any_element()
     }
 
@@ -171,8 +171,8 @@ impl Detail {
                 ""
             };
             return muted(note, theme)
-                .px(px(16.))
-                .py(px(10.))
+                .px(dp(16.))
+                .py(dp(10.))
                 .into_any_element();
         };
         let (rows, _) = self.file_list("diff-files", FileSource::Diff, cx);
@@ -185,7 +185,7 @@ impl Detail {
         let header = self.list_header(paths, diffs, theme, cx);
         v_flex()
             .flex_1()
-            .min_h(px(0.))
+            .min_h_0()
             .child(header)
             .child(rows)
             .into_any_element()
@@ -204,10 +204,10 @@ impl Detail {
         };
         let (rows, count) = self.file_list("popover-files", source, cx);
         popover(theme)
-            .w(px(340.))
+            .w(dp(340.))
             // The rows, the padding and the border.
-            .h(px((count as f32 * ROW_HEIGHT).min(400.) + 10.))
-            .py(px(4.))
+            .h(dp((count as f32 * ROW_HEIGHT).min(400.) + 10.))
+            .py(dp(4.))
             .child(rows)
             .into_any_element()
     }
@@ -617,10 +617,10 @@ impl Detail {
         .child(
             div()
                 .flex_none()
-                .size(px(14.))
-                .child(img(Icon::FolderFill.path()).w(px(17.)).h(px(14.))),
+                .size(dp(14.))
+                .child(img(Icon::FolderFill.path()).w(dp(17.)).h(dp(14.))),
         )
-        .child(div().flex_1().min_w(px(0.)).truncate().child(name))
+        .child(div().flex_1().min_w_0().truncate().child(name))
         .when(added + removed > 0, |el| {
             el.child(
                 diff::stats(added, removed, theme)
@@ -669,8 +669,8 @@ impl Detail {
                 .child(
                     div()
                         .flex_1()
-                        .min_w(px(0.))
-                        .text_size(px(13.))
+                        .min_w_0()
+                        .text_size(dp(13.))
                         .child(self.file_filter.clone()),
                 )
                 .child(
@@ -776,7 +776,7 @@ impl Detail {
                 div()
                     .relative()
                     .flex_none()
-                    .size(px(14.))
+                    .size(dp(14.))
                     .child(file_icon(&file.path, cx).absolute().map(|el| match on {
                         true => el.opacity(0.),
                         false => el.group_hover(ROW_GROUP, |s| s.opacity(0.)),
@@ -805,7 +805,7 @@ impl Detail {
                 .flex()
                 .items_center()
                 .justify_center()
-                .rounded(px(4.))
+                .rounded(dp(4.))
                 .hover(|el| match solid {
                     true => el.bg(theme.text_inverted.opacity(0.1)),
                     false => el.bg(theme.hover()),
@@ -825,7 +825,7 @@ impl Detail {
                 .map(|el| match file.conflicted {
                     true => el.child(small_icon(Icon::Warning).text_color(theme.warn)),
                     false => el
-                        .text_size(px(11.))
+                        .text_size(dp(11.))
                         .font_weight(gpui::FontWeight::SEMIBOLD)
                         .text_color(diff::change_color(file.kind, theme))
                         .child(file.kind.letter()),
@@ -833,7 +833,7 @@ impl Detail {
         let end = div()
             .relative()
             .flex_none()
-            .w(px(22.))
+            .w(dp(22.))
             .h_full()
             .flex()
             .items_center()
@@ -857,8 +857,8 @@ impl Detail {
             .child(
                 h_flex()
                     .flex_1()
-                    .min_w(px(0.))
-                    .gap(px(8.))
+                    .min_w_0()
+                    .gap(dp(8.))
                     .child(
                         div()
                             .flex_shrink_0()
@@ -869,7 +869,7 @@ impl Detail {
                     .when(!dir.is_empty(), |el| {
                         el.child(
                             div()
-                                .min_w(px(0.))
+                                .min_w_0()
                                 .overflow_hidden()
                                 .whitespace_nowrap()
                                 .text_ellipsis_middle()

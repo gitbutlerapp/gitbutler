@@ -3,7 +3,7 @@
 
 use std::rc::Rc;
 
-use gpui::{AnyElement, App, ElementId, Entity, SharedString, Window, div, prelude::*, px};
+use gpui::{AnyElement, App, ElementId, Entity, SharedString, Window, div, prelude::*};
 
 use super::diff::{
     DiffRow, Layout, Look, OnToggle, card, digit_width, line_card, line_text, look, number_cell,
@@ -11,7 +11,8 @@ use super::diff::{
 };
 use super::text_input::TextInput;
 use super::{
-    ButtonStyle, Icon, Tooltip, button, field, h_flex, icon_button, segmented, small_icon, v_flex,
+    ButtonStyle, Icon, Tooltip, button, dp, field, h_flex, icon_button, segmented, small_icon,
+    v_flex,
 };
 use crate::backend::{Conflict, DiffLine, LineKind};
 use crate::theme::Theme;
@@ -238,11 +239,11 @@ fn side_look(side: Side, plain: bool, theme: &Theme) -> Look {
 fn strip(layout: &Layout, last: bool, theme: &Theme) -> gpui::Div {
     let numbers = digit_width(theme) * (layout.digits.max(3) + 3) as f32;
     card(h_flex(), theme)
-        .when(last, |el| el.border_b_1().rounded_b(px(6.)))
-        .pl(px(numbers.round() + 8.))
-        .pr(px(8.))
-        .gap(px(6.))
-        .text_size(px(12.))
+        .when(last, |el| el.border_b_1().rounded_b(dp(6.)))
+        .pl(dp(numbers.round() + 8.))
+        .pr(dp(8.))
+        .gap(dp(6.))
+        .text_size(dp(12.))
 }
 
 /// The conflict's place, and what to keep: a side, both, an edit or a suggestion.
@@ -267,17 +268,17 @@ fn bar(row: &Row, theme: &Theme) -> AnyElement {
         false => (Icon::Warning, theme.warn, theme.warn.opacity(0.06)),
     };
     card(h_flex(), theme)
-        .h(px(36.))
-        .px(px(8.))
-        .gap(px(6.))
+        .h(dp(36.))
+        .px(dp(8.))
+        .gap(dp(6.))
         .bg(ground)
         .when(row.current, |el| el.bg(ground.opacity(ground.a * 2.)))
-        .text_size(px(12.))
+        .text_size(dp(12.))
         .child(small_icon(mark).text_color(color))
         .child(
             div()
                 .flex_1()
-                .min_w(px(0.))
+                .min_w_0()
                 .truncate()
                 .text_color(color)
                 .child(format!("Conflict {} of {}", row.number, row.total)),
@@ -343,7 +344,7 @@ fn label(side: Side, row: &Row, theme: &Theme) -> AnyElement {
         false => name.label.to_owned(),
     };
     strip(row.layout, row.last && empty, theme)
-        .h(px(24.))
+        .h(dp(24.))
         .text_color(theme.text_2)
         .child(small_icon(glyph).text_color(color))
         .child(text)
@@ -354,7 +355,7 @@ fn label(side: Side, row: &Row, theme: &Theme) -> AnyElement {
 fn ancestor_toggle(row: &Row, theme: &Theme) -> AnyElement {
     let lines = row.conflict.ancestor.as_ref().map_or(0, Vec::len);
     let toggle = row.actions.ancestor.clone();
-    let strip = strip(row.layout, row.last, theme).h(px(28.));
+    let strip = strip(row.layout, row.last, theme).h(dp(28.));
     if lines == 0 {
         return strip
             .text_color(theme.text_3)
@@ -467,13 +468,13 @@ fn result(row: &Row, theme: &Theme) -> AnyElement {
         .w_full()
         .child(
             strip(row.layout, last && lines.is_empty(), theme)
-                .h(px(28.))
+                .h(dp(28.))
                 .text_color(theme.text_2)
                 .child(small_icon(Icon::Tick).text_color(theme.safe))
                 .child(
                     div()
                         .flex_1()
-                        .min_w(px(0.))
+                        .min_w_0()
                         .truncate()
                         .child(match lines.is_empty() {
                             true => format!("{says}: nothing, so these lines go"),
@@ -530,23 +531,23 @@ fn plain(text: &str) -> DiffLine {
 fn editor(input: Entity<TextInput>, row: &Row, theme: &Theme) -> AnyElement {
     let (done, cancel) = (row.actions.done.clone(), row.actions.cancel.clone());
     card(v_flex(), theme)
-        .when(row.last, |el| el.border_b_1().rounded_b(px(6.)))
+        .when(row.last, |el| el.border_b_1().rounded_b(dp(6.)))
         // Clicks in it stay off the diff, which would take the keys back to its shortcuts.
         .occlude()
-        .p(px(8.))
-        .gap(px(6.))
+        .p(dp(8.))
+        .gap(dp(6.))
         .child(
             field(&input, row.focused, theme)
-                .p(px(6.))
-                .rounded(px(6.))
+                .p(dp(6.))
+                .rounded(dp(6.))
                 .font_family(theme.mono_font.clone())
-                .text_size(px(theme.code_text))
-                .line_height(px(theme.code_line)),
+                .text_size(dp(theme.code_text))
+                .line_height(dp(theme.code_line)),
         )
         .child(
             h_flex()
-                .gap(px(6.))
-                .text_size(px(12.))
+                .gap(dp(6.))
+                .text_size(dp(12.))
                 .child(
                     div()
                         .flex_1()

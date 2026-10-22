@@ -3,7 +3,7 @@
 
 use gpui::{
     App, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle, Focusable, PromptLevel,
-    ScrollHandle, SharedString, Stateful, Task, Window, actions, div, prelude::*, px,
+    ScrollHandle, SharedString, Stateful, Task, Window, actions, div, prelude::*,
 };
 
 use crate::app::AppView;
@@ -14,7 +14,7 @@ use crate::state::{Overlay, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::text_input::{InputEvent, Newline, TextInput};
-use crate::ui::{ButtonStyle, button, faint, field, h_flex, muted, switch, v_flex};
+use crate::ui::{ButtonStyle, button, dp, faint, field, h_flex, muted, switch, v_flex};
 
 actions!(pr, [CreatePullRequest, MergePullRequest]);
 
@@ -279,14 +279,14 @@ impl Render for ReviewView {
             field(input, focused, &theme)
                 .id(if tall { "pr-body" } else { "pr-title" })
                 .when(tall, |el| {
-                    (el.min_h(px(180.)).max_h(px(320.)))
+                    (el.min_h(dp(180.)).max_h(dp(320.)))
                         .overflow_y_scroll()
                         .track_scroll(&self.body_scroll)
                 })
         };
         let label = |text: &'static str| {
             div()
-                .text_size(px(12.))
+                .text_size(dp(12.))
                 .font_weight(gpui::FontWeight::MEDIUM)
                 .text_color(theme.text_2)
                 .child(text)
@@ -302,10 +302,10 @@ impl Render for ReviewView {
             .child(
                 v_flex()
                     .flex_none()
-                    .gap(px(4.))
-                    .px(px(20.))
-                    .pt(px(18.))
-                    .pb(px(12.))
+                    .gap(dp(4.))
+                    .px(dp(20.))
+                    .pt(dp(18.))
+                    .pb(dp(12.))
                     .child(muted(
                         (self.store.read(cx)).place(&Selection::Branch(
                             self.project.clone(),
@@ -315,14 +315,14 @@ impl Render for ReviewView {
                     ))
                     .child(
                         div()
-                            .text_size(px(15.))
+                            .text_size(dp(15.))
                             .font_weight(gpui::FontWeight::SEMIBOLD)
                             .child("Create a pull request"),
                     )
                     .child(
                         div()
                             .font_family(theme.mono_font.clone())
-                            .text_size(px(12.))
+                            .text_size(dp(12.))
                             .text_color(theme.text_2)
                             .child(SharedString::from(route)),
                     )
@@ -330,9 +330,9 @@ impl Render for ReviewView {
             )
             .child(
                 v_flex()
-                    .px(px(20.))
-                    .pb(px(16.))
-                    .gap(px(6.))
+                    .px(dp(20.))
+                    .pb(dp(16.))
+                    .gap(dp(6.))
                     .child(label("Title"))
                     .child(text_box(&self.title, false).capture_action(cx.listener(
                         |this, _: &Newline, window, cx| {
@@ -340,7 +340,7 @@ impl Render for ReviewView {
                             cx.stop_propagation();
                         },
                     )))
-                    .child(div().h(px(6.)))
+                    .child(div().h(dp(6.)))
                     .child(
                         h_flex()
                             .child(div().flex_1().child(label("Description")))
@@ -363,8 +363,8 @@ impl Render for ReviewView {
                     .child(text_box(&self.body, true))
                     .child(
                         h_flex()
-                            .pt(px(8.))
-                            .gap(px(10.))
+                            .pt(dp(8.))
+                            .gap(dp(10.))
                             .child(switch("pr-draft", self.draft, &theme).on_click(cx.listener(
                                 |this, _, _, cx| {
                                     this.draft = !this.draft;
@@ -373,14 +373,14 @@ impl Render for ReviewView {
                             )))
                             .child(
                                 v_flex()
-                                    .child(div().text_size(px(13.)).child("Draft"))
+                                    .child(div().text_size(dp(13.)).child("Draft"))
                                     .child(muted("Not ready for review yet", &theme)),
                             ),
                     )
                     .children(self.error.clone().map(|err| {
                         div()
-                            .pt(px(4.))
-                            .text_size(px(12.))
+                            .pt(dp(4.))
+                            .text_size(dp(12.))
                             .text_color(theme.danger)
                             .child(err)
                     })),
@@ -389,9 +389,9 @@ impl Render for ReviewView {
                 h_flex()
                     .flex_none()
                     .justify_end()
-                    .gap(px(8.))
-                    .px(px(20.))
-                    .py(px(12.))
+                    .gap(dp(8.))
+                    .px(dp(20.))
+                    .py(dp(12.))
                     .border_t_1()
                     .border_color(theme.border_3)
                     .child(faint("⌘↩ to create", &theme).flex_1())

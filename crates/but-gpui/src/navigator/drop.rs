@@ -5,14 +5,14 @@ use std::time::Duration;
 
 use gpui::{
     AnyElement, Bounds, Context, Div, DragMoveEvent, Hsla, Modifiers, MouseButton, MouseDownEvent,
-    MouseMoveEvent, Pixels, PlatformInput, Point, Window, deferred, div, prelude::*, px,
+    MouseMoveEvent, Pixels, PlatformInput, Point, Window, deferred, div, prelude::*,
 };
 
 use super::Navigator;
 use crate::state::{Cut, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::transfer::{Place, Transfer};
-use crate::ui::{Icon, h_flex, small_icon};
+use crate::ui::{Icon, dp, fixed, h_flex, small_icon};
 
 impl Navigator {
     /// Make a row take what's dragged or cut where it has a meaning for it, and offer its
@@ -66,7 +66,7 @@ impl Navigator {
         );
         div()
             .relative()
-            .rounded(px(4.))
+            .rounded(dp(4.))
             .child(el)
             .when(steps_back, |el| el.opacity(0.35))
             .map(|el| match landing {
@@ -74,7 +74,7 @@ impl Navigator {
                     div()
                         .absolute()
                         .inset_0()
-                        .rounded(px(4.))
+                        .rounded(dp(4.))
                         .border_1()
                         .border_color(highlight)
                         .bg(highlight.opacity(0.14)),
@@ -179,15 +179,15 @@ impl Navigator {
         let highlight = theme.pop;
         let zone = h_flex()
             .id(("new-branch-drop", ix))
-            .h(px(30.))
-            .mx(px(6.))
+            .h(dp(30.))
+            .mx(dp(6.))
             .justify_center()
-            .gap(px(6.))
-            .rounded(px(4.))
+            .gap(dp(6.))
+            .rounded(dp(4.))
             .border_1()
             .border_dashed()
             .border_color(theme.border_2)
-            .text_size(px(12.))
+            .text_size(dp(12.))
             .text_color(theme.text_2)
             .child(small_icon(Icon::Branch).text_color(theme.text_2))
             .child("New branch")
@@ -211,7 +211,7 @@ impl Navigator {
                         .update(cx, |store, cx| store.move_to_new_branch(&from, ids, cx));
                 }
             }));
-        div().py(px(2.)).child(zone).into_any_element()
+        div().py(dp(2.)).child(zone).into_any_element()
     }
 
     /// While something dragged is near the list's top or bottom edge, or past it, scroll the
@@ -225,12 +225,13 @@ impl Navigator {
     ) {
         const EDGE: f32 = 48.;
         const FASTEST: f32 = 16.;
-        let closeness = |gap: Pixels| 1. - (f32::from(gap) / EDGE).max(0.);
+        let edge = Theme::get(cx).scaled(EDGE);
+        let closeness = |gap: Pixels| 1. - (gap / edge).max(0.);
         let (from_top, from_bottom) = (at.y - list.top(), list.bottom() - at.y);
         self.edge_scroll = match at.x >= list.left() && at.x <= list.right() {
             false => 0.,
-            true if from_top < px(EDGE) => -FASTEST * closeness(from_top),
-            true if from_bottom < px(EDGE) => FASTEST * closeness(from_bottom),
+            true if from_top < edge => -FASTEST * closeness(from_top),
+            true if from_bottom < edge => FASTEST * closeness(from_bottom),
             true => 0.,
         };
         if self.edge_scroll == 0. || self.edge_scrolling.is_some() {
@@ -248,11 +249,11 @@ impl Navigator {
                     }
                     let offset = -this.list.scroll_px_offset_for_scrollbar().y;
                     let room = match speed < 0. {
-                        true => offset > px(0.),
+                        true => offset > Pixels::ZERO,
                         false => offset < this.list.max_offset_for_scrollbar().y,
                     };
                     if room {
-                        this.list.scroll_by(px(speed));
+                        this.list.scroll_by(Theme::get(cx).scaled(speed));
                         cx.notify();
                         // The rows moved under a pointer that stays put: once they're drawn
                         // where they are now, have the drag land again where it is, as moving
@@ -303,22 +304,22 @@ fn place_at(payload: &Cut, target: &Selection, y: f32, held: Modifiers) -> Place
 pub(super) fn insertion_line(above: bool, color: Hsla) -> Div {
     let line = div()
         .absolute()
-        .left(px(10.))
-        .right(px(6.))
-        .h(px(2.))
+        .left(dp(10.))
+        .right(dp(6.))
+        .h(dp(2.))
         .rounded_full()
         .bg(color)
         .child(
             div()
                 .absolute()
-                .left(px(-4.))
-                .top(px(-2.))
-                .size(px(6.))
+                .left(dp(-4.))
+                .top(dp(-2.))
+                .size(dp(6.))
                 .rounded_full()
                 .bg(color),
         );
     match above {
-        true => line.top(px(-1.)),
-        false => line.bottom(px(-1.)),
+        true => line.top(fixed(-1.)),
+        false => line.bottom(fixed(-1.)),
     }
 }

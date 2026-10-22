@@ -3,7 +3,7 @@
 
 use gpui::{
     AnyView, App, ClipboardItem, Context, Entity, FocusHandle, Focusable, FontFeatures, KeyBinding,
-    PromptLevel, Role, StyleRefinement, Subscription, Window, actions, div, prelude::*, px,
+    PromptLevel, Role, StyleRefinement, Subscription, Window, actions, div, point, prelude::*,
 };
 
 use crate::backend::{self, short_ref};
@@ -13,9 +13,9 @@ use crate::overlays::{ContextMenu, Prompt};
 use crate::palette::Palette;
 use crate::projects::pick_folder;
 use crate::state::{Cut, MeshPick, Notice, Pane, ProjectId, Selection, Store, StoreEvent};
-use crate::theme::Theme;
+use crate::theme::{Theme, UiScale};
 use crate::transfer::{Place, Transfer};
-use crate::ui::{HEADER_HEIGHT, resize_pane};
+use crate::ui::{HEADER_HEIGHT, dp, fixed, resize_pane};
 
 actions!(
     gitbutler,
@@ -26,6 +26,9 @@ actions!(
         ShowAll,
         Minimize,
         Zoom,
+        ZoomIn,
+        ZoomOut,
+        ActualSize,
         AddProject,
         CopySelection,
         OpenPullRequest,
@@ -66,6 +69,11 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("cmd-h", Hide, None),
         KeyBinding::new("alt-cmd-h", HideOthers, None),
         KeyBinding::new("cmd-m", Minimize, None),
+        // As a browser zooms, and Lite and the desktop app with it.
+        KeyBinding::new("cmd-=", ZoomIn, None),
+        KeyBinding::new("cmd-+", ZoomIn, None),
+        KeyBinding::new("cmd--", ZoomOut, None),
+        KeyBinding::new("cmd-0", ActualSize, None),
         KeyBinding::new("cmd-o", AddProject, None),
         KeyBinding::new("alt-shift-f", Fetch, None),
         KeyBinding::new("alt-shift-r", UpdateFromTarget, None),
@@ -141,6 +149,7 @@ impl AppView {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let store = cx.new(Store::new);
         cx.set_global(theme_for(store.read(cx), window));
+        place_traffic_lights(window, cx);
         let app = cx.entity().downgrade();
         let detail = cx.new(|cx| Detail::new(store.clone(), app.clone(), window, cx));
         let diff = cx.new(|cx| DiffPane::new(&detail, window, cx));
@@ -179,6 +188,7 @@ impl AppView {
             cx.observe_window_appearance(window, |this, window, cx| {
                 this.apply_appearance(window, cx)
             }),
+            cx.observe_global_in::<Theme>(window, |_, window, cx| place_traffic_lights(window, cx)),
             cx.observe_window_bounds(window, |this, window, cx| {
                 this.store
                     .update(cx, |store, cx| store.save_window_place(window, cx));
@@ -281,6 +291,28 @@ impl AppView {
         };
         self.confirm_then(None, message, detail, "Quit", window, cx, |_, cx| cx.quit());
         false
+    }
+
+    /// Draw the whole interface at `scale`.
+    pub fn set_ui_scale(&mut self, scale: UiScale, cx: &mut Context<Self>) {
+        (self.store).update(cx, |store, cx| {
+            store.set_prefs(|prefs| prefs.ui_scale = scale, cx)
+        });
+        cx.set_global(Theme::get(cx).clone().with_scale(scale));
+        // The lists keep the heights their rows had, which only the width changing drops.
+        self.detail.update(cx, |detail, cx| detail.remeasure(cx));
+        self.navigator
+            .update(cx, |navigator, _| navigator.list.remeasure());
+        cx.refresh_windows();
+    }
+
+    /// ⌘+, ⌘− and ⌘0: the scale `step` gives, said in a snackbar.
+    fn scale_ui(&mut self, step: fn(UiScale) -> UiScale, cx: &mut Context<Self>) {
+        let scale = step(self.store.read(cx).prefs.ui_scale);
+        self.set_ui_scale(scale, cx);
+        (self.store).update(cx, |store, cx| {
+            store.snack(format!("Interface at {}%", scale.percent()), cx)
+        });
     }
 
     pub fn add_project(&mut self, _: &AddProject, _: &mut Window, cx: &mut Context<Self>) {
@@ -808,6 +840,8 @@ impl Focusable for AppView {
 
 impl Render for AppView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Every `dp` size is in rems, so this scales the whole window.
+        window.set_rem_size(Theme::get(cx).scaled(crate::ui::BASE_REM));
         crate::ui::Covered::note(self.covered(), window, cx);
         let theme = Theme::get(cx).clone();
         let ligatures = self.store.read(cx).prefs.ligatures;
@@ -825,6 +859,13 @@ impl Render for AppView {
             .on_action(cx.listener(Self::quit))
             .on_action(|_: &Minimize, window, _| window.minimize_window())
             .on_action(|_: &Zoom, window, _| window.zoom_window())
+            .on_action(cx.listener(|this, _: &ZoomIn, _, cx| this.scale_ui(UiScale::larger, cx)))
+            .on_action(cx.listener(|this, _: &ZoomOut, _, cx| this.scale_ui(UiScale::smaller, cx)))
+            .on_action(
+                cx.listener(|this, _: &ActualSize, _, cx| {
+                    this.scale_ui(|_| UiScale::default(), cx)
+                }),
+            )
             .on_action(cx.listener(Self::add_project))
             .on_action(cx.listener(Self::open_settings))
             .on_action(cx.listener(Self::clone_repository))
@@ -892,14 +933,14 @@ impl Render for AppView {
             .when(!ligatures, |el| {
                 el.font_features(FontFeatures(std::sync::Arc::new(vec![("liga".into(), 0)])))
             })
-            .text_size(px(13.))
-            .line_height(px(18.))
+            .text_size(dp(13.))
+            .line_height(dp(18.))
             .child(
                 div()
                     .flex()
                     .flex_row()
                     .flex_1()
-                    .min_h(px(0.))
+                    .min_h_0()
                     // What the navigator's menus and keys, and the commit header's menu, do to
                     // the selection.
                     .map(|el| self.edit_actions(el, cx))
@@ -908,13 +949,13 @@ impl Render for AppView {
                         let files = self.detail.read(cx).files_shown(cx);
                         let width = self.store.read(cx).fitted_width(
                             Pane::Navigator,
-                            window.viewport_size().width.into(),
+                            f32::from(window.viewport_size().width) / theme.scale,
                             true,
                             files,
                         );
                         el.child(
                             div()
-                                .w(px(width))
+                                .w(dp(width))
                                 .flex_none()
                                 .h_full()
                                 // Drawn again only when it changes, not when the diff does.
@@ -928,7 +969,7 @@ impl Render for AppView {
                     .child(
                         div()
                             .flex_1()
-                            .min_w(px(0.))
+                            .min_w_0()
                             .h_full()
                             .relative()
                             .child(
@@ -940,11 +981,11 @@ impl Render for AppView {
                                 el.child(
                                     div()
                                         .absolute()
-                                        .top(px(HEADER_HEIGHT
+                                        .top(dp(HEADER_HEIGHT
                                             + self.detail.read(cx).view_header_height(cx)))
                                         .bottom_0()
                                         .right_0()
-                                        .left(px(left))
+                                        .left(dp(left))
                                         .child(
                                             self.diff
                                                 .clone()
@@ -966,10 +1007,19 @@ impl Render for AppView {
     }
 }
 
+/// Puts macOS's traffic lights, which keep their size at every interface scale, halfway down
+/// the header, however tall the scale draws it.
+fn place_traffic_lights(window: &Window, cx: &App) {
+    const LIGHTS: f32 = 14.;
+    let top = (Theme::get(cx).scaled(HEADER_HEIGHT) - fixed(LIGHTS)) / 2.;
+    window.set_traffic_light_position(point(fixed(14.), top));
+}
+
 /// The theme the appearance setting and the system call for.
 fn theme_for(store: &Store, window: &Window) -> Theme {
     let prefs = &store.prefs;
     Theme::for_appearance(prefs.appearance, window.appearance(), prefs.code_size)
+        .with_scale(prefs.ui_scale)
 }
 
 /// What the snackbar says after copying `text`: the text itself when it's short.

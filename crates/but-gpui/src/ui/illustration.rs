@@ -6,8 +6,9 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use gpui::{App, Hsla, ImageSource, Img, RenderImage, Rgba, SvgRenderer, img, prelude::*, px};
+use gpui::{App, Hsla, ImageSource, Img, RenderImage, Rgba, SvgRenderer, img, prelude::*};
 
+use super::dp;
 use crate::theme::Theme;
 
 /// Which drawing, picked by what it means, as ui-react's empty states pick them.
@@ -59,8 +60,8 @@ pub fn illustration(which: Illustration, theme: &Theme, cx: &App) -> Img {
             .clone()
     });
     img(ImageSource::Render(drawn))
-        .w(px(width))
-        .h(px(height))
+        .w(dp(width))
+        .h(dp(height))
         .flex_none()
 }
 

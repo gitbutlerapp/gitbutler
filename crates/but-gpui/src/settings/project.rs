@@ -3,13 +3,13 @@
 
 use std::collections::HashSet;
 
-use gpui::{App, ClickEvent, Context, DismissEvent, Window, div, prelude::*, px};
+use gpui::{App, ClickEvent, Context, DismissEvent, Window, div, prelude::*};
 
 use super::{Card, Page, Row, SettingsView, field_with_save, read_failed};
 use crate::backend::{Forge, settings as backend};
 use crate::state::{Prefs, ProjectId};
 use crate::theme::Theme;
-use crate::ui::{ButtonStyle, button, h_flex, muted, switch};
+use crate::ui::{ButtonStyle, button, dp, h_flex, muted, switch};
 
 impl SettingsView {
     /// Show `project`'s settings on its pages, loading them.
@@ -218,7 +218,7 @@ impl SettingsView {
                 "The branch your work goes into, and pull requests aim at."
             },
             h_flex()
-                .gap(px(8.))
+                .gap(dp(8.))
                 .child(
                     muted(target.unwrap_or_else(|| "None".into()), theme)
                         .font_family(theme.mono_font.clone()),
@@ -288,11 +288,11 @@ impl SettingsView {
             "Sign commits",
             "Sign the commits GitButler makes, with the key and program your Git config names.",
             h_flex()
-                .gap(px(8.))
+                .gap(dp(8.))
                 .children(signing_note.map(|note| {
                     div()
-                        .max_w(px(220.))
-                        .text_size(px(12.))
+                        .max_w(dp(220.))
+                        .text_size(dp(12.))
                         .truncate()
                         .child(note)
                 }))

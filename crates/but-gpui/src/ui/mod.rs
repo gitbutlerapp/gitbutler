@@ -17,14 +17,31 @@ use std::borrow::Cow;
 
 use gpui::{
     Action, AnyElement, App, AssetSource, ClickEvent, Context, CursorStyle, Div, DragMoveEvent,
-    ElementId, EmptyView, Entity, Hsla, MouseButton, MouseDownEvent, Pixels, Point, Role,
-    SharedString, Stateful, Svg, Toggled, Window, div, prelude::*, px, svg,
+    ElementId, EmptyView, Entity, Hsla, MouseButton, MouseDownEvent, Pixels, Point, Rems, Role,
+    SharedString, Stateful, Svg, Toggled, Window, div, prelude::*, rems, svg,
 };
 
 use crate::state::{Pane, Store};
 use crate::theme::Theme;
 pub use format::*;
 use illustration::{Illustration, illustration};
+
+/// The rem at 100%, so a [`dp`] is a pixel then.
+pub const BASE_REM: f32 = 16.;
+
+/// `n` pixels as designed, at 100%, which the interface scale grows or shrinks: sizes from
+/// ui-react's pixels go in as they are. Only what must stay put, as a hairline or the room
+/// for macOS's traffic lights, is in plain pixels.
+pub fn dp(n: f32) -> Rems {
+    rems(n / BASE_REM)
+}
+
+/// `n` pixels at every interface scale, for what must stay put: a hairline, the room for
+/// macOS's traffic lights, the scrollbar.
+#[allow(clippy::disallowed_methods)]
+pub const fn fixed(n: f32) -> Pixels {
+    gpui::px(n)
+}
 
 pub const ROW_HEIGHT: f32 = 28.;
 pub const HEADER_HEIGHT: f32 = 44.;
@@ -173,11 +190,11 @@ impl AssetSource for Assets {
 }
 
 pub fn icon(icon: Icon) -> Svg {
-    svg().path(icon.path()).size(px(16.)).flex_none()
+    svg().path(icon.path()).size(dp(16.)).flex_none()
 }
 
 pub fn small_icon(icon: Icon) -> Svg {
-    svg().path(icon.path()).size(px(12.)).flex_none()
+    svg().path(icon.path()).size(dp(12.)).flex_none()
 }
 
 /// Icon toggles joined in a row, as ui-react's `ToggleGroupStyles` of outline toggles: one
@@ -188,15 +205,15 @@ pub fn toggle_group(theme: &Theme, toggles: impl IntoIterator<Item = Stateful<Di
     let last = toggles.len().saturating_sub(1);
     h_flex()
         .flex_none()
-        .h(px(28.))
-        .rounded(px(4.))
+        .h(dp(28.))
+        .rounded(dp(4.))
         .border_1()
         .border_color(line)
         .children(toggles.into_iter().enumerate().map(|(ix, toggle)| {
             // Rounded inside the border, so a pressed one's ground keeps to it.
             toggle
-                .when(ix == 0, |el| el.rounded_l(px(3.)))
-                .when(ix == last, |el| el.rounded_r(px(3.)))
+                .when(ix == 0, |el| el.rounded_l(dp(3.)))
+                .when(ix == last, |el| el.rounded_r(dp(3.)))
                 .when(ix > 0, |el| el.border_l_1().border_color(line))
         }))
 }
@@ -215,7 +232,7 @@ pub fn icon_toggle(
         .id(id)
         .role(Role::Button)
         .aria_label(tip)
-        .w(px(28.))
+        .w(dp(28.))
         .h_full()
         .flex()
         .items_center()
@@ -239,10 +256,10 @@ pub fn segmented(
     let picked: Vec<bool> = segments.iter().map(|(_, picked)| *picked).collect();
     h_flex()
         .flex_none()
-        .h(px(if small { 24. } else { 28. }))
-        .rounded(px(4.))
+        .h(dp(if small { 24. } else { 28. }))
+        .rounded(dp(4.))
         .bg(theme.bg_2)
-        .text_size(px(if small { 12. } else { 13. }))
+        .text_size(dp(if small { 12. } else { 13. }))
         .font_weight(gpui::FontWeight::SEMIBOLD)
         .whitespace_nowrap()
         .children(
@@ -253,13 +270,13 @@ pub fn segmented(
                     // Always there, so picking another moves nothing.
                     let rule = (ix > 0).then(|| {
                         let drawn = !picked[ix - 1] && !on;
-                        (div().flex_none().w(px(1.)).h(px(12.)))
+                        (div().flex_none().w(fixed(1.)).h(dp(12.)))
                             .when(drawn, |el| el.bg(theme.border_2))
                             .into_any_element()
                     });
                     let segment = (segment.role(Role::Button).h_full().flex().items_center())
-                        .px(px(if small { 7. } else { 9. }))
-                        .rounded(px(4.))
+                        .px(dp(if small { 7. } else { 9. }))
+                        .rounded(dp(4.))
                         .border_1()
                         .border_color(if on { line } else { gpui::transparent_black() })
                         .text_color(text.opacity(if on { 0.9 } else { 0.7 }))
@@ -283,7 +300,7 @@ pub fn v_flex() -> Div {
 /// Secondary text, like a setting's description.
 pub fn muted(text: impl IntoElement, theme: &Theme) -> Div {
     div()
-        .text_size(px(12.))
+        .text_size(dp(12.))
         .text_color(theme.text_2)
         .child(text)
 }
@@ -291,7 +308,7 @@ pub fn muted(text: impl IntoElement, theme: &Theme) -> Div {
 /// Faint small text, for details that can be skipped.
 pub fn faint(text: impl IntoElement, theme: &Theme) -> Div {
     div()
-        .text_size(px(11.))
+        .text_size(dp(11.))
         .text_color(theme.text_3)
         .child(text)
 }
@@ -308,8 +325,8 @@ pub fn guide(at: f32, theme: &Theme) -> Div {
         .absolute()
         .top_0()
         .bottom_0()
-        .left(px(at))
-        .w(px(1.))
+        .left(dp(at))
+        .w(fixed(1.))
         .bg(theme.text_2.opacity(0.2))
 }
 
@@ -323,8 +340,8 @@ pub fn fold_glyph(open: Option<bool>, color: Hsla) -> Div {
     };
     div()
         .flex_none()
-        .w(px(14.))
-        .h(px(16.))
+        .w(dp(14.))
+        .h(dp(16.))
         .flex()
         .items_center()
         .justify_center()
@@ -346,10 +363,10 @@ pub fn fold_row(
 ) -> Stateful<Div> {
     h_flex()
         .id(id)
-        .h(px(24.))
-        .pl(px(icon_at))
-        .gap(px(text_at - icon_at - 12.))
-        .text_size(px(12.))
+        .h(dp(24.))
+        .pl(dp(icon_at))
+        .gap(dp(text_at - icon_at - 12.))
+        .text_size(dp(12.))
         .text_color(theme.text_2)
         .hover(|el| el.text_color(theme.text_1))
         .child(small_icon(glyph).text_color(theme.text_3))
@@ -375,7 +392,7 @@ pub fn fold_button<V: 'static>(
     match open {
         None => el,
         Some(_) => el
-            .rounded(px(3.))
+            .rounded(dp(3.))
             .hover(|el| el.bg(Theme::get(cx).hover()))
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
@@ -411,11 +428,11 @@ pub fn list_row(id: impl Into<ElementId>, selected: bool, theme: &Theme) -> Stat
         .role(Role::ListItem)
         .aria_selected(selected)
         .flex_none()
-        .h(px(ROW_HEIGHT))
-        .mx(px(6.))
-        .px(px(8.))
-        .gap(px(8.))
-        .rounded(px(4.))
+        .h(dp(ROW_HEIGHT))
+        .mx(dp(6.))
+        .px(dp(8.))
+        .gap(dp(8.))
+        .rounded(dp(4.))
         .when(selected, |el| el.bg(theme.selected_unfocused()))
         .when(!selected, |el| el.hover(|el| el.bg(theme.hover())))
 }
@@ -435,17 +452,17 @@ pub fn joined(
         false => theme.bg_1.opacity(0.4),
     };
     row.when(above, |el| {
-        el.relative().rounded_t(px(0.)).child(
+        el.relative().rounded_t_none().child(
             div()
                 .absolute()
                 .top_0()
-                .left(px(8.))
-                .right(px(8.))
-                .h(px(1.))
+                .left(dp(8.))
+                .right(dp(8.))
+                .h(fixed(1.))
                 .bg(line),
         )
     })
-    .when(below, |el| el.rounded_b(px(0.)))
+    .when(below, |el| el.rounded_b_none())
 }
 
 /// An on/off switch, for a setting that applies at once.
@@ -455,9 +472,9 @@ pub fn switch(id: impl Into<ElementId>, on: bool, theme: &Theme) -> Stateful<Div
         .role(Role::Switch)
         .aria_toggled(if on { Toggled::True } else { Toggled::False })
         .flex_none()
-        .w(px(30.))
-        .h(px(18.))
-        .p(px(2.))
+        .w(dp(30.))
+        .h(dp(18.))
+        .p(dp(2.))
         .rounded_full()
         .bg(if on {
             theme.pop_bg
@@ -466,7 +483,7 @@ pub fn switch(id: impl Into<ElementId>, on: bool, theme: &Theme) -> Stateful<Div
         })
         .when(on, |el| el.justify_end())
         .hover(|el| el.opacity(0.9))
-        .child(div().size(px(14.)).rounded_full().bg(gpui::white()))
+        .child(div().size(dp(14.)).rounded_full().bg(gpui::white()))
 }
 
 /// A checkbox, ticked, empty or, for a group partly checked, a dash.
@@ -477,8 +494,8 @@ pub fn checkbox(id: impl Into<ElementId>, check: Toggled, theme: &Theme) -> Stat
         .role(Role::CheckBox)
         .aria_toggled(check)
         .flex_none()
-        .size(px(14.))
-        .rounded(px(3.))
+        .size(dp(14.))
+        .rounded(dp(3.))
         .border_1()
         .border_color(if on { theme.pop_bg } else { theme.border_2 })
         .when(on, |el| el.bg(theme.pop_bg))
@@ -488,10 +505,10 @@ pub fn checkbox(id: impl Into<ElementId>, check: Toggled, theme: &Theme) -> Stat
         .map(|el| match check {
             Toggled::True => el.child(
                 small_icon(Icon::Tick)
-                    .size(px(10.))
+                    .size(dp(10.))
                     .text_color(gpui::white()),
             ),
-            Toggled::Mixed => el.child(div().w(px(8.)).h(px(2.)).rounded(px(1.)).bg(gpui::white())),
+            Toggled::Mixed => el.child(div().w(dp(8.)).h(dp(2.)).rounded(dp(1.)).bg(gpui::white())),
             Toggled::False => el,
         })
 }
@@ -506,16 +523,16 @@ pub fn dropdown(
         .id(id)
         .role(Role::ComboBox)
         .flex_none()
-        .h(px(28.))
-        .pl(px(10.))
-        .pr(px(6.))
-        .gap(px(6.))
-        .rounded(px(4.))
+        .h(dp(28.))
+        .pl(dp(10.))
+        .pr(dp(6.))
+        .gap(dp(6.))
+        .rounded(dp(4.))
         .border_1()
         .border_color(theme.border_2)
-        .text_size(px(13.))
+        .text_size(dp(13.))
         .hover(|el| el.bg(theme.hover()))
-        .child(div().min_w(px(0.)).truncate().child(label.into()))
+        .child(div().min_w_0().truncate().child(label.into()))
         .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
 }
 
@@ -527,9 +544,9 @@ pub fn field(input: &Entity<text_input::TextInput>, focused: bool, theme: &Theme
         .on_mouse_down(gpui::MouseButton::Left, move |_, window, cx| {
             window.focus(&gpui::Focusable::focus_handle(&clicked, cx), cx)
         })
-        .px(px(8.))
-        .py(px(5.))
-        .rounded(px(4.))
+        .px(dp(8.))
+        .py(dp(5.))
+        .rounded(dp(4.))
         .border_1()
         .border_color(if focused {
             theme.focus_border()
@@ -537,7 +554,7 @@ pub fn field(input: &Entity<text_input::TextInput>, focused: bool, theme: &Theme
             theme.border_2
         })
         .bg(theme.bg_1)
-        .text_size(px(13.))
+        .text_size(dp(13.))
         .child(input.clone())
 }
 
@@ -547,7 +564,7 @@ pub const POPOVER_RADIUS: f32 = 8.;
 /// The card that menus, dialogs, toasts and tooltips float on.
 pub fn popover(theme: &Theme) -> Div {
     v_flex()
-        .rounded(px(POPOVER_RADIUS))
+        .rounded(dp(POPOVER_RADIUS))
         .bg(theme.bg_1)
         .border_1()
         .border_color(theme.border_2)
@@ -738,8 +755,8 @@ impl RenderOnce for Button {
         };
         // As ui-react's: small is 20 tall with a 14 icon, an icon alone 22 wide; regular 28.
         let (height, width, icon_size) = match self.small {
-            true => (px(20.), px(22.), px(14.)),
-            false => (px(28.), px(28.), px(16.)),
+            true => (dp(20.), dp(22.), dp(14.)),
+            false => (dp(28.), dp(28.), dp(16.)),
         };
         let has_label = self.label.is_some();
         // What a screen reader calls it: its text, or for an icon its tooltip.
@@ -750,11 +767,11 @@ impl RenderOnce for Button {
             .when_some(name, |el, name| el.aria_label(name))
             .flex_none()
             .h(height)
-            .gap(px(if self.small { 4. } else { 6. }))
-            .when(has_label, |el| el.px(px(if self.small { 6. } else { 10. })))
+            .gap(dp(if self.small { 4. } else { 6. }))
+            .when(has_label, |el| el.px(dp(if self.small { 6. } else { 10. })))
             .when(!has_label, |el| el.w(width).justify_center())
-            .rounded(px(4.))
-            .text_size(px(if self.small { 12. } else { 13. }))
+            .rounded(dp(4.))
+            .text_size(dp(if self.small { 12. } else { 13. }))
             .font_weight(gpui::FontWeight::SEMIBOLD)
             .whitespace_nowrap()
             .text_color(fg)
@@ -867,17 +884,17 @@ impl Render for Tooltip {
             .when(under, |el| el.invisible())
             .flex_row()
             .items_center()
-            .mt(px(4.))
-            .max_w(px(240.))
-            .rounded(px(4.))
-            .px(px(8.))
-            .py(px(6.))
-            .text_size(px(12.))
+            .mt(dp(4.))
+            .max_w(dp(240.))
+            .rounded(dp(4.))
+            .px(dp(8.))
+            .py(dp(6.))
+            .text_size(dp(12.))
             .text_color(theme.text_1)
             .font_family(theme.ui_font.clone())
-            .gap(px(7.))
+            .gap(dp(7.))
             // Within the cap, a long one wraps, a path between its characters.
-            .child(div().min_w(px(0.)).child(self.text.clone()))
+            .child(div().min_w_0().child(self.text.clone()))
             .when_some(self.key.clone(), |el, key| {
                 el.child(keycap(&key, theme).flex_none())
             })
@@ -942,21 +959,21 @@ pub fn keycap(text: &str, theme: &Theme) -> Div {
     }
     h_flex()
         .flex_none()
-        .gap(px(3.))
+        .gap(dp(3.))
         .children(keys.into_iter().map(|key| {
             div()
                 .flex_none()
-                .min_w(px(16.))
-                .h(px(16.))
-                .px(px(3.))
+                .min_w(dp(16.))
+                .h(dp(16.))
+                .px(dp(3.))
                 .flex()
                 .items_center()
                 .justify_center()
-                .rounded(px(3.))
+                .rounded(dp(3.))
                 .bg(theme.fill_gray.opacity(0.05))
                 .border_1()
                 .border_color(theme.text_1.opacity(0.16))
-                .text_size(px(11.))
+                .text_size(dp(11.))
                 .font_weight(gpui::FontWeight::SEMIBOLD)
                 .text_color(theme.text_1.opacity(0.6))
                 .child(key)
@@ -965,7 +982,7 @@ pub fn keycap(text: &str, theme: &Theme) -> Div {
 
 /// A small round marker: new work, or something running.
 pub fn dot(color: Hsla) -> Div {
-    div().flex_none().size(px(6.)).rounded_full().bg(color)
+    div().flex_none().size(dp(6.)).rounded_full().bg(color)
 }
 
 /// How long ago `seconds` (since the epoch) was, faint, in a slot as wide as the longest
@@ -974,7 +991,7 @@ pub fn dot(color: Hsla) -> Div {
 pub fn age_column(seconds: Option<i64>, theme: &Theme) -> Div {
     faint(seconds.map(relative_time).unwrap_or_default(), theme)
         .flex_none()
-        .w(px(30.))
+        .w(dp(30.))
         .whitespace_nowrap()
 }
 
@@ -986,8 +1003,8 @@ pub fn meta_count(glyph: Icon, n: usize, color: Hsla, tip: String) -> Option<Sta
         h_flex()
             .id(ElementId::Name(tip.clone()))
             .flex_none()
-            .gap(px(3.))
-            .text_size(px(11.))
+            .gap(dp(3.))
+            .text_size(dp(11.))
             .text_color(color)
             .child(small_icon(glyph).text_color(color))
             .child(n.to_string())
@@ -1040,23 +1057,23 @@ pub fn empty_state(
         .size_full()
         .items_center()
         .justify_center()
-        .px(px(32.))
-        .pb(px(60.))
+        .px(dp(32.))
+        .pb(dp(60.))
         .text_center()
         .child(
             v_flex()
-                .max_w(px(350.))
+                .max_w(dp(350.))
                 .items_center()
-                .gap(px(24.))
+                .gap(dp(24.))
                 .children(drawing.map(|drawing| illustration(drawing, theme, cx)))
                 .child(
                     v_flex()
                         .items_center()
-                        .gap(px(8.))
+                        .gap(dp(8.))
                         .when(!title.is_empty(), |el| {
                             el.child(
                                 div()
-                                    .text_size(px(14.))
+                                    .text_size(dp(14.))
                                     .font_weight(gpui::FontWeight::SEMIBOLD)
                                     .text_color(theme.text_1)
                                     .child(title),
@@ -1072,15 +1089,15 @@ pub fn empty_state(
 pub fn count_badge(count: usize, theme: &Theme) -> Div {
     div()
         .flex_none()
-        .h(px(16.))
-        .min_w(px(16.))
-        .px(px(5.))
+        .h(dp(16.))
+        .min_w(dp(16.))
+        .px(dp(5.))
         .flex()
         .items_center()
         .justify_center()
         .rounded_full()
         .bg(theme.fill_gray.opacity(0.15))
-        .text_size(px(11.))
+        .text_size(dp(11.))
         .font_weight(gpui::FontWeight::SEMIBOLD)
         .text_color(theme.text_1)
         .child(count.to_string())
@@ -1095,8 +1112,8 @@ pub fn resize_handle(pane: Pane, store: Entity<Store>, theme: &Theme) -> impl In
         .absolute()
         .top_0()
         .bottom_0()
-        .right(px(-2.))
-        .w(px(5.))
+        .right(dp(-2.))
+        .w(dp(5.))
         .group("resize-handle")
         .cursor(CursorStyle::ResizeLeftRight)
         // Over the pane's scrollbar, which would otherwise take the press and the drag.
@@ -1107,8 +1124,8 @@ pub fn resize_handle(pane: Pane, store: Entity<Store>, theme: &Theme) -> impl In
                 .absolute()
                 .top_0()
                 .bottom_0()
-                .left(px(2.))
-                .w(px(1.))
+                .left(dp(2.))
+                .w(fixed(1.))
                 .group_hover("resize-handle", |el| el.bg(theme.border_1)),
         )
         .on_drag(pane, |_, _, _, cx| cx.new(|_| EmptyView))
@@ -1128,6 +1145,7 @@ pub fn resize_pane(
     move |event, _, cx| {
         if *event.drag(cx) == pane {
             let width = f32::from(event.event.position.x - event.bounds.left());
+            let width = width / Theme::get(cx).scale;
             store.update(cx, |store, cx| store.set_width(pane, Some(width), cx));
         }
     }

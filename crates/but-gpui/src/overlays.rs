@@ -8,7 +8,7 @@ use anyhow::Result;
 use gpui::{
     Action, AnyElement, App, ClickEvent, Context, DismissEvent, Div, Entity, FocusHandle,
     Focusable as _, ManagedView, MouseButton, Pixels, Point, Role, SharedString, Stateful,
-    Subscription, Window, anchored, deferred, div, prelude::*, px, relative,
+    Subscription, Window, anchored, deferred, div, prelude::*, relative,
 };
 
 use crate::app::AppView;
@@ -17,8 +17,8 @@ use crate::state::{Notice, Overlay, ProjectId, Remap, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, Icon, STATUS_BAR_HEIGHT, button, error_summary, field, h_flex, icon, keycap,
-    list_row, muted, popover, shortcut, small_icon, v_flex,
+    ButtonStyle, Icon, STATUS_BAR_HEIGHT, button, dp, error_summary, field, fixed, h_flex, icon,
+    keycap, list_row, muted, popover, shortcut, small_icon, v_flex,
 };
 
 /// A right-click menu.
@@ -446,27 +446,27 @@ impl AppView {
             let handler = item.handler.clone();
             let line = (item.separated && ix > 0).then(|| {
                 div()
-                    .h(px(1.))
-                    .mx(px(10.))
-                    .my(px(4.))
+                    .h(fixed(1.))
+                    .mx(dp(10.))
+                    .my(dp(4.))
                     .bg(theme.border_3)
                     .into_any_element()
             });
             // As ui-react's menu sections head theirs.
             let heading = item.heading.clone().map(|heading| {
                 div()
-                    .px(px(14.))
-                    .pt(px(4.))
-                    .pb(px(2.))
-                    .text_size(px(12.))
+                    .px(dp(14.))
+                    .pt(dp(4.))
+                    .pb(dp(2.))
+                    .text_size(dp(12.))
                     .text_color(theme.text_3)
                     .child(heading)
                     .into_any_element()
             });
             let row = list_row(("menu-item", ix), false, theme)
-                .mx(px(4.))
-                .gap(px(16.))
-                .text_size(px(13.))
+                .mx(dp(4.))
+                .gap(dp(16.))
+                .text_size(dp(13.))
                 .text_color(if item.danger {
                     theme.danger
                 } else {
@@ -492,7 +492,7 @@ impl AppView {
                 .into_any_element();
             line.into_iter().chain(heading).chain([row])
         });
-        let card = (popover(theme).id("context-menu").min_w(px(180.)).py(px(4.))).children(items);
+        let card = (popover(theme).id("context-menu").min_w(dp(180.)).py(dp(4.))).children(items);
         Some(floating(menu.position, card, cx, |this, _, cx| {
             this.menu = None;
             cx.notify();
@@ -510,18 +510,18 @@ impl AppView {
         let focused = input.focus_handle(cx).is_focused(window);
         let card = popover(theme)
             .id("prompt")
-            .w(px(380.))
+            .w(dp(380.))
             .h_auto()
-            .p(px(16.))
-            .gap(px(12.))
-            .rounded(px(10.))
+            .p(dp(16.))
+            .gap(dp(12.))
+            .rounded(dp(10.))
             .child(
                 v_flex()
-                    .gap(px(2.))
+                    .gap(dp(2.))
                     .children(prompt.place.clone().map(|place| muted(place, theme)))
                     .child(
                         div()
-                            .text_size(px(14.))
+                            .text_size(dp(14.))
                             .font_weight(gpui::FontWeight::SEMIBOLD)
                             .child(prompt.title.clone()),
                     ),
@@ -533,7 +533,7 @@ impl AppView {
             .when_some(prompt.hint.clone(), |el, hint| {
                 el.child(
                     div()
-                        .text_size(px(12.))
+                        .text_size(dp(12.))
                         .text_color(theme.danger)
                         .child(hint),
                 )
@@ -541,7 +541,7 @@ impl AppView {
             .child(
                 h_flex()
                     .justify_end()
-                    .gap(px(8.))
+                    .gap(dp(8.))
                     .child(
                         button("prompt-cancel", "Cancel")
                             .style(ButtonStyle::Ghost)
@@ -562,7 +562,7 @@ impl AppView {
                     ),
             );
         let backdrop = backdrop("prompt-backdrop", card, cx, Self::cancel_prompt);
-        Some(backdrop.items_start().pt(px(120.)).into_any_element())
+        Some(backdrop.items_start().pt(dp(120.)).into_any_element())
     }
 
     /// Snackbars at the bottom centre, error cards at the bottom right.
@@ -584,14 +584,14 @@ impl AppView {
                             .id(("snackbar", id))
                             .role(Role::Alert)
                             .aria_label(message.clone())
-                            .h(px(32.))
-                            .pl(px(12.))
-                            .pr(px(if undo.is_some() { 4. } else { 12. }))
-                            .gap(px(8.))
-                            .rounded(px(8.))
+                            .h(dp(32.))
+                            .pl(dp(12.))
+                            .pr(dp(if undo.is_some() { 4. } else { 12. }))
+                            .gap(dp(8.))
+                            .rounded(dp(8.))
                             .bg(theme.snackbar_bg)
                             .text_color(theme.snackbar_text)
-                            .text_size(px(12.))
+                            .text_size(dp(12.))
                             .shadow_lg()
                             // Over a modal's backdrop, which a click would reach and close it.
                             .occlude()
@@ -599,16 +599,16 @@ impl AppView {
                             .when_some(undo.clone(), |el, (project, snapshot)| {
                                 el.child(
                                     div()
-                                        .w(px(1.))
-                                        .h(px(16.))
+                                        .w(fixed(1.))
+                                        .h(dp(16.))
                                         .bg(theme.snackbar_text.opacity(0.2)),
                                 )
                                 .child(
                                     h_flex()
                                         .id(("undo", id))
-                                        .h(px(24.))
-                                        .px(px(8.))
-                                        .rounded(px(5.))
+                                        .h(dp(24.))
+                                        .px(dp(8.))
+                                        .rounded(dp(5.))
                                         .font_weight(gpui::FontWeight::SEMIBOLD)
                                         .hover(|el| el.bg(theme.snackbar_text.opacity(0.12)))
                                         .child("Undo")
@@ -647,20 +647,20 @@ impl AppView {
                             .role(Role::Alert)
                             .aria_label(title.clone())
                             .aria_description(detail.clone())
-                            .w(px(320.))
-                            .p(px(14.))
-                            .gap(px(8.))
+                            .w(dp(320.))
+                            .p(dp(14.))
+                            .gap(dp(8.))
                             .occlude()
                             .child(
                                 h_flex()
                                     .items_start()
-                                    .gap(px(8.))
-                                    .child(icon(Icon::Warning).text_color(theme.danger).mt(px(2.)))
+                                    .gap(dp(8.))
+                                    .child(icon(Icon::Warning).text_color(theme.danger).mt(dp(2.)))
                                     .child(
                                         // A long title wraps rather than running off the card.
                                         div()
                                             .flex_1()
-                                            .min_w(px(0.))
+                                            .min_w_0()
                                             .font_weight(gpui::FontWeight::SEMIBOLD)
                                             .child(title.clone()),
                                     ),
@@ -668,7 +668,7 @@ impl AppView {
                             .child(muted(error_summary(detail), theme).line_clamp(4))
                             .child(
                                 h_flex()
-                                    .gap(px(6.))
+                                    .gap(dp(6.))
                                     .justify_end()
                                     // At most one action beside Dismiss: a card with a way
                                     // forward is advice, with no raw error to copy.
@@ -703,9 +703,9 @@ impl AppView {
             .child(
                 v_flex()
                     .absolute()
-                    .bottom(px(STATUS_BAR_HEIGHT + 12.))
-                    .right(px(16.))
-                    .gap(px(8.))
+                    .bottom(dp(STATUS_BAR_HEIGHT + 12.))
+                    .right(dp(16.))
+                    .gap(dp(8.))
                     .children(errors),
             )
             .children(snackbar.map(|snackbar| {
@@ -716,7 +716,7 @@ impl AppView {
                 };
                 h_flex()
                     .absolute()
-                    .bottom(px(STATUS_BAR_HEIGHT + footer + 16.))
+                    .bottom(dp(STATUS_BAR_HEIGHT + footer + 16.))
                     .left_0()
                     .right_0()
                     .justify_center()
@@ -761,7 +761,7 @@ pub(crate) fn floating(
         div().absolute().inset_0().occlude().child(
             anchored()
                 .position(position)
-                .snap_to_window_with_margin(px(8.))
+                .snap_to_window_with_margin(fixed(8.))
                 .child(card.on_mouse_down_out(close)),
         ),
     )

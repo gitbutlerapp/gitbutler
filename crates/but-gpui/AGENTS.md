@@ -115,7 +115,7 @@ unseen is what a laptop's battery pays for.
   SVG's colours but loads asynchronously, and an image that arrives late never repaints a
   cached view. Release image textures with `cx.drop_image`.
 - Taffy stretches only children whose height is `auto`. In a row with only a min-height,
-  `h_full()` is 0, so use `self_stretch()`. Flex text needs `min_w(px(0.))` to shrink or wrap.
+  `h_full()` is 0, so use `self_stretch()`. Flex text needs `min_w_0()` to shrink or wrap.
   `flex_1` has a zero basis and lets a name shrink to nothing, so use `flex_grow(1.)` and give
   lesser items `flex_shrink(1000.)`. Margins collapse through a card's background, so use padding.
 - A `cx.notify()` during prepaint is dropped, so defer it. `window.refresh()` does nothing during
@@ -242,6 +242,19 @@ anything else.
 - Run `git update-index --really-refresh` in every repository copied or extracted for a run. A
   fresh copy leaves its index entries racily clean, so status hashes every file on every read,
   which tripled the CPU an agent's writes cost.
+
+## Sizes
+
+- Give every size in `ui::dp(n)`: `n` pixels as designed, so ui-react's numbers go in as they
+  are. It is in rems, and the window's rem follows the interface scale (⌘+ and ⌘−), so the
+  whole app zooms as a browser does. Clippy refuses plain `gpui::px`; `ui::fixed` is for what
+  must stay put, as a hairline, the room for the traffic lights, the scrollbar or window bounds.
+- Sizes the app keeps for layout, as pane widths and measured header heights, are in design
+  pixels too. Divide what GPUI measures by `Theme::scale` before keeping it, as `measured` and
+  `resize_pane` do, or `dp` scales it twice. Where code needs real `Pixels`, as for scrolling,
+  pointer maths or a list's row estimate, use `Theme::scaled`.
+- A `ListState` keeps its rows' heights until its width changes, so `AppView::set_ui_scale`
+  remeasures the lists. A new list needs the same.
 
 ## Conventions
 

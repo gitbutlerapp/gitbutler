@@ -9,7 +9,7 @@ use std::sync::Arc;
 use gpui::{
     AnyElement, App, Bounds, ClickEvent, Context, Div, Entity, FocusHandle, Focusable as _,
     MouseDownEvent, Pixels, Point, SharedString, Stateful, UniformListScrollHandle, WeakEntity,
-    Window, div, prelude::*, px, uniform_list,
+    Window, div, prelude::*, uniform_list,
 };
 
 use super::{Detail, machine};
@@ -23,9 +23,9 @@ use crate::ui::person::{author_avatar, byline};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title,
-    empty_state, faint, field, fold_row, h_flex, icon, icon_button, plural, quiet, section_label,
-    side_row, small_icon, v_flex,
+    Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dp,
+    empty_state, faint, field, fixed, fold_row, h_flex, icon, icon_button, plural, quiet,
+    section_label, side_row, small_icon, v_flex,
 };
 
 impl Detail {
@@ -153,26 +153,26 @@ impl Detail {
             .tooltip("Toggle navigator")
             .dispatch(&crate::app::ToggleNavigator);
         h_flex()
-            .h(px(HEADER_HEIGHT))
+            .h(dp(HEADER_HEIGHT))
             .flex_none()
-            .px(px(12.))
-            .when(self.beside_traffic_lights, |el| el.pl(px(84.)))
-            .gap(px(12.))
+            .px(dp(12.))
+            .when(self.beside_traffic_lights, |el| el.pl(fixed(84.)))
+            .gap(dp(12.))
             .bg(theme.bg_2)
             .border_b_1()
             .border_color(theme.border_3)
             .text_color(theme.text_2)
             .child(toggle)
-            .child(div().flex_none().w(px(1.)).h(px(16.)).bg(theme.border_3))
+            .child(div().flex_none().w(fixed(1.)).h(dp(16.)).bg(theme.border_3))
             .child(
-                h_flex().flex_1().min_w(px(0.)).gap(px(6.)).children(
+                h_flex().flex_1().min_w_0().gap(dp(6.)).children(
                     crumbs
                         .into_iter()
                         .enumerate()
                         .flat_map(|(ix, (crumb, target))| {
                             let sep = (ix > 0).then(|| {
                                 small_icon(Icon::ChevronRight)
-                                    .size(px(10.))
+                                    .size(dp(10.))
                                     .text_color(theme.text_3)
                                     .into_any_element()
                             });
@@ -269,8 +269,8 @@ impl Detail {
         let focused = input.focus_handle(cx).is_focused(window);
         h_flex()
             .flex_none()
-            .m(px(10.))
-            .gap(px(4.))
+            .m(dp(10.))
+            .gap(dp(4.))
             .child(field(input, focused, Theme::get(cx)).flex_1())
     }
 
@@ -509,8 +509,8 @@ impl Detail {
             .child(
                 h_flex()
                     .items_start()
-                    .min_w(px(0.))
-                    .gap(px(6.))
+                    .min_w_0()
+                    .gap(dp(6.))
                     .child(title_text(commit_title(title)))
                     .when(!body.is_empty(), |el| {
                         let open = self.message_open;
@@ -560,7 +560,7 @@ impl Detail {
             });
         let rewording = (self.rewording.as_ref()).filter(|(key, ..)| *key == commit.key);
         let main = v_flex()
-            .gap(px(10.))
+            .gap(dp(10.))
             .map(|el| match rewording {
                 Some((_, input, _)) => el.child(self.reword_editor(input, theme, window, cx)),
                 None => el
@@ -569,12 +569,12 @@ impl Detail {
                     .when(self.message_open && !body.is_empty(), |el| {
                         el.child(
                             div()
-                                .mt(px(2.))
-                                .mb(px(6.))
-                                .max_w(px(580.))
+                                .mt(dp(2.))
+                                .mb(dp(6.))
+                                .max_w(dp(580.))
                                 .font_family(theme.mono_font.clone())
-                                .text_size(px(12.))
-                                .line_height(px(19.))
+                                .text_size(dp(12.))
+                                .line_height(dp(19.))
                                 .child(body),
                         )
                     }),
@@ -597,12 +597,12 @@ impl Detail {
         let hover = theme.text_2.blend(theme.text_1.opacity(0.5));
         h_flex()
             .id("commit-sha")
-            .gap(px(4.))
+            .gap(dp(4.))
             .group("commit-sha")
             .hover(move |el| el.text_color(hover))
             .child(
                 icon(Icon::Hash)
-                    .size(px(14.))
+                    .size(dp(14.))
                     .text_color(theme.text_2.opacity(0.7))
                     .group_hover("commit-sha", move |el| el.text_color(hover.opacity(0.7))),
             )
@@ -650,7 +650,7 @@ impl Detail {
                 Some(remote) => format!("only on {remote}"),
                 None => "only on the remote".to_owned(),
             }));
-        let main = v_flex().gap(px(10.)).child(title).child(meta);
+        let main = v_flex().gap(dp(10.)).child(title).child(meta);
         let target = Selection::Upstream(project.clone(), ref_name.map(str::to_owned), id);
         let tabs = (self.selected_review(cx)).map(|review| self.review_tabs(review, theme, cx));
         self.page_header(main, target, None, tabs, theme, cx)
@@ -690,7 +690,7 @@ impl Detail {
         tabs: Option<AnyElement>,
         theme: &Theme,
     ) -> AnyElement {
-        let menu = h_flex().h(px(22.)).gap(px(8.)).children(extra).child(menu);
+        let menu = h_flex().h(dp(22.)).gap(dp(8.)).children(extra).child(menu);
         // The diff beside the files starts below this, however tall it's drawn, and the rule
         // along its bottom, which this, inside the header, doesn't cover.
         let measure = measured(&self.header_height, &self.app, |bounds| {
@@ -699,17 +699,17 @@ impl Detail {
         v_flex()
             .relative()
             .flex_none()
-            .gap(px(10.))
-            .px(px(16.))
-            .pt(px(16.))
-            .pb(px(if tabs.is_some() { 0. } else { 16. }))
+            .gap(dp(10.))
+            .px(dp(16.))
+            .pt(dp(16.))
+            .pb(dp(if tabs.is_some() { 0. } else { 16. }))
             .border_b_1()
             .border_color(theme.border_3)
             .child(
                 h_flex()
                     .items_start()
-                    .gap(px(16.))
-                    .child(main.flex_1().min_w(px(0.)))
+                    .gap(dp(16.))
+                    .child(main.flex_1().min_w_0())
                     .child(menu),
             )
             .children(tabs)
@@ -760,7 +760,7 @@ impl Detail {
                 }),
         });
         let main = v_flex()
-            .gap(px(10.))
+            .gap(dp(10.))
             .child(page_title(Icon::Branch, theme).child(title_text(name.to_owned())))
             .child(meta);
         let target = Selection::Branch(project.clone(), ref_name.to_owned());
@@ -791,12 +791,12 @@ impl Detail {
             }))
             .child(
                 meta_item(Icon::Branch, theme)
-                    .min_w(px(0.))
-                    .child(div().min_w(px(0.)).truncate().child(names.join(" ← "))),
+                    .min_w_0()
+                    .child(div().min_w_0().truncate().child(names.join(" ← "))),
             );
         let title = format!("Stack of {}", names.len());
         let main = v_flex()
-            .gap(px(10.))
+            .gap(dp(10.))
             .child(page_title(Icon::Stack, theme).child(title_text(title)))
             .child(meta);
         let target = Selection::Stack(project.clone(), bottom.to_owned());
@@ -813,17 +813,17 @@ impl Detail {
     ) -> AnyElement {
         let focused = input.focus_handle(cx).is_focused(window);
         v_flex()
-            .gap(px(8.))
+            .gap(dp(8.))
             .child(
                 field(input, focused, theme)
-                    .px(px(10.))
-                    .py(px(8.))
-                    .rounded(px(6.))
-                    .line_height(px(19.)),
+                    .px(dp(10.))
+                    .py(dp(8.))
+                    .rounded(dp(6.))
+                    .line_height(dp(19.)),
             )
             .child(
                 h_flex()
-                    .gap(px(8.))
+                    .gap(dp(8.))
                     .justify_end()
                     .child(faint("⌘↩ to save, esc to cancel", theme).flex_1())
                     .child({
@@ -958,9 +958,9 @@ pub(super) const COMMIT_HEADER_HEIGHT: f32 = 85.;
 /// The title row of a page's header: `icon`, then the title, which a caller adds, wrapping
 /// rather than hiding its end.
 pub(super) fn page_title(icon_name: Icon, theme: &Theme) -> Div {
-    h_flex().items_start().gap(px(8.)).child(
+    h_flex().items_start().gap(dp(8.)).child(
         div()
-            .h(px(22.))
+            .h(dp(22.))
             .flex()
             .items_center()
             .child(icon(icon_name).text_color(theme.text_1)),
@@ -970,9 +970,9 @@ pub(super) fn page_title(icon_name: Icon, theme: &Theme) -> Div {
 /// A page's title, as its header sets it.
 pub(super) fn title_text(text: impl IntoElement) -> Div {
     div()
-        .min_w(px(0.))
-        .line_height(px(22.))
-        .text_size(px(16.))
+        .min_w_0()
+        .line_height(dp(22.))
+        .text_size(dp(16.))
         .font_weight(gpui::FontWeight::SEMIBOLD)
         .child(text)
 }
@@ -980,18 +980,18 @@ pub(super) fn title_text(text: impl IntoElement) -> Div {
 /// The line under a page's title saying what it is.
 pub(super) fn meta_row(theme: &Theme) -> Div {
     h_flex()
-        .h(px(20.))
-        .gap(px(12.))
-        .text_size(px(13.))
+        .h(dp(20.))
+        .gap(dp(12.))
+        .text_size(dp(13.))
         .text_color(theme.text_2)
 }
 
 /// One of a header's facts in its `meta_row`: its glyph at 0.7 of the line's ink, as
 /// ui-react's meta glyphs are, then what's added after.
 pub(super) fn meta_item(glyph: Icon, theme: &Theme) -> Div {
-    h_flex().gap(px(3.)).child(
+    h_flex().gap(dp(3.)).child(
         icon(glyph)
-            .size(px(14.))
+            .size(dp(14.))
             .text_color(theme.text_2.opacity(0.7)),
     )
 }
@@ -1000,8 +1000,8 @@ pub(super) fn meta_item(glyph: Icon, theme: &Theme) -> Div {
 pub(super) fn side_header(theme: &Theme) -> Div {
     v_flex()
         .flex_none()
-        .p(px(16.))
-        .gap(px(6.))
+        .p(dp(16.))
+        .gap(dp(6.))
         .border_b_1()
         .border_color(theme.border_3)
 }
@@ -1015,17 +1015,17 @@ fn footer(
 ) -> AnyElement {
     h_flex()
         .flex_none()
-        .h(px(super::FOOTER_HEIGHT))
-        .px(px(12.))
-        .gap(px(8.))
+        .h(dp(super::FOOTER_HEIGHT))
+        .px(dp(12.))
+        .gap(dp(8.))
         .border_t_1()
         .border_color(theme.border_3)
         .child(
             div()
                 .flex_1()
-                .min_w(px(0.))
+                .min_w_0()
                 .truncate()
-                .text_size(px(12.))
+                .text_size(dp(12.))
                 .text_color(theme.text_3)
                 .child(label),
         )
@@ -1033,8 +1033,8 @@ fn footer(
         .into_any_element()
 }
 
-/// What measures the element it's drawn over into `cell`, as `measure` reads its bounds, and
-/// redraws the window when that changed: after this frame, as a view told to draw while one
+/// What measures the element it's drawn over into `cell`, as `measure` reads its bounds, in
+/// pixels as designed, and redraws the window when that changed: after this frame, as a view told to draw while one
 /// is drawing isn't drawn again.
 pub(super) fn measured(
     cell: &Rc<Cell<f32>>,
@@ -1044,7 +1044,7 @@ pub(super) fn measured(
     let (cell, app) = (cell.clone(), app.clone());
     gpui::canvas(
         move |bounds, _, cx| {
-            let drawn = measure(bounds);
+            let drawn = measure(bounds) / Theme::get(cx).scale;
             if cell.replace(drawn) != drawn {
                 cx.defer(move |cx| {
                     app.update(cx, |_, cx| cx.notify()).ok();
@@ -1101,11 +1101,11 @@ pub(super) fn side_list(
 pub(super) fn list_heading(text: impl IntoElement, theme: &Theme) -> AnyElement {
     section_label(text, theme)
         .w_full()
-        .h(px(ROW_HEIGHT))
+        .h(dp(ROW_HEIGHT))
         .flex()
         .items_end()
-        .px(px(14.))
-        .pb(px(4.))
+        .px(dp(14.))
+        .pb(dp(4.))
         .into_any_element()
 }
 
@@ -1119,7 +1119,7 @@ pub(super) fn list_empty(
 ) -> AnyElement {
     div()
         .flex_1()
-        .min_h(px(0.))
+        .min_h_0()
         .child(empty_state(Some(drawing), title, detail, theme, cx))
         .into_any_element()
 }
@@ -1241,7 +1241,8 @@ impl Detail {
             .map(|(_, row)| row)
             .collect();
         let rest = everyone - rows.len();
-        let open_height = (window.viewport_size().height * 0.3).clamp(px(190.), px(380.));
+        let open_height =
+            (window.viewport_size().height * 0.3).clamp(theme.scaled(190.), theme.scaled(380.));
         let clear = anyone_picked.then(|| {
             button("people-clear", "Clear")
                 .small()
@@ -1263,13 +1264,13 @@ impl Detail {
         // It gives way to the list over it in a short window, down to its heading, a row
         // and its fold, its rows scrolling within it; one or two people need no more room.
         v_flex()
-            .when(everyone > 2, |el| el.min_h(px(120.)))
-            .m(px(12.))
-            .py(px(8.))
-            .gap(px(2.))
+            .when(everyone > 2, |el| el.min_h(dp(120.)))
+            .m(dp(12.))
+            .py(dp(8.))
+            .gap(dp(2.))
             .border_1()
             .border_color(theme.border_3)
-            .rounded(px(8.))
+            .rounded(dp(8.))
             .track_focus(&self.people_focus)
             .on_action(cx.listener({
                 let step = step.clone();
@@ -1283,15 +1284,15 @@ impl Detail {
             .child(
                 h_flex()
                     .flex_none()
-                    .h(px(22.))
-                    .px(px(14.))
-                    .gap(px(8.))
+                    .h(dp(22.))
+                    .px(dp(14.))
+                    .gap(dp(8.))
                     .child(section_label("People", theme).flex_grow(1.))
                     .child(faint(counted, theme))
                     .children(clear),
             )
             .when(everyone == 0, |el| {
-                el.child(faint(empty, theme).px(px(14.)).py(px(4.)))
+                el.child(faint(empty, theme).px(dp(14.)).py(dp(4.)))
             })
             // Open, a third of the window tall or so, leaving the list over it room, the rest
             // a scroll away; it sits at the bottom of its column, so its fold stays under the
@@ -1299,12 +1300,12 @@ impl Detail {
             .child(
                 v_flex()
                     .relative()
-                    .min_h(px(0.))
+                    .min_h_0()
                     .child(
                         v_flex()
                             .id("people-rows")
-                            .min_h(px(0.))
-                            .gap(px(2.))
+                            .min_h_0()
+                            .gap(dp(2.))
                             .when(open, |el| el.max_h(open_height))
                             .overflow_y_scroll()
                             .track_scroll(&self.people_scroll)
@@ -1329,13 +1330,13 @@ impl Detail {
 /// An overview's title, beside a list until something's opened: what it shows, and over what.
 pub(super) fn overview_title(title: &'static str, scope: String, theme: &Theme) -> Div {
     h_flex()
-        .px(px(14.))
-        .pb(px(4.))
-        .gap(px(8.))
+        .px(dp(14.))
+        .pb(dp(4.))
+        .gap(dp(8.))
         .child(
             div()
                 .flex_1()
-                .text_size(px(15.))
+                .text_size(dp(15.))
                 .font_weight(gpui::FontWeight::SEMIBOLD)
                 .child(title),
         )
@@ -1349,24 +1350,24 @@ pub(super) fn overview_tiles(
     theme: &Theme,
 ) -> Div {
     h_flex()
-        .gap(px(8.))
-        .px(px(6.))
+        .gap(dp(8.))
+        .px(dp(6.))
         .children(tiles.into_iter().enumerate().map(|(ix, (label, n, tip))| {
             v_flex()
                 .id(("overview-tile", ix))
                 .flex_1()
-                .min_w(px(0.))
-                .px(px(12.))
-                .py(px(10.))
-                .gap(px(2.))
+                .min_w_0()
+                .px(dp(12.))
+                .py(dp(10.))
+                .gap(dp(2.))
                 .border_1()
                 .border_color(theme.border_3)
-                .rounded(px(8.))
+                .rounded(dp(8.))
                 .tooltip(Tooltip::text(tip))
                 .child(faint(label, theme).truncate())
                 .child(
                     div()
-                        .text_size(px(22.))
+                        .text_size(dp(22.))
                         .font_weight(gpui::FontWeight::SEMIBOLD)
                         .child(n),
                 )
@@ -1380,7 +1381,7 @@ pub(super) const OVERVIEW_TIME_WIDTH: f32 = 40.;
 
 /// One of an overview row's columns on the right: `text`, faint and flush right, `width` wide.
 pub(super) fn overview_column(text: String, width: f32, theme: &Theme) -> Div {
-    faint(text, theme).flex_none().w(px(width)).text_right()
+    faint(text, theme).flex_none().w(dp(width)).text_right()
 }
 
 /// `n` with its thousands set apart, as 1,434 reads more easily than 1434.
@@ -1403,10 +1404,10 @@ pub(super) fn overview_heading(
     theme: &Theme,
 ) -> Div {
     h_flex()
-        .mt(px(14.))
-        .px(px(14.))
-        .pb(px(2.))
-        .gap(px(8.))
+        .mt(dp(14.))
+        .px(dp(14.))
+        .pb(dp(2.))
+        .gap(dp(8.))
         .child(section_label(title, theme).flex_grow(1.))
         .child(detail)
 }
@@ -1434,30 +1435,24 @@ fn person_row(
     };
     side_row(id, picked, solid, theme)
         .h_auto()
-        .py(px(5.))
+        .py(dp(5.))
         .child(author_avatar(name, email, 20., theme))
         .child(
             v_flex()
                 .flex_1()
-                .min_w(px(0.))
-                .gap(px(3.))
+                .min_w_0()
+                .gap(dp(3.))
                 .child(
                     h_flex()
-                        .gap(px(8.))
-                        .child(
-                            div()
-                                .flex_1()
-                                .min_w(px(0.))
-                                .truncate()
-                                .child(name.to_owned()),
-                        )
+                        .gap(dp(8.))
+                        .child(div().flex_1().min_w_0().truncate().child(name.to_owned()))
                         .child(quiet(faint(n.to_string(), theme), on, theme)),
                 )
                 .child(
-                    div().h(px(4.)).rounded(px(2.)).bg(track).child(
+                    div().h(dp(4.)).rounded(dp(2.)).bg(track).child(
                         div()
                             .h_full()
-                            .rounded(px(2.))
+                            .rounded(dp(2.))
                             .w(gpui::relative(n as f32 / most.max(1) as f32))
                             .bg(bar),
                     ),

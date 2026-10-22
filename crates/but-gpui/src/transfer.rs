@@ -4,13 +4,13 @@
 use std::sync::Arc;
 
 use gpui::{
-    App, Context, Div, Entity, Modifiers, Pixels, Point, SharedString, Window, div, prelude::*, px,
+    App, Context, Div, Entity, Modifiers, Pixels, Point, SharedString, Window, div, prelude::*,
 };
 
 use crate::backend::{self, CommitId, Destination, Selected, short_ref};
 use crate::state::{Cut, NewAt, Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
-use crate::ui::{Icon, popover, small_icon};
+use crate::ui::{Icon, dp, popover, small_icon};
 
 /// What a drop or paste does. Commits move, squash and uncommit as many as were picked.
 pub enum Transfer {
@@ -608,13 +608,13 @@ pub fn drag_pill(
     let pill = popover(theme)
         .flex_row()
         .items_center()
-        .gap(px(8.))
-        .px(px(10.))
-        .h(px(28.))
-        .max_w(px(320.))
+        .gap(dp(8.))
+        .px(dp(10.))
+        .h(dp(28.))
+        .max_w(dp(320.))
         .border_color(theme.pop)
         .font_family(theme.ui_font.clone())
-        .text_size(px(12.))
+        .text_size(dp(12.))
         .text_color(theme.text_1)
         .child(small_icon(glyph).text_color(theme.pop))
         .child(div().truncate().child(label))
@@ -622,8 +622,8 @@ pub fn drag_pill(
             el.child(div().flex_none().text_color(theme.text_2).child(hint))
         });
     div()
-        .pl(offset.x + px(14.))
-        .pt(offset.y + px(16.))
+        .pl(offset.x + theme.scaled(14.))
+        .pt(offset.y + theme.scaled(16.))
         .child(pill)
 }
 

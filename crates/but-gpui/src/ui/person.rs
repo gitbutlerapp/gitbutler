@@ -7,10 +7,10 @@ use std::fmt::Write;
 use std::sync::{Arc, OnceLock};
 
 use gpui::{
-    App, Asset, Div, ImageCacheError, ImageSource, SharedString, Window, div, img, prelude::*, px,
-    svg,
+    App, Asset, Div, ImageCacheError, ImageSource, SharedString, Window, div, img, prelude::*, svg,
 };
 
+use super::dp;
 use crate::backend::Agent;
 use crate::theme::Theme;
 
@@ -25,7 +25,7 @@ pub fn person_avatar(seed: &str, size: f32, theme: &Theme) -> Div {
     let [ground, shade] = theme.person[hash(seed) as usize % theme.person.len()];
     let pattern = hash(&format!("{seed}#glitch"));
     div()
-        .size(px(size))
+        .size(dp(size))
         .flex_none()
         .rounded_full()
         .bg(ground)
@@ -73,8 +73,8 @@ pub fn byline_avatar(
     person.child(
         author_avatar(&agent.name, &agent.email, small, theme)
             .absolute()
-            .right(px(-small / 3.))
-            .bottom(px(-small / 3.))
+            .right(dp(-small / 3.))
+            .bottom(dp(-small / 3.))
             .border_1()
             .border_color(theme.bg_1),
     )
@@ -84,7 +84,7 @@ pub fn byline_avatar(
 /// "Ada with Claude at" `time`.
 pub fn byline(name: &str, email: &str, agent: Option<&Agent>, time: i64, theme: &Theme) -> Div {
     super::h_flex()
-        .gap(px(8.))
+        .gap(dp(8.))
         .child(byline_avatar(name, email, agent, 16., theme))
         .child(format!(
             "{} at {}",

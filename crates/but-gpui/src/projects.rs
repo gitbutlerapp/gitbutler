@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Entity, Focusable as _, PathPromptOptions, Pixels, Point,
-    Subscription, Window, actions, div, prelude::*, px,
+    Subscription, Window, actions, div, prelude::*,
 };
 
 use crate::app::AppView;
@@ -16,7 +16,7 @@ use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::emoji::{self, ProjectIcon};
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{Tooltip, faint, field, popover, section_label};
+use crate::ui::{Tooltip, dp, faint, field, popover, section_label};
 
 actions!(projects, [CloneRepository]);
 
@@ -257,12 +257,12 @@ impl AppView {
                     mark: AnyElement| {
             div()
                 .id(id)
-                .size(px(CELL))
+                .size(dp(CELL))
                 .flex()
                 .items_center()
                 .justify_center()
-                .rounded(px(4.))
-                .text_size(px(18.))
+                .rounded(dp(4.))
+                .text_size(dp(18.))
                 .hover(|el| el.bg(theme.hover()))
                 .when(current == stored, |el| el.bg(theme.selected_unfocused()))
                 .tooltip(Tooltip::text(name))
@@ -273,15 +273,15 @@ impl AppView {
         };
         let row = |cells: Vec<_>| {
             div()
-                .w(px(7. * CELL + 6. * 4.))
+                .w(dp(7. * CELL + 6. * 4.))
                 .flex()
                 .flex_wrap()
-                .gap(px(4.))
+                .gap(dp(4.))
                 .children(cells)
         };
         let colour_cells: Vec<_> = (colours.iter().enumerate())
             .map(|(ix, colour)| {
-                let mark = ProjectIcon::Glyph(colour).render(px(18.), theme);
+                let mark = ProjectIcon::Glyph(colour).render(theme.scaled(18.), theme);
                 cell(("colour", ix), colour.name, colour.stored(), mark)
             })
             .collect();
@@ -299,14 +299,14 @@ impl AppView {
         let grid = div()
             .id("emoji-grid")
             // Five rows, then it scrolls.
-            .max_h(px(5. * CELL + 4. * 4.))
+            .max_h(dp(5. * CELL + 4. * 4.))
             .overflow_y_scroll()
             .child(row(emoji_cells));
         let focused = picker.search.focus_handle(cx).is_focused(window);
         let card = popover(theme)
             .id("icon-picker")
-            .p(px(8.))
-            .gap(px(8.))
+            .p(dp(8.))
+            .gap(dp(8.))
             .child(field(&picker.search, focused, theme))
             .when(!colours.is_empty(), |el| {
                 el.child(section_label("Colours", theme))

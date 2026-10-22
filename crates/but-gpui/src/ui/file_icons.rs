@@ -5,7 +5,9 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
 
-use gpui::{App, ImageSource, Img, RenderImage, SvgRenderer, img, prelude::*, px};
+use gpui::{App, ImageSource, Img, RenderImage, SvgRenderer, img, prelude::*};
+
+use super::dp;
 
 include!(concat!(env!("OUT_DIR"), "/file_icons.rs"));
 
@@ -48,7 +50,7 @@ pub fn file_icon(path: &str, cx: &App) -> Img {
         let draw = || draw(&cx.svg_renderer(), icon);
         drawn.entry(icon).or_insert_with(draw).clone()
     });
-    img(ImageSource::Render(drawn)).size(px(14.)).flex_none()
+    img(ImageSource::Render(drawn)).size(dp(14.)).flex_none()
 }
 
 /// Mark `icon` drawn as `img` draws an SVG asset.

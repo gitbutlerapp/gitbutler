@@ -89,10 +89,11 @@ pub fn run(embedded: Option<Embedded>) {
     dev::mark_launch();
     use gpui::{
         App, Bounds, Menu, MenuItem, QuitMode, SystemMenuType, TitlebarOptions, WindowBounds,
-        WindowOptions, point, prelude::*, px, size,
+        WindowOptions, point, prelude::*, size,
     };
 
     use crate::app::AppView;
+    use crate::ui::fixed;
 
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -146,6 +147,11 @@ pub fn run(embedded: Option<Embedded>) {
                     MenuItem::action("Add Project…", app::AddProject),
                     MenuItem::action("Clone Repository…", projects::CloneRepository),
                 ]),
+                Menu::new("View").items([
+                    MenuItem::action("Actual Size", app::ActualSize),
+                    MenuItem::action("Zoom In", app::ZoomIn),
+                    MenuItem::action("Zoom Out", app::ZoomOut),
+                ]),
                 Menu::new("Window").items([
                     MenuItem::action("Minimize", app::Minimize),
                     MenuItem::action("Zoom", app::Zoom),
@@ -162,7 +168,10 @@ pub fn run(embedded: Option<Embedded>) {
 
             let (display_id, bounds) = match state::saved_window_place(cx) {
                 Some((display, bounds)) => (Some(display), bounds),
-                None => (None, Bounds::centered(None, size(px(1360.), px(860.)), cx)),
+                None => (
+                    None,
+                    Bounds::centered(None, size(fixed(1360.), fixed(860.)), cx),
+                ),
             };
             let window = cx
                 .open_window(
@@ -172,9 +181,9 @@ pub fn run(embedded: Option<Embedded>) {
                         titlebar: Some(TitlebarOptions {
                             title: Some("GitButler".into()),
                             appears_transparent: true,
-                            traffic_light_position: Some(point(px(14.), px(15.))),
+                            traffic_light_position: Some(point(fixed(14.), fixed(15.))),
                         }),
-                        window_min_size: Some(size(px(900.), px(500.))),
+                        window_min_size: Some(size(fixed(900.), fixed(500.))),
                         ..Default::default()
                     },
                     |window, cx| cx.new(|cx| AppView::new(window, cx)),

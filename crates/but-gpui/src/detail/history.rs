@@ -4,7 +4,7 @@
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, MouseButton, MouseDownEvent, Pixels, Point, Window, div,
-    prelude::*, px,
+    prelude::*,
 };
 
 use super::Detail;
@@ -22,7 +22,7 @@ use crate::ui::text_input::TextInput;
 use but_oplog::legacy::OperationKind;
 
 use crate::ui::{
-    Icon, Tooltip, clock_time, commit_title, day_label, error_summary, faint, h_flex, icon,
+    Icon, Tooltip, clock_time, commit_title, day_label, dp, error_summary, faint, h_flex, icon,
     icon_button, list_row, loading_state, local_day, plural, side_row, small_icon, v_flex,
 };
 
@@ -599,14 +599,14 @@ impl Detail {
         let lines = (operation.changes.iter().take(LISTED).enumerate())
             .map(|(ix, change)| self.change_line(ix, project, operation.kind, change, theme, cx));
         let main = v_flex()
-            .gap(px(10.))
+            .gap(dp(10.))
             .child(
                 page_title(describe(operation.kind).0, theme)
                     .child(title_text(operation.title.clone())),
             )
             .child(meta)
             .when(!operation.changes.is_empty(), |el| {
-                el.child(v_flex().gap(px(4.)).children(lines).when(more > 0, |el| {
+                el.child(v_flex().gap(dp(4.)).children(lines).when(more > 0, |el| {
                     el.child(faint(format!("and {more} more"), theme))
                 }))
             });
@@ -620,7 +620,7 @@ impl Detail {
             v_flex()
                 .flex_1()
                 .h_full()
-                .min_w(px(0.))
+                .min_w_0()
                 .child(self.header_frame(main, menu, None, None, theme))
                 .into_any_element(),
         )
@@ -719,12 +719,12 @@ impl Detail {
         let (store, project) = (self.store.clone(), project.clone());
         h_flex()
             .id(("operation-change", ix))
-            .min_w(px(0.))
-            .gap(px(8.))
-            .text_size(px(13.))
+            .min_w_0()
+            .gap(dp(8.))
+            .text_size(dp(13.))
             .child(small_icon(glyph).text_color(color))
-            .child(div().min_w(px(0.)).truncate().child(text))
-            .child(faint(note, theme).flex_none().max_w(px(320.)).truncate())
+            .child(div().min_w_0().truncate().child(text))
+            .child(faint(note, theme).flex_none().max_w(dp(320.)).truncate())
             .when_some(here, |el, id| {
                 el.hover(|el| el.text_color(theme.blue))
                     .tooltip(Tooltip::text("Show this commit"))
@@ -866,7 +866,7 @@ impl Detail {
                                 .child(
                                     div()
                                         .flex_1()
-                                        .min_w(px(0.))
+                                        .min_w_0()
                                         .truncate()
                                         .when(!said, |el| el.text_color(quiet(theme.text_3)))
                                         .child(text),

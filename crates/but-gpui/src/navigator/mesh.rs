@@ -5,9 +5,7 @@
 
 use std::sync::Arc;
 
-use gpui::{
-    AnyElement, App, ClickEvent, Context, ElementId, MouseButton, Window, div, prelude::*, px,
-};
+use gpui::{AnyElement, App, ClickEvent, Context, ElementId, MouseButton, Window, div, prelude::*};
 
 use super::menu::keyed;
 use super::rows::{COMMIT_INDENT, Row, Rows, found, matches};
@@ -202,7 +200,7 @@ impl Navigator {
                     .child(
                         div()
                             .flex_1()
-                            .min_w(px(0.))
+                            .min_w_0()
                             .truncate()
                             .font_weight(gpui::FontWeight::SEMIBOLD)
                             .child(name.clone()),
@@ -250,7 +248,7 @@ impl Navigator {
                         div()
                             .id(("mesh-name", ix))
                             .flex_grow(1.)
-                            .min_w(px(0.))
+                            .min_w_0()
                             .truncate()
                             .font_weight(gpui::FontWeight::MEDIUM)
                             .when(!checkout.online, |el| el.text_color(style.muted()))

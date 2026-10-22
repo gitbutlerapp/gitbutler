@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, Context, Entity, Focusable, KeyBinding, Subscription, Task, WeakEntity,
-    Window, actions, div, prelude::*, px,
+    Window, actions, div, prelude::*,
 };
 
 use super::{Detail, DiffSource};
@@ -20,7 +20,7 @@ use crate::theme::Theme;
 use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
 use crate::ui::diff::{DiffRow, Layout, OnToggle};
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{ButtonStyle, Icon, Tooltip, button, h_flex, plural, small_icon};
+use crate::ui::{ButtonStyle, Icon, Tooltip, button, dp, h_flex, plural, small_icon};
 
 actions!(
     resolve,
@@ -877,11 +877,11 @@ pub(super) fn warn_banner(
     let (title, detail) = (title.into(), detail.into());
     h_flex()
         .id(title.clone())
-        .gap(px(8.))
-        .pl(px(10.))
-        .pr(px(8.))
-        .py(px(6.))
-        .rounded(px(6.))
+        .gap(dp(8.))
+        .pl(dp(10.))
+        .pr(dp(8.))
+        .py(dp(6.))
+        .rounded(dp(6.))
         .bg(theme.warn.opacity(0.1))
         .text_color(theme.warn)
         .tooltip(Tooltip::text(detail))
@@ -889,9 +889,9 @@ pub(super) fn warn_banner(
         .child(
             div()
                 .flex_1()
-                .min_w(px(0.))
+                .min_w_0()
                 .truncate()
-                .text_size(px(13.))
+                .text_size(dp(13.))
                 .font_weight(gpui::FontWeight::SEMIBOLD)
                 .child(title),
         )

@@ -17,11 +17,11 @@ use std::ops::Range;
 use gpui::{
     AnyElement, App, Font, FontWeight, Hsla, InteractiveText, IntoElement, ParentElement,
     SharedString, StrikethroughStyle, Styled, StyledText, TextRun, UnderlineStyle, div,
-    prelude::FluentBuilder, px,
+    prelude::FluentBuilder,
 };
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 
-use super::{Tooltip, h_flex, v_flex};
+use super::{Tooltip, dp, fixed, h_flex, v_flex};
 use crate::theme::Theme;
 
 /// How much of a description is read; the rest is left out, and said to be.
@@ -635,62 +635,57 @@ pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
             };
             let el = match &block.kind {
                 Kind::Rule => div()
-                    .h(px(1.))
-                    .my(px(4.))
+                    .h(fixed(1.))
+                    .my(dp(4.))
                     .bg(theme.border_3)
                     .into_any_element(),
                 Kind::Code => div()
-                    .px(px(10.))
-                    .py(px(8.))
-                    .rounded(px(6.))
+                    .px(dp(10.))
+                    .py(dp(8.))
+                    .rounded(dp(6.))
                     .bg(theme.fill_gray.opacity(0.08))
-                    .text_size(px(12.))
-                    .line_height(px(18.))
+                    .text_size(dp(12.))
+                    .line_height(dp(18.))
                     .child(text(id, ix, block, theme))
                     .into_any_element(),
                 // As GitHub draws them, the top two over a rule.
                 Kind::Heading(level) => div()
-                    .pt(px(8.))
-                    .text_size(px(match level {
+                    .pt(dp(8.))
+                    .text_size(dp(match level {
                         1 => 22.,
                         2 => 17.,
                         3 => 15.,
                         _ => 14.,
                     }))
-                    .line_height(px(match level {
+                    .line_height(dp(match level {
                         1 => 30.,
                         2 => 24.,
                         _ => 22.,
                     }))
                     .when(*level <= 2 && !block.centered, |el| {
-                        el.pb(px(6.)).border_b_1().border_color(theme.border_3)
+                        el.pb(dp(6.)).border_b_1().border_color(theme.border_3)
                     })
                     .child(text(id, ix, block, theme))
                     .into_any_element(),
                 Kind::Item(marker) => h_flex()
                     .items_start()
-                    .gap(px(6.))
+                    .gap(dp(6.))
                     .child(
                         div()
                             .flex_none()
-                            .min_w(px(14.))
+                            .min_w(dp(14.))
                             .text_color(theme.text_2)
                             .child(SharedString::from(marker.clone())),
                     )
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w(px(0.))
-                            .child(text(id, ix, block, theme)),
-                    )
+                    .child(div().flex_1().min_w_0().child(text(id, ix, block, theme)))
                     .into_any_element(),
                 Kind::Paragraph => text(id, ix, block, theme),
             };
             let indented = div()
-                .mt(px(space))
-                .pl(px(block.depth as f32 * 16.))
-                .text_size(px(13.))
-                .line_height(px(20.))
+                .mt(dp(space))
+                .pl(dp(block.depth as f32 * 16.))
+                .text_size(dp(13.))
+                .line_height(dp(20.))
                 .when(block.centered, |el| el.text_center())
                 .child(el);
             match block.quoted {
@@ -698,8 +693,8 @@ pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
                     .text_color(theme.text_2)
                     .border_l_2()
                     .border_color(theme.border_2)
-                    .ml(px(2.))
-                    .pl(px(10. + block.depth as f32 * 16.))
+                    .ml(dp(2.))
+                    .pl(dp(10. + block.depth as f32 * 16.))
                     .into_any_element(),
                 false => indented.into_any_element(),
             }
@@ -761,12 +756,12 @@ fn text(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
                 },
                 background_color: style.code.then(|| theme.fill_gray.opacity(0.12)),
                 underline: linked.then(|| UnderlineStyle {
-                    thickness: px(1.),
+                    thickness: fixed(1.),
                     color: Some(theme.blue.opacity(0.4)),
                     wavy: false,
                 }),
                 strikethrough: style.strike.then(|| StrikethroughStyle {
-                    thickness: px(1.),
+                    thickness: fixed(1.),
                     color: None,
                 }),
             }

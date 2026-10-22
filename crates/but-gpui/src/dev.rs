@@ -42,7 +42,7 @@ use anyhow::{Context as _, Result, bail};
 use gpui::{
     AnyWindowHandle, App, AppContext as _, Keystroke, Modifiers, ModifiersChangedEvent,
     MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, PlatformInput, Point,
-    ScrollDelta, ScrollWheelEvent, TouchPhase, Window, point, px,
+    ScrollDelta, ScrollWheelEvent, TouchPhase, Window, point,
 };
 
 use crate::app::AppView;
@@ -295,7 +295,7 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
         let [x, y] = numbers()?[..] else {
             bail!("{command} takes x y");
         };
-        Ok(point(px(x), px(y)))
+        Ok(point(Pixels::from(x), Pixels::from(y)))
     };
     let held = |name| rest.split_whitespace().any(|part| part == name);
     let modifiers = Modifiers {
@@ -352,8 +352,8 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             };
             window.dispatch_event(
                 PlatformInput::ScrollWheel(ScrollWheelEvent {
-                    position: point(px(x), px(y)),
-                    delta: ScrollDelta::Pixels(point(px(-dx), px(-dy))),
+                    position: point(Pixels::from(x), Pixels::from(y)),
+                    delta: ScrollDelta::Pixels(point(Pixels::from(-dx), Pixels::from(-dy))),
                     modifiers: Modifiers::default(),
                     touch_phase: TouchPhase::Moved,
                 }),
@@ -383,7 +383,10 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             let [x1, y1, x2, y2] = numbers()?[..] else {
                 bail!("drag takes x1 y1 x2 y2");
             };
-            let (from, to) = (point(px(x1), px(y1)), point(px(x2), px(y2)));
+            let (from, to) = (
+                point(Pixels::from(x1), Pixels::from(y1)),
+                point(Pixels::from(x2), Pixels::from(y2)),
+            );
             let left = MouseButton::Left;
             window.dispatch_event(mouse_down(left, from, Modifiers::default(), 1), cx);
             for step in 1..=8 {
@@ -444,7 +447,7 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             let [width, height] = numbers()?[..] else {
                 bail!("size takes width height");
             };
-            window.resize(gpui::size(px(width), px(height)));
+            window.resize(gpui::size(Pixels::from(width), Pixels::from(height)));
         }
         "shot" => {
             let image = window.render_to_image()?;

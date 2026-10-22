@@ -5,7 +5,7 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-use gpui::{AnyElement, Context, MouseButton, Window, div, prelude::*, px, relative};
+use gpui::{AnyElement, Context, MouseButton, Window, div, prelude::*, relative};
 
 use super::{days_said, noon};
 use crate::backend::CommitId;
@@ -20,8 +20,8 @@ use crate::theme::Theme;
 use crate::ui::person::author_avatar;
 use crate::ui::relative_time;
 use crate::ui::{
-    ButtonStyle, Icon, button, faint, keep_focus_on_press, list_row, plural, side_row, small_icon,
-    v_flex,
+    ButtonStyle, Icon, button, dp, faint, keep_focus_on_press, list_row, plural, side_row,
+    small_icon, v_flex,
 };
 
 /// How many of the newest releases are listed.
@@ -176,17 +176,17 @@ impl Detail {
             .id("shipped")
             .flex_1()
             .h_full()
-            .min_w(px(0.))
+            .min_w_0()
             .overflow_y_scroll()
             .track_focus(&self.shipped_focus)
             .on_mouse_down_out(back_to_list(&self.shipped_focus, cx))
             .child(
                 v_flex()
                     .w_full()
-                    .max_w(px(820.))
-                    .px(px(14.))
-                    .py(px(16.))
-                    .gap(px(6.))
+                    .max_w(dp(820.))
+                    .px(dp(14.))
+                    .py(dp(16.))
+                    .gap(dp(6.))
                     .child(overview_title(
                         "Shipped",
                         scope.into_iter().flatten().collect::<Vec<_>>().join(" · "),
@@ -204,8 +204,8 @@ impl Detail {
                                 },
                                 theme,
                             )
-                            .px(px(14.))
-                            .py(px(8.)),
+                            .px(dp(14.))
+                            .py(dp(8.)),
                         )
                     })
                     .children(self.releases(project, summary, &kept_ids, theme, cx))
@@ -243,7 +243,7 @@ impl Detail {
                 .child(
                     div()
                         .flex_1()
-                        .min_w(px(0.))
+                        .min_w_0()
                         .truncate()
                         .child(release.name.clone()),
                 )
@@ -273,8 +273,8 @@ impl Detail {
                 .when(rest > 0, |el| {
                     el.child(
                         faint(format!("and {rest} more"), theme)
-                            .px(px(14.))
-                            .py(px(4.)),
+                            .px(dp(14.))
+                            .py(dp(4.)),
                     )
                 })
                 .into_any_element(),
@@ -314,18 +314,18 @@ impl Detail {
                 };
                 let project = project.clone();
                 side_row(("area", ix), picked == Some(&area), solid, theme)
-                    .child(div().flex_1().min_w(px(0.)).truncate().child(area.clone()))
+                    .child(div().flex_1().min_w_0().truncate().child(area.clone()))
                     .child(
                         div()
                             .flex_1()
-                            .max_w(px(360.))
-                            .h(px(6.))
-                            .rounded(px(3.))
+                            .max_w(dp(360.))
+                            .h(dp(6.))
+                            .rounded(dp(3.))
                             .bg(track)
                             .child(
                                 div()
                                     .h_full()
-                                    .rounded(px(3.))
+                                    .rounded(dp(3.))
                                     .w(relative(n as f32 / most as f32))
                                     .bg(bar),
                             ),
@@ -333,9 +333,9 @@ impl Detail {
                     .child(
                         div()
                             .flex_none()
-                            .w(px(OVERVIEW_TIME_WIDTH))
+                            .w(dp(OVERVIEW_TIME_WIDTH))
                             .text_right()
-                            .text_size(px(11.))
+                            .text_size(dp(11.))
                             .text_color(match on {
                                 true => theme.muted_on_solid(),
                                 false => theme.text_3,
@@ -361,13 +361,13 @@ impl Detail {
         };
         Some(
             v_flex()
-                .child(overview_heading("Where it landed", detail, theme).h(px(28.)))
+                .child(overview_heading("Where it landed", detail, theme).h(dp(28.)))
                 .children(rows)
                 .when(rest > 0, |el| {
                     el.child(
                         faint(format!("and {rest} more"), theme)
-                            .px(px(14.))
-                            .py(px(4.)),
+                            .px(dp(14.))
+                            .py(dp(4.)),
                     )
                 })
                 .into_any_element(),
@@ -396,7 +396,7 @@ impl Detail {
                 .child(
                     div()
                         .flex_1()
-                        .min_w(px(0.))
+                        .min_w_0()
                         .truncate()
                         .child(landing.title.clone()),
                 )

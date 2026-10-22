@@ -6,7 +6,7 @@
 use gpui::{
     AnyElement, App, ClickEvent, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle,
     Focusable, KeyBinding, ScrollHandle, SharedString, Stateful, Subscription, Task, WeakEntity,
-    Window, actions, div, prelude::*, px,
+    Window, actions, div, prelude::*,
 };
 
 mod accounts;
@@ -18,13 +18,13 @@ use crate::app::AppView;
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::overlays::MenuItem;
 use crate::state::{Prefs, ProjectId, ScopeLines, Store};
-use crate::theme::{Appearance, CodeSize, Theme};
+use crate::theme::{Appearance, CodeSize, Theme, UiScale};
 use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    self, ButtonStyle, Icon, Tooltip, button, dropdown, error_summary, field, h_flex, icon, muted,
-    side_row, switch, v_flex,
+    self, ButtonStyle, Icon, Tooltip, button, dp, dropdown, error_summary, field, h_flex, icon,
+    muted, side_row, switch, v_flex,
 };
 
 actions!(settings, [OpenSettings]);
@@ -410,6 +410,25 @@ impl SettingsView {
             "Light, dark, or whichever macOS is set to.",
             appearance,
         );
+        let percent = |scale: UiScale| format!("{}%", scale.percent());
+        let size = self.choice(
+            "ui-scale",
+            percent(prefs.ui_scale),
+            UiScale::STEPS.map(|scale| (scale, percent(scale))),
+            |this, scale, cx| {
+                // A menu's handler runs inside `AppView`'s update.
+                let app = this.app.clone();
+                cx.defer(move |cx| {
+                    app.update(cx, |app, cx| app.set_ui_scale(scale, cx)).ok();
+                });
+            },
+            cx,
+        );
+        let size = Row::new(
+            "Interface size",
+            "How large everything draws, as a browser zooms. ⌘+ and ⌘− step it, ⌘0 puts it back.",
+            size,
+        );
         let mut diff = vec![
             Row::new("Code size", "How large code shows in diffs.", code),
             Row::new(
@@ -499,7 +518,7 @@ impl SettingsView {
             ),
         ];
         vec![
-            Card::new(None, vec![appearance]),
+            Card::new(None, vec![appearance, size]),
             Card::new(Some("Navigator"), navigator),
             Card::new(Some("Diff"), diff),
         ]
@@ -687,18 +706,18 @@ impl SettingsView {
     /// hairlines.
     fn render_card(card: Card, theme: &Theme) -> AnyElement {
         v_flex()
-            .gap(px(8.))
+            .gap(dp(8.))
             .children(card.heading.map(|heading| {
                 div()
-                    .pl(px(16.))
-                    .text_size(px(12.))
+                    .pl(dp(16.))
+                    .text_size(dp(12.))
                     .font_weight(gpui::FontWeight::SEMIBOLD)
                     .text_color(theme.text_3)
                     .child(heading)
             }))
             .child(
                 v_flex()
-                    .rounded(px(8.))
+                    .rounded(dp(8.))
                     .border_1()
                     .border_color(theme.border_3)
                     .bg(theme.bg_1)
@@ -716,8 +735,8 @@ impl SettingsView {
     fn render_row(row: Row, divided: bool, theme: &Theme) -> AnyElement {
         let hint = !row.description.is_empty();
         h_flex()
-            .p(px(16.))
-            .gap(px(16.))
+            .p(dp(16.))
+            .gap(dp(16.))
             // Against its name when there's a line under it, else on its line.
             .map(|el| {
                 if hint {
@@ -730,11 +749,11 @@ impl SettingsView {
             .child(
                 v_flex()
                     .flex_1()
-                    .min_w(px(0.))
-                    .gap(px(6.))
+                    .min_w_0()
+                    .gap(dp(6.))
                     .child(
                         div()
-                            .text_size(px(15.))
+                            .text_size(dp(15.))
                             .font_weight(gpui::FontWeight::SEMIBOLD)
                             .text_color(theme.text_1)
                             .child(row.title),
@@ -742,8 +761,8 @@ impl SettingsView {
                     .when(hint, |el| {
                         el.child(
                             div()
-                                .text_size(px(12.))
-                                .line_height(px(18.))
+                                .text_size(dp(12.))
+                                .line_height(dp(18.))
                                 .text_color(theme.text_2)
                                 .child(row.description),
                         )
@@ -769,10 +788,10 @@ impl SettingsView {
             true,
             theme,
         )
-        .mx(px(0.))
-        .h(px(30.))
-        .gap(px(10.))
-        .rounded(px(6.))
+        .mx_0()
+        .h(dp(30.))
+        .gap(dp(10.))
+        .rounded(dp(6.))
         .child(icon(page.icon()).text_color(match selected {
             true => theme.muted_on_solid(),
             false => theme.text_2,
@@ -804,14 +823,14 @@ impl Render for SettingsView {
             let others = projects.len() > 1;
             let heading = h_flex()
                 .id("settings-project")
-                .px(px(8.))
-                .pb(px(8.))
-                .gap(px(10.))
-                .text_size(px(13.))
+                .px(dp(8.))
+                .pb(dp(8.))
+                .gap(dp(10.))
+                .text_size(dp(13.))
                 .font_weight(gpui::FontWeight::SEMIBOLD)
                 .text_color(theme.text_3)
                 .child(icon(Icon::Folder).text_color(theme.text_2))
-                .child(div().flex_1().min_w(px(0.)).truncate().child(name))
+                .child(div().flex_1().min_w_0().truncate().child(name))
                 .when(others, |el| {
                     let items: Vec<MenuItem> = (projects.iter())
                         .map(|entry| {
@@ -830,39 +849,39 @@ impl Render for SettingsView {
                         }))
                 });
             v_flex()
-                .mt(px(16.))
-                .pt(px(16.))
-                .px(px(12.))
-                .gap(px(3.))
+                .mt(dp(16.))
+                .pt(dp(16.))
+                .px(dp(12.))
+                .gap(dp(3.))
                 .border_t_1()
                 .border_color(theme.border_3)
                 .child(heading)
                 .children(Page::PROJECT.map(|page| self.page_link(page, searching, &theme, cx)))
         });
         let empty = cards.is_empty();
-        let height = (f32::from(window.viewport_size().height) * 0.76).min(1000.);
+        let height = (f32::from(window.viewport_size().height) / theme.scale * 0.76).min(1000.);
         let links = v_flex()
             .id("settings-pages")
             .size_full()
-            .pb(px(12.))
+            .pb(dp(12.))
             .overflow_y_scroll()
             .track_scroll(&self.pages_scroll)
             .child(
                 div()
-                    .px(px(20.))
-                    .pt(px(20.))
-                    .pb(px(10.))
-                    .text_size(px(16.))
+                    .px(dp(20.))
+                    .pt(dp(20.))
+                    .pb(dp(10.))
+                    .text_size(dp(16.))
                     .font_weight(gpui::FontWeight::SEMIBOLD)
                     .text_color(theme.text_1)
                     .child("Settings"),
             )
             .child(
                 field(&self.search, search_focused, &theme)
-                    .mx(px(12.))
-                    .mb(px(10.)),
+                    .mx(dp(12.))
+                    .mb(dp(10.)),
             )
-            .child(v_flex().px(px(12.)).gap(px(3.)).children(app_links))
+            .child(v_flex().px(dp(12.)).gap(dp(3.)).children(app_links))
             .children(project);
         let content = v_flex()
             .id("settings-cards")
@@ -871,8 +890,8 @@ impl Render for SettingsView {
             .track_scroll(&self.cards_scroll)
             .child(
                 v_flex()
-                    .p(px(20.))
-                    .gap(px(12.))
+                    .p(dp(20.))
+                    .gap(dp(12.))
                     .when(empty, |el| {
                         el.child(muted(
                             if searching {
@@ -891,16 +910,16 @@ impl Render for SettingsView {
             );
         modal(ModalSize::Large, &theme)
             .id("settings")
-            .h(px(height))
+            .h(dp(height))
             .flex_row()
             .child(
                 v_flex()
-                    .w(px(211.))
+                    .w(dp(211.))
                     .flex_none()
                     .h_full()
                     .bg(theme.bg_2)
                     // Its ground fills the modal's left corners, which it rounds as the modal does.
-                    .rounded_l(px(MODAL_RADIUS - 1.))
+                    .rounded_l(dp(MODAL_RADIUS - 1.))
                     .child(scrolled(
                         links,
                         "settings-pages-scrollbar",
@@ -911,12 +930,12 @@ impl Render for SettingsView {
             .child(
                 v_flex()
                     .flex_1()
-                    .min_w(px(0.))
+                    .min_w_0()
                     .h_full()
                     .border_l_1()
                     .border_color(theme.border_3)
                     .bg(theme.bg_1)
-                    .rounded_r(px(MODAL_RADIUS - 1.))
+                    .rounded_r(dp(MODAL_RADIUS - 1.))
                     .child(scrolled(
                         content,
                         "settings-cards-scrollbar",
@@ -990,7 +1009,7 @@ fn field_with_save(
     let focused = input.focus_handle(cx).is_focused(window);
     let saved = input.clone();
     h_flex()
-        .gap(px(6.))
+        .gap(dp(6.))
         .when(changed, |el| {
             el.child(
                 button(
@@ -1002,7 +1021,7 @@ fn field_with_save(
                 .on_click(cx.listener(move |this, _, _, cx| save(this, &saved, cx))),
             )
         })
-        .child(field(input, focused, Theme::get(cx)).w(px(220.)))
+        .child(field(input, focused, Theme::get(cx)).w(dp(220.)))
 }
 
 /// In place of `page`'s settings when they couldn't be read: `title` over why, and Try again,

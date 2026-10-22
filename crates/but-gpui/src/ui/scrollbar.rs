@@ -8,13 +8,14 @@
 use gpui::{
     Bounds, CursorStyle, DispatchPhase, Div, ElementId, HitboxBehavior, ListState, MouseButton,
     MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, ScrollHandle, canvas, div, fill, point,
-    prelude::*, px, size,
+    prelude::*, size,
 };
 
+use super::fixed;
 use crate::theme::Theme;
 
 /// The width of the strip that takes the pointer.
-const TRACK: Pixels = px(14.);
+const TRACK: Pixels = fixed(14.);
 
 /// The scroll state a scrollbar reads and moves.
 #[derive(Clone)]
@@ -37,7 +38,7 @@ impl Scroll {
     }
 
     fn scroll_to(&self, offset: Pixels) {
-        let offset = point(px(0.), -offset);
+        let offset = point(Pixels::ZERO, -offset);
         match self {
             Scroll::List(list) => list.set_offset_from_scrollbar(offset),
             Scroll::Div(handle) => handle.set_offset(offset),
@@ -69,7 +70,7 @@ pub fn scrolled(list: impl IntoElement, id: &'static str, scroll: Scroll, theme:
     div()
         .relative()
         .flex_1()
-        .min_h(px(0.))
+        .min_h_0()
         .child(list)
         .children(scrollbar(id, scroll, theme))
 }
@@ -82,7 +83,7 @@ pub fn scrollbar(
     theme: &Theme,
 ) -> Option<impl IntoElement + use<>> {
     let (_, max) = scroll.offsets();
-    if max <= px(0.) {
+    if max <= Pixels::ZERO {
         return None;
     }
     let (rest, active) = (theme.text_3.opacity(0.5), theme.text_3.opacity(0.8));
@@ -103,10 +104,10 @@ pub fn scrollbar(
             let (offset, max) = scroll.offsets();
             let height = bounds.size.height;
             // Too short for the shortest thumb, it has no room to travel.
-            if max <= px(0.) || height <= px(24.) {
+            if max <= Pixels::ZERO || height <= fixed(24.) {
                 return;
             }
-            let thumb = (height * (height / (height + max))).clamp(px(24.), height);
+            let thumb = (height * (height / (height + max))).clamp(fixed(24.), height);
             let travel = height - thumb;
             let top = bounds.top() + travel * (offset / max).clamp(0., 1.);
             // The offset that puts the thumb's top at `y`, less where in it the pointer holds it.
@@ -120,9 +121,9 @@ pub fn scrollbar(
             state.update(cx, |state, _| state.drawn = (shown, on_track));
             if shown {
                 let wide = held.is_some() || on_track;
-                let width = if wide { px(7.) } else { px(5.) };
+                let width = if wide { fixed(7.) } else { fixed(5.) };
                 let thumb_bounds = Bounds::new(
-                    point(bounds.right() - px(2.) - width, top),
+                    point(bounds.right() - fixed(2.) - width, top),
                     size(width, thumb),
                 );
                 let color = if wide { active } else { rest };

@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use gpui::{AnyElement, App, Context, Div, SharedString, div, prelude::*, px};
+use gpui::{AnyElement, App, Context, Div, SharedString, div, prelude::*};
 
 use super::Detail;
 use super::panes::{Crumb, meta_item};
@@ -15,7 +15,7 @@ use crate::state::{MeshBranch, MeshPick, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
-use crate::ui::{ButtonStyle, Icon, button, empty_state, faint, h_flex, plural, v_flex};
+use crate::ui::{ButtonStyle, Icon, button, dp, empty_state, faint, h_flex, plural, v_flex};
 
 /// How many of a checkout's uncommitted files its view lists; the rest open on but.dev.
 const LISTED: usize = 50;
@@ -182,8 +182,8 @@ impl Detail {
                 .size_full()
                 .items_center()
                 .justify_center()
-                .gap(px(12.))
-                .child(faint(line, theme).text_size(px(13.)))
+                .gap(dp(12.))
+                .child(faint(line, theme).text_size(dp(13.)))
                 .children(url.filter(|_| !checkout.uncommitted.is_empty()).map(|url| {
                     button("checkout-on-but-dev", "Open on but.dev")
                         .small()
@@ -273,15 +273,9 @@ fn uncommitted_list(checkout: &Checkout, theme: &Theme, cx: &App) -> AnyElement 
     let more = files.len().saturating_sub(LISTED);
     let listed = files.iter().take(LISTED).map(|file| {
         h_flex()
-            .gap(px(8.))
+            .gap(dp(8.))
             .child(file_icon(&file.path, cx))
-            .child(
-                div()
-                    .flex_1()
-                    .min_w(px(0.))
-                    .truncate()
-                    .child(file.path.clone()),
-            )
+            .child(div().flex_1().min_w_0().truncate().child(file.path.clone()))
             .child(diff::stats(
                 file.additions as u32,
                 file.deletions as u32,
@@ -290,15 +284,15 @@ fn uncommitted_list(checkout: &Checkout, theme: &Theme, cx: &App) -> AnyElement 
     });
     v_flex()
         .size_full()
-        .p(px(12.))
-        .gap(px(8.))
+        .p(dp(12.))
+        .gap(dp(8.))
         .child(
             v_flex()
-                .gap(px(2.))
+                .gap(dp(2.))
                 .child(div().font_weight(gpui::FontWeight::SEMIBOLD).child(title))
                 .child(faint(checkout.path.clone(), theme)),
         )
-        .child(v_flex().gap(px(4.)).children(listed))
+        .child(v_flex().gap(dp(4.)).children(listed))
         .when(more > 0, |el| {
             el.child(faint(format!("and {more} more"), theme))
         })

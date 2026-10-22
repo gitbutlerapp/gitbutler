@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use gpui::{
     AnyElement, ClickEvent, ClipboardItem, Context, Entity, Focusable as _, SharedString, Window,
-    prelude::*, px,
+    prelude::*,
 };
 
 use super::{Card, Row, SettingsView};
@@ -15,7 +15,7 @@ use crate::backend::run;
 use crate::overlays::MenuItem;
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{ButtonStyle, button, field, h_flex};
+use crate::ui::{ButtonStyle, button, dp, field, h_flex};
 
 /// Where GitHub's browser sign-in takes the code.
 const GITHUB_DEVICE_PAGE: &str = "https://github.com/login/device";
@@ -304,7 +304,7 @@ impl SettingsView {
                 "Signing in to GitHub",
                 format!("Enter {code} on the page that opened. It's on your clipboard."),
                 h_flex()
-                    .gap(px(6.))
+                    .gap(dp(6.))
                     .child(
                         button("copy-code", "Copy code")
                             .small()
@@ -385,9 +385,9 @@ fn token_field(
 ) -> AnyElement {
     let focused = |input: &Entity<TextInput>| input.focus_handle(cx).is_focused(window);
     h_flex()
-        .gap(px(6.))
-        .children(email.map(|email| field(email, focused(email), theme).w(px(150.))))
-        .child(field(token, focused(token), theme).w(px(180.)))
+        .gap(dp(6.))
+        .children(email.map(|email| field(email, focused(email), theme).w(dp(150.))))
+        .child(field(token, focused(token), theme).w(dp(180.)))
         .child({
             let token = token.clone();
             button("cancel-token", "Cancel")

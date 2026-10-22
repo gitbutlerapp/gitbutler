@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use gpui::{
     AnyElement, AnyWindowHandle, App, Context, Focusable as _, Toggled, WeakEntity, Window, div,
-    prelude::*, px,
+    prelude::*,
 };
 
 use super::{ChecksChanged, Detail, DiffKey, PickCommitTarget};
@@ -19,7 +19,7 @@ use crate::state::{NewAt, Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, button, faint, field, h_flex, icon_button, plural, shortcut,
+    ButtonStyle, Icon, Tooltip, button, dp, faint, field, h_flex, icon_button, plural, shortcut,
     small_icon, v_flex,
 };
 
@@ -1040,15 +1040,15 @@ impl Detail {
         let message_focused = self.message.focus_handle(cx).is_focused(window);
         v_flex()
             .flex_none()
-            .p(px(12.))
-            .gap(px(8.))
+            .p(dp(12.))
+            .gap(dp(8.))
             .border_t_1()
             .border_color(theme.border_3)
             .bg(theme.bg_1)
             .child(
                 h_flex()
-                    .gap(px(6.))
-                    .text_size(px(12.))
+                    .gap(dp(6.))
+                    .text_size(dp(12.))
                     .text_color(theme.text_2)
                     .child("Commit to")
                     .child(self.render_target_picker(target.as_deref(), theme, cx)),
@@ -1058,16 +1058,16 @@ impl Detail {
                     .relative()
                     .child(
                         field(&self.message, message_focused, theme)
-                            .pl(px(10.))
+                            .pl(dp(10.))
                             // Clear of the AI button in the corner.
-                            .pr(px(30.))
-                            .py(px(8.))
-                            .rounded(px(6.))
-                            .line_height(px(19.))
+                            .pr(dp(30.))
+                            .py(dp(8.))
+                            .rounded(dp(6.))
+                            .line_height(dp(19.))
                             .cursor_text()
                             .id("message-box")
-                            .min_h(px(84.))
-                            .max_h(px(260.))
+                            .min_h(dp(84.))
+                            .max_h(dp(260.))
                             .overflow_y_scroll()
                             .track_scroll(&self.message_scroll)
                             .on_click(
@@ -1075,7 +1075,7 @@ impl Detail {
                             ),
                     )
                     .child(
-                        div().absolute().top(px(4.)).right(px(4.)).child(
+                        div().absolute().top(dp(4.)).right(dp(4.)).child(
                             icon_button("write-message", Icon::Ai)
                                 .small()
                                 .disabled_because(if self.writing.is_some() {
@@ -1096,7 +1096,7 @@ impl Detail {
             )
             .child(
                 h_flex()
-                    .gap(px(6.))
+                    .gap(dp(6.))
                     .child(
                         // Every line of them, said shorter, so a narrow pane cuts at most the
                         // noun of a big count, rather than its second number. The narrowest
@@ -1113,7 +1113,7 @@ impl Detail {
                             theme,
                         )
                         .flex_1()
-                        .min_w(px(0.))
+                        .min_w_0()
                         .truncate(),
                     )
                     .child(
@@ -1180,16 +1180,16 @@ impl Detail {
         let key = shortcut(&PickCommitTarget, cx);
         h_flex()
             .id("commit-target")
-            .min_w(px(0.))
-            .h(px(22.))
-            .px(px(8.))
-            .gap(px(4.))
-            .rounded(px(4.))
+            .min_w_0()
+            .h(dp(22.))
+            .px(dp(8.))
+            .gap(dp(4.))
+            .rounded(dp(4.))
             .bg(theme.fill_gray.opacity(0.08))
             .font_family(theme.mono_font.clone())
             .text_color(theme.blue)
             .child(small_icon(Icon::Branch).text_color(theme.blue))
-            .child(div().min_w(px(0.)).truncate().child(label))
+            .child(div().min_w_0().truncate().child(label))
             .when(self.checks_worktree.is_none(), |el| {
                 el.hover(|el| el.bg(theme.fill_gray.opacity(0.14)))
                     .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))

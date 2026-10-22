@@ -1,8 +1,9 @@
 //! Modals. The window hosts one at a time over a dimmed backdrop; a modal closes by
 //! emitting `DismissEvent`.
 
-use gpui::{Div, Styled as _, px};
+use gpui::{Div, Styled as _};
 
+use super::dp;
 use super::popover;
 use crate::theme::Theme;
 
@@ -28,9 +29,9 @@ pub fn modal(size: ModalSize, theme: &Theme) -> Div {
         ModalSize::Large => 820.,
     };
     popover(theme)
-        .w(px(width))
+        .w(dp(width))
         .max_w_full()
         .max_h_full()
-        .rounded(px(MODAL_RADIUS))
+        .rounded(dp(MODAL_RADIUS))
         .overflow_hidden()
 }

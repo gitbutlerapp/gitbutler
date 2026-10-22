@@ -3,14 +3,14 @@
 
 use gpui::{
     Action, AnyElement, ClickEvent, Context, Entity, FocusHandle, Focusable as _, KeyBinding,
-    ScrollHandle, SharedString, Subscription, Window, actions, div, prelude::*, px,
+    ScrollHandle, SharedString, Subscription, Window, actions, div, prelude::*,
 };
 
 use crate::app::{
-    AddProject, AppView, CopySelection, CutSelection, DeleteSelection, Fetch, FocusChanges,
-    FocusDiff, FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest, PasteHere, Push, Quit,
-    Redo, RenameSelection, StartCommit, ToggleFileTree, ToggleNavigator, UncommitSelection, Undo,
-    UpdateFromTarget,
+    ActualSize, AddProject, AppView, CopySelection, CutSelection, DeleteSelection, Fetch,
+    FocusChanges, FocusDiff, FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest, PasteHere,
+    Push, Quit, Redo, RenameSelection, StartCommit, ToggleFileTree, ToggleNavigator,
+    UncommitSelection, Undo, UpdateFromTarget, ZoomIn, ZoomOut,
 };
 use crate::detail::{
     DiscardFile, DiscardHunk, NextFile, NextHunk, PreviousFile, PreviousHunk, ToggleFold,
@@ -24,7 +24,7 @@ use crate::state::{Notice, Selection};
 use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{POPOVER_RADIUS, h_flex, keycap, list_row, muted, popover, shortcut, v_flex};
+use crate::ui::{POPOVER_RADIUS, dp, h_flex, keycap, list_row, muted, popover, shortcut, v_flex};
 
 actions!(palette, [PaletteUp, PaletteDown, GoToBranch, ShowActions]);
 
@@ -91,6 +91,9 @@ const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Cut", &CutSelection),
     ("Paste here", &PasteHere),
     ("Toggle navigator", &ToggleNavigator),
+    ("Zoom in", &ZoomIn),
+    ("Zoom out", &ZoomOut),
+    ("Actual size", &ActualSize),
     ("Go to navigator", &FocusNavigator),
     ("Go to files", &FocusChanges),
     ("Go to diff", &FocusDiff),
@@ -467,7 +470,7 @@ impl AppView {
                 let choice = &palette.choices[ix];
                 let selected = row == palette.selected;
                 list_row(("command", ix), selected, &theme)
-                    .gap(px(12.))
+                    .gap(dp(12.))
                     .child(div().flex_1().truncate().child(choice.label.clone()))
                     .when_some(choice.detail.clone(), |el, detail| {
                         el.child(muted(detail, &theme))
@@ -485,41 +488,41 @@ impl AppView {
             .key_context("Palette")
             .on_action(cx.listener(Self::palette_up))
             .on_action(cx.listener(Self::palette_down))
-            .w(px(520.))
-            .max_h(px(440.))
+            .w(dp(520.))
+            .max_h(dp(440.))
             .overflow_hidden()
             .child(
                 div()
                     .flex_none()
-                    .h(px(36.))
-                    .px(px(12.))
+                    .h(dp(36.))
+                    .px(dp(12.))
                     .flex()
                     .items_center()
-                    .gap(px(12.))
+                    .gap(dp(12.))
                     .border_b_1()
                     .border_color(theme.border_3)
-                    .child(div().flex_1().min_w(px(0.)).child(palette.input.clone()))
+                    .child(div().flex_1().min_w_0().child(palette.input.clone()))
                     .children((palette.place.clone()).map(|place| muted(place, &theme))),
             )
             .child(
                 v_flex()
                     .relative()
                     .flex_1()
-                    .min_h(px(0.))
+                    .min_h_0()
                     .child(
                         v_flex()
                             .id("palette-rows")
                             .flex_1()
-                            .min_h(px(0.))
-                            .py(px(4.))
+                            .min_h_0()
+                            .py(dp(4.))
                             .overflow_y_scroll()
                             .track_scroll(&palette.scroll)
                             .children(rows)
                             .when(empty, |el| {
                                 el.child(
                                     div()
-                                        .px(px(12.))
-                                        .py(px(6.))
+                                        .px(dp(12.))
+                                        .py(dp(6.))
                                         .text_color(theme.text_2)
                                         .child("Nothing matches"),
                                 )
@@ -534,28 +537,28 @@ impl AppView {
             .child(
                 h_flex()
                     .flex_none()
-                    .h(px(36.))
-                    .px(px(12.))
-                    .gap(px(12.))
+                    .h(dp(36.))
+                    .px(dp(12.))
+                    .gap(dp(12.))
                     .border_t_1()
                     .border_color(theme.border_3)
                     .bg(theme.bg_2)
                     // Its ground fills the card's bottom corners, which it rounds as the card
                     // does, inside its border.
-                    .rounded_b(px(POPOVER_RADIUS - 1.))
-                    .text_size(px(12.))
+                    .rounded_b(dp(POPOVER_RADIUS - 1.))
+                    .text_size(dp(12.))
                     .text_color(theme.text_2)
                     .children(
                         [("↑ ↓", "Move"), ("↩", palette.verb), ("esc", "Close")].map(
                             |(key, hint)| {
-                                h_flex().gap(px(4.)).child(keycap(key, &theme)).child(hint)
+                                h_flex().gap(dp(4.)).child(keycap(key, &theme)).child(hint)
                             },
                         ),
                     ),
             );
         // Over a modal, a click outside closes only the palette.
         let backdrop = backdrop("palette-backdrop", card, cx, Self::close_palette);
-        Some(backdrop.items_start().pt(px(72.)).into_any_element())
+        Some(backdrop.items_start().pt(dp(72.)).into_any_element())
     }
 }
 

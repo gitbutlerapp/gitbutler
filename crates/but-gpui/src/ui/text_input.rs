@@ -12,10 +12,11 @@ use gpui::{
     Entity, EntityInputHandler, EventEmitter, FocusHandle, Focusable, GlobalElementId, KeyBinding,
     LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point,
     Role, ScrollHandle, SharedString, Style, Task, TextRun, UTF16Selection, UnderlineStyle, Window,
-    WrappedLine, actions, div, fill, point, prelude::*, px, relative, size,
+    WrappedLine, actions, div, fill, point, prelude::*, relative, size,
 };
 use unicode_segmentation::UnicodeSegmentation as _;
 
+use super::fixed;
 use crate::theme::Theme;
 
 actions!(
@@ -186,9 +187,9 @@ impl TextInput {
             marked_range: None,
             last_layout: Vec::new(),
             last_bounds: None,
-            last_line_height: px(18.),
+            last_line_height: fixed(18.),
             scroll: None,
-            scroll_x: px(0.),
+            scroll_x: Pixels::ZERO,
             undo: Vec::new(),
             redo: Vec::new(),
             // So filling the new field, as one opening on a message, is no change to undo.
@@ -342,7 +343,7 @@ impl TextInput {
     fn vertical(&self, offset: usize, delta: f32) -> Option<usize> {
         let position = self.position_for_offset(offset)?;
         let target = point(position.x, position.y + self.last_line_height * delta);
-        if target.y < px(0.) {
+        if target.y < Pixels::ZERO {
             return None;
         }
         let index = self.offset_for_position(target);
@@ -367,11 +368,11 @@ impl TextInput {
         if self.content.is_empty() {
             return 0;
         }
-        let mut y = px(0.);
+        let mut y = Pixels::ZERO;
         for (start, line) in &self.last_layout {
             let height = row_height(line, self.last_line_height);
             if position.y < y + height {
-                let local = point(position.x.max(px(0.)), position.y - y);
+                let local = point(position.x.max(Pixels::ZERO), position.y - y);
                 let index = match line.closest_index_for_position(local, self.last_line_height) {
                     Ok(index) | Err(index) => index,
                 };
@@ -911,7 +912,7 @@ impl Element for TextElement {
                             end - start,
                             Some(UnderlineStyle {
                                 color: Some(color),
-                                thickness: px(1.),
+                                thickness: fixed(1.),
                                 wavy: false,
                             }),
                         ),
@@ -955,7 +956,7 @@ impl Element for TextElement {
         // Positions are computed against the layout just shaped, not the stored one.
         let position = |target: usize| {
             if is_empty {
-                Some(point(px(0.), px(0.)))
+                Some(point(Pixels::ZERO, Pixels::ZERO))
             } else {
                 position_in(&lines, line_height, target)
             }
@@ -965,21 +966,21 @@ impl Element for TextElement {
         // in it.
         let scroll_x = match (input.multiline, lines.first()) {
             (false, Some((_, line))) => {
-                let room = bounds.size.width - px(2.);
-                let caret = position(cursor_offset).map_or(px(0.), |at| at.x);
-                let slack = (line.size(line_height).width - room).max(px(0.));
-                (input.scroll_x.max(caret - room).min(caret)).clamp(px(0.), slack)
+                let room = bounds.size.width - theme.scaled(2.);
+                let caret = position(cursor_offset).map_or(Pixels::ZERO, |at| at.x);
+                let slack = (line.size(line_height).width - room).max(Pixels::ZERO);
+                (input.scroll_x.max(caret - room).min(caret)).clamp(Pixels::ZERO, slack)
             }
-            _ => px(0.),
+            _ => Pixels::ZERO,
         };
-        let origin = bounds.origin - point(scroll_x, px(0.));
+        let origin = bounds.origin - point(scroll_x, Pixels::ZERO);
 
         let mut selections = Vec::new();
         let mut cursor = None;
         if selected.is_empty() {
             if caret_visible && let Some(at) = position(cursor_offset) {
                 cursor = Some(fill(
-                    Bounds::new(origin + at, size(px(1.5), line_height)),
+                    Bounds::new(origin + at, size(theme.scaled(1.5), line_height)),
                     theme.pop,
                 ));
             }
@@ -988,7 +989,11 @@ impl Element for TextElement {
             let selection_color = theme.pop.opacity(if focused { 0.25 } else { 0.12 });
             let mut row_top = start.y;
             while row_top <= end.y {
-                let left = if row_top == start.y { start.x } else { px(0.) };
+                let left = if row_top == start.y {
+                    start.x
+                } else {
+                    Pixels::ZERO
+                };
                 let right = if row_top == end.y {
                     end.x
                 } else {
@@ -997,7 +1002,7 @@ impl Element for TextElement {
                 selections.push(fill(
                     Bounds::from_corners(
                         origin + point(left, row_top),
-                        origin + point(right.max(left + px(4.)), row_top + line_height),
+                        origin + point(right.max(left + theme.scaled(4.)), row_top + line_height),
                     ),
                     selection_color,
                 ));
@@ -1037,7 +1042,7 @@ impl Element for TextElement {
         // The text as slid sideways, which mouse positions and the IME go by too.
         let scroll_x = prepaint.scroll_x;
         let text_bounds = Bounds::new(
-            bounds.origin - point(scroll_x, px(0.)),
+            bounds.origin - point(scroll_x, Pixels::ZERO),
             size(bounds.size.width + scroll_x, bounds.size.height),
         );
         let focus_handle = self.input.read(cx).focus_handle.clone();
@@ -1114,7 +1119,7 @@ fn position_in(
     line_height: Pixels,
     offset: usize,
 ) -> Option<Point<Pixels>> {
-    let mut y = px(0.);
+    let mut y = Pixels::ZERO;
     for (start, line) in lines {
         if offset <= start + line.len() {
             let local = line.position_for_index(offset - start, line_height)?;

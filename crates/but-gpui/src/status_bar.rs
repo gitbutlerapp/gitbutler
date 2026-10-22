@@ -1,7 +1,7 @@
 //! The strip along the bottom of the window: what's running, what's cut, and the keys
 //! that matter right now.
 
-use gpui::{Action, AnyElement, Context, Focusable as _, Window, div, prelude::*, px};
+use gpui::{Action, AnyElement, Context, Focusable as _, Window, div, prelude::*};
 
 use crate::app::{
     AppView, CommandPalette, CutSelection, Fetch, FocusDiff, OpenPullRequest, PasteHere, Push,
@@ -10,7 +10,7 @@ use crate::app::{
 use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
 use crate::state::{SLOW, Selection};
 use crate::theme::Theme;
-use crate::ui::{Icon, STATUS_BAR_HEIGHT, duration, h_flex, shortcut, small_icon};
+use crate::ui::{Icon, STATUS_BAR_HEIGHT, dp, duration, h_flex, shortcut, small_icon};
 
 impl AppView {
     pub fn render_status_bar(
@@ -41,7 +41,7 @@ impl AppView {
         });
         let state: AnyElement = if let Some(working) = working {
             h_flex()
-                .gap(px(6.))
+                .gap(dp(6.))
                 .text_color(theme.pop)
                 .child(small_icon(Icon::Clock).text_color(theme.pop))
                 .child(working)
@@ -49,12 +49,12 @@ impl AppView {
         } else if let Some(cut) = &store.cut {
             // Its keys apart from what's cut, as far as the hints on the right are apart.
             h_flex()
-                .gap(px(10.))
-                .min_w(px(0.))
+                .gap(dp(10.))
+                .min_w_0()
                 .child(
                     h_flex()
-                        .gap(px(6.))
-                        .min_w(px(0.))
+                        .gap(dp(6.))
+                        .min_w_0()
                         .child(div().text_color(theme.pop).child(cut.verb()))
                         .child(div().truncate().child(cut.describe())),
                 )
@@ -84,10 +84,10 @@ impl AppView {
         .find(|(n, ..)| *n > 0)
         {
             h_flex()
-                .gap(px(10.))
+                .gap(dp(10.))
                 .child(
                     h_flex()
-                        .gap(px(6.))
+                        .gap(dp(6.))
                         .child(
                             div()
                                 .text_color(theme.pop)
@@ -105,9 +105,9 @@ impl AppView {
             // In the diff or the lists beside it, where the cursor is, as an editor's status
             // bar names the file and the line.
             h_flex()
-                .gap(px(6.))
-                .min_w(px(0.))
-                .child(div().min_w(px(0.)).truncate().child(path))
+                .gap(dp(6.))
+                .min_w_0()
+                .child(div().min_w_0().truncate().child(path))
                 .child(div().flex_none().text_color(theme.text_3).child(place))
                 .into_any_element()
         } else {
@@ -225,15 +225,15 @@ impl AppView {
 
         h_flex()
             .flex_none()
-            .h(px(STATUS_BAR_HEIGHT))
-            .px(px(12.))
-            .gap(px(10.))
+            .h(dp(STATUS_BAR_HEIGHT))
+            .px(dp(12.))
+            .gap(dp(10.))
             .border_t_1()
             .border_color(theme.border_3)
             .bg(theme.bg_2)
-            .text_size(px(12.))
+            .text_size(dp(12.))
             .text_color(theme.text_2)
-            .child(div().flex_1().min_w(px(0.)).truncate().child(state))
+            .child(div().flex_1().min_w_0().truncate().child(state))
             .children(hints.into_iter().filter_map(|(action, label)| {
                 let keys = shortcut(action, cx)?;
                 Some(hint(&keys, label, &theme))
@@ -242,10 +242,10 @@ impl AppView {
                 h_flex()
                     .id("open-commands")
                     .flex_none()
-                    .gap(px(4.))
-                    .px(px(6.))
-                    .h(px(22.))
-                    .rounded(px(4.))
+                    .gap(dp(4.))
+                    .px(dp(6.))
+                    .h(dp(22.))
+                    .rounded(dp(4.))
                     .hover(|el| el.bg(theme.hover()))
                     .child(hint(
                         shortcut(&CommandPalette, cx).as_deref().unwrap_or("⌘K"),
@@ -281,7 +281,7 @@ fn under_way(label: &str) -> String {
 fn hint(keys: &str, label: &str, theme: &Theme) -> gpui::Div {
     h_flex()
         .flex_none()
-        .gap(px(4.))
+        .gap(dp(4.))
         .child(div().text_color(theme.text_3).child(keys.to_owned()))
         .child(label.to_owned())
 }

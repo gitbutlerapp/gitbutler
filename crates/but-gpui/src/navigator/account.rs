@@ -1,13 +1,13 @@
 //! The top of the navigator's right end: New version, when the app has an update, and the
 //! GitButler account's picture and menu, or Sign in.
 
-use gpui::{AnyElement, Context, MouseButton, MouseDownEvent, div, img, prelude::*, px};
+use gpui::{AnyElement, Context, MouseButton, MouseDownEvent, div, img, prelude::*};
 
 use super::Navigator;
 use crate::overlays::MenuItem;
 use crate::theme::Theme;
 use crate::ui::person::person_avatar;
-use crate::ui::{ButtonStyle, button};
+use crate::ui::{ButtonStyle, button, dp};
 
 impl Navigator {
     /// New version, when the desktop app's update feed offers one. Not "Update", which a
@@ -42,7 +42,7 @@ impl Navigator {
         };
         // Without a picture, the person's pattern stands in, as in GitButler's other apps.
         let face = match account.avatar.clone() {
-            Some(picture) => img(picture).size(px(20.)).rounded_full().into_any_element(),
+            Some(picture) => img(picture).size(dp(20.)).rounded_full().into_any_element(),
             None => {
                 let seed = (user.login.as_ref().or(user.email.as_ref())).unwrap_or(&user.name);
                 person_avatar(seed, 20., theme).into_any_element()
@@ -50,7 +50,7 @@ impl Navigator {
         };
         div()
             .id("account")
-            .p(px(2.))
+            .p(dp(2.))
             .rounded_full()
             .hover(|el| el.bg(theme.hover()))
             .child(face)

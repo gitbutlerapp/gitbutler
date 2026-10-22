@@ -6,12 +6,12 @@ use std::rc::Rc;
 use gpui::{
     AnyElement, App, Background, CursorStyle, ElementId, HighlightStyle, Hsla, Modifiers,
     MouseButton, MouseDownEvent, Pixels, Point, Role, ScrollHandle, SharedString, StyledText,
-    Window, combine_highlights, div, pattern_slash, prelude::*, px,
+    Window, combine_highlights, div, pattern_slash, prelude::*,
 };
 
 use super::conflict::{self, Part};
 use super::file_icons::file_icon;
-use super::{Icon, h_flex, plural, small_icon, v_flex};
+use super::{Icon, dp, fixed, h_flex, plural, small_icon, v_flex};
 use crate::backend::{ChangeKind, Conflict, DiffBody, DiffLine, FileDiff, Hunk, LineKind, Picture};
 use crate::theme::Theme;
 
@@ -341,7 +341,7 @@ pub fn stats(added: u32, removed: u32, theme: &Theme) -> gpui::Div {
     }
     div()
         .flex_none()
-        .text_size(px(11.))
+        .text_size(dp(11.))
         .font_family(theme.mono_font.clone())
         .child(StyledText::new(text).with_highlights(colors))
 }
@@ -457,11 +457,16 @@ fn change_scale(added: u32, removed: u32, theme: &Theme) -> Option<gpui::Div> {
     }
     let green = ((added as f32 / total as f32 * 5.).round() as usize)
         .clamp(usize::from(added > 0), 5 - usize::from(removed > 0));
-    Some(h_flex().flex_none().gap(px(1.)).children((0..5).map(|ix| {
-        div()
-            .size(px(5.))
-            .bg(if ix < green { theme.safe } else { theme.danger })
-    })))
+    Some(
+        h_flex()
+            .flex_none()
+            .gap(fixed(1.))
+            .children((0..5).map(|ix| {
+                div()
+                    .size(dp(5.))
+                    .bg(if ix < green { theme.safe } else { theme.danger })
+            })),
+    )
 }
 
 /// The header at the top of the card of file `ix`, as Lite and but.dev draw it: the fold
@@ -484,24 +489,24 @@ pub fn file_header(
         .id(("diff-file", ix))
         .role(Role::Heading)
         .aria_label(SharedString::from(file.file.path.clone()))
-        .h(px(FILE_HEADER_HEIGHT))
-        .pl(px(10.))
-        .pr(px(8.))
-        .gap(px(8.))
+        .h(dp(FILE_HEADER_HEIGHT))
+        .pl(dp(10.))
+        .pr(dp(8.))
+        .gap(dp(8.))
         .border_t_1()
         .border_b_1()
-        .rounded_t(px(6.))
-        .when(decor.folded, |el| el.rounded_b(px(6.)))
+        .rounded_t(dp(6.))
+        .when(decor.folded, |el| el.rounded_b(dp(6.)))
         // The file the cursor is in: a tab on the card's edge.
         .when(decor.current, |el| {
             el.child(
                 div()
                     .absolute()
                     .left_0()
-                    .top(px(5.))
-                    .bottom(px(5.))
-                    .w(px(4.))
-                    .rounded_r(px(6.))
+                    .top(dp(5.))
+                    .bottom(dp(5.))
+                    .w(dp(4.))
+                    .rounded_r(dp(6.))
                     .bg(theme.fill_gray),
             )
         })
@@ -509,8 +514,8 @@ pub fn file_header(
         .child(
             h_flex()
                 .flex_1()
-                .min_w(px(0.))
-                .gap(px(6.))
+                .min_w_0()
+                .gap(dp(6.))
                 .overflow_hidden()
                 .child(file_icon(&file.file.path, cx))
                 .child(
@@ -522,7 +527,7 @@ pub fn file_header(
                 // Cut in the middle, as the folder's end tells two files of one name apart.
                 .child(
                     div()
-                        .min_w(px(0.))
+                        .min_w_0()
                         .overflow_hidden()
                         .whitespace_nowrap()
                         .text_ellipsis_middle()
@@ -541,9 +546,9 @@ pub fn file_header(
             el.child(
                 div()
                     .flex_none()
-                    .w(px(1.))
-                    .h(px(20.))
-                    .mx(px(2.))
+                    .w(fixed(1.))
+                    .h(dp(20.))
+                    .mx(dp(2.))
                     .bg(theme.border_3),
             )
         })
@@ -581,8 +586,8 @@ pub fn hunk_header(hunk: &Hunk, unmodified: u32, theme: &Theme, decor: HeaderDec
         (0, scopes) => scopes,
         (n, scopes) => Some(
             h_flex()
-                .min_w(px(0.))
-                .gap(px(6.))
+                .min_w_0()
+                .gap(dp(6.))
                 .child(
                     div()
                         .flex_none()
@@ -596,23 +601,23 @@ pub fn hunk_header(hunk: &Hunk, unmodified: u32, theme: &Theme, decor: HeaderDec
         ),
     };
     card(h_flex(), theme)
-        .px(px(8.))
-        .py(px(6.))
+        .px(dp(8.))
+        .py(dp(6.))
         .child(
             h_flex()
                 .flex_1()
-                .min_w(px(0.))
-                .h(px(28.))
-                .pl(px(10.))
-                .pr(px(3.))
-                .gap(px(8.))
-                .rounded(px(6.))
+                .min_w_0()
+                .h(dp(28.))
+                .pl(dp(10.))
+                .pr(dp(3.))
+                .gap(dp(8.))
+                .rounded(dp(6.))
                 .bg(if decor.current {
                     theme.pop.opacity(0.1)
                 } else {
                     theme.diff_separator
                 })
-                .text_size(px(12.))
+                .text_size(dp(12.))
                 .text_color(theme.diff_muted)
                 .overflow_hidden()
                 .whitespace_nowrap()
@@ -621,13 +626,7 @@ pub fn hunk_header(hunk: &Hunk, unmodified: u32, theme: &Theme, decor: HeaderDec
                     el.hover(|el| el.text_color(theme.text_1))
                 })
                 .children(decor.leading)
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w(px(0.))
-                        .overflow_hidden()
-                        .children(title),
-                )
+                .child(div().flex_1().min_w_0().overflow_hidden().children(title))
                 .when(decor.excluded, |el| {
                     el.child(
                         div()
@@ -645,12 +644,12 @@ pub fn hunk_header(hunk: &Hunk, unmodified: u32, theme: &Theme, decor: HeaderDec
 fn conflicted_badge(theme: &Theme) -> gpui::Div {
     div()
         .flex_none()
-        .px(px(6.))
-        .py(px(1.))
-        .rounded(px(9.))
+        .px(dp(6.))
+        .py(fixed(1.))
+        .rounded(dp(9.))
         .bg(theme.warn.opacity(0.12))
         .text_color(theme.warn)
-        .text_size(px(11.))
+        .text_size(dp(11.))
         .child("Conflicted")
 }
 
@@ -687,12 +686,12 @@ pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
         },
     };
     card(h_flex(), theme)
-        .h(px(36.))
-        .px(px(12.))
-        .gap(px(6.))
+        .h(dp(36.))
+        .px(dp(12.))
+        .gap(dp(6.))
         .border_b_1()
-        .rounded_b(px(6.))
-        .text_size(px(12.))
+        .rounded_b(dp(6.))
+        .text_size(dp(12.))
         .text_color(theme.text_2)
         .child(small_icon(Icon::File).text_color(theme.text_3))
         .child(text)
@@ -759,8 +758,8 @@ pub(super) fn number_cell(
     div()
         .relative()
         .flex_none()
-        .w(px((digit * (digits.max(3) + 3) as f32).round()))
-        .pr(px(digit))
+        .w(dp((digit * (digits.max(3) + 3) as f32).round()))
+        .pr(dp(digit))
         .flex()
         .items_start()
         .justify_end()
@@ -785,7 +784,7 @@ pub(super) fn number_cell(
                 .child(
                     div()
                         .absolute()
-                        .left(px(4.))
+                        .left(dp(4.))
                         .top_0()
                         .h_full()
                         .flex()
@@ -804,7 +803,7 @@ pub(super) fn number_cell(
                     .left_0()
                     .top_0()
                     .bottom_0()
-                    .w(px(4.))
+                    .w(dp(4.))
                     .bg(bar),
             )
         })
@@ -875,8 +874,8 @@ pub(super) fn text_cell(
     div()
         .id(id)
         .flex_1()
-        .min_w(px(0.))
-        .pl(px(8.))
+        .min_w_0()
+        .pl(dp(8.))
         .text_color(theme.text_1)
         .map(|el| match wrap {
             true => el.overflow_hidden().child(text),
@@ -888,7 +887,7 @@ pub(super) fn text_cell(
                 .child(
                     div()
                         .whitespace_nowrap()
-                        .min_w(px((sideways.columns + 1) as f32 * digit_width(theme)))
+                        .min_w(dp((sideways.columns + 1) as f32 * digit_width(theme)))
                         .child(text),
                 ),
         })
@@ -905,15 +904,15 @@ pub(super) fn line_card(
         .id(id)
         .map(|el| {
             if wrap {
-                el.items_stretch().min_h(px(theme.code_line))
+                el.items_stretch().min_h(dp(theme.code_line))
             } else {
-                el.h(px(theme.code_line))
+                el.h(dp(theme.code_line))
             }
         })
-        .line_height(px(theme.code_line))
+        .line_height(dp(theme.code_line))
         .font_family(theme.mono_font.clone())
-        .text_size(px(theme.code_text))
-        .when(last, |el| el.border_b_1().rounded_b(px(6.)))
+        .text_size(dp(theme.code_text))
+        .when(last, |el| el.border_b_1().rounded_b(dp(6.)))
         .overflow_hidden()
 }
 
@@ -1056,7 +1055,7 @@ pub fn pair_row(
             // Nothing on this side: a hatched gap the other side's lines line up against.
             // It stretches rather than taking `h_full`: a wrapped row sets only a minimum
             // height, so a share of its height comes to nothing.
-            return (div().flex_1().min_w(px(0.)).self_stretch()).bg(pattern_slash(
+            return (div().flex_1().min_w_0().self_stretch()).bg(pattern_slash(
                 theme.border_3,
                 1.,
                 6.,
@@ -1069,7 +1068,7 @@ pub fn pair_row(
             .group(LINE_GROUP)
             .relative()
             .flex_1()
-            .min_w(px(0.))
+            .min_w_0()
             .when(wrap, |el| el.items_stretch())
             .when_some(look.bg, |el, bg| el.bg(bg))
             .child(number_cell(
@@ -1092,15 +1091,15 @@ pub fn pair_row(
         side(right, right_half, new_side, "pair-right-text"),
     );
     line_card(("diff-pair", id).into(), last, wrap, theme)
-        .child(left.when(last, |el| el.rounded_bl(px(5.))))
+        .child(left.when(last, |el| el.rounded_bl(dp(5.))))
         .child(
             div()
                 .flex_none()
-                .w(px(1.))
+                .w(fixed(1.))
                 .self_stretch()
                 .bg(theme.border_3),
         )
-        .child(right.when(last, |el| el.rounded_br(px(5.))))
+        .child(right.when(last, |el| el.rounded_br(dp(5.))))
         .into_any_element()
 }
 
@@ -1124,17 +1123,17 @@ fn scopes(scope: &[String], theme: &Theme) -> Option<AnyElement> {
     let (inner, outer) = scope.split_last()?;
     let breadcrumb = h_flex()
         .flex_1()
-        .min_w(px(0.))
-        .gap(px(6.))
+        .min_w_0()
+        .gap(dp(6.))
         .overflow_hidden()
         .font_family(theme.mono_font.clone())
         .children(outer.iter().map(|scope| {
             h_flex()
                 .flex_shrink(1.)
-                .min_w(px(0.))
-                .gap(px(6.))
+                .min_w_0()
+                .gap(dp(6.))
                 .text_color(theme.text_3)
-                .child(div().min_w(px(0.)).truncate().child(scope.clone()))
+                .child(div().min_w_0().truncate().child(scope.clone()))
                 .child("›")
         }))
         .child(
@@ -1160,12 +1159,12 @@ fn image_row(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> 
         |label: &'static str, missing: &'static str, image: Option<Picture>, tint: gpui::Hsla| {
             v_flex()
                 .flex_1()
-                .min_w(px(0.))
-                .gap(px(6.))
+                .min_w_0()
+                .gap(dp(6.))
                 .items_center()
                 .child(
                     div()
-                        .text_size(px(11.))
+                        .text_size(dp(11.))
                         .text_color(theme.text_2)
                         .child(label),
                 )
@@ -1180,9 +1179,9 @@ fn image_row(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> 
                         const AROUND: f32 = 14.;
                         div()
                             .w_full()
-                            .max_w(px(width + AROUND))
-                            .p(px(6.))
-                            .rounded(px(4.))
+                            .max_w(dp(width + AROUND))
+                            .p(dp(6.))
+                            .rounded(dp(4.))
                             .border_1()
                             .border_color(tint)
                             .child(
@@ -1194,10 +1193,10 @@ fn image_row(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> 
                             .into_any_element()
                     }
                     None => div()
-                        .h(px(60.))
+                        .h(dp(60.))
                         .flex()
                         .items_center()
-                        .text_size(px(12.))
+                        .text_size(dp(12.))
                         .text_color(theme.text_3)
                         .child(missing)
                         .into_any_element(),
@@ -1205,10 +1204,10 @@ fn image_row(before: Option<Picture>, after: Option<Picture>, theme: &Theme) -> 
         };
     h_flex()
         .items_start()
-        .gap(px(16.))
-        .p(px(12.))
+        .gap(dp(16.))
+        .p(dp(12.))
         .border_b_1()
-        .rounded_b(px(6.))
+        .rounded_b(dp(6.))
         .child(side(
             "Before",
             "New file",

@@ -5,7 +5,7 @@
 
 use std::collections::HashSet;
 
-use gpui::{AnyElement, Context, Hsla, div, prelude::*, px};
+use gpui::{AnyElement, Context, Hsla, Pixels, div, prelude::*};
 
 use super::{Branches, Recency, email_of, title};
 use crate::backend::ReviewState;
@@ -19,7 +19,7 @@ use crate::detail::upstream::noon;
 use crate::state::{BranchStatus, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::person::author_avatar;
-use crate::ui::{Icon, Tooltip, faint, h_flex, list_row, plural, review, small_icon, v_flex};
+use crate::ui::{Icon, Tooltip, dp, faint, h_flex, list_row, plural, review, small_icon, v_flex};
 
 /// How many of the busiest branches get a lane.
 const LANES: usize = 7;
@@ -194,15 +194,15 @@ impl Detail {
             .id("branches-overview")
             .flex_1()
             .h_full()
-            .min_w(px(0.))
+            .min_w_0()
             .overflow_y_scroll()
             .child(
                 v_flex()
                     .w_full()
-                    .max_w(px(820.))
-                    .px(px(14.))
-                    .py(px(16.))
-                    .gap(px(6.))
+                    .max_w(dp(820.))
+                    .px(dp(14.))
+                    .py(dp(16.))
+                    .gap(dp(6.))
                     .child(overview_title(
                         listed,
                         scope.into_iter().flatten().collect::<Vec<_>>().join(" · "),
@@ -216,7 +216,7 @@ impl Detail {
                         theme,
                     ))
                     .when(cooking_lanes.is_empty(), |el| {
-                        el.child(faint(nothing, theme).px(px(14.)).py(px(4.)))
+                        el.child(faint(nothing, theme).px(dp(14.)).py(dp(4.)))
                     })
                     .children(cooking_lanes)
                     .when(!quiet_lanes.is_empty(), |el| {
@@ -274,29 +274,29 @@ fn review_split(summary: &Summary, theme: &Theme) -> Option<AnyElement> {
     }
     Some(
         v_flex()
-            .px(px(6.))
-            .pt(px(8.))
-            .gap(px(6.))
+            .px(dp(6.))
+            .pt(dp(8.))
+            .gap(dp(6.))
             .child(
                 h_flex()
-                    .h(px(6.))
-                    .gap(px(2.))
+                    .h(dp(6.))
+                    .gap(dp(2.))
                     .children(split.iter().map(|(.., fill, _, n)| {
                         div()
                             .h_full()
                             .flex_grow(*n as f32)
-                            .flex_basis(px(0.))
-                            .rounded(px(2.))
+                            .flex_basis(Pixels::ZERO)
+                            .rounded(dp(2.))
                             .bg(*fill)
                     })),
             )
             .child(
                 h_flex()
-                    .gap(px(12.))
+                    .gap(dp(12.))
                     .flex_wrap()
                     .children(split.into_iter().map(|(glyph, color, _, said, _)| {
                         h_flex()
-                            .gap(px(4.))
+                            .gap(dp(4.))
                             .child(small_icon(glyph).text_color(color))
                             .child(faint(said, theme))
                     })),
@@ -329,7 +329,7 @@ fn lane_row(
         let name = &branch.people[*person];
         author_avatar(name, &email_of(branches, name), 16., theme)
             .flex_none()
-            .when(at > 0, |el| el.ml(px(-4.)))
+            .when(at > 0, |el| el.ml(dp(-4.)))
     });
     let first_day = today - (ACTIVITY_DAYS as i64 - 1);
     let cells = lane.daily.iter().enumerate().map(|(day_ix, &n)| {
@@ -348,8 +348,8 @@ fn lane_row(
         div()
             .id(("lane-day", day_ix))
             .flex_1()
-            .h(px(14.))
-            .rounded(px(2.))
+            .h(dp(14.))
+            .rounded(dp(2.))
             .bg(if dim { color.opacity(0.3) } else { color })
             .tooltip(Tooltip::text(tip))
     });
@@ -359,19 +359,14 @@ fn lane_row(
     // The title and the cells share the room, the cells no wider than a cell a day needs.
     list_row(id, false, theme)
         .h_auto()
-        .py(px(4.))
+        .py(dp(4.))
         .child(small_icon(glyph).text_color(color))
         .child(
             h_flex()
                 .flex_1()
-                .min_w(px(0.))
-                .gap(px(6.))
-                .child(
-                    div()
-                        .min_w(px(0.))
-                        .truncate()
-                        .child(title(branch).to_owned()),
-                )
+                .min_w_0()
+                .gap(dp(6.))
+                .child(div().min_w_0().truncate().child(title(branch).to_owned()))
                 .when(branch.applied, |el| {
                     el.child(faint("applied", theme).flex_none())
                 })
@@ -380,24 +375,24 @@ fn lane_row(
                     div()
                         .id("quiet-days")
                         .flex_none()
-                        .text_size(px(11.))
+                        .text_size(dp(11.))
                         .text_color(theme.warn)
                         .tooltip(Tooltip::text(format!("No commits for {days} days")))
                         .child(format!("{days}d"))
                 })),
         )
-        .child(h_flex().flex_none().w(px(40.)).children(avatars))
+        .child(h_flex().flex_none().w(dp(40.)).children(avatars))
         .child(
             h_flex()
                 .flex_1()
-                .max_w(px(360.))
-                .gap(px(2.))
+                .max_w(dp(360.))
+                .gap(dp(2.))
                 .children(cells),
         )
         .child(
             faint(grouped(lane.n), theme)
                 .flex_none()
-                .w(px(OVERVIEW_TIME_WIDTH))
+                .w(dp(OVERVIEW_TIME_WIDTH))
                 .text_right(),
         )
         .on_click(cx.listener(move |this, _, window, cx| match &applied {

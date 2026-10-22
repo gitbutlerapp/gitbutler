@@ -1,7 +1,7 @@
 //! Colour and type tokens, taken from `@gitbutler/design-core` so this app reads like
 //! the rest of GitButler.
 
-use gpui::{App, Global, Hsla, SharedString, WindowAppearance, rgb};
+use gpui::{App, Global, Hsla, Pixels, SharedString, WindowAppearance, rgb};
 use serde::{Deserialize, Serialize};
 
 use crate::backend::Token;
@@ -55,6 +55,9 @@ pub struct Theme {
     /// Code in diffs: its size and the height of a line of it.
     pub code_text: f32,
     pub code_line: f32,
+    /// The interface scale, 1 at 100%: the window's rem follows it, and [`Theme::scaled`]
+    /// gives sizes the layout doesn't, as for scroll and pointer maths.
+    pub scale: f32,
     syntax: [Hsla; 7],
 }
 
@@ -78,6 +81,56 @@ pub enum Appearance {
     Dark,
 }
 
+/// How large the whole interface draws, in percent, as a browser zooms a page: every size
+/// the app gives in [`crate::ui::dp`] grows or shrinks with it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct UiScale(u16);
+
+impl Default for UiScale {
+    fn default() -> Self {
+        Self(100)
+    }
+}
+
+impl UiScale {
+    /// The steps ⌘+ and ⌘− go through, as Chrome's.
+    pub const STEPS: [UiScale; 9] = [
+        Self(75),
+        Self(80),
+        Self(90),
+        Self(100),
+        Self(110),
+        Self(125),
+        Self(150),
+        Self(175),
+        Self(200),
+    ];
+
+    pub fn percent(self) -> u16 {
+        self.0
+    }
+
+    /// How many times 100% it is, kept within the steps.
+    fn factor(self) -> f32 {
+        f32::from(self.clamp(Self::STEPS[0], Self::STEPS[8]).0) / 100.
+    }
+
+    /// The next step up, or the largest.
+    pub fn larger(self) -> Self {
+        (Self::STEPS.into_iter())
+            .find(|&step| step > self)
+            .unwrap_or(Self::STEPS[8])
+    }
+
+    /// The next step down, or the smallest.
+    pub fn smaller(self) -> Self {
+        (Self::STEPS.into_iter().rev())
+            .find(|&step| step < self)
+            .unwrap_or(Self::STEPS[0])
+    }
+}
+
 impl CodeSize {
     /// The size of code in diffs and the height of a line of it.
     fn metrics(self) -> (f32, f32) {
@@ -94,6 +147,17 @@ impl Theme {
     pub fn with_code(mut self, size: CodeSize) -> Self {
         (self.code_text, self.code_line) = size.metrics();
         self
+    }
+
+    /// This theme at interface scale `scale`.
+    pub fn with_scale(mut self, scale: UiScale) -> Self {
+        self.scale = scale.factor();
+        self
+    }
+
+    /// `n` pixels as designed, at the interface scale: what [`crate::ui::dp`] lays out as.
+    pub fn scaled(&self, n: f32) -> Pixels {
+        Pixels::from(n * self.scale)
     }
 
     pub fn get(cx: &App) -> &Theme {
@@ -134,6 +198,7 @@ impl Theme {
         Theme {
             code_text,
             code_line,
+            scale: 1.,
             bg_1,
             bg_2: pick(0xf2f2f2, 0x1e1e1e),
             text_1: pick(0x1e1e1e, 0xf8f8f8),
