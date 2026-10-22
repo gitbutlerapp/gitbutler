@@ -345,9 +345,21 @@ impl Detail {
                 );
                 this.refresh_diff(false, cx);
                 this.load_selected_merge(&project, cx);
-                if let Some(id) = found {
-                    this.pick_on_page(&project, Picked::Commit(id), None, cx);
-                    this.scroll_to_picked(&project, cx);
+                // Left since, the page keeps the pick for later rather than taking over what's
+                // shown now, as a composer opened meanwhile.
+                let shown = matches!(&this.store.read(cx).selection,
+                    Some(Selection::Project(p)) if *p == project);
+                match found {
+                    Some(id) if shown => {
+                        this.pick_on_page(&project, Picked::Commit(id), None, cx);
+                        this.scroll_to_picked(&project, cx);
+                    }
+                    Some(id) => {
+                        if let Some(upstream) = this.upstream.get_mut(&project) {
+                            upstream.selected = Some(Picked::Commit(id));
+                        }
+                    }
+                    None => {}
                 }
                 if pending.is_some() {
                     this.load_upstream(&project, true, false, cx);
