@@ -5,7 +5,7 @@ use std::collections::HashSet;
 
 use gpui::{App, ClickEvent, Context, DismissEvent, Window, div, prelude::*, px};
 
-use super::{Card, Page, Row, SettingsView, field_with_save};
+use super::{Card, Page, Row, SettingsView, field_with_save, read_failed};
 use crate::backend::{Forge, settings as backend};
 use crate::state::{Prefs, ProjectId};
 use crate::theme::Theme;
@@ -33,10 +33,7 @@ impl SettingsView {
         self._load = cx.spawn(async move |this, cx| {
             let loaded = crate::backend::run(move || backend::project_settings(&path)).await;
             this.update(cx, |this, cx| {
-                match loaded {
-                    Ok(settings) => this.project_settings = Some(settings),
-                    Err(err) => this.error("Couldn't read the project's settings", err, cx),
-                }
+                this.project_settings = Some(loaded.map_err(|err| format!("{err:#}").into()));
                 cx.notify();
             })
             .ok();
@@ -96,6 +93,17 @@ impl SettingsView {
         let theme = Theme::get(cx);
         let (Some(project), Some(settings)) = (&self.project, &self.project_settings) else {
             return Vec::new();
+        };
+        let settings = match settings {
+            Ok(settings) => settings,
+            Err(err) => {
+                let retry = |this: &mut Self, cx: &mut Context<Self>| {
+                    this.show_project(this.project.clone(), cx)
+                };
+                let title = "Couldn't read the project's settings";
+                let failed = read_failed(page, title, err, retry, cx);
+                return vec![Card::new(None, vec![failed])];
+            }
         };
         // Settings are only read for a project with a path.
         let Some(path) = self.store.read(cx).path(project) else {

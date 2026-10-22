@@ -173,7 +173,7 @@ impl SettingsView {
                     store.retry_forges();
                     store.snack(format!("Signed in to GitHub as {who}"), cx)
                 }
-                Err(err) => store.error("Couldn't sign in to GitHub", format!("{err:#}"), cx),
+                Err(err) => store.failed("Couldn't sign in to GitHub", err, cx),
             });
             this.update(cx, |this, cx| {
                 if current(this) {
@@ -192,6 +192,9 @@ impl SettingsView {
         cx.subscribe(&input, |this, input, event, cx| match event {
             InputEvent::Submit => {
                 let token = input.read(cx).text().to_owned();
+                if token.trim().is_empty() {
+                    return;
+                }
                 this.accounts.login = None;
                 cx.spawn(async move |this, cx| {
                     let logged_in = run(move || accounts::gitbutler_log_in(&token)).await;
@@ -239,7 +242,7 @@ impl SettingsView {
         let theme = Theme::get(cx);
         let user = self.store.read(cx).account.user.as_ref();
         let gitbutler: AnyElement = match (user, &self.accounts.login) {
-            (_, Some(input)) => token_field(input, None, window, theme, cx),
+            (_, Some(input)) => token_field(input, None, "Sign in", window, theme, cx),
             (Some(_), None) => button("log-out", "Sign out")
                 .small()
                 .style(ButtonStyle::Ghost)
@@ -328,6 +331,7 @@ impl SettingsView {
                 token_field(
                     token,
                     (*forge == Forge::Bitbucket).then_some(email),
+                    "Add",
                     window,
                     theme,
                     cx,
@@ -369,10 +373,12 @@ impl SettingsView {
     }
 }
 
-/// A masked token field, with an email field before it when given, and Add.
+/// A masked token field, with an email field before it when given, and `submit`, which sends
+/// it.
 fn token_field(
     token: &Entity<TextInput>,
     email: Option<&Entity<TextInput>>,
+    submit: &'static str,
     window: &Window,
     theme: &Theme,
     cx: &Context<SettingsView>,
@@ -391,7 +397,7 @@ fn token_field(
         })
         .child({
             let token = token.clone();
-            button("add-token", "Add")
+            button("add-token", submit)
                 .small()
                 .style(ButtonStyle::Gray)
                 .on_click(move |_, _, cx| token.update(cx, |_, cx| cx.emit(InputEvent::Submit)))

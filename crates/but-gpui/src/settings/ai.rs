@@ -2,13 +2,13 @@
 //! with whose key, and which model. GitButler's other apps share it. It's read only when
 //! shown, as reading it checks the keychain for stored keys.
 
-use gpui::{Context, Entity, SharedString, Window, prelude::*, px};
+use gpui::{App, Context, Entity, SharedString, Window, prelude::*};
 
-use super::{Row, SettingsView, field_with_save};
+use super::{Page, Row, SettingsView, field_with_save, read_failed, segmented};
 use crate::backend::run;
 use crate::backend::settings::{self as backend, AiConfiguration, AiConfigurationUpdate};
+use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{button, h_flex};
 
 const PROVIDERS: [(&str, &str); 4] = [
     ("openai", "OpenAI"),
@@ -23,8 +23,9 @@ const OWN_KEY: &str = "bringYourOwn";
 pub(super) struct Ai {
     config: Option<AiConfiguration>,
     loading: bool,
-    /// The last read failed: a search doesn't read them again, only opening the page does.
-    failed: bool,
+    /// Why the last read failed: a search doesn't read them again, only opening the page or
+    /// Try again does.
+    failed: Option<SharedString>,
     /// "Your own" is picked but no key is stored yet; it's saved with the key, as a key
     /// option without a key can't be.
     own_pending: bool,
@@ -46,7 +47,7 @@ impl Ai {
                     InputEvent::Submit => this.save_ai_field(input, cx),
                     InputEvent::Changed => cx.notify(),
                     InputEvent::Cancel => {
-                        this.sync_ai_fields(cx);
+                        this.reset_ai_field(input, cx);
                         this.back_to_search(window, cx);
                     }
                 },
@@ -56,7 +57,7 @@ impl Ai {
         Self {
             config: None,
             loading: false,
-            failed: false,
+            failed: None,
             own_pending: false,
             key,
             model,
@@ -114,12 +115,12 @@ impl SettingsView {
 
     /// Read the AI settings again when next asked, after a read that failed.
     pub(super) fn retry_ai(&mut self) {
-        self.ai.failed = false;
+        self.ai.failed = None;
     }
 
     /// Read the AI settings the first time they're needed.
     pub(super) fn ensure_ai(&mut self, cx: &mut Context<Self>) {
-        if self.ai.config.is_some() || self.ai.loading || self.ai.failed {
+        if self.ai.config.is_some() || self.ai.loading || self.ai.failed.is_some() {
             return;
         }
         self.ai.loading = true;
@@ -132,36 +133,43 @@ impl SettingsView {
                         this.ai.config = Some(config);
                         this.sync_ai_fields(cx);
                     }
-                    Err(err) => {
-                        this.ai.failed = true;
-                        this.error("Couldn't read the AI settings", err, cx)
-                    }
+                    Err(err) => this.ai.failed = Some(format!("{err:#}").into()),
                 }
+                cx.notify();
             })
             .ok();
         })
         .detach();
     }
 
-    /// Show the stored model and endpoint in their fields again.
-    fn sync_ai_fields(&mut self, cx: &mut Context<Self>) {
+    /// Show what's stored in `input` again: the model or the endpoint, or no key.
+    fn reset_ai_field(&self, input: &Entity<TextInput>, cx: &mut Context<Self>) {
         let Some(config) = &self.ai.config else {
             return;
         };
         let (model, endpoint, _) = provider_parts(config);
-        let (model, endpoint) = (model.to_owned(), endpoint.unwrap_or_default().to_owned());
-        self.ai
-            .model
-            .update(cx, |input, cx| input.set_text(model, cx));
-        self.ai
-            .endpoint
-            .update(cx, |input, cx| input.set_text(endpoint, cx));
-        self.ai.key.update(cx, |input, cx| input.set_text("", cx));
-        cx.notify();
+        let text = if *input == self.ai.model {
+            model
+        } else if *input == self.ai.endpoint {
+            endpoint.unwrap_or_default()
+        } else {
+            ""
+        };
+        input.update(cx, |input, cx| input.set_text(text, cx));
     }
 
+    /// Show what's stored in every field again, as for another provider.
+    fn sync_ai_fields(&self, cx: &mut Context<Self>) {
+        for input in [&self.ai.key, &self.ai.model, &self.ai.endpoint] {
+            self.reset_ai_field(input, cx);
+        }
+    }
+
+    /// Save `change`, then show what's stored in the `saved` field, or in every field for another
+    /// provider, leaving unsaved edits in the rest.
     fn update_ai(
         &mut self,
+        saved: Option<Entity<TextInput>>,
         change: impl FnOnce(&mut AiConfigurationUpdate) + Send + 'static,
         cx: &mut Context<Self>,
     ) {
@@ -171,12 +179,20 @@ impl SettingsView {
         let mut update = update_from(config);
         change(&mut update);
         cx.spawn(async move |this, cx| {
-            let saved = run(move || backend::update_ai(update)).await;
-            this.update(cx, |this, cx| match saved {
+            let result = run(move || backend::update_ai(update)).await;
+            this.update(cx, |this, cx| match result {
                 Ok(config) => {
+                    // Another provider has its own model and endpoint.
+                    let other =
+                        (this.ai.config.as_ref()).is_some_and(|c| c.provider != config.provider);
                     this.ai.config = Some(config);
                     this.ai.own_pending = false;
-                    this.sync_ai_fields(cx);
+                    if other {
+                        this.sync_ai_fields(cx);
+                    } else if let Some(input) = &saved {
+                        this.reset_ai_field(input, cx);
+                    }
+                    cx.notify();
                 }
                 Err(err) => this.error("Couldn't save the AI settings", err, cx),
             })
@@ -190,11 +206,13 @@ impl SettingsView {
         let Some(provider) = self.ai.config.as_ref().map(|c| c.provider.clone()) else {
             return;
         };
+        let saved = Some(input.clone());
         if *input == self.ai.key {
             if text.is_empty() {
                 return;
             }
             self.update_ai(
+                saved,
                 move |update| match provider.as_str() {
                     "anthropic" => {
                         update.anthropic_key_option = OWN_KEY.into();
@@ -209,6 +227,7 @@ impl SettingsView {
             );
         } else if *input == self.ai.model {
             self.update_ai(
+                saved,
                 move |update| match provider.as_str() {
                     "anthropic" => update.anthropic_model = text,
                     "ollama" => update.ollama_model = text,
@@ -219,6 +238,7 @@ impl SettingsView {
             );
         } else {
             self.update_ai(
+                saved,
                 move |update| match provider.as_str() {
                     "lmstudio" => update.lmstudio_endpoint = text,
                     _ => update.ollama_endpoint = text,
@@ -230,7 +250,14 @@ impl SettingsView {
 
     pub(super) fn ai_rows(&self, window: &Window, cx: &Context<Self>) -> Vec<Row> {
         let Some(config) = &self.ai.config else {
-            return Vec::new();
+            let retry = |this: &mut Self, cx: &mut Context<Self>| {
+                this.retry_ai();
+                this.ensure_ai(cx)
+            };
+            let title = "Couldn't read the AI settings";
+            let failed =
+                (self.ai.failed.as_deref()).map(|err| read_failed(Page::Ai, title, err, retry, cx));
+            return failed.into_iter().collect();
         };
         // A field with Save while it differs from what's stored.
         let ai_field = |input: &Entity<TextInput>, stored: &str| {
@@ -251,7 +278,7 @@ impl SettingsView {
             provider_name,
             PROVIDERS.map(|(id, name)| (id.to_owned(), name.to_owned())),
             |this, provider: String, cx| {
-                this.update_ai(move |update| update.provider = provider, cx)
+                this.update_ai(None, move |update| update.provider = provider, cx)
             },
             cx,
         );
@@ -270,39 +297,36 @@ impl SettingsView {
             return rows;
         }
         if let Some((option, has_key)) = key {
-            let option = if self.ai.own_pending { OWN_KEY } else { option };
-            let provider = config.provider.clone();
-            let choice = |id: &'static str, label: &'static str| {
+            let own = self.ai.own_pending || option == OWN_KEY;
+            let (this, provider) = (cx.entity().downgrade(), config.provider.clone());
+            let pick = move |id: &'static str, _: &mut Window, cx: &mut App| {
                 let provider = provider.clone();
-                button(SharedString::from(format!("ai-key-{id}")), label)
-                    .small()
-                    .selected(option == id)
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        // Without a key stored yet, wait for one before saving.
-                        this.ai.own_pending = id == OWN_KEY && !has_key;
-                        if this.ai.own_pending {
-                            cx.notify();
-                            return;
-                        }
-                        let provider = provider.clone();
-                        this.update_ai(
-                            move |update| match provider.as_str() {
-                                "anthropic" => update.anthropic_key_option = id.into(),
-                                _ => update.openai_key_option = id.into(),
-                            },
-                            cx,
-                        )
-                    }))
+                this.update(cx, |this, cx| {
+                    // Without a key stored yet, wait for one before saving.
+                    this.ai.own_pending = id == OWN_KEY && !has_key;
+                    if this.ai.own_pending {
+                        return cx.notify();
+                    }
+                    let change = move |update: &mut AiConfigurationUpdate| match provider.as_str() {
+                        "anthropic" => update.anthropic_key_option = id.into(),
+                        _ => update.openai_key_option = id.into(),
+                    };
+                    this.update_ai(None, change, cx)
+                })
+                .ok();
             };
             rows.push(Row::new(
                 "Key",
                 "GitButler's needs you signed in to GitButler; your own stays in the keychain.",
-                h_flex()
-                    .gap(px(2.))
-                    .child(choice(GITBUTLERS_KEY, "GitButler's"))
-                    .child(choice(OWN_KEY, "Your own")),
+                segmented(
+                    "ai-key",
+                    [(GITBUTLERS_KEY, "GitButler's"), (OWN_KEY, "Your own")],
+                    if own { OWN_KEY } else { GITBUTLERS_KEY },
+                    pick,
+                    Theme::get(cx),
+                ),
             ));
-            if option == OWN_KEY {
+            if own {
                 let description = if has_key {
                     "A key is stored. Paste another to replace it.".into()
                 } else {

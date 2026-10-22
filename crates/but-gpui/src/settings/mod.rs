@@ -4,9 +4,9 @@
 //! state; fetching is GitButler's shared setting; a project's settings are its own.
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, DismissEvent, Entity, EventEmitter, FocusHandle,
-    Focusable, KeyBinding, SharedString, Subscription, Task, WeakEntity, Window, actions, div,
-    prelude::*, px,
+    AnyElement, App, ClickEvent, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle,
+    Focusable, KeyBinding, ScrollHandle, SharedString, Stateful, Subscription, Task, WeakEntity,
+    Window, actions, div, prelude::*, px,
 };
 
 mod accounts;
@@ -17,13 +17,14 @@ mod project;
 use crate::app::AppView;
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::overlays::MenuItem;
-use crate::state::{ProjectId, ScopeLines, Store};
+use crate::state::{Prefs, ProjectId, ScopeLines, Store};
 use crate::theme::{Appearance, CodeSize, Theme};
 use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
+use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    self, ButtonStyle, Icon, Tooltip, button, dropdown, field, h_flex, icon, muted, side_row,
-    switch, v_flex,
+    self, ButtonStyle, Icon, Tooltip, button, dropdown, error_summary, field, h_flex, icon, muted,
+    side_row, switch, v_flex,
 };
 
 actions!(settings, [OpenSettings]);
@@ -138,7 +139,8 @@ pub struct SettingsView {
     page: Page,
     /// The project the project's pages are about.
     project: Option<ProjectId>,
-    project_settings: Option<ProjectSettings>,
+    /// The project's settings as last read, or why they couldn't be; `None` while first read.
+    project_settings: Option<Result<ProjectSettings, SharedString>>,
     name: Entity<TextInput>,
     editors: Vec<Program>,
     terminals: Vec<Program>,
@@ -150,6 +152,8 @@ pub struct SettingsView {
     ai: ai::Ai,
     /// How the last signing test went, while it applies to the project shown.
     signing: Option<Result<(), SharedString>>,
+    pages_scroll: ScrollHandle,
+    cards_scroll: ScrollHandle,
     _subscriptions: Vec<Subscription>,
     _load: Task<()>,
 }
@@ -215,6 +219,8 @@ impl SettingsView {
             accounts: Default::default(),
             ai,
             signing: None,
+            pages_scroll: ScrollHandle::new(),
+            cards_scroll: ScrollHandle::new(),
             _subscriptions: subscriptions,
             _load: Task::ready(()),
         };
@@ -254,9 +260,8 @@ impl SettingsView {
     }
 
     fn error(&self, title: &str, err: anyhow::Error, cx: &mut App) {
-        self.store.update(cx, |store, cx| {
-            store.error(title.to_owned(), format!("{err:#}"), cx)
-        });
+        self.store
+            .update(cx, |store, cx| store.failed(title.to_owned(), &err, cx));
     }
 
     /// Run `op` in the background, report it if it fails, then `reload` what it changed so
@@ -410,15 +415,9 @@ impl SettingsView {
             Row::new(
                 "Font ligatures",
                 "Code joins pairs of characters like != and == into one symbol.",
-                switch("ligatures", prefs.ligatures, theme).on_click(cx.listener(
-                    |this, _, _, cx| {
-                        this.store.update(cx, |store, cx| {
-                            store.set_prefs(|prefs| prefs.ligatures ^= true, cx)
-                        });
-                        // The diff is a cached view, which only a refresh draws again.
-                        cx.refresh_windows();
-                    },
-                )),
+                self.pref_switch("ligatures", prefs.ligatures, |p| p.ligatures ^= true, cx)
+                    // The diff is a cached view, which only a refresh draws again.
+                    .on_click(|_, _, cx| cx.refresh_windows()),
             ),
             Row::new(
                 "Wrap long lines",
@@ -480,24 +479,22 @@ impl SettingsView {
                 "Show branches' commits",
                 "Branches in the navigator start with their commits listed. Off, each starts \
                  folded to one row, which → or its chevron opens.",
-                switch("branches-open", prefs.branches_start_open, theme).on_click(cx.listener(
-                    |this, _, _, cx| {
-                        this.store.update(cx, |store, cx| {
-                            store.set_prefs(|prefs| prefs.branches_start_open ^= true, cx)
-                        });
-                    },
-                )),
+                self.pref_switch(
+                    "branches-open",
+                    prefs.branches_start_open,
+                    |p| p.branches_start_open ^= true,
+                    cx,
+                ),
             ),
             Row::new(
                 "Open branches on click",
                 "Clicking a branch in the navigator lists its commits too, and folds the ones the \
                  last click listed. Off, a click only selects it.",
-                switch("branch-click-opens", prefs.open_branch_on_click, theme).on_click(
-                    cx.listener(|this, _, _, cx| {
-                        this.store.update(cx, |store, cx| {
-                            store.set_prefs(|prefs| prefs.open_branch_on_click ^= true, cx)
-                        });
-                    }),
+                self.pref_switch(
+                    "branch-click-opens",
+                    prefs.open_branch_on_click,
+                    |p| p.open_branch_on_click ^= true,
+                    cx,
                 ),
             ),
         ];
@@ -533,24 +530,49 @@ impl SettingsView {
         )
     }
 
+    /// A switch for one of this app's own preferences, which a click turns over with `flip`.
+    fn pref_switch(
+        &self,
+        id: &'static str,
+        on: bool,
+        flip: fn(&mut Prefs),
+        cx: &Context<Self>,
+    ) -> Stateful<Div> {
+        switch(id, on, Theme::get(cx)).on_click(cx.listener(move |this, _, _, cx| {
+            this.store.update(cx, |store, cx| store.set_prefs(flip, cx))
+        }))
+    }
+
+    /// A switch's click for one of GitButler's settings, which this view holds in `value`: it
+    /// shows the change at once, saves it with `save`, then `reload`s what was saved.
+    fn toggle_saved(
+        value: fn(&mut Self) -> &mut bool,
+        failed: &'static str,
+        save: fn(bool) -> anyhow::Result<()>,
+        reload: fn(&mut Self, &mut Context<Self>),
+        cx: &Context<Self>,
+    ) -> impl Fn(&ClickEvent, &mut Window, &mut App) + 'static {
+        cx.listener(move |this, _, _, cx| {
+            let on = !*value(this);
+            *value(this) = on;
+            cx.notify();
+            this.apply(failed, move || save(on), reload, cx);
+        })
+    }
+
     fn worktrees_row(&self, cx: &Context<Self>) -> Row {
-        let theme = Theme::get(cx);
         let worktrees =
-            switch("worktrees", self.worktrees, theme).on_click(cx.listener(|this, _, _, cx| {
-                let on = !this.worktrees;
-                this.worktrees = on;
-                cx.notify();
-                this.apply(
-                    "Couldn't change the worktree setting",
-                    move || backend::set_worktrees_enabled(on),
-                    // Watched and listed again, with their worktrees or without.
-                    |this, cx| {
-                        this.load_app_settings(cx);
-                        this.store.update(cx, |store, cx| store.reopen_expanded(cx));
-                    },
-                    cx,
-                );
-            }));
+            switch("worktrees", self.worktrees, Theme::get(cx)).on_click(Self::toggle_saved(
+                |this| &mut this.worktrees,
+                "Couldn't change the worktree setting",
+                backend::set_worktrees_enabled,
+                // Watched and listed again, with their worktrees or without.
+                |this, cx| {
+                    this.load_app_settings(cx);
+                    this.store.update(cx, |store, cx| store.reopen_expanded(cx));
+                },
+                cx,
+            ));
         Row::new(
             "Linked worktrees",
             "Lists each project's linked worktrees, like the ones agents work in, with their \
@@ -561,20 +583,15 @@ impl SettingsView {
     }
 
     fn start_row(&self, cx: &Context<Self>) -> Row {
-        let theme = Theme::get(cx);
-        let start = switch("open-at-start", self.open_at_start, theme).on_click(cx.listener(
-            |this, _, _, cx| {
-                let on = !this.open_at_start;
-                this.open_at_start = on;
-                cx.notify();
-                this.apply(
-                    "Couldn't change what opens at start",
-                    move || backend::set_opens_at_start(on),
-                    Self::load_app_settings,
-                    cx,
-                );
-            },
-        ));
+        let start = switch("open-at-start", self.open_at_start, Theme::get(cx)).on_click(
+            Self::toggle_saved(
+                |this| &mut this.open_at_start,
+                "Couldn't change what opens at start",
+                backend::set_opens_at_start,
+                Self::load_app_settings,
+                cx,
+            ),
+        );
         Row::new(
             "Open this app at start",
             "GitButler opens this app rather than its web app when it starts, as \
@@ -757,7 +774,7 @@ impl SettingsView {
         .gap(px(10.))
         .rounded(px(6.))
         .child(icon(page.icon()).text_color(match selected {
-            true => theme.text_inverted.opacity(0.7),
+            true => theme.muted_on_solid(),
             false => theme.text_2,
         }))
         .child(page.title())
@@ -824,70 +841,88 @@ impl Render for SettingsView {
         });
         let empty = cards.is_empty();
         let height = (f32::from(window.viewport_size().height) * 0.76).min(1000.);
+        let links = v_flex()
+            .id("settings-pages")
+            .size_full()
+            .pb(px(12.))
+            .overflow_y_scroll()
+            .track_scroll(&self.pages_scroll)
+            .child(
+                div()
+                    .px(px(20.))
+                    .pt(px(20.))
+                    .pb(px(10.))
+                    .text_size(px(16.))
+                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                    .text_color(theme.text_1)
+                    .child("Settings"),
+            )
+            .child(
+                field(&self.search, search_focused, &theme)
+                    .mx(px(12.))
+                    .mb(px(10.)),
+            )
+            .child(v_flex().px(px(12.)).gap(px(3.)).children(app_links))
+            .children(project);
+        let content = v_flex()
+            .id("settings-cards")
+            .size_full()
+            .overflow_y_scroll()
+            .track_scroll(&self.cards_scroll)
+            .child(
+                v_flex()
+                    .p(px(20.))
+                    .gap(px(12.))
+                    .when(empty, |el| {
+                        el.child(muted(
+                            if searching {
+                                "No settings match"
+                            } else {
+                                "Loading…"
+                            },
+                            &theme,
+                        ))
+                    })
+                    .children(
+                        cards
+                            .into_iter()
+                            .map(|card| Self::render_card(card, &theme)),
+                    ),
+            );
         modal(ModalSize::Large, &theme)
             .id("settings")
             .h(px(height))
             .flex_row()
             .child(
                 v_flex()
-                    .id("settings-pages")
                     .w(px(211.))
                     .flex_none()
                     .h_full()
-                    .pb(px(12.))
-                    .overflow_y_scroll()
                     .bg(theme.bg_2)
                     // Its ground fills the modal's left corners, which it rounds as the modal does.
                     .rounded_l(px(MODAL_RADIUS - 1.))
-                    .child(
-                        div()
-                            .px(px(20.))
-                            .pt(px(20.))
-                            .pb(px(10.))
-                            .text_size(px(16.))
-                            .font_weight(gpui::FontWeight::SEMIBOLD)
-                            .text_color(theme.text_1)
-                            .child("Settings"),
-                    )
-                    .child(
-                        field(&self.search, search_focused, &theme)
-                            .mx(px(12.))
-                            .mb(px(10.)),
-                    )
-                    .child(v_flex().px(px(12.)).gap(px(3.)).children(app_links))
-                    .children(project),
+                    .child(scrolled(
+                        links,
+                        "settings-pages-scrollbar",
+                        Scroll::Div(self.pages_scroll.clone()),
+                        &theme,
+                    )),
             )
             .child(
                 v_flex()
-                    .id("settings-cards")
                     .flex_1()
                     .min_w(px(0.))
                     .h_full()
-                    .overflow_y_scroll()
                     .border_l_1()
                     .border_color(theme.border_3)
                     .bg(theme.bg_1)
                     .rounded_r(px(MODAL_RADIUS - 1.))
-                    .child(
-                        v_flex()
-                            .p(px(20.))
-                            .gap(px(12.))
-                            .when(empty, |el| {
-                                el.child(muted(
-                                    if searching {
-                                        "No settings match"
-                                    } else {
-                                        "Loading…"
-                                    },
-                                    &theme,
-                                ))
-                            })
-                            .children(
-                                cards
-                                    .into_iter()
-                                    .map(|card| Self::render_card(card, &theme)),
-                            ),
-                    ),
+                    .child(scrolled(
+                        content,
+                        "settings-cards-scrollbar",
+                        Scroll::Div(self.cards_scroll.clone()),
+                        &theme,
+                    )),
             )
     }
 }
@@ -970,12 +1005,27 @@ fn field_with_save(
         .child(field(input, focused, Theme::get(cx)).w(px(220.)))
 }
 
+/// In place of `page`'s settings when they couldn't be read: `title` over why, and Try again,
+/// which runs `retry`.
+fn read_failed(
+    page: Page,
+    title: &'static str,
+    err: &str,
+    retry: fn(&mut SettingsView, &mut Context<SettingsView>),
+    cx: &Context<SettingsView>,
+) -> Row {
+    let again = button(SharedString::from(format!("retry-{page:?}")), "Try again")
+        .small()
+        .on_click(cx.listener(move |this, _, _, cx| retry(this, cx)));
+    Row::new(title, error_summary(err), again)
+}
+
 /// A segmented control for a setting with a few values, `current` picked. Unlike a dropdown's
 /// menu, a segment's click doesn't run inside the app's own update, so `pick` can update the
 /// app.
 fn segmented<T: Copy + PartialEq + 'static>(
     id: &str,
-    choices: [(T, &'static str); 3],
+    choices: impl IntoIterator<Item = (T, &'static str)>,
     current: T,
     pick: impl Fn(T, &mut Window, &mut App) + Clone + 'static,
     theme: &Theme,
@@ -983,7 +1033,7 @@ fn segmented<T: Copy + PartialEq + 'static>(
     ui::segmented(
         true,
         theme,
-        choices.map(|(choice, label)| {
+        choices.into_iter().map(|(choice, label)| {
             let pick = pick.clone();
             let segment = div()
                 .id(SharedString::from(format!("{id}-{label}")))
