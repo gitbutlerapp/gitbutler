@@ -47,7 +47,7 @@ pub(super) fn write_to_worktree(
         .map(ToOwned::to_owned)
         .collect();
 
-    refuse_to_lose_staged_content(repo, head, &baseline, &target, &deleted)?;
+    refuse_to_lose_staged_content(repo, head, &baseline, &target, &deleted, conflicts)?;
 
     let mut path_check = gix::status::plumbing::SymlinkCheck::new(workdir.to_owned());
     for path in &deleted {
@@ -162,14 +162,16 @@ fn is_symlinked_parent_error(err: &std::io::Error) -> bool {
 }
 
 /// Fail if the index has content the user staged, which differs from `head` and isn't in the
-/// worktree (`baseline`) either, at a path that is about to be written, `deleted`, or replaced by a
-/// directory of `target`.
+/// worktree (`baseline`) either, at a path whose index entry the update would replace: a path that
+/// is written with other content, `deleted`, recorded as one of the unresolved `conflicts`, turned
+/// into a directory, or below a file that is written.
 fn refuse_to_lose_staged_content(
     repo: &gix::Repository,
     head: gix::ObjectId,
     baseline: &gix::index::State,
     target: &gix::index::State,
     deleted: &BTreeSet<BString>,
+    conflicts: Option<&gix::merge::tree::Outcome<'_>>,
 ) -> anyhow::Result<()> {
     let head = repo.index_from_tree(&head)?;
     let index = repo.index_or_empty()?;
@@ -177,18 +179,35 @@ fn refuse_to_lose_staged_content(
         a.is_some_and(|a| a.id == b.id && a.mode == b.mode)
     };
     let written = |path: &BStr| {
-        target.entry_by_path(path).is_some_and(|entry| {
+        target.entry_by_path(path).filter(|entry| {
             !entry
                 .flags
                 .contains(gix::index::entry::Flags::SKIP_WORKTREE)
         })
     };
-    let becomes_directory = |path: &BStr| {
-        let mut prefix = path.to_owned();
-        prefix.push(b'/');
-        target
-            .prefixed_entries(prefix.as_ref())
-            .is_some_and(|entries| !entries.is_empty())
+    let conflicted: BTreeSet<&BStr> = conflicts
+        .into_iter()
+        .flat_map(|outcome| outcome.conflicts.iter())
+        .filter(|conflict| conflict.is_unresolved(TreatAsUnresolved::git()))
+        .map(|conflict| conflict.ours.location())
+        .collect();
+    let replaced = |path: &BStr, entry: &gix::index::Entry| {
+        let rewritten = written(path).is_some_and(|written| !same(Some(written), entry));
+        let mut below = path.to_owned();
+        below.push(b'/');
+        let becomes_directory = target
+            .prefixed_entries(below.as_ref())
+            .is_some_and(|entries| !entries.is_empty());
+        let below_written_file = path
+            .iter()
+            .enumerate()
+            .filter(|(_, byte)| **byte == b'/')
+            .any(|(at, _)| written(&path[..at]).is_some());
+        rewritten
+            || deleted.contains(path)
+            || conflicted.contains(path)
+            || becomes_directory
+            || below_written_file
     };
     let mut overwritten: Vec<_> = index
         .entries()
@@ -197,12 +216,13 @@ fn refuse_to_lose_staged_content(
             let path = entry.path(&index);
             !same(head.entry_by_path(path), entry)
                 && !same(baseline.entry_by_path(path), entry)
-                && (written(path) || deleted.contains(path) || becomes_directory(path))
+                && replaced(path, entry)
         })
         .map(|entry| format!("{:?}", entry.path(&index)))
         .collect();
     if !overwritten.is_empty() {
         overwritten.sort();
+        overwritten.dedup();
         but_error::bail_precondition!(
             "Staged changes would be overwritten by checkout: {}",
             overwritten.join(", ")

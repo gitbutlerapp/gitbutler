@@ -1235,6 +1235,111 @@ fn checkout_refuses_to_replace_staged_content_with_a_directory() -> anyhow::Resu
 }
 
 #[test]
+fn checkout_writes_what_the_index_already_has() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let x = repo.workdir().expect("non-bare").join("x");
+    std::fs::write(&x, "two\n")?;
+    git(&repo).args(["add", "x"]).run();
+    std::fs::write(&x, "one\n")?;
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"two\n")?;
+            tree.upsert("x", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "change x to what is staged",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    // Like `git checkout`: the index already has the target's version, so nothing is lost.
+    assert_eq!(std::fs::read_to_string(&x)?, "two\n");
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
+    Ok(())
+}
+
+#[test]
+fn checkout_refuses_to_replace_staged_content_below_a_file() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let workdir = repo.workdir().expect("non-bare");
+    std::fs::create_dir(workdir.join("d"))?;
+    std::fs::write(workdir.join("d/x"), "saved\n")?;
+    git(&repo).args(["add", "d/x"]).run();
+    std::fs::remove_dir_all(workdir.join("d"))?;
+    let staged = git(&repo)
+        .args(["ls-files", "--stage", "d/x"])
+        .output()?
+        .stdout;
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"file\n")?;
+            tree.upsert("d", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "add the file d",
+    )?;
+
+    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+        .expect_err("like `git checkout`, checkout refuses to lose the staged content");
+
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["Staged changes would be overwritten by checkout: \"d/x\""]
+    );
+    assert_eq!(
+        git(&repo)
+            .args(["ls-files", "--stage", "d/x"])
+            .output()?
+            .stdout
+            .as_bstr(),
+        staged.as_bstr(),
+        "the staged content stays"
+    );
+    Ok(())
+}
+
+#[test]
+fn checkout_refuses_to_replace_staged_content_with_conflict_stages() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let x = repo.workdir().expect("non-bare").join("x");
+    std::fs::write(&x, "saved\n")?;
+    git(&repo).args(["add", "x"]).run();
+    std::fs::write(&x, "two\n")?;
+    let staged = git(&repo)
+        .args(["ls-files", "--stage", "x"])
+        .output()?
+        .stdout;
+
+    let target = repo.rev_parse_single("b")?.detach();
+    let err = safe_checkout_from_head(
+        target,
+        &repo,
+        checkout::Options {
+            allow_uncommitted_changes_to_conflict_with_new_head: true,
+            ..Default::default()
+        },
+    )
+    .expect_err("the conflict would replace the staged content with its stages");
+
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["Staged changes would be overwritten by checkout: \"x\""]
+    );
+    assert_eq!(
+        git(&repo)
+            .args(["ls-files", "--stage", "x"])
+            .output()?
+            .stdout
+            .as_bstr(),
+        staged.as_bstr(),
+        "the staged content stays"
+    );
+    Ok(())
+}
+
+#[test]
 fn staged_changes_the_worktree_also_has_are_merged_with_the_target() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let x = repo.workdir().expect("non-bare").join("x");
