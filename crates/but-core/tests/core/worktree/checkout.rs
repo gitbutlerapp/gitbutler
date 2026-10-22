@@ -1235,6 +1235,89 @@ fn checkout_refuses_to_replace_staged_content_with_a_directory() -> anyhow::Resu
 }
 
 #[test]
+fn a_file_the_worktree_already_changed_like_the_target_is_recorded() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let x = repo.workdir().expect("non-bare").join("x");
+    std::fs::write(&x, "two\n")?;
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"two\n")?;
+            tree.upsert("x", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "change x like the worktree",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    // The worktree already had the new commit's `x`, so nothing is left uncommitted.
+    snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
+    Ok(())
+}
+
+#[test]
+fn staged_content_stays_where_the_worktree_already_has_the_target() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let x = repo.workdir().expect("non-bare").join("x");
+    std::fs::write(&x, "saved\n")?;
+    git(&repo).args(["add", "x"]).run();
+    std::fs::write(&x, "two\n")?;
+    let staged = git(&repo)
+        .args(["ls-files", "--stage", "x"])
+        .output()?
+        .stdout;
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"two\n")?;
+            tree.upsert("x", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "change x like the worktree",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    assert_eq!(
+        git(&repo)
+            .args(["ls-files", "--stage", "x"])
+            .output()?
+            .stdout
+            .as_bstr(),
+        staged.as_bstr(),
+        "the staged version is the only copy of `saved`, so the index keeps it"
+    );
+    Ok(())
+}
+
+#[test]
+fn an_untracked_file_the_target_adds_identically_is_recorded() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    std::fs::write(repo.workdir().expect("non-bare").join("y"), "added\n")?;
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"added\n")?;
+            tree.upsert("y", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "add y like the worktree",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    snapbox::assert_data_eq!(
+        git_status(&repo)?,
+        snapbox::str![[r#"
+ D x
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
 fn checkout_writes_what_the_index_already_has() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let x = repo.workdir().expect("non-bare").join("x");

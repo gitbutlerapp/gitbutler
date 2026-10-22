@@ -15,14 +15,19 @@ use crate::index::{ConflictStage, Edit, Stat};
 /// If `conflicts` is set, its unresolved conflicts are recorded as index stages.
 /// Like Git, it refuses before changing anything if a path it would write or delete has staged
 /// content that differs from `head`, the tree the checkout leaves, and isn't in the worktree either.
+/// Paths the worktree already has as `new_head` has them aren't written, but their index entries
+/// follow `new_head` unless the user staged something there.
 pub(super) fn write_to_worktree(
     repo: &gix::Repository,
     head: gix::ObjectId,
+    new_head: gix::ObjectId,
     baseline: gix::ObjectId,
     target: gix::ObjectId,
     conflicts: Option<&gix::merge::tree::Outcome<'_>>,
 ) -> anyhow::Result<()> {
     let workdir = repo.workdir().context("checkout needs a worktree")?;
+    let head = repo.index_from_tree(&head)?;
+    let new_head = repo.index_from_tree(&new_head)?;
     let baseline = repo.index_from_tree(&baseline)?;
     let mut target = repo.index_from_tree(&target)?;
 
@@ -47,7 +52,7 @@ pub(super) fn write_to_worktree(
         .map(ToOwned::to_owned)
         .collect();
 
-    refuse_to_lose_staged_content(repo, head, &baseline, &target, &deleted, conflicts)?;
+    refuse_to_lose_staged_content(repo, &head, &baseline, &target, &deleted, conflicts)?;
 
     let mut path_check = gix::status::plumbing::SymlinkCheck::new(workdir.to_owned());
     for path in &deleted {
@@ -71,7 +76,39 @@ pub(super) fn write_to_worktree(
     }
 
     let mut index = repo.index_or_empty()?.into_owned_or_cloned();
+    let same = |a: Option<&gix::index::Entry>, b: &gix::index::Entry| {
+        a.is_some_and(|a| a.id == b.id && a.mode == b.mode)
+    };
+    let already_in_worktree: Vec<_> = target
+        .entries()
+        .iter()
+        .filter(|entry| {
+            entry
+                .flags
+                .contains(gix::index::entry::Flags::SKIP_WORKTREE)
+        })
+        .filter(|entry| {
+            let path = entry.path(&target);
+            let current = index.entry_by_path(path);
+            let nothing_staged = match (current, head.entry_by_path(path)) {
+                (None, None) => true,
+                (Some(current), head) => same(head, current),
+                (None, Some(_)) => false,
+            };
+            nothing_staged && same(new_head.entry_by_path(path), entry)
+        })
+        .map(|entry| (entry.path(&target).to_owned(), entry.id, entry.mode))
+        .collect();
     let mut edit = Edit::new(&mut index);
+    for (path, id, mode) in &already_in_worktree {
+        let stat = gix::index::fs::Metadata::from_path_no_follow(
+            &workdir.join(gix::path::from_bstr(AsRef::<BStr>::as_ref(path))?),
+        )
+        .ok()
+        .and_then(|md| gix::index::entry::Stat::from_fs(&md).ok())
+        .map_or(Stat::Unknown, Stat::Known);
+        edit.upsert(path.as_ref(), *id, *mode, stat);
+    }
     for path in &deleted {
         edit.remove(path.as_ref());
     }
@@ -167,13 +204,12 @@ fn is_symlinked_parent_error(err: &std::io::Error) -> bool {
 /// into a directory, or below a file that is written.
 fn refuse_to_lose_staged_content(
     repo: &gix::Repository,
-    head: gix::ObjectId,
+    head: &gix::index::State,
     baseline: &gix::index::State,
     target: &gix::index::State,
     deleted: &BTreeSet<BString>,
     conflicts: Option<&gix::merge::tree::Outcome<'_>>,
 ) -> anyhow::Result<()> {
-    let head = repo.index_from_tree(&head)?;
     let index = repo.index_or_empty()?;
     let same = |a: Option<&gix::index::Entry>, b: &gix::index::Entry| {
         a.is_some_and(|a| a.id == b.id && a.mode == b.mode)
@@ -251,7 +287,7 @@ mod tests {
         // The worktree had `dir/f` when it was snapshotted, then `dir` was replaced by a symlink.
         std::os::unix::fs::symlink("../outside", repo.workdir().unwrap().join("dir"))?;
 
-        super::write_to_worktree(&repo, baseline, baseline, target, None)?;
+        super::write_to_worktree(&repo, baseline, target, baseline, target, None)?;
 
         assert!(
             outside.join("f").is_file(),
