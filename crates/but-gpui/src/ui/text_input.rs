@@ -69,9 +69,7 @@ struct Delete {
 
 const CONTEXT: &str = "TextInput";
 
-/// The keys every platform's text fields share, then each platform's own: on macOS the Cocoa
-/// text system's, ⌘ for lines and ⌥ for words with Emacs's ⌃ keys; elsewhere Ctrl for words.
-/// `secondary` is ⌘ on macOS and Ctrl elsewhere.
+/// The Cocoa text system's keys: ⌘ for lines, ⌥ for words, and Emacs's ⌃ keys.
 pub fn bind_keys(cx: &mut App) {
     use Target::*;
     let c = Some(CONTEXT);
@@ -93,18 +91,16 @@ pub fn bind_keys(cx: &mut App) {
         extend("shift-down", Down),
         extend("shift-home", LineStart),
         extend("shift-end", LineEnd),
-        KeyBinding::new("secondary-a", SelectAll, c),
+        KeyBinding::new("cmd-a", SelectAll, c),
         KeyBinding::new("enter", Newline, c),
         KeyBinding::new("shift-enter", Newline, c),
-        KeyBinding::new("secondary-enter", Submit, c),
+        KeyBinding::new("cmd-enter", Submit, c),
         KeyBinding::new("escape", Cancel, c),
-        KeyBinding::new("secondary-v", Paste, c),
-        KeyBinding::new("secondary-c", Copy, c),
-        KeyBinding::new("secondary-x", Cut, c),
-        KeyBinding::new("secondary-z", Undo, c),
-        KeyBinding::new("secondary-shift-z", Redo, c),
-    ]);
-    cx.bind_keys([
+        KeyBinding::new("cmd-v", Paste, c),
+        KeyBinding::new("cmd-c", Copy, c),
+        KeyBinding::new("cmd-x", Cut, c),
+        KeyBinding::new("cmd-z", Undo, c),
+        KeyBinding::new("cmd-shift-z", Redo, c),
         delete("alt-backspace", WordLeft),
         delete("alt-delete", WordRight),
         delete("cmd-backspace", LineStart),

@@ -216,4 +216,9 @@ impl Theme {
     pub fn selected_unfocused(&self) -> Hsla {
         self.fill_gray.opacity(0.1)
     }
+
+    /// Secondary text and icons on a solid selection, as `text_2` is on open ground.
+    pub fn muted_on_solid(&self) -> Hsla {
+        self.text_inverted.opacity(0.7)
+    }
 }
