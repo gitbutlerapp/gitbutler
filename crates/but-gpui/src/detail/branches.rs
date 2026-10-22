@@ -32,7 +32,7 @@ use crate::ui::person::{byline, byline_avatar};
 use crate::ui::text_input::TextInput;
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, age_column, button, dp, error_summary, faint, fold_button, guide,
-    h_flex, icon, loading_state, plural, quiet, review, side_row, small_icon, v_flex,
+    h_flex, icon, icon_button, loading_state, plural, quiet, review, side_row, small_icon, v_flex,
 };
 
 pub(super) struct Branches {
@@ -880,7 +880,7 @@ impl Detail {
         }
     }
 
-    /// Select a branch and offer what its header does, and its pull request and name.
+    /// Offer what a branch's header does, and its pull request and name.
     fn branch_menu(
         &mut self,
         project: &ProjectId,
@@ -888,7 +888,6 @@ impl Detail {
         at: Point<Pixels>,
         cx: &mut Context<Self>,
     ) {
-        self.select_other_branch(Some(ref_name.to_owned()), cx);
         let items = self.branch_menu_items(project, ref_name, cx);
         if !items.is_empty() {
             self.app
@@ -1445,6 +1444,7 @@ impl Detail {
                                 .on_mouse_down(
                                     MouseButton::Right,
                                     cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                                        this.select_other_branch(Some(menu_ref.clone()), cx);
                                         this.branch_menu(&project, &menu_ref, event.position, cx)
                                     }),
                                 )
@@ -1704,6 +1704,11 @@ impl Detail {
                 byline(author, email, branch.agent.as_ref(), time, theme).flex_none()
             });
         let description = (branch.description.clone()).filter(|_| !branches.stack);
+        // What right-clicking its row offers, as a page's ⋯ does.
+        let (p, r) = (project.clone(), branch.ref_name.clone());
+        let menu = icon_button("branch-menu", Icon::Kebab).on_click(cx.listener(
+            move |this, event: &ClickEvent, _, cx| this.branch_menu(&p, &r, event.position(), cx),
+        ));
         // And the rule along its bottom, which the diff starts below, as a commit's message.
         let height = measured(&self.target_message_height, &self.app, |bounds| {
             f32::from(bounds.size.height) + 1.
@@ -1717,7 +1722,13 @@ impl Detail {
                 .py(dp(12.))
                 .border_b_1()
                 .border_color(theme.border_3)
-                .child(page_title(glyph, theme).child(title_text(title.clone()).truncate()))
+                .child(
+                    h_flex()
+                        .justify_between()
+                        .gap(dp(8.))
+                        .child(page_title(glyph, theme).child(title_text(title.clone()).truncate()))
+                        .child(menu),
+                )
                 .child(
                     meta_row(theme)
                         // Its name, unless the title already is.
