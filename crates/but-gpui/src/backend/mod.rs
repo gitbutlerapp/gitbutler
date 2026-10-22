@@ -782,7 +782,8 @@ fn conflicted_changes(
 pub fn read_failure(err: &anyhow::Error) -> String {
     match err.downcast_ref::<but_core::ref_metadata::AmbiguousLegacyTargetRefError>() {
         Some(ambiguous) => format!(
-            "Several local branches track {}, so choose which one is the target.",
+            "Several local branches track {}, so choose which one is the target under Target \
+             branch in Project settings.",
             ambiguous.target_ref.shorten()
         ),
         None => format!("{err:#}"),
