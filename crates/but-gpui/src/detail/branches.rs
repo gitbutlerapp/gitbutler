@@ -14,8 +14,8 @@ mod overview;
 
 use super::Detail;
 use super::panes::{
-    Crumb, CrumbTo, PEOPLE_SHOWN, list_empty, measured, meta_item, meta_row, page_title,
-    person_row, side_list, title_text,
+    Crumb, CrumbTo, list_empty, measured, meta_item, meta_row, page_title, person_row, side_list,
+    title_text,
 };
 use super::upstream::commit_author;
 
@@ -1566,14 +1566,8 @@ impl Detail {
         let solid = self.people_focused(window);
         let people = self.branch_people(branches, cx);
         let most = people.first().map_or(1, |(.., n)| (*n).max(1));
-        // The one picked stays listed, however few branches it has, as in the filter menu.
-        let listed =
-            |ix: usize, name: &String| ix < PEOPLE_SHOWN || branches.who.as_ref() == Some(name);
-        let rest = (people.iter().enumerate())
-            .filter(|(ix, (name, ..))| !listed(*ix, name))
-            .count();
+        let picked = (people.iter()).position(|(name, ..)| branches.who.as_ref() == Some(name));
         let rows = (people.into_iter().enumerate())
-            .filter(|(ix, (name, ..))| listed(*ix, name))
             .map(|(ix, (name, email, n))| {
                 let picked = branches.who.as_ref() == Some(&name);
                 person_row(
@@ -1596,11 +1590,11 @@ impl Detail {
         let clear = (branches.who.is_some())
             .then_some(|this: &mut Self, cx: &mut Context<Self>| this.filter_person(None, cx));
         self.people_card(
-            counted,
-            rows,
-            ("No branches listed", rest),
+            (counted, "No branches listed"),
+            (rows, picked),
             clear,
             theme,
+            window,
             cx,
         )
     }

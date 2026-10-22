@@ -20,12 +20,12 @@ use crate::state::{Cut, MeshPick, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
 use crate::ui::person::{author_avatar, byline};
-use crate::ui::scrollbar::{Scroll, scrolled};
+use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title,
-    empty_state, faint, field, h_flex, icon, icon_button, plural, quiet, section_label, shortcut,
-    side_row, small_icon, v_flex,
+    empty_state, faint, field, fold_row, h_flex, icon, icon_button, plural, quiet, section_label,
+    shortcut, side_row, small_icon, v_flex,
 };
 
 impl Detail {
@@ -1145,25 +1145,46 @@ pub(super) fn list_empty(
 
 impl Detail {
     /// An overview's People card, with a focus of its own: a click in it takes the focus,
-    /// and a click anywhere else gives it back to the list it's under. `counted` says what
-    /// its rows count, `empty` stands in for none and `rest` is how many more there are;
-    /// while someone's picked, Clear lets go of them, as `clear` does.
+    /// and a click anywhere else gives it back to the list it's under. Its `rows` are
+    /// everyone, most first: it lists the busiest few and the one `picked`, then how many
+    /// more, which a click lists too, scrolling within the card, until Show fewer. `counted`
+    /// says what the rows count, `empty` stands in for none, and while someone's picked,
+    /// Clear lets go of them, as `clear` does.
     pub(super) fn people_card(
         &self,
-        counted: String,
-        rows: Vec<Stateful<Div>>,
-        (empty, rest): (&'static str, usize),
+        (counted, empty): (String, &'static str),
+        (rows, picked): (Vec<Stateful<Div>>, Option<usize>),
         clear: Option<impl Fn(&mut Self, &mut Context<Self>) + 'static>,
         theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let nobody = rows.is_empty();
+        let everyone = rows.len();
+        let open = self.people_open && everyone > PEOPLE_SHOWN;
+        let rows: Vec<_> = (rows.into_iter().enumerate())
+            .filter(|(ix, _)| open || *ix < PEOPLE_SHOWN || Some(*ix) == picked)
+            .map(|(_, row)| row)
+            .collect();
+        let rest = everyone - rows.len();
+        let open_height = (window.viewport_size().height * 0.3).clamp(px(190.), px(380.));
         let clear = clear.map(|clear| {
             button("people-clear", "Clear")
                 .small()
                 .style(ButtonStyle::Ghost)
                 .on_click(cx.listener(move |this, _, _, cx| clear(this, cx)))
         });
+        // Its glyph under the pictures, its words under the names, as the navigator's are.
+        let fold = |open: bool| {
+            let (id, glyph) = match open {
+                true => ("people-fewer", Icon::ChevronUp),
+                false => ("people-more", Icon::Kebab),
+            };
+            fold_row(id, glyph, 18., 42., theme).on_click(cx.listener(move |this, _, _, cx| {
+                this.people_open = !open;
+                this.people_scroll.set_offset(Point::default());
+                cx.notify();
+            }))
+        };
         v_flex()
             .flex_none()
             .m(px(12.))
@@ -1188,13 +1209,39 @@ impl Detail {
                     .child(faint(counted, theme))
                     .children(clear),
             )
-            .children(rows)
-            .when(nobody, |el| {
+            .when(everyone == 0, |el| {
                 el.child(faint(empty, theme).px(px(14.)).py(px(4.)))
             })
+            // Open, a third of the window tall or so, leaving the list over it room, the rest
+            // a scroll away; it sits at the bottom of its column, so its fold stays under the
+            // pointer as it opens and closes.
+            .child(
+                div()
+                    .relative()
+                    .child(
+                        v_flex()
+                            .id("people-rows")
+                            .gap(px(2.))
+                            .when(open, |el| el.max_h(open_height))
+                            .overflow_y_scroll()
+                            .track_scroll(&self.people_scroll)
+                            .children(rows),
+                    )
+                    .children(
+                        open.then(|| {
+                            scrollbar(
+                                "people-scrollbar",
+                                Scroll::Div(self.people_scroll.clone()),
+                                theme,
+                            )
+                        })
+                        .flatten(),
+                    ),
+            )
             .when(rest > 0, |el| {
-                el.child(faint(format!("and {}", plural(rest, "other")), theme).px(px(14.)))
+                el.child(fold(false).child(format!("{rest} more")))
             })
+            .when(open, |el| el.child(fold(true).child("Show fewer")))
             .into_any_element()
     }
 
@@ -1205,7 +1252,7 @@ impl Detail {
 }
 
 /// How many people an overview's People card lists, the most active first.
-pub(super) const PEOPLE_SHOWN: usize = 5;
+const PEOPLE_SHOWN: usize = 5;
 
 /// A row of an overview's people: who, and a bar of their `n` against the `most` anyone
 /// has. Picked, it's a filter on, its selection `solid` while its card has the focus.

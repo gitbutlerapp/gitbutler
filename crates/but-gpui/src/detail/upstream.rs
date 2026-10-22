@@ -11,8 +11,8 @@ use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
 
 use super::Detail;
 use super::panes::{
-    Crumb, CrumbTo, PEOPLE_SHOWN, list_heading, measured, meta_item, meta_row, person_row,
-    side_header, side_list, title_text, unfinished_banner,
+    Crumb, CrumbTo, list_heading, measured, meta_item, meta_row, person_row, side_header,
+    side_list, title_text, unfinished_banner,
 };
 use super::pull_request::TABS_HEIGHT;
 use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
@@ -866,13 +866,9 @@ impl Detail {
         let who = self.picked_email(project);
         let people = self.people_on_days(project, summary);
         let most = people.first().map_or(1, |(_, n)| *n);
-        let listed = |ix: usize, person: &Person| ix < PEOPLE_SHOWN || who == Some(&person.email);
-        let rest = (people.iter().enumerate())
-            .filter(|(ix, (person, _))| !listed(*ix, person))
-            .count();
+        let picked = (people.iter()).position(|(person, _)| who == Some(&person.email));
         let solid = self.people_focused(window);
         let rows = (people.into_iter().enumerate())
-            .filter(|(ix, (person, _))| listed(*ix, person))
             .map(|(ix, (person, n))| {
                 let picked = who == Some(&person.email);
                 let (project, email) = (project.clone(), person.email.clone());
@@ -896,8 +892,8 @@ impl Detail {
             let project = project.clone();
             move |this: &mut Self, cx: &mut Context<Self>| this.filter_landed(&project, None, cx)
         });
-        let empty = ("No commits landed then", rest);
-        Some(self.people_card(counted, rows, empty, clear, theme, cx))
+        let said = (counted, "No commits landed then");
+        Some(self.people_card(said, (rows, picked), clear, theme, window, cx))
     }
 
     /// The page's crumbs after the project's: the target and the commit of it selected.

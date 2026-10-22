@@ -31,9 +31,9 @@ use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, count_badge, dot,
-    empty_state, faint, field, fold_button, fold_glyph, guide, h_flex, icon, icon_button, just_now,
-    list_row, meta_count, plural, relative_time, resize_handle, review, section_label, shortcut,
-    small_icon, v_flex,
+    empty_state, faint, field, fold_button, fold_glyph, fold_row, guide, h_flex, icon, icon_button,
+    just_now, list_row, meta_count, plural, relative_time, resize_handle, review, section_label,
+    shortcut, small_icon, v_flex,
 };
 
 mod account;
@@ -3198,27 +3198,6 @@ fn splice(list: &ListState, old: &[Row], new: &[Row], at: usize) -> bool {
         list.splice(at + head..at + head + old.len() - tail, new.len() - tail);
     }
     changed
-}
-
-/// A row that unfolds a list, "N more", or folds it again, "Show fewer", as ui-react's
-/// MoreItem: `glyph` at `icon_at` under the list's glyphs, the words at `text_at` under its
-/// titles.
-fn fold_row(
-    id: impl Into<ElementId>,
-    glyph: Icon,
-    icon_at: f32,
-    text_at: f32,
-    theme: &Theme,
-) -> Stateful<Div> {
-    h_flex()
-        .id(id)
-        .h(px(24.))
-        .pl(px(icon_at))
-        .gap(px(text_at - icon_at - 12.))
-        .text_size(px(12.))
-        .text_color(theme.text_2)
-        .hover(|el| el.text_color(theme.text_1))
-        .child(small_icon(glyph).text_color(theme.text_3))
 }
 
 /// The heading over a section of a card, as Network worktrees has: its fold, `glyph` if any

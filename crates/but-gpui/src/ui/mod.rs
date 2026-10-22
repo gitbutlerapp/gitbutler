@@ -331,6 +331,27 @@ pub fn fold_glyph(open: Option<bool>, color: Hsla) -> Div {
         }))
 }
 
+/// A row that unfolds a list, "N more", or folds it again, "Show fewer", as ui-react's
+/// MoreItem: `glyph` at `icon_at` under the list's glyphs, the words at `text_at` under its
+/// titles.
+pub fn fold_row(
+    id: impl Into<ElementId>,
+    glyph: Icon,
+    icon_at: f32,
+    text_at: f32,
+    theme: &Theme,
+) -> Stateful<Div> {
+    h_flex()
+        .id(id)
+        .h(px(24.))
+        .pl(px(icon_at))
+        .gap(px(text_at - icon_at - 12.))
+        .text_size(px(12.))
+        .text_color(theme.text_2)
+        .hover(|el| el.text_color(theme.text_1))
+        .child(small_icon(glyph).text_color(theme.text_3))
+}
+
 /// A row's fold: [`fold_glyph`] that runs `toggle` on a click without selecting the row,
 /// or just the dot when there's nothing to fold (`None`).
 pub fn fold_button<V: 'static>(

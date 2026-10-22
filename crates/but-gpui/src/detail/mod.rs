@@ -233,6 +233,9 @@ pub struct Detail {
     /// An overview's People card's, which a click on it takes and a click anywhere else gives
     /// back to the list it's under: its person picked shows as a focused selection only then.
     people_focus: FocusHandle,
+    /// The People card lists everyone, scrolling within it, rather than the busiest few.
+    people_open: bool,
+    people_scroll: ScrollHandle,
     /// The cursor was put where it is on purpose, by a key or a click: scrolling the diff
     /// moves it again only once the user scrolls.
     pinned: bool,
@@ -558,6 +561,8 @@ impl Detail {
             files_focus: cx.focus_handle(),
             side_focus: cx.focus_handle(),
             people_focus: cx.focus_handle(),
+            people_open: false,
+            people_scroll: ScrollHandle::new(),
             pinned: false,
             diff: None,
             diff_error: None,
