@@ -52,6 +52,10 @@ enum Worktree {
     DirectoryWithUntrackedFile,
     IgnoredFile,
     IgnoredDirectory,
+    /// An ignored file next to what the directory at the path tracks.
+    IgnoredFileInside,
+    /// An empty directory next to what the directory at the path tracks.
+    EmptyDirectoryInside,
 }
 
 const ENTRIES: [Entry; 6] = [
@@ -63,7 +67,7 @@ const ENTRIES: [Entry; 6] = [
     Entry::Submodule,
 ];
 const INDEXES: [Index; 3] = [Index::LikeHead, Index::Staged, Index::StagedRemoval];
-const WORKTREES: [Worktree; 8] = [
+const WORKTREES: [Worktree; 10] = [
     Worktree::Clean,
     Worktree::Edited,
     Worktree::Deleted,
@@ -72,6 +76,8 @@ const WORKTREES: [Worktree; 8] = [
     Worktree::DirectoryWithUntrackedFile,
     Worktree::IgnoredFile,
     Worktree::IgnoredDirectory,
+    Worktree::IgnoredFileInside,
+    Worktree::EmptyDirectoryInside,
 ];
 
 /// What `HEAD` holds at `head_path`, and what the target holds at `target_path`.
@@ -211,6 +217,12 @@ fn change_worktree(worktree: Worktree) -> &'static str {
         }
         Worktree::IgnoredDirectory => {
             "rm -rf p && mkdir p && printf 'w\\n' >p/y && echo /p/ >>.git/info/exclude"
+        }
+        Worktree::IgnoredFileInside => {
+            "if [ -d p ] && [ ! -L p ]; then printf 'w\\n' >p/cache && echo /p/cache >>.git/info/exclude; else touch ../impossible; fi"
+        }
+        Worktree::EmptyDirectoryInside => {
+            "if [ -d p ] && [ ! -L p ]; then mkdir p/empty; else touch ../impossible; fi"
         }
     }
 }
