@@ -374,8 +374,9 @@ impl Detail {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         let store = self.store.read(cx);
-        // A fetch that brought nothing in still changes when the page says it fetched.
-        store.fetched_at(project).hash(&mut hasher);
+        // A fetch that brought nothing in still changes when the page says it fetched, and
+        // one that failed, what it says about that.
+        (store.fetched_at(project), store.fetch_failed_at(project)).hash(&mut hasher);
         if let Some(workspace) = store.workspace(project) {
             workspace
                 .target

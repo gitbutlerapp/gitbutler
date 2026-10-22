@@ -42,16 +42,7 @@ impl Store {
                     let reloaded = this.update(cx, |store, cx| {
                         match fetched {
                             Ok(any_remote) => store.fetched_now(&project, any_remote),
-                            // Once may be the network not back yet, as just after the Mac
-                            // wakes, so the next check tries again; twice holds off a while.
-                            Err(_) => {
-                                let again = store.fetch_failed.contains_key(&project);
-                                let at = match again {
-                                    true => SystemTime::now(),
-                                    false => SystemTime::UNIX_EPOCH,
-                                };
-                                store.fetch_failed.insert(project.clone(), at);
-                            }
+                            Err(_) => store.fetch_failed_now(&project),
                         };
                         // What a fetch changes is in the git directory, which the watcher
                         // reloads for.
@@ -106,6 +97,21 @@ impl Store {
     /// When the app last fetched `id`.
     pub fn fetched_at(&self, id: &ProjectId) -> Option<SystemTime> {
         self.fetched.get(id).copied()
+    }
+
+    /// When a fetch of `id` last failed, if none has worked since.
+    pub fn fetch_failed_at(&self, id: &ProjectId) -> Option<SystemTime> {
+        self.fetch_failed.get(id).copied()
+    }
+
+    /// Note that a fetch of `project` failed. Once may be the network not back yet, as just
+    /// after the Mac wakes, so the next check tries again; twice holds off a while.
+    pub(super) fn fetch_failed_now(&mut self, project: &ProjectId) {
+        let at = match self.fetch_failed.contains_key(project) {
+            true => SystemTime::now(),
+            false => SystemTime::UNIX_EPOCH,
+        };
+        self.fetch_failed.insert(project.clone(), at);
     }
 
     /// Note that a fetch of `project` worked, or with `any_remote` false that it found no

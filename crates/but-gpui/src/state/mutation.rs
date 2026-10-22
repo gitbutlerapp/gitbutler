@@ -630,16 +630,24 @@ impl Store {
                 kind: OpKind::Fetch,
                 ..Overlay::remote()
             },
-            |path, _| backend::fetch(path),
-            move |store, any_remote, cx| {
-                store.fetched_now(&fetched, any_remote);
-                store.snack(
-                    match any_remote {
-                        true => "Fetched",
-                        false => "No remote to fetch from",
-                    },
-                    cx,
-                )
+            // Failing, it's noted as a background fetch's failure is, for the project page.
+            |path, _| Ok(backend::fetch(path)),
+            move |store, fetched_or_not, cx| match fetched_or_not {
+                Ok(any_remote) => {
+                    store.fetched_now(&fetched, any_remote);
+                    store.snack(
+                        match any_remote {
+                            true => "Fetched",
+                            false => "No remote to fetch from",
+                        },
+                        cx,
+                    )
+                }
+                Err(err) => {
+                    store.fetch_failed_now(&fetched);
+                    let title = store.card_title(&fetched, "Fetch failed".into());
+                    store.failed(title, &err, cx)
+                }
             },
             cx,
         );
