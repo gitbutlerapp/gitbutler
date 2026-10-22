@@ -162,22 +162,8 @@ fn objects_to_remove(judge: &mut Judge<'_>, plan: &Plan) -> anyhow::Result<Vec<R
     Ok(removals)
 }
 
-/// The objects to move aside, a directory before anything in it, which moves along with it.
-/// Shallower paths go first, so this holds even when a case-insensitive filesystem finds the
-/// directory under a name that sorts after what's in it.
-fn clearances(mut removals: Vec<Removal>) -> Vec<Clearance> {
-    let depth = |removal: &Removal| {
-        removal
-            .rela_path
-            .iter()
-            .filter(|byte| **byte == b'/')
-            .count()
-    };
-    removals.sort_by(|a, b| {
-        depth(a)
-            .cmp(&depth(b))
-            .then_with(|| a.rela_path.cmp(&b.rela_path))
-    });
+/// The objects to move aside.
+fn clearances(removals: Vec<Removal>) -> Vec<Clearance> {
     removals
         .into_iter()
         .map(

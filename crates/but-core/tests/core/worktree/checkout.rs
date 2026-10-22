@@ -2633,13 +2633,22 @@ fn checkout_undoes_the_commit_when_placing_a_file_fails() -> anyhow::Result<()> 
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let workdir = repo.workdir().unwrap().to_owned();
     std::fs::create_dir(workdir.join("ro"))?;
-    commit_in_worktree(&repo, &[("ro/f", "f\n"), ("a", "one\n"), ("gone/f", "f\n")])?;
+    commit_in_worktree(
+        &repo,
+        &[
+            ("ro/f", "f\n"),
+            ("a", "one\n"),
+            ("gone/f", "f\n"),
+            ("other/f", "other f\n"),
+        ],
+    )?;
     let new_commit = commit_files(
         &repo,
         "change a, delete gone/f, add new/x and ro/new",
         &[
             ("a", Some("two\n")),
             ("gone/f", None),
+            ("other/f", None),
             ("new/x", Some("two\n")),
             ("ro/new", Some("two\n")),
         ],

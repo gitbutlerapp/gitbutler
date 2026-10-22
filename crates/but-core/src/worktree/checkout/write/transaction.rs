@@ -131,13 +131,13 @@ fn apply(
     let with_reason = |reason| clearances.iter().filter(move |c| c.reason == reason);
     let aside = staged.aside();
     for Clearance { rela_path, .. } in with_reason(Reason::Deleted) {
-        journal.move_aside(&join(workdir, rela_path)?, &join(&aside, rela_path)?)?;
+        journal.move_aside(&join(workdir, rela_path)?, &aside)?;
     }
     for Clearance { rela_path, .. } in with_reason(Reason::Deleted) {
         journal.remove_emptied_parents(workdir, &join(workdir, rela_path)?)?;
     }
     for Clearance { rela_path, .. } in with_reason(Reason::InTheWay) {
-        journal.move_aside(&join(workdir, rela_path)?, &join(&aside, rela_path)?)?;
+        journal.move_aside(&join(workdir, rela_path)?, &aside)?;
     }
     let mut stats = BTreeMap::new();
     for StagedFile { rela_path, stat } in &staged.files {
@@ -172,16 +172,20 @@ enum Step {
 
 impl Journal {
     /// Move the object at `from` to `to`. An object that is gone loses nothing.
-    fn move_aside(&mut self, from: &Path, to: &Path) -> anyhow::Result<()> {
-        std::fs::create_dir_all(to.parent().expect("below the staging directory"))?;
-        match std::fs::rename(from, to) {
+    /// Move the object at `from` into its own place in the directory `aside`, so objects moved
+    /// aside never collide, even if one was inside another. An object that is gone loses
+    /// nothing.
+    fn move_aside(&mut self, from: &Path, aside: &Path) -> anyhow::Result<()> {
+        std::fs::create_dir_all(aside)?;
+        let to = aside.join(self.steps.len().to_string());
+        match std::fs::rename(from, &to) {
             Ok(()) => {}
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
             Err(err) => return Err(err).with_context(|| format!("moving {from:?} aside")),
         }
         self.steps.push(Step::MovedAside {
             from: from.to_owned(),
-            to: to.to_owned(),
+            to,
         });
         Ok(())
     }
