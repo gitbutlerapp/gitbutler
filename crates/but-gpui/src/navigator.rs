@@ -393,6 +393,10 @@ pub struct Navigator {
     projects_unfolded: bool,
     /// Whether the pointer is over the navigator.
     pointer_over: bool,
+    /// The watched projects' order by activity as it was when the pointer came over the
+    /// list, kept until it leaves, so a project an agent wakes doesn't move the row about to
+    /// be clicked.
+    held_order: Option<Vec<ProjectId>>,
     /// The project whose watch button the pointer is on, which shows what a click makes it.
     watch_hovered: Option<ProjectId>,
     /// Where a dragged project card would go, while one is over a card's heading.
@@ -501,6 +505,7 @@ impl Navigator {
             first_hit: None,
             projects_unfolded: false,
             pointer_over: false,
+            held_order: None,
             watch_hovered: None,
             project_drop: None,
             hold_still: false,
@@ -3538,7 +3543,17 @@ impl Render for Navigator {
             .id("navigator")
             .key_context("Navigator")
             .track_focus(&self.focus)
-            .on_hover(cx.listener(|this, hovered: &bool, _, _| this.pointer_over = *hovered))
+            .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
+                this.pointer_over = *hovered;
+                // GPUI calls a drag's start a leave, and the drop has to land where it's aimed.
+                if !*hovered && !cx.has_active_drag() {
+                    this.held_order = None;
+                } else if this.held_order.is_none() {
+                    let watched = this.watched(this.store.read(cx));
+                    this.held_order = Some(watched.into_iter().map(|e| e.id.clone()).collect());
+                }
+                cx.notify();
+            }))
             .on_action(
                 cx.listener(|this, _: &SelectPrevious, window, cx| this.step(-1, window, cx)),
             )

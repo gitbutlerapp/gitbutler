@@ -20,7 +20,12 @@ impl Navigator {
         match store.prefs.watched_order {
             WatchedOrder::Manual => {}
             WatchedOrder::Name => watched.sort_by_key(|e| e.project.name.to_lowercase()),
-            WatchedOrder::Activity => watched.sort_by_key(|e| Reverse(last_active(e))),
+            WatchedOrder::Activity => match &self.held_order {
+                // A project added meanwhile goes last.
+                Some(held) => watched
+                    .sort_by_key(|e| held.iter().position(|id| *id == e.id).unwrap_or(usize::MAX)),
+                None => watched.sort_by_key(|e| Reverse(last_active(e))),
+            },
         }
         watched
     }

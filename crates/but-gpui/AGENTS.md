@@ -220,6 +220,8 @@ anything else.
   pop. A disabled control says why in its tooltip. Tooltips are a few words, with the shortcut in its key slot. Snackbars are
   fragments without a full stop. Misleading copy is a bug.
 - The app is reactive, so no reload buttons. Nothing added may make it slower.
+- What an agent does must not move the row under the pointer: the navigator anchors it
+  (`sync_list`), and its order by activity holds while the pointer is over it.
 - Dropped on purpose, so ask before adding them back: PR conversations and management beyond
   create and merge, editing a commit in the app (the resolver and `but resolve` cover it),
   moving a commit one step, updating one stack, Locate for a moved project, diff zoom and the
