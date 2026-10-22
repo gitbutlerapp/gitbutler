@@ -2729,7 +2729,11 @@ impl Navigator {
                         .flex_1()
                         .min_w(px(0.))
                         .truncate()
-                        .when(title.is_empty(), |el| el.text_color(style.muted()))
+                        // Quieter once read, so branch names and unread commits stand out,
+                        // but in full on a solid selection.
+                        .when(title.is_empty() || !(unread || style.solid), |el| {
+                            el.text_color(style.muted())
+                        })
                         .when(unread, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
                         .child(commit_title(title)),
                 )
