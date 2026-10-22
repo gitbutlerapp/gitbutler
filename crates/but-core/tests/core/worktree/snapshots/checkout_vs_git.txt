@@ -1,9 +1,4 @@
-560 cases: 495 like `git checkout`, 0 like `git checkout -m`, 65 different
-
-HEAD Absent, target Directory, index Staged, worktree Clean
-  git:       done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
-  git -m:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
-  GitButler: refused, HEAD head, index [p Mode(FILE) "s"], disk [p "s"]
+560 cases: 495 like `git checkout`, 1 like `git checkout -m`, 64 different
 
 HEAD Absent, target Directory, index Staged, worktree Deleted
   git:       done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]

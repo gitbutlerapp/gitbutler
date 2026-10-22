@@ -132,10 +132,17 @@ impl Pair {
         let head = put(self.head, self.head_path, "h", "sub-a");
         let target = put(self.target, self.target_path, "m", "sub-b");
         let (head_path, target_path) = (self.head_path, self.target_path);
+        // Git and gix decide some cases by `core.ignorecase`, which `git init` sets where the
+        // filesystem ignores case. Only the pairs naming the path in different case depend on it.
+        let ignore_case = match head_path == target_path {
+            true => "git -C base config core.ignorecase false",
+            false => "true",
+        };
         format!(
             r#"set -eu
 empty=$(git hash-object -t tree /dev/null)
 git init -q -b main base
+{ignore_case}
 (cd base && git commit-tree "$empty" -m sub-a) >sub-a
 (cd base && git commit-tree "$empty" -m sub-b) >sub-b
 cd base
