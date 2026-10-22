@@ -106,7 +106,7 @@ impl AppView {
         let store = self.store.clone();
         cx.spawn(async move |_, cx| {
             if let Err(err) = backend::run(open).await {
-                store.update(cx, |store, cx| store.error(failed, format!("{err:#}"), cx));
+                store.update(cx, |store, cx| store.failed(failed, &err, cx));
             }
         })
         .detach();

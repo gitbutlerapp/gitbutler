@@ -447,6 +447,11 @@ impl AppView {
             return;
         };
         let place = Place::from_keys(window.modifiers(), &cut, &target);
+        // Pasting lets go of the cut, before it lands: letting go clears snackbars, and landing
+        // can show one. A drop leaves the cut alone.
+        if Transfer::resolve(&cut, &target, place, self.store.read(cx)).is_some() {
+            self.store.update(cx, |store, cx| store.set_cut(None, cx));
+        }
         self.transfer(&cut, &target, place, window, cx);
     }
 
@@ -473,10 +478,7 @@ impl AppView {
             return;
         };
         let project = target.project().clone();
-        let staged = self.store.update(cx, |store, cx| {
-            store.set_cut(None, cx);
-            transfer.perform(&project, store, cx)
-        });
+        let staged = (self.store).update(cx, |store, cx| transfer.perform(&project, store, cx));
         if let Some((branch, files)) = staged {
             self.store.update(cx, |store, cx| {
                 store.select(Some(Selection::Uncommitted(project.clone())), cx)
@@ -684,7 +686,7 @@ impl AppView {
         + 'static,
     ) {
         // Not from what's open over it.
-        if self.prompt.is_some() || self.modal.is_some() || self.palette.is_some() {
+        if self.covered() {
             return;
         }
         let detail = self.detail.clone();
@@ -695,6 +697,15 @@ impl AppView {
                 }
             })
         });
+    }
+
+    /// Whether a menu, prompt, picker or modal is open over the window.
+    fn covered(&self) -> bool {
+        self.menu.is_some()
+            || self.prompt.is_some()
+            || self.palette.is_some()
+            || self.modal.is_some()
+            || self.icon_picker.is_some()
     }
 
     /// What right-clicking `target`'s row in the navigator offers, opened at `position`.
@@ -785,12 +796,7 @@ impl Focusable for AppView {
 
 impl Render for AppView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let covered = self.menu.is_some()
-            || self.prompt.is_some()
-            || self.palette.is_some()
-            || self.modal.is_some()
-            || self.icon_picker.is_some();
-        crate::ui::Covered::note(covered, window, cx);
+        crate::ui::Covered::note(self.covered(), window, cx);
         let theme = Theme::get(cx).clone();
         let ligatures = self.store.read(cx).prefs.ligatures;
         div()

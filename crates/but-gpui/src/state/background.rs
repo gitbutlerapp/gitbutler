@@ -34,12 +34,8 @@ impl Store {
                         tracing::warn!(%project, "background fetch failed: {err:#}");
                     }
                     let reloaded = this.update(cx, |store, cx| {
-                        // Only a fetch that worked says when it last fetched.
                         match fetched {
-                            Ok(_) => {
-                                store.fetched.insert(project.clone(), SystemTime::now());
-                                store.fetch_failed.remove(&project)
-                            }
+                            Ok(any_remote) => store.fetched_now(&project, any_remote),
                             // Once may be the network not back yet, as just after the Mac
                             // wakes, so the next check tries again; twice holds off a while.
                             Err(_) => {
@@ -48,7 +44,7 @@ impl Store {
                                     true => SystemTime::now(),
                                     false => SystemTime::UNIX_EPOCH,
                                 };
-                                store.fetch_failed.insert(project.clone(), at)
+                                store.fetch_failed.insert(project.clone(), at);
                             }
                         };
                         // What a fetch changes is in the git directory, which the watcher
@@ -106,10 +102,25 @@ impl Store {
         self.fetched.get(id).copied()
     }
 
+    /// Note that a fetch of `project` worked, or with `any_remote` false that it found no
+    /// remote to fetch from, which isn't a fetch and holds off the next one a while.
+    pub(super) fn fetched_now(&mut self, project: &ProjectId, any_remote: bool) {
+        match any_remote {
+            true => {
+                self.fetched.insert(project.clone(), SystemTime::now());
+                self.fetch_failed.remove(project);
+            }
+            false => _ = self.fetch_failed.insert(project.clone(), SystemTime::now()),
+        }
+    }
+
+    /// The watched projects due for a fetch, each with its path. Not one with an operation
+    /// waiting or running, which would race the fetch for its refs.
     fn due_for_fetch(&self, interval: Duration) -> Vec<(ProjectId, PathBuf)> {
         self.projects
             .iter()
             .filter(|entry| entry.expanded && entry.workspace.is_some())
+            .filter(|entry| !self.pending(&entry.id, None, false))
             .filter(|entry| {
                 const AFTER_FAILING: Duration = Duration::from_secs(30 * 60);
                 (self.fetch_failed.get(&entry.id)).is_none_or(|at| since(at) >= AFTER_FAILING)

@@ -26,7 +26,7 @@ mod seen;
 
 use load::{Change, Reload};
 pub use mesh::{MeshBranch, MeshPick, MeshState};
-pub use mutation::{NewAt, Overlay, Remap, Rereads, SLOW};
+pub use mutation::{NewAt, OpKind, Overlay, Remap, Rereads, SLOW};
 use mutation::{Queued, Running};
 pub use picks::Picks;
 pub use saved::{
@@ -178,11 +178,13 @@ pub enum Notice {
         undo: Option<(ProjectId, SnapshotId)>,
     },
     /// A failure: a card at the bottom right with the error kept for copying, and what
-    /// to try instead, if anything.
+    /// to try instead, if anything. `source` is the operation that wrote it, by project and
+    /// label, whose next run that works takes it back.
     Error {
         title: SharedString,
         detail: SharedString,
         retry: Option<Retry>,
+        source: Option<(ProjectId, SharedString)>,
     },
 }
 
@@ -292,8 +294,8 @@ pub struct Store {
     /// clock, which counts the time the Mac slept.
     fetched: HashMap<ProjectId, SystemTime>,
     /// When each project's background fetch last failed, as on credentials the user turned
-    /// down or being offline; it waits a while before asking again, unless a fetch the user
-    /// asks for works.
+    /// down or being offline, or found no remote; it waits a while before asking again,
+    /// unless a fetch the user asks for works.
     fetch_failed: HashMap<ProjectId, SystemTime>,
     _auto_fetch: Task<()>,
     _update_check: Task<()>,
@@ -823,9 +825,32 @@ impl Store {
                 title: title.into(),
                 detail: detail.into(),
                 retry: None,
+                source: None,
             },
             cx,
         );
+    }
+
+    /// An error card saying `title`, with what went wrong in `err` in the user's words where
+    /// there are some.
+    pub fn failed(
+        &mut self,
+        title: impl Into<SharedString>,
+        err: &anyhow::Error,
+        cx: &mut Context<Self>,
+    ) {
+        self.error(title, backend::failure_detail(err), cx)
+    }
+
+    /// `title` for a card or the status bar about `project`, naming it when the selection is
+    /// in another project.
+    pub fn card_title(&self, project: &ProjectId, title: String) -> String {
+        match self.project(project) {
+            Some(entry) if (self.selection.as_ref()).is_some_and(|s| s.project() != project) => {
+                format!("{title} in {}", entry.project.name)
+            }
+            _ => title,
+        }
     }
 
     /// An error card whose button runs `retry`, as to try again or go ahead anyway.
@@ -842,6 +867,7 @@ impl Store {
                 title: title.into(),
                 detail: detail.into(),
                 retry: Some((retry_label.into(), std::rc::Rc::new(retry))),
+                source: None,
             },
             cx,
         );

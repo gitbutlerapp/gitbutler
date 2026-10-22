@@ -98,7 +98,7 @@ impl Mesh {
 }
 
 impl Store {
-    /// Read the mesh every [`POLL`], or at once when something asks with [`Self::read_mesh`]:
+    /// Read the mesh every [`POLL`], or at once when something asks with [`Self::mesh_read_now`]:
     /// the connection, then each watched project's checkouts elsewhere, one at a time.
     fn poll_mesh(mut asked: mpsc::UnboundedReceiver<()>, cx: &mut Context<Self>) -> Task<()> {
         cx.spawn(async move |this, cx| {
@@ -159,7 +159,7 @@ impl Store {
     }
 
     /// Read the mesh again now, as after watching a project or signing in.
-    pub fn read_mesh(&self) {
+    pub fn mesh_read_now(&self) {
         self.mesh.requests.unbounded_send(()).ok();
     }
 
@@ -271,7 +271,7 @@ impl Store {
             return;
         }
         match read.icon.is_empty() {
-            true => self.send_mesh_icon(project, here.to_owned(), cx),
+            true => self.mesh_send_icon(project, here.to_owned(), cx),
             false => {
                 let (id, icon) = (project.to_string(), read.icon);
                 self.set_prefs(|prefs| _ = prefs.project_icons.insert(id, icon), cx);
@@ -279,27 +279,14 @@ impl Store {
         }
     }
 
-    /// Give `project` the `icon`, as but.dev stores it, or none, here and in the mesh.
-    pub fn set_project_icon(
-        &mut self,
-        project: &ProjectId,
-        icon: Option<String>,
-        cx: &mut Context<Self>,
-    ) {
-        let id = project.to_string();
-        self.set_prefs(
-            |prefs| match &icon {
-                Some(icon) => _ = prefs.project_icons.insert(id, icon.clone()),
-                None => _ = prefs.project_icons.remove(&id),
-            },
-            cx,
-        );
-        self.send_mesh_icon(project, icon.unwrap_or_default(), cx);
-    }
-
     /// Send `project`'s `icon` to the mesh, once it's been read and has an id there. A failure
     /// is only logged: the next read puts back the mesh's.
-    fn send_mesh_icon(&mut self, project: &ProjectId, icon: String, cx: &mut Context<Self>) {
+    pub(super) fn mesh_send_icon(
+        &mut self,
+        project: &ProjectId,
+        icon: String,
+        cx: &mut Context<Self>,
+    ) {
         let Some(id) = self.mesh.ids.get(project).cloned() else {
             return;
         };
@@ -312,7 +299,7 @@ impl Store {
             }
             this.update(cx, |store, _| {
                 store.mesh.sending_icon.remove(&project);
-                store.read_mesh();
+                store.mesh_read_now();
             })
             .ok();
         })
@@ -322,7 +309,7 @@ impl Store {
     /// Show `project`'s checkouts on other machines as they were last read, until the mesh
     /// answers, which takes seconds: its section is there with the rest of the card rather
     /// than arriving after it, and the read only changes what changed.
-    pub(super) fn seed_mesh(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+    pub(super) fn mesh_seed(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
         if !self.mesh_may_show(project) {
             return;
         }
@@ -378,12 +365,10 @@ impl Store {
                 store.mesh.signing_in = false;
                 match signed_in {
                     Ok(()) => store.snack("Connected to your mesh", cx),
-                    Err(err) => {
-                        store.error("Couldn't connect to your mesh", format!("{err:#}"), cx)
-                    }
+                    Err(err) => store.failed("Couldn't connect to your mesh", &err, cx),
                 }
                 store.mesh.asked_to_report.clear();
-                store.read_mesh();
+                store.mesh_read_now();
                 cx.notify();
             })
             .ok();
@@ -398,11 +383,9 @@ impl Store {
             this.update(cx, |store, cx| {
                 match signed_out {
                     Ok(()) => store.snack("Disconnected from your mesh", cx),
-                    Err(err) => {
-                        store.error("Couldn't disconnect from your mesh", format!("{err:#}"), cx)
-                    }
+                    Err(err) => store.failed("Couldn't disconnect from your mesh", &err, cx),
                 }
-                store.read_mesh();
+                store.mesh_read_now();
             })
             .ok();
         })
@@ -437,10 +420,7 @@ impl Store {
                     move |store, applied_as, cx| store.snack(format!("Applied {applied_as}"), cx),
                     cx,
                 ),
-                Err(err) => {
-                    let title = format!("Couldn't bring {branch} here");
-                    store.error(title, format!("{err:#}"), cx)
-                }
+                Err(err) => store.failed(format!("Couldn't bring {branch} here"), &err, cx),
             })
             .ok();
         })

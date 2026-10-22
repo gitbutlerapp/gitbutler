@@ -120,7 +120,7 @@ impl ReviewView {
                         cx.notify();
                     }
                     Err(err) => this.store.update(cx, |store, cx| {
-                        store.error("Can't open a pull request", format!("{err:#}"), cx)
+                        store.failed("Can't open a pull request", &err, cx)
                     }),
                 })
                 .ok();
@@ -186,7 +186,7 @@ impl ReviewView {
                         this.title.update(cx, |input, cx| input.set_text(title, cx));
                         this.body.update(cx, |input, cx| input.set_text(body, cx));
                         this.store.update(cx, |store, cx| {
-                            store.error("Couldn't write the description", format!("{err:#}"), cx)
+                            store.failed("Couldn't write the description", &err, cx)
                         });
                     }
                 }

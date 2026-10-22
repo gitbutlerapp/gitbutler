@@ -79,9 +79,7 @@ impl AppView {
                     let cloned = backend::run(move || backend::clone(url.trim(), &target)).await;
                     store.update(cx, |store, cx| match cloned {
                         Ok(()) => store.add_project(into, cx),
-                        Err(err) => {
-                            store.error(format!("Couldn't clone {name}"), format!("{err:#}"), cx)
-                        }
+                        Err(err) => store.failed(format!("Couldn't clone {name}"), &err, cx),
                     });
                 })
                 .detach();
@@ -116,7 +114,7 @@ impl AppView {
                 }
                 Err(err) => {
                     store.update(cx, |store, cx| {
-                        store.error("Couldn't list the branches", format!("{err:#}"), cx)
+                        store.failed("Couldn't list the branches", &err, cx)
                     });
                     return;
                 }
@@ -136,11 +134,7 @@ impl AppView {
                                     store.reload(&project, cx);
                                     store.snack(format!("The target is now {short}"), cx)
                                 }
-                                Err(err) => store.error(
-                                    "Couldn't change the target",
-                                    format!("{err:#}"),
-                                    cx,
-                                ),
+                                Err(err) => store.failed("Couldn't change the target", &err, cx),
                             });
                         })
                         .detach();

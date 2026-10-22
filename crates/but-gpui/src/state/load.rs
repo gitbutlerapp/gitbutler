@@ -124,7 +124,7 @@ impl Store {
             this.update(cx, |store, cx| match projects {
                 Ok(_) if store.project_edits != edits => {}
                 Ok(projects) => store.set_projects(projects, cx),
-                Err(err) => store.error("Couldn't list projects", format!("{err:#}"), cx),
+                Err(err) => store.failed("Couldn't list projects", &err, cx),
             })
             .ok();
         })
@@ -245,7 +245,7 @@ impl Store {
                         _ => store.added = Some(id),
                     }
                 }
-                Err(err) => store.error("Couldn't add the project", format!("{err:#}"), cx),
+                Err(err) => store.failed("Couldn't add the project", &err, cx),
             })
             .ok();
         })
@@ -256,7 +256,7 @@ impl Store {
     pub fn remove_project(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
         // Removing deletes GitButler's data in the repository, which an operation there would
         // fail partway through for, or write back.
-        if self.unfinished_in(id, None) {
+        if self.pending(id, None, false) {
             return self.snack("Wait for its operations to finish, then remove it", cx);
         }
         let removed = id.to_string();
@@ -273,7 +273,7 @@ impl Store {
                     store.set_projects(projects, cx);
                     store.snack("Project removed", cx);
                 }
-                Err(err) => store.error("Couldn't remove the project", format!("{err:#}"), cx),
+                Err(err) => store.failed("Couldn't remove the project", &err, cx),
             })
             .ok();
         })
@@ -300,7 +300,7 @@ impl Store {
         self.order_projects(&order);
         if expanded {
             self.open_project(id, cx);
-            self.read_mesh();
+            self.mesh_read_now();
         } else if self
             .selection
             .as_ref()
@@ -381,7 +381,7 @@ impl Store {
 
     /// Prepare `id` for display and start watching it, then load it.
     fn open_project(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
-        self.seed_mesh(id, cx);
+        self.mesh_seed(id, cx);
         let Some(entry) = self.project_mut(id) else {
             return;
         };

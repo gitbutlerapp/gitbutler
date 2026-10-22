@@ -27,10 +27,7 @@ impl AppView {
         });
         let working = store.busy().map(|(project, busy, took)| {
             // Another project's says which, as its failure card would.
-            let whose = (store.project(project))
-                .filter(|_| (store.selection.as_ref()).is_some_and(|s| s.project() != project))
-                .map(|entry| format!(" in {}", entry.project.name))
-                .unwrap_or_default();
+            let doing = store.card_title(project, under_way(busy));
             // How long it's taking once that's noticeable, and what else runs or waits.
             let elapsed = match took >= SLOW {
                 true => format!(" {}", duration(took.as_secs_f32().round() as i64)),
@@ -40,7 +37,7 @@ impl AppView {
                 0 => String::new(),
                 n => format!(" · {n} more"),
             };
-            format!("{}{whose}…{elapsed}{others}", under_way(busy))
+            format!("{doing}…{elapsed}{others}")
         });
         let state: AnyElement = if let Some(working) = working {
             h_flex()

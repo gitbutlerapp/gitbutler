@@ -627,6 +627,7 @@ impl AppView {
                     title,
                     detail,
                     retry,
+                    ..
                 } => {
                     let copied = detail.to_string();
                     let retry = retry.clone().map(|(label, run)| {

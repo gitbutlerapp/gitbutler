@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result, bail};
 use gpui::{Context, SharedString, Task};
@@ -66,6 +66,46 @@ pub struct Overlay {
     /// It only talks to the remote or the forge and moves refs, leaving the worktree and
     /// the commits alone, so reloads the watcher starts meanwhile go ahead.
     pub remote_only: bool,
+    /// Which operation it is, where the queue treats it apart from the rest.
+    pub kind: OpKind,
+}
+
+/// The operations the queue treats apart from the rest. Labels are only what the user reads.
+#[derive(Default, Clone, PartialEq)]
+pub enum OpKind {
+    #[default]
+    Other,
+    Fetch,
+    /// An update from the target.
+    Update,
+    /// A pull into the branch with this full ref.
+    Pull(String),
+    /// Resolving conflicts, which are numbered anew once it's done.
+    Resolve,
+    MarkResolved,
+    FinishEditing,
+    CancelEditing,
+}
+
+impl OpKind {
+    /// Whether it runs while a commit is checked out for editing: fetching, which leaves the
+    /// worktree alone, and what resolves the commit and ends the edit.
+    fn while_editing(&self) -> bool {
+        matches!(
+            self,
+            Self::Fetch
+                | Self::Resolve
+                | Self::MarkResolved
+                | Self::FinishEditing
+                | Self::CancelEditing
+        )
+    }
+
+    /// Whether a second, asked for while the first waits or runs, as by a double-click, would
+    /// only fail as there's no edit left.
+    fn once(&self) -> bool {
+        matches!(self, Self::FinishEditing | Self::CancelEditing)
+    }
 }
 
 /// What an operation changes, for the reload after it to read again.
@@ -209,22 +249,6 @@ impl Overlay {
         }
     }
 }
-
-const FETCH: &str = "Fetch";
-const UPDATE: &str = "Update";
-/// What runs while a commit is checked out for editing: fetching, which leaves the worktree
-/// alone, and what resolves the commit and ends the edit.
-const WHILE_EDITING: [&str; 5] = [
-    FETCH,
-    "Resolve",
-    "Mark resolved",
-    "Finish editing",
-    "Cancel editing",
-];
-
-/// Operations a second of which, asked for while the first waits or runs, as by a
-/// double-click, would only fail as there's no edit left.
-const ONCE: [&str; 2] = ["Finish editing", "Cancel editing"];
 
 /// The commits an operation captured, found again by key when it runs, as operations queued
 /// before it may have rewritten them.
@@ -396,7 +420,10 @@ impl Store {
         self.run(
             project,
             "Finish editing",
-            Overlay::rewriting_main(),
+            Overlay {
+                kind: OpKind::FinishEditing,
+                ..Overlay::rewriting_main()
+            },
             |path, _| backend::edit::finish(path),
             |store, (), cx| store.snack("Finished editing", cx),
             cx,
@@ -410,7 +437,10 @@ impl Store {
         self.run(
             project,
             "Cancel editing",
-            Overlay::rewriting_main(),
+            Overlay {
+                kind: OpKind::CancelEditing,
+                ..Overlay::rewriting_main()
+            },
             move |path, _| backend::edit::cancel(path, force),
             move |store, left, cx| match left {
                 true => store.snack("Stopped editing, the commit is as it was", cx),
@@ -437,12 +467,14 @@ impl Store {
         let fetched = project.clone();
         self.run(
             project,
-            FETCH,
-            Overlay::remote(),
+            "Fetch",
+            Overlay {
+                kind: OpKind::Fetch,
+                ..Overlay::remote()
+            },
             |path, _| backend::fetch(path),
             move |store, any_remote, cx| {
-                store.fetch_failed.remove(&fetched);
-                store.fetched.insert(fetched, SystemTime::now());
+                store.fetched_now(&fetched, any_remote);
                 store.snack(
                     match any_remote {
                         true => "Fetched",
@@ -472,8 +504,11 @@ impl Store {
         let updated = project.clone();
         self.run(
             project,
-            UPDATE,
-            Overlay::default(),
+            "Update",
+            Overlay {
+                kind: OpKind::Update,
+                ..Overlay::default()
+            },
             move |path, _| backend::update_from_target(path, accepted.as_ref()),
             move |store, outcome, cx| {
                 let target = (store.workspace(&updated).and_then(|ws| ws.target.as_ref()))
@@ -481,14 +516,7 @@ impl Store {
                 match outcome {
                     UpdateOutcome::WouldConflict(found) => {
                         let again = updated.clone();
-                        // With other projects watched, the card says which it's about.
-                        let watched = store.projects.iter().filter(|p| p.expanded).count();
-                        let title = match store.project(&updated) {
-                            Some(entry) if watched > 1 => {
-                                format!("Updating {} leaves conflicts", entry.project.name)
-                            }
-                            _ => "Updating leaves conflicts".to_owned(),
-                        };
+                        let title = store.card_title(&updated, "Updating leaves conflicts".into());
                         store.error_with_retry(
                             title,
                             update_conflicts_detail(&target, &found),
@@ -527,15 +555,18 @@ impl Store {
         let name = short_ref(&ref_name).to_owned();
         // A second pull of the branch while one waits would find nothing left to bring in.
         // An accepted one comes from the card that shows once its pull has finished.
-        let label = format!("Pull {name}");
-        if accepted.is_none() && self.pending(project, &label) {
+        let kind = OpKind::Pull(ref_name.clone());
+        if accepted.is_none() && self.pending(project, Some(&kind), true) {
             return;
         }
         let pulled = project.clone();
         self.run(
             project,
-            label,
-            Overlay::default(),
+            format!("Pull {name}"),
+            Overlay {
+                kind,
+                ..Overlay::default()
+            },
             {
                 let ref_name = ref_name.clone();
                 move |path, _| {
@@ -836,10 +867,10 @@ impl Store {
         done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
         cx: &mut Context<Self>,
     ) {
-        let label = label.into();
-        if ONCE.contains(&&*label) && self.unfinished_in(project, Some(&label)) {
+        if overlay.kind.once() && self.pending(project, Some(&overlay.kind), false) {
             return;
         }
+        let label = label.into();
         let mut captured = self.workspace(project).map_or_else(HashMap::new, |ws| {
             ws.commits()
                 .map(|commit| (commit.id, commit.key.clone()))
@@ -955,7 +986,8 @@ impl Store {
         let editing = self
             .workspace(project)
             .is_some_and(|ws| ws.editing.is_some());
-        let refused = editing && !WHILE_EDITING.contains(&label.as_ref());
+        let refused =
+            editing && !(self.running.get(project)).is_some_and(|r| r.overlay.kind.while_editing());
         let path = self.path(project).filter(|_| !refused);
         let Some(path) = path else {
             if refused {
@@ -1034,6 +1066,8 @@ impl Store {
                     };
                     reload.merge(std::mem::take(&mut running.deferred));
                 }
+                let source = (project.clone(), label.clone());
+                let first_card = store.next_toast;
                 match result {
                     Ok((value, recorded, moved_worktree)) => {
                         // Set here rather than at the start, so a load the watcher started
@@ -1042,13 +1076,13 @@ impl Store {
                         if let Some(before) = before {
                             store.rebaseline.insert(project.clone(), before);
                         }
-                        // A retry that worked takes back the card saying it failed.
-                        let failed = format!("{label} failed");
-                        let elsewhere = (store.project(&project))
-                            .map(|entry| format!("{failed} in {}", entry.project.name));
-                        store.toasts.retain(|toast| {
-                            !matches!(&toast.notice, Notice::Error { title, .. }
-                                if *title == failed || Some(title.as_ref()) == elsewhere.as_deref())
+                        // A retry that worked takes back the cards saying it failed or what an
+                        // earlier run left undone.
+                        store.toasts.retain(|toast| match &toast.notice {
+                            Notice::Error {
+                                source: Some(s), ..
+                            } => *s != source,
+                            _ => true,
                         });
                         store.last_snapshot = recorded.map(|snapshot| (project.clone(), snapshot));
                         if moved_worktree {
@@ -1073,16 +1107,18 @@ impl Store {
                         {
                             store.select(Some(moved), cx);
                         }
-                        // Seen from another project, the card says which one it was.
-                        let elsewhere = (store.selection.as_ref())
-                            .is_some_and(|selection| *selection.project() != project);
-                        let title = match store.project(&project) {
-                            Some(entry) if elsewhere => {
-                                format!("{label} failed in {}", entry.project.name)
-                            }
-                            _ => format!("{label} failed"),
-                        };
-                        store.error(title, backend::failure_detail(&err), cx)
+                        let title = store.card_title(&project, format!("{label} failed"));
+                        store.failed(title, &err, cx)
+                    }
+                }
+                // The cards it wrote are its own, for the next run of it that works to take back.
+                for toast in (store.toasts.iter_mut()).filter(|toast| toast.id >= first_card) {
+                    if let Notice::Error {
+                        source: card @ None,
+                        ..
+                    } = &mut toast.notice
+                    {
+                        *card = Some(source.clone());
                     }
                 }
                 store.load(&project, reload, cx);
@@ -1131,40 +1167,35 @@ impl Store {
         self.running.len().saturating_sub(1) + self.queue.len()
     }
 
-    /// Whether an operation called `label` waits or runs for `project`: for one a repeat of
-    /// which would do nothing more, so it isn't queued again.
-    fn pending(&self, project: &ProjectId, label: &str) -> bool {
-        let running = self.running.get(project).map(|r| &r.label);
+    /// Whether an operation of `kind`, or any with `None`, waits or runs for `project`. One
+    /// that has finished and waits for the reload after it counts only with `settling`: a
+    /// repeat then would do nothing more, but a retry after it failed may be asked for then.
+    pub(super) fn pending(
+        &self,
+        project: &ProjectId,
+        kind: Option<&OpKind>,
+        settling: bool,
+    ) -> bool {
+        let running = (self.running.get(project)).filter(|r| settling || !r.settling);
         let queued = (self.queue.iter()).filter(|q| q.project == *project);
-        running
-            .into_iter()
-            .chain(queued.map(|q| &q.label))
-            .any(|pending| pending == label)
-    }
-
-    /// Whether an operation, or one called `label`, waits or runs for `project`, short of
-    /// reloading what it did, as a retry after it failed may be asked for then.
-    pub(super) fn unfinished_in(&self, project: &ProjectId, label: Option<&str>) -> bool {
-        let named = |l: &SharedString| label.is_none_or(|label| l == label);
-        self.running
-            .get(project)
-            .is_some_and(|r| named(&r.label) && !r.settling)
-            || (self.queue.iter()).any(|q| q.project == *project && named(&q.label))
+        (running.map(|r| &r.overlay.kind).into_iter())
+            .chain(queued.map(|q| &q.overlay.kind))
+            .any(|pending| kind.is_none_or(|kind| pending == kind))
     }
 
     /// Whether conflicts are being resolved in `project`, whose picks are numbered anew once
     /// that's done.
     pub fn resolving(&self, project: &ProjectId) -> bool {
-        self.unfinished_in(project, Some("Resolve"))
+        self.pending(project, Some(&OpKind::Resolve), false)
     }
 
     /// Whether an update from the target waits or runs on `project`.
     pub fn updating(&self, project: &ProjectId) -> bool {
-        self.pending(project, UPDATE)
+        self.pending(project, Some(&OpKind::Update), true)
     }
 
     pub fn fetching(&self, project: &ProjectId) -> bool {
-        self.pending(project, FETCH)
+        self.pending(project, Some(&OpKind::Fetch), true)
     }
 
     fn overlays<'a>(&'a self, project: &'a ProjectId) -> impl Iterator<Item = &'a Overlay> {

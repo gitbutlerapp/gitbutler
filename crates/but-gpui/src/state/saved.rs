@@ -109,6 +109,24 @@ impl Store {
             .map(String::as_str)
     }
 
+    /// Give `project` the `icon`, as but.dev stores it, or none, here and in the mesh.
+    pub fn set_project_icon(
+        &mut self,
+        project: &super::ProjectId,
+        icon: Option<String>,
+        cx: &mut Context<Self>,
+    ) {
+        let id = project.to_string();
+        self.set_prefs(
+            |prefs| match &icon {
+                Some(icon) => _ = prefs.project_icons.insert(id, icon.clone()),
+                None => _ = prefs.project_icons.remove(&id),
+            },
+            cx,
+        );
+        self.mesh_send_icon(project, icon.unwrap_or_default(), cx);
+    }
+
     pub fn set_prefs(&mut self, update: impl FnOnce(&mut Prefs), cx: &mut Context<Self>) {
         update(&mut self.prefs);
         self.save_soon(cx);

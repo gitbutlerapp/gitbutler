@@ -62,7 +62,7 @@ impl Store {
             this.update(cx, |store, cx| {
                 match signed_out {
                     Ok(()) => store.snack("Signed out of GitButler", cx),
-                    Err(err) => store.error("Couldn't sign out", format!("{err:#}"), cx),
+                    Err(err) => store.failed("Couldn't sign out", &err, cx),
                 }
                 store.load_account(cx);
             })

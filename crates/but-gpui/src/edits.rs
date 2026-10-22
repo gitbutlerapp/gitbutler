@@ -55,6 +55,30 @@ pub fn discard_label(what: &str, linked: bool, count: usize) -> String {
     format!("Discard {what}{more}")
 }
 
+/// What a confirmation says about taking it back: ⌘Z does, unless the oplog can't record it.
+fn undo_note(undoable: bool) -> &'static str {
+    match undoable {
+        true => "You can undo this with ⌘Z.",
+        false => "This can't be undone.",
+    }
+}
+
+/// What a confirmation runs: operation `label` on `project`, as [`Store::run`] runs it.
+fn then_run<T: Send + 'static>(
+    project: ProjectId,
+    label: impl Into<SharedString>,
+    overlay: Overlay,
+    op: impl FnOnce(&Path, &Remap) -> anyhow::Result<T> + Send + 'static,
+    done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
+) -> impl FnOnce(&mut AppView, &mut Context<AppView>) + 'static {
+    let label = label.into();
+    move |this, cx| {
+        (this.store).update(cx, |store, cx| {
+            store.run(&project, label, overlay, op, done, cx)
+        })
+    }
+}
+
 /// Whether `ref_name` can land, and if so whether with the branches below it: the bottom
 /// branch of a stack lands alone, the top one of a taller stack lands the whole stack. What
 /// lands needs commits, and none conflicted, which the engine won't land.
@@ -267,20 +291,15 @@ impl AppView {
             "Replace",
             window,
             cx,
-            move |this, cx| {
-                this.store.update(cx, |store, cx| {
-                    store.run(
-                        &project,
-                        "Replace with the remote's version",
-                        Overlay::default(),
-                        move |path, _| backend::pull_remote(path, &ref_name, true),
-                        move |store, (), cx| {
-                            store.snack_undoable(format!("{name} now matches the remote"), cx)
-                        },
-                        cx,
-                    )
-                })
-            },
+            then_run(
+                project,
+                "Replace with the remote's version",
+                Overlay::default(),
+                move |path, _| backend::pull_remote(path, &ref_name, true),
+                move |store, (), cx| {
+                    store.snack_undoable(format!("{name} now matches the remote"), cx)
+                },
+            ),
         );
     }
 
@@ -588,10 +607,7 @@ impl AppView {
             return self.store.update(cx, |store, cx| store.snack(message, cx));
         }
         // The oplog doesn't keep a linked worktree's branches, so it can't bring one back.
-        let undo = match linked {
-            true => "This can't be undone.",
-            false => "You can undo this with ⌘Z.",
-        };
+        let undo = undo_note(!linked);
         let above = at.checked_sub(1).map(|ix| &lane[ix]);
         let detail = match above.filter(named).or(lane.get(at + 1)) {
             Some(next) if !lane[at].commits.is_empty() => {
@@ -599,29 +615,24 @@ impl AppView {
             }
             _ => undo.to_owned(),
         };
+        let overlay = Overlay {
+            deleted_branches: HashSet::from([ref_name.clone()]),
+            ..Overlay::default()
+        };
         self.confirm_then(
-            Some(selection.clone()),
+            Some(selection),
             format!("Delete branch {name}?"),
             &detail,
             "Delete",
             window,
             cx,
-            move |this, cx| {
-                let project = project.clone();
-                this.store.update(cx, |store, cx| {
-                    store.run(
-                        &project,
-                        "Delete branch",
-                        Overlay {
-                            deleted_branches: HashSet::from([ref_name.clone()]),
-                            ..Overlay::default()
-                        },
-                        move |path, _| backend::remove_branch(path, &ref_name),
-                        move |store, (), cx| store.snack_after(!linked, "Branch deleted", cx),
-                        cx,
-                    )
-                });
-            },
+            then_run(
+                project,
+                "Delete branch",
+                overlay,
+                move |path, _| backend::remove_branch(path, &ref_name),
+                move |store, (), cx| store.snack_after(!linked, "Branch deleted", cx),
+            ),
         );
     }
 
@@ -632,7 +643,9 @@ impl AppView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let undoable = !self.store.read(cx).in_worktree(&project, id);
+        let store = self.store.read(cx);
+        let undoable = !store.in_worktree(&project, id);
+        let overlay = Overlay::commits(store.key_of(&project, id));
         let detail = match undoable {
             true => "Its changes are dropped. You can undo this with ⌘Z.",
             false => "Its changes are dropped from the worktree too. This can't be undone.",
@@ -644,19 +657,13 @@ impl AppView {
             "Discard",
             window,
             cx,
-            move |this, cx| {
-                let project = project.clone();
-                this.store.update(cx, |store, cx| {
-                    store.run(
-                        &project,
-                        "Discard commit",
-                        Overlay::commits(store.key_of(&project, id)),
-                        move |path, remap| backend::discard_commit(path, remap.get(id)?),
-                        move |store, (), cx| store.snack_after(undoable, "Commit discarded", cx),
-                        cx,
-                    )
-                });
-            },
+            then_run(
+                project,
+                "Discard commit",
+                overlay,
+                move |path, remap| backend::discard_commit(path, remap.get(id)?),
+                move |store, (), cx| store.snack_after(undoable, "Commit discarded", cx),
+            ),
         );
     }
 
@@ -711,28 +718,21 @@ impl AppView {
             Some(name) => Selection::Worktree(project.clone(), name.clone()),
             None => Selection::Uncommitted(project.clone()),
         };
-        let run = move |this: &mut AppView, changes: Vec<Selected>, cx: &mut Context<AppView>| {
-            let overlay = Overlay {
-                rereads: Rereads::Files,
-                files_in: worktree.clone(),
-                ..Overlay::files(&changes)
-            };
-            this.store.update(cx, |store, cx| {
-                store.run(
-                    &project,
-                    "Discard",
-                    overlay,
-                    move |path, _| backend::discard(path, worktree.as_deref(), &changes),
-                    move |store, (), cx| store.snack_after(undoable, "Changes discarded", cx),
-                    cx,
-                )
-            });
+        let overlay = Overlay {
+            rereads: Rereads::Files,
+            files_in: worktree.clone(),
+            ..Overlay::files(&changes)
         };
+        let run = then_run(
+            project,
+            "Discard",
+            overlay,
+            move |path, _| backend::discard(path, worktree.as_deref(), &changes),
+            move |store, (), cx| store.snack_after(undoable, "Changes discarded", cx),
+        );
         match ask {
-            None => run(self, changes, cx),
+            None => run(self, cx),
             Some((message, detail)) => {
-                let run =
-                    move |this: &mut AppView, cx: &mut Context<AppView>| run(this, changes, cx);
                 self.confirm_then(Some(at), message, detail, "Discard", window, cx, run)
             }
         }
@@ -1013,25 +1013,19 @@ impl AppView {
             "Land",
             window,
             cx,
-            move |this, cx| {
-                let label = format!("Land {name}");
-                this.store.update(cx, |store, cx| {
-                    store.run(
-                        &project,
-                        label,
-                        overlay,
-                        move |path, _| backend::land(path, &name, tip, whole_stack),
-                        move |store, update_needed, cx| {
-                            let mut message = format!("Landed on {target}");
-                            if update_needed {
-                                message.push_str(", the other branches need an Update");
-                            }
-                            store.snack(message, cx)
-                        },
-                        cx,
-                    )
-                });
-            },
+            then_run(
+                project,
+                format!("Land {name}"),
+                overlay,
+                move |path, _| backend::land(path, &name, tip, whole_stack),
+                move |store, update_needed, cx| {
+                    let mut message = format!("Landed on {target}");
+                    if update_needed {
+                        message.push_str(", the other branches need an Update");
+                    }
+                    store.snack(message, cx)
+                },
+            ),
         );
     }
 
@@ -1114,42 +1108,32 @@ impl AppView {
             [file] => file.file.path.clone(),
             files => format!("{} files", files.len()),
         };
+        let store = self.store.read(cx);
         // The oplog can't bring back a linked worktree's files.
-        let undoable = !self.store.read(cx).in_worktree(&project, commit);
-        let detail = match undoable {
-            true => {
-                "The commit, and the ones after it, lose the change. You can undo this with ⌘Z."
-            }
-            false => "The commit, and the ones after it, lose the change. This can't be undone.",
-        };
+        let undoable = !store.in_worktree(&project, commit);
+        let overlay = Overlay::commit_files(store.key_of(&project, commit), files.iter());
         self.confirm_then(
             Some(Selection::Commit(project.clone(), commit)),
             format!("Discard {what} from commit {}?", commit.short()),
-            detail,
+            &format!(
+                "The commit, and the ones after it, lose the change. {}",
+                undo_note(undoable)
+            ),
             "Discard",
             window,
             cx,
-            move |this, cx| {
-                this.store.update(cx, |store, cx| {
-                    store.run(
-                        &project,
-                        "Discard from commit",
-                        Overlay::commit_files(store.key_of(&project, commit), files.iter()),
-                        move |path, remap| {
-                            backend::discard_from_commit(
-                                path,
-                                remap.taken_from(commit, &files)?,
-                                &files,
-                            )
-                        },
-                        move |store, rewritten, cx| {
-                            store.follow(&rewritten, cx);
-                            store.snack_after(undoable, "Discarded from the commit", cx)
-                        },
-                        cx,
-                    )
-                });
-            },
+            then_run(
+                project,
+                "Discard from commit",
+                overlay,
+                move |path, remap| {
+                    backend::discard_from_commit(path, remap.taken_from(commit, &files)?, &files)
+                },
+                move |store, rewritten, cx| {
+                    store.follow(&rewritten, cx);
+                    store.snack_after(undoable, "Discarded from the commit", cx)
+                },
+            ),
         );
     }
 }
