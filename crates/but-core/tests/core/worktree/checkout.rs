@@ -1235,6 +1235,150 @@ fn checkout_refuses_to_replace_staged_content_with_a_directory() -> anyhow::Resu
 }
 
 #[test]
+#[cfg(unix)]
+fn checkout_refuses_to_overwrite_an_edit_made_after_the_snapshot() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let workdir = repo.workdir().expect("non-bare");
+    std::fs::write(workdir.join("a"), "one\n")?;
+    std::fs::write(workdir.join("z.f"), "z\n")?;
+    git(&repo).args(["add", "a", "z.f"]).run();
+    git(&repo).args(["commit", "-qm", "a and z.f"]).run();
+    // Cleaning `z.f` edits `a`. The snapshot reads `a` before `z.f`, so it misses the edit,
+    // like an editor saving `a` while checkout runs.
+    std::fs::write(
+        repo.git_dir().join("info/attributes"),
+        "*.f filter=meddle\n",
+    )?;
+    git(&repo)
+        .args([
+            "config",
+            "filter.meddle.clean",
+            r#"sh -c 'printf "edit\n" >> "$GIT_DIR/../a"; cat'"#,
+        ])
+        .run();
+    std::fs::write(workdir.join("z.f"), "z changed\n")?;
+    let head = repo.head_id()?.detach();
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"two\n")?;
+            tree.upsert("a", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "change a",
+    )?;
+
+    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+        .expect_err("the edit to `a` happened after the snapshot and must not be overwritten");
+
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["Uncommitted files would be overwritten by checkout: \"a\""]
+    );
+    assert_eq!(repo.head_id()?.detach(), head, "HEAD stays");
+    assert_eq!(std::fs::read_to_string(workdir.join("a"))?, "one\nedit\n");
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn checkout_writes_a_file_deleted_after_the_snapshot() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let workdir = repo.workdir().expect("non-bare");
+    std::fs::write(workdir.join("a"), "one\n")?;
+    std::fs::write(workdir.join("z.f"), "z\n")?;
+    git(&repo).args(["add", "a", "z.f"]).run();
+    git(&repo).args(["commit", "-qm", "a and z.f"]).run();
+    // Cleaning `z.f` deletes `a` after the snapshot read it.
+    std::fs::write(
+        repo.git_dir().join("info/attributes"),
+        "*.f filter=meddle\n",
+    )?;
+    git(&repo)
+        .args([
+            "config",
+            "filter.meddle.clean",
+            r#"sh -c 'rm -f "$GIT_DIR/../a"; cat'"#,
+        ])
+        .run();
+    std::fs::write(workdir.join("z.f"), "z changed\n")?;
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"two\n")?;
+            tree.upsert("a", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "change a",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    // A missing file holds nothing to lose, so the new version is written.
+    assert_eq!(std::fs::read_to_string(workdir.join("a"))?, "two\n");
+    Ok(())
+}
+
+#[test]
+fn checkout_updates_a_submodule_entry() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let workdir = repo.workdir().expect("non-bare");
+    let first = repo.head_id()?.detach();
+    git(&repo)
+        .args(["update-index", "--add", "--cacheinfo"])
+        .arg(format!("160000,{first},sm"))
+        .run();
+    git(&repo).args(["commit", "-qm", "add sm"]).run();
+    // An uninitialized submodule is an empty directory.
+    std::fs::create_dir(workdir.join("sm"))?;
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            tree.upsert("sm", EntryKind::Commit, repo.head_id()?.detach())?;
+            Ok(())
+        },
+        "move sm",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    assert!(
+        workdir.join("sm").is_dir(),
+        "the submodule stays a directory"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn checkout_replaces_a_hard_linked_file_without_changing_its_other_links() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let workdir = repo.workdir().expect("non-bare");
+    std::fs::write(workdir.join("a"), "same\n")?;
+    std::fs::write(workdir.join("b"), "same\n")?;
+    git(&repo).args(["add", "a", "b"]).run();
+    git(&repo).args(["commit", "-qm", "a and b"]).run();
+    std::fs::remove_file(workdir.join("b"))?;
+    std::fs::hard_link(workdir.join("a"), workdir.join("b"))?;
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"changed\n")?;
+            tree.upsert("a", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "change only a",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    // Like Git, `a` gets a new file, and `b`, a hard link to the old one, keeps its content.
+    assert_eq!(std::fs::read_to_string(workdir.join("a"))?, "changed\n");
+    assert_eq!(std::fs::read_to_string(workdir.join("b"))?, "same\n");
+    Ok(())
+}
+
+#[test]
 fn checkout_keeps_index_flags_of_files_it_does_not_change() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     git(&repo)

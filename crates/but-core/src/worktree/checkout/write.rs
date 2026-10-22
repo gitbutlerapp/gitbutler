@@ -93,10 +93,12 @@ pub(super) fn write_to_worktree(
     )?;
 
     let mut path_check = gix::status::plumbing::SymlinkCheck::new(workdir.to_owned());
+    refuse_to_overwrite_newer_edits(repo, &mut path_check, &baseline, &target, &deleted)?;
     for path in &deleted {
         remove_from_worktree(&mut path_check, path.as_ref())?;
     }
     if num_to_write > 0 {
+        unlink_hard_linked_files(&mut path_check, &target)?;
         let mut opts =
             repo.checkout_options(gix::worktree::stack::state::attributes::Source::IdMapping)?;
         opts.overwrite_existing = true;
@@ -307,4 +309,99 @@ mod tests {
         );
         Ok(())
     }
+}
+
+/// Remove the files about to be replaced by `target` that share their content with other hard links.
+///
+/// gix overwrites an existing file in place, which would change all of its links. Like Git, which
+/// writes a new file, this leaves the other links with their content.
+#[cfg(unix)]
+fn unlink_hard_linked_files(
+    path_check: &mut gix::status::plumbing::SymlinkCheck,
+    target: &gix::index::State,
+) -> anyhow::Result<()> {
+    use std::os::unix::fs::MetadataExt as _;
+    for entry in target.entries() {
+        if entry
+            .flags
+            .contains(gix::index::entry::Flags::SKIP_WORKTREE)
+        {
+            continue;
+        }
+        let Ok(path) = path_check.verified_path(entry.path(target)) else {
+            continue;
+        };
+        if std::fs::symlink_metadata(path).is_ok_and(|md| md.is_file() && md.nlink() > 1) {
+            std::fs::remove_file(path)?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn unlink_hard_linked_files(
+    _path_check: &mut gix::status::plumbing::SymlinkCheck,
+    _target: &gix::index::State,
+) -> anyhow::Result<()> {
+    Ok(())
+}
+
+/// Fail if a file that is about to be written or `deleted` changed after the worktree was
+/// snapshotted into `baseline`, so the checkout doesn't replace an edit it never saw.
+/// Files are hashed through the worktree filters, like the snapshot. A missing file loses nothing,
+/// and paths `baseline` doesn't have, like ignored files, are left to be replaced, as with Git.
+fn refuse_to_overwrite_newer_edits(
+    repo: &gix::Repository,
+    path_check: &mut gix::status::plumbing::SymlinkCheck,
+    baseline: &gix::index::State,
+    target: &gix::index::State,
+    deleted: &BTreeSet<BString>,
+) -> anyhow::Result<()> {
+    let (mut pipeline, index) = repo.filter_pipeline(None)?;
+    let mut buf = Vec::new();
+    let written = target
+        .entries()
+        .iter()
+        .filter(|entry| {
+            !entry
+                .flags
+                .contains(gix::index::entry::Flags::SKIP_WORKTREE)
+        })
+        .map(|entry| entry.path(target));
+    let mut changed = Vec::new();
+    for rela_path in written.chain(deleted.iter().map(|path| path.as_ref())) {
+        let Some(expected) = baseline.entry_by_path(rela_path) else {
+            continue;
+        };
+        if expected.mode == gix::index::entry::Mode::COMMIT {
+            continue;
+        }
+        let Ok(path) = path_check.verified_path(rela_path) else {
+            continue;
+        };
+        let Ok(md) = gix::index::fs::Metadata::from_path_no_follow(path) else {
+            continue;
+        };
+        crate::worktree::worktree_file_to_git_in_buf(
+            &mut buf,
+            &md,
+            rela_path,
+            path,
+            &mut pipeline,
+            &index,
+        )?;
+        let on_disk = gix::objs::compute_hash(repo.object_hash(), gix::object::Kind::Blob, &buf)?;
+        if on_disk != expected.id {
+            changed.push(format!("{rela_path:?}"));
+        }
+    }
+    if !changed.is_empty() {
+        changed.sort();
+        changed.dedup();
+        but_error::bail_precondition!(
+            "Uncommitted files would be overwritten by checkout: {}",
+            changed.join(", ")
+        );
+    }
+    Ok(())
 }
