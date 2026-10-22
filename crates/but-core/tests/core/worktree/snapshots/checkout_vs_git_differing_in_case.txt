@@ -1,4 +1,4 @@
-62 cases: 50 like `git checkout`, 4 like `git checkout -m`, 8 different
+62 cases: 51 like `git checkout`, 4 like `git checkout -m`, 7 different
 
 HEAD File P, target Directory p, index LikeHead, worktree DirectoryWithUntrackedFile
   git:       refused, HEAD head, index [P Mode(FILE) "h"], disk [p/; p/y "w"]
@@ -19,11 +19,6 @@ HEAD File P, target Directory p, index Staged, worktree IgnoredDirectory
   git:       refused, HEAD head, index [P Mode(FILE) "h"], disk [p/; p/y "w"]
   git -m:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
   GitButler: done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"; p/y "w"]
-
-HEAD Directory P, target Directory p, index LikeHead, worktree Clean
-  git:       done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
-  git -m:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
-  GitButler: done, HEAD target, index [p/x Mode(FILE) "m"], disk [P/; P/x "m"]
 
 HEAD Directory P, target Directory p, index Staged, worktree Deleted
   git:       done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]

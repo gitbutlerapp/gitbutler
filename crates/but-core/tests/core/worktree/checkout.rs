@@ -2607,12 +2607,13 @@ fn checkout_undoes_the_commit_when_placing_a_file_fails() -> anyhow::Result<()> 
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let workdir = repo.workdir().unwrap().to_owned();
     std::fs::create_dir(workdir.join("ro"))?;
-    commit_in_worktree(&repo, &[("ro/f", "f\n"), ("a", "one\n")])?;
+    commit_in_worktree(&repo, &[("ro/f", "f\n"), ("a", "one\n"), ("gone/f", "f\n")])?;
     let new_commit = commit_files(
         &repo,
-        "change a, add new/x and ro/new",
+        "change a, delete gone/f, add new/x and ro/new",
         &[
             ("a", Some("two\n")),
+            ("gone/f", None),
             ("new/x", Some("two\n")),
             ("ro/new", Some("two\n")),
         ],
@@ -2631,7 +2632,8 @@ fn checkout_undoes_the_commit_when_placing_a_file_fails() -> anyhow::Result<()> 
     out.expect_err("`ro/new` can't be created");
     assert_eq!(
         after, before,
-        "the files and directories placed before the failure are removed, and `a` is put back"
+        "the files and directories placed before the failure are removed, and `a` and the \
+         emptied `gone` with its file are put back"
     );
     Ok(())
 }

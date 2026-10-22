@@ -106,22 +106,13 @@ pub(super) fn commit(
 ) -> anyhow::Result<Placed> {
     let workdir = repo.workdir().expect("checked by the caller");
     let mut journal = Journal::default();
-    let placed = match apply(&mut journal, workdir, &staged, clearances) {
-        Ok(placed) => placed,
+    match apply(&mut journal, workdir, &staged, clearances) {
+        Ok(placed) => Ok(placed),
         Err(err) => {
             journal.undo();
-            return Err(err);
+            Err(err)
         }
-    };
-    let submodules = staged
-        .submodules
-        .iter()
-        .map(|rela_path| join(workdir, rela_path))
-        .collect::<anyhow::Result<Vec<_>>>()?;
-    for clearance in clearances {
-        remove_emptied_parents(workdir, clearance.rela_path.as_ref(), &submodules)?;
     }
-    Ok(placed)
 }
 
 fn apply(
@@ -135,6 +126,11 @@ fn apply(
             &join(workdir, rela_path)?,
             &join(&staged.aside(), rela_path)?,
         )?;
+    }
+    // Like Git, clear the way completely before writing, so a directory the target names
+    // differently, or needs as a submodule, is created afresh.
+    for Clearance { rela_path } in clearances {
+        journal.remove_emptied_parents(workdir, &join(workdir, rela_path)?)?;
     }
     let mut stats = BTreeMap::new();
     for StagedFile { rela_path, stat } in &staged.files {
@@ -156,6 +152,7 @@ struct Journal {
 
 enum Step {
     MovedAside { from: PathBuf, to: PathBuf },
+    RemovedDir(PathBuf),
     Placed(PathBuf),
     CreatedDir(PathBuf),
 }
@@ -207,12 +204,24 @@ impl Journal {
         Ok(())
     }
 
+    /// Remove the directories leading to `path` that are now empty, as Git does.
+    fn remove_emptied_parents(&mut self, workdir: &Path, path: &Path) -> anyhow::Result<()> {
+        for dir in path.ancestors().skip(1).take_while(|dir| *dir != workdir) {
+            if std::fs::remove_dir(dir).is_err() {
+                break;
+            }
+            self.steps.push(Step::RemovedDir(dir.to_owned()));
+        }
+        Ok(())
+    }
+
     /// Undo every step in reverse. Failures are logged, as there is nothing left to fall back to.
     fn undo(self) {
         for step in self.steps.into_iter().rev() {
             let undone = match &step {
                 Step::Placed(path) => gix::fs::symlink::remove(path),
                 Step::CreatedDir(dir) => std::fs::remove_dir(dir),
+                Step::RemovedDir(dir) => std::fs::create_dir(dir),
                 Step::MovedAside { from, to } => std::fs::rename(to, from),
             };
             if let Err(err) = undone {
@@ -253,23 +262,6 @@ fn trusted_stat(staged: &gix::index::entry::Stat, dest: &Path) -> anyhow::Result
         true => Stat::Known(placed),
         false => Stat::Unknown,
     })
-}
-
-/// Remove the directories leading to `rela_path` that are now empty, as Git does, except the
-/// directories of `submodules`, which the target needs even when empty.
-fn remove_emptied_parents(
-    workdir: &Path,
-    rela_path: &BStr,
-    submodules: &[PathBuf],
-) -> anyhow::Result<()> {
-    let path = join(workdir, rela_path)?;
-    let leading_dirs = path.ancestors().skip(1).take_while(|dir| *dir != workdir);
-    for dir in leading_dirs.take_while(|dir| !submodules.iter().any(|sm| sm == dir)) {
-        if std::fs::remove_dir(dir).is_err() {
-            break;
-        }
-    }
-    Ok(())
 }
 
 /// A new staging directory on the worktree's filesystem, so files can be renamed into place.
