@@ -719,6 +719,19 @@ fn conflicted_changes(
     Ok(changes)
 }
 
+/// Why a project or its target couldn't be read: the engine's own words, except for a target
+/// several local branches track, whose words lead with the error's type name rather than
+/// what to do.
+pub fn read_failure(err: &anyhow::Error) -> String {
+    match err.downcast_ref::<but_core::ref_metadata::AmbiguousLegacyTargetRefError>() {
+        Some(ambiguous) => format!(
+            "Several local branches track {}, so choose which one is the target.",
+            ambiguous.target_ref.shorten()
+        ),
+        None => format!("{err:#}"),
+    }
+}
+
 /// What a failed operation's card says: the engine's own words, except where those name a
 /// commit the user never saw, or leave out what the engine did about it.
 pub fn failure_detail(err: &anyhow::Error) -> String {

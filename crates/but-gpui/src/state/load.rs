@@ -750,7 +750,7 @@ fn follow_by_key(old: Option<&Workspace>, new: &Workspace, commit: CommitId) -> 
 /// Why a project didn't load: plainly when its folder is gone, otherwise as reported.
 fn load_error(project: &Project, err: &anyhow::Error) -> SharedString {
     if project.path.exists() {
-        format!("{err:#}").into()
+        backend::read_failure(err).into()
     } else {
         "The project's folder isn't there any more.".into()
     }

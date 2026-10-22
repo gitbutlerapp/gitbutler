@@ -238,7 +238,7 @@ impl Detail {
                             fetch,
                             unconnected_forge: None,
                             seen: (seen, Instant::now()),
-                            failed: Some(format!("{err:#}")),
+                            failed: Some(backend::read_failure(&err)),
                             paging: Cell::new(Paging::Idle),
                             pending: None,
                         });
