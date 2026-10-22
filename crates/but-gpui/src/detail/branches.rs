@@ -17,7 +17,7 @@ use super::panes::{
     Crumb, CrumbTo, PEOPLE_SHOWN, list_empty, measured, meta_item, meta_row, page_title,
     person_row, side_list, title_text,
 };
-use super::upstream::{DayGesture, DayPick, activity_strip, commit_author};
+use super::upstream::commit_author;
 
 use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::branches::{self, ApplyOutcome, OtherBranch};
@@ -61,8 +61,8 @@ pub(super) struct Branches {
     picked: Picks<CommitId>,
     /// The one person whose branches are listed, by name, as `OtherBranch::people` has it.
     who: Option<String>,
-    /// The days picked off the activity, which the list keeps the branches last changed on.
-    days: DayPick,
+    /// How recently the branches the list keeps changed.
+    recency: Recency,
 }
 
 impl Branches {
@@ -115,13 +115,53 @@ const STACKED_CHEVRON: f32 = 16. + 7.;
 /// How many people the filter menu offers, the most active first.
 const PEOPLE_IN_MENU: usize = 10;
 
-/// The list's filters, besides the text: whose branches, by their pull request, and from
-/// which days; one left out counts what each of its choices would show.
+/// The list's filters, besides the text: whose branches, by their pull request, and how
+/// recently changed; one left out counts what each of its choices would show.
 #[derive(Clone, Copy, PartialEq)]
 enum Facet {
     Who,
     Status,
-    Days,
+    Recency,
+}
+
+/// How recently a branch has to have changed for the list to keep it.
+#[derive(Clone, Copy, Default, PartialEq)]
+enum Recency {
+    #[default]
+    Any,
+    Today,
+    Week,
+    Month,
+}
+
+impl Recency {
+    const ALL: [Recency; 4] = [Recency::Any, Recency::Today, Recency::Week, Recency::Month];
+
+    fn label(self) -> &'static str {
+        match self {
+            Recency::Any => "Any time",
+            Recency::Today => "Today",
+            Recency::Week => "Last 7 days",
+            Recency::Month => "Last 30 days",
+        }
+    }
+
+    /// How many days back it reaches, today the first; `None` for any time.
+    fn days(self) -> Option<i64> {
+        match self {
+            Recency::Any => None,
+            Recency::Today => Some(1),
+            Recency::Week => Some(7),
+            Recency::Month => Some(ACTIVITY_DAYS as i64),
+        }
+    }
+
+    /// Whether something last changed at `time`, if that's known, is recent enough; one
+    /// after `today` counts as today's.
+    fn keeps(self, time: Option<i64>, today: i64) -> bool {
+        self.days()
+            .is_none_or(|n| time.is_some_and(|time| upstream::day_of(time).min(today) > today - n))
+    }
 }
 
 /// The pull request choices, as the filter menu and the chip name them. Not only merged ones:
@@ -184,8 +224,8 @@ impl Detail {
                 // Which branches were open and their commits, of those still listed, and the
                 // selected commit while its branch stays selected.
                 let listed = |ref_name: &String| list.iter().any(|b| b.ref_name == *ref_name);
-                let (who, days) = (previous.as_ref())
-                    .map(|b| (b.who.clone(), b.days.clone()))
+                let (who, recency) = (previous.as_ref())
+                    .map(|b| (b.who.clone(), b.recency))
                     .unwrap_or_default();
                 let (open, folded, commits, commit, picked, stack) = match previous {
                     Some(b) => {
@@ -213,7 +253,7 @@ impl Detail {
                     commit,
                     picked,
                     who,
-                    days,
+                    recency,
                 });
                 // The filter may hide what's selected now.
                 this.select_shown_branch(cx);
@@ -486,7 +526,7 @@ impl Detail {
                 && (skip == Some(Facet::Status) || status_keeps(prefs.branches_status, branch))
                 && (skip == Some(Facet::Who)
                     || (branches.who.as_ref()).is_none_or(|who| branch.people.contains(who)))
-                && (skip == Some(Facet::Days) || branches.days.keeps(branch.time, today))
+                && (skip == Some(Facet::Recency) || branches.recency.keeps(branch.time, today))
         };
         (0..branches.list.len())
             .filter(|ix| keeps(&branches.list[*ix]))
@@ -494,11 +534,12 @@ impl Detail {
     }
 
     /// The people at work lately: whose branches the filters keep but the person, of those
-    /// changed in the activity's days, most branches first, with how many and an email for
-    /// their picture. Not everyone who ever made one, which would put those long gone first
-    /// and leave out the newly arrived.
+    /// changed in the last 30 days at most, most branches first, with how many and an email
+    /// for their picture. Not everyone who ever made one, which would put those long gone
+    /// first and leave out the newly arrived.
     fn branch_people(&self, branches: &Branches, cx: &App) -> Vec<(String, String, usize)> {
-        let first_day = upstream::day_of(crate::ui::now()) - (ACTIVITY_DAYS as i64 - 1);
+        let days = branches.recency.days().unwrap_or(ACTIVITY_DAYS as i64);
+        let first_day = upstream::day_of(crate::ui::now()) - (days - 1);
         let mut people: Vec<(String, String, usize)> = Vec::new();
         for ix in self.kept_branches(branches, Some(Facet::Who), cx) {
             let branch = &branches.list[ix];
@@ -553,25 +594,12 @@ impl Detail {
         cx.notify();
     }
 
-    /// Pick the activity's days as `gesture` does, which the list keeps the branches of.
-    fn branch_day_gesture(&mut self, gesture: DayGesture, cx: &mut Context<Self>) {
-        let Some(branches) = &mut self.branches else {
-            return;
-        };
-        if branches.days.apply(gesture) {
-            cx.notify();
-        }
-        // Once the pointer lets go, so a drag passing over other days doesn't close the
-        // branch partway.
-        if let DayGesture::Release = gesture {
-            self.select_shown_branch(cx);
-        }
-    }
-
-    fn clear_branch_days(&mut self, cx: &mut Context<Self>) {
+    /// List the branches changed as recently as `recency` says.
+    fn filter_recency(&mut self, recency: Recency, cx: &mut Context<Self>) {
         if let Some(branches) = &mut self.branches {
-            branches.days = DayPick::default();
+            branches.recency = recency;
         }
+        self.select_shown_branch(cx);
         cx.notify();
     }
 
@@ -1100,7 +1128,6 @@ impl Detail {
         };
         let filter = self.branch_filter_bar(project, window, cx);
         let chips = self.branch_filter_chips(cx);
-        let activity = self.branch_activity(branches, theme, cx);
         let rows = self.branch_rows(branches, cx);
         let people = self.branch_people_card(branches, theme, window, cx);
         let target = (self.store.read(cx).workspace(project))
@@ -1361,7 +1388,6 @@ impl Detail {
             })
             .child(filter)
             .children(chips)
-            .child(activity)
             .child(list)
             .child(people)
             .into_any_element()
@@ -1375,8 +1401,9 @@ impl Detail {
         cx: &Context<Self>,
     ) -> gpui::Div {
         let prefs = &self.store.read(cx).prefs;
-        // Lit while the filters aren't as they are at rest; the days have their own Clear.
-        let narrowed = (self.branches_for(project)).is_some_and(|b| b.who.is_some())
+        // Lit while the filters aren't as they are at rest.
+        let narrowed = (self.branches_for(project))
+            .is_some_and(|b| b.who.is_some() || b.recency != Recency::Any)
             || prefs.branches_status != BranchStatus::NotMerged
             || prefs.branches_local_only;
         self.filter_bar(
@@ -1430,37 +1457,6 @@ impl Detail {
         })
     }
 
-    /// How many branches the filters but the days keep changed on each of the last 30 days.
-    /// Clicking a day, shift-clicking another or dragging across them keeps those changed
-    /// then.
-    fn branch_activity(
-        &self,
-        branches: &Branches,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> AnyElement {
-        let today = upstream::day_of(crate::ui::now());
-        let first_day = today - (ACTIVITY_DAYS as i64 - 1);
-        let mut daily = vec![0; ACTIVITY_DAYS];
-        for ix in self.kept_branches(branches, Some(Facet::Days), cx) {
-            if let Some(day) =
-                (branches.list[ix].time.map(upstream::day_of)).filter(|day| *day >= first_day)
-            {
-                daily[((day - first_day) as usize).min(ACTIVITY_DAYS - 1)] += 1;
-            }
-        }
-        activity_strip(
-            &daily,
-            first_day,
-            &branches.days.days,
-            "branch",
-            theme,
-            cx,
-            |this, gesture, cx| this.branch_day_gesture(gesture, cx),
-            |this, cx| this.clear_branch_days(cx),
-        )
-    }
-
     /// What the list shows without a branch to list: that every one is applied, or that the
     /// filters hide them.
     fn no_branches(&self, branches: &Branches, theme: &Theme, cx: &Context<Self>) -> AnyElement {
@@ -1502,6 +1498,22 @@ impl Detail {
             .filter(|(ix, (name, ..))| *ix < PEOPLE_IN_MENU || branches.who.as_ref() == Some(name));
         let mut items = vec![person(None, "Anyone".to_owned(), everyone).under("Person")];
         items.extend(offered.map(|(_, (name, _, n))| person(Some(name.clone()), name.clone(), *n)));
+        let today = upstream::day_of(crate::ui::now());
+        let any_time = self.kept_branches(branches, Some(Facet::Recency), cx);
+        for (ix, recency) in Recency::ALL.into_iter().enumerate() {
+            let n = (any_time.iter())
+                .filter(|ix| recency.keeps(branches.list[**ix].time, today))
+                .count();
+            let item = MenuItem::new(recency.label(), move |app, _, cx| {
+                (app.detail).update(cx, |detail, cx| detail.filter_recency(recency, cx));
+            })
+            .ticked(branches.recency == recency)
+            .detail(n.to_string());
+            items.push(match ix {
+                0 => item.under("Last activity"),
+                _ => item,
+            });
+        }
         for (ix, (status, n)) in self.status_counts(branches, cx).into_iter().enumerate() {
             let item = MenuItem::new(STATUSES[ix].1, move |app, _, cx| {
                 (app.detail).update(cx, |detail, cx| detail.filter_status(status, cx));
@@ -1563,9 +1575,10 @@ impl Detail {
                 )
             })
             .collect();
-        let counted = match branches.days.days.is_empty() {
-            true => format!("branches · {ACTIVITY_DAYS} days"),
-            false => "branches · days picked".to_owned(),
+        let counted = match branches.recency {
+            Recency::Today => "branches · today".to_owned(),
+            Recency::Week => "branches · 7 days".to_owned(),
+            Recency::Any | Recency::Month => format!("branches · {ACTIVITY_DAYS} days"),
         };
         let clear = (branches.who.is_some())
             .then_some(|this: &mut Self, cx: &mut Context<Self>| this.filter_person(None, cx));

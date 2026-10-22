@@ -1,18 +1,19 @@
 //! The Branches page's overview, beside the list until a branch is opened: what's cooking in
-//! the branches the filters keep, on the days picked or the activity's last 30, and only
-//! in the commits of the person picked, if one is.
+//! the branches the filters keep, over the last activity they pick or the last 30 days, and
+//! only in the commits of the person picked, if one is. Work under way, not what landed,
+//! which the project's page has.
 
 use std::collections::{BTreeSet, HashSet};
 
 use gpui::{AnyElement, Context, Hsla, div, prelude::*, px, relative};
 
-use super::{Branches, Facet, email_of, title};
+use super::{Branches, Recency, email_of, title};
 use crate::backend::ReviewState;
 use crate::backend::branches::OtherBranch;
 use crate::backend::upstream::{self, ACTIVITY_DAYS};
 use crate::detail::Detail;
-use crate::detail::upstream::{days_said, noon};
-use crate::state::ProjectId;
+use crate::detail::upstream::noon;
+use crate::state::{BranchStatus, ProjectId};
 use crate::theme::Theme;
 use crate::ui::person::author_avatar;
 use crate::ui::{
@@ -133,13 +134,23 @@ impl Detail {
             return div().flex_1().into_any_element();
         };
         let today = upstream::day_of(crate::ui::now());
-        let kept = self.kept_branches(branches, Some(Facet::Days), cx);
-        let days = &branches.days.days;
-        let summary = sum_up(&branches.list, &kept, branches.who.as_deref(), days, today);
-        let scope = [
-            Some(days_said(days).unwrap_or_else(|| format!("Last {ACTIVITY_DAYS} days"))),
-            branches.who.clone(),
-        ];
+        let kept = self.shown_branches(branches, cx);
+        let days = recent_days(branches, today);
+        let summary = sum_up(&branches.list, &kept, branches.who.as_deref(), &days, today);
+        // What the list keeps, by its pull request, so it reads as work under way at rest.
+        let listed = match self.store.read(cx).prefs.branches_status {
+            BranchStatus::NotMerged => "In progress",
+            BranchStatus::Open => "Open pull requests",
+            BranchStatus::Draft => "Draft pull requests",
+            BranchStatus::Closed => "Closed pull requests",
+            BranchStatus::NoPullRequest => "Without a pull request",
+            BranchStatus::Any => "All branches",
+        };
+        let when = match branches.recency {
+            Recency::Any => format!("Last {ACTIVITY_DAYS} days"),
+            recency => recency.label().to_owned(),
+        };
+        let scope = [Some(when), branches.who.clone()];
         let tiles = [
             (
                 "Branches moving",
@@ -191,11 +202,21 @@ impl Detail {
                     .py(px(16.))
                     .gap(px(6.))
                     .child(
-                        faint(
-                            scope.into_iter().flatten().collect::<Vec<_>>().join(" · "),
-                            theme,
-                        )
-                        .px(px(14.)),
+                        h_flex()
+                            .px(px(14.))
+                            .pb(px(4.))
+                            .gap(px(8.))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .text_size(px(15.))
+                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .child(listed),
+                            )
+                            .child(faint(
+                                scope.into_iter().flatten().collect::<Vec<_>>().join(" · "),
+                                theme,
+                            )),
                     )
                     .child(h_flex().gap(px(8.)).px(px(6.)).children(
                         tiles.into_iter().enumerate().map(|(ix, (label, n, tip))| {
@@ -323,7 +344,7 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         let branch = &branches.list[lane.ix];
-        let days = &branches.days.days;
+        let days = recent_days(branches, today);
         let first_day = today - (ACTIVITY_DAYS as i64 - 1);
         let cells = lane.daily.iter().enumerate().map(|(day_ix, &n)| {
             let day = first_day + day_ix as i64;
@@ -424,6 +445,14 @@ fn branch_row(
         .on_click(
             cx.listener(move |this, _, _, cx| this.select_other_branch(Some(ref_name.clone()), cx)),
         )
+}
+
+/// The days the list's last activity reaches back over, up to `today`; none, which
+/// [`sum_up`] takes as the last 30, for any time.
+fn recent_days(branches: &Branches, today: i64) -> BTreeSet<i64> {
+    (branches.recency.days())
+        .map(|n| (today - n + 1..=today).collect())
+        .unwrap_or_default()
 }
 
 /// A section's heading: `title`, and what its numbers count.
