@@ -1010,6 +1010,11 @@ impl Navigator {
             None => items.len() as isize,
         };
         let next = (at + delta).clamp(0, items.len() as isize - 1) as usize;
+        // Past an end it stays put, rather than picking the row again, which would take its
+        // page back to how it opens on every repeat of a held key.
+        if next as isize == at {
+            return;
+        }
         let next = items[next].clone();
         self.select(next, window, cx);
     }
