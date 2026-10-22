@@ -11,8 +11,8 @@ use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
 
 use super::Detail;
 use super::panes::{
-    Crumb, CrumbTo, PEOPLE_SHOWN, list_heading, measured, meta_item, meta_row, overview_box,
-    person_row, side_header, side_list, title_text, unfinished_banner,
+    Crumb, CrumbTo, PEOPLE_SHOWN, list_heading, measured, meta_item, meta_row, person_row,
+    side_header, side_list, title_text, unfinished_banner,
 };
 use super::pull_request::TABS_HEIGHT;
 use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
@@ -784,6 +784,7 @@ impl Detail {
         project: &ProjectId,
         summary: &Summary,
         theme: &Theme,
+        window: &gpui::Window,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         if summary.people.is_empty() {
@@ -814,7 +815,7 @@ impl Detail {
         let rest = (people.iter().enumerate())
             .filter(|(ix, (person, _))| !listed(*ix, person))
             .count();
-        let nobody = people.is_empty();
+        let solid = self.people_focused(window);
         let rows = (people.into_iter().enumerate())
             .filter(|(ix, (person, _))| listed(*ix, person))
             .map(|(ix, (person, n))| {
@@ -824,33 +825,24 @@ impl Detail {
                     ("upstream-person", ix),
                     (&person.name, &person.email),
                     (n, most),
-                    picked,
+                    (picked, solid),
                     theme,
                 )
                 .on_click(cx.listener(move |this, _, _, cx| {
-                    this.filter_landed(&project, (!picked).then(|| email.clone()), cx)
+                    this.filter_landed(&project, Some(email.clone()), cx)
                 }))
-            });
+            })
+            .collect();
         let counted = match days {
             None => format!("commits · {ACTIVITY_DAYS} days"),
             Some(_) => "commits · days picked".to_owned(),
         };
-        Some(
-            overview_box("People", counted, rows, theme)
-                .flex_none()
-                .m(px(12.))
-                .when(nobody, |el| {
-                    el.child(
-                        faint("No commits landed then", theme)
-                            .px(px(14.))
-                            .py(px(4.)),
-                    )
-                })
-                .when(rest > 0, |el| {
-                    el.child(faint(format!("and {}", plural(rest, "other")), theme).px(px(14.)))
-                })
-                .into_any_element(),
-        )
+        let clear = who.is_some().then(|| {
+            let project = project.clone();
+            move |this: &mut Self, cx: &mut Context<Self>| this.filter_landed(&project, None, cx)
+        });
+        let empty = ("No commits landed then", rest);
+        Some(self.people_card(counted, rows, empty, clear, theme, cx))
     }
 
     /// The page's crumbs after the project's: the target and the commit of it selected.
@@ -1587,7 +1579,9 @@ impl Detail {
                     }))
                     .children(summary.map(|s| self.render_activity(project, s, theme, cx)))
                     .child(list.flex_1().min_h(px(0.)))
-                    .children(summary.and_then(|s| self.render_people(project, s, theme, cx)))
+                    .children(
+                        summary.and_then(|s| self.render_people(project, s, theme, window, cx)),
+                    )
                     .into_any_element()
             }
         };

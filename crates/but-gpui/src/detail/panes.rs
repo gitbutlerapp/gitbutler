@@ -1134,51 +1134,88 @@ pub(super) fn list_empty(
         .into_any_element()
 }
 
+impl Detail {
+    /// An overview's People card, with a focus of its own: a click in it takes the focus,
+    /// and a click anywhere else gives it back to the list it's under. `counted` says what
+    /// its rows count, `empty` stands in for none and `rest` is how many more there are;
+    /// while someone's picked, Clear lets go of them, as `clear` does.
+    pub(super) fn people_card(
+        &self,
+        counted: String,
+        rows: Vec<Stateful<Div>>,
+        (empty, rest): (&'static str, usize),
+        clear: Option<impl Fn(&mut Self, &mut Context<Self>) + 'static>,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let nobody = rows.is_empty();
+        let clear = clear.map(|clear| {
+            button("people-clear", "Clear")
+                .small()
+                .style(ButtonStyle::Ghost)
+                .on_click(cx.listener(move |this, _, _, cx| clear(this, cx)))
+        });
+        v_flex()
+            .flex_none()
+            .m(px(12.))
+            .py(px(8.))
+            .gap(px(2.))
+            .border_1()
+            .border_color(theme.border_3)
+            .rounded(px(8.))
+            .track_focus(&self.people_focus)
+            .on_mouse_down_out(cx.listener(|this, _, window, cx| {
+                if this.people_focus.is_focused(window) {
+                    window.focus(&this.side_focus, cx);
+                }
+            }))
+            // As tall with Clear as without, so picking someone moves no row.
+            .child(
+                h_flex()
+                    .h(px(22.))
+                    .px(px(14.))
+                    .gap(px(8.))
+                    .child(section_label("People", theme).flex_grow(1.))
+                    .child(faint(counted, theme))
+                    .children(clear),
+            )
+            .children(rows)
+            .when(nobody, |el| {
+                el.child(faint(empty, theme).px(px(14.)).py(px(4.)))
+            })
+            .when(rest > 0, |el| {
+                el.child(faint(format!("and {}", plural(rest, "other")), theme).px(px(14.)))
+            })
+            .into_any_element()
+    }
+
+    /// Whether an overview's People card has the focus.
+    pub(super) fn people_focused(&self, window: &Window) -> bool {
+        self.people_focus.is_focused(window)
+    }
+}
+
 /// How many people an overview's People card lists, the most active first.
 pub(super) const PEOPLE_SHOWN: usize = 5;
 
-/// A card of an overview: `title` and `detail` over its `rows`.
-pub(super) fn overview_box(
-    title: &str,
-    detail: String,
-    rows: impl IntoIterator<Item = impl IntoElement>,
-    theme: &Theme,
-) -> Div {
-    v_flex()
-        .m(px(6.))
-        .py(px(8.))
-        .gap(px(2.))
-        .border_1()
-        .border_color(theme.border_3)
-        .rounded(px(8.))
-        .child(
-            h_flex()
-                .px(px(14.))
-                .pb(px(4.))
-                .gap(px(8.))
-                .child(section_label(title.to_owned(), theme).flex_grow(1.))
-                .child(faint(detail, theme)),
-        )
-        .children(rows)
-}
-
 /// A row of an overview's people: who, and a bar of their `n` against the `most` anyone
-/// has. Picked, it's a filter on, drawn as a focused selection.
+/// has. Picked, it's a filter on, its selection `solid` while its card has the focus.
 pub(super) fn person_row(
     id: impl Into<gpui::ElementId>,
     (name, email): (&str, &str),
     (n, most): (usize, usize),
-    picked: bool,
+    (picked, solid): (bool, bool),
     theme: &Theme,
 ) -> Stateful<Div> {
-    let (track, bar) = match picked {
+    let on = picked && solid;
+    let (track, bar) = match on {
         true => (
             theme.text_inverted.opacity(0.25),
             theme.text_inverted.opacity(0.7),
         ),
         false => (theme.border_3, theme.text_3),
     };
-    side_row(id, picked, true, theme)
+    side_row(id, picked, solid, theme)
         .h_auto()
         .py(px(5.))
         .child(author_avatar(name, email, 20., theme))
@@ -1197,7 +1234,7 @@ pub(super) fn person_row(
                                 .truncate()
                                 .child(name.to_owned()),
                         )
-                        .child(quiet(faint(n.to_string(), theme), picked, theme)),
+                        .child(quiet(faint(n.to_string(), theme), on, theme)),
                 )
                 .child(
                     div().h(px(4.)).rounded(px(2.)).bg(track).child(

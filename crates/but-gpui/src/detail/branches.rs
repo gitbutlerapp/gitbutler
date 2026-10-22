@@ -14,8 +14,8 @@ mod overview;
 
 use super::Detail;
 use super::panes::{
-    Crumb, CrumbTo, PEOPLE_SHOWN, list_empty, measured, meta_item, meta_row, overview_box,
-    page_title, person_row, side_list, title_text,
+    Crumb, CrumbTo, PEOPLE_SHOWN, list_empty, measured, meta_item, meta_row, page_title,
+    person_row, side_list, title_text,
 };
 use super::upstream::{DayGesture, DayPick, activity_strip, commit_author};
 
@@ -1102,7 +1102,7 @@ impl Detail {
         let chips = self.branch_filter_chips(branches, cx);
         let activity = self.branch_activity(branches, theme, cx);
         let rows = self.branch_rows(branches, cx);
-        let people = self.branch_people_card(branches, theme, cx);
+        let people = self.branch_people_card(branches, theme, window, cx);
         let target = (self.store.read(cx).workspace(project))
             .and_then(|ws| ws.target.as_ref())
             .map(|target| target.name.clone());
@@ -1541,8 +1541,10 @@ impl Detail {
         &self,
         branches: &Branches,
         theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
+        let solid = self.people_focused(window);
         let people = self.branch_people(branches, cx);
         let most = people.first().map_or(1, |(.., n)| (*n).max(1));
         // The one picked stays listed, however few branches it has, as in the filter menu.
@@ -1551,7 +1553,6 @@ impl Detail {
         let rest = (people.iter().enumerate())
             .filter(|(ix, (name, ..))| !listed(*ix, name))
             .count();
-        let nobody = people.is_empty();
         let rows = (people.into_iter().enumerate())
             .filter(|(ix, (name, ..))| listed(*ix, name))
             .map(|(ix, (name, email, n))| {
@@ -1560,27 +1561,28 @@ impl Detail {
                     ("overview-person", ix),
                     (&name, &email),
                     (n, most),
-                    picked,
+                    (picked, solid),
                     theme,
                 )
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.filter_person((!picked).then(|| name.clone()), cx)
-                }))
-            });
+                .on_click(
+                    cx.listener(move |this, _, _, cx| this.filter_person(Some(name.clone()), cx)),
+                )
+            })
+            .collect();
         let counted = match branches.days.days.is_empty() {
             true => format!("branches · {ACTIVITY_DAYS} days"),
             false => "branches · days picked".to_owned(),
         };
-        overview_box("People", counted, rows, theme)
-            .flex_none()
-            .m(px(12.))
-            .when(nobody, |el| {
-                el.child(faint("No branches listed", theme).px(px(14.)).py(px(4.)))
-            })
-            .when(rest > 0, |el| {
-                el.child(faint(format!("and {}", plural(rest, "other")), theme).px(px(14.)))
-            })
-            .into_any_element()
+        let clear = (branches.who.is_some())
+            .then_some(|this: &mut Self, cx: &mut Context<Self>| this.filter_person(None, cx));
+        self.people_card(
+            counted,
+            rows,
+            ("No branches listed", rest),
+            clear,
+            theme,
+            cx,
+        )
     }
 
     /// The opened branch's header, beside the list over its diff where a picked commit's
