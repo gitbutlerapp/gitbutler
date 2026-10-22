@@ -333,6 +333,9 @@ const prBadge: Record<PullRequestState, BadgeVariant> = {
  * one line, its state and actions right after its name, and the name gives way first. A merged or
  * closed request is done with: one muted line in either layout.
  *
+ * A branch merged into its target with no request known takes `merged`: the same muted line, its
+ * branch glyph and a Merged badge.
+ *
  * While an action on the branch runs, its `busy` spinner takes the glyph's colour. A merge takes `pr` state `merged` as it starts, so the row reads as where it is heading;
  * back to `open` if it is refused.
  *
@@ -342,20 +345,26 @@ export const BranchItem: FC<
 	{
 		title: string;
 		pr?: { number: number; state: PullRequestState };
+		/** Merged into the target with no pull request known. Ignored with `pr`. */
+		merged?: boolean;
 		/** The branch's name, under a pull request's title in `rich`. */
 		branch?: string;
 		layout?: SidebarRowLayout;
 	} & RowProps
-> = ({ title, pr, branch, layout = "compact", tooltip, ...props }) => {
-	const done = pr?.state === "merged" || pr?.state === "closed";
+> = ({ title, pr, merged = false, branch, layout = "compact", tooltip, ...props }) => {
+	const state = pr?.state ?? (merged ? "merged" : undefined);
+	const done = state === "merged" || state === "closed";
 	const glyph = (name: IconName) => (
-		<Icon name={name} className={classes(styles.branchGlyph, pr && styles[pr.state])} />
+		<Icon
+			name={name}
+			className={classes(styles.branchGlyph, state !== undefined && styles[state])}
+		/>
 	);
 	const icon = glyph(pr ? prGlyph[pr.state] : "branch");
 	const spinner = glyph("spinner");
-	const badge = pr && (
-		<Badge variant={prBadge[pr.state]} className={styles.badge}>
-			{`#${pr.number}`}
+	const badge = state !== undefined && (
+		<Badge variant={prBadge[state]} className={styles.badge}>
+			{pr ? `#${pr.number}` : "Merged"}
 		</Badge>
 	);
 
@@ -367,7 +376,7 @@ export const BranchItem: FC<
 			{...props}
 			name={title}
 			layout={done ? "compact" : layout}
-			rowClassName={classes(pr?.state === "merged" && styles.merged)}
+			rowClassName={classes(state === "merged" && styles.merged)}
 			icon={icon}
 			spinner={spinner}
 			label={

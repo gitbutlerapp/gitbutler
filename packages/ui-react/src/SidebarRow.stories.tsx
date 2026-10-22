@@ -31,6 +31,7 @@ const meta = preview.meta({
 	args: {
 		title: "fix: retry stalled transfers",
 		pr: { number: 377, state: "open" },
+		merged: false,
 		branch: "retry-transfers",
 		layout: "rich",
 		depth: 1,
@@ -1226,6 +1227,59 @@ export const Merging = meta.story({
 				</>
 			}
 		/>
+	),
+});
+
+/**
+ * Merged work reads as merged whether or not its pull request is known: a request shows its number,
+ * and a branch with none known says Merged beside its name. A worktree whose only branch merged is
+ * done with: it shows its age, and Delete under the pointer.
+ */
+export const Merged = meta.story({
+	parameters: { design: { type: "figma", url: core("4017-7390") } },
+	render: () => (
+		<div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+			<WorktreeItem
+				name="mesh-archive"
+				depth={1}
+				folded={false}
+				meta={<MetaCount type="age">2h</MetaCount>}
+				menu={menu("Worktree")}
+			/>
+			<BranchItem
+				title="feat: archive old worktrees"
+				pr={{ number: 31, state: "merged" }}
+				depth={2}
+				folded
+				meta={<MetaCount type="age">3d</MetaCount>}
+				menu={menu("Branch")}
+			/>
+			<BranchItem
+				title="tidy-sidebar-rows"
+				merged
+				depth={2}
+				folded
+				meta={<MetaCount type="age">5d</MetaCount>}
+				menu={menu("Branch")}
+			/>
+			<WorktreeDivider depth={1} />
+			<WorktreeItem
+				name="retry-transfers"
+				depth={1}
+				folded={false}
+				meta={<MetaCount type="age">1d</MetaCount>}
+				actions={<Button size="small">Delete</Button>}
+				menu={menu("Worktree")}
+			/>
+			<BranchItem
+				title="retry-transfers"
+				merged
+				depth={2}
+				folded
+				meta={<MetaCount type="age">1d</MetaCount>}
+				menu={menu("Branch")}
+			/>
+		</div>
 	),
 });
 
