@@ -242,7 +242,7 @@ impl Detail {
     }
 
     /// The checked uncommitted changes: checked files, narrowed to their checked hunks and
-    /// lines.
+    /// lines. All of them while the composer is closed.
     pub fn selected_changes(&self, cx: &App) -> Vec<Selected> {
         let Some((project, worktree)) = self.selected_checkout(cx) else {
             return Vec::new();
@@ -251,6 +251,11 @@ impl Detail {
         let files = (store.workspace(&project))
             .and_then(|ws| ws.uncommitted_in(worktree.as_deref()))
             .unwrap_or_default();
+        // Only the open composer checks files; the checks of one left, as on coming back from
+        // another checkout, wait for it.
+        if !self.composing {
+            return files.iter().map(Selected::whole).collect();
+        }
         // By path: finding each file in the diff in turn takes time squared in the files, as
         // after an `npm install` with nothing ignored.
         let hunks: HashMap<&str, &[Hunk]> = (self.checks_diff().into_iter())
