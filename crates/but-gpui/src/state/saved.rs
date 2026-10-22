@@ -388,19 +388,23 @@ pub(super) struct WindowPlace {
 }
 
 impl Saved {
+    /// One per channel, beside its list of projects: each knows the projects by ids of its
+    /// own, and forgets what's kept for those its list doesn't have.
     fn path() -> Option<PathBuf> {
-        Some(
-            crate::backend::settings::config_dir()
-                .ok()?
-                .join("gpui-state.json"),
-        )
+        Some(but_path::app_data_dir().ok()?.join("gpui-state.json"))
     }
 
     pub(super) fn load() -> Self {
-        let Some(path) = Self::path() else {
-            return Self::default();
+        // Until each had its own, every channel wrote one in the config directory.
+        let shared = || {
+            Some(
+                crate::backend::settings::config_dir()
+                    .ok()?
+                    .join("gpui-state.json"),
+            )
         };
-        let Ok(bytes) = std::fs::read(&path) else {
+        let read = |path: PathBuf| Some((std::fs::read(&path).ok()?, path));
+        let Some((bytes, path)) = Self::path().and_then(read).or_else(|| read(shared()?)) else {
             return Self::default();
         };
         serde_json::from_slice(&bytes).unwrap_or_else(|err| {
@@ -420,6 +424,9 @@ impl Saved {
         let Some(path) = Self::path() else {
             return;
         };
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir).ok();
+        }
         let temporary = path.with_extension("json.tmp");
         if std::fs::write(&temporary, bytes).is_ok() {
             std::fs::rename(&temporary, &path).ok();
