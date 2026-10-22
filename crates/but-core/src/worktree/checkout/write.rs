@@ -135,6 +135,8 @@ fn remove_from_worktree(
         Err(err) => return Err(err.into()),
     };
     match std::fs::symlink_metadata(&path) {
+        // On Windows, a symlink to a directory must be removed like a directory.
+        Ok(md) if md.is_symlink() => gix::fs::symlink::remove(&path)?,
         Ok(md) if md.is_dir() => {
             // A submodule or a directory that already became one; only remove it when empty.
             std::fs::remove_dir(&path).ok();
