@@ -225,6 +225,11 @@ impl Detail {
             .unwrap_or_default();
         self.message.update(cx, |input, cx| input.load(draft, cx));
         self.composing = false;
+        // A filter typed for the files left would hide the next checkout's, out of sight
+        // while the list is hidden.
+        self.filtering = false;
+        self.file_filter
+            .update(cx, |input, cx| input.set_text("", cx));
         cx.emit(ChecksChanged);
         cx.notify();
     }
