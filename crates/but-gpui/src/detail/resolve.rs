@@ -480,6 +480,14 @@ impl Detail {
         let Some((project, conflicted)) = self.conflicted() else {
             return false;
         };
+        // Once the one under way is done, the conflicts left are numbered anew, which picks
+        // applied again, or along with a finish, would mistake.
+        if self.store.read(cx).resolving(&project) {
+            (self.store).update(cx, |store, cx| {
+                store.snack("Wait for the resolve under way", cx)
+            });
+            return true;
+        }
         let Some(diff) = &self.diff else {
             return false;
         };

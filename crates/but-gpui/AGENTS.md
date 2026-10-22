@@ -123,6 +123,9 @@ so update it, shortcuts table included, with every change in behaviour.
   push except Push anyway fetches first and compares the remote tip and incoming commit ids,
   because counts, titles and change IDs all missed a teammate's amend. Update anyway and Pull
   anyway run the dry run again and go ahead only on the conflicts the user accepted.
+- An operation a double-click would ask for twice, and whose repeat would only fail, goes in
+  `ONCE` in `state/mutation.rs`, which drops the repeat while it waits or runs. Resolve refuses
+  while one is under way instead, as the conflicts left are numbered anew after it.
 - The oplog records the workspace and the main checkout only. Undo and History restore refuse
   anything that touched a linked worktree, in older snapshots too. Commits in a linked worktree
   skip hooks, which would run against the main checkout's files. Branches move only within their
@@ -186,6 +189,8 @@ anything else.
 - Prompts use GPUI's fallback renderer, which clips long detail text and ignores Escape and Enter.
   Click its buttons, and check prompt copy in the code.
 - Enter in a message field adds a line, and ⌘↩ saves.
+- To make an operation slow enough to race, turn on signing with a `gpg.program` script that
+  sleeps, then prints a dummy signature. Keep the racing steps in one script run.
 - Rows move under the pointer: a drag inserts drop zones, and an optimistic stand-in adds a row.
   Take a `shot` mid-drag with `hold` and aim from it. Coordinates read off a cropped shot need the
   crop's origin added.

@@ -222,6 +222,10 @@ const WHILE_EDITING: [&str; 5] = [
     "Cancel editing",
 ];
 
+/// Operations a second of which, asked for while the first waits or runs, as by a
+/// double-click, would only fail as there's no edit left.
+const ONCE: [&str; 2] = ["Finish editing", "Cancel editing"];
+
 /// The commits an operation captured, found again by key when it runs, as operations queued
 /// before it may have rewritten them.
 pub struct Remap(HashMap<CommitId, CommitId>);
@@ -833,6 +837,9 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let label = label.into();
+        if ONCE.contains(&&*label) && self.unfinished_in(project, Some(&label)) {
+            return;
+        }
         let mut captured = self.workspace(project).map_or_else(HashMap::new, |ws| {
             ws.commits()
                 .map(|commit| (commit.id, commit.key.clone()))
