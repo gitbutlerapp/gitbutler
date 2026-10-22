@@ -358,6 +358,10 @@ fn refuse_to_overwrite_newer_edits(
     deleted: &BTreeSet<BString>,
 ) -> anyhow::Result<()> {
     let (mut pipeline, index) = repo.filter_pipeline(None)?;
+    let current_index = repo.index_or_empty()?;
+    let stat_options = repo
+        .checkout_options(gix::worktree::stack::state::attributes::Source::IdMapping)?
+        .stat_options;
     let mut buf = Vec::new();
     let written = target
         .entries()
@@ -382,6 +386,15 @@ fn refuse_to_overwrite_newer_edits(
         let Ok(md) = gix::index::fs::Metadata::from_path_no_follow(path) else {
             continue;
         };
+        let unchanged_since_indexed = current_index.entry_by_path(rela_path).is_some_and(|entry| {
+            entry.id == expected.id
+                && !entry.stat.is_racy(current_index.timestamp(), stat_options)
+                && gix::index::entry::Stat::from_fs(&md)
+                    .is_ok_and(|on_disk| entry.stat.matches(&on_disk, stat_options))
+        });
+        if unchanged_since_indexed {
+            continue;
+        }
         crate::worktree::worktree_file_to_git_in_buf(
             &mut buf,
             &md,

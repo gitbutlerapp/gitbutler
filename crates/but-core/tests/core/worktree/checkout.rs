@@ -1046,6 +1046,40 @@ Outcome {
 }
 
 #[test]
+fn checkout_updates_an_untouched_legacy_crlf_file_like_git() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario_slow("legacy-crlf-blob-with-gitattributes");
+    let file_path = repo.workdir_path("ImportOrdersJob.cs").unwrap();
+    // Like a file committed well before `.gitattributes` asked for normalization,
+    // the entry is stat-clean, so Git trusts it without reading the file.
+    record_index_stat_with_mtime(&repo, "ImportOrdersJob.cs", long_ago())?;
+    assert_eq!(
+        git_status(&repo)?,
+        "",
+        "Git considers the untouched legacy CRLF file unchanged"
+    );
+
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"1\r\n2\r\nunchanged\r\nthree from target\r\n")?;
+            tree.upsert("ImportOrdersJob.cs", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "edit the legacy crlf file",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    assert_eq!(
+        std::fs::read(&file_path)?.as_bstr(),
+        "1\r\n2\r\nunchanged\r\nthree from target\r\n",
+        "like `git checkout`, the untouched file takes the target content"
+    );
+    assert_eq!(repo.head_id()?, new_commit.id);
+    Ok(())
+}
+
+#[test]
 fn filtered_files_are_written_in_worktree_form() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("required-filter-binary-git-form");
     let file_path = repo.workdir_path("a.secret").unwrap();
@@ -1243,6 +1277,8 @@ fn checkout_refuses_to_overwrite_an_edit_made_after_the_snapshot() -> anyhow::Re
     std::fs::write(workdir.join("z.f"), "z\n")?;
     git(&repo).args(["add", "a", "z.f"]).run();
     git(&repo).args(["commit", "-qm", "a and z.f"]).run();
+    // Without a racy entry, only the stat comparison can notice the edit.
+    record_index_stat_with_mtime(&repo, "a", long_ago())?;
     // Cleaning `z.f` edits `a`. The snapshot reads `a` before `z.f`, so it misses the edit,
     // like an editor saving `a` while checkout runs.
     std::fs::write(
@@ -1278,6 +1314,140 @@ fn checkout_refuses_to_overwrite_an_edit_made_after_the_snapshot() -> anyhow::Re
     assert_eq!(repo.head_id()?.detach(), head, "HEAD stays");
     assert_eq!(std::fs::read_to_string(workdir.join("a"))?, "one\nedit\n");
     Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn checkout_refuses_to_overwrite_an_edit_hidden_from_the_stat_of_a_racy_entry() -> anyhow::Result<()>
+{
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let workdir = repo.workdir().expect("non-bare");
+    std::fs::write(workdir.join("a"), "one\n")?;
+    std::fs::write(workdir.join("z.f"), "z\n")?;
+    git(&repo).args(["add", "a", "z.f"]).run();
+    git(&repo).args(["commit", "-qm", "a and z.f"]).run();
+    git(&repo)
+        .args(["config", "core.trustctime", "false"])
+        .run();
+    // An entry modified no earlier than the index was written is racy: its stat can't prove
+    // the content, as on filesystems with coarse timestamps.
+    let racy_mtime = std::time::SystemTime::now() + std::time::Duration::from_secs(3600);
+    record_index_stat_with_mtime(&repo, "a", racy_mtime)?;
+    let mtime_reference = repo.git_dir().join("a-mtime");
+    std::fs::write(&mtime_reference, "")?;
+    std::fs::File::options()
+        .write(true)
+        .open(&mtime_reference)?
+        .set_modified(racy_mtime)?;
+    // Cleaning `z.f` rewrites `a` with content of the same size and restores its mtime,
+    // so every stat field the comparison uses still matches.
+    std::fs::write(
+        repo.git_dir().join("info/attributes"),
+        "*.f filter=meddle\n",
+    )?;
+    git(&repo)
+        .args([
+            "config",
+            "filter.meddle.clean",
+            r#"sh -c 'printf "uno\n" > "$GIT_DIR/../a"; touch -r "$GIT_DIR/a-mtime" "$GIT_DIR/../a"; cat'"#,
+        ])
+        .run();
+    std::fs::write(workdir.join("z.f"), "z changed\n")?;
+    let head = repo.head_id()?.detach();
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"two\n")?;
+            tree.upsert("a", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "change a",
+    )?;
+
+    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+        .expect_err("a racy entry must be checked by content");
+
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["Uncommitted files would be overwritten by checkout: \"a\""]
+    );
+    assert_eq!(repo.head_id()?.detach(), head, "HEAD stays");
+    assert_eq!(std::fs::read_to_string(workdir.join("a"))?, "uno\n");
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn checkout_refuses_to_overwrite_a_file_reverted_after_the_snapshot() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let workdir = repo.workdir().expect("non-bare");
+    std::fs::write(workdir.join("a"), "one\n")?;
+    std::fs::write(workdir.join("z.f"), "z\n")?;
+    git(&repo).args(["add", "a", "z.f"]).run();
+    git(&repo).args(["commit", "-qm", "a and z.f"]).run();
+    std::fs::write(workdir.join("a"), "one\nuncommitted\n")?;
+    // Cleaning `z.f` reverts `a` after the snapshot read it, and Git records its stat
+    // outside the racy window. The entry is stat-clean again, but describes HEAD's content,
+    // not the snapshot's.
+    std::fs::write(
+        repo.git_dir().join("info/attributes"),
+        "*.f filter=meddle\n",
+    )?;
+    git(&repo)
+        .args([
+            "config",
+            "filter.meddle.clean",
+            r#"sh -c 'cd "$GIT_DIR/.." && git checkout -- a && touch -t 200101010000 a && git update-index -q --refresh; cat'"#,
+        ])
+        .run();
+    std::fs::write(workdir.join("z.f"), "z changed\n")?;
+    let head = repo.head_id()?.detach();
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"zero\none\n")?;
+            tree.upsert("a", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "change a",
+    )?;
+
+    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+        .expect_err("the merge used the snapshot's `a`, which the revert discarded");
+
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["Uncommitted files would be overwritten by checkout: \"a\""]
+    );
+    assert_eq!(repo.head_id()?.detach(), head, "HEAD stays");
+    assert_eq!(std::fs::read_to_string(workdir.join("a"))?, "one\n");
+    Ok(())
+}
+
+/// Give `rela_path` the modification time `mtime` and record its stat in the index, like `git add`.
+/// An `mtime` before the index is written makes the entry trustworthy by stat alone; a later one makes it racy.
+fn record_index_stat_with_mtime(
+    repo: &gix::Repository,
+    rela_path: &str,
+    mtime: std::time::SystemTime,
+) -> anyhow::Result<()> {
+    let path = repo.workdir_path(rela_path).expect("non-bare");
+    std::fs::File::options()
+        .write(true)
+        .open(&path)?
+        .set_modified(mtime)?;
+    let mut index = repo.open_index()?;
+    let position = index
+        .entry_index_by_path(rela_path.into())
+        .expect("tracked");
+    index.entries_mut()[position].stat =
+        gix::index::entry::Stat::from_fs(&gix::index::fs::Metadata::from_path_no_follow(&path)?)?;
+    index.write(Default::default())?;
+    Ok(())
+}
+
+fn long_ago() -> std::time::SystemTime {
+    std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000_000)
 }
 
 #[test]
