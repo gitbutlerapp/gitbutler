@@ -1243,6 +1243,7 @@ impl Detail {
             Some(upstream) if upstream.commits.is_empty() => {
                 // A target the remote renamed or deleted is said so, not as if never picked.
                 let lost = (entry.workspace.as_ref()).and_then(|ws| ws.lost_target.clone());
+                let unpushed = (entry.workspace.as_ref()).and_then(|ws| ws.target_branch.clone());
                 let (title, detail) = match lost {
                     Some(name) => (
                         format!("{name} is gone"),
@@ -1253,6 +1254,11 @@ impl Detail {
                     None if upstream.fetch.is_none() => (
                         "No remote".to_owned(),
                         "The target's history shows here once the repository has a remote",
+                    ),
+                    // Picked, but with no branch on the remote yet, as before a first push.
+                    None if let Some(name) = unpushed => (
+                        format!("{} isn't on the remote yet", backend::short_ref(&name)),
+                        "Push it once, with `git push -u`, and its history shows here",
                     ),
                     None => (
                         "No target branch".to_owned(),

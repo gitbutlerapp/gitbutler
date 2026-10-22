@@ -241,10 +241,12 @@ impl Workspace {
     }
 
     /// Why `ref_name` can't be pushed yet, though it has commits to send: pushing goes to
-    /// the target's remote, and a conflicted commit would go along.
+    /// the remote of the target's upstream, and a conflicted commit would go along.
     pub fn push_refused(&self, ref_name: &str) -> Option<&'static str> {
         let pushed = self.pushed_with(ref_name);
-        if self.target.is_none() {
+        if self.target.is_none() && self.target_branch.is_some() {
+            Some("The target branch isn't on the remote yet: push it once, with `git push -u`")
+        } else if self.target.is_none() {
             Some("Pick the project's target branch first")
         } else if (pushed.iter()).any(|b| b.commits.iter().any(|c| c.conflicted)) {
             Some("Resolve the conflicted commits first")
