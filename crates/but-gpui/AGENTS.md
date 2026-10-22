@@ -123,9 +123,10 @@ so update it, shortcuts table included, with every change in behaviour.
   push except Push anyway fetches first and compares the remote tip and incoming commit ids,
   because counts, titles and change IDs all missed a teammate's amend. Update anyway and Pull
   anyway run the dry run again and go ahead only on the conflicts the user accepted.
-- An operation a double-click would ask for twice, and whose repeat would only fail, goes in
-  `ONCE` in `state/mutation.rs`, which drops the repeat while it waits or runs. Resolve refuses
-  while one is under way instead, as the conflicts left are numbered anew after it.
+- The queue tells operations apart by `Overlay::kind` (`OpKind` in `state/mutation.rs`), never by
+  their label, which is only what the user reads. One a double-click would ask for twice, and
+  whose repeat would only fail, is `OpKind::once`, which drops the repeat while it waits or runs.
+  Resolve refuses while one is under way instead, as the conflicts left are numbered anew after it.
 - The oplog records the workspace and the main checkout only. Undo and History restore refuse
   anything that touched a linked worktree, in older snapshots too. Commits in a linked worktree
   skip hooks, which would run against the main checkout's files. Branches move only within their
