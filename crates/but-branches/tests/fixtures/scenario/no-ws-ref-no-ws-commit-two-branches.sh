@@ -14,5 +14,4 @@ setup_target_to_match_main
 
 git branch A
 git branch B
-git config branch.A.description 'Explain A'
 

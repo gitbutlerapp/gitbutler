@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::BTreeMap};
 
 use crate::WorkspaceState;
 use anyhow::{Context as _, bail};
-use bstr::{BStr, ByteSlice};
+use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
     DryRun, RefMetadata, WORKSPACE_REF_NAME,
@@ -659,12 +659,6 @@ pub mod json {
         pub last_author: Option<but_workspace::ui::Author>,
         /// The committer timestamp of the tip commit in milliseconds since the epoch.
         pub updated_at_ms: Option<i64>,
-        /// The subject (first line of the message) of the tip commit.
-        pub tip_subject: Option<String>,
-        /// The local branch's `branch.<name>.description` from the repository-local Git
-        /// config, as `git branch --edit-description` writes it. `null` for remote-only
-        /// branches and local ones without a description.
-        pub description: Option<String>,
         /// The cached review (PR/MR) published for this branch, if any is known.
         pub review: Option<ListedForgeReview>,
         /// The lifecycle state of `review`, derived server-side so every client
@@ -786,12 +780,6 @@ pub mod json {
                 commits_ahead_of_target: branch.commits_ahead_of_target,
                 last_author: branch.last_author.map(Into::into),
                 updated_at_ms: branch.updated_at_ms,
-                tip_subject: branch
-                    .tip_subject
-                    .map(|subject| subject.to_str_lossy().into_owned()),
-                description: branch
-                    .description
-                    .map(|description| description.to_str_lossy().into_owned()),
                 review: review.as_ref().map(Into::into),
                 review_status,
             }
@@ -1305,14 +1293,6 @@ pub fn branch_remove_with_perm(
     if changed && let Some(snapshot) = maybe_oplog_entry {
         snapshot.commit(ctx, perm).ok();
     }
-    // Its description goes with it, as with `git branch -d`, so a branch made later under the
-    // name starts without one.
-    if changed {
-        let repo = ctx.repo.get()?;
-        if let Err(err) = set_branch_description(&repo, ref_name.shorten(), None) {
-            tracing::warn!(?err, "couldn't remove the deleted branch's description");
-        }
-    }
     let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let workspace = WorkspaceState::from_workspace_with_db(
@@ -1463,12 +1443,6 @@ pub fn branch_rename_with_perm(
     if let Some(snapshot) = maybe_oplog_entry {
         snapshot.commit(ctx, perm).ok();
     }
-    {
-        let repo = ctx.repo.get()?;
-        if let Err(err) = move_branch_description(&repo, ref_name.shorten(), new_ref.shorten()) {
-            tracing::warn!(?err, "couldn't move the renamed branch's description");
-        }
-    }
     let mut meta = ctx.meta()?;
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let workspace = WorkspaceState::from_workspace_with_db(
@@ -1480,87 +1454,6 @@ pub fn branch_rename_with_perm(
         &mut db,
     )?;
     Ok(BranchRenameResult { workspace, new_ref })
-}
-
-/// Set the description of the local branch `ref_name` to `description`, or remove it when
-/// `description` is `None` or blank.
-///
-/// The description is stored as `branch.<name>.description` in the repository-local Git config,
-/// where `git branch --edit-description` keeps it. Git config is not part of oplog snapshots, so
-/// this mutation is intentionally left out of the undo timeline.
-#[but_api(napi, invalidates = [Branches])]
-#[instrument(err(Debug))]
-pub fn branch_set_description(
-    ctx: &mut but_ctx::Context,
-    #[but_api(crate::json::FullNameBytes)] ref_name: gix::refs::FullName,
-    description: Option<String>,
-) -> anyhow::Result<()> {
-    let mut guard = ctx.exclusive_worktree_access();
-    branch_set_description_with_perm(ctx, ref_name, description, guard.write_permission())
-}
-
-/// Set the description of the local branch `ref_name` under caller-held exclusive
-/// repository access.
-///
-/// See [`branch_set_description()`] for the higher-level behaviour.
-pub fn branch_set_description_with_perm(
-    ctx: &mut but_ctx::Context,
-    ref_name: gix::refs::FullName,
-    description: Option<String>,
-    _perm: &mut RepoExclusive,
-) -> anyhow::Result<()> {
-    if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
-        bail!(
-            "Can only describe local branches under refs/heads, got '{}'",
-            ref_name.as_bstr()
-        );
-    }
-    let repo = ctx.repo.get()?;
-    repo.find_reference(ref_name.as_ref())
-        .with_context(|| format!("Branch '{}' does not exist", ref_name.shorten()))?;
-    let description = description
-        .as_deref()
-        .map(str::trim)
-        .filter(|description| !description.is_empty());
-    set_branch_description(&repo, ref_name.shorten(), description)
-}
-
-/// Write `description` as `branch.<name>.description` in the repository-local Git config, or
-/// remove it with `None`. The section is found by the name's own bytes, which a dotted key
-/// would pass through lossy text.
-fn set_branch_description(
-    repo: &gix::Repository,
-    name: &BStr,
-    description: Option<&str>,
-) -> anyhow::Result<()> {
-    but_core::git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
-        if let Ok(mut section) = config.section_mut("branch", Some(name)) {
-            section.remove("description");
-        }
-        if let Some(description) = description {
-            config
-                .section_mut_or_create_new("branch", Some(name))?
-                .set("description", description)?;
-        }
-        Ok(())
-    })?;
-    Ok(())
-}
-
-/// Move the description of local branch `from` to `to`, as `git branch -m` moves it, since
-/// Git config keys it by the name.
-fn move_branch_description(repo: &gix::Repository, from: &BStr, to: &BStr) -> anyhow::Result<()> {
-    but_core::git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
-        let description = (config.section_mut("branch", Some(from)).ok())
-            .and_then(|mut section| section.remove("description"));
-        if let Some(description) = description {
-            config
-                .section_mut_or_create_new("branch", Some(to))?
-                .set("description", description.as_bstr())?;
-        }
-        Ok(())
-    })?;
-    Ok(())
 }
 
 /// Checks out a branch and returns the resulting workspace state.

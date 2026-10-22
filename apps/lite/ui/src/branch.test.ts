@@ -22,8 +22,6 @@ const branch = (overrides: Partial<ListedBranch> & { displayName: string }): Lis
 	updatedAtMs: null,
 	review: null,
 	reviewStatus: null,
-	tipSubject: null,
-	description: null,
 	...overrides,
 });
 
