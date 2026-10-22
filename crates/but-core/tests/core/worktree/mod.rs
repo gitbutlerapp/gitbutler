@@ -23,4 +23,32 @@ mod utils {
             .detach();
         Ok(repo.find_commit(new_commit_id)?)
     }
+
+    /// Like [`build_commit()`], writing each `(path, Some(content))` as a file and removing each
+    /// `(path, None)`, and return the new commit's id.
+    pub fn commit_files(
+        repo: &gix::Repository,
+        message: &str,
+        files: &[(&str, Option<&str>)],
+    ) -> anyhow::Result<gix::ObjectId> {
+        let commit = build_commit(
+            repo,
+            |tree| {
+                for (path, content) in files {
+                    match content {
+                        Some(content) => {
+                            let blob_id = repo.write_blob(content)?;
+                            tree.upsert(*path, gix::object::tree::EntryKind::Blob, blob_id)?;
+                        }
+                        None => {
+                            tree.remove(*path)?;
+                        }
+                    }
+                }
+                Ok(())
+            },
+            message,
+        )?;
+        Ok(commit.id)
+    }
 }

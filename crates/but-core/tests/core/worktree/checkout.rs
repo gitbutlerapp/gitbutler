@@ -8,7 +8,7 @@ use but_testsupport::{
 use gix::object::tree::EntryKind;
 use snapbox::prelude::*;
 
-use crate::worktree::utils::build_commit;
+use crate::worktree::utils::{build_commit, commit_files};
 
 #[test]
 fn update_unborn_head() -> anyhow::Result<()> {
@@ -1058,24 +1058,23 @@ fn checkout_updates_an_untouched_legacy_crlf_file_like_git() -> anyhow::Result<(
         "Git considers the untouched legacy CRLF file unchanged"
     );
 
-    let new_commit = build_commit(
+    let new_commit = commit_files(
         &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"1\r\n2\r\nunchanged\r\nthree from target\r\n")?;
-            tree.upsert("ImportOrdersJob.cs", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
         "edit the legacy crlf file",
+        &[(
+            "ImportOrdersJob.cs",
+            Some("1\r\n2\r\nunchanged\r\nthree from target\r\n"),
+        )],
     )?;
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
 
     assert_eq!(
         std::fs::read(&file_path)?.as_bstr(),
         "1\r\n2\r\nunchanged\r\nthree from target\r\n",
         "like `git checkout`, the untouched file takes the target content"
     );
-    assert_eq!(repo.head_id()?, new_commit.id);
+    assert_eq!(repo.head_id()?, new_commit);
     Ok(())
 }
 
@@ -1096,17 +1095,13 @@ fn filtered_files_are_written_in_worktree_form() -> anyhow::Result<()> {
         "Git holds the binary cleaned form"
     );
 
-    let new_commit = build_commit(
+    let new_commit = commit_files(
         &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"SECRET\0yvar1\npunatrq\nyvar3\n")?;
-            tree.upsert("a.secret", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
         "change the filtered file",
+        &[("a.secret", Some("SECRET\0yvar1\npunatrq\nyvar3\n"))],
     )?;
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
 
     assert_eq!(
         std::fs::read(&file_path)?.as_bstr(),
@@ -1129,22 +1124,18 @@ fn index_matches_the_checked_out_tree() -> anyhow::Result<()> {
         repo.index()?.tree().is_some(),
         "the index caches its trees, which a checkout must not leave stale"
     );
-    let new_commit = build_commit(
+    let new_commit = commit_files(
         &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"SECRET\0yvar1\npunatrq\nyvar3\n")?;
-            tree.upsert("a.secret", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
         "change the filtered file",
+        &[("a.secret", Some("SECRET\0yvar1\npunatrq\nyvar3\n"))],
     )?;
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
 
     let index_tree = git(&repo).args(["write-tree"]).output()?.stdout;
     assert_eq!(
         index_tree.trim().to_str()?,
-        new_commit.tree_id()?.to_string(),
+        repo.find_commit(new_commit)?.tree_id()?.to_string(),
         "Git builds the next commit from the index, so it must be the checked out tree"
     );
     Ok(())
@@ -1193,17 +1184,9 @@ fn checkout_refuses_to_delete_content_only_the_index_has() -> anyhow::Result<()>
 fn checkout_refuses_to_overwrite_content_only_the_index_has() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let staged = stage_content_only_the_index_has(&repo)?;
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"two\n")?;
-            tree.upsert("x", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "change x",
-    )?;
+    let new_commit = commit_files(&repo, "change x", &[("x", Some("two\n"))])?;
 
-    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+    let err = safe_checkout_from_head(new_commit, &repo, Default::default())
         .expect_err("like `git checkout`, checkout refuses to lose the staged content");
 
     snapbox::assert_data_eq!(
@@ -1238,18 +1221,13 @@ fn checkout_refuses_to_replace_staged_content_with_a_directory() -> anyhow::Resu
         .args(["ls-files", "--stage", "x"])
         .output()?
         .stdout;
-    let new_commit = build_commit(
+    let new_commit = commit_files(
         &repo,
-        |tree| {
-            tree.remove("x")?;
-            let blob_id = repo.write_blob(b"c\n")?;
-            tree.upsert("x/c", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
         "turn x into a directory",
+        &[("x", None), ("x/c", Some("c\n"))],
     )?;
 
-    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+    let err = safe_checkout_from_head(new_commit, &repo, Default::default())
         .expect_err("like `git checkout`, checkout refuses to lose the staged content");
 
     snapbox::assert_data_eq!(
@@ -1273,10 +1251,7 @@ fn checkout_refuses_to_replace_staged_content_with_a_directory() -> anyhow::Resu
 fn checkout_refuses_to_overwrite_an_edit_made_after_the_snapshot() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let workdir = repo.workdir().expect("non-bare");
-    std::fs::write(workdir.join("a"), "one\n")?;
-    std::fs::write(workdir.join("z.f"), "z\n")?;
-    git(&repo).args(["add", "a", "z.f"]).run();
-    git(&repo).args(["commit", "-qm", "a and z.f"]).run();
+    commit_in_worktree(&repo, &[("a", "one\n"), ("z.f", "z\n")])?;
     // Without a racy entry, only the stat comparison can notice the edit.
     record_index_stat_with_mtime(&repo, "a", long_ago())?;
     // Cleaning `z.f` edits `a`. The snapshot reads `a` before `z.f`, so it misses the edit,
@@ -1294,17 +1269,9 @@ fn checkout_refuses_to_overwrite_an_edit_made_after_the_snapshot() -> anyhow::Re
         .run();
     std::fs::write(workdir.join("z.f"), "z changed\n")?;
     let head = repo.head_id()?.detach();
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"two\n")?;
-            tree.upsert("a", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "change a",
-    )?;
+    let new_commit = commit_files(&repo, "change a", &[("a", Some("two\n"))])?;
 
-    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+    let err = safe_checkout_from_head(new_commit, &repo, Default::default())
         .expect_err("the edit to `a` happened after the snapshot and must not be overwritten");
 
     snapbox::assert_data_eq!(
@@ -1322,10 +1289,7 @@ fn checkout_refuses_to_overwrite_an_edit_hidden_from_the_stat_of_a_racy_entry() 
 {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let workdir = repo.workdir().expect("non-bare");
-    std::fs::write(workdir.join("a"), "one\n")?;
-    std::fs::write(workdir.join("z.f"), "z\n")?;
-    git(&repo).args(["add", "a", "z.f"]).run();
-    git(&repo).args(["commit", "-qm", "a and z.f"]).run();
+    commit_in_worktree(&repo, &[("a", "one\n"), ("z.f", "z\n")])?;
     git(&repo)
         .args(["config", "core.trustctime", "false"])
         .run();
@@ -1354,17 +1318,9 @@ fn checkout_refuses_to_overwrite_an_edit_hidden_from_the_stat_of_a_racy_entry() 
         .run();
     std::fs::write(workdir.join("z.f"), "z changed\n")?;
     let head = repo.head_id()?.detach();
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"two\n")?;
-            tree.upsert("a", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "change a",
-    )?;
+    let new_commit = commit_files(&repo, "change a", &[("a", Some("two\n"))])?;
 
-    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+    let err = safe_checkout_from_head(new_commit, &repo, Default::default())
         .expect_err("a racy entry must be checked by content");
 
     snapbox::assert_data_eq!(
@@ -1390,17 +1346,9 @@ fn checkout_refuses_to_overwrite_a_file_reverted_after_the_snapshot() -> anyhow:
     std::fs::write(repo.workdir_path("a").unwrap(), "one\nuncommitted\n")?;
     git(&repo).args(["add", "a"]).run();
     let head = repo.head_id()?.detach();
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"zero\none\n")?;
-            tree.upsert("a", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "change a",
-    )?;
+    let new_commit = commit_files(&repo, "change a", &[("a", Some("zero\none\n"))])?;
 
-    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+    let err = safe_checkout_from_head(new_commit, &repo, Default::default())
         .expect_err("the merge used the snapshot's `a`, which the reset discarded");
 
     snapbox::assert_data_eq!(
@@ -1456,17 +1404,9 @@ fn repo_with_meddling_filter(
 fn checkout_refuses_to_overwrite_a_file_created_after_the_snapshot() -> anyhow::Result<()> {
     let (repo, _tmp) = repo_with_meddling_filter("one\n", "printf 'mine\\n' > n")?;
     let head = repo.head_id()?.detach();
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"theirs\n")?;
-            tree.upsert("n", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "add n",
-    )?;
+    let new_commit = commit_files(&repo, "add n", &[("n", Some("theirs\n"))])?;
 
-    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+    let err = safe_checkout_from_head(new_commit, &repo, Default::default())
         .expect_err("like Git, an untracked file the target would replace is kept");
 
     snapbox::assert_data_eq!(
@@ -1496,18 +1436,8 @@ fn checkout_adding_after_meddling(
     let (repo, tmp) = repo_with_meddling_filter("one\n", meddle)?;
     std::fs::write(repo.git_dir().join("info/exclude"), "*.log\ncache/\n")?;
     let head = repo.head_id()?.detach();
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            for file in files {
-                let blob_id = repo.write_blob(b"theirs\n")?;
-                tree.upsert(*file, EntryKind::Blob, blob_id)?;
-            }
-            Ok(())
-        },
-        "add files",
-    )?
-    .id;
+    let added: Vec<_> = files.iter().map(|file| (*file, Some("theirs\n"))).collect();
+    let new_commit = commit_files(&repo, "add files", &added)?;
     let out = safe_checkout_from_head(new_commit, &repo, Default::default());
     Ok((repo, tmp, head, out))
 }
@@ -1614,17 +1544,9 @@ fn checkout_refuses_to_overwrite_a_file_turned_symlink_after_the_snapshot() -> a
     // The link's target text is the file's content, so both hash to the same blob.
     let (repo, _tmp) = repo_with_meddling_filter("one", "rm -f a && ln -s one a")?;
     let head = repo.head_id()?.detach();
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"two")?;
-            tree.upsert("a", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "change a",
-    )?;
+    let new_commit = commit_files(&repo, "change a", &[("a", Some("two"))])?;
 
-    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+    let err = safe_checkout_from_head(new_commit, &repo, Default::default())
         .expect_err("like Git, a file replaced by a symlink is a local change");
 
     snapbox::assert_data_eq!(
@@ -1675,23 +1597,16 @@ fn checkout_renames_a_file_by_case_only_like_git() -> anyhow::Result<()> {
         // Only a case-insensitive filesystem finds `foo` when looking for `Foo`.
         return Ok(());
     }
-    std::fs::write(workdir.join("foo"), "content\n")?;
-    git(&repo).args(["add", "foo"]).run();
-    git(&repo).args(["commit", "-qm", "foo"]).run();
-    let new_commit = build_commit(
+    commit_in_worktree(&repo, &[("foo", "content\n")])?;
+    let new_commit = commit_files(
         &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"content\n")?;
-            tree.remove("foo")?;
-            tree.upsert("Foo", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
         "rename foo to Foo",
+        &[("foo", None), ("Foo", Some("content\n"))],
     )?;
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
 
-    assert_eq!(repo.head_id()?, new_commit.id);
+    assert_eq!(repo.head_id()?, new_commit);
     let names: Vec<_> = std::fs::read_dir(workdir)?
         .map(|entry| entry.map(|entry| entry.file_name()))
         .collect::<Result<_, _>>()?;
@@ -1712,18 +1627,9 @@ fn checkout_refuses_a_case_folded_alias_edited_after_the_snapshot() -> anyhow::R
         return Ok(());
     }
     let head = repo.head_id()?.detach();
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"one\n")?;
-            tree.remove("a")?;
-            tree.upsert("A", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "rename a to A",
-    )?;
+    let new_commit = commit_files(&repo, "rename a to A", &[("a", None), ("A", Some("one\n"))])?;
 
-    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+    let err = safe_checkout_from_head(new_commit, &repo, Default::default())
         .expect_err("the file found under `A` is `a`, edited after the snapshot");
 
     snapbox::assert_data_eq!(
@@ -1745,19 +1651,11 @@ fn checkout_replaces_a_read_only_file_like_git() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let path = repo.workdir_path("keep").unwrap();
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o444))?;
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"changed\n")?;
-            tree.upsert("keep", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "change keep",
-    )?;
+    let new_commit = commit_files(&repo, "change keep", &[("keep", Some("changed\n"))])?;
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
 
-    assert_eq!(repo.head_id()?, new_commit.id);
+    assert_eq!(repo.head_id()?, new_commit);
     assert_eq!(
         std::fs::read_to_string(&path)?,
         "changed\n",
@@ -1772,16 +1670,9 @@ fn checkout_refuses_to_delete_a_file_made_executable_after_the_snapshot() -> any
     use std::os::unix::fs::PermissionsExt as _;
     let (repo, _tmp) = repo_with_meddling_filter("one\n", "chmod +x a")?;
     let head = repo.head_id()?.detach();
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            tree.remove("a")?;
-            Ok(())
-        },
-        "delete a",
-    )?;
+    let new_commit = commit_files(&repo, "delete a", &[("a", None)])?;
 
-    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+    let err = safe_checkout_from_head(new_commit, &repo, Default::default())
         .expect_err("like Git, a mode change is a local change");
 
     snapbox::assert_data_eq!(
@@ -1801,28 +1692,18 @@ fn checkout_keeps_a_staged_file_replaced_by_an_untracked_directory_like_git() ->
 {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let workdir = repo.workdir().expect("non-bare");
-    std::fs::write(workdir.join("z"), "z\n")?;
-    git(&repo).args(["add", "z"]).run();
-    git(&repo).args(["commit", "-qm", "z"]).run();
+    commit_in_worktree(&repo, &[("z", "z\n")])?;
     std::fs::write(workdir.join("d"), "saved\n")?;
     git(&repo).args(["add", "d"]).run();
     std::fs::remove_file(workdir.join("d"))?;
     std::fs::create_dir(workdir.join("d"))?;
     std::fs::write(workdir.join("d/x"), "x\n")?;
     let staged = repo.index()?.entry_by_path("d".into()).expect("staged").id;
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"z changed\n")?;
-            tree.upsert("z", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "change z",
-    )?;
+    let new_commit = commit_files(&repo, "change z", &[("z", Some("z changed\n"))])?;
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
 
-    assert_eq!(repo.head_id()?, new_commit.id);
+    assert_eq!(repo.head_id()?, new_commit);
     assert_eq!(
         repo.open_index()?.entry_by_path("d".into()).map(|e| e.id),
         Some(staged),
@@ -1864,10 +1745,7 @@ fn long_ago() -> std::time::SystemTime {
 fn checkout_writes_a_file_deleted_after_the_snapshot() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let workdir = repo.workdir().expect("non-bare");
-    std::fs::write(workdir.join("a"), "one\n")?;
-    std::fs::write(workdir.join("z.f"), "z\n")?;
-    git(&repo).args(["add", "a", "z.f"]).run();
-    git(&repo).args(["commit", "-qm", "a and z.f"]).run();
+    commit_in_worktree(&repo, &[("a", "one\n"), ("z.f", "z\n")])?;
     // Cleaning `z.f` deletes `a` after the snapshot read it.
     std::fs::write(
         repo.git_dir().join("info/attributes"),
@@ -1881,17 +1759,9 @@ fn checkout_writes_a_file_deleted_after_the_snapshot() -> anyhow::Result<()> {
         ])
         .run();
     std::fs::write(workdir.join("z.f"), "z changed\n")?;
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"two\n")?;
-            tree.upsert("a", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "change a",
-    )?;
+    let new_commit = commit_files(&repo, "change a", &[("a", Some("two\n"))])?;
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
 
     // A missing file holds nothing to lose, so the new version is written.
     assert_eq!(std::fs::read_to_string(workdir.join("a"))?, "two\n");
@@ -1933,23 +1803,12 @@ fn checkout_updates_a_submodule_entry() -> anyhow::Result<()> {
 fn checkout_replaces_a_hard_linked_file_without_changing_its_other_links() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let workdir = repo.workdir().expect("non-bare");
-    std::fs::write(workdir.join("a"), "same\n")?;
-    std::fs::write(workdir.join("b"), "same\n")?;
-    git(&repo).args(["add", "a", "b"]).run();
-    git(&repo).args(["commit", "-qm", "a and b"]).run();
+    commit_in_worktree(&repo, &[("a", "same\n"), ("b", "same\n")])?;
     std::fs::remove_file(workdir.join("b"))?;
     std::fs::hard_link(workdir.join("a"), workdir.join("b"))?;
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"changed\n")?;
-            tree.upsert("a", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "change only a",
-    )?;
+    let new_commit = commit_files(&repo, "change only a", &[("a", Some("changed\n"))])?;
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
 
     // Like Git, `a` gets a new file, and `b`, a hard link to the old one, keeps its content.
     assert_eq!(std::fs::read_to_string(workdir.join("a"))?, "changed\n");
@@ -1963,17 +1822,9 @@ fn checkout_keeps_index_flags_of_files_it_does_not_change() -> anyhow::Result<()
     git(&repo)
         .args(["update-index", "--assume-unchanged", "keep"])
         .run();
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"new\n")?;
-            tree.upsert("z", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "add z",
-    )?;
+    let new_commit = commit_files(&repo, "add z", &[("z", Some("new\n"))])?;
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
 
     snapbox::assert_data_eq!(
         git(&repo).args(["ls-files", "-v", "keep"]).output()?.stdout,
@@ -1999,17 +1850,13 @@ fn checkout_refuses_to_replace_staged_content_below_a_file_the_worktree_already_
         .args(["ls-files", "--stage", "d/x"])
         .output()?
         .stdout;
-    let new_commit = build_commit(
+    let new_commit = commit_files(
         &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"file\n")?;
-            tree.upsert("d", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
         "add the file d the worktree already has",
+        &[("d", Some("file\n"))],
     )?;
 
-    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+    let err = safe_checkout_from_head(new_commit, &repo, Default::default())
         .expect_err("recording `d` in the index would drop the staged `d/x`");
 
     snapbox::assert_data_eq!(
@@ -2033,17 +1880,9 @@ fn a_file_the_worktree_already_changed_like_the_target_is_recorded() -> anyhow::
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let x = repo.workdir().expect("non-bare").join("x");
     std::fs::write(&x, "two\n")?;
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"two\n")?;
-            tree.upsert("x", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "change x like the worktree",
-    )?;
+    let new_commit = commit_files(&repo, "change x like the worktree", &[("x", Some("two\n"))])?;
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
 
     // The worktree already had the new commit's `x`, so nothing is left uncommitted.
     snapbox::assert_data_eq!(git_status(&repo)?, snapbox::str![""]);
@@ -2061,17 +1900,9 @@ fn staged_content_stays_where_the_worktree_already_has_the_target() -> anyhow::R
         .args(["ls-files", "--stage", "x"])
         .output()?
         .stdout;
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"two\n")?;
-            tree.upsert("x", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "change x like the worktree",
-    )?;
+    let new_commit = commit_files(&repo, "change x like the worktree", &[("x", Some("two\n"))])?;
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
 
     assert_eq!(
         git(&repo)
@@ -2089,17 +1920,9 @@ fn staged_content_stays_where_the_worktree_already_has_the_target() -> anyhow::R
 fn an_untracked_file_the_target_adds_identically_is_recorded() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     std::fs::write(repo.workdir().expect("non-bare").join("y"), "added\n")?;
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"added\n")?;
-            tree.upsert("y", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "add y like the worktree",
-    )?;
+    let new_commit = commit_files(&repo, "add y like the worktree", &[("y", Some("added\n"))])?;
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
 
     snapbox::assert_data_eq!(
         git_status(&repo)?,
@@ -2118,17 +1941,9 @@ fn checkout_writes_what_the_index_already_has() -> anyhow::Result<()> {
     std::fs::write(&x, "two\n")?;
     git(&repo).args(["add", "x"]).run();
     std::fs::write(&x, "one\n")?;
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"two\n")?;
-            tree.upsert("x", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "change x to what is staged",
-    )?;
+    let new_commit = commit_files(&repo, "change x to what is staged", &[("x", Some("two\n"))])?;
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
 
     // Like `git checkout`: the index already has the target's version, so nothing is lost.
     assert_eq!(std::fs::read_to_string(&x)?, "two\n");
@@ -2147,17 +1962,9 @@ fn checkout_refuses_to_replace_staged_content_with_a_directory_the_worktree_alre
     std::fs::create_dir(workdir.join("d"))?;
     std::fs::write(workdir.join("d/x"), "x\n")?;
     let head = repo.head_id()?.detach();
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"x\n")?;
-            tree.upsert("d/x", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "add d/x",
-    )?;
+    let new_commit = commit_files(&repo, "add d/x", &[("d/x", Some("x\n"))])?;
 
-    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+    let err = safe_checkout_from_head(new_commit, &repo, Default::default())
         .expect_err("recording `d/x` would drop the staged `d`, so like Git it refuses");
 
     snapbox::assert_data_eq!(
@@ -2209,18 +2016,11 @@ fn checkout_removes_the_empty_directory_of_a_submodule_the_target_deletes() -> a
     git(&repo).args(["commit", "-qm", "add sm"]).run();
     // An uninitialized submodule is an empty directory.
     std::fs::create_dir(workdir.join("sm"))?;
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            tree.remove("sm")?;
-            Ok(())
-        },
-        "remove sm",
-    )?;
+    let new_commit = commit_files(&repo, "remove sm", &[("sm", None)])?;
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
 
-    assert_eq!(repo.head_id()?, new_commit.id);
+    assert_eq!(repo.head_id()?, new_commit);
     assert!(
         !workdir.join("sm").exists(),
         "like Git, the empty directory of the removed submodule goes"
@@ -2276,17 +2076,9 @@ fn checkout_refuses_to_replace_staged_content_below_a_file() -> anyhow::Result<(
         .args(["ls-files", "--stage", "d/x"])
         .output()?
         .stdout;
-    let new_commit = build_commit(
-        &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"file\n")?;
-            tree.upsert("d", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
-        "add the file d",
-    )?;
+    let new_commit = commit_files(&repo, "add the file d", &[("d", Some("file\n"))])?;
 
-    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+    let err = safe_checkout_from_head(new_commit, &repo, Default::default())
         .expect_err("like `git checkout`, checkout refuses to lose the staged content");
 
     snapbox::assert_data_eq!(
@@ -2350,19 +2142,15 @@ fn staged_changes_the_worktree_also_has_are_merged_with_the_target() -> anyhow::
     let x = repo.workdir().expect("non-bare").join("x");
     std::fs::write(&x, "1\n2\n3\n4\n5\n6\n")?;
     git(&repo).args(["commit", "-qam", "lines"]).run();
-    let new_commit = build_commit(
+    let new_commit = commit_files(
         &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"1\n2\n3\n4\n5\nsix\n")?;
-            tree.upsert("x", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
         "change the last line",
+        &[("x", Some("1\n2\n3\n4\n5\nsix\n"))],
     )?;
     std::fs::write(&x, "one\n2\n3\n4\n5\n6\n")?;
     git(&repo).args(["add", "x"]).run();
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
 
     // The worktree has the staged change, so checkout merges it like any uncommitted change.
     assert_eq!(std::fs::read_to_string(&x)?, "one\n2\n3\n4\n5\nsix\n");
@@ -2385,14 +2173,10 @@ fn checkout_refuses_while_the_index_has_an_unresolved_conflict() -> anyhow::Resu
         "UU a.secret\n",
         "a conflict that was never marked as resolved"
     );
-    let new_commit = build_commit(
+    let new_commit = commit_files(
         &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"SECRET\0yvar1\npunatrq\nyvar3\n")?;
-            tree.upsert("a.secret", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
         "change the conflicted file",
+        &[("a.secret", Some("SECRET\0yvar1\npunatrq\nyvar3\n"))],
     )?;
 
     let head = repo.head_id()?.detach();
@@ -2401,7 +2185,7 @@ fn checkout_refuses_while_the_index_has_an_unresolved_conflict() -> anyhow::Resu
         .output()?
         .stdout;
 
-    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+    let err = safe_checkout_from_head(new_commit, &repo, Default::default())
         .expect_err("like `git checkout`, checkout refuses until the conflict is resolved");
 
     snapbox::assert_data_eq!(
@@ -2428,18 +2212,14 @@ fn conflicting_untracked_binary_file_is_recorded_as_conflict() -> anyhow::Result
     let (repo, _tmp) = writable_scenario("required-filter-binary-git-form");
     let workdir = repo.workdir().unwrap().to_owned();
     std::fs::write(workdir.join("blob.bin"), b"ours\0")?;
-    let new_commit = build_commit(
+    let new_commit = commit_files(
         &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"theirs\0")?;
-            tree.upsert("blob.bin", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
         "add a binary file that the worktree also has, untracked",
+        &[("blob.bin", Some("theirs\0"))],
     )?;
 
     let out = safe_checkout_from_head(
-        new_commit.id,
+        new_commit,
         &repo,
         checkout::Options {
             allow_uncommitted_changes_to_conflict_with_new_head: true,
@@ -2462,18 +2242,16 @@ fn filtered_files_are_added_and_deleted_while_worktree_edits_survive() -> anyhow
     let workdir = repo.workdir().unwrap().to_owned();
     std::fs::write(workdir.join("b.secret"), "b edited in worktree\n")?;
 
-    let new_commit = build_commit(
+    let new_commit = commit_files(
         &repo,
-        |tree| {
-            tree.remove("a.secret")?;
-            let blob_id = repo.write_blob(b"SECRET\0arj\n")?;
-            tree.upsert("dir/new.secret", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
         "delete and add filtered files",
+        &[
+            ("a.secret", None),
+            ("dir/new.secret", Some("SECRET\0arj\n")),
+        ],
     )?;
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
 
     assert!(
         !workdir.join("a.secret").exists(),
@@ -2500,16 +2278,12 @@ fn filtered_files_are_added_and_deleted_while_worktree_edits_survive() -> anyhow
 #[test]
 fn status_does_not_clean_filtered_files_written_by_checkout() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("required-filter-binary-git-form");
-    let new_commit = build_commit(
+    let new_commit = commit_files(
         &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"SECRET\0yvar1\npunatrq\nyvar3\n")?;
-            tree.upsert("a.secret", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
         "change the filtered file",
+        &[("a.secret", Some("SECRET\0yvar1\npunatrq\nyvar3\n"))],
     )?;
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
 
     // Files written in the same second as the index are racily clean and always re-hashed, as in Git.
     // Age them relative to the index so status relies on the recorded stat, as it does a moment later.
@@ -2529,8 +2303,23 @@ fn status_does_not_clean_filtered_files_written_by_checkout() -> anyhow::Result<
     Ok(())
 }
 
-/// Everything a checkout may change: HEAD, the raw index file, and every worktree path with its
-/// content and permissions, without following symlinks.
+/// Write `files` as `(path, content)` into the worktree of `repo` and commit them with Git.
+fn commit_in_worktree(repo: &gix::Repository, files: &[(&str, &str)]) -> anyhow::Result<()> {
+    let workdir = repo.workdir().expect("non-bare");
+    for (path, content) in files {
+        let path = workdir.join(path);
+        std::fs::create_dir_all(path.parent().expect("in the worktree"))?;
+        std::fs::write(path, content)?;
+    }
+    let paths: Vec<_> = files.iter().map(|(path, _)| *path).collect();
+    git(repo).arg("add").args(&paths).run();
+    git(repo)
+        .args(["commit", "-qm", &format!("add {}", paths.join(", "))])
+        .run();
+    Ok(())
+}
+
+/// Everything a checkout may change: HEAD, the raw index file, and the worktree's [`disk()`].
 #[derive(Debug, PartialEq)]
 struct RepoState {
     head: gix::ObjectId,
@@ -2539,6 +2328,16 @@ struct RepoState {
 }
 
 fn repo_state(repo: &gix::Repository) -> anyhow::Result<RepoState> {
+    Ok(RepoState {
+        head: repo.head_id()?.detach(),
+        index: std::fs::read(repo.index_path())?,
+        disk: disk(repo)?,
+    })
+}
+
+/// Every path below the worktree root except `.git`, without following symlinks: directories end
+/// in `/`, symlinks show their target, and files their content and whether they're executable.
+fn disk(repo: &gix::Repository) -> anyhow::Result<Vec<String>> {
     fn walk(
         dir: &std::path::Path,
         root: &std::path::Path,
@@ -2561,54 +2360,45 @@ fn repo_state(repo: &gix::Repository) -> anyhow::Result<RepoState> {
                 walk(&path, root, out)?;
             } else {
                 let content = std::fs::read(&path)?;
-                out.push(format!(
-                    "{rela} = {:?} {:?}",
-                    content.as_bstr(),
-                    md.permissions()
-                ));
+                let executable = if gix::fs::is_executable(&md) {
+                    " (executable)"
+                } else {
+                    ""
+                };
+                out.push(format!("{rela} = {:?}{executable}", content.as_bstr()));
             }
         }
         Ok(())
     }
     let root = repo.workdir().expect("non-bare");
-    let mut disk = Vec::new();
-    walk(root, root, &mut disk)?;
-    disk.sort();
-    Ok(RepoState {
-        head: repo.head_id()?.detach(),
-        index: std::fs::read(repo.index_path())?,
-        disk,
-    })
+    let mut out = Vec::new();
+    walk(root, root, &mut out)?;
+    out.sort();
+    Ok(out)
 }
 
 #[test]
 fn checkout_changes_nothing_when_a_required_smudge_filter_fails() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("required-filter-binary-git-form");
     let workdir = repo.workdir().unwrap().to_owned();
-    std::fs::write(workdir.join("plain"), "one\ntwo\nthree\n")?;
-    std::fs::write(workdir.join("d"), "d\n")?;
-    git(&repo).args(["add", "plain", "d"]).run();
-    git(&repo).args(["commit", "-qm", "plain and d"]).run();
+    commit_in_worktree(&repo, &[("plain", "one\ntwo\nthree\n"), ("d", "d\n")])?;
     // An uncommitted edit the checkout merges with the target's change to the same file.
     std::fs::write(workdir.join("plain"), "ONE\ntwo\nthree\n")?;
-    let new_commit = build_commit(
+    let new_commit = commit_files(
         &repo,
-        |tree| {
-            let secret = repo.write_blob(b"SECRET\0yvar1\npunatrq\nyvar3\n")?;
-            tree.upsert("a.secret", EntryKind::Blob, secret)?;
-            let plain = repo.write_blob(b"one\ntwo\nTHREE\n")?;
-            tree.upsert("plain", EntryKind::Blob, plain)?;
-            tree.remove("d")?;
-            Ok(())
-        },
         "change a filtered file and a plain file, delete d",
+        &[
+            ("a.secret", Some("SECRET\0yvar1\npunatrq\nyvar3\n")),
+            ("plain", Some("one\ntwo\nTHREE\n")),
+            ("d", None),
+        ],
     )?;
     git(&repo)
         .args(["config", "filter.secret.smudge", "false"])
         .run();
     let before = repo_state(&repo)?;
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())
+    safe_checkout_from_head(new_commit, &repo, Default::default())
         .expect_err("the required smudge filter fails");
 
     assert_eq!(
@@ -2622,19 +2412,14 @@ fn checkout_changes_nothing_when_a_required_smudge_filter_fails() -> anyhow::Res
 #[test]
 fn checkout_changes_nothing_when_a_filter_never_delivers_a_delayed_file() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("process-filter-that-delays");
-    let new_commit = build_commit(
+    let new_commit = commit_files(
         &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"v2\n")?;
-            tree.upsert("a.slow", EntryKind::Blob, blob_id)?;
-            tree.upsert("never.slow", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
         "change the file that the filter never delivers",
+        &[("a.slow", Some("v2\n")), ("never.slow", Some("v2\n"))],
     )?;
     let before = repo_state(&repo)?;
 
-    safe_checkout_from_head(new_commit.id, &repo, Default::default())
+    safe_checkout_from_head(new_commit, &repo, Default::default())
         .expect_err("a file that was never written must not be recorded as checked out");
 
     assert_eq!(
@@ -2652,20 +2437,15 @@ fn checkout_undoes_the_commit_when_placing_a_file_fails() -> anyhow::Result<()> 
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let workdir = repo.workdir().unwrap().to_owned();
     std::fs::create_dir(workdir.join("ro"))?;
-    std::fs::write(workdir.join("ro/f"), "f\n")?;
-    std::fs::write(workdir.join("a"), "one\n")?;
-    git(&repo).args(["add", "ro/f", "a"]).run();
-    git(&repo).args(["commit", "-qm", "ro/f and a"]).run();
-    let new_commit = build_commit(
+    commit_in_worktree(&repo, &[("ro/f", "f\n"), ("a", "one\n")])?;
+    let new_commit = commit_files(
         &repo,
-        |tree| {
-            let blob_id = repo.write_blob(b"two\n")?;
-            tree.upsert("a", EntryKind::Blob, blob_id)?;
-            tree.upsert("new/x", EntryKind::Blob, blob_id)?;
-            tree.upsert("ro/new", EntryKind::Blob, blob_id)?;
-            Ok(())
-        },
         "change a, add new/x and ro/new",
+        &[
+            ("a", Some("two\n")),
+            ("new/x", Some("two\n")),
+            ("ro/new", Some("two\n")),
+        ],
     )?;
     std::fs::set_permissions(workdir.join("ro"), std::fs::Permissions::from_mode(0o555))?;
     if std::fs::write(workdir.join("ro/probe"), "").is_ok() {
@@ -2674,7 +2454,7 @@ fn checkout_undoes_the_commit_when_placing_a_file_fails() -> anyhow::Result<()> 
     }
     let before = repo_state(&repo)?;
 
-    let out = safe_checkout_from_head(new_commit.id, &repo, Default::default());
+    let out = safe_checkout_from_head(new_commit, &repo, Default::default());
     let after = repo_state(&repo)?;
     std::fs::set_permissions(workdir.join("ro"), std::fs::Permissions::from_mode(0o755))?;
 
@@ -2691,10 +2471,7 @@ fn checkout_undoes_the_commit_when_placing_a_file_fails() -> anyhow::Result<()> 
 fn checkout_refuses_an_edit_made_while_filters_run() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let workdir = repo.workdir().unwrap().to_owned();
-    std::fs::write(workdir.join("a"), "one\n")?;
-    std::fs::write(workdir.join("z.f"), "z\n")?;
-    git(&repo).args(["add", "a", "z.f"]).run();
-    git(&repo).args(["commit", "-qm", "a and z.f"]).run();
+    commit_in_worktree(&repo, &[("a", "one\n"), ("z.f", "z\n")])?;
     // Smudging `z.f` edits `a`, like an editor saving `a` while an LFS download runs.
     std::fs::write(
         repo.git_dir().join("info/attributes"),
@@ -2707,21 +2484,15 @@ fn checkout_refuses_an_edit_made_while_filters_run() -> anyhow::Result<()> {
             r#"sh -c 'printf "edit\n" >> "$GIT_DIR/../a"; cat'"#,
         ])
         .run();
-    let new_commit = build_commit(
+    let new_commit = commit_files(
         &repo,
-        |tree| {
-            let a = repo.write_blob(b"two\n")?;
-            tree.upsert("a", EntryKind::Blob, a)?;
-            let z = repo.write_blob(b"z changed\n")?;
-            tree.upsert("z.f", EntryKind::Blob, z)?;
-            Ok(())
-        },
         "change a and z.f",
+        &[("a", Some("two\n")), ("z.f", Some("z changed\n"))],
     )?;
     let head = repo.head_id()?.detach();
     let index = std::fs::read(repo.index_path())?;
 
-    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+    let err = safe_checkout_from_head(new_commit, &repo, Default::default())
         .expect_err("the edit to `a` happened while filters ran and must not be overwritten");
 
     snapbox::assert_data_eq!(
@@ -3157,6 +2928,8 @@ mod symlinks {
     use but_core::worktree::safe_checkout_from_head;
     use but_testsupport::{git, git_status, invoke_bash_at_dir, open_repo};
 
+    use super::disk;
+
     #[test]
     fn ignored_symlinked_dir_where_target_adds_a_file() -> anyhow::Result<()> {
         checkout_matches_git("ignored-symlinked-dir-where-target-adds-a-file")
@@ -3279,41 +3052,6 @@ mod symlinks {
         let script = include_str!("../../fixtures/scenario/symlinks-in-the-way.sh");
         invoke_bash_at_dir(&format!("set -- {scenario}\n{script}"), tmp.path());
         Ok((open_repo(tmp.path())?, tmp))
-    }
-
-    /// Every path below the worktree root except `.git`, without following symlinks.
-    fn disk(repo: &gix::Repository) -> anyhow::Result<Vec<String>> {
-        fn walk(
-            dir: &std::path::Path,
-            root: &std::path::Path,
-            out: &mut Vec<String>,
-        ) -> anyhow::Result<()> {
-            for entry in std::fs::read_dir(dir)? {
-                let path = entry?.path();
-                let rela = path.strip_prefix(root)?.display().to_string();
-                if rela == ".git" {
-                    continue;
-                }
-                let md = path.symlink_metadata()?;
-                if md.is_symlink() {
-                    out.push(format!(
-                        "{rela} -> {}",
-                        std::fs::read_link(&path)?.display()
-                    ));
-                } else if md.is_dir() {
-                    out.push(format!("{rela}/"));
-                    walk(&path, root, out)?;
-                } else {
-                    out.push(format!("{rela} = {:?}", std::fs::read_to_string(&path)?));
-                }
-            }
-            Ok(())
-        }
-        let root = repo.workdir().expect("non-bare");
-        let mut out = Vec::new();
-        walk(root, root, &mut out)?;
-        out.sort();
-        Ok(out)
     }
 }
 
