@@ -194,7 +194,7 @@ fn index_with_changes_applied(
     if repo.index_path().exists() {
         std::fs::copy(repo.index_path(), &copy)?;
     }
-    let mut index = git2::Index::open(&copy)?;
+    let mut index = git2::Index::open_ext(&copy, git2_repo.object_format())?;
     git2_repo.set_index(&mut index)?;
     let mut opts = git2::DiffOptions::new();
     opts.context_lines(1);
