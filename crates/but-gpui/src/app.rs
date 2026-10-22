@@ -592,12 +592,18 @@ impl AppView {
             (_, Some(worktree)) => Selection::Worktree(project, worktree.name.clone()),
             (_, None) => Selection::Uncommitted(project),
         };
-        let shown = selection == checkout;
+        if selection == checkout {
+            return self
+                .detail
+                .update(cx, |detail, cx| detail.commit_or_write(window, cx));
+        }
         self.store
             .update(cx, |store, cx| store.select(Some(checkout), cx));
-        self.detail.update(cx, |detail, cx| match shown {
-            true => detail.commit_or_write(window, cx),
-            false => detail.focus_message(window, cx),
+        // Once the detail has taken the new selection's checks, which it does as this update
+        // ends: opened before, the composer would be of the checkout left, and close.
+        let detail = self.detail.clone();
+        window.defer(cx, move |window, cx| {
+            detail.update(cx, |detail, cx| detail.focus_message(window, cx))
         });
     }
 
