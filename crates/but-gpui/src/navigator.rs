@@ -1780,7 +1780,7 @@ impl Navigator {
                 .child(step)
                 .child(icon(glyph).text_color(style.meta(glyph_color)))
                 .child(
-                    branch_name(name, review, &style)
+                    branch_name(name, review, unread, &style)
                         .id(ElementId::Name(format!("name-{id}-{ref_name}").into()))
                         .flex_1()
                         .when_some(tip, |el, tip| el.tooltip(Tooltip::text(tip))),
@@ -2364,8 +2364,15 @@ fn unpushed<'a>(branches: impl Iterator<Item = &'a Branch>) -> usize {
 /// A branch as the navigator names it, in semibold as but.dev's: its pull request's title once
 /// the forge cache has one, toned by the request's state, or else `name`. Drawn from what the
 /// last load read, so no row waits on the network, and offline the cached title stays.
-fn branch_name(name: &str, review: Option<(&Review, ReviewState)>, style: &RowStyle) -> Div {
+fn branch_name(
+    name: &str,
+    review: Option<(&Review, ReviewState)>,
+    unread: bool,
+    style: &RowStyle,
+) -> Div {
     let theme = style.theme;
+    // Read, it's as quiet as a read commit, unless its pull request's state quiets it more.
+    let quiet = !unread && !style.solid;
     let el = div()
         .min_w(px(0.))
         .truncate()
@@ -2375,10 +2382,13 @@ fn branch_name(name: &str, review: Option<(&Review, ReviewState)>, style: &RowSt
             .text_color(match style.solid {
                 true if state == ReviewState::Open => style.meta(theme.text_1),
                 true => style.muted(),
+                false if quiet && state == ReviewState::Open => style.muted(),
                 false => review::title_color(state, theme),
             })
             .child(review.title.clone()),
-        None => el.child(name.to_owned()),
+        None => el
+            .when(quiet, |el| el.text_color(style.muted()))
+            .child(name.to_owned()),
     }
 }
 
