@@ -88,7 +88,6 @@ impl Store {
         let prefs = &mut self.prefs;
         let sets = [
             &mut prefs.run_hooks,
-            &mut prefs.land_directly,
             &mut prefs.folded_projects,
             &mut prefs.shown_mesh,
             &mut prefs.shown_inactive,
@@ -101,10 +100,6 @@ impl Store {
 
     pub fn runs_hooks(&self, project: &super::ProjectId) -> bool {
         self.prefs.run_hooks.contains(project.as_ref())
-    }
-
-    pub fn lands_directly(&self, project: &super::ProjectId) -> bool {
-        self.prefs.land_directly.contains(project.as_ref())
     }
 
     pub fn project_icon(&self, project: &super::ProjectId) -> Option<&str> {
@@ -340,8 +335,6 @@ pub struct Prefs {
     /// Projects, by id, whose Git hooks run around commits and pushes. Off unless picked,
     /// as in the desktop app.
     pub run_hooks: HashSet<String>,
-    /// Projects, by id, whose branches offer Land in place of Create pull request.
-    pub land_directly: HashSet<String>,
     /// The icon each project shows before its name in the navigator, by id, as but.dev
     /// stores a repository's: an emoji, or `glyph:<colour>`. The mesh's, once read, wins.
     pub project_icons: HashMap<String, String>,

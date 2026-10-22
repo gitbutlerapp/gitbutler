@@ -163,9 +163,9 @@ impl SettingsView {
                 }))
             };
         let store = self.store.read(cx);
-        let (runs_hooks, lands) = (store.runs_hooks(project), store.lands_directly(project));
-        let hooks = project_switch("run-hooks", runs_hooks, |prefs| &mut prefs.run_hooks);
-        let land = project_switch("land-directly", lands, |prefs| &mut prefs.land_directly);
+        let hooks = project_switch("run-hooks", store.runs_hooks(project), |prefs| {
+            &mut prefs.run_hooks
+        });
         let workspace = self.store.read(cx).workspace(project);
         // Its remote counterpart once there is one, else the branch picked, as one never
         // pushed or of a repository with no remote.
@@ -309,12 +309,6 @@ impl SettingsView {
                  in the main checkout. A linked worktree's commits don't run them.",
             hooks,
         );
-        let land = Row::new(
-            "Land branches directly",
-            "A branch offers Land in place of Create pull request, putting it straight \
-                 onto the target and pushing that, with no pull request. Works without a forge.",
-            land,
-        );
         let remove = Row::new(
             "Remove project",
             "Takes it out of GitButler. The repository stays on disk as it is.",
@@ -329,7 +323,7 @@ impl SettingsView {
                 Card::new(None, vec![remove]),
             ],
             _ => vec![
-                Card::new(None, vec![force, hooks, land]),
+                Card::new(None, vec![force, hooks]),
                 Card::new(Some("Signing"), vec![sign]),
             ],
         }
