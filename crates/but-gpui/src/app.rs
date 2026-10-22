@@ -508,11 +508,14 @@ impl AppView {
                     || detail.close_open_filter(window, cx)
                     || detail.close_opened_branch(cx)
             });
-            match handled {
-                true => cx.notify(),
-                false => self.focus_main(window, cx),
+            if handled {
+                return cx.notify();
             }
-            return;
+            // What's cut or picked goes next, below, as the status bar's esc says.
+            let store = self.store.read(cx);
+            if store.cut.is_none() && store.picked.is_empty() {
+                return self.focus_main(window, cx);
+            }
         }
         // With nothing cut or picked, the branch opened on the Branches page goes back to its
         // table.

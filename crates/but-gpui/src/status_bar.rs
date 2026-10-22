@@ -21,6 +21,10 @@ impl AppView {
         let theme = Theme::get(cx).clone();
         let store = self.store.read(cx);
         let detail = self.detail.read(cx);
+        // A text field has focus, where keys type rather than act.
+        let typing = window.focused(cx).is_some_and(|focused| {
+            !detail.owns_focus(&focused) && focused != self.focus_handle(cx)
+        });
         let working = store.busy().map(|(project, busy, took)| {
             // Another project's says which, as its failure card would.
             let whose = (store.project(project))
@@ -57,8 +61,13 @@ impl AppView {
                         .child(div().text_color(theme.pop).child(cut.verb()))
                         .child(div().truncate().child(cut.describe())),
                 )
-                .children(shortcut(&PasteHere, cx).map(|keys| hint(&keys, "paste here", &theme)))
-                .child(hint("esc", "cancel", &theme))
+                // Not while typing, where ⌘V pastes text and esc leaves the field.
+                .when(!typing, |el| {
+                    el.children(
+                        shortcut(&PasteHere, cx).map(|keys| hint(&keys, "paste here", &theme)),
+                    )
+                    .child(hint("esc", "cancel", &theme))
+                })
                 .into_any_element()
         } else if let Some((n, what, how)) = [
             // Only the navigator's highlight shows them otherwise.
@@ -135,10 +144,6 @@ impl AppView {
         };
 
         let detail_focused = detail.is_focused(window, cx);
-        // A text field has focus, where keys type rather than act.
-        let typing = window.focused(cx).is_some_and(|focused| {
-            !detail.owns_focus(&focused) && focused != self.focus_handle(cx)
-        });
         // A linked worktree's changes commit and discard as the main checkout's do.
         let uncommitted = matches!(
             store.selection,
