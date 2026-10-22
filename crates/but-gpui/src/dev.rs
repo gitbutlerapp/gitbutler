@@ -27,6 +27,9 @@
 //! perf next key down      # time an input until loads settle, plus one frame, and the
 //!                         # longest the UI thread was busy meanwhile (`stall`)
 //! perf startup            # time from launch until the first loads settle
+//! hold nav down 40 33      # hold a key: press it 40 times, 33ms apart as a held key repeats,
+//!                         # each drawn before the next; prints how long the presses took to
+//!                         # draw and the longest stall
 //! quit
 //! ```
 
@@ -136,6 +139,43 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                     }
                     "quit" => {
                         cx.update(|cx| cx.quit());
+                        Ok(())
+                    }
+                    "hold" => {
+                        let parts: Vec<&str> = rest.split_whitespace().collect();
+                        let [label, key, times, every] = parts[..] else {
+                            anyhow::bail!("hold takes a label, a key, how many times and every how many ms");
+                        };
+                        let (times, every): (usize, u64) = (times.parse()?, every.parse()?);
+                        anyhow::ensure!(times > 0, "hold presses at least once");
+                        *STALL.lock().expect("not poisoned") =
+                            (Some(Instant::now()), Duration::ZERO);
+                        let mut took = Vec::with_capacity(times);
+                        for _ in 0..times {
+                            let start = Instant::now();
+                            cx.update_window(window, |_, window, cx| {
+                                dispatch("key", key, window, cx)
+                            })??;
+                            frames(window, cx).await?;
+                            took.push(start.elapsed());
+                            // The next press comes on time, or right away when this one drew late.
+                            let left = Duration::from_millis(every).saturating_sub(start.elapsed());
+                            cx.background_executor().timer(left).await;
+                        }
+                        let stall = STALL.lock().expect("not poisoned").1;
+                        let each: Vec<String> = (took.iter())
+                            .map(|took| format!("{:.0}", took.as_secs_f64() * 1e3))
+                            .collect();
+                        took.sort();
+                        let ms = |at: usize| took[at].as_secs_f64() * 1e3;
+                        println!(
+                            "HOLD {label} n={times} median={:.1}ms p90={:.1}ms max={:.1}ms stall={:.1}ms each={}",
+                            ms(times / 2),
+                            ms(times * 9 / 10),
+                            ms(times - 1),
+                            stall.as_secs_f64() * 1e3,
+                            each.join(","),
+                        );
                         Ok(())
                     }
                     "perf" => {
