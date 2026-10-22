@@ -213,7 +213,7 @@ fn is_symlinked_parent_error(err: &std::io::Error) -> bool {
 /// Fail if the index has content the user staged, which differs from `head` and isn't in the
 /// worktree (`baseline`) either, at a path whose index entry the update would replace: a path that
 /// is written with other content, `deleted`, recorded as one of the unresolved `conflicts`, turned
-/// into a directory, or below a file that is written.
+/// into a directory by a written entry, or below a file that is written.
 fn refuse_to_lose_staged_content(
     repo: &gix::Repository,
     head: &gix::index::State,
@@ -247,7 +247,7 @@ fn refuse_to_lose_staged_content(
         below.push(b'/');
         let becomes_directory = target
             .prefixed_entries(below.as_ref())
-            .is_some_and(|entries| !entries.is_empty());
+            .is_some_and(|entries| entries.iter().any(|e| written(e.path(target)).is_some()));
         let below_written_file = path
             .iter()
             .enumerate()
@@ -348,8 +348,10 @@ fn unlink_hard_linked_files(
 
 /// Fail if a file that is about to be written or `deleted` changed after the worktree was
 /// snapshotted into `baseline`, so the checkout doesn't replace an edit it never saw.
-/// Files are hashed through the worktree filters, like the snapshot. A missing file loses nothing,
-/// and paths `baseline` doesn't have, like ignored files, are left to be replaced, as with Git.
+/// Like Git, a change of type or executable bit counts, and files are hashed through the worktree
+/// filters, like the snapshot. A missing file loses nothing. Of the paths `baseline` doesn't have,
+/// ignored files are left to be replaced, as with Git, while any other file appeared after the
+/// snapshot.
 fn refuse_to_overwrite_newer_edits(
     repo: &gix::Repository,
     path_check: &mut gix::status::plumbing::SymlinkCheck,
@@ -358,6 +360,12 @@ fn refuse_to_overwrite_newer_edits(
     deleted: &BTreeSet<BString>,
 ) -> anyhow::Result<()> {
     let (mut pipeline, index) = repo.filter_pipeline(None)?;
+    let mut excludes = repo.excludes(
+        &index,
+        None,
+        gix::worktree::stack::state::ignore::Source::WorktreeThenIdMappingIfNotSkipped,
+    )?;
+    let fs = repo.filesystem_options()?;
     let current_index = repo.index_or_empty()?;
     let stat_options = repo
         .checkout_options(gix::worktree::stack::state::attributes::Source::IdMapping)?
@@ -374,18 +382,33 @@ fn refuse_to_overwrite_newer_edits(
         .map(|entry| entry.path(target));
     let mut changed = Vec::new();
     for rela_path in written.chain(deleted.iter().map(|path| path.as_ref())) {
-        let Some(expected) = baseline.entry_by_path(rela_path) else {
-            continue;
-        };
-        if expected.mode == gix::index::entry::Mode::COMMIT {
-            continue;
-        }
         let Ok(path) = path_check.verified_path(rela_path) else {
             continue;
         };
         let Ok(md) = gix::index::fs::Metadata::from_path_no_follow(path) else {
             continue;
         };
+        let Some(expected) = baseline.entry_by_path(rela_path) else {
+            let created_after_snapshot = !md.is_dir()
+                && !excludes
+                    .at_entry(rela_path, Some(gix::index::entry::Mode::FILE))?
+                    .is_excluded();
+            if created_after_snapshot {
+                changed.push(format!("{rela_path:?}"));
+            }
+            continue;
+        };
+        if expected.mode == gix::index::entry::Mode::COMMIT {
+            continue;
+        }
+        if expected
+            .mode
+            .change_to_match_fs(&md, fs.symlink, fs.executable_bit)
+            .is_some()
+        {
+            changed.push(format!("{rela_path:?}"));
+            continue;
+        }
         let unchanged_since_indexed = current_index.entry_by_path(rela_path).is_some_and(|entry| {
             entry.id == expected.id
                 && !entry.stat.is_racy(current_index.timestamp(), stat_options)

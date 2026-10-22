@@ -1424,6 +1424,167 @@ fn checkout_refuses_to_overwrite_a_file_reverted_after_the_snapshot() -> anyhow:
     Ok(())
 }
 
+/// Commit `a` with `a_content` and `z.f`, and make cleaning the modified `z.f` run `meddle`
+/// from the worktree root while the snapshot is taken, after it read everything else.
+#[cfg(unix)]
+fn repo_with_meddling_filter(
+    a_content: &str,
+    meddle: &str,
+) -> anyhow::Result<(
+    gix::Repository,
+    but_testsupport::gix_testtools::tempfile::TempDir,
+)> {
+    let (repo, tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let workdir = repo.workdir().expect("non-bare");
+    std::fs::write(workdir.join("a"), a_content)?;
+    std::fs::write(workdir.join("z.f"), "z\n")?;
+    git(&repo).args(["add", "a", "z.f"]).run();
+    git(&repo).args(["commit", "-qm", "a and z.f"]).run();
+    std::fs::write(
+        repo.git_dir().join("info/attributes"),
+        "*.f filter=meddle\n",
+    )?;
+    // The snapshot cleans `z.f` to hash it after it listed the worktree's files.
+    std::fs::write(
+        repo.git_dir().join("meddle.sh"),
+        format!("cd \"$GIT_DIR/..\"\n{meddle}\ncat\n"),
+    )?;
+    git(&repo)
+        .args([
+            "config",
+            "filter.meddle.clean",
+            r#"sh "$GIT_DIR/meddle.sh""#,
+        ])
+        .run();
+    std::fs::write(workdir.join("z.f"), "z changed\n")?;
+    Ok((repo, tmp))
+}
+
+#[test]
+#[cfg(unix)]
+fn checkout_refuses_to_overwrite_a_file_created_after_the_snapshot() -> anyhow::Result<()> {
+    let (repo, _tmp) = repo_with_meddling_filter("one\n", "printf 'mine\\n' > n")?;
+    let head = repo.head_id()?.detach();
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"theirs\n")?;
+            tree.upsert("n", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "add n",
+    )?;
+
+    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+        .expect_err("like Git, an untracked file the target would replace is kept");
+
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["Uncommitted files would be overwritten by checkout: \"n\""]
+    );
+    assert_eq!(repo.head_id()?.detach(), head, "HEAD stays");
+    assert_eq!(
+        std::fs::read_to_string(repo.workdir_path("n").unwrap())?,
+        "mine\n"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn checkout_refuses_to_overwrite_a_file_turned_symlink_after_the_snapshot() -> anyhow::Result<()> {
+    // The link's target text is the file's content, so both hash to the same blob.
+    let (repo, _tmp) = repo_with_meddling_filter("one", "rm -f a && ln -s one a")?;
+    let head = repo.head_id()?.detach();
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"two")?;
+            tree.upsert("a", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "change a",
+    )?;
+
+    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+        .expect_err("like Git, a file replaced by a symlink is a local change");
+
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["Uncommitted files would be overwritten by checkout: \"a\""]
+    );
+    assert_eq!(repo.head_id()?.detach(), head, "HEAD stays");
+    assert!(repo.workdir_path("a").unwrap().is_symlink());
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn checkout_refuses_to_delete_a_file_made_executable_after_the_snapshot() -> anyhow::Result<()> {
+    use std::os::unix::fs::PermissionsExt as _;
+    let (repo, _tmp) = repo_with_meddling_filter("one\n", "chmod +x a")?;
+    let head = repo.head_id()?.detach();
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            tree.remove("a")?;
+            Ok(())
+        },
+        "delete a",
+    )?;
+
+    let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
+        .expect_err("like Git, a mode change is a local change");
+
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["Uncommitted files would be overwritten by checkout: \"a\""]
+    );
+    assert_eq!(repo.head_id()?.detach(), head, "HEAD stays");
+    let mode = std::fs::metadata(repo.workdir_path("a").unwrap())?
+        .permissions()
+        .mode();
+    assert_ne!(mode & 0o111, 0, "the file stays executable");
+    Ok(())
+}
+
+#[test]
+fn checkout_keeps_a_staged_file_replaced_by_an_untracked_directory_like_git() -> anyhow::Result<()>
+{
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let workdir = repo.workdir().expect("non-bare");
+    std::fs::write(workdir.join("z"), "z\n")?;
+    git(&repo).args(["add", "z"]).run();
+    git(&repo).args(["commit", "-qm", "z"]).run();
+    std::fs::write(workdir.join("d"), "saved\n")?;
+    git(&repo).args(["add", "d"]).run();
+    std::fs::remove_file(workdir.join("d"))?;
+    std::fs::create_dir(workdir.join("d"))?;
+    std::fs::write(workdir.join("d/x"), "x\n")?;
+    let staged = repo.index()?.entry_by_path("d".into()).expect("staged").id;
+    let new_commit = build_commit(
+        &repo,
+        |tree| {
+            let blob_id = repo.write_blob(b"z changed\n")?;
+            tree.upsert("z", EntryKind::Blob, blob_id)?;
+            Ok(())
+        },
+        "change z",
+    )?;
+
+    safe_checkout_from_head(new_commit.id, &repo, Default::default())?;
+
+    assert_eq!(repo.head_id()?, new_commit.id);
+    assert_eq!(
+        repo.open_index()?.entry_by_path("d".into()).map(|e| e.id),
+        Some(staged),
+        "like Git, the staged `d` stays as the checkout doesn't touch it"
+    );
+    assert_eq!(std::fs::read_to_string(workdir.join("d/x"))?, "x\n");
+    assert_eq!(std::fs::read_to_string(workdir.join("z"))?, "z changed\n");
+    Ok(())
+}
+
 /// Give `rela_path` the modification time `mtime` and record its stat in the index, like `git add`.
 /// An `mtime` before the index is written makes the entry trustworthy by stat alone; a later one makes it racy.
 fn record_index_stat_with_mtime(
