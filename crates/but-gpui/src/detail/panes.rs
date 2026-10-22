@@ -393,6 +393,13 @@ impl Detail {
                 self.editing_actions(project, cx),
                 theme,
             )
+        } else if !self.composing && worktree.is_none() && workspace.tree.is_none() {
+            // With nothing to start a branch from, the first commit is Git's to make.
+            footer(
+                "No commits yet: make the first one with Git",
+                None::<AnyElement>,
+                theme,
+            )
         } else if !self.composing {
             let target = self.effective_target(project, cx);
             let target = match (target.as_deref(), worktree) {
