@@ -244,7 +244,8 @@ impl TextInput {
         cx.notify();
     }
 
-    /// Show the caret and blink it while the field has focus.
+    /// Show the caret and blink it while the field has focus in the window in front, which
+    /// redraws it twice a second.
     fn restart_blink(&mut self, window: &Window, cx: &mut Context<Self>) {
         self.cursor_visible = true;
         self.blink = cx.spawn_in(window, async move |this, cx| {
@@ -252,14 +253,15 @@ impl TextInput {
                 cx.background_executor()
                     .timer(Duration::from_millis(530))
                     .await;
-                let focused = this.update_in(cx, |this, window, cx| {
-                    let focused = this.focus_handle.is_focused(window);
-                    // Leave the caret on for when focus comes back.
-                    this.cursor_visible = !focused || !this.cursor_visible;
+                let blinking = this.update_in(cx, |this, window, cx| {
+                    let blinking =
+                        this.focus_handle.is_focused(window) && window.is_window_active();
+                    // Leave the caret on for when focus comes back, or the next key or click.
+                    this.cursor_visible = !blinking || !this.cursor_visible;
                     cx.notify();
-                    focused
+                    blinking
                 });
-                if !matches!(focused, Ok(true)) {
+                if !matches!(blinking, Ok(true)) {
                     break;
                 }
             }
