@@ -7,12 +7,13 @@ use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, MouseButton, MouseDownEvent, Pixels, Point, SharedString,
-    Window, div, prelude::*, px, relative,
+    Window, div, prelude::*, px,
 };
 
 use super::Detail;
 use super::panes::{
-    Crumb, CrumbTo, list_empty, measured, meta_item, meta_row, page_title, side_list, title_text,
+    Crumb, CrumbTo, list_empty, measured, meta_item, meta_row, overview_box, page_title,
+    person_row, side_list, title_text,
 };
 use super::upstream::{DayGesture, DayPick, activity_strip, commit_author};
 
@@ -26,12 +27,11 @@ use crate::state::{BranchStatus, Cut, Overlay, Picks, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::illustration::Illustration;
-use crate::ui::person::{author_avatar, byline, byline_avatar};
+use crate::ui::person::{byline, byline_avatar};
 use crate::ui::text_input::TextInput;
 use crate::ui::{
     ButtonStyle, Icon, ROW_HEIGHT, Tooltip, age_column, button, empty_state, faint, fold_button,
-    guide, h_flex, icon, list_row, plural, quiet, review, section_label, side_row, small_icon,
-    v_flex,
+    guide, h_flex, icon, plural, quiet, review, section_label, side_row, small_icon, v_flex,
 };
 
 pub(super) struct Branches {
@@ -1565,14 +1565,16 @@ impl Detail {
                 let picked = picked_status == status;
                 // One with none to list is quiet and can't be picked, unless it is.
                 let none = n == 0 && !picked;
-                list_row(("overview-status", ix), picked, theme)
+                // Picked, it's a filter on, drawn as a focused selection.
+                side_row(("overview-status", ix), picked, true, theme)
                     .when(none, |el| el.text_color(theme.text_3))
-                    .child(small_icon(glyph).text_color(match none {
-                        true => theme.text_3,
-                        false => color,
+                    .child(small_icon(glyph).text_color(match (picked, none) {
+                        (true, _) => theme.text_inverted,
+                        (false, true) => theme.text_3,
+                        (false, false) => color,
                     }))
                     .child(div().flex_1().child(STATUSES[ix].1))
-                    .child(faint(n.to_string(), theme))
+                    .child(quiet(faint(n.to_string(), theme), picked, theme))
                     .when(!none, |el| {
                         el.on_click(cx.listener(move |this, _, _, cx| {
                             let status = match picked {
@@ -1596,36 +1598,16 @@ impl Detail {
             .filter(|(ix, (name, ..))| listed(*ix, name))
             .map(|(ix, (name, email, n))| {
                 let picked = branches.who.as_ref() == Some(&name);
-                list_row(("overview-person", ix), picked, theme)
-                    .h_auto()
-                    .py(px(5.))
-                    .child(author_avatar(&name, &email, 20., theme))
-                    .child(
-                        v_flex()
-                            .flex_1()
-                            .min_w(px(0.))
-                            .gap(px(3.))
-                            .child(
-                                h_flex()
-                                    .gap(px(8.))
-                                    .child(
-                                        div().flex_1().min_w(px(0.)).truncate().child(name.clone()),
-                                    )
-                                    .child(faint(n.to_string(), theme)),
-                            )
-                            .child(
-                                div().h(px(4.)).rounded(px(2.)).bg(theme.border_3).child(
-                                    div()
-                                        .h_full()
-                                        .rounded(px(2.))
-                                        .w(relative(n as f32 / most as f32))
-                                        .bg(theme.text_3),
-                                ),
-                            ),
-                    )
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.filter_person((!picked).then(|| name.clone()), cx)
-                    }))
+                person_row(
+                    ("overview-person", ix),
+                    (&name, &email),
+                    (n, most),
+                    picked,
+                    theme,
+                )
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.filter_person((!picked).then(|| name.clone()), cx)
+                }))
             });
         let people: Vec<_> = people.collect();
         let nobody = people.is_empty();
@@ -1840,29 +1822,4 @@ fn status_keeps(status: BranchStatus, branch: &OtherBranch) -> bool {
         BranchStatus::NoPullRequest => state.is_none(),
         BranchStatus::Any => true,
     }
-}
-
-/// A card of the overview: `title` and `detail` over its `rows`.
-fn overview_box(
-    title: &str,
-    detail: String,
-    rows: impl IntoIterator<Item = impl IntoElement>,
-    theme: &Theme,
-) -> gpui::Div {
-    v_flex()
-        .m(px(6.))
-        .py(px(8.))
-        .gap(px(2.))
-        .border_1()
-        .border_color(theme.border_3)
-        .rounded(px(8.))
-        .child(
-            h_flex()
-                .px(px(14.))
-                .pb(px(4.))
-                .gap(px(8.))
-                .child(section_label(title.to_owned(), theme).flex_grow(1.))
-                .child(faint(detail, theme)),
-        )
-        .children(rows)
 }

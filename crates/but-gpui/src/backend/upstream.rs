@@ -3,7 +3,7 @@
 //! the workspace doesn't have yet, the pull request each commit landed, and when the
 //! project last fetched.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use anyhow::Result;
@@ -183,11 +183,22 @@ pub struct Overview {
     /// How many commits landed on the target's own line, as its history lists them, each of
     /// the last [`ACTIVITY_DAYS`] days here, oldest first.
     pub daily: Vec<u32>,
-    /// Who wrote the commits on all its lines, merges left out, most commits first: name,
-    /// email and how many, each by [`super::byline`].
-    pub team: Vec<(String, String, u32)>,
+    /// Whose commits landed on it in those days, merges left out, most first.
+    pub people: Vec<Person>,
     /// The day the first of `daily` counts, as [`day_of`] numbers days.
     pub first_day: i64,
+}
+
+/// Someone whose commits landed on the target lately, by [`super::byline`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct Person {
+    pub name: String,
+    pub email: String,
+    /// How many of their commits landed each day, as [`Overview::daily`] counts them.
+    pub daily: Vec<u32>,
+    /// The commits of the target's own line that landed theirs: one of theirs, or a merge
+    /// bringing theirs in.
+    pub landed: HashSet<CommitId>,
 }
 
 /// `target` (a short name, like `origin/main`) summed up as of `now`, in seconds since the
@@ -205,28 +216,50 @@ pub fn overview(path: &Path, target: &str, now: i64) -> Result<Overview> {
         seconds: since,
     };
     let mut daily = vec![0; ACTIVITY_DAYS];
+    let mut people: Vec<Person> = Vec::new();
     let line = (repo.rev_walk([tip.id]))
         .first_parent_only()
         .sorting(newest_since)
         .all()?;
-    for commit in commits_since(line, since) {
-        let day = commit.time().map_or(first_day, |time| day_of(time.seconds));
+    for landed in commits_since(line, since) {
+        let day = landed.time().map_or(first_day, |time| day_of(time.seconds));
         // A clock ahead of this one counts as today.
-        daily[((day - first_day) as usize).min(ACTIVITY_DAYS - 1)] += 1;
-    }
-    let mut team: Vec<(String, String, u32)> = Vec::new();
-    let all = (repo.rev_walk([tip.id])).sorting(newest_since).all()?;
-    for commit in commits_since(all, since).filter(|commit| commit.parent_ids().count() < 2) {
-        let Ok(((name, email), _)) = super::commit_byline(&commit) else {
-            continue;
+        let day = ((day - first_day) as usize).min(ACTIVITY_DAYS - 1);
+        daily[day] += 1;
+        // Theirs land on the day it did: the commit itself, or what a merge brought in.
+        let mut parents = landed.parent_ids().map(|id| id.detach());
+        let first = parents.next().filter(|id| repo.has_object(id));
+        let others: Vec<_> = parents.filter(|id| repo.has_object(id)).collect();
+        let brought = match (first, others.is_empty()) {
+            (Some(first), false) => (repo.rev_walk(others).with_hidden([first]).all()?)
+                .filter_map(|info| info.ok()?.object().ok())
+                .collect(),
+            _ => vec![landed.clone()],
         };
-        let email = email.to_lowercase();
-        match team.iter_mut().find(|(_, known, _)| *known == email) {
-            Some(person) => person.2 += 1,
-            None => team.push((name, email, 1)),
+        for commit in brought.iter().filter(|c| c.parent_ids().count() < 2) {
+            let Ok(((name, email), _)) = super::commit_byline(commit) else {
+                continue;
+            };
+            let email = email.to_lowercase();
+            let at = match people.iter().position(|person| person.email == email) {
+                Some(at) => at,
+                None => {
+                    let daily = vec![0; ACTIVITY_DAYS];
+                    let landed = HashSet::new();
+                    people.push(Person {
+                        name,
+                        email,
+                        daily,
+                        landed,
+                    });
+                    people.len() - 1
+                }
+            };
+            people[at].daily[day] += 1;
+            people[at].landed.insert(CommitId(landed.id));
         }
     }
-    team.sort_by_key(|person| std::cmp::Reverse(person.2));
+    people.sort_by_key(|person| std::cmp::Reverse(person.daily.iter().sum::<u32>()));
     let readme = readme(&repo, &tip)
         .inspect_err(|err| tracing::warn!(?err, "couldn't read the README"))
         .ok()
@@ -234,7 +267,7 @@ pub fn overview(path: &Path, target: &str, now: i64) -> Result<Overview> {
     Ok(Overview {
         readme,
         daily,
-        team,
+        people,
         first_day,
     })
 }
@@ -864,14 +897,27 @@ mod tests {
              brought, and not the commit from before the window"
         );
         assert_eq!(summed.daily[ACTIVITY_DAYS - 1], 1, "the last day is today");
+        let people: Vec<(&str, &str, u32)> = (summed.people.iter())
+            .map(|p| (p.name.as_str(), p.email.as_str(), p.daily.iter().sum()))
+            .collect();
         assert_eq!(
-            summed.team,
+            people,
             [
-                ("Ann".to_owned(), "ann@example.com".to_owned(), 2),
-                ("Cat".to_owned(), "cat@example.com".to_owned(), 1),
-                ("Bob".to_owned(), "bob@example.com".to_owned(), 1),
+                ("Ann", "ann@example.com", 2),
+                ("Cat", "cat@example.com", 1),
+                ("Bob", "bob@example.com", 1),
             ],
             "most commits first, the merged branch's author too and the merge left out"
+        );
+        let merge = gix::open(path)
+            .unwrap()
+            .rev_parse_single("main~1")
+            .unwrap()
+            .detach();
+        assert_eq!(
+            summed.people[1].landed,
+            [super::CommitId(merge)].into(),
+            "the merge landed Cat's commit, which the target's own line lists in its place"
         );
     }
 

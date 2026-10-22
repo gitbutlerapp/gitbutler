@@ -324,6 +324,8 @@ pub struct Detail {
     open_merges: HashSet<backend::CommitId>,
     /// The days of a project's activity picked, which its history is filtered to.
     activity_days: Option<(ProjectId, upstream::DayPick)>,
+    /// Whose commits a project's history is filtered to, by email.
+    activity_person: Option<(ProjectId, String)>,
     /// The images each project's README shows, as loaded, by where they're from.
     readme_images: HashMap<ProjectId, HashMap<String, Arc<gpui::RenderImage>>>,
     /// The images asked for, loaded or not, so each is asked for once.
@@ -596,6 +598,7 @@ impl Detail {
             beside_width: Rc::new(Cell::new(0.)),
             open_merges: HashSet::new(),
             activity_days: None,
+            activity_person: None,
             readme_images: HashMap::new(),
             readme_images_asked: HashSet::new(),
             header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),

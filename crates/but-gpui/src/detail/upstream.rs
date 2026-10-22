@@ -11,12 +11,12 @@ use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
 
 use super::Detail;
 use super::panes::{
-    Crumb, CrumbTo, list_heading, measured, meta_item, meta_row, side_header, side_list,
-    title_text, unfinished_banner,
+    Crumb, CrumbTo, list_heading, measured, meta_item, meta_row, overview_box, person_row,
+    side_header, side_list, title_text, unfinished_banner,
 };
 use super::pull_request::TABS_HEIGHT;
 use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
-use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, TargetCommit};
+use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, Person, TargetCommit};
 
 const DAY: i64 = 24 * 60 * 60;
 use crate::backend::{self, CommitId, DiffSource, Forge};
@@ -25,7 +25,7 @@ use crate::theme::Theme;
 use crate::ui::emoji::ProjectIcon;
 use crate::ui::illustration::Illustration;
 use crate::ui::markdown;
-use crate::ui::person::{author_avatar, byline, byline_avatar};
+use crate::ui::person::{byline, byline_avatar};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, age_column, button, error_summary, faint, fold_button, guide,
@@ -63,8 +63,8 @@ const STALE_AFTER: Duration = Duration::from_secs(60);
 const BESIDE_FILES: f32 = 260.;
 const MIN_DIFF: f32 = 560.;
 
-/// How many of the team the page lists.
-const TEAM_SHOWN: usize = 5;
+/// How many people the page lists, the most active first.
+const PEOPLE_SHOWN: usize = 5;
 
 /// What's picked on the page: the README, or a commit of the target.
 #[derive(Clone, Copy, PartialEq)]
@@ -77,7 +77,7 @@ enum Picked {
 struct Summary {
     readme: Option<(String, Vec<markdown::Block>)>,
     daily: Vec<u32>,
-    team: Vec<(String, String, u32)>,
+    people: Vec<Person>,
     /// The day the first of `daily` counts, as [`upstream::day_of`] numbers days.
     first_day: i64,
     /// How many branches aren't applied, as the Branches page lists them at first: with
@@ -91,7 +91,7 @@ impl From<Overview> for Summary {
             readme: (overview.readme)
                 .map(|(name, text)| (name, markdown::parse_showing_images(&text))),
             daily: overview.daily,
-            team: overview.team,
+            people: overview.people,
             first_day: overview.first_day,
             unapplied: None,
         }
@@ -650,10 +650,22 @@ impl Detail {
         Some((pick, summary.first_day + summary.daily.len() as i64 - 1))
     }
 
+    /// The person picked on `upstream`'s page, if any.
+    fn picked_person<'a>(&self, upstream: &'a Upstream) -> Option<&'a Person> {
+        let (project, email) = self.activity_person.as_ref()?;
+        let summary = upstream
+            .summary
+            .as_ref()
+            .filter(|_| *project == upstream.project)?;
+        summary.people.iter().find(|person| person.email == *email)
+    }
+
     fn upstream_rows(&self, upstream: &Upstream, target: &str, cx: &gpui::App) -> Vec<Row> {
         let picked = self.picked_days(upstream);
+        let person = self.picked_person(upstream);
         let shown = |commit: &TargetCommit| {
             picked.is_none_or(|(pick, today)| pick.keeps(Some(commit.time), today))
+                && person.is_none_or(|person| person.landed.contains(&commit.id))
         };
         let mut rows = Vec::new();
         // The navigator lists the new ones on their own, so here they're only marked.
@@ -680,14 +692,16 @@ impl Detail {
                 }
             }
         }
-        // Read further back only while the picked days may have more.
-        let first =
-            (picked.and_then(|(pick, _)| pick.days.first())).map(|day| upstream::day_start(*day));
+        // Read further back only while the picked days may have more, or the activity's
+        // days, which all of a person's are on.
+        let first = (picked.and_then(|(pick, _)| pick.days.first()).copied())
+            .or_else(|| person.and(upstream.summary.as_ref()).map(|s| s.first_day))
+            .map(upstream::day_start);
         let past =
             (first.zip(upstream.commits.last())).is_some_and(|(start, oldest)| oldest.time < start);
         if upstream.more && !past {
             rows.push(Row::More);
-        } else if rows.is_empty() && picked.is_some() {
+        } else if rows.is_empty() && (picked.is_some() || person.is_some()) {
             rows.push(Row::Heading(format!("No commits on {target} then")));
         }
         rows
@@ -751,6 +765,95 @@ impl Detail {
     fn clear_days(&mut self, cx: &mut Context<Self>) {
         self.activity_days = None;
         cx.notify();
+    }
+
+    /// Filter the history to what landed `email`'s commits, or not at all.
+    fn filter_landed(
+        &mut self,
+        project: &ProjectId,
+        email: Option<String>,
+        cx: &mut Context<Self>,
+    ) {
+        self.activity_person = email.map(|email| (project.clone(), email));
+        self.upstream_scroll
+            .scroll_to_item(0, gpui::ScrollStrategy::Top);
+        cx.notify();
+    }
+
+    /// Whose commits landed on the target, most first, counted on the days picked or all
+    /// the activity's. Clicking one filters the history to what landed theirs.
+    fn render_people(
+        &self,
+        project: &ProjectId,
+        summary: &Summary,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        if summary.people.is_empty() {
+            return None;
+        }
+        let days = (self.activity_days.as_ref())
+            .filter(|(p, pick)| p == project && !pick.days.is_empty())
+            .map(|(_, pick)| &pick.days);
+        let who = (self.activity_person.as_ref())
+            .filter(|(p, _)| p == project)
+            .map(|(_, email)| email);
+        let on_days = |person: &Person| -> usize {
+            (person.daily.iter().enumerate())
+                .filter(|(ix, _)| {
+                    days.is_none_or(|d| d.contains(&(summary.first_day + *ix as i64)))
+                })
+                .map(|(_, n)| *n as usize)
+                .sum()
+        };
+        // The one picked stays listed, however few they have then.
+        let mut people: Vec<(&Person, usize)> = (summary.people.iter())
+            .map(|person| (person, on_days(person)))
+            .filter(|(person, n)| *n > 0 || who == Some(&person.email))
+            .collect();
+        people.sort_by_key(|(_, n)| std::cmp::Reverse(*n));
+        let most = people.first().map_or(1, |(_, n)| *n);
+        let listed = |ix: usize, person: &Person| ix < PEOPLE_SHOWN || who == Some(&person.email);
+        let rest = (people.iter().enumerate())
+            .filter(|(ix, (person, _))| !listed(*ix, person))
+            .count();
+        let nobody = people.is_empty();
+        let rows = (people.into_iter().enumerate())
+            .filter(|(ix, (person, _))| listed(*ix, person))
+            .map(|(ix, (person, n))| {
+                let picked = who == Some(&person.email);
+                let (project, email) = (project.clone(), person.email.clone());
+                person_row(
+                    ("upstream-person", ix),
+                    (&person.name, &person.email),
+                    (n, most),
+                    picked,
+                    theme,
+                )
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.filter_landed(&project, (!picked).then(|| email.clone()), cx)
+                }))
+            });
+        let counted = match days {
+            None => format!("commits · {ACTIVITY_DAYS} days"),
+            Some(_) => "commits · days picked".to_owned(),
+        };
+        Some(
+            overview_box("People", counted, rows, theme)
+                .flex_none()
+                .m(px(12.))
+                .when(nobody, |el| {
+                    el.child(
+                        faint("No commits landed then", theme)
+                            .px(px(14.))
+                            .py(px(4.)),
+                    )
+                })
+                .when(rest > 0, |el| {
+                    el.child(faint(format!("and {}", plural(rest, "other")), theme).px(px(14.)))
+                })
+                .into_any_element(),
+        )
     }
 
     /// The page's crumbs after the project's: the target and the commit of it selected.
@@ -1457,7 +1560,7 @@ impl Detail {
                 );
                 let summary = upstream.summary.as_ref();
                 // The README and the activity over the history, which scrolls between them
-                // and the team.
+                // and the people.
                 v_flex()
                     .size_full()
                     .track_focus(&self.side_focus)
@@ -1487,7 +1590,7 @@ impl Detail {
                     }))
                     .children(summary.map(|s| self.render_activity(project, s, theme, cx)))
                     .child(list.flex_1().min_h(px(0.)))
-                    .children(summary.and_then(|s| team(&s.team, theme)))
+                    .children(summary.and_then(|s| self.render_people(project, s, theme, cx)))
                     .into_any_element()
             }
         };
@@ -1738,66 +1841,6 @@ impl DayPick {
         self.days.is_empty()
             || time.is_some_and(|time| self.days.contains(&upstream::day_of(time).min(today)))
     }
-}
-
-/// Who's been committing to the target, most first, each with a bar of how much.
-fn team(team: &[(String, String, u32)], theme: &Theme) -> Option<AnyElement> {
-    let most = team.first()?.2.max(1);
-    let rows = team.iter().take(TEAM_SHOWN).map(|(name, email, n)| {
-        h_flex()
-            .gap(px(8.))
-            .child(author_avatar(name, email, 20., theme))
-            .child(
-                v_flex()
-                    .flex_grow(1.)
-                    .min_w(px(0.))
-                    .gap(px(3.))
-                    .child(
-                        h_flex()
-                            .gap(px(8.))
-                            .child(
-                                div()
-                                    .flex_grow(1.)
-                                    .min_w(px(0.))
-                                    .truncate()
-                                    .child(name.clone()),
-                            )
-                            .child(faint(n.to_string(), theme)),
-                    )
-                    .child(
-                        div().h(px(4.)).rounded(px(2.)).bg(theme.border_3).child(
-                            div()
-                                .h_full()
-                                .rounded(px(2.))
-                                .w(gpui::relative(*n as f32 / most as f32))
-                                // Gray, leaving pop to the activity above.
-                                .bg(theme.text_3),
-                        ),
-                    ),
-            )
-    });
-    let rest = team.len().saturating_sub(TEAM_SHOWN);
-    Some(
-        v_flex()
-            .flex_none()
-            .m(px(12.))
-            .p(px(12.))
-            .gap(px(10.))
-            .border_1()
-            .border_color(theme.border_3)
-            .rounded(px(8.))
-            .child(
-                h_flex()
-                    .gap(px(8.))
-                    .child(section_label("Team", theme).flex_grow(1.))
-                    .child(faint(format!("commits · {ACTIVITY_DAYS} days"), theme)),
-            )
-            .children(rows)
-            .when(rest > 0, |el| {
-                el.child(faint(format!("and {}", plural(rest, "other")), theme))
-            })
-            .into_any_element(),
-    )
 }
 
 /// What kind of image `bytes` are, by how they start.

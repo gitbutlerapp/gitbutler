@@ -19,13 +19,13 @@ use crate::overlays::MenuItem;
 use crate::state::{Cut, MeshPick, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
-use crate::ui::person::byline;
+use crate::ui::person::{author_avatar, byline};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title,
-    empty_state, faint, field, h_flex, icon, icon_button, plural, section_label, shortcut,
-    small_icon, v_flex,
+    empty_state, faint, field, h_flex, icon, icon_button, plural, quiet, section_label, shortcut,
+    side_row, small_icon, v_flex,
 };
 
 impl Detail {
@@ -1132,4 +1132,78 @@ pub(super) fn list_empty(
         .min_h(px(0.))
         .child(empty_state(Some(drawing), title, detail, theme, cx))
         .into_any_element()
+}
+
+/// A card of an overview: `title` and `detail` over its `rows`.
+pub(super) fn overview_box(
+    title: &str,
+    detail: String,
+    rows: impl IntoIterator<Item = impl IntoElement>,
+    theme: &Theme,
+) -> Div {
+    v_flex()
+        .m(px(6.))
+        .py(px(8.))
+        .gap(px(2.))
+        .border_1()
+        .border_color(theme.border_3)
+        .rounded(px(8.))
+        .child(
+            h_flex()
+                .px(px(14.))
+                .pb(px(4.))
+                .gap(px(8.))
+                .child(section_label(title.to_owned(), theme).flex_grow(1.))
+                .child(faint(detail, theme)),
+        )
+        .children(rows)
+}
+
+/// A row of an overview's people: who, and a bar of their `n` against the `most` anyone
+/// has. Picked, it's a filter on, drawn as a focused selection.
+pub(super) fn person_row(
+    id: impl Into<gpui::ElementId>,
+    (name, email): (&str, &str),
+    (n, most): (usize, usize),
+    picked: bool,
+    theme: &Theme,
+) -> Stateful<Div> {
+    let (track, bar) = match picked {
+        true => (
+            theme.text_inverted.opacity(0.25),
+            theme.text_inverted.opacity(0.7),
+        ),
+        false => (theme.border_3, theme.text_3),
+    };
+    side_row(id, picked, true, theme)
+        .h_auto()
+        .py(px(5.))
+        .child(author_avatar(name, email, 20., theme))
+        .child(
+            v_flex()
+                .flex_1()
+                .min_w(px(0.))
+                .gap(px(3.))
+                .child(
+                    h_flex()
+                        .gap(px(8.))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w(px(0.))
+                                .truncate()
+                                .child(name.to_owned()),
+                        )
+                        .child(quiet(faint(n.to_string(), theme), picked, theme)),
+                )
+                .child(
+                    div().h(px(4.)).rounded(px(2.)).bg(track).child(
+                        div()
+                            .h_full()
+                            .rounded(px(2.))
+                            .w(gpui::relative(n as f32 / most.max(1) as f32))
+                            .bg(bar),
+                    ),
+                ),
+        )
 }
