@@ -1014,7 +1014,7 @@ pub(super) fn measured(
 /// as it is.
 pub(super) fn unfinished_banner(op: &str, theme: &Theme) -> Div {
     side_header(theme).child(super::resolve::warn_banner(
-        format!("Git is partway through {op}"),
+        format!("{op} isn't finished"),
         format!("Finish it in a terminal with `{op} --continue`, or stop it with `{op} --abort`."),
         None,
         theme,
