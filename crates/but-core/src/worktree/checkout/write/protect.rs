@@ -260,10 +260,11 @@ impl<'a> Judge<'a> {
         expected: &gix::index::Entry,
         md: &gix::index::fs::Metadata,
     ) -> anyhow::Result<Verdict> {
-        let same = expected.mode == gix::index::entry::Mode::COMMIT
-            || (!type_or_mode_changed(expected, md, &self.fs)
-                && (self.unchanged_since_indexed(rela_path, md)
-                    || self.content_matches(rela_path, expected, md)?));
+        // A submodule's directory must still be one, but what's in it isn't checkout's to judge.
+        let same = !type_or_mode_changed(expected, md, &self.fs)
+            && (expected.mode == gix::index::entry::Mode::COMMIT
+                || self.unchanged_since_indexed(rela_path, md)
+                || self.content_matches(rela_path, expected, md)?);
         Ok(match same {
             true => Verdict::Snapshotted,
             false => Verdict::Changed(snapshot_path),
