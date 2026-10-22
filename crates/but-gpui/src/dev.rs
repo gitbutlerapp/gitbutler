@@ -117,8 +117,12 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
         ),
     );
     watch_stalls(cx);
-    // In the window, where a script sees and clicks them, not in a native alert.
-    cx.set_prompt_builder(gpui::fallback_prompt_renderer);
+    // In the window, where a script sees and clicks them, not in a native alert, and in the
+    // log, where it reads what the narrow dialog cuts off.
+    cx.set_prompt_builder(|level, message, detail, actions, handle, window, cx| {
+        eprintln!("PROMPT {message} | {}", detail.unwrap_or_default());
+        gpui::fallback_prompt_renderer(level, message, detail, actions, handle, window, cx)
+    });
     cx.spawn(async move |cx| {
         use futures::StreamExt as _;
         let mut line_no = 0;

@@ -222,8 +222,8 @@ anything else.
   which catches a drag end that forgets to redraw. `drag` presses and moves with no frame
   between; `press`, then `move`s a step apart, drags with frames between, as a hand does.
   Make the first move 1px, as a hand's is: a bigger one starts the drag before hover changes.
-- Prompts use GPUI's fallback renderer, which clips long detail text and ignores Escape and Enter.
-  Click its buttons, and check prompt copy in the code.
+- Prompts use GPUI's fallback renderer, which ignores Escape and Enter, so click its buttons. It
+  clips long detail, which each prompt also prints as `PROMPT message | detail` (`grep -A2 PROMPT`).
 - Enter in a message field adds a line, and ⌘↩ saves.
 - To make an operation slow enough to race, turn on signing with a `gpg.program` script that
   sleeps, then prints a dummy signature. Keep the racing steps in one script run.
