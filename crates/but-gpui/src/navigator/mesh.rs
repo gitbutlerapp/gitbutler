@@ -10,9 +10,9 @@ use gpui::{
 };
 
 use super::menu::keyed;
+use super::rows::{COMMIT_INDENT, Row, Rows, found, matches};
 use super::{
-    COMMIT_INDENT, ClickOpened, NEST, Navigator, Row, RowStyle, Rows, click_opens, found, matches,
-    section_heading, uncommitted_counts,
+    ClickOpened, NEST, Navigator, RowStyle, click_opens, section_heading, uncommitted_counts,
 };
 use crate::app::CopySelection;
 use crate::backend::mesh::{self, BranchStatus};
