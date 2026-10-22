@@ -207,7 +207,7 @@ but commit --empty -b <branch> -m "message"  # Insert an empty commit
 
 **Important:** `but commit -b <branch> -m "msg"` with no IDs commits ALL uncommitted changes. Pass IDs to commit only specific files or hunks.
 
-Running `but commit` from inside a worktree acts on the main workspace, exactly as from the main worktree: bare `but commit` takes the main worktree's changes, and `but commit <worktree>:@` takes that worktree's own changes. Worktrees require the experimental worktree flag.
+Running `but commit` from inside a worktree takes that worktree's changes and commits them to the branch it has checked out; `but commit <worktree>:@` names them from anywhere. A new unstacked branch (`-b <new-name>` or bare `-b`) is refused there: create it with `but branch new <name> --above <worktree-branch>` first, which makes it the worktree's checkout. Worktrees require the experimental worktree flag.
 
 **Committing specific files or hunks:** Start with `but diff` for selective dirty commits, then pass CLI IDs as positional arguments:
 - **File IDs** from `but diff` or `but status -fv`: commits entire files

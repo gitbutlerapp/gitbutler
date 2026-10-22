@@ -35,6 +35,14 @@ impl InvokedFrom {
         Ok(name.map_or(Self::MainWorktree, Self::LinkedWorktree))
     }
 
+    /// The checkout itself, whether or not GitButler manages it.
+    pub fn checkout(&self) -> ChangeSourceId {
+        match self {
+            InvokedFrom::MainWorktree => ChangeSourceId::Head,
+            InvokedFrom::LinkedWorktree(name) => ChangeSourceId::Worktree(name.clone()),
+        }
+    }
+
     /// Errors when this is a linked worktree GitButler doesn't manage, as acting on the main
     /// worktree instead would touch changes the user isn't looking at.
     pub fn managed_source(&self, id_map: &IdMap) -> CliResult<ChangeSourceId> {

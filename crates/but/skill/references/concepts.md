@@ -84,9 +84,9 @@ anonymous segment) and their commits. The top branch's ID and the worktree's nam
 worktree; `<worktree>:@` (that ID or the name) names its uncommitted area. `but discard` on that
 top branch removes the worktree when its checkout is clean; the branches below it discard and
 squash like stack branches. A worktree's branches count as applied: `but apply` on one changes
-nothing, and `but unapply` refuses it — remove the worktree instead. `<worktree>:<path>`
-scopes a filename to it — `@:<path>` keeps meaning the main worktree. A filename dirty in several
-worktrees at once is ambiguous; the error suggests the scoped forms. A worktree file ID or
+nothing, and `but unapply` refuses it — remove the worktree instead. A bare path or `dir/`
+prefix names files in the checkout `but` runs from; `<worktree>:<path>` scopes a filename to that worktree
+from anywhere, and `@:<path>` to the main worktree. A worktree file ID or
 `<worktree>:@` works as a `but commit` change and a `but amend` or `but squash`
 source: the change lands on the target and leaves that worktree's uncommitted area. `but discard`
 on one discards it in that worktree, and isn't recorded in the oplog, so `but undo` can't bring

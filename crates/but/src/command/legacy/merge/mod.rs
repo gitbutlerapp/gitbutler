@@ -42,7 +42,7 @@ pub fn handle(
             but_api::land::ensure_landable_target(&ws.graph.project_meta, &repo)?;
         }
 
-        let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
+        let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
         let resolved_ids = id_map.parse_using_context(branch_id, ctx)?;
         if resolved_ids.is_empty() {
             bail!("Could not find branch: {branch_id}");

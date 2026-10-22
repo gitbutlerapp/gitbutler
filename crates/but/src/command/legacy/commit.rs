@@ -135,7 +135,7 @@ pub fn commit(
 ) -> CliResult<(CommitOutcome, WorkspaceState)> {
     let guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
 
     let (mut guard, commit_op, commit_selection, reword_op) = {
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
@@ -299,6 +299,19 @@ fn resolve(
             RouteCommitOperationError::Other(cli_error) => cli_error,
         })?
     };
+    if let InvokedFrom::LinkedWorktree(worktree) = invoked_from
+        && commit_op.will_create_unstacked_reference()
+    {
+        let checked_out = worktree_branch(&*ctx.repo.get()?, worktree.as_ref())
+            .map_or_else(|_| "<branch>".into(), |name| name.shorten().to_string());
+        return Err(bad_input(format!(
+            "Cannot commit to an unstacked branch from worktree {worktree}"
+        ))
+        .hint(format!(
+            "Stack the new branch on this worktree first with `but branch new <name> --above {checked_out}`"
+        ))
+        .into());
+    }
 
     {
         let repo = ctx.repo.get()?;

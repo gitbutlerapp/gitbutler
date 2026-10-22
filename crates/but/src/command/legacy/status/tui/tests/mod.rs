@@ -1557,7 +1557,7 @@ fn open_tui_on_uncommitted_hunk(show_diff: bool) -> TestTui<App> {
         let ctx = env.context();
         let id_map = IdMap::legacy_new_from_context(&ctx).expect("failed to build CLI IDs");
         let cli_ids = id_map
-            .parse_using_context("target.txt", &ctx)
+            .parse_using_context("@:target.txt", &ctx)
             .expect("failed to resolve uncommitted file");
         let file = cli_ids
             .into_iter()

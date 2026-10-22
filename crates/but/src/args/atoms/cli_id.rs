@@ -1,6 +1,5 @@
 use bstr::BString;
 use but_core::ref_metadata::StackId;
-use itertools::Itertools as _;
 use nonempty::NonEmpty;
 
 use crate::{
@@ -98,9 +97,9 @@ impl CliIdArg {
             CliId::UncommittedHunkOrFile(uncommitted) => {
                 ResolvedCliIdArg::UncommittedHunkOrFile(Box::new(uncommitted))
             }
-            // The source is dropped because a path prefix is always the main
-            // worktree's, see `IdMap::parse_uncommitted_path_prefix`.
-            CliId::PathPrefix { id, hunks, .. } => ResolvedCliIdArg::PathPrefix { id, hunks },
+            CliId::PathPrefix { id, hunks, source } => {
+                ResolvedCliIdArg::PathPrefix { id, hunks, source }
+            }
             CliId::CommittedFile { committed_file, .. } => {
                 ResolvedCliIdArg::CommittedFile(committed_file)
             }
@@ -320,41 +319,10 @@ impl CliIdArg {
                 0 => return Ok(None),
                 1 => uncommitted.pop().expect("exactly one item"),
                 _ => {
-                    // When the matches are one path dirty in several checkouts,
-                    // lengthening the ID cannot fix it - name the checkouts instead.
-                    // Prefix matches on distinct paths do not qualify: their scoped
-                    // forms would not resolve, as scoping matches by filename.
-                    let files: Vec<_> = uncommitted
-                        .iter()
-                        .filter_map(|id| id.as_uncommitted_hunk_or_file())
-                        .collect();
-                    let sources: Vec<String> = files
-                        .iter()
-                        .map(|uncommitted| uncommitted.source.selector().to_string())
-                        .unique()
-                        .collect();
-                    let same_path_once_per_checkout = files.len() == uncommitted.len()
-                        && sources.len() == uncommitted.len()
-                        && files
-                            .iter()
-                            .map(|uncommitted| &uncommitted.hunks.first().hunk.path)
-                            .all_equal();
-                    let hint = if same_path_once_per_checkout {
-                        let path = &files[0].hunks.first().hunk.path;
-                        format!(
-                            "'{self}' is uncommitted in several worktrees; scope it as {}",
-                            sources
-                                .iter()
-                                .map(|source| format!("`{source}:{path}`"))
-                                .join(" or ")
-                        )
-                    } else {
-                        "Use a longer ID to disambiguate".to_string()
-                    };
                     return Err(bad_input(format!(
                         "Ambiguous uncommitted change '{self}', matches multiple items"
                     ))
-                    .hint(hint)
+                    .hint("Use a longer ID to disambiguate")
                     .into());
                 }
             }
@@ -530,6 +498,7 @@ pub enum ResolvedCliIdArg {
     PathPrefix {
         id: String,
         hunks: NonEmpty<IdAndHunk>,
+        source: ChangeSourceId,
     },
     Stack {
         id: String,
@@ -603,8 +572,8 @@ impl ResolvedCliIdArg {
             ResolvedCliIdArg::CommittedHunk(committed_hunk) => {
                 ResolvedCliIdArgRef::CommittedHunk(committed_hunk)
             }
-            ResolvedCliIdArg::PathPrefix { id, hunks } => {
-                ResolvedCliIdArgRef::PathPrefix { id, hunks }
+            ResolvedCliIdArg::PathPrefix { id, hunks, source } => {
+                ResolvedCliIdArgRef::PathPrefix { id, hunks, source }
             }
             ResolvedCliIdArg::Uncommitted(source) => ResolvedCliIdArgRef::Uncommitted(source),
             ResolvedCliIdArg::Stack { id, stack_id } => ResolvedCliIdArgRef::Stack {
@@ -660,14 +629,15 @@ impl PartialEq<CliId> for ResolvedCliIdArg {
             ResolvedCliIdArg::PathPrefix {
                 id: lhs_id,
                 hunks: lhs_hunks,
+                source: lhs_source,
             } => {
                 if let CliId::PathPrefix {
                     id: rhs_id,
                     hunks: rhs_hunks,
-                    source: _,
+                    source: rhs_source,
                 } = other
                 {
-                    return lhs_id == rhs_id && lhs_hunks == rhs_hunks;
+                    return lhs_id == rhs_id && lhs_hunks == rhs_hunks && lhs_source == rhs_source;
                 }
             }
             ResolvedCliIdArg::Stack {
@@ -723,6 +693,7 @@ pub enum ResolvedCliIdArgRef<'a> {
     PathPrefix {
         id: &'a str,
         hunks: &'a NonEmpty<IdAndHunk>,
+        source: &'a ChangeSourceId,
     },
     Uncommitted(&'a ChangeSourceId),
     Stack {

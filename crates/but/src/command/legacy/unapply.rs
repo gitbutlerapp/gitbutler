@@ -68,7 +68,7 @@ pub fn unapply(
     args: Platform,
 ) -> CliResult<UnapplyOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
     let head_info = but_api::legacy::workspace::head_info(ctx)?;
 
     let operation = {
