@@ -2005,6 +2005,25 @@ fn repo_with_populated_submodule(
 }
 
 #[test]
+fn checkout_changes_nothing_while_another_process_holds_the_index_lock() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    commit_in_worktree(&repo, &[("a", "one\n")])?;
+    let new_commit = commit_files(&repo, "change a", &[("a", Some("two\n"))])?;
+    std::fs::write(repo.git_dir().join("index.lock"), "")?;
+    let before = repo_state(&repo)?;
+
+    safe_checkout_from_head(new_commit, &repo, Default::default())
+        .expect_err("like Git, checkout can't record anything while the index is locked");
+
+    assert_eq!(
+        repo_state(&repo)?,
+        before,
+        "like Git, it refuses before touching the worktree"
+    );
+    Ok(())
+}
+
+#[test]
 fn checkout_removes_the_empty_directory_of_a_submodule_the_target_deletes() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let workdir = repo.workdir().expect("non-bare");

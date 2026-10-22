@@ -28,12 +28,25 @@ pub(super) fn write_to_worktree(
     trees: Trees,
     conflicts: Conflicts<'_>,
 ) -> anyhow::Result<()> {
+    let index_lock = lock_index(repo)?;
     let plan = Plan::new(repo, &trees, conflicts)?;
     protect::staged_content(repo, &trees, &plan)?;
     let staged = transaction::stage(repo, &trees.target, &plan)?;
     let clearances = protect::worktree(repo, &trees.baseline, &plan)?;
     let placed = transaction::commit(repo, staged, &clearances)?;
-    plan.record_in_index(repo, &placed)
+    plan.record_in_index(repo, &placed, index_lock)
+}
+
+/// Hold the index lock for the whole checkout, like Git. Checkout then refuses before touching
+/// anything while another process holds it, and nothing else changes the index meanwhile.
+fn lock_index(repo: &gix::Repository) -> anyhow::Result<gix::lock::File> {
+    gix::lock::File::acquire_to_update_resource(
+        repo.index_path(),
+        gix::lock::acquire::Fail::Immediately,
+        None,
+        0,
+    )
+    .context("Repository index is locked by another process")
 }
 
 /// The unresolved conflicts of the merge that produced the target, if any.

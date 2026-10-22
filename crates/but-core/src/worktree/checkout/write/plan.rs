@@ -103,12 +103,18 @@ impl Plan {
             })
     }
 
-    /// Update `.git/index` to what checkout did, writing it once if anything changed.
-    pub fn record_in_index(&self, repo: &gix::Repository, placed: &Placed) -> anyhow::Result<()> {
+    /// Update `.git/index` to what checkout did, writing it through `index_lock`.
+    pub fn record_in_index(
+        &self,
+        repo: &gix::Repository,
+        placed: &Placed,
+        index_lock: gix::lock::File,
+    ) -> anyhow::Result<()> {
         let mut index = repo.index_or_empty()?.into_owned_or_cloned();
-        if self.edit(&mut index, placed) {
-            index.write(Default::default())?;
-        }
+        self.edit(&mut index, placed);
+        let mut out = std::io::BufWriter::new(index_lock);
+        index.write_to(&mut out, Default::default())?;
+        out.into_inner().map_err(|err| err.into_error())?.commit()?;
         Ok(())
     }
 
