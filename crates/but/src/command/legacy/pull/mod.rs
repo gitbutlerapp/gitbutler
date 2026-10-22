@@ -3,6 +3,7 @@ mod json;
 use std::fmt::Write;
 
 use anyhow::Context as _;
+use bstr::ByteSlice as _;
 
 use but_api::WorkspaceState;
 use but_core::{DryRun, RepositoryExt};
@@ -14,7 +15,6 @@ use serde::{Deserialize, Serialize};
 use crate::{
     CliResult,
     args::PullUpdate,
-    bad_input,
     command::legacy::upstream::{
         self, BranchStatus as PullBranchStatus, BranchStatusInfo as PullBranchStatusInfo,
     },
@@ -84,10 +84,6 @@ pub async fn handle(
     check_only: bool,
     update: &[PullUpdate],
 ) -> CliResult<Option<WorkspaceState>> {
-    if ctx.repo.get()?.remote_names().is_empty() {
-        return Err(bad_input("Cannot pull without a remote").into());
-    }
-
     if check_only {
         handle_check(ctx, out, update).await?;
         Ok(None)
@@ -96,22 +92,81 @@ pub async fn handle(
     }
 }
 
-/// Whether selected lanes need upstream commits or the workspace's local target can advance.
+/// Whether selected lanes need `incoming` commits or the workspace's local target can advance.
 fn is_behind(
     head_info: &but_workspace::RefInfo,
     update: &[PullUpdate],
     base_branch: &gitbutler_branch_actions::BaseBranch,
+    incoming: &[UpstreamCommit],
 ) -> anyhow::Result<bool> {
-    base_branch
-        .remote_name
-        .as_ref()
-        .context("Pulling requires a configured target upstream")?;
     let tip = base_branch
         .current_sha
         .context("The configured target upstream ref is unavailable")?;
     Ok((update.contains(&PullUpdate::Workspace)
-        && (base_branch.behind > 0 || head_info.can_fast_forward_local_target))
+        && (!incoming.is_empty() || head_info.can_fast_forward_local_target))
         || upstream::has_worktree_behind(head_info, update, tip))
+}
+
+/// Whether the target branch has an upstream. Without one, for example in a repository without a
+/// remote, a pull needs nothing but the local target branch.
+fn target_has_upstream(ctx: &Context) -> anyhow::Result<bool> {
+    let repo = ctx.repo.get()?;
+    Ok(ctx.project_meta()?.remote_target_ref(&repo)?.is_some())
+}
+
+/// Read the target branch, after fetching from the remotes if it has an upstream. Without one,
+/// nothing is fetched, so an unreachable remote can't stop the pull.
+fn fetch_base_branch(
+    ctx: &Context,
+    has_upstream: bool,
+    action: &str,
+) -> anyhow::Result<gitbutler_branch_actions::BaseBranch> {
+    if has_upstream {
+        return but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some(action.to_owned()));
+    }
+    let guard = ctx.shared_worktree_access();
+    gitbutler_branch_actions::base::get_base_branch_data(ctx, guard.read_permission())
+}
+
+/// The commits on the target that the workspace doesn't have yet, newest first.
+///
+/// Usually these are the commits on the target's upstream. When the target has no upstream, for
+/// example in a repository without a remote, the target is the local branch itself, and these are
+/// the commits it gained that the workspace's branches don't have, for example by a `git merge`.
+/// Both are counted by [`gitbutler_branch_actions::base::incoming_commit_ids`].
+fn incoming_commits(
+    ctx: &Context,
+    base_branch: &gitbutler_branch_actions::BaseBranch,
+) -> anyhow::Result<Vec<UpstreamCommit>> {
+    if base_branch.remote_name.is_some() {
+        return Ok(base_branch
+            .upstream_commits
+            .iter()
+            .map(|commit| UpstreamCommit {
+                id: commit.id.clone(),
+                description: commit.description.to_string(),
+                author_name: commit.author.name.clone(),
+            })
+            .collect());
+    }
+    let Some(tip) = base_branch.current_sha else {
+        return Ok(Vec::new());
+    };
+    let guard = ctx.shared_worktree_access();
+    let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+    let commit_ids =
+        gitbutler_branch_actions::base::incoming_commit_ids(&ws, &repo, tip, base_branch.base_sha)?;
+    commit_ids
+        .into_iter()
+        .map(|id| {
+            let commit = repo.find_commit(id)?;
+            Ok(UpstreamCommit {
+                id: id.to_string(),
+                description: commit.message_raw()?.to_str_lossy().into_owned(),
+                author_name: commit.author()?.name.to_str_lossy().into_owned(),
+            })
+        })
+        .collect()
 }
 
 async fn handle_check(
@@ -122,13 +177,16 @@ async fn handle_check(
     let t = theme::get();
     let mut progress = out.progress_channel();
 
-    writeln!(progress, "Fetching from upstream remotes...")?;
+    let has_upstream = target_has_upstream(ctx)?;
+    if has_upstream {
+        writeln!(progress, "Fetching from upstream remotes...")?;
+    }
 
-    let base_branch =
-        but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some("auto".to_string()))?;
+    let base_branch = fetch_base_branch(ctx, has_upstream, "auto")?;
+    let incoming = incoming_commits(ctx, &base_branch)?;
 
     let current_head_info = but_api::legacy::workspace::head_info(ctx)?;
-    let behind = is_behind(&current_head_info, update, &base_branch)?;
+    let behind = is_behind(&current_head_info, update, &base_branch, &incoming)?;
     let should_check_integration =
         behind || upstream::has_cleanup_candidate(&current_head_info, update);
     let (has_worktree_conflicts, statuses) = if should_check_integration {
@@ -157,16 +215,8 @@ async fn handle_check(
                     .to_string(),
             },
             upstream_commits: UpstreamInfo {
-                count: base_branch.behind,
-                commits: base_branch
-                    .upstream_commits
-                    .iter()
-                    .map(|c| UpstreamCommit {
-                        id: c.id.clone(),
-                        description: c.description.to_string(),
-                        author_name: c.author.name.clone(),
-                    })
-                    .collect(),
+                count: incoming.len(),
+                commits: incoming,
             },
             branch_statuses: check_branch_statuses(&statuses),
             up_to_date,
@@ -187,28 +237,33 @@ async fn handle_check(
         )?;
         let upstream_label = format!(
             "{} new commits on {}",
-            base_branch.behind, base_branch.branch_name
+            incoming.len(),
+            base_branch.branch_name
         );
         writeln!(
             out,
             "{}\t{}",
-            t.hint.paint("Upstream:"),
-            if base_branch.behind > 0 {
-                t.attention.paint(&upstream_label)
+            // Without an upstream, the new commits are on the target branch itself.
+            t.hint.paint(if base_branch.remote_name.is_some() {
+                "Upstream:"
             } else {
+                "Incoming:"
+            }),
+            if incoming.is_empty() {
                 t.success.paint(&upstream_label)
+            } else {
+                t.attention.paint(&upstream_label)
             }
         )?;
 
-        if !base_branch.upstream_commits.is_empty() {
+        if !incoming.is_empty() {
             let repo = ctx.repo.get()?.clone().for_commit_shortening();
             writeln!(out)?;
-            let commits = base_branch.upstream_commits.iter().take(3);
+            let commits = incoming.iter().take(3);
             for commit in commits {
                 let commit_short = shorten_hex_object_id(&repo, &commit.id);
                 let msg: String = commit
                     .description
-                    .to_string()
                     .replace('\n', " ")
                     .chars()
                     .take(72)
@@ -220,7 +275,7 @@ async fn handle_check(
                     t.hint.paint(&msg)
                 )?;
             }
-            let hidden_commits = base_branch.behind.saturating_sub(3);
+            let hidden_commits = incoming.len().saturating_sub(3);
             if hidden_commits > 0 {
                 writeln!(
                     out,
@@ -290,46 +345,52 @@ async fn handle_pull(
     let mut progress = out.progress_channel();
 
     // Step 1: Check upstream data
-    writeln!(
-        progress,
-        "{}",
-        t.progress.paint("Fetching newest data from remotes...")
-    )?;
+    let has_upstream = target_has_upstream(ctx)?;
+    if has_upstream {
+        writeln!(
+            progress,
+            "{}",
+            t.progress.paint("Fetching newest data from remotes...")
+        )?;
+    }
 
     // Fetch from remotes to get latest upstream info
-    let base_branch =
-        but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some("pull".to_string()))?;
+    let base_branch = fetch_base_branch(ctx, has_upstream, "pull")?;
+    let incoming = incoming_commits(ctx, &base_branch)?;
+    // Without an upstream, the new commits are on the target branch itself.
+    let local_target = base_branch.remote_name.is_none();
 
-    let upstream_url = format!(
-        "{}/{}",
-        base_branch
-            .remote_url
-            .as_ref()
-            .context("Pulling without a remote isn't supported yet")?
-            .trim_end_matches(".git"),
-        base_branch.branch_name
-    );
-    pull_result.upstream_url = Some(upstream_url.clone());
-    pull_result.upstream_commits_found = base_branch.behind;
+    let upstream_url = base_branch.remote_url.as_ref().map(|remote_url| {
+        format!(
+            "{}/{}",
+            remote_url.trim_end_matches(".git"),
+            base_branch.branch_name
+        )
+    });
+    pull_result.upstream_url = upstream_url.clone();
+    pull_result.upstream_commits_found = incoming.len();
 
-    // Populate recent commits from upstream_commits (actual new commits to integrate)
-    let commits_to_show = 5.min(base_branch.upstream_commits.len());
-    for commit in base_branch.upstream_commits.iter().take(commits_to_show) {
+    // Populate recent commits from the incoming commits (actual new commits to integrate)
+    let commits_to_show = 5.min(incoming.len());
+    for commit in incoming.iter().take(commits_to_show) {
         pull_result.recent_commits.push(CommitInfo {
             id: commit.id.clone(),
-            message: commit.description.to_string(),
+            message: commit.description.clone(),
         });
     }
 
     if let Some(out) = out.for_human() {
-        writeln!(progress, "   Checking: {}", t.link.paint(&upstream_url))?;
+        if let Some(upstream_url) = &upstream_url {
+            writeln!(progress, "   Checking: {}", t.link.paint(upstream_url))?;
+        }
 
-        if base_branch.behind > 0 {
+        if !incoming.is_empty() {
             writeln!(
                 out,
-                "\n{} {} upstream commits on {}",
+                "\n{} {} {} commits on {}",
                 t.important.paint("Found"),
-                t.attention.paint(base_branch.behind.to_string()),
+                t.attention.paint(incoming.len().to_string()),
+                if local_target { "new" } else { "upstream" },
                 t.remote_branch.paint(&base_branch.branch_name)
             )?;
 
@@ -348,7 +409,7 @@ async fn handle_pull(
                 writeln!(out, "   {} {}", t.hint.paint(&commit_short), msg)?;
             }
 
-            let hidden = base_branch.behind.saturating_sub(commits_to_show);
+            let hidden = incoming.len().saturating_sub(commits_to_show);
             if hidden > 0 {
                 writeln!(out, "   ... and {} more", t.hint.paint(hidden.to_string()))?;
             }
@@ -356,17 +417,21 @@ async fn handle_pull(
             writeln!(
                 out,
                 "\n{}",
-                t.success.paint("No new upstream commits found")
+                t.success.paint(if local_target {
+                    "No new commits found"
+                } else {
+                    "No new upstream commits found"
+                })
             )?;
         }
 
-        if base_branch.behind > 0 {
+        if !incoming.is_empty() {
             writeln!(progress, "   Checking integration statuses...")?;
         }
     }
 
     let current_head_info = but_api::legacy::workspace::head_info(ctx)?;
-    let behind = is_behind(&current_head_info, update, &base_branch)?;
+    let behind = is_behind(&current_head_info, update, &base_branch, &incoming)?;
     if !behind && !upstream::has_cleanup_candidate(&current_head_info, update) {
         pull_result.status = "up_to_date".to_string();
         if let Some(out) = out.for_human() {
@@ -462,8 +527,15 @@ async fn handle_pull(
 
         match integration_result {
             Ok(outcome) => {
-                let post_statuses =
-                    upstream::classify(&current_head_info, update, &outcome.workspace_state);
+                let target_branch = ctx.project_meta()?.target_ref;
+                let post_statuses = upstream::classify(
+                    &current_head_info,
+                    update,
+                    &outcome.workspace_state,
+                    target_branch
+                        .as_ref()
+                        .map(|name| name.as_local_full_name_ref()),
+                );
                 // Report detailed results for each resolution
                 let mut successful_rebases: Vec<String> = Vec::new();
                 let mut conflicted_rebases: Vec<String> = Vec::new();
@@ -560,12 +632,22 @@ async fn handle_pull(
                     if !pull_result.integrated_branches.is_empty() {
                         writeln!(out)?;
                         for branch in &pull_result.integrated_branches {
-                            writeln!(
-                                out,
-                                "{} {} has been integrated upstream and removed locally",
-                                t.important.paint("Branch"),
-                                t.local_branch.paint(branch)
-                            )?;
+                            if local_target {
+                                writeln!(
+                                    out,
+                                    "{} {} has been merged into {} and removed",
+                                    t.important.paint("Branch"),
+                                    t.local_branch.paint(branch),
+                                    t.local_branch.paint(&base_branch.branch_name)
+                                )?;
+                            } else {
+                                writeln!(
+                                    out,
+                                    "{} {} has been integrated upstream and removed locally",
+                                    t.important.paint("Branch"),
+                                    t.local_branch.paint(branch)
+                                )?;
+                            }
                         }
                     }
 

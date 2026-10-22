@@ -70,7 +70,15 @@ pub(crate) fn dry_run_integration_with_perm(
         DryRun::Yes,
         perm,
     )?;
-    let statuses = classify(&current_head_info, update, &preview.workspace_state);
+    let target_branch = ctx.project_meta()?.target_ref;
+    let statuses = classify(
+        &current_head_info,
+        update,
+        &preview.workspace_state,
+        target_branch
+            .as_ref()
+            .map(|name| name.as_local_full_name_ref()),
+    );
     Ok(IntegrationPreview {
         current: current_head_info,
         outcome: preview,
@@ -129,12 +137,20 @@ pub(crate) fn classify(
     current: &RefInfo,
     update: &[PullUpdate],
     preview: &but_api::WorkspaceState,
+    target_branch: Option<&gix::refs::FullNameRef>,
 ) -> Vec<BranchStatusInfo> {
     let preview_conflicts = preview.conflicts_by_segment();
 
     rebased_lanes(current, update)
         .into_iter()
         .flat_map(Lane::identified_segments)
+        // A checked-out target branch that leaves the lanes isn't removed: it became the target.
+        .filter(|(identity, _)| match identity {
+            Some(identity @ SegmentIdentity::Branch(name)) => {
+                Some(name.as_ref()) != target_branch || preview_conflicts.contains_key(identity)
+            }
+            _ => true,
+        })
         .map(|(identity, segment)| classify_segment(identity, segment, &preview_conflicts))
         .collect()
 }

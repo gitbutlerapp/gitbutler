@@ -484,6 +484,10 @@ pub enum Subcommands {
     /// This fetches the latest changes from the remote and rebases all applied branches
     /// and linked worktrees on top of the updated target branch.
     ///
+    /// When the target branch has no upstream, for example in a repository without a remote,
+    /// there is nothing to fetch: this updates the branches onto the local target branch
+    /// instead, for example after merging branches into `main` with `git merge`.
+    ///
     /// You should run this regularly to keep your branches up to date with the latest
     /// changes from the main development line.
     ///

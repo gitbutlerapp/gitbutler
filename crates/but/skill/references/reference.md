@@ -497,6 +497,11 @@ but pull --update=worktrees   # Rebase only the worktrees based on the target
 `--update` takes a comma-separated list and defaults to `worktrees,workspace`. A worktree based on
 an applied branch shares that branch's commits, so it is rebased with `workspace`.
 
+When the target branch has no upstream (e.g. the repository has no remote), there is nothing to
+fetch: `but pull` updates the branches onto the local target branch instead, for example after
+branches were merged into `main` with `git merge`. Its output then lists the new commits on the
+target branch, and removed branches as "has been merged into <target> and removed".
+
 Run `but pull` directly for a straightforward update; its output reports the result and `but undo`
 reverts it. Use `--check` first when the user or repository policy requires a preview without
 updating, or when an applied branch was just merged upstream: `but pull` removes only branches
