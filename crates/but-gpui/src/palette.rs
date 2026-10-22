@@ -164,7 +164,7 @@ pub struct Palette {
     selected: usize,
     /// The rows' scroll, which follows the selection.
     scroll: ScrollHandle,
-    restore_focus: Option<FocusHandle>,
+    pub(crate) restore_focus: Option<FocusHandle>,
     /// What it opened on: see [`Store::acting_on`].
     pub acting_on: (Option<Selection>, usize),
     _subscription: Subscription,

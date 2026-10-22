@@ -6,9 +6,9 @@ use std::rc::Rc;
 
 use anyhow::Result;
 use gpui::{
-    Action, AnyElement, App, ClickEvent, Context, DismissEvent, Div, Entity, Focusable as _,
-    ManagedView, MouseButton, Pixels, Point, Role, SharedString, Stateful, Subscription, Window,
-    anchored, deferred, div, prelude::*, px, relative,
+    Action, AnyElement, App, ClickEvent, Context, DismissEvent, Div, Entity, FocusHandle,
+    Focusable as _, ManagedView, MouseButton, Pixels, Point, Role, SharedString, Stateful,
+    Subscription, Window, anchored, deferred, div, prelude::*, px, relative,
 };
 
 use crate::app::AppView;
@@ -135,6 +135,8 @@ pub struct Prompt {
     /// The branch the prompt renames or makes one on top of. Once it's gone, as when an
     /// agent renamed it, the prompt goes too, as a menu does, rather than fail.
     pub(crate) on_branch: Option<(ProjectId, String)>,
+    /// What had the keys before, as a message being written, to give them back to.
+    restore_focus: Option<FocusHandle>,
     _subscription: Subscription,
 }
 
@@ -284,6 +286,13 @@ impl AppView {
             }
             return;
         }
+        // Opened from a picker or over another prompt, as Git asking for a passphrase, go back
+        // to where that one came from.
+        let restore_focus = match (&self.prompt, &self.palette) {
+            (Some(open), _) => open.restore_focus.clone(),
+            (None, Some(open)) => open.restore_focus.clone(),
+            (None, None) => window.focused(cx),
+        };
         // It takes the focus, so nothing else that would take the keys stays over it.
         self.palette = None;
         self.menu = None;
@@ -301,10 +310,11 @@ impl AppView {
                             prompt.hint = hint;
                             return cx.notify();
                         }
-                        if let Some(prompt) = this.prompt.take() {
+                        let focus = this.prompt.take().and_then(|prompt| {
                             (prompt.on_submit)(this, text, window, cx);
-                        }
-                        this.restore_focus(window, cx);
+                            prompt.restore_focus
+                        });
+                        this.give_back_focus(focus, window, cx);
                         cx.notify();
                     }
                     InputEvent::Cancel => {
@@ -331,19 +341,29 @@ impl AppView {
             check,
             hint: None,
             on_branch: None,
+            restore_focus,
             _subscription: subscription,
         });
         cx.notify();
     }
 
     pub(crate) fn cancel_prompt(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(prompt) = self.prompt.take()
-            && let Some(on_cancel) = prompt.on_cancel
-        {
-            on_cancel(self);
-        }
-        self.restore_focus(window, cx);
+        let focus = self.prompt.take().and_then(|prompt| {
+            if let Some(on_cancel) = prompt.on_cancel {
+                on_cancel(self);
+            }
+            prompt.restore_focus
+        });
+        self.give_back_focus(focus, window, cx);
         cx.notify();
+    }
+
+    /// Focus what had the keys before a prompt, or what's left on top without one.
+    fn give_back_focus(&self, focus: Option<FocusHandle>, window: &mut Window, cx: &mut App) {
+        match focus {
+            Some(focus) => window.focus(&focus, cx),
+            None => self.restore_focus(window, cx),
+        }
     }
 
     /// Git asks for passphrases and passwords through GitButler; show those as a prompt.
