@@ -133,10 +133,13 @@ pub fn list(
     let mut read = HashMap::new();
     // What came after the operation at hand: the one after it's snapshot, or the workspace.
     let meta = ctx.project_meta().ok();
+    let target_ref = (meta.as_ref()).and_then(|meta| meta.target_ref.clone());
+    let target_ref = target_ref.as_ref().map(|t| t.as_local_full_name_ref());
     let (mut later, mut later_target) = match after {
         Some(after) => {
             let target = snapshot_target(&repo, after.0);
-            (snapshot_branches(&repo, after.0, target, &mut read), target)
+            let branches = snapshot_branches(&repo, after.0, target, target_ref, &mut read);
+            (branches, target)
         }
         None => (now, meta.as_ref().and_then(|meta| meta.target_commit_id)),
     };
@@ -148,7 +151,7 @@ pub fn list(
     let mut operations = Vec::with_capacity(snapshots.len());
     for snapshot in snapshots {
         let target = snapshot_target(&repo, snapshot.commit_id);
-        let before = snapshot_branches(&repo, snapshot.commit_id, target, &mut read);
+        let before = snapshot_branches(&repo, snapshot.commit_id, target, target_ref, &mut read);
         let mut changes = match (&before, &later) {
             (Some(before), Some(after)) => compare(before, after),
             _ => Vec::new(),
@@ -223,11 +226,13 @@ pub fn list(
 
 /// The workspace's branches as snapshot `id` recorded them, from the stacks it kept with
 /// their heads and commits, or from the branch checked out outside the workspace; `None` for
-/// a snapshot that kept neither, as an old one. `target` is the target commit it recorded.
+/// a snapshot that kept neither, as an old one. `target` is the target commit it recorded,
+/// and `target_ref` the project's target branch.
 fn snapshot_branches(
     repo: &gix::Repository,
     id: gix::ObjectId,
     target: Option<gix::ObjectId>,
+    target_ref: Option<&gix::refs::FullNameRef>,
     read: &mut HashMap<gix::ObjectId, Recorded>,
 ) -> Option<Branches> {
     #[derive(Deserialize)]
@@ -258,7 +263,7 @@ fn snapshot_branches(
         true
     }
     let tree = repo.find_commit(id).ok()?.tree().ok()?;
-    if let Some(branches) = checkout_branches(repo, &tree, target, read) {
+    if let Some(branches) = checkout_branches(repo, &tree, target, target_ref, read) {
         return Some(branches);
     }
     let meta = tree.lookup_entry_by_path("virtual_branches.toml").ok()??;
@@ -323,6 +328,7 @@ fn checkout_branches(
     repo: &gix::Repository,
     tree: &gix::Tree<'_>,
     target: Option<gix::ObjectId>,
+    target_ref: Option<&gix::refs::FullNameRef>,
     read: &mut HashMap<gix::ObjectId, Recorded>,
 ) -> Option<Branches> {
     let text = |path: &str| -> Option<String> {
@@ -370,6 +376,10 @@ fn checkout_branches(
             }
         };
         branches.last_mut()?.1.push(entry.clone());
+    }
+    // The target checked out with nothing of its own isn't listed, as the workspace has it.
+    if target_ref.is_some_and(|t| t.as_bstr() == checkout.as_str()) && branches[0].1.is_empty() {
+        branches.remove(0);
     }
     Some(branches)
 }

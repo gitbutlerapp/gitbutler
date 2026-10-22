@@ -1560,6 +1560,29 @@ mod tests {
     }
 
     #[test]
+    fn history_doesnt_say_the_checked_out_target_was_removed() {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        target_origin_main(path);
+        crate::backend::history::take_snapshot(path, Some("Before".into())).unwrap();
+
+        use crate::backend::history;
+        let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+        let now = history::branches(&workspace);
+        assert!(
+            now.is_empty(),
+            "the target with nothing of its own isn't listed"
+        );
+        let (operations, _) = history::list(path, None, 10, Some(now)).unwrap();
+        assert!(
+            operations[0].changes.is_empty(),
+            "the newest snapshot, compared with now, lists main as the workspace does: not at \
+             all. {:?}",
+            operations[0].changes
+        );
+    }
+
+    #[test]
     fn history_shows_commits_made_outside_the_workspace() {
         let dir = repo_with("one\n");
         let path = dir.path();
