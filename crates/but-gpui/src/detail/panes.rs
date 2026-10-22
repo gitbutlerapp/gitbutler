@@ -13,7 +13,7 @@ use gpui::{
 };
 
 use super::Detail;
-use crate::app::{AppView, StartCommit};
+use crate::app::{AppView, Collapse, Expand, SelectNext, SelectPrevious, StartCommit};
 use crate::backend::{self, CommitId, CommitState, PushState, short_ref};
 use crate::overlays::MenuItem;
 use crate::state::{Cut, MeshPick, ProjectId, Selection};
@@ -1144,21 +1144,59 @@ pub(super) fn list_empty(
 }
 
 impl Detail {
-    /// An overview's People card, with a focus of its own: a click in it takes the focus,
-    /// and a click anywhere else gives it back to the list it's under. Its `rows` are
-    /// everyone, most first: it lists the busiest few and the one `picked`, then how many
-    /// more, which a click lists too, scrolling within the card, until Show fewer. `counted`
-    /// says what the rows count, `empty` stands in for none, and while someone's picked,
-    /// Clear lets go of them, as `clear` does.
+    /// A People card, under a list, with a focus of its own: a click in it takes the focus,
+    /// and a click anywhere else gives it back to the list. Its `people` are everyone, most
+    /// first, each with what picks them, their name, email and how many: it lists the busiest
+    /// few and the one `picked`, then how many more, which a click lists too, scrolling within
+    /// the card, until Show fewer. `counted` says what they count and `empty` stands in for
+    /// none. A click on someone, ↑ and ↓ while the card has the focus, or Clear (with `None`)
+    /// hands `pick` who to filter the list to; → and ← list everyone and fold them again.
     pub(super) fn people_card(
         &self,
+        people: Vec<(String, String, String, usize)>,
+        picked: Option<&str>,
         (counted, empty): (String, &'static str),
-        (rows, picked): (Vec<Stateful<Div>>, Option<usize>),
-        clear: Option<impl Fn(&mut Self, &mut Context<Self>) + 'static>,
-        theme: &Theme,
+        pick: impl Fn(&mut Self, Option<String>, &mut Context<Self>) + Clone + 'static,
         window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
+        let theme = Theme::get(cx);
+        let solid = self.people_focus.is_focused(window);
+        let most = people.first().map_or(1, |(.., n)| (*n).max(1));
+        let keys: Vec<String> = people.iter().map(|(key, ..)| key.clone()).collect();
+        // Clear shows while someone's picked, listed or not.
+        let anyone_picked = picked.is_some();
+        let picked = (keys.iter()).position(|key| Some(key.as_str()) == picked);
+        let rows: Vec<_> = (people.into_iter().enumerate())
+            .map(|(ix, (key, name, email, n))| {
+                let pick = pick.clone();
+                let on = (Some(ix) == picked, solid);
+                person_row(("person", ix), (&name, &email), (n, most), on, theme)
+                    .on_click(cx.listener(move |this, _, _, cx| pick(this, Some(key.clone()), cx)))
+            })
+            .collect();
+        // The arrows step through everyone from the one picked, rather than the list over
+        // the card.
+        let step = {
+            let pick = pick.clone();
+            move |this: &mut Self, by: isize, cx: &mut Context<Self>| {
+                let last = keys.len().saturating_sub(1);
+                let to = picked.map_or(0, |ix| ix.saturating_add_signed(by).min(last));
+                if let Some(key) = keys.get(to) {
+                    // Folded, one past the busiest few shows right after them.
+                    let row = match this.people_open {
+                        true => to,
+                        false => to.min(PEOPLE_SHOWN),
+                    };
+                    this.people_scroll.scroll_to_item(row);
+                    pick(this, Some(key.clone()), cx);
+                }
+            }
+        };
+        let fold_to = |this: &mut Self, open: bool, cx: &mut Context<Self>| {
+            this.people_open = open;
+            cx.notify();
+        };
         let everyone = rows.len();
         let open = self.people_open && everyone > PEOPLE_SHOWN;
         let rows: Vec<_> = (rows.into_iter().enumerate())
@@ -1167,11 +1205,11 @@ impl Detail {
             .collect();
         let rest = everyone - rows.len();
         let open_height = (window.viewport_size().height * 0.3).clamp(px(190.), px(380.));
-        let clear = clear.map(|clear| {
+        let clear = anyone_picked.then(|| {
             button("people-clear", "Clear")
                 .small()
                 .style(ButtonStyle::Ghost)
-                .on_click(cx.listener(move |this, _, _, cx| clear(this, cx)))
+                .on_click(cx.listener(move |this, _, _, cx| pick(this, None, cx)))
         });
         // Its glyph under the pictures, its words under the names, as the navigator's are.
         let fold = |open: bool| {
@@ -1185,8 +1223,10 @@ impl Detail {
                 cx.notify();
             }))
         };
+        // It gives way to the list over it in a short window, down to its heading, a row
+        // and its fold, its rows scrolling within it; one or two people need no more room.
         v_flex()
-            .flex_none()
+            .when(everyone > 2, |el| el.min_h(px(120.)))
             .m(px(12.))
             .py(px(8.))
             .gap(px(2.))
@@ -1194,6 +1234,13 @@ impl Detail {
             .border_color(theme.border_3)
             .rounded(px(8.))
             .track_focus(&self.people_focus)
+            .on_action(cx.listener({
+                let step = step.clone();
+                move |this, _: &SelectNext, _, cx| step(this, 1, cx)
+            }))
+            .on_action(cx.listener(move |this, _: &SelectPrevious, _, cx| step(this, -1, cx)))
+            .on_action(cx.listener(move |this, _: &Expand, _, cx| fold_to(this, true, cx)))
+            .on_action(cx.listener(move |this, _: &Collapse, _, cx| fold_to(this, false, cx)))
             .on_mouse_down_out(cx.listener(|this, _, window, cx| {
                 if this.people_focus.is_focused(window) {
                     window.focus(&this.side_focus, cx);
@@ -1202,6 +1249,7 @@ impl Detail {
             // As tall with Clear as without, so picking someone moves no row.
             .child(
                 h_flex()
+                    .flex_none()
                     .h(px(22.))
                     .px(px(14.))
                     .gap(px(8.))
@@ -1216,47 +1264,45 @@ impl Detail {
             // a scroll away; it sits at the bottom of its column, so its fold stays under the
             // pointer as it opens and closes.
             .child(
-                div()
+                v_flex()
                     .relative()
+                    .min_h(px(0.))
                     .child(
                         v_flex()
                             .id("people-rows")
+                            .min_h(px(0.))
                             .gap(px(2.))
                             .when(open, |el| el.max_h(open_height))
                             .overflow_y_scroll()
                             .track_scroll(&self.people_scroll)
                             .children(rows),
                     )
-                    .children(
-                        open.then(|| {
-                            scrollbar(
-                                "people-scrollbar",
-                                Scroll::Div(self.people_scroll.clone()),
-                                theme,
-                            )
-                        })
-                        .flatten(),
-                    ),
+                    .children(scrollbar(
+                        "people-scrollbar",
+                        Scroll::Div(self.people_scroll.clone()),
+                        theme,
+                    )),
             )
             .when(rest > 0, |el| {
-                el.child(fold(false).child(format!("{rest} more")))
+                el.child(fold(false).flex_none().child(format!("{rest} more")))
             })
-            .when(open, |el| el.child(fold(true).child("Show fewer")))
+            .when(open, |el| {
+                el.child(fold(true).flex_none().child("Show fewer"))
+            })
             .into_any_element()
-    }
-
-    /// Whether an overview's People card has the focus.
-    pub(super) fn people_focused(&self, window: &Window) -> bool {
-        self.people_focus.is_focused(window)
     }
 }
 
-/// How many people an overview's People card lists, the most active first.
+/// How tall a side list stays however much else its column holds, as a short window's
+/// would otherwise give it all to the cards under it.
+pub(super) const LIST_MIN_HEIGHT: f32 = ROW_HEIGHT * 4.;
+
+/// How many people a People card lists, the most active first, before N more.
 const PEOPLE_SHOWN: usize = 5;
 
-/// A row of an overview's people: who, and a bar of their `n` against the `most` anyone
-/// has. Picked, it's a filter on, its selection `solid` while its card has the focus.
-pub(super) fn person_row(
+/// A row of a People card: who, and a bar of their `n` against the `most` anyone has. Picked,
+/// it's a filter on, its selection `solid` while its card has the focus.
+fn person_row(
     id: impl Into<gpui::ElementId>,
     (name, email): (&str, &str),
     (n, most): (usize, usize),

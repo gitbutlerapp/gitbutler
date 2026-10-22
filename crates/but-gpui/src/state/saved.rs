@@ -257,8 +257,8 @@ pub enum WatchedOrder {
 /// Which branches the Branches page lists by their pull request.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BranchStatus {
-    /// Those under way: with an open or draft pull request, or none. Only merged ones was a
-    /// choice once.
+    /// Those under way: with an open or draft pull request, or none. It keeps its old name so
+    /// saved choices still load, and only merged ones, a choice once, loads as it.
     #[default]
     #[serde(alias = "Merged")]
     NotMerged,
@@ -266,7 +266,7 @@ pub enum BranchStatus {
     Draft,
     Closed,
     NoPullRequest,
-    /// Merged ones too.
+    /// Merged and closed ones too.
     Any,
 }
 

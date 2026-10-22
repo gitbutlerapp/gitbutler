@@ -1,6 +1,6 @@
 //! The Branches page: branches outside the workspace, newest first, local ones and the ones
 //! only a remote has alike, each with what it would bring in, ready to apply or delete. Beside
-//! the list, an overview of the team's branches until one is opened, then its diff.
+//! the list, an overview of the work under way until one is opened, then its diff.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -14,8 +14,8 @@ mod overview;
 
 use super::Detail;
 use super::panes::{
-    Crumb, CrumbTo, list_empty, measured, meta_item, meta_row, page_title, person_row, side_list,
-    title_text,
+    Crumb, CrumbTo, LIST_MIN_HEIGHT, list_empty, measured, meta_item, meta_row, page_title,
+    side_list, title_text,
 };
 use super::upstream::commit_author;
 
@@ -149,26 +149,31 @@ impl Recency {
         }
     }
 
-    /// How many days back it reaches, today the first; `None` for any time.
-    fn days(self) -> Option<i64> {
+    /// How many days back it reaches, today the first; for any time, the last 30, which is
+    /// as far back as the overview and the People card count.
+    fn days(self) -> i64 {
         match self {
-            Recency::Any => None,
-            Recency::Today => Some(1),
-            Recency::Week => Some(7),
-            Recency::Month => Some(ACTIVITY_DAYS as i64),
+            Recency::Today => 1,
+            Recency::Week => 7,
+            Recency::Any | Recency::Month => ACTIVITY_DAYS as i64,
         }
+    }
+
+    /// The first day it reaches back to, as `upstream::day_of` numbers them.
+    fn since(self, today: i64) -> i64 {
+        today - (self.days() - 1)
     }
 
     /// Whether something last changed at `time`, if that's known, is recent enough; one
     /// after `today` counts as today's.
     fn keeps(self, time: Option<i64>, today: i64) -> bool {
-        self.days()
-            .is_none_or(|n| time.is_some_and(|time| upstream::day_of(time).min(today) > today - n))
+        self == Recency::Any
+            || time.is_some_and(|time| upstream::day_of(time).min(today) >= self.since(today))
     }
 }
 
-/// The pull request choices, as the filter menu and the chip name them. Not only merged ones:
-/// the page is for what's under way, which the merged would read as a list of.
+/// The pull request choices, as the filter menu and the chip name them. There's no Merged
+/// choice: the page is for work under way, and the project's page lists what landed.
 const STATUSES: [(BranchStatus, &str); 6] = [
     (BranchStatus::NotMerged, "In progress"),
     (BranchStatus::Open, "Open"),
@@ -191,7 +196,8 @@ enum Row {
 }
 
 impl Detail {
-    /// List `project`'s other branches; unless `force`, only when its workspace changed.
+    /// List `project`'s branches, the applied ones apart; unless `force`, only when its
+    /// workspace changed.
     pub(super) fn load_branches(
         &mut self,
         project: &ProjectId,
@@ -546,31 +552,46 @@ impl Detail {
         (0..list.len()).filter(|ix| keeps(&list[*ix])).collect()
     }
 
-    /// The people at work lately: whose branches the filters keep but the person, of those
-    /// changed in the last 30 days at most, most branches first, with how many and an email
-    /// for their picture. Not everyone who ever made one, which would put those long gone
-    /// first and leave out the newly arrived.
+    /// The people at work lately: who wrote commits in the last activity picked, or the last
+    /// 30 days, on the branches the filters keep but the person, applied ones too; most
+    /// branches first, with how many and an email for their picture. Not everyone who ever
+    /// made one, which would put those long gone first and leave out the newly arrived.
+    /// Picking someone lists the branches they have any commit of, applied ones aside, so
+    /// that list can be longer or shorter than their count.
     fn branch_people(&self, branches: &Branches, cx: &App) -> Vec<(String, String, usize)> {
-        let days = branches.recency.days().unwrap_or(ACTIVITY_DAYS as i64);
-        let first_day = upstream::day_of(crate::ui::now()) - (days - 1);
+        let since = branches.recency.since(upstream::day_of(crate::ui::now()));
         let mut people: Vec<(String, String, usize)> = Vec::new();
-        for ix in self.kept_branches(branches, Some(Facet::Who), cx) {
-            let branch = &branches.list[ix];
-            if branch
-                .time
-                .is_none_or(|time| upstream::day_of(time) < first_day)
-            {
-                continue;
-            }
-            for person in &branch.people {
+        // The applied ones too, as the overview counts them.
+        let listed = self.kept_branches(branches, Some(Facet::Who), cx);
+        let applied = self.kept_in(branches, &branches.applied, Some(Facet::Who), cx);
+        let kept = (listed.into_iter().map(|ix| &branches.list[ix]))
+            .chain(applied.into_iter().map(|ix| &branches.applied[ix]));
+        for branch in kept {
+            // Who wrote its commits in those days, each once, not everyone on a branch only
+            // rebased then.
+            let mut theirs: Vec<usize> = (branch.commits.iter())
+                .filter(|commit| commit.day >= since)
+                .map(|commit| commit.person)
+                .collect();
+            theirs.sort_unstable();
+            theirs.dedup();
+            for person in theirs.into_iter().map(|p| &branch.people[p]) {
                 match people.iter_mut().find(|(name, ..)| name == person) {
                     Some((.., n)) => *n += 1,
                     None => people.push((person.clone(), String::new(), 1)),
                 }
             }
         }
+        // The one picked stays, with none, when the other filters leave them nothing.
+        if let Some(who) = branches
+            .who
+            .as_ref()
+            .filter(|who| !people.iter().any(|p| p.0 == **who))
+        {
+            people.push((who.clone(), String::new(), 0));
+        }
         for (name, email, _) in &mut people {
-            *email = email_of(&branches.list, name);
+            *email = email_of(branches, name);
         }
         people.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.0.cmp(&b.0)));
         people
@@ -1142,7 +1163,7 @@ impl Detail {
         let filter = self.branch_filter_bar(project, window, cx);
         let chips = self.branch_filter_chips(cx);
         let rows = self.branch_rows(branches, cx);
-        let people = self.branch_people_card(branches, theme, window, cx);
+        let people = self.branch_people_card(branches, window, cx);
         let target = (self.store.read(cx).workspace(project))
             .and_then(|ws| ws.target.as_ref())
             .map(|target| target.name.clone());
@@ -1382,7 +1403,7 @@ impl Detail {
                 },
             )
             .flex_1()
-            .min_h(px(0.))
+            .min_h(px(LIST_MIN_HEIGHT))
             .into_any_element()
         };
         v_flex()
@@ -1406,6 +1427,15 @@ impl Detail {
             .into_any_element()
     }
 
+    /// Whether the filter menu's choices leave some branches out, as they don't at rest.
+    fn menu_narrows(&self, branches: &Branches, cx: &App) -> bool {
+        let prefs = &self.store.read(cx).prefs;
+        branches.who.is_some()
+            || branches.recency != Recency::Any
+            || prefs.branches_status != BranchStatus::NotMerged
+            || prefs.branches_local_only
+    }
+
     /// The filter bar over the list, with a fetch button.
     fn branch_filter_bar(
         &self,
@@ -1413,12 +1443,8 @@ impl Detail {
         window: &Window,
         cx: &Context<Self>,
     ) -> gpui::Div {
-        let prefs = &self.store.read(cx).prefs;
         // Lit while the filters aren't as they are at rest.
-        let narrowed = (self.branches_for(project))
-            .is_some_and(|b| b.who.is_some() || b.recency != Recency::Any)
-            || prefs.branches_status != BranchStatus::NotMerged
-            || prefs.branches_local_only;
+        let narrowed = (self.branches_for(project)).is_some_and(|b| self.menu_narrows(b, cx));
         self.filter_bar(
             &self.branch_filter,
             "Branch filters",
@@ -1486,8 +1512,8 @@ impl Detail {
         list_empty(drawing, empty, "", theme, cx)
     }
 
-    /// Whose branches the list shows, and which by their pull request, each choice with how
-    /// many it would show; and whether only local ones.
+    /// Whose branches the list shows, how recently changed, and which by their pull request,
+    /// each choice with how many it would show; and whether only local ones.
     fn branch_filters_menu(&self, position: Point<Pixels>, cx: &mut Context<Self>) {
         let Some(branches) = self.branches.as_ref() else {
             return;
@@ -1559,41 +1585,21 @@ impl Detail {
     fn branch_people_card(
         &self,
         branches: &Branches,
-        theme: &Theme,
         window: &Window,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let solid = self.people_focused(window);
-        let people = self.branch_people(branches, cx);
-        let most = people.first().map_or(1, |(.., n)| (*n).max(1));
-        let picked = (people.iter()).position(|(name, ..)| branches.who.as_ref() == Some(name));
-        let rows = (people.into_iter().enumerate())
-            .map(|(ix, (name, email, n))| {
-                let picked = branches.who.as_ref() == Some(&name);
-                person_row(
-                    ("overview-person", ix),
-                    (&name, &email),
-                    (n, most),
-                    (picked, solid),
-                    theme,
-                )
-                .on_click(
-                    cx.listener(move |this, _, _, cx| this.filter_person(Some(name.clone()), cx)),
-                )
-            })
+        let people = (self.branch_people(branches, cx).into_iter())
+            .map(|(name, email, n)| (name.clone(), name, email, n))
             .collect();
-        let counted = match branches.recency {
-            Recency::Today => "branches · today".to_owned(),
-            Recency::Week => "branches · 7 days".to_owned(),
-            Recency::Any | Recency::Month => format!("branches · {ACTIVITY_DAYS} days"),
+        let counted = match branches.recency.days() {
+            1 => "branches · today".to_owned(),
+            days => format!("branches · {days} days"),
         };
-        let clear = (branches.who.is_some())
-            .then_some(|this: &mut Self, cx: &mut Context<Self>| this.filter_person(None, cx));
         self.people_card(
-            (counted, "No branches listed"),
-            (rows, picked),
-            clear,
-            theme,
+            people,
+            branches.who.as_deref(),
+            (counted, "No branches changed then"),
+            |this, who, cx| this.filter_person(who, cx),
             window,
             cx,
         )
@@ -1747,9 +1753,10 @@ fn is_picked(branches: &Branches, row: &Row) -> bool {
             .is_some_and(|c| branches.picked.contains(&c.id))
 }
 
-/// `name`'s email, from any branch they made the newest commit of, filtered or not.
-fn email_of(list: &[OtherBranch], name: &str) -> String {
-    (list.iter())
+/// `name`'s email, from any branch they made the newest commit of, filtered or not, applied
+/// or not.
+fn email_of(branches: &Branches, name: &str) -> String {
+    (branches.list.iter().chain(&branches.applied))
         .find(|b| b.author.as_deref() == Some(name))
         .and_then(|b| b.email.clone())
         .unwrap_or_default()

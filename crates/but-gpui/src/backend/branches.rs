@@ -1,5 +1,5 @@
-//! The branches outside the workspace: local ones it doesn't have applied, and ones only
-//! a remote has, like a teammate's.
+//! The project's branches: local ones, applied or not, and ones only a remote has, like a
+//! teammate's.
 
 use std::path::Path;
 
@@ -50,8 +50,9 @@ pub struct OtherBranch {
 /// One of a branch's own commits.
 #[derive(Debug, Clone)]
 pub struct OwnCommit {
-    /// When it was written, in seconds since the epoch: a rebase leaves that be.
-    pub time: i64,
+    /// The day it was written, as [`super::upstream::day_of`] numbers days: a rebase leaves
+    /// that be.
+    pub day: i64,
     /// Who it's shown by, by where they are in [`OtherBranch::people`].
     pub person: usize,
 }
@@ -118,9 +119,6 @@ fn own_commits(
         let Ok(((name, _), _)) = super::commit_byline(&commit) else {
             continue;
         };
-        let Ok(time) = commit.author().and_then(|author| author.time()) else {
-            continue;
-        };
         let person = match people.iter().position(|known| *known == name) {
             Some(at) => at,
             None => {
@@ -128,10 +126,11 @@ fn own_commits(
                 people.len() - 1
             }
         };
-        commits.push(OwnCommit {
-            time: time.seconds,
-            person,
-        });
+        // Its day is worked out here, off the UI thread, as the overview sums them often.
+        if let Ok(time) = commit.author().and_then(|author| author.time()) {
+            let day = super::upstream::day_of(time.seconds);
+            commits.push(OwnCommit { day, person });
+        }
     }
     (people, commits)
 }

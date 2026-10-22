@@ -11,7 +11,7 @@ use gpui::{AnyElement, Context, SharedString, div, prelude::*, px};
 
 use super::Detail;
 use super::panes::{
-    Crumb, CrumbTo, list_heading, measured, meta_item, meta_row, person_row, side_header,
+    Crumb, CrumbTo, LIST_MIN_HEIGHT, list_heading, measured, meta_item, meta_row, side_header,
     side_list, title_text, unfinished_banner,
 };
 use super::pull_request::TABS_HEIGHT;
@@ -114,7 +114,7 @@ pub(super) struct Upstream {
     seen: (u64, Instant),
     /// Why reading the history failed, shown in place of the list.
     failed: Option<String>,
-    /// Reading the next page, which starts once its row scrolls into view.
+    /// Reading the next page, which starts once its row scrolls into view, or on Show older.
     paging: Cell<Paging>,
 }
 
@@ -163,6 +163,10 @@ impl Detail {
             })
         {
             return;
+        }
+        // Older ones say they're reading, wherever the read started.
+        if let Some(upstream) = current.filter(|_| more) {
+            upstream.paging.set(Paging::Loading);
         }
         let after = current
             .filter(|_| more)
@@ -652,16 +656,16 @@ impl Detail {
 
     /// The person picked on `upstream`'s page, if any.
     fn picked_person<'a>(&self, upstream: &'a Upstream) -> Option<&'a Person> {
-        let (project, email) = self.activity_person.as_ref()?;
-        let summary = upstream
-            .summary
-            .as_ref()
-            .filter(|_| *project == upstream.project)?;
+        let email = self.picked_email(&upstream.project)?;
+        let summary = upstream.summary.as_ref()?;
         summary.people.iter().find(|person| person.email == *email)
     }
 
     fn upstream_rows(&self, upstream: &Upstream, target: &str, cx: &gpui::App) -> Vec<Row> {
         let picked = self.picked_days(upstream);
+        // A person picked who's no longer among the summary's matches nothing, rather than
+        // letting go of the filter unseen.
+        let who = self.picked_email(&upstream.project);
         let person = self.picked_person(upstream);
         let query = self.target_filter.read(cx).text().trim().to_lowercase();
         let says = |text: &str| text.to_lowercase().contains(&query);
@@ -679,8 +683,8 @@ impl Detail {
         };
         let filtered = !query.is_empty();
         let shown = |commit: &TargetCommit| {
-            picked.is_none_or(|(pick, today)| pick.keeps(Some(commit.time), today))
-                && person.is_none_or(|person| person.landed.contains(&commit.id))
+            picked.is_none_or(|(pick, today)| pick.keeps(commit.time, today))
+                && who.is_none_or(|_| person.is_some_and(|p| p.landed.contains(&commit.id)))
                 && found(commit)
         };
         let mut rows = Vec::new();
@@ -711,24 +715,27 @@ impl Detail {
         // Read further back only while the picked days may have more, or the activity's
         // days, which all of a person's are on; a filter by words reads that far on its own,
         // and older ones a click at a time, rather than the whole history.
+        // Without a summary to say where they start, a filter reads on a click from the first.
+        let bounded = who.is_some() || filtered;
         let first = (picked.and_then(|(pick, _)| pick.days.first()).copied())
             .or_else(|| {
-                let bounded = person.is_some() || filtered;
                 (upstream.summary.as_ref())
                     .filter(|_| bounded)
                     .map(|s| s.first_day)
             })
             .map(upstream::day_start);
-        let past =
-            (first.zip(upstream.commits.last())).is_some_and(|(start, oldest)| oldest.time < start);
+        let past = (who.is_some() && person.is_none())
+            || first.map_or(bounded, |start| {
+                (upstream.commits.last()).is_some_and(|oldest| oldest.time < start)
+            });
         if upstream.more && !past {
             rows.push(Row::More);
         } else if rows.is_empty() && picked.is_some() {
             rows.push(Row::Heading(format!("No commits on {target} then")));
-        } else if rows.is_empty() && (person.is_some() || filtered) {
+        } else if rows.is_empty() && bounded {
             rows.push(Row::Heading(format!("No commits on {target} match")));
         }
-        if upstream.more && past && filtered && picked.is_none() && person.is_none() {
+        if upstream.more && past && filtered && picked.is_none() && who.is_none() {
             rows.push(Row::Older);
         }
         rows
@@ -783,8 +790,7 @@ impl Detail {
         if let Some((_, pick)) = &mut self.activity_days
             && pick.apply(gesture)
         {
-            self.upstream_scroll
-                .scroll_to_item(0, gpui::ScrollStrategy::Top);
+            self.show_newest_kept(cx);
             cx.notify();
         }
     }
@@ -802,9 +808,15 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         self.activity_person = email.map(|email| (project.clone(), email));
-        self.upstream_scroll
-            .scroll_to_item(0, gpui::ScrollStrategy::Top);
+        self.show_newest_kept(cx);
         cx.notify();
+    }
+
+    /// The days picked off `project`'s activity, while any are.
+    fn days_picked(&self, project: &ProjectId) -> Option<&BTreeSet<i64>> {
+        (self.activity_days.as_ref())
+            .filter(|(p, pick)| p == project && !pick.days.is_empty())
+            .map(|(_, pick)| &pick.days)
     }
 
     /// The email of the person whose commits `project`'s history is filtered to, if any.
@@ -821,9 +833,7 @@ impl Detail {
         project: &ProjectId,
         summary: &'a Summary,
     ) -> Vec<(&'a Person, usize)> {
-        let days = (self.activity_days.as_ref())
-            .filter(|(p, pick)| p == project && !pick.days.is_empty())
-            .map(|(_, pick)| &pick.days);
+        let days = self.days_picked(project);
         let who = self.picked_email(project);
         let on_days = |person: &Person| -> usize {
             (person.daily.iter().enumerate())
@@ -853,47 +863,30 @@ impl Detail {
         &self,
         project: &ProjectId,
         summary: &Summary,
-        theme: &Theme,
         window: &gpui::Window,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
-        if summary.people.is_empty() {
+        let who = self.picked_email(project);
+        if summary.people.is_empty() && who.is_none() {
             return None;
         }
-        let days = (self.activity_days.as_ref())
-            .filter(|(p, pick)| p == project && !pick.days.is_empty())
-            .map(|(_, pick)| &pick.days);
-        let who = self.picked_email(project);
-        let people = self.people_on_days(project, summary);
-        let most = people.first().map_or(1, |(_, n)| *n);
-        let picked = (people.iter()).position(|(person, _)| who == Some(&person.email));
-        let solid = self.people_focused(window);
-        let rows = (people.into_iter().enumerate())
-            .map(|(ix, (person, n))| {
-                let picked = who == Some(&person.email);
-                let (project, email) = (project.clone(), person.email.clone());
-                person_row(
-                    ("upstream-person", ix),
-                    (&person.name, &person.email),
-                    (n, most),
-                    (picked, solid),
-                    theme,
-                )
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.filter_landed(&project, Some(email.clone()), cx)
-                }))
-            })
+        let people = (self.people_on_days(project, summary).into_iter())
+            .map(|(p, n)| (p.email.clone(), p.name.clone(), p.email.clone(), n))
             .collect();
-        let counted = match days {
+        let counted = match self.days_picked(project) {
             None => format!("commits · {ACTIVITY_DAYS} days"),
             Some(_) => "commits · days picked".to_owned(),
         };
-        let clear = who.is_some().then(|| {
-            let project = project.clone();
-            move |this: &mut Self, cx: &mut Context<Self>| this.filter_landed(&project, None, cx)
-        });
-        let said = (counted, "No commits landed then");
-        Some(self.people_card(said, (rows, picked), clear, theme, window, cx))
+        let picked = who.map(String::as_str);
+        let project = project.clone();
+        Some(self.people_card(
+            people,
+            picked,
+            (counted, "No commits landed then"),
+            move |this, email, cx| this.filter_landed(&project, email, cx),
+            window,
+            cx,
+        ))
     }
 
     /// The page's crumbs after the project's: the target and the commit of it selected.
@@ -1106,15 +1099,12 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         let none = BTreeSet::new();
-        let picked = (self.activity_days.as_ref())
-            .filter(|(p, _)| p == project)
-            .map_or(&none, |(_, pick)| &pick.days);
+        let picked = self.days_picked(project).unwrap_or(&none);
         let project = project.clone();
         activity_strip(
             &summary.daily,
             summary.first_day,
             picked,
-            "commit",
             theme,
             cx,
             move |this, gesture, cx| this.day_gesture(&project, gesture, cx),
@@ -1568,17 +1558,25 @@ impl Detail {
                                     }))
                                     .into_any_element()
                             }
-                            // Drawn once it scrolls into view, which reads the next page.
+                            // A page at a time, on a click, saying so while it reads.
+                            Row::Older if upstream.paging.get() == Paging::Loading => {
+                                list_row("target-older", false, theme)
+                                    .text_color(theme.text_3)
+                                    .child("Loading…")
+                                    .into_any_element()
+                            }
                             Row::Older => {
                                 let project = upstream.project.clone();
                                 list_row("target-older", false, theme)
                                     .text_color(theme.text_2)
                                     .child("Show older")
                                     .on_click(cx.listener(move |this, _, _, cx| {
-                                        this.load_upstream(&project, true, false, cx)
+                                        this.load_upstream(&project, true, false, cx);
+                                        cx.notify();
                                     }))
                                     .into_any_element()
                             }
+                            // Drawn once it scrolls into view, which reads the next page.
                             Row::More => {
                                 let project = upstream.project.clone();
                                 if upstream.paging.get() == Paging::Idle {
@@ -1640,10 +1638,8 @@ impl Detail {
                             )
                     }))
                     .children(summary.map(|s| self.render_activity(project, s, theme, cx)))
-                    .child(list.flex_1().min_h(px(0.)))
-                    .children(
-                        summary.and_then(|s| self.render_people(project, s, theme, window, cx)),
-                    )
+                    .child(list.flex_1().min_h(px(LIST_MIN_HEIGHT)))
+                    .children(summary.and_then(|s| self.render_people(project, s, window, cx)))
                     .into_any_element()
             }
         };
@@ -1694,28 +1690,14 @@ pub(super) fn noon(day: i64) -> i64 {
     upstream::day_start(day) + DAY / 2
 }
 
-/// The days picked, said short: one by its date, a span by its ends, days apart by how
-/// many; `None` while none is.
-pub(super) fn days_said(picked: &BTreeSet<i64>) -> Option<String> {
-    let date = |day: i64| crate::ui::local_date(noon(day));
-    let (&first, &last) = picked.first().zip(picked.last())?;
-    Some(match picked.len() {
-        1 => date(first),
-        len if (last - first + 1) as usize == len => format!("{} – {}", date(first), date(last)),
-        len => format!("{len} days"),
-    })
-}
-
-/// How busy something has been: a bar for each day of `daily`, from `first_day`, the last
-/// week's stronger, counting `unit`s. Pressing a day, shift-pressing another or dragging
-/// across them hands `gesture` what the pointer did, for a [`DayPick`]; Clear, beside the days
-/// picked, calls `clear`.
-#[allow(clippy::too_many_arguments)]
-pub(super) fn activity_strip(
+/// How busy the target has been: a bar for each day of `daily`, from `first_day`, the last
+/// week's stronger. Pressing a day, shift-pressing another or dragging across them hands
+/// `gesture` what the pointer did, for a [`DayPick`]; Clear, beside the days picked, calls
+/// `clear`.
+fn activity_strip(
     daily: &[u32],
     first_day: i64,
     picked: &BTreeSet<i64>,
-    unit: &str,
     theme: &Theme,
     cx: &Context<Detail>,
     gesture: impl Fn(&mut Detail, DayGesture, &mut Context<Detail>) + Clone + 'static,
@@ -1770,8 +1752,17 @@ pub(super) fn activity_strip(
                 )
         })
         .collect();
-    let said = match days_said(picked) {
-        Some(days) => {
+    let date = |day: i64| crate::ui::local_date(noon(day));
+    let said = match picked.first().zip(picked.last()) {
+        Some((&first, &last)) => {
+            // A span by its ends; days picked apart, by how many.
+            let days = match picked.len() {
+                1 => date(first),
+                len if (last - first + 1) as usize == len => {
+                    format!("{} – {}", date(first), date(last))
+                }
+                len => format!("{len} days"),
+            };
             let n: u32 = (daily.iter().enumerate())
                 .filter(|(ix, _)| picked.contains(&(first_day + *ix as i64)))
                 .map(|(_, n)| n)
@@ -1779,7 +1770,7 @@ pub(super) fn activity_strip(
             h_flex()
                 .gap(px(6.))
                 .child(faint(
-                    format!("{days}: {}", plural(n as usize, unit)),
+                    format!("{days}: {}", plural(n as usize, "commit")),
                     theme,
                 ))
                 .child(
@@ -1791,7 +1782,10 @@ pub(super) fn activity_strip(
                 .into_any_element()
         }
         None => faint(
-            format!("{}, {week} in the last week", plural(total as usize, unit)),
+            format!(
+                "{}, {week} in the last week",
+                plural(total as usize, "commit")
+            ),
             theme,
         )
         .into_any_element(),
@@ -1834,7 +1828,7 @@ pub(super) fn activity_strip(
 /// What the pointer did on an activity strip's day: pressed it, with shift or ⌘ (`toggle`)
 /// held or not; moved onto it while pressed; or let go.
 #[derive(Debug, Clone, Copy)]
-pub(super) enum DayGesture {
+enum DayGesture {
     Press { day: i64, shift: bool, toggle: bool },
     Drag(i64),
     Release,
@@ -1843,7 +1837,7 @@ pub(super) enum DayGesture {
 /// Days picked off an activity strip, as `upstream::day_of` numbers them, none for every day:
 /// one by a click, another added or taken away by ⌘-click, and a span by shift-clicking from
 /// the one clicked before or by dragging across them.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub(super) struct DayPick {
     pub(super) days: BTreeSet<i64>,
     /// The day a shift-click picks the span from: the one clicked before.
@@ -1857,7 +1851,7 @@ impl DayPick {
     /// the one day picked; ⌘ adds or takes away one; shift picks the days from the one
     /// clicked before; holding the press, the pointer moving across the days picks those it
     /// spans from where it was pressed. Whether the days picked changed.
-    pub(super) fn apply(&mut self, gesture: DayGesture) -> bool {
+    fn apply(&mut self, gesture: DayGesture) -> bool {
         let before = self.days.clone();
         let span = |a: i64, b: i64| (a.min(b)..=a.max(b)).collect::<BTreeSet<_>>();
         match gesture {
@@ -1894,11 +1888,10 @@ impl DayPick {
         self.days != before
     }
 
-    /// Whether something last changed at `time`, if it's known, falls on a day picked, with
-    /// every day picked while none is; one after `today` counts as today's.
-    pub(super) fn keeps(&self, time: Option<i64>, today: i64) -> bool {
-        self.days.is_empty()
-            || time.is_some_and(|time| self.days.contains(&upstream::day_of(time).min(today)))
+    /// Whether `time` falls on a day picked, with every day picked while none is; one after
+    /// `today` counts as today's.
+    fn keeps(&self, time: i64, today: i64) -> bool {
+        self.days.is_empty() || self.days.contains(&upstream::day_of(time).min(today))
     }
 }
 

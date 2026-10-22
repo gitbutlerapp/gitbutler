@@ -230,8 +230,8 @@ pub struct Detail {
     files_focus: FocusHandle,
     /// The History or Branches page's list, which a click on one of its rows focuses.
     side_focus: FocusHandle,
-    /// An overview's People card's, which a click on it takes and a click anywhere else gives
-    /// back to the list it's under: its person picked shows as a focused selection only then.
+    /// A People card's, which a click on it takes and a click anywhere else gives back to the
+    /// list it's under: its person picked shows as a focused selection only then.
     people_focus: FocusHandle,
     /// The People card lists everyone, scrolling within it, rather than the busiest few.
     people_open: bool,
