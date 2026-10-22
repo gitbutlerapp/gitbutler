@@ -208,11 +208,28 @@ pub(super) fn branch_ref(name: &str) -> Result<gix::refs::FullName> {
     full_name(&format!("refs/heads/{name}"))
 }
 
+/// What a hook printed, as an error card shows it: its last lines first, where a linter or
+/// test runner says what failed, without the labels put before each of its streams, then all
+/// of it, for copying.
+fn hook_output(output: &str) -> String {
+    let said: Vec<&str> = (output.lines())
+        .map(str::trim_end)
+        .filter(|line| !matches!(line.trim(), "" | "stdout:" | "stderr:"))
+        .collect();
+    match said.len() {
+        ..=3 => said.join("\n"),
+        n => format!("{}\n\n{output}", said[n - 3..].join("\n")),
+    }
+}
+
 /// Run the pre-commit hook on what `changes` would commit; its failure refuses the commit.
 fn pre_commit(ctx: &but_ctx::Context, changes: &[DiffSpec]) -> Result<()> {
     let result = but_api::legacy::repo::pre_commit_hook_diffspecs(ctx, changes.to_vec())?;
     if let HookResult::Failure(ErrorData { error }) = result {
-        bail!("The pre-commit hook refused the commit:\n{error}");
+        bail!(
+            "The pre-commit hook refused the commit:\n{}",
+            hook_output(&error)
+        );
     }
     Ok(())
 }
@@ -220,7 +237,7 @@ fn pre_commit(ctx: &but_ctx::Context, changes: &[DiffSpec]) -> Result<()> {
 /// Run the post-commit hook, and say what it printed if it failed: the commit stands.
 fn post_commit(ctx: &but_ctx::Context) -> Option<String> {
     match but_api::legacy::repo::post_commit_hook(ctx) {
-        Ok(HookResult::Failure(ErrorData { error })) => Some(error),
+        Ok(HookResult::Failure(ErrorData { error })) => Some(hook_output(&error)),
         Ok(_) => None,
         Err(err) => Some(format!("{err:#}")),
     }
@@ -261,7 +278,10 @@ pub fn commit(
         pre_commit(&ctx, &changes)?;
         match but_api::legacy::repo::message_hook(&ctx, message.clone())? {
             MessageHookResult::Failure(ErrorData { error }) => {
-                bail!("The commit-msg hook refused the commit:\n{error}")
+                bail!(
+                    "The commit-msg hook refused the commit:\n{}",
+                    hook_output(&error)
+                )
             }
             MessageHookResult::Message(rewritten) => message = rewritten.message,
             MessageHookResult::Success | MessageHookResult::NotConfigured => {}
@@ -1397,6 +1417,22 @@ mod tests {
             git(path, &["rev-parse", "second"]),
             git(path, &["merge-base", "first", "second"]),
             "no empty commit lands on the other branch"
+        );
+    }
+
+    #[test]
+    fn a_hook_says_how_it_ended_first() {
+        let output = "stdout:\n[STARTED] lint\n[FAILED] cargo fmt --check\n-a\n+b\n\n\
+            stderr:\nhusky - pre-commit script failed (code 1)\n";
+        assert_eq!(
+            super::hook_output(output),
+            format!("-a\n+b\nhusky - pre-commit script failed (code 1)\n\n{output}"),
+            "its last lines, then all of it to copy"
+        );
+        assert_eq!(
+            super::hook_output("stdout:\nlint failed\n"),
+            "lint failed",
+            "a short one as it is, without the stream's label"
         );
     }
 
