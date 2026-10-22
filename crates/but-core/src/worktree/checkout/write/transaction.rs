@@ -171,6 +171,17 @@ enum Step {
     CreatedDir(PathBuf),
 }
 
+impl Step {
+    /// The path in the worktree the step changed.
+    fn path(&self) -> &Path {
+        match self {
+            Step::MovedAside { from, .. } => from,
+            Step::RemovedDir { path, .. } | Step::Placed { path, .. } => path,
+            Step::CreatedDir(dir) => dir,
+        }
+    }
+}
+
 impl Journal {
     fn new(workdir: &Path) -> Self {
         Journal {
@@ -184,8 +195,11 @@ impl Journal {
     /// aside never collide, even if one was inside another. An object that is gone loses
     /// nothing.
     fn move_aside(&mut self, from: &Path, aside: &Path) -> anyhow::Result<()> {
-        if !self.has_real_leading_dirs(from)? {
-            return Ok(());
+        match leading_dirs_of(&self.workdir, from)? {
+            Leading::Dirs => {}
+            // Nothing is there.
+            Leading::Missing => return Ok(()),
+            Leading::Obstructed(dir) => return Err(self.appeared_after_the_check(&dir)),
         }
         std::fs::create_dir_all(aside)?;
         let to = aside.join(self.steps.len().to_string());
@@ -237,21 +251,6 @@ impl Journal {
             self.ensure_one_dir(dir)?;
         }
         Ok(())
-    }
-
-    /// Whether the directories leading to `path` are all directories, so the object there can be
-    /// moved without following a symlink, maybe out of the worktree. A missing one means the
-    /// object is gone. A file or symlink appeared after the worktree was checked, so refuse.
-    fn has_real_leading_dirs(&self, path: &Path) -> anyhow::Result<bool> {
-        for dir in leading_dirs(&self.workdir, path) {
-            match dir.symlink_metadata() {
-                Ok(md) if md.is_dir() => {}
-                Ok(_) => return Err(self.appeared_after_the_check(dir)),
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-                Err(err) => return Err(err.into()),
-            }
-        }
-        Ok(true)
     }
 
     /// Create the directory `dir` unless it is one. A file or symlink there appeared after the
@@ -329,13 +328,13 @@ impl Journal {
     fn undo_steps(self) -> Vec<(PathBuf, PathBuf)> {
         let mut unrestored = Vec::new();
         for step in self.steps.into_iter().rev() {
-            let undone = match &step {
+            let undone = in_worktree(&self.workdir, step.path()).and_then(|()| match &step {
                 Step::Placed { path, staged } => remove_unless_changed(path, staged),
                 Step::CreatedDir(dir) => std::fs::remove_dir(dir),
                 Step::RemovedDir { path, permissions } => std::fs::create_dir(path)
                     .and_then(|()| std::fs::set_permissions(path, permissions.clone())),
                 Step::MovedAside { from, to } => rename_no_replace(to, from),
-            };
+            });
             if let Err(err) = undone {
                 tracing::error!(?err, "could not undo a checkout step");
                 if let Step::MovedAside { from, to } = step {
@@ -378,6 +377,40 @@ fn rename_no_replace_in_one_step(from: &Path, to: &Path) -> std::io::Result<()> 
     // `from` isn't temporary, so keep it if renaming fails.
     path.disable_cleanup(true);
     path.persist_noclobber(to).map_err(|err| err.error)
+}
+
+/// What the directories leading to a path in the worktree are.
+enum Leading {
+    /// All directories, so the path is in the worktree.
+    Dirs,
+    /// One is missing, so nothing is at the path.
+    Missing,
+    /// This one is a file or symlink, which appeared after the worktree was checked.
+    Obstructed(PathBuf),
+}
+
+/// What the directories leading to `path` in `workdir` are, without following symlinks, which
+/// could lead out of the worktree.
+fn leading_dirs_of(workdir: &Path, path: &Path) -> std::io::Result<Leading> {
+    for dir in leading_dirs(workdir, path) {
+        match dir.symlink_metadata() {
+            Ok(md) if md.is_dir() => {}
+            Ok(_) => return Ok(Leading::Obstructed(dir.to_owned())),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(Leading::Missing),
+            Err(err) => return Err(err),
+        }
+    }
+    Ok(Leading::Dirs)
+}
+
+/// Fail unless the directories leading to `path` in `workdir` are all directories.
+fn in_worktree(workdir: &Path, path: &Path) -> std::io::Result<()> {
+    match leading_dirs_of(workdir, path)? {
+        Leading::Dirs => Ok(()),
+        Leading::Missing | Leading::Obstructed(_) => Err(std::io::Error::other(format!(
+            "the directories leading to {path:?} changed"
+        ))),
+    }
 }
 
 /// The directories between `workdir` and `path`, from the root down.
@@ -618,6 +651,32 @@ mod tests {
         journal.undo(staged, anyhow::anyhow!("a later step failed"));
 
         assert_eq!(std::fs::read_to_string(&b)?, "saved after placing\n");
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn undo_keeps_a_backup_whose_directory_became_a_symlink() -> anyhow::Result<()> {
+        let (workdir, staged) = worktree_and_staging()?;
+        let d = workdir.path().join("d");
+        std::fs::create_dir(&d)?;
+        std::fs::write(d.join("a"), "before\n")?;
+        std::fs::write(d.join("other"), "")?;
+        let mut journal = super::Journal::new(workdir.path());
+        journal.move_aside(&d.join("a"), &staged.aside())?;
+        let outside = tempfile::tempdir()?;
+        std::fs::rename(&d, outside.path().join("d"))?;
+        std::os::unix::fs::symlink(outside.path().join("d"), &d)?;
+        let staging_dir = staged.dir.path().to_owned();
+
+        let err = journal.undo(staged, anyhow::anyhow!("a later step failed"));
+
+        assert!(
+            !outside.path().join("d/a").exists(),
+            "nothing is restored outside the worktree"
+        );
+        assert!(err.to_string().contains("\"d/a\" at"), "{err}");
+        std::fs::remove_dir_all(staging_dir)?;
         Ok(())
     }
 }
