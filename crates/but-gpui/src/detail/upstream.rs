@@ -527,6 +527,10 @@ impl Detail {
                         .h_full()
                         .border_r_1()
                         .border_color(theme.border_3)
+                        // Its own focus, so a file picked shows solid and the arrows step
+                        // through the files, as in a checkout's file list.
+                        .track_focus(&self.files_focus)
+                        .key_context("Files")
                         .child(self.render_diff_file_list(theme, cx)),
                 )
             })

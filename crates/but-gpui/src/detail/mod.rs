@@ -2019,12 +2019,15 @@ impl Render for Detail {
                                     .h_full()
                                     .border_r_1()
                                     .border_color(theme.border_3)
-                                    .track_focus(&self.files_focus)
-                                    // A list page's list takes the arrows itself; ⇧↑, ⇧↓ and
-                                    // ⌘A, which it has no use for, don't pick the diff's files.
-                                    .when(!list_page, |el| match self.composing {
-                                        true => el.key_context("Files Composing"),
-                                        false => el.key_context("Files"),
+                                    // A list page's list takes the arrows itself, and the files
+                                    // beside it hold their focus there.
+                                    .when(!list_page, |el| {
+                                        el.track_focus(&self.files_focus).key_context(
+                                            match self.composing {
+                                                true => "Files Composing",
+                                                false => "Files",
+                                            },
+                                        )
                                     })
                                     .child(side)
                                     .child(resize_handle(Pane::Files, self.store.clone(), &theme)),
