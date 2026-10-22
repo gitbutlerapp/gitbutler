@@ -15,7 +15,7 @@ use crate::backend::{
     LineKind, PushState, Selected, ai, short_ref,
 };
 use crate::palette::Choice;
-use crate::state::{NewAt, Overlay, ProjectId, Selection, Store};
+use crate::state::{Cut, NewAt, Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -452,9 +452,29 @@ impl Detail {
                 return;
             }
         }
-        // A file a merge left conflicted can't be committed until it's marked resolved, so
-        // it starts out of the commit.
         if !self.composing {
+            // Its checks take over the line numbers, and lines or files picked in its
+            // checkout's diff are what it commits, as dropped on a branch they would be.
+            let picks = match self.line_picks.is_some() {
+                true => self.line_picks_cut(cx),
+                false => (!self.file_picks.is_empty())
+                    .then(|| self.owned_cut(self.picked_changes(), cx))
+                    .flatten(),
+            };
+            if let Some(Cut::Files {
+                project,
+                from: None,
+                worktree,
+                files,
+            }) = picks
+                && (Some(&project), &worktree)
+                    == (self.checks_project.as_ref(), &self.checks_worktree)
+            {
+                self.check_only(Some(project), worktree, &files, cx);
+                self.file_picks.clear();
+            }
+            // A file a merge left conflicted can't be committed until it's marked resolved,
+            // so it starts out of the commit.
             let files = (self.checks_project.as_ref())
                 .and_then(|project| self.store.read(cx).workspace(project))
                 .and_then(|ws| ws.uncommitted_in(self.checks_worktree.as_deref()))
@@ -470,7 +490,6 @@ impl Detail {
             self.composer_back = window.focused(cx).filter(|focused| *focused != message);
         }
         self.composing = true;
-        // Its checks take over the line numbers.
         self.line_picks = None;
         // The composer sits under the file list, so a hidden list comes back with it.
         self.files_hidden = false;
@@ -504,15 +523,31 @@ impl Detail {
         if (&self.checks_project, &self.checks_worktree) != (&project, &None) {
             self.switch_checkout(project.clone(), None, cx);
         }
+        self.check_only(project, None, files, cx);
+        // What was dropped is what goes in, not what's picked.
+        self.file_picks.clear();
+        self.line_picks = None;
+        self.focus_message(window, cx);
+    }
+
+    /// Check just `files` of `project`'s main checkout, or of its `linked` worktree, down to
+    /// the hunks and lines they name.
+    fn check_only(
+        &mut self,
+        project: Option<ProjectId>,
+        linked: Option<Arc<str>>,
+        files: &[Selected],
+        cx: &mut Context<Self>,
+    ) {
         if let Some(project) = project
             && let Some(workspace) = self.store.read(cx).workspace(&project)
+            && let Some(uncommitted) = workspace.uncommitted_in(linked.as_deref())
         {
             let keep: HashMap<&str, Option<&[HunkKey]>> = files
                 .iter()
                 .map(|f| (f.file.path.as_str(), f.hunks.as_deref()))
                 .collect();
-            self.checks.unchecked = workspace
-                .uncommitted
+            self.checks.unchecked = uncommitted
                 .iter()
                 .filter(|f| !keep.contains_key(f.path.as_str()))
                 .map(|f| f.path.clone())
@@ -528,7 +563,7 @@ impl Detail {
             // whose diff stays on screen while this one's loads again.
             let worktree = DiffKey {
                 project,
-                source: DiffSource::Worktree,
+                source: linked.map_or(DiffSource::Worktree, DiffSource::Linked),
             };
             if let Some(files) = self.recent_files(&worktree) {
                 let mut out = HashSet::new();
@@ -567,7 +602,6 @@ impl Detail {
             }
         }
         cx.emit(ChecksChanged);
-        self.focus_message(window, cx);
     }
 
     pub fn start_reword(&mut self, window: &mut Window, cx: &mut Context<Self>) {
