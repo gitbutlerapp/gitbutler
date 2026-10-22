@@ -247,16 +247,17 @@ fn upstream_chevrons(ref_name: Option<&str>) -> (f32, f32) {
     (heading, glyph(upstream_indent(ref_name)))
 }
 
-/// A branch row's click handler: a plain click opens its commits, as
-/// [`Navigator::open_on_click`] does; one with ⌘ or ⇧, picking commits, doesn't, and nor
-/// does any while the filter lists what it finds.
+/// A branch row's click handler: with Open branches on click on in Settings, a plain click
+/// opens its commits, as [`Navigator::open_on_click`] does; one with ⌘ or ⇧, picking
+/// commits, doesn't, and nor does any while the filter lists what it finds.
 fn open_on_click(
     branch: ClickOpened,
     cx: &Context<Navigator>,
 ) -> impl Fn(&ClickEvent, &mut Window, &mut App) + 'static {
     cx.listener(move |this, event: &ClickEvent, _, cx| {
         let held = event.modifiers();
-        if !held.secondary() && !held.shift && !this.filtering(cx) {
+        let on = this.store.read(cx).prefs.open_branch_on_click;
+        if on && !held.secondary() && !held.shift && !this.filtering(cx) {
             this.open_on_click(branch.clone(), cx)
         }
     })
