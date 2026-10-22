@@ -170,6 +170,11 @@ pub fn activate(path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// The target's branch on its remote, as the project names it, like `refs/remotes/origin/main`.
+pub(crate) fn remote_target(ctx: &Context, repo: &gix::Repository) -> Option<gix::refs::FullName> {
+    (ctx.project_meta().ok()).and_then(|meta| meta.remote_target_ref(repo).ok().flatten())
+}
+
 pub(crate) fn open(path: &Path) -> Result<Context> {
     Context::open(path).with_context(|| format!("Couldn't open {}", path.display()))
 }
@@ -288,8 +293,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     // a pull brings in. Without a stored commit, as for a project added since its target last
     // moved, or without an upstream, which nothing can be pulled from, there's nothing to bring.
     let repo = ctx.repo.get()?;
-    let upstream =
-        (ctx.project_meta().ok()).and_then(|meta| meta.remote_target_ref(&repo).ok().flatten());
+    let upstream = remote_target(&ctx, &repo);
     let tip = (upstream.as_ref()).and_then(|name| ref_tip(&repo, name.as_ref()));
     let target = upstream.as_ref().zip(tip).map(|(name, tip)| {
         let ahead = target_commit.map_or(0, |base| commits_past(&repo, tip, base));

@@ -235,6 +235,14 @@ pub struct Person {
     pub landed: HashSet<CommitId>,
 }
 
+/// The target's short name, like `origin/main`, as the workspace names it, for a page read
+/// before the workspace is.
+pub fn target_name(path: &Path) -> Option<String> {
+    let ctx = open(path).ok()?;
+    let repo = ctx.repo.get().ok()?;
+    Some(super::remote_target(&ctx, &repo)?.shorten().to_string())
+}
+
 /// `target` (a short name, like `origin/main`) summed up as of `now`, in seconds since the
 /// epoch. A commit that can't be read is left out rather than failing the rest.
 pub fn overview(path: &Path, target: &str, now: i64) -> Result<Overview> {

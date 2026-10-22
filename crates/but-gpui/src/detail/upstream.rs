@@ -196,18 +196,22 @@ impl Detail {
         let project = project.clone();
         let workspace = self.store.read(cx).workspace(&project);
         let forge = workspace.and_then(|ws| ws.forge);
-        // Only with the newest page: paging further back keeps what was read.
-        let target = (workspace.and_then(|ws| ws.target.as_ref()))
-            .map(|target| target.name.clone())
-            .filter(|_| after.is_none());
+        // What landed lately, only with the newest page: paging further back keeps what was
+        // read. Before the workspace is read, as an unwatched project's first page is, the
+        // target's name is read with the page, so the page shows whole at once.
+        let newest = after.is_none();
+        let known = workspace.map(|ws| ws.target.as_ref().map(|target| target.name.clone()));
         let now = crate::ui::now();
         // The branches the header counts are the Branches page's, read on their own rather
         // than waited for; that page then opens with them.
-        if target.is_some() {
+        if newest && known.as_ref().is_some_and(Option::is_some) {
             self.load_branches(&project, false, cx);
         }
         self._upstream_load = cx.spawn(async move |this, cx| {
             let result = backend::run(move || {
+                let target = newest
+                    .then(|| known.unwrap_or_else(|| upstream::target_name(&path)))
+                    .flatten();
                 // What landed lately takes longest, so it's read beside the page rather than
                 // after it.
                 std::thread::scope(|scope| {
