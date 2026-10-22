@@ -20,7 +20,8 @@ use crate::index::Stat;
 
 /// Files checked out into a staging directory, ready to be moved into the worktree.
 pub(super) struct Staged {
-    /// Removed when dropped, along with the objects moved aside into it.
+    /// Removed when dropped, along with the objects moved aside into it, unless undoing the
+    /// commit couldn't put one back.
     dir: tempfile::TempDir,
     files: Vec<StagedFile>,
     submodules: Vec<BString>,
@@ -101,7 +102,7 @@ pub(super) fn stage(
 }
 
 /// Move the `clearances` aside and the staged files into place. On failure, undo every step and
-/// return the error, leaving the worktree as it was.
+/// return the error, leaving the worktree as it was, except for what changed meanwhile.
 pub(super) fn commit(
     repo: &gix::Repository,
     staged: Staged,
@@ -112,10 +113,7 @@ pub(super) fn commit(
     let mut journal = Journal::new(workdir);
     match apply(&mut journal, workdir, &staged, clearances) {
         Ok(placed) => Ok(placed),
-        Err(err) => {
-            journal.undo();
-            Err(err)
-        }
+        Err(err) => Err(journal.undo(staged, err)),
     }
 }
 
@@ -142,7 +140,7 @@ fn apply(
     let mut stats = BTreeMap::new();
     for StagedFile { rela_path, stat } in &staged.files {
         let dest = join(workdir, rela_path)?;
-        journal.place(&join(&staged.new_files(), rela_path)?, &dest)?;
+        journal.place(&join(&staged.new_files(), rela_path)?, &dest, stat)?;
         stats.insert(rela_path.clone(), trusted_stat(stat, &dest)?);
     }
     for rela_path in &staged.submodules {
@@ -166,7 +164,10 @@ enum Step {
         path: PathBuf,
         permissions: std::fs::Permissions,
     },
-    Placed(PathBuf),
+    Placed {
+        path: PathBuf,
+        staged: gix::index::entry::Stat,
+    },
     CreatedDir(PathBuf),
 }
 
@@ -202,13 +203,25 @@ impl Journal {
 
     /// Move the `staged` file to `dest`, where nothing is left after the clearances moved aside,
     /// unless something was created there after the worktree was checked.
-    fn place(&mut self, staged: &Path, dest: &Path) -> anyhow::Result<()> {
+    /// Move the file at `staged`, with the `stat`, to `dest`, unless something appeared there.
+    fn place(
+        &mut self,
+        staged: &Path,
+        dest: &Path,
+        stat: &gix::index::entry::Stat,
+    ) -> anyhow::Result<()> {
         self.create_parents(dest)?;
-        if dest.symlink_metadata().is_ok() {
-            return Err(self.appeared_after_the_check(dest));
+        match rename_no_replace(staged, dest) {
+            Ok(()) => {}
+            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
+                return Err(self.appeared_after_the_check(dest));
+            }
+            Err(err) => return Err(err).with_context(|| format!("placing {dest:?}")),
         }
-        std::fs::rename(staged, dest).with_context(|| format!("placing {dest:?}"))?;
-        self.steps.push(Step::Placed(dest.to_owned()));
+        self.steps.push(Step::Placed {
+            path: dest.to_owned(),
+            staged: *stat,
+        });
         Ok(())
     }
 
@@ -288,20 +301,83 @@ impl Journal {
     }
 
     /// Undo every step in reverse. Failures are logged, as there is nothing left to fall back to.
-    fn undo(self) {
+    /// Undo every step, latest first, and return `err`. What changed since a step stays: an
+    /// object moved aside whose place was taken meanwhile stays in `staged`, which is then kept,
+    /// and `err` says where.
+    fn undo(self, staged: Staged, err: anyhow::Error) -> anyhow::Error {
+        let workdir = self.workdir.clone();
+        let unrestored = self.undo_steps();
+        if unrestored.is_empty() {
+            return err;
+        }
+        let _kept = staged.dir.keep();
+        let kept: Vec<String> = unrestored
+            .iter()
+            .map(|(from, to)| {
+                let rela_path = from.strip_prefix(&workdir).unwrap_or(from);
+                format!("{:?} at {:?}", rela_path.display().to_string(), to)
+            })
+            .collect();
+        err.context(format!(
+            "Checkout failed and was undone, but these paths changed meanwhile, so their previous versions were kept elsewhere: {}",
+            kept.join(", ")
+        ))
+    }
+
+    /// Undo every step, latest first, and return the objects moved aside that couldn't be put
+    /// back, from where to where.
+    fn undo_steps(self) -> Vec<(PathBuf, PathBuf)> {
+        let mut unrestored = Vec::new();
         for step in self.steps.into_iter().rev() {
             let undone = match &step {
-                Step::Placed(path) => gix::fs::symlink::remove(path),
+                Step::Placed { path, staged } => remove_unless_changed(path, staged),
                 Step::CreatedDir(dir) => std::fs::remove_dir(dir),
                 Step::RemovedDir { path, permissions } => std::fs::create_dir(path)
                     .and_then(|()| std::fs::set_permissions(path, permissions.clone())),
-                Step::MovedAside { from, to } => std::fs::rename(to, from),
+                Step::MovedAside { from, to } => rename_no_replace(to, from),
             };
             if let Err(err) = undone {
                 tracing::error!(?err, "could not undo a checkout step");
+                if let Step::MovedAside { from, to } = step {
+                    unrestored.push((from, to));
+                }
             }
         }
+        unrestored
     }
+}
+
+/// Remove the file checkout placed at `path` with the `staged` stat, unless it changed since.
+fn remove_unless_changed(path: &Path, staged: &gix::index::entry::Stat) -> std::io::Result<()> {
+    match trusted_stat(staged, path) {
+        Ok(Stat::Known(_)) => gix::fs::symlink::remove(path),
+        Ok(Stat::Unknown) | Err(_) => Ok(()),
+    }
+}
+
+/// Rename `from` to `to` unless something is there, failing with `AlreadyExists`, so nothing
+/// that appeared there meanwhile is replaced. Where the system can't check and rename in one
+/// step, like on Windows or for directories on some filesystems, it checks first.
+fn rename_no_replace(from: &Path, to: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        match rename_no_replace_in_one_step(from, to) {
+            Err(err) if err.kind() != std::io::ErrorKind::AlreadyExists => {}
+            done => return done,
+        }
+    }
+    if to.symlink_metadata().is_ok() {
+        return Err(std::io::ErrorKind::AlreadyExists.into());
+    }
+    std::fs::rename(from, to)
+}
+
+#[cfg(unix)]
+fn rename_no_replace_in_one_step(from: &Path, to: &Path) -> std::io::Result<()> {
+    let mut path = tempfile::TempPath::try_from_path(from)?;
+    // `from` isn't temporary, so keep it if renaming fails.
+    path.disable_cleanup(true);
+    path.persist_noclobber(to).map_err(|err| err.error)
 }
 
 /// The directories between `workdir` and `path`, from the root down.
@@ -466,6 +542,82 @@ mod tests {
             matches!(super::trusted_stat(&staged, &placed)?, Stat::Unknown),
             "a new file with the same size and time is still another file"
         );
+        Ok(())
+    }
+
+    /// A worktree with the file `a`, and a staging directory to check out into it.
+    fn worktree_and_staging() -> anyhow::Result<(tempfile::TempDir, super::Staged)> {
+        let workdir = tempfile::tempdir()?;
+        std::fs::write(workdir.path().join("a"), "before\n")?;
+        let staged = super::Staged {
+            dir: tempfile::tempdir()?,
+            files: Vec::new(),
+            submodules: Vec::new(),
+        };
+        std::fs::create_dir(staged.new_files())?;
+        Ok((workdir, staged))
+    }
+
+    /// Stage `content` as the new file `name`, and return where it is and its stat.
+    fn stage(
+        staged: &super::Staged,
+        name: &str,
+        content: &str,
+    ) -> anyhow::Result<(std::path::PathBuf, gix::index::entry::Stat)> {
+        let path = staged.new_files().join(name);
+        std::fs::write(&path, content)?;
+        Ok((path.clone(), stat(&path)?))
+    }
+
+    #[test]
+    fn undo_keeps_a_file_saved_where_one_was_moved_aside_and_says_where_that_one_is()
+    -> anyhow::Result<()> {
+        let (workdir, staged) = worktree_and_staging()?;
+        let a = workdir.path().join("a");
+        let (new_a, new_stat) = stage(&staged, "a", "target\n")?;
+        let mut journal = super::Journal::new(workdir.path());
+        journal.move_aside(&a, &staged.aside())?;
+        std::fs::write(&a, "saved meanwhile\n")?;
+
+        let refused = journal
+            .place(&new_a, &a, &new_stat)
+            .expect_err("`a` appeared after the check");
+        let (staging_dir, aside) = (staged.dir.path().to_owned(), staged.aside());
+        let err = journal.undo(staged, refused);
+
+        assert_eq!(std::fs::read_to_string(&a)?, "saved meanwhile\n");
+        let kept = std::fs::read_dir(&aside)?.collect::<Result<Vec<_>, _>>()?;
+        assert_eq!(
+            kept.len(),
+            1,
+            "the staging directory is kept with the backup"
+        );
+        let backup = kept[0].path();
+        assert_eq!(std::fs::read_to_string(&backup)?, "before\n");
+        assert_eq!(
+            format!("{err:#}"),
+            format!(
+                "Checkout failed and was undone, but these paths changed meanwhile, so their \
+                 previous versions were kept elsewhere: \"a\" at {backup:?}: Uncommitted files \
+                 would be overwritten by checkout: \"a\""
+            )
+        );
+        std::fs::remove_dir_all(staging_dir)?;
+        Ok(())
+    }
+
+    #[test]
+    fn undo_keeps_a_placed_file_changed_since() -> anyhow::Result<()> {
+        let (workdir, staged) = worktree_and_staging()?;
+        let b = workdir.path().join("b");
+        let (new_b, new_stat) = stage(&staged, "b", "target\n")?;
+        let mut journal = super::Journal::new(workdir.path());
+        journal.place(&new_b, &b, &new_stat)?;
+        std::fs::write(&b, "saved after placing\n")?;
+
+        journal.undo(staged, anyhow::anyhow!("a later step failed"));
+
+        assert_eq!(std::fs::read_to_string(&b)?, "saved after placing\n");
         Ok(())
     }
 }
