@@ -414,8 +414,10 @@ impl Detail {
         let mut rows = Vec::new();
         let mut group = None;
         for stack in shown.chunk_by(|a, b| branches.list[*a].stack == branches.list[*b].stack) {
+            // A day ahead, from a machine whose clock runs fast, counts as today, as the
+            // activity strip has it.
             let ago = (newest.get(&branches.list[stack[0]].stack))
-                .map(|time| today - upstream::day_of(*time));
+                .map(|time| (today - upstream::day_of(*time)).max(0));
             let heading = match ago {
                 Some(0) => "Today",
                 Some(days) if days < 7 => "This week",
