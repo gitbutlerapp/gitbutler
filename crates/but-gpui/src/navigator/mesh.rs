@@ -11,7 +11,7 @@ use gpui::{
 
 use super::menu::keyed;
 use super::{
-    COMMIT_INDENT, ClickOpened, NEST, Navigator, Row, RowStyle, Rows, double_click, found, matches,
+    COMMIT_INDENT, ClickOpened, NEST, Navigator, Row, RowStyle, Rows, found, matches,
     open_on_click, section_heading, uncommitted_counts,
 };
 use crate::app::CopySelection;
@@ -256,13 +256,7 @@ impl Navigator {
                 (style.row(format!("mesh-{project}-{key}"), 6.))
                     .aria_label(checkout.label())
                     .aria_expanded(open)
-                    .child(self.fold(
-                        ("mesh-fold", ix),
-                        folds.then_some(open),
-                        quiet,
-                        cx,
-                        toggle.clone(),
-                    ))
+                    .child(self.fold(("mesh-fold", ix), folds.then_some(open), quiet, cx, toggle))
                     .child(icon(Icon::Computer).text_color(style.muted()))
                     .child(
                         div()
@@ -285,7 +279,6 @@ impl Navigator {
                     })
                     .when(!open, |el| el.children(style.unpushed(unpushed)))
                     .when(active, |el| el.child(style.active(("mesh-active", ix))))
-                    .when(folds, |el| el.on_click(double_click(toggle, cx)))
             }
             _ => return None,
         };

@@ -262,19 +262,6 @@ fn open_on_click(
     })
 }
 
-/// A row's click handler that runs `toggle` on a double-click, as a folder opens, unless the
-/// filter lists what it finds.
-fn double_click(
-    toggle: impl Fn(&mut Navigator, &mut Window, &mut Context<Navigator>) + 'static,
-    cx: &Context<Navigator>,
-) -> impl Fn(&ClickEvent, &mut Window, &mut App) + 'static {
-    cx.listener(move |this, event: &ClickEvent, window, cx| {
-        if event.click_count() == 2 && !this.filtering(cx) {
-            toggle(this, window, cx)
-        }
-    })
-}
-
 impl RowStyle<'_> {
     fn row(&self, id: String, indent: f32) -> Stateful<Div> {
         let theme = self.theme;
@@ -1344,9 +1331,10 @@ impl Navigator {
         }
     }
 
-    /// Enter on project `id`, a double-click on it or its card's chevron: a watched project's
-    /// card folds or unfolds, as a folder does, still watched, and another starts being
-    /// watched. While the filter lists what it finds, cards don't fold.
+    /// Enter on project `id` or its card's chevron: a watched project's card folds or
+    /// unfolds, as a folder does, still watched, and another starts being watched. While the
+    /// filter lists what it finds, cards don't fold. A double-click doesn't, as no row folds
+    /// on one.
     fn toggle_project(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
         let filtering = self.filtering(cx);
         self.store.update(cx, |store, cx| {
@@ -1854,7 +1842,6 @@ impl Navigator {
         let theme = style.theme;
         let entry = store.project(id)?;
         let workspace = entry.workspace.as_ref();
-        let toggle_id = id.clone();
         let expanded = entry.expanded;
         // A watched project whose card is folded to this row. The filter lists what it finds,
         // folded or not.
@@ -2070,11 +2057,6 @@ impl Navigator {
                     )
                 })
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
-                .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
-                    if event.click_count() == 2 {
-                        this.toggle_project(&toggle_id, cx)
-                    }
-                }))
                 // Only the manual order moves by hand.
                 .when(expanded && manual, |el| self.reorderable(el, id, entry, cx))
                 .into_any_element(),
@@ -2263,8 +2245,8 @@ impl Navigator {
 
     /// A worktree's heading, which selects its uncommitted changes: the main one's for
     /// [`Selection::Uncommitted`], a linked one's for [`Selection::Worktree`]. With linked
-    /// worktrees, a chevron or a double-click folds its branches; folded, it also counts their
-    /// unpushed commits. Without, the main one's branches sit beside it, and still fold.
+    /// worktrees, its chevron folds its branches; folded, it also counts their unpushed
+    /// commits. Without, the main one's branches sit beside it, and still fold.
     fn worktree_heading(
         &self,
         ix: usize,
@@ -2309,7 +2291,7 @@ impl Navigator {
             folds.then_some(open),
             style.quiet(),
             cx,
-            toggle.clone(),
+            toggle,
         );
         // In as far as a branch is, so its chevron and icon line up with theirs.
         let row = style
@@ -2344,8 +2326,7 @@ impl Navigator {
                     .when(unread, |el| el.child(dot(style.meta(theme.pop))))
             })
             .when(active, |el| el.child(style.active(("worktree-active", ix))))
-            .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
-            .when(folds, |el| el.on_click(double_click(toggle, cx)));
+            .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx));
         // The worktree's checked files while it's shown, else all of them.
         let drags = !uncommitted.is_empty();
         Some(
@@ -2415,9 +2396,9 @@ impl Navigator {
     }
 
     /// Over a stack of two or more branches, as ui-react's StackCaption: a chevron, its
-    /// glyph and how many. Selecting it shows what its branches change together; its chevron,
-    /// or a double-click, folds them away, and folded, it says how many commits they have to
-    /// push, whether any is unread and when they last changed.
+    /// glyph and how many. Selecting it shows what its branches change together; its chevron
+    /// folds them away, and folded, it says how many commits they have to push, whether any
+    /// is unread and when they last changed.
     fn stack_row(
         &self,
         ix: usize,
@@ -2450,13 +2431,7 @@ impl Navigator {
                 this.toggle_stack(&project, &bottom, open, window, cx)
             }
         };
-        let step = self.fold(
-            ("stack-fold", ix),
-            Some(open),
-            style.quiet(),
-            cx,
-            toggle.clone(),
-        );
+        let step = self.fold(("stack-fold", ix), Some(open), style.quiet(), cx, toggle);
         // As ui-react's StackCaption: quiet, so it doesn't read as one more branch, with
         // "Stack" a step above the rest.
         let (word, quiet) = match style.solid {
@@ -2499,7 +2474,6 @@ impl Navigator {
                         .children(latest.map(|at| style.age(at)))
                 })
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
-                .on_click(double_click(toggle, cx))
                 .into_any_element(),
         )
     }
