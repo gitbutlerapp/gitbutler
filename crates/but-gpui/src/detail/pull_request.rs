@@ -216,7 +216,6 @@ impl Detail {
                 el.child(section("Description", None, theme).child(markdown::render(
                     &format!("review-{}", review.number),
                     &body,
-                    &Default::default(),
                     theme,
                 )))
             })

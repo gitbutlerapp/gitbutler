@@ -175,11 +175,10 @@ fn offset_at(seconds: i64) -> i64 {
         .map_or(0, |at| at.offset().local_minus_utc().into())
 }
 
-/// The target as the project's page sums it up: its README, and who's been committing to it.
+/// The target as the project's page sums it up: what landed on it, and who's been committing
+/// to it.
 #[derive(Debug, Clone, Default)]
 pub struct Overview {
-    /// The README's file name and text at the target's tip.
-    pub readme: Option<(String, String)>,
     /// How many commits landed on the target's own line, as its history lists them, each of
     /// the last [`ACTIVITY_DAYS`] days here, oldest first.
     pub daily: Vec<u32>,
@@ -306,12 +305,7 @@ pub fn overview(path: &Path, target: &str, now: i64) -> Result<Overview> {
     }
     let releases = releases(&repo, &landings);
     people.sort_by_key(|person| std::cmp::Reverse(person.daily.iter().sum::<u32>()));
-    let readme = readme(&repo, &tip)
-        .inspect_err(|err| tracing::warn!(?err, "couldn't read the README"))
-        .ok()
-        .flatten();
     Ok(Overview {
-        readme,
         daily,
         people,
         landings,
@@ -489,117 +483,6 @@ fn releases(repo: &gix::Repository, landings: &[Landing]) -> Vec<Release> {
         .collect();
     releases.sort_by(|(a, x), (b, y)| a.cmp(b).then_with(|| x.name.cmp(&y.name)));
     releases.into_iter().map(|(_, release)| release).collect()
-}
-
-/// The README at the top of `commit`'s tree, Markdown first, by its file name and text.
-fn readme(repo: &gix::Repository, commit: &gix::Commit<'_>) -> Result<Option<(String, String)>> {
-    const NAMES: [&str; 5] = [
-        "readme.md",
-        "readme.markdown",
-        "readme",
-        "readme.txt",
-        "readme.rst",
-    ];
-    let tree = commit.tree()?;
-    let found = (tree.iter())
-        .filter_map(|entry| {
-            let entry = entry.ok()?;
-            let name = entry.filename().to_str_lossy();
-            let rank = NAMES.iter().position(|n| name.eq_ignore_ascii_case(n))?;
-            (entry.mode().is_blob()).then(|| (rank, name.into_owned(), entry.object_id()))
-        })
-        .min_by_key(|(rank, ..)| *rank);
-    let Some((_, name, id)) = found else {
-        return Ok(None);
-    };
-    let blob = repo.find_object(id)?;
-    Ok(Some((
-        name,
-        String::from_utf8_lossy(&blob.data).into_owned(),
-    )))
-}
-
-/// How large an image a README shows may be.
-const MAX_IMAGE_BYTES: usize = 8 << 20;
-
-/// An image a README shows, by its `src`: a web address, fetched, or a path from the top of
-/// the repository, read from `target` (a short name, like `origin/main`).
-pub fn readme_image(path: &Path, target: &str, src: &str) -> Result<Vec<u8>> {
-    let lower = src.to_ascii_lowercase();
-    if lower.starts_with("https://") || lower.starts_with("http://") {
-        let url = reqwest::Url::parse(src)?;
-        anyhow::ensure!(public_https(&url), "{src} isn't a public https address");
-        return runtime().block_on(async {
-            let mut response = image_client().get(url).send().await?.error_for_status()?;
-            // Read as it comes, as a server needn't say how much it sends.
-            let mut bytes = Vec::new();
-            while let Some(chunk) = response.chunk().await? {
-                bytes.extend_from_slice(&chunk);
-                anyhow::ensure!(bytes.len() <= MAX_IMAGE_BYTES, "{src} is too large to show");
-            }
-            Ok(bytes)
-        });
-    }
-    let ctx = open(path)?;
-    let repo = ctx.repo.get()?;
-    let tree = (repo.rev_parse_single(target)?.object()?)
-        .peel_to_commit()?
-        .tree()?;
-    let entry = (tree.lookup_entry_by_path(src)?)
-        .ok_or_else(|| anyhow::anyhow!("{target} has no {src}"))?;
-    let blob = entry.object()?;
-    anyhow::ensure!(
-        blob.data.len() <= MAX_IMAGE_BYTES,
-        "{src} is too large to show"
-    );
-    Ok(blob.data.clone())
-}
-
-/// The one client README images are fetched with, which follows a redirect only to another
-/// address [`public_https`] passes.
-fn image_client() -> &'static reqwest::Client {
-    static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
-    CLIENT.get_or_init(|| {
-        let policy = reqwest::redirect::Policy::custom(|attempt| {
-            match attempt.previous().len() < 5 && public_https(attempt.url()) {
-                true => attempt.follow(),
-                false => attempt.stop(),
-            }
-        });
-        reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(20))
-            .redirect(policy)
-            .build()
-            .unwrap_or_default()
-    })
-}
-
-/// Whether `url` is https and its host doesn't name this machine or the network it's on, as
-/// an address or a local name, which a README's images mustn't reach. The name isn't
-/// resolved, so a public name that resolves to a private address passes.
-fn public_https(url: &reqwest::Url) -> bool {
-    use std::net::IpAddr;
-    let public = |ip: IpAddr| match ip {
-        IpAddr::V4(ip) => {
-            !(ip.is_private() || ip.is_loopback() || ip.is_link_local() || ip.is_unspecified())
-        }
-        IpAddr::V6(ip) => {
-            let local =
-                (ip.segments()[0] & 0xfe00) == 0xfc00 || (ip.segments()[0] & 0xffc0) == 0xfe80;
-            !(local || ip.is_loopback() || ip.is_unspecified())
-        }
-    };
-    let Some(host) = url.host_str() else {
-        return false;
-    };
-    let host = (host.trim_start_matches('[').trim_end_matches(']')).to_ascii_lowercase();
-    url.scheme() == "https"
-        && match host.parse::<IpAddr>() {
-            Ok(ip) => public(ip),
-            Err(_) => {
-                host != "localhost" && !host.ends_with(".localhost") && !host.ends_with(".local")
-            }
-        }
 }
 
 /// The commits `merge` brought in: those its other parents have that its first doesn't,
@@ -1014,7 +897,7 @@ pub fn land(path: &Path, branch: &str, tip: CommitId, whole_stack: bool) -> Resu
 
 #[cfg(test)]
 mod tests {
-    use super::{ACTIVITY_DAYS, DAY, day_of, overview, public_https, push_refusal};
+    use super::{ACTIVITY_DAYS, DAY, day_of, overview, push_refusal};
 
     #[test]
     fn a_day_goes_by_the_clock_here_on_that_day_not_today() {
@@ -1106,11 +989,6 @@ mod tests {
         commit("Ann", now - 60);
 
         let summed = overview(path, "main", now).unwrap();
-        assert_eq!(
-            summed.readme,
-            Some(("README.md".to_owned(), "# Hello\n".to_owned())),
-            "the README at the tip, by its name"
-        );
         assert_eq!(summed.daily.len(), ACTIVITY_DAYS, "a bar a day");
         assert_eq!(
             summed.daily.iter().sum::<u32>(),
@@ -1169,29 +1047,6 @@ mod tests {
             "newest first, each with the commits it brought and where it changed things: the \
              first two folders of a file, its folder when one deep, the top level for one there"
         );
-    }
-
-    #[test]
-    fn readme_images_come_only_from_public_https_addresses() {
-        let public = |url: &str| public_https(&reqwest::Url::parse(url).unwrap());
-        assert!(
-            public("https://img.shields.io/badge/ci-passing.svg"),
-            "a badge service"
-        );
-        for url in [
-            "http://example.com/logo.png",
-            "https://localhost/logo.png",
-            "https://127.0.0.1/logo.png",
-            "https://192.168.1.1/logo.png",
-            "https://10.0.0.2/logo.png",
-            "https://[::1]/logo.png",
-            "https://printer.local/logo.png",
-        ] {
-            assert!(
-                !public(url),
-                "{url} is plain http or on this machine or its network"
-            );
-        }
     }
 
     #[test]

@@ -1,27 +1,23 @@
-//! Markdown, as pull request descriptions and READMEs are written, drawn as formatted text.
+//! Markdown, as pull request descriptions are written, drawn as formatted text.
 //!
 //! Only what can't reach outside the app is kept. Links open only to the web and to mail,
-//! with where they go shown on hover, as a link's words can say anything. A description's
-//! images are never fetched, so it can't learn you've read it, and show their words instead;
-//! a README's ([`parse_showing_images`]) are listed for the caller to load. HTML is read only
-//! as far as a README lays itself out with it: headings, paragraphs and centring, bold,
-//! emphasis and code, links, line breaks and images; other tags leave only their text. What's
-//! past [`MAX_BYTES`] isn't parsed, and nesting past [`MAX_DEPTH`] steps in no further.
+//! with where they go shown on hover, as a link's words can say anything. Images are never
+//! fetched, so a description can't learn you've read it, and show their words instead. HTML
+//! is read only as far as a description lays itself out with it: headings, paragraphs and
+//! centring, bold, emphasis and code, links and line breaks; other tags leave only their text.
+//! What's past [`MAX_BYTES`] isn't parsed, and nesting past [`MAX_DEPTH`] steps in no further.
 //!
 //! Emphasis shows in the medium weight, not slanted: the app embeds no italic face, and
 //! asking for one could pick a variable font installed on the machine, which is slow to
 //! draw (see the crate's AGENTS.md).
 
 use std::cell::Cell;
-use std::collections::HashMap;
 use std::ops::Range;
-use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, Font, FontWeight, Hsla, ImageSource, InteractiveElement, InteractiveText,
-    IntoElement, ParentElement, RenderImage, SharedString, StatefulInteractiveElement,
-    StrikethroughStyle, Styled, StyledText, TextRun, UnderlineStyle, div, img,
-    prelude::FluentBuilder, px, relative,
+    AnyElement, App, Font, FontWeight, Hsla, InteractiveText, IntoElement, ParentElement,
+    SharedString, StrikethroughStyle, Styled, StyledText, TextRun, UnderlineStyle, div,
+    prelude::FluentBuilder, px,
 };
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 
@@ -50,69 +46,8 @@ pub struct Block {
     pub styles: Vec<(Range<usize>, Style)>,
     /// Where each link goes, by the text it covers; only addresses that are safe to open.
     pub links: Vec<(Range<usize>, String)>,
-    /// Inside HTML that centres it, as a README's heading and badges are.
+    /// Inside HTML that centres it.
     pub centered: bool,
-    /// An [`Kind::Images`] block's images, in a row.
-    pub images: Vec<Image>,
-}
-
-/// An image to show, by where it's loaded from.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Image {
-    /// A web address, or a path in the repository from its top, which the caller reads.
-    pub src: String,
-    pub alt: String,
-    /// The link it's in, which a click opens.
-    pub link: Option<String>,
-    pub width: Option<Width>,
-}
-
-/// How wide HTML asks an image to be.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Width {
-    Px(f32),
-    /// Of the text's width.
-    Fraction(f32),
-}
-
-/// Every image `blocks` show, each once.
-pub fn image_sources(blocks: &[Block]) -> Vec<String> {
-    let mut sources: Vec<String> = Vec::new();
-    for image in blocks.iter().flat_map(|block| &block.images) {
-        if !sources.contains(&image.src) {
-            sources.push(image.src.clone());
-        }
-    }
-    sources
-}
-
-/// Where an image is loaded from, when it can be: the web, or a path in the repository,
-/// which can't step out of it.
-fn image_source(url: &str) -> Option<String> {
-    let url = url.trim();
-    let lower = url.to_ascii_lowercase();
-    if lower.starts_with("https://") || lower.starts_with("http://") {
-        return Some(url.to_owned());
-    }
-    let path = url
-        .split(['?', '#'])
-        .next()?
-        .trim_start_matches("./")
-        .trim_start_matches('/');
-    let inside =
-        !path.is_empty() && !path.contains(':') && !path.split('/').any(|part| part == "..");
-    inside.then(|| path.to_owned())
-}
-
-/// The width an `<img>`'s `width` asks for: pixels, or a share of the text's width.
-fn html_width(value: &str) -> Option<Width> {
-    let value = value.trim();
-    if let Some(percent) = value.strip_suffix('%') {
-        let percent: f32 = percent.trim().parse().ok()?;
-        return Some(Width::Fraction((percent / 100.).clamp(0.01, 1.)));
-    }
-    let px: f32 = value.trim_end_matches("px").trim().parse().ok()?;
-    (px > 0.).then_some(Width::Px(px))
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -123,8 +58,6 @@ pub enum Kind {
     /// A list item, after its marker: "•", "3." or a box.
     Item(String),
     Rule,
-    /// Images with no words between them, as a row of badges or a screenshot.
-    Images,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -144,8 +77,8 @@ fn safe_link(url: &str) -> bool {
         .any(|scheme| lower.starts_with(scheme))
 }
 
-/// `html`'s text onto `text`, its common entities as the characters they stand for, as a
-/// README spaces out its links with `&nbsp;`.
+/// `html`'s text onto `text`, its common entities as the characters they stand for, as HTML
+/// spaces out links with `&nbsp;`.
 fn push_decoded(text: &mut String, html: &str) {
     const ENTITIES: [(&str, char); 7] = [
         ("&nbsp;", ' '),
@@ -292,16 +225,6 @@ fn collapse_spaces(text: &str) -> String {
 
 /// `markdown` as blocks to draw, its images by their words.
 pub fn parse(markdown: &str) -> Vec<Block> {
-    blocks(markdown, false)
-}
-
-/// `markdown` as blocks to draw, its images as [`Kind::Images`] blocks for the caller to
-/// load, as a README's are.
-pub fn parse_showing_images(markdown: &str) -> Vec<Block> {
-    blocks(markdown, true)
-}
-
-fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
     let mut end = markdown.len().min(MAX_BYTES);
     while !markdown.is_char_boundary(end) {
         end -= 1;
@@ -339,7 +262,6 @@ fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
         styles: Vec::new(),
         links: Vec::new(),
         centered: centered.get(),
-        images: Vec::new(),
     };
     fn push(block: &mut Block, text: &str, style: Style) {
         let start = block.text.len();
@@ -366,60 +288,32 @@ fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
             trim_spaces(block);
         }
         if let Some(block) = current.take()
-            && (!block.text.trim().is_empty()
-                || matches!(block.kind, Kind::Item(_))
-                || !block.images.is_empty())
+            && (!block.text.trim().is_empty() || matches!(block.kind, Kind::Item(_)))
         {
             blocks.push(block);
         }
     }
-    /// The block text goes in: the current one, unless that's a row of images, which ends
-    /// where words start.
-    fn text_block<'a>(
-        blocks: &mut Vec<Block>,
-        current: &'a mut Option<Block>,
-        fresh: impl FnOnce() -> Block,
-    ) -> &'a mut Block {
-        if current
-            .as_ref()
-            .is_some_and(|block| block.kind == Kind::Images)
-        {
-            close(blocks, current);
-        }
-        current.get_or_insert_with(fresh)
-    }
-    /// Put `image` with the images before it when no words came between, or else, or when
-    /// images aren't shown, its words in its place.
+    /// An image's words, `alt`, in its place, opening where it's from, `src`, on a click.
     fn put_image(
         current: &mut Option<Block>,
-        image: Image,
+        alt: &str,
+        src: &str,
         fresh: impl FnOnce() -> Block,
         style: Style,
         in_link: bool,
-        shown: bool,
     ) {
-        let wordless = |block: &Block| {
-            block.text.trim().is_empty() && matches!(block.kind, Kind::Paragraph | Kind::Images)
-        };
-        if shown && current.as_ref().is_none_or(wordless) {
-            let block = current.get_or_insert_with(fresh);
-            block.kind = Kind::Images;
-            block.text.clear();
-            block.styles.clear();
-            block.links.clear();
-            block.images.push(image);
-            return;
-        }
         let block = current.get_or_insert_with(fresh);
-        let words = match image.alt.trim() {
+        let words = match alt.trim() {
             "" => "Image".to_owned(),
             alt => format!("Image: {alt}"),
         };
         let start = block.text.len();
         push(block, &words, style);
         // Inside a link, only the link opens: a click opens every link it's in.
-        if !in_link && safe_link(&image.src) {
-            block.links.push((start..block.text.len(), image.src));
+        if !in_link && safe_link(src) {
+            block
+                .links
+                .push((start..block.text.len(), src.trim().to_owned()));
         }
     }
 
@@ -431,24 +325,13 @@ fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
                 Event::Text(text) | Event::Code(text) => alt.push_str(&text),
                 Event::End(TagEnd::Image) => {
                     let (alt, url) = image.take().expect("in an image");
-                    let src = match show_images {
-                        true => image_source(&url),
-                        false => None,
-                    };
-                    let shown = src.is_some();
-                    let image = Image {
-                        src: src.unwrap_or(url),
-                        alt,
-                        link: link.as_ref().and_then(|(_, url)| url.clone()),
-                        width: None,
-                    };
                     put_image(
                         &mut current,
-                        image,
+                        &alt,
+                        &url,
                         || open(Kind::Paragraph, &lists, quotes, outermost),
                         style,
                         link.is_some(),
-                        shown,
                     );
                 }
                 _ => {}
@@ -578,20 +461,14 @@ fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
             Event::Start(Tag::Image { dest_url, .. }) => {
                 image = Some((String::new(), dest_url.trim().to_owned()));
             }
-            // Spaces between images keep them in their row.
-            Event::Text(text)
-                if text.trim().is_empty()
-                    && current.as_ref().is_some_and(|b| b.kind == Kind::Images) => {}
             Event::Text(text) => {
-                let block = text_block(&mut blocks, &mut current, || {
-                    open(Kind::Paragraph, &lists, quotes, outermost)
-                });
+                let block =
+                    current.get_or_insert_with(|| open(Kind::Paragraph, &lists, quotes, outermost));
                 push(block, &text, style);
             }
             Event::Code(code) => {
-                let block = text_block(&mut blocks, &mut current, || {
-                    open(Kind::Paragraph, &lists, quotes, outermost)
-                });
+                let block =
+                    current.get_or_insert_with(|| open(Kind::Paragraph, &lists, quotes, outermost));
                 push(
                     block,
                     &code,
@@ -609,7 +486,6 @@ fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
                             let gap = std::mem::take(&mut html_gap);
                             if text.trim().is_empty() {
                                 if let Some(block) = &mut current
-                                    && block.kind != Kind::Images
                                     && !block.text.is_empty()
                                     && !block.text.ends_with(char::is_whitespace)
                                 {
@@ -617,7 +493,7 @@ fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
                                 }
                                 continue;
                             }
-                            let block = text_block(&mut blocks, &mut current, || {
+                            let block = current.get_or_insert_with(|| {
                                 open(Kind::Paragraph, &lists, quotes, outermost)
                             });
                             let fresh =
@@ -633,9 +509,7 @@ fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
                         }
                         Html::Open(name, attributes) => match name.as_str() {
                             "br" => {
-                                if let Some(block) = &mut current
-                                    && block.kind != Kind::Images
-                                {
+                                if let Some(block) = &mut current {
                                     trim_spaces(block);
                                     push(block, "\n", style);
                                 }
@@ -671,28 +545,14 @@ fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
                                 let href = attribute(&attributes, "href").unwrap_or("");
                                 link = Some((at, safe_link(href).then(|| href.trim().to_owned())));
                             }
-                            "img" => {
-                                let raw = attribute(&attributes, "src").unwrap_or("");
-                                let src = match show_images {
-                                    true => image_source(raw),
-                                    false => None,
-                                };
-                                let shown = src.is_some();
-                                let image = Image {
-                                    src: src.unwrap_or_else(|| raw.trim().to_owned()),
-                                    alt: attribute(&attributes, "alt").unwrap_or("").to_owned(),
-                                    link: link.as_ref().and_then(|(_, url)| url.clone()),
-                                    width: attribute(&attributes, "width").and_then(html_width),
-                                };
-                                put_image(
-                                    &mut current,
-                                    image,
-                                    || open(Kind::Paragraph, &lists, quotes, outermost),
-                                    style,
-                                    link.is_some(),
-                                    shown,
-                                );
-                            }
+                            "img" => put_image(
+                                &mut current,
+                                attribute(&attributes, "alt").unwrap_or(""),
+                                attribute(&attributes, "src").unwrap_or(""),
+                                || open(Kind::Paragraph, &lists, quotes, outermost),
+                                style,
+                                link.is_some(),
+                            ),
                             _ => {}
                         },
                         Html::Close(name) => match name.as_str() {
@@ -729,16 +589,12 @@ fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
                 html_gap = html_line;
             }
             Event::SoftBreak => {
-                if let Some(block) = &mut current
-                    && block.kind != Kind::Images
-                {
+                if let Some(block) = &mut current {
                     push(block, " ", style);
                 }
             }
             Event::HardBreak => {
-                if let Some(block) = &mut current
-                    && block.kind != Kind::Images
-                {
+                if let Some(block) = &mut current {
                     push(block, "\n", style);
                 }
             }
@@ -766,14 +622,8 @@ fn blocks(markdown: &str, show_images: bool) -> Vec<Block> {
     blocks
 }
 
-/// `blocks` drawn as text, `id` telling apart the links of one description from another's,
-/// their images from `images` by where they're from, or by their words until they're there.
-pub fn render(
-    id: &str,
-    blocks: &[Block],
-    images: &HashMap<String, Arc<RenderImage>>,
-    theme: &Theme,
-) -> AnyElement {
+/// `blocks` drawn as text, `id` telling apart the links of one description from another's.
+pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
     v_flex()
         .children(blocks.iter().enumerate().map(|(ix, block)| {
             // A list's items sit together; other blocks, and other lists, stand apart.
@@ -817,14 +667,6 @@ pub fn render(
                     })
                     .child(text(id, ix, block, theme))
                     .into_any_element(),
-                Kind::Images => h_flex()
-                    .flex_wrap()
-                    .gap(px(4.))
-                    .when(block.centered, |el| el.justify_center())
-                    .children(block.images.iter().enumerate().map(|(n, image)| {
-                        picture(&format!("{id}-img-{ix}-{n}"), image, images, theme)
-                    }))
-                    .into_any_element(),
                 Kind::Item(marker) => h_flex()
                     .items_start()
                     .gap(px(6.))
@@ -863,52 +705,6 @@ pub fn render(
             }
         }))
         .into_any_element()
-}
-
-/// An image as loaded, at the width HTML asks for or its own, never wider than the text; or
-/// its words until it's there. In a link, a click opens the link.
-fn picture(
-    id: &str,
-    image: &Image,
-    images: &HashMap<String, Arc<RenderImage>>,
-    theme: &Theme,
-) -> AnyElement {
-    let el = match images.get(&image.src) {
-        Some(loaded) => {
-            let shown = img(ImageSource::Render(loaded.clone())).max_w_full();
-            match image.width {
-                Some(Width::Px(width)) => shown.w(px(width)),
-                Some(Width::Fraction(share)) => shown.w(relative(share)),
-                None => shown,
-            }
-            .into_any_element()
-        }
-        None => div()
-            .px(px(6.))
-            .rounded(px(4.))
-            .bg(theme.fill_gray.opacity(0.08))
-            .text_color(theme.text_2)
-            .text_size(px(12.))
-            .child(SharedString::from(match image.alt.trim() {
-                "" => "Image".to_owned(),
-                alt => alt.to_owned(),
-            }))
-            .into_any_element(),
-    };
-    let wide = matches!(image.width, Some(Width::Fraction(_)));
-    match image.link.clone() {
-        Some(url) => div()
-            .id(SharedString::from(id.to_owned()))
-            .when(wide, |el| el.w_full())
-            .tooltip(Tooltip::text(url.clone()))
-            .on_click(move |_, _, cx| cx.open_url(&url))
-            .child(el)
-            .into_any_element(),
-        None => div()
-            .when(wide, |el| el.w_full())
-            .child(el)
-            .into_any_element(),
-    }
 }
 
 /// A block's text in its styles, its links clickable and naming where they go on hover.
@@ -1159,64 +955,28 @@ mod tests {
     }
 
     #[test]
-    fn a_readme_lays_out_its_html_and_shows_its_images() {
-        let readme = "<div align=\"center\">\n  <img width=\"100px\" src=\"https://x.io/logo.png\" alt=\"Logo\" />\n  <h1 align=\"center\">Name</h1>\n  <p align=\"center\">\n   <b>Better</b>.\n   <a href=\"https://x.io\">Site</a>\n  </p>\n</div>\n\n[![CI][s0]][l0] [![Chat](docs/chat.svg)](https://chat.x.io)\n\n[s0]: https://ci.x.io/badge.svg\n[l0]: https://ci.x.io\n\nPlain ![inline](a.png) text.\n";
-        let blocks = parse_showing_images(readme);
+    fn html_lays_out_its_blocks_and_centring() {
+        let blocks = parse(
+            "<div align=\"center\">\n  <h1 align=\"center\">Name</h1>\n  <p align=\"center\">\n   \
+             <b>Better</b>.\n   <a href=\"https://x.io\">Site</a>\n  </p>\n</div>\n\nPlain text.\n",
+        );
         assert_eq!(
             texts(&blocks),
             [
-                (&Kind::Images, ""),
                 (&Kind::Heading(1), "Name"),
                 (&Kind::Paragraph, "Better. Site"),
-                (&Kind::Images, ""),
-                (&Kind::Paragraph, "Plain Image: inline text."),
+                (&Kind::Paragraph, "Plain text."),
             ],
-            "HTML headings and paragraphs are blocks, their spaces run together, and images \
-             with no words between them sit in a row; one among words shows its words"
+            "HTML headings and paragraphs are blocks, and their spaces run together"
         );
         assert!(
-            blocks[..3].iter().all(|block| block.centered)
-                && blocks[3..].iter().all(|block| !block.centered),
+            blocks[..2].iter().all(|block| block.centered) && !blocks[2].centered,
             "what's inside a centred <div> is centred, and what's after its </div> isn't"
         );
         assert_eq!(
-            blocks[0].images[0].width,
-            Some(Width::Px(100.)),
-            "an <img>'s width is kept"
-        );
-        assert_eq!(
-            (blocks[3].images.iter())
-                .map(|image| (image.src.as_str(), image.link.as_deref()))
-                .collect::<Vec<_>>(),
-            [
-                ("https://ci.x.io/badge.svg", Some("https://ci.x.io")),
-                ("docs/chat.svg", Some("https://chat.x.io")),
-            ],
-            "a badge is loaded from the web or the repository, and opens its link"
-        );
-        assert_eq!(
-            image_sources(&blocks),
-            [
-                "https://x.io/logo.png",
-                "https://ci.x.io/badge.svg",
-                "docs/chat.svg"
-            ],
-            "each image to load, once"
-        );
-        assert_eq!(
-            blocks[2].links,
+            blocks[1].links,
             [(8..12, "https://x.io".to_owned())],
             "an <a> links its words"
-        );
-        assert_eq!(
-            image_source("../secret.png"),
-            None,
-            "nothing outside the repository"
-        );
-        assert_eq!(
-            image_source("file:///etc/passwd"),
-            None,
-            "nor any other scheme"
         );
     }
 

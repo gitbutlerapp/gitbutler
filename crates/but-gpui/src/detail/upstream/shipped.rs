@@ -1,15 +1,15 @@
 //! The project page's overview of what landed on its target, beside the history until a commit
-//! or the README is opened: over the days picked off the activity or the last 30, only what
-//! landed the commits of the person picked, and only what changed the area picked. What's
-//! under way is on the Branches page.
+//! is opened: over the days picked off the activity or the last 30, only what landed the
+//! commits of the person picked, and only what changed the area picked. What's under way is
+//! on the Branches page.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use gpui::{AnyElement, Context, Window, div, prelude::*, px, relative};
 
-use super::{Summary, days_said, noon};
+use super::{days_said, noon};
 use crate::backend::CommitId;
-use crate::backend::upstream::{ACTIVITY_DAYS, Landing};
+use crate::backend::upstream::{ACTIVITY_DAYS, Landing, Overview};
 use crate::detail::Detail;
 use crate::detail::panes::{
     OVERVIEW_COUNT_WIDTH, OVERVIEW_TIME_WIDTH, grouped, overview_column, overview_heading,
@@ -112,7 +112,7 @@ impl Detail {
         self.pick_landed(project, id, cx);
     }
 
-    /// Beside the history until a commit or the README is opened: how much landed and how
+    /// Beside the history until a commit is opened: how much landed and how
     /// fast; the releases that carried it; the areas it changed, each a filter of its own;
     /// and the largest pull requests. Clicking a release or one of those opens it.
     pub(in crate::detail) fn render_shipped(
@@ -222,7 +222,7 @@ impl Detail {
     fn releases(
         &self,
         project: &ProjectId,
-        summary: &Summary,
+        summary: &Overview,
         kept: &HashSet<CommitId>,
         theme: &Theme,
         cx: &Context<Self>,
@@ -383,7 +383,7 @@ impl Detail {
     fn largest(
         &self,
         project: &ProjectId,
-        summary: &Summary,
+        summary: &Overview,
         kept: &[&Landing],
         theme: &Theme,
         cx: &Context<Self>,

@@ -321,7 +321,6 @@ pub struct Detail {
     /// Whether the pull request's checks that passed are listed, not just counted.
     passed_checks_open: bool,
     review_scroll: ScrollHandle,
-    readme_scroll: ScrollHandle,
     /// How tall the selected target commit's message is drawn over its diff, and how wide
     /// the space beside the project page's list is, measured as they're drawn.
     target_message_height: Rc<Cell<f32>>,
@@ -337,10 +336,6 @@ pub struct Detail {
     /// The Shipped pane's, which a click on it takes, so its area picked shows solid then,
     /// as the People card's does.
     shipped_focus: FocusHandle,
-    /// The images each project's README shows, as loaded, by where they're from.
-    readme_images: HashMap<ProjectId, HashMap<String, Arc<gpui::RenderImage>>>,
-    /// The images asked for, loaded or not, so each is asked for once.
-    readme_images_asked: HashSet<(ProjectId, String)>,
     /// How tall a commit's header across the page was drawn, which the diff starts below.
     header_height: Rc<Cell<f32>>,
     /// Directories folded shut in tree-shaped file lists, by path.
@@ -625,7 +620,6 @@ impl Detail {
             review_tab: false,
             passed_checks_open: false,
             review_scroll: ScrollHandle::new(),
-            readme_scroll: ScrollHandle::new(),
             target_message_height: Rc::new(Cell::new(0.)),
             beside_width: Rc::new(Cell::new(0.)),
             open_merges: HashSet::new(),
@@ -633,8 +627,6 @@ impl Detail {
             activity_person: None,
             activity_area: None,
             shipped_focus: cx.focus_handle(),
-            readme_images: HashMap::new(),
-            readme_images_asked: HashSet::new(),
             header_height: Rc::new(Cell::new(panes::COMMIT_HEADER_HEIGHT)),
             collapsed_dirs: HashSet::new(),
             text_selection: None,
@@ -751,7 +743,7 @@ impl Detail {
     }
 
     /// Forget how the last diff was looked at: its text selection, cursor and folds, and how
-    /// far the pull request and the README were scrolled. For a new selection, or another
+    /// far the pull request was scrolled. For a new selection, or another
     /// item picked on the same page.
     fn reset_view(&mut self) {
         self.text_selection = None;
@@ -760,7 +752,6 @@ impl Detail {
         self.cursor = Cursor::default();
         self.folded.clear();
         self.review_scroll.set_offset(Default::default());
-        self.readme_scroll.set_offset(Default::default());
     }
 
     /// Show the diff of what was just picked on the selected page, from its top.
@@ -1996,9 +1987,6 @@ impl Render for Detail {
                             None => self.render_other_branch_header(project, &theme, cx),
                         };
                         Some(self.list_beside(project, header, &theme, cx))
-                    }
-                    Selection::Project(project) if self.showing_readme(cx) => {
-                        Some(self.render_readme(project, &theme, cx))
                     }
                     Selection::Project(project) if self.showing_shipped(cx) => {
                         Some(self.render_shipped(project, window, cx))

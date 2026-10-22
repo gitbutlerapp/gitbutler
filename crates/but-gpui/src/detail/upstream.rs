@@ -1,7 +1,6 @@
-//! A project's page: where it is, when it last fetched, its target's README, how busy the
-//! target has been and who's been committing to it, and its history, the commits the
-//! workspace doesn't have yet first, each with the pull request that landed it. Selecting
-//! the README shows it; selecting a commit shows its diff.
+//! A project's page: where it is, when it last fetched, how busy the target has been and
+//! who's been committing to it, and its history, the commits the workspace doesn't have yet
+//! first, each with the pull request that landed it. Selecting a commit shows its diff.
 
 use std::cell::Cell;
 use std::collections::{BTreeSet, HashSet};
@@ -18,9 +17,7 @@ use super::panes::{
 };
 use super::pull_request::TABS_HEIGHT;
 use crate::app::{Collapse, Expand, SelectNext, SelectPrevious};
-use crate::backend::upstream::{
-    self, ACTIVITY_DAYS, Landing, Overview, Person, Release, TargetCommit,
-};
+use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, Person, TargetCommit};
 
 const DAY: i64 = 24 * 60 * 60;
 use crate::backend::{self, CommitId, DiffSource, Forge};
@@ -30,7 +27,6 @@ use crate::ui::emoji::ProjectIcon;
 use crate::ui::illustration::Illustration;
 use crate::ui::markdown;
 use crate::ui::person::{byline, byline_avatar};
-use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, age_column, button, error_summary, faint, fold_button, guide,
     h_flex, icon, list_row, muted, plural, quiet, section_label, shortcut, side_row, small_icon,
@@ -42,9 +38,8 @@ use crate::ui::{
 const FOLD_MIDDLE: f32 = 8. + 7.;
 
 /// What the page opens on: what landed lately, even when nothing did, once the target's
-/// summed up, else the newest commit. The README is a click away rather than the page, as
-/// one with pictures can take it over.
-fn opening(summary: Option<&Summary>, commits: &[TargetCommit]) -> Option<Picked> {
+/// summed up, else the newest commit.
+fn opening(summary: Option<&Overview>, commits: &[TargetCommit]) -> Option<Picked> {
     (summary.is_some().then_some(Picked::Shipped))
         .or_else(|| commits.first().map(|c| Picked::Commit(c.id)))
 }
@@ -69,37 +64,11 @@ const STALE_AFTER: Duration = Duration::from_secs(60);
 const BESIDE_FILES: f32 = 260.;
 const MIN_DIFF: f32 = 560.;
 
-/// What's picked on the page: what landed lately, the README, or a commit of the target.
+/// What's picked on the page: what landed lately, or a commit of the target.
 #[derive(Clone, Copy, PartialEq)]
 enum Picked {
     Shipped,
-    Readme,
     Commit(CommitId),
-}
-
-/// The target summed up, its README read as Markdown off the UI thread.
-struct Summary {
-    readme: Option<(String, Vec<markdown::Block>)>,
-    daily: Vec<u32>,
-    people: Vec<Person>,
-    landings: Vec<Landing>,
-    releases: Vec<Release>,
-    /// The day the first of `daily` counts, as [`upstream::day_of`] numbers days.
-    first_day: i64,
-}
-
-impl From<Overview> for Summary {
-    fn from(overview: Overview) -> Self {
-        Summary {
-            readme: (overview.readme)
-                .map(|(name, text)| (name, markdown::parse_showing_images(&text))),
-            daily: overview.daily,
-            people: overview.people,
-            landings: overview.landings,
-            releases: overview.releases,
-            first_day: overview.first_day,
-        }
-    }
 }
 
 pub(super) struct Upstream {
@@ -109,9 +78,9 @@ pub(super) struct Upstream {
     selected: Option<Picked>,
     /// The commit of the selected merge shown in place of everything it brought in.
     merged_pick: Option<CommitId>,
-    /// The README and the activity, read with the newest page; `None` until read, or when
-    /// there's no target to read them from.
-    summary: Option<Summary>,
+    /// What landed lately and the activity, read with the newest page; `None` until read, or
+    /// when there's no target to read them from.
+    summary: Option<Overview>,
     /// When the project last fetched successfully, and why the last fetch failed; `None`
     /// when it has no remote to fetch from.
     fetch: Option<(Option<i64>, Option<String>)>,
@@ -215,9 +184,8 @@ impl Detail {
                 // What landed lately takes longest, so it's read beside the page rather than
                 // after it.
                 std::thread::scope(|scope| {
-                    let summary = (target.as_deref()).map(|target| {
-                        scope.spawn(|| upstream::overview(&path, target, now).map(Summary::from))
-                    });
+                    let summary = (target.as_deref())
+                        .map(|target| scope.spawn(|| upstream::overview(&path, target, now)));
                     let (mut commits, mut more) = upstream::target_commits(&path, after, limit)?;
                     // The newest page stops where the workspace forked off, often a commit or
                     // two in, so the rest of a page is read with it rather than a wait after.
@@ -315,12 +283,10 @@ impl Detail {
                 };
                 list.extend(commits);
                 list.extend(older);
-                let readme = summary.as_ref().is_some_and(|s| s.readme.is_some());
                 let selected = was
                     .filter(|_| !(first_summed && summary.is_some()))
                     .filter(|picked| match picked {
                         Picked::Shipped => summary.is_some(),
-                        Picked::Readme => readme,
                         Picked::Commit(id) => list.iter().any(|c| c.id == *id),
                     })
                     .or_else(|| opening(summary.as_ref(), &list));
@@ -346,7 +312,6 @@ impl Detail {
                     pending,
                 });
                 this.refresh_diff(false, cx);
-                this.load_readme_images(&project, cx);
                 this.load_selected_merge(&project, cx);
                 if let Some(id) = found {
                     this.pick_on_page(Picked::Commit(id), cx);
@@ -402,7 +367,7 @@ impl Detail {
             Picked::Commit(id) => Some(DiffSource::Commit(
                 self.merged_commit(project, cx).map_or(id, |c| c.id),
             )),
-            Picked::Shipped | Picked::Readme => None,
+            Picked::Shipped => None,
         }
     }
 
@@ -446,13 +411,10 @@ impl Detail {
         (self.merged_commit(project, cx)).or_else(|| self.selected_target_commit(project))
     }
 
-    /// Whether the window leaves the diff out, as a pull request and the README take its
+    /// Whether the window leaves the diff out, as a pull request and what landed take its
     /// place.
     pub fn diff_hidden(&self, cx: &gpui::App) -> bool {
-        self.showing_review(cx)
-            || self.showing_readme(cx)
-            || self.showing_shipped(cx)
-            || self.showing_branches_overview(cx)
+        self.showing_review(cx) || self.showing_shipped(cx) || self.showing_branches_overview(cx)
     }
 
     /// How far right of a list page's list the diff starts: past the files, when there's room
@@ -677,11 +639,6 @@ impl Detail {
             .into_any_element()
     }
 
-    /// Whether the project's page shows its README, in place of a diff.
-    pub fn showing_readme(&self, cx: &gpui::App) -> bool {
-        self.showing_on_page(Picked::Readme, cx)
-    }
-
     /// Whether the project's page shows what landed lately, in place of a diff.
     pub fn showing_shipped(&self, cx: &gpui::App) -> bool {
         self.showing_on_page(Picked::Shipped, cx)
@@ -697,7 +654,7 @@ impl Detail {
         }
     }
 
-    /// Esc on the project's page with a commit or the README shown: back to what landed
+    /// Esc on the project's page with a commit shown: back to what landed
     /// lately, whether it did.
     pub fn close_opened_target(&mut self, cx: &mut Context<Self>) -> bool {
         let Some(Selection::Project(project)) = self.store.read(cx).selection.clone() else {
@@ -949,7 +906,7 @@ impl Detail {
     fn people_on_days<'a>(
         &self,
         project: &ProjectId,
-        summary: &'a Summary,
+        summary: &'a Overview,
     ) -> Vec<(&'a Person, usize)> {
         let days = self.days_picked(project);
         let who = self.picked_email(project);
@@ -980,7 +937,7 @@ impl Detail {
     fn render_people(
         &self,
         project: &ProjectId,
-        summary: &Summary,
+        summary: &Overview,
         window: &gpui::Window,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
@@ -1023,9 +980,6 @@ impl Detail {
             return crumbs.push((target.unwrap_or("Target").to_owned().into(), None));
         }
         let picked = match upstream.selected {
-            Some(Picked::Readme) => (upstream.summary.as_ref())
-                .and_then(|s| s.readme.as_ref())
-                .map(|(name, _)| name.clone()),
             Some(Picked::Commit(_)) => {
                 (self.selected_target_commit(project)).map(|commit| commit.id.short())
             }
@@ -1151,26 +1105,18 @@ impl Detail {
         let Some(upstream) = &self.upstream else {
             return;
         };
-        // In the order shown: the README over the list, then the target's commits.
-        let readme = (upstream.summary.as_ref()).is_some_and(|s| s.readme.is_some());
         let merged = |ix: usize, m: usize| {
             let merge = upstream.commits[ix].id;
             let merged = self.store.read(cx).merged.get(&merge)?.as_ref()?;
             Some((Picked::Commit(merge), Some(merged.0.get(m)?.id)))
         };
         // A merge's commit by the merge and it.
-        let picks: Vec<_> = (readme.then_some((0, (Picked::Readme, None))).into_iter())
-            .chain(
-                (self.upstream_rows(upstream, "", cx).iter().enumerate()).filter_map(|(row, r)| {
-                    match r {
-                        Row::Commit(ix) => {
-                            Some((row, (Picked::Commit(upstream.commits[*ix].id), None)))
-                        }
-                        Row::Merged(ix, m) => Some((row, merged(*ix, *m)?)),
-                        _ => None,
-                    }
-                }),
-            )
+        let picks: Vec<_> = (self.upstream_rows(upstream, "", cx).iter().enumerate())
+            .filter_map(|(row, r)| match r {
+                Row::Commit(ix) => Some((row, (Picked::Commit(upstream.commits[*ix].id), None))),
+                Row::Merged(ix, m) => Some((row, merged(*ix, *m)?)),
+                _ => None,
+            })
             .collect();
         // From what landed lately, which sits over the list, only down.
         if upstream.selected == Some(Picked::Shipped) && delta < 0 {
@@ -1190,83 +1136,12 @@ impl Detail {
         (self.upstream_scroll).scroll_to_item(row, gpui::ScrollStrategy::Nearest);
     }
 
-    /// Load the images the project's README shows that haven't been asked for yet, each on
-    /// its own, decoded off the UI thread so each draws as it arrives.
-    fn load_readme_images(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
-        const MAX_IMAGES: usize = 40;
-        let store = self.store.read(cx);
-        let (Some(path), Some(target)) = (
-            store.path(project),
-            (store.workspace(project).and_then(|ws| ws.target.as_ref())).map(|t| t.name.clone()),
-        ) else {
-            return;
-        };
-        let Some((_, blocks)) =
-            (self.upstream_for(project)).and_then(|u| u.summary.as_ref()?.readme.as_ref())
-        else {
-            return;
-        };
-        let sources = markdown::image_sources(blocks);
-        for src in sources.into_iter().take(MAX_IMAGES) {
-            if !self
-                .readme_images_asked
-                .insert((project.clone(), src.clone()))
-            {
-                continue;
-            }
-            let (path, target, svg) = (path.clone(), target.clone(), cx.svg_renderer());
-            let project = project.clone();
-            cx.spawn(async move |this, cx| {
-                let source = src.clone();
-                let loaded = backend::run(move || {
-                    let bytes = upstream::readme_image(&path, &target, &source)?;
-                    let format = image_format(&bytes)
-                        .ok_or_else(|| anyhow::anyhow!("{source} isn't an image"))?;
-                    let (format, bytes) = match format {
-                        // An SVG's own images would be read from any path it names.
-                        gpui::ImageFormat::Svg => {
-                            let text = String::from_utf8_lossy(&bytes).to_ascii_lowercase();
-                            anyhow::ensure!(
-                                !text.contains("<image") && !text.contains(":image"),
-                                "{source} draws other images, which aren't shown"
-                            );
-                            (format, bytes)
-                        }
-                        // Its first frame alone, as that's all that's drawn: every frame of
-                        // a long one would take a lot of memory.
-                        gpui::ImageFormat::Gif => {
-                            let frame = image::load_from_memory_with_format(
-                                &bytes,
-                                image::ImageFormat::Gif,
-                            )?;
-                            let mut png = std::io::Cursor::new(Vec::new());
-                            frame.write_to(&mut png, image::ImageFormat::Png)?;
-                            (gpui::ImageFormat::Png, png.into_inner())
-                        }
-                        _ => (format, bytes),
-                    };
-                    gpui::Image::from_bytes(format, bytes).to_image_data(svg)
-                })
-                .await;
-                this.update(cx, |this, cx| match loaded {
-                    Ok(image) => {
-                        (this.readme_images.entry(project).or_default()).insert(src, image);
-                        cx.notify();
-                    }
-                    Err(err) => tracing::debug!(?err, "couldn't load a README's image"),
-                })
-                .ok();
-            })
-            .detach();
-        }
-    }
-
     /// How busy the target has been: a bar for each day, the last week's stronger. Clicking
     /// a day, shift-clicking another or dragging across them filters the history to them.
     fn render_activity(
         &self,
         project: &ProjectId,
-        summary: &Summary,
+        summary: &Overview,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
@@ -1282,48 +1157,6 @@ impl Detail {
             move |this, gesture, cx| this.day_gesture(&project, gesture, cx),
             |this, cx| this.clear_days(cx),
         )
-    }
-
-    /// The target's README, beside the list in place of a diff.
-    pub(super) fn render_readme(
-        &self,
-        project: &ProjectId,
-        theme: &Theme,
-        _cx: &Context<Self>,
-    ) -> AnyElement {
-        let readme = (self.upstream_for(project)).and_then(|u| u.summary.as_ref()?.readme.as_ref());
-        let Some((_, blocks)) = readme else {
-            return div().flex_1().into_any_element();
-        };
-        let doc = v_flex()
-            .w_full()
-            .max_w(px(760.))
-            .px(px(24.))
-            .py(px(20.))
-            .child(markdown::render(
-                "readme",
-                blocks,
-                self.readme_images
-                    .get(project)
-                    .unwrap_or(&Default::default()),
-                theme,
-            ));
-        let page = div()
-            .id("readme")
-            .size_full()
-            .overflow_y_scroll()
-            .track_scroll(&self.readme_scroll)
-            .child(doc);
-        scrolled(
-            page,
-            "readme-scrollbar",
-            Scroll::Div(self.readme_scroll.clone()),
-            theme,
-        )
-        .flex_1()
-        .h_full()
-        .min_w(px(0.))
-        .into_any_element()
     }
 
     /// A project's header: its icon, which opens the picker, and its name, over where it is
@@ -1798,8 +1631,7 @@ impl Detail {
                     },
                 );
                 let summary = upstream.summary.as_ref();
-                // The README and the activity over the history, which scrolls between them
-                // and the people.
+                // The activity over the history, which scrolls between it and the people.
                 v_flex()
                     .size_full()
                     .track_focus(&self.side_focus)
@@ -1813,20 +1645,6 @@ impl Detail {
                         cx.listener(|this, _: &Collapse, _, cx| this.fold_upstream(false, cx)),
                     )
                     .child(self.filter_field(&self.target_filter, window, cx))
-                    .children((summary.and_then(|s| s.readme.as_ref())).map(|(name, _)| {
-                        let selected = upstream.selected == Some(Picked::Readme);
-                        let solid = self.side_focus.is_focused(window);
-                        let on = selected && solid;
-                        side_row("readme", selected, solid, theme)
-                            .child(small_icon(Icon::TextBlock).text_color(match on {
-                                true => theme.text_inverted,
-                                false => theme.text_3,
-                            }))
-                            .child(div().flex_1().min_w(px(0.)).truncate().child(name.clone()))
-                            .on_click(
-                                cx.listener(|this, _, _, cx| this.pick_on_page(Picked::Readme, cx)),
-                            )
-                    }))
                     .children(summary.map(|s| self.render_activity(project, s, theme, cx)))
                     .child(list.flex_1().min_h(px(LIST_MIN_HEIGHT)))
                     .children(summary.and_then(|s| self.render_people(project, s, window, cx)))
@@ -2095,35 +1913,6 @@ impl DayPick {
     fn keeps(&self, time: i64, today: i64) -> bool {
         self.days.is_empty() || self.days.contains(&upstream::day_of(time).min(today))
     }
-}
-
-/// What kind of image `bytes` are, by how they start.
-fn image_format(bytes: &[u8]) -> Option<gpui::ImageFormat> {
-    use gpui::ImageFormat;
-    let text = String::from_utf8_lossy(&bytes[..bytes.len().min(512)]).to_ascii_lowercase();
-    Some(match bytes {
-        [0x89, b'P', b'N', b'G', ..] => ImageFormat::Png,
-        [0xff, 0xd8, 0xff, ..] => ImageFormat::Jpeg,
-        [b'G', b'I', b'F', b'8', ..] => ImageFormat::Gif,
-        [
-            b'R',
-            b'I',
-            b'F',
-            b'F',
-            _,
-            _,
-            _,
-            _,
-            b'W',
-            b'E',
-            b'B',
-            b'P',
-            ..,
-        ] => ImageFormat::Webp,
-        [b'B', b'M', ..] => ImageFormat::Bmp,
-        _ if text.contains("<svg") => ImageFormat::Svg,
-        _ => return None,
-    })
 }
 
 #[cfg(test)]
