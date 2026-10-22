@@ -1,0 +1,52 @@
+170 cases
+
+HEAD Submodule, target Absent, worktree File during checkout
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD Submodule, target Absent, worktree Symlink during checkout
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout during it:    done, HEAD target, index [], disk []
+
+HEAD Submodule, target File, worktree File during checkout
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+
+HEAD Submodule, target File, worktree Symlink during checkout
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
+
+HEAD Submodule, target Executable, worktree File during checkout
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
+
+HEAD Submodule, target Executable, worktree Symlink during checkout
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
+
+HEAD Submodule, target Symlink, worktree File during checkout
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
+
+HEAD Submodule, target Symlink, worktree Symlink during checkout
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
+
+HEAD Submodule, target Directory, worktree File during checkout
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p "w"]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
+HEAD Submodule, target Directory, worktree Symlink during checkout
+  the change:            unchanged, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout after it:     refused, HEAD head, index [p Mode(DIR | SYMLINK) sub-a], disk [p -> w]
+  checkout during it:    done, HEAD target, index [p/x Mode(FILE) "m"], disk [p/; p/x "m"]
+
