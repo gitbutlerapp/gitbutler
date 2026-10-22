@@ -125,13 +125,13 @@ enum Facet {
     Days,
 }
 
-/// The pull request choices, as the filter menu and the chip name them.
-const STATUSES: [(BranchStatus, &str); 7] = [
+/// The pull request choices, as the filter menu and the chip name them. Not only merged ones:
+/// the page is for what's under way, which the merged would read as a list of.
+const STATUSES: [(BranchStatus, &str); 6] = [
     (BranchStatus::NotMerged, "Not merged"),
     (BranchStatus::Open, "Open"),
     (BranchStatus::Draft, "Draft"),
     (BranchStatus::Closed, "Closed"),
-    (BranchStatus::Merged, "Merged"),
     (BranchStatus::NoPullRequest, "No pull request"),
     (BranchStatus::Any, "Any"),
 ];
@@ -494,12 +494,22 @@ impl Detail {
             .collect()
     }
 
-    /// The people whose branches the filters keep but the person, most branches first, with
-    /// how many and an email for their picture.
+    /// The people at work lately: whose branches the filters keep but the person, of those
+    /// changed in the activity's days, most branches first, with how many and an email for
+    /// their picture. Not everyone who ever made one, which would put those long gone first
+    /// and leave out the newly arrived.
     fn branch_people(&self, branches: &Branches, cx: &App) -> Vec<(String, String, usize)> {
+        let first_day = upstream::day_of(crate::ui::now()) - (ACTIVITY_DAYS as i64 - 1);
         let mut people: Vec<(String, String, usize)> = Vec::new();
         for ix in self.kept_branches(branches, Some(Facet::Who), cx) {
-            for person in &branches.list[ix].people {
+            let branch = &branches.list[ix];
+            if branch
+                .time
+                .is_none_or(|time| upstream::day_of(time) < first_day)
+            {
+                continue;
+            }
+            for person in &branch.people {
                 match people.iter_mut().find(|(name, ..)| name == person) {
                     Some((.., n)) => *n += 1,
                     None => people.push((person.clone(), String::new(), 1)),
@@ -1550,7 +1560,6 @@ impl Detail {
                     BranchStatus::Open => review::state_glyph(ReviewState::Open, theme),
                     BranchStatus::Draft => review::state_glyph(ReviewState::Draft, theme),
                     BranchStatus::Closed => review::state_glyph(ReviewState::Closed, theme),
-                    BranchStatus::Merged => review::state_glyph(ReviewState::Merged, theme),
                     _ => (Icon::Branch, theme.text_2),
                 };
                 let picked = picked_status == status;
@@ -1620,7 +1629,11 @@ impl Detail {
             });
         let people: Vec<_> = people.collect();
         let nobody = people.is_empty();
-        // Who first, as the page is for what the team is at; side by side while there's room.
+        let counted = match branches.days.days.is_empty() {
+            true => "branches · 30 days",
+            false => "branches · days picked",
+        };
+        // Who first, as the page is for what the team is at, then their pull requests below.
         v_flex()
             .id("branches-overview")
             .flex_1()
@@ -1628,12 +1641,10 @@ impl Detail {
             .min_w(px(0.))
             .overflow_y_scroll()
             .child(
-                h_flex()
-                    .flex_wrap()
-                    .items_start()
+                v_flex()
                     .p(px(6.))
                     .child(
-                        overview_box("People", "branches".to_owned(), people, theme)
+                        overview_box("People", counted.to_owned(), people, theme)
                             .when(nobody, |el| {
                                 el.child(faint("No branches listed", theme).px(px(14.)).py(px(4.)))
                             })
@@ -1826,7 +1837,6 @@ fn status_keeps(status: BranchStatus, branch: &OtherBranch) -> bool {
         BranchStatus::Open => state == Some(ReviewState::Open),
         BranchStatus::Draft => state == Some(ReviewState::Draft),
         BranchStatus::Closed => state == Some(ReviewState::Closed),
-        BranchStatus::Merged => state == Some(ReviewState::Merged),
         BranchStatus::NoPullRequest => state.is_none(),
         BranchStatus::Any => true,
     }
@@ -1840,8 +1850,6 @@ fn overview_box(
     theme: &Theme,
 ) -> gpui::Div {
     v_flex()
-        .flex_1()
-        .min_w(px(280.))
         .m(px(6.))
         .py(px(8.))
         .gap(px(2.))

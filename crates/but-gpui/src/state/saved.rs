@@ -257,13 +257,13 @@ pub enum WatchedOrder {
 /// Which branches the Branches page lists by their pull request.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BranchStatus {
-    /// Every one but those whose pull request merged.
+    /// Every one but those whose pull request merged. Only merged ones was a choice once.
     #[default]
+    #[serde(alias = "Merged")]
     NotMerged,
     Open,
     Draft,
     Closed,
-    Merged,
     NoPullRequest,
     /// Merged ones too.
     Any,
@@ -439,6 +439,17 @@ mod tests {
         assert!(
             saved.kept_by_project.is_empty(),
             "the old list doesn't say whose they are"
+        );
+    }
+
+    #[test]
+    fn a_file_that_listed_only_merged_branches_still_loads() {
+        let old = r#"{ "expanded": ["a"], "prefs": { "branches_status": "Merged" } }"#;
+        let saved: Saved = serde_json::from_str(old).expect("one that fails is set aside whole");
+        assert_eq!(
+            saved.prefs.branches_status,
+            super::BranchStatus::NotMerged,
+            "the choice that's gone lists what the page lists at first"
         );
     }
 }
