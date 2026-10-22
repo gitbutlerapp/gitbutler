@@ -531,6 +531,8 @@ fn editor(input: Entity<TextInput>, row: &Row, theme: &Theme) -> AnyElement {
     let (done, cancel) = (row.actions.done.clone(), row.actions.cancel.clone());
     card(v_flex(), theme)
         .when(row.last, |el| el.border_b_1().rounded_b(px(6.)))
+        // Clicks in it stay off the diff, which would take the keys back to its shortcuts.
+        .occlude()
         .p(px(8.))
         .gap(px(6.))
         .child(
