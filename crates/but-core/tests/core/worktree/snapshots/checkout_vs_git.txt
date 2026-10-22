@@ -1,4 +1,4 @@
-675 cases: 592 like `git checkout`, 1 like `git checkout -m`, 82 different
+675 cases: 597 like `git checkout`, 1 like `git checkout -m`, 77 different
 
 HEAD Absent, target Directory, index Staged, worktree Deleted
   git:       done, HEAD target, index [p/x Mode(FILE) "m"; p/x2 Mode(FILE) "m2"], disk [p/; p/x "m"; p/x2 "m2"]
@@ -200,11 +200,6 @@ HEAD Symlink, target Submodule, index LikeHead, worktree Deleted
   git -m:    done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
   GitButler: refused, HEAD head, index [p Mode(SYMLINK) "h"], disk []
 
-HEAD Directory, target Absent, index LikeHead, worktree Clean
-  git:       done, HEAD target, index [], disk []
-  git -m:    done, HEAD target, index [], disk []
-  GitButler: refused, HEAD head, index [p/x Mode(FILE) "h"; p/x2 Mode(FILE) "h2"], disk [p/; p/x "h"; p/x2 "h2"]
-
 HEAD Directory, target Absent, index LikeHead, worktree File
   git:       refused, HEAD head, index [p/x Mode(FILE) "h"; p/x2 Mode(FILE) "h2"], disk [p "w"]
   git -m:    done, HEAD target, index [], disk []
@@ -249,26 +244,6 @@ HEAD Directory, target Absent, index StagedRemoval, worktree SymlinkToDirectory
   git:       refused, HEAD head, index [], disk [elsewhere/; p -> elsewhere]
   git -m:    refused, HEAD head, index [], disk [elsewhere/; p -> elsewhere]
   GitButler: done, HEAD target, index [], disk [elsewhere/; p -> elsewhere]
-
-HEAD Directory, target File, index LikeHead, worktree Clean
-  git:       done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
-  git -m:    done, HEAD target, index [p Mode(FILE) "m"], disk [p "m"]
-  GitButler: refused, HEAD head, index [p/x Mode(FILE) "h"; p/x2 Mode(FILE) "h2"], disk [p/; p/x "h"; p/x2 "h2"]
-
-HEAD Directory, target Executable, index LikeHead, worktree Clean
-  git:       done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
-  git -m:    done, HEAD target, index [p Mode(FILE | FILE_EXECUTABLE) "m"], disk [p "m" (x)]
-  GitButler: refused, HEAD head, index [p/x Mode(FILE) "h"; p/x2 Mode(FILE) "h2"], disk [p/; p/x "h"; p/x2 "h2"]
-
-HEAD Directory, target Symlink, index LikeHead, worktree Clean
-  git:       done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
-  git -m:    done, HEAD target, index [p Mode(SYMLINK) "m"], disk [p -> m]
-  GitButler: refused, HEAD head, index [p/x Mode(FILE) "h"; p/x2 Mode(FILE) "h2"], disk [p/; p/x "h"; p/x2 "h2"]
-
-HEAD Directory, target Submodule, index LikeHead, worktree Clean
-  git:       done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
-  git -m:    done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/]
-  GitButler: refused, HEAD head, index [p/x Mode(FILE) "h"; p/x2 Mode(FILE) "h2"], disk [p/; p/x "h"; p/x2 "h2"]
 
 HEAD Directory, target Submodule, index LikeHead, worktree DirectoryWithUntrackedFile
   git:       done, HEAD target, index [p Mode(DIR | SYMLINK) sub-b], disk [p/; p/y "w"]

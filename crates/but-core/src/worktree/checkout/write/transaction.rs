@@ -258,7 +258,12 @@ impl Journal {
     /// Remove the directories leading to `path` that are now empty, as Git does.
     fn remove_emptied_parents(&mut self, workdir: &Path, path: &Path) -> anyhow::Result<()> {
         for dir in path.ancestors().skip(1).take_while(|dir| *dir != workdir) {
-            let permissions = std::fs::symlink_metadata(dir)?.permissions();
+            let permissions = match std::fs::symlink_metadata(dir) {
+                Ok(md) => md.permissions(),
+                // Emptied by another deletion, and removed with what it left empty above it.
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => break,
+                Err(err) => return Err(err.into()),
+            };
             if std::fs::remove_dir(dir).is_err() {
                 break;
             }
