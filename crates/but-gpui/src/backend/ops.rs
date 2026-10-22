@@ -1503,6 +1503,29 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn a_file_rewritten_without_a_new_write_time_is_counted_again() {
+        let dir = repo_with("one\n");
+        let file = dir.path().join("file");
+        std::fs::write(&file, "one\ntwo\n").unwrap();
+        let repo = gix::open(dir.path()).unwrap();
+        let first = crate::backend::worktree_files(&repo, &[]).unwrap();
+        assert_eq!(first[0].lines, Some((1, 0)), "one line added");
+
+        // Its time set back after the write, as `cp -p` or a coarse timestamp leaves it.
+        let at = std::fs::metadata(&file).unwrap().modified().unwrap();
+        std::fs::write(&file, "one\ntwo\nthree\n").unwrap();
+        (std::fs::File::options().write(true).open(&file).unwrap())
+            .set_modified(at)
+            .unwrap();
+        let second = crate::backend::worktree_files(&repo, &first).unwrap();
+        assert_eq!(
+            second[0].lines,
+            Some((2, 0)),
+            "its size moved, so the lines are counted again rather than kept"
+        );
+    }
+
+    #[test]
     fn a_target_without_a_remote_is_its_own_branch_to_update_from_and_land_on() {
         let dir = repo_with("one\n");
         let path = dir.path();

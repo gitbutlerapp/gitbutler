@@ -226,6 +226,7 @@ mod tests {
             previous_path: None,
             kind: crate::backend::ChangeKind::Modified,
             modified: Some(modified),
+            size: None,
             conflicted,
             lines: None,
             change: but_core::TreeChange {

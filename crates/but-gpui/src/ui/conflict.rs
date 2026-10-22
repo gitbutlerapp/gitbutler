@@ -625,6 +625,7 @@ mod tests {
                 previous_path: None,
                 kind: ChangeKind::Modified,
                 modified: None,
+                size: None,
                 conflicted: true,
                 lines: None,
                 change: but_core::TreeChange {

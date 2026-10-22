@@ -635,6 +635,7 @@ fn file_change(change: but_core::TreeChange) -> FileChange {
         previous_path,
         kind,
         modified: None,
+        size: None,
         conflicted: false,
         lines: None,
         change,
@@ -658,9 +659,10 @@ fn worktree_files(repo: &gix::Repository, previous: &[FileChange]) -> Result<Vec
         .filter(|file| file.lines.is_some())
         .map(|file| (file.path.as_str(), file))
         .collect();
-    let lines = |change: &but_core::TreeChange, modified: Option<i64>| {
+    let lines = |change: &but_core::TreeChange, modified: Option<i64>, size: Option<u64>| {
         let kept = counted.get(&*change.path.to_str_lossy()).filter(|old| {
-            old.modified == modified && same_change(&old.change.status, &change.status)
+            (old.modified, old.size) == (modified, size)
+                && same_change(&old.change.status, &change.status)
         });
         if let Some(old) = kept {
             return old.lines;
@@ -679,11 +681,14 @@ fn worktree_files(repo: &gix::Repository, previous: &[FileChange]) -> Result<Vec
     Ok((conflicted.into_iter().map(|change| (change, true)))
         .chain(changes)
         .map(|(change, conflicted)| {
-            let modified = written(repo, change.path.as_bstr());
+            let metadata = metadata(repo, change.path.as_bstr());
+            let modified = metadata.as_ref().and_then(millis);
+            let size = metadata.map(|metadata| metadata.len());
             FileChange {
                 modified,
+                size,
                 conflicted,
-                lines: count.then(|| lines(&change, modified)).flatten(),
+                lines: count.then(|| lines(&change, modified, size)).flatten(),
                 ..file_change(change)
             }
         })
@@ -703,9 +708,22 @@ fn same_change(a: &but_core::TreeStatus, b: &but_core::TreeStatus) -> bool {
 /// When the file at `path` in `repo`'s checkout was last written, in milliseconds since the
 /// Unix epoch; a deleted file has none.
 fn written(repo: &gix::Repository, path: &bstr::BStr) -> Option<i64> {
+    millis(&metadata(repo, path)?)
+}
+
+/// The file at `path` in `repo`'s checkout, as `lstat` sees it; a deleted file has none.
+fn metadata(repo: &gix::Repository, path: &bstr::BStr) -> Option<std::fs::Metadata> {
     let path = repo.workdir()?.join(gix::path::from_bstr(path).ok()?);
-    let written = path.symlink_metadata().ok()?.modified().ok()?;
-    let since_epoch = written.duration_since(std::time::UNIX_EPOCH).ok()?;
+    path.symlink_metadata().ok()
+}
+
+/// When `metadata`'s file was last written, in milliseconds since the Unix epoch.
+fn millis(metadata: &std::fs::Metadata) -> Option<i64> {
+    let since_epoch = metadata
+        .modified()
+        .ok()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?;
     i64::try_from(since_epoch.as_millis()).ok()
 }
 

@@ -569,6 +569,10 @@ pub struct FileChange {
     /// When the file was last written, in milliseconds since the Unix epoch. Only known
     /// for uncommitted changes, and not for deletions.
     pub modified: Option<i64>,
+    /// Its size in bytes when it was read, beside `modified`, for telling whether it changed
+    /// since: a write within a coarse timestamp's tick, or one that keeps the old time, moves
+    /// only the size.
+    pub size: Option<u64>,
     /// An uncommitted file a merge left conflicted, markers and all, as an update can when
     /// the target changed the same lines. It's kept out of commits until marked resolved.
     pub conflicted: bool,
