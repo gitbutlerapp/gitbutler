@@ -2,7 +2,7 @@
 //! with whose key, and which model. GitButler's other apps share it. It's read only when
 //! shown, as reading it checks the keychain for stored keys.
 
-use gpui::{App, Context, Entity, SharedString, Window, prelude::*};
+use gpui::{App, Context, Entity, SharedString, Task, Window, prelude::*};
 
 use super::{Page, Row, SettingsView, field_with_save, read_failed, segmented};
 use crate::backend::run;
@@ -29,6 +29,9 @@ pub(super) struct Ai {
     /// "Your own" is picked but no key is stored yet; it's saved with the key, as a key
     /// option without a key can't be.
     own_pending: bool,
+    /// The last save, which the next waits for: each is made from what the one before stored,
+    /// so two fields saved in quick succession don't write each other's old values back.
+    saving: Task<()>,
     key: Entity<TextInput>,
     model: Entity<TextInput>,
     endpoint: Entity<TextInput>,
@@ -59,6 +62,7 @@ impl Ai {
             loading: false,
             failed: None,
             own_pending: false,
+            saving: Task::ready(()),
             key,
             model,
             endpoint,
@@ -173,12 +177,15 @@ impl SettingsView {
         change: impl FnOnce(&mut AiConfigurationUpdate) + Send + 'static,
         cx: &mut Context<Self>,
     ) {
-        let Some(config) = &self.ai.config else {
-            return;
-        };
-        let mut update = update_from(config);
-        change(&mut update);
-        cx.spawn(async move |this, cx| {
+        let previous = std::mem::replace(&mut self.ai.saving, Task::ready(()));
+        self.ai.saving = cx.spawn(async move |this, cx| {
+            previous.await;
+            let Ok(Some(mut update)) =
+                this.update(cx, |this, _| this.ai.config.as_ref().map(update_from))
+            else {
+                return;
+            };
+            change(&mut update);
             let result = run(move || backend::update_ai(update)).await;
             this.update(cx, |this, cx| match result {
                 Ok(config) => {
@@ -197,8 +204,7 @@ impl SettingsView {
                 Err(err) => this.error("Couldn't save the AI settings", err, cx),
             })
             .ok();
-        })
-        .detach();
+        });
     }
 
     fn save_ai_field(&mut self, input: &Entity<TextInput>, cx: &mut Context<Self>) {
