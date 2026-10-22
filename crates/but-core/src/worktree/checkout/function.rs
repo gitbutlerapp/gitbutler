@@ -142,6 +142,7 @@ pub fn safe_checkout_from_head(
 
         super::write::write_to_worktree(
             &repo,
+            old_tree.id().to_gix(),
             wd_tree_id,
             checkout_target_id,
             conflict_occurred.then_some(&outcome),

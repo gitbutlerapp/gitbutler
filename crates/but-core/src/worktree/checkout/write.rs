@@ -13,8 +13,11 @@ use crate::index::{ConflictStage, Edit, Stat};
 /// git-crypt or Git LFS see the same conversions as with Git.
 /// `.git/index` is updated for the written and deleted paths only, keeping all other entries as they are.
 /// If `conflicts` is set, its unresolved conflicts are recorded as index stages.
+/// Like Git, it refuses before changing anything if a path it would write or delete has staged
+/// content that differs from `head`, the tree the checkout leaves, and isn't in the worktree either.
 pub(super) fn write_to_worktree(
     repo: &gix::Repository,
+    head: gix::ObjectId,
     baseline: gix::ObjectId,
     target: gix::ObjectId,
     conflicts: Option<&gix::merge::tree::Outcome<'_>>,
@@ -43,6 +46,8 @@ pub(super) fn write_to_worktree(
         .filter(|path| target.entry_by_path(path).is_none())
         .map(ToOwned::to_owned)
         .collect();
+
+    refuse_to_lose_staged_content(repo, head, &baseline, &target, &deleted)?;
 
     let mut path_check = gix::status::plumbing::SymlinkCheck::new(workdir.to_owned());
     for path in &deleted {
@@ -154,6 +159,56 @@ fn is_symlinked_parent_error(err: &std::io::Error) -> bool {
         .is_some_and(|source| gix::error::classify(source).is_validation())
 }
 
+/// Fail if the index has content the user staged, which differs from `head` and isn't in the
+/// worktree (`baseline`) either, at a path that is about to be written, `deleted`, or replaced by a
+/// directory of `target`.
+fn refuse_to_lose_staged_content(
+    repo: &gix::Repository,
+    head: gix::ObjectId,
+    baseline: &gix::index::State,
+    target: &gix::index::State,
+    deleted: &BTreeSet<BString>,
+) -> anyhow::Result<()> {
+    let head = repo.index_from_tree(&head)?;
+    let index = repo.index_or_empty()?;
+    let same = |a: Option<&gix::index::Entry>, b: &gix::index::Entry| {
+        a.is_some_and(|a| a.id == b.id && a.mode == b.mode)
+    };
+    let written = |path: &BStr| {
+        target.entry_by_path(path).is_some_and(|entry| {
+            !entry
+                .flags
+                .contains(gix::index::entry::Flags::SKIP_WORKTREE)
+        })
+    };
+    let becomes_directory = |path: &BStr| {
+        let mut prefix = path.to_owned();
+        prefix.push(b'/');
+        target
+            .prefixed_entries(prefix.as_ref())
+            .is_some_and(|entries| !entries.is_empty())
+    };
+    let mut overwritten: Vec<_> = index
+        .entries()
+        .iter()
+        .filter(|entry| {
+            let path = entry.path(&index);
+            !same(head.entry_by_path(path), entry)
+                && !same(baseline.entry_by_path(path), entry)
+                && (written(path) || deleted.contains(path) || becomes_directory(path))
+        })
+        .map(|entry| format!("{:?}", entry.path(&index)))
+        .collect();
+    if !overwritten.is_empty() {
+        overwritten.sort();
+        but_error::bail_precondition!(
+            "Staged changes would be overwritten by checkout: {}",
+            overwritten.join(", ")
+        );
+    }
+    Ok(())
+}
+
 #[cfg(all(test, unix))]
 mod tests {
     use gix::object::tree::EntryKind;
@@ -174,7 +229,7 @@ mod tests {
         // The worktree had `dir/f` when it was snapshotted, then `dir` was replaced by a symlink.
         std::os::unix::fs::symlink("../outside", repo.workdir().unwrap().join("dir"))?;
 
-        super::write_to_worktree(&repo, baseline, target, None)?;
+        super::write_to_worktree(&repo, baseline, baseline, target, None)?;
 
         assert!(
             outside.join("f").is_file(),
