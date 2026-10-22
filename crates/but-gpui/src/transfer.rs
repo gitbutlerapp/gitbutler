@@ -127,6 +127,13 @@ impl Transfer {
             }
         }
         let workspace = store.workspace(target.project())?;
+        // Work goes on a branch of its own, not the default branch a linked worktree can have
+        // checked out: commits there would leave it apart from its upstream.
+        if let Selection::Branch(_, branch) = target
+            && workspace.target_branch.as_ref() == Some(branch)
+        {
+            return None;
+        }
         let conflicted =
             |id: CommitId| workspace.find_commit(id).is_some_and(|(_, c)| c.conflicted);
         Some(match (payload, target) {
@@ -247,12 +254,6 @@ impl Transfer {
                     files: files.clone(),
                     worktree: worktree.clone(),
                 },
-                // New work goes on a branch of its own, not the default branch.
-                (None, Selection::Branch(_, branch))
-                    if workspace.target_branch.as_ref() == Some(branch) =>
-                {
-                    return None;
-                }
                 // The composer commits the main checkout's files to the workspace's branches.
                 (None, Selection::Branch(_, branch))
                     if worktree.is_none() && store.worktree_of(target).is_none() =>
