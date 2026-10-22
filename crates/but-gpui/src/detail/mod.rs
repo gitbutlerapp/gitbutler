@@ -252,6 +252,8 @@ pub struct Detail {
     /// The checks of the other checkouts looked at, by project and linked worktree, kept
     /// for coming back to them.
     other_checks: HashMap<(Option<ProjectId>, Option<Arc<str>>), composer::Checks>,
+    /// The `commit_target` picked in the other projects looked at.
+    other_targets: HashMap<ProjectId, String>,
     /// Narrows the file list and the diff to the paths it matches, while `filtering`.
     file_filter: Entity<TextInput>,
     filtering: bool,
@@ -401,8 +403,14 @@ impl Detail {
                     let project = this.selected_project(cx);
                     let checkout = this.selected_checkout(cx).map(|(_, worktree)| worktree);
                     if this.checks_project != project {
+                        // The branch picked to commit to waits for coming back, as checks do.
+                        let left = this.checks_project.clone();
+                        if let Some((left, target)) = left.zip(this.commit_target.take()) {
+                            this.other_targets.insert(left, target);
+                        }
+                        this.commit_target =
+                            (project.as_ref()).and_then(|next| this.other_targets.remove(next));
                         this.switch_checkout(project, checkout.flatten(), cx);
-                        this.commit_target = None;
                     } else if let Some(worktree) = checkout
                         && worktree != this.checks_worktree
                     {
@@ -543,6 +551,7 @@ impl Detail {
             commit_target: None,
             checks: Default::default(),
             other_checks: HashMap::new(),
+            other_targets: HashMap::new(),
             file_filter,
             filtering: false,
             whole: HashMap::new(),
