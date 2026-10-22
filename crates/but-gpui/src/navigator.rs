@@ -1762,21 +1762,25 @@ impl Navigator {
         // The filter lists what it finds, folded or not.
         let filtering = self.filtering(cx);
         let folded = self.store.read(cx).prefs.projects_folded && !filtering;
+        // Only its chevron folds it, as only a project card's does.
         let fold = h_flex()
-            .id("projects-fold")
             .flex_1()
             .min_w(px(0.))
             .h_full()
             .gap(px(6.))
-            .when(total > 0, |el| {
-                el.child(fold_glyph(Some(!folded), theme.text_3))
-            })
-            .when(total > 0 && !filtering, |el| {
-                el.on_click(cx.listener(|this, _, _, cx| {
-                    (this.store).update(cx, |store, cx| {
-                        store.set_prefs(|prefs| prefs.projects_folded = !prefs.projects_folded, cx)
-                    })
-                }))
+            .when(total > 0, |el| match filtering {
+                true => el.child(fold_glyph(Some(true), theme.text_3)),
+                false => el.child(fold_button(
+                    "projects-fold",
+                    Some(!folded),
+                    theme.text_3,
+                    cx,
+                    |this, _, cx| {
+                        (this.store).update(cx, |store, cx| {
+                            store.set_prefs(|p| p.projects_folded = !p.projects_folded, cx)
+                        })
+                    },
+                )),
             })
             .child(section_label(title, theme).truncate())
             .when(total > 0, |el| {
