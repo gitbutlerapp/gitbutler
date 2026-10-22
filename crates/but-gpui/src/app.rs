@@ -183,6 +183,13 @@ impl AppView {
                 this.store
                     .update(cx, |store, cx| store.save_window_place(window, cx));
             }),
+            cx.observe_window_visibility(window, |this, visibility, _, cx| {
+                if !scripted() {
+                    this.store.update(cx, |store, cx| {
+                        store.set_visible(visibility.is_visible(), cx)
+                    });
+                }
+            }),
             // The CLI and GitButler's other apps add and remove projects too, and folders move.
             cx.observe_window_activation(window, |this, window, cx| {
                 if window.is_window_active() {
@@ -204,6 +211,11 @@ impl AppView {
                 .unwrap_or(true)
         });
         Self::listen_for_credential_prompts(window, cx);
+        // Visibility arrives only as it changes, so a window that opens hidden says so here.
+        if !scripted() {
+            let visible = window.is_visible();
+            store.update(cx, |store, cx| store.set_visible(visible, cx));
+        }
         Self {
             store,
             detail,
@@ -991,4 +1003,12 @@ fn show_cursor_again(window: &Window) {
             let _: () = msg_send![ns_window, invalidateCursorRectsForView: view];
         }
     }
+}
+
+/// Whether a dev script drives the window, which then says when it's hidden.
+fn scripted() -> bool {
+    #[cfg(feature = "dev-script")]
+    return crate::dev::scripted();
+    #[cfg(not(feature = "dev-script"))]
+    false
 }

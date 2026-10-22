@@ -166,7 +166,10 @@ impl Store {
 
     /// Pull requests and CI change on the forge, where no watcher sees them: opening a
     /// project asks about them, and this asks again every minute, when it also redraws.
+    /// Hidden, it asks every fifth minute, as agents read the forge's cache through `but`
+    /// though nobody sees the window, and showing the window asks at once if it skipped one.
     pub(super) fn poll_forge(cx: &mut Context<Self>) -> Task<()> {
+        const HIDDEN_EVERY: u32 = 5;
         cx.spawn(async move |this, cx| {
             loop {
                 cx.background_executor()
@@ -176,19 +179,29 @@ impl Store {
                 // keychain prompt the user turned down, and asking again every minute
                 // would only nag. Opening a project or pushing asks again.
                 let Ok(()) = this.update(cx, |store, cx| {
-                    for id in store.expanded_ids() {
-                        if !store.forge_failed.contains(&id) {
-                            store.refresh_forge(&id);
-                        }
+                    match store.hidden && store.forge_skipped + 1 < HIDDEN_EVERY {
+                        true => store.forge_skipped += 1,
+                        false => store.ask_forges(cx),
                     }
-                    // What says how long ago, or that a project is active, moves on with
-                    // the minute, forge or not.
-                    cx.notify();
                 }) else {
                     break;
                 };
             }
         })
+    }
+
+    /// Ask each watched project's forge about its pull requests and CI again.
+    pub(super) fn ask_forges(&mut self, cx: &mut Context<Self>) {
+        tracing::debug!(hidden = self.hidden, "asking the forges");
+        self.forge_skipped = 0;
+        for id in self.expanded_ids() {
+            if !self.forge_failed.contains(&id) {
+                self.refresh_forge(&id);
+            }
+        }
+        // What says how long ago, or that a project is active, moves on with the minute,
+        // forge or not.
+        cx.notify();
     }
 
     /// Works through forge refreshes one at a time. Reading the forge token can stop on a

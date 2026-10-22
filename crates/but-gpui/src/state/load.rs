@@ -105,13 +105,33 @@ impl Store {
                 }
                 let Ok(()) = this.update(cx, |store, cx| {
                     for (id, reload) in reloads {
-                        store.load(&id, reload, cx);
+                        match store.hidden {
+                            true => store.unseen.entry(id).or_default().merge(reload),
+                            false => store.load(&id, reload, cx),
+                        }
                     }
                 }) else {
                     break;
                 };
             }
         })
+    }
+
+    /// Follow whether any of the window shows. Hidden, watchers' changes and the forge poll
+    /// wait, so an agent writing while the app is behind an editor costs a file watcher and
+    /// no more; shown again, each project changed meanwhile loads once.
+    pub fn set_visible(&mut self, visible: bool, cx: &mut Context<Self>) {
+        tracing::debug!(visible, unseen = self.unseen.len(), "window visibility");
+        self.hidden = !visible;
+        if self.hidden {
+            return;
+        }
+        for (id, reload) in std::mem::take(&mut self.unseen) {
+            self.load(&id, reload, cx);
+        }
+        if self.forge_skipped > 0 {
+            self.ask_forges(cx);
+        }
     }
 
     pub fn load_projects(&mut self, cx: &mut Context<Self>) {

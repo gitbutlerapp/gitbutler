@@ -304,6 +304,14 @@ pub struct Store {
     forge_queued: HashSet<ProjectId>,
     /// Projects whose last forge refresh failed, which the minute poll leaves alone.
     forge_failed: HashSet<ProjectId>,
+    /// No part of the window shows, as behind another app's or with the display asleep.
+    /// Nobody sees the projects change then, so what watchers saw waits in `unseen`, read
+    /// once the window shows again.
+    hidden: bool,
+    unseen: HashMap<ProjectId, Reload>,
+    /// Minute forge polls skipped while hidden since the forge was last asked: see
+    /// [`Store::poll_forge`].
+    forge_skipped: u32,
     /// The project whose forge refresh is under way.
     forge_checking: Option<ProjectId>,
     /// When each project's forge refresh last worked, in seconds since the epoch. A refresh
@@ -383,6 +391,9 @@ impl Store {
             forge_requests,
             forge_queued: HashSet::new(),
             forge_failed: HashSet::new(),
+            hidden: false,
+            unseen: HashMap::new(),
+            forge_skipped: 0,
             forge_checking: None,
             forge_synced: HashMap::new(),
             _forge_worker: Self::forge_worker(requested, cx),

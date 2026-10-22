@@ -36,7 +36,9 @@ so update it, shortcuts table included, with every change in behaviour.
 - The harness window is off screen, so macOS draws it only when the script asks. Anything that
   needs a second frame shows in the next step's screenshot, not this one's.
 - Profile with `sample <pid> <seconds> -file out.txt`. Look at the main thread: a scripted run
-  idles between steps, so most samples there are idle.
+  idles between steps, so most samples there are idle. A thread's sample count is how long it
+  lived, blocked or running, so read CPU from the self samples, past the wait frames
+  (`__psynch_cvwait`, `mach_msg`, `kevent`).
 - A dev-script build idles at 6-10% CPU, because the stall watcher wakes the UI thread every
   millisecond. Measure idle CPU and memory on the plain build.
 - Stall numbers swing by 30-50% with machine load. Check `uptime`, run the old and new binaries
@@ -59,6 +61,30 @@ so update it, shortcuts table included, with every change in behaviour.
   frame, against 1.6ms in `uniform_list`. Don't derive per-row state for every row each frame:
   a 20,000-line diff stalled until the line grip was worked out only for the row under the
   pointer.
+
+## Power
+
+Users keep the app beside or behind their editor for hours while agents work, so what it does
+unseen is what a laptop's battery pays for.
+
+- While no part of the window shows (`Store::hidden`: covered, minimized, on another Space, the
+  display asleep), work that only keeps the screen current waits: watcher reloads collect in
+  `Store::unseen`, and `Store::set_visible` reads them once it shows. New watcher-driven or timed
+  work takes the same path. Work something else reads slows down instead: the forge poll asks
+  every fifth minute, since `but status` and the MCP server read its cache. A sliver of window
+  counts as visible, as macOS counts it.
+- Operations the user starts hold off App Nap while they run (`prevent_app_nap` in
+  `Store::start`), so a push goes on at full speed when they switch away. Refreshes take the
+  priority macOS gives the app: a background app's run on efficiency cores, for more CPU time
+  and less energy. Holding it off for every reload measured up to 2.8 times the energy.
+- Judge battery by energy, not CPU time or `top`'s estimate: `proc_pid_rusage` with
+  `RUSAGE_INFO_V6` reads a process's `ri_energy_nj` and its performance-core time without root.
+  Its times are mach ticks, so convert them with `mach_timebase_info`.
+- Measure on the plain build with the screen unlocked, in each state a user's window is in:
+  frontmost, visible behind another app, and hidden. `osascript` with System Events sets them:
+  `set frontmost of` or `set visible of` the process found by its unix id, or activate another
+  app. A locked screen makes every app a background one. With an agent writing to mise, the app
+  drew about 500 mW frontmost and 6 mW hidden.
 
 ## GPUI traps
 
@@ -195,7 +221,10 @@ anything else.
 - Rows move under the pointer: a drag inserts drop zones, and an optimistic stand-in adds a row.
   Take a `shot` mid-drag with `hold` and aim from it. Coordinates read off a cropped shot need the
   crop's origin added.
-- The log target is `gitbutler_gpui`, as in `RUST_LOG=gitbutler_gpui=debug`.
+- The log target is `but_gpui`, as in `RUST_LOG=but_gpui=debug`.
+- The harness window is off screen, which macOS reports as hidden, so a scripted run ignores
+  the real visibility and starts shown. `hide` and `show` steps set it, as covering the window
+  and bringing it back would.
 
 ## Sandboxes and fixtures
 
@@ -209,8 +238,10 @@ anything else.
   `struct_version` from `but-forge`. One malformed row fails the whole workspace load. With no
   account the refresh fails before any request, which shows the stale state too.
 - To try a real repository, use an APFS clone (`cp -c -R`) with every remote pointed at a missing
-  path, and copy sqlite files with their `-wal` and `-shm`. Run `git update-index --really-refresh`
-  in it, or racily clean index entries inflate status timings. Delete it afterwards.
+  path, and copy sqlite files with their `-wal` and `-shm`. Delete it afterwards.
+- Run `git update-index --really-refresh` in every repository copied or extracted for a run. A
+  fresh copy leaves its index entries racily clean, so status hashes every file on every read,
+  which tripled the CPU an agent's writes cost.
 
 ## Conventions
 

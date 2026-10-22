@@ -1016,7 +1016,11 @@ impl Store {
         });
         cx.notify();
         let project = project.clone();
+        let reason = label.to_string();
         cx.spawn(async move |this, cx| {
+            // Asked for by the user, so it runs at full speed even if they switch away
+            // meanwhile, rather than as macOS runs a hidden app's work.
+            let _awake = cx.background_executor().prevent_app_nap(&reason);
             // Which oplog entry the operation recorded, if it did, for its Undo button.
             let result = backend::run(move || {
                 // Left by a Git that crashed or was killed, as an agent's can be, the lock

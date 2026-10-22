@@ -82,6 +82,12 @@ pub fn mark_launch() {
     LAUNCHED.get_or_init(Instant::now);
 }
 
+/// Whether a script drives this run. Its window is off screen, which macOS reports as
+/// hidden, so the app follows the script's `hide` and `show` steps instead.
+pub fn scripted() -> bool {
+    std::env::var_os("GITBUTLER_GPUI_SCRIPT").is_some()
+}
+
 pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
     let Some(path) = std::env::var_os("GITBUTLER_GPUI_SCRIPT").map(PathBuf::from) else {
         return;
@@ -416,6 +422,13 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             app.update(cx, |app, cx| {
                 app.store
                     .update(cx, |store, cx| store.add_project(PathBuf::from(rest), cx))
+            });
+        }
+        // The window as if another app's covered it, or shown again.
+        "hide" | "show" => {
+            let app = window.root::<AppView>().flatten().context("no app view")?;
+            app.update(cx, |app, cx| {
+                (app.store).update(cx, |store, cx| store.set_visible(command == "show", cx))
             });
         }
         // What an agent, another app or the user does outside the app meanwhile.
