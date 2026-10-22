@@ -254,6 +254,11 @@ impl Store {
 
     /// Take `id` out of GitButler; its repository stays on disk.
     pub fn remove_project(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
+        // Removing deletes GitButler's data in the repository, which an operation there would
+        // fail partway through for, or write back.
+        if self.unfinished_in(id, None) {
+            return self.snack("Wait for its operations to finish, then remove it", cx);
+        }
         let removed = id.to_string();
         self.project_edits += 1;
         cx.spawn(async move |this, cx| {

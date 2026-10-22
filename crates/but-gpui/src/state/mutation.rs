@@ -1135,6 +1135,22 @@ impl Store {
             .any(|pending| pending == label)
     }
 
+    /// Whether an operation, or one called `label`, waits or runs for `project`, short of
+    /// reloading what it did, as a retry after it failed may be asked for then.
+    pub(super) fn unfinished_in(&self, project: &ProjectId, label: Option<&str>) -> bool {
+        let named = |l: &SharedString| label.is_none_or(|label| l == label);
+        self.running
+            .get(project)
+            .is_some_and(|r| named(&r.label) && !r.settling)
+            || (self.queue.iter()).any(|q| q.project == *project && named(&q.label))
+    }
+
+    /// Whether conflicts are being resolved in `project`, whose picks are numbered anew once
+    /// that's done.
+    pub fn resolving(&self, project: &ProjectId) -> bool {
+        self.unfinished_in(project, Some("Resolve"))
+    }
+
     /// Whether an update from the target waits or runs on `project`.
     pub fn updating(&self, project: &ProjectId) -> bool {
         self.pending(project, UPDATE)
