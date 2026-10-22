@@ -1,0 +1,14 @@
+.led {
+	flex-shrink: 0;
+	width: 8px;
+	height: 8px;
+	/* Centred on the line box, the light sits level with capitals, high beside the lowercase names
+	   and words it usually follows. A pixel down meets their middle without moving the layout. */
+	translate: 0 1px;
+	border-radius: var(--radius-full);
+	background-color: var(--text-3);
+}
+
+.online {
+	background-color: var(--text-safe);
+}
