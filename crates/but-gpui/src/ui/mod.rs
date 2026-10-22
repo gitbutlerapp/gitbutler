@@ -16,8 +16,8 @@ use std::borrow::Cow;
 
 use gpui::{
     Action, AnyElement, App, AssetSource, ClickEvent, Context, CursorStyle, Div, DragMoveEvent,
-    ElementId, EmptyView, Entity, Hsla, MouseButton, Pixels, Point, Role, SharedString, Stateful,
-    Svg, Toggled, Window, div, prelude::*, px, svg,
+    ElementId, EmptyView, Entity, Hsla, MouseButton, MouseDownEvent, Pixels, Point, Role,
+    SharedString, Stateful, Svg, Toggled, Window, div, prelude::*, px, svg,
 };
 
 use crate::state::{Pane, Store};
@@ -351,6 +351,13 @@ pub fn fold_row(
         .text_color(theme.text_2)
         .hover(|el| el.text_color(theme.text_1))
         .child(small_icon(glyph).text_color(theme.text_3))
+}
+
+/// For a press on something whose click places the focus itself: left be, the press would
+/// hand the focus to the pane around it until the click moved it on, and the selection
+/// beside would blink.
+pub fn keep_focus_on_press(_: &MouseDownEvent, window: &mut Window, _: &mut App) {
+    window.prevent_default()
 }
 
 /// A row's fold: [`fold_glyph`] that runs `toggle` on a click without selecting the row,

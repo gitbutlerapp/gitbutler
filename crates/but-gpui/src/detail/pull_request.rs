@@ -3,7 +3,9 @@
 //! Nothing here asks the forge; the store's background refresh does, and the page says how
 //! old what it shows is.
 
-use gpui::{AnyElement, App, ClickEvent, Context, Div, Stateful, Window, div, prelude::*, px};
+use gpui::{
+    AnyElement, App, ClickEvent, Context, Div, MouseButton, Stateful, Window, div, prelude::*, px,
+};
 
 use super::Detail;
 use super::panes::title_text;
@@ -16,7 +18,7 @@ use crate::ui::review as ui_review;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, ago, button, count_badge, duration, faint, h_flex, icon,
-    local_time, muted, now, shortcut, small_icon, v_flex,
+    keep_focus_on_press, local_time, muted, now, shortcut, small_icon, v_flex,
 };
 
 /// How tall the tabs over the diff beside a list are.
@@ -60,23 +62,14 @@ impl Detail {
     }
 
     fn set_review_tab(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
-        // The branch page's file list isn't drawn beside its pull request. A list page's list
-        // stays, and keeps the keys, which the click on a tab took, picked already or not.
+        // A list page's list keeps the keys. The branch page's file list isn't drawn beside
+        // its pull request.
         let focus = match (&self.store.read(cx).selection, on) {
-            (Some(Selection::Branches(_) | Selection::Project(_)), _) => {
-                Some(self.side_focus.clone())
-            }
-            (Some(Selection::Branch(..) | Selection::Upstream(..)), true) => {
-                Some(self.focus.clone())
-            }
-            (Some(Selection::Branch(..) | Selection::Upstream(..)), false) => {
-                Some(self.files_focus.clone())
-            }
-            _ => None,
+            (Some(Selection::Branches(_) | Selection::Project(_)), _) => &self.side_focus,
+            (Some(Selection::Branch(..) | Selection::Upstream(..)), false) => &self.files_focus,
+            _ => &self.focus,
         };
-        if let Some(focus) = focus {
-            window.focus(&focus, cx);
-        }
+        window.focus(focus, cx);
         if self.review_tab != on {
             self.review_tab = on;
             cx.notify();
@@ -468,6 +461,7 @@ fn tab(
         .font_weight(gpui::FontWeight::SEMIBOLD)
         .text_color(theme.text_1)
         .when(!selected, |el| el.hover(move |el| el.bg(hover)))
+        .on_mouse_down(MouseButton::Left, keep_focus_on_press)
         .child(icon(glyph).text_color(theme.text_1.opacity(0.7)))
         .child(
             div()

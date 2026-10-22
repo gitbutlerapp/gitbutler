@@ -5,7 +5,7 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-use gpui::{AnyElement, Context, Window, div, prelude::*, px, relative};
+use gpui::{AnyElement, Context, MouseButton, Window, div, prelude::*, px, relative};
 
 use super::{days_said, noon};
 use crate::backend::CommitId;
@@ -19,7 +19,10 @@ use crate::state::ProjectId;
 use crate::theme::Theme;
 use crate::ui::person::author_avatar;
 use crate::ui::relative_time;
-use crate::ui::{ButtonStyle, Icon, button, faint, list_row, plural, side_row, small_icon, v_flex};
+use crate::ui::{
+    ButtonStyle, Icon, button, faint, keep_focus_on_press, list_row, plural, side_row, small_icon,
+    v_flex,
+};
 
 /// How many of the newest releases are listed.
 const RELEASES_SHOWN: usize = 3;
@@ -259,6 +262,7 @@ impl Detail {
                     OVERVIEW_TIME_WIDTH,
                     theme,
                 ))
+                .on_mouse_down(MouseButton::Left, keep_focus_on_press)
                 .on_click(cx.listener(move |this, _, window, cx| {
                     this.open_landed(&project, id, window, cx)
                 }))
@@ -415,6 +419,7 @@ impl Detail {
                     OVERVIEW_TIME_WIDTH,
                     theme,
                 ))
+                .on_mouse_down(MouseButton::Left, keep_focus_on_press)
                 .on_click(cx.listener(move |this, _, window, cx| {
                     this.open_landed(&project, id, window, cx)
                 }))
