@@ -1379,28 +1379,16 @@ fn checkout_refuses_to_overwrite_an_edit_hidden_from_the_stat_of_a_racy_entry() 
 #[test]
 #[cfg(unix)]
 fn checkout_refuses_to_overwrite_a_file_reverted_after_the_snapshot() -> anyhow::Result<()> {
-    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
-    let workdir = repo.workdir().expect("non-bare");
-    std::fs::write(workdir.join("a"), "one\n")?;
-    std::fs::write(workdir.join("z.f"), "z\n")?;
-    git(&repo).args(["add", "a", "z.f"]).run();
-    git(&repo).args(["commit", "-qm", "a and z.f"]).run();
-    std::fs::write(workdir.join("a"), "one\nuncommitted\n")?;
-    // Cleaning `z.f` reverts `a` after the snapshot read it, and Git records its stat
-    // outside the racy window. The entry is stat-clean again, but describes HEAD's content,
-    // not the snapshot's.
-    std::fs::write(
-        repo.git_dir().join("info/attributes"),
-        "*.f filter=meddle\n",
+    // Resetting `a` after the snapshot, with its stat recorded outside the racy window, leaves an
+    // entry that matches the disk and HEAD, but not the snapshot's staged `a`.
+    let (repo, _tmp) = repo_with_meddling_filter(
+        "one\n",
+        "git checkout HEAD -- a && touch -t 200101010000 a && git update-index -q --refresh",
     )?;
-    git(&repo)
-        .args([
-            "config",
-            "filter.meddle.clean",
-            r#"sh -c 'cd "$GIT_DIR/.." && git checkout -- a && touch -t 200101010000 a && git update-index -q --refresh; cat'"#,
-        ])
-        .run();
-    std::fs::write(workdir.join("z.f"), "z changed\n")?;
+    // Staged, so the snapshot takes `a` from the index instead of reading the file, whatever
+    // order it hashes files in.
+    std::fs::write(repo.workdir_path("a").unwrap(), "one\nuncommitted\n")?;
+    git(&repo).args(["add", "a"]).run();
     let head = repo.head_id()?.detach();
     let new_commit = build_commit(
         &repo,
@@ -1413,14 +1401,17 @@ fn checkout_refuses_to_overwrite_a_file_reverted_after_the_snapshot() -> anyhow:
     )?;
 
     let err = safe_checkout_from_head(new_commit.id, &repo, Default::default())
-        .expect_err("the merge used the snapshot's `a`, which the revert discarded");
+        .expect_err("the merge used the snapshot's `a`, which the reset discarded");
 
     snapbox::assert_data_eq!(
         err.to_string(),
         snapbox::str!["Uncommitted files would be overwritten by checkout: \"a\""]
     );
     assert_eq!(repo.head_id()?.detach(), head, "HEAD stays");
-    assert_eq!(std::fs::read_to_string(workdir.join("a"))?, "one\n");
+    assert_eq!(
+        std::fs::read_to_string(repo.workdir_path("a").unwrap())?,
+        "one\n"
+    );
     Ok(())
 }
 
