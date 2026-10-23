@@ -1645,7 +1645,7 @@ impl Detail {
             diff.files.len() == files.len()
                 && diff.files.iter().zip(files).all(|(shown, now)| {
                     shown.file.path == now.path
-                        && shown.file.modified == now.modified
+                        && (shown.file.modified, shown.file.size) == (now.modified, now.size)
                         && shown.file.base() == now.base()
                 })
         })

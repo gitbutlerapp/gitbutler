@@ -781,7 +781,8 @@ fn follow_cut(cut: &mut Cut, old: Option<&Workspace>, new: &Workspace) -> bool {
         } => {
             let uncommitted = new.uncommitted_in(worktree.as_deref());
             let same = |f: &Selected, u: &FileChange| {
-                f.hunks.is_none() || (u.modified, u.lines) == (f.file.modified, f.file.lines)
+                f.hunks.is_none()
+                    || (u.modified, u.size, u.lines) == (f.file.modified, f.file.size, f.file.lines)
             };
             uncommitted.is_some_and(|uncommitted| {
                 // By path, as all of thousands can be cut, and this runs on every reload.

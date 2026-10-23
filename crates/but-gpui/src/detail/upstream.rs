@@ -190,26 +190,20 @@ impl Detail {
         let workspace = self.store.read(cx).workspace(&project);
         let forge = workspace.and_then(|ws| ws.forge);
         // What landed lately, only with the newest page: paging further back keeps what was
-        // read. Before the workspace is read, as an unwatched project's first page is, the
-        // target's name is read with the page, so the page shows whole at once.
+        // read.
         let newest = after.is_none();
-        let known = workspace.map(|ws| ws.target.as_ref().map(|target| target.name.clone()));
         let now = crate::ui::now();
         // The branches the header counts are the Branches page's, read on their own rather
         // than waited for; that page then opens with them.
-        if newest && known.as_ref().is_some_and(Option::is_some) {
+        if newest && workspace.is_some_and(|ws| ws.target.is_some()) {
             self.load_branches(&project, false, cx);
         }
         self._upstream_load = cx.spawn(async move |this, cx| {
             let result = backend::run(move || {
-                let target = newest
-                    .then(|| known.unwrap_or_else(|| upstream::target_name(&path)))
-                    .flatten();
                 // What landed lately takes longest, so it's read beside the page rather than
                 // after it.
                 std::thread::scope(|scope| {
-                    let summary = (target.as_deref())
-                        .map(|target| scope.spawn(|| upstream::overview(&path, target, now)));
+                    let summary = newest.then(|| scope.spawn(|| upstream::overview(&path, now)));
                     let (mut commits, mut more) = upstream::target_commits(&path, after, limit)?;
                     // The newest page stops where the workspace forked off, often a commit or
                     // two in, so the rest of a page is read with it rather than a wait after.
@@ -225,7 +219,9 @@ impl Detail {
                         (backend::accounts::accounts().iter()).any(|account| account.forge == forge)
                     });
                     let fetch = upstream::fetch_status(&path)?;
-                    let summary = summary.and_then(|s| joined(s.join(), "what landed"));
+                    let summary = summary
+                        .and_then(|s| joined(s.join(), "what landed"))
+                        .flatten();
                     Ok((page, fetch, forge.filter(|_| !connected), summary))
                 })
             })

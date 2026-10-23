@@ -566,8 +566,8 @@ impl Navigator {
                     None => "It has no branch, so commits made there that no branch has are lost.",
                 };
                 // As last written, so an agent's edit while the question is up isn't lost.
-                let lost: Vec<(String, Option<i64>)> = (worktree.uncommitted.iter())
-                    .map(|f| (f.path.clone(), f.modified))
+                let lost: Vec<(String, Option<i64>, Option<u64>)> = (worktree.uncommitted.iter())
+                    .map(|f| (f.path.clone(), f.modified, f.size))
                     .collect();
                 let (project, name) = (project.clone(), name.clone());
                 let (deleted_project, deleted) = (project.clone(), name.clone());

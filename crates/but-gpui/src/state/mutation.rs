@@ -943,13 +943,14 @@ impl Store {
         );
     }
 
-    /// Delete linked worktree `name` from disk, with its uncommitted files `lost`, which the
-    /// user agreed to lose. Its branch stays. Undo can't bring the folder back.
+    /// Delete linked worktree `name` from disk, with its uncommitted files `lost`, by their
+    /// write times and sizes, which the user agreed to lose. Its branch stays. Undo can't
+    /// bring the folder back.
     pub fn delete_worktree(
         &mut self,
         project: &ProjectId,
         name: Arc<str>,
-        lost: Vec<(String, Option<i64>)>,
+        lost: Vec<(String, Option<i64>, Option<u64>)>,
         cx: &mut Context<Self>,
     ) {
         let done = format!("Deleted {name}");

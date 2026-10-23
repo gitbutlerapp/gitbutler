@@ -343,15 +343,18 @@ fn target(
     let Some(tip) = ref_tip(&repo, source.as_ref()) else {
         return Ok((None, Some(source.shorten().to_string())));
     };
-    let ahead = target_commit.map_or(0, |base| commits_past(&repo, tip, base));
-    let bases = (target_commit.into_iter()).chain(info.stacks.iter().filter_map(|s| s.base));
-    let (behind, commits_behind) = behind_oldest(&repo, tip, bases);
+    // The stored commit is walked once, though most stacks sit on it too.
+    let past = |base| (commits_past(&repo, tip, base), base);
+    let ahead = target_commit.map(past);
+    let stacks = (info.stacks.iter().filter_map(|s| s.base)).filter(|&b| Some(b) != target_commit);
+    let (behind, commits_behind) =
+        behind_oldest(&repo, tip, ahead.into_iter().chain(stacks.map(past)));
     let target = Target {
         name: source.shorten().to_string(),
         local: source.category() == Some(gix::refs::Category::LocalBranch),
         behind,
         commits_behind,
-        needs_update: ahead > 0 || stacks_behind,
+        needs_update: ahead.is_some_and(|(ahead, _)| ahead > 0) || stacks_behind,
         incoming: match commits_behind {
             0 => Vec::new(),
             _ => upstream::incoming(ctx, cached, model::UPSTREAM_SHOWN).unwrap_or_else(|err| {
@@ -526,24 +529,32 @@ pub(crate) fn ref_tip(
     Some(repo.find_reference(name).ok()?.peel_to_id().ok()?.detach())
 }
 
+/// Whether `ancestor` is `commit` or in its history.
+fn is_ancestor(
+    repo: &gix::Repository,
+    ancestor: gix::ObjectId,
+    commit: gix::ObjectId,
+) -> Result<bool> {
+    let base = repo.merge_base(ancestor, commit)?;
+    Ok(base.is_some_and(|base| base == ancestor))
+}
+
 /// How many commits `tip` has that `base` doesn't, merged ones included.
 fn commits_past(repo: &gix::Repository, tip: gix::ObjectId, base: gix::ObjectId) -> usize {
     (repo.rev_walk([tip]).with_hidden([base]).all()).map_or(0, |walk| walk.count())
 }
 
-/// How far `tip` is past the oldest of `bases`: the commits on its own line of history, each
-/// merge once, and all of them. What's new runs down to the oldest commit a stack still sits
-/// on, as the list of new commits does, since a stack left on an older target commit, as
-/// updating only some lanes leaves the others, hasn't the commits between.
+/// How far `tip` is past the oldest of `bases`, each given with its [`commits_past`]: the
+/// commits on its own line of history, each merge once, and all of them. What's new runs down
+/// to the oldest commit a stack still sits on, as the list of new commits does, since a stack
+/// left on an older target commit, as updating only some lanes leaves the others, hasn't the
+/// commits between.
 fn behind_oldest(
     repo: &gix::Repository,
     tip: gix::ObjectId,
-    bases: impl IntoIterator<Item = gix::ObjectId>,
+    bases: impl IntoIterator<Item = (usize, gix::ObjectId)>,
 ) -> (usize, usize) {
-    let oldest = (bases.into_iter())
-        .map(|base| (commits_past(repo, tip, base), base))
-        .max();
-    let Some((all, oldest)) = oldest else {
+    let Some((all, oldest)) = bases.into_iter().max() else {
         return (0, 0);
     };
     (
@@ -711,9 +722,7 @@ fn worktree_files(repo: &gix::Repository, previous: &[FileChange]) -> Result<Vec
     Ok((conflicted.into_iter().map(|change| (change, true)))
         .chain(changes)
         .map(|(change, conflicted)| {
-            let metadata = metadata(repo, change.path.as_bstr());
-            let modified = metadata.as_ref().and_then(millis);
-            let size = metadata.map(|metadata| metadata.len());
+            let (modified, size) = stamp(repo, change.path.as_bstr());
             FileChange {
                 modified,
                 size,
@@ -739,6 +748,14 @@ fn same_change(a: &but_core::TreeStatus, b: &but_core::TreeStatus) -> bool {
 /// Unix epoch; a deleted file has none.
 fn written(repo: &gix::Repository, path: &bstr::BStr) -> Option<i64> {
     millis(&metadata(repo, path)?)
+}
+
+/// When the file at `path` in `repo`'s checkout was last written and its size, as
+/// [`FileChange`] keeps them to tell whether it changed since; a deleted file has neither.
+fn stamp(repo: &gix::Repository, path: &bstr::BStr) -> (Option<i64>, Option<u64>) {
+    let metadata = metadata(repo, path);
+    let size = metadata.as_ref().map(|metadata| metadata.len());
+    (metadata.as_ref().and_then(millis), size)
 }
 
 /// The file at `path` in `repo`'s checkout, as `lstat` sees it; a deleted file has none.
@@ -939,13 +956,14 @@ mod behind_tests {
         let stored = commit("three");
         let tip = commit("four");
         let repo = gix::open(path).unwrap();
+        let past = |base| (super::commits_past(&repo, tip, base), base);
         assert_eq!(
-            super::behind_oldest(&repo, tip, [stored, old]),
+            super::behind_oldest(&repo, tip, [past(stored), past(old)]),
             (3, 3),
             "a stack still on an older commit hasn't the ones since, though the stored target has"
         );
         assert_eq!(
-            super::behind_oldest(&repo, tip, [stored]),
+            super::behind_oldest(&repo, tip, [past(stored)]),
             (1, 1),
             "with every stack on the stored target, only what's past it"
         );

@@ -15,7 +15,7 @@ use but_core::tree::create_tree::RejectionReason;
 use but_core::{DiffSpec, DryRun};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 
-use super::{ChangeKind, CommitId, Selected, checkout, open, short_ref, written};
+use super::{ChangeKind, CommitId, Selected, checkout, open, short_ref, stamp};
 
 /// Where a commit or a set of changes lands.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -103,7 +103,7 @@ fn refuse_changed(repo: &gix::Repository, selected: &[Selected], whole: bool) ->
     let changed = (selected.iter()).find(|part| {
         let picked = part.hunks.is_some();
         (whole || picked)
-            && (written(repo, part.file.path.as_str().into()) != part.file.modified
+            && (stamp(repo, part.file.path.as_str().into()) != (part.file.modified, part.file.size)
                 || (picked && base_now(part) != part.file.base()))
     });
     if let Some(part) = changed {
@@ -752,8 +752,9 @@ pub fn move_to_new_branch(path: &Path, commits: &[CommitId]) -> Result<(Rewritte
             )
         },
     )?;
-    if !rolled_back && let Some(snapshot) = snapshot {
-        snapshot.commit(&ctx, perm)?;
+    // The commits moved already, so a snapshot that can't be recorded only logs.
+    if !rolled_back && let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(&ctx, perm)) {
+        tracing::warn!(?err, "couldn't record the new branch for undo");
     }
     Ok((rewritten(&workspace), name.to_string()))
 }
@@ -1207,7 +1208,8 @@ pub(super) mod tests {
         );
         std::fs::write(linked.join("file"), "seen\n").unwrap();
         let repo = gix::open(&linked).unwrap();
-        let asked = [("file".to_owned(), written(&repo, "file".into()))];
+        let (modified, size) = stamp(&repo, "file".into());
+        let asked = [("file".to_owned(), modified, size)];
         // Written after the user was asked about the change above.
         std::fs::write(linked.join("fresh"), "new\n").unwrap();
 
@@ -1494,6 +1496,11 @@ pub(super) mod tests {
             second[0].lines,
             Some((2, 0)),
             "its size moved, so the lines are counted again rather than kept"
+        );
+        let err = super::refuse_changed(&repo, &[Selected::whole(&first[0])], true).unwrap_err();
+        assert!(
+            err.to_string().contains("changed since the diff was shown"),
+            "nor is it taken for the file the user saw: {err}"
         );
     }
 

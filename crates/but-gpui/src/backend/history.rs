@@ -513,12 +513,8 @@ pub fn restore(path: &Path, id: SnapshotId, kept: &HashSet<SnapshotId>) -> Resul
     let mut ctx = open(path)?;
     // Each snapshot is made on the one before, so one taken since `id` has it as its base.
     let repo = ctx.repo.get()?;
-    let since = |snapshot: &SnapshotId| {
-        snapshot.0 == id.0
-            || repo
-                .merge_base(id.0, snapshot.0)
-                .is_ok_and(|base| base.is_some_and(|b| b == id.0))
-    };
+    let since =
+        |snapshot: &SnapshotId| super::is_ancestor(&repo, id.0, snapshot.0).unwrap_or(false);
     if kept.iter().any(since) {
         bail!(UNRECORDED);
     }
@@ -594,9 +590,7 @@ pub fn undo_snapshot(
     let mut ctx = open(path)?;
     // With nothing left to undo, or only what came before it, something undid it already.
     let before_it = |target: gix::ObjectId| -> Result<bool> {
-        let repo = ctx.repo.get()?;
-        let base = repo.merge_base(target, snapshot.0)?;
-        Ok(target != snapshot.0 && base.is_some_and(|base| base == target))
+        Ok(target != snapshot.0 && super::is_ancestor(&*ctx.repo.get()?, target, snapshot.0)?)
     };
     let target = match oplog::get_undo_target_snapshot(&ctx)? {
         Some(target) if !before_it(target.commit_id)? => target,

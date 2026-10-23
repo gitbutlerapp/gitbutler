@@ -126,31 +126,23 @@ fn opened(ctx: &Context, name: &str) -> Option<gix::Repository> {
 /// newest first, each with when, said as a sentence.
 pub fn events(path: &Path, name: &str, since: i64) -> Result<Vec<(i64, String)>> {
     let repo = gix::open(path)?;
-    let Some(worktree) =
-        (repo.worktrees()?.into_iter()).find(|wt| wt.id().is_ok_and(|id| id == name))
-    else {
+    let Some(worktree) = repo.worktree_proxy_by_id(name)? else {
         return Ok(Vec::new());
     };
-    let log = match std::fs::read(worktree.git_dir().join("logs/HEAD")) {
-        Ok(log) => log,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(err) => return Err(err.into()),
+    // Its log is in the repository's own folder, which outlasts the checkout's.
+    let worktree = worktree.into_repo_with_possibly_inaccessible_worktree()?;
+    let head = worktree.find_reference("HEAD")?;
+    let mut log = head.log_iter();
+    let Some(lines) = log.rev()? else {
+        return Ok(Vec::new());
     };
-    let mut events: Vec<(i64, String)> = (log.lines())
+    Ok((lines.filter_map(Result::ok))
+        .take_while(|line| line.signature.time.seconds >= since)
         .filter_map(|line| {
-            let (who, message) = line.split_once_str("\t")?;
-            // `<old> <new> <name> <<email>> <seconds> <zone>`
-            let mut tail = who.rsplitn(3, |b| *b == b' ');
-            let (_, seconds) = (tail.next()?, tail.next()?);
-            let at: i64 = seconds.to_str().ok()?.parse().ok()?;
-            if at < since {
-                return None;
-            }
-            Some((at, event_said(message.to_str().ok()?)?))
+            let said = event_said(line.message.to_str().ok()?)?;
+            Some((line.signature.time.seconds, said))
         })
-        .collect();
-    events.reverse();
-    Ok(events)
+        .collect())
 }
 
 /// A reflog `message` said as an event, unless it's a commit, which the branch lists, or
@@ -203,10 +195,10 @@ pub fn create(path: &Path, name: &str) -> Result<String> {
 }
 
 /// Remove worktree `name` from disk as `git worktree remove` does, with the uncommitted
-/// files `lost` as last written, which the user agreed to lose. Its branch stays. One with
-/// other uncommitted files, or those written to since, as by an agent meanwhile, is refused,
-/// and so is one with `lost` files that can't be read to check them.
-pub fn remove(path: &Path, name: &str, lost: &[(String, Option<i64>)]) -> Result<()> {
+/// files `lost`, by their write times and sizes then, which the user agreed to lose. Its
+/// branch stays. One with other uncommitted files, or those written to since, as by an agent
+/// meanwhile, is refused, and so is one with `lost` files that can't be read to check them.
+pub fn remove(path: &Path, name: &str, lost: &[(String, Option<i64>, Option<u64>)]) -> Result<()> {
     let mut ctx = open(path)?;
     // With nothing to lose, nothing is forced, and Git refuses a worktree with changes, so
     // one that can't be opened, as when its folder is gone, can still be removed.
@@ -215,7 +207,7 @@ pub fn remove(path: &Path, name: &str, lost: &[(String, Option<i64>)]) -> Result
         Err(_) if lost.is_empty() => Vec::new(),
         Err(err) => return Err(err.context(format!("Couldn't check {name}'s files"))),
     };
-    let asked = |file: &FileChange| lost.contains(&(file.path.clone(), file.modified));
+    let asked = |file: &FileChange| lost.contains(&(file.path.clone(), file.modified, file.size));
     if let Some(file) = files.iter().find(|file| !asked(file)) {
         anyhow::bail!(
             "{name} has a change you weren't asked about, {}. Look at it before deleting.",
@@ -230,4 +222,35 @@ pub fn remove(path: &Path, name: &str, lost: &[(String, Option<i64>)]) -> Result
 pub fn set_archived(path: &Path, name: &str, archived: bool) -> Result<()> {
     let mut ctx = open(path)?;
     but_api::worktrees::worktree_set_archived(&mut ctx, name.to_owned(), archived)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::backend::ops::tests::{git, repo_with};
+
+    #[test]
+    fn a_linked_worktrees_events_are_its_head_moves_newest_first() {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        let outside = tempfile::tempdir().unwrap();
+        let linked = outside.path().join("agent");
+        let linked_dir = linked.to_str().unwrap();
+        git(path, &["worktree", "add", "-q", "-b", "agent", linked_dir]);
+        git(&linked, &["checkout", "-q", "-b", "other"]);
+        git(&linked, &["commit", "-q", "--allow-empty", "-m", "work"]);
+        git(&linked, &["reset", "-q", "--hard", "agent"]);
+        git(path, &["checkout", "-q", "-b", "elsewhere"]);
+        std::fs::rename(&linked, outside.path().join("moved")).unwrap();
+
+        let said = |since| -> Vec<String> {
+            let events = super::events(path, "agent", since).unwrap();
+            events.into_iter().map(|(_, said)| said).collect()
+        };
+        assert_eq!(
+            said(0),
+            ["Reset to agent", "Checked out other"],
+            "its own moves but its commit, from its log, which outlasts its folder"
+        );
+        assert!(said(i64::MAX).is_empty(), "and none from before `since`");
+    }
 }

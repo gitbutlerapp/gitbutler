@@ -462,11 +462,12 @@ fn load_file(
         drawing: old.drawing.clone(),
         commit: None,
     };
-    // An uncommitted file last written at the same moment, against the same base, has the
-    // same patch, so it isn't computed again, much as git skips files whose stat is unchanged.
+    // An uncommitted file last written at the same moment, to the same size, against the
+    // same base, has the same patch, so it isn't computed again, much as git skips files
+    // whose stat is unchanged.
     if let Some(old) = previous.filter(|old| {
         file.modified.is_some()
-            && old.file.modified == file.modified
+            && (old.file.modified, old.file.size) == (file.modified, file.size)
             && old.file.kind == file.kind
             && old.file.previous_path == file.previous_path
             && old.file.base() == file.base()

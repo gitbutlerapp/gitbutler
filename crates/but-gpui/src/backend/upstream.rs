@@ -154,10 +154,8 @@ fn local_target_page(
         && let Some(id) = cursor
     {
         // Once one is in `base`'s history, so is every commit below it.
-        incoming &= base.is_some_and(|base| {
-            repo.merge_base(id, base)
-                .map_or(true, |at| at.is_none_or(|at| at != id))
-        });
+        incoming = incoming
+            && base.is_some_and(|base| !super::is_ancestor(repo, id, base).unwrap_or(false));
         let commit = repo.find_commit(id)?;
         cursor = present_first_parent(&commit);
         commits.push(TargetCommit {
@@ -281,21 +279,19 @@ pub struct Person {
     pub landed: HashSet<CommitId>,
 }
 
-/// The target's short name, like `origin/main`, as the workspace names it, for a page read
-/// before the workspace is.
-pub fn target_name(path: &Path) -> Option<String> {
-    let ctx = open(path).ok()?;
-    let repo = ctx.repo.get().ok()?;
-    let meta = ctx.project_meta().ok()?;
-    Some(super::target_source(&repo, &meta)?.shorten().to_string())
-}
-
-/// `target` (a short name, like `origin/main`) summed up as of `now`, in seconds since the
-/// epoch. A commit that can't be read is left out rather than failing the rest.
-pub fn overview(path: &Path, target: &str, now: i64) -> Result<Overview> {
+/// The target summed up as of `now`, in seconds since the epoch, or nothing without one. A
+/// commit that can't be read is left out rather than failing the rest.
+pub fn overview(path: &Path, now: i64) -> Result<Option<Overview>> {
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
-    let tip = repo.rev_parse_single(target)?.object()?.peel_to_commit()?;
+    // By its full name, as a tag or a branch can have its short one.
+    let meta = ctx.project_meta()?;
+    let tip =
+        super::target_source(&repo, &meta).and_then(|name| super::ref_tip(&repo, name.as_ref()));
+    let Some(tip) = tip else {
+        return Ok(None);
+    };
+    let tip = repo.find_commit(tip)?;
     let first_day = day_of(now) - (ACTIVITY_DAYS as i64 - 1);
     let since = day_start(first_day);
     let mut daily = vec![0; ACTIVITY_DAYS];
@@ -351,13 +347,13 @@ pub fn overview(path: &Path, target: &str, now: i64) -> Result<Overview> {
     }
     let releases = releases(&repo, &landings);
     people.sort_by_key(|person| std::cmp::Reverse(person.daily.iter().sum::<u32>()));
-    Ok(Overview {
+    Ok(Some(Overview {
         daily,
         people,
         landings,
         releases,
         first_day,
-    })
+    }))
 }
 
 /// What each merge of `line`, the target's own commits from `tip` back, newest first, brought
@@ -699,9 +695,7 @@ fn remote_tips(
     Ok(pushed_with(info, ref_name)
         .map(|segment| {
             (segment.remote_tracking_ref_name.as_ref())
-                .and_then(|name| repo.find_reference(name.as_ref()).ok())
-                .and_then(|mut tip| tip.peel_to_id().ok())
-                .map(|id| id.detach())
+                .and_then(|name| super::ref_tip(&repo, name.as_ref()))
         })
         .collect())
 }
@@ -1067,7 +1061,8 @@ mod tests {
         );
         commit("Ann", now - 60);
 
-        let summed = overview(path, "main", now).unwrap();
+        crate::backend::settings::set_target(path, "refs/heads/main").unwrap();
+        let summed = overview(path, now).unwrap().expect("a target");
         assert_eq!(summed.daily.len(), ACTIVITY_DAYS, "a bar a day");
         assert_eq!(
             summed.daily.iter().sum::<u32>(),

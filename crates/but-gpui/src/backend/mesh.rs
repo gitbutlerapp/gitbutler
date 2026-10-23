@@ -504,7 +504,7 @@ pub fn apply(path: &Path, mesh_id: &str) -> Result<String> {
     // It runs in the project's queue: with the commits already here, the CLI only checks with
     // the server, which a read's timeout bounds.
     let out = mesh(Some(path), &["apply", mesh_id, "--json"], READ_TIMEOUT)?;
-    let applied: Applied = serde_json::from_str(&out).unwrap_or(Applied { applied_as: None });
+    let applied: Applied = serde_json::from_str(&out).context("Couldn't read what was applied")?;
     Ok(applied.applied_as.unwrap_or_else(|| mesh_id.to_owned()))
 }
 
