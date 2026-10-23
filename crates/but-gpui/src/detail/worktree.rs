@@ -7,13 +7,14 @@ use std::path::Path;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, Context, Div, MouseButton, SharedString, Stateful, div, prelude::*, relative,
+    AnyElement, App, Context, Div, MouseButton, ScrollHandle, SharedString, Stateful, div,
+    prelude::*, relative,
 };
 
 use super::Detail;
 use super::panes::{
-    OVERVIEW_COUNT_WIDTH, OVERVIEW_TIME_WIDTH, grouped, meta_item, meta_row, overview_column,
-    overview_heading, overview_tiles, overview_title, page_title, title_text,
+    OVERVIEW_TIME_WIDTH, grouped, meta_item, meta_row, overview_column, overview_heading,
+    overview_tiles, overview_title, page_title, title_text,
 };
 use super::slots::SlotPick;
 use crate::backend::{self, Branch, Commit, CommitId, Workspace};
@@ -22,6 +23,7 @@ use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
 use crate::ui::review::state_glyph;
+use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
     ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dp, faint, fold_glyph, fold_row,
     h_flex, keep_focus_on_press, list_row, plural, relative_time, short_path, side_row, small_icon,
@@ -34,14 +36,10 @@ use activity::quarters_said;
 
 /// How many quarters of an hour the activity covers: the last 12 hours.
 const BARS: usize = 48;
-/// How many of the files written most are listed until "N more" lists them all.
-const HOT_SHOWN: usize = 3;
 /// How far a branch's files sit in under it: past its chevron, under its glyph.
 const STEP_IN: f32 = 20.;
 /// How many files the commits not seen yet changed are listed until "N more".
 const UNSEEN_FILES_SHOWN: usize = 3;
-/// How many of the commits and moves are listed until "N more".
-const COMMITS_SHOWN: usize = 5;
 /// How wide the commits' times are, room for "59m" or "11mo" and no more, so they sit close to
 /// the branch.
 const COMMITS_TIME_WIDTH: f32 = 28.;
@@ -76,6 +74,10 @@ pub(super) struct Now {
     unfolded: HashSet<SharedString>,
     /// The branches whose commits not seen yet are folded to their heading, by name.
     folded: HashSet<SharedString>,
+    /// New's rows, hot files' and the commits', each scrolling within its part of the page.
+    new_scroll: ScrollHandle,
+    hot_scroll: ScrollHandle,
+    commits_scroll: ScrollHandle,
 }
 
 /// Files a range of commits changes, each with the lines it adds and removes.
@@ -436,16 +438,18 @@ impl Detail {
             (self.now_hot_files(&scoped, theme, cx), 2., 240.),
             (self.now_commits(project, &scoped, now, theme, cx), 3., 340.),
         ];
+        // The page holds still: New scrolls within the most of it it takes, and hot files and
+        // the commits within what's left under the activity.
         v_flex()
             .id("now")
             .flex_1()
             .h_full()
             .min_w_0()
-            .overflow_y_scroll()
             .child(
                 v_flex()
                     .w_full()
                     .max_w(dp(820.))
+                    .h_full()
                     .px(dp(14.))
                     .py(dp(16.))
                     .gap(dp(6.))
@@ -465,11 +469,18 @@ impl Detail {
                     )
                     .child(self.now_activity(activity, &commits, now, theme, cx))
                     .child(overview_tiles(tiles, theme).mt(dp(6.)))
-                    .child(h_flex().flex_wrap().items_start().children(
-                        columns.into_iter().filter_map(|(column, grow, basis)| {
-                            Some(column?.flex_grow(grow).flex_basis(dp(basis)).min_w_0())
-                        }),
-                    )),
+                    // Stacked, each half of what's left, where they don't fit side by side.
+                    .child(
+                        h_flex()
+                            .flex_1()
+                            .min_h(dp(ROW_HEIGHT * 6.))
+                            .flex_wrap()
+                            .items_stretch()
+                            .content_stretch()
+                            .children(columns.into_iter().filter_map(|(column, grow, basis)| {
+                                Some(column?.flex_grow(grow).flex_basis(dp(basis)).min_w_0())
+                            })),
+                    ),
             )
             .into_any_element()
     }
@@ -558,7 +569,28 @@ impl Detail {
                         .on_click(cx.listener(|this, _, _, cx| this.move_file(1, cx))),
                 )
             });
-        v_flex().child(status).children(parts)
+        // At most 40% of the page, and in a short one it gives way first, down to its first
+        // three rows (where it has them), so the lists under the activity keep room.
+        let kept = (1 + groups.len()).min(3) as f32;
+        v_flex()
+            .relative()
+            .flex_shrink(1.)
+            .min_h(dp(ROW_HEIGHT * kept))
+            .max_h(relative(0.4))
+            .child(
+                v_flex()
+                    .id("now-new")
+                    .min_h_0()
+                    .overflow_y_scroll()
+                    .track_scroll(&self.now.new_scroll)
+                    .child(status)
+                    .children(parts),
+            )
+            .children(scrollbar(
+                "now-new-scrollbar",
+                Scroll::Div(self.now.new_scroll.clone()),
+                theme,
+            ))
     }
 
     /// A branch's `commits` not opened yet: the branch and who made them, with Open, which
@@ -729,52 +761,49 @@ impl Detail {
                 .into_any_element(),
             None => faint("commits", theme).into_any_element(),
         };
-        let shown = self.now_shown("now-hot-more", HOT_SHOWN);
-        let listed = |ix: usize, path: &Arc<str>| ix < shown || picked == Some(path);
-        let hidden = (hot.iter().enumerate())
-            .filter(|(ix, (path, _))| *ix >= HOT_SHOWN && picked != Some(path))
-            .count();
-        let rows =
-            (hot.iter().enumerate())
-                .filter(|(ix, (path, _))| listed(*ix, path))
-                .map(|(ix, (path, n))| {
-                    let on = picked == Some(path);
-                    let (track, fill) = match on {
-                        true => (theme.text_inverted.opacity(0.25), theme.muted_on_solid()),
-                        false => (theme.border_3, theme.pop.opacity(0.7)),
-                    };
-                    let path = path.clone();
-                    side_row(("now-hot", ix), on, true, theme)
-                        .child(file_label(&path, on, theme, cx))
-                        .child(bar_on(*n as f32 / most as f32, track, fill))
-                        .child(
-                            div()
-                                .flex_none()
-                                .w(dp(OVERVIEW_TIME_WIDTH))
-                                .text_right()
-                                .text_size(dp(11.))
-                                .text_color(match on {
-                                    true => theme.muted_on_solid(),
-                                    false => theme.text_3,
-                                })
-                                .child(n.to_string()),
-                        )
-                        .on_mouse_down(MouseButton::Left, keep_focus_on_press)
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            this.pick_hot_file(Some(path.clone()), cx)
-                        }))
-                });
+        let rows = (hot.iter().enumerate()).map(|(ix, (path, n))| {
+            let on = picked == Some(path);
+            let (track, fill) = match on {
+                true => (theme.text_inverted.opacity(0.25), theme.muted_on_solid()),
+                false => (theme.border_3, theme.pop.opacity(0.7)),
+            };
+            let path = path.clone();
+            side_row(("now-hot", ix), on, true, theme)
+                .child(file_label(&path, on, theme, cx))
+                .child(bar_on(*n as f32 / most as f32, track, fill))
+                .child(
+                    div()
+                        .flex_none()
+                        .w(dp(OVERVIEW_TIME_WIDTH))
+                        .text_right()
+                        .text_size(dp(11.))
+                        .text_color(match on {
+                            true => theme.muted_on_solid(),
+                            false => theme.text_3,
+                        })
+                        .child(n.to_string()),
+                )
+                .on_mouse_down(MouseButton::Left, keep_focus_on_press)
+                .on_click(
+                    cx.listener(move |this, _, _, cx| this.pick_hot_file(Some(path.clone()), cx)),
+                )
+        });
         Some(
             v_flex()
                 .child(overview_heading("Hot files", detail, theme).h(dp(28.)))
-                .children(rows)
-                .children(self.now_fold("now-hot-more", hidden, 14., theme, cx)),
+                .child(scrolling(
+                    ("now-hot-rows", "now-hot-scrollbar"),
+                    &self.now.hot_scroll,
+                    rows,
+                    theme,
+                )),
         )
     }
 
     /// List only the commits that changed `file` under Today, or all with `None`.
     fn pick_hot_file(&mut self, file: Option<Arc<str>>, cx: &mut Context<Self>) {
         self.now.file = file.filter(|file| self.now.file.as_ref() != Some(file));
+        self.now.commits_scroll.set_offset(Default::default());
         cx.notify();
     }
 
@@ -856,11 +885,9 @@ impl Detail {
             return None;
         }
         items.sort_by_key(|(at, _)| std::cmp::Reverse(*at));
-        let hidden = items.len().saturating_sub(COMMITS_SHOWN);
-        let shown = self.now_shown("now-commits-more", COMMITS_SHOWN);
         let store = self.store.read(cx);
         let ws = store.workspace(project);
-        let rows = (items.into_iter().take(shown).enumerate()).map(|(ix, (at, item))| {
+        let rows = (items.into_iter().enumerate()).map(|(ix, (at, item))| {
             let row = list_row(("now-today", ix), false, theme);
             match item {
                 Item::Commit(commit) => {
@@ -924,7 +951,6 @@ impl Detail {
             v_flex()
                 // As tall as Hot files' beside it, which has room for Clear.
                 .child(overview_heading("Commits", faint(detail, theme), theme).h(dp(28.)))
-                .children(rows)
                 .when(listed.is_empty() && file.is_some(), |el| {
                     let said = match reading {
                         true => "Reading which commits changed it…",
@@ -932,7 +958,12 @@ impl Detail {
                     };
                     el.child(faint(said, theme).px(dp(14.)).py(dp(4.)))
                 })
-                .children(self.now_fold("now-commits-more", hidden, 14., theme, cx)),
+                .child(scrolling(
+                    ("now-commits-rows", "now-commits-scrollbar"),
+                    &self.now.commits_scroll,
+                    rows,
+                    theme,
+                )),
         )
     }
 
@@ -986,6 +1017,32 @@ fn unseen_run(ws: &Workspace, commits: &[&Commit]) -> Option<Run> {
     }
 }
 
+/// `rows` in what's left of their part's height, scrolling within it with a bar of their own;
+/// `ids` the rows' and the bar's.
+fn scrolling(
+    ids: (&'static str, &'static str),
+    scroll: &ScrollHandle,
+    rows: impl IntoIterator<Item = impl IntoElement>,
+    theme: &Theme,
+) -> Div {
+    // Laid over its part rather than in it, so however many rows there are, they never make
+    // the part taller than the page leaves it.
+    v_flex()
+        .relative()
+        .flex_1()
+        .min_h_0()
+        .child(
+            v_flex()
+                .id(ids.0)
+                .absolute()
+                .size_full()
+                .overflow_y_scroll()
+                .track_scroll(scroll)
+                .children(rows),
+        )
+        .children(scrollbar(ids.1, Scroll::Div(scroll.clone()), theme))
+}
+
 /// A file's icon and name, then its folder fainter and cut in the middle, as the file list
 /// draws one, but quieter, as an overview lists files beside what they belong to; `on` a
 /// solid selection, as the row's text is.
@@ -1000,10 +1057,10 @@ fn file_label(path: &str, on: bool, theme: &Theme, cx: &App) -> Div {
         .min_w_0()
         .gap(dp(8.))
         .child(file_icon(path, cx).flex_none())
+        // The folder gives way first, then the name, in a narrow column.
         .child(
             div()
-                .flex_shrink_0()
-                .max_w_full()
+                .min_w_0()
                 .truncate()
                 .when(!on, |el| el.text_color(theme.text_2))
                 .child(name.to_owned()),
@@ -1011,6 +1068,7 @@ fn file_label(path: &str, on: bool, theme: &Theme, cx: &App) -> Div {
         .when(!dir.is_empty(), |el| {
             el.child(
                 div()
+                    .flex_shrink(100.)
                     .min_w_0()
                     .overflow_hidden()
                     .whitespace_nowrap()
@@ -1045,11 +1103,12 @@ fn branch_said(
     }
 }
 
-/// A bar of `share` of the most, filled with `fill` on `track`.
+/// A bar of `share` of the most, filled with `fill` on `track`, short, leaving the row's
+/// name the room.
 fn bar_on(share: f32, track: gpui::Hsla, fill: gpui::Hsla) -> Div {
     div()
-        .flex_1()
-        .max_w(dp(OVERVIEW_COUNT_WIDTH))
+        .flex_none()
+        .w(dp(72.))
         .h(dp(6.))
         .rounded(dp(3.))
         .bg(track)
