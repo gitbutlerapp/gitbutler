@@ -125,8 +125,8 @@ fn apply(
     let mut stats = BTreeMap::new();
     for rela_path in &staged.files {
         let dest = join(workdir, rela_path)?;
-        let written = journal.place(&join(&staged.new_files(), rela_path)?, &dest)?;
-        stats.insert(rela_path.clone(), trusted_stat(&written, &dest)?);
+        let stat = journal.place(&join(&staged.new_files(), rela_path)?, &dest)?;
+        stats.insert(rela_path.clone(), stat);
     }
     for rela_path in &staged.submodules {
         journal.ensure_dir(&join(workdir, rela_path)?)?;
@@ -203,8 +203,8 @@ impl Journal {
     /// Move the `staged` file to `dest`, where nothing is left after the clearances moved aside,
     /// unless something was created there after the worktree was checked.
     /// Create a copy of the file or symlink at `staged` at `dest`, unless something appeared
-    /// there, and return its stat when it was written.
-    fn place(&mut self, staged: &Path, dest: &Path) -> anyhow::Result<gix::index::entry::Stat> {
+    /// there, and return what the index may record about it.
+    fn place(&mut self, staged: &Path, dest: &Path) -> anyhow::Result<Stat> {
         self.create_parents(dest)?;
         let md = gix::index::fs::Metadata::from_path_no_follow(staged)?;
         let placed = match md.is_symlink() {
@@ -230,33 +230,35 @@ impl Journal {
         content: &mut impl std::io::Read,
         executable: bool,
         dest: &Path,
-    ) -> std::io::Result<gix::index::entry::Stat> {
+    ) -> std::io::Result<Stat> {
         let mut private = private_file_next_to(dest, executable)?;
         std::io::copy(content, private.as_file_mut())?;
         let written = stat_of(&gix::index::fs::Metadata::from_file(private.as_file())?)?;
         let mut private = private.into_temp_path();
         rename_no_replace(&private, dest)?;
         private.disable_cleanup(true);
-        self.placed(dest, written);
-        Ok(written)
+        self.placed(dest, &written)
     }
 
-    fn create_symlink(
-        &mut self,
-        target: &Path,
-        dest: &Path,
-    ) -> std::io::Result<gix::index::entry::Stat> {
+    fn create_symlink(&mut self, target: &Path, dest: &Path) -> std::io::Result<Stat> {
         gix::fs::symlink::create(target, dest)?;
-        let stat = stat_of(&gix::index::fs::Metadata::from_path_no_follow(dest)?)?;
-        self.placed(dest, stat);
-        Ok(stat)
+        let written = stat_of(&gix::index::fs::Metadata::from_path_no_follow(dest)?)?;
+        self.placed(dest, &written)
     }
 
-    fn placed(&mut self, path: &Path, stat: gix::index::entry::Stat) {
-        self.steps.push(Step::Placed {
-            path: path.to_owned(),
-            stat,
-        });
+    /// Journal the file or symlink placed at `path`, which had the `written` stat when it was
+    /// written, and return what the index may record about it. Undo removes it only while it has
+    /// the stat it had once placed, ctime included, which any later change to it changes, like a
+    /// new mode. One that changed while it was placed stays.
+    fn placed(&mut self, path: &Path, written: &gix::index::entry::Stat) -> std::io::Result<Stat> {
+        let trusted = trusted_stat(written, path)?;
+        if let Stat::Known(placed) = trusted {
+            self.steps.push(Step::Placed {
+                path: path.to_owned(),
+                stat: placed,
+            });
+        }
+        Ok(trusted)
     }
 
     /// Create the directory `dir` and its parents, unless it exists.
@@ -375,6 +377,13 @@ const ALL_BUT_CTIME: gix::index::entry::stat::Options = gix::index::entry::stat:
     use_stdev: false,
 };
 
+/// Every stat field that changes when a file does, which includes the ctime when its mode or
+/// owner changes.
+const ALL_FIELDS: gix::index::entry::stat::Options = gix::index::entry::stat::Options {
+    trust_ctime: true,
+    ..ALL_BUT_CTIME
+};
+
 /// A new file next to `dest` that only checkout knows, created with the permissions Git asks for,
 /// which the umask or a default ACL then reduce. It's removed when dropped.
 #[cfg_attr(not(unix), allow(unused_variables))]
@@ -392,7 +401,7 @@ fn private_file_next_to(dest: &Path, executable: bool) -> std::io::Result<tempfi
 /// it was written. Moving it into place may change only the ctime, which is why the stat is read
 /// again. A file that differs otherwise changed after it was written, so its stat can't vouch for
 /// the content, and Git has to compare the content instead.
-fn trusted_stat(written: &gix::index::entry::Stat, dest: &Path) -> anyhow::Result<Stat> {
+fn trusted_stat(written: &gix::index::entry::Stat, dest: &Path) -> std::io::Result<Stat> {
     let placed = stat_of(&gix::index::fs::Metadata::from_path_no_follow(dest)?)?;
     Ok(match written.matches(&placed, ALL_BUT_CTIME) {
         true => Stat::Known(placed),
@@ -404,13 +413,13 @@ fn stat_of(md: &gix::index::fs::Metadata) -> std::io::Result<gix::index::entry::
     gix::index::entry::Stat::from_fs(md).map_err(std::io::Error::other)
 }
 
-/// Remove the file or symlink checkout placed at `path`, which had the `written` stat when it was
-/// written, unless it changed since.
-fn remove_unless_changed(path: &Path, written: &gix::index::entry::Stat) -> std::io::Result<()> {
+/// Remove the file or symlink checkout placed at `path`, which then had the `placed` stat, unless
+/// it changed since.
+fn remove_unless_changed(path: &Path, placed: &gix::index::entry::Stat) -> std::io::Result<()> {
     let Ok(md) = gix::index::fs::Metadata::from_path_no_follow(path) else {
         return Ok(());
     };
-    match written.matches(&stat_of(&md)?, ALL_BUT_CTIME) {
+    match placed.matches(&stat_of(&md)?, ALL_FIELDS) {
         true => gix::fs::symlink::remove(path),
         false => Ok(()),
     }
@@ -692,6 +701,23 @@ mod tests {
         journal.undo(staged, anyhow::anyhow!("a later step failed"));
 
         assert_eq!(std::fs::read_to_string(&b)?, "saved after placing\n");
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn undo_keeps_a_placed_file_made_executable_since() -> anyhow::Result<()> {
+        use std::os::unix::fs::PermissionsExt;
+        let (workdir, staged) = worktree_and_staging()?;
+        let b = workdir.path().join("b");
+        let new_b = stage(&staged, "b", "target\n")?;
+        let mut journal = super::Journal::new(workdir.path());
+        journal.place(&new_b, &b)?;
+        std::fs::set_permissions(&b, std::fs::Permissions::from_mode(0o755))?;
+
+        journal.undo(staged, anyhow::anyhow!("a later step failed"));
+
+        assert!(b.exists(), "the new mode is kept, and the file with it");
         Ok(())
     }
 
