@@ -563,7 +563,7 @@ impl AppView {
             self.store.update(cx, |store, cx| {
                 let ids = match store.picked.is_empty() {
                     true => vec![id],
-                    false => store.picked.take(),
+                    false => store.picked.to_vec(),
                 };
                 store.uncommit(&project, ids, cx)
             });

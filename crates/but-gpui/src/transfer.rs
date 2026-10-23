@@ -140,7 +140,7 @@ impl Transfer {
             (Cut::Commit(project, ids), Selection::Uncommitted(_) | Selection::Worktree(..))
                 if ids
                     .iter()
-                    .all(|id| uncommits_into(store, project, *id, target)) =>
+                    .all(|id| uncommits_into(store, project, *id, target) && !conflicted(*id)) =>
             {
                 Transfer::Uncommit(ids.clone())
             }
@@ -342,9 +342,7 @@ impl Transfer {
     ) -> Option<(String, Arc<[Selected]>)> {
         let label = self.describe();
         // Picked commits that moved, or went into one, are no longer what's picked.
-        if let Transfer::Uncommit(ids)
-        | Transfer::MoveCommit { ids, .. }
-        | Transfer::Squash { ids, .. } = &self
+        if let Transfer::MoveCommit { ids, .. } | Transfer::Squash { ids, .. } = &self
             && ids.len() > 1
         {
             store.picked.clear();

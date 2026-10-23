@@ -442,11 +442,13 @@ impl Navigator {
             }
             Selection::Commit(project, id) if store.is_picked(project, *id) => {
                 let n = store.picked.len();
+                let picked: Vec<_> = (store.workspace(project).into_iter())
+                    .flat_map(|ws| ws.commits())
+                    .filter(|commit| store.picked.contains(&commit.id))
+                    .collect();
                 // Commits list newest first. The oldest can be in another stack or worktree
                 // than the one clicked, so it's named.
-                let Some(oldest) = (store.workspace(project))
-                    .and_then(|ws| ws.commits().filter(|c| store.picked.contains(&c.id)).last())
-                else {
+                let Some(&oldest) = picked.last() else {
                     return Vec::new();
                 };
                 let mut items = vec![MenuItem::action(
@@ -462,15 +464,14 @@ impl Navigator {
                         move |this, _, cx| this.squash_picks(Some(into), cx),
                     ));
                 }
-                items.push(MenuItem::action(
-                    format!("Uncommit {n} commits"),
-                    &UncommitSelection,
-                    cx,
-                ));
+                if !picked.iter().any(|commit| commit.conflicted) {
+                    items.push(MenuItem::action(
+                        format!("Uncommit {n} commits"),
+                        &UncommitSelection,
+                        cx,
+                    ));
+                }
                 // A run picks commits without opening them, as clicking one does.
-                let picked = (store.workspace(project).into_iter())
-                    .flat_map(|ws| ws.commits())
-                    .filter(|commit| store.picked.contains(&commit.id));
                 items.extend(read_marks(store, project, picked));
                 items
             }
@@ -522,10 +523,12 @@ impl Navigator {
                 }
                 items.push(action("Copy message", &CopyMessage));
                 items.extend(read_marks(store, project, [commit]));
-                items.extend([
-                    action("Uncommit", &UncommitSelection).separated(),
-                    action("Discard commit…", &DeleteSelection).danger(),
-                ]);
+                let discard = action("Discard commit…", &DeleteSelection).danger();
+                items.extend(match commit.conflicted {
+                    // Resolved, not uncommitted, as its files are one side's.
+                    true => vec![discard.separated()],
+                    false => vec![action("Uncommit", &UncommitSelection).separated(), discard],
+                });
                 items
             }
             Selection::Worktree(project, name) => {

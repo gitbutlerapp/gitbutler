@@ -1054,6 +1054,24 @@ impl Store {
     }
 
     pub fn uncommit(&mut self, project: &ProjectId, ids: Vec<CommitId>, cx: &mut Context<Self>) {
+        // A conflicted commit's files are one side's, so uncommitting it would bring back
+        // nothing and lose the change it carries.
+        let conflicted = (ids.iter())
+            .filter(|id| (self.find_commit(project, **id)).is_some_and(|(_, c)| c.conflicted))
+            .count();
+        match conflicted {
+            0 => {}
+            1 => return self.snack("Resolve the conflicted commit before uncommitting it", cx),
+            _ => {
+                return self.snack(
+                    "Resolve the conflicted commits before uncommitting them",
+                    cx,
+                );
+            }
+        }
+        if ids.len() > 1 {
+            self.picked.clear();
+        }
         let keys: Vec<String> = ids
             .iter()
             .filter_map(|id| self.key_of(project, *id))

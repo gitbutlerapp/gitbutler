@@ -7,6 +7,7 @@ use crate::app::{
     AppView, CommandPalette, CutSelection, Fetch, FocusDiff, OpenPullRequest, PasteHere, Push,
     RenameSelection, StartCommit, UncommitSelection, Undo, UpdateFromTarget,
 };
+use crate::backend::CommitId;
 use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
 use crate::state::{Cut, SLOW, Selection};
 use crate::theme::Theme;
@@ -21,6 +22,13 @@ impl AppView {
         let theme = Theme::get(cx).clone();
         let store = self.store.read(cx);
         let detail = self.detail.read(cx);
+        // A conflicted commit is resolved, not uncommitted, as its files are one side's.
+        let conflicted = |id: &CommitId| {
+            (store.selection.as_ref())
+                .and_then(|s| store.find_commit(s.project(), *id))
+                .is_some_and(|(_, commit)| commit.conflicted)
+        };
+        let picks_conflicted = store.picked.iter().any(conflicted);
         // A text field has focus, where keys type rather than act.
         let typing = window.focused(cx).is_some_and(|focused| {
             !detail.owns_focus(&focused) && focused != self.focus_handle(cx)
@@ -87,7 +95,10 @@ impl AppView {
             (
                 store.picked.len(),
                 "commit",
-                Some("drag them together, or press M to squash or uncommit them"),
+                Some(match picks_conflicted {
+                    true => "drag them together, or press M to squash them",
+                    false => "drag them together, or press M to squash or uncommit them",
+                }),
             ),
             (
                 detail.picked_line_count(),
@@ -225,11 +236,16 @@ impl AppView {
                         .chain([(&RenameSelection as &dyn Action, "rename")])
                         .collect()
                 }
-                Some(Selection::Commit(..)) => vec![
-                    (&CutSelection, "cut"),
-                    (&RenameSelection, "edit message"),
-                    (&UncommitSelection, "uncommit"),
-                ],
+                Some(Selection::Commit(_, id)) => {
+                    let conflicted = picks_conflicted || conflicted(id);
+                    [
+                        (&CutSelection as &dyn Action, "cut"),
+                        (&RenameSelection, "edit message"),
+                    ]
+                    .into_iter()
+                    .chain((!conflicted).then_some((&UncommitSelection as &dyn Action, "uncommit")))
+                    .collect()
+                }
                 Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
                     vec![(&StartCommit, "commit")]
                 }

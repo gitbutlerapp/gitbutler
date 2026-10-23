@@ -102,11 +102,6 @@ impl<T: Clone + Eq + Hash> Picks<T> {
         *self = Self::default();
     }
 
-    /// The picks, leaving none.
-    pub fn take(&mut self) -> Vec<T> {
-        std::mem::take(self).picked
-    }
-
     /// One pick alone is just the cursor.
     fn settle(&mut self) {
         if self.picked.len() < 2 {
