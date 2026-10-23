@@ -218,10 +218,7 @@ impl TextInput {
 
     pub fn set_text(&mut self, text: impl Into<String>, cx: &mut Context<Self>) {
         self.remember(Edit::Set);
-        self.content = text.into();
-        if !self.multiline {
-            self.content = self.content.replace('\n', " ");
-        }
+        self.content = cleaned(&text.into(), self.multiline);
         self.selected_range = self.content.len()..self.content.len();
         self.marked_range = None;
         cx.emit(InputEvent::Changed);
@@ -608,9 +605,9 @@ impl TextInput {
     }
 
     /// Put `new_text` over the UTF-16 range the platform gave, or else the marked text or
-    /// the selection, and return the byte range it now takes. A single-line field gets
-    /// spaces for newlines, which keeps the length.
+    /// the selection, and return the byte range it now takes.
     fn splice(&mut self, range_utf16: Option<Range<usize>>, new_text: &str) -> Range<usize> {
+        let new_text = &cleaned(new_text, self.multiline);
         let range = range_utf16
             .map(|range_utf16| self.range_from_utf16(&range_utf16))
             .or(self.marked_range.clone())
@@ -627,12 +624,7 @@ impl TextInput {
                 _ => Edit::Other,
             });
         }
-        if self.multiline {
-            self.content.replace_range(range.clone(), new_text);
-        } else {
-            self.content
-                .replace_range(range.clone(), &new_text.replace('\n', " "));
-        }
+        self.content.replace_range(range.clone(), new_text);
         range.start..range.start + new_text.len()
     }
 }
@@ -1128,4 +1120,39 @@ fn position_in(
         y += row_height(line, line_height);
     }
     None
+}
+
+/// `text` as a field holds it: a single line without the line breaks it ends with, as a pasted
+/// token has, and spaces for the rest; several lines with `\n` for `\r\n`.
+fn cleaned(text: &str, multiline: bool) -> String {
+    match multiline {
+        true => text.replace("\r\n", "\n"),
+        false => text
+            .trim_end_matches(['\r', '\n'])
+            .replace(['\r', '\n'], " "),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::cleaned;
+
+    #[test]
+    fn pasted_line_breaks_fit_the_field() {
+        assert_eq!(
+            cleaned("ghp_token\n", false),
+            "ghp_token",
+            "a token copied from a terminal is sent as it is, not with a space"
+        );
+        assert_eq!(
+            cleaned("two\nlines", false),
+            "two lines",
+            "one line, still readable"
+        );
+        assert_eq!(
+            cleaned("title\r\n\r\nbody\r\n", true),
+            "title\n\nbody\n",
+            "a message pasted from Windows keeps no carriage returns"
+        );
+    }
 }
