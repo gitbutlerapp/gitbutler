@@ -7,7 +7,8 @@ use std::path::Path;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, Context, Div, MouseButton, SharedString, Stateful, div, prelude::*, relative,
+    AnyElement, App, Context, Div, MouseButton, ScrollHandle, SharedString, Stateful, div,
+    prelude::*, relative,
 };
 
 use super::Detail;
@@ -20,8 +21,9 @@ use crate::backend::{self, Branch, Commit, CommitId, Workspace};
 use crate::state::{ProjectId, QUARTER, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::review::state_glyph;
+use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, button, commit_title, dp, faint, fold_row, h_flex,
+    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dp, faint, fold_row, h_flex,
     keep_focus_on_press, list_row, plural, relative_time, short_path, side_row, small_icon, v_flex,
 };
 
@@ -33,6 +35,9 @@ use activity::quarters_said;
 const BARS: usize = 48;
 /// How many of the files written most are listed until "N more" lists them all.
 const HOT_SHOWN: usize = 3;
+/// How many hot files show at once once they're all listed, the rest scrolling within, so
+/// the commits a pick filters stay in view under them.
+const HOT_OPEN_ROWS: f32 = 8.;
 /// How many files the commits not seen yet changed are listed until "N more".
 const UNSEEN_FILES_SHOWN: usize = 3;
 /// How many of the commits and moves are listed until "N more".
@@ -69,6 +74,8 @@ pub(super) struct Now {
     span: SlotPick,
     /// The sections listing all they have rather than their first few, by their fold's id.
     unfolded: HashSet<SharedString>,
+    /// Hot files' rows, scrolling within once they're all listed.
+    hot_scroll: ScrollHandle,
 }
 
 /// Files a range of commits changes, each with the lines it adds and removes.
@@ -772,7 +779,23 @@ impl Detail {
         Some(
             v_flex()
                 .child(overview_heading("Hot files", detail, theme).h(dp(28.)))
-                .children(rows)
+                .child(
+                    v_flex()
+                        .relative()
+                        .child(
+                            v_flex()
+                                .id("now-hot-rows")
+                                .max_h(dp(ROW_HEIGHT * HOT_OPEN_ROWS))
+                                .overflow_y_scroll()
+                                .track_scroll(&self.now.hot_scroll)
+                                .children(rows),
+                        )
+                        .children(scrollbar(
+                            "now-hot-scrollbar",
+                            Scroll::Div(self.now.hot_scroll.clone()),
+                            theme,
+                        )),
+                )
                 .children(self.now_fold("now-hot-more", hidden, theme, cx)),
         )
     }
