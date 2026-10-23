@@ -170,6 +170,21 @@ fn after_landing(
         .ok();
 }
 
+/// Once what the composer committed from `project`'s checkout `worktree` landed, with the
+/// pane moved on to another checkout, the checks kept for coming back to it go. The one
+/// shown has none kept.
+fn forget_checks_left(
+    detail: &WeakEntity<Detail>,
+    project: &ProjectId,
+    worktree: &Option<Arc<str>>,
+    cx: &mut App,
+) {
+    (detail.update(cx, |detail, _| {
+        (detail.other_checks).remove(&(Some(project.clone()), worktree.clone()))
+    }))
+    .ok();
+}
+
 /// A hunk's lines, as kinds and text, hashed: what line picks index into.
 fn fingerprint(hunk: &Hunk) -> u64 {
     let mut hasher = std::hash::DefaultHasher::new();
@@ -830,15 +845,12 @@ impl Detail {
                         if picked.as_ref() == Some(&detail.commit_target) {
                             detail.commit_target = Some(target);
                         }
-                        // Moved on to another checkout, what was checked for this one goes too.
-                        let here = detail.message.read(cx).text().trim() == committed;
-                        if here {
+                        if detail.message.read(cx).text().trim() == committed {
                             (detail.message).update(cx, |input, cx| input.set_text("", cx));
-                        }
-                        if here || detail.checks_worktree != from {
                             detail.finish_composing(&from, window, cx);
                         }
                     });
+                    forget_checks_left(&detail, &finished, &from, cx);
                     store.report_left_out(
                         &format!("Committed to {}", short_ref(&branch)),
                         &left_out,
@@ -853,9 +865,9 @@ impl Detail {
         });
     }
 
-    /// Close the composer once what it committed from the checkout `worktree` landed. Focus
-    /// stays in the pane if it was in the message box, which goes away. Moved on to another
-    /// checkout meanwhile, only the checks waiting for that one go.
+    /// Close the composer once what it committed from the checkout `worktree` landed, unless
+    /// it's moved on to another. Focus stays in the pane if it was in the message box, which
+    /// goes away.
     fn finish_composing(
         &mut self,
         worktree: &Option<Arc<str>>,
@@ -863,8 +875,6 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         if self.checks_worktree != *worktree {
-            self.other_checks
-                .remove(&(self.checks_project.clone(), worktree.clone()));
             return;
         }
         match self.message.focus_handle(cx).is_focused(window) {
@@ -955,7 +965,8 @@ impl Detail {
         let landed = move |_: &mut Store, cx: &mut Context<Store>| {
             after_landing(&detail, window, &finished, cx, |detail, window, cx| {
                 detail.finish_composing(&from, window, cx)
-            })
+            });
+            forget_checks_left(&detail, &finished, &from, cx);
         };
         (self.store).update(cx, |store, cx| {
             store.amend(&project, into, files.into(), worktree, landed, cx)
