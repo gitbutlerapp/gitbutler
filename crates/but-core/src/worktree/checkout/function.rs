@@ -1,5 +1,4 @@
 use but_error::bail_precondition;
-use but_oxidize::{ObjectIdExt, OidExt as _};
 use gix::{merge::tree::TreatAsUnresolved, prelude::ObjectIdExt as _, refs::Target};
 use tracing::instrument;
 
@@ -45,31 +44,26 @@ pub fn safe_checkout_from_head(
         );
     }
 
-    let git2_repo = but_oxidize::open_git2_repo(repo.git_dir())?;
-    let head_tree_id = repo.head_tree_id_or_empty()?;
-    let head_tree = git2_repo.find_tree(head_tree_id.to_git2())?;
+    let head_tree = repo.head_tree_id_or_empty()?.detach();
     let old_tree = match merge_base_override {
-        Some(id) => git2_repo.find_object(id.to_git2(), None)?.peel_to_tree()?,
-        None => git2_repo.find_tree(head_tree_id.to_git2())?,
+        Some(id) => repo.find_object(id)?.peel_to_tree()?.id,
+        None => head_tree,
     };
-    let new_tree = git2_repo
-        .find_object(new_head_id.to_git2(), None)?
-        .peel_to_tree()?;
+    let new_tree = repo.find_object(new_head_id)?.peel_to_tree()?.id;
     let mut conflict_occurred = false;
-    if merge_base_override.is_some() || old_tree.id() != new_tree.id() {
+    if merge_base_override.is_some() || old_tree != new_tree {
         let mut index = write::LockedIndex::acquire(repo)?;
-        if merge_base_override.is_some() {
-            index.entries = index_with_changes_applied(&git2_repo, repo, &head_tree, &old_tree)?;
-        }
-        if old_tree.id() == new_tree.id() {
-            index.write()?;
-        } else {
+        let carried = merge_base_override.is_some()
+            && write::carry_into_index(repo, &mut index.entries, [head_tree, old_tree])?;
+        if old_tree != new_tree {
             conflict_occurred = write_merged_worktree(
                 repo,
-                [old_tree.id().to_gix(), new_tree.id().to_gix()],
+                [old_tree, new_tree],
                 index,
                 allow_uncommitted_changes_to_conflict_with_new_head,
             )?;
+        } else if carried {
+            index.write()?;
         }
     }
 
@@ -177,39 +171,4 @@ fn write_merged_worktree(
     let trees = write::Trees::new(&repo, old_tree, new_tree, [wd_tree_id, checkout_target_id])?;
     write::write_to_worktree(&repo, trees, conflict_occurred.then_some(&outcome), index)?;
     Ok(conflict_occurred)
-}
-
-/// `.git/index` with the changes from `head_tree` to `tree` applied as libgit2 applies them, or
-/// `tree` itself if they don't apply.
-///
-/// libgit2 applies them to a copy, so `.git/index` only changes when the checkout writes it.
-fn index_with_changes_applied(
-    git2_repo: &git2::Repository,
-    repo: &gix::Repository,
-    head_tree: &git2::Tree<'_>,
-    tree: &git2::Tree<'_>,
-) -> anyhow::Result<gix::index::File> {
-    let dir = tempfile::tempdir_in(repo.git_dir())?;
-    let copy = dir.path().join("index");
-    if repo.index_path().exists() {
-        std::fs::copy(repo.index_path(), &copy)?;
-    }
-    let mut index = git2::Index::open_ext(&copy, git2_repo.object_format())?;
-    git2_repo.set_index(&mut index)?;
-    let mut opts = git2::DiffOptions::new();
-    opts.context_lines(1);
-    let diff = git2_repo.diff_tree_to_tree(Some(head_tree), Some(tree), Some(&mut opts))?;
-    if git2_repo
-        .apply(&diff, git2::ApplyLocation::Index, None)
-        .is_err()
-    {
-        index.read_tree(tree)?;
-        index.write()?;
-    }
-    Ok(gix::index::File::at_or_default(
-        &copy,
-        repo.object_hash(),
-        false,
-        Default::default(),
-    )?)
 }

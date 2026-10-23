@@ -1,11 +1,13 @@
 //! Writing a checkout's target tree to the worktree and the index.
 
+mod consumed;
 mod plan;
 mod protect;
 mod transaction;
 
 use anyhow::Context as _;
 
+pub(super) use consumed::carry_into_index;
 use plan::Plan;
 
 /// Turn the worktree of `repo`, which matched `trees.baseline` (in Git form) when it was

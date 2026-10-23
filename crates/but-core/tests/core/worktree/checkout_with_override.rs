@@ -6,6 +6,10 @@
 //! the checkout only moves the index forward by the consumed changes. An unrelated staged file `q`
 //! and an unchanged file `r` show whether the rest of the index keeps its content and stats, and
 //! `with stat` whether `p` keeps a stat.
+//!
+//! Like some callers, the checkout runs on a repository that keeps new objects in memory. The
+//! index is read back from disk, so an entry for an object that only exists in memory shows as an
+//! id.
 
 use std::path::Path;
 
@@ -194,7 +198,7 @@ fn read_id(dir: &Path, name: &str) -> anyhow::Result<gix::ObjectId> {
 
 /// Check out the commit of consumed changes in `dir` and describe the outcome and the index.
 fn check_out(dir: &Path) -> anyhow::Result<String> {
-    let repo = open_repo(dir)?;
+    let repo = open_repo(dir)?.with_object_memory();
     let options = checkout::Options {
         merge_base_override: Some(read_id(dir, "override-tree")?),
         ..Default::default()
@@ -203,6 +207,7 @@ fn check_out(dir: &Path) -> anyhow::Result<String> {
         Ok(_) => "done".to_owned(),
         Err(err) => format!("refused: {err}"),
     };
+    let repo = open_repo(dir)?;
     let index = repo.open_index()?;
     let submodule = |id: gix::ObjectId| -> anyhow::Result<Option<&str>> {
         for name in ["sub-a", "sub-b", "sub-c"] {
