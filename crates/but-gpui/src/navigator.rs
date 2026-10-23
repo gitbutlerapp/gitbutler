@@ -807,14 +807,20 @@ impl Navigator {
                 self.list.scroll_by(-offset);
             }
         }
+        let store = self.store.read(cx);
         if std::mem::take(&mut self.reveal_selection)
-            && let Some(selection) = &self.store.read(cx).selection
-            && let Some(ix) = self
-                .rows
-                .iter()
-                .position(|row| matches!(row, Row::Item(item) if item == selection))
+            && let Some(selection) = &store.selection
         {
-            self.list.scroll_to_reveal_item(ix);
+            match (self.rows.iter())
+                .position(|row| matches!(row, Row::Item(item) if item == selection))
+            {
+                Some(ix) => self.list.scroll_to_reveal_item(ix),
+                // A project just added has its rows once it's loaded.
+                None => {
+                    self.reveal_selection =
+                        (store.project(selection.project())).is_some_and(|entry| entry.is_loading())
+                }
+            }
         }
     }
 
