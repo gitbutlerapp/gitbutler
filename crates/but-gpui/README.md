@@ -92,9 +92,6 @@ The Help menu links the docs, the release notes and where to report an issue, sh
 | ⇧⌘B | while committing: pick the branch to commit to |
 | Space, X | while committing: check or uncheck the file under the cursor in the file list, the hunk under it in the diff |
 | ⌘Z, ⇧⌘Z | undo, redo; in a text field, the typing |
-
-Text fields take the keys of the platform's own: on macOS the Cocoa text system's (⌘A selects all, ⌥ moves and deletes by word, ⌘ by line, and ⌃A ⌃E ⌃B ⌃F ⌃P ⌃N ⌃D ⌃H ⌃K as in Emacs), on Linux and Windows Ctrl for select all, the clipboard, undo and words, with Ctrl-Y to redo.
-
 | ⌘X, ⌘V | cut the selection (from a diff or its files, the lines, hunk or file under the cursor, or while committing, what's checked), paste it onto the selected row (⌥⌘V squashes a commit instead of moving it, ⇧⌘V puts it below) |
 | ⌘N | new branch |
 | ⌥⇧F, ⌥⇧R | fetch, update from the target |
@@ -102,6 +99,8 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 | ⌘, | settings |
 | ⌘F, ⌘G, ⇧⌘G | find in the diff, then, from the diff or the find bar, the next or previous match |
 | ⌥Z, ⌘B | wrap long lines in diffs or stop, show them side by side or one above the other |
+
+Text fields take the keys of the platform's own: on macOS the Cocoa text system's (⌘A selects all, ⌥ moves and deletes by word, ⌘ by line, and ⌃A ⌃E ⌃B ⌃F ⌃P ⌃N ⌃D ⌃H ⌃K as in Emacs), on Linux and Windows Ctrl for select all, the clipboard, undo and words, with Ctrl-Y to redo.
 
 | In the navigator | |
 |---|---|
