@@ -292,6 +292,10 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         worktree.branches = worktree_branches(&ctx, &cached, segments, &stacks);
     }
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "loaded workspace");
+    // The oplog records a snapshot against the target, so without one set it records none.
+    // One whose upstream went still records, against the commit it last had.
+    let unrecorded =
+        head.is_none() || tree.is_none() || (target.is_none() && lost_target.is_none());
     Ok(Workspace {
         target,
         lost_target,
@@ -304,7 +308,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
             .and_then(|meta| meta.target_ref)
             .map(|name| name.to_string()),
         git_operation,
-        unrecorded: head.is_none() || tree.is_none(),
+        unrecorded,
         editing: None,
         worktrees,
         archived_worktrees,

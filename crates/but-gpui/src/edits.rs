@@ -701,7 +701,8 @@ impl AppView {
         let lasting = match &worktree {
             Some(_) => Some("Changes discarded in a linked worktree can't be undone."),
             None if (store.workspace(&project)).is_some_and(|ws| ws.unrecorded) => Some(
-                "With no commits yet, or no branch checked out, discarded changes can't be undone.",
+                "With no commits yet, no branch checked out or no target, discarded changes can't \
+                 be undone.",
             ),
             None => None,
         };

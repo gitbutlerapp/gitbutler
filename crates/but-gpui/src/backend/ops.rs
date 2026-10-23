@@ -1770,7 +1770,7 @@ pub(super) mod tests {
     }
 
     #[test]
-    fn a_detached_or_unborn_checkout_is_unrecorded() {
+    fn a_detached_unborn_or_untargeted_checkout_is_unrecorded() {
         let load = |path: &Path| crate::backend::load_workspace(path, Default::default());
         let dir = repo_with("one\n");
         let path = dir.path();
@@ -1790,6 +1790,12 @@ pub(super) mod tests {
         assert!(
             load(unborn.path()).unwrap().unrecorded,
             "with no commits, there's no target to record a snapshot against"
+        );
+
+        let untargeted = repo_with("one\n");
+        assert!(
+            load(untargeted.path()).unwrap().unrecorded,
+            "the oplog records a snapshot against the target, so none is recorded without one"
         );
     }
 
