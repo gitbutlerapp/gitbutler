@@ -598,13 +598,21 @@ pub fn name_branch(path: &Path, top: CommitId, name: &str) -> Result<String> {
     Ok(outcome.new_ref.to_string())
 }
 
-pub fn remove_branch(path: &Path, ref_name: &str) -> Result<()> {
+pub fn remove_branch(path: &Path, ref_name: &str, tip: Option<CommitId>) -> Result<()> {
     let mut ctx = open(path)?;
     let name = full_name(ref_name)?;
     // Removing a ref that's gone does nothing, so say so rather than that it went, as after
-    // an agent renamed the branch while the confirmation was up.
-    if ctx.repo.get()?.try_find_reference(name.as_ref())?.is_none() {
-        bail!("{} was renamed or deleted meanwhile", short_ref(ref_name));
+    // an agent renamed the branch while the confirmation was up. With `tip`, one that moved
+    // since stays: its new commits would go with it.
+    match super::ref_tip(&*ctx.repo.get()?, name.as_ref()) {
+        None => bail!("{} was renamed or deleted meanwhile", short_ref(ref_name)),
+        Some(at) if tip.is_some_and(|tip| tip.0 != at) => {
+            bail!(
+                "{} changed since you asked, so it wasn't deleted",
+                short_ref(ref_name)
+            )
+        }
+        Some(_) => {}
     }
     but_api::branch::branch_remove(&mut ctx, name.clone())?;
     // So a branch made later under its name starts without its description.
@@ -1954,6 +1962,27 @@ pub(super) mod tests {
             matches!(redo_snapshot(path, undo, &Default::default(), Some(&[])).unwrap(),
                 Some(Undone::Newer(files)) if files == ["file"]),
             "a file written after the undo is one redoing it puts back"
+        );
+    }
+
+    #[test]
+    fn a_branch_that_moved_since_it_was_asked_about_isnt_deleted() {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        target_origin_main(path);
+        git(path, &["branch", "side"]);
+        let asked = head(path);
+        git(path, &["commit", "-q", "--allow-empty", "-m", "an agent's"]);
+        git(path, &["branch", "-f", "side", "HEAD"]);
+
+        let refused = remove_branch(path, "refs/heads/side", Some(asked)).unwrap_err();
+        assert!(
+            format!("{refused:#}").contains("changed since you asked"),
+            "it says why it stays: {refused:#}"
+        );
+        assert!(
+            !git(path, &["branch", "--list", "side"]).is_empty(),
+            "the branch and its new commit stay"
         );
     }
 

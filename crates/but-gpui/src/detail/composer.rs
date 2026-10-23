@@ -825,7 +825,7 @@ impl Detail {
                     );
                     // A commit a hook refused leaves no empty branch made for it behind.
                     if committed.is_err() && created {
-                        backend::remove_branch(path, &branch).ok();
+                        backend::remove_branch(path, &branch, None).ok();
                     }
                     Ok((branch, committed?))
                 },

@@ -1063,8 +1063,7 @@ impl Detail {
             return;
         };
         let ref_name = format!("refs/heads/{}", branch.name);
-        let project = project.clone();
-        let name = branch.name.clone();
+        let (project, name, tip) = (project.clone(), branch.name.clone(), branch.tip);
         let detail = cx.entity().downgrade();
         self.app
             .update(cx, |app, cx| {
@@ -1087,7 +1086,7 @@ impl Detail {
                                 &project,
                                 "Delete branch",
                                 overlay,
-                                move |path, _| backend::remove_branch(path, &ref_name),
+                                move |path, _| backend::remove_branch(path, &ref_name, Some(tip)),
                                 // Out of the list now: reading the branches again, as their
                                 // refs changed, lands after the overlay is gone.
                                 move |store, (), cx| {

@@ -632,7 +632,7 @@ impl AppView {
                 project,
                 "Delete branch",
                 overlay,
-                move |path, _| backend::remove_branch(path, &ref_name),
+                move |path, _| backend::remove_branch(path, &ref_name, None),
                 move |store, (), cx| store.snack_after(!linked, "Branch deleted", cx),
             ),
         );
