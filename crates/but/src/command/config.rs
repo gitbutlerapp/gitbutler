@@ -422,9 +422,7 @@ fn feature_flag_value(flags: &but_settings::app_settings::FeatureFlags, flag: Fe
 
 #[expect(unreachable_code, unused_variables, unused_mut)]
 fn feature_flag_update(flag: FeatureFlag, enabled: bool) -> FeatureFlagsUpdate {
-    let mut update = FeatureFlagsUpdate {
-        worktree_manipulation: None,
-    };
+    let mut update = FeatureFlagsUpdate::default();
     match flag {}
     update
 }

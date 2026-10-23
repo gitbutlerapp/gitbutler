@@ -514,6 +514,7 @@ impl Sandbox {
                 write_commit_evolution: true,
                 tui_file_browser: false,
                 worktree_manipulation: false,
+                gpui: false,
             },
             extra_csp: ExtraCsp {
                 hosts: vec![],

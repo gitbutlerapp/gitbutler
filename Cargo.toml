@@ -108,6 +108,7 @@ members = [
     "crates/but-server",
     # Should be reviewed to mostly use `but-api`, to be renamed to `but-tauri` or something.
     "crates/gitbutler-tauri",
+    "crates/but-gpui", # An experimental native client on GPUI, macOS only for now.
     # GitButler installation binary
     "crates/but-installer",
     # Documentation binary
@@ -380,6 +381,21 @@ sirocco = { opt-level = 3 }
 adler32furious = { opt-level = 3 }
 serde = { opt-level = 3 }
 serde_json = { opt-level = 3 }
+# The GPUI client's layout, drawing, images and diff highlighting are slow unoptimised.
+gpui = { opt-level = 3 }
+gpui_macos = { opt-level = 3 }
+gpui_apple = { opt-level = 3 }
+sum_tree = { opt-level = 3 }
+taffy = { opt-level = 3 }
+resvg = { opt-level = 3 }
+usvg = { opt-level = 3 }
+tiny-skia = { opt-level = 3 }
+image = { opt-level = 3 }
+png = { opt-level = 3 }
+zune-jpeg = { opt-level = 3 }
+syntect = { opt-level = 3 }
+fancy-regex = { opt-level = 3 }
+regex-automata = { opt-level = 3 }
 # This one is special as we can run into debug assertions otherwise.
 # They have a time, but let's chose the time instead of always being hit by it.
 gix-merge = { opt-level = 3, debug-assertions = false }
@@ -387,3 +403,35 @@ gix-merge = { opt-level = 3, debug-assertions = false }
 [profile.release.package.but-installer]
 opt-level = "z" # Optimize for size instead of speed
 strip = true    # Strip symbols from binary
+
+# The GPUI client's frames are drawn by these, and its diffs highlighted and annotated by the
+# last few, so they're built for speed even when the rest is built for size, as the nightly and
+# stable builds are and as Zed builds its UI crates. Of the desktop app's other code, only the
+# CLI's highlighting shares any of them, which only gets faster.
+[profile.release.package]
+but-gpui = { opt-level = 3 }
+gpui = { opt-level = 3 }
+gpui_apple = { opt-level = 3 }
+gpui_macos = { opt-level = 3 }
+gpui_platform = { opt-level = 3 }
+gpui_shared_string = { opt-level = 3 }
+gpui_util = { opt-level = 3 }
+scheduler = { opt-level = 3 }
+sum_tree = { opt-level = 3 }
+collections = { opt-level = 3 }
+refineable = { opt-level = 3 }
+taffy = { opt-level = 3 }
+etagere = { opt-level = 3 }
+rustybuzz = { opt-level = 3 }
+ttf-parser = { opt-level = 3 }
+zed-font-kit = { opt-level = 3 }
+resvg = { opt-level = 3 }
+usvg = { opt-level = 3 }
+tiny-skia = { opt-level = 3 }
+tiny-skia-path = { opt-level = 3 }
+syntect = { opt-level = 3 }
+onig = { opt-level = 3 }
+onig_sys = { opt-level = 3 }
+regex-automata = { opt-level = 3 }
+deltoids = { opt-level = 3 }
+tree-sitter = { opt-level = 3 }

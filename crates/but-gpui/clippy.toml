@@ -1,0 +1,10 @@
+# Sizes grow and shrink with the interface scale, so they go in `ui::dp`. What must stay put,
+# as a hairline, is `ui::fixed`.
+disallowed-methods = [
+    { path = "gpui::px", reason = "use ui::dp, which follows the interface scale, or ui::fixed for what must stay put" },
+]
+
+# Tests may unwrap, expect and panic, which the crate denies elsewhere.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true

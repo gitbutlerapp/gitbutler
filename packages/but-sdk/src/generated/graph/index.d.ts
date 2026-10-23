@@ -2976,11 +2976,17 @@ export type FeatureFlags = {
   tuiFileBrowser: boolean;
   /** Enable experimental worktree manipulation support. */
   worktreeManipulation: boolean;
+  /**
+   * Open the experimental native client (GPUI) instead of the web app when GitButler
+   * starts, on macOS builds that include it.
+   */
+  gpui: boolean;
 };
 
 /** Update request for [`crate::app_settings::FeatureFlags`]. */
 export type FeatureFlagsUpdate = {
   worktreeManipulation?: boolean | null;
+  gpui?: boolean | null;
 };
 
 export type Fetch = {
