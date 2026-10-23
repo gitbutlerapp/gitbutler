@@ -125,8 +125,8 @@ fn apply(
     let mut stats = BTreeMap::new();
     for rela_path in &staged.files {
         let dest = join(workdir, rela_path)?;
-        let stat = journal.place(&join(&staged.new_files(), rela_path)?, &dest)?;
-        stats.insert(rela_path.clone(), Stat::Known(stat));
+        let written = journal.place(&join(&staged.new_files(), rela_path)?, &dest)?;
+        stats.insert(rela_path.clone(), trusted_stat(&written, &dest)?);
     }
     for rela_path in &staged.submodules {
         journal.ensure_dir(&join(workdir, rela_path)?)?;
@@ -202,9 +202,8 @@ impl Journal {
 
     /// Move the `staged` file to `dest`, where nothing is left after the clearances moved aside,
     /// unless something was created there after the worktree was checked.
-    /// Create a copy of the file or symlink at `staged` at `dest` like Git creates files, so it
-    /// gets what its directory gives new files, like a default ACL or its group, unless something
-    /// appeared there. Return its stat.
+    /// Create a copy of the file or symlink at `staged` at `dest`, unless something appeared
+    /// there, and return its stat when it was written.
     fn place(&mut self, staged: &Path, dest: &Path) -> anyhow::Result<gix::index::entry::Stat> {
         self.create_parents(dest)?;
         let md = gix::index::fs::Metadata::from_path_no_follow(staged)?;
@@ -222,20 +221,24 @@ impl Journal {
         }
     }
 
-    /// Create a file at `dest` with `content`. It's journaled as soon as it's written to, with
-    /// the stat of the file written, so undo removes it even if writing failed, but only while
-    /// it's that file.
+    /// Create a file with `content` at `dest` like Git creates files, so it gets what its
+    /// directory gives new files, like a default ACL or its group. It's written privately next to
+    /// `dest`, then moved there unless something appeared, so `dest` only ever has all of it, and
+    /// nothing written into it meanwhile is taken for checkout's.
     fn create_file(
         &mut self,
         content: &mut impl std::io::Read,
         executable: bool,
         dest: &Path,
     ) -> std::io::Result<gix::index::entry::Stat> {
-        let mut file = create_new_file(dest, executable)?;
-        let copied = std::io::copy(content, &mut file);
-        let stat = stat_of(&gix::index::fs::Metadata::from_file(&file)?)?;
-        self.placed(dest, stat);
-        copied.map(|_| stat)
+        let mut private = private_file_next_to(dest, executable)?;
+        std::io::copy(content, private.as_file_mut())?;
+        let written = stat_of(&gix::index::fs::Metadata::from_file(private.as_file())?)?;
+        let mut private = private.into_temp_path();
+        rename_no_replace(&private, dest)?;
+        private.disable_cleanup(true);
+        self.placed(dest, written);
+        Ok(written)
     }
 
     fn create_symlink(
@@ -363,36 +366,51 @@ impl Journal {
     }
 }
 
-/// Every stat field that changes when a file does.
-const ALL_FIELDS: gix::index::entry::stat::Options = gix::index::entry::stat::Options {
-    trust_ctime: true,
+/// Every stat field that changes when a file's content does, except the ctime, which moving it
+/// into place may change.
+const ALL_BUT_CTIME: gix::index::entry::stat::Options = gix::index::entry::stat::Options {
+    trust_ctime: false,
     check_stat: true,
     use_nsec: true,
     use_stdev: false,
 };
 
-/// Create a new file at `dest` with the permissions Git asks for, which the umask or a default
-/// ACL then reduce.
+/// A new file next to `dest` that only checkout knows, created with the permissions Git asks for,
+/// which the umask or a default ACL then reduce. It's removed when dropped.
 #[cfg_attr(not(unix), allow(unused_variables))]
-fn create_new_file(dest: &Path, executable: bool) -> std::io::Result<std::fs::File> {
-    let mut options = std::fs::OpenOptions::new();
-    options.write(true).create_new(true);
+fn private_file_next_to(dest: &Path, executable: bool) -> std::io::Result<tempfile::NamedTempFile> {
+    let mut builder = tempfile::Builder::new();
+    builder.prefix(".gitbutler-checkout-");
     #[cfg(unix)]
-    std::os::unix::fs::OpenOptionsExt::mode(&mut options, if executable { 0o777 } else { 0o666 });
-    options.open(dest)
+    builder.permissions(std::os::unix::fs::PermissionsExt::from_mode(
+        if executable { 0o777 } else { 0o666 },
+    ));
+    builder.tempfile_in(dest.parent().expect("in the worktree"))
+}
+
+/// What the index may record about the file placed at `dest`, which had the `written` stat when
+/// it was written. Moving it into place may change only the ctime, which is why the stat is read
+/// again. A file that differs otherwise changed after it was written, so its stat can't vouch for
+/// the content, and Git has to compare the content instead.
+fn trusted_stat(written: &gix::index::entry::Stat, dest: &Path) -> anyhow::Result<Stat> {
+    let placed = stat_of(&gix::index::fs::Metadata::from_path_no_follow(dest)?)?;
+    Ok(match written.matches(&placed, ALL_BUT_CTIME) {
+        true => Stat::Known(placed),
+        false => Stat::Unknown,
+    })
 }
 
 fn stat_of(md: &gix::index::fs::Metadata) -> std::io::Result<gix::index::entry::Stat> {
     gix::index::entry::Stat::from_fs(md).map_err(std::io::Error::other)
 }
 
-/// Remove the file or symlink checkout placed at `path`, which then had the `placed` stat, unless
-/// it changed since.
-fn remove_unless_changed(path: &Path, placed: &gix::index::entry::Stat) -> std::io::Result<()> {
+/// Remove the file or symlink checkout placed at `path`, which had the `written` stat when it was
+/// written, unless it changed since.
+fn remove_unless_changed(path: &Path, written: &gix::index::entry::Stat) -> std::io::Result<()> {
     let Ok(md) = gix::index::fs::Metadata::from_path_no_follow(path) else {
         return Ok(());
     };
-    match placed.matches(&stat_of(&md)?, ALL_FIELDS) {
+    match written.matches(&stat_of(&md)?, ALL_BUT_CTIME) {
         true => gix::fs::symlink::remove(path),
         false => Ok(()),
     }
@@ -520,6 +538,87 @@ fn join(dir: &Path, rela_path: impl AsRef<BStr>) -> anyhow::Result<PathBuf> {
 
 #[cfg(test)]
 mod tests {
+    use std::{path::Path, time::SystemTime};
+
+    use crate::index::Stat;
+
+    fn set_mtime(path: &Path, mtime: SystemTime) -> std::io::Result<()> {
+        std::fs::File::options()
+            .write(true)
+            .open(path)?
+            .set_modified(mtime)
+    }
+
+    fn stat(path: &Path) -> anyhow::Result<gix::index::entry::Stat> {
+        Ok(gix::index::entry::Stat::from_fs(
+            &gix::index::fs::Metadata::from_path_no_follow(path)?,
+        )?)
+    }
+
+    /// A file written at a whole second, then moved to `placed`, and its stat when written.
+    fn place(dir: &Path) -> anyhow::Result<(std::path::PathBuf, gix::index::entry::Stat)> {
+        let private = dir.join("private");
+        std::fs::write(&private, "written\n")?;
+        set_mtime(
+            &private,
+            SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000),
+        )?;
+        let written = stat(&private)?;
+        let placed = dir.join("placed");
+        std::fs::rename(&private, &placed)?;
+        Ok((placed, written))
+    }
+
+    #[test]
+    fn a_placed_file_is_trusted_with_its_new_stat() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let (placed, written) = place(tmp.path())?;
+
+        assert!(
+            matches!(super::trusted_stat(&written, &placed)?, Stat::Known(_)),
+            "moving keeps the file's identity"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn a_placed_file_edited_in_the_same_second_is_not_trusted() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let (placed, written) = place(tmp.path())?;
+        std::fs::write(&placed, "edited\n")?;
+        set_mtime(
+            &placed,
+            SystemTime::UNIX_EPOCH + std::time::Duration::new(1_000_000, 1_000),
+        )?;
+
+        assert!(
+            matches!(super::trusted_stat(&written, &placed)?, Stat::Unknown),
+            "an edit after placing, like an editor saving the file, makes its stat untrustworthy"
+        );
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn a_placed_file_replaced_by_a_new_file_is_not_trusted() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let (placed, written) = place(tmp.path())?;
+        // Editors often save by writing a new file and renaming it over the old one.
+        let saved = tmp.path().join("saved");
+        std::fs::write(&saved, "edited\n")?;
+        set_mtime(
+            &saved,
+            SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000),
+        )?;
+        std::fs::rename(&saved, &placed)?;
+
+        assert!(
+            matches!(super::trusted_stat(&written, &placed)?, Stat::Unknown),
+            "a new file with the same size and time is still another file"
+        );
+        Ok(())
+    }
+
     /// A worktree with the file `a`, and a staging directory to check out into it.
     fn worktree_and_staging() -> anyhow::Result<(tempfile::TempDir, super::Staged)> {
         let workdir = tempfile::tempdir()?;
@@ -622,51 +721,74 @@ mod tests {
         Ok(())
     }
 
-    /// Content that can't be read, after an editor saved a file over `dest`, if given.
-    struct FailingRead {
-        saved_over: Option<std::path::PathBuf>,
+    /// Content that can't be read, after an editor saved the file at the given path.
+    enum FailingRead {
+        Plainly,
+        AfterSavingOver(std::path::PathBuf),
+        AfterWritingInto(std::path::PathBuf),
     }
 
     impl std::io::Read for FailingRead {
         fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
-            if let Some(dest) = self.saved_over.take() {
-                let saved = dest.with_file_name("saved");
-                std::fs::write(&saved, "saved\n")?;
-                std::fs::rename(&saved, &dest)?;
+            match std::mem::replace(self, FailingRead::Plainly) {
+                FailingRead::Plainly => {}
+                FailingRead::AfterSavingOver(dest) => {
+                    let saved = dest.with_file_name("saved");
+                    std::fs::write(&saved, "saved\n")?;
+                    std::fs::rename(&saved, &dest)?;
+                }
+                FailingRead::AfterWritingInto(dest) => std::fs::write(&dest, "saved\n")?,
             }
             Err(std::io::Error::other("no space left"))
         }
     }
 
-    #[test]
-    fn undo_removes_a_file_that_failed_to_be_written() -> anyhow::Result<()> {
+    /// Fail to write `b` while reading the `content` made for its path, undo, and return what's
+    /// in the worktree then.
+    fn fail_to_write_b(
+        content: impl FnOnce(std::path::PathBuf) -> FailingRead,
+    ) -> anyhow::Result<Vec<(String, String)>> {
         let (workdir, staged) = worktree_and_staging()?;
         let b = workdir.path().join("b");
+        let mut content = content(b.clone());
         let mut journal = super::Journal::new(workdir.path());
-        let mut content = FailingRead { saved_over: None };
-
         let err = journal.create_file(&mut content, false, &b);
         journal.undo(staged, anyhow::anyhow!("placing failed"));
-
         assert!(err.is_err());
-        assert!(!b.exists(), "the partial file is removed");
+        let mut files = std::fs::read_dir(workdir.path())?
+            .map(|entry| {
+                let path = entry?.path();
+                let name = path
+                    .file_name()
+                    .expect("a file")
+                    .to_string_lossy()
+                    .into_owned();
+                Ok((name, std::fs::read_to_string(&path)?))
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        files.sort();
+        Ok(files)
+    }
+
+    #[test]
+    fn a_file_that_failed_to_be_written_leaves_nothing_behind() -> anyhow::Result<()> {
+        let files = fail_to_write_b(|_| FailingRead::Plainly)?;
+        assert_eq!(files, [("a".into(), "before\n".into())]);
         Ok(())
     }
 
     #[test]
-    fn undo_keeps_a_file_saved_over_one_that_failed_to_be_written() -> anyhow::Result<()> {
-        let (workdir, staged) = worktree_and_staging()?;
-        let b = workdir.path().join("b");
-        let mut journal = super::Journal::new(workdir.path());
-        let mut content = FailingRead {
-            saved_over: Some(b.clone()),
-        };
-
-        let err = journal.create_file(&mut content, false, &b);
-        journal.undo(staged, anyhow::anyhow!("placing failed"));
-
-        assert!(err.is_err());
-        assert_eq!(std::fs::read_to_string(&b)?, "saved\n");
+    fn undo_keeps_a_file_saved_where_one_failed_to_be_written() -> anyhow::Result<()> {
+        for save in [FailingRead::AfterSavingOver, FailingRead::AfterWritingInto] {
+            let files = fail_to_write_b(save)?;
+            assert_eq!(
+                files,
+                [
+                    ("a".into(), "before\n".into()),
+                    ("b".into(), "saved\n".into())
+                ]
+            );
+        }
         Ok(())
     }
 }
