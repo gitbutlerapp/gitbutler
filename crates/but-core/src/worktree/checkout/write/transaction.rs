@@ -202,22 +202,58 @@ impl Journal {
 
     /// Move the `staged` file to `dest`, where nothing is left after the clearances moved aside,
     /// unless something was created there after the worktree was checked.
-    /// Create a copy of the file or symlink at `staged` at `dest`, unless something appeared
-    /// there, and return its stat.
+    /// Create a copy of the file or symlink at `staged` at `dest` like Git creates files, so it
+    /// gets what its directory gives new files, like a default ACL or its group, unless something
+    /// appeared there. Return its stat.
     fn place(&mut self, staged: &Path, dest: &Path) -> anyhow::Result<gix::index::entry::Stat> {
         self.create_parents(dest)?;
-        let stat = match create_copy(staged, dest) {
-            Ok(stat) => stat,
-            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
-                return Err(self.appeared_after_the_check(dest));
-            }
-            Err(err) => return Err(err).with_context(|| format!("placing {dest:?}")),
+        let md = gix::index::fs::Metadata::from_path_no_follow(staged)?;
+        let placed = match md.is_symlink() {
+            true => self.create_symlink(&std::fs::read_link(staged)?, dest),
+            false => std::fs::File::open(staged)
+                .and_then(|mut file| self.create_file(&mut file, md.is_executable(), dest)),
         };
+        match placed {
+            Ok(stat) => Ok(stat),
+            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
+                Err(self.appeared_after_the_check(dest))
+            }
+            Err(err) => Err(err).with_context(|| format!("placing {dest:?}")),
+        }
+    }
+
+    /// Create a file at `dest` with `content`. It's journaled as soon as it's written to, with
+    /// the stat of the file written, so undo removes it even if writing failed, but only while
+    /// it's that file.
+    fn create_file(
+        &mut self,
+        content: &mut impl std::io::Read,
+        executable: bool,
+        dest: &Path,
+    ) -> std::io::Result<gix::index::entry::Stat> {
+        let mut file = create_new_file(dest, executable)?;
+        let copied = std::io::copy(content, &mut file);
+        let stat = stat_of(&gix::index::fs::Metadata::from_file(&file)?)?;
+        self.placed(dest, stat);
+        copied.map(|_| stat)
+    }
+
+    fn create_symlink(
+        &mut self,
+        target: &Path,
+        dest: &Path,
+    ) -> std::io::Result<gix::index::entry::Stat> {
+        gix::fs::symlink::create(target, dest)?;
+        let stat = stat_of(&gix::index::fs::Metadata::from_path_no_follow(dest)?)?;
+        self.placed(dest, stat);
+        Ok(stat)
+    }
+
+    fn placed(&mut self, path: &Path, stat: gix::index::entry::Stat) {
         self.steps.push(Step::Placed {
-            path: dest.to_owned(),
+            path: path.to_owned(),
             stat,
         });
-        Ok(stat)
     }
 
     /// Create the directory `dir` and its parents, unless it exists.
@@ -334,29 +370,6 @@ const ALL_FIELDS: gix::index::entry::stat::Options = gix::index::entry::stat::Op
     use_nsec: true,
     use_stdev: false,
 };
-
-/// Create a copy of the file or symlink at `staged` at `dest` like Git creates files, so it gets
-/// what its directory gives new files, like a default ACL or its group. Fail with
-/// `AlreadyExists` if something is at `dest`. Return the stat of the copy.
-fn create_copy(staged: &Path, dest: &Path) -> std::io::Result<gix::index::entry::Stat> {
-    let md = gix::index::fs::Metadata::from_path_no_follow(staged)?;
-    if md.is_symlink() {
-        gix::fs::symlink::create(&std::fs::read_link(staged)?, dest)?;
-        return stat_of(&gix::index::fs::Metadata::from_path_no_follow(dest)?);
-    }
-    let mut source = std::fs::File::open(staged)?;
-    let mut file = create_new_file(dest, md.is_executable())?;
-    let copied = std::io::copy(&mut source, &mut file)
-        .and_then(|_| gix::index::fs::Metadata::from_file(&file));
-    drop(file);
-    match copied {
-        Ok(md) => stat_of(&md),
-        Err(err) => {
-            std::fs::remove_file(dest).ok();
-            Err(err)
-        }
-    }
-}
 
 /// Create a new file at `dest` with the permissions Git asks for, which the umask or a default
 /// ACL then reduce.
@@ -606,6 +619,54 @@ mod tests {
         );
         assert!(err.to_string().contains("\"d/a\" at"), "{err}");
         std::fs::remove_dir_all(staging_dir)?;
+        Ok(())
+    }
+
+    /// Content that can't be read, after an editor saved a file over `dest`, if given.
+    struct FailingRead {
+        saved_over: Option<std::path::PathBuf>,
+    }
+
+    impl std::io::Read for FailingRead {
+        fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+            if let Some(dest) = self.saved_over.take() {
+                let saved = dest.with_file_name("saved");
+                std::fs::write(&saved, "saved\n")?;
+                std::fs::rename(&saved, &dest)?;
+            }
+            Err(std::io::Error::other("no space left"))
+        }
+    }
+
+    #[test]
+    fn undo_removes_a_file_that_failed_to_be_written() -> anyhow::Result<()> {
+        let (workdir, staged) = worktree_and_staging()?;
+        let b = workdir.path().join("b");
+        let mut journal = super::Journal::new(workdir.path());
+        let mut content = FailingRead { saved_over: None };
+
+        let err = journal.create_file(&mut content, false, &b);
+        journal.undo(staged, anyhow::anyhow!("placing failed"));
+
+        assert!(err.is_err());
+        assert!(!b.exists(), "the partial file is removed");
+        Ok(())
+    }
+
+    #[test]
+    fn undo_keeps_a_file_saved_over_one_that_failed_to_be_written() -> anyhow::Result<()> {
+        let (workdir, staged) = worktree_and_staging()?;
+        let b = workdir.path().join("b");
+        let mut journal = super::Journal::new(workdir.path());
+        let mut content = FailingRead {
+            saved_over: Some(b.clone()),
+        };
+
+        let err = journal.create_file(&mut content, false, &b);
+        journal.undo(staged, anyhow::anyhow!("placing failed"));
+
+        assert!(err.is_err());
+        assert_eq!(std::fs::read_to_string(&b)?, "saved\n");
         Ok(())
     }
 }
