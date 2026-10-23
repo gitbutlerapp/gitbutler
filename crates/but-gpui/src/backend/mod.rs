@@ -344,15 +344,15 @@ fn target(
         return Ok((None, Some(source.shorten().to_string())));
     };
     let ahead = target_commit.map_or(0, |base| commits_past(&repo, tip, base));
+    let bases = (target_commit.into_iter()).chain(info.stacks.iter().filter_map(|s| s.base));
+    let (behind, commits_behind) = behind_oldest(&repo, tip, bases);
     let target = Target {
         name: source.shorten().to_string(),
         local: source.category() == Some(gix::refs::Category::LocalBranch),
-        behind: (target_commit)
-            .and_then(|base| first_parent_steps(&repo, tip, base, ahead))
-            .unwrap_or(ahead),
-        commits_behind: ahead,
+        behind,
+        commits_behind,
         needs_update: ahead > 0 || stacks_behind,
-        incoming: match ahead {
+        incoming: match commits_behind {
             0 => Vec::new(),
             _ => upstream::incoming(ctx, cached, model::UPSTREAM_SHOWN).unwrap_or_else(|err| {
                 tracing::warn!("couldn't read the target's new commits: {err:#}");
@@ -529,6 +529,27 @@ pub(crate) fn ref_tip(
 /// How many commits `tip` has that `base` doesn't, merged ones included.
 fn commits_past(repo: &gix::Repository, tip: gix::ObjectId, base: gix::ObjectId) -> usize {
     (repo.rev_walk([tip]).with_hidden([base]).all()).map_or(0, |walk| walk.count())
+}
+
+/// How far `tip` is past the oldest of `bases`: the commits on its own line of history, each
+/// merge once, and all of them. What's new runs down to the oldest commit a stack still sits
+/// on, as the list of new commits does, since a stack left on an older target commit, as
+/// updating only some lanes leaves the others, hasn't the commits between.
+fn behind_oldest(
+    repo: &gix::Repository,
+    tip: gix::ObjectId,
+    bases: impl IntoIterator<Item = gix::ObjectId>,
+) -> (usize, usize) {
+    let oldest = (bases.into_iter())
+        .map(|base| (commits_past(repo, tip, base), base))
+        .max();
+    let Some((all, oldest)) = oldest else {
+        return (0, 0);
+    };
+    (
+        first_parent_steps(repo, tip, oldest, all).unwrap_or(all),
+        all,
+    )
 }
 
 /// How many first parents lead back from `tip` to `base`, at most `max`; `None` when `base`
@@ -861,6 +882,37 @@ pub fn branch_name(name: &str) -> Option<String> {
     but_core::branch::normalize_short_name(name)
         .ok()
         .map(|short| short.to_string())
+}
+
+#[cfg(test)]
+mod behind_tests {
+    use crate::backend::ops::tests::{git, repo_with};
+
+    #[test]
+    fn whats_new_runs_down_to_the_oldest_base() {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        let commit = |message: &str| {
+            git(path, &["commit", "-q", "--allow-empty", "-m", message]);
+            gix::ObjectId::from_hex(git(path, &["rev-parse", "HEAD"]).trim().as_bytes()).unwrap()
+        };
+        let old =
+            gix::ObjectId::from_hex(git(path, &["rev-parse", "HEAD"]).trim().as_bytes()).unwrap();
+        commit("two");
+        let stored = commit("three");
+        let tip = commit("four");
+        let repo = gix::open(path).unwrap();
+        assert_eq!(
+            super::behind_oldest(&repo, tip, [stored, old]),
+            (3, 3),
+            "a stack still on an older commit hasn't the ones since, though the stored target has"
+        );
+        assert_eq!(
+            super::behind_oldest(&repo, tip, [stored]),
+            (1, 1),
+            "with every stack on the stored target, only what's past it"
+        );
+    }
 }
 
 #[cfg(test)]
