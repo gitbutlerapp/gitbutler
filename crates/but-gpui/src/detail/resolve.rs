@@ -339,7 +339,8 @@ impl Detail {
         };
         let input = cx.new(|cx| {
             let mut input = TextInput::new("The lines to keep", true, cx);
-            input.set_text(text.trim_end_matches('\n'), cx);
+            // Without the last line's ending, which keeping it puts back: blank lines stay.
+            input.set_text(text.strip_suffix('\n').unwrap_or(&text), cx);
             input
         });
         let listen = cx.subscribe_in(&input, window, |this, _, event, window, cx| match event {
