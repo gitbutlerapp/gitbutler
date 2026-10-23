@@ -80,8 +80,10 @@ impl<'a> Anchor<'a> {
 
 pub(super) mod function {
     use anyhow::Context as _;
-    use bstr::ByteSlice as _;
-    use but_core::{RefMetadata, branch::find_unique_refname_excluding};
+    use but_core::{
+        RefMetadata,
+        branch::{find_unique_refname_excluding, refuse_colliding_refname},
+    };
     use but_error::bail_precondition;
     use but_rebase::graph_rebase::{
         Editor, LookupStep, Selector, Step, SuccessfulRebase, mutate::InsertSide,
@@ -157,28 +159,7 @@ pub(super) mod function {
         if available.as_ref() != ref_name {
             bail_precondition!("Reference '{}' already exists", ref_name.shorten());
         }
-        if let Some(colliding) = colliding_ref_ancestor(editor.repo(), ref_name)? {
-            bail_precondition!(
-                "Branch name '{}' collides with existing branch '{}'",
-                ref_name.shorten(),
-                colliding.shorten()
-            );
-        }
-        Ok(())
-    }
-
-    fn colliding_ref_ancestor(
-        repo: &gix::Repository,
-        ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<Option<gix::refs::FullName>> {
-        let full_name = ref_name.as_bstr().to_str_lossy();
-        for slash_idx in full_name.match_indices('/').map(|(idx, _)| idx).skip(2) {
-            let ancestor = gix::refs::FullName::try_from(full_name[..slash_idx].to_owned())?;
-            if repo.try_find_reference(ancestor.as_ref())?.is_some() {
-                return Ok(Some(ancestor));
-            }
-        }
-        Ok(None)
+        refuse_colliding_refname(editor.repo(), ref_name, None)
     }
 
     fn placement<M: RefMetadata>(

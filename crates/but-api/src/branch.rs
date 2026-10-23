@@ -6,7 +6,7 @@ use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
     DryRun, RefMetadata, WORKSPACE_REF_NAME,
-    branch::unique_canned_refname,
+    branch::{refuse_colliding_refname, unique_canned_refname},
     sync::{RepoExclusive, RepoShared},
     ui::TreeChanges,
     update_head_reference,
@@ -1423,6 +1423,7 @@ pub fn branch_rename_with_perm(
         {
             bail_precondition!("A branch named '{}' already exists", new_ref.shorten());
         }
+        refuse_colliding_refname(&repo, new_ref.as_ref(), Some(ref_name.as_ref()))?;
 
         let options = GraphEditorOptions {
             extra_mutable_refs: vec![ref_name.clone()],
