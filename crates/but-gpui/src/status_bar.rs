@@ -187,6 +187,7 @@ impl AppView {
             vec![(&FocusDiff, "pick conflicts")]
         } else if typing
             || (detail_focused && (!detail.has_files() || detail.showing_review(cx)))
+            || detail.side_list_focused(window)
             || store.selection.is_none()
         {
             Vec::new()

@@ -593,6 +593,10 @@ impl AppView {
     }
 
     fn focus_navigator(&mut self, _: &FocusNavigator, window: &mut Window, cx: &mut Context<Self>) {
+        // Not from under what's open over it, where the keys would go on to rows out of sight.
+        if self.covered() {
+            return;
+        }
         // Asking for the navigator brings it back.
         if !self.navigator_open {
             self.set_navigator(true, window, cx);
@@ -623,11 +627,17 @@ impl AppView {
     /// The file list, or the diff while the list is hidden; a Branches, Operations history or
     /// project page's list.
     fn focus_changes(&mut self, _: &FocusChanges, window: &mut Window, cx: &mut Context<Self>) {
+        if self.covered() {
+            return;
+        }
         self.detail
             .update(cx, |detail, cx| detail.focus_files(window, cx));
     }
 
     fn focus_diff(&mut self, _: &FocusDiff, window: &mut Window, cx: &mut Context<Self>) {
+        if self.covered() {
+            return;
+        }
         self.detail
             .update(cx, |detail, cx| detail.focus(window, cx));
     }

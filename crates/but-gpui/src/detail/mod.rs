@@ -122,10 +122,11 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("j", SelectNext, side),
         KeyBinding::new("up", SelectPrevious, side),
         KeyBinding::new("k", SelectPrevious, side),
-        KeyBinding::new("right", Expand, side),
+        // The arrows last, as the navigator's, so menus show them.
         KeyBinding::new("l", Expand, side),
-        KeyBinding::new("left", Collapse, side),
+        KeyBinding::new("right", Expand, side),
         KeyBinding::new("h", Collapse, side),
+        KeyBinding::new("left", Collapse, side),
         // While committing, with the focus anywhere, typing the message too, as ⌘↩ commits.
         KeyBinding::new("alt-cmd-enter", AmendTop, Some("Workspace")),
         KeyBinding::new("cmd-shift-b", PickCommitTarget, Some("Workspace")),
@@ -1151,6 +1152,12 @@ impl Detail {
     /// Whether the file list holds the focus.
     pub fn files_focused(&self, window: &Window) -> bool {
         self.files_focus.is_focused(window)
+    }
+
+    /// Whether a Branches, Operations history or project page's list has the keys, which
+    /// step it rather than the diff beside it.
+    pub fn side_list_focused(&self, window: &Window) -> bool {
+        self.side_focus.is_focused(window)
     }
 
     /// Put the cursor at `cursor` on purpose, as a key or a click does: scrolling the diff
