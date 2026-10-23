@@ -433,6 +433,25 @@ impl Store {
         self.undo_steps.sort_by_key(|step| step.asked);
     }
 
+    /// Make `snapshot`, which the operation that just ran recorded on its way, a ⌘Z step of its
+    /// own taken back after that operation's, as the branch a commit was made on.
+    pub fn push_earlier_step(&mut self, snapshot: SnapshotId) {
+        let Some((project, last)) = self.last_snapshot.clone() else {
+            return;
+        };
+        let Some(at) = (self.undo_steps.iter()).position(|step| step.snapshot == last) else {
+            return;
+        };
+        let UndoStep { asked, done, .. } = self.undo_steps[at];
+        let step = UndoStep {
+            project,
+            snapshot,
+            asked,
+            done,
+        };
+        self.undo_steps.insert(at, step);
+    }
+
     /// Redo what ⌘Z last took back, unless the user has done something since.
     pub fn redo_last(&mut self, cx: &mut Context<Self>) {
         if (self.unfinished_asked()).any(|(o, _)| matches!(o.kind, OpKind::Undo(_))) {

@@ -832,6 +832,10 @@ impl Detail {
                         }
                         None => (backend::create_branch(path, None)?, true),
                     };
+                    // Undone apart from the commit, so a second ⌘Z takes the branch away.
+                    let made = created
+                        .then(|| backend::history::oplog_head(path))
+                        .flatten();
                     let committed = backend::commit(
                         path,
                         &Destination::Branch(branch.clone()),
@@ -844,9 +848,12 @@ impl Detail {
                     if committed.is_err() && created {
                         backend::remove_branch(path, &branch, None).ok();
                     }
-                    Ok((branch, committed?))
+                    Ok((branch, made, committed?))
                 },
-                move |store, (branch, (_id, left_out, hook_failed)), cx| {
+                move |store, (branch, made, (_id, left_out, hook_failed)), cx| {
+                    if let Some(made) = made {
+                        store.push_earlier_step(made);
+                    }
                     // The message is done with, even kept for a checkout left meanwhile.
                     let key = (finished.clone(), from.clone());
                     if (store.drafts.get(&key)).is_some_and(|d| d.trim() == committed) {
