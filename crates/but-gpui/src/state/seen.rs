@@ -96,9 +96,9 @@ impl Store {
     }
 
     /// Bring what's been seen of `id` up to date with the `workspace` it just loaded: what's
-    /// gone is forgotten, and what's new is news unless the app made it. `fresh` is false for
-    /// a load that started before the app's operation finished, which the reload after it
-    /// still compares with what was there before.
+    /// new is news unless the app made it, and what's gone is forgotten once there's much of
+    /// it. `fresh` is false for a load that started before the app's operation finished,
+    /// which the reload after it still compares with what was there before.
     pub(super) fn update_seen(&mut self, id: &ProjectId, workspace: &Workspace, fresh: bool) {
         let amended = self.amended_since_last_load(id, workspace);
         let commits: HashSet<String> = (shown(workspace))
@@ -106,7 +106,12 @@ impl Store {
             .collect();
         let first_sight = !self.seen.commits.contains_key(id.as_ref());
         let seen = self.seen.commits.entry(id.to_string()).or_default();
-        seen.retain(|key| commits.contains(key));
+        // A branch unapplied for a while, or the default branch checked out in a terminal,
+        // comes back read: what isn't shown is kept, up to 4000 keys, two a commit.
+        const KEPT: usize = 4000;
+        if seen.len() > KEPT {
+            seen.retain(|key| commits.contains(key));
+        }
         // Nothing is news the first time a project shows up, and neither is what the
         // app's own operations created. A commit seen by one of its ids is seen by both, so
         // it stays seen when a rebase by Git changes its key, or a reword its message.
