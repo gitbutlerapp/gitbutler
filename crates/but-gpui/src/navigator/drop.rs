@@ -137,20 +137,22 @@ impl Navigator {
             .on_mouse_down(
                 MouseButton::Right,
                 cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-                    let items = this.menu_items(&menu_target, cx);
+                    if this.menu_items(&menu_target, cx).is_empty() {
+                        return;
+                    }
                     let picked = matches!(&menu_target,
                         Selection::Commit(project, id) if this.store.read(cx).is_picked(project, *id));
-                    if !items.is_empty() {
-                        if picked {
-                            // The picks' actions are the navigator's, dispatched from focus.
-                            window.focus(&this.focus, cx);
-                        } else {
-                            this.select(menu_target.clone(), window, cx);
-                        }
-                        this.app
-                            .update(cx, |app, cx| app.open_menu(event.position, items, cx))
-                            .ok();
+                    if picked {
+                        // The picks' actions are the navigator's, dispatched from focus.
+                        window.focus(&this.focus, cx);
+                    } else {
+                        this.select(menu_target.clone(), window, cx);
                     }
+                    // After selecting, which reads a commit, so its menu offers to unread it.
+                    let items = this.menu_items(&menu_target, cx);
+                    this.app
+                        .update(cx, |app, cx| app.open_menu(event.position, items, cx))
+                        .ok();
                 }),
             )
             .into_any_element()
