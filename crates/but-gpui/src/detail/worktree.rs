@@ -25,9 +25,9 @@ use crate::ui::file_icons::file_icon;
 use crate::ui::review::state_glyph;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
-    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dp, faint, fold_glyph, fold_row,
-    h_flex, keep_focus_on_press, list_row, plural, relative_time, short_path, side_row, small_icon,
-    v_flex,
+    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, count_badge, dp, faint,
+    fold_glyph, fold_row, h_flex, icon, keep_focus_on_press, list_row, plural, relative_time,
+    short_path, shortcut, side_row, small_icon, v_flex,
 };
 
 mod activity;
@@ -451,17 +451,20 @@ impl Detail {
             (self.now_commits(project, &scoped, now, theme, cx), 3., 340.),
         ];
         // The page holds still: New scrolls within the most of it it takes, and hot files and
-        // the commits within what's left under the activity.
+        // the commits within what's left under the activity. Over it, the bar a file's diff
+        // has, its toggle for the file list where the diff's is, so opening a file moves it not.
         v_flex()
             .id("now")
             .flex_1()
             .h_full()
             .min_w_0()
+            .child(self.now_bar(ws.uncommitted_in(name).unwrap_or_default(), theme, cx))
             .child(
                 v_flex()
                     .w_full()
                     .max_w(dp(820.))
-                    .h_full()
+                    .flex_1()
+                    .min_h_0()
                     .px(dp(14.))
                     .py(dp(16.))
                     .gap(dp(6.))
@@ -495,6 +498,41 @@ impl Detail {
                     ),
             )
             .into_any_element()
+    }
+
+    /// The bar over the overview, as over a file's diff: the file list's toggle, counting the
+    /// `files` and their lines while the list is hidden, which shows the overview alone.
+    fn now_bar(&self, files: &[backend::FileChange], theme: &Theme, cx: &Context<Self>) -> Div {
+        let (added, removed) = (files.iter().filter_map(|file| file.lines))
+            .fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr));
+        let hidden = self.files_hidden;
+        let (glyph, tip) = match hidden {
+            true => (Icon::SidebarNarrow, "Show the files"),
+            false => (Icon::FilesSidebar, "Hide the files"),
+        };
+        h_flex()
+            .flex_none()
+            .h(dp(40.))
+            .px(dp(12.))
+            .bg(theme.bg_1)
+            .child(
+                h_flex()
+                    .id("now-files")
+                    .flex_none()
+                    .h(dp(28.))
+                    .px(dp(6.))
+                    .gap(dp(6.))
+                    .rounded(dp(4.))
+                    .hover(|el| el.bg(theme.hover()))
+                    .child(icon(glyph).text_color(theme.text_2))
+                    .when(hidden && !files.is_empty(), |el| {
+                        el.child(count_badge(files.len(), theme))
+                            .child(diff::stats(added, removed, theme))
+                    })
+                    .tooltip(Tooltip::keyed(tip, shortcut(&super::ToggleFiles, cx)))
+                    .on_mouse_down(MouseButton::Left, keep_focus_on_press)
+                    .on_click(cx.listener(|this, _, window, cx| this.toggle_files(window, cx))),
+            )
     }
 
     /// What you haven't looked at, as rows: first the checkout's uncommitted files, with

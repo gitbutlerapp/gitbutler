@@ -1943,12 +1943,32 @@ impl Detail {
     /// (Branches, Operations history, the project's) it always does: without the list,
     /// nothing says what the diff is of. A window too narrow to leave the diff 320 points
     /// beside the list and the navigator at their narrowest hides the files, as `f` does,
-    /// though not a checkout's, over Commit… or the composer, nor one being filtered. Beside
-    /// a checkout's overview they always show, as a list page's list does.
+    /// though not a checkout's, over Commit… or the composer, nor one being filtered. A
+    /// checkout's overview shows beside them, or alone with them hidden, as its diff does.
     pub fn files_shown(&self, window: &Window, cx: &App) -> bool {
-        self.list_page(cx)
-            || self.showing_now(cx)
-            || (!self.files_hidden && self.files_fit(window, cx))
+        self.list_page(cx) || (!self.files_hidden && self.files_fit(window, cx))
+    }
+
+    /// Show or hide the file list beside the diff or a checkout's overview, as `f` does.
+    pub(super) fn toggle_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.list_page(cx) {
+            return;
+        }
+        if !self.files_fit(window, cx) {
+            let why = "The window is too narrow to show the files beside the diff. Rest the \
+                       pointer on the file count over the diff to list them";
+            return self.store.update(cx, |store, cx| store.snack(why, cx));
+        }
+        self.files_hidden = !self.files_hidden;
+        // Keys go on to the diff once the list they went to is gone, and its filter goes with
+        // it, so no file stays out of the diff unseen.
+        if self.files_hidden && self.files_focus.is_focused(window) {
+            window.focus(&self.focus, cx);
+        }
+        if self.files_hidden {
+            self.close_open_filter(window, cx);
+        }
+        cx.notify();
     }
 
     /// Whether the window leaves the diff room beside the file list, or the list holds what
@@ -2198,26 +2218,9 @@ impl Render for Detail {
             .on_action(
                 cx.listener(|this, _: &FilterFiles, window, cx| this.open_filter(window, cx)),
             )
-            .on_action(cx.listener(|this, _: &ToggleFiles, window, cx| {
-                if this.list_page(cx) {
-                    return;
-                }
-                if !this.files_fit(window, cx) {
-                    let why = "The window is too narrow to show the files beside the diff. Rest \
-                               the pointer on the file count over the diff to list them";
-                    return this.store.update(cx, |store, cx| store.snack(why, cx));
-                }
-                this.files_hidden = !this.files_hidden;
-                // Keys go on to the diff once the list they went to is gone, and its filter
-                // goes with it, so no file stays out of the diff unseen.
-                if this.files_hidden && this.files_focus.is_focused(window) {
-                    window.focus(&this.focus, cx);
-                }
-                if this.files_hidden {
-                    this.close_open_filter(window, cx);
-                }
-                cx.notify();
-            }))
+            .on_action(
+                cx.listener(|this, _: &ToggleFiles, window, cx| this.toggle_files(window, cx)),
+            )
             .on_action(
                 cx.listener(|this, _: &find::FindInDiff, window, cx| this.open_find(window, cx)),
             )
