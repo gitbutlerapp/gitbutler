@@ -117,7 +117,7 @@ fn apply(
         journal.move_aside(&join(workdir, rela_path)?, &aside)?;
     }
     for Clearance { rela_path, .. } in with_reason(Reason::Deleted) {
-        journal.remove_emptied_parents(workdir, &join(workdir, rela_path)?)?;
+        journal.move_emptied_parents_aside(&join(workdir, rela_path)?, &aside)?;
     }
     for Clearance { rela_path, .. } in with_reason(Reason::InTheWay) {
         journal.move_aside(&join(workdir, rela_path)?, &aside)?;
@@ -145,10 +145,6 @@ enum Step {
         from: PathBuf,
         to: PathBuf,
     },
-    RemovedDir {
-        path: PathBuf,
-        permissions: std::fs::Permissions,
-    },
     Placed {
         path: PathBuf,
         stat: gix::index::entry::Stat,
@@ -161,7 +157,7 @@ impl Step {
     fn path(&self) -> &Path {
         match self {
             Step::MovedAside { from, .. } => from,
-            Step::RemovedDir { path, .. } | Step::Placed { path, .. } => path,
+            Step::Placed { path, .. } => path,
             Step::CreatedDir(dir) => dir,
         }
     }
@@ -302,21 +298,17 @@ impl Journal {
     }
 
     /// Remove the directories leading to `path` that are now empty, as Git does.
-    fn remove_emptied_parents(&mut self, workdir: &Path, path: &Path) -> anyhow::Result<()> {
+    /// Like Git, remove the directories leading to the deleted `path` that it left empty. They're
+    /// moved `aside`, so undo puts each back itself, with all it had, like its ACLs.
+    fn move_emptied_parents_aside(&mut self, path: &Path, aside: &Path) -> anyhow::Result<()> {
+        let workdir = self.workdir.clone();
         for dir in path.ancestors().skip(1).take_while(|dir| *dir != workdir) {
-            let permissions = match std::fs::symlink_metadata(dir) {
-                Ok(md) => md.permissions(),
-                // Emptied by another deletion, and removed with what it left empty above it.
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound => break,
-                Err(err) => return Err(err.into()),
-            };
-            if std::fs::remove_dir(dir).is_err() {
+            // A missing one was emptied by another deletion, and moved aside with what it left
+            // empty above it.
+            if !is_empty_dir(dir)? {
                 break;
             }
-            self.steps.push(Step::RemovedDir {
-                path: dir.to_owned(),
-                permissions,
-            });
+            self.move_aside(dir, aside)?;
         }
         Ok(())
     }
@@ -353,8 +345,6 @@ impl Journal {
             let undone = in_worktree(&self.workdir, step.path()).and_then(|()| match &step {
                 Step::Placed { path, stat } => remove_unless_changed(path, stat),
                 Step::CreatedDir(dir) => std::fs::remove_dir(dir),
-                Step::RemovedDir { path, permissions } => std::fs::create_dir(path)
-                    .and_then(|()| std::fs::set_permissions(path, permissions.clone())),
                 Step::MovedAside { from, to } => rename_no_replace(to, from),
             });
             if let Err(err) = undone {
@@ -481,6 +471,16 @@ fn in_worktree(workdir: &Path, path: &Path) -> std::io::Result<()> {
         Leading::Missing | Leading::Obstructed(_) => Err(std::io::Error::other(format!(
             "the directories leading to {path:?} changed"
         ))),
+    }
+}
+
+/// Whether `path` is a directory, not a symlink to one, with nothing in it.
+fn is_empty_dir(path: &Path) -> std::io::Result<bool> {
+    match std::fs::symlink_metadata(path) {
+        Ok(md) if md.is_dir() => Ok(std::fs::read_dir(path)?.next().is_none()),
+        Ok(_) => Ok(false),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(err) => Err(err),
     }
 }
 

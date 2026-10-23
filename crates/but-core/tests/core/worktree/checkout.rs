@@ -2833,6 +2833,12 @@ fn checkout_undoes_the_commit_when_placing_a_file_fails() -> anyhow::Result<()> 
         return Ok(());
     }
     let before = repo_state(&repo)?;
+    let identity = |path: &str| -> anyhow::Result<(u64, u64)> {
+        use std::os::unix::fs::MetadataExt;
+        let md = std::fs::symlink_metadata(workdir.join(path))?;
+        Ok((md.dev(), md.ino()))
+    };
+    let gone = identity("gone")?;
 
     let out = safe_checkout_from_head(new_commit, &repo, Default::default());
     let after = repo_state(&repo)?;
@@ -2840,12 +2846,16 @@ fn checkout_undoes_the_commit_when_placing_a_file_fails() -> anyhow::Result<()> 
 
     out.expect_err("`ro/new` can't be created");
     assert_eq!(
+        identity("gone")?,
+        gone,
+        "the emptied directory itself is put back, with all it had, like its mode and ACLs"
+    );
+    assert_eq!(
         std::fs::metadata(workdir.join("gone"))?
             .permissions()
             .mode()
             & 0o777,
         0o700,
-        "the emptied directory is recreated as it was"
     );
     assert_eq!(
         after, before,
