@@ -22,8 +22,8 @@ use crate::ui::text_input::TextInput;
 use but_oplog::legacy::OperationKind;
 
 use crate::ui::{
-    Icon, Tooltip, clock_time, commit_title, day_label, dp, error_summary, faint, h_flex, icon,
-    icon_button, list_row, loading_state, local_day, plural, side_row, small_icon, v_flex,
+    Icon, Tooltip, commit_title, day_label, dp, error_summary, faint, h_flex, icon, icon_button,
+    list_row, loading_state, local_clock, local_day, plural, side_row, small_icon, v_flex,
 };
 
 /// How many of an operation's changes its header lists; the rest it counts.
@@ -270,7 +270,8 @@ pub(super) struct History {
     /// Whether older operations remain to load.
     more: bool,
     loading: bool,
-    /// A reload came while an older page was loading, and follows it.
+    /// A reload was asked for and hasn't landed. One asked for while an older page loads, or
+    /// cancelled by one, follows it.
     reload_queued: bool,
     selected: Option<SnapshotId>,
     /// Why reading the newest operations failed, shown in place of the list.
@@ -284,10 +285,13 @@ impl Detail {
         let Some(path) = self.store.read(cx).path(project) else {
             return;
         };
-        // A reload waits for an older page still loading, which replacing it would cancel.
-        if let Some(history) = self.history.get_mut(project).filter(|h| !more && h.loading) {
-            history.reload_queued = true;
-            return;
+        // A reload waits for an older page still loading, which replacing it would cancel, and
+        // Show older does nothing while it loads.
+        if let Some(history) = self.history.get_mut(project) {
+            history.reload_queued |= !more;
+            if history.loading {
+                return;
+            }
         }
         let shown = self.history.get(project);
         let after = (shown.filter(|_| more))
@@ -314,7 +318,7 @@ impl Detail {
             this.update(cx, |this, cx| {
                 let history = this.history.entry(project.clone()).or_default();
                 history.loading = false;
-                let queued = std::mem::take(&mut history.reload_queued);
+                let queued = std::mem::take(&mut history.reload_queued) && after.is_some();
                 let selected_before = history.selected;
                 match result {
                     // What's listed stays, Show older too, to try again.
@@ -581,7 +585,7 @@ impl Detail {
         let when = format!(
             "{} {}",
             day_label(operation.time),
-            clock_time(operation.time)
+            local_clock(operation.time)
         );
         let meta = meta_row(theme)
             .child(meta_item(Icon::Clock, theme).child(when))
@@ -874,7 +878,7 @@ impl Detail {
                                         .child(text),
                                 )
                                 .child(
-                                    faint(clock_time(operation.time), theme)
+                                    faint(local_clock(operation.time), theme)
                                         .flex_none()
                                         .text_color(quiet(theme.text_3)),
                                 )

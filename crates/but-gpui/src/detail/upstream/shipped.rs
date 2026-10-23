@@ -5,24 +5,21 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-use gpui::{AnyElement, Context, MouseButton, Window, div, prelude::*, relative};
+use gpui::{AnyElement, Context, MouseButton, Window, div, prelude::*};
 
-use super::{days_said, noon};
+use super::{Upstream, days_said, noon};
 use crate::backend::CommitId;
 use crate::backend::upstream::{ACTIVITY_DAYS, Landing, Overview};
 use crate::detail::Detail;
 use crate::detail::panes::{
-    OVERVIEW_COUNT_WIDTH, OVERVIEW_TIME_WIDTH, back_to_list, grouped, overview_column,
-    overview_heading, overview_tiles, overview_title,
+    OVERVIEW_COUNT_WIDTH, OVERVIEW_TIME_WIDTH, back_to_list, clear_button, grouped,
+    overview_column, overview_heading, overview_tiles, overview_title, share_row,
 };
 use crate::state::ProjectId;
 use crate::theme::Theme;
 use crate::ui::person::author_avatar;
 use crate::ui::relative_time;
-use crate::ui::{
-    ButtonStyle, Icon, button, dp, faint, keep_focus_on_press, list_row, plural, side_row,
-    small_icon, v_flex,
-};
+use crate::ui::{Icon, dp, faint, keep_focus_on_press, list_row, plural, small_icon, v_flex};
 
 /// How many of the newest releases are listed.
 const RELEASES_SHOWN: usize = 3;
@@ -125,14 +122,14 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         let theme = Theme::get(cx);
-        let Some(summary) = self.upstream_for(project).and_then(|u| u.summary.as_ref()) else {
+        let Some((upstream, summary)) =
+            (self.upstream_for(project)).and_then(|u| Some((u, u.summary.as_ref()?)))
+        else {
             return div().flex_1().into_any_element();
         };
-        let upstream = self.upstream_for(project).expect("summed up above");
-        let days = self.days_picked(project);
-        let who = self.picked_email(project);
+        let days = upstream.picked_days();
+        let (who, area) = (upstream.view.person.as_ref(), upstream.view.area.as_ref());
         let person = upstream.picked_person();
-        let area = self.picked_area(project);
         // A person picked who's no longer among those who landed anything matches nothing.
         let nobody = HashSet::new();
         let theirs = who.map(|_| person.map_or(&nobody, |p| &p.landed));
@@ -208,7 +205,7 @@ impl Detail {
                             .py(dp(8.)),
                         )
                     })
-                    .children(self.releases(project, summary, &kept_ids, theme, cx))
+                    .children(self.releases(project, upstream, &kept_ids, theme, cx))
                     .children(self.areas(project, &by_who, area, solid, cx))
                     .children(self.largest(project, summary, &kept, theme, cx)),
             )
@@ -220,12 +217,12 @@ impl Detail {
     fn releases(
         &self,
         project: &ProjectId,
-        summary: &Overview,
+        upstream: &Upstream,
         kept: &HashSet<CommitId>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
-        let days = self.days_picked(project);
+        let (summary, days) = (upstream.summary.as_ref()?, upstream.picked_days());
         let ids: Vec<CommitId> = summary.releases.iter().map(|r| r.id).collect();
         let counts = carried(&ids, &summary.landings, kept);
         let releases: Vec<_> = (summary.releases.iter().zip(counts))
@@ -307,51 +304,18 @@ impl Detail {
         let rows = (counts.into_iter().enumerate())
             .filter(|(ix, (area, _))| listed(*ix, area))
             .map(|(ix, (area, n))| {
-                let on = picked == Some(&area) && solid;
-                let (track, bar) = match on {
-                    true => (theme.text_inverted.opacity(0.25), theme.muted_on_solid()),
-                    false => (theme.border_3, theme.pop.opacity(0.7)),
-                };
                 let project = project.clone();
-                side_row(("area", ix), picked == Some(&area), solid, theme)
-                    .child(div().flex_1().min_w_0().truncate().child(area.clone()))
-                    .child(
-                        div()
-                            .flex_1()
-                            .max_w(dp(360.))
-                            .h(dp(6.))
-                            .rounded(dp(3.))
-                            .bg(track)
-                            .child(
-                                div()
-                                    .h_full()
-                                    .rounded(dp(3.))
-                                    .w(relative(n as f32 / most as f32))
-                                    .bg(bar),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .flex_none()
-                            .w(dp(OVERVIEW_TIME_WIDTH))
-                            .text_right()
-                            .text_size(dp(11.))
-                            .text_color(match on {
-                                true => theme.muted_on_solid(),
-                                false => theme.text_3,
-                            })
-                            .child(n.to_string()),
-                    )
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.filter_area(&project, Some(area.clone()), cx)
-                    }))
+                let label = div().flex_1().min_w_0().truncate().child(area.clone());
+                let bar = div().flex_1().max_w(dp(360.));
+                let on = (picked == Some(&area), solid);
+                share_row(("area", ix), label, bar, (n, most), on, theme).on_click(cx.listener(
+                    move |this, _, _, cx| this.filter_area(&project, Some(area.clone()), cx),
+                ))
             });
         let detail = match picked {
             Some(_) => {
                 let project = project.clone();
-                button("area-clear", "Clear")
-                    .small()
-                    .style(ButtonStyle::Ghost)
+                clear_button("area-clear")
                     .on_click(
                         cx.listener(move |this, _, _, cx| this.filter_area(&project, None, cx)),
                     )

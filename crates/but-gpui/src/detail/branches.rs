@@ -506,7 +506,7 @@ impl Detail {
     /// The branches the filters keep, newest first, under headings by when they last
     /// changed, a stack's branches together under a caption while more than one of them shows.
     fn branch_rows(&self, branches: &Branches, cx: &Context<Self>) -> Vec<Row> {
-        let shown = self.shown_branches(branches, cx);
+        let shown = self.kept_in(branches, &branches.list, None, cx);
         // A stack goes by its newest branch, as the listing orders them.
         let mut newest: HashMap<usize, i64> = HashMap::new();
         for branch in &branches.list {
@@ -564,17 +564,8 @@ impl Detail {
         rows
     }
 
-    /// The branches the filters keep, by index into the list, folded away or not.
-    fn shown_branches(&self, branches: &Branches, cx: &App) -> Vec<usize> {
-        self.kept_branches(branches, None, cx)
-    }
-
-    /// The branches the filters keep but `skip`, which is left out to count its choices.
-    fn kept_branches(&self, branches: &Branches, skip: Option<Facet>, cx: &App) -> Vec<usize> {
-        self.kept_in(branches, &branches.list, skip, cx)
-    }
-
-    /// Those of `list`, the list's or the applied ones, the filters keep but `skip`.
+    /// Those of `list`, the list's or the applied ones, the filters keep, by index into it and
+    /// folded away or not. All but `skip`'s, which is left out to count its choices.
     fn kept_in(
         &self,
         branches: &Branches,
@@ -618,7 +609,7 @@ impl Detail {
         let since = branches.recency.since(upstream::day_of(crate::ui::now()));
         let mut people: Vec<(String, String, usize)> = Vec::new();
         // The applied ones too, as the overview counts them.
-        let listed = self.kept_branches(branches, Some(Facet::Who), cx);
+        let listed = self.kept_in(branches, &branches.list, Some(Facet::Who), cx);
         let applied = self.kept_in(branches, &branches.applied, Some(Facet::Who), cx);
         let kept = (listed.into_iter().map(|ix| &branches.list[ix]))
             .chain(applied.into_iter().map(|ix| &branches.applied[ix]));
@@ -655,7 +646,7 @@ impl Detail {
 
     /// How many branches the filters keep but the pull request one, for each choice of it.
     fn status_counts(&self, branches: &Branches, cx: &App) -> Vec<(BranchStatus, usize)> {
-        let kept = self.kept_branches(branches, Some(Facet::Status), cx);
+        let kept = self.kept_in(branches, &branches.list, Some(Facet::Status), cx);
         (STATUSES.iter())
             .map(|(status, _)| {
                 let n = (kept.iter())
@@ -707,7 +698,7 @@ impl Detail {
         // One folded away in its stack still counts.
         let selected =
             |ix: &usize| Some(&branches.list[*ix].ref_name) == branches.selected.as_ref();
-        if self.shown_branches(branches, cx).iter().any(selected) {
+        if (self.kept_in(branches, &branches.list, None, cx).iter()).any(selected) {
             // A stack the filter leaves one branch of has no caption to stay on.
             if branches.stack {
                 self.select_other_branch(branches.selected.clone(), cx);
@@ -1557,7 +1548,7 @@ impl Detail {
             return;
         };
         let prefs = &self.store.read(cx).prefs;
-        let everyone = self.kept_branches(branches, Some(Facet::Who), cx).len();
+        let everyone = (self.kept_in(branches, &branches.list, Some(Facet::Who), cx)).len();
         let person = |who: Option<String>, label: String, n: usize| {
             let ticked = branches.who == who;
             MenuItem::new(label, move |app, _, cx| {
@@ -1576,7 +1567,7 @@ impl Detail {
         let mut items = vec![person(None, "Anyone".to_owned(), everyone).under("Person")];
         items.extend(offered.map(|(_, (name, _, n))| person(Some(name.clone()), name.clone(), *n)));
         let today = upstream::day_of(crate::ui::now());
-        let any_time = self.kept_branches(branches, Some(Facet::Recency), cx);
+        let any_time = self.kept_in(branches, &branches.list, Some(Facet::Recency), cx);
         for (ix, recency) in Recency::ALL.into_iter().enumerate() {
             let n = (any_time.iter())
                 .filter(|ix| recency.keeps(branches.list[**ix].time, today))

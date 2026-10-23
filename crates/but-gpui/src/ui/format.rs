@@ -179,11 +179,6 @@ pub fn day_label(seconds: i64) -> String {
     }
 }
 
-/// The time of day `seconds` fell on here, like 14:05.
-pub fn clock_time(seconds: i64) -> String {
-    local(seconds, "%H:%M")
-}
-
 #[cfg(test)]
 mod tests {
     use super::error_summary;

@@ -122,7 +122,7 @@ impl Detail {
         };
         let today = upstream::day_of(crate::ui::now());
         // The applied ones too, as the filters keep them, as they're under way as much.
-        let shown = self.shown_branches(branches, cx).into_iter();
+        let shown = self.kept_in(branches, &branches.list, None, cx).into_iter();
         let applied = (self.kept_in(branches, &branches.applied, None, cx)).into_iter();
         let kept: Vec<&OtherBranch> = (shown.map(|ix| &branches.list[ix]))
             .chain(applied.map(|ix| &branches.applied[ix]))

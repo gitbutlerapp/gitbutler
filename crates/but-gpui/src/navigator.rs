@@ -669,7 +669,9 @@ impl Navigator {
 
     /// Step out the way a tree does: a commit to its branch, an open branch, stack or worktree
     /// closed, a branch up to its stack or worktree, and anything else up to its project.
+    /// While the filter lists what it finds, nothing folds, so ← only goes up.
     fn collapse(&mut self, _: &Collapse, window: &mut Window, cx: &mut Context<Self>) {
+        let filtering = self.filtering(cx);
         let store = self.store.read(cx);
         let selection = store.selection.clone();
         // A commit a remote's merge brought in goes up to the merge.
@@ -679,13 +681,16 @@ impl Navigator {
             let up = Selection::Upstream(project.clone(), ref_name.clone(), merge);
             return self.select(up, window, cx);
         }
-        let closes = matches!(&selection, Some(item @ Selection::Branch(project, ref_name))
-            if store.branch_for(item).is_some_and(|branch| !branch.commits.is_empty())
-                && self.is_open(&ClickOpened::Here((project.clone(), ref_name.clone()))));
-        let folds = (self.rows.iter())
-            .position(|row| matches!(row, Row::Item(item) if Some(item) == selection.as_ref()))
-            .is_some_and(|ix| self.section_open(ix));
+        let closes = !filtering
+            && matches!(&selection, Some(item @ Selection::Branch(project, ref_name))
+                if store.branch_for(item).is_some_and(|branch| !branch.commits.is_empty())
+                    && self.is_open(&ClickOpened::Here((project.clone(), ref_name.clone()))));
+        let folds = !filtering
+            && (self.rows.iter())
+                .position(|row| matches!(row, Row::Item(item) if Some(item) == selection.as_ref()))
+                .is_some_and(|ix| self.section_open(ix));
         match selection {
+            Some(Selection::Project(_)) if filtering => {}
             // An open card folds; a folded one stops being watched.
             Some(Selection::Project(id)) => self.store.update(cx, |store, cx| {
                 let open = store.project(&id).is_some_and(|p| p.expanded)
@@ -1211,9 +1216,10 @@ impl Navigator {
         // say: their uncommitted files, unpushed commits and worktrees.
         let summary = workspace.filter(|ws| ws.editing.is_none()).map(|ws| {
             let folded = |n: usize| if expanded && !card_folded { 0 } else { n };
-            let in_worktrees = ws.worktrees.iter().map(|w| w.uncommitted.len());
+            let shown = |name: Option<&str>, files| store.uncommitted_shown(id, name, files).len();
+            let in_worktrees = (ws.worktrees.iter()).map(|w| shown(Some(&w.name), &w.uncommitted));
             (
-                folded(ws.uncommitted.len() + in_worktrees.sum::<usize>()),
+                folded(shown(None, &ws.uncommitted) + in_worktrees.sum::<usize>()),
                 folded(ws.unpushed_commits()),
                 ws.target.as_ref().filter(|_| !new_on),
                 folded(ws.worktrees.len()),

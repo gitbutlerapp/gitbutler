@@ -14,11 +14,11 @@ mod shipped;
 
 use super::Detail;
 use super::panes::{
-    Crumb, CrumbTo, LIST_MIN_HEIGHT, list_heading, measured, meta_item, meta_row, side_header,
-    side_list, step_from, title_text, unfinished_banner,
+    Crumb, CrumbTo, LIST_MIN_HEIGHT, clear_button, list_heading, measured, meta_item, meta_row,
+    side_header, side_list, step_from, title_text, unfinished_banner,
 };
 use super::pull_request::TABS_HEIGHT;
-use super::slots::{SlotGesture, SlotPick};
+use super::slots::{SlotGesture, SlotPick, ends_drag, picks_slot};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, Person, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, Forge};
 use crate::overlays::MenuItem;
@@ -73,7 +73,6 @@ enum Picked {
 }
 
 pub(super) struct Upstream {
-    project: ProjectId,
     commits: Vec<TargetCommit>,
     more: bool,
     selected: Option<Picked>,
@@ -99,11 +98,9 @@ pub(super) struct Upstream {
 }
 
 impl Upstream {
-    /// The activity's days picked, if any, and which day is today.
-    fn picked_days(&self) -> Option<(&SlotPick, i64)> {
-        let pick = Some(&self.view.days).filter(|pick| !pick.slots.is_empty())?;
-        let summary = self.summary.as_ref()?;
-        Some((pick, summary.first_day + summary.daily.len() as i64 - 1))
+    /// The activity's days picked, while any are.
+    fn picked_days(&self) -> Option<&BTreeSet<i64>> {
+        Some(&self.view.days.slots).filter(|days| !days.is_empty())
     }
 
     /// The person picked, if any.
@@ -251,13 +248,17 @@ impl Detail {
                     }
                     Err(err) => {
                         // When it last fetched is still known, though the history can't be read,
-                        // and what it's filtered to stays.
+                        // and what it's filtered to stays. On a first read, only whether it has a
+                        // remote may be known.
+                        let remote = (this.store.read(cx).workspace(&project))
+                            .is_none_or(|ws| !ws.remoteless);
                         let (fetch, view) = (this.upstream.remove(&project))
-                            .map_or((Some((None, None)), View::default()), |u| (u.fetch, u.view));
+                            .map_or((remote.then_some((None, None)), View::default()), |u| {
+                                (u.fetch, u.view)
+                            });
                         this.upstream.insert(
                             project.clone(),
                             Upstream {
-                                project,
                                 commits: Vec::new(),
                                 more: false,
                                 selected: None,
@@ -331,7 +332,6 @@ impl Detail {
                 this.upstream.insert(
                     project.clone(),
                     Upstream {
-                        project: project.clone(),
                         commits: list,
                         more: has_more,
                         selected,
@@ -365,8 +365,11 @@ impl Detail {
                     }
                     None => {}
                 }
+                // A page further back that cut short a reload of the newest reads them again.
                 if pending.is_some() {
                     this.load_upstream(&project, true, false, cx);
+                } else if shown && seen.0 != this.upstream_fingerprint(&project, cx) {
+                    this.load_upstream(&project, false, false, cx);
                 }
                 cx.notify();
             })
@@ -731,7 +734,9 @@ impl Detail {
     }
 
     fn upstream_rows(&self, upstream: &Upstream, target: &str, cx: &gpui::App) -> Vec<Row> {
-        let picked = upstream.picked_days();
+        // The days picked and which is today, while there's a summary to count them in.
+        let picked = (upstream.picked_days().zip(upstream.summary.as_ref()))
+            .map(|(days, s)| (days, s.first_day + s.daily.len() as i64 - 1));
         // A person picked who's no longer among the summary's matches nothing, rather than
         // letting go of the filter unseen.
         let who = upstream.view.person.as_ref();
@@ -763,7 +768,7 @@ impl Detail {
         };
         let filtered = !query.is_empty();
         let shown = |commit: &TargetCommit| {
-            picked.is_none_or(|(pick, today)| pick.keeps(upstream::day_of(commit.time).min(today)))
+            picked.is_none_or(|(d, today)| d.contains(&upstream::day_of(commit.time).min(today)))
                 && who.is_none_or(|_| person.is_some_and(|p| p.landed.contains(&commit.id)))
                 && area.is_none_or(|_| in_area.contains(&commit.id))
                 && found(commit)
@@ -802,7 +807,7 @@ impl Detail {
         // and older ones a click at a time, rather than the whole history.
         // Without a summary to say where they start, a filter reads on a click from the first.
         let bounded = who.is_some() || area.is_some() || filtered;
-        let first = (picked.and_then(|(pick, _)| pick.slots.first()).copied())
+        let first = (picked.and_then(|(days, _)| days.first()).copied())
             .or_else(|| {
                 (upstream.summary.as_ref())
                     .filter(|_| bounded)
@@ -1002,11 +1007,6 @@ impl Detail {
         cx.notify();
     }
 
-    /// The part of the repository `project`'s history is filtered to, if any.
-    fn picked_area(&self, project: &ProjectId) -> Option<&String> {
-        self.upstream_for(project)?.view.area.as_ref()
-    }
-
     /// Filter the history to what landed in `area`, or let go of the area.
     fn filter_area(&mut self, project: &ProjectId, area: Option<String>, cx: &mut Context<Self>) {
         if let Some(upstream) = self.upstream.get_mut(project) {
@@ -1016,25 +1016,27 @@ impl Detail {
         cx.notify();
     }
 
-    /// The days picked off `project`'s activity, while any are.
-    fn days_picked(&self, project: &ProjectId) -> Option<&BTreeSet<i64>> {
-        Some(&self.upstream_for(project)?.view.days.slots).filter(|days| !days.is_empty())
+    /// Back to the top of the history, its newest commit kept, as a filter changes.
+    pub(super) fn show_newest_kept(&mut self, _cx: &mut Context<Self>) {
+        self.upstream_scroll
+            .scroll_to_item(0, gpui::ScrollStrategy::Top);
     }
 
-    /// The email of the person whose commits `project`'s history is filtered to, if any.
-    fn picked_email(&self, project: &ProjectId) -> Option<&String> {
-        self.upstream_for(project)?.view.person.as_ref()
-    }
-
-    /// Whose commits landed on the target, with how many on the days picked or all the
-    /// activity's, most first; the one picked stays, however few they have then.
-    fn people_on_days<'a>(
+    /// Whose commits landed on the target, most first, counted on the days picked or all
+    /// the activity's; the one picked stays, however few they have then. Clicking one
+    /// filters the history to what landed theirs.
+    fn render_people(
         &self,
         project: &ProjectId,
-        summary: &'a Overview,
-    ) -> Vec<(&'a Person, usize)> {
-        let days = self.days_picked(project);
-        let who = self.picked_email(project);
+        upstream: &Upstream,
+        window: &gpui::Window,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
+        let summary = upstream.summary.as_ref()?;
+        let (days, who) = (upstream.picked_days(), upstream.view.person.as_ref());
+        if summary.people.is_empty() && who.is_none() {
+            return None;
+        }
         let on_days = |person: &Person| -> usize {
             (person.daily.iter().enumerate())
                 .filter(|(ix, _)| {
@@ -1043,45 +1045,20 @@ impl Detail {
                 .map(|(_, n)| *n as usize)
                 .sum()
         };
-        let mut people: Vec<(&Person, usize)> = (summary.people.iter())
+        let mut people: Vec<_> = (summary.people.iter())
             .map(|person| (person, on_days(person)))
             .filter(|(person, n)| *n > 0 || who == Some(&person.email))
-            .collect();
-        people.sort_by_key(|(_, n)| std::cmp::Reverse(*n));
-        people
-    }
-
-    /// Back to the top of the history, its newest commit kept, as a filter changes.
-    pub(super) fn show_newest_kept(&mut self, _cx: &mut Context<Self>) {
-        self.upstream_scroll
-            .scroll_to_item(0, gpui::ScrollStrategy::Top);
-    }
-
-    /// Whose commits landed on the target, most first, counted on the days picked or all
-    /// the activity's. Clicking one filters the history to what landed theirs.
-    fn render_people(
-        &self,
-        project: &ProjectId,
-        summary: &Overview,
-        window: &gpui::Window,
-        cx: &Context<Self>,
-    ) -> Option<AnyElement> {
-        let who = self.picked_email(project);
-        if summary.people.is_empty() && who.is_none() {
-            return None;
-        }
-        let people = (self.people_on_days(project, summary).into_iter())
             .map(|(p, n)| (p.email.clone(), p.name.clone(), p.email.clone(), n))
             .collect();
-        let counted = match self.days_picked(project) {
+        people.sort_by_key(|(.., n)| std::cmp::Reverse(*n));
+        let counted = match days {
             None => format!("commits · {ACTIVITY_DAYS} days"),
             Some(_) => "commits · days picked".to_owned(),
         };
-        let picked = who.map(String::as_str);
         let project = project.clone();
         Some(self.people_card(
             people,
-            picked,
+            who.map(String::as_str),
             (counted, "No commits landed then"),
             move |this, email, cx| this.filter_landed(&project, email, cx),
             window,
@@ -1336,22 +1313,21 @@ impl Detail {
     fn render_activity(
         &self,
         project: &ProjectId,
-        summary: &Overview,
+        upstream: &Upstream,
         theme: &Theme,
         cx: &Context<Self>,
-    ) -> AnyElement {
-        let none = BTreeSet::new();
-        let picked = self.days_picked(project).unwrap_or(&none);
+    ) -> Option<AnyElement> {
+        let summary = upstream.summary.as_ref()?;
         let (project, cleared) = (project.clone(), project.clone());
-        activity_strip(
+        Some(activity_strip(
             &summary.daily,
             summary.first_day,
-            picked,
+            &upstream.view.days.slots,
             theme,
             cx,
             move |this, gesture, cx| this.day_gesture(&project, gesture, cx),
             move |this, cx| this.clear_days(&cleared, cx),
-        )
+        ))
     }
 
     /// A project's header: its icon, which opens the picker, and its name, over where it is
@@ -1668,6 +1644,91 @@ impl Detail {
                     cx,
                     move |this, ix, theme, window, cx| {
                         let upstream = this.upstream_for(&shown)?;
+                        let solid = this.side_focus.is_focused(window);
+                        // A commit, or one that merge `under` brought in. A click picks it and
+                        // a right-click opens its menu.
+                        let commit_row = |commit: &TargetCommit, under: Option<CommitId>| {
+                            let id = commit.id;
+                            let (merge, merged) = under.map_or((id, None), |m| (m, Some(id)));
+                            let selected = upstream.selected == Some(Picked::Commit(merge))
+                                && upstream.merged_pick == merged;
+                            let on = selected && solid;
+                            // Landed, as everything here has, in purple, as the app marks what
+                            // landed; amber while the workspace doesn't have it yet.
+                            let glyph = match (on, commit.incoming) {
+                                (true, _) => theme.text_inverted,
+                                (false, true) => theme.warn,
+                                (false, false) => theme.purple,
+                            };
+                            // One that landed a pull request by the request, as Lite names it,
+                            // its number, merge commit and ID on hover.
+                            let tip = (commit.review.as_ref()).map(|review| {
+                                let short = id.short();
+                                format!("#{} · {} · {short}", review.number, commit.title)
+                            });
+                            let mark = match commit.review {
+                                Some(_) => Icon::BranchMerge,
+                                None => Icon::CommitFill,
+                            };
+                            // A merge's chevron folds the commits it brought in, by hand; the
+                            // others keep its room, so the titles line up.
+                            let fold = match commit.merge && under.is_none() {
+                                false => div().flex_none().w(dp(14.)).into_any_element(),
+                                true => {
+                                    let project = shown.clone();
+                                    let open = upstream.view.open_merges.contains(&id);
+                                    let ink = match on {
+                                        true => theme.text_inverted,
+                                        false => theme.text_3,
+                                    };
+                                    fold_button(
+                                        ("target-commit-fold", ix),
+                                        Some(open),
+                                        ink,
+                                        cx,
+                                        move |this, _, cx| this.toggle_merge(&project, id, cx),
+                                    )
+                                    .into_any_element()
+                                }
+                            };
+                            let (project, menu_project) = (shown.clone(), shown.clone());
+                            side_row(("target-commit", ix), selected, solid, theme)
+                                // One a merge brought in, as a branch's commits are under it: a
+                                // line down from the merge's chevron.
+                                .when(under.is_some(), |el| el.child(guide(FOLD_MIDDLE, theme)))
+                                .child(fold)
+                                .child(small_icon(mark).text_color(glyph))
+                                .child(
+                                    div()
+                                        .id(("target-commit-title", ix))
+                                        .flex_1()
+                                        .min_w_0()
+                                        .truncate()
+                                        .when(!commit.incoming && !on, |el| {
+                                            el.text_color(theme.text_2)
+                                        })
+                                        .child(SharedString::from(label(commit).to_owned()))
+                                        .when_some(tip, |el, tip| el.tooltip(Tooltip::text(tip))),
+                                )
+                                // Who wrote it, as on the Branches page.
+                                .child(commit_author(
+                                    ("target-commit-author", ix),
+                                    commit,
+                                    on,
+                                    theme,
+                                ))
+                                .on_click(cx.listener(move |this, _, _, cx| {
+                                    this.pick_on_page(&project, Picked::Commit(merge), merged, cx)
+                                }))
+                                .on_mouse_down(
+                                    MouseButton::Right,
+                                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                                        let (project, at) = (&menu_project, event.position);
+                                        this.target_commit_menu(project, merge, merged, at, cx)
+                                    }),
+                                )
+                                .into_any_element()
+                        };
                         Some(match rows.get(ix)? {
                             Row::Heading(heading) => list_heading(heading.clone(), theme),
                             // Under a merge's commits' titles.
@@ -1682,151 +1743,10 @@ impl Detail {
                                 let merge = upstream.commits[*merge_ix].id;
                                 let (merged, _) =
                                     this.store.read(cx).merged.get(&merge)?.as_ref()?;
-                                let commit = merged.get(*merged_ix)?;
-                                let id = commit.id;
-                                let selected = upstream.selected == Some(Picked::Commit(merge))
-                                    && upstream.merged_pick == Some(id);
-                                let solid = this.side_focus.is_focused(window);
-                                let on = selected && solid;
-                                side_row(("merged-commit", ix), selected, solid, theme)
-                                    // As a branch's commits are under it: its glyph and title
-                                    // under the merge's, a line down from the merge's chevron.
-                                    .child(guide(FOLD_MIDDLE, theme))
-                                    .child(div().flex_none().w(dp(14.)))
-                                    .child(small_icon(Icon::CommitFill).text_color(match on {
-                                        true => theme.text_inverted,
-                                        false => theme.purple,
-                                    }))
-                                    .child(
-                                        div()
-                                            .flex_1()
-                                            .min_w_0()
-                                            .truncate()
-                                            .when(!on, |el| el.text_color(theme.text_2))
-                                            .child(SharedString::from(commit.title.clone())),
-                                    )
-                                    .child(commit_author(
-                                        ("merged-commit-author", ix),
-                                        commit,
-                                        on,
-                                        theme,
-                                    ))
-                                    .on_click(cx.listener({
-                                        let project = upstream.project.clone();
-                                        move |this, _, _, cx| {
-                                            let picked = Picked::Commit(merge);
-                                            this.pick_on_page(&project, picked, Some(id), cx)
-                                        }
-                                    }))
-                                    .on_mouse_down(
-                                        MouseButton::Right,
-                                        cx.listener({
-                                            let project = upstream.project.clone();
-                                            move |this, event: &MouseDownEvent, _, cx| {
-                                                let at = event.position;
-                                                this.target_commit_menu(
-                                                    &project,
-                                                    merge,
-                                                    Some(id),
-                                                    at,
-                                                    cx,
-                                                )
-                                            }
-                                        }),
-                                    )
-                                    .into_any_element()
+                                commit_row(merged.get(*merged_ix)?, Some(merge))
                             }
                             Row::Commit(commit_ix) => {
-                                let commit = &upstream.commits[*commit_ix];
-                                let id = commit.id;
-                                let selected = upstream.selected == Some(Picked::Commit(id))
-                                    && upstream.merged_pick.is_none();
-                                let solid = this.side_focus.is_focused(window);
-                                let on = selected && solid;
-                                // Landed, as everything here has, in purple, as the app marks what
-                                // landed; amber while the workspace doesn't have it yet.
-                                let glyph = match (on, commit.incoming) {
-                                    (true, _) => theme.text_inverted,
-                                    (false, true) => theme.warn,
-                                    (false, false) => theme.purple,
-                                };
-                                // One that landed a pull request by the request, as Lite
-                                // names it, its number, merge commit and ID on hover.
-                                let tip = (commit.review.as_ref()).map(|review| {
-                                    let short = id.short();
-                                    format!("#{} · {} · {short}", review.number, commit.title)
-                                });
-                                let mark = match commit.review {
-                                    Some(_) => Icon::BranchMerge,
-                                    None => Icon::CommitFill,
-                                };
-                                // A merge's chevron folds the commits it brought in, by hand;
-                                // the others keep its room, so the titles line up.
-                                let fold = match commit.merge {
-                                    false => div().flex_none().w(dp(14.)).into_any_element(),
-                                    true => {
-                                        let project = upstream.project.clone();
-                                        let open = upstream.view.open_merges.contains(&id);
-                                        let ink = match on {
-                                            true => theme.text_inverted,
-                                            false => theme.text_3,
-                                        };
-                                        fold_button(
-                                            ("target-commit-fold", ix),
-                                            Some(open),
-                                            ink,
-                                            cx,
-                                            move |this, _, cx| this.toggle_merge(&project, id, cx),
-                                        )
-                                        .into_any_element()
-                                    }
-                                };
-                                side_row(("target-commit", ix), selected, solid, theme)
-                                    .child(fold)
-                                    .child(small_icon(mark).text_color(glyph))
-                                    .child(
-                                        div()
-                                            .id(("target-commit-title", ix))
-                                            .flex_1()
-                                            .min_w_0()
-                                            .truncate()
-                                            .when(!commit.incoming && !on, |el| {
-                                                el.text_color(theme.text_2)
-                                            })
-                                            .child(SharedString::from(label(commit).to_owned()))
-                                            .when_some(tip, |el, tip| {
-                                                el.tooltip(Tooltip::text(tip))
-                                            }),
-                                    )
-                                    // Who wrote it, as on the Branches page.
-                                    .child(commit_author(
-                                        ("target-commit-author", ix),
-                                        commit,
-                                        on,
-                                        theme,
-                                    ))
-                                    .on_click(cx.listener({
-                                        let project = upstream.project.clone();
-                                        move |this, _, _, cx| {
-                                            this.pick_on_page(
-                                                &project,
-                                                Picked::Commit(id),
-                                                None,
-                                                cx,
-                                            )
-                                        }
-                                    }))
-                                    .on_mouse_down(
-                                        MouseButton::Right,
-                                        cx.listener({
-                                            let project = upstream.project.clone();
-                                            move |this, event: &MouseDownEvent, _, cx| {
-                                                let at = event.position;
-                                                this.target_commit_menu(&project, id, None, at, cx)
-                                            }
-                                        }),
-                                    )
-                                    .into_any_element()
+                                commit_row(&upstream.commits[*commit_ix], None)
                             }
                             // A page at a time, on a click, saying so while it reads.
                             Row::Older if upstream.paging.get() == Paging::Loading => {
@@ -1836,7 +1756,7 @@ impl Detail {
                                     .into_any_element()
                             }
                             Row::Older => {
-                                let project = upstream.project.clone();
+                                let project = shown.clone();
                                 list_row("target-older", false, theme)
                                     .text_color(theme.text_2)
                                     .child("Show older")
@@ -1848,7 +1768,7 @@ impl Detail {
                             }
                             // Drawn once it scrolls into view, which reads the next page.
                             Row::More => {
-                                let project = upstream.project.clone();
+                                let project = shown.clone();
                                 if upstream.paging.get() == Paging::Idle {
                                     upstream.paging.set(Paging::Loading);
                                     let project = project.clone();
@@ -1877,13 +1797,12 @@ impl Detail {
                         })
                     },
                 );
-                let summary = upstream.summary.as_ref();
                 // The activity over the history, which scrolls between it and the people.
                 self.list_column(Self::step_upstream, Some(Self::fold_upstream), cx)
                     .child(self.filter_field(&self.target_filter, window, cx))
-                    .children(summary.map(|s| self.render_activity(project, s, theme, cx)))
+                    .children(self.render_activity(project, upstream, theme, cx))
                     .child(list.flex_1().min_h(dp(LIST_MIN_HEIGHT)))
-                    .children(summary.and_then(|s| self.render_people(project, s, window, cx)))
+                    .children(self.render_people(project, upstream, window, cx))
                     .into_any_element()
             }
         };
@@ -1979,49 +1898,26 @@ fn activity_strip(
             let day = first_day + ix as i64;
             let recent = today - day < 7;
             let inside = picked.is_empty() || picked.contains(&day);
-            let (press, drag) = (gesture.clone(), gesture.clone());
-            div()
+            let column = div()
                 .id(("activity-day", ix))
                 .flex_1()
                 .h_full()
                 .flex()
                 .items_end()
-                .tooltip(Tooltip::text(crate::ui::local_weekday(noon(day))))
-                .on_mouse_down(
-                    gpui::MouseButton::Left,
-                    cx.listener(move |this, event: &gpui::MouseDownEvent, _, cx| {
-                        let (shift, toggle) = (event.modifiers.shift, event.modifiers.secondary());
-                        press(
-                            this,
-                            SlotGesture::Press {
-                                slot: day,
-                                shift,
-                                toggle,
-                            },
-                            cx,
-                        )
+                .tooltip(Tooltip::text(crate::ui::local_weekday(noon(day))));
+            picks_slot(column, day, gesture.clone(), cx).child(
+                div()
+                    .w_full()
+                    .h(dp((n as f32 / most as f32 * HEIGHT).max(2.)))
+                    .rounded_t(fixed(1.))
+                    .bg(match (n, !picked.is_empty(), inside, recent) {
+                        (_, true, true, _) => theme.pop,
+                        (0, ..) => theme.border_2,
+                        (_, true, false, _) => theme.pop.opacity(0.2),
+                        (_, false, _, true) => theme.pop,
+                        (_, false, _, false) => theme.pop.opacity(0.4),
                     }),
-                )
-                .on_mouse_move(
-                    cx.listener(move |this, event: &gpui::MouseMoveEvent, _, cx| {
-                        if event.pressed_button == Some(gpui::MouseButton::Left) {
-                            drag(this, SlotGesture::Drag(day), cx)
-                        }
-                    }),
-                )
-                .child(
-                    div()
-                        .w_full()
-                        .h(dp((n as f32 / most as f32 * HEIGHT).max(2.)))
-                        .rounded_t(fixed(1.))
-                        .bg(match (n, !picked.is_empty(), inside, recent) {
-                            (_, true, true, _) => theme.pop,
-                            (0, ..) => theme.border_2,
-                            (_, true, false, _) => theme.pop.opacity(0.2),
-                            (_, false, _, true) => theme.pop,
-                            (_, false, _, false) => theme.pop.opacity(0.4),
-                        }),
-                )
+            )
         })
         .collect();
     let said = match days_said(picked) {
@@ -2037,9 +1933,7 @@ fn activity_strip(
                     theme,
                 ))
                 .child(
-                    button("activity-clear", "Clear")
-                        .small()
-                        .style(ButtonStyle::Ghost)
+                    clear_button("activity-clear")
                         .on_click(cx.listener(move |this, _, _, cx| clear(this, cx))),
                 )
                 .into_any_element()
@@ -2066,21 +1960,15 @@ fn activity_strip(
                 .child(section_label("Activity", theme).flex_grow(1.))
                 .child(said),
         )
-        .child({
-            let release = move |this: &mut Detail,
-                                _: &gpui::MouseUpEvent,
-                                _: &mut gpui::Window,
-                                cx: &mut Context<Detail>| {
-                gesture(this, SlotGesture::Release, cx)
-            };
+        .child(ends_drag(
             h_flex()
                 .h(dp(HEIGHT))
                 .gap(dp(2.))
                 .items_end()
-                .on_mouse_up(gpui::MouseButton::Left, cx.listener(release.clone()))
-                .on_mouse_up_out(gpui::MouseButton::Left, cx.listener(release))
-                .children(bars)
-        })
+                .children(bars),
+            gesture,
+            cx,
+        ))
         .child(
             h_flex()
                 .text_size(dp(11.))
