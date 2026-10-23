@@ -16,7 +16,7 @@ use super::panes::{
     overview_heading, overview_tiles, overview_title, page_title, title_text,
 };
 use super::slots::SlotPick;
-use crate::backend::{self, Branch, Commit, CommitId, Workspace, upstream};
+use crate::backend::{self, Branch, Commit, CommitId, Workspace};
 use crate::state::{ProjectId, QUARTER, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::review::state_glyph;
@@ -35,11 +35,11 @@ const BARS: usize = 48;
 const HOT_SHOWN: usize = 3;
 /// How many files the commits not seen yet changed are listed until "N more".
 const UNSEEN_FILES_SHOWN: usize = 3;
-/// How many of today's commits and moves are listed until "N more".
-const TODAY_SHOWN: usize = 5;
-/// How wide Today's times are, room for "59m" or "11mo" and no more, so they sit close to
+/// How many of the commits and moves are listed until "N more".
+const COMMITS_SHOWN: usize = 5;
+/// How wide the commits' times are, room for "59m" or "11mo" and no more, so they sit close to
 /// the branch.
-const TODAY_TIME_WIDTH: f32 = 28.;
+const COMMITS_TIME_WIDTH: f32 = 28.;
 /// A checkout written to this lately is being worked in, as the navigator's "active" says.
 const WRITING_WITHIN: i64 = 120;
 
@@ -48,7 +48,7 @@ const WRITING_WITHIN: i64 = 120;
 pub(super) struct Now {
     /// The project, and the linked worktree or `None` for the main checkout, it's read for.
     checkout: Option<(ProjectId, Option<Arc<str>>)>,
-    /// What moved a linked worktree's `HEAD` today other than its commits, newest first, and
+    /// What moved a linked worktree's `HEAD` lately other than its commits, newest first, and
     /// the branch and commit it was read at, as the reflog changes only when they do.
     events: Vec<(i64, String)>,
     events_at: Option<(Option<String>, Option<CommitId>)>,
@@ -58,14 +58,14 @@ pub(super) struct Now {
     /// The commits of the checkout's branches when it last loaded, to tell one an agent just
     /// made from those already there.
     known: Option<HashSet<CommitId>>,
-    /// The hot file picked, whose commits are all Today lists.
+    /// The hot file picked, whose commits are all Commits lists.
     file: Option<Arc<str>>,
     /// The files each commit changes, read for those the overview can list as the checkout
     /// loads, and the commits being read. Commits don't change, so what's read stays.
     paths: HashMap<CommitId, Vec<String>>,
     reading: HashSet<CommitId>,
     /// The quarters of an hour picked off the activity, by when they begin over `QUARTER`,
-    /// which the rest of the overview is narrowed to; none for today.
+    /// which the rest of the overview is narrowed to; none for all it shows.
     span: SlotPick,
     /// The sections listing all they have rather than their first few, by their fold's id.
     unfolded: HashSet<SharedString>,
@@ -170,7 +170,7 @@ impl Detail {
     }
 
     /// Read what the selected checkout's overview needs beyond the workspace: a linked
-    /// worktree's moves today, and the lines the commits not seen yet change.
+    /// worktree's moves lately, and the lines the commits not seen yet change.
     pub(super) fn load_now(&mut self, cx: &mut Context<Self>) {
         let Some(checkout) = self.selected_checkout(cx) else {
             return;
@@ -211,7 +211,7 @@ impl Detail {
         });
         if let Some(name) = checkout.1.clone().filter(|_| head != self.now.events_at) {
             self.now.events_at = head;
-            let since = upstream::day_start(upstream::day_of(crate::ui::now()));
+            let since = window_start(crate::ui::now());
             let (read_from, read_for) = (path.clone(), checkout.clone());
             let events = backend::run(move || backend::worktrees::events(&read_from, &name, since));
             cx.spawn(async move |this, cx| {
@@ -363,9 +363,10 @@ impl Detail {
         self.page_header(main, target, None, None, theme, cx)
     }
 
-    /// The overview of the checkout of `project`, linked worktree `worktree` or the main one:
-    /// whether it's being worked in, its changes and the commits not seen yet, how busy it's
-    /// been, the files written most, who committed and what happened today.
+    /// The overview of the checkout of `project`, linked worktree `worktree` or the main one,
+    /// in two parts: what needs you (whether it's being worked in and the commits not seen
+    /// yet), then what happened over the last 12 hours or the quarters picked off its
+    /// activity (how busy it's been, the files committed most and the commits).
     pub(super) fn render_now(
         &self,
         project: &ProjectId,
@@ -379,23 +380,18 @@ impl Detail {
         };
         let name = worktree.map(|w| &**w);
         let now = crate::ui::now();
-        let today = upstream::day_start(upstream::day_of(now));
         let mut commits = checkout_commits(ws, name);
         commits.sort_by_key(|commit| std::cmp::Reverse(commit.time));
-        // Everything below the activity is of the quarters picked off it, or of today.
+        // Everything under the activity is of the 12 hours it covers, or the quarters picked.
         let span = &self.now.span;
         let range = quarters_said(&span.slots, now);
-        let inside = |at: i64| match range {
-            Some(_) => span.keeps(at.div_euclid(QUARTER)),
-            None => at >= today,
-        };
+        let start = window_start(now);
+        let inside = |at: i64| at >= start && span.keeps(at.div_euclid(QUARTER));
         let scoped: Vec<&Commit> = (commits.iter().copied())
             .filter(|commit| inside(commit.time))
             .collect();
-        let files = ws.uncommitted_in(name).unwrap_or_default();
         let activity = store.activity.get(&(project.clone(), worktree.cloned()));
-        let written = files
-            .iter()
+        let written = (ws.uncommitted_in(name).unwrap_or_default().iter())
             .filter_map(|file| file.modified.map(|ms| ms / 1000))
             .max();
         let last_write = activity.and_then(|a| a.last).max(written);
@@ -405,22 +401,21 @@ impl Detail {
             .filter(|at| inside(*at))
             .map(|at| at.div_euclid(QUARTER))
             .collect();
+        // Once every commit's files are read, so the count doesn't climb as they come in.
+        let changed: Option<HashSet<&String>> = (scoped.iter())
+            .map(|commit| self.now.paths.get(&commit.id))
+            .collect::<Option<Vec<_>>>()
+            .map(|paths| paths.into_iter().flatten().collect());
         let tiles = [
-            match range {
-                Some(_) => ("Commits", grouped(scoped.len()), "Commits made here then"),
-                None => (
-                    "Commits today",
-                    grouped(scoped.len()),
-                    "Commits made here since midnight",
-                ),
-            },
             (
-                "Uncommitted",
-                match files.len() {
-                    0 => "None".to_owned(),
-                    n => plural(n, "file"),
-                },
-                "Files changed here and not committed yet",
+                "Commits",
+                grouped(scoped.len()),
+                "Commits made here in the time the activity shows or the quarters picked",
+            ),
+            (
+                "Files changed",
+                changed.map_or("–".to_owned(), |files| grouped(files.len())),
+                "Files those commits changed",
             ),
             (
                 "Busy for",
@@ -444,15 +439,60 @@ impl Detail {
                     .px(dp(14.))
                     .py(dp(16.))
                     .gap(dp(6.))
-                    .child(overview_title("Now", String::new(), theme))
-                    .child(self.now_status(&commits, last_write, now, theme))
-                    .children(self.now_unseen(project, name, theme, cx))
-                    .child(overview_tiles(tiles, theme))
+                    // What needs you: what's going on now, and the commits to catch up on.
+                    .child(overview_title(
+                        "New",
+                        "since you last looked".to_owned(),
+                        theme,
+                    ))
+                    .child(self.now_catch_up(
+                        self.now_status(&commits, last_write, now, theme),
+                        project,
+                        name,
+                        theme,
+                        cx,
+                    ))
+                    // What happened, over the time the activity shows or the quarters picked.
+                    .child(
+                        overview_title(
+                            "Activity",
+                            range.clone().unwrap_or("last 12 hours".to_owned()),
+                            theme,
+                        )
+                        .mt(dp(18.)),
+                    )
                     .child(self.now_activity(activity, &commits, now, theme, cx))
-                    .children(self.now_hot_files(&scoped, range.as_deref(), theme, cx))
-                    .children(self.now_today(project, &scoped, range.as_deref(), theme, cx)),
+                    .child(overview_tiles(tiles, theme).mt(dp(6.)))
+                    .children(self.now_hot_files(&scoped, theme, cx))
+                    .children(self.now_commits(project, &scoped, now, theme, cx)),
             )
             .into_any_element()
+    }
+
+    /// What needs you, in one card: `status`, whether files are being written or how long
+    /// it's been quiet, then the commits not opened yet, a part for each branch they're on.
+    fn now_catch_up(
+        &self,
+        status: Div,
+        project: &ProjectId,
+        worktree: Option<&str>,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Div {
+        let groups = self.unseen_by_branch(project, worktree, cx);
+        let parts = (groups.iter().enumerate()).map(|(ix, (branch, commits))| {
+            self.unseen_part(ix, project, branch, commits, theme, cx)
+        });
+        v_flex()
+            .mx(dp(6.))
+            .rounded(dp(8.))
+            .border_1()
+            .border_color(theme.border_3)
+            .child(status.when(groups.is_empty(), |el| {
+                el.child(small_icon(Icon::Tick).flex_none().text_color(theme.text_3))
+                    .child(faint("All caught up", theme).flex_none())
+            }))
+            .children(parts)
     }
 
     /// Whether the checkout is being written to, and since when it's been quiet.
@@ -483,41 +523,26 @@ impl Detail {
             (None, None) => ("Nothing committed here yet".to_owned(), false),
         };
         h_flex()
-            .mx(dp(6.))
-            .mb(dp(4.))
             .px(dp(12.))
             .py(dp(8.))
             .gap(dp(8.))
-            .rounded(dp(8.))
-            .border_1()
-            .border_color(theme.border_3)
-            .child(div().size(dp(7.)).rounded_full().bg(match live {
-                true => theme.pop,
-                false => theme.text_3,
-            }))
+            .child(
+                div()
+                    .flex_none()
+                    .size(dp(7.))
+                    .rounded_full()
+                    .bg(match live {
+                        true => theme.pop,
+                        false => theme.text_3,
+                    }),
+            )
             .child(div().flex_1().min_w_0().truncate().child(said))
-    }
-
-    /// The commits made here that haven't been opened yet, a card for each branch they're
-    /// on, the newest first.
-    fn now_unseen(
-        &self,
-        project: &ProjectId,
-        worktree: Option<&str>,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> Option<Div> {
-        let groups = self.unseen_by_branch(project, worktree, cx);
-        let cards = (groups.iter().enumerate()).map(|(ix, (branch, commits))| {
-            self.unseen_card(ix, project, branch, commits, theme, cx)
-        });
-        (!groups.is_empty()).then(|| v_flex().gap(dp(6.)).mb(dp(4.)).children(cards))
     }
 
     /// A branch's `commits` not opened yet: the branch, how many and by whom, the lines they
     /// change and their files, a click on one opening them at it; and Open, which shows them
     /// together, or Mark as read, for those not worth a look.
-    fn unseen_card(
+    fn unseen_part(
         &self,
         ix: usize,
         project: &ProjectId,
@@ -582,11 +607,9 @@ impl Detail {
         };
         v_flex()
             .id(("now-unseen", ix))
-            .mx(dp(6.))
             .py(dp(4.))
-            .rounded(dp(8.))
-            .border_1()
-            .border_color(theme.pop.opacity(0.6))
+            .border_t_1()
+            .border_color(theme.border_3)
             .child(
                 h_flex()
                     .px(dp(8.))
@@ -627,12 +650,14 @@ impl Detail {
                         el.child(
                             div()
                                 .flex_none()
+                                .text_size(dp(11.))
                                 .text_color(theme.diff_added)
                                 .child(format!("+{added}")),
                         )
                         .child(
                             div()
                                 .flex_none()
+                                .text_size(dp(11.))
                                 .text_color(theme.diff_removed)
                                 .child(format!("−{removed}")),
                         )
@@ -682,16 +707,9 @@ impl Detail {
             .update(cx, |store, cx| store.review(project, ids, cx))
     }
 
-    /// The files most of `commits` changed, today's or those of the quarters picked, `range`,
-    /// once read. Clicking one lists only the commits that changed it under Today, as an area
-    /// filters what shipped; Clear lets go of it.
-    fn now_hot_files(
-        &self,
-        commits: &[&Commit],
-        range: Option<&str>,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> Option<Div> {
+    /// The files most of `commits` changed, once read. Clicking one lists only the commits
+    /// that changed it under Commits, as an area filters what shipped; Clear lets go of it.
+    fn now_hot_files(&self, commits: &[&Commit], theme: &Theme, cx: &Context<Self>) -> Option<Div> {
         let mut counts: HashMap<&str, usize> = HashMap::new();
         for paths in commits.iter().filter_map(|c| self.now.paths.get(&c.id)) {
             for path in paths {
@@ -714,11 +732,7 @@ impl Detail {
                 .style(ButtonStyle::Ghost)
                 .on_click(cx.listener(|this, _, _, cx| this.pick_hot_file(None, cx)))
                 .into_any_element(),
-            None => faint(
-                range.map_or("commits today".to_owned(), |r| format!("commits · {r}")),
-                theme,
-            )
-            .into_any_element(),
+            None => faint("commits", theme).into_any_element(),
         };
         let shown = self.now_shown("now-hot-more", HOT_SHOWN);
         let listed = |ix: usize, path: &Arc<str>| ix < shown || picked == Some(path);
@@ -769,8 +783,8 @@ impl Detail {
         cx.notify();
     }
 
-    /// Read which files `checkout`'s commits change, those of today and of the hours the
-    /// activity can pick, unless read already or being read, for Hot files and its filter.
+    /// Read which files `checkout`'s commits change, those of the hours the activity shows,
+    /// unless read already or being read, for Hot files and its filter.
     fn read_commit_paths(
         &mut self,
         checkout: &(ProjectId, Option<Arc<str>>),
@@ -781,7 +795,7 @@ impl Detail {
             return;
         };
         let now = crate::ui::now();
-        let since = upstream::day_start(upstream::day_of(now)).min(now - QUARTER * BARS as i64);
+        let since = window_start(now);
         let known =
             |id: &CommitId| self.now.paths.contains_key(id) || self.now.reading.contains(id);
         let unread: Vec<CommitId> = (checkout_commits(ws, checkout.1.as_deref()).into_iter())
@@ -813,13 +827,13 @@ impl Detail {
         .detach();
     }
 
-    /// Today's commits, or those of the quarters picked, `range`, and, in a linked worktree,
-    /// what else moved its `HEAD` then, newest first. A commit opens on a click.
-    fn now_today(
+    /// `commits`, and, in a linked worktree, what else moved its `HEAD` then, newest first,
+    /// with a hot file picked only those that changed it. A commit opens on a click.
+    fn now_commits(
         &self,
         project: &ProjectId,
-        todays: &[&Commit],
-        range: Option<&str>,
+        commits: &[&Commit],
+        now: i64,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<Div> {
@@ -836,19 +850,19 @@ impl Detail {
                     .is_some_and(|paths| paths.iter().any(|path| **path == **file))
             })
         };
-        let commits: Vec<&Commit> = todays.iter().filter(changed).copied().collect();
-        let span = &self.now.span;
+        let listed: Vec<&Commit> = commits.iter().filter(changed).copied().collect();
+        let (span, start) = (&self.now.span, window_start(now));
         let events = (self.now.events.iter())
-            .filter(|(at, _)| file.is_none() && span.keeps(at.div_euclid(QUARTER)));
-        let mut items: Vec<(i64, Item)> = (commits.iter().map(|c| (c.time, Item::Commit(c))))
+            .filter(|(at, _)| file.is_none() && *at >= start && span.keeps(at.div_euclid(QUARTER)));
+        let mut items: Vec<(i64, Item)> = (listed.iter().map(|c| (c.time, Item::Commit(c))))
             .chain(events.map(|(at, said)| (*at, Item::Moved(said))))
             .collect();
         if items.is_empty() && file.is_none() {
             return None;
         }
         items.sort_by_key(|(at, _)| std::cmp::Reverse(*at));
-        let hidden = items.len().saturating_sub(TODAY_SHOWN);
-        let shown = self.now_shown("now-today-more", TODAY_SHOWN);
+        let hidden = items.len().saturating_sub(COMMITS_SHOWN);
+        let shown = self.now_shown("now-commits-more", COMMITS_SHOWN);
         let store = self.store.read(cx);
         let ws = store.workspace(project);
         let rows = (items.into_iter().take(shown).enumerate()).map(|(ix, (at, item))| {
@@ -880,7 +894,11 @@ impl Detail {
                                 .child(commit_title(&commit.title)),
                         )
                         .children(branch)
-                        .child(overview_column(relative_time(at), TODAY_TIME_WIDTH, theme))
+                        .child(overview_column(
+                            relative_time(at),
+                            COMMITS_TIME_WIDTH,
+                            theme,
+                        ))
                         .on_mouse_down(MouseButton::Left, keep_focus_on_press)
                         .on_click(cx.listener(move |this, _, _, cx| {
                             let at = at_commit.clone();
@@ -892,34 +910,33 @@ impl Detail {
                     .text_color(theme.text_2)
                     .child(small_icon(Icon::Branch).text_color(theme.text_3))
                     .child(div().flex_1().min_w_0().truncate().child(said.to_owned()))
-                    .child(overview_column(relative_time(at), TODAY_TIME_WIDTH, theme)),
+                    .child(overview_column(
+                        relative_time(at),
+                        COMMITS_TIME_WIDTH,
+                        theme,
+                    )),
             }
         });
-        let reading = file.is_some() && todays.iter().any(|c| !self.now.paths.contains_key(&c.id));
+        let reading = file.is_some() && commits.iter().any(|c| !self.now.paths.contains_key(&c.id));
         let detail = match file {
             Some(file) => {
                 let name = file.rsplit('/').next().unwrap_or(file);
-                format!("{} · changed {name}", plural(commits.len(), "commit"))
+                format!("{} · changed {name}", plural(listed.len(), "commit"))
             }
-            None => plural(todays.len(), "commit"),
-        };
-        let (title, detail) = match range {
-            Some(range) => ("Commits", format!("{detail} · {range}")),
-            None => ("Today", detail),
+            None => plural(commits.len(), "commit"),
         };
         Some(
             v_flex()
-                .child(overview_heading(title, faint(detail, theme), theme))
+                .child(overview_heading("Commits", faint(detail, theme), theme))
                 .children(rows)
-                .when(commits.is_empty() && file.is_some(), |el| {
-                    let said = match (reading, range) {
-                        (true, _) => "Reading which commits changed it…",
-                        (false, Some(_)) => "No commit then changed it",
-                        (false, None) => "No commit today changed it",
+                .when(listed.is_empty() && file.is_some(), |el| {
+                    let said = match reading {
+                        true => "Reading which commits changed it…",
+                        false => "No commit then changed it",
                     };
                     el.child(faint(said, theme).px(dp(14.)).py(dp(4.)))
                 })
-                .children(self.now_fold("now-today-more", hidden, theme, cx)),
+                .children(self.now_fold("now-commits-more", hidden, theme, cx)),
         )
     }
 
@@ -955,6 +972,12 @@ impl Detail {
             cx.notify();
         })))
     }
+}
+
+/// When the first of the quarters of an hour the activity shows, up to the one `now` is in,
+/// begins: what the overview counts when none is picked.
+fn window_start(now: i64) -> i64 {
+    now - now.rem_euclid(QUARTER) - QUARTER * (BARS as i64 - 1)
 }
 
 /// The newest and oldest of `commits` when they're one run of a lane, as one diff shows them.

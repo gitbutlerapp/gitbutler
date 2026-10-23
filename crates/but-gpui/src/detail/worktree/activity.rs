@@ -9,7 +9,6 @@ use gpui::{Context, Div, MouseButton, MouseDownEvent, MouseMoveEvent, div, prelu
 
 use crate::backend::Commit;
 use crate::detail::Detail;
-use crate::detail::panes::overview_heading;
 use crate::detail::slots::{SlotGesture, SlotPick};
 use crate::state::{Activity, QUARTER};
 use crate::theme::Theme;
@@ -90,18 +89,15 @@ impl Detail {
             plural(written as usize, "file"),
             plural(landed, "commit")
         );
-        let detail = match quarters_said(&span.slots, now) {
-            Some(said) => h_flex()
-                .gap(dp(6.))
-                .child(faint(format!("{said}: {counts}"), theme))
-                .child(
-                    button("now-quarters-clear", "Clear")
-                        .small()
-                        .style(ButtonStyle::Ghost)
-                        .on_click(cx.listener(|this, _, _, cx| this.clear_quarters(cx))),
-                ),
+        let detail = match picked {
+            true => h_flex().gap(dp(6.)).child(faint(counts, theme)).child(
+                button("now-quarters-clear", "Clear")
+                    .small()
+                    .style(ButtonStyle::Ghost)
+                    .on_click(cx.listener(|this, _, _, cx| this.clear_quarters(cx))),
+            ),
             // What the bars and the dots are, in their colours.
-            None => h_flex()
+            false => h_flex()
                 .gap(dp(6.))
                 .child(
                     div()
@@ -114,10 +110,7 @@ impl Detail {
                     theme,
                 ))
                 .child(div().ml(dp(4.)).size(dp(6.)).rounded_full().bg(theme.blue))
-                .child(faint(
-                    format!("{} · last 12 hours", plural(landed, "commit")),
-                    theme,
-                )),
+                .child(faint(plural(landed, "commit"), theme)),
         };
         let columns = (0..QUARTERS).map(|ix| {
             let quarter = first + ix as i64;
@@ -217,7 +210,8 @@ impl Detail {
             this.quarter_gesture(SlotGesture::Release, cx)
         };
         v_flex()
-            .child(overview_heading("Activity", detail, theme).h(dp(28.)))
+            // Under the part's title, which says when: what the bars and dots count then.
+            .child(h_flex().h(dp(24.)).px(dp(14.)).justify_end().child(detail))
             .child(
                 v_flex()
                     .px(dp(14.))
