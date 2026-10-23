@@ -106,6 +106,13 @@ impl Trees {
     }
 }
 
+/// Whether `path` is a directory, not a symlink to one, that is known to have nothing in it. One
+/// that can't be listed isn't.
+fn is_empty_dir(path: &std::path::Path) -> bool {
+    std::fs::symlink_metadata(path).is_ok_and(|md| md.is_dir())
+        && std::fs::read_dir(path).is_ok_and(|mut entries| entries.next().is_none())
+}
+
 #[cfg(all(test, unix))]
 mod tests {
     use gix::object::tree::EntryKind;

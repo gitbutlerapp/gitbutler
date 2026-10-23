@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use bstr::{BStr, BString, ByteSlice as _};
 
 use super::{
-    Trees,
+    Trees, is_empty_dir,
     plan::{Content, Plan},
     transaction::Placed,
 };
@@ -247,7 +247,7 @@ impl<'a> Judge<'a> {
         }
         let path = self.path(rela_path)?;
         let (judged, observed) = match self.metadata(rela_path)? {
-            Some(md) if md.is_dir() && !is_empty_dir(&path)? => return Ok(None),
+            Some(md) if md.is_dir() && !is_empty_dir(&path) => return Ok(None),
             // Nothing to judge in it, but what appears in it later shows in its stat.
             Some(md) if md.is_dir() => (
                 Vec::new(),
@@ -475,10 +475,6 @@ fn type_or_mode_changed(
             .mode
             .change_to_match_fs(md, fs.symlink, fs.executable_bit)
             .is_some()
-}
-
-fn is_empty_dir(path: &std::path::Path) -> anyhow::Result<bool> {
-    Ok(std::fs::read_dir(path)?.next().is_none())
 }
 
 /// Refuse with `message` and the sorted `paths`, unless there are none.

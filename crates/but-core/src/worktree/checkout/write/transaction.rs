@@ -13,6 +13,7 @@ use anyhow::Context as _;
 use bstr::{BStr, BString};
 
 use super::{
+    is_empty_dir,
     plan::Plan,
     protect::{self, Clearance, Reason},
 };
@@ -97,7 +98,10 @@ pub(super) fn commit(
     protect::still_as_checked(workdir, clearances)?;
     let mut journal = Journal::new(workdir);
     match apply(&mut journal, workdir, &staged, clearances) {
-        Ok(placed) => Ok(placed),
+        Ok(placed) => {
+            journal.complete();
+            Ok(placed)
+        }
         Err(err) => Err(journal.undo(staged, err)),
     }
 }
@@ -141,6 +145,8 @@ struct Journal {
     /// Where objects that can't be moved into the staging directory, as they're on another
     /// filesystem, are moved aside instead, by the directory in the worktree they're in.
     asides_elsewhere: BTreeMap<PathBuf, tempfile::TempDir>,
+    /// Empty directories renamed in place, see [`Journal::sideline()`].
+    sidelined: Vec<PathBuf>,
 }
 
 enum Step {
@@ -172,6 +178,7 @@ impl Journal {
             workdir: workdir.to_owned(),
             steps: Vec::new(),
             asides_elsewhere: BTreeMap::new(),
+            sidelined: Vec::new(),
         }
     }
 
@@ -204,12 +211,43 @@ impl Journal {
         let place = self.steps.len().to_string();
         std::fs::create_dir_all(aside)?;
         let to = aside.join(&place);
-        match std::fs::rename(from, &to) {
+        let moved = match std::fs::rename(from, &to) {
             Err(err) if err.kind() == std::io::ErrorKind::CrossesDevices => {
                 let to = self.aside_on_the_filesystem_of(from)?.join(place);
                 std::fs::rename(from, &to).map(|()| to)
             }
             moved => moved.map(|()| to),
+        };
+        match moved {
+            Err(err)
+                if err.kind() == std::io::ErrorKind::PermissionDenied && is_empty_dir(from) =>
+            {
+                self.sideline(from)
+            }
+            moved => moved,
+        }
+    }
+
+    /// Rename the empty directory `from` to a private name in its own directory, and return it.
+    /// Moving a directory into another one needs write access to it, and renaming it in place
+    /// doesn't, so an empty read-only directory can go, like Git removes it. It's removed once the
+    /// commit succeeded.
+    fn sideline(&mut self, from: &Path) -> std::io::Result<PathBuf> {
+        let mut renamed = private_builder()
+            .make_in(parent_of(from), |path| rename_no_replace(from, path))?
+            .into_temp_path();
+        renamed.disable_cleanup(true);
+        self.sidelined.push(renamed.to_path_buf());
+        Ok(renamed.to_path_buf())
+    }
+
+    /// Remove the directories that were renamed in place, now that the commit succeeded. The other
+    /// objects moved aside go with the directories they were moved into.
+    fn complete(self) {
+        for dir in self.sidelined {
+            if let Err(err) = std::fs::remove_dir(&dir) {
+                tracing::warn!(?err, ?dir, "could not remove a directory checkout replaced");
+            }
         }
     }
 
@@ -364,7 +402,7 @@ impl Journal {
         for dir in path.ancestors().skip(1).take_while(|dir| *dir != workdir) {
             // A missing one was emptied by another deletion, and moved aside with what it left
             // empty above it.
-            if !is_empty_dir(dir)? || self.move_aside(dir, aside).is_err() {
+            if !is_empty_dir(dir) || self.move_aside(dir, aside).is_err() {
                 break;
             }
         }
@@ -542,16 +580,6 @@ fn in_worktree(workdir: &Path, path: &Path) -> std::io::Result<()> {
         Leading::Missing | Leading::Obstructed(_) => Err(std::io::Error::other(format!(
             "the directories leading to {path:?} changed"
         ))),
-    }
-}
-
-/// Whether `path` is a directory, not a symlink to one, with nothing in it.
-fn is_empty_dir(path: &Path) -> std::io::Result<bool> {
-    match std::fs::symlink_metadata(path) {
-        Ok(md) if md.is_dir() => Ok(std::fs::read_dir(path)?.next().is_none()),
-        Ok(_) => Ok(false),
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(false),
-        Err(err) => Err(err),
     }
 }
 

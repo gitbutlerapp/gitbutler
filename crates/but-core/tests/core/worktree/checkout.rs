@@ -3110,6 +3110,151 @@ fn checkout_leaves_an_emptied_directory_it_cannot_remove_like_git() -> anyhow::R
     Ok(())
 }
 
+/// A repository where the target replaces the directory `p` with a file, and `p` is now an empty
+/// directory with `mode`, or `None` if directory permissions don't apply, as for root.
+#[cfg(unix)]
+fn repo_with_an_empty_directory_the_target_replaces(
+    mode: u32,
+    more_target_files: &[(&str, Option<&str>)],
+) -> anyhow::Result<
+    Option<(
+        gix::Repository,
+        but_testsupport::gix_testtools::tempfile::TempDir,
+        gix::ObjectId,
+    )>,
+> {
+    use std::os::unix::fs::PermissionsExt;
+    let (repo, tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let workdir = repo.workdir().expect("non-bare").to_owned();
+    commit_in_worktree(&repo, &[("p/x", "x\n")])?;
+    let mut files = vec![("p/x", None), ("p", Some("file\n"))];
+    files.extend_from_slice(more_target_files);
+    let new_commit = commit_files(&repo, "replace p with a file", &files)?;
+    std::fs::remove_file(workdir.join("p/x"))?;
+    std::fs::set_permissions(workdir.join("p"), std::fs::Permissions::from_mode(mode))?;
+    if std::fs::metadata(workdir.join("p"))?
+        .permissions()
+        .readonly()
+        && std::fs::write(workdir.join("p/probe"), "").is_ok()
+    {
+        // Directory permissions don't apply to root.
+        return Ok(None);
+    }
+    Ok(Some((repo, tmp, new_commit)))
+}
+
+#[test]
+#[cfg(unix)]
+fn checkout_replaces_an_empty_read_only_directory_like_git() -> anyhow::Result<()> {
+    let Some((repo, _tmp, new_commit)) =
+        repo_with_an_empty_directory_the_target_replaces(0o555, &[])?
+    else {
+        return Ok(());
+    };
+    let workdir = repo.workdir().expect("non-bare");
+
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
+
+    assert_eq!(std::fs::read_to_string(workdir.join("p"))?, "file\n");
+    let names: Vec<_> = std::fs::read_dir(workdir)?
+        .map(|entry| Ok(entry?.file_name().to_string_lossy().into_owned()))
+        .collect::<anyhow::Result<_>>()?;
+    assert!(
+        !names
+            .iter()
+            .any(|name| name.starts_with(".gitbutler-checkout-")),
+        "nothing is left of the directory: {names:?}"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn checkout_puts_back_an_empty_read_only_directory_it_replaced_when_it_fails() -> anyhow::Result<()>
+{
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    let more = [("ro/new", Some("new\n"))];
+    let Some((repo, _tmp, new_commit)) =
+        repo_with_an_empty_directory_the_target_replaces(0o555, &more)?
+    else {
+        return Ok(());
+    };
+    let workdir = repo.workdir().expect("non-bare").to_owned();
+    std::fs::create_dir(workdir.join("ro"))?;
+    std::fs::set_permissions(workdir.join("ro"), std::fs::Permissions::from_mode(0o555))?;
+    let p = std::fs::symlink_metadata(workdir.join("p"))?;
+
+    let out = safe_checkout_from_head(new_commit, &repo, Default::default());
+    std::fs::set_permissions(workdir.join("ro"), std::fs::Permissions::from_mode(0o755))?;
+
+    out.expect_err("`ro/new` can't be created");
+    let restored = std::fs::symlink_metadata(workdir.join("p"))?;
+    assert_eq!(
+        (restored.ino(), restored.mode()),
+        (p.ino(), p.mode()),
+        "the directory itself is back"
+    );
+    std::fs::set_permissions(workdir.join("p"), std::fs::Permissions::from_mode(0o755))?;
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn checkout_refuses_to_replace_a_read_only_directory_with_files_in_it_like_git()
+-> anyhow::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let workdir = repo.workdir().expect("non-bare").to_owned();
+    commit_in_worktree(&repo, &[("p/x", "x\n")])?;
+    let new_commit = commit_files(
+        &repo,
+        "replace p with a file",
+        &[("p/x", None), ("p", Some("file\n"))],
+    )?;
+    std::fs::write(repo.git_dir().join("info/exclude"), "/p/cache\n")?;
+    std::fs::remove_file(workdir.join("p/x"))?;
+    std::fs::write(workdir.join("p/cache"), "ignored\n")?;
+    std::fs::set_permissions(workdir.join("p"), std::fs::Permissions::from_mode(0o555))?;
+    if std::fs::write(workdir.join("p/probe"), "").is_ok() {
+        // Directory permissions don't apply to root.
+        return Ok(());
+    }
+    let head = repo.head_id()?.detach();
+
+    let out = safe_checkout_from_head(new_commit, &repo, Default::default());
+    std::fs::set_permissions(workdir.join("p"), std::fs::Permissions::from_mode(0o755))?;
+
+    out.expect_err("like Git, which can't remove `p/cache` from the read-only `p`");
+    assert_eq!(repo.head_id()?.detach(), head, "HEAD stays");
+    assert_eq!(
+        std::fs::read_to_string(workdir.join("p/cache"))?,
+        "ignored\n"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn checkout_deletes_a_file_in_a_directory_it_cannot_list() -> anyhow::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let workdir = repo.workdir().expect("non-bare").to_owned();
+    commit_in_worktree(&repo, &[("d/a", "a\n")])?;
+    let new_commit = commit_files(&repo, "delete d/a", &[("d/a", None)])?;
+    std::fs::set_permissions(workdir.join("d"), std::fs::Permissions::from_mode(0o333))?;
+
+    let out = safe_checkout_from_head(new_commit, &repo, Default::default());
+    std::fs::set_permissions(workdir.join("d"), std::fs::Permissions::from_mode(0o755))?;
+
+    out?;
+    assert!(!workdir.join("d/a").exists());
+    assert!(
+        workdir.join("d").is_dir(),
+        "unlike Git, which removes `d`, a directory that can't be listed isn't known to be empty"
+    );
+    Ok(())
+}
+
 #[test]
 #[cfg(unix)]
 fn checkout_refuses_an_edit_made_while_filters_run() -> anyhow::Result<()> {
