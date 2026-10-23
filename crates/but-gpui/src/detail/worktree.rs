@@ -13,8 +13,8 @@ use gpui::{
 
 use super::Detail;
 use super::panes::{
-    OVERVIEW_TIME_WIDTH, grouped, meta_item, meta_row, overview_column, overview_heading,
-    overview_tiles, overview_title, page_title, title_text,
+    OVERVIEW_TIME_WIDTH, meta_item, meta_row, overview_column, overview_heading, overview_title,
+    page_title, title_text,
 };
 use super::slots::SlotPick;
 use crate::backend::{self, Branch, Commit, CommitId, Workspace};
@@ -31,8 +31,6 @@ use crate::ui::{
 };
 
 mod activity;
-
-use activity::quarters_said;
 
 /// How many quarters of an hour the activity covers: the last 12 hours.
 const BARS: usize = 48;
@@ -407,44 +405,12 @@ impl Detail {
         commits.sort_by_key(|commit| std::cmp::Reverse(commit.time));
         // Everything under the activity is of the 12 hours it covers, or the quarters picked.
         let span = &self.now.span;
-        let range = quarters_said(&span.slots, now);
         let start = window_start(now);
         let inside = |at: i64| at >= start && span.keeps(at.div_euclid(QUARTER));
         let scoped: Vec<&Commit> = (commits.iter().copied())
             .filter(|commit| inside(commit.time))
             .collect();
         let activity = store.activity.get(&(project.clone(), worktree.cloned()));
-        let busy: HashSet<i64> = (activity.into_iter())
-            .flat_map(|a| a.quarters.iter().map(|(at, _)| *at))
-            .chain(scoped.iter().map(|commit| commit.time))
-            .filter(|at| inside(*at))
-            .map(|at| at.div_euclid(QUARTER))
-            .collect();
-        // Once every commit's files are read, so the count doesn't climb as they come in.
-        let changed: Option<HashSet<&String>> = (scoped.iter())
-            .map(|commit| self.now.paths.get(&commit.id))
-            .collect::<Option<Vec<_>>>()
-            .map(|paths| paths.into_iter().flatten().collect());
-        let tiles = [
-            (
-                "Commits",
-                grouped(scoped.len()),
-                "Commits made here in the time the activity shows or the quarters picked",
-            ),
-            (
-                "Files changed",
-                changed.map_or("–".to_owned(), |files| grouped(files.len())),
-                "Files those commits changed",
-            ),
-            (
-                "Busy for",
-                match busy.len() {
-                    0 => "–".to_owned(),
-                    n => span_said(n as i64 * QUARTER),
-                },
-                "Quarters of an hour a file was written or a commit made in",
-            ),
-        ];
         // Side by side where both fit, as the tiles wrap.
         let columns = [
             (self.now_hot_files(&scoped, theme, cx), 2., 240.),
@@ -475,15 +441,9 @@ impl Detail {
                     ))
                     .child(self.now_new(project, worktree, &commits, theme, cx))
                     .child(
-                        overview_title(
-                            "Activity",
-                            range.clone().unwrap_or("last 12 hours".to_owned()),
-                            theme,
-                        )
-                        .mt(dp(22.)),
+                        (self.now_activity(activity, &commits, &scoped, now, theme, cx))
+                            .mt(dp(22.)),
                     )
-                    .child(self.now_activity(activity, &commits, now, theme, cx))
-                    .child(overview_tiles(tiles, theme).mt(dp(6.)))
                     // Stacked, each half of what's left, where they don't fit side by side.
                     .child(
                         h_flex()

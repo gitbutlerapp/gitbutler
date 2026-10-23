@@ -1433,33 +1433,57 @@ pub(super) fn overview_tiles(
     tiles: impl IntoIterator<Item = (&'static str, String, &'static str)>,
     theme: &Theme,
 ) -> Div {
+    let unkeyed = tiles
+        .into_iter()
+        .map(|(label, n, tip)| (label, n, tip, None));
+    keyed_tiles(unkeyed, theme)
+}
+
+/// [`overview_tiles`] where some are keys to a chart under them: a chip of the colour they're
+/// drawn in before their label.
+pub(super) fn keyed_tiles(
+    tiles: impl IntoIterator<Item = (&'static str, String, &'static str, Option<gpui::Hsla>)>,
+    theme: &Theme,
+) -> Div {
     // Two to a row where four would cut their labels short.
     h_flex()
         .flex_wrap()
         .gap(dp(8.))
         .px(dp(6.))
-        .children(tiles.into_iter().enumerate().map(|(ix, (label, n, tip))| {
-            v_flex()
-                .id(("overview-tile", ix))
-                .flex_grow(1.)
-                .flex_basis(dp(120.))
-                .min_w_0()
-                .px(dp(12.))
-                .py(dp(10.))
-                .gap(dp(2.))
-                .border_1()
-                .border_color(theme.border_3)
-                .rounded(dp(8.))
-                .tooltip(Tooltip::text(tip))
-                .child(faint(label, theme).truncate())
-                .child(
-                    div()
-                        .text_size(dp(22.))
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
-                        .whitespace_nowrap()
-                        .child(n),
-                )
-        }))
+        .children(
+            tiles
+                .into_iter()
+                .enumerate()
+                .map(|(ix, (label, n, tip, key))| {
+                    v_flex()
+                        .id(("overview-tile", ix))
+                        .flex_grow(1.)
+                        .flex_basis(dp(120.))
+                        .min_w_0()
+                        .px(dp(12.))
+                        .py(dp(10.))
+                        .gap(dp(2.))
+                        .border_1()
+                        .border_color(theme.border_3)
+                        .rounded(dp(8.))
+                        .tooltip(Tooltip::text(tip))
+                        .child(
+                            h_flex()
+                                .gap(dp(6.))
+                                .children(key.map(|key| {
+                                    div().flex_none().size(dp(7.)).rounded(dp(1.5)).bg(key)
+                                }))
+                                .child(faint(label, theme).min_w_0().truncate()),
+                        )
+                        .child(
+                            div()
+                                .text_size(dp(22.))
+                                .font_weight(gpui::FontWeight::SEMIBOLD)
+                                .whitespace_nowrap()
+                                .child(n),
+                        )
+                }),
+        )
 }
 
 /// How wide an overview row's columns on the right are, so they line up from one section to

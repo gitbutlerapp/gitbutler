@@ -1,27 +1,31 @@
-//! A checkout's activity, on its overview: the files written each quarter of an hour over the
-//! last 12, a dot under each quarter something was committed in, and what a quarter holds on
-//! hover. Quarters picked off it, as the project's page picks days, narrow the overview to
-//! them.
+//! A checkout's activity, on its overview: how many edits and commits there were and how long
+//! it was busy, then the files saved each quarter of an hour over the last 12 rising from a
+//! line and the commits made then hanging under it, and what a quarter holds on hover.
+//! Quarters picked off it, as the project's page picks days, narrow the overview to them.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 
 use gpui::{Context, Div, MouseButton, MouseDownEvent, MouseMoveEvent, div, prelude::*, relative};
 
 use crate::backend::Commit;
 use crate::detail::Detail;
+use crate::detail::panes::{grouped, keyed_tiles, overview_title};
 use crate::detail::slots::{SlotGesture, SlotPick};
 use crate::state::{Activity, QUARTER};
 use crate::theme::Theme;
 use crate::ui::{ButtonStyle, Tooltip, button, dp, faint, h_flex, local_clock, plural, v_flex};
 
 use super::BARS as QUARTERS;
+use super::span_said;
 
-/// How tall the tallest bar is drawn.
+/// How tall the tallest bar of edits is drawn.
 const BARS_HEIGHT: f32 = 44.;
+/// How far under the line the most commits of a quarter hang.
+const COMMITS_HEIGHT: f32 = 14.;
 
 /// The quarters picked, said: their span, "14:15–15:00", or each run of them, up to "now"
 /// for one running into `now`.
-pub(super) fn quarters_said(quarters: &BTreeSet<i64>, now: i64) -> Option<String> {
+fn quarters_said(quarters: &BTreeSet<i64>, now: i64) -> Option<String> {
     let mut runs: Vec<(i64, i64)> = Vec::new();
     for &quarter in quarters {
         match runs.last_mut() {
@@ -48,14 +52,17 @@ fn hour_mark(start: i64) -> Option<String> {
 }
 
 impl Detail {
-    /// The activity of the last 12 hours: a bar of the files `activity` saw written each
-    /// quarter of an hour, a dot under those `commits` landed in, each quarter's counts on
-    /// hover; pressing, ⌘- or shift-pressing or dragging across them picks quarters, which
-    /// Clear lets go of.
+    /// What happened over the last 12 hours, or the quarters picked: its counts first, keys
+    /// to the chart under them, then a column for each quarter of an hour, the files `activity`
+    /// saw saved then rising from the line and the `commits` made then hanging under it, each
+    /// to its own scale, as edits run to hundreds and commits to a few; each quarter's counts
+    /// on hover. Pressing, ⌘- or shift-pressing or dragging across them picks quarters, which
+    /// Clear by the title lets go of. `scoped` are the commits of the quarters shown.
     pub(super) fn now_activity(
         &self,
         activity: Option<&Activity>,
         commits: &[&Commit],
+        scoped: &[&Commit],
         now: i64,
         theme: &Theme,
         cx: &Context<Self>,
@@ -74,116 +81,141 @@ impl Detail {
             }
         }
         let most = bars.iter().copied().max().unwrap_or(0).max(1);
+        let most_commits = committed.iter().copied().max().unwrap_or(0).max(1);
         let picked = !span.slots.is_empty();
-        let in_view = |ix: &usize| span.keeps(first + *ix as i64);
-        let written: u32 = (bars.iter().enumerate())
-            .filter(|(ix, _)| in_view(ix))
-            .map(|(_, n)| n)
+        let in_view = |ix: usize| span.keeps(first + ix as i64);
+        let edits: u32 = (0..QUARTERS)
+            .filter(|ix| in_view(*ix))
+            .map(|ix| bars[ix])
             .sum();
-        let landed: usize = (committed.iter().enumerate())
-            .filter(|(ix, _)| in_view(ix))
-            .map(|(_, n)| n)
-            .sum();
-        let counts = format!(
-            "{} written · {}",
-            plural(written as usize, "file"),
-            plural(landed, "commit")
-        );
-        let detail = match picked {
-            true => h_flex().gap(dp(6.)).child(faint(counts, theme)).child(
-                button("now-quarters-clear", "Clear")
-                    .small()
-                    .style(ButtonStyle::Ghost)
-                    .on_click(cx.listener(|this, _, _, cx| this.clear_quarters(cx))),
+        let busy = (0..QUARTERS)
+            .filter(|ix| in_view(*ix) && (bars[*ix] > 0 || committed[*ix] > 0))
+            .count();
+        // Once every commit's files are read, so the count doesn't climb as they come in.
+        let changed: Option<HashSet<&String>> = (scoped.iter())
+            .map(|commit| self.now.paths.get(&commit.id))
+            .collect::<Option<Vec<_>>>()
+            .map(|paths| paths.into_iter().flatten().collect());
+        let tiles = [
+            (
+                "Edits",
+                grouped(edits as usize),
+                "Files saved here, as the file watcher saw them while the app ran: a file saved \
+                 twice counts twice",
+                Some(theme.pop),
             ),
-            // What the bars and the dots are, in their colours.
-            false => h_flex()
-                .gap(dp(6.))
-                .child(div().size(dp(7.)).rounded(dp(1.5)).bg(theme.pop))
-                .child(faint(
-                    format!("{} written", plural(written as usize, "file")),
-                    theme,
-                ))
-                .child(div().ml(dp(4.)).size(dp(6.)).rounded_full().bg(theme.blue))
-                .child(faint(plural(landed, "commit"), theme)),
-        };
-        let columns = (0..QUARTERS).map(|ix| {
-            let quarter = first + ix as i64;
-            let start = quarter * QUARTER;
-            let (n, landed) = (bars[ix], committed[ix]);
-            let inside = !picked || span.keeps(quarter);
-            // A run of quarters picked reads as one band, rounded only at its ends.
-            let joined = |next: i64| picked && inside && span.keeps(next);
-            let mut tip = format!("{}–{}", local_clock(start), local_clock(start + QUARTER));
-            match (n, landed) {
-                (0, 0) => tip.push_str(" · quiet"),
-                (0, _) => {}
-                (n, _) => tip.push_str(&format!(" · {} written", plural(n as usize, "file"))),
-            }
-            if landed > 0 {
-                tip.push_str(&format!(" · {}", plural(landed, "commit")));
-            }
-            v_flex()
-                .id(("now-quarter", ix))
-                .flex_1()
-                .when(!joined(quarter - 1), |el| el.rounded_l(dp(3.)))
-                .when(!joined(quarter + 1), |el| el.rounded_r(dp(3.)))
-                .when(picked && inside, |el| el.bg(theme.selected_unfocused()))
-                .hover(|el| el.bg(theme.hover()))
-                .tooltip(Tooltip::text(tip))
-                .on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                        let (shift, toggle) = (event.modifiers.shift, event.modifiers.secondary());
-                        this.quarter_gesture(
-                            SlotGesture::Press {
-                                slot: quarter,
-                                shift,
-                                toggle,
-                            },
-                            cx,
-                        )
-                    }),
-                )
-                .on_mouse_move(cx.listener(move |this, event: &MouseMoveEvent, _, cx| {
-                    if event.pressed_button == Some(MouseButton::Left) {
-                        this.quarter_gesture(SlotGesture::Drag(quarter), cx)
-                    }
-                }))
-                .child(
-                    div()
-                        .h(dp(BARS_HEIGHT))
-                        .px(dp(1.))
-                        .flex()
-                        .items_end()
-                        .child(
-                            div()
-                                .w_full()
-                                // A quiet quarter a stub on the line, as the project's
-                                // activity draws a quiet day.
-                                .h(dp((n as f32 / most as f32 * BARS_HEIGHT).max(2.)))
-                                .rounded_t(dp(1.))
-                                .bg(match (n, inside) {
-                                    (0, _) => theme.border_2,
-                                    (_, true) => theme.pop,
-                                    (_, false) => theme.pop.opacity(0.2),
-                                }),
-                        ),
-                )
-                .child(
-                    div()
-                        .h(dp(14.))
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .when(landed > 0, |el| {
-                            el.child(div().size(dp(6.)).rounded_full().bg(match inside {
-                                true => theme.blue,
-                                false => theme.blue.opacity(0.3),
-                            }))
-                        }),
-                )
+            (
+                "Commits",
+                grouped(scoped.len()),
+                "Commits made here then",
+                Some(theme.blue),
+            ),
+            (
+                "Files changed",
+                changed.map_or("–".to_owned(), |files| grouped(files.len())),
+                "Files those commits changed",
+                None,
+            ),
+            (
+                "Busy for",
+                match busy {
+                    0 => "–".to_owned(),
+                    n => span_said(n as i64 * QUARTER),
+                },
+                "Quarters of an hour with an edit or a commit",
+                None,
+            ),
+        ];
+        let range = quarters_said(&span.slots, now).unwrap_or("last 12 hours".to_owned());
+        let clear = picked.then(|| {
+            button("now-quarters-clear", "Clear")
+                .small()
+                .style(ButtonStyle::Ghost)
+                .on_click(cx.listener(|this, _, _, cx| this.clear_quarters(cx)))
         });
+        let columns =
+            (0..QUARTERS).map(|ix| {
+                let quarter = first + ix as i64;
+                let start = quarter * QUARTER;
+                let (n, landed) = (bars[ix], committed[ix]);
+                let inside = !picked || span.keeps(quarter);
+                // A run of quarters picked reads as one band, rounded only at its ends.
+                let joined = |next: i64| picked && inside && span.keeps(next);
+                let mut tip = format!("{}–{}", local_clock(start), local_clock(start + QUARTER));
+                match (n, landed) {
+                    (0, 0) => tip.push_str(" · quiet"),
+                    (0, _) => {}
+                    (n, _) => tip.push_str(&format!(" · {}", plural(n as usize, "edit"))),
+                }
+                if landed > 0 {
+                    tip.push_str(&format!(" · {}", plural(landed, "commit")));
+                }
+                let (edit, commit) = match inside {
+                    true => (theme.pop, theme.blue),
+                    false => (theme.pop.opacity(0.2), theme.blue.opacity(0.25)),
+                };
+                v_flex()
+                    .id(("now-quarter", ix))
+                    .flex_1()
+                    .when(!joined(quarter - 1), |el| el.rounded_l(dp(3.)))
+                    .when(!joined(quarter + 1), |el| el.rounded_r(dp(3.)))
+                    .when(picked && inside, |el| el.bg(theme.selected_unfocused()))
+                    .hover(|el| el.bg(theme.hover()))
+                    .tooltip(Tooltip::text(tip))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                            let (shift, toggle) =
+                                (event.modifiers.shift, event.modifiers.secondary());
+                            this.quarter_gesture(
+                                SlotGesture::Press {
+                                    slot: quarter,
+                                    shift,
+                                    toggle,
+                                },
+                                cx,
+                            )
+                        }),
+                    )
+                    .on_mouse_move(cx.listener(move |this, event: &MouseMoveEvent, _, cx| {
+                        if event.pressed_button == Some(MouseButton::Left) {
+                            this.quarter_gesture(SlotGesture::Drag(quarter), cx)
+                        }
+                    }))
+                    .child(
+                        div()
+                            .h(dp(BARS_HEIGHT))
+                            .px(dp(1.))
+                            .flex()
+                            .items_end()
+                            .child(
+                                div()
+                                    .w_full()
+                                    // A quiet quarter a stub on the line, as the project's
+                                    // activity draws a quiet day.
+                                    .h(dp((n as f32 / most as f32 * BARS_HEIGHT).max(2.)))
+                                    .rounded_t(dp(1.))
+                                    .bg(match n {
+                                        0 => theme.border_2,
+                                        _ => edit,
+                                    }),
+                            ),
+                    )
+                    // The commits under the line, apart from the edits over it.
+                    .child(div().h(dp(COMMITS_HEIGHT)).pt(dp(2.)).px(dp(1.)).when(
+                        landed > 0,
+                        |el| {
+                            let share = landed as f32 / most_commits as f32;
+                            el.child(
+                                div()
+                                    .w_full()
+                                    .h(dp((share * (COMMITS_HEIGHT - 2.)).max(4.)))
+                                    .rounded_b(dp(1.))
+                                    .bg(commit),
+                            )
+                        },
+                    ))
+            });
         // Every third hour marked, centred where its quarter begins, clear of both ends and of
         // "now" at the right.
         let marks = (2..QUARTERS - 6).filter_map(|ix| {
@@ -204,12 +236,13 @@ impl Detail {
             this.quarter_gesture(SlotGesture::Release, cx)
         };
         v_flex()
-            // Under the part's title, which says when: what the bars and dots count then.
-            .child(h_flex().h(dp(24.)).px(dp(14.)).justify_end().child(detail))
+            .gap(dp(6.))
+            .child(overview_title("Activity", range, theme).children(clear))
+            .child(keyed_tiles(tiles, theme))
             .child(
                 v_flex()
                     .px(dp(14.))
-                    .pt(dp(4.))
+                    .pt(dp(10.))
                     .gap(dp(2.))
                     .child(
                         h_flex()
