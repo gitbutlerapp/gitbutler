@@ -847,6 +847,11 @@ impl Store {
             .collect()
     }
 
+    /// The newest and oldest of the commits picked in `project`, as [`Workspace::run_of`].
+    pub fn picked_run(&self, project: &ProjectId) -> Option<(CommitId, CommitId)> {
+        self.workspace(project)?.run_of(&self.picked)
+    }
+
     /// Whether commit `id` of `project` is picked. Picks are the selected project's: another
     /// project can have the same commits, as a second clone of a repository does.
     pub fn is_picked(&self, project: &ProjectId, id: CommitId) -> bool {

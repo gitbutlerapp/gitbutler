@@ -547,6 +547,19 @@ impl Detail {
                         .unwrap_or_else(|| diff.files.clone());
                     this.show_diff(key, files, cx);
                 }
+                // Picking commits, or letting them go, changes what the diff is of while the
+                // selection stays where it was.
+                if matches!(store.read(cx).selection, Some(Selection::Commit(..)))
+                    && let (Some(diff), Some(key)) = (&this.diff, this.key_for_selection(cx))
+                    && diff.key != key
+                    && this.loading.as_ref() != Some(&key)
+                    && matches!(
+                        (&diff.key.source, &key.source),
+                        (DiffSource::Range { .. }, _) | (_, DiffSource::Range { .. })
+                    )
+                {
+                    this.refresh_diff(false, cx);
+                }
                 cx.notify()
             }),
         ];
@@ -678,7 +691,14 @@ impl Detail {
             Selection::Uncommitted(_) => DiffSource::Worktree,
             Selection::Worktree(_, name) => DiffSource::Linked(name.clone()),
             Selection::Mesh(project, id, pick) => self.machine_source(project, id, pick)?,
-            Selection::Commit(_, id) | Selection::Upstream(_, _, id) => DiffSource::Commit(*id),
+            // Commits picked with it in one run show their changes together.
+            Selection::Commit(project, id) => match store.picked_run(project) {
+                Some((newest, oldest)) if store.among_picks(project, *id) => {
+                    DiffSource::Range { oldest, newest }
+                }
+                _ => DiffSource::Commit(*id),
+            },
+            Selection::Upstream(_, _, id) => DiffSource::Commit(*id),
             Selection::Branch(project, ref_name) => {
                 let branch = store.workspace(project)?.find_branch(ref_name)?;
                 let newest = branch.commits.first()?.id;
@@ -1966,6 +1986,11 @@ impl Render for Detail {
                 // A page's header runs across it, over its files and its diff, as but.dev's
                 // does. `view_header_height` lists the same pages.
                 let header = match selection {
+                    Selection::Commit(project, id)
+                        if self.store.read(cx).among_picks(project, *id) =>
+                    {
+                        Some(self.render_picks_header(project, *id, &theme, cx))
+                    }
                     Selection::Commit(project, id) => {
                         Some(self.render_commit_header(project, *id, &theme, window, cx))
                     }

@@ -96,8 +96,8 @@ impl AppView {
                 store.picked.len(),
                 "commit",
                 Some(match picks_conflicted {
-                    true => "drag them together, or press M to squash them",
-                    false => "drag them together, or press M to squash or uncommit them",
+                    true => "drag them together, or press M to squash or discard them",
+                    false => "drag them together, or press M to squash, uncommit or discard them",
                 }),
             ),
             (

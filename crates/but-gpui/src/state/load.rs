@@ -862,6 +862,32 @@ mod tests {
     }
 
     #[test]
+    fn picks_show_together_only_as_one_run_in_one_lane() {
+        let ws = workspace(
+            vec![
+                vec![branch("top", &[1, 2]), branch("bottom", &[3, 4])],
+                vec![branch("other", &[5])],
+            ],
+            vec![branch("linked", &[6, 7])],
+        );
+        let id = |n: u8| CommitId(gix::ObjectId::from_bytes_or_panic(&[n; 20]));
+        let ids = |ns: &[u8]| ns.iter().map(|&n| id(n)).collect::<Vec<_>>();
+        assert_eq!(
+            ws.run_of(&ids(&[3, 2])),
+            Some((id(2), id(3))),
+            "across stacked branches, newest first whatever the order picked"
+        );
+        assert_eq!(
+            ws.run_of(&ids(&[6, 7])),
+            Some((id(6), id(7))),
+            "in a linked worktree"
+        );
+        assert_eq!(ws.run_of(&ids(&[1, 3])), None, "a gap leaves 2 out");
+        assert_eq!(ws.run_of(&ids(&[4, 5])), None, "two stacks");
+        assert_eq!(ws.run_of(&ids(&[2])), None, "one is just itself");
+    }
+
+    #[test]
     fn renames_are_new_named_branches_holding_a_gone_branchs_commits() {
         let old = workspace(
             vec![vec![branch("a", &[1]), branch("c", &[2])]],

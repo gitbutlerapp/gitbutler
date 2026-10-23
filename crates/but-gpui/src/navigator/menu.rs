@@ -1,5 +1,7 @@
 //! The navigator's right-click menus.
 
+use std::sync::Arc;
+
 use gpui::{Action, App, Context, SharedString, Window};
 
 use super::{ClickOpened, Navigator};
@@ -447,14 +449,26 @@ impl Navigator {
                 let Some(&oldest) = picked.last() else {
                     return Vec::new();
                 };
-                let mut items = vec![MenuItem::action(
-                    format!(
-                        "Squash {n} commits into {}",
-                        quoted(&commit_title(&oldest.title))
+                let ids: Arc<[CommitId]> = picked.iter().map(|commit| commit.id).collect();
+                let cut = (project.clone(), ids.clone());
+                let mut items = vec![
+                    keyed(
+                        format!("Cut {n} commits"),
+                        &CutSelection,
+                        cx,
+                        move |app, _, cx| app.cut(Cut::Commit(cut.0.clone(), cut.1.clone()), cx),
                     ),
-                    &SquashPicked,
-                    cx,
-                )];
+                    MenuItem::action(format!("Cherry-pick {n} commits"), &CherryPick, cx),
+                    MenuItem::action(
+                        format!(
+                            "Squash {n} commits into {}",
+                            quoted(&commit_title(&oldest.title))
+                        ),
+                        &SquashPicked,
+                        cx,
+                    )
+                    .separated(),
+                ];
                 // The other way round: the rest go into the one clicked, in its place.
                 if oldest.id != *id {
                     let into = *id;
@@ -463,15 +477,23 @@ impl Navigator {
                         move |this, _, cx| this.squash_picks(Some(into), cx),
                     ));
                 }
-                if !picked.iter().any(|commit| commit.conflicted) {
-                    items.push(MenuItem::action(
-                        format!("Uncommit {n} commits"),
-                        &UncommitSelection,
-                        cx,
-                    ));
+                if store.workspace(project).is_some_and(|ws| ws.managed) {
+                    let label = format!("Move {n} commits to a new branch");
+                    items.push(MenuItem::action(label, &MoveToNewBranch, cx).separated());
                 }
+                let conflicted = picked.iter().any(|commit| commit.conflicted);
                 // A run picks commits without opening them, as clicking one does.
                 items.extend(read_marks(store, project, picked));
+                let discard =
+                    MenuItem::action(format!("Discard {n} commits"), &DeleteSelection, cx).danger();
+                items.extend(match conflicted {
+                    true => vec![discard.separated()],
+                    false => vec![
+                        MenuItem::action(format!("Uncommit {n} commits"), &UncommitSelection, cx)
+                            .separated(),
+                        discard,
+                    ],
+                });
                 items
             }
             Selection::Commit(project, id) => {

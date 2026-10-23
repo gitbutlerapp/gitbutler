@@ -767,10 +767,11 @@ pub fn reword(path: &Path, commit: CommitId, message: &str) -> Result<Rewritten>
     Ok(rewrites)
 }
 
-/// Drop `commit` and everything it changed.
-pub fn discard_commit(path: &Path, commit: CommitId) -> Result<()> {
+/// Drop `commits` and everything they changed.
+pub fn discard_commits(path: &Path, commits: &[CommitId]) -> Result<()> {
     let mut ctx = open(path)?;
-    but_api::commit::discard_commit::commit_discard(&mut ctx, vec![commit.0], DryRun::No)?;
+    let commits = commits.iter().map(|id| id.0).collect();
+    but_api::commit::discard_commit::commit_discard(&mut ctx, commits, DryRun::No)?;
     Ok(())
 }
 

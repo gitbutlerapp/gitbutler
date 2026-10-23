@@ -312,19 +312,6 @@ impl AppView {
         Some((project.clone(), commit))
     }
 
-    /// The selected commit, for an action on one commit; with several picked, which looks
-    /// like several selected, it says so instead.
-    fn single_commit(&self, cx: &mut Context<Self>) -> Option<(ProjectId, CommitId)> {
-        if self.store.read(cx).picked.len() > 1 {
-            self.store.update(cx, |store, cx| {
-                store.snack("That works on one commit: click one to select just it", cx)
-            });
-            return None;
-        }
-        let (project, commit) = self.selected_commit(cx)?;
-        Some((project, commit.id))
-    }
-
     /// Whether the selection is on a linked worktree's branches, whose edits the oplog can't
     /// take back: it snapshots only the main checkout.
     fn in_worktree_lane(&self, cx: &App) -> bool {
@@ -418,10 +405,10 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         match self.selection(cx) {
-            Some(Selection::Commit(..)) => {
-                if let Some((project, id)) = self.single_commit(cx) {
-                    self.discard_commit(project, id, window, cx)
-                }
+            // With the commits picked with it.
+            Some(Selection::Commit(project, id)) => {
+                let ids = self.store.read(cx).with_picks(&project, id);
+                self.discard_commits(project, ids, window, cx)
             }
             Some(Selection::Branch(project, ref_name)) => {
                 self.remove_branch(project, ref_name, window, cx)
@@ -646,39 +633,54 @@ impl AppView {
         self.confirm_then(Some(selection), message, &detail, "Delete", window, cx, run);
     }
 
-    fn discard_commit(
+    /// Drop commits `ids` of `project` and what they changed, the newest listed first.
+    fn discard_commits(
         &mut self,
         project: ProjectId,
-        id: CommitId,
+        ids: Arc<[CommitId]>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let store = self.store.read(cx);
-        let in_worktree = store.in_worktree(&project, id);
-        let undoable = !in_worktree && recorded(store, &project);
-        let overlay = Overlay::commits(store.key_of(&project, id));
-        let detail = match in_worktree {
-            false => "Its changes are dropped. This can't be undone.",
-            true => "Its changes are dropped from the worktree too. This can't be undone.",
+        let Some(&newest) = ids.first() else {
+            return;
         };
-        let at = Selection::Commit(project.clone(), id);
+        let store = self.store.read(cx);
+        let in_worktree = ids.iter().any(|id| store.in_worktree(&project, *id));
+        let undoable = !in_worktree && recorded(store, &project);
+        let overlay = Overlay::commits(ids.iter().filter_map(|id| store.key_of(&project, *id)));
+        let (message, done) = match ids.len() {
+            1 => (
+                format!("Discard commit {}?", newest.short()),
+                "Commit discarded".to_owned(),
+            ),
+            n => (
+                format!("Discard {n} commits?"),
+                format!("{n} commits discarded"),
+            ),
+        };
+        let detail = match in_worktree {
+            false => "Their changes are dropped. This can't be undone.",
+            true => "Their changes are dropped from the worktree too. This can't be undone.",
+        };
+        let at = Selection::Commit(project.clone(), newest);
         let run = then_run(
             project,
             "Discard commit",
             overlay,
             move |path, remap| {
                 let now = match in_worktree {
-                    false => remap.get(id)?,
-                    true => remap.exactly(id)?,
+                    false => remap.all(&ids)?,
+                    true => (ids.iter())
+                        .map(|id| remap.exactly(*id))
+                        .collect::<anyhow::Result<_>>()?,
                 };
-                backend::discard_commit(path, now)
+                backend::discard_commits(path, &now)
             },
-            move |store, (), cx| store.snack_after(undoable, "Commit discarded", cx),
+            move |store, (), cx| store.snack_after(undoable, done, cx),
         );
         if undoable {
             return run(self, cx);
         }
-        let message = format!("Discard commit {}?", id.short());
         self.confirm_then(Some(at), message, detail, "Discard", window, cx, run);
     }
 
@@ -784,9 +786,11 @@ impl AppView {
     }
 
     /// Pick up the selected commit to put a copy of it where ⌘V lands.
+    /// Copy the selected commit, and those picked with it, to paste as new commits.
     fn cherry_pick(&mut self, _: &CherryPick, _: &mut Window, cx: &mut Context<Self>) {
-        if let Some((project, id)) = self.single_commit(cx) {
-            self.cut(Cut::CherryPick(project, [id].into()), cx);
+        if let Some((project, commit)) = self.selected_commit(cx) {
+            let ids = self.store.read(cx).with_picks(&project, commit.id);
+            self.cut(Cut::CherryPick(project, ids), cx);
         }
     }
 

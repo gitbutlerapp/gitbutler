@@ -141,7 +141,11 @@ impl Detail {
                         crumbs.push(heading(selection));
                         let name = store.name_of(project, branch).to_owned();
                         crumbs.push((name.into(), Some(branch_selection.into())));
-                        crumbs.push((commit.id.short().into(), None));
+                        let last = match store.among_picks(project, *id) {
+                            true => plural(store.picked.len(), "commit"),
+                            false => commit.id.short(),
+                        };
+                        crumbs.push((last.into(), None));
                     }
                 }
             }
@@ -584,6 +588,62 @@ impl Detail {
         let target = Selection::Commit(project.clone(), id);
         let apply = super::resolve::apply_button(self, cx.entity().downgrade());
         self.page_header(main, target, apply, None, theme, cx)
+    }
+
+    /// The header of the commits picked together: how many, the branches they're on and how
+    /// many are conflicted. Their changes show together when they're one run in one lane;
+    /// otherwise the diff is the selected one's, `id`, which it says.
+    pub(super) fn render_picks_header(
+        &self,
+        project: &ProjectId,
+        id: backend::CommitId,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let store = self.store.read(cx);
+        let Some(ws) = store.workspace(project) else {
+            return div().into_any_element();
+        };
+        let picked: Vec<_> = (ws.lanes().flatten())
+            .flat_map(|branch| branch.commits.iter().map(move |commit| (branch, commit)))
+            .filter(|(_, commit)| store.picked.contains(&commit.id))
+            .collect();
+        let mut names: Vec<&str> = (picked.iter())
+            .map(|(branch, _)| store.name_of(project, branch))
+            .collect();
+        names.dedup();
+        let conflicted = picked
+            .iter()
+            .filter(|(_, commit)| commit.conflicted)
+            .count();
+        let one_run = store.picked_run(project).is_some();
+        let meta = meta_row(theme)
+            .child(
+                meta_item(Icon::Branch, theme)
+                    .min_w_0()
+                    .child(div().min_w_0().truncate().child(names.join(", "))),
+            )
+            .when(conflicted > 0, |el| {
+                el.child(
+                    div()
+                        .text_color(theme.warn)
+                        .child(format!("{conflicted} conflicted")),
+                )
+            })
+            .when(!one_run, |el| {
+                el.child(div().text_color(theme.text_3).child(format!(
+                    "Not one run of commits, so the diff is {}'s alone",
+                    id.short()
+                )))
+            });
+        let main = v_flex()
+            .gap(dp(10.))
+            .child(
+                page_title(Icon::Commit, theme).child(title_text(plural(picked.len(), "commit"))),
+            )
+            .child(meta);
+        let target = Selection::Commit(project.clone(), id);
+        self.page_header(main, target, None, None, theme, cx)
     }
 
     /// A commit's short ID in its line's ink, as ui-react's `CopyableId`, which copies the

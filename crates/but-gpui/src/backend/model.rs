@@ -203,6 +203,20 @@ impl Workspace {
             .chain(self.worktrees.iter().map(|wt| &wt.branches[..]))
     }
 
+    /// The newest and oldest of `ids`, when they're two or more and one run of commits in one
+    /// lane, across its branches too, so their changes together are a diff from the oldest's
+    /// parent.
+    pub fn run_of(&self, ids: &[CommitId]) -> Option<(CommitId, CommitId)> {
+        let n = ids.len();
+        let lane = (self.lanes())
+            .map(|lane| lane.iter().flat_map(|b| &b.commits).map(|c| c.id))
+            .map(Vec::from_iter)
+            .find(|lane| lane.iter().any(|id| ids.contains(id)))?;
+        let from = lane.iter().position(|id| ids.contains(id))?;
+        let run = lane.get(from..from + n)?;
+        (n > 1 && run.iter().all(|id| ids.contains(id))).then(|| (run[0], run[n - 1]))
+    }
+
     /// The branches of the stack, or linked worktree's lane, whose bottom branch is `bottom`.
     pub fn lane(&self, bottom: &str) -> Option<&[Branch]> {
         self.lanes().find(|branches| {
