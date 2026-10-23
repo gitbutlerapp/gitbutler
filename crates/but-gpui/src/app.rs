@@ -75,8 +75,9 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("cmd--", ZoomOut, None),
         KeyBinding::new("cmd-0", ActualSize, None),
         KeyBinding::new("cmd-o", AddProject, None),
-        KeyBinding::new("alt-shift-f", Fetch, None),
-        KeyBinding::new("alt-shift-r", UpdateFromTarget, None),
+        // Not while typing, where they're ‰ and Ï.
+        KeyBinding::new("alt-shift-f", Fetch, Some("!TextInput")),
+        KeyBinding::new("alt-shift-r", UpdateFromTarget, Some("!TextInput")),
         KeyBinding::new("cmd-n", NewBranch, None),
         // Zed's key works too; ⌘K is the one shown, as the last binding wins.
         KeyBinding::new("cmd-shift-p", CommandPalette, None),
