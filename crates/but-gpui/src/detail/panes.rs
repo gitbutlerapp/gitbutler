@@ -1426,13 +1426,16 @@ pub(super) fn overview_tiles(
     tiles: impl IntoIterator<Item = (&'static str, String, &'static str)>,
     theme: &Theme,
 ) -> Div {
+    // Two to a row where four would cut their labels short.
     h_flex()
+        .flex_wrap()
         .gap(dp(8.))
         .px(dp(6.))
         .children(tiles.into_iter().enumerate().map(|(ix, (label, n, tip))| {
             v_flex()
                 .id(("overview-tile", ix))
-                .flex_1()
+                .flex_grow(1.)
+                .flex_basis(dp(120.))
                 .min_w_0()
                 .px(dp(12.))
                 .py(dp(10.))
