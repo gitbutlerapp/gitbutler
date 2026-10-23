@@ -235,6 +235,9 @@ pub struct Store {
     /// The commit the selection was on and the one it moved to, when it last moved because
     /// an operation rewrote the commit.
     followed: Option<(CommitId, CommitId)>,
+    /// While an operation of a project the user has left finishes, which leaves the selection,
+    /// and what's picked with it, where the user is.
+    staying: bool,
     /// A project just added, until its first load says which page it opens on.
     added: Option<ProjectId>,
     /// What the pointer is dragging, followed as agents rewrite it: GPUI's own copy stays as
@@ -364,6 +367,7 @@ impl Store {
             cut: None,
             picked: Picks::default(),
             followed: None,
+            staying: false,
             added: None,
             dragging: None,
             drop_at: None,
@@ -703,6 +707,9 @@ impl Store {
     }
 
     pub fn select(&mut self, selection: Option<Selection>, cx: &mut Context<Self>) {
+        if self.staying {
+            return;
+        }
         self.followed = None;
         if !self.picked.is_empty() {
             self.picked.clear();

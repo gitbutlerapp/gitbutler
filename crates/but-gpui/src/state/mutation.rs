@@ -1329,16 +1329,13 @@ impl Store {
                             store.push_undo_step(project, snapshot, asked);
                             store.redo_steps.clear();
                         }
-                        // Gone on to another project meanwhile, the user stays there: what this
-                        // finished selects, as the commit it made, doesn't take them back.
-                        let elsewhere = (store.selection.clone())
-                            .filter(|selection| *selection.project() != project);
+                        // Gone on to another project meanwhile, the user stays there, picks and
+                        // all: what this finished selects, as the commit it made, doesn't take
+                        // them back, and what it says names its project.
+                        store.staying = (store.selection.as_ref())
+                            .is_some_and(|selection| *selection.project() != project);
                         done(store, value, cx);
-                        if let Some(elsewhere) =
-                            elsewhere.filter(|before| store.selection.as_ref() != Some(before))
-                        {
-                            store.select(Some(elsewhere), cx);
-                        }
+                        store.staying = false;
                     }
                     Err(err) => {
                         // What it would have taken away stays, so the selection goes back.
