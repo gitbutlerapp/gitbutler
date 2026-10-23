@@ -753,14 +753,12 @@ impl Detail {
             hot.push((picked.clone(), 0));
         }
         let most = hot.first()?.1.max(1);
-        let detail = match picked {
-            Some(_) => button("now-hot-clear", "Clear")
+        let clear = picked.map(|_| {
+            button("now-hot-clear", "Clear")
                 .small()
                 .style(ButtonStyle::Ghost)
                 .on_click(cx.listener(|this, _, _, cx| this.pick_hot_file(None, cx)))
-                .into_any_element(),
-            None => faint("commits", theme).into_any_element(),
-        };
+        });
         let rows = (hot.iter().enumerate()).map(|(ix, (path, n))| {
             let on = picked == Some(path);
             let (track, fill) = match on {
@@ -790,7 +788,7 @@ impl Detail {
         });
         Some(
             v_flex()
-                .child(overview_heading("Hot files", detail, theme).h(dp(28.)))
+                .child(overview_heading("Hot files", div().children(clear), theme).h(dp(28.)))
                 .child(scrolling(
                     ("now-hot-rows", "now-hot-scrollbar"),
                     &self.now.hot_scroll,
@@ -940,17 +938,10 @@ impl Detail {
             }
         });
         let reading = file.is_some() && commits.iter().any(|c| !self.now.paths.contains_key(&c.id));
-        let detail = match file {
-            Some(file) => {
-                let name = file.rsplit('/').next().unwrap_or(file);
-                format!("{} · changed {name}", plural(listed.len(), "commit"))
-            }
-            None => plural(commits.len(), "commit"),
-        };
         Some(
             v_flex()
                 // As tall as Hot files' beside it, which has room for Clear.
-                .child(overview_heading("Commits", faint(detail, theme), theme).h(dp(28.)))
+                .child(overview_heading("Commits", div(), theme).h(dp(28.)))
                 .when(listed.is_empty() && file.is_some(), |el| {
                     let said = match reading {
                         true => "Reading which commits changed it…",
