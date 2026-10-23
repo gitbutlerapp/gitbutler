@@ -1,7 +1,7 @@
 //! Writing a checkout's changes so that they either all happen or none do.
 //!
 //! Files are first checked out into a staging directory, where the worktree filters run. Only
-//! then are the objects in their way moved aside and the staged files moved into place, with each
+//! then are the objects in their way moved aside and the staged files copied into place, with each
 //! step journaled so a failure can put everything back.
 
 use std::{
@@ -18,19 +18,13 @@ use super::{
 };
 use crate::index::Stat;
 
-/// Files checked out into a staging directory, ready to be moved into the worktree.
+/// Files checked out into a staging directory, ready to be copied into the worktree.
 pub(super) struct Staged {
     /// Removed when dropped, along with the objects moved aside into it, unless undoing the
     /// commit couldn't put one back.
     dir: tempfile::TempDir,
-    files: Vec<StagedFile>,
+    files: Vec<BString>,
     submodules: Vec<BString>,
-}
-
-/// A file checked out into the staging directory, with the stat it got there.
-struct StagedFile {
-    rela_path: BString,
-    stat: gix::index::entry::Stat,
 }
 
 impl Staged {
@@ -84,16 +78,7 @@ pub(super) fn stage(
         .partition::<Vec<_>, _>(|(_, content)| content.is_submodule());
     Ok(Staged {
         dir,
-        files: files
-            .into_iter()
-            .map(|(path, _)| StagedFile {
-                rela_path: path.to_owned(),
-                stat: index
-                    .entry_by_path(path)
-                    .expect("written by the checkout")
-                    .stat,
-            })
-            .collect(),
+        files: files.into_iter().map(|(path, _)| path.to_owned()).collect(),
         submodules: submodules
             .into_iter()
             .map(|(path, _)| path.to_owned())
@@ -101,8 +86,8 @@ pub(super) fn stage(
     })
 }
 
-/// Move the `clearances` aside and the staged files into place. On failure, undo every step and
-/// return the error, leaving the worktree as it was, except for what changed meanwhile.
+/// Move the `clearances` aside and copy the staged files into place. On failure, undo every step
+/// and return the error, leaving the worktree as it was, except for what changed meanwhile.
 pub(super) fn commit(
     repo: &gix::Repository,
     staged: Staged,
@@ -138,10 +123,10 @@ fn apply(
         journal.move_aside(&join(workdir, rela_path)?, &aside)?;
     }
     let mut stats = BTreeMap::new();
-    for StagedFile { rela_path, stat } in &staged.files {
+    for rela_path in &staged.files {
         let dest = join(workdir, rela_path)?;
-        journal.place(&join(&staged.new_files(), rela_path)?, &dest, stat)?;
-        stats.insert(rela_path.clone(), trusted_stat(stat, &dest)?);
+        let stat = journal.place(&join(&staged.new_files(), rela_path)?, &dest)?;
+        stats.insert(rela_path.clone(), Stat::Known(stat));
     }
     for rela_path in &staged.submodules {
         journal.ensure_dir(&join(workdir, rela_path)?)?;
@@ -166,7 +151,7 @@ enum Step {
     },
     Placed {
         path: PathBuf,
-        staged: gix::index::entry::Stat,
+        stat: gix::index::entry::Stat,
     },
     CreatedDir(PathBuf),
 }
@@ -217,26 +202,22 @@ impl Journal {
 
     /// Move the `staged` file to `dest`, where nothing is left after the clearances moved aside,
     /// unless something was created there after the worktree was checked.
-    /// Move the file at `staged`, with the `stat`, to `dest`, unless something appeared there.
-    fn place(
-        &mut self,
-        staged: &Path,
-        dest: &Path,
-        stat: &gix::index::entry::Stat,
-    ) -> anyhow::Result<()> {
+    /// Create a copy of the file or symlink at `staged` at `dest`, unless something appeared
+    /// there, and return its stat.
+    fn place(&mut self, staged: &Path, dest: &Path) -> anyhow::Result<gix::index::entry::Stat> {
         self.create_parents(dest)?;
-        match rename_no_replace(staged, dest) {
-            Ok(()) => {}
+        let stat = match create_copy(staged, dest) {
+            Ok(stat) => stat,
             Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
                 return Err(self.appeared_after_the_check(dest));
             }
             Err(err) => return Err(err).with_context(|| format!("placing {dest:?}")),
-        }
+        };
         self.steps.push(Step::Placed {
             path: dest.to_owned(),
-            staged: *stat,
+            stat,
         });
-        Ok(())
+        Ok(stat)
     }
 
     /// Create the directory `dir` and its parents, unless it exists.
@@ -329,7 +310,7 @@ impl Journal {
         let mut unrestored = Vec::new();
         for step in self.steps.into_iter().rev() {
             let undone = in_worktree(&self.workdir, step.path()).and_then(|()| match &step {
-                Step::Placed { path, staged } => remove_unless_changed(path, staged),
+                Step::Placed { path, stat } => remove_unless_changed(path, stat),
                 Step::CreatedDir(dir) => std::fs::remove_dir(dir),
                 Step::RemovedDir { path, permissions } => std::fs::create_dir(path)
                     .and_then(|()| std::fs::set_permissions(path, permissions.clone())),
@@ -346,11 +327,61 @@ impl Journal {
     }
 }
 
-/// Remove the file checkout placed at `path` with the `staged` stat, unless it changed since.
-fn remove_unless_changed(path: &Path, staged: &gix::index::entry::Stat) -> std::io::Result<()> {
-    match trusted_stat(staged, path) {
-        Ok(Stat::Known(_)) => gix::fs::symlink::remove(path),
-        Ok(Stat::Unknown) | Err(_) => Ok(()),
+/// Every stat field that changes when a file does.
+const ALL_FIELDS: gix::index::entry::stat::Options = gix::index::entry::stat::Options {
+    trust_ctime: true,
+    check_stat: true,
+    use_nsec: true,
+    use_stdev: false,
+};
+
+/// Create a copy of the file or symlink at `staged` at `dest` like Git creates files, so it gets
+/// what its directory gives new files, like a default ACL or its group. Fail with
+/// `AlreadyExists` if something is at `dest`. Return the stat of the copy.
+fn create_copy(staged: &Path, dest: &Path) -> std::io::Result<gix::index::entry::Stat> {
+    let md = gix::index::fs::Metadata::from_path_no_follow(staged)?;
+    if md.is_symlink() {
+        gix::fs::symlink::create(&std::fs::read_link(staged)?, dest)?;
+        return stat_of(&gix::index::fs::Metadata::from_path_no_follow(dest)?);
+    }
+    let mut source = std::fs::File::open(staged)?;
+    let mut file = create_new_file(dest, md.is_executable())?;
+    let copied = std::io::copy(&mut source, &mut file)
+        .and_then(|_| gix::index::fs::Metadata::from_file(&file));
+    drop(file);
+    match copied {
+        Ok(md) => stat_of(&md),
+        Err(err) => {
+            std::fs::remove_file(dest).ok();
+            Err(err)
+        }
+    }
+}
+
+/// Create a new file at `dest` with the permissions Git asks for, which the umask or a default
+/// ACL then reduce.
+#[cfg_attr(not(unix), allow(unused_variables))]
+fn create_new_file(dest: &Path, executable: bool) -> std::io::Result<std::fs::File> {
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, if executable { 0o777 } else { 0o666 });
+    options.open(dest)
+}
+
+fn stat_of(md: &gix::index::fs::Metadata) -> std::io::Result<gix::index::entry::Stat> {
+    gix::index::entry::Stat::from_fs(md).map_err(std::io::Error::other)
+}
+
+/// Remove the file or symlink checkout placed at `path`, which then had the `placed` stat, unless
+/// it changed since.
+fn remove_unless_changed(path: &Path, placed: &gix::index::entry::Stat) -> std::io::Result<()> {
+    let Ok(md) = gix::index::fs::Metadata::from_path_no_follow(path) else {
+        return Ok(());
+    };
+    match placed.matches(&stat_of(&md)?, ALL_FIELDS) {
+        true => gix::fs::symlink::remove(path),
+        false => Ok(()),
     }
 }
 
@@ -436,29 +467,8 @@ fn checkout_index(target: &gix::index::State, plan: &Plan) -> gix::index::State 
     index
 }
 
-/// What the index may record about the file placed at `dest`, which had the `staged` stat in the
-/// staging directory.
-///
-/// Renaming keeps everything but the ctime, which is why the stat is read again. A file that
-/// doesn't match its staged stat otherwise was changed after it was placed, so its stat can't
-/// vouch for the staged content, and Git has to compare the content instead.
-fn trusted_stat(staged: &gix::index::entry::Stat, dest: &Path) -> anyhow::Result<Stat> {
-    let md = gix::index::fs::Metadata::from_path_no_follow(dest)?;
-    let placed = gix::index::entry::Stat::from_fs(&md)?;
-    let all_but_ctime = gix::index::entry::stat::Options {
-        trust_ctime: false,
-        check_stat: true,
-        use_nsec: true,
-        use_stdev: false,
-    };
-    Ok(match staged.matches(&placed, all_but_ctime) {
-        true => Stat::Known(placed),
-        false => Stat::Unknown,
-    })
-}
-
-/// A new staging directory on the worktree's filesystem, so files can be renamed into place.
-/// It goes into the Git directory, or into the worktree if that is on another filesystem.
+/// A new staging directory on the worktree's filesystem, so objects can be moved aside into it
+/// and back. It goes into the Git directory, or into the worktree if that is on another filesystem.
 fn staging_dir(repo: &gix::Repository) -> anyhow::Result<tempfile::TempDir> {
     let workdir = repo.workdir().expect("checked by the caller");
     let in_git_dir = repo.git_dir().join("gitbutler");
@@ -497,87 +507,6 @@ fn join(dir: &Path, rela_path: impl AsRef<BStr>) -> anyhow::Result<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use std::{path::Path, time::SystemTime};
-
-    use crate::index::Stat;
-
-    fn set_mtime(path: &Path, mtime: SystemTime) -> std::io::Result<()> {
-        std::fs::File::options()
-            .write(true)
-            .open(path)?
-            .set_modified(mtime)
-    }
-
-    fn stat(path: &Path) -> anyhow::Result<gix::index::entry::Stat> {
-        Ok(gix::index::entry::Stat::from_fs(
-            &gix::index::fs::Metadata::from_path_no_follow(path)?,
-        )?)
-    }
-
-    /// A file staged at a whole second, then placed at `placed`, and its staged stat.
-    fn place(dir: &Path) -> anyhow::Result<(std::path::PathBuf, gix::index::entry::Stat)> {
-        let staged_path = dir.join("staged");
-        std::fs::write(&staged_path, "staged\n")?;
-        set_mtime(
-            &staged_path,
-            SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000),
-        )?;
-        let staged = stat(&staged_path)?;
-        let placed = dir.join("placed");
-        std::fs::rename(&staged_path, &placed)?;
-        Ok((placed, staged))
-    }
-
-    #[test]
-    fn a_placed_file_is_trusted_with_its_new_stat() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let (placed, staged) = place(tmp.path())?;
-
-        assert!(
-            matches!(super::trusted_stat(&staged, &placed)?, Stat::Known(_)),
-            "renaming keeps the file's identity"
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn a_placed_file_edited_in_the_same_second_is_not_trusted() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let (placed, staged) = place(tmp.path())?;
-        std::fs::write(&placed, "edited\n")?;
-        set_mtime(
-            &placed,
-            SystemTime::UNIX_EPOCH + std::time::Duration::new(1_000_000, 1_000),
-        )?;
-
-        assert!(
-            matches!(super::trusted_stat(&staged, &placed)?, Stat::Unknown),
-            "an edit after placing, like an editor saving the file, makes its stat untrustworthy"
-        );
-        Ok(())
-    }
-
-    #[test]
-    #[cfg(unix)]
-    fn a_placed_file_replaced_by_a_new_file_is_not_trusted() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
-        let (placed, staged) = place(tmp.path())?;
-        // Editors often save by writing a new file and renaming it over the old one.
-        let saved = tmp.path().join("saved");
-        std::fs::write(&saved, "edited\n")?;
-        set_mtime(
-            &saved,
-            SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000),
-        )?;
-        std::fs::rename(&saved, &placed)?;
-
-        assert!(
-            matches!(super::trusted_stat(&staged, &placed)?, Stat::Unknown),
-            "a new file with the same size and time is still another file"
-        );
-        Ok(())
-    }
-
     /// A worktree with the file `a`, and a staging directory to check out into it.
     fn worktree_and_staging() -> anyhow::Result<(tempfile::TempDir, super::Staged)> {
         let workdir = tempfile::tempdir()?;
@@ -591,15 +520,15 @@ mod tests {
         Ok((workdir, staged))
     }
 
-    /// Stage `content` as the new file `name`, and return where it is and its stat.
+    /// Stage `content` as the new file `name`, and return where it is.
     fn stage(
         staged: &super::Staged,
         name: &str,
         content: &str,
-    ) -> anyhow::Result<(std::path::PathBuf, gix::index::entry::Stat)> {
+    ) -> anyhow::Result<std::path::PathBuf> {
         let path = staged.new_files().join(name);
         std::fs::write(&path, content)?;
-        Ok((path.clone(), stat(&path)?))
+        Ok(path)
     }
 
     #[test]
@@ -607,13 +536,13 @@ mod tests {
     -> anyhow::Result<()> {
         let (workdir, staged) = worktree_and_staging()?;
         let a = workdir.path().join("a");
-        let (new_a, new_stat) = stage(&staged, "a", "target\n")?;
+        let new_a = stage(&staged, "a", "target\n")?;
         let mut journal = super::Journal::new(workdir.path());
         journal.move_aside(&a, &staged.aside())?;
         std::fs::write(&a, "saved meanwhile\n")?;
 
         let refused = journal
-            .place(&new_a, &a, &new_stat)
+            .place(&new_a, &a)
             .expect_err("`a` appeared after the check");
         let (staging_dir, aside) = (staged.dir.path().to_owned(), staged.aside());
         let err = journal.undo(staged, refused);
@@ -643,9 +572,9 @@ mod tests {
     fn undo_keeps_a_placed_file_changed_since() -> anyhow::Result<()> {
         let (workdir, staged) = worktree_and_staging()?;
         let b = workdir.path().join("b");
-        let (new_b, new_stat) = stage(&staged, "b", "target\n")?;
+        let new_b = stage(&staged, "b", "target\n")?;
         let mut journal = super::Journal::new(workdir.path());
-        journal.place(&new_b, &b, &new_stat)?;
+        journal.place(&new_b, &b)?;
         std::fs::write(&b, "saved after placing\n")?;
 
         journal.undo(staged, anyhow::anyhow!("a later step failed"));

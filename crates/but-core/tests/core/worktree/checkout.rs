@@ -1387,6 +1387,91 @@ fn checkout_refuses_to_overwrite_a_revert_made_after_the_snapshot() -> anyhow::R
 
 #[test]
 #[cfg(unix)]
+fn checkout_gives_files_what_their_directory_gives_new_files_like_git() -> anyhow::Result<()> {
+    let Some(group) = another_group_of_the_user()? else {
+        eprintln!("skipped: the user is in no other group");
+        return Ok(());
+    };
+    let mut files = Vec::new();
+    for checkout_with_git in [true, false] {
+        let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+        commit_in_worktree(&repo, &[("d/changed", "before\n")])?;
+        give_new_files_in_d_a_group_and_acl(&repo, group)?;
+        let new_commit = commit_files(
+            &repo,
+            "change d",
+            &[("d/changed", Some("after\n")), ("d/new", Some("new\n"))],
+        )?;
+
+        match checkout_with_git {
+            true => git(&repo)
+                .args(["checkout", "-q", "--detach", &new_commit.to_string()])
+                .run(),
+            false => {
+                safe_checkout_from_head(new_commit, &repo, Default::default())?;
+            }
+        }
+
+        files.push(mode_and_group(&repo, &["d/changed", "d/new"])?);
+    }
+    assert_eq!(
+        files[1], files[0],
+        "GitButler gives the files what Git gives them"
+    );
+    assert!(
+        files[0][1].ends_with(&format!("group {group}")),
+        "{files:?}"
+    );
+    Ok(())
+}
+
+/// A group of the user other than its primary one, which new files get only from a directory.
+#[cfg(unix)]
+fn another_group_of_the_user() -> anyhow::Result<Option<u32>> {
+    let id = |arg| -> anyhow::Result<String> {
+        Ok(String::from_utf8(
+            std::process::Command::new("id").arg(arg).output()?.stdout,
+        )?)
+    };
+    let primary = id("-g")?;
+    Ok(id("-G")?
+        .split_whitespace()
+        .find(|group| *group != primary.trim())
+        .map(str::parse)
+        .transpose()?)
+}
+
+/// Make the directory `d` give new files in it `group`, and where `setfacl` is available, no
+/// permissions for others through a default ACL.
+#[cfg(unix)]
+fn give_new_files_in_d_a_group_and_acl(repo: &gix::Repository, group: u32) -> anyhow::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    let d = repo.workdir_path("d").expect("non-bare");
+    std::os::unix::fs::chown(&d, None, Some(group))?;
+    let mode = std::fs::metadata(&d)?.permissions().mode();
+    std::fs::set_permissions(&d, std::fs::Permissions::from_mode(mode | 0o2000))?;
+    let _ = std::process::Command::new("setfacl")
+        .args(["-d", "-m", "o::---"])
+        .arg(&d)
+        .status();
+    Ok(())
+}
+
+/// The mode and group of each of `paths` in the worktree of `repo`.
+#[cfg(unix)]
+fn mode_and_group(repo: &gix::Repository, paths: &[&str]) -> anyhow::Result<Vec<String>> {
+    use std::os::unix::fs::MetadataExt;
+    paths
+        .iter()
+        .map(|path| {
+            let md = std::fs::symlink_metadata(repo.workdir_path(path).expect("non-bare"))?;
+            Ok(format!("{path}: mode {:o}, group {}", md.mode(), md.gid()))
+        })
+        .collect()
+}
+
+#[test]
+#[cfg(unix)]
 fn checkout_keeps_the_index_locked_while_it_runs() -> anyhow::Result<()> {
     // Another Git process tries to discard the staged edit to `a` while checkout snapshots the
     // worktree, like a user running `git checkout -- a` in a terminal.
