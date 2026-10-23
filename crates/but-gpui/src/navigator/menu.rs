@@ -567,8 +567,7 @@ impl Navigator {
                         let detail = match lost.len() {
                             0 => format!("Its folder is removed from disk. {after}"),
                             n => format!(
-                                "Its folder is removed from disk, with {}, which are lost. \
-                                 {after}",
+                                "Its folder is removed from disk, and {} with it. {after}",
                                 plural(n, "uncommitted file")
                             ),
                         };
