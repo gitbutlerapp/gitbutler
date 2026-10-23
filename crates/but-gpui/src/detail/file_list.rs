@@ -1080,14 +1080,23 @@ impl Detail {
                 };
                 let (split_project, split_files) = (project.clone(), files.clone());
                 let (drop_project, drop_files) = (project.clone(), files.clone());
-                items.extend([
-                    MenuItem::new(format!("Uncommit {what}"), move |this, window, cx| {
+                items.push(MenuItem::new(
+                    format!("Uncommit {what}"),
+                    move |this, window, cx| {
                         let into = crate::transfer::Place::Into;
                         this.transfer(&payload, &uncommitted, into, window, cx);
-                    }),
-                    MenuItem::new("Split into a new commit", move |this, _, cx| {
-                        this.split_off(split_project.clone(), commit, split_files.clone(), cx)
-                    }),
+                    },
+                ));
+                // All of it would leave the message on an empty commit.
+                if !self.takes_all(&files) {
+                    items.push(MenuItem::new(
+                        "Split into a new commit",
+                        move |this, _, cx| {
+                            this.split_off(split_project.clone(), commit, split_files.clone(), cx)
+                        },
+                    ));
+                }
+                items.push(
                     MenuItem::new(
                         format!("Discard {what} from commit…"),
                         move |this, window, cx| {
@@ -1101,7 +1110,7 @@ impl Detail {
                         },
                     )
                     .danger(),
-                ]);
+                );
             }
         }
         items

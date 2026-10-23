@@ -327,4 +327,18 @@ impl Detail {
             (part.hunks.iter().flatten()).any(|key| !whole.contains(key))
         })
     }
+
+    /// Whether `files` take every hunk of every file in the diff.
+    pub(super) fn takes_all(&self, files: &[Selected]) -> bool {
+        self.diff.as_ref().is_some_and(|diff| {
+            diff.files.iter().all(|file| {
+                files.iter().any(|part| {
+                    part.file.path == file.file.path
+                        && (part.hunks.as_ref()).is_none_or(|keys| {
+                            file.hunks().iter().all(|hunk| keys.contains(&hunk.key))
+                        })
+                })
+            })
+        })
+    }
 }
