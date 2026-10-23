@@ -467,6 +467,18 @@ impl Detail {
             || self.showing_shipped(cx)
             || self.showing_branches_overview(cx)
             || self.showing_now(cx)
+            || self.choosing_target(cx)
+    }
+
+    /// Whether the project's page asks which of the local branches tracking its target is it.
+    pub fn choosing_target(&self, cx: &gpui::App) -> bool {
+        let store = self.store.read(cx);
+        match store.selection.as_ref() {
+            Some(Selection::Project(project)) => {
+                (store.project(project)).is_some_and(|entry| entry.target_choice.is_some())
+            }
+            _ => false,
+        }
     }
 
     /// How far right of a list page's list the diff starts: past the files, when there's room
@@ -813,6 +825,113 @@ impl Detail {
             rows.push(Row::Older);
         }
         rows
+    }
+
+    /// What a project whose target several local branches track asks, `choice`: whether the
+    /// one named as the remote's branch is it, as main is for origin/main, which it nearly
+    /// always is; else which of them, a row each. Choose another… offers every local branch.
+    /// The branches not picked stay as they are.
+    pub(super) fn target_chooser(
+        &self,
+        project: &ProjectId,
+        choice: &backend::TargetChoice,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> AnyElement {
+        let pick = |name: &str| {
+            let (project, full) = (project.clone(), format!("refs/heads/{name}"));
+            cx.listener(
+                move |this: &mut Self, _: &gpui::ClickEvent, _: &mut gpui::Window, cx| {
+                    let (project, full) = (project.clone(), full.clone());
+                    (this.app)
+                        .update(cx, |app, cx| app.set_target(project, full, cx))
+                        .ok();
+                },
+            )
+        };
+        let another = {
+            let project = project.clone();
+            button("target-another", "Choose another…")
+                .style(ButtonStyle::Ghost)
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    let project = project.clone();
+                    (this.app)
+                        .update(cx, |app, cx| app.pick_target(project, window, cx))
+                        .ok();
+                }))
+        };
+        let remote = &choice.remote;
+        let (asked, said, answers) = match choice.branches.first().filter(|_| choice.named) {
+            Some(name) => (
+                format!("Use {name} as the target?"),
+                format!("Several branches track {remote}; the others stay as they are."),
+                h_flex()
+                    .gap(dp(8.))
+                    .child(
+                        button("target-use", format!("Use {name}"))
+                            .style(ButtonStyle::Pop)
+                            .on_click(pick(name)),
+                    )
+                    .child(another),
+            ),
+            // Nothing's named as the remote's branch: those tracking it, a row each.
+            None => {
+                let rows = (choice.branches.iter().enumerate()).map(|(ix, name)| {
+                    list_row(("target-choice", ix), false, theme)
+                        .cursor_pointer()
+                        .child(small_icon(Icon::Branch).text_color(theme.text_3))
+                        .child(div().flex_1().min_w_0().truncate().child(name.clone()))
+                        .on_click(pick(name))
+                });
+                (
+                    "Which branch is the target?".to_owned(),
+                    format!(
+                        "Several branches track {remote}. Pick the one your branches build on."
+                    ),
+                    v_flex()
+                        .items_center()
+                        .gap(dp(8.))
+                        .child(
+                            v_flex()
+                                .w(dp(260.))
+                                .py(dp(4.))
+                                .rounded(dp(8.))
+                                .border_1()
+                                .border_color(theme.border_3)
+                                .text_left()
+                                .children(rows),
+                        )
+                        .child(another),
+                )
+            }
+        };
+        v_flex()
+            .size_full()
+            .items_center()
+            .justify_center()
+            .px(dp(32.))
+            .pb(dp(60.))
+            .child(
+                v_flex()
+                    .max_w(dp(380.))
+                    .items_center()
+                    .gap(dp(16.))
+                    .text_center()
+                    .child(
+                        v_flex()
+                            .items_center()
+                            .gap(dp(6.))
+                            .child(
+                                div()
+                                    .text_size(dp(14.))
+                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .child(asked),
+                            )
+                            .child(muted(said, theme)),
+                    )
+                    .child(answers),
+            )
+            .into_any_element()
     }
 
     /// `title` and `detail` over a button that picks `project`'s target branch.
@@ -1469,14 +1588,17 @@ impl Detail {
                     )
                     .into_any_element()
             }),
-            entry.error.clone().filter(|_| !missing).map(|err| {
-                h_flex()
-                    .gap(dp(8.))
-                    .text_color(theme.danger)
-                    .child(icon(Icon::Warning).text_color(theme.danger))
-                    .child(div().flex_1().min_w_0().child(err))
-                    .into_any_element()
-            }),
+            // Which branch is the target is asked beside, so it isn't said here too.
+            (entry.error.clone())
+                .filter(|_| !missing && entry.target_choice.is_none())
+                .map(|err| {
+                    h_flex()
+                        .gap(dp(8.))
+                        .text_color(theme.danger)
+                        .child(icon(Icon::Warning).text_color(theme.danger))
+                        .child(div().flex_1().min_w_0().child(err))
+                        .into_any_element()
+                }),
         ]
         .into_iter()
         .flatten()
@@ -1487,6 +1609,16 @@ impl Detail {
             None => crate::ui::loading_state("Loading…", theme, cx),
             // Picking the target again is the way out of what it most often is, as a target that
             // more than one local branch tracks.
+            // Its target is being asked for beside, the history waiting on it.
+            Some(Upstream {
+                failed: Some(_), ..
+            }) if entry.target_choice.is_some() => crate::ui::empty_state(
+                None,
+                "",
+                "The target's history shows here once it's picked",
+                theme,
+                cx,
+            ),
             Some(Upstream {
                 failed: Some(err), ..
             }) => self.pick_target_state(

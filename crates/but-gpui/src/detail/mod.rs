@@ -2080,6 +2080,13 @@ impl Render for Detail {
                         };
                         Some(self.list_beside(project, header, &theme, cx))
                     }
+                    // A target several local branches track is picked where what shipped shows.
+                    Selection::Project(project)
+                        if let Some(choice) = (self.store.read(cx).project(project))
+                            .and_then(|entry| entry.target_choice.clone()) =>
+                    {
+                        Some(self.target_chooser(project, &choice, &theme, cx))
+                    }
                     Selection::Project(project) if self.showing_shipped(cx) => {
                         Some(self.render_shipped(project, window, cx))
                     }

@@ -200,7 +200,7 @@ impl Store {
                 if let Some(ix) = old.iter().position(|entry| entry.id == id) {
                     let mut entry = old.swap_remove(ix);
                     if entry.project.path != project.path {
-                        entry.error = None;
+                        entry.read();
                         entry.watcher = None;
                         entry.workspace = None;
                         open.push(id);
@@ -215,6 +215,7 @@ impl Store {
                     project,
                     workspace: None,
                     error: None,
+                    target_choice: None,
                     loading: false,
                     queued: None,
                     watcher: None,
@@ -463,7 +464,7 @@ impl Store {
                     }
                     Err(err) => {
                         tracing::warn!("Couldn't open {}: {err:#}", entry.project.name);
-                        entry.error = Some(load_error(&entry.project, &err));
+                        entry.failed(&err);
                     }
                 }
                 // Behind a load still running, if one is.
@@ -478,6 +479,16 @@ impl Store {
     /// is running.
     pub fn reload(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
         self.load(id, Reload::full(), cx);
+    }
+
+    /// Load `id` again, as after changing its target, opening it first when it's watched but
+    /// couldn't be opened before, as with a target several local branches track: no watcher
+    /// would see what happens in it from then on.
+    pub fn reload_or_open(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
+        match (self.project(id)).is_some_and(|entry| entry.expanded && entry.watcher.is_none()) {
+            true => self.open_project(id, cx),
+            false => self.reload(id, cx),
+        }
     }
 
     /// Load again the expanded projects whose folder went since they last loaded, and those
@@ -553,7 +564,7 @@ impl Store {
                 let queued = entry.queued.take();
                 match result {
                     Ok(workspace) => store.workspace_loaded(&id, workspace, fresh, cx),
-                    Err(err) => entry.error = Some(load_error(&entry.project, &err)),
+                    Err(err) => entry.failed(&err),
                 }
                 // Checking against a stale one could drop a selection the operation just made.
                 if fresh {
@@ -595,7 +606,7 @@ impl Store {
         if workspace.editing.is_some() {
             if let Some(entry) = self.project_mut(id) {
                 entry.workspace = Some(workspace);
-                entry.error = None;
+                entry.read();
             }
             let elsewhere = (self.selection.as_ref()).is_some_and(|s| {
                 s.project() == id && !matches!(s, Selection::Project(_) | Selection::Uncommitted(_))
@@ -686,7 +697,7 @@ impl Store {
         });
         if let Some(entry) = self.project_mut(id) {
             entry.workspace = Some(workspace);
-            entry.error = None;
+            entry.read();
         }
         if unwatched {
             self.rewatch(id, cx);
@@ -798,7 +809,7 @@ fn follow_by_key(old: Option<&Workspace>, new: &Workspace, commit: CommitId) -> 
 }
 
 /// Why a project didn't load: plainly when its folder is gone, otherwise as reported.
-fn load_error(project: &Project, err: &anyhow::Error) -> SharedString {
+pub(super) fn load_error(project: &Project, err: &anyhow::Error) -> SharedString {
     if project.path.exists() {
         backend::read_failure(err).into()
     } else {

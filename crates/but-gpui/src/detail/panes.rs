@@ -405,7 +405,13 @@ impl Detail {
         let store = self.store.read(cx);
         let Some(workspace) = store.workspace(project) else {
             // One that couldn't be read says so here too, rather than seeming to load.
-            return match store.project(project).and_then(|entry| entry.error.clone()) {
+            let entry = store.project(project);
+            // Which branch is the target is asked beside.
+            if entry.is_some_and(|entry| entry.target_choice.is_some()) {
+                let said = "Its files show here once the target's picked";
+                return empty_state(None, "", said, theme, cx);
+            }
+            return match entry.and_then(|entry| entry.error.clone()) {
                 Some(err) => empty_state(None, "Couldn't read the project", err, theme, cx),
                 None => crate::ui::loading_state("Loading…", theme, cx),
             };

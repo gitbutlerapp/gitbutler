@@ -387,7 +387,11 @@ impl Detail {
         let theme = Theme::get(cx);
         let store = self.store.read(cx);
         let Some(ws) = store.workspace(project) else {
-            return div().flex_1().into_any_element();
+            // A target several local branches track is picked here, as on the project's page.
+            return match (store.project(project)).and_then(|entry| entry.target_choice.as_ref()) {
+                Some(choice) => self.target_chooser(project, choice, theme, cx),
+                None => div().flex_1().into_any_element(),
+            };
         };
         let name = worktree.map(|w| &**w);
         let now = crate::ui::now();

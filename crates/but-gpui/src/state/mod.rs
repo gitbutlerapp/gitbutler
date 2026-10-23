@@ -211,6 +211,9 @@ pub struct ProjectEntry {
     pub expanded: bool,
     pub workspace: Option<Workspace>,
     pub error: Option<SharedString>,
+    /// Which local branch is the target, when the failure to read it is that several track
+    /// it: the project's page asks.
+    pub target_choice: Option<crate::backend::TargetChoice>,
     loading: bool,
     /// What to read again once the running load lands, if anything was asked for meanwhile.
     queued: Option<Reload>,
@@ -220,6 +223,18 @@ pub struct ProjectEntry {
 impl ProjectEntry {
     pub fn is_loading(&self) -> bool {
         self.loading && self.workspace.is_none()
+    }
+
+    /// Keep why it couldn't be read, `err`, and what to choose when that's the way out.
+    fn failed(&mut self, err: &anyhow::Error) {
+        self.error = Some(load::load_error(&self.project, err));
+        self.target_choice = crate::backend::target_choice(&self.project.path, err);
+    }
+
+    /// It read, so there's nothing wrong to say.
+    fn read(&mut self) {
+        self.error = None;
+        self.target_choice = None;
     }
 }
 

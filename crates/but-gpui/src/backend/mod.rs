@@ -804,17 +804,54 @@ fn conflicted_changes(
 }
 
 /// Why a project or its target couldn't be read: the engine's own words, except for a target
-/// several local branches track, whose words lead with the error's type name rather than
-/// what to do.
+/// several local branches track, which the project's page asks to pick, as [`TargetChoice`].
 pub fn read_failure(err: &anyhow::Error) -> String {
     match err.downcast_ref::<but_core::ref_metadata::AmbiguousLegacyTargetRefError>() {
-        Some(ambiguous) => format!(
-            "Several local branches track {}, so choose which one is the target under Target \
-             branch in Project settings.",
-            ambiguous.target_ref.shorten()
-        ),
+        Some(_) => "Choose which branch is its target".to_owned(),
         None => format!("{err:#}"),
     }
+}
+
+/// A target that several local branches track, as an older GitButler stored it: the remote
+/// branch, like origin/main, and the local branches tracking it, by name.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TargetChoice {
+    pub remote: String,
+    /// The one named as the remote's branch first, as main is for origin/main.
+    pub branches: Vec<String>,
+    /// Whether the first of `branches` is named as the remote's branch.
+    pub named: bool,
+}
+
+/// What `err` asks to choose, when it's that the project at `path` has a target several local
+/// branches track: those branches, picking one of which is the way out.
+pub fn target_choice(path: &Path, err: &anyhow::Error) -> Option<TargetChoice> {
+    let target = &err
+        .downcast_ref::<but_core::ref_metadata::AmbiguousLegacyTargetRefError>()?
+        .target_ref;
+    let repo = gix::open(path).ok()?;
+    let references = repo.references().ok()?;
+    let tracks = |name: &gix::refs::FullNameRef| {
+        (repo.branch_remote_tracking_ref_name(name, gix::remote::Direction::Fetch))
+            .and_then(Result::ok)
+            .is_some_and(|upstream| upstream.as_ref() == target.as_ref())
+    };
+    let mut branches: Vec<String> = (references.local_branches().ok()?)
+        .filter_map(Result::ok)
+        .filter(|branch| tracks(branch.name()))
+        .map(|branch| branch.name().shorten().to_string())
+        .collect();
+    let remote = target.shorten().to_string();
+    let own = remote
+        .split_once('/')
+        .map_or(remote.as_str(), |(_, name)| name);
+    branches.sort_by_key(|name| (name != own, name.clone()));
+    let named = branches.first().is_some_and(|name| name == own);
+    Some(TargetChoice {
+        remote,
+        branches,
+        named,
+    })
 }
 
 /// What a failed operation's card says: the engine's own words, except where those name a

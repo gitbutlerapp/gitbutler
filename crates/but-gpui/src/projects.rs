@@ -87,6 +87,27 @@ impl AppView {
         );
     }
 
+    /// Make the local branch `name`, as refs/heads/main, `project`'s target, then read the
+    /// project again and say so.
+    pub fn set_target(&mut self, project: ProjectId, name: String, cx: &mut Context<Self>) {
+        let Some(path) = self.store.read(cx).path(&project) else {
+            return;
+        };
+        let store = self.store.clone();
+        let short = name.strip_prefix("refs/heads/").unwrap_or(&name).to_owned();
+        cx.spawn(async move |_, cx| {
+            let set = backend::run(move || settings::set_target(&path, &name)).await;
+            store.update(cx, |store, cx| match set {
+                Ok(()) => {
+                    store.reload_or_open(&project, cx);
+                    store.snack(format!("The target is now {short}"), cx)
+                }
+                Err(err) => store.failed("Couldn't change the target", &err, cx),
+            });
+        })
+        .detach();
+    }
+
     /// Offer the project's local branches to pick its target from; each one's upstream is what
     /// pulls bring in.
     pub fn pick_target(&mut self, project: ProjectId, window: &mut Window, cx: &mut Context<Self>) {
@@ -123,22 +144,8 @@ impl AppView {
                 .into_iter()
                 .map(|name| {
                     let short = name.strip_prefix("refs/heads/").unwrap_or(&name).to_owned();
-                    let (path, project) = (path.clone(), project.clone());
-                    Choice::new(short.clone(), move |app, _, cx| {
-                        let store = app.store.clone();
-                        cx.spawn(async move |_, cx| {
-                            let set =
-                                backend::run(move || settings::set_target(&path, &name)).await;
-                            store.update(cx, |store, cx| match set {
-                                Ok(()) => {
-                                    store.reload(&project, cx);
-                                    store.snack(format!("The target is now {short}"), cx)
-                                }
-                                Err(err) => store.failed("Couldn't change the target", &err, cx),
-                            });
-                        })
-                        .detach();
-                    })
+                    let project = project.clone();
+                    Choice::new(short, move |app, _, cx| app.set_target(project, name, cx))
                 })
                 .collect();
             this.update_in(cx, |app, window, cx| {
