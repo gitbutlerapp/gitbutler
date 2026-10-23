@@ -4,6 +4,7 @@ disallowed-methods = [
     { path = "gpui::px", reason = "use ui::dp, which follows the interface scale, or ui::fixed for what must stay put" },
 ]
 
-# Tests may unwrap and expect, which the crate denies elsewhere.
+# Tests may unwrap, expect and panic, which the crate denies elsewhere.
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true
+allow-panic-in-tests = true

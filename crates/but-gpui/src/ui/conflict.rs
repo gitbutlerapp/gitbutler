@@ -368,7 +368,8 @@ fn label(side: Side, row: &Row, theme: &Theme) -> AnyElement {
     let (glyph, name, color) = match side {
         Side::NewBase => (row.icons[0], row.sides[0], theme.diff_added),
         Side::Commit => (row.icons[1], row.sides[1], theme.blue),
-        Side::Ancestor => unreachable!("only the two sides are labelled"),
+        // Under its toggle, not a label.
+        Side::Ancestor => return div().into_any_element(),
     };
     let empty = side_lines(row.conflict, side).is_empty();
     let text = match empty {

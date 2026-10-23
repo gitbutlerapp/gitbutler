@@ -718,7 +718,7 @@ mod tests {
                 Change::BranchAdded(name) => format!("+ branch {name}"),
                 Change::BranchRemoved(name) => format!("- branch {name}"),
                 Change::Renamed { from, to } => format!("branch {from} now {to}"),
-                Change::TargetMoved { .. } => unreachable!("compare leaves the target alone"),
+                Change::TargetMoved { .. } => panic!("compare leaves the target alone"),
             })
             .collect()
     }

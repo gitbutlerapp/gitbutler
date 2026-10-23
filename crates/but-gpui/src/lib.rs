@@ -3,12 +3,19 @@
 #![cfg(target_os = "macos")]
 // Built into the desktop app, this runs as GitButler itself, so a panic here quits GitButler:
 // failures are handled rather than unwrapped, and a lint is set aside with `#[expect]`, which
-// fails the build once it's needless.
+// fails the build once it's needless. A task let go of with `let _` is cancelled, and each
+// `unsafe` block says why it's sound.
 #![deny(
     clippy::unwrap_used,
     clippy::expect_used,
+    clippy::panic,
+    clippy::todo,
+    clippy::unimplemented,
+    clippy::unreachable,
     clippy::allow_attributes,
-    clippy::dbg_macro
+    clippy::dbg_macro,
+    clippy::let_underscore_must_use,
+    clippy::undocumented_unsafe_blocks
 )]
 // Indexes and byte offsets go through `get`, `split_once` and the like: what's drawn skips what's
 // gone, as a row a reload just took away, and the rest returns early rather than make up a value.
