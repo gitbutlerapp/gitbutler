@@ -155,6 +155,16 @@ impl Detail {
                 }
             }
         }
+        // Then the file under the diff's cursor, while the diff of what's selected shows.
+        let shown = (self.diff.as_ref())
+            .is_some_and(|diff| Some(diff.key.clone()) == self.key_for_selection(cx));
+        if let Some(path) = self
+            .cursor_path()
+            .filter(|_| shown && !self.diff_hidden(cx))
+        {
+            let name = path.rsplit('/').next().unwrap_or(&path).to_owned();
+            crumbs.push((name.into(), None));
+        }
         let last = crumbs.len().saturating_sub(1);
         // As ui-react's LocationBar: on the window's second ground, the navigator's toggle, a
         // hairline, then the trail, every crumb quiet and joined by chevrons.
