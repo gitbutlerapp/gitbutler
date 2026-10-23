@@ -129,7 +129,8 @@ const RISKY: &[&str] = &[
     "Merge pull request",
 ];
 
-type Run = Box<dyn FnOnce(&mut AppView, &mut Window, &mut Context<AppView>)>;
+/// What picking a choice does, given what's typed.
+type Run = Box<dyn FnOnce(&mut AppView, &str, &mut Window, &mut Context<AppView>)>;
 
 /// A row of the palette: what it's called, what it says at its end (keys, or a detail like
 /// the project a branch is in), and what picking it does.
@@ -139,6 +140,9 @@ pub struct Choice {
     detail: Option<SharedString>,
     /// It throws work away, so letters scattered through its label don't find it.
     risky: bool,
+    /// It makes something named as typed: any text but another choice's label finds it,
+    /// shown after its label.
+    names: bool,
     run: Run,
 }
 
@@ -152,7 +156,20 @@ impl Choice {
             key: None,
             detail: None,
             risky: false,
+            names: false,
+            run: Box::new(move |this, _, window, cx| run(this, window, cx)),
+        }
+    }
+
+    /// A choice that makes something named as typed, or with nothing typed, as it likes.
+    pub fn naming(
+        label: impl Into<SharedString>,
+        run: impl FnOnce(&mut AppView, &str, &mut Window, &mut Context<AppView>) + 'static,
+    ) -> Self {
+        Self {
+            names: true,
             run: Box::new(run),
+            ..Self::new(label, |_, _, _| {})
         }
     }
 
@@ -341,7 +358,8 @@ impl AppView {
                 key: item.key,
                 detail: item.detail,
                 risky: item.danger,
-                run: Box::new(move |this, window, cx| (item.handler)(this, window, cx)),
+                names: false,
+                run: Box::new(move |this, _, window, cx| (item.handler)(this, window, cx)),
             })
             .collect();
         if choices.is_empty() {
@@ -412,11 +430,17 @@ impl AppView {
             return Vec::new();
         };
         let query = palette.input.read(cx).text().trim().to_owned();
+        let taken =
+            (palette.choices.iter()).any(|c| !c.names && c.label.eq_ignore_ascii_case(&query));
         let mut scored: Vec<(i32, usize)> = palette
             .choices
             .iter()
             .enumerate()
             .filter_map(|(ix, choice)| {
+                // Last, under what the text finds.
+                if choice.names && !query.is_empty() {
+                    return (!taken).then_some((-1, ix));
+                }
                 let detail = (choice.detail.as_ref()).and_then(|detail| score(detail, &query));
                 let score = score(&choice.label, &query).max(detail)?;
                 // One that throws work away shows for its words, not for letters scattered
@@ -434,6 +458,7 @@ impl AppView {
         let Some(palette) = self.palette.take() else {
             return;
         };
+        let typed = palette.input.read(cx).text().trim().to_owned();
         let Some(choice) = palette.choices.into_iter().nth(ix) else {
             return;
         };
@@ -441,7 +466,7 @@ impl AppView {
         if let Some(focus) = palette.restore_focus {
             window.focus(&focus, cx);
         }
-        (choice.run)(self, window, cx);
+        (choice.run)(self, &typed, window, cx);
         cx.notify();
     }
 
@@ -472,6 +497,7 @@ impl AppView {
         let palette = self.palette.as_ref()?;
         let theme = Theme::get(cx).clone();
         let matches = self.matches(cx);
+        let typed = palette.input.read(cx).text().trim().to_owned();
         let rows: Vec<AnyElement> = matches
             .iter()
             .enumerate()
@@ -480,7 +506,12 @@ impl AppView {
                 let selected = row == palette.selected;
                 let el = list_row(("command", ix), selected, &theme)
                     .gap(dp(12.))
-                    .child(div().flex_1().truncate().child(choice.label.clone()))
+                    .child(div().flex_1().truncate().child(
+                        match choice.names && !typed.is_empty() {
+                            true => format!("{} \"{typed}\"", choice.label).into(),
+                            false => choice.label.clone(),
+                        },
+                    ))
                     .when_some(choice.detail.clone(), |el, detail| {
                         el.child(muted(detail, &theme))
                     })

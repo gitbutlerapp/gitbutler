@@ -372,7 +372,7 @@ impl AppView {
             return;
         };
         self.new_branch_at(project, true, None, window, cx, |path, _| {
-            backend::create_branch(path)
+            backend::create_branch(path, None)
         });
     }
 

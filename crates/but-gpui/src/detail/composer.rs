@@ -831,7 +831,7 @@ impl Detail {
                         None if linked => {
                             anyhow::bail!("The worktree has no branch of its own checked out")
                         }
-                        None => (backend::create_branch(path)?, true),
+                        None => (backend::create_branch(path, None)?, true),
                     };
                     // Undone apart from the commit, so a second ⌘Z takes the branch away.
                     let made = created
@@ -1334,8 +1334,9 @@ impl Detail {
                 }
             })
             .collect();
-        choices.push(Choice::new("New branch", move |this, _, cx| {
+        choices.push(Choice::naming("New branch", move |this, name, _, cx| {
             let (targeted, detail) = (project.clone(), detail.clone());
+            let name = (!name.is_empty()).then(|| name.to_owned());
             // The new branch becomes the target, rather than the page shown.
             let done = move |store: &mut Store, branch: String, cx: &mut Context<Store>| {
                 let message = format!("Created {}", short_ref(&branch));
@@ -1346,7 +1347,7 @@ impl Detail {
                 store.snack_undoable(message, cx)
             };
             this.store.update(cx, |store, cx| {
-                let create = |path: &_, _: &_| backend::create_branch(path);
+                let create = move |path: &_, _: &_| backend::create_branch(path, name.as_deref());
                 store.run(
                     &project,
                     "Create branch",

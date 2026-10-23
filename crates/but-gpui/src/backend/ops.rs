@@ -317,12 +317,13 @@ pub fn commit(
     Ok((CommitId(id), left_out, hook_failed))
 }
 
-/// Create a new stack with a made-up name and return its full ref name, for renaming after.
+/// Create a new stack, named `name` or with a made-up name, and return its full ref name.
 /// With the default branch checked out on its own, the new branch goes on top of it and is
 /// checked out, as `git checkout -b` would. Beside another branch, both go in GitButler's
 /// workspace, as `but branch new` does.
-pub fn create_branch(path: &Path) -> Result<String> {
+pub fn create_branch(path: &Path, name: Option<&str>) -> Result<String> {
     use but_api::branch::json::BranchCreatePlacement as Placement;
+    let new_ref = name.map(branch_ref).transpose()?;
     let mut ctx = open(path)?;
     refuse_unborn(&ctx)?;
     let head = ctx.repo.get()?.head_name()?;
@@ -343,7 +344,7 @@ pub fn create_branch(path: &Path) -> Result<String> {
             if (target.as_ref())
                 .is_some_and(|target| target.as_local_full_name_ref() != head.as_ref()) =>
         {
-            return create_beside_checkout(&mut ctx, &head);
+            return create_beside_checkout(&mut ctx, &head, new_ref);
         }
         Some(head) => Placement::Dependent {
             relative_to: but_api::commit::json::RelativeTo::Reference(head),
@@ -351,11 +352,11 @@ pub fn create_branch(path: &Path) -> Result<String> {
         },
         None => Placement::Independent { order: None },
     };
-    let created = but_api::branch::branch_create(&mut ctx, None, placement)?;
+    let created = but_api::branch::branch_create(&mut ctx, new_ref, placement)?;
     Ok(created.new_ref.to_string())
 }
 
-/// Make a branch with a made-up name where `head`, the branch checked out,
+/// Make a branch, `new_ref` or with a made-up name, where `head`, the branch checked out,
 /// leaves the target, and apply it beside `head`, which brings in GitButler's workspace for the
 /// two. Returns its full name. Starting there, as `but branch new` does, the two merge without
 /// conflicts, whatever the target has done since.
@@ -366,13 +367,25 @@ pub fn create_branch(path: &Path) -> Result<String> {
 fn create_beside_checkout(
     ctx: &mut but_ctx::Context,
     head: &gix::refs::FullName,
+    new_ref: Option<gix::refs::FullName>,
 ) -> Result<String> {
     use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
     let (new_ref, base) = {
         let repo = ctx.repo.get()?;
-        let new_ref = but_core::branch::unique_canned_refname(&repo)?;
+        let new_ref = match new_ref {
+            // As `branch_create` refuses one taken locally or by a remote's branch, or nesting
+            // with another.
+            Some(new_ref) => {
+                if but_core::branch::find_unique_refname(&repo, new_ref.as_ref())? != new_ref {
+                    bail!("Reference '{}' already exists", new_ref.shorten());
+                }
+                but_core::branch::refuse_colliding_refname(&repo, new_ref.as_ref(), None)?;
+                new_ref
+            }
+            None => but_core::branch::unique_canned_refname(&repo)?,
+        };
         let target = ctx.project_meta()?.resolve_target_commit(&repo)?;
         let base = (repo.merge_base(repo.head_id()?, target)?)
             .with_context(|| format!("{} shares no history with the target", head.shorten()))?;
@@ -1472,7 +1485,11 @@ pub(super) mod tests {
             let path = dir.path();
             target_origin_main(path);
 
-            let new = create_branch(path).unwrap();
+            let new = create_branch(path, Some("my feature")).unwrap();
+            assert_eq!(
+                new, "refs/heads/my-feature",
+                "named as typed, as Git allows"
+            );
             assert_eq!(
                 git(path, &["symbolic-ref", "HEAD"]).trim(),
                 new,
@@ -1584,7 +1601,7 @@ pub(super) mod tests {
             git(path, &["checkout", "-q", "--detach"]);
 
             let before = git(path, &["branch", "--list"]);
-            let err = create_branch(path).unwrap_err();
+            let err = create_branch(path, None).unwrap_err();
             assert!(err.to_string().contains("detached"), "{err}");
             assert_eq!(git(path, &["branch", "--list"]), before, "nothing is made");
         })
@@ -1612,7 +1629,15 @@ pub(super) mod tests {
             };
             let head = |path: &Path| git(path, &["symbolic-ref", "HEAD"]).trim().to_owned();
 
-            let new = create_branch(path).unwrap();
+            // A teammate's branch on the remote, which a branch of that name would take as
+            // its own.
+            git(path, &["update-ref", "refs/remotes/origin/fix", "HEAD"]);
+            let taken = create_branch(path, Some("fix"));
+            assert!(
+                taken.is_err() && !lanes(path).0,
+                "fix is taken, so nothing changes"
+            );
+            let new = create_branch(path, Some("second")).unwrap();
             let second = new.strip_prefix("refs/heads/").unwrap();
             let mut both = vec![vec!["feature".to_owned()], vec![second.to_owned()]];
             both.sort();
@@ -1689,7 +1714,7 @@ pub(super) mod tests {
             git(path, &["checkout", "-q", "feature"]);
             let fork = git(path, &["merge-base", "feature", "main"]);
 
-            let new = create_branch(path).unwrap();
+            let new = create_branch(path, None).unwrap();
             assert_eq!(
                 git(path, &["rev-parse", &new]),
                 fork,
@@ -1726,7 +1751,7 @@ pub(super) mod tests {
                 "main is listed while it has a commit origin doesn't"
             );
 
-            let new = create_branch(path).unwrap();
+            let new = create_branch(path, None).unwrap();
             let name = new.strip_prefix("refs/heads/").unwrap().to_owned();
             assert_eq!(
                 branches(path),
