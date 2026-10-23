@@ -466,14 +466,20 @@ impl Store {
             return;
         };
         self.merged.insert(id, None);
+        let project = project.clone();
         cx.spawn(async move |this, cx| {
             let read =
                 backend::run(move || backend::upstream::merged_commits(&path, id, MERGED_SHOWN))
                     .await;
             this.update(cx, |store, cx| {
-                let read = read
-                    .inspect_err(|err| tracing::warn!(?err, "couldn't read a merge's commits"))
-                    .unwrap_or_default();
+                // Said once, rather than opening on nothing; reading it again on each reload
+                // of the page would say so again each time.
+                let read = read.unwrap_or_else(|err| {
+                    let title =
+                        store.card_title(&project, "Couldn't read the merge's commits".into());
+                    store.failed(title, &err, cx);
+                    Default::default()
+                });
                 store.merged.insert(id, Some(read));
                 cx.notify();
             })
