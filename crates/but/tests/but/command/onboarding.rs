@@ -185,9 +185,9 @@ fn migration_to_local_target_ref_without_tracking_branch() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: No local branch tracks origin/4.7
+Error: GitButler now requires the target to be a local branch, but no local branch tracks your current target, origin/4.7
 
-Hint: Choose a local target branch with `but config target <branch>`
+Hint: Make a local branch track origin/4.7 with `git branch --set-upstream-to=origin/4.7 <branch>`, or choose a local target branch with `but config target <branch>`
 
 "#]]);
 
@@ -258,9 +258,9 @@ fn migration_from_virtual_branches_toml_without_tracking_branch() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: No local branch tracks origin/4.7
+Error: GitButler now requires the target to be a local branch, but no local branch tracks your current target, origin/4.7
 
-Hint: Choose a local target branch with `but config target <branch>`
+Hint: Make a local branch track origin/4.7 with `git branch --set-upstream-to=origin/4.7 <branch>`, or choose a local target branch with `but config target <branch>`
 
 "#]]);
 
@@ -288,4 +288,106 @@ Hint: Choose a local target branch with `but config target <branch>`
 Hint: run `but branch new` to create a new branch to work on
 
 "#]]);
+}
+
+// A fork checkout from before targets were local, where `upstream` is the project and `origin` is
+// the user's fork that fell behind it.
+//
+// - Legacy target is `upstream/main`
+// - `main` tracks the `origin/main`
+//
+// So no local branch tracks the legacy target. Following the hint to make `main` track it keeps
+// pulls coming from the project, as they did before the migration.
+//
+// regression test for the fork follow-up to https://github.com/gitbutlerapp/gitbutler/pull/16437#issuecomment-6340526957
+#[cfg(feature = "legacy")]
+#[test]
+fn migration_with_local_branch_tracking_fork_hints_to_track_legacy_target() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+    let upstream = env.app_data_dir().join("upstream.git");
+    let fork = env.app_data_dir().join("fork.git");
+    let other = env.app_data_dir().join("other");
+    let (upstream, fork, other) = (upstream.display(), fork.display(), other.display());
+    // the fork is never synced while the project moves on
+    env.invoke_bash(format!(
+        "git clone -q --bare . {upstream} && git clone -q --bare . {fork} \
+         && git clone -q {upstream} {other} && cd {other} \
+         && echo upstream > upstream.txt && git add upstream.txt \
+         && git commit -qm 'upstream work' && git push -q origin main"
+    ));
+    // local main keeps tracking origin/main, the fork
+    env.invoke_bash(format!(
+        "git remote set-url origin {fork} && git remote add upstream {upstream} \
+         && git fetch -q origin && git fetch -q upstream"
+    ));
+
+    env.invoke_git("config gitbutler.project.targetRef refs/remotes/upstream/main");
+    let target_commit_id = env.invoke_git("rev-parse upstream/main");
+    env.invoke_git(&format!(
+        "config gitbutler.project.targetCommitId {target_commit_id}"
+    ));
+    env.invoke_git("config gitbutler.project.pushRemote origin");
+    env.invoke_git("config gitbutler.project.portedMeta true");
+
+    env.but("status")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: GitButler now requires the target to be a local branch, but no local branch tracks your current target, upstream/main
+
+Hint: Make a local branch track upstream/main with `git branch --set-upstream-to=upstream/main <branch>`, or choose a local target branch with `but config target <branch>`
+
+"#]]);
+
+    // run the command the hint suggests
+    env.invoke_git("branch --set-upstream-to=upstream/main main");
+
+    // main is now the only branch tracking the legacy target, so it becomes the target by itself
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊● cb1cbd8 (upstream: upstream/main) 1 new commit
+├╯ b1540e5 (common base, main, HEAD) 2000-01-02 M
+
+Hint: upstream/main moved ahead; run `but pull` to update the workspace
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+
+    // the project moves on again after the migration
+    env.invoke_bash(format!(
+        "cd {other} && echo more > more.txt && git add more.txt \
+         && git commit -qm 'more upstream work' && git push -q origin main"
+    ));
+    env.but("pull")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+
+Found 2 upstream commits on upstream/main
+   dc682ed more upstream work
+   cb1cbd8 upstream work
+
+Rebase successful
+
+Summary
+────────
+
+To undo this operation:
+  Run `but undo`
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("rev-parse main"),
+        env.invoke_git("rev-parse upstream/main"),
+        "pulling integrates the project, like the legacy target did"
+    );
+    assert_eq!(
+        env.invoke_git("config gitbutler.project.targetRef"),
+        "refs/heads/main",
+        "the local branch tracking the legacy target replaces it"
+    );
 }
