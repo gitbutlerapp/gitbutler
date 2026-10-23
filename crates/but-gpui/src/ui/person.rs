@@ -133,7 +133,11 @@ fn github(email: &str) -> Option<Arc<gpui::Image>> {
     let default = match DEFAULT.get() {
         Some(default) => *default,
         None => {
-            let bytes = fetch(url("nobody@users.invalid")?.as_str()).ok()?;
+            // Made up anew each run: GitHub has a picture of its own for some made-up
+            // addresses, as for nobody@users.invalid, and with it every author counted as
+            // having a photo, all of them GitHub's default.
+            let nobody = format!("nobody-{}@users.invalid", std::process::id());
+            let bytes = fetch(url(&nobody)?.as_str()).ok()?;
             *DEFAULT.get_or_init(|| md5::compute(bytes))
         }
     };
