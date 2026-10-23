@@ -63,10 +63,11 @@ impl Detail {
         activity: Option<&Activity>,
         commits: &[&Commit],
         scoped: &[&Commit],
-        now: i64,
+        status: Div,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Div {
+        let now = crate::ui::now();
         let span = &self.now.span;
         let bars = activity.map_or_else(|| vec![0; QUARTERS], |a| a.bars(now, QUARTERS));
         let first = (now - now.rem_euclid(QUARTER)) / QUARTER - (QUARTERS as i64 - 1);
@@ -217,8 +218,8 @@ impl Detail {
                     ))
             });
         // Every third hour marked, centred where its quarter begins, clear of both ends and of
-        // "now" at the right.
-        let marks = (2..QUARTERS - 6).filter_map(|ix| {
+        // "now" at the right, which takes the last two hours' room in a narrow window.
+        let marks = (2..QUARTERS - 8).filter_map(|ix| {
             let mark = hour_mark((first + ix as i64) * QUARTER)?;
             Some(
                 h_flex()
@@ -237,7 +238,8 @@ impl Detail {
         };
         v_flex()
             .gap(dp(6.))
-            .child(overview_title("Activity", range, theme).children(clear))
+            .child(overview_title("Activity in this worktree", range, theme).children(clear))
+            .child(status)
             .child(keyed_tiles(tiles, theme))
             .child(
                 v_flex()

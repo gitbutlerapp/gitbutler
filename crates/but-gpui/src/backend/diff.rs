@@ -14,60 +14,6 @@ use super::{
     present_first_parent, worktree_files,
 };
 
-/// The files commits `oldest` to `newest` change together, from `oldest`'s parent, each with
-/// the lines it adds and removes, the most changed first.
-pub fn range_lines(
-    path: &Path,
-    oldest: CommitId,
-    newest: CommitId,
-) -> Result<Vec<(String, u32, u32)>> {
-    let ctx = open(path)?;
-    let repo = checkout(&ctx, None)?;
-    let base = present_first_parent(&repo.find_commit(oldest.0)?);
-    let mut lines: Vec<(String, u32, u32)> = (but_core::diff::tree_changes(&repo, base, newest.0)?)
-        .into_iter()
-        .map(|change| {
-            let (added, removed) = line_counts(&repo, &change);
-            (change.path.to_str_lossy().into_owned(), added, removed)
-        })
-        .collect();
-    lines.sort_by_key(|(_, added, removed)| std::cmp::Reverse(added + removed));
-    Ok(lines)
-}
-
-/// The files `commits` change, each commit's own changes told and added up: for commits
-/// with others between them, whose one range would count the others' too. Most changed first.
-pub fn commits_lines(path: &Path, commits: &[CommitId]) -> Result<Vec<(String, u32, u32)>> {
-    let ctx = open(path)?;
-    let repo = checkout(&ctx, None)?;
-    let mut lines: Vec<(String, u32, u32)> = Vec::new();
-    for id in commits {
-        let base = present_first_parent(&repo.find_commit(id.0)?);
-        for change in but_core::diff::tree_changes(&repo, base, id.0)? {
-            let (added, removed) = line_counts(&repo, &change);
-            let path = change.path.to_str_lossy().into_owned();
-            match lines.iter_mut().find(|(known, ..)| *known == path) {
-                Some((_, a, r)) => (*a, *r) = (*a + added, *r + removed),
-                None => lines.push((path, added, removed)),
-            }
-        }
-    }
-    lines.sort_by_key(|(_, added, removed)| std::cmp::Reverse(added + removed));
-    Ok(lines)
-}
-
-/// The lines `change` adds and removes, none for a binary file.
-fn line_counts(repo: &gix::Repository, change: &but_core::TreeChange) -> (u32, u32) {
-    match change.unified_patch(repo, 0) {
-        Ok(Some(but_core::UnifiedPatch::Patch {
-            lines_added,
-            lines_removed,
-            ..
-        })) => (lines_added, lines_removed),
-        _ => (0, 0),
-    }
-}
-
 /// The files each of `commits` changes, from its first parent, by their paths.
 pub fn commit_paths(path: &Path, commits: &[CommitId]) -> Result<Vec<(CommitId, Vec<String>)>> {
     let ctx = open(path)?;
@@ -1011,32 +957,5 @@ fn parse_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
         scope: Vec::new(),
         lead: Vec::new(),
         tail: Vec::new(),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::backend::CommitId;
-    use crate::backend::ops::tests::{git, repo_with};
-
-    #[test]
-    fn commits_with_others_between_count_only_their_own_lines() {
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        let commit = |file: &str, content: &str| {
-            std::fs::write(path.join(file), content).unwrap();
-            git(path, &["add", file]);
-            git(path, &["commit", "-q", "-m", file]);
-            let id = git(path, &["rev-parse", "HEAD"]);
-            CommitId(gix::ObjectId::from_hex(id.trim().as_bytes()).unwrap())
-        };
-        let first = commit("file", "one\ntwo\n");
-        commit("skipped", "between\n");
-        let last = commit("file", "one\ntwo\nthree\n");
-        assert_eq!(
-            super::commits_lines(path, &[last, first]).unwrap(),
-            [("file".to_owned(), 2, 0)],
-            "each one's own line added up, the commit between them left out"
-        );
     }
 }

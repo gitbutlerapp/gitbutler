@@ -6,15 +6,12 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
 
-use gpui::{
-    AnyElement, App, Context, Div, MouseButton, ScrollHandle, SharedString, Stateful, div,
-    prelude::*, relative,
-};
+use gpui::{AnyElement, App, Context, Div, MouseButton, ScrollHandle, div, prelude::*, relative};
 
 use super::Detail;
 use super::panes::{
-    OVERVIEW_TIME_WIDTH, meta_item, meta_row, overview_column, overview_heading, overview_title,
-    page_title, title_text,
+    OVERVIEW_TIME_WIDTH, meta_item, meta_row, overview_column, overview_heading, page_title,
+    title_text,
 };
 use super::slots::SlotPick;
 use crate::backend::{self, Branch, Commit, CommitId, Workspace};
@@ -34,8 +31,6 @@ mod activity;
 
 /// How many quarters of an hour the activity covers: the last 12 hours.
 const BARS: usize = 48;
-/// How many of the files a branch's commits not seen yet change show before they scroll.
-const UNSEEN_ROWS: f32 = 5.;
 /// How wide the commits' times are, room for "59m" or "11mo" and no more, so they sit close to
 /// the branch.
 const COMMITS_TIME_WIDTH: f32 = 28.;
@@ -51,9 +46,6 @@ pub(super) struct Now {
     /// the branch and commit it was read at, as the reflog changes only when they do.
     events: Vec<(i64, String)>,
     events_at: Option<(Option<String>, Option<CommitId>)>,
-    /// The files each branch's commits not seen yet change, with their lines, by those
-    /// commits: `None` while it's read.
-    unseen_lines: HashMap<Arc<[CommitId]>, Option<FileLines>>,
     /// The commits of the checkout's branches when it last loaded, to tell one an agent just
     /// made from those already there.
     known: Option<HashSet<CommitId>>,
@@ -66,20 +58,10 @@ pub(super) struct Now {
     /// The quarters of an hour picked off the activity, by when they begin over `QUARTER`,
     /// which the rest of the overview is narrowed to; none for all it shows.
     span: SlotPick,
-    /// The branch whose commits not seen yet show, by name: the newest's while none's picked
-    /// or the one picked has none left.
-    unseen_branch: Option<SharedString>,
-    /// The picked branch's files, hot files' and the commits', each scrolling on its own.
-    unseen_scroll: ScrollHandle,
+    /// Hot files' and the commits', each scrolling on its own.
     hot_scroll: ScrollHandle,
     commits_scroll: ScrollHandle,
 }
-
-/// Files a range of commits changes, each with the lines it adds and removes.
-type FileLines = Vec<(String, u32, u32)>;
-
-/// The newest and oldest of a run of commits, one after the other in a lane.
-type Run = (CommitId, CommitId);
 
 /// The commits of a checkout's branches, as listed: linked worktree `worktree`'s, or the main
 /// checkout's.
@@ -142,42 +124,8 @@ impl Detail {
         back
     }
 
-    /// The selected checkout's commits not seen yet, as the navigator lists them, by the
-    /// branch they're on, the branch with the newest first.
-    fn unseen_by_branch<'a>(
-        &self,
-        project: &ProjectId,
-        worktree: Option<&str>,
-        cx: &'a App,
-    ) -> Vec<(&'a Branch, Vec<&'a Commit>)> {
-        let store = self.store.read(cx);
-        let Some(ws) = store.workspace(project) else {
-            return Vec::new();
-        };
-        let mut groups: Vec<(&Branch, Vec<&Commit>)> = Vec::new();
-        for commit in checkout_commits(ws, worktree) {
-            let Some((branch, _)) = ws.find_commit(commit.id) else {
-                continue;
-            };
-            if !store.is_unread(project, commit) {
-                continue;
-            }
-            match groups.iter_mut().find(|(b, _)| std::ptr::eq(*b, branch)) {
-                Some((_, commits)) => commits.push(commit),
-                None => groups.push((branch, vec![commit])),
-            }
-        }
-        // By name where they're as new, so the first stays first whatever order a load lists
-        // the stacks in.
-        groups.sort_by_key(|(branch, commits)| {
-            let newest = commits.iter().map(|commit| commit.time).max();
-            (std::cmp::Reverse(newest), branch.name.clone())
-        });
-        groups
-    }
-
     /// Read what the selected checkout's overview needs beyond the workspace: a linked
-    /// worktree's moves lately, and the lines the commits not seen yet change.
+    /// worktree's moves lately, and which files its commits change.
     pub(super) fn load_now(&mut self, cx: &mut Context<Self>) {
         let Some(checkout) = self.selected_checkout(cx) else {
             return;
@@ -238,50 +186,6 @@ impl Detail {
             .detach();
         }
         self.read_commit_paths(&checkout, &path, cx);
-        // Each branch's, as one range when they're one run, else each commit's own added up,
-        // as a range would count the commits between them too.
-        let sets: Vec<(Arc<[CommitId]>, Option<Run>)> =
-            match self.store.read(cx).workspace(&checkout.0) {
-                Some(ws) => (self.unseen_by_branch(&checkout.0, checkout.1.as_deref(), cx))
-                    .iter()
-                    .map(|(_, commits)| {
-                        let ids = commits.iter().map(|commit| commit.id).collect();
-                        (ids, unseen_run(ws, commits))
-                    })
-                    .collect(),
-                None => Vec::new(),
-            };
-        (self.now.unseen_lines).retain(|ids, _| sets.iter().any(|(set, _)| set == ids));
-        for (ids, run) in sets {
-            if self.now.unseen_lines.contains_key(&ids) {
-                continue;
-            }
-            self.now.unseen_lines.insert(ids.clone(), None);
-            let (path, read_for, key) = (path.clone(), checkout.clone(), ids.clone());
-            let lines = backend::run(move || match run {
-                Some((newest, oldest)) => backend::range_lines(&path, oldest, newest),
-                None => backend::commits_lines(&path, &ids),
-            });
-            cx.spawn(async move |this, cx| {
-                let lines = lines.await;
-                this.update(cx, |this, cx| {
-                    if this.now.checkout.as_ref() != Some(&read_for) {
-                        return;
-                    }
-                    // Read again on the next load when this failed.
-                    match lines {
-                        Ok(lines) => drop(this.now.unseen_lines.insert(key, Some(lines))),
-                        Err(err) => {
-                            this.now.unseen_lines.remove(&key);
-                            tracing::warn!("couldn't count the unseen commits' lines: {err:#}")
-                        }
-                    }
-                    cx.notify();
-                })
-                .ok();
-            })
-            .detach();
-        }
     }
 
     /// Follow the file being read in a checkout's changes into the commit an agent just made
@@ -379,11 +283,10 @@ impl Detail {
     }
 
     /// The overview of the checkout of `project`, linked worktree `worktree` or the main one,
-    /// in two parts, laid out as the project's and Branches' are: New, what you haven't
-    /// looked at (its uncommitted files, whether they're being written, and the commits not
-    /// seen yet), then Activity, what happened over the last 12 hours or the quarters picked
-    /// off it (how busy it's been, the files committed most and the commits, side by side, so
-    /// a file picked filters the commits beside it).
+    /// laid out as the project's and Branches' are: where it is (whether it's being written,
+    /// its uncommitted files and unread commits), then what happened over the last 12 hours
+    /// or the quarters picked off its activity (how busy it's been, the files committed most
+    /// and the commits, side by side, so a file picked filters the commits beside it).
     pub(super) fn render_now(
         &self,
         project: &ProjectId,
@@ -416,9 +319,9 @@ impl Detail {
             (self.now_hot_files(&scoped, theme, cx), 2., 240.),
             (self.now_commits(project, &scoped, now, theme, cx), 3., 340.),
         ];
-        // The page holds still: New scrolls within the most of it it takes, and hot files and
-        // the commits within what's left under the activity. Over it, the bar a file's diff
-        // has, its toggle for the file list where the diff's is, so opening a file moves it not.
+        // The page holds still: hot files and the commits scroll within what's left under the
+        // activity. Over it, the bar a file's diff has, its toggle for the file list where the
+        // diff's is, so opening a file moves it not.
         v_flex()
             .id("now")
             .flex_1()
@@ -434,16 +337,14 @@ impl Detail {
                     .px(dp(14.))
                     .py(dp(16.))
                     .gap(dp(6.))
-                    .child(overview_title(
-                        "New",
-                        "since you last looked".to_owned(),
+                    .child(self.now_activity(
+                        activity,
+                        &commits,
+                        &scoped,
+                        self.now_status(project, worktree, &commits, theme, cx),
                         theme,
+                        cx,
                     ))
-                    .child(self.now_new(project, worktree, &commits, theme, cx))
-                    .child(
-                        (self.now_activity(activity, &commits, &scoped, now, theme, cx))
-                            .mt(dp(22.)),
-                    )
                     // Stacked, each half of what's left, where they don't fit side by side.
                     .child(
                         h_flex()
@@ -495,11 +396,10 @@ impl Detail {
             )
     }
 
-    /// What you haven't looked at: a line summing it up (whether files are being written or
-    /// how long it's been quiet, how many files are uncommitted and how many commits not opened
-    /// yet), then a tab for each branch with those, the one picked showing their files, which
-    /// scroll on their own, with Open and Mark as read for them.
-    fn now_new(
+    /// Where the checkout is, in a line: whether files are being written or how long it's
+    /// been quiet, how many files are uncommitted and how many of its `commits` unread, or
+    /// All caught up.
+    fn now_status(
         &self,
         project: &ProjectId,
         worktree: Option<&Arc<str>>,
@@ -508,7 +408,6 @@ impl Detail {
         cx: &Context<Self>,
     ) -> Div {
         let name = worktree.map(|w| &**w);
-        let groups = self.unseen_by_branch(project, name, cx);
         let store = self.store.read(cx);
         let files = (store.workspace(project))
             .and_then(|ws| ws.uncommitted_in(name))
@@ -531,10 +430,12 @@ impl Detail {
             },
             (false, None) => "Nothing committed yet".to_owned(),
         };
-        let unread: usize = groups.iter().map(|(_, commits)| commits.len()).sum();
+        let unread = (commits.iter())
+            .filter(|commit| store.is_unread(project, **commit))
+            .count();
         // One line, short enough for a narrow page, its last words cut short before they'd
-        // widen it; the tabs under it say which branches.
-        let summary = meta_row(theme)
+        // widen it.
+        meta_row(theme)
             .min_w_0()
             .overflow_hidden()
             .px(dp(14.))
@@ -563,163 +464,7 @@ impl Detail {
             .when(files.is_empty() && unread == 0, |el| {
                 let said = div().min_w_0().truncate().child("All caught up");
                 el.child(meta_item(Icon::Tick, theme).min_w_0().child(said))
-            });
-        let picked = (self.now.unseen_branch.as_ref())
-            .and_then(|name| groups.iter().position(|(branch, _)| branch.name == **name))
-            .unwrap_or(0);
-        v_flex()
-            .flex_none()
-            .gap(dp(8.))
-            .child(summary)
-            .children((!groups.is_empty()).then(|| {
-                let tabs = (groups.iter().enumerate()).map(|(ix, group)| {
-                    self.unseen_tab(ix, ix == picked, project, group, theme, cx)
-                });
-                let (_, commits) = &groups[picked];
-                // The tabs across, then the picked branch's: what to do with them, and their
-                // files.
-                v_flex()
-                    .gap(dp(4.))
-                    // The actions beside the tabs where they fit, else on a line of their own.
-                    .child(
-                        (h_flex().min_w_0().px(dp(6.)).flex_wrap().gap(dp(4.)))
-                            .children(tabs)
-                            .child(self.unseen_actions(project, commits, cx)),
-                    )
-                    .child(self.unseen_files(project, commits, theme, cx))
-            }))
-    }
-
-    /// A branch's tab among those with commits not opened yet: its pull request's title or its
-    /// name and how many; picked, their files show under the tabs.
-    fn unseen_tab(
-        &self,
-        ix: usize,
-        on: bool,
-        project: &ProjectId,
-        (branch, commits): &(&Branch, Vec<&Commit>),
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> Stateful<Div> {
-        let ((glyph, color), label, tip) = branch_said(self.store.read(cx), project, branch, theme);
-        let name: SharedString = branch.name.clone().into();
-        h_flex()
-            .id(("now-branch-tab", ix))
-            .flex_none()
-            .min_w_0()
-            .max_w(dp(260.))
-            .h(dp(26.))
-            .px(dp(8.))
-            .gap(dp(6.))
-            .rounded(dp(6.))
-            .cursor_pointer()
-            .when(on, |el| el.bg(theme.selected_unfocused()))
-            .when(!on, |el| el.hover(|el| el.bg(theme.hover())))
-            .child(small_icon(glyph).flex_none().text_color(color))
-            .child(
-                div()
-                    .min_w_0()
-                    .truncate()
-                    .when(on, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
-                    .child(label),
-            )
-            .child(count_badge(commits.len(), theme))
-            .tooltip(Tooltip::text(tip))
-            .on_mouse_down(MouseButton::Left, keep_focus_on_press)
-            .on_click(cx.listener(move |this, _, _, cx| {
-                this.now.unseen_branch = Some(name.clone());
-                this.now.unseen_scroll.set_offset(Default::default());
-                cx.notify();
-            }))
-    }
-
-    /// Open, which shows the picked branch's `commits` together, and Mark as read, for those
-    /// not worth a look.
-    fn unseen_actions(&self, project: &ProjectId, commits: &[&Commit], cx: &Context<Self>) -> Div {
-        let ids: Arc<[CommitId]> = commits.iter().map(|commit| commit.id).collect();
-        let (to_open, read) = (
-            (project.clone(), ids.clone()),
-            (project.clone(), ids.clone()),
-        );
-        h_flex()
-            .flex_grow(1.)
-            .min_w_0()
-            .h(dp(26.))
-            .gap(dp(4.))
-            .justify_end()
-            .child(
-                button("now-unseen-open", "Open")
-                    .small()
-                    .style(ButtonStyle::Ghost)
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        let (project, ids) = &to_open;
-                        this.open_unseen(project, ids, None, cx)
-                    })),
-            )
-            .child(
-                button("now-unseen-read", "Mark as read")
-                    .small()
-                    .style(ButtonStyle::Ghost)
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        let (project, ids) = read.clone();
-                        this.store.update(cx, |store, cx| {
-                            store.mark_read(&project, ids.iter().copied(), true, cx)
-                        })
-                    })),
-            )
-    }
-
-    /// The files the picked branch's `commits` change, as the file list draws them, with the
-    /// lines each changes, scrolling on their own past a few; a click on one opens the commits
-    /// at it.
-    fn unseen_files(
-        &self,
-        project: &ProjectId,
-        commits: &[&Commit],
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> Div {
-        let ids: Arc<[CommitId]> = commits.iter().map(|commit| commit.id).collect();
-        let lines = self.now.unseen_lines.get(&ids).and_then(Option::as_ref);
-        let rows =
-            (lines.into_iter().flatten().enumerate()).map(|(row, (path, added, removed))| {
-                let (project, ids, file) = (project.clone(), ids.clone(), path.clone());
-                list_row(("now-unseen-file", row), false, theme)
-                    .on_mouse_down(MouseButton::Left, keep_focus_on_press)
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.open_unseen(&project, &ids, Some(file.clone()), cx)
-                    }))
-                    .child(file_label(path, false, theme, cx))
-                    .child(diff::stats(*added, *removed, theme))
-            });
-        v_flex()
-            .relative()
-            .child(
-                v_flex()
-                    .id("now-unseen-files")
-                    .max_h(dp(ROW_HEIGHT * UNSEEN_ROWS))
-                    .overflow_y_scroll()
-                    .track_scroll(&self.now.unseen_scroll)
-                    .children(rows),
-            )
-            .children(scrollbar(
-                "now-unseen-scrollbar",
-                Scroll::Div(self.now.unseen_scroll.clone()),
-                theme,
-            ))
-    }
-
-    /// Open commits `ids` together, as Review does, on `file` once their diff shows.
-    fn open_unseen(
-        &mut self,
-        project: &ProjectId,
-        ids: &[CommitId],
-        file: Option<String>,
-        cx: &mut Context<Self>,
-    ) {
-        self.pending_file = file;
-        self.store
-            .update(cx, |store, cx| store.review(project, ids, cx))
+            })
     }
 
     /// The files most of `commits` changed, once read. Clicking one lists only the commits
@@ -957,15 +702,6 @@ impl Detail {
 /// begins: what the overview counts when none is picked.
 fn window_start(now: i64) -> i64 {
     now - now.rem_euclid(QUARTER) - QUARTER * (BARS as i64 - 1)
-}
-
-/// The newest and oldest of `commits` when they're one run of a lane, as one diff shows them.
-fn unseen_run(ws: &Workspace, commits: &[&Commit]) -> Option<Run> {
-    let ids: Vec<CommitId> = commits.iter().map(|commit| commit.id).collect();
-    match ids[..] {
-        [id] => Some((id, id)),
-        _ => ws.run_of(&ids),
-    }
 }
 
 /// `rows` in what's left of their part's height, scrolling within it with a bar of their own;

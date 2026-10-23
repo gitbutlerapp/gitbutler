@@ -32,7 +32,7 @@ use but_core::{
 };
 use but_ctx::Context;
 
-pub use diff::{DiffSource, commit_paths, commits_lines, file_lines, load_diff, range_lines};
+pub use diff::{DiffSource, commit_paths, file_lines, load_diff};
 pub use model::*;
 pub use ops::*;
 pub use reviews::{refresh_checks, refresh_reviews};

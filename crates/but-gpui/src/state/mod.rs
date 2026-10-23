@@ -875,21 +875,6 @@ impl Store {
             .collect()
     }
 
-    /// Open commits `ids` of `project`, newest first, to review them: the newest selected and
-    /// the rest picked with it, which shows them together when they're one run. They're read
-    /// once opened.
-    pub fn review(&mut self, project: &ProjectId, ids: &[CommitId], cx: &mut Context<Self>) {
-        let Some(&newest) = ids.first() else {
-            return;
-        };
-        self.select(Some(Selection::Commit(project.clone(), newest)), cx);
-        if ids.len() > 1 {
-            self.picked.all(ids);
-        }
-        self.mark_read(project, ids.iter().copied(), true, cx);
-        cx.notify();
-    }
-
     /// The newest and oldest of the commits picked in `project`, as [`Workspace::run_of`].
     pub fn picked_run(&self, project: &ProjectId) -> Option<(CommitId, CommitId)> {
         self.workspace(project)?.run_of(&self.picked)
