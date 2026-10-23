@@ -126,6 +126,7 @@ impl Store {
     /// no more; shown again, each project changed meanwhile loads once.
     pub fn set_visible(&mut self, visible: bool, cx: &mut Context<Self>) {
         tracing::debug!(visible, unseen = self.unseen.len(), "window visibility");
+        let shown = self.hidden && visible;
         self.hidden = !visible;
         if self.hidden {
             return;
@@ -135,6 +136,10 @@ impl Store {
         }
         if self.forge_skipped > 0 {
             self.ask_forges(cx);
+        }
+        // The mesh isn't read while hidden.
+        if shown {
+            self.mesh_read_now();
         }
     }
 

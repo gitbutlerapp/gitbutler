@@ -103,6 +103,17 @@ impl Store {
     fn poll_mesh(mut asked: mpsc::UnboundedReceiver<()>, cx: &mut Context<Self>) -> Task<()> {
         cx.spawn(async move |this, cx| {
             loop {
+                // Hidden, nothing shows what it reads, so it waits to be asked, as showing the
+                // window asks.
+                let Ok(hidden) = this.update(cx, |store, _| store.hidden) else {
+                    return;
+                };
+                if hidden {
+                    if asked.next().await.is_none() {
+                        return;
+                    }
+                    continue;
+                }
                 let state = match backend::run(backend::mesh::connection).await {
                     Ok(Some(connection)) => MeshState::Connected(connection),
                     Ok(None) => MeshState::SignedOut,

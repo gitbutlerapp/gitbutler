@@ -70,8 +70,9 @@ unseen is what a laptop's battery pays for.
 - While no part of the window shows (`Store::hidden`: covered, minimized, on another Space, the
   display asleep), work that only keeps the screen current waits: watcher reloads collect in
   `Store::unseen`, and `Store::set_visible` reads them once it shows. New watcher-driven or timed
-  work takes the same path. Work something else reads slows down instead: the forge poll asks
-  every fifth minute, since `but status` and the MCP server read its cache. A sliver of window
+  work takes the same path, as the mesh poll does, reading once on show. Work something else
+  reads slows down instead: the forge poll asks every fifth minute, since `but status` and the
+  MCP server read its cache. A sliver of window
   counts as visible, as macOS counts it.
 - Operations the user starts hold off App Nap while they run (`prevent_app_nap` in
   `Store::start`), so a push goes on at full speed when they switch away. Refreshes take the
