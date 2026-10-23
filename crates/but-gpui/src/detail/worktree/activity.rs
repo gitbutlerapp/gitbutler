@@ -7,13 +7,15 @@ use std::collections::{BTreeSet, HashSet};
 
 use gpui::{Context, Div, MouseButton, MouseDownEvent, MouseMoveEvent, div, prelude::*, relative};
 
-use crate::backend::Commit;
+use crate::backend::{Commit, CommitState};
 use crate::detail::Detail;
-use crate::detail::panes::{grouped, keyed_tiles, overview_title};
+use crate::detail::panes::{grouped, keyed_tiles, overview_split, overview_title};
 use crate::detail::slots::{SlotGesture, SlotPick};
 use crate::state::{Activity, QUARTER};
 use crate::theme::Theme;
-use crate::ui::{ButtonStyle, Tooltip, button, dp, faint, h_flex, local_clock, plural, v_flex};
+use crate::ui::{
+    ButtonStyle, Icon, Tooltip, button, dp, faint, h_flex, local_clock, plural, small_icon, v_flex,
+};
 
 use super::BARS as QUARTERS;
 use super::span_said;
@@ -42,6 +44,53 @@ fn quarters_said(quarters: &BTreeSet<i64>, now: i64) -> Option<String> {
         format!("{}–{end}", local_clock(first * QUARTER))
     });
     (!runs.is_empty()).then(|| said.collect::<Vec<_>>().join(", "))
+}
+
+/// `commits` by how far they've got, as a bar, glyphed and coloured as the navigator's commits
+/// are: landed on the target, pushed, and only here; it reads as how far along. With none, an
+/// empty bar holds its place, so picking a quiet quarter moves nothing under it.
+fn commits_split(commits: &[&Commit], theme: &Theme) -> gpui::AnyElement {
+    let count = |state: CommitState| commits.iter().filter(|c| c.state == state).count();
+    let split = overview_split(
+        [
+            (
+                Icon::CommitFill,
+                theme.purple,
+                theme.purple,
+                "landed".to_owned(),
+                count(CommitState::Integrated),
+            ),
+            (
+                Icon::CommitFill,
+                theme.text_2,
+                theme.border_1,
+                "pushed".to_owned(),
+                count(CommitState::Pushed),
+            ),
+            (
+                Icon::Commit,
+                theme.blue,
+                theme.blue,
+                "not pushed".to_owned(),
+                count(CommitState::Local),
+            ),
+        ],
+        theme,
+    );
+    split.unwrap_or_else(|| {
+        v_flex()
+            .px(dp(6.))
+            .pt(dp(8.))
+            .gap(dp(6.))
+            .child(div().h(dp(6.)).rounded(dp(2.)).bg(theme.border_2))
+            .child(
+                h_flex()
+                    .gap(dp(4.))
+                    .child(small_icon(Icon::Commit).text_color(theme.text_3))
+                    .child(faint("No commits", theme)),
+            )
+            .into_any_element()
+    })
 }
 
 /// The hour mark under the quarter starting at `start`, every third hour.
@@ -238,9 +287,15 @@ impl Detail {
         };
         v_flex()
             .gap(dp(6.))
-            .child(overview_title("Activity in this worktree", range, theme).children(clear))
+            // As tall without Clear as with it, a small button's height and the row's foot.
+            .child(
+                overview_title("Activity in this worktree", range, theme)
+                    .min_h(dp(24.))
+                    .children(clear),
+            )
             .child(status)
             .child(keyed_tiles(tiles, theme))
+            .child(commits_split(scoped, theme))
             .child(
                 v_flex()
                     .px(dp(14.))

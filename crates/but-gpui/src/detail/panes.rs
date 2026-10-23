@@ -1439,6 +1439,50 @@ pub(super) fn overview_tiles(
     keyed_tiles(unkeyed, theme)
 }
 
+/// What an overview's things are split into, as a bar of each part's share over what each is
+/// and how many: `parts` as their glyph, its colour, the bar's colour and what they are,
+/// with how many. Parts with none are left out, and with none at all there's no bar.
+pub(super) fn overview_split(
+    parts: impl IntoIterator<Item = (Icon, gpui::Hsla, gpui::Hsla, String, usize)>,
+    theme: &Theme,
+) -> Option<AnyElement> {
+    let split: Vec<_> = (parts.into_iter()).filter(|(.., n)| *n > 0).collect();
+    if split.is_empty() {
+        return None;
+    }
+    Some(
+        v_flex()
+            .px(dp(6.))
+            .pt(dp(8.))
+            .gap(dp(6.))
+            .child(
+                h_flex()
+                    .h(dp(6.))
+                    .gap(dp(2.))
+                    .children(split.iter().map(|(.., fill, _, n)| {
+                        div()
+                            .h_full()
+                            .flex_grow(*n as f32)
+                            .flex_basis(Pixels::ZERO)
+                            .rounded(dp(2.))
+                            .bg(*fill)
+                    })),
+            )
+            .child(
+                h_flex()
+                    .gap(dp(12.))
+                    .flex_wrap()
+                    .children(split.into_iter().map(|(glyph, color, _, said, n)| {
+                        h_flex()
+                            .gap(dp(4.))
+                            .child(small_icon(glyph).text_color(color))
+                            .child(faint(format!("{n} {said}"), theme))
+                    })),
+            )
+            .into_any_element(),
+    )
+}
+
 /// [`overview_tiles`] where some are keys to a chart under them: a chip of the colour they're
 /// drawn in before their label.
 pub(super) fn keyed_tiles(

@@ -5,7 +5,7 @@
 
 use std::collections::HashSet;
 
-use gpui::{AnyElement, Context, Hsla, Pixels, div, prelude::*};
+use gpui::{AnyElement, Context, div, prelude::*};
 
 use super::{Branches, Recency, email_of, title};
 use crate::backend::ReviewState;
@@ -13,7 +13,7 @@ use crate::backend::branches::OtherBranch;
 use crate::backend::upstream::{self, ACTIVITY_DAYS};
 use crate::detail::Detail;
 use crate::detail::panes::{
-    OVERVIEW_TIME_WIDTH, grouped, overview_heading, overview_tiles, overview_title,
+    OVERVIEW_TIME_WIDTH, grouped, overview_heading, overview_split, overview_tiles, overview_title,
 };
 use crate::detail::upstream::noon;
 use crate::state::{BranchStatus, ProjectId, Selection};
@@ -243,66 +243,26 @@ fn review_split(summary: &Summary, theme: &Theme) -> Option<AnyElement> {
         Some(ReviewState::Merged),
     ];
     // Draft and none share a gray, a step apart, so the bar reads as how far along.
-    let split: Vec<(Icon, Hsla, Hsla, String, usize)> = (kinds.into_iter())
-        .map(|kind| {
-            let n = (summary.lanes.iter())
-                .filter(|lane| lane.branch.review.as_ref().map(|r| r.state) == kind)
-                .count();
-            let (glyph, color, fill, said) = match kind {
-                Some(state) => {
-                    let (glyph, color) = review::state_glyph(state, theme);
-                    (
-                        glyph,
-                        color,
-                        color,
-                        review::state_label(state).to_lowercase(),
-                    )
-                }
-                None => (
-                    Icon::Branch,
-                    theme.text_3,
-                    theme.border_1,
-                    "no pull request".into(),
-                ),
-            };
-            (glyph, color, fill, format!("{n} {said}"), n)
-        })
-        .filter(|(.., n)| *n > 0)
-        .collect();
-    if split.is_empty() {
-        return None;
-    }
-    Some(
-        v_flex()
-            .px(dp(6.))
-            .pt(dp(8.))
-            .gap(dp(6.))
-            .child(
-                h_flex()
-                    .h(dp(6.))
-                    .gap(dp(2.))
-                    .children(split.iter().map(|(.., fill, _, n)| {
-                        div()
-                            .h_full()
-                            .flex_grow(*n as f32)
-                            .flex_basis(Pixels::ZERO)
-                            .rounded(dp(2.))
-                            .bg(*fill)
-                    })),
-            )
-            .child(
-                h_flex()
-                    .gap(dp(12.))
-                    .flex_wrap()
-                    .children(split.into_iter().map(|(glyph, color, _, said, _)| {
-                        h_flex()
-                            .gap(dp(4.))
-                            .child(small_icon(glyph).text_color(color))
-                            .child(faint(said, theme))
-                    })),
-            )
-            .into_any_element(),
-    )
+    let parts = kinds.into_iter().map(|kind| {
+        let n = (summary.lanes.iter())
+            .filter(|lane| lane.branch.review.as_ref().map(|r| r.state) == kind)
+            .count();
+        match kind {
+            Some(state) => {
+                let (glyph, color) = review::state_glyph(state, theme);
+                let said = review::state_label(state).to_lowercase();
+                (glyph, color, color, said, n)
+            }
+            None => (
+                Icon::Branch,
+                theme.text_3,
+                theme.border_1,
+                "no pull request".to_owned(),
+                n,
+            ),
+        }
+    });
+    overview_split(parts, theme)
 }
 
 /// A branch that moved: its pull request's state, its title, that it's applied and how
