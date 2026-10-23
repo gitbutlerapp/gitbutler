@@ -294,6 +294,21 @@ git init submodule-changed-head
   )
 )
 
+git init submodule-removed-from-index-retained-head
+(cd submodule-removed-from-index-retained-head
+  git submodule add ../modified-in-index submodule
+  git commit -m "init"
+  git rm --cached submodule
+)
+
+cp -Rv submodule-removed-from-index-retained-head submodule-removed-from-index-changed-head
+(cd submodule-removed-from-index-changed-head/submodule
+  echo change >>modified && git commit -am "change retained submodule HEAD"
+)
+
+cp -Rv submodule-removed-from-index-retained-head submodule-removed-from-index-plain-directory
+rm -rf submodule-removed-from-index-plain-directory/submodule/.git
+
 cp -Rv submodule-changed-head submodule-changed-head-ignore-all
 (cd submodule-changed-head-ignore-all
   echo $'\tignore = all\n' >>.gitmodules
