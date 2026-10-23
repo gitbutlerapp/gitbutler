@@ -2867,6 +2867,165 @@ fn checkout_undoes_the_commit_when_placing_a_file_fails() -> anyhow::Result<()> 
 
 #[test]
 #[cfg(unix)]
+fn checkout_changes_and_deletes_files_on_another_filesystem_than_git() -> anyhow::Result<()> {
+    let Some(m) = repo_with_m_on_another_filesystem()? else {
+        eprintln!("skipped: no other filesystem to put `m` on");
+        return Ok(());
+    };
+    let repo = &m.repo;
+    commit_in_worktree(repo, &[("m/changed", "before\n"), ("m/gone/f", "gone\n")])?;
+    let new_commit = commit_files(
+        repo,
+        "change m/changed, delete m/gone/f",
+        &[("m/changed", Some("after\n")), ("m/gone/f", None)],
+    )?;
+
+    safe_checkout_from_head(new_commit, repo, Default::default())?;
+
+    assert_eq!(repo.head_id()?, new_commit);
+    let m_dir = repo.workdir_path("m").expect("non-bare");
+    let in_m: Vec<_> = std::fs::read_dir(&m_dir)?
+        .map(|entry| Ok(entry?.file_name().to_string_lossy().into_owned()))
+        .collect::<anyhow::Result<_>>()?;
+    assert_eq!(in_m, ["changed"], "nothing is left of what was moved aside");
+    assert_eq!(std::fs::read_to_string(m_dir.join("changed"))?, "after\n");
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn checkout_undoes_changes_on_another_filesystem_than_git() -> anyhow::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    let Some(m) = repo_with_m_on_another_filesystem()? else {
+        eprintln!("skipped: no other filesystem to put `m` on");
+        return Ok(());
+    };
+    let repo = &m.repo;
+    commit_in_worktree(
+        repo,
+        &[
+            ("m/changed", "before\n"),
+            ("m/gone/f", "gone\n"),
+            ("m/ro/f", "f\n"),
+        ],
+    )?;
+    let new_commit = commit_files(
+        repo,
+        "change m/changed, delete m/gone/f, add m/ro/new",
+        &[
+            ("m/changed", Some("after\n")),
+            ("m/gone/f", None),
+            ("m/ro/new", Some("new\n")),
+        ],
+    )?;
+    let ro = repo.workdir_path("m/ro").expect("non-bare");
+    std::fs::set_permissions(&ro, std::fs::Permissions::from_mode(0o555))?;
+    if std::fs::write(ro.join("probe"), "").is_ok() {
+        // Directory permissions don't apply to root.
+        return Ok(());
+    }
+    let before = repo_state(repo)?;
+
+    let out = safe_checkout_from_head(new_commit, repo, Default::default());
+    let after = repo_state(repo)?;
+    std::fs::set_permissions(&ro, std::fs::Permissions::from_mode(0o755))?;
+
+    out.expect_err("`m/ro/new` can't be created");
+    assert_eq!(
+        after, before,
+        "what was moved aside on the filesystem of `m` is put back, and nothing is left there"
+    );
+    Ok(())
+}
+
+/// A repository whose `m/` is on another filesystem than its Git directory.
+#[cfg(unix)]
+struct WithMOnAnotherFilesystem {
+    repo: gix::Repository,
+    /// What's mounted at `m/`, if anything, to unmount when dropped.
+    mountpoint: Option<std::path::PathBuf>,
+    _dirs: Vec<Box<dyn std::any::Any>>,
+}
+
+#[cfg(unix)]
+impl Drop for WithMOnAnotherFilesystem {
+    fn drop(&mut self) {
+        if let Some(mountpoint) = &self.mountpoint {
+            std::process::Command::new("hdiutil")
+                .args(["detach", "-quiet", "-force"])
+                .arg(mountpoint)
+                .status()
+                .ok();
+        }
+    }
+}
+
+/// A repository with `m/` on another filesystem than its Git directory, if this system can make
+/// one without privileges: a disk image mounted at `m/` on macOS, or on Linux, the whole worktree
+/// in `/dev/shm` with the Git directory elsewhere.
+#[cfg(unix)]
+fn repo_with_m_on_another_filesystem() -> anyhow::Result<Option<WithMOnAnotherFilesystem>> {
+    match repo_with_a_disk_image_mounted_at_m()? {
+        Some(repo) => Ok(Some(repo)),
+        None => repo_in_dev_shm_with_git_elsewhere(),
+    }
+}
+
+#[cfg(unix)]
+fn repo_with_a_disk_image_mounted_at_m() -> anyhow::Result<Option<WithMOnAnotherFilesystem>> {
+    let (repo, tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let images = tempfile::tempdir()?;
+    let image = images.path().join("m.dmg");
+    let mountpoint = repo.workdir_path("m").expect("non-bare");
+    std::fs::create_dir(&mountpoint)?;
+    let hdiutil = |args: &[&str], paths: &[&std::path::Path]| {
+        std::process::Command::new("hdiutil")
+            .args(args)
+            .args(paths)
+            .status()
+            .is_ok_and(|status| status.success())
+    };
+    let create = [
+        "create", "-quiet", "-size", "2m", "-fs", "HFS+", "-volname", "m",
+    ];
+    if !hdiutil(&create, &[&image]) {
+        return Ok(None);
+    }
+    let attach = ["attach", "-quiet", "-nobrowse", "-mountpoint"];
+    if !hdiutil(&attach, &[&mountpoint, &image]) {
+        return Ok(None);
+    }
+    Ok(Some(WithMOnAnotherFilesystem {
+        repo,
+        mountpoint: Some(mountpoint),
+        _dirs: vec![Box::new(tmp), Box::new(images)],
+    }))
+}
+
+#[cfg(unix)]
+fn repo_in_dev_shm_with_git_elsewhere() -> anyhow::Result<Option<WithMOnAnotherFilesystem>> {
+    use std::os::unix::fs::MetadataExt;
+    let shm = std::path::Path::new("/dev/shm");
+    let git_dirs = tempfile::tempdir()?;
+    if !shm.is_dir() || shm.metadata()?.dev() == git_dirs.path().metadata()?.dev() {
+        return Ok(None);
+    }
+    let worktree = tempfile::tempdir_in(shm)?;
+    git_at_dir(worktree.path())
+        .args(["init", "-q", "--separate-git-dir"])
+        .arg(git_dirs.path().join("repo.git"))
+        .arg(".")
+        .run();
+    std::fs::create_dir(worktree.path().join("m"))?;
+    Ok(Some(WithMOnAnotherFilesystem {
+        repo: open_repo(worktree.path())?,
+        mountpoint: None,
+        _dirs: vec![Box::new(worktree), Box::new(git_dirs)],
+    }))
+}
+
+#[test]
+#[cfg(unix)]
 fn checkout_refuses_an_edit_made_while_filters_run() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let workdir = repo.workdir().unwrap().to_owned();

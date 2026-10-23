@@ -138,6 +138,9 @@ fn apply(
 struct Journal {
     workdir: PathBuf,
     steps: Vec<Step>,
+    /// Where objects that can't be moved into the staging directory, as they're on another
+    /// filesystem, are moved aside instead, by the top of their filesystem in the worktree.
+    asides_elsewhere: BTreeMap<PathBuf, tempfile::TempDir>,
 }
 
 enum Step {
@@ -168,6 +171,7 @@ impl Journal {
         Journal {
             workdir: workdir.to_owned(),
             steps: Vec::new(),
+            asides_elsewhere: BTreeMap::new(),
         }
     }
 
@@ -182,18 +186,45 @@ impl Journal {
             Leading::Missing => return Ok(()),
             Leading::Obstructed(dir) => return Err(self.appeared_after_the_check(&dir)),
         }
-        std::fs::create_dir_all(aside)?;
-        let to = aside.join(self.steps.len().to_string());
-        match std::fs::rename(from, &to) {
-            Ok(()) => {}
+        let to = match self.rename_aside(from, aside) {
+            Ok(to) => to,
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
             Err(err) => return Err(err).with_context(|| format!("moving {from:?} aside")),
-        }
+        };
         self.steps.push(Step::MovedAside {
             from: from.to_owned(),
             to,
         });
         Ok(())
+    }
+
+    /// Move `from` into its own place in `aside`, or if that's on another filesystem, in a
+    /// directory on the filesystem of `from`, and return where it went.
+    fn rename_aside(&mut self, from: &Path, aside: &Path) -> std::io::Result<PathBuf> {
+        let place = self.steps.len().to_string();
+        std::fs::create_dir_all(aside)?;
+        let to = aside.join(&place);
+        match std::fs::rename(from, &to) {
+            Err(err) if err.kind() == std::io::ErrorKind::CrossesDevices => {
+                let to = self.aside_on_the_filesystem_of(from)?.join(place);
+                std::fs::rename(from, &to).map(|()| to)
+            }
+            moved => moved.map(|()| to),
+        }
+    }
+
+    /// A private directory at the top of the filesystem `path` is on in the worktree.
+    fn aside_on_the_filesystem_of(&mut self, path: &Path) -> std::io::Result<PathBuf> {
+        let top = top_of_filesystem(&self.workdir, path)?;
+        if let Some(dir) = self.asides_elsewhere.get(&top) {
+            return Ok(dir.path().to_owned());
+        }
+        let dir = tempfile::Builder::new()
+            .prefix(".gitbutler-checkout-")
+            .tempdir_in(&top)?;
+        let path = dir.path().to_owned();
+        self.asides_elsewhere.insert(top, dir);
+        Ok(path)
     }
 
     /// Move the `staged` file to `dest`, where nothing is left after the clearances moved aside,
@@ -315,15 +346,18 @@ impl Journal {
 
     /// Undo every step in reverse. Failures are logged, as there is nothing left to fall back to.
     /// Undo every step, latest first, and return `err`. What changed since a step stays: an
-    /// object moved aside whose place was taken meanwhile stays in `staged`, which is then kept,
-    /// and `err` says where.
-    fn undo(self, staged: Staged, err: anyhow::Error) -> anyhow::Error {
+    /// object moved aside whose place was taken meanwhile stays where it was moved, which is then
+    /// kept, and `err` says where.
+    fn undo(mut self, staged: Staged, err: anyhow::Error) -> anyhow::Error {
         let workdir = self.workdir.clone();
+        let asides_elsewhere = std::mem::take(&mut self.asides_elsewhere);
         let unrestored = self.undo_steps();
         if unrestored.is_empty() {
             return err;
         }
-        let _kept = staged.dir.keep();
+        for dir in std::iter::once(staged.dir).chain(asides_elsewhere.into_values()) {
+            let _kept = dir.keep();
+        }
         let kept: Vec<String> = unrestored
             .iter()
             .map(|(from, to)| {
@@ -507,38 +541,29 @@ fn checkout_index(target: &gix::index::State, plan: &Plan) -> gix::index::State 
     index
 }
 
-/// A new staging directory on the worktree's filesystem, so objects can be moved aside into it
-/// and back. It goes into the Git directory, or into the worktree if that is on another filesystem.
+/// A new staging directory in the Git directory.
 fn staging_dir(repo: &gix::Repository) -> anyhow::Result<tempfile::TempDir> {
-    let workdir = repo.workdir().expect("checked by the caller");
     let in_git_dir = repo.git_dir().join("gitbutler");
     std::fs::create_dir_all(&in_git_dir)?;
-    let parent = match same_filesystem(&in_git_dir, workdir)? {
-        true => in_git_dir.as_path(),
-        false => workdir,
-    };
     Ok(tempfile::Builder::new()
         .prefix(".gitbutler-checkout-")
-        .tempdir_in(parent)?)
+        .tempdir_in(in_git_dir)?)
 }
 
-#[cfg(unix)]
-fn same_filesystem(a: &Path, b: &Path) -> std::io::Result<bool> {
-    use std::os::unix::fs::MetadataExt as _;
-    Ok(a.metadata()?.dev() == b.metadata()?.dev())
-}
-
-/// Different drives are different filesystems.
-#[cfg(not(unix))]
-fn same_filesystem(a: &Path, b: &Path) -> std::io::Result<bool> {
-    let prefix = |path: &Path| -> std::io::Result<_> {
-        Ok(gix::path::realpath(path)
-            .map_err(std::io::Error::other)?
-            .components()
-            .next()
-            .map(|c| c.as_os_str().to_owned()))
-    };
-    Ok(prefix(a)? == prefix(b)?)
+/// The directory nearest the root of `workdir`, `workdir` included, among those leading to
+/// `path` that are on the filesystem `path` is on.
+fn top_of_filesystem(workdir: &Path, path: &Path) -> std::io::Result<PathBuf> {
+    let device = |dir: &Path| gix::index::fs::Metadata::from_path_no_follow(dir).map(|md| md.dev());
+    let parent = path.parent().expect("in the worktree");
+    let on = device(parent)?;
+    let mut top = parent;
+    for dir in parent.ancestors().skip(1) {
+        if !dir.starts_with(workdir) || device(dir)? != on {
+            break;
+        }
+        top = dir;
+    }
+    Ok(top.to_owned())
 }
 
 fn join(dir: &Path, rela_path: impl AsRef<BStr>) -> anyhow::Result<PathBuf> {
