@@ -164,8 +164,16 @@ unseen is what a laptop's battery pays for.
   themselves; an operation the oplog can't undo calls `keep_last_snapshot`, which drops it.
 - An oplog restore puts the whole worktree back, so `history::undo_snapshot` first checks for
   files written after the operation, leaving out the spans the app's own undos wrote in
-  (`Store::undid`), and returns `Undone::Newer` for ⌘Z to ask about. A step stays on the list
-  unless it was undone or `Undone::Behind` says something came after it.
+  (`Store::undid`, read when the undo runs, so a queued one sees those before it), and returns
+  `Undone::Newer` for ⌘Z to ask about; `redo_snapshot` checks the same from the undo's own
+  snapshot. A step stays on the list unless it was undone, `Undone::Behind` says something
+  came after it, or `Undone::Already` says something else undid it.
+- An operation's `done` runs with `Store::staying` set when the user has moved to another
+  project, which makes `Store::select` do nothing: what it would select, and the picks a select
+  clears, stay where the user is, and `card_title` names the operation's project.
+- What undo can't take back (a linked worktree's discards) takes its commit with
+  `Remap::exactly`, refusing one an agent rewrote since it was asked about, where `Remap::get`
+  would follow it.
 - A snapshot taken with one branch checked out outside the workspace keeps no stacks: only the
   branch's ref and tip under `checkout/`, and the refs below it under `additional-refs/`. History
   reads those branches' commits from the repository, down to the snapshot's target.
