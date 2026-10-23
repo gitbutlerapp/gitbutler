@@ -14,10 +14,13 @@
 
 	const userService = inject(USER_SERVICE);
 	const user = $derived(userService.user);
+	const userLoaded = $derived(userService.loaded);
 	const routes = inject(WEB_ROUTES_SERVICE);
 </script>
 
-{#if $user && !hideIfUserAuthenticated}
+{#if !$user && !$userLoaded}
+	<div class="auth-placeholder"></div>
+{:else if $user && !hideIfUserAuthenticated}
 	<UserAuthAvatar user={$user} />
 {:else if !$user}
 	<div class="login-signup-wrap">
@@ -27,6 +30,10 @@
 {/if}
 
 <style lang="postcss">
+	.auth-placeholder {
+		height: var(--size-button);
+	}
+
 	.login-signup-wrap {
 		display: flex;
 		align-items: center;
