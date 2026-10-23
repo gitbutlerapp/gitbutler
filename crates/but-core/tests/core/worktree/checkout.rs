@@ -3016,6 +3016,11 @@ fn repo_in_dev_shm_with_git_elsewhere() -> anyhow::Result<Option<WithMOnAnotherF
         .arg(git_dirs.path().join("repo.git"))
         .arg(".")
         .run();
+    // Without it, the Git directory doesn't know where its worktree is.
+    git_at_dir(worktree.path())
+        .args(["config", "core.worktree"])
+        .arg(worktree.path())
+        .run();
     std::fs::create_dir(worktree.path().join("m"))?;
     Ok(Some(WithMOnAnotherFilesystem {
         repo: open_repo(worktree.path())?,
