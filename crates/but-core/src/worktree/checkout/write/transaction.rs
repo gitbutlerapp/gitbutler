@@ -139,7 +139,7 @@ struct Journal {
     workdir: PathBuf,
     steps: Vec<Step>,
     /// Where objects that can't be moved into the staging directory, as they're on another
-    /// filesystem, are moved aside instead, by the top of their filesystem in the worktree.
+    /// filesystem, are moved aside instead, by the directory in the worktree they're in.
     asides_elsewhere: BTreeMap<PathBuf, tempfile::TempDir>,
 }
 
@@ -213,17 +213,32 @@ impl Journal {
         }
     }
 
-    /// A private directory at the top of the filesystem `path` is on in the worktree.
+    /// A private directory on the filesystem `path` is on in the worktree, at its top, or if
+    /// checkout may not write there, as near as it may. That's the parent of `path` at the latest,
+    /// which moving `path` needs to write to anyway.
     fn aside_on_the_filesystem_of(&mut self, path: &Path) -> std::io::Result<PathBuf> {
-        let top = top_of_filesystem(&self.workdir, path)?;
-        if let Some(dir) = self.asides_elsewhere.get(&top) {
-            return Ok(dir.path().to_owned());
+        let mut denied = None;
+        for dir in dirs_on_the_filesystem_of(&self.workdir, path)? {
+            match self.aside_in(&dir) {
+                Err(err) if err.kind() == std::io::ErrorKind::PermissionDenied => {
+                    denied = Some(err)
+                }
+                found => return found,
+            }
         }
-        let dir = tempfile::Builder::new()
+        Err(denied.unwrap_or_else(|| std::io::ErrorKind::PermissionDenied.into()))
+    }
+
+    /// The private directory in `dir` for objects moved aside, created on first use.
+    fn aside_in(&mut self, dir: &Path) -> std::io::Result<PathBuf> {
+        if let Some(aside) = self.asides_elsewhere.get(dir) {
+            return Ok(aside.path().to_owned());
+        }
+        let aside = tempfile::Builder::new()
             .prefix(".gitbutler-checkout-")
-            .tempdir_in(&top)?;
-        let path = dir.path().to_owned();
-        self.asides_elsewhere.insert(top, dir);
+            .tempdir_in(dir)?;
+        let path = aside.path().to_owned();
+        self.asides_elsewhere.insert(dir.to_owned(), aside);
         Ok(path)
     }
 
@@ -550,20 +565,21 @@ fn staging_dir(repo: &gix::Repository) -> anyhow::Result<tempfile::TempDir> {
         .tempdir_in(in_git_dir)?)
 }
 
-/// The directory nearest the root of `workdir`, `workdir` included, among those leading to
-/// `path` that are on the filesystem `path` is on.
-fn top_of_filesystem(workdir: &Path, path: &Path) -> std::io::Result<PathBuf> {
+/// The directories leading to `path` in `workdir`, `workdir` included, that are on the
+/// filesystem `path` is on, from the top down.
+fn dirs_on_the_filesystem_of(workdir: &Path, path: &Path) -> std::io::Result<Vec<PathBuf>> {
     let device = |dir: &Path| gix::index::fs::Metadata::from_path_no_follow(dir).map(|md| md.dev());
     let parent = path.parent().expect("in the worktree");
     let on = device(parent)?;
-    let mut top = parent;
-    for dir in parent.ancestors().skip(1) {
+    let mut dirs = Vec::new();
+    for dir in parent.ancestors() {
         if !dir.starts_with(workdir) || device(dir)? != on {
             break;
         }
-        top = dir;
+        dirs.push(dir.to_owned());
     }
-    Ok(top.to_owned())
+    dirs.reverse();
+    Ok(dirs)
 }
 
 fn join(dir: &Path, rela_path: impl AsRef<BStr>) -> anyhow::Result<PathBuf> {

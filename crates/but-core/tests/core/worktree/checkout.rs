@@ -2938,6 +2938,58 @@ fn checkout_undoes_changes_on_another_filesystem_than_git() -> anyhow::Result<()
     Ok(())
 }
 
+#[test]
+#[cfg(unix)]
+fn checkout_moves_files_aside_below_a_read_only_top_of_their_filesystem() -> anyhow::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    let Some(m) = repo_with_m_on_another_filesystem()? else {
+        eprintln!("skipped: no other filesystem to put `m` on");
+        return Ok(());
+    };
+    let repo = &m.repo;
+    commit_in_worktree(
+        repo,
+        &[("m/src/changed", "before\n"), ("m/src/gone", "gone\n")],
+    )?;
+    let new_commit = commit_files(
+        repo,
+        "change m/src/changed, delete m/src/gone",
+        &[("m/src/changed", Some("after\n")), ("m/src/gone", None)],
+    )?;
+    // The top of the filesystem of `m` is either `m` or the worktree.
+    let read_only = [
+        repo.workdir().expect("non-bare").to_owned(),
+        repo.workdir_path("m").expect("non-bare"),
+    ];
+    let set_mode = |mode| -> std::io::Result<()> {
+        read_only.iter().try_for_each(|dir| {
+            std::fs::set_permissions(dir, std::fs::Permissions::from_mode(mode))
+        })
+    };
+    set_mode(0o555)?;
+    if std::fs::write(read_only[1].join("probe"), "").is_ok() {
+        // Directory permissions don't apply to root.
+        set_mode(0o755)?;
+        return Ok(());
+    }
+
+    let out = safe_checkout_from_head(new_commit, repo, Default::default());
+    set_mode(0o755)?;
+
+    out?;
+    let src = repo.workdir_path("m/src").expect("non-bare");
+    let in_src: Vec<_> = std::fs::read_dir(&src)?
+        .map(|entry| Ok(entry?.file_name().to_string_lossy().into_owned()))
+        .collect::<anyhow::Result<_>>()?;
+    assert_eq!(
+        in_src,
+        ["changed"],
+        "nothing is left of what was moved aside"
+    );
+    assert_eq!(std::fs::read_to_string(src.join("changed"))?, "after\n");
+    Ok(())
+}
+
 /// A repository whose `m/` is on another filesystem than its Git directory.
 #[cfg(unix)]
 struct WithMOnAnotherFilesystem {
