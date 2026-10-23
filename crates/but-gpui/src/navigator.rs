@@ -1267,14 +1267,19 @@ impl Navigator {
                         .child(
                             // Whether the app watches the project, as an open one is loaded and
                             // kept current, and under the pointer what a click makes it.
-                            button("watch", |this, id, cx| {
-                                // The row moves to the other card, from under the pointer.
-                                this.watch_hovered = None;
-                                this.store.update(cx, |store, cx| {
-                                    let expanded = store.project(id).is_some_and(|p| p.expanded);
-                                    store.set_expanded(id, !expanded, cx)
-                                });
-                            })
+                            // Named by what it does, so its tooltip goes with the click.
+                            button(
+                                if expanded { "unwatch" } else { "watch" },
+                                |this, id, cx| {
+                                    // The row moves to the other card, from under the pointer.
+                                    this.watch_hovered = None;
+                                    this.store.update(cx, |store, cx| {
+                                        let expanded =
+                                            store.project(id).is_some_and(|p| p.expanded);
+                                        store.set_expanded(id, !expanded, cx)
+                                    });
+                                },
+                            )
                             .child(watch_glyph(expanded != hovered).text_color(
                                 match (hovered, style.solid) {
                                     (false, _) => style.muted(),
