@@ -624,6 +624,7 @@ impl Detail {
         {
             return window.focus(&input.focus_handle(cx), cx);
         }
+        let opened = message.trim().to_owned();
         let input = cx.new(|cx| {
             let mut input = TextInput::new("Commit message", true, cx);
             input.set_text(message, cx);
@@ -638,6 +639,17 @@ impl Detail {
             move |this, input, event, window, cx| match event {
                 InputEvent::Submit => {
                     let message = input.read(cx).text().trim().to_owned();
+                    if message.is_empty() {
+                        return (this.store).update(cx, |store, cx| {
+                            store.snack("Write a commit message first", cx)
+                        });
+                    }
+                    // Unchanged, rewording would only give it and the commits above it new ids.
+                    if message == opened {
+                        this.rewording = None;
+                        window.focus(&back, cx);
+                        return cx.notify();
+                    }
                     // The commit as it is now, should an agent have rewritten it meanwhile.
                     let id = match this.selection(cx) {
                         Some(Selection::Commit(_, now)) => now,
