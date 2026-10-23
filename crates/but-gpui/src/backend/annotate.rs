@@ -1,6 +1,10 @@
 //! What [deltoids](https://github.com/juanibiapina/deltoids) adds to a diff: the words
 //! that changed within a line, and the function or type each hunk sits in.
 
+// What deltoids makes of a diff decides the ranges, so they're read without indexing
+// where a mistake would panic.
+#![cfg_attr(not(test), deny(clippy::indexing_slicing, clippy::string_slice))]
+
 use std::ops::Range;
 
 use deltoids::{EmphKind, LineEmphasis};
@@ -14,42 +18,30 @@ const EMPHASIS_BUDGET: usize = 1 << 21;
 
 /// Mark the changed words of each removed line that pairs up with an added one.
 pub fn emphasize(hunk: &mut Hunk) {
-    let mut start = 0;
-    while start < hunk.lines.len() {
-        let end = hunk.lines[start..]
-            .iter()
-            .position(|line| line.kind == LineKind::Context)
-            .map_or(hunk.lines.len(), |len| start + len);
-        if end > start {
-            emphasize_run(&mut hunk.lines[start..end]);
-            start = end;
-        } else {
-            start += 1;
-        }
+    for run in hunk.lines.split_mut(|line| line.kind == LineKind::Context) {
+        emphasize_run(run);
     }
 }
 
 /// Mark the changed words of each removed line in `run` that pairs up with an added one.
 /// `run` has no unchanged lines.
 pub(super) fn emphasize_run(run: &mut [DiffLine]) {
-    let (removed, added): (Vec<usize>, Vec<usize>) =
-        (0..run.len()).partition(|&ix| run[ix].kind == LineKind::Removed);
-    let bytes = |ixs: &[usize]| ixs.iter().map(|&ix| run[ix].text.len()).sum::<usize>();
+    let (removed, added): (Vec<&mut DiffLine>, Vec<&mut DiffLine>) =
+        (run.iter_mut()).partition(|line| line.kind == LineKind::Removed);
+    let bytes = |lines: &[&mut DiffLine]| lines.iter().map(|line| line.text.len()).sum::<usize>();
     if removed.is_empty() || added.is_empty() || bytes(&removed) * bytes(&added) > EMPHASIS_BUDGET {
         return;
     }
-    let text = |ixs: &[usize]| {
-        ixs.iter()
-            .map(|&ix| run[ix].text.as_ref())
-            .collect::<Vec<_>>()
-    };
+    fn text<'a>(lines: &'a [&mut DiffLine]) -> Vec<&'a str> {
+        lines.iter().map(|line| line.text.as_ref()).collect()
+    }
     let (minus, plus) = deltoids::compute_subhunk_emphasis(&text(&removed), &text(&added));
-    for (ix, emphasis) in removed
+    for (line, emphasis) in removed
         .into_iter()
         .zip(minus)
         .chain(added.into_iter().zip(plus))
     {
-        run[ix].emph = ranges(&emphasis, run[ix].text.len());
+        line.emph = ranges(&emphasis, line.text.len());
     }
 }
 
@@ -68,7 +60,7 @@ fn ranges(emphasis: &LineEmphasis, len: usize) -> Vec<Range<usize>> {
             ranges.push(range);
         }
     }
-    let whole_line = ranges.len() == 1 && ranges[0] == (0..len);
+    let whole_line = ranges.len() == 1 && ranges.first() == Some(&(0..len));
     if at != len || whole_line {
         return Vec::new();
     }
@@ -142,14 +134,14 @@ fn widen(hunks: &mut [Hunk], spans: &[Option<Range<usize>>], new: &str, limit: u
     // before shows its lines doesn't move where this one's start.
     let mut free = 1;
     let mut ranges = Vec::with_capacity(hunks.len());
-    for (ix, hunk) in hunks.iter().enumerate() {
+    for (ix, (hunk, span)) in hunks.iter().zip(spans).enumerate() {
         let key = hunk.key.0;
         let (start, end) = (
             key.new_start as usize,
             (key.new_start + key.new_lines) as usize,
         );
         let next = (hunks.get(ix + 1)).map_or(text.len() + 1, |next| next.key.0.new_start as usize);
-        let (lead, tail) = match &spans[ix] {
+        let (lead, tail) = match span {
             // A hunk with no new-side lines has nowhere to stand among them.
             Some(span) if key.new_lines > 0 => {
                 (span.start.max(free)..start, end..span.end.min(next))
@@ -165,11 +157,11 @@ fn widen(hunks: &mut [Hunk], spans: &[Option<Range<usize>>], new: &str, limit: u
             .map(|(_, (lead, tail))| lead.len() + tail.len())
             .sum()
     };
-    for (ix, (lead, tail)) in ranges.iter().enumerate() {
-        if spans[ix].as_ref().is_none_or(|span| added(span) > limit) {
+    for ((hunk, span), (lead, tail)) in hunks.iter_mut().zip(spans).zip(&ranges) {
+        if span.as_ref().is_none_or(|span| added(span) > limit) {
             continue;
         }
-        let key = hunks[ix].key.0;
+        let key = hunk.key.0;
         // Old-side numbers run behind or ahead of the new side's by what the hunks before
         // removed or added.
         let unchanged = |new: usize, ahead: i64| {
@@ -181,11 +173,11 @@ fn widen(hunks: &mut [Hunk], spans: &[Option<Range<usize>>], new: &str, limit: u
         let before = i64::from(key.new_start) - i64::from(key.old_start);
         let after =
             i64::from(key.new_start + key.new_lines) - i64::from(key.old_start + key.old_lines);
-        hunks[ix].lead = lead
+        hunk.lead = lead
             .clone()
             .filter_map(|new| unchanged(new, before))
             .collect();
-        hunks[ix].tail = tail
+        hunk.tail = tail
             .clone()
             .filter_map(|new| unchanged(new, after))
             .collect();

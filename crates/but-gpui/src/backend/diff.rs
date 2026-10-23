@@ -1,6 +1,10 @@
 //! Diffs of a worktree, a commit, a range of commits, a branch or an operation, parsed into
 //! hunks of lines and, for the first files, highlighted.
 
+// Patches, files and their conflicts decide the offsets here, so they're read without
+// indexing or cutting where a mistake would panic.
+#![cfg_attr(not(test), deny(clippy::indexing_slicing, clippy::string_slice))]
+
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -191,10 +195,11 @@ fn add_conflicts(
         Err(err) => return tracing::warn!("couldn't read {commit:?}'s conflicts: {err:#}"),
     };
     for file in &found.files {
-        if let Some(ix) = row(diffs, &file.path, scope_lines, || {
+        let ix = row(diffs, &file.path, scope_lines, || {
             Some(file.change.clone().into())
-        }) {
-            set_conflicts(&mut diffs[ix], conflicts_of(file));
+        });
+        if let Some(diff) = ix.and_then(|ix| diffs.get_mut(ix)) {
+            set_conflicts(diff, conflicts_of(file));
         }
     }
     for manual in found.manual {
@@ -205,9 +210,10 @@ fn add_conflicts(
                 .ok()
                 .flatten()
         };
-        if let Some(ix) = row(diffs, &manual.path, scope_lines, change) {
-            diffs[ix].file.conflicted = true;
-            diffs[ix].body = DiffBody::Unresolvable(manual.reason);
+        let ix = row(diffs, &manual.path, scope_lines, change);
+        if let Some(diff) = ix.and_then(|ix| diffs.get_mut(ix)) {
+            diff.file.conflicted = true;
+            diff.body = DiffBody::Unresolvable(manual.reason);
         }
     }
     diffs.sort_by_key(|diff| !diff.file.conflicted);
@@ -324,14 +330,19 @@ fn marker_conflicts(path: &str, text: &str) -> Vec<Conflict> {
     let blocks = markers::blocks(&lines);
     let ids = markers::ids(&lines, &blocks);
     let numbered = |range: std::ops::Range<usize>, from: usize| -> Vec<DiffLine> {
-        (lines[range].iter().zip(from as u32..))
-            .map(|(raw, new)| context_line(new, &display_text(raw.trim_end_matches('\n'))))
-            .collect()
+        (lines
+            .get(range)
+            .unwrap_or_default()
+            .iter()
+            .zip(from as u32..))
+        .map(|(raw, new)| context_line(new, &display_text(raw.trim_end_matches('\n'))))
+        .collect()
     };
     (blocks.iter().enumerate().zip(ids))
         .map(|((index, block), id)| {
             let (start, end) = (block.lines.start, block.lines.end);
-            let previous = index.checked_sub(1).map_or(0, |ix| blocks[ix].lines.end);
+            let previous =
+                (index.checked_sub(1).and_then(|ix| blocks.get(ix))).map_or(0, |b| b.lines.end);
             let next = blocks.get(index + 1).map_or(lines.len(), |b| b.lines.start);
             let before = start.saturating_sub(3).max(previous)..start;
             let after = end..(end + 3).min(next);
@@ -933,9 +944,9 @@ fn parse_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
                 header = text.into_owned();
                 continue;
             }
-            Some(b'+') => (LineKind::Added, &text[1..]),
-            Some(b'-') => (LineKind::Removed, &text[1..]),
-            Some(b' ') => (LineKind::Context, &text[1..]),
+            Some(b'+') => (LineKind::Added, text.get(1..).unwrap_or_default()),
+            Some(b'-') => (LineKind::Removed, text.get(1..).unwrap_or_default()),
+            Some(b' ') => (LineKind::Context, text.get(1..).unwrap_or_default()),
             // "\ No newline at end of file"
             Some(b'\\') => continue,
             _ => (LineKind::Context, &*text),

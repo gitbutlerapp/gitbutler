@@ -11,6 +11,10 @@
 //! asking for one could pick a variable font installed on the machine, which is slow to
 //! draw (see the crate's AGENTS.md).
 
+// Pull request descriptions are anyone's text, so it's read without indexing or cutting
+// where a mistake would panic.
+#![cfg_attr(not(test), deny(clippy::indexing_slicing, clippy::string_slice))]
+
 use std::cell::Cell;
 use std::ops::Range;
 
@@ -85,27 +89,28 @@ fn safe_link(url: &str) -> bool {
 /// `html`'s text onto `text`, its common entities as the characters they stand for, as HTML
 /// spaces out links with `&nbsp;`.
 fn push_decoded(text: &mut String, html: &str) {
+    // Each after its `&`.
     const ENTITIES: [(&str, char); 7] = [
-        ("&nbsp;", ' '),
-        ("&amp;", '&'),
-        ("&lt;", '<'),
-        ("&gt;", '>'),
-        ("&quot;", '"'),
-        ("&#39;", '\''),
-        ("&apos;", '\''),
+        ("nbsp;", ' '),
+        ("amp;", '&'),
+        ("lt;", '<'),
+        ("gt;", '>'),
+        ("quot;", '"'),
+        ("#39;", '\''),
+        ("apos;", '\''),
     ];
     let mut rest = html;
-    while let Some(at) = rest.find('&') {
-        text.push_str(&rest[..at]);
-        let tail = &rest[at..];
-        match ENTITIES.iter().find(|(name, _)| tail.starts_with(name)) {
-            Some((name, ch)) => {
+    while let Some((before, after)) = rest.split_once('&') {
+        text.push_str(before);
+        let entity = (ENTITIES.iter()).find_map(|(name, ch)| Some((after.strip_prefix(name)?, ch)));
+        match entity {
+            Some((left, ch)) => {
                 text.push(*ch);
-                rest = &tail[name.len()..];
+                rest = left;
             }
             None => {
                 text.push('&');
-                rest = &tail[1..];
+                rest = after;
             }
         }
     }
@@ -135,28 +140,28 @@ fn html_pieces(html: &str, in_comment: &mut bool) -> Vec<Html> {
     let mut rest = html;
     loop {
         if *in_comment {
-            let Some(end) = rest.find("-->") else {
+            let Some((_, after)) = rest.split_once("-->") else {
                 return pieces;
             };
             *in_comment = false;
-            rest = &rest[end + 3..];
+            rest = after;
         }
-        let Some(start) = rest.find('<') else {
+        // `tag` from just past its `<`.
+        let Some((before, tag)) = rest.split_once('<') else {
             text(&mut pieces, rest);
             return pieces;
         };
-        text(&mut pieces, &rest[..start]);
-        let tag = &rest[start..];
-        if let Some(comment) = tag.strip_prefix("<!--") {
+        text(&mut pieces, before);
+        if let Some(comment) = tag.strip_prefix("!--") {
             *in_comment = true;
             rest = comment;
             continue;
         }
-        let Some(end) = tag.find('>') else {
+        let Some((inner, after)) = tag.split_once('>') else {
             return pieces;
         };
-        let inner = tag[1..end].trim().trim_end_matches('/');
-        rest = &tag[end + 1..];
+        let inner = inner.trim().trim_end_matches('/');
+        rest = after;
         match inner.strip_prefix('/') {
             Some(name) => pieces.push(Html::Close(name.trim().to_ascii_lowercase())),
             None => {
@@ -173,25 +178,26 @@ fn html_pieces(html: &str, in_comment: &mut bool) -> Vec<Html> {
 fn tag_parts(inner: &str) -> (String, Vec<(String, String)>) {
     let inner = inner.trim();
     let name_end = inner.find(char::is_whitespace).unwrap_or(inner.len());
-    let name = inner[..name_end].to_ascii_lowercase();
+    let (name, rest) = inner.split_at_checked(name_end).unwrap_or((inner, ""));
+    let name = name.to_ascii_lowercase();
     let mut attributes = Vec::new();
-    let mut rest = inner[name_end..].trim_start();
+    let mut rest = rest.trim_start();
     while !rest.is_empty() {
         let key_end = (rest.find(|c: char| c == '=' || c.is_whitespace())).unwrap_or(rest.len());
-        let key = rest[..key_end].to_ascii_lowercase();
-        rest = rest[key_end..].trim_start();
+        let (key, left) = rest.split_at_checked(key_end).unwrap_or((rest, ""));
+        let key = key.to_ascii_lowercase();
+        rest = left.trim_start();
         let mut value = String::new();
         if let Some(after) = rest.strip_prefix('=') {
             let after = after.trim_start();
             let (raw, left) = match after.chars().next() {
                 Some(quote @ ('"' | '\'')) => {
-                    let body = &after[1..];
-                    let close = body.find(quote).unwrap_or(body.len());
-                    (&body[..close], body.get(close + 1..).unwrap_or(""))
+                    let body = after.strip_prefix(quote).unwrap_or(after);
+                    body.split_once(quote).unwrap_or((body, ""))
                 }
                 _ => {
                     let end = after.find(char::is_whitespace).unwrap_or(after.len());
-                    (&after[..end], &after[end..])
+                    after.split_at_checked(end).unwrap_or((after, ""))
                 }
             };
             push_decoded(&mut value, raw);
@@ -230,10 +236,7 @@ fn collapse_spaces(text: &str) -> String {
 
 /// `markdown` as blocks to draw, its images by their words.
 pub fn parse(markdown: &str) -> Vec<Block> {
-    let mut end = markdown.len().min(MAX_BYTES);
-    while !markdown.is_char_boundary(end) {
-        end -= 1;
-    }
+    let end = markdown.floor_char_boundary(MAX_BYTES);
     let options =
         Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS | Options::ENABLE_TABLES;
     let mut blocks = Vec::new();
@@ -337,7 +340,7 @@ pub fn parse(markdown: &str) -> Vec<Block> {
         }
     }
 
-    for event in Parser::new_ext(&markdown[..end], options) {
+    for event in Parser::new_ext(markdown.get(..end).unwrap_or(markdown), options) {
         let html_line = matches!(event, Event::Html(_));
         // Text inside an image is its words, shown in its place.
         if let Some((alt, _)) = &mut image {
@@ -640,7 +643,7 @@ pub fn render(id: &str, blocks: &[Block], theme: &Theme) -> AnyElement {
         .children(blocks.iter().enumerate().map(|(ix, block)| {
             // A list's items sit together; other blocks, and other lists, stand apart.
             let item = |block: &Block| matches!(block.kind, Kind::Item(_));
-            let space = match ix.checked_sub(1).map(|before| &blocks[before]) {
+            let space = match ix.checked_sub(1).and_then(|before| blocks.get(before)) {
                 None => 0.,
                 Some(before) if item(before) && item(block) && before.list == block.list => 2.,
                 Some(_) => 8.,
@@ -739,9 +742,11 @@ fn text(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
     cuts.dedup();
     let runs = cuts
         .windows(2)
-        .filter(|cut| cut[0] < cut[1])
-        .map(|cut| {
-            let at = cut[0];
+        .filter_map(|cut| match *cut {
+            [at, end] if at < end => Some((at, end)),
+            _ => None,
+        })
+        .map(|(at, end)| {
             let style = (block.styles.iter())
                 .filter(|(range, _)| range.contains(&at))
                 .fold(Style::default(), |all, (_, style)| Style {
@@ -757,7 +762,7 @@ fn text(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
                 (false, false) => FontWeight::NORMAL,
             };
             TextRun {
-                len: cut[1] - cut[0],
+                len: end - at,
                 font: Font {
                     weight,
                     ..font(style.code)
@@ -788,7 +793,9 @@ fn text(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
     let tips = block.links.clone();
     InteractiveText::new(SharedString::from(format!("{id}-md-{ix}")), styled)
         .on_click(ranges, move |link, _, cx: &mut App| {
-            cx.open_url(&urls[link])
+            if let Some(url) = urls.get(link) {
+                cx.open_url(url)
+            }
         })
         .tooltip(move |at, window, cx| {
             let (_, url) = tips.iter().find(|(range, _)| range.contains(&at))?;

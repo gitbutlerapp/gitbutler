@@ -2,6 +2,10 @@
 //! `|||||||` before the lines both sides started from, `=======`, and `>>>>>>>`, each at the
 //! start of a line.
 
+// Whatever's in the file decides where the markers are, so it's read without indexing
+// where a mistake would panic.
+#![cfg_attr(not(test), deny(clippy::indexing_slicing, clippy::string_slice))]
+
 use std::collections::HashMap;
 use std::hash::{Hash as _, Hasher as _};
 use std::ops::Range;
@@ -26,13 +30,12 @@ pub fn lines(text: &str) -> Vec<&str> {
 /// Whether `line` is a marker of seven `mark`s, alone or followed by a space and a label.
 fn is_marker(line: &str, mark: u8) -> bool {
     let bytes = line.as_bytes();
-    bytes.len() >= 7
-        && bytes[..7].iter().all(|b| *b == mark)
+    (bytes.get(..7)).is_some_and(|head| head.iter().all(|b| *b == mark))
         && matches!(bytes.get(7), None | Some(b' ' | b'\n' | b'\r'))
 }
 
 fn label(line: &str) -> String {
-    line[7..].trim().to_owned()
+    line.get(7..).unwrap_or_default().trim().to_owned()
 }
 
 /// The conflicts among `lines`, or none at all when the markers don't follow each other as
@@ -40,16 +43,17 @@ fn label(line: &str) -> String {
 pub fn blocks(lines: &[&str]) -> Vec<Block> {
     let mut blocks = Vec::new();
     let mut at = 0;
-    while at < lines.len() {
-        if !is_marker(lines[at], b'<') {
+    let marker_at = |ix: usize, mark: u8| lines.get(ix).is_some_and(|line| is_marker(line, mark));
+    while let Some(line) = lines.get(at) {
+        if !is_marker(line, b'<') {
             at += 1;
             continue;
         }
         // The next marker of `mark` from `from`, before any other block opens.
         let next = |from: usize, mark: u8| {
             (from..lines.len())
-                .take_while(|ix| !is_marker(lines[*ix], b'<'))
-                .find(|ix| is_marker(lines[*ix], mark))
+                .take_while(|ix| !marker_at(*ix, b'<'))
+                .find(|ix| marker_at(*ix, mark))
         };
         let Some(split) = next(at + 1, b'=') else {
             return Vec::new();
@@ -60,7 +64,10 @@ pub fn blocks(lines: &[&str]) -> Vec<Block> {
         let ancestor = next(at + 1, b'|').filter(|bar| *bar < split);
         blocks.push(Block {
             lines: at..end + 1,
-            labels: [label(lines[at]), label(lines[end])],
+            labels: [
+                label(line),
+                lines.get(end).map(|line| label(line)).unwrap_or_default(),
+            ],
             ours: at + 1..ancestor.unwrap_or(split),
             ancestor: ancestor.map(|bar| bar + 1..split),
             theirs: split + 1..end,
@@ -82,7 +89,9 @@ pub fn ids(lines: &[&str], blocks: &[Block]) -> Vec<String> {
                 block.ancestor.as_ref(),
                 Some(&block.theirs),
             ] {
-                range.map(|range| &lines[range.clone()]).hash(&mut hasher);
+                range
+                    .and_then(|range| lines.get(range.clone()))
+                    .hash(&mut hasher);
             }
             let hash = hasher.finish();
             let nth = seen.entry(hash).or_default();
@@ -94,7 +103,7 @@ pub fn ids(lines: &[&str], blocks: &[Block]) -> Vec<String> {
 
 /// The text of `range` of `lines`, line endings and all.
 pub fn text(lines: &[&str], range: Range<usize>) -> String {
-    lines[range].concat()
+    lines.get(range).unwrap_or_default().concat()
 }
 
 /// `lines` with each block `kept` has a text for replaced by that text, in the block's line
@@ -106,14 +115,20 @@ pub fn replace(lines: &[&str], blocks: &[Block], kept: &HashMap<usize, String>) 
         let Some(text) = kept.get(&ix) else {
             continue;
         };
-        out.extend(lines[next..block.lines.start].iter().copied());
-        match lines[block.lines.start].ends_with("\r\n") {
+        out.extend(
+            lines
+                .get(next..block.lines.start)
+                .unwrap_or_default()
+                .iter()
+                .copied(),
+        );
+        match (lines.get(block.lines.start)).is_some_and(|line| line.ends_with("\r\n")) {
             true => out.push_str(&text.replace("\r\n", "\n").replace('\n', "\r\n")),
             false => out.push_str(text),
         }
         next = block.lines.end;
     }
-    out.extend(lines[next..].iter().copied());
+    out.extend(lines.get(next..).unwrap_or_default().iter().copied());
     out
 }
 
