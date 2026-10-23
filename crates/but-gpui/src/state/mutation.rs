@@ -554,9 +554,15 @@ impl Store {
                     // It, and the project's steps before it, are behind what came after.
                     Ok(Undone::Behind(why)) => {
                         store.undo_steps.retain(|step| {
-                            step.project != again || asked.is_some_and(|asked| step.asked > asked)
+                            step.project != again || asked.is_none_or(|asked| step.asked > asked)
                         });
                         store.error(title(store), why, cx)
+                    }
+                    Ok(Undone::Already(operation)) => {
+                        (store.undo_steps)
+                            .retain(|step| step.project != again || step.snapshot != snapshot);
+                        let why = format!("{operation} was undone already");
+                        store.snack(store.card_title(&again, why), cx)
                     }
                     Ok(Undone::Newer(files)) => {
                         let what = match files.as_slice() {

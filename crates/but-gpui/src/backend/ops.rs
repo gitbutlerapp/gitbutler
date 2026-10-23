@@ -1934,6 +1934,17 @@ pub(super) mod tests {
             ),
             "written while the app's own undo ran, the file isn't the user's change"
         );
+        assert!(
+            matches!(
+                undo_snapshot(path, snapshot, None).unwrap(),
+                Undone::Already(_)
+            ),
+            "undone once, as by another client, it isn't taken for behind what came before"
+        );
+        assert!(
+            matches!(undo_snapshot(path, named, None).unwrap(), Undone::Done(_)),
+            "what came before it is still there to undo"
+        );
     }
 
     #[test]

@@ -7,7 +7,7 @@ use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-use anyhow::{Context as _, Result, bail};
+use anyhow::{Result, bail};
 use but_api::legacy::oplog::{self, RestoreKind};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use gix::bstr::ByteSlice as _;
@@ -567,6 +567,8 @@ pub enum Undone {
     Done(&'static str),
     /// Something came after it in the project, which undoing it would take back too.
     Behind(String),
+    /// Something else undid it already, as `but undo` can: what it was.
+    Already(&'static str),
     /// Uncommitted files written since it, which undoing it would put back as they were.
     Newer(Vec<String>),
 }
@@ -582,7 +584,19 @@ pub fn undo_snapshot(
     newer_than: Option<(i64, &[(i64, i64)])>,
 ) -> Result<Undone> {
     let mut ctx = open(path)?;
-    let target = oplog::get_undo_target_snapshot(&ctx)?.context("It was undone already.")?;
+    // With nothing left to undo, or only what came before it, something undid it already.
+    let before_it = |target: gix::ObjectId| -> Result<bool> {
+        let repo = ctx.repo.get()?;
+        let base = repo.merge_base(target, snapshot.0)?;
+        Ok(target != snapshot.0 && base.is_some_and(|base| base == target))
+    };
+    let target = match oplog::get_undo_target_snapshot(&ctx)? {
+        Some(target) if !before_it(target.commit_id)? => target,
+        _ => {
+            let details = oplog::get_snapshot(&ctx, snapshot.0)?.details;
+            return Ok(Undone::Already(titled(&ctx, snapshot.0, details)?));
+        }
+    };
     if target.commit_id != snapshot.0 {
         let ours = titled(
             &ctx,
