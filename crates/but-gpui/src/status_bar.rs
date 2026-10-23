@@ -103,7 +103,7 @@ impl AppView {
             (
                 detail.picked_line_count(),
                 "line",
-                Some("drag a grip or right-click to move them"),
+                Some("drag a grip or right-click to move the selection"),
             ),
             (detail.picked_files(), "file", None),
         ]

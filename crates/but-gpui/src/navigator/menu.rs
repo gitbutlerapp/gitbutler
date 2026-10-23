@@ -16,7 +16,7 @@ use crate::edits::{
 };
 use crate::overlays::MenuItem;
 use crate::state::{Cut, ProjectId, Seeable, Selection, Store, WatchedOrder};
-use crate::ui::{plural, quoted, shortcut};
+use crate::ui::{commit_title, plural, quoted, shortcut};
 
 /// An item that runs `handler` on the row it opened on, showing the keys of `action`, which
 /// does the same from the navigator. The ⋯ in a page's header opens these menus with the
@@ -452,7 +452,10 @@ impl Navigator {
                     return Vec::new();
                 };
                 let mut items = vec![MenuItem::action(
-                    format!("Squash {n} commits into {}", quoted(&oldest.title)),
+                    format!(
+                        "Squash {n} commits into {}",
+                        quoted(&commit_title(&oldest.title))
+                    ),
                     &SquashPicked,
                     cx,
                 )];

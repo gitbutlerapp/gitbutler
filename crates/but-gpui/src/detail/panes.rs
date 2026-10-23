@@ -885,6 +885,7 @@ impl Detail {
             super::resolve::warn_banner(
                 plural(conflicted, "conflicted commit"),
                 match holder.ref_name == ref_name {
+                    true if conflicted == 1 => "Resolve opens it to pick what it keeps.".to_owned(),
                     true => {
                         "Start with the oldest: the ones above it are rebuilt on it.".to_owned()
                     }

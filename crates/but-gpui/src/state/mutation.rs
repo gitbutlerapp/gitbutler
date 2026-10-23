@@ -503,9 +503,11 @@ impl Store {
                     // Something changed the project since, so none of its undos are to redo.
                     None | Some(Undone::Behind(_) | Undone::Already(_)) => {
                         (store.redo_steps).retain(|(project, _)| *project != again);
-                        let why =
-                            "Something changed the project since the undo, so it can't be redone";
-                        return store.snack(store.card_title(&again, why.into()), cx);
+                        let why = format!(
+                            "Something changed the project{} since the undo, so it can't be redone",
+                            store.in_project(&again)
+                        );
+                        return store.snack(why, cx);
                     }
                 };
                 (store.redo_steps).retain(|step| *step != (again.clone(), undo));
@@ -1743,7 +1745,11 @@ fn updated_message(target: &str, conflicted: &[(String, usize)], landed: &[Strin
     match landed.len() {
         0 => {}
         1 => said.push(format!("{} landed and was removed", landed[0])),
-        _ => said.push(format!("{} landed and were removed", landed.join(" and "))),
+        n => said.push(format!(
+            "{} and {} landed and were removed",
+            landed[..n - 1].join(", "),
+            landed[n - 1]
+        )),
     }
     // A snackbar is one fragment, so its parts are listed rather than sentences.
     said.join(", ")
@@ -1784,6 +1790,19 @@ mod tests {
             updated_message("origin/main", &[], &[]),
             "Updated from origin/main",
             "nothing else happened"
+        );
+        assert_eq!(
+            updated_message(
+                "origin/main",
+                &[],
+                &[
+                    "refs/heads/a".into(),
+                    "refs/heads/b".into(),
+                    "refs/heads/c".into()
+                ]
+            ),
+            "Updated from origin/main, a, b and c landed and were removed",
+            "several are listed as a sentence lists them"
         );
     }
 

@@ -1222,10 +1222,10 @@ impl Detail {
                             })
                             .tooltip_for(
                                 match &target {
-                                    Some((_, title)) => {
+                                    Some((_, title)) if !title.is_empty() => {
                                         format!("Add the checked changes to \"{title}\"")
                                     }
-                                    None => "Add the checked changes to the newest commit".into(),
+                                    _ => "Add the checked changes to the newest commit".into(),
                                 },
                                 &super::AmendTop,
                             )

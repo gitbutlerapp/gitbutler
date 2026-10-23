@@ -489,13 +489,20 @@ impl Detail {
         };
         let target =
             (workspace.and_then(|ws| ws.target.as_ref())).map_or("the target", |t| t.name.as_str());
+        let what = match selection {
+            Selection::Stack(..) => "stack",
+            _ => "branch",
+        };
         // A conflicted commit's tree leaves out what it changes until it's resolved.
         if (branches.iter()).any(|b| b.commits.iter().any(|commit| commit.conflicted)) {
-            return "Its conflicted commits show their changes once they're resolved".into();
+            return format!(
+                "This {what}'s conflicted commits show their changes once they're resolved"
+            )
+            .into();
         }
         match !branches.is_empty() && branches.iter().all(|b| b.push == PushState::Integrated) {
             true => format!(
-                "{target} already has these commits, so the branch changes nothing against it"
+                "{target} already has these commits, so the {what} changes nothing against it"
             ),
             false => format!("Nothing changed against {target}"),
         }

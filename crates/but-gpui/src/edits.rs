@@ -1000,16 +1000,19 @@ impl AppView {
         let (name, landed) = (short_ref(&ref_name).to_owned(), project.clone());
         let (what, whose, remotes) = match whole_stack {
             true => (
-                format!("{name} and the branches below it"),
+                match landing.len() {
+                    2 => format!("{name} and the branch below it"),
+                    _ => format!("{name} and the branches below it"),
+                },
                 "Their",
-                "their remotes have",
+                "their remotes",
             ),
-            false => (name.clone(), "Its", "its remote has"),
+            false => (name.clone(), "Its", "its remote"),
         };
         let left_behind = match remote_only {
             0 => String::new(),
-            1 => format!(" The commit only {remotes} doesn't land."),
-            n => format!(" The {n} commits only {remotes} don't land."),
+            1 => format!(" 1 commit on {remotes} isn't pulled yet, so it won't land."),
+            n => format!(" {n} commits on {remotes} aren't pulled yet, so they won't land."),
         };
         // Landing brings the target's new commits into the workspace, as Update does.
         let update = match behind {
@@ -1083,6 +1086,10 @@ impl AppView {
         } else {
             commit.message.clone()
         };
+        if text.trim().is_empty() {
+            cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
+            return (self.store).update(cx, |store, cx| store.snack("Copied an empty message", cx));
+        }
         self.copy_text(text, cx);
     }
 
@@ -1123,7 +1130,7 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         let what = match &*files {
-            [file] if file.hunks.is_some() => "this hunk".to_owned(),
+            [file] if file.hunks.is_some() => format!("part of {}", file.file.path),
             [file] => file.file.path.clone(),
             files => format!("{} files", files.len()),
         };

@@ -20,7 +20,7 @@ use crate::theme::Theme;
 use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
 use crate::ui::diff::{DiffRow, Layout, OnToggle};
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{ButtonStyle, Icon, Tooltip, button, dp, h_flex, plural, small_icon};
+use crate::ui::{ButtonStyle, Icon, Tooltip, button, commit_title, dp, h_flex, plural, small_icon};
 
 actions!(
     resolve,
@@ -789,7 +789,16 @@ impl Detail {
             }
             None if total == 0 => (
                 format!("{} left conflicted", plural(other, "file")),
-                "Right-click a file to mark it resolved as it is.".into(),
+                match conflicted {
+                    // A commit's files have no Mark resolved in their menu.
+                    Conflicted::Commit(_) => match other {
+                        1 => "It can only be resolved in a terminal, with `but resolve`.".into(),
+                        _ => "They can only be resolved in a terminal, with `but resolve`.".into(),
+                    },
+                    Conflicted::Files(_) => {
+                        "Right-click a file to mark it resolved as it is.".into()
+                    }
+                },
                 None,
             ),
             None if decided == total => (
@@ -819,9 +828,12 @@ impl Detail {
                 "{detail} {} can only be resolved in a terminal, with `but resolve`.",
                 plural(n, "file")
             ),
+            (1, Conflicted::Files(_)) => format!(
+                "{detail} 1 file has no lines to pick: its menu marks it resolved as it is."
+            ),
             (n, Conflicted::Files(_)) => format!(
-                "{detail} {} has no lines to pick: its menu marks it resolved as it is.",
-                plural(n, "file")
+                "{detail} {n} files have no lines to pick: each one's menu marks it resolved as \
+                 it is."
             ),
         };
         Some(warn_banner(title, detail, action, theme).into_any_element())
@@ -863,7 +875,9 @@ fn next_conflicted(workspace: &Workspace, commit: CommitId) -> Option<(CommitId,
     let at = order.iter().position(|id| *id == commit)?;
     order[at + 1..].iter().find_map(|id| {
         let (_, found) = workspace.find_commit(*id)?;
-        found.conflicted.then(|| (*id, found.title.clone()))
+        found
+            .conflicted
+            .then(|| (*id, commit_title(&found.title).to_string()))
     })
 }
 
