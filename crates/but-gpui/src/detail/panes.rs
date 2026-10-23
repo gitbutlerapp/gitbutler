@@ -613,7 +613,7 @@ impl Detail {
 
     /// The header of the commits picked together: how many, the branches they're on and how
     /// many are conflicted. Their changes show together when they're one run in one lane;
-    /// otherwise the diff is the selected one's, `id`, which it says.
+    /// otherwise each one's in turn, which it says. `id` is the selected one.
     pub(super) fn render_picks_header(
         &self,
         project: &ProjectId,
@@ -652,10 +652,11 @@ impl Detail {
                 )
             })
             .when(!one_run, |el| {
-                el.child(div().text_color(theme.text_3).child(format!(
-                    "Not one run of commits, so the diff is {}'s alone",
-                    id.short()
-                )))
+                el.child(
+                    div()
+                        .text_color(theme.text_3)
+                        .child("With others between them, so each one's changes show in turn"),
+                )
             });
         let main = v_flex()
             .gap(dp(10.))

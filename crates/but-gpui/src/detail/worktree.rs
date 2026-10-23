@@ -55,9 +55,9 @@ pub(super) struct Now {
     /// the branch and commit it was read at, as the reflog changes only when they do.
     events: Vec<(i64, String)>,
     events_at: Option<(Option<String>, Option<CommitId>)>,
-    /// The files each branch's commits not seen yet change, with their lines, by the run
-    /// they make: `None` while it's read.
-    unseen_lines: HashMap<Run, Option<FileLines>>,
+    /// The files each branch's commits not seen yet change, with their lines, by those
+    /// commits: `None` while it's read.
+    unseen_lines: HashMap<Arc<[CommitId]>, Option<FileLines>>,
     /// The commits of the checkout's branches when it last loaded, to tell one an agent just
     /// made from those already there.
     known: Option<HashSet<CommitId>>,
@@ -240,22 +240,30 @@ impl Detail {
             .detach();
         }
         self.read_commit_paths(&checkout, &path, cx);
-        let runs: Vec<Run> = match self.store.read(cx).workspace(&checkout.0) {
-            Some(ws) => (self
-                .unseen_by_branch(&checkout.0, checkout.1.as_deref(), cx)
-                .iter())
-            .filter_map(|(_, commits)| unseen_run(ws, commits))
-            .collect(),
-            None => Vec::new(),
-        };
-        self.now.unseen_lines.retain(|run, _| runs.contains(run));
-        for run in runs {
-            if self.now.unseen_lines.contains_key(&run) {
+        // Each branch's, as one range when they're one run, else each commit's own added up,
+        // as a range would count the commits between them too.
+        let sets: Vec<(Arc<[CommitId]>, Option<Run>)> =
+            match self.store.read(cx).workspace(&checkout.0) {
+                Some(ws) => (self.unseen_by_branch(&checkout.0, checkout.1.as_deref(), cx))
+                    .iter()
+                    .map(|(_, commits)| {
+                        let ids = commits.iter().map(|commit| commit.id).collect();
+                        (ids, unseen_run(ws, commits))
+                    })
+                    .collect(),
+                None => Vec::new(),
+            };
+        (self.now.unseen_lines).retain(|ids, _| sets.iter().any(|(set, _)| set == ids));
+        for (ids, run) in sets {
+            if self.now.unseen_lines.contains_key(&ids) {
                 continue;
             }
-            self.now.unseen_lines.insert(run, None);
-            let ((newest, oldest), path, read_for) = (run, path.clone(), checkout.clone());
-            let lines = backend::run(move || backend::range_lines(&path, oldest, newest));
+            self.now.unseen_lines.insert(ids.clone(), None);
+            let (path, read_for, key) = (path.clone(), checkout.clone(), ids.clone());
+            let lines = backend::run(move || match run {
+                Some((newest, oldest)) => backend::range_lines(&path, oldest, newest),
+                None => backend::commits_lines(&path, &ids),
+            });
             cx.spawn(async move |this, cx| {
                 let lines = lines.await;
                 this.update(cx, |this, cx| {
@@ -264,9 +272,9 @@ impl Detail {
                     }
                     // Read again on the next load when this failed.
                     match lines {
-                        Ok(lines) => drop(this.now.unseen_lines.insert(run, Some(lines))),
+                        Ok(lines) => drop(this.now.unseen_lines.insert(key, Some(lines))),
                         Err(err) => {
-                            this.now.unseen_lines.remove(&run);
+                            this.now.unseen_lines.remove(&key);
                             tracing::warn!("couldn't count the unseen commits' lines: {err:#}")
                         }
                     }
@@ -617,9 +625,7 @@ impl Detail {
             }
         }
         let ids: Arc<[CommitId]> = commits.iter().map(|commit| commit.id).collect();
-        let ws = self.store.read(cx).workspace(project);
-        let lines = (ws.and_then(|ws| unseen_run(ws, commits)))
-            .and_then(|run| self.now.unseen_lines.get(&run)?.as_ref());
+        let lines = self.now.unseen_lines.get(&ids).and_then(Option::as_ref);
         let fold: SharedString = format!("now-unseen-more-{}", branch.name).into();
         let name: SharedString = branch.name.clone().into();
         let open = !self.now.folded.contains(&name);

@@ -895,6 +895,20 @@ impl Store {
         self.workspace(project)?.run_of(&self.picked)
     }
 
+    /// The commits picked in `project`, oldest first, as their lanes list them.
+    pub fn picks_oldest_first(&self, project: &ProjectId) -> Arc<[CommitId]> {
+        let lanes = self
+            .workspace(project)
+            .into_iter()
+            .flat_map(|ws| ws.lanes());
+        let mut ids: Vec<CommitId> = (lanes.flatten().flat_map(|branch| &branch.commits))
+            .map(|commit| commit.id)
+            .filter(|id| self.picked.contains(id))
+            .collect();
+        ids.reverse();
+        ids.into()
+    }
+
     /// Whether commit `id` of `project` is picked. Picks are the selected project's: another
     /// project can have the same commits, as a second clone of a repository does.
     pub fn is_picked(&self, project: &ProjectId, id: CommitId) -> bool {

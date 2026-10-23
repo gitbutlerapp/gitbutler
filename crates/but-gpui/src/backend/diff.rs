@@ -27,19 +27,45 @@ pub fn range_lines(
     let mut lines: Vec<(String, u32, u32)> = (but_core::diff::tree_changes(&repo, base, newest.0)?)
         .into_iter()
         .map(|change| {
-            let (added, removed) = match change.unified_patch(&repo, 0) {
-                Ok(Some(but_core::UnifiedPatch::Patch {
-                    lines_added,
-                    lines_removed,
-                    ..
-                })) => (lines_added, lines_removed),
-                _ => (0, 0),
-            };
+            let (added, removed) = line_counts(&repo, &change);
             (change.path.to_str_lossy().into_owned(), added, removed)
         })
         .collect();
     lines.sort_by_key(|(_, added, removed)| std::cmp::Reverse(added + removed));
     Ok(lines)
+}
+
+/// The files `commits` change, each commit's own changes told and added up: for commits
+/// with others between them, whose one range would count the others' too. Most changed first.
+pub fn commits_lines(path: &Path, commits: &[CommitId]) -> Result<Vec<(String, u32, u32)>> {
+    let ctx = open(path)?;
+    let repo = checkout(&ctx, None)?;
+    let mut lines: Vec<(String, u32, u32)> = Vec::new();
+    for id in commits {
+        let base = present_first_parent(&repo.find_commit(id.0)?);
+        for change in but_core::diff::tree_changes(&repo, base, id.0)? {
+            let (added, removed) = line_counts(&repo, &change);
+            let path = change.path.to_str_lossy().into_owned();
+            match lines.iter_mut().find(|(known, ..)| *known == path) {
+                Some((_, a, r)) => (*a, *r) = (*a + added, *r + removed),
+                None => lines.push((path, added, removed)),
+            }
+        }
+    }
+    lines.sort_by_key(|(_, added, removed)| std::cmp::Reverse(added + removed));
+    Ok(lines)
+}
+
+/// The lines `change` adds and removes, none for a binary file.
+fn line_counts(repo: &gix::Repository, change: &but_core::TreeChange) -> (u32, u32) {
+    match change.unified_patch(repo, 0) {
+        Ok(Some(but_core::UnifiedPatch::Patch {
+            lines_added,
+            lines_removed,
+            ..
+        })) => (lines_added, lines_removed),
+        _ => (0, 0),
+    }
 }
 
 /// The files each of `commits` changes, from its first parent, by their paths.
@@ -70,6 +96,9 @@ pub enum DiffSource {
         oldest: CommitId,
         newest: CommitId,
     },
+    /// Each of these commits' own changes in turn, oldest first: for commits picked with
+    /// others between them, whose one range would bring in the others' changes too.
+    Commits(std::sync::Arc<[CommitId]>),
     /// What a branch outside the workspace changes: from where it forked off the target to
     /// its tip `tip`, as its pull request would show. `ahead` is how many commits it has that
     /// the target doesn't: a fetch can land some on the target without moving the tip.
@@ -119,6 +148,8 @@ pub fn load_diff(
         let changes = but_core::diff::tree_changes(&repo, base, tip)?;
         Ok(changes.into_iter().map(file_change).collect())
     };
+    // Which commit each file is from, for commits shown one after another.
+    let mut owners = Vec::new();
     let changes: Vec<FileChange> = match &source {
         // With modification times, as the workspace's file list has them.
         DiffSource::Worktree | DiffSource::Linked(_) => match worktree {
@@ -132,6 +163,15 @@ pub fn load_diff(
         }
         DiffSource::Range { oldest, newest } => {
             tree_changes(present_first_parent(&repo.find_commit(oldest.0)?), newest.0)?
+        }
+        DiffSource::Commits(ids) => {
+            let mut all = Vec::new();
+            for id in ids.iter() {
+                let changes = tree_changes(present_first_parent(&repo.find_commit(id.0)?), id.0)?;
+                owners.extend(std::iter::repeat_n(*id, changes.len()));
+                all.extend(changes);
+            }
+            all
         }
         DiffSource::Branch { tip, .. } => {
             let target = super::target_source(&repo, &ctx.project_meta()?)
@@ -177,6 +217,9 @@ pub fn load_diff(
     )
     .into_iter()
     .collect::<Result<Vec<_>>>()?;
+    for (diff, owner) in diffs.iter_mut().zip(owners) {
+        diff.commit = Some(owner);
+    }
     match (&source, workdir) {
         (DiffSource::Commit(id), _) => add_conflicts(&ctx, *id, scope_lines, &mut diffs),
         (DiffSource::Worktree | DiffSource::Linked(_), Some(workdir)) => {
@@ -241,6 +284,7 @@ fn row(
         annotated: true,
         scope_lines,
         drawing: None,
+        commit: None,
     });
     Some(diffs.len() - 1)
 }
@@ -470,6 +514,7 @@ fn load_file(
         annotated: up_to_date(old),
         scope_lines,
         drawing: old.drawing.clone(),
+        commit: None,
     };
     // An uncommitted file last written at the same moment, against the same base, has the
     // same patch, so it isn't computed again, much as git skips files whose stat is unchanged.
@@ -578,6 +623,7 @@ fn load_file(
         annotated,
         scope_lines,
         drawing,
+        commit: None,
     })
 }
 
@@ -965,5 +1011,32 @@ fn parse_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
         scope: Vec::new(),
         lead: Vec::new(),
         tail: Vec::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::backend::CommitId;
+    use crate::backend::ops::tests::{git, repo_with};
+
+    #[test]
+    fn commits_with_others_between_count_only_their_own_lines() {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        let commit = |file: &str, content: &str| {
+            std::fs::write(path.join(file), content).unwrap();
+            git(path, &["add", file]);
+            git(path, &["commit", "-q", "-m", file]);
+            let id = git(path, &["rev-parse", "HEAD"]);
+            CommitId(gix::ObjectId::from_hex(id.trim().as_bytes()).unwrap())
+        };
+        let first = commit("file", "one\ntwo\n");
+        commit("skipped", "between\n");
+        let last = commit("file", "one\ntwo\nthree\n");
+        assert_eq!(
+            super::commits_lines(path, &[last, first]).unwrap(),
+            [("file".to_owned(), 2, 0)],
+            "each one's own line added up, the commit between them left out"
+        );
     }
 }

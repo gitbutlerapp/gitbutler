@@ -570,7 +570,8 @@ impl Detail {
                     && this.loading.as_ref() != Some(&key)
                     && matches!(
                         (&diff.key.source, &key.source),
-                        (DiffSource::Range { .. }, _) | (_, DiffSource::Range { .. })
+                        (DiffSource::Range { .. } | DiffSource::Commits(_), _)
+                            | (_, DiffSource::Range { .. } | DiffSource::Commits(_))
                     )
                 {
                     this.refresh_diff(false, cx);
@@ -709,13 +710,15 @@ impl Detail {
             Selection::Uncommitted(_) => DiffSource::Worktree,
             Selection::Worktree(_, name) => DiffSource::Linked(name.clone()),
             Selection::Mesh(project, id, pick) => self.machine_source(project, id, pick)?,
-            // Commits picked with it in one run show their changes together.
-            Selection::Commit(project, id) => match store.picked_run(project) {
-                Some((newest, oldest)) if store.among_picks(project, *id) => {
-                    DiffSource::Range { oldest, newest }
+            // Commits picked with it in one run show their changes together, and with others
+            // between them, each one's in turn.
+            Selection::Commit(project, id) if store.among_picks(project, *id) => {
+                match store.picked_run(project) {
+                    Some((newest, oldest)) => DiffSource::Range { oldest, newest },
+                    None => DiffSource::Commits(store.picks_oldest_first(project)),
                 }
-                _ => DiffSource::Commit(*id),
-            },
+            }
+            Selection::Commit(_, id) => DiffSource::Commit(*id),
             Selection::Upstream(_, _, id) => DiffSource::Commit(*id),
             Selection::Branch(project, ref_name) => {
                 let branch = store.workspace(project)?.find_branch(ref_name)?;

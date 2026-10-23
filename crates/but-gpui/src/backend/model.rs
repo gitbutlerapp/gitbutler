@@ -720,6 +720,9 @@ pub struct FileDiff {
     pub scope_lines: Option<usize>,
     /// An SVG's two sides drawn, shown in place of its lines unless those are asked for.
     pub drawing: Option<Drawing>,
+    /// Which of several commits shown one after another it's from, as for commits picked
+    /// with others between them.
+    pub commit: Option<CommitId>,
 }
 
 /// An SVG file's sides drawn as images are shown; a side is missing for an added or

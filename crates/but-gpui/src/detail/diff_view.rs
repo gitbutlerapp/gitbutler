@@ -32,8 +32,9 @@ use crate::ui::diff::{self, DiffRow, HeaderDecor, LineDecor, LineSelect};
 use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, button, checkbox, count_badge, dp, empty_state, fixed, h_flex,
-    icon, icon_button, icon_toggle, segmented, shortcut, small_icon, toggle_group, v_flex,
+    ButtonStyle, Icon, Tooltip, button, checkbox, commit_title, count_badge, dp, empty_state,
+    fixed, h_flex, icon, icon_button, icon_toggle, segmented, shortcut, small_icon, toggle_group,
+    v_flex,
 };
 
 /// The diff, drawn by a view of its own over the space [`Detail`] leaves for it. A scrolled
@@ -749,9 +750,23 @@ impl Detail {
                         let open = open.clone();
                         move |event, _, cx| open(event.position(), cx)
                     });
+                // Of commits shown one after another, which one it's from.
+                let from = (diff.files[file].commit).and_then(|id| {
+                    let store = self.store.read(cx);
+                    let (_, commit) = store.workspace(&diff.key.project)?.find_commit(id)?;
+                    Some(
+                        div()
+                            .max_w(dp(220.))
+                            .truncate()
+                            .text_size(dp(11.))
+                            .text_color(theme.text_3)
+                            .child(commit_title(&commit.title)),
+                    )
+                });
                 let trailing = h_flex()
                     .flex_none()
                     .gap(dp(4.))
+                    .children(from)
                     // The toggle last but one: showing text adds the whole-file button, which
                     // mustn't move it from under the pointer.
                     .children(whole)

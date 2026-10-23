@@ -1472,6 +1472,7 @@ mod tests {
             annotated: true,
             scope_lines: None,
             drawing: None,
+            commit: None,
         };
         let mut checks = Checks::default();
         let picked = hunk(key(10, 2), "    new();");
