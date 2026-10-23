@@ -105,4 +105,6 @@ gitbutler-filemonitor.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+# Tests that open a repository get their own app-data dir, not the user's.
+but-testsupport.workspace = true
 

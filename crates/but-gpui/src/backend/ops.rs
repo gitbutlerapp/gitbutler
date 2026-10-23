@@ -993,47 +993,52 @@ pub(super) mod tests {
 
     #[test]
     fn a_description_is_listed_and_follows_its_branch() {
-        use crate::backend::branches::{all_branches, move_description, set_branch_description};
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        target_origin_main(path);
-        git(path, &["checkout", "-q", "-b", "topic"]);
-        git(path, &["commit", "-q", "--allow-empty", "-m", "Topic"]);
-        git(path, &["checkout", "-q", "main"]);
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::branches::{
+                all_branches, move_description, set_branch_description,
+            };
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "topic"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "Topic"]);
+            git(path, &["checkout", "-q", "main"]);
 
-        set_branch_description(path, "refs/heads/topic", "  Why it's there \n").unwrap();
-        let listed = (all_branches(path).unwrap().into_iter())
-            .find(|branch| branch.name == "topic")
-            .and_then(|branch| branch.description);
-        assert_eq!(
-            listed.as_deref(),
-            Some("Why it's there"),
-            "kept where Git keeps it, trimmed, and listed with the branch"
-        );
+            set_branch_description(path, "refs/heads/topic", "  Why it's there \n").unwrap();
+            let listed = (all_branches(path).unwrap().into_iter())
+                .find(|branch| branch.name == "topic")
+                .and_then(|branch| branch.description);
+            assert_eq!(
+                listed.as_deref(),
+                Some("Why it's there"),
+                "kept where Git keeps it, trimmed, and listed with the branch"
+            );
 
-        let repo = gix::open(path).unwrap();
-        let kept = |name: &str| {
-            let config = but_core::git_config::open_repo_local_config_for_reading(&repo).unwrap();
-            config
-                .string(format!("branch.{name}.description").as_str())
-                .map(|d| d.to_string())
-        };
-        move_description(&repo, "topic".into(), Some("renamed".into())).unwrap();
-        assert_eq!(
-            (kept("topic"), kept("renamed").as_deref()),
-            (None, Some("Why it's there")),
-            "it moves to the new name, as `git branch -m` moves it"
-        );
-        move_description(&repo, "renamed".into(), None).unwrap();
-        assert_eq!(
-            kept("renamed"),
-            None,
-            "and goes with the branch, as `git branch -d` drops it"
-        );
-        assert!(
-            set_branch_description(path, "refs/heads/renamed", "Lost?").is_err(),
-            "a branch that's gone isn't given one, for a later branch by its name to take up"
-        );
+            let repo = gix::open(path).unwrap();
+            let kept = |name: &str| {
+                let config =
+                    but_core::git_config::open_repo_local_config_for_reading(&repo).unwrap();
+                config
+                    .string(format!("branch.{name}.description").as_str())
+                    .map(|d| d.to_string())
+            };
+            move_description(&repo, "topic".into(), Some("renamed".into())).unwrap();
+            assert_eq!(
+                (kept("topic"), kept("renamed").as_deref()),
+                (None, Some("Why it's there")),
+                "it moves to the new name, as `git branch -m` moves it"
+            );
+            move_description(&repo, "renamed".into(), None).unwrap();
+            assert_eq!(
+                kept("renamed"),
+                None,
+                "and goes with the branch, as `git branch -d` drops it"
+            );
+            assert!(
+                set_branch_description(path, "refs/heads/renamed", "Lost?").is_err(),
+                "a branch that's gone isn't given one, for a later branch by its name to take up"
+            );
+        })
     }
 
     /// A repository mid-merge, with `file` changed on both sides and left conflicted.
@@ -1060,407 +1065,429 @@ pub(super) mod tests {
 
     #[test]
     fn a_conflicted_file_is_listed_and_kept_out_until_marked_resolved() {
-        let (dir, head) = conflicted_repo();
-        let path = dir.path();
-        let files = uncommitted(path);
-        assert_eq!(
-            files.len(),
-            1,
-            "status alone leaves the file out: {files:?}"
-        );
-        assert!(files[0].conflicted, "its index entry is unmerged");
+        but_testsupport::isolated_app_data_dir(|| {
+            let (dir, head) = conflicted_repo();
+            let path = dir.path();
+            let files = uncommitted(path);
+            assert_eq!(
+                files.len(),
+                1,
+                "status alone leaves the file out: {files:?}"
+            );
+            assert!(files[0].conflicted, "its index entry is unmerged");
 
-        let whole = Selected::whole(&files[0]);
-        let refused = amend(path, head, std::slice::from_ref(&whole), None, false).unwrap_err();
-        assert!(
-            refused.to_string().contains("resolved first"),
-            "the markers would go in: {refused:#}"
-        );
+            let whole = Selected::whole(&files[0]);
+            let refused = amend(path, head, std::slice::from_ref(&whole), None, false).unwrap_err();
+            assert!(
+                refused.to_string().contains("resolved first"),
+                "the markers would go in: {refused:#}"
+            );
 
-        mark_resolved(path, None, vec!["file".into()]).unwrap();
-        let files = uncommitted(path);
-        assert_eq!(files.len(), 1, "the markers are still a change: {files:?}");
-        assert!(!files[0].conflicted, "the index takes the file as it is");
+            mark_resolved(path, None, vec!["file".into()]).unwrap();
+            let files = uncommitted(path);
+            assert_eq!(files.len(), 1, "the markers are still a change: {files:?}");
+            assert!(!files[0].conflicted, "the index takes the file as it is");
+        })
     }
 
     #[test]
     fn discarding_a_conflicted_file_takes_it_back_to_head() {
-        let (dir, _) = conflicted_repo();
-        let path = dir.path();
-        let files = uncommitted(path);
-        let part = Selected {
-            file: files[0].clone(),
-            hunks: Some(Vec::new()),
-        };
-        let refused = discard(path, None, &[part]).unwrap_err();
-        assert!(
-            refused.to_string().contains("has conflicts"),
-            "part of it would leave the rest resolved, markers and all: {refused:#}"
-        );
-        let whole = Selected::whole(&files[0]);
-        discard(path, None, &[whole]).unwrap();
-        assert_eq!(
-            std::fs::read_to_string(path.join("file")).unwrap(),
-            "ours\n"
-        );
-        let files = uncommitted(path);
-        assert!(files.is_empty(), "nothing's left to commit: {files:?}");
+        but_testsupport::isolated_app_data_dir(|| {
+            let (dir, _) = conflicted_repo();
+            let path = dir.path();
+            let files = uncommitted(path);
+            let part = Selected {
+                file: files[0].clone(),
+                hunks: Some(Vec::new()),
+            };
+            let refused = discard(path, None, &[part]).unwrap_err();
+            assert!(
+                refused.to_string().contains("has conflicts"),
+                "part of it would leave the rest resolved, markers and all: {refused:#}"
+            );
+            let whole = Selected::whole(&files[0]);
+            discard(path, None, &[whole]).unwrap();
+            assert_eq!(
+                std::fs::read_to_string(path.join("file")).unwrap(),
+                "ours\n"
+            );
+            let files = uncommitted(path);
+            assert!(files.is_empty(), "nothing's left to commit: {files:?}");
+        })
     }
 
     #[test]
     fn an_added_file_is_discarded_whole_or_not_at_all() {
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        std::fs::write(path.join("new"), "one\ntwo\n").unwrap();
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            std::fs::write(path.join("new"), "one\ntwo\n").unwrap();
 
-        let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-        let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
-            panic!("a text diff");
-        };
-        let line = diff[0].part(Some(
-            hunks[0].picked(&std::collections::BTreeSet::from([1])),
-        ));
-        let refused = discard(path, None, &[line]).unwrap_err();
-        assert!(
-            refused
-                .to_string()
-                .contains("Only all of new can be taken out"),
-            "a line of it would take the rest along: {refused:#}"
-        );
-        assert!(path.join("new").exists(), "nothing went");
-        let hunk = diff[0].part(Some(vec![hunks[0].key]));
-        assert!(hunk.hunks.is_none(), "all of its hunks is the file whole");
-        discard(path, None, std::slice::from_ref(&hunk)).unwrap();
-        assert!(!path.join("new").exists(), "the whole file goes");
-        discard(path, None, &[hunk]).expect("nothing left to discard is no error");
+            let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
+            let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
+                panic!("a text diff");
+            };
+            let line = diff[0].part(Some(
+                hunks[0].picked(&std::collections::BTreeSet::from([1])),
+            ));
+            let refused = discard(path, None, &[line]).unwrap_err();
+            assert!(
+                refused
+                    .to_string()
+                    .contains("Only all of new can be taken out"),
+                "a line of it would take the rest along: {refused:#}"
+            );
+            assert!(path.join("new").exists(), "nothing went");
+            let hunk = diff[0].part(Some(vec![hunks[0].key]));
+            assert!(hunk.hunks.is_none(), "all of its hunks is the file whole");
+            discard(path, None, std::slice::from_ref(&hunk)).unwrap();
+            assert!(!path.join("new").exists(), "the whole file goes");
+            discard(path, None, &[hunk]).expect("nothing left to discard is no error");
+        })
     }
 
     #[test]
     fn discarding_in_a_linked_worktree_leaves_the_main_checkout_alone() {
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        let outside = tempfile::tempdir().unwrap();
-        let linked = outside.path().join("agent");
-        git(
-            path,
-            &[
-                "worktree",
-                "add",
-                "-q",
-                "-b",
-                "agent",
-                linked.to_str().unwrap(),
-            ],
-        );
-        std::fs::write(path.join("file"), "main\n").unwrap();
-        std::fs::write(linked.join("file"), "agent\n").unwrap();
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            let outside = tempfile::tempdir().unwrap();
+            let linked = outside.path().join("agent");
+            git(
+                path,
+                &[
+                    "worktree",
+                    "add",
+                    "-q",
+                    "-b",
+                    "agent",
+                    linked.to_str().unwrap(),
+                ],
+            );
+            std::fs::write(path.join("file"), "main\n").unwrap();
+            std::fs::write(linked.join("file"), "agent\n").unwrap();
 
-        let read = || {
+            let read = || {
+                let source = DiffSource::Linked("agent".into());
+                let diff = load_diff(path, source, None, None, None, None).unwrap();
+                Selected::whole(&diff[0].file)
+            };
+            let whole = read();
+            std::fs::write(linked.join("file"), "agent, more\n").unwrap();
+            let refused = discard(path, Some("agent"), &[whole]).unwrap_err();
+            assert!(
+                refused
+                    .to_string()
+                    .contains("changed since the diff was shown"),
+                "what was written after the diff was read isn't thrown away unseen, as nothing \
+                 brings a linked worktree's discard back: {refused}"
+            );
+            discard(path, Some("agent"), &[read()]).unwrap();
+            assert_eq!(
+                std::fs::read_to_string(linked.join("file")).unwrap(),
+                "one\n",
+                "the worktree's file is back to its commit"
+            );
+            assert_eq!(
+                std::fs::read_to_string(path.join("file")).unwrap(),
+                "main\n",
+                "the main checkout's change to the same path stays"
+            );
+
+            std::fs::write(linked.join("added"), "x\n").unwrap();
+            git(&linked, &["add", "added"]);
+            std::fs::remove_file(linked.join("added")).unwrap();
             let source = DiffSource::Linked("agent".into());
             let diff = load_diff(path, source, None, None, None, None).unwrap();
-            Selected::whole(&diff[0].file)
-        };
-        let whole = read();
-        std::fs::write(linked.join("file"), "agent, more\n").unwrap();
-        let refused = discard(path, Some("agent"), &[whole]).unwrap_err();
-        assert!(
-            refused
-                .to_string()
-                .contains("changed since the diff was shown"),
-            "what was written after the diff was read isn't thrown away unseen, as nothing \
-             brings a linked worktree's discard back: {refused}"
-        );
-        discard(path, Some("agent"), &[read()]).unwrap();
-        assert_eq!(
-            std::fs::read_to_string(linked.join("file")).unwrap(),
-            "one\n",
-            "the worktree's file is back to its commit"
-        );
-        assert_eq!(
-            std::fs::read_to_string(path.join("file")).unwrap(),
-            "main\n",
-            "the main checkout's change to the same path stays"
-        );
-
-        std::fs::write(linked.join("added"), "x\n").unwrap();
-        git(&linked, &["add", "added"]);
-        std::fs::remove_file(linked.join("added")).unwrap();
-        let source = DiffSource::Linked("agent".into());
-        let diff = load_diff(path, source, None, None, None, None).unwrap();
-        let added = diff.iter().find(|f| f.file.path == "added").unwrap();
-        discard(path, Some("agent"), &[Selected::whole(&added.file)])
-            .expect("a whole file's base, here the index's, isn't what was shown to compare");
+            let added = diff.iter().find(|f| f.file.path == "added").unwrap();
+            discard(path, Some("agent"), &[Selected::whole(&added.file)])
+                .expect("a whole file's base, here the index's, isn't what was shown to compare");
+        })
     }
 
     #[test]
     fn deleting_a_linked_worktree_loses_only_the_files_named() {
-        let dir = repo_with("base\n");
-        let path = dir.path();
-        let outside = tempfile::tempdir().unwrap();
-        let linked = outside.path().join("agent");
-        git(
-            path,
-            &[
-                "worktree",
-                "add",
-                "-q",
-                "-b",
-                "agent",
-                linked.to_str().unwrap(),
-            ],
-        );
-        std::fs::write(linked.join("file"), "seen\n").unwrap();
-        let repo = gix::open(&linked).unwrap();
-        let (modified, size) = stamp(&repo, "file".into());
-        let asked = [("file".to_owned(), modified, size)];
-        // Written after the user was asked about the change above.
-        std::fs::write(linked.join("fresh"), "new\n").unwrap();
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("base\n");
+            let path = dir.path();
+            let outside = tempfile::tempdir().unwrap();
+            let linked = outside.path().join("agent");
+            git(
+                path,
+                &[
+                    "worktree",
+                    "add",
+                    "-q",
+                    "-b",
+                    "agent",
+                    linked.to_str().unwrap(),
+                ],
+            );
+            std::fs::write(linked.join("file"), "seen\n").unwrap();
+            let repo = gix::open(&linked).unwrap();
+            let (modified, size) = stamp(&repo, "file".into());
+            let asked = [("file".to_owned(), modified, size)];
+            // Written after the user was asked about the change above.
+            std::fs::write(linked.join("fresh"), "new\n").unwrap();
 
-        let remove = crate::backend::worktrees::remove;
-        let err = remove(path, "agent", &asked).unwrap_err();
-        assert!(
-            format!("{err:#}").contains("fresh"),
-            "it names the change nobody agreed to lose: {err:#}"
-        );
-        assert!(
-            linked.join("fresh").exists(),
-            "and leaves the worktree as it was"
-        );
+            let remove = crate::backend::worktrees::remove;
+            let err = remove(path, "agent", &asked).unwrap_err();
+            assert!(
+                format!("{err:#}").contains("fresh"),
+                "it names the change nobody agreed to lose: {err:#}"
+            );
+            assert!(
+                linked.join("fresh").exists(),
+                "and leaves the worktree as it was"
+            );
 
-        std::fs::remove_file(linked.join("fresh")).unwrap();
-        let later = std::time::SystemTime::now() + std::time::Duration::from_secs(2);
-        let file = std::fs::File::options()
-            .write(true)
-            .open(linked.join("file"));
-        file.unwrap().set_modified(later).unwrap();
-        let err = remove(path, "agent", &asked).unwrap_err();
-        assert!(
-            format!("{err:#}").contains("file"),
-            "nor what was written to a file named since: {err:#}"
-        );
+            std::fs::remove_file(linked.join("fresh")).unwrap();
+            let later = std::time::SystemTime::now() + std::time::Duration::from_secs(2);
+            let file = std::fs::File::options()
+                .write(true)
+                .open(linked.join("file"));
+            file.unwrap().set_modified(later).unwrap();
+            let err = remove(path, "agent", &asked).unwrap_err();
+            assert!(
+                format!("{err:#}").contains("file"),
+                "nor what was written to a file named since: {err:#}"
+            );
 
-        let moved = outside.path().join("moved");
-        std::fs::rename(&linked, &moved).unwrap();
-        let err = remove(path, "agent", &asked).unwrap_err();
-        assert!(
-            format!("{err:#}").starts_with("Couldn't check agent's files"),
-            "a worktree it can't read, it can't check, so it refuses: {err:#}"
-        );
+            let moved = outside.path().join("moved");
+            std::fs::rename(&linked, &moved).unwrap();
+            let err = remove(path, "agent", &asked).unwrap_err();
+            assert!(
+                format!("{err:#}").starts_with("Couldn't check agent's files"),
+                "a worktree it can't read, it can't check, so it refuses: {err:#}"
+            );
+        })
     }
 
     #[test]
     fn a_failed_discard_in_a_linked_worktree_leaves_its_conflicts() {
-        let dir = repo_with("base\n");
-        let path = dir.path();
-        let outside = tempfile::tempdir().unwrap();
-        let linked = outside.path().join("agent");
-        let linked_dir = linked.to_str().unwrap();
-        git(path, &["worktree", "add", "-q", "-b", "agent", linked_dir]);
-        git(path, &["checkout", "-q", "-b", "other"]);
-        std::fs::write(path.join("file"), "theirs\n").unwrap();
-        git(path, &["commit", "-q", "-am", "theirs"]);
-        std::fs::write(linked.join("file"), "ours\n").unwrap();
-        std::fs::write(linked.join("gone"), "one\n").unwrap();
-        git(&linked, &["add", "gone"]);
-        git(&linked, &["commit", "-q", "-am", "ours"]);
-        let merge = Command::new("git")
-            .current_dir(&linked)
-            .args(["merge", "-q", "other"])
-            .output()
-            .unwrap();
-        assert!(!merge.status.success(), "both sides changed the line");
-        std::fs::write(linked.join("gone"), "two\n").unwrap();
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("base\n");
+            let path = dir.path();
+            let outside = tempfile::tempdir().unwrap();
+            let linked = outside.path().join("agent");
+            let linked_dir = linked.to_str().unwrap();
+            git(path, &["worktree", "add", "-q", "-b", "agent", linked_dir]);
+            git(path, &["checkout", "-q", "-b", "other"]);
+            std::fs::write(path.join("file"), "theirs\n").unwrap();
+            git(path, &["commit", "-q", "-am", "theirs"]);
+            std::fs::write(linked.join("file"), "ours\n").unwrap();
+            std::fs::write(linked.join("gone"), "one\n").unwrap();
+            git(&linked, &["add", "gone"]);
+            git(&linked, &["commit", "-q", "-am", "ours"]);
+            let merge = Command::new("git")
+                .current_dir(&linked)
+                .args(["merge", "-q", "other"])
+                .output()
+                .unwrap();
+            assert!(!merge.status.success(), "both sides changed the line");
+            std::fs::write(linked.join("gone"), "two\n").unwrap();
 
-        let diff = load_diff(
-            path,
-            DiffSource::Linked("agent".into()),
-            None,
-            None,
-            None,
-            None,
-        )
-        .unwrap();
-        let selected: Vec<Selected> = (diff.iter())
-            .map(|file| Selected {
-                file: file.file.clone(),
-                hunks: match &file.body {
-                    DiffBody::Hunks { hunks, .. } if file.file.path == "gone" => {
-                        Some(vec![hunks[0].key])
-                    }
-                    _ => None,
-                },
-            })
-            .collect();
-        assert_eq!(selected.len(), 2, "the conflicted file and the edit");
-        // Deleted since the diff was shown, so its hunk can't be discarded alone.
-        std::fs::remove_file(linked.join("gone")).unwrap();
-        discard(path, Some("agent"), &selected).unwrap_err();
-        assert_eq!(
-            git(&linked, &["ls-files", "-u", "file"]).lines().count(),
-            3,
-            "with no snapshot to undo from, the conflict is still there to resolve"
-        );
-        mark_resolved(path, Some("agent"), vec!["file".into()]).unwrap();
-        assert!(
-            git(&linked, &["ls-files", "-u"]).is_empty(),
-            "marked resolved in the worktree's own index, not the main checkout's"
-        );
+            let diff = load_diff(
+                path,
+                DiffSource::Linked("agent".into()),
+                None,
+                None,
+                None,
+                None,
+            )
+            .unwrap();
+            let selected: Vec<Selected> = (diff.iter())
+                .map(|file| Selected {
+                    file: file.file.clone(),
+                    hunks: match &file.body {
+                        DiffBody::Hunks { hunks, .. } if file.file.path == "gone" => {
+                            Some(vec![hunks[0].key])
+                        }
+                        _ => None,
+                    },
+                })
+                .collect();
+            assert_eq!(selected.len(), 2, "the conflicted file and the edit");
+            // Deleted since the diff was shown, so its hunk can't be discarded alone.
+            std::fs::remove_file(linked.join("gone")).unwrap();
+            discard(path, Some("agent"), &selected).unwrap_err();
+            assert_eq!(
+                git(&linked, &["ls-files", "-u", "file"]).lines().count(),
+                3,
+                "with no snapshot to undo from, the conflict is still there to resolve"
+            );
+            mark_resolved(path, Some("agent"), vec!["file".into()]).unwrap();
+            assert!(
+                git(&linked, &["ls-files", "-u"]).is_empty(),
+                "marked resolved in the worktree's own index, not the main checkout's"
+            );
+        })
     }
 
     #[test]
     fn amending_some_hunks_leaves_the_rest_uncommitted() {
-        let mut lines: Vec<String> = twenty_lines();
-        let dir = repo_with(&lines.concat());
-        let path = dir.path();
-        lines[0] = "first edit\n".into();
-        lines[19] = "last edit\n".into();
-        std::fs::write(path.join("file"), lines.concat()).unwrap();
+        but_testsupport::isolated_app_data_dir(|| {
+            let mut lines: Vec<String> = twenty_lines();
+            let dir = repo_with(&lines.concat());
+            let path = dir.path();
+            lines[0] = "first edit\n".into();
+            lines[19] = "last edit\n".into();
+            std::fs::write(path.join("file"), lines.concat()).unwrap();
 
-        let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-        let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
-            panic!("a text diff");
-        };
-        assert_eq!(
-            hunks.len(),
-            2,
-            "the edits are far enough apart for two hunks"
-        );
-        let head = head(path);
-        let first_hunk = Selected {
-            file: diff[0].file.clone(),
-            hunks: Some(vec![hunks[0].key]),
-        };
-        amend(path, head, &[first_hunk], None, false).unwrap();
+            let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
+            let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
+                panic!("a text diff");
+            };
+            assert_eq!(
+                hunks.len(),
+                2,
+                "the edits are far enough apart for two hunks"
+            );
+            let head = head(path);
+            let first_hunk = Selected {
+                file: diff[0].file.clone(),
+                hunks: Some(vec![hunks[0].key]),
+            };
+            amend(path, head, &[first_hunk], None, false).unwrap();
 
-        let amended = git(path, &["show", "HEAD:file"]);
-        assert!(amended.starts_with("first edit\n"), "{amended}");
-        assert!(amended.ends_with("line 20\n"), "{amended}");
-        assert_eq!(
-            std::fs::read_to_string(path.join("file")).unwrap(),
-            lines.concat(),
-            "the worktree keeps the last edit, now uncommitted"
-        );
+            let amended = git(path, &["show", "HEAD:file"]);
+            assert!(amended.starts_with("first edit\n"), "{amended}");
+            assert!(amended.ends_with("line 20\n"), "{amended}");
+            assert_eq!(
+                std::fs::read_to_string(path.join("file")).unwrap(),
+                lines.concat(),
+                "the worktree keeps the last edit, now uncommitted"
+            );
+        })
     }
 
     #[test]
     fn amending_part_of_a_file_whose_base_moved_asks_to_try_again() {
-        let mut lines: Vec<String> = twenty_lines();
-        let dir = repo_with(&lines.concat());
-        let path = dir.path();
-        lines[0] = "first edit\n".into();
-        lines[19] = "last edit\n".into();
-        std::fs::write(path.join("file"), lines.concat()).unwrap();
-        let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-        let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
-            panic!("a text diff");
-        };
-        let first_hunk = Selected {
-            file: diff[0].file.clone(),
-            hunks: Some(vec![hunks[0].key]),
-        };
-        // Committed elsewhere, as by the CLI, which leaves the file as it is.
-        git(path, &["commit", "-qam", "elsewhere"]);
-        let head = head(path);
-        let err = amend(path, head, &[first_hunk], None, false).unwrap_err();
-        assert!(
-            err.to_string().contains("changed since the diff was shown"),
-            "its hunks are numbered against a base that's gone: {err}"
-        );
+        but_testsupport::isolated_app_data_dir(|| {
+            let mut lines: Vec<String> = twenty_lines();
+            let dir = repo_with(&lines.concat());
+            let path = dir.path();
+            lines[0] = "first edit\n".into();
+            lines[19] = "last edit\n".into();
+            std::fs::write(path.join("file"), lines.concat()).unwrap();
+            let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
+            let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
+                panic!("a text diff");
+            };
+            let first_hunk = Selected {
+                file: diff[0].file.clone(),
+                hunks: Some(vec![hunks[0].key]),
+            };
+            // Committed elsewhere, as by the CLI, which leaves the file as it is.
+            git(path, &["commit", "-qam", "elsewhere"]);
+            let head = head(path);
+            let err = amend(path, head, &[first_hunk], None, false).unwrap_err();
+            assert!(
+                err.to_string().contains("changed since the diff was shown"),
+                "its hunks are numbered against a base that's gone: {err}"
+            );
+        })
     }
 
     #[test]
     fn a_failing_pre_commit_hook_refuses_the_commit_and_passing_hooks_shape_it() {
-        use std::os::unix::fs::PermissionsExt as _;
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        std::fs::write(path.join("file"), "two\n").unwrap();
-        let hook = |name: &str, script: &str| {
-            let file = path.join(".git/hooks").join(name);
-            std::fs::write(&file, format!("#!/bin/sh\n{script}\n")).unwrap();
-            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755)).unwrap();
-        };
-        let changes = || vec![Selected::whole(&uncommitted(path)[0])];
-        let main = Destination::Branch("refs/heads/main".into());
-        let first = git(path, &["rev-parse", "HEAD"]);
+        but_testsupport::isolated_app_data_dir(|| {
+            use std::os::unix::fs::PermissionsExt as _;
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            std::fs::write(path.join("file"), "two\n").unwrap();
+            let hook = |name: &str, script: &str| {
+                let file = path.join(".git/hooks").join(name);
+                std::fs::write(&file, format!("#!/bin/sh\n{script}\n")).unwrap();
+                std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755)).unwrap();
+            };
+            let changes = || vec![Selected::whole(&uncommitted(path)[0])];
+            let main = Destination::Branch("refs/heads/main".into());
+            let first = git(path, &["rev-parse", "HEAD"]);
 
-        hook("pre-commit", "echo 'lint failed'; exit 1");
-        let refused = commit(path, &main, &changes(), None, "Two", true).unwrap_err();
-        assert!(
-            format!("{refused:#}").contains("lint failed"),
-            "the error is what the hook printed: {refused:#}"
-        );
-        assert_eq!(
-            git(path, &["rev-parse", "HEAD"]),
-            first,
-            "nothing was committed"
-        );
-        assert_eq!(
-            uncommitted(path).len(),
-            1,
-            "the change is still uncommitted"
-        );
+            hook("pre-commit", "echo 'lint failed'; exit 1");
+            let refused = commit(path, &main, &changes(), None, "Two", true).unwrap_err();
+            assert!(
+                format!("{refused:#}").contains("lint failed"),
+                "the error is what the hook printed: {refused:#}"
+            );
+            assert_eq!(
+                git(path, &["rev-parse", "HEAD"]),
+                first,
+                "nothing was committed"
+            );
+            assert_eq!(
+                uncommitted(path).len(),
+                1,
+                "the change is still uncommitted"
+            );
 
-        hook("pre-commit", "exit 0");
-        hook("commit-msg", "printf '\\nIssue: SHOP-12\\n' >> \"$1\"");
-        hook("post-commit", "echo 'notify failed'; exit 1");
-        let (_, _, hook_failed) = commit(path, &main, &changes(), None, "Two", true).unwrap();
-        assert_eq!(
-            git(path, &["log", "-1", "--format=%s|%b"]).trim(),
-            "Two|Issue: SHOP-12",
-            "the commit takes the trailer commit-msg added, below the title"
-        );
-        assert!(uncommitted(path).is_empty(), "the commit stands");
-        assert!(
-            hook_failed.is_some_and(|output| output.contains("notify failed")),
-            "post-commit's failure comes back to report"
-        );
+            hook("pre-commit", "exit 0");
+            hook("commit-msg", "printf '\\nIssue: SHOP-12\\n' >> \"$1\"");
+            hook("post-commit", "echo 'notify failed'; exit 1");
+            let (_, _, hook_failed) = commit(path, &main, &changes(), None, "Two", true).unwrap();
+            assert_eq!(
+                git(path, &["log", "-1", "--format=%s|%b"]).trim(),
+                "Two|Issue: SHOP-12",
+                "the commit takes the trailer commit-msg added, below the title"
+            );
+            assert!(uncommitted(path).is_empty(), "the commit stands");
+            assert!(
+                hook_failed.is_some_and(|output| output.contains("notify failed")),
+                "post-commit's failure comes back to report"
+            );
+        })
     }
 
     #[test]
     fn committing_no_changes_makes_an_empty_commit() {
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        let main = Destination::Branch("refs/heads/main".into());
-        let first = git(path, &["rev-parse", "HEAD"]);
-        commit(path, &main, &[], None, "Mark it reviewed", false).unwrap();
-        assert_eq!(
-            git(path, &["log", "-1", "--format=%s"]).trim(),
-            "Mark it reviewed",
-            "the commit is made"
-        );
-        assert_eq!(
-            git(path, &["rev-parse", "HEAD~1"]),
-            first,
-            "it sits on the last commit"
-        );
-        assert_eq!(
-            git(path, &["diff", "--stat", "HEAD~1", "HEAD"]),
-            "",
-            "it changes nothing"
-        );
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            let main = Destination::Branch("refs/heads/main".into());
+            let first = git(path, &["rev-parse", "HEAD"]);
+            commit(path, &main, &[], None, "Mark it reviewed", false).unwrap();
+            assert_eq!(
+                git(path, &["log", "-1", "--format=%s"]).trim(),
+                "Mark it reviewed",
+                "the commit is made"
+            );
+            assert_eq!(
+                git(path, &["rev-parse", "HEAD~1"]),
+                first,
+                "it sits on the last commit"
+            );
+            assert_eq!(
+                git(path, &["diff", "--stat", "HEAD~1", "HEAD"]),
+                "",
+                "it changes nothing"
+            );
+        })
     }
 
     #[test]
     fn a_new_branch_from_the_default_branch_goes_on_top_of_it() {
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        target_origin_main(path);
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
 
-        let new = create_branch(path).unwrap();
-        assert_eq!(
-            git(path, &["symbolic-ref", "HEAD"]).trim(),
-            new,
-            "it's checked out, as `git checkout -b` would"
-        );
-        let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
-        assert!(!workspace.managed, "still outside the workspace");
-        assert_eq!(
-            (workspace.stacks.iter().flat_map(|s| &s.branches))
-                .map(|b| b.ref_name.as_str())
-                .collect::<Vec<_>>(),
-            [new.as_str()],
-            "the branch checked out is listed as the only one"
-        );
+            let new = create_branch(path).unwrap();
+            assert_eq!(
+                git(path, &["symbolic-ref", "HEAD"]).trim(),
+                new,
+                "it's checked out, as `git checkout -b` would"
+            );
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            assert!(!workspace.managed, "still outside the workspace");
+            assert_eq!(
+                (workspace.stacks.iter().flat_map(|s| &s.branches))
+                    .map(|b| b.ref_name.as_str())
+                    .collect::<Vec<_>>(),
+                [new.as_str()],
+                "the branch checked out is listed as the only one"
+            );
+        })
     }
 
     #[test]
@@ -1509,556 +1536,589 @@ pub(super) mod tests {
 
     #[test]
     fn a_target_without_a_remote_is_its_own_branch_to_update_from_and_land_on() {
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        crate::backend::settings::set_target(path, "refs/heads/main").unwrap();
-        git(path, &["checkout", "-q", "-b", "feature"]);
-        git(path, &["commit", "-q", "--allow-empty", "-m", "Feature"]);
-        // A commit `main` gains while it isn't checked out, as from a `git merge` into it.
-        let gained = git(
-            path,
-            &["commit-tree", "main^{tree}", "-p", "main", "-m", "On main"],
-        );
-        git(path, &["update-ref", "refs/heads/main", gained.trim()]);
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            crate::backend::settings::set_target(path, "refs/heads/main").unwrap();
+            git(path, &["checkout", "-q", "-b", "feature"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "Feature"]);
+            // A commit `main` gains while it isn't checked out, as from a `git merge` into it.
+            let gained = git(
+                path,
+                &["commit-tree", "main^{tree}", "-p", "main", "-m", "On main"],
+            );
+            git(path, &["update-ref", "refs/heads/main", gained.trim()]);
 
-        let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
-        let target = workspace.target.as_ref().expect("main is the target");
-        assert_eq!(
-            (target.name.as_str(), target.local, target.needs_update),
-            ("main", true, true),
-            "the local branch is the target, with something new to update from"
-        );
-        assert_eq!(
-            (target.incoming.iter())
-                .map(|c| c.title.as_str())
-                .collect::<Vec<_>>(),
-            ["On main"],
-            "what main gained is listed as new on it"
-        );
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            let target = workspace.target.as_ref().expect("main is the target");
+            assert_eq!(
+                (target.name.as_str(), target.local, target.needs_update),
+                ("main", true, true),
+                "the local branch is the target, with something new to update from"
+            );
+            assert_eq!(
+                (target.incoming.iter())
+                    .map(|c| c.title.as_str())
+                    .collect::<Vec<_>>(),
+                ["On main"],
+                "what main gained is listed as new on it"
+            );
 
-        let tip = workspace.find_branch("refs/heads/feature").unwrap().commits[0].id;
-        crate::backend::upstream::land(path, "feature", tip, false).unwrap();
-        assert!(
-            git(path, &["log", "--format=%s", "main"])
-                .lines()
-                .any(|s| s == "Feature"),
-            "main moved to take the branch in, with no remote to push to"
-        );
+            let tip = workspace.find_branch("refs/heads/feature").unwrap().commits[0].id;
+            crate::backend::upstream::land(path, "feature", tip, false).unwrap();
+            assert!(
+                git(path, &["log", "--format=%s", "main"])
+                    .lines()
+                    .any(|s| s == "Feature"),
+                "main moved to take the branch in, with no remote to push to"
+            );
+        })
     }
 
     #[test]
     fn a_new_branch_from_a_detached_head_is_refused() {
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        target_origin_main(path);
-        git(path, &["checkout", "-q", "--detach"]);
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "--detach"]);
 
-        let before = git(path, &["branch", "--list"]);
-        let err = create_branch(path).unwrap_err();
-        assert!(err.to_string().contains("detached"), "{err}");
-        assert_eq!(git(path, &["branch", "--list"]), before, "nothing is made");
+            let before = git(path, &["branch", "--list"]);
+            let err = create_branch(path).unwrap_err();
+            assert!(err.to_string().contains("detached"), "{err}");
+            assert_eq!(git(path, &["branch", "--list"]), before, "nothing is made");
+        })
     }
 
     #[test]
     fn a_new_branch_beside_a_checked_out_one_starts_the_workspace_and_undoes() {
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        target_origin_main(path);
-        git(path, &["checkout", "-q", "-b", "feature"]);
-        git(
-            path,
-            &["commit", "-q", "--allow-empty", "-m", "feature work"],
-        );
-        std::fs::write(path.join("file"), "two\n").unwrap();
-        let lanes = |path: &Path| {
-            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
-            let mut lanes: Vec<Vec<String>> = (workspace.stacks.iter())
-                .map(|s| s.branches.iter().map(|b| b.name.clone()).collect())
-                .collect();
-            lanes.sort();
-            (workspace.managed, lanes)
-        };
-        let head = |path: &Path| git(path, &["symbolic-ref", "HEAD"]).trim().to_owned();
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "feature"]);
+            git(
+                path,
+                &["commit", "-q", "--allow-empty", "-m", "feature work"],
+            );
+            std::fs::write(path.join("file"), "two\n").unwrap();
+            let lanes = |path: &Path| {
+                let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+                let mut lanes: Vec<Vec<String>> = (workspace.stacks.iter())
+                    .map(|s| s.branches.iter().map(|b| b.name.clone()).collect())
+                    .collect();
+                lanes.sort();
+                (workspace.managed, lanes)
+            };
+            let head = |path: &Path| git(path, &["symbolic-ref", "HEAD"]).trim().to_owned();
 
-        let new = create_branch(path).unwrap();
-        let second = new.strip_prefix("refs/heads/").unwrap();
-        let mut both = vec![vec!["feature".to_owned()], vec![second.to_owned()]];
-        both.sort();
-        assert_eq!(
-            lanes(path),
-            (true, both),
-            "two branches side by side, so GitButler's workspace holds them"
-        );
-        assert_eq!(head(path), "refs/heads/gitbutler/workspace");
-        assert_eq!(
-            std::fs::read_to_string(path.join("file")).unwrap(),
-            "two\n",
-            "the uncommitted change comes along"
-        );
+            let new = create_branch(path).unwrap();
+            let second = new.strip_prefix("refs/heads/").unwrap();
+            let mut both = vec![vec!["feature".to_owned()], vec![second.to_owned()]];
+            both.sort();
+            assert_eq!(
+                lanes(path),
+                (true, both),
+                "two branches side by side, so GitButler's workspace holds them"
+            );
+            assert_eq!(head(path), "refs/heads/gitbutler/workspace");
+            assert_eq!(
+                std::fs::read_to_string(path.join("file")).unwrap(),
+                "two\n",
+                "the uncommitted change comes along"
+            );
 
-        let last = crate::backend::history::oplog_head(path).unwrap();
-        crate::backend::history::undo_snapshot(path, last, None).unwrap();
-        assert_eq!(
-            head(path),
-            "refs/heads/feature",
-            "one undo goes back to the branch on its own"
-        );
-        assert!(
-            git(path, &["branch", "--list", second]).trim().is_empty(),
-            "and takes the new branch away"
-        );
-        assert_eq!(
-            std::fs::read_to_string(path.join("file")).unwrap(),
-            "two\n",
-            "keeping the uncommitted change"
-        );
+            let last = crate::backend::history::oplog_head(path).unwrap();
+            crate::backend::history::undo_snapshot(path, last, None).unwrap();
+            assert_eq!(
+                head(path),
+                "refs/heads/feature",
+                "one undo goes back to the branch on its own"
+            );
+            assert!(
+                git(path, &["branch", "--list", second]).trim().is_empty(),
+                "and takes the new branch away"
+            );
+            assert_eq!(
+                std::fs::read_to_string(path.join("file")).unwrap(),
+                "two\n",
+                "keeping the uncommitted change"
+            );
+        })
     }
 
     #[test]
     fn a_listed_branch_names_everyone_with_a_commit_of_its_own() {
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        target_origin_main(path);
-        git(path, &["checkout", "-q", "-b", "feature"]);
-        for (who, title) in [("Ada", "first"), ("Bo", "second"), ("Ada", "third")] {
-            let name = format!("user.name={who}");
-            git(
-                path,
-                &["-c", &name, "commit", "-q", "--allow-empty", "-m", title],
-            );
-        }
-        git(path, &["checkout", "-q", "main"]);
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "feature"]);
+            for (who, title) in [("Ada", "first"), ("Bo", "second"), ("Ada", "third")] {
+                let name = format!("user.name={who}");
+                git(
+                    path,
+                    &["-c", &name, "commit", "-q", "--allow-empty", "-m", title],
+                );
+            }
+            git(path, &["checkout", "-q", "main"]);
 
-        let listed = crate::backend::branches::all_branches(path).unwrap();
-        let feature = listed.iter().find(|b| b.name == "feature").unwrap();
-        assert_eq!(
-            feature.people,
-            ["Ada", "Bo"],
-            "who its own commits are by, newest first, each once"
-        );
+            let listed = crate::backend::branches::all_branches(path).unwrap();
+            let feature = listed.iter().find(|b| b.name == "feature").unwrap();
+            assert_eq!(
+                feature.people,
+                ["Ada", "Bo"],
+                "who its own commits are by, newest first, each once"
+            );
+        })
     }
 
     #[test]
     fn a_new_branch_beside_starts_where_the_checked_out_one_leaves_the_target() {
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        git(path, &["checkout", "-q", "-b", "feature"]);
-        std::fs::write(path.join("file"), "feature\n").unwrap();
-        git(path, &["commit", "-q", "-am", "feature work"]);
-        // The target moved on since, changing the same line.
-        git(path, &["checkout", "-q", "main"]);
-        std::fs::write(path.join("file"), "target\n").unwrap();
-        git(path, &["commit", "-q", "-am", "target work"]);
-        target_origin_main(path);
-        git(path, &["checkout", "-q", "feature"]);
-        let fork = git(path, &["merge-base", "feature", "main"]);
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            git(path, &["checkout", "-q", "-b", "feature"]);
+            std::fs::write(path.join("file"), "feature\n").unwrap();
+            git(path, &["commit", "-q", "-am", "feature work"]);
+            // The target moved on since, changing the same line.
+            git(path, &["checkout", "-q", "main"]);
+            std::fs::write(path.join("file"), "target\n").unwrap();
+            git(path, &["commit", "-q", "-am", "target work"]);
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "feature"]);
+            let fork = git(path, &["merge-base", "feature", "main"]);
 
-        let new = create_branch(path).unwrap();
-        assert_eq!(
-            git(path, &["rev-parse", &new]),
-            fork,
-            "where feature leaves the target, so the two merge without conflicts"
-        );
-        assert_eq!(
-            git(path, &["symbolic-ref", "HEAD"]).trim(),
-            "refs/heads/gitbutler/workspace"
-        );
+            let new = create_branch(path).unwrap();
+            assert_eq!(
+                git(path, &["rev-parse", &new]),
+                fork,
+                "where feature leaves the target, so the two merge without conflicts"
+            );
+            assert_eq!(
+                git(path, &["symbolic-ref", "HEAD"]).trim(),
+                "refs/heads/gitbutler/workspace"
+            );
+        })
     }
 
     #[test]
     fn commits_made_on_the_default_branch_stay_below_the_next_branch() {
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        target_origin_main(path);
-        git(path, &["commit", "-q", "--allow-empty", "-m", "on main"]);
-        let branches = |path: &Path| {
-            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "on main"]);
+            let branches = |path: &Path| {
+                let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+                assert_eq!(
+                    workspace.target_branch.as_deref(),
+                    Some("refs/heads/main"),
+                    "the composer knows which branch not to commit to"
+                );
+                (workspace.stacks.iter().flat_map(|s| &s.branches))
+                    .map(|b| (b.name.clone(), b.commits.len()))
+                    .collect::<Vec<_>>()
+            };
             assert_eq!(
-                workspace.target_branch.as_deref(),
-                Some("refs/heads/main"),
-                "the composer knows which branch not to commit to"
+                branches(path),
+                [("main".to_owned(), 1)],
+                "main is listed while it has a commit origin doesn't"
             );
-            (workspace.stacks.iter().flat_map(|s| &s.branches))
-                .map(|b| (b.name.clone(), b.commits.len()))
-                .collect::<Vec<_>>()
-        };
-        assert_eq!(
-            branches(path),
-            [("main".to_owned(), 1)],
-            "main is listed while it has a commit origin doesn't"
-        );
 
-        let new = create_branch(path).unwrap();
-        let name = new.strip_prefix("refs/heads/").unwrap().to_owned();
-        assert_eq!(
-            branches(path),
-            [(name, 0), ("main".to_owned(), 1)],
-            "the composer's new branch goes on top of main's commit, which stays where it is"
-        );
-        assert_eq!(
-            git(path, &["symbolic-ref", "HEAD"]).trim(),
-            new,
-            "the new branch is checked out, so the commit lands on it"
-        );
+            let new = create_branch(path).unwrap();
+            let name = new.strip_prefix("refs/heads/").unwrap().to_owned();
+            assert_eq!(
+                branches(path),
+                [(name, 0), ("main".to_owned(), 1)],
+                "the composer's new branch goes on top of main's commit, which stays where it is"
+            );
+            assert_eq!(
+                git(path, &["symbolic-ref", "HEAD"]).trim(),
+                new,
+                "the new branch is checked out, so the commit lands on it"
+            );
+        })
     }
 
     #[test]
     fn a_detached_unborn_or_untargeted_checkout_is_unrecorded() {
-        let load = |path: &Path| crate::backend::load_workspace(path, Default::default());
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        target_origin_main(path);
-        assert!(
-            !load(path).unwrap().unrecorded,
-            "on a branch, undo can go back"
-        );
-        git(path, &["checkout", "-q", "--detach"]);
-        assert!(
-            load(path).unwrap().unrecorded,
-            "the oplog won't restore a detached HEAD"
-        );
+        but_testsupport::isolated_app_data_dir(|| {
+            let load = |path: &Path| crate::backend::load_workspace(path, Default::default());
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            assert!(
+                !load(path).unwrap().unrecorded,
+                "on a branch, undo can go back"
+            );
+            git(path, &["checkout", "-q", "--detach"]);
+            assert!(
+                load(path).unwrap().unrecorded,
+                "the oplog won't restore a detached HEAD"
+            );
 
-        let unborn = tempfile::tempdir().unwrap();
-        git(unborn.path(), &["init", "-q"]);
-        assert!(
-            load(unborn.path()).unwrap().unrecorded,
-            "with no commits, there's no target to record a snapshot against"
-        );
+            let unborn = tempfile::tempdir().unwrap();
+            git(unborn.path(), &["init", "-q"]);
+            assert!(
+                load(unborn.path()).unwrap().unrecorded,
+                "with no commits, there's no target to record a snapshot against"
+            );
 
-        let untargeted = repo_with("one\n");
-        assert!(
-            load(untargeted.path()).unwrap().unrecorded,
-            "the oplog records a snapshot against the target, so none is recorded without one"
-        );
+            let untargeted = repo_with("one\n");
+            assert!(
+                load(untargeted.path()).unwrap().unrecorded,
+                "the oplog records a snapshot against the target, so none is recorded without one"
+            );
+        })
     }
 
     #[test]
     fn history_doesnt_say_the_checked_out_target_was_removed() {
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        target_origin_main(path);
-        crate::backend::history::take_snapshot(path, Some("Before".into())).unwrap();
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            crate::backend::history::take_snapshot(path, Some("Before".into())).unwrap();
 
-        use crate::backend::history;
-        let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
-        let now = history::branches(&workspace);
-        assert!(
-            now.is_empty(),
-            "the target with nothing of its own isn't listed"
-        );
-        let (operations, _) = history::list(path, None, 10, Some(now)).unwrap();
-        assert!(
-            operations[0].changes.is_empty(),
-            "the newest snapshot, compared with now, lists main as the workspace does: not at \
-             all. {:?}",
-            operations[0].changes
-        );
+            use crate::backend::history;
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            let now = history::branches(&workspace);
+            assert!(
+                now.is_empty(),
+                "the target with nothing of its own isn't listed"
+            );
+            let (operations, _) = history::list(path, None, 10, Some(now)).unwrap();
+            assert!(
+                operations[0].changes.is_empty(),
+                "the newest snapshot, compared with now, lists main as the workspace does: not at \
+                 all. {:?}",
+                operations[0].changes
+            );
+        })
     }
 
     #[test]
     fn history_shows_commits_made_outside_the_workspace() {
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        target_origin_main(path);
-        git(path, &["checkout", "-q", "-b", "feature"]);
-        let commit = |message: &str| git(path, &["commit", "-q", "--allow-empty", "-m", message]);
-        commit("Lower");
-        // A branch stacked under the checked-out one.
-        git(path, &["branch", "lower"]);
-        commit("First");
-        crate::backend::history::take_snapshot(path, None).unwrap();
-        commit("Second");
-        crate::backend::history::take_snapshot(path, None).unwrap();
-        commit("Third");
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "feature"]);
+            let commit =
+                |message: &str| git(path, &["commit", "-q", "--allow-empty", "-m", message]);
+            commit("Lower");
+            // A branch stacked under the checked-out one.
+            git(path, &["branch", "lower"]);
+            commit("First");
+            crate::backend::history::take_snapshot(path, None).unwrap();
+            commit("Second");
+            crate::backend::history::take_snapshot(path, None).unwrap();
+            commit("Third");
 
-        use crate::backend::history::{self, Change};
-        let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
-        assert!(!workspace.managed, "a branch checked out by itself");
-        let now = history::branches(&workspace);
-        let (operations, _) = history::list(path, None, 10, Some(now)).unwrap();
-        let lines: Vec<Vec<String>> = (operations.iter())
-            .map(|operation| {
-                (operation.changes.iter())
-                    .map(|change| match change {
-                        Change::Added { commit, branch } => {
-                            format!("+ {} on {branch}", commit.title())
-                        }
-                        other => format!("{other:?}"),
-                    })
-                    .collect()
-            })
-            .collect();
-        assert_eq!(
-            lines,
-            [["+ Third on feature"], ["+ Second on feature"]],
-            "each snapshot records the branches' commits as the workspace shows them"
-        );
+            use crate::backend::history::{self, Change};
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            assert!(!workspace.managed, "a branch checked out by itself");
+            let now = history::branches(&workspace);
+            let (operations, _) = history::list(path, None, 10, Some(now)).unwrap();
+            let lines: Vec<Vec<String>> = (operations.iter())
+                .map(|operation| {
+                    (operation.changes.iter())
+                        .map(|change| match change {
+                            Change::Added { commit, branch } => {
+                                format!("+ {} on {branch}", commit.title())
+                            }
+                            other => format!("{other:?}"),
+                        })
+                        .collect()
+                })
+                .collect();
+            assert_eq!(
+                lines,
+                [["+ Third on feature"], ["+ Second on feature"]],
+                "each snapshot records the branches' commits as the workspace shows them"
+            );
+        })
     }
 
     #[test]
     fn a_reload_of_the_commits_keeps_the_files_while_their_tree_stays() {
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        target_origin_main(path);
-        git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
-        git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
-        let head = git(path, &["rev-parse", "HEAD"]);
-        let top = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
-        std::fs::write(path.join("file"), "two\n").unwrap();
-        let load = |kept| crate::backend::load_workspace(path, kept).unwrap();
-        let paths = |ws: &Workspace| {
-            ws.uncommitted
-                .iter()
-                .map(|f| f.path.clone())
-                .collect::<Vec<_>>()
-        };
-        let shown = load(Kept::default());
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
+            let head = git(path, &["rev-parse", "HEAD"]);
+            let top = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+            std::fs::write(path.join("file"), "two\n").unwrap();
+            let load = |kept| crate::backend::load_workspace(path, kept).unwrap();
+            let paths = |ws: &Workspace| {
+                ws.uncommitted
+                    .iter()
+                    .map(|f| f.path.clone())
+                    .collect::<Vec<_>>()
+            };
+            let shown = load(Kept::default());
 
-        reword(path, top, "reworded").unwrap();
-        // Written after the files were shown, so only reading them again finds it.
-        std::fs::write(path.join("new"), "new\n").unwrap();
-        let commits = load(Kept::from(&shown, false, &HashSet::new()));
-        let title = (commits.branches().find_map(|b| b.commits.first())).map(|c| &c.title);
-        assert_eq!(
-            title.map(String::as_str),
-            Some("reworded"),
-            "the commits are read"
-        );
-        assert_eq!(
-            paths(&commits),
-            vec!["file"],
-            "the files are the ones shown"
-        );
-        let files = load(Kept::from(&shown, true, &HashSet::new()));
-        assert_eq!(
-            paths(&files),
-            vec!["file", "new"],
-            "unless they're asked for"
-        );
+            reword(path, top, "reworded").unwrap();
+            // Written after the files were shown, so only reading them again finds it.
+            std::fs::write(path.join("new"), "new\n").unwrap();
+            let commits = load(Kept::from(&shown, false, &HashSet::new()));
+            let title = (commits.branches().find_map(|b| b.commits.first())).map(|c| &c.title);
+            assert_eq!(
+                title.map(String::as_str),
+                Some("reworded"),
+                "the commits are read"
+            );
+            assert_eq!(
+                paths(&commits),
+                vec!["file"],
+                "the files are the ones shown"
+            );
+            let files = load(Kept::from(&shown, true, &HashSet::new()));
+            assert_eq!(
+                paths(&files),
+                vec!["file", "new"],
+                "unless they're asked for"
+            );
 
-        // A commit taking the change in gives `HEAD` another tree, and so another diff.
-        git(path, &["commit", "-qam", "take it in"]);
-        let moved = load(Kept::from(&commits, false, &HashSet::new()));
-        assert_eq!(
-            paths(&moved),
-            vec!["new"],
-            "or the tree they were read against moved"
-        );
+            // A commit taking the change in gives `HEAD` another tree, and so another diff.
+            git(path, &["commit", "-qam", "take it in"]);
+            let moved = load(Kept::from(&commits, false, &HashSet::new()));
+            assert_eq!(
+                paths(&moved),
+                vec!["new"],
+                "or the tree they were read against moved"
+            );
+        })
     }
 
     #[test]
     fn undoing_a_move_to_a_new_branch_takes_the_branch_away_too() {
-        use crate::backend::history::{Undone, oplog_head, undo_snapshot};
-        let (dir, commit, ..) = workspace_with_an_edit();
-        let path = dir.path();
-        let (_, name) = move_to_new_branch(path, &[commit]).unwrap();
-        let moved = oplog_head(path).unwrap();
-        assert!(matches!(
-            undo_snapshot(path, moved, None).unwrap(),
-            Undone::Done(_)
-        ));
-        let left = git(path, &["branch", "--list", short_ref(&name)]);
-        assert_eq!(
-            left, "",
-            "{name} would be listed beside the commit back in place"
-        );
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::history::{Undone, oplog_head, undo_snapshot};
+            let (dir, commit, ..) = workspace_with_an_edit();
+            let path = dir.path();
+            let (_, name) = move_to_new_branch(path, &[commit]).unwrap();
+            let moved = oplog_head(path).unwrap();
+            assert!(matches!(
+                undo_snapshot(path, moved, None).unwrap(),
+                Undone::Done(_)
+            ));
+            let left = git(path, &["branch", "--list", short_ref(&name)]);
+            assert_eq!(
+                left, "",
+                "{name} would be listed beside the commit back in place"
+            );
+        })
     }
 
     #[test]
     fn undo_and_redo_stop_for_what_came_after_and_for_files_written_since() {
-        use crate::backend::history::{
-            Undone, oplog_head, redo_snapshot, take_snapshot, undo_snapshot,
-        };
-        let now = || {
-            let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
-            since.unwrap().as_millis() as i64
-        };
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        target_origin_main(path);
-        git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
-        git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
-        let head = git(path, &["rev-parse", "HEAD"]);
-        let top = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
-        name_branch(path, top, "named").unwrap();
-        let named = oplog_head(path).unwrap();
-        let done = now();
-        // Later than it, as an edit in an editor is.
-        std::thread::sleep(std::time::Duration::from_millis(5));
-        std::fs::write(path.join("file"), "two\n").unwrap();
-        assert!(
-            matches!(undo_snapshot(path, named, Some((done, &[]))).unwrap(),
-                Undone::Newer(files) if files == ["file"]),
-            "a file written after the operation is one undoing it puts back"
-        );
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::history::{
+                Undone, oplog_head, redo_snapshot, take_snapshot, undo_snapshot,
+            };
+            let now = || {
+                let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+                since.unwrap().as_millis() as i64
+            };
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
+            let head = git(path, &["rev-parse", "HEAD"]);
+            let top = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+            name_branch(path, top, "named").unwrap();
+            let named = oplog_head(path).unwrap();
+            let done = now();
+            // Later than it, as an edit in an editor is.
+            std::thread::sleep(std::time::Duration::from_millis(5));
+            std::fs::write(path.join("file"), "two\n").unwrap();
+            assert!(
+                matches!(undo_snapshot(path, named, Some((done, &[]))).unwrap(),
+                    Undone::Newer(files) if files == ["file"]),
+                "a file written after the operation is one undoing it puts back"
+            );
 
-        take_snapshot(path, None).unwrap();
-        let snapshot = oplog_head(path).unwrap();
-        assert!(
-            matches!(undo_snapshot(path, named, None).unwrap(), Undone::Behind(_)),
-            "the snapshot came after it, and undoing it would take that back too"
-        );
-        assert!(
-            matches!(
-                undo_snapshot(path, snapshot, Some((done, &[(done, now())]))).unwrap(),
-                Undone::Done(_)
-            ),
-            "written while the app's own undo ran, the file isn't the user's change"
-        );
-        assert!(
-            matches!(
-                undo_snapshot(path, snapshot, None).unwrap(),
-                Undone::Already(_)
-            ),
-            "undone once, as by another client, it isn't taken for behind what came before"
-        );
-        assert!(
-            matches!(undo_snapshot(path, named, None).unwrap(), Undone::Done(_)),
-            "what came before it is still there to undo"
-        );
+            take_snapshot(path, None).unwrap();
+            let snapshot = oplog_head(path).unwrap();
+            assert!(
+                matches!(undo_snapshot(path, named, None).unwrap(), Undone::Behind(_)),
+                "the snapshot came after it, and undoing it would take that back too"
+            );
+            assert!(
+                matches!(
+                    undo_snapshot(path, snapshot, Some((done, &[(done, now())]))).unwrap(),
+                    Undone::Done(_)
+                ),
+                "written while the app's own undo ran, the file isn't the user's change"
+            );
+            assert!(
+                matches!(
+                    undo_snapshot(path, snapshot, None).unwrap(),
+                    Undone::Already(_)
+                ),
+                "undone once, as by another client, it isn't taken for behind what came before"
+            );
+            assert!(
+                matches!(undo_snapshot(path, named, None).unwrap(), Undone::Done(_)),
+                "what came before it is still there to undo"
+            );
 
-        let undo = oplog_head(path).unwrap();
-        std::fs::write(path.join("file"), "three\n").unwrap();
-        assert!(
-            matches!(redo_snapshot(path, undo, &Default::default(), Some(&[])).unwrap(),
-                Some(Undone::Newer(files)) if files == ["file"]),
-            "a file written after the undo is one redoing it puts back"
-        );
+            let undo = oplog_head(path).unwrap();
+            std::fs::write(path.join("file"), "three\n").unwrap();
+            assert!(
+                matches!(redo_snapshot(path, undo, &Default::default(), Some(&[])).unwrap(),
+                    Some(Undone::Newer(files)) if files == ["file"]),
+                "a file written after the undo is one redoing it puts back"
+            );
+        })
     }
 
     #[test]
     fn a_branch_that_moved_since_it_was_asked_about_isnt_deleted() {
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        target_origin_main(path);
-        git(path, &["branch", "side"]);
-        let asked = head(path);
-        git(path, &["commit", "-q", "--allow-empty", "-m", "an agent's"]);
-        git(path, &["branch", "-f", "side", "HEAD"]);
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["branch", "side"]);
+            let asked = head(path);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "an agent's"]);
+            git(path, &["branch", "-f", "side", "HEAD"]);
 
-        let refused = remove_branch(path, "refs/heads/side", Some(asked)).unwrap_err();
-        assert!(
-            format!("{refused:#}").contains("changed since you asked"),
-            "it says why it stays: {refused:#}"
-        );
-        assert!(
-            !git(path, &["branch", "--list", "side"]).is_empty(),
-            "the branch and its new commit stay"
-        );
+            let refused = remove_branch(path, "refs/heads/side", Some(asked)).unwrap_err();
+            assert!(
+                format!("{refused:#}").contains("changed since you asked"),
+                "it says why it stays: {refused:#}"
+            );
+            assert!(
+                !git(path, &["branch", "--list", "side"]).is_empty(),
+                "the branch and its new commit stay"
+            );
+        })
     }
 
     #[test]
     fn naming_an_unnamed_branch_makes_it_a_stack_and_undoes() {
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        target_origin_main(path);
-        // A commit made with plain Git on the workspace branch belongs to no branch.
-        git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
-        git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
-        let head = git(path, &["rev-parse", "HEAD"]);
-        let top = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
-        let branch_at_top = |path: &Path| {
-            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
-            (workspace.branches())
-                .find(|b| b.commits.first().map(|c| c.id) == Some(top))
-                .map(|b| b.ref_name.clone())
-        };
-        assert_eq!(branch_at_top(path).as_deref(), Some(""), "it shows unnamed");
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            // A commit made with plain Git on the workspace branch belongs to no branch.
+            git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
+            let head = git(path, &["rev-parse", "HEAD"]);
+            let top = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+            let branch_at_top = |path: &Path| {
+                let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+                (workspace.branches())
+                    .find(|b| b.commits.first().map(|c| c.id) == Some(top))
+                    .map(|b| b.ref_name.clone())
+            };
+            assert_eq!(branch_at_top(path).as_deref(), Some(""), "it shows unnamed");
 
-        assert_eq!(name_branch(path, top, "named").unwrap(), "refs/heads/named");
-        assert_eq!(branch_at_top(path).as_deref(), Some("refs/heads/named"));
+            assert_eq!(name_branch(path, top, "named").unwrap(), "refs/heads/named");
+            assert_eq!(branch_at_top(path).as_deref(), Some("refs/heads/named"));
 
-        let last = crate::backend::history::oplog_head(path).unwrap();
-        crate::backend::history::undo_snapshot(path, last, None).unwrap();
-        assert_eq!(
-            branch_at_top(path).as_deref(),
-            Some(""),
-            "undo takes the name away"
-        );
+            let last = crate::backend::history::oplog_head(path).unwrap();
+            crate::backend::history::undo_snapshot(path, last, None).unwrap();
+            assert_eq!(
+                branch_at_top(path).as_deref(),
+                Some(""),
+                "undo takes the name away"
+            );
+        })
     }
 
     #[test]
     fn a_hunk_discard_queued_behind_another_in_its_file_asks_to_try_again() {
-        let lines: Vec<String> = twenty_lines();
-        let dir = repo_with(&lines.concat());
-        let path = dir.path();
-        let mut edited = lines.clone();
-        edited[1] = "two\nmore\nlines\n".into();
-        edited[18] = "last edit\n".into();
-        std::fs::write(path.join("file"), edited.concat()).unwrap();
+        but_testsupport::isolated_app_data_dir(|| {
+            let lines: Vec<String> = twenty_lines();
+            let dir = repo_with(&lines.concat());
+            let path = dir.path();
+            let mut edited = lines.clone();
+            edited[1] = "two\nmore\nlines\n".into();
+            edited[18] = "last edit\n".into();
+            std::fs::write(path.join("file"), edited.concat()).unwrap();
 
-        let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-        let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
-            panic!("a text diff");
-        };
-        assert_eq!(
-            hunks.len(),
-            2,
-            "the edits are far enough apart for two hunks"
-        );
-        let hunk = |ix: usize| Selected {
-            file: diff[0].file.clone(),
-            hunks: Some(vec![hunks[ix].key]),
-        };
-        discard(path, None, &[hunk(0)]).unwrap();
-        // Read before the first discard, which took two lines out above it.
-        let err = discard(path, None, &[hunk(1)]).unwrap_err();
-        assert!(
-            err.to_string().contains("changed since the diff was shown"),
-            "its place in the file is from before the first discard: {err}"
-        );
-        let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-        let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
-            panic!("a text diff");
-        };
-        let fresh = Selected {
-            file: diff[0].file.clone(),
-            hunks: Some(vec![hunks[0].key]),
-        };
-        discard(path, None, &[fresh]).unwrap();
-        assert_eq!(
-            std::fs::read_to_string(path.join("file")).unwrap(),
-            lines.concat(),
-            "tried again on the fresh diff, each discard took back just its own hunk"
-        );
+            let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
+            let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
+                panic!("a text diff");
+            };
+            assert_eq!(
+                hunks.len(),
+                2,
+                "the edits are far enough apart for two hunks"
+            );
+            let hunk = |ix: usize| Selected {
+                file: diff[0].file.clone(),
+                hunks: Some(vec![hunks[ix].key]),
+            };
+            discard(path, None, &[hunk(0)]).unwrap();
+            // Read before the first discard, which took two lines out above it.
+            let err = discard(path, None, &[hunk(1)]).unwrap_err();
+            assert!(
+                err.to_string().contains("changed since the diff was shown"),
+                "its place in the file is from before the first discard: {err}"
+            );
+            let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
+            let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
+                panic!("a text diff");
+            };
+            let fresh = Selected {
+                file: diff[0].file.clone(),
+                hunks: Some(vec![hunks[0].key]),
+            };
+            discard(path, None, &[fresh]).unwrap();
+            assert_eq!(
+                std::fs::read_to_string(path.join("file")).unwrap(),
+                lines.concat(),
+                "tried again on the fresh diff, each discard took back just its own hunk"
+            );
+        })
     }
 
     #[test]
     fn a_hunk_discard_after_its_files_base_moved_asks_to_try_again() {
-        let lines: Vec<String> = twenty_lines();
-        let dir = repo_with(&lines.concat());
-        let path = dir.path();
-        let mut edited = lines.clone();
-        edited[1] = "two\n".into();
-        edited[18] = "nineteen\n".into();
-        std::fs::write(path.join("file"), edited.concat()).unwrap();
-        let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-        let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
-            panic!("a text diff");
-        };
-        let second = Selected {
-            file: diff[0].file.clone(),
-            hunks: Some(vec![hunks[1].key]),
-        };
-        // Commit the first edit alone, as committing part of the file does, without touching
-        // the file itself.
-        let mut first = lines.clone();
-        first[1] = "two\n".into();
-        std::fs::write(path.join("staged"), first.concat()).unwrap();
-        let blob = git(path, &["hash-object", "-w", "staged"]);
-        let entry = format!("100644,{},file", blob.trim());
-        git(path, &["update-index", "--cacheinfo", &entry]);
-        git(path, &["commit", "-q", "-m", "first edit"]);
-        let err = discard(path, None, &[second]).unwrap_err();
-        assert!(
-            err.to_string().contains("changed since the diff was shown"),
-            "its hunk was read against the file before the commit: {err}"
-        );
-        assert_eq!(
-            std::fs::read_to_string(path.join("file")).unwrap(),
-            edited.concat(),
-            "nothing was discarded"
-        );
+        but_testsupport::isolated_app_data_dir(|| {
+            let lines: Vec<String> = twenty_lines();
+            let dir = repo_with(&lines.concat());
+            let path = dir.path();
+            let mut edited = lines.clone();
+            edited[1] = "two\n".into();
+            edited[18] = "nineteen\n".into();
+            std::fs::write(path.join("file"), edited.concat()).unwrap();
+            let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
+            let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
+                panic!("a text diff");
+            };
+            let second = Selected {
+                file: diff[0].file.clone(),
+                hunks: Some(vec![hunks[1].key]),
+            };
+            // Commit the first edit alone, as committing part of the file does, without touching
+            // the file itself.
+            let mut first = lines.clone();
+            first[1] = "two\n".into();
+            std::fs::write(path.join("staged"), first.concat()).unwrap();
+            let blob = git(path, &["hash-object", "-w", "staged"]);
+            let entry = format!("100644,{},file", blob.trim());
+            git(path, &["update-index", "--cacheinfo", &entry]);
+            git(path, &["commit", "-q", "-m", "first edit"]);
+            let err = discard(path, None, &[second]).unwrap_err();
+            assert!(
+                err.to_string().contains("changed since the diff was shown"),
+                "its hunk was read against the file before the commit: {err}"
+            );
+            assert_eq!(
+                std::fs::read_to_string(path.join("file")).unwrap(),
+                edited.concat(),
+                "nothing was discarded"
+            );
+        })
     }
 
     /// The file of `repo_with` one line at a time, and the index of the line in its hunk
@@ -2071,29 +2131,31 @@ pub(super) mod tests {
 
     #[test]
     fn discarding_picked_lines_keeps_the_rest_of_their_hunk() {
-        let lines: Vec<String> = twenty_lines();
-        let dir = repo_with(&lines.concat());
-        let path = dir.path();
-        let mut edited = lines.clone();
-        edited[4] = "five a\nfive b\n".into();
-        std::fs::write(path.join("file"), edited.concat()).unwrap();
+        but_testsupport::isolated_app_data_dir(|| {
+            let lines: Vec<String> = twenty_lines();
+            let dir = repo_with(&lines.concat());
+            let path = dir.path();
+            let mut edited = lines.clone();
+            edited[4] = "five a\nfive b\n".into();
+            std::fs::write(path.join("file"), edited.concat()).unwrap();
 
-        let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-        let hunk = &diff[0].hunks()[0];
-        let picks = std::collections::BTreeSet::from([line_in(hunk, "five b")]);
-        let lines_picked = Selected {
-            file: diff[0].file.clone(),
-            hunks: Some(hunk.picked(&picks)),
-        };
-        discard(path, None, &[lines_picked]).unwrap();
+            let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
+            let hunk = &diff[0].hunks()[0];
+            let picks = std::collections::BTreeSet::from([line_in(hunk, "five b")]);
+            let lines_picked = Selected {
+                file: diff[0].file.clone(),
+                hunks: Some(hunk.picked(&picks)),
+            };
+            discard(path, None, &[lines_picked]).unwrap();
 
-        let mut expected = lines.clone();
-        expected[4] = "five a\n".into();
-        assert_eq!(
-            std::fs::read_to_string(path.join("file")).unwrap(),
-            expected.concat(),
-            "only the picked line went; the rest of its hunk stays uncommitted"
-        );
+            let mut expected = lines.clone();
+            expected[4] = "five a\n".into();
+            assert_eq!(
+                std::fs::read_to_string(path.join("file")).unwrap(),
+                expected.concat(),
+                "only the picked line went; the rest of its hunk stays uncommitted"
+            );
+        })
     }
 
     /// A workspace whose one commit, on top of the target, turns line 5 of `file` into two,
@@ -2116,59 +2178,63 @@ pub(super) mod tests {
 
     #[test]
     fn a_pull_whose_incoming_commit_conflicts_is_caught_before_it_runs() {
-        let dir = repo_with("base\n");
-        let path = dir.path();
-        target_origin_main(path);
-        let commit = |content: &str, message: &str| {
-            std::fs::write(path.join("file"), content).unwrap();
-            git(path, &["commit", "-q", "-am", message]);
-        };
-        git(path, &["checkout", "-q", "-b", "feature"]);
-        commit("one\n", "One");
-        commit("two\n", "Two");
-        git(path, &["update-ref", "refs/remotes/origin/feature", "HEAD"]);
-        git(path, &["config", "branch.feature.remote", "origin"]);
-        git(
-            path,
-            &["config", "branch.feature.merge", "refs/heads/feature"],
-        );
-        // "One" rewritten here, so the remote's "Two" no longer applies on top of it.
-        git(path, &["reset", "-q", "--hard", "main"]);
-        commit("uno\n", "One");
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("base\n");
+            let path = dir.path();
+            target_origin_main(path);
+            let commit = |content: &str, message: &str| {
+                std::fs::write(path.join("file"), content).unwrap();
+                git(path, &["commit", "-q", "-am", message]);
+            };
+            git(path, &["checkout", "-q", "-b", "feature"]);
+            commit("one\n", "One");
+            commit("two\n", "Two");
+            git(path, &["update-ref", "refs/remotes/origin/feature", "HEAD"]);
+            git(path, &["config", "branch.feature.remote", "origin"]);
+            git(
+                path,
+                &["config", "branch.feature.merge", "refs/heads/feature"],
+            );
+            // "One" rewritten here, so the remote's "Two" no longer applies on top of it.
+            git(path, &["reset", "-q", "--hard", "main"]);
+            commit("uno\n", "One");
 
-        let found = crate::backend::pull_conflicts(path, "refs/heads/feature").unwrap();
-        assert_eq!(
-            found,
-            [("refs/heads/feature".to_owned(), 1)],
-            "the remote's commit would land conflicted"
-        );
+            let found = crate::backend::pull_conflicts(path, "refs/heads/feature").unwrap();
+            assert_eq!(
+                found,
+                [("refs/heads/feature".to_owned(), 1)],
+                "the remote's commit would land conflicted"
+            );
+        })
     }
 
     #[test]
     fn a_conflicted_deletion_lists_its_file_though_its_tree_changes_nothing() {
-        let dir = repo_with("base\n");
-        let path = dir.path();
-        target_origin_main(path);
-        git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
-        std::fs::write(path.join("file"), "edited\n").unwrap();
-        git(path, &["commit", "-q", "-am", "edit"]);
-        let edit = head(path);
-        git(path, &["rm", "-q", "file"]);
-        git(path, &["commit", "-q", "-m", "delete"]);
-        let delete = head(path);
-        let rewritten = move_commits(path, &[delete], &Destination::BelowCommit(edit)).unwrap();
-        let delete = rewritten[&delete];
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("base\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+            std::fs::write(path.join("file"), "edited\n").unwrap();
+            git(path, &["commit", "-q", "-am", "edit"]);
+            let edit = head(path);
+            git(path, &["rm", "-q", "file"]);
+            git(path, &["commit", "-q", "-m", "delete"]);
+            let delete = head(path);
+            let rewritten = move_commits(path, &[delete], &Destination::BelowCommit(edit)).unwrap();
+            let delete = rewritten[&delete];
 
-        let diff = load_diff(path, DiffSource::Commit(delete), None, None, None, None).unwrap();
-        // Below the edit, the deletion conflicts with the file it was to delete and keeps it,
-        // so its tree changes nothing.
-        assert_eq!(diff.len(), 1, "the conflict still lists the file: {diff:?}");
-        assert!(diff[0].file.conflicted, "{:?}", diff[0].file);
-        assert!(
-            matches!(diff[0].body, DiffBody::Unresolvable(_)),
-            "with why it can't be picked: {:?}",
-            diff[0].body
-        );
+            let diff = load_diff(path, DiffSource::Commit(delete), None, None, None, None).unwrap();
+            // Below the edit, the deletion conflicts with the file it was to delete and keeps it,
+            // so its tree changes nothing.
+            assert_eq!(diff.len(), 1, "the conflict still lists the file: {diff:?}");
+            assert!(diff[0].file.conflicted, "{:?}", diff[0].file);
+            assert!(
+                matches!(diff[0].body, DiffBody::Unresolvable(_)),
+                "with why it can't be picked: {:?}",
+                diff[0].body
+            );
+        })
     }
 
     /// The line "five b" of `diff`'s one hunk, picked to take out of its commit.
@@ -2183,93 +2249,103 @@ pub(super) mod tests {
 
     #[test]
     fn uncommitting_picked_lines_leaves_them_uncommitted() {
-        let (dir, commit, diff, edited) = workspace_with_an_edit();
-        let path = dir.path();
-        let rewritten = uncommit_files(path, commit, &[five_b_out(&diff)]).unwrap();
-        let commit = rewritten.get(&commit).copied().unwrap_or(commit);
-        let committed = git(path, &["show", &format!("{}:file", commit.0)]);
-        assert!(committed.contains("five a\n"), "{committed}");
-        assert!(
-            !committed.contains("five b"),
-            "the picked line left the commit"
-        );
-        assert_eq!(
-            std::fs::read_to_string(path.join("file")).unwrap(),
-            edited.concat(),
-            "and stays in the worktree, uncommitted"
-        );
+        but_testsupport::isolated_app_data_dir(|| {
+            let (dir, commit, diff, edited) = workspace_with_an_edit();
+            let path = dir.path();
+            let rewritten = uncommit_files(path, commit, &[five_b_out(&diff)]).unwrap();
+            let commit = rewritten.get(&commit).copied().unwrap_or(commit);
+            let committed = git(path, &["show", &format!("{}:file", commit.0)]);
+            assert!(committed.contains("five a\n"), "{committed}");
+            assert!(
+                !committed.contains("five b"),
+                "the picked line left the commit"
+            );
+            assert_eq!(
+                std::fs::read_to_string(path.join("file")).unwrap(),
+                edited.concat(),
+                "and stays in the worktree, uncommitted"
+            );
+        })
     }
 
     #[test]
     fn splitting_off_picked_lines_puts_them_in_a_commit_above() {
-        let (dir, commit, diff, _) = workspace_with_an_edit();
-        let path = dir.path();
-        let (rewritten, new) = split_off(path, commit, &[five_b_out(&diff)]).unwrap();
-        let commit = rewritten.get(&commit).copied().unwrap_or(commit);
-        let below = git(path, &["show", &format!("{}:file", commit.0)]);
-        let above = git(path, &["show", &format!("{}:file", new.0)]);
-        assert!(!below.contains("five b"), "{below}");
-        assert!(above.contains("five a\nfive b\n"), "{above}");
+        but_testsupport::isolated_app_data_dir(|| {
+            let (dir, commit, diff, _) = workspace_with_an_edit();
+            let path = dir.path();
+            let (rewritten, new) = split_off(path, commit, &[five_b_out(&diff)]).unwrap();
+            let commit = rewritten.get(&commit).copied().unwrap_or(commit);
+            let below = git(path, &["show", &format!("{}:file", commit.0)]);
+            let above = git(path, &["show", &format!("{}:file", new.0)]);
+            assert!(!below.contains("five b"), "{below}");
+            assert!(above.contains("five a\nfive b\n"), "{above}");
+        })
     }
 
     #[test]
     fn discarding_picked_lines_from_a_commit_takes_them_out_of_it_and_the_worktree() {
-        let (dir, commit, diff, _) = workspace_with_an_edit();
-        let path = dir.path();
-        let rewritten = discard_from_commit(path, commit, &[five_b_out(&diff)]).unwrap();
-        let commit = rewritten.get(&commit).copied().unwrap_or(commit);
-        let committed = git(path, &["show", &format!("{}:file", commit.0)]);
-        assert!(
-            committed.contains("five a\n") && !committed.contains("five b"),
-            "{committed}"
-        );
-        let on_disk = std::fs::read_to_string(path.join("file")).unwrap();
-        assert!(!on_disk.contains("five b"), "{on_disk}");
+        but_testsupport::isolated_app_data_dir(|| {
+            let (dir, commit, diff, _) = workspace_with_an_edit();
+            let path = dir.path();
+            let rewritten = discard_from_commit(path, commit, &[five_b_out(&diff)]).unwrap();
+            let commit = rewritten.get(&commit).copied().unwrap_or(commit);
+            let committed = git(path, &["show", &format!("{}:file", commit.0)]);
+            assert!(
+                committed.contains("five a\n") && !committed.contains("five b"),
+                "{committed}"
+            );
+            let on_disk = std::fs::read_to_string(path.join("file")).unwrap();
+            assert!(!on_disk.contains("five b"), "{on_disk}");
+        })
     }
 
     #[test]
     fn moving_picked_lines_takes_them_into_the_other_commit() {
-        let (dir, commit, diff, _) = workspace_with_an_edit();
-        let path = dir.path();
-        let empty = insert_empty_commit(path, &Destination::AboveCommit(commit)).unwrap();
-        let rewritten = move_files(path, commit, empty, &[five_b_out(&diff)]).unwrap();
-        let (commit, empty) = (
-            rewritten.get(&commit).copied().unwrap_or(commit),
-            rewritten.get(&empty).copied().unwrap_or(empty),
-        );
-        let below = git(path, &["show", &format!("{}:file", commit.0)]);
-        let above = git(path, &["show", &format!("{}:file", empty.0)]);
-        assert!(!below.contains("five b"), "{below}");
-        assert!(above.contains("five a\nfive b\n"), "{above}");
+        but_testsupport::isolated_app_data_dir(|| {
+            let (dir, commit, diff, _) = workspace_with_an_edit();
+            let path = dir.path();
+            let empty = insert_empty_commit(path, &Destination::AboveCommit(commit)).unwrap();
+            let rewritten = move_files(path, commit, empty, &[five_b_out(&diff)]).unwrap();
+            let (commit, empty) = (
+                rewritten.get(&commit).copied().unwrap_or(commit),
+                rewritten.get(&empty).copied().unwrap_or(empty),
+            );
+            let below = git(path, &["show", &format!("{}:file", commit.0)]);
+            let above = git(path, &["show", &format!("{}:file", empty.0)]);
+            assert!(!below.contains("five b"), "{below}");
+            assert!(above.contains("five a\nfive b\n"), "{above}");
+        })
     }
 
     #[test]
     fn amending_picked_lines_commits_just_those() {
-        let lines: Vec<String> = twenty_lines();
-        let dir = repo_with(&lines.concat());
-        let path = dir.path();
-        let mut edited = lines.clone();
-        edited[4] = "five a\nfive b\n".into();
-        std::fs::write(path.join("file"), edited.concat()).unwrap();
+        but_testsupport::isolated_app_data_dir(|| {
+            let lines: Vec<String> = twenty_lines();
+            let dir = repo_with(&lines.concat());
+            let path = dir.path();
+            let mut edited = lines.clone();
+            edited[4] = "five a\nfive b\n".into();
+            std::fs::write(path.join("file"), edited.concat()).unwrap();
 
-        let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-        let hunk = &diff[0].hunks()[0];
-        let picks = std::collections::BTreeSet::from([line_in(hunk, "five a")]);
-        let picked = Selected {
-            file: diff[0].file.clone(),
-            hunks: Some(hunk.picked(&picks)),
-        };
-        let head = head(path);
-        amend(path, head, &[picked], None, false).unwrap();
+            let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
+            let hunk = &diff[0].hunks()[0];
+            let picks = std::collections::BTreeSet::from([line_in(hunk, "five a")]);
+            let picked = Selected {
+                file: diff[0].file.clone(),
+                hunks: Some(hunk.picked(&picks)),
+            };
+            let head = head(path);
+            amend(path, head, &[picked], None, false).unwrap();
 
-        let amended = git(path, &["show", "HEAD:file"]);
-        // Just the added line: line 5, whose removal wasn't picked, stays below it.
-        assert!(amended.contains("line 4\nfive a\nline 5\n"), "{amended}");
-        assert_eq!(
-            std::fs::read_to_string(path.join("file")).unwrap(),
-            edited.concat(),
-            "the rest stays uncommitted on disk"
-        );
+            let amended = git(path, &["show", "HEAD:file"]);
+            // Just the added line: line 5, whose removal wasn't picked, stays below it.
+            assert!(amended.contains("line 4\nfive a\nline 5\n"), "{amended}");
+            assert_eq!(
+                std::fs::read_to_string(path.join("file")).unwrap(),
+                edited.concat(),
+                "the rest stays uncommitted on disk"
+            );
+        })
     }
 
     #[test]

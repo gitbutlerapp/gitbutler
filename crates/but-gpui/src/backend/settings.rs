@@ -270,43 +270,45 @@ mod tests {
 
     #[test]
     fn the_default_branch_lists_first_and_picking_it_stays_on_the_branch() {
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        git(
-            path,
-            &["remote", "add", "origin", "https://example.com/repo.git"],
-        );
-        git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
-        git(
-            path,
-            &[
-                "symbolic-ref",
-                "refs/remotes/origin/HEAD",
-                "refs/remotes/origin/main",
-            ],
-        );
-        git(path, &["update-ref", "refs/remotes/origin/feature", "HEAD"]);
-        git(path, &["branch", "--set-upstream-to=origin/main", "main"]);
-        git(path, &["branch", "another"]);
-        git(path, &["branch", "gitbutler/edit"]);
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            git(
+                path,
+                &["remote", "add", "origin", "https://example.com/repo.git"],
+            );
+            git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+            git(
+                path,
+                &[
+                    "symbolic-ref",
+                    "refs/remotes/origin/HEAD",
+                    "refs/remotes/origin/main",
+                ],
+            );
+            git(path, &["update-ref", "refs/remotes/origin/feature", "HEAD"]);
+            git(path, &["branch", "--set-upstream-to=origin/main", "main"]);
+            git(path, &["branch", "another"]);
+            git(path, &["branch", "gitbutler/edit"]);
 
-        assert_eq!(
-            super::target_branches(path).unwrap(),
-            ["refs/heads/main", "refs/heads/another"],
-            "the branch tracking the remote's default first, and none of GitButler's own"
-        );
-        super::set_target(path, "refs/remotes/origin/main").unwrap();
-        assert_eq!(
-            git(path, &["symbolic-ref", "HEAD"]).trim(),
-            "refs/heads/main",
-            "picking a target leaves the checked-out branch alone, as the desktop app does"
-        );
-        let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
-        assert!(!workspace.managed);
-        assert_eq!(
-            workspace.target.map(|target| target.name).as_deref(),
-            Some("origin/main"),
-            "a remote ref picks the local branch tracking it, which goes by its upstream"
-        );
+            assert_eq!(
+                super::target_branches(path).unwrap(),
+                ["refs/heads/main", "refs/heads/another"],
+                "the branch tracking the remote's default first, and none of GitButler's own"
+            );
+            super::set_target(path, "refs/remotes/origin/main").unwrap();
+            assert_eq!(
+                git(path, &["symbolic-ref", "HEAD"]).trim(),
+                "refs/heads/main",
+                "picking a target leaves the checked-out branch alone, as the desktop app does"
+            );
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            assert!(!workspace.managed);
+            assert_eq!(
+                workspace.target.map(|target| target.name).as_deref(),
+                Some("origin/main"),
+                "a remote ref picks the local branch tracking it, which goes by its upstream"
+            );
+        })
     }
 }

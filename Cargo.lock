@@ -1623,6 +1623,7 @@ dependencies = [
  "but-rebase",
  "but-secret",
  "but-settings",
+ "but-testsupport",
  "but-transaction",
  "but-workspace",
  "chrono",

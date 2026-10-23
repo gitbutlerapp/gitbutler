@@ -998,136 +998,138 @@ mod tests {
 
     #[test]
     fn sums_up_the_target_by_day_and_author() {
-        use std::process::Command;
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path();
-        let git = |args: &[&str], at: i64| {
-            let date = format!("@{at} +0000");
-            let out = Command::new("git")
-                .current_dir(path)
-                .args(["-c", "commit.gpgsign=false"])
-                .args(args)
-                .env("GIT_AUTHOR_DATE", &date)
-                .env("GIT_COMMITTER_DATE", &date)
-                .output()
-                .unwrap();
-            assert!(out.status.success(), "git {args:?}: {out:?}");
-        };
-        let now = 2_000_000_000;
-        git(&["init", "-q", "-b", "main"], now);
-        let commit = |who: &str, at: i64| {
-            let author = format!("{who} <{}@example.com>", who.to_lowercase());
-            let message = format!("by {who}");
-            git(&["config", "user.name", who], at);
+        but_testsupport::isolated_app_data_dir(|| {
+            use std::process::Command;
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path();
+            let git = |args: &[&str], at: i64| {
+                let date = format!("@{at} +0000");
+                let out = Command::new("git")
+                    .current_dir(path)
+                    .args(["-c", "commit.gpgsign=false"])
+                    .args(args)
+                    .env("GIT_AUTHOR_DATE", &date)
+                    .env("GIT_COMMITTER_DATE", &date)
+                    .output()
+                    .unwrap();
+                assert!(out.status.success(), "git {args:?}: {out:?}");
+            };
+            let now = 2_000_000_000;
+            git(&["init", "-q", "-b", "main"], now);
+            let commit = |who: &str, at: i64| {
+                let author = format!("{who} <{}@example.com>", who.to_lowercase());
+                let message = format!("by {who}");
+                git(&["config", "user.name", who], at);
+                git(
+                    &[
+                        "config",
+                        "user.email",
+                        &format!("{}@example.com", who.to_lowercase()),
+                    ],
+                    at,
+                );
+                git(
+                    &[
+                        "commit",
+                        "-q",
+                        "--allow-empty",
+                        "--author",
+                        &author,
+                        "-m",
+                        &message,
+                    ],
+                    at,
+                );
+            };
+            commit("Old", now - 40 * DAY);
+            std::fs::write(path.join("notes.txt"), "not it").unwrap();
+            std::fs::write(path.join("README.md"), "# Hello\n").unwrap();
+            git(&["add", "."], now - 3 * DAY);
+            commit("Ann", now - 3 * DAY);
+            commit("Bob", now - 2 * DAY);
+            git(&["checkout", "-q", "-b", "side"], now - DAY);
+            commit("Cat", now - DAY);
+            git(&["checkout", "-q", "main"], now - DAY / 2);
             git(
-                &[
-                    "config",
-                    "user.email",
-                    &format!("{}@example.com", who.to_lowercase()),
-                ],
-                at,
+                &["merge", "-q", "--no-ff", "-m", "merge side", "side"],
+                now - DAY / 2,
             );
+            // Built on the branch merged before, so it holds Cat's commit too.
+            git(&["checkout", "-q", "-b", "later", "side"], now - DAY / 3);
+            std::fs::create_dir_all(path.join("crates/but/src")).unwrap();
+            std::fs::create_dir_all(path.join("docs")).unwrap();
+            std::fs::write(path.join("crates/but/src/lib.rs"), "").unwrap();
+            std::fs::write(path.join("docs/guide.md"), "").unwrap();
+            git(&["add", "."], now - DAY / 3);
+            commit("Dan", now - DAY / 3);
+            git(&["checkout", "-q", "main"], now - DAY / 4);
             git(
-                &[
-                    "commit",
-                    "-q",
-                    "--allow-empty",
-                    "--author",
-                    &author,
-                    "-m",
-                    &message,
-                ],
-                at,
+                &["merge", "-q", "--no-ff", "-m", "merge later", "later"],
+                now - DAY / 4,
             );
-        };
-        commit("Old", now - 40 * DAY);
-        std::fs::write(path.join("notes.txt"), "not it").unwrap();
-        std::fs::write(path.join("README.md"), "# Hello\n").unwrap();
-        git(&["add", "."], now - 3 * DAY);
-        commit("Ann", now - 3 * DAY);
-        commit("Bob", now - 2 * DAY);
-        git(&["checkout", "-q", "-b", "side"], now - DAY);
-        commit("Cat", now - DAY);
-        git(&["checkout", "-q", "main"], now - DAY / 2);
-        git(
-            &["merge", "-q", "--no-ff", "-m", "merge side", "side"],
-            now - DAY / 2,
-        );
-        // Built on the branch merged before, so it holds Cat's commit too.
-        git(&["checkout", "-q", "-b", "later", "side"], now - DAY / 3);
-        std::fs::create_dir_all(path.join("crates/but/src")).unwrap();
-        std::fs::create_dir_all(path.join("docs")).unwrap();
-        std::fs::write(path.join("crates/but/src/lib.rs"), "").unwrap();
-        std::fs::write(path.join("docs/guide.md"), "").unwrap();
-        git(&["add", "."], now - DAY / 3);
-        commit("Dan", now - DAY / 3);
-        git(&["checkout", "-q", "main"], now - DAY / 4);
-        git(
-            &["merge", "-q", "--no-ff", "-m", "merge later", "later"],
-            now - DAY / 4,
-        );
-        commit("Ann", now - 60);
+            commit("Ann", now - 60);
 
-        crate::backend::settings::set_target(path, "refs/heads/main").unwrap();
-        let summed = overview(path, now).unwrap().expect("a target");
-        assert_eq!(summed.daily.len(), ACTIVITY_DAYS, "a bar a day");
-        assert_eq!(
-            summed.daily.iter().sum::<u32>(),
-            5,
-            "the target's own line, as its history lists it: each merge once, not the commits \
-             they brought, and not the commit from before the window"
-        );
-        assert_eq!(summed.daily[ACTIVITY_DAYS - 1], 1, "the last day is today");
-        let people: Vec<(&str, &str, u32)> = (summed.people.iter())
-            .map(|p| (p.name.as_str(), p.email.as_str(), p.daily.iter().sum()))
-            .collect();
-        assert_eq!(
-            people,
-            [
-                ("Ann", "ann@example.com", 2),
-                ("Dan", "dan@example.com", 1),
-                ("Cat", "cat@example.com", 1),
-                ("Bob", "bob@example.com", 1),
-            ],
-            "most commits first, the merged branches' authors too and the merges left out"
-        );
-        let repo = gix::open(path).unwrap();
-        let landed_by = |name: &str| {
-            let person = summed.people.iter().find(|p| p.name == name).unwrap();
-            person.landed.clone()
-        };
-        let main = |back: usize| {
-            let at = repo.rev_parse_single(format!("main~{back}").as_str());
-            [super::CommitId(at.unwrap().detach())].into()
-        };
-        assert_eq!(
-            landed_by("Cat"),
-            main(2),
-            "the first merge landed Cat's commit, which the target's own line lists in its \
-             place, and the later merge, whose branch holds it too, didn't land it again"
-        );
-        assert_eq!(landed_by("Dan"), main(1), "the later merge landed Dan's");
-        let landings: Vec<(&str, u32, Vec<&str>)> = (summed.landings.iter())
-            .map(|l| {
-                (
-                    l.title.as_str(),
-                    l.commits,
-                    l.areas.iter().map(String::as_str).collect(),
-                )
-            })
-            .collect();
-        assert_eq!(
-            landings,
-            [
-                ("by Ann", 1, vec![]),
-                ("merge later", 1, vec!["crates/but", "docs"]),
-                ("merge side", 1, vec![]),
-                ("by Bob", 1, vec![]),
-                ("by Ann", 1, vec!["Top level"]),
-            ],
-            "newest first, each with the commits it brought and where it changed things: the \
-             first two folders of a file, its folder when one deep, the top level for one there"
-        );
+            crate::backend::settings::set_target(path, "refs/heads/main").unwrap();
+            let summed = overview(path, now).unwrap().expect("a target");
+            assert_eq!(summed.daily.len(), ACTIVITY_DAYS, "a bar a day");
+            assert_eq!(
+                summed.daily.iter().sum::<u32>(),
+                5,
+                "the target's own line, as its history lists it: each merge once, not the commits \
+                 they brought, and not the commit from before the window"
+            );
+            assert_eq!(summed.daily[ACTIVITY_DAYS - 1], 1, "the last day is today");
+            let people: Vec<(&str, &str, u32)> = (summed.people.iter())
+                .map(|p| (p.name.as_str(), p.email.as_str(), p.daily.iter().sum()))
+                .collect();
+            assert_eq!(
+                people,
+                [
+                    ("Ann", "ann@example.com", 2),
+                    ("Dan", "dan@example.com", 1),
+                    ("Cat", "cat@example.com", 1),
+                    ("Bob", "bob@example.com", 1),
+                ],
+                "most commits first, the merged branches' authors too and the merges left out"
+            );
+            let repo = gix::open(path).unwrap();
+            let landed_by = |name: &str| {
+                let person = summed.people.iter().find(|p| p.name == name).unwrap();
+                person.landed.clone()
+            };
+            let main = |back: usize| {
+                let at = repo.rev_parse_single(format!("main~{back}").as_str());
+                [super::CommitId(at.unwrap().detach())].into()
+            };
+            assert_eq!(
+                landed_by("Cat"),
+                main(2),
+                "the first merge landed Cat's commit, which the target's own line lists in its \
+                 place, and the later merge, whose branch holds it too, didn't land it again"
+            );
+            assert_eq!(landed_by("Dan"), main(1), "the later merge landed Dan's");
+            let landings: Vec<(&str, u32, Vec<&str>)> = (summed.landings.iter())
+                .map(|l| {
+                    (
+                        l.title.as_str(),
+                        l.commits,
+                        l.areas.iter().map(String::as_str).collect(),
+                    )
+                })
+                .collect();
+            assert_eq!(
+                landings,
+                [
+                    ("by Ann", 1, vec![]),
+                    ("merge later", 1, vec!["crates/but", "docs"]),
+                    ("merge side", 1, vec![]),
+                    ("by Bob", 1, vec![]),
+                    ("by Ann", 1, vec!["Top level"]),
+                ],
+                "newest first, each with the commits it brought and where it changed things: the \
+                 first two folders of a file, its folder when one deep, the top level for one there"
+            );
+        })
     }
 
     #[test]
