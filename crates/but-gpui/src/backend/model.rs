@@ -57,6 +57,8 @@ pub struct Workspace {
     /// `HEAD` is detached or has no commits yet, or there's no target, which GitButler's
     /// history can't record or go back to: what's done in the main checkout can't be undone.
     pub unrecorded: bool,
+    /// The repository has no remote, so there's nowhere to push to.
+    pub remoteless: bool,
     /// The commit checked out to edit, while the project is in edit mode. There are no
     /// stacks to show then.
     pub editing: Option<super::edit::Editing>,
@@ -254,7 +256,9 @@ impl Workspace {
     pub fn push_refused(&self, ref_name: &str) -> Option<&'static str> {
         let pushed = self.pushed_with(ref_name);
         let unpushed = (self.target.as_ref()).map_or(self.target_branch.is_some(), |t| t.local);
-        if unpushed {
+        if self.remoteless {
+            Some("The project has no remote to push to: add one with `git remote add`")
+        } else if unpushed {
             Some("The target branch isn't on the remote yet: push it once, with `git push -u`")
         } else if self.target.is_none() {
             Some("Pick the project's target branch first")

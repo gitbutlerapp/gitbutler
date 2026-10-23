@@ -226,6 +226,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     let Kept { main, mut linked } = kept;
     let repo = ctx.repo.get()?.clone();
     let head = repo.head_name()?;
+    let remoteless = repo.remote_names().is_empty();
     let managed =
         (head.as_ref()).is_some_and(|name| name.as_bstr() == but_core::WORKSPACE_REF_NAME);
     let tree = head_tree(&repo);
@@ -309,6 +310,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
             .map(|name| name.to_string()),
         git_operation,
         unrecorded,
+        remoteless,
         editing: None,
         worktrees,
         archived_worktrees,
