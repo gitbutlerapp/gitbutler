@@ -138,15 +138,22 @@ where
                 "Run `but switch --workspace` and start conflict resolution with `but resolve`",
             ));
         }
-        if let Some(ambiguous) =
-            error.downcast_ref::<but_core::ref_metadata::AmbiguousLegacyTargetRefError>()
+        if let Some(unresolved) =
+            error.downcast_ref::<but_core::ref_metadata::UnresolvedLegacyTargetRefError>()
         {
+            use but_core::ref_metadata::UnresolvedLegacyTargetReason;
+            let target_ref = unresolved.target_ref.shorten();
+            let message = match unresolved.reason {
+                UnresolvedLegacyTargetReason::NoTrackingBranch => {
+                    format!("No local branch tracks {target_ref}")
+                }
+                UnresolvedLegacyTargetReason::MultipleTrackingBranches => {
+                    format!("Multiple local branches track {target_ref}")
+                }
+            };
             return CliError::BadInput(
-                bad_input(format!(
-                    "Multiple local branches track {}",
-                    ambiguous.target_ref.shorten()
-                ))
-                .hint("Choose a local target branch with `but config target <branch>`"),
+                bad_input(message)
+                    .hint("Choose a local target branch with `but config target <branch>`"),
             );
         }
         CliError::Internal(error)

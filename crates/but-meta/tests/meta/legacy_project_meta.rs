@@ -1,6 +1,7 @@
 //! Tests migration of legacy remote targets from `virtual_branches.toml` to local targets,
 //! preserving stored commit IDs and push remotes without rewriting the legacy file.
 
+use but_core::ref_metadata::{UnresolvedLegacyTargetReason, UnresolvedLegacyTargetRefError};
 use but_meta::legacy_storage::read_legacy_project_meta;
 use but_testsupport::{gix_testtools::tempfile::tempdir, read_only_in_memory_scenario};
 
@@ -58,11 +59,24 @@ fn missing_local_counterpart_errors() -> anyhow::Result<()> {
     let repo = read_only_in_memory_scenario("dlib-standin")?;
     let tmp = tempdir()?;
     let path = tmp.path().join("virtual_branches.toml");
-    std::fs::write(&path, legacy_target(repo.head_id()?.detach()))?;
+    let sha = repo.head_id()?.detach();
+    std::fs::write(&path, legacy_target(sha))?;
     let err = read_legacy_project_meta(&path, &repo).unwrap_err();
-    assert!(
-        err.to_string().contains("no local branch tracks"),
-        "missing counterparts need an explicit choice: {err}"
+    let unresolved = err
+        .downcast_ref::<UnresolvedLegacyTargetRefError>()
+        .unwrap_or_else(|| panic!("missing counterparts need an explicit choice: {err:#}"));
+    assert_eq!(
+        unresolved.reason,
+        UnresolvedLegacyTargetReason::NoTrackingBranch,
+        "no local branch has origin/trunk as its upstream"
+    );
+    assert_eq!(
+        (
+            unresolved.target_commit_id,
+            unresolved.push_remote.as_deref()
+        ),
+        (Some(sha), Some("fork")),
+        "porting keeps the stored cutoff and push remote until a target is chosen"
     );
     Ok(())
 }
@@ -79,8 +93,10 @@ fn ambiguous_local_counterparts_error() -> anyhow::Result<()> {
     let path = tmp.path().join("virtual_branches.toml");
     std::fs::write(&path, legacy_target(repo.head_id()?.detach()))?;
     let err = read_legacy_project_meta(&path, &repo).unwrap_err();
-    assert!(
-        err.is::<but_core::ref_metadata::AmbiguousLegacyTargetRefError>(),
+    assert_eq!(
+        err.downcast_ref::<UnresolvedLegacyTargetRefError>()
+            .map(|err| err.reason),
+        Some(UnresolvedLegacyTargetReason::MultipleTrackingBranches),
         "ambiguous counterparts must not be guessed: {err:#}"
     );
     Ok(())

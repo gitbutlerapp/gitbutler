@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Context as _, anyhow, bail};
-use but_core::ref_metadata::{AmbiguousLegacyTargetRefError, ProjectMeta, StackId};
+use but_core::ref_metadata::{ProjectMeta, StackId, UnresolvedLegacyTargetRefError};
 use but_db::{VbStack, VbStackHead, VbState, VirtualBranchesSnapshot};
 use gitbutler_reference::{Refname, RemoteRefname};
 use sha2::{Digest, Sha256};
@@ -29,8 +29,8 @@ struct LegacyTarget {
 /// Read the project metadata that older versions stored in `virtual_branches.toml` without
 /// opening or migrating the project database.
 /// Legacy remote targets must resolve to exactly one local tracking branch in `repo`.
-/// If multiple local branches track it, the [`AmbiguousLegacyTargetRefError`] carries the stored
-/// cutoff and push remote.
+/// If no local branch or multiple local branches track it, the [`UnresolvedLegacyTargetRefError`]
+/// carries the stored cutoff and push remote.
 pub fn read_legacy_project_meta(
     path: &Path,
     repo: &gix::Repository,
@@ -51,9 +51,9 @@ pub fn read_legacy_project_meta(
         match but_core::ref_metadata::resolve_local_target(remote_target.as_ref(), repo) {
             Ok(target_ref) => target_ref,
             Err(mut err) => {
-                if let Some(ambiguous) = err.downcast_mut::<AmbiguousLegacyTargetRefError>() {
-                    ambiguous.target_commit_id = target_commit_id;
-                    ambiguous.push_remote = target.push_remote_name;
+                if let Some(unresolved) = err.downcast_mut::<UnresolvedLegacyTargetRefError>() {
+                    unresolved.target_commit_id = target_commit_id;
+                    unresolved.push_remote = target.push_remote_name;
                 }
                 return Err(err);
             }

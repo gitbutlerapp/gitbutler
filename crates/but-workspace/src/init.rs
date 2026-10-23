@@ -10,7 +10,7 @@ use but_core::{
     git_config::{
         edit_repo_config, ensure_config_value, open_repo_local_config_for_reading, set_config_value,
     },
-    ref_metadata::{AmbiguousLegacyTargetRefError, LocalRefName, PROJECT_TARGET_REF, ProjectMeta},
+    ref_metadata::{LocalRefName, PROJECT_TARGET_REF, ProjectMeta, UnresolvedLegacyTargetRefError},
 };
 use but_error::bail_precondition;
 
@@ -168,8 +168,8 @@ pub fn resolve_target_commit(
 /// `push_remote`, if `Some`, is validated and stored; if `None`, an existing push remote
 /// is kept as is.
 ///
-/// A legacy remote target that several local branches track is replaced by `target_ref` as if
-/// it was the same target, so its stored cutoff and push remote are kept.
+/// A legacy remote target that no local branch or several local branches track is replaced by
+/// `target_ref` as if it was the same target, so its stored cutoff and push remote are kept.
 ///
 /// Unlike `set_base_branch()`, this neither creates stacks, nor updates the workspace
 /// commit, nor checks anything out. The caller is expected to hold exclusive worktree
@@ -181,9 +181,9 @@ pub fn set_target_ref_and_init_project(
 ) -> Result<()> {
     let project_meta = match ProjectMeta::resolve(repo) {
         Ok(project_meta) => project_meta,
-        // Choosing a target is how the user picks between the local branches that track a
-        // legacy remote target, so read the stored metadata as if the choice was stored already.
-        Err(err) if err.is::<AmbiguousLegacyTargetRefError>() => {
+        // Choosing a target is how the user picks the local branch for a legacy remote target
+        // that doesn't identify one, so read the stored metadata as if the choice was stored already.
+        Err(err) if err.is::<UnresolvedLegacyTargetRefError>() => {
             let mut config = open_repo_local_config_for_reading(repo)?;
             set_config_value(&mut config, PROJECT_TARGET_REF, &target_ref.to_string())?;
             ProjectMeta::try_from_config(&config, repo)?
