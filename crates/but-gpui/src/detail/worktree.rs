@@ -6,7 +6,9 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
 
-use gpui::{AnyElement, App, Context, Div, MouseButton, Stateful, div, prelude::*, relative};
+use gpui::{
+    AnyElement, App, Context, Div, MouseButton, SharedString, Stateful, div, prelude::*, relative,
+};
 
 use super::Detail;
 use super::panes::{
@@ -15,9 +17,8 @@ use super::panes::{
 };
 use super::slots::SlotPick;
 use crate::backend::{self, Branch, Commit, CommitId, Workspace, upstream};
-use crate::state::{ProjectId, QUARTER, Selection};
+use crate::state::{ProjectId, QUARTER, Selection, Store};
 use crate::theme::Theme;
-use crate::ui::person::byline_avatar;
 use crate::ui::review::state_glyph;
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, button, commit_title, dp, faint, fold_row, h_flex,
@@ -51,9 +52,9 @@ pub(super) struct Now {
     /// the branch and commit it was read at, as the reflog changes only when they do.
     events: Vec<(i64, String)>,
     events_at: Option<(Option<String>, Option<CommitId>)>,
-    /// The newest and oldest of the commits not seen yet, when they're one run, and the
-    /// files they change, with their lines, once read.
-    unseen_lines: Option<((CommitId, CommitId), FileLines)>,
+    /// The files each branch's commits not seen yet change, with their lines, by the run
+    /// they make: `None` while it's read.
+    unseen_lines: HashMap<Run, Option<FileLines>>,
     /// The commits of the checkout's branches when it last loaded, to tell one an agent just
     /// made from those already there.
     known: Option<HashSet<CommitId>>,
@@ -67,11 +68,14 @@ pub(super) struct Now {
     /// which the rest of the overview is narrowed to; none for today.
     span: SlotPick,
     /// The sections listing all they have rather than their first few, by their fold's id.
-    unfolded: HashSet<&'static str>,
+    unfolded: HashSet<SharedString>,
 }
 
 /// Files a range of commits changes, each with the lines it adds and removes.
 type FileLines = Vec<(String, u32, u32)>;
+
+/// The newest and oldest of a run of commits, one after the other in a lane.
+type Run = (CommitId, CommitId);
 
 /// The commits of a checkout's branches, as listed: linked worktree `worktree`'s, or the main
 /// checkout's.
@@ -134,20 +138,35 @@ impl Detail {
         back
     }
 
-    /// The selected checkout's commits not seen yet, as the navigator lists them.
-    fn unseen<'a>(
+    /// The selected checkout's commits not seen yet, as the navigator lists them, by the
+    /// branch they're on, the branch with the newest first.
+    fn unseen_by_branch<'a>(
         &self,
         project: &ProjectId,
         worktree: Option<&str>,
         cx: &'a App,
-    ) -> Vec<&'a Commit> {
+    ) -> Vec<(&'a Branch, Vec<&'a Commit>)> {
         let store = self.store.read(cx);
         let Some(ws) = store.workspace(project) else {
             return Vec::new();
         };
-        (checkout_commits(ws, worktree).into_iter())
-            .filter(|commit| store.is_unread(project, *commit))
-            .collect()
+        let mut groups: Vec<(&Branch, Vec<&Commit>)> = Vec::new();
+        for commit in checkout_commits(ws, worktree) {
+            let Some((branch, _)) = ws.find_commit(commit.id) else {
+                continue;
+            };
+            if !store.is_unread(project, commit) {
+                continue;
+            }
+            match groups.iter_mut().find(|(b, _)| std::ptr::eq(*b, branch)) {
+                Some((_, commits)) => commits.push(commit),
+                None => groups.push((branch, vec![commit])),
+            }
+        }
+        groups.sort_by_key(|(_, commits)| {
+            std::cmp::Reverse(commits.iter().map(|commit| commit.time).max())
+        });
+        groups
     }
 
     /// Read what the selected checkout's overview needs beyond the workspace: a linked
@@ -212,35 +231,42 @@ impl Detail {
             .detach();
         }
         self.read_commit_paths(&checkout, &path, cx);
-        let ids: Vec<CommitId> = (self.unseen(&checkout.0, checkout.1.as_deref(), cx).iter())
-            .map(|commit| commit.id)
-            .collect();
-        let run = (self.store.read(cx).workspace(&checkout.0)).and_then(|ws| match ids.len() {
-            1 => Some((ids[0], ids[0])),
-            _ => ws.run_of(&ids),
-        });
-        let Some(run) =
-            run.filter(|run| self.now.unseen_lines.as_ref().is_none_or(|(r, _)| r != run))
-        else {
-            return;
+        let runs: Vec<Run> = match self.store.read(cx).workspace(&checkout.0) {
+            Some(ws) => (self
+                .unseen_by_branch(&checkout.0, checkout.1.as_deref(), cx)
+                .iter())
+            .filter_map(|(_, commits)| unseen_run(ws, commits))
+            .collect(),
+            None => Vec::new(),
         };
-        let (newest, oldest) = run;
-        let lines = backend::run(move || backend::range_lines(&path, oldest, newest));
-        cx.spawn(async move |this, cx| {
-            let lines = lines.await;
-            this.update(cx, |this, cx| {
-                if this.now.checkout.as_ref() != Some(&checkout) {
-                    return;
-                }
-                match lines {
-                    Ok(lines) => this.now.unseen_lines = Some((run, lines)),
-                    Err(err) => tracing::warn!("couldn't count the unseen commits' lines: {err:#}"),
-                }
-                cx.notify();
+        self.now.unseen_lines.retain(|run, _| runs.contains(run));
+        for run in runs {
+            if self.now.unseen_lines.contains_key(&run) {
+                continue;
+            }
+            self.now.unseen_lines.insert(run, None);
+            let ((newest, oldest), path, read_for) = (run, path.clone(), checkout.clone());
+            let lines = backend::run(move || backend::range_lines(&path, oldest, newest));
+            cx.spawn(async move |this, cx| {
+                let lines = lines.await;
+                this.update(cx, |this, cx| {
+                    if this.now.checkout.as_ref() != Some(&read_for) {
+                        return;
+                    }
+                    // Read again on the next load when this failed.
+                    match lines {
+                        Ok(lines) => drop(this.now.unseen_lines.insert(run, Some(lines))),
+                        Err(err) => {
+                            this.now.unseen_lines.remove(&run);
+                            tracing::warn!("couldn't count the unseen commits' lines: {err:#}")
+                        }
+                    }
+                    cx.notify();
+                })
+                .ok();
             })
-            .ok();
-        })
-        .detach();
+            .detach();
+        }
     }
 
     /// Follow the file being read in a checkout's changes into the commit an agent just made
@@ -472,8 +498,8 @@ impl Detail {
             .child(div().flex_1().min_w_0().truncate().child(said))
     }
 
-    /// The commits made here that haven't been looked at, by whom, the files they change,
-    /// and Review, which opens them together, or Mark as read.
+    /// The commits made here that haven't been opened yet, a card for each branch they're
+    /// on, the newest first.
     fn now_unseen(
         &self,
         project: &ProjectId,
@@ -481,143 +507,170 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<Div> {
-        let unseen = self.unseen(project, worktree, cx);
-        let newest = unseen.first()?;
-        let n = unseen.len();
+        let groups = self.unseen_by_branch(project, worktree, cx);
+        let cards = (groups.iter().enumerate()).map(|(ix, (branch, commits))| {
+            self.unseen_card(ix, project, branch, commits, theme, cx)
+        });
+        (!groups.is_empty()).then(|| v_flex().gap(dp(6.)).mb(dp(4.)).children(cards))
+    }
+
+    /// A branch's `commits` not opened yet: the branch, how many and by whom, the lines they
+    /// change and their files, a click on one opening them at it; and Open, which shows them
+    /// together, or Mark as read, for those not worth a look.
+    fn unseen_card(
+        &self,
+        ix: usize,
+        project: &ProjectId,
+        branch: &Branch,
+        commits: &[&Commit],
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Stateful<Div> {
+        let n = commits.len();
         let mut by: Vec<&str> = Vec::new();
-        for commit in &unseen {
+        for commit in commits {
             if !by.contains(&who(commit)) {
                 by.push(who(commit));
             }
         }
-        let ids: Arc<[CommitId]> = unseen.iter().map(|commit| commit.id).collect();
-        let run = (self.now.unseen_lines.as_ref())
-            .filter(|((top, _), _)| *top == newest.id)
-            .map(|(_, lines)| lines);
-        let (added, removed) = (run.into_iter().flatten())
+        let ids: Arc<[CommitId]> = commits.iter().map(|commit| commit.id).collect();
+        let ws = self.store.read(cx).workspace(project);
+        let lines = (ws.and_then(|ws| unseen_run(ws, commits)))
+            .and_then(|run| self.now.unseen_lines.get(&run)?.as_ref());
+        let (added, removed) = (lines.into_iter().flatten())
             .fold((0, 0), |(a, r), (_, added, removed)| {
                 (a + added, r + removed)
             });
-        let most = (run.into_iter().flatten())
+        let most = (lines.into_iter().flatten())
             .map(|(_, added, removed)| added + removed)
             .max()
             .unwrap_or(1)
             .max(1);
-        let files = run.map_or(0, Vec::len);
-        let file_rows = (run
-            .into_iter()
-            .flatten()
-            .take(self.now_shown("now-unseen-more", UNSEEN_FILES_SHOWN))
-            .enumerate())
-        .map(|(ix, (path, added, removed))| {
-            // Opens them on this file.
-            let (project, ids, file) = (project.clone(), ids.clone(), path.clone());
-            list_row(("now-unseen-file", ix), false, theme)
-                .on_mouse_down(MouseButton::Left, keep_focus_on_press)
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.review_unseen(&project, &ids, Some(file.clone()), cx)
-                }))
-                .child(div().flex_1().min_w_0().truncate().child(path.clone()))
-                .child(bar(
-                    (added + removed) as f32 / most as f32,
-                    theme.pop.opacity(0.7),
-                    theme,
-                ))
-                .child(overview_column(
-                    format!("+{added} −{removed}"),
-                    OVERVIEW_TIME_WIDTH + 40.,
-                    theme,
-                ))
-        });
-        let (review, read) = (
+        let fold: SharedString = format!("now-unseen-more-{}", branch.name).into();
+        let file_rows = (lines.into_iter().flatten())
+            .take(self.now_shown(&fold, UNSEEN_FILES_SHOWN))
+            .enumerate()
+            .map(|(row, (path, added, removed))| {
+                // Opens them on this file.
+                let (project, ids, file) = (project.clone(), ids.clone(), path.clone());
+                list_row(("now-unseen-file", row), false, theme)
+                    .on_mouse_down(MouseButton::Left, keep_focus_on_press)
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.open_unseen(&project, &ids, Some(file.clone()), cx)
+                    }))
+                    .child(div().flex_1().min_w_0().truncate().child(path.clone()))
+                    .child(bar(
+                        (added + removed) as f32 / most as f32,
+                        theme.pop.opacity(0.7),
+                        theme,
+                    ))
+                    .child(overview_column(
+                        format!("+{added} −{removed}"),
+                        OVERVIEW_TIME_WIDTH + 40.,
+                        theme,
+                    ))
+            });
+        let hidden = lines.map_or(0, |lines| lines.len().saturating_sub(UNSEEN_FILES_SHOWN));
+        let ((glyph, color), label, tip) = branch_said(self.store.read(cx), project, branch, theme);
+        let (open, read) = (
             (project.clone(), ids.clone()),
             (project.clone(), ids.clone()),
         );
-        let label = match n {
-            1 => "Review it".to_owned(),
-            n => format!("Review the {n} commits"),
+        let open_said = match n {
+            1 => "Open the commit".to_owned(),
+            n => format!("Open the {n} commits"),
         };
-        Some(
-            v_flex()
-                .mx(dp(6.))
-                .mb(dp(4.))
-                .py(dp(4.))
-                .rounded(dp(8.))
-                .border_1()
-                .border_color(theme.pop.opacity(0.6))
-                .child(
-                    h_flex()
-                        .px(dp(8.))
-                        .py(dp(6.))
-                        .gap(dp(8.))
-                        .child(byline_avatar(
-                            &newest.author,
-                            &newest.email,
-                            newest.agent.as_ref(),
-                            18.,
-                            theme,
-                        ))
-                        .child(
-                            div()
-                                .flex_1()
-                                .min_w_0()
-                                .truncate()
-                                .font_weight(gpui::FontWeight::SEMIBOLD)
-                                .child(format!("{} you haven't seen", plural(n, "commit"))),
-                        )
-                        .child(faint(format!("by {}", by.join(", ")), theme))
-                        .when(run.is_some(), |el| {
-                            el.child(
-                                div()
-                                    .text_color(theme.diff_added)
-                                    .child(format!("+{added}")),
-                            )
+        v_flex()
+            .id(("now-unseen", ix))
+            .mx(dp(6.))
+            .py(dp(4.))
+            .rounded(dp(8.))
+            .border_1()
+            .border_color(theme.pop.opacity(0.6))
+            .child(
+                h_flex()
+                    .px(dp(8.))
+                    .py(dp(6.))
+                    .gap(dp(8.))
+                    .child(
+                        h_flex()
+                            .id("branch")
+                            // It names the card, so it keeps its room, short of a long
+                            // pull request title, while the rest of the line gives way.
+                            .flex_none()
+                            .max_w(relative(0.45))
+                            .gap(dp(6.))
+                            .child(small_icon(glyph).flex_none().text_color(color))
                             .child(
                                 div()
-                                    .text_color(theme.diff_removed)
-                                    .child(format!("−{removed}")),
+                                    .min_w_0()
+                                    .truncate()
+                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .child(label),
                             )
-                        }),
-                )
-                .children(file_rows)
-                .children(self.now_fold(
-                    "now-unseen-more",
-                    files.saturating_sub(UNSEEN_FILES_SHOWN),
-                    theme,
-                    cx,
-                ))
-                .child(
-                    h_flex()
-                        .px(dp(8.))
-                        .pt(dp(6.))
-                        .pb(dp(4.))
-                        .gap(dp(8.))
-                        .child(
-                            button("now-review", label)
-                                .small()
-                                .style(ButtonStyle::Pop)
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    let (project, ids) = &review;
-                                    this.review_unseen(project, ids, None, cx)
-                                })),
+                            .tooltip(Tooltip::text(tip)),
+                    )
+                    .child(
+                        div()
+                            .min_w_0()
+                            .truncate()
+                            .text_color(theme.text_2)
+                            .child(format!("{} you haven't seen", plural(n, "commit"))),
+                    )
+                    .child(div().flex_1())
+                    .child(
+                        faint(format!("by {}", by.join(", ")), theme)
+                            .min_w_0()
+                            .truncate(),
+                    )
+                    .when(lines.is_some(), |el| {
+                        el.child(
+                            div()
+                                .flex_none()
+                                .text_color(theme.diff_added)
+                                .child(format!("+{added}")),
                         )
                         .child(
-                            button("now-read", "Mark as read")
-                                .small()
-                                .style(ButtonStyle::Ghost)
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                    let (project, ids) = read.clone();
-                                    this.store.update(cx, |store, cx| {
-                                        store.mark_read(&project, ids.iter().copied(), true, cx)
-                                    })
-                                })),
-                        ),
-                ),
-        )
+                            div()
+                                .flex_none()
+                                .text_color(theme.diff_removed)
+                                .child(format!("−{removed}")),
+                        )
+                    }),
+            )
+            .children(file_rows)
+            .children(self.now_fold(fold, hidden, theme, cx))
+            .child(
+                h_flex()
+                    .px(dp(8.))
+                    .pt(dp(6.))
+                    .pb(dp(4.))
+                    .gap(dp(8.))
+                    .child(
+                        button("open", open_said)
+                            .small()
+                            .style(ButtonStyle::Pop)
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                let (project, ids) = &open;
+                                this.open_unseen(project, ids, None, cx)
+                            })),
+                    )
+                    .child(
+                        button("read", "Mark as read")
+                            .small()
+                            .style(ButtonStyle::Outline)
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                let (project, ids) = read.clone();
+                                this.store.update(cx, |store, cx| {
+                                    store.mark_read(&project, ids.iter().copied(), true, cx)
+                                })
+                            })),
+                    ),
+            )
     }
 
     /// Open commits `ids` together, as Review does, on `file` once their diff shows.
-    fn review_unseen(
+    fn open_unseen(
         &mut self,
         project: &ProjectId,
         ids: &[CommitId],
@@ -807,20 +860,8 @@ impl Detail {
                     // beginning faint beside the glyph and all of it on hover.
                     let branch =
                         (ws.and_then(|ws| ws.find_commit(commit.id))).map(|(branch, _)| {
-                            let name = store.name_of(project, branch).to_owned();
-                            let ((glyph, color), label, tip) = match &branch.review {
-                                Some(review) if review.title.is_empty() => (
-                                    state_glyph(review.state, theme),
-                                    name.clone(),
-                                    format!("{name} · #{}", review.number),
-                                ),
-                                Some(review) => (
-                                    state_glyph(review.state, theme),
-                                    review.title.clone(),
-                                    format!("{name} · #{} {}", review.number, review.title),
-                                ),
-                                None => ((Icon::Branch, theme.text_3), name.clone(), name),
-                            };
+                            let ((glyph, color), label, tip) =
+                                branch_said(store, project, branch, theme);
                             h_flex()
                                 .id(("now-today-branch", ix))
                                 .flex_none()
@@ -883,7 +924,7 @@ impl Detail {
     }
 
     /// How many rows the section `fold` folds lists: its first `first`, or all once unfolded.
-    fn now_shown(&self, fold: &'static str, first: usize) -> usize {
+    fn now_shown(&self, fold: &str, first: usize) -> usize {
         match self.now.unfolded.contains(fold) {
             true => usize::MAX,
             false => first,
@@ -895,23 +936,57 @@ impl Detail {
     /// glyphs, its words under their titles.
     fn now_fold(
         &self,
-        fold: &'static str,
+        fold: impl Into<SharedString>,
         hidden: usize,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<Stateful<Div>> {
-        let (glyph, said) = match (hidden, self.now.unfolded.contains(fold)) {
+        let fold = fold.into();
+        let (glyph, said) = match (hidden, self.now.unfolded.contains(&fold)) {
             (0, _) => return None,
             (_, true) => (Icon::ChevronUp, "Show fewer".to_owned()),
             (n, false) => (Icon::Kebab, format!("{n} more")),
         };
-        let row = fold_row(fold, glyph, 14., 34., theme).child(said);
+        let row = fold_row(fold.clone(), glyph, 14., 34., theme).child(said);
         Some(row.on_click(cx.listener(move |this, _, _, cx| {
-            if !this.now.unfolded.remove(fold) {
-                this.now.unfolded.insert(fold);
+            if !this.now.unfolded.remove(&fold) {
+                this.now.unfolded.insert(fold.clone());
             }
             cx.notify();
         })))
+    }
+}
+
+/// The newest and oldest of `commits` when they're one run of a lane, as one diff shows them.
+fn unseen_run(ws: &Workspace, commits: &[&Commit]) -> Option<Run> {
+    let ids: Vec<CommitId> = commits.iter().map(|commit| commit.id).collect();
+    match ids[..] {
+        [id] => Some((id, id)),
+        _ => ws.run_of(&ids),
+    }
+}
+
+/// What names `branch`: the pull request that takes it to the target, else its name, with
+/// the glyph that says which, and both in full for a hover.
+fn branch_said(
+    store: &Store,
+    project: &ProjectId,
+    branch: &Branch,
+    theme: &Theme,
+) -> ((Icon, gpui::Hsla), String, String) {
+    let name = store.name_of(project, branch).to_owned();
+    match &branch.review {
+        Some(review) if review.title.is_empty() => (
+            state_glyph(review.state, theme),
+            name.clone(),
+            format!("{name} · #{}", review.number),
+        ),
+        Some(review) => (
+            state_glyph(review.state, theme),
+            review.title.clone(),
+            format!("{name} · #{} {}", review.number, review.title),
+        ),
+        None => ((Icon::Branch, theme.text_3), name.clone(), name),
     }
 }
 
