@@ -172,8 +172,14 @@ impl AppView {
                 });
                 let prompt_gone = (this.prompt.as_ref())
                     .and_then(|prompt| prompt.on_branch.as_ref())
-                    .is_some_and(|(project, from)| {
+                    .filter(|(project, from)| {
                         (store.workspace(project)).is_some_and(|ws| ws.find_branch(from).is_none())
+                    })
+                    .map(|(_, from)| {
+                        format!(
+                            "{} was renamed or left the workspace meanwhile",
+                            short_ref(from)
+                        )
                     });
                 if menu_gone {
                     this.menu = None;
@@ -181,8 +187,10 @@ impl AppView {
                 if palette_gone {
                     this.close_palette(window, cx);
                 }
-                if prompt_gone {
+                // Saying why, as it went from under what was being typed.
+                if let Some(why) = prompt_gone {
                     this.cancel_prompt(window, cx);
+                    this.store.update(cx, |store, cx| store.snack(why, cx));
                 }
                 cx.notify()
             }),

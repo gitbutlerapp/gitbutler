@@ -291,7 +291,10 @@ impl AppView {
                         let project = several.then_some(entry.project.name.as_str());
                         let detail = name.into_iter().chain(project).collect::<Vec<_>>();
                         let detail = detail.join(" · ");
-                        let gone = format!("{} was renamed or deleted meanwhile", branch.name);
+                        let gone = format!(
+                            "{} was renamed or left the workspace meanwhile",
+                            branch.name
+                        );
                         let choice = Choice::new(label, move |this, window, cx| {
                             // Gone since the picker opened, as an agent renamed it.
                             if (this.store.read(cx).workspace(&id))

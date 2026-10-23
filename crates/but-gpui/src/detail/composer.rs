@@ -1299,7 +1299,8 @@ impl Detail {
                         if (store.workspace(&picked))
                             .is_none_or(|ws| ws.find_branch(&ref_name).is_none())
                         {
-                            let gone = format!("{name} was renamed or deleted meanwhile");
+                            let gone =
+                                format!("{name} was renamed or left the workspace meanwhile");
                             return detail.store.update(cx, |store, cx| store.snack(gone, cx));
                         }
                         detail.commit_target = Some(ref_name);
