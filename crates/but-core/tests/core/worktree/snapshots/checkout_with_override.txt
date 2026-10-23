@@ -1,0 +1,76 @@
+ModifyText at p, index LikeHead
+  done, p [Mode(FILE) 1|C|3|4|5|], q q staged|, stats kept
+ModifyText at p, index LikeOverride
+  done, p [Mode(FILE) 1|C|3|4|5| with stat], q q|, stats cleared
+ModifyText at p, index StagedApart
+  done, p [Mode(FILE) 1|C|3|4|S|], q q staged|, stats kept
+ModifyText at p, index StagedAdjacent
+  done, p [Mode(FILE) 1|C|3|4|5|], q q|, stats cleared
+ModifyText at p, index StagedOverlapping
+  done, p [Mode(FILE) 1|C|3|4|5|], q q|, stats cleared
+ModifyText at p, index StagedRemoval
+  done, p [Mode(FILE) 1|C|3|4|5|], q q|, stats cleared
+ModifyText at p, index Conflicted
+  done, p [Mode(FILE) 1|C|3|4|5|], q q|, stats cleared
+ModifyBinary at p, index LikeHead
+  done, p [Mode(FILE) ^@override|], q q|, stats cleared
+ModifyBinary at p, index LikeOverride
+  done, p [Mode(FILE) ^@override| with stat], q q|, stats cleared
+ModifyBinary at p, index StagedApart
+  done, p [Mode(FILE) ^@override|], q q|, stats cleared
+ModifyBinary at p, index StagedRemoval
+  done, p [Mode(FILE) ^@override|], q q|, stats cleared
+ModifyBinary at p, index Conflicted
+  done, p [Mode(FILE) ^@override|], q q|, stats cleared
+Add at p, index LikeHead
+  done, p [Mode(FILE) c|], q q staged|, stats kept
+Add at p, index LikeOverride
+  done, p [Mode(FILE) c|], q q staged|, stats kept
+Add at p, index StagedApart
+  done, p [Mode(FILE) c|], q q staged|, stats kept
+Add at p, index Conflicted
+  done, p [Mode(FILE) c|; Mode(FILE) ours| Ours; Mode(FILE) theirs| Theirs], q q staged|, stats kept
+Delete at p, index LikeHead
+  done, p [], q q staged|, stats kept
+Delete at p, index StagedApart
+  done, p [], q q staged|, stats kept
+Delete at p, index StagedAdjacent
+  done, p [], q q staged|, stats kept
+Delete at p, index StagedOverlapping
+  done, p [], q q staged|, stats kept
+Delete at p, index Conflicted
+  done, p [], q q|, stats cleared
+MakeExecutable at p, index LikeHead
+  done, p [Mode(FILE | FILE_EXECUTABLE) 1|2|3|4|5|], q q staged|, stats kept
+MakeExecutable at p, index LikeOverride
+  done, p [Mode(FILE | FILE_EXECUTABLE) 1|2|3|4|5|], q q staged|, stats kept
+MakeExecutable at p, index StagedApart
+  done, p [Mode(FILE | FILE_EXECUTABLE) 1|2|3|4|S|], q q staged|, stats kept
+MakeExecutable at p, index StagedAdjacent
+  done, p [Mode(FILE | FILE_EXECUTABLE) 1|2|S|4|5|], q q staged|, stats kept
+MakeExecutable at p, index StagedOverlapping
+  done, p [Mode(FILE | FILE_EXECUTABLE) 1|S|3|4|5|], q q staged|, stats kept
+MakeExecutable at p, index StagedRemoval
+  done, p [Mode(FILE | FILE_EXECUTABLE) 1|2|3|4|5|], q q|, stats cleared
+MakeExecutable at p, index Conflicted
+  done, p [Mode(FILE | FILE_EXECUTABLE) 1|2|3|4|5|], q q|, stats cleared
+ToSymlink at p, index LikeHead
+  done, p [Mode(SYMLINK) c], q q staged|, stats kept
+ToSymlink at p, index LikeOverride
+  done, p [Mode(SYMLINK) c], q q staged|, stats kept
+ToSymlink at p, index StagedApart
+  done, p [Mode(SYMLINK) c], q q staged|, stats kept
+ToSymlink at p, index StagedRemoval
+  done, p [Mode(SYMLINK) c], q q|, stats cleared
+ToSymlink at p, index Conflicted
+  done, p [Mode(SYMLINK) c], q q|, stats cleared
+ModifySubmodule at p, index LikeHead
+  done, p [Mode(DIR | SYMLINK) Subproject commit 619f291e2c5748063620f6c1474dcec0bd86db7c|], q q staged|, stats kept
+ModifySubmodule at p, index LikeOverride
+  done, p [Mode(DIR | SYMLINK) Subproject commit 619f291e2c5748063620f6c1474dcec0bd86db7c|], q q staged|, stats kept
+ModifySubmodule at p, index StagedApart
+  done, p [Mode(DIR | SYMLINK) Subproject commit 619f291e2c5748063620f6c1474dcec0bd86db7c|], q q staged|, stats kept
+ModifySubmodule at p, index StagedRemoval
+  done, p [Mode(DIR | SYMLINK) Subproject commit 619f291e2c5748063620f6c1474dcec0bd86db7c|], q q staged|, stats kept
+ModifySubmodule at p, index Conflicted
+  done, p [Mode(DIR | SYMLINK) Subproject commit 619f291e2c5748063620f6c1474dcec0bd86db7c|; Mode(FILE) base| Base; Mode(FILE) ours| Ours; Mode(FILE) theirs| Theirs], q q staged|, stats kept
