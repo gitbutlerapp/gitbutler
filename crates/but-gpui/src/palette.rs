@@ -556,9 +556,11 @@ impl AppView {
                         ),
                     ),
             );
-        // Over a modal, a click outside closes only the palette.
+        // Over a modal, a click outside closes only the palette. Down a column, it shrinks to
+        // fit the window, zoomed in or small, its rows scrolling.
         let backdrop = backdrop("palette-backdrop", card, cx, Self::close_palette);
-        Some(backdrop.items_start().pt(dp(72.)).into_any_element())
+        let backdrop = backdrop.flex_col().justify_start().items_center();
+        Some(backdrop.pt(dp(72.)).pb(dp(16.)).into_any_element())
     }
 }
 
