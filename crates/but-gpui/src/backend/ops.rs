@@ -782,11 +782,19 @@ pub fn move_to_new_branch(path: &Path, commits: &[CommitId]) -> Result<(Rewritte
     let name = branch_ref(&but_api::branch::branch_canned_name(&ctx)?)?;
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let workspace = but_transaction::with_transaction_with_perm(
+    let perm = guard.write_permission();
+    // It lists the new branch, so undo deletes it again.
+    let snapshot = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
+        &ctx,
+        SnapshotDetails::new(OperationKind::MoveCommit),
+        &[name.as_ref()],
+        perm.read_permission(),
+        DryRun::No,
+    );
+    let (rolled_back, workspace) = but_transaction::with_transaction_with_perm_only(
         &mut ctx,
         &mut meta,
-        guard.write_permission(),
-        SnapshotDetails::new(OperationKind::MoveCommit),
+        perm,
         DryRun::No,
         |mut tx| {
             tx.create_reference(name.as_ref(), None, None)?;
@@ -797,6 +805,9 @@ pub fn move_to_new_branch(path: &Path, commits: &[CommitId]) -> Result<(Rewritte
             )
         },
     )?;
+    if !rolled_back && let Some(snapshot) = snapshot {
+        snapshot.commit(&ctx, perm)?;
+    }
     Ok((rewritten(&workspace), name.to_string()))
 }
 
@@ -1910,6 +1921,24 @@ pub(super) mod tests {
             paths(&moved),
             vec!["new"],
             "or the tree they were read against moved"
+        );
+    }
+
+    #[test]
+    fn undoing_a_move_to_a_new_branch_takes_the_branch_away_too() {
+        use crate::backend::history::{Undone, oplog_head, undo_snapshot};
+        let (dir, commit, ..) = workspace_with_an_edit();
+        let path = dir.path();
+        let (_, name) = move_to_new_branch(path, &[commit]).unwrap();
+        let moved = oplog_head(path).unwrap();
+        assert!(matches!(
+            undo_snapshot(path, moved, None).unwrap(),
+            Undone::Done(_)
+        ));
+        let left = git(path, &["branch", "--list", short_ref(&name)]);
+        assert_eq!(
+            left, "",
+            "{name} would be listed beside the commit back in place"
         );
     }
 
