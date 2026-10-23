@@ -277,14 +277,18 @@ pub fn commit(
     let mut message = message.to_owned();
     if run_hooks {
         pre_commit(&ctx, &changes)?;
-        match but_api::legacy::repo::message_hook(&ctx, message.clone())? {
+        // Ending in a line break, as Git hands it over, so what a hook appends starts a line
+        // of its own rather than running on from the title.
+        match but_api::legacy::repo::message_hook(&ctx, format!("{message}\n"))? {
             MessageHookResult::Failure(ErrorData { error }) => {
                 bail!(
                     "The commit-msg hook refused the commit:\n{}",
                     hook_output(&error)
                 )
             }
-            MessageHookResult::Message(rewritten) => message = rewritten.message,
+            MessageHookResult::Message(rewritten) => {
+                message = rewritten.message.trim_end().to_owned()
+            }
             MessageHookResult::Success | MessageHookResult::NotConfigured => {}
         }
     }
@@ -1421,13 +1425,13 @@ pub(super) mod tests {
         );
 
         hook("pre-commit", "exit 0");
-        hook("commit-msg", "echo 'Two, checked' > \"$1\"");
+        hook("commit-msg", "printf '\\nIssue: SHOP-12\\n' >> \"$1\"");
         hook("post-commit", "echo 'notify failed'; exit 1");
         let (_, _, hook_failed) = commit(path, &main, &changes(), None, "Two", true).unwrap();
         assert_eq!(
-            git(path, &["log", "-1", "--format=%s"]).trim(),
-            "Two, checked",
-            "the commit takes the message commit-msg rewrote"
+            git(path, &["log", "-1", "--format=%s|%b"]).trim(),
+            "Two|Issue: SHOP-12",
+            "the commit takes the trailer commit-msg added, below the title"
         );
         assert!(uncommitted(path).is_empty(), "the commit stands");
         assert!(
