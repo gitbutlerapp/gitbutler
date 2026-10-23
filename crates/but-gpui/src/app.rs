@@ -148,8 +148,7 @@ impl AppView {
         })
     }
 
-    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let store = cx.new(Store::new);
+    pub fn new(store: Entity<Store>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         cx.set_global(theme_for(store.read(cx), window));
         place_traffic_lights(window, cx);
         let app = cx.entity().downgrade();
@@ -917,8 +916,9 @@ impl Render for AppView {
             .on_action(cx.listener(Self::copy_selection))
             .on_action(cx.listener(Self::open_pull_request))
             .on_action(cx.listener(|this, _: &ToggleFileTree, _, cx| {
-                this.store
-                    .update(cx, |store, cx| store.set_file_tree(!store.file_tree, cx))
+                (this.store).update(cx, |store, cx| {
+                    store.set_prefs(|prefs| prefs.file_tree = !prefs.file_tree, cx)
+                })
             }))
             .on_action(cx.listener(Self::cancel))
             .on_action(cx.listener(Self::focus_navigator))

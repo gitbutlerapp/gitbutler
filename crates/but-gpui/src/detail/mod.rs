@@ -552,7 +552,8 @@ impl Detail {
                     })
                     .collect();
                 this.forget(gone, cx);
-                let order = (store.read(cx).file_tree, store.read(cx).file_sort);
+                let prefs = &store.read(cx).prefs;
+                let order = (prefs.file_tree, prefs.file_sort);
                 if let Some(diff) =
                     (this.diff.as_ref()).filter(|diff| (diff.tree, diff.sort) != order)
                 {
@@ -715,7 +716,14 @@ impl Detail {
             Selection::Commit(project, id) if store.among_picks(project, *id) => {
                 match store.picked_run(project) {
                     Some((newest, oldest)) => DiffSource::Range { oldest, newest },
-                    None => DiffSource::Commits(store.picks_oldest_first(project)),
+                    None => DiffSource::Commits(
+                        store
+                            .with_picks(project, *id)
+                            .iter()
+                            .rev()
+                            .copied()
+                            .collect(),
+                    ),
                 }
             }
             Selection::Commit(_, id) => DiffSource::Commit(*id),
@@ -1073,7 +1081,8 @@ impl Detail {
         self.forget(gone, cx);
         // The keys step through the files as the list shows them: in the order picked, and
         // in a tree, folder by folder. Copied only when that's not how they came.
-        let (tree, sort) = (self.store.read(cx).file_tree, self.store.read(cx).file_sort);
+        let prefs = &self.store.read(cx).prefs;
+        let (tree, sort) = (prefs.file_tree, prefs.file_sort);
         let order = |a: &FileDiff, b: &FileDiff| {
             let folders = match tree {
                 true => file_tree::folder_order(&a.file.path, &b.file.path),
@@ -1527,7 +1536,11 @@ impl Detail {
     /// operation hides, nor, in the tree, those of a directory folded shut.
     fn listed_files(&self, cx: &App) -> Vec<usize> {
         let shown = self.shown_files();
-        let Some(diff) = self.diff.as_ref().filter(|_| self.store.read(cx).file_tree) else {
+        let Some(diff) = self
+            .diff
+            .as_ref()
+            .filter(|_| self.store.read(cx).prefs.file_tree)
+        else {
             return shown;
         };
         let paths: Vec<&str> = (shown.iter())

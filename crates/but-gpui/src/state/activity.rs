@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 /// How long one bar of activity covers, in seconds.
 pub const QUARTER: i64 = 15 * 60;
 /// How far back activity is kept, in seconds: a week, at most 672 quarters a checkout.
-const KEPT_FOR: i64 = 7 * 24 * 3600;
+pub(super) const KEPT_FOR: i64 = 7 * 24 * 3600;
 
 /// One checkout's writes.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

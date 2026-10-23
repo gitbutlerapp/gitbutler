@@ -1,7 +1,5 @@
 //! The navigator's right-click menus.
 
-use std::sync::Arc;
-
 use gpui::{Action, App, Context, SharedString, Window};
 
 use super::{ClickOpened, Navigator};
@@ -440,17 +438,16 @@ impl Navigator {
             }
             Selection::Commit(project, id) if store.is_picked(project, *id) => {
                 let n = store.picked.len();
-                let picked: Vec<_> = (store.workspace(project).into_iter())
-                    .flat_map(|ws| ws.commits())
-                    .filter(|commit| store.picked.contains(&commit.id))
+                let ids = store.with_picks(project, *id);
+                let picked: Vec<_> = (ids.iter())
+                    .filter_map(|id| store.find_commit(project, *id).map(|(_, commit)| commit))
                     .collect();
                 // Commits list newest first. The oldest can be in another stack or worktree
                 // than the one clicked, so it's named.
                 let Some(&oldest) = picked.last() else {
                     return Vec::new();
                 };
-                let ids: Arc<[CommitId]> = picked.iter().map(|commit| commit.id).collect();
-                let cut = (project.clone(), ids.clone());
+                let cut = (project.clone(), ids);
                 let mut items = vec![
                     keyed(
                         format!("Cut {n} commits"),

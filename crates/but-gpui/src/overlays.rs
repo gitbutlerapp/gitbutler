@@ -26,7 +26,7 @@ pub struct ContextMenu {
     pub position: Point<Pixels>,
     pub items: Vec<MenuItem>,
     /// What it opened on: see [`Store::acting_on`].
-    pub acting_on: (Option<Selection>, usize),
+    pub acting_on: (Option<Selection>, Vec<backend::CommitId>),
 }
 
 type MenuHandler = Rc<dyn Fn(&mut AppView, &mut Window, &mut Context<AppView>)>;
@@ -246,16 +246,10 @@ impl AppView {
                 });
             },
         );
-        if let Some(from) = renamed {
-            self.prompt_on_branch(from);
-        }
-    }
-
-    /// Tie the prompt just opened to the branch it acts on, so it goes once the branch does.
-    pub(crate) fn prompt_on_branch(&mut self, branch: (ProjectId, String)) {
-        // Not to a prompt Git is waiting on, which one asked for meanwhile left open.
+        // Tied to the branch it renames, so it goes once the branch does; not a prompt Git is
+        // waiting on, which one asked for meanwhile left open.
         if let Some(prompt) = self.prompt.as_mut().filter(|p| p.on_cancel.is_none()) {
-            prompt.on_branch = Some(branch);
+            prompt.on_branch = renamed;
         }
     }
 

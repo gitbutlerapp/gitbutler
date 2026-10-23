@@ -398,7 +398,7 @@ impl Transfer {
                 label,
                 Overlay {
                     new_commit: store.arriving(project, &ids, &to),
-                    ..Overlay::commits(keys(store, project, &ids))
+                    ..Overlay::commits(ids.iter().filter_map(|id| store.key_of(project, *id)))
                 },
                 move |path, remap| {
                     backend::move_commits(path, &remap.all(&ids)?, &remap.destination(to)?)
@@ -501,13 +501,6 @@ impl Transfer {
         }
         None
     }
-}
-
-/// The keys an overlay hides commits `ids` of `project` by.
-fn keys(store: &Store, project: &ProjectId, ids: &[CommitId]) -> Vec<String> {
-    (ids.iter())
-        .filter_map(|id| store.key_of(project, *id))
-        .collect()
 }
 
 /// Whether `target` is the checkout commit `id`'s changes uncommit into: a linked worktree's

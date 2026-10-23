@@ -31,9 +31,7 @@ pub use mesh::{MeshBranch, MeshPick, MeshState};
 pub use mutation::{NewAt, OpKind, Overlay, Remap, Rereads, SLOW, conflicted_parts};
 use mutation::{Queued, Running};
 pub use picks::Picks;
-pub use saved::{
-    BranchStatus, FileSort, Pane, Prefs, ScopeLines, WatchedOrder, saved_window_place,
-};
+pub use saved::{BranchStatus, FileSort, Pane, Prefs, ScopeLines, WatchedOrder};
 use saved::{Restored, Saved};
 pub use seen::Seeable;
 use seen::Seen;
@@ -273,10 +271,6 @@ pub struct Store {
     project_edits: u64,
     /// The saved state as last written, so unchanged state isn't written again.
     last_saved: Vec<u8>,
-    /// File lists show a tree of directories rather than a flat list.
-    pub file_tree: bool,
-    /// The order file lists show files in.
-    pub file_sort: FileSort,
     pub prefs: Prefs,
     pub toasts: Vec<Toast>,
     /// Who is signed in to GitButler.
@@ -418,8 +412,6 @@ impl Store {
             drafts: HashMap::new(),
             merged: HashMap::new(),
             widths: saved.widths,
-            file_tree: saved.file_tree,
-            file_sort: saved.file_sort,
             prefs: saved.prefs,
             window: saved.window,
             restored: Restored {
@@ -535,20 +527,21 @@ impl Store {
         Some(self.project(id)?.project.path.clone())
     }
 
-    /// What a menu or the palette acts on: the selection, and how many commits are picked
-    /// along with it.
-    pub fn acting_on(&self) -> (Option<Selection>, usize) {
-        (self.selection.clone(), self.picked.len())
+    /// What a menu or the palette acts on: the selection, and the commits picked along with
+    /// it, in the order picked.
+    pub fn acting_on(&self) -> (Option<Selection>, Vec<CommitId>) {
+        (self.selection.clone(), self.picked.to_vec())
     }
 
     /// Whether [`Self::acting_on`] is still `was`, or the same commit under the id an agent's
-    /// rewrite gave it.
-    pub fn still_acting_on(&self, was: &(Option<Selection>, usize)) -> bool {
-        match (was, self.acting_on()) {
-            ((Some(Selection::Commit(p, from)), picks), (Some(Selection::Commit(q, to)), now)) => {
-                *p == q && *picks == now && (*from == to || self.followed(*from, to))
+    /// rewrite gave it, with as many picked.
+    pub fn still_acting_on(&self, was: &(Option<Selection>, Vec<CommitId>)) -> bool {
+        let picks = self.picked.len();
+        match (was, &self.selection) {
+            ((Some(Selection::Commit(p, from)), was), Some(Selection::Commit(q, to))) => {
+                p == q && was.len() == picks && (from == to || self.followed(*from, *to))
             }
-            (was, now) => *was == now,
+            ((was, was_picks), now) => was == now && was_picks.len() == picks,
         }
     }
 
@@ -862,7 +855,7 @@ impl Store {
         }
     }
 
-    /// What moving commit `id` of `project` takes: the picked commits, in the order they're
+    /// What acting on commit `id` of `project` takes: the picked commits, in the order they're
     /// listed, when it's one of several, or else just it.
     pub fn with_picks(&self, project: &ProjectId, id: CommitId) -> Arc<[CommitId]> {
         if !self.among_picks(project, id) {
@@ -878,20 +871,6 @@ impl Store {
     /// The newest and oldest of the commits picked in `project`, as [`Workspace::run_of`].
     pub fn picked_run(&self, project: &ProjectId) -> Option<(CommitId, CommitId)> {
         self.workspace(project)?.run_of(&self.picked)
-    }
-
-    /// The commits picked in `project`, oldest first, as their lanes list them.
-    pub fn picks_oldest_first(&self, project: &ProjectId) -> Arc<[CommitId]> {
-        let lanes = self
-            .workspace(project)
-            .into_iter()
-            .flat_map(|ws| ws.lanes());
-        let mut ids: Vec<CommitId> = (lanes.flatten().flat_map(|branch| &branch.commits))
-            .map(|commit| commit.id)
-            .filter(|id| self.picked.contains(id))
-            .collect();
-        ids.reverse();
-        ids.into()
     }
 
     /// Whether commit `id` of `project` is picked. Picks are the selected project's: another

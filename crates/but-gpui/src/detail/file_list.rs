@@ -229,7 +229,7 @@ impl Detail {
     /// screen: an agent can leave thousands of files. Also how many rows it has.
     fn file_list(&self, id: &'static str, source: FileSource, cx: &Context<Self>) -> (Div, usize) {
         let store = self.store.read(cx);
-        let tree = store.file_tree;
+        let tree = store.prefs.file_tree;
         let terms = self.filter_terms(cx);
         // Each shown file's position in its source, as files a pending operation takes away
         // aren't shown.
@@ -245,7 +245,7 @@ impl Detail {
                     })
                     .collect();
                 // In the order picked, as the diff beside it has them.
-                kept.sort_by(|(_, a), (_, b)| file_tree::file_order(store.file_sort, a, b));
+                kept.sort_by(|(_, a), (_, b)| file_tree::file_order(store.prefs.file_sort, a, b));
                 (kept.into_iter())
                     .map(|(pos, f)| (pos, f.path.as_str()))
                     .unzip()
@@ -725,16 +725,21 @@ impl Detail {
     /// The file list's ⋯ menu, as but.dev's: the files as a list or as a tree, by name or
     /// the last written first. Files with no write time, as a commit's, go by name either way.
     fn view_menu(&self, position: Point<Pixels>, cx: &mut Context<Self>) {
-        let (tree, sort) = (self.store.read(cx).file_tree, self.store.read(cx).file_sort);
+        let prefs = &self.store.read(cx).prefs;
+        let (tree, sort) = (prefs.file_tree, prefs.file_sort);
         let show = |label: &str, as_tree: bool| {
             MenuItem::new(label.to_owned(), move |this, _, cx| {
-                (this.store).update(cx, |store, cx| store.set_file_tree(as_tree, cx))
+                (this.store).update(cx, |store, cx| {
+                    store.set_prefs(|prefs| prefs.file_tree = as_tree, cx)
+                })
             })
             .ticked(tree == as_tree)
         };
         let by = |label: &str, by: FileSort| {
             MenuItem::new(label.to_owned(), move |this, _, cx| {
-                (this.store).update(cx, |store, cx| store.set_file_sort(by, cx))
+                (this.store).update(cx, |store, cx| {
+                    store.set_prefs(|prefs| prefs.file_sort = by, cx)
+                })
             })
             .ticked(sort == by)
         };

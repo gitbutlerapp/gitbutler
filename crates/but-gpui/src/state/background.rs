@@ -159,7 +159,6 @@ impl Store {
         self.forge_checking.as_ref() == Some(id)
     }
 
-    /// Whether asking `id`'s forge failed last time, so what shows of it may be old.
     /// Ask the forges that failed again, as once an account to read them with is added.
     pub fn retry_forges(&mut self) {
         for id in std::mem::take(&mut self.forge_failed) {
@@ -167,6 +166,7 @@ impl Store {
         }
     }
 
+    /// Whether asking `id`'s forge failed last time, so what shows of it may be old.
     pub fn forge_failed(&self, id: &ProjectId) -> bool {
         self.forge_failed.contains(id)
     }

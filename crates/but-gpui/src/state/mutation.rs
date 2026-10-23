@@ -1772,12 +1772,9 @@ fn updated_message(target: &str, conflicted: &[(String, usize)], landed: &[Strin
 /// unnamed branch) with how many.
 pub fn conflicted_parts(conflicted: &[(String, usize)]) -> impl Iterator<Item = String> {
     conflicted.iter().map(|(branch, count)| {
-        let name = match short_ref(branch) {
-            "" => "an unnamed branch",
-            name => name,
-        };
         format!(
-            "{name} has {}",
+            "{} has {}",
+            branch_name(branch),
             crate::ui::plural(*count, "conflicted commit")
         )
     })
@@ -1788,14 +1785,19 @@ pub fn conflicted_parts(conflicted: &[(String, usize)]) -> impl Iterator<Item = 
 fn commit_counts(branches: &[(String, usize)]) -> String {
     let counts: Vec<String> = (branches.iter())
         .map(|(ref_name, count)| {
-            let name = match short_ref(ref_name) {
-                "" => "an unnamed branch",
-                name => name,
-            };
+            let name = branch_name(ref_name);
             format!("{name} ({})", crate::ui::plural(*count, "commit"))
         })
         .collect();
     counts.join(", ")
+}
+
+/// `ref_name`'s short name, or "an unnamed branch" when it's empty.
+fn branch_name(ref_name: &str) -> &str {
+    match short_ref(ref_name) {
+        "" => "an unnamed branch",
+        name => name,
+    }
 }
 
 #[cfg(test)]

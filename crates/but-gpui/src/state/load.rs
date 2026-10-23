@@ -12,8 +12,6 @@ use super::{Cut, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
 use crate::backend::watch::Watcher;
 use crate::backend::{self, CommitId, FileChange, Project, Selected, Workspace};
 
-/// A project whose files changed, whether that included its git directory, and the linked
-/// worktree they're in, by name, unless they're the main checkout's.
 /// A watcher's event: the project, whether its git directory changed, the linked worktree
 /// whose files changed, if one did, and which of its files.
 pub(super) type Change = (ProjectId, bool, Option<Arc<str>>, Vec<Arc<str>>);
@@ -495,15 +493,12 @@ impl Store {
     /// that failed to load: a watcher doesn't see its own folder move, and what failed may
     /// have been fixed in a terminal. One that couldn't be opened, so isn't watched, opens.
     pub fn recheck_folders(&mut self, cx: &mut Context<Self>) {
-        let stale: Vec<(ProjectId, bool)> = (self.projects.iter())
+        let stale: Vec<ProjectId> = (self.projects.iter())
             .filter(|entry| entry.expanded && entry.project.path.exists() == entry.error.is_some())
-            .map(|entry| (entry.id.clone(), entry.watcher.is_none()))
+            .map(|entry| entry.id.clone())
             .collect();
-        for (id, unwatched) in stale {
-            match unwatched {
-                true => self.open_project(&id, cx),
-                false => self.reload(&id, cx),
-            }
+        for id in stale {
+            self.reload_or_open(&id, cx);
         }
     }
 

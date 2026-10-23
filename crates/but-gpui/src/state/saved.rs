@@ -73,8 +73,6 @@ impl Store {
             selection: self.selection.as_ref().map(|s| s.project().to_string()),
             seen: self.seen.clone(),
             widths: self.widths.clone(),
-            file_tree: self.file_tree,
-            file_sort: self.file_sort,
             window: self.window.clone(),
             prefs: self.prefs.clone(),
             kept_by_project: (self.kept_snapshots.lock().expect("not poisoned").iter())
@@ -88,8 +86,9 @@ impl Store {
         }
     }
 
-    /// Forget what's kept for the projects not in the listing, as one removed, so it isn't
-    /// saved on and on.
+    /// Forget what's kept for the projects not in the listing, as one removed, and the
+    /// activity of checkouts quiet for longer than it's kept, as a deleted worktree's, so it
+    /// isn't saved on and on.
     pub(super) fn forget_unlisted(&mut self) {
         let listed: HashSet<&str> = self.projects.iter().map(|entry| &*entry.id).collect();
         let listed = |id: &str| listed.contains(id);
@@ -98,7 +97,10 @@ impl Store {
         self.redo_steps.retain(|(id, _)| listed(id));
         (self.undid.lock().expect("not poisoned")).retain(|id, _| listed(id));
         (self.kept_snapshots.lock().expect("not poisoned")).retain(|id, _| listed(id));
-        self.activity.retain(|(id, _), _| listed(id));
+        let since = crate::ui::now() - super::activity::KEPT_FOR;
+        (self.activity).retain(|(id, _), activity| {
+            listed(id) && activity.last.is_some_and(|last| last > since)
+        });
         let prefs = &mut self.prefs;
         let sets = [
             &mut prefs.run_hooks,
@@ -154,18 +156,6 @@ impl Store {
         self.save_soon(cx);
     }
 
-    pub fn set_file_tree(&mut self, tree: bool, cx: &mut Context<Self>) {
-        self.file_tree = tree;
-        self.save_soon(cx);
-        cx.notify();
-    }
-
-    pub fn set_file_sort(&mut self, sort: FileSort, cx: &mut Context<Self>) {
-        self.file_sort = sort;
-        self.save_soon(cx);
-        cx.notify();
-    }
-
     /// `pane`'s width in a window `window` wide, beside the navigator and the file list as
     /// they're shown: as set, unless that leaves the diff too narrow to read. Then the file
     /// list gives way first, down to its limit, then the navigator, down to what its header
@@ -206,6 +196,24 @@ impl Store {
         self.save_soon(cx);
     }
 
+    /// Where the window was when the app last quit, while that display is still connected and
+    /// the window would still show on it.
+    pub fn window_place(&self, cx: &App) -> Option<(DisplayId, Bounds<Pixels>)> {
+        let place = self.window.as_ref()?;
+        let display = cx.displays().into_iter().find(|display| {
+            display
+                .uuid()
+                .is_ok_and(|uuid| uuid.to_string() == place.display)
+        })?;
+        let [x, y, width, height] = place.bounds;
+        let bounds = Bounds::new(
+            point(Pixels::from(x), Pixels::from(y)),
+            size(Pixels::from(width), Pixels::from(height)),
+        );
+        let screen = Bounds::new(point(Pixels::ZERO, Pixels::ZERO), display.bounds().size);
+        screen.intersects(&bounds).then(|| (display.id(), bounds))
+    }
+
     /// Resize `pane`, within its limits, or put it back to its default with `None`.
     pub fn set_width(&mut self, pane: Pane, width: Option<f32>, cx: &mut Context<Self>) {
         let (min, max) = pane.limits();
@@ -216,24 +224,6 @@ impl Store {
         self.save_soon(cx);
         cx.notify();
     }
-}
-
-/// Where the window was when the app last quit, while that display is still connected and
-/// the window would still show on it.
-pub fn saved_window_place(cx: &App) -> Option<(DisplayId, Bounds<Pixels>)> {
-    let place = Saved::load().window?;
-    let display = cx.displays().into_iter().find(|display| {
-        display
-            .uuid()
-            .is_ok_and(|uuid| uuid.to_string() == place.display)
-    })?;
-    let [x, y, width, height] = place.bounds;
-    let bounds = Bounds::new(
-        point(Pixels::from(x), Pixels::from(y)),
-        size(Pixels::from(width), Pixels::from(height)),
-    );
-    let screen = Bounds::new(point(Pixels::ZERO, Pixels::ZERO), display.bounds().size);
-    screen.intersects(&bounds).then(|| (display.id(), bounds))
 }
 
 /// A pane whose width can be dragged.
@@ -334,8 +324,6 @@ pub(super) struct Saved {
     pub(super) selection: Option<String>,
     pub(super) seen: Seen,
     pub(super) widths: HashMap<Pane, f32>,
-    pub(super) file_tree: bool,
-    pub(super) file_sort: FileSort,
     pub(super) window: Option<WindowPlace>,
     pub(super) prefs: Prefs,
     /// The oplog entries ⌘Z mustn't take back, by project, as the oplog can't restore all
@@ -365,6 +353,10 @@ pub struct Prefs {
     pub editor: Option<String>,
     /// The terminal the project opens in, by id.
     pub terminal: Option<String>,
+    /// File lists show a tree of directories rather than a flat list.
+    pub file_tree: bool,
+    /// The order file lists show files in.
+    pub file_sort: FileSort,
     /// Long diff lines wrap instead of running off the edge.
     pub wrap: bool,
     /// Diffs show the old side beside the new rather than one above the other.

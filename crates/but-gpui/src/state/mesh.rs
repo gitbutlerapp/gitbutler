@@ -66,6 +66,8 @@ pub struct Mesh {
     ids: HashMap<ProjectId, String>,
     /// Projects whose icon is being sent to the mesh: a read meanwhile may have the old one.
     sending_icon: HashSet<ProjectId>,
+    /// Projects whose icon was picked before the mesh's id for them was read, sent once it is.
+    unsent_icon: HashSet<ProjectId>,
     /// Projects the daemon was asked to report in this run, so each is asked once.
     asked_to_report: HashSet<PathBuf>,
     /// Asks the poll to read the mesh again now.
@@ -83,6 +85,7 @@ impl Mesh {
             checkouts: HashMap::new(),
             ids: HashMap::new(),
             sending_icon: HashSet::new(),
+            unsent_icon: HashSet::new(),
             asked_to_report: HashSet::new(),
             requests,
             _poll: Store::poll_mesh(asked, cx),
@@ -269,7 +272,8 @@ impl Store {
     }
 
     /// Keep the mesh's id for `project`, and have its icon and the mesh's agree: the mesh's,
-    /// picked here or on but.dev, wins; one picked only here is sent to the mesh.
+    /// picked here or on but.dev, wins, unless one was picked here before the id was read; one
+    /// picked only here is sent to the mesh.
     fn set_mesh_project(
         &mut self,
         project: &ProjectId,
@@ -277,11 +281,12 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         self.mesh.ids.insert(project.clone(), read.id);
+        let unsent = self.mesh.unsent_icon.remove(project);
         let here = self.project_icon(project).unwrap_or_default();
         if read.icon == here || self.mesh.sending_icon.contains(project) {
             return;
         }
-        match read.icon.is_empty() {
+        match read.icon.is_empty() || unsent {
             true => self.mesh_send_icon(project, here.to_owned(), cx),
             false => {
                 let (id, icon) = (project.to_string(), read.icon);
@@ -290,8 +295,8 @@ impl Store {
         }
     }
 
-    /// Send `project`'s `icon` to the mesh, once it's been read and has an id there. A failure
-    /// is only logged: the next read puts back the mesh's.
+    /// Send `project`'s `icon` to the mesh, now if it has an id there, or else once a read
+    /// gives it one. A failure is only logged: the next read puts back the mesh's.
     pub(super) fn mesh_send_icon(
         &mut self,
         project: &ProjectId,
@@ -299,6 +304,7 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let Some(id) = self.mesh.ids.get(project).cloned() else {
+            self.mesh.unsent_icon.insert(project.clone());
             return;
         };
         let project = project.clone();

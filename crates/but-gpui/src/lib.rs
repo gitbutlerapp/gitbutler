@@ -166,7 +166,9 @@ pub fn run(embedded: Option<Embedded>) {
                 ]),
             ]);
 
-            let (display_id, bounds) = match state::saved_window_place(cx) {
+            // Before the window, which opens where the saved state says.
+            let store = cx.new(state::Store::new);
+            let (display_id, bounds) = match store.read(cx).window_place(cx) {
                 Some((display, bounds)) => (Some(display), bounds),
                 None => (
                     None,
@@ -186,7 +188,7 @@ pub fn run(embedded: Option<Embedded>) {
                         window_min_size: Some(size(fixed(900.), fixed(500.))),
                         ..Default::default()
                     },
-                    |window, cx| cx.new(|cx| AppView::new(window, cx)),
+                    |window, cx| cx.new(|cx| AppView::new(store, window, cx)),
                 )
                 .expect("the main window opens");
             // With the window minimized no window is active, so the menu's Quit comes here.

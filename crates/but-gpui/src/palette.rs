@@ -137,6 +137,8 @@ pub struct Choice {
     label: SharedString,
     key: Option<SharedString>,
     detail: Option<SharedString>,
+    /// It throws work away, so letters scattered through its label don't find it.
+    risky: bool,
     run: Run,
 }
 
@@ -149,6 +151,7 @@ impl Choice {
             label: label.into(),
             key: None,
             detail: None,
+            risky: false,
             run: Box::new(run),
         }
     }
@@ -172,7 +175,7 @@ pub struct Palette {
     scroll: ScrollHandle,
     pub(crate) restore_focus: Option<FocusHandle>,
     /// What it opened on: see [`Store::acting_on`].
-    pub acting_on: (Option<Selection>, usize),
+    pub acting_on: (Option<Selection>, Vec<crate::backend::CommitId>),
     /// Its choices hold what they act on, as a menu's do, rather than read it when run.
     pub holds_ids: bool,
     _subscription: Subscription,
@@ -228,12 +231,14 @@ impl AppView {
             .map(|(label, action)| {
                 let key = shortcut(action, cx);
                 let action = action.boxed_clone();
+                let risky = RISKY.contains(&label);
                 Choice {
                     key,
+                    risky,
                     ..Choice::new(label, move |this, window, cx| {
                         // Recent commands come first, so ⌘K then Enter repeats one; never
                         // one that throws work away.
-                        if !RISKY.contains(&label) {
+                        if !risky {
                             this.recent_commands.retain(|recent| *recent != label);
                             this.recent_commands.insert(0, label);
                         }
@@ -335,6 +340,7 @@ impl AppView {
                 label: item.label,
                 key: item.key,
                 detail: item.detail,
+                risky: item.danger,
                 run: Box::new(move |this, window, cx| (item.handler)(this, window, cx)),
             })
             .collect();
@@ -416,7 +422,7 @@ impl AppView {
                 // One that throws work away shows for its words, not for letters scattered
                 // through it, so typing a command missing here doesn't land on it.
                 let scattered = score == 0 && !query.is_empty();
-                (!scattered || !RISKY.contains(&&*choice.label)).then_some((score, ix))
+                (!scattered || !choice.risky).then_some((score, ix))
             })
             .collect();
         // Stable, so equal scores keep the recent-first order.

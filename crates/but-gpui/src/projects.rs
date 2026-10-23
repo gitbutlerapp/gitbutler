@@ -1,5 +1,5 @@
-//! Getting projects into shape: cloning a repository to start one, finding a project whose
-//! folder moved, and picking the target branch the workspace integrates into.
+//! Getting projects into shape: cloning a repository to start one, picking the target branch
+//! the workspace integrates into, and picking a project's icon.
 
 use std::path::PathBuf;
 
@@ -94,7 +94,7 @@ impl AppView {
             return;
         };
         let store = self.store.clone();
-        let short = name.strip_prefix("refs/heads/").unwrap_or(&name).to_owned();
+        let short = backend::short_ref(&name).to_owned();
         cx.spawn(async move |_, cx| {
             let set = backend::run(move || settings::set_target(&path, &name)).await;
             store.update(cx, |store, cx| match set {
@@ -143,7 +143,7 @@ impl AppView {
             let choices = names
                 .into_iter()
                 .map(|name| {
-                    let short = name.strip_prefix("refs/heads/").unwrap_or(&name).to_owned();
+                    let short = backend::short_ref(&name).to_owned();
                     let project = project.clone();
                     Choice::new(short, move |app, _, cx| app.set_target(project, name, cx))
                 })

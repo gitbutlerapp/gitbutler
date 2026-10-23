@@ -157,8 +157,8 @@ impl AppView {
     pub fn edit_actions(&self, el: Div, cx: &mut Context<Self>) -> Div {
         // A linked worktree's branches and commits are edited here as yours are, apart from
         // what reaches past the worktree, like pushing, landing or moving them out of it.
+        let linked = self.in_worktree_lane(cx);
         let store = self.store.read(cx);
-        let linked = (store.selection.as_ref()).is_some_and(|s| store.worktree_of(s).is_some());
         let el = el
             .on_action(cx.listener(Self::delete_selection))
             .on_action(cx.listener(Self::rename_selection))
@@ -552,10 +552,7 @@ impl AppView {
     ) {
         if let Some(Selection::Commit(project, id)) = self.selection(cx) {
             self.store.update(cx, |store, cx| {
-                let ids = match store.picked.is_empty() {
-                    true => vec![id],
-                    false => store.picked.to_vec(),
-                };
+                let ids = store.with_picks(&project, id).to_vec();
                 store.uncommit(&project, ids, cx)
             });
         }
