@@ -112,7 +112,9 @@ fn describe(kind: Option<OperationKind>) -> (Icon, Group) {
         // A branch landed on the target, as a land onto a target without a remote records.
         K::MergeBranch => (Icon::BranchMerge, Group::Updates),
         K::SyncWorkspace => (Icon::Refresh, Group::Updates),
-        K::RestoreFromSnapshot | K::RestoreFromSnapshotViaUndo | K::RestoreFromSnapshotViaRedo => {
+        // A restore picked here wears the history's clock, apart from ⌘Z and ⇧⌘Z's steps.
+        K::RestoreFromSnapshot => (Icon::Clock, Group::TakeBacks),
+        K::RestoreFromSnapshotViaUndo | K::RestoreFromSnapshotViaRedo => {
             (Icon::Undo, Group::TakeBacks)
         }
         K::OnDemandSnapshot => (Icon::Camera, Group::Snapshots),
