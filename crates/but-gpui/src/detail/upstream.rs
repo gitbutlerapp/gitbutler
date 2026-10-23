@@ -615,7 +615,8 @@ impl Detail {
         let text = match (own, &commit.review) {
             (false, Some(review)) if !review.body.trim().is_empty() => {
                 let end = review.body.floor_char_boundary(4096);
-                described = (markdown::parse(&review.body[..end]).iter())
+                let body = review.body.get(..end).unwrap_or(&review.body);
+                described = (markdown::parse(body).iter())
                     .map(|block| block.text.as_str())
                     .filter(|text| !text.trim().is_empty())
                     .collect::<Vec<_>>()
@@ -771,7 +772,7 @@ impl Detail {
         };
         let mut rows = Vec::new();
         // The navigator lists the new ones on their own, so here they're only marked.
-        for ix in (0..upstream.commits.len()).filter(|ix| shown(&upstream.commits[*ix])) {
+        for (ix, commit) in (upstream.commits.iter().enumerate()).filter(|(_, c)| shown(c)) {
             if rows.is_empty() {
                 // The area picked says so here too, as what picks it hides behind a commit.
                 rows.push(Row::Heading(match area {
@@ -780,7 +781,6 @@ impl Detail {
                 }));
             }
             rows.push(Row::Commit(ix));
-            let commit = &upstream.commits[ix];
             // An open merge lists the commits it brought in under it.
             if !(commit.merge && upstream.view.open_merges.contains(&commit.id)) {
                 continue;
@@ -1159,8 +1159,9 @@ impl Detail {
         let Some(Picked::Commit(id)) = upstream.selected else {
             return;
         };
+        let picked = |ix: &usize| upstream.commits.get(*ix).is_some_and(|c| c.id == id);
         let row = (self.upstream_rows(upstream, "", cx).iter())
-            .position(|row| matches!(row, Row::Commit(ix) if upstream.commits[*ix].id == id));
+            .position(|row| matches!(row, Row::Commit(ix) if picked(ix)));
         if let Some(row) = row {
             self.upstream_scroll
                 .scroll_to_item(row, gpui::ScrollStrategy::Center);
@@ -1279,14 +1280,16 @@ impl Detail {
             return;
         };
         let merged = |ix: usize, m: usize| {
-            let merge = upstream.commits[ix].id;
+            let merge = upstream.commits.get(ix)?.id;
             let merged = self.store.read(cx).merged.get(&merge)?.as_ref()?;
             Some((Picked::Commit(merge), Some(merged.0.get(m)?.id)))
         };
         // A merge's commit by the merge and it.
         let picks: Vec<_> = (self.upstream_rows(upstream, "", cx).iter().enumerate())
             .filter_map(|(row, r)| match r {
-                Row::Commit(ix) => Some((row, (Picked::Commit(upstream.commits[*ix].id), None))),
+                Row::Commit(ix) => {
+                    Some((row, (Picked::Commit(upstream.commits.get(*ix)?.id), None)))
+                }
                 Row::Merged(ix, m) => Some((row, merged(*ix, *m)?)),
                 _ => None,
             })
@@ -1736,13 +1739,13 @@ impl Detail {
                                 .child(faint(*note, theme))
                                 .into_any_element(),
                             Row::Merged(merge_ix, merged_ix) => {
-                                let merge = upstream.commits[*merge_ix].id;
+                                let merge = upstream.commits.get(*merge_ix)?.id;
                                 let (merged, _) =
                                     this.store.read(cx).merged.get(&merge)?.as_ref()?;
                                 commit_row(merged.get(*merged_ix)?, Some(merge))
                             }
                             Row::Commit(commit_ix) => {
-                                commit_row(&upstream.commits[*commit_ix], None)
+                                commit_row(upstream.commits.get(*commit_ix)?, None)
                             }
                             // A page at a time, on a click, saying so while it reads.
                             Row::Older if upstream.paging.get() == Paging::Loading => {

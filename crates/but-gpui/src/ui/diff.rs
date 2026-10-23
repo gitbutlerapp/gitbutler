@@ -212,7 +212,9 @@ pub fn rows(
                     // side of a pair too.
                     if split {
                         let keep = |line: Option<usize>| {
-                            line.filter(|&line| !hidden_line(file, hunk, &hunk.lines[line]))
+                            line.filter(|&line| {
+                                (hunk.lines.get(line)).is_some_and(|l| !hidden_line(file, hunk, l))
+                            })
                         };
                         let pairs = (pair_lines(&hunk.lines).into_iter())
                             .map(|(left, right)| (keep(left), keep(right)))
@@ -224,9 +226,9 @@ pub fn rows(
                             right,
                         }));
                     } else {
-                        let shown = (0..hunk.lines.len())
-                            .filter(|&line| !hidden_line(file, hunk, &hunk.lines[line]));
-                        rows.extend(shown.map(|line| DiffRow::Line {
+                        let shown = (hunk.lines.iter().enumerate())
+                            .filter(|(_, line)| !hidden_line(file, hunk, line));
+                        rows.extend(shown.map(|(line, _)| DiffRow::Line {
                             file: file_ix,
                             hunk: hunk_ix,
                             line,
@@ -258,15 +260,15 @@ pub fn rows(
 fn pair_lines(lines: &[DiffLine]) -> Vec<(Option<usize>, Option<usize>)> {
     let mut pairs = Vec::new();
     let mut ix = 0;
-    while ix < lines.len() {
-        if lines[ix].kind == LineKind::Context {
+    while let Some(line) = lines.get(ix) {
+        if line.kind == LineKind::Context {
             pairs.push((Some(ix), Some(ix)));
             ix += 1;
             continue;
         }
         let run = |from: usize, kind| {
-            (from..lines.len())
-                .take_while(|&i| lines[i].kind == kind)
+            (lines.iter().skip(from))
+                .take_while(|line| line.kind == kind)
                 .count()
         };
         let removed = run(ix, LineKind::Removed);
@@ -559,13 +561,15 @@ pub fn file_header(
 /// How many unchanged lines come between hunk `ix` of `hunks` and the hunk before it, or the
 /// file's start, past the lines their scopes show: the ones a file shown whole fills in there.
 pub fn unmodified_before(hunks: &[Hunk], ix: usize) -> u32 {
-    let from = ix.checked_sub(1).map_or(1, |previous| {
-        let (tail, previous) = (hunks[previous].tail.len() as u32, hunks[previous].key.0);
+    let Some((hunk, before)) = hunks.get(..=ix).and_then(<[Hunk]>::split_last) else {
+        return 0;
+    };
+    let from = before.last().map_or(1, |previous| {
+        let (tail, previous) = (previous.tail.len() as u32, previous.key.0);
         previous.new_start + previous.new_lines + tail
     });
-    let lead = hunks[ix].lead.len() as u32;
-    hunks[ix]
-        .key
+    let lead = hunk.lead.len() as u32;
+    hunk.key
         .0
         .new_start
         .saturating_sub(lead)
@@ -841,7 +845,9 @@ pub(super) fn line_text(
     };
     let mut grounds: Vec<Option<Hsla>> = vec![None; len];
     let mut paint = |range: &Range<usize>, color: Hsla| {
-        grounds[range.start.min(len)..range.end.min(len)].fill(Some(color));
+        for at in grounds.iter_mut().take(range.end).skip(range.start) {
+            *at = Some(color);
+        }
     };
     line.emph.iter().for_each(|range| paint(range, emph_bg));
     for (range, current) in &found {
@@ -852,13 +858,12 @@ pub(super) fn line_text(
     }
     let mut runs = Vec::new();
     let mut start = 0;
-    for at in 1..=len {
-        if at == len || grounds[at] != grounds[start] {
-            if let Some(color) = grounds[start] {
-                runs.push((start..at, ground(color)));
-            }
-            start = at;
+    for run in grounds.chunk_by(|a, b| a == b) {
+        let end = start + run.len();
+        if let Some(Some(color)) = run.first() {
+            runs.push((start..end, ground(*color)));
         }
+        start = end;
     }
     StyledText::new(SharedString::from(line.text.clone()))
         .with_highlights(combine_highlights(syntax, runs))
@@ -953,7 +958,9 @@ pub fn line_row(
         let ix = text_layout
             .index_for_position(position)
             .unwrap_or_else(|ix| ix);
-        let next = chars[ix..].chars().next().map(|c| ix + c.len_utf8());
+        let next = (chars.get(ix..))
+            .and_then(|rest| rest.chars().next())
+            .map(|c| ix + c.len_utf8());
         let edges = next.and_then(|next| {
             Some((
                 text_layout.position_for_index(ix)?,

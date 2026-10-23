@@ -500,7 +500,9 @@ impl Navigator {
         if next as isize == at {
             return;
         }
-        let next = items[next].clone();
+        let Some(next) = items.get(next).map(|item| (*item).clone()) else {
+            return;
+        };
         self.select(next, window, cx);
     }
 
@@ -540,8 +542,8 @@ impl Navigator {
         let heads =
             |item: &&&Selection| matches!(item, Selection::Project(_) | Selection::Branch(..));
         let next = match (at, forward) {
-            (Some(at), true) => items[at + 1..].iter().find(heads),
-            (Some(at), false) => items[..at].iter().rev().find(heads),
+            (Some(at), true) => items.iter().skip(at + 1).find(heads),
+            (Some(at), false) => items.iter().take(at).rev().find(heads),
             (None, true) => items.iter().find(heads),
             (None, false) => items.iter().rev().find(heads),
         };
@@ -780,16 +782,23 @@ impl Navigator {
             .flatten();
         // The hovered row's index before and after, and how far below the top it is.
         let anchor = hovered.and_then(|(old_ix, offset)| {
-            let new_ix = (0..rows.len())
-                .filter(|&ix| same_place(&self.rows[old_ix], &rows[ix]))
-                .min_by_key(|ix| ix.abs_diff(old_ix))?;
+            let old = self.rows.get(old_ix)?;
+            let (new_ix, _) = (rows.iter().enumerate())
+                .filter(|(_, row)| same_place(old, row))
+                .min_by_key(|(ix, _)| ix.abs_diff(old_ix))?;
             Some((old_ix, new_ix, offset))
         });
-        let changed = match anchor {
+        let halves = anchor.and_then(|(old_ix, new_ix, _)| {
+            Some((
+                self.rows.split_at_checked(old_ix)?,
+                rows.split_at_checked(new_ix)?,
+            ))
+        });
+        let changed = match halves {
             // Below the hovered row first, so the indexes above it still hold.
-            Some((old_ix, new_ix, _)) => {
-                let below = splice(&self.list, &self.rows[old_ix..], &rows[new_ix..], old_ix);
-                splice(&self.list, &self.rows[..old_ix], &rows[..new_ix], 0) || below
+            Some(((old_above, old_below), (new_above, new_below))) => {
+                let below = splice(&self.list, old_below, new_below, old_above.len());
+                splice(&self.list, old_above, new_above, 0) || below
             }
             None => splice(&self.list, &self.rows, &rows, 0),
         };
@@ -968,11 +977,12 @@ impl Navigator {
             }
         };
         // Items step in by their style, keeping the highlight full width; the rest as a whole.
-        let el = match inset > 0. && !matches!(self.rows[ix], Row::Item(_)) {
+        let el = match inset > 0. && !matches!(self.rows.get(ix), Some(Row::Item(_))) {
             true => div().pl(dp(inset)).child(el).into_any_element(),
             false => el,
         };
-        let first = ix == 0 || matches!(self.rows[ix - 1], Row::Gap);
+        let first = (ix.checked_sub(1).and_then(|ix| self.rows.get(ix)))
+            .is_none_or(|prev| matches!(prev, Row::Gap));
         let last = self
             .rows
             .get(ix + 1)
@@ -981,14 +991,14 @@ impl Navigator {
         // one line, as but.dev's sidebar draws them.
         let guides = (self.guides.get(ix).into_iter().flatten()).map(|at| guide(*at, theme));
         // A watched project's card, or the one after them, takes a dragged project card.
-        let slot = match &self.rows[ix] {
+        let slot = match self.rows.get(ix) {
             _ if self.store.read(cx).prefs.watched_order != WatchedOrder::Manual => None,
-            Row::Item(Selection::Project(id))
+            Some(Row::Item(Selection::Project(id)))
                 if self.store.read(cx).project(id).is_some_and(|p| p.expanded) =>
             {
                 Some(CardSlot::Before(id.clone()))
             }
-            Row::ProjectsHeading(..) => Some(CardSlot::End),
+            Some(Row::ProjectsHeading(..)) => Some(CardSlot::End),
             _ => None,
         };
         // Padded, not margined: a list lays its rows out from their left edge.
@@ -1557,9 +1567,9 @@ impl Navigator {
         Some(
             row.when(drags, |el| {
                 let files = self.detail.read(cx).files_to_move(id, name.clone(), cx);
-                let label: SharedString = match files.len() {
-                    1 => files[0].file.path.clone().into(),
-                    n => format!("{n} files").into(),
+                let label: SharedString = match files.as_slice() {
+                    [file] => file.file.path.clone().into(),
+                    files => format!("{} files", files.len()).into(),
                 };
                 let payload = Cut::Files {
                     project: id.clone(),
@@ -1616,7 +1626,7 @@ impl Navigator {
                 self.rows.get(ix + 1),
                 Some(Row::Item(Selection::Stack(..) | Selection::Branch(..)))
             ),
-            _ => next.is_some_and(|next| *next > self.insets[ix]),
+            _ => (next.zip(self.insets.get(ix))).is_some_and(|(next, this)| next > this),
         }
     }
 
@@ -2207,7 +2217,10 @@ impl Navigator {
 /// start and end with, which it measures again. Whether any did.
 fn splice(list: &ListState, old: &[Row], new: &[Row], at: usize) -> bool {
     let head = old.iter().zip(new).take_while(|(a, b)| a == b).count();
-    let (old, new) = (&old[head..], &new[head..]);
+    let (old, new) = (
+        old.get(head..).unwrap_or_default(),
+        new.get(head..).unwrap_or_default(),
+    );
     let tail = (old.iter().rev().zip(new.iter().rev()))
         .take_while(|(a, b)| a == b)
         .count();

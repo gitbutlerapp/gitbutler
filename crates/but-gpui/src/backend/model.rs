@@ -214,7 +214,10 @@ impl Workspace {
             .find(|lane| lane.iter().any(|id| ids.contains(id)))?;
         let from = lane.iter().position(|id| ids.contains(id))?;
         let run = lane.get(from..from + n)?;
-        (n > 1 && run.iter().all(|id| ids.contains(id))).then(|| (run[0], run[n - 1]))
+        let [newest, .., oldest] = run else {
+            return None;
+        };
+        (run.iter().all(|id| ids.contains(id))).then_some((*newest, *oldest))
     }
 
     /// The branches of the stack, or linked worktree's lane, whose bottom branch is `bottom`.
@@ -245,8 +248,9 @@ impl Workspace {
 
     /// `ref_name`'s branch and the ones below it in its stack, which pushing it pushes too.
     fn pushed_with(&self, ref_name: &str) -> &[Branch] {
-        self.stack_of(ref_name)
-            .map_or(&[], |(stack, at)| &stack.branches[at..])
+        (self.stack_of(ref_name))
+            .and_then(|(stack, at)| stack.branches.get(at..))
+            .unwrap_or_default()
     }
 
     /// Whether pushing `ref_name` has commits to send. An unnamed branch has no ref to push.
@@ -293,8 +297,9 @@ impl Workspace {
     /// branches stacked on it. Pulling into a branch with others above moves its reference
     /// to the top of the stack, so the app doesn't offer it.
     pub fn can_pull(&self, ref_name: &str) -> bool {
-        self.stack_of(ref_name)
-            .is_some_and(|(stack, at)| at == 0 && !stack.branches[0].incoming.is_empty())
+        self.stack_of(ref_name).is_some_and(|(stack, at)| {
+            at == 0 && (stack.branches.first()).is_some_and(|b| !b.incoming.is_empty())
+        })
     }
 
     /// When anything last happened here, in seconds: a file written or a commit made.

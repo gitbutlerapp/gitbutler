@@ -282,7 +282,7 @@ impl Detail {
             .filter(|path| paths.contains(&path.as_str()));
         let cursor_row = cursor.as_deref().and_then(|cursor| {
             rows.iter().position(|row| match row {
-                TreeRow::File { pos, .. } => paths[*pos] == cursor,
+                TreeRow::File { pos, .. } => paths.get(*pos) == Some(&cursor),
                 TreeRow::Dir {
                     path,
                     collapsed: true,
@@ -306,7 +306,10 @@ impl Detail {
         let lit: Vec<bool> = match picks.is_empty() {
             true => Vec::new(),
             false => (rows.iter())
-                .map(|row| matches!(row, TreeRow::File { pos, .. } if picks.contains(paths[*pos])))
+                .map(|row| {
+                    matches!(row, TreeRow::File { pos, .. }
+                        if paths.get(*pos).is_some_and(|path| picks.contains(path)))
+                })
                 .collect(),
         };
         let count = rows.len();
@@ -335,7 +338,7 @@ impl Detail {
                     // The current file is solid while the list holds the focus, as the
                     // navigator's selection is while it does.
                     let solid = this.files_focus.is_focused(window);
-                    this.render_source_file(&source, index[*pos], row, solid, theme, cx)
+                    this.render_source_file(&source, *index.get(*pos)?, row, solid, theme, cx)
                 }
             },
         );

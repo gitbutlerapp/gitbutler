@@ -22,7 +22,9 @@ const PREFIX: &str = "person/";
 
 /// `seed`'s picture: their pattern on their colour, in a circle `size` across.
 pub fn person_avatar(seed: &str, size: f32, theme: &Theme) -> Div {
-    let [ground, shade] = theme.person[hash(seed) as usize % theme.person.len()];
+    let Some(&[ground, shade]) = theme.person.get(hash(seed) as usize % theme.person.len()) else {
+        return div();
+    };
     let pattern = hash(&format!("{seed}#glitch"));
     div()
         .size(dp(size))
@@ -187,6 +189,10 @@ impl Random {
 /// The pattern drawn from `seed` as an SVG path on a `SIZE` square, symmetric about its
 /// vertical middle: bands of rows, each its own width, growing from the middle out, and a stray
 /// block or two.
+#[expect(
+    clippy::indexing_slicing,
+    reason = "`Random::int(n)` is below `n`, and the grid's arithmetic keeps indexes in the arrays"
+)]
 fn pattern(seed: u32) -> String {
     let mut r = Random(seed);
     let half = SIZE / 2;

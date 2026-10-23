@@ -63,9 +63,9 @@ fn unmerged<'a>(repo: &gix::Repository, selected: &'a [Selected]) -> Result<Vec<
     Ok((selected.iter())
         .map(|part| part.file.path.as_str())
         .filter(|path| {
-            (index.entry_index_by_path(path.as_bytes().as_bstr())).is_ok_and(|ix| {
-                index.entries()[ix].stage() != gix::index::entry::Stage::Unconflicted
-            })
+            (index.entry_index_by_path(path.as_bytes().as_bstr()).ok())
+                .and_then(|ix| index.entries().get(ix))
+                .is_some_and(|entry| entry.stage() != gix::index::entry::Stage::Unconflicted)
         })
         .collect())
 }
@@ -219,7 +219,10 @@ fn hook_output(output: &str) -> String {
         .collect();
     match said.len() {
         ..=3 => said.join("\n"),
-        n => format!("{}\n\n{output}", said[n - 3..].join("\n")),
+        n => format!(
+            "{}\n\n{output}",
+            said.get(n - 3..).unwrap_or_default().join("\n")
+        ),
     }
 }
 

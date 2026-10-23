@@ -70,7 +70,7 @@ impl<T: Clone + Eq + Hash> Picks<T> {
         let (from, to) = (at(&anchor)?, at(item)?);
         let mut picked = self.kept.clone();
         let mut seen: HashSet<T> = picked.iter().cloned().collect();
-        for it in &order[from.min(to)..=from.max(to)] {
+        for it in order.get(from.min(to)..=from.max(to))? {
             if seen.insert(it.clone()) {
                 picked.push(it.clone());
             }

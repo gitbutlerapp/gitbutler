@@ -11,10 +11,6 @@
 //! asking for one could pick a variable font installed on the machine, which is slow to
 //! draw (see the crate's AGENTS.md).
 
-// Pull request descriptions are anyone's text, so it's read without indexing or cutting
-// where a mistake would panic.
-#![cfg_attr(not(test), deny(clippy::indexing_slicing, clippy::string_slice))]
-
 use std::cell::Cell;
 use std::ops::Range;
 

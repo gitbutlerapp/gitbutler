@@ -1379,17 +1379,14 @@ impl Detail {
             .get(top.item_ix + gaps)
             .and_then(|row| match row.file() {
                 Some(file) => {
-                    let path = &diff.files.get(file)?.file.path;
-                    let now = files.iter().position(|f| &f.file.path == path)?;
+                    let old = diff.files.get(file)?;
+                    let (now, new) =
+                        (files.iter().enumerate()).find(|(_, f)| f.file.path == old.file.path)?;
                     let mut row = row.in_file(now);
                     // Its hunk as the cursor follows one, which hunks an agent adds or drops
                     // elsewhere in the file don't move.
                     if let Some(hunk) = row.hunk_mut()
-                        && let Some(ix) = follow_hunk(
-                            &hunk_keys(&diff.files[file]),
-                            *hunk,
-                            &hunk_keys(&files[now]),
-                        )
+                        && let Some(ix) = follow_hunk(&hunk_keys(old), *hunk, &hunk_keys(new))
                     {
                         *hunk = ix;
                     }
@@ -1529,7 +1526,7 @@ impl Detail {
         } else {
             at - 1
         };
-        Some(shown[(at + delta).clamp(0, shown.len() as isize - 1) as usize])
+        (shown.get((at + delta).clamp(0, shown.len() as isize - 1) as usize)).copied()
     }
 
     /// The files the file list shows, in its order: not those a filter or a pending
@@ -1543,11 +1540,11 @@ impl Detail {
         else {
             return shown;
         };
-        let paths: Vec<&str> = (shown.iter())
-            .map(|ix| diff.files[*ix].file.path.as_str())
-            .collect();
+        let (shown, paths): (Vec<usize>, Vec<&str>) = (shown.into_iter())
+            .filter_map(|ix| Some((ix, diff.files.get(ix)?.file.path.as_str())))
+            .unzip();
         (unfolded(&paths, &self.collapsed_dirs).into_iter())
-            .map(|pos| shown[pos])
+            .filter_map(|pos| shown.get(pos).copied())
             .collect()
     }
 
@@ -1598,14 +1595,16 @@ impl Detail {
         };
         // The file went, say discarded: stay where it was, on what moved up into its
         // place, rather than jumping to the first file the next key would act on.
-        let Some(file) = files.iter().position(|f| f.file.path == old.file.path) else {
+        let Some((file, new)) =
+            (files.iter().enumerate()).find(|(_, f)| f.file.path == old.file.path)
+        else {
             return Cursor {
                 file: self.cursor.file.min(files.len().saturating_sub(1)),
                 hunk: None,
             };
         };
-        let hunk = (self.cursor.hunk)
-            .and_then(|ix| follow_hunk(&hunk_keys(old), ix, &hunk_keys(&files[file])));
+        let hunk =
+            (self.cursor.hunk).and_then(|ix| follow_hunk(&hunk_keys(old), ix, &hunk_keys(new)));
         Cursor { file, hunk }
     }
 

@@ -200,7 +200,7 @@ fn score(label: &str, query: &str) -> Option<i32> {
     let query = query.to_lowercase();
     if let Some((at, _)) = label
         .match_indices(&query)
-        .find(|(at, _)| *at == 0 || label[..*at].ends_with(' '))
+        .find(|(at, _)| *at == 0 || label.get(..*at).is_some_and(|head| head.ends_with(' ')))
     {
         return Some(2000 - at as i32);
     }
@@ -475,10 +475,10 @@ impl AppView {
         let rows: Vec<AnyElement> = matches
             .iter()
             .enumerate()
-            .map(|(row, &ix)| {
-                let choice = &palette.choices[ix];
+            .filter_map(|(row, &ix)| {
+                let choice = palette.choices.get(ix)?;
                 let selected = row == palette.selected;
-                list_row(("command", ix), selected, &theme)
+                let el = list_row(("command", ix), selected, &theme)
                     .gap(dp(12.))
                     .child(div().flex_1().truncate().child(choice.label.clone()))
                     .when_some(choice.detail.clone(), |el, detail| {
@@ -487,8 +487,8 @@ impl AppView {
                     .when_some(choice.key.clone(), |el, key| el.child(keycap(&key, &theme)))
                     .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                         this.run_command(ix, window, cx)
-                    }))
-                    .into_any_element()
+                    }));
+                Some(el.into_any_element())
             })
             .collect();
         let empty = rows.is_empty();

@@ -178,7 +178,8 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                             .map(|took| format!("{:.0}", took.as_secs_f64() * 1e3))
                             .collect();
                         took.sort();
-                        let ms = |at: usize| took[at].as_secs_f64() * 1e3;
+                        let ms =
+                            |at: usize| took.get(at).map_or(0., |took| took.as_secs_f64() * 1e3);
                         println!(
                             "HOLD {label} n={times} median={:.1}ms p90={:.1}ms max={:.1}ms stall={:.1}ms each={}",
                             ms(times / 2),

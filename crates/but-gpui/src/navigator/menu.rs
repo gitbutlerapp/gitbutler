@@ -212,7 +212,7 @@ impl Navigator {
                     // before the one above, or before the one after the one below.
                     let watched = store.expanded_ids();
                     let at = watched.iter().position(|id| id == project).unwrap_or(0);
-                    let up = at.checked_sub(1).map(|above| Some(&watched[above]));
+                    let up = at.checked_sub(1).map(|above| watched.get(above));
                     let down = (at + 1 < watched.len()).then(|| watched.get(at + 2));
                     // Only the manual order moves by hand.
                     if store.prefs.watched_order == WatchedOrder::Manual {

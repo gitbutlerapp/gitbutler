@@ -99,8 +99,8 @@ impl Detail {
                     let order: Vec<_> = changed(file).collect();
                     let at = |item| order.iter().position(|it| *it == item);
                     if let (Some(from), Some(to)) = (at(picks.anchor), at(item)) {
-                        let run = order[from.min(to)..=from.max(to)].iter().copied();
-                        picks.lines = picks.kept.iter().copied().chain(run).collect();
+                        let run = order.iter().skip(from.min(to)).take(from.abs_diff(to) + 1);
+                        picks.lines = picks.kept.iter().copied().chain(run.copied()).collect();
                     }
                     Some(picks)
                 }
@@ -207,10 +207,10 @@ impl Detail {
         let Some(diff_file) = self.diff.as_ref().and_then(|diff| diff.files.get(file)) else {
             return Vec::new();
         };
-        let Some(lines) = diff_file.hunks().get(hunk).map(|h| &h.lines) else {
+        let Some((key, lines)) = diff_file.hunks().get(hunk).map(|h| (h.key, &h.lines)) else {
             return Vec::new();
         };
-        if self.line_picked(&diff_file.file.path, diff_file.hunks()[hunk].key, line) {
+        if self.line_picked(&diff_file.file.path, key, line) {
             return self.picked_lines(file);
         }
         let changed = |ix: &usize| lines.get(*ix).is_some_and(|l| l.kind != LineKind::Context);

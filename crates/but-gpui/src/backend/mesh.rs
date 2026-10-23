@@ -411,17 +411,20 @@ fn parse_status(out: &str) -> Result<Status> {
                 .any(|b| !b.commits.is_empty() && b.status != BranchStatus::Integrated)
     });
     // Two main checkouts on one machine, as two clones, are told apart by their folders.
-    let twins: Vec<usize> = (0..checkouts.len())
-        .filter(|&ix| {
-            let c = &checkouts[ix];
+    let twins: Vec<usize> = (checkouts.iter().enumerate())
+        .filter(|&(ix, c)| {
             c.worktree.is_none()
                 && (checkouts.iter().enumerate())
                     .any(|(other, o)| other != ix && o.machine == c.machine && o.worktree.is_none())
         })
+        .map(|(ix, _)| ix)
         .collect();
     for ix in twins {
-        let folder = Path::new(&checkouts[ix].path).file_name();
-        checkouts[ix].folder = folder.map(|name| name.to_string_lossy().into_owned());
+        let Some(c) = checkouts.get_mut(ix) else {
+            continue;
+        };
+        let folder = Path::new(&c.path).file_name();
+        c.folder = folder.map(|name| name.to_string_lossy().into_owned());
     }
     Ok(Status {
         project: status.project,

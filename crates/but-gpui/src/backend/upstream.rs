@@ -308,7 +308,9 @@ pub fn overview(path: &Path, now: i64) -> Result<Option<Overview>> {
         let day = landed.time().map_or(first_day, |time| day_of(time.seconds));
         // A clock ahead of this one counts as today.
         let day = ((day - first_day) as usize).min(ACTIVITY_DAYS - 1);
-        daily[day] += 1;
+        if let Some(count) = daily.get_mut(day) {
+            *count += 1;
+        }
         // Theirs land on the day it did: the commit itself, or what a merge brought in.
         let first = present_first_parent(landed);
         let brought = match first.is_some() && landed.parent_ids().count() > 1 {
@@ -334,8 +336,13 @@ pub fn overview(path: &Path, now: i64) -> Result<Option<Overview>> {
                     people.len() - 1
                 }
             };
-            people[at].daily[day] += 1;
-            people[at].landed.insert(CommitId(landed.id));
+            let Some(person) = people.get_mut(at) else {
+                continue;
+            };
+            if let Some(count) = person.daily.get_mut(day) {
+                *count += 1;
+            }
+            person.landed.insert(CommitId(landed.id));
         }
         landings.push(landing(
             &repo,

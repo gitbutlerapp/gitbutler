@@ -67,7 +67,8 @@ impl Checks {
     /// Whether the line at index `line` of a hunk goes in the next commit.
     pub(super) fn line_checked(&self, path: &str, key: HunkKey, line: usize) -> bool {
         match self.hunk_check(path, key) {
-            Toggled::Mixed => self.line_picks[&(path.to_owned(), key)].0.contains(&line),
+            Toggled::Mixed => (self.line_picks.get(&(path.to_owned(), key)))
+                .is_some_and(|(lines, _)| lines.contains(&line)),
             check => check == Toggled::True,
         }
     }
@@ -321,9 +322,9 @@ impl Detail {
         let picked: Vec<HunkKey> = (hunks.iter())
             .flat_map(|hunk| match self.checks.hunk_check(&file.path, hunk.key) {
                 Toggled::True => vec![hunk.key],
-                Toggled::Mixed => {
-                    hunk.picked(&self.checks.line_picks[&(file.path.clone(), hunk.key)].0)
-                }
+                Toggled::Mixed => (self.checks.line_picks.get(&(file.path.clone(), hunk.key)))
+                    .map(|(lines, _)| hunk.picked(lines))
+                    .unwrap_or_default(),
                 Toggled::False => Vec::new(),
             })
             .collect();

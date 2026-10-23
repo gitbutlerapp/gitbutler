@@ -260,7 +260,16 @@ impl Theme {
     }
 
     pub fn token(&self, token: Token) -> Hsla {
-        self.syntax[token as usize]
+        let [comment, string, constant, keyword, function, ty, tag] = self.syntax;
+        match token {
+            Token::Comment => comment,
+            Token::String => string,
+            Token::Constant => constant,
+            Token::Keyword => keyword,
+            Token::Function => function,
+            Token::Type => ty,
+            Token::Tag => tag,
+        }
     }
 
     pub fn hover(&self) -> Hsla {

@@ -220,7 +220,7 @@ impl Transfer {
                 }
                 Transfer::BranchBelow {
                     branch: branch.clone(),
-                    commit: lane[at].commits.last()?.id,
+                    commit: lane.get(at)?.commits.last()?.id,
                 }
             }
             (Cut::Branch(_, branch), Selection::Worktree(_, name)) => Transfer::BranchBelow {

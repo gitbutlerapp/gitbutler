@@ -158,15 +158,17 @@ pub fn row(part: Part, row: Row, theme: &Theme) -> AnyElement {
     };
     match part {
         Part::Bar => bar(&row, theme),
-        Part::Before(ix) => plain_line(
-            id("conflict-before", ix),
-            &row.conflict.before[ix],
-            &row,
-            theme,
-        ),
+        Part::Before(ix) => {
+            let Some(line) = row.conflict.before.get(ix) else {
+                return div().into_any_element();
+            };
+            plain_line(id("conflict-before", ix), line, &row, theme)
+        }
         Part::After(ix) => {
             // After what's kept, which can be more or fewer lines than the new base's.
-            let line = &row.conflict.after[ix];
+            let Some(line) = row.conflict.after.get(ix) else {
+                return div().into_any_element();
+            };
             let renumbered = kept(&row).map(|(_, kept)| DiffLine {
                 new: Some(row.conflict.at + (kept.len() + ix) as u32),
                 ..line.clone()
@@ -179,14 +181,19 @@ pub fn row(part: Part, row: Row, theme: &Theme) -> AnyElement {
             )
         }
         Part::Label(side) => label(side, &row, theme),
-        Part::Line(side, ix) => side_line(
-            id(side_id(side), ix),
-            &side_lines(row.conflict, side)[ix],
-            side_look(side, row.layout.plain, theme),
-            row.layout,
-            row.last,
-            theme,
-        ),
+        Part::Line(side, ix) => {
+            let Some(line) = side_lines(row.conflict, side).get(ix) else {
+                return div().into_any_element();
+            };
+            side_line(
+                id(side_id(side), ix),
+                line,
+                side_look(side, row.layout.plain, theme),
+                row.layout,
+                row.last,
+                theme,
+            )
+        }
         Part::AncestorToggle => ancestor_toggle(&row, theme),
         Part::Result => result(&row, theme),
     }

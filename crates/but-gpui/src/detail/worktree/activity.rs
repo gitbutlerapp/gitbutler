@@ -131,10 +131,14 @@ impl Detail {
         let most = bars.iter().copied().max().unwrap_or(0).max(1);
         let most_commits = committed.iter().copied().max().unwrap_or(0).max(1);
         let picked = !span.slots.is_empty();
-        let in_view = |ix: &usize| span.keeps(first + *ix as i64);
-        let edits: u32 = (0..QUARTERS).filter(in_view).map(|ix| bars[ix]).sum();
-        let busy = (0..QUARTERS)
-            .filter(|ix| in_view(ix) && (bars[*ix] > 0 || committed[*ix] > 0))
+        let quarters = || (bars.iter().copied().zip(committed.iter().copied())).enumerate();
+        let in_view = |ix: usize| span.keeps(first + ix as i64);
+        let edits: u32 = quarters()
+            .filter(|(ix, _)| in_view(*ix))
+            .map(|(_, (n, _))| n)
+            .sum();
+        let busy = quarters()
+            .filter(|(ix, (n, landed))| in_view(*ix) && (*n > 0 || *landed > 0))
             .count();
         // Once every commit's files are read, so the count doesn't climb as they come in.
         let changed: Option<HashSet<&String>> = (scoped.iter())
@@ -179,10 +183,9 @@ impl Detail {
             }))
         });
         let columns =
-            (0..QUARTERS).map(|ix| {
+            quarters().map(|(ix, (n, landed))| {
                 let quarter = first + ix as i64;
                 let start = quarter * QUARTER;
-                let (n, landed) = (bars[ix], committed[ix]);
                 let inside = span.keeps(quarter);
                 // A run of quarters picked reads as one band, rounded only at its ends.
                 let joined = |next: i64| picked && inside && span.keeps(next);

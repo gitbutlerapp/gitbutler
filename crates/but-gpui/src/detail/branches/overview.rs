@@ -75,17 +75,24 @@ fn sum_up<'a>(kept: &[&'a OtherBranch], who: Option<&str>, since: i64, today: i6
         for commit in &branch.commits {
             // A clock ahead of this one counts as today.
             let day = commit.day.min(today);
-            if who.is_some_and(|who| branch.people[commit.person] != who) {
+            let Some(person) = branch.people.get(commit.person) else {
+                continue;
+            };
+            if who.is_some_and(|who| person != who) {
                 continue;
             }
             lane.latest = lane.latest.max(day);
-            if day >= first_day {
-                lane.daily[(day - first_day) as usize] += 1;
+            if let Some(n) =
+                (usize::try_from(day - first_day).ok()).and_then(|at| lane.daily.get_mut(at))
+            {
+                *n += 1;
             }
             if summed(day) {
                 lane.n += 1;
-                theirs[commit.person] += 1;
-                people.insert(&branch.people[commit.person]);
+                if let Some(n) = theirs.get_mut(commit.person) {
+                    *n += 1;
+                }
+                people.insert(person);
             }
         }
         if lane.n == 0 {
@@ -96,8 +103,11 @@ fn sum_up<'a>(kept: &[&'a OtherBranch], who: Option<&str>, since: i64, today: i6
             .map(|commit| commit.day.min(today))
             .min();
         summary.started += usize::from(born.is_some_and(summed));
-        lane.people = (0..theirs.len()).filter(|p| theirs[*p] > 0).collect();
-        lane.people.sort_by_key(|p| std::cmp::Reverse(theirs[*p]));
+        let mut ranked: Vec<_> = (theirs.iter().enumerate())
+            .filter(|(_, n)| **n > 0)
+            .collect();
+        ranked.sort_by_key(|(_, n)| std::cmp::Reverse(**n));
+        lane.people = ranked.into_iter().map(|(p, _)| p).collect();
         summary.lanes.push(lane);
     }
     summary
@@ -124,8 +134,8 @@ impl Detail {
         // The applied ones too, as the filters keep them, as they're under way as much.
         let shown = self.kept_in(branches, &branches.list, None, cx).into_iter();
         let applied = (self.kept_in(branches, &branches.applied, None, cx)).into_iter();
-        let kept: Vec<&OtherBranch> = (shown.map(|ix| &branches.list[ix]))
-            .chain(applied.map(|ix| &branches.applied[ix]))
+        let kept: Vec<&OtherBranch> = (shown.filter_map(|ix| branches.list.get(ix)))
+            .chain(applied.filter_map(|ix| branches.applied.get(ix)))
             .collect();
         let since = branches.recency.since(today);
         let summary = sum_up(&kept, branches.who.as_deref(), since, today);
@@ -285,8 +295,8 @@ fn lane_row(
     };
     let quiet = Some(today - lane.latest).filter(|days| *days >= QUIET_DAYS);
     let since = branches.recency.since(today);
-    let avatars = lane.people.iter().take(3).enumerate().map(|(at, person)| {
-        let name = &branch.people[*person];
+    let names = (lane.people.iter()).filter_map(|person| branch.people.get(*person));
+    let avatars = names.take(3).enumerate().map(|(at, name)| {
         author_avatar(name, &email_of(branches, name), 16., theme)
             .flex_none()
             .when(at > 0, |el| el.ml(dp(-4.)))

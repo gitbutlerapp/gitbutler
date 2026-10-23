@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, App, Context, Entity, Focusable as _, KeyBinding, Pixels, Window, actions, point,
-    prelude::*,
+    AnyElement, App, Context, Entity, Focusable as _, KeyBinding, Pixels, ScrollHandle, Window,
+    actions, point, prelude::*,
 };
 
 use super::Detail;
@@ -203,18 +203,23 @@ impl Detail {
         else {
             return;
         };
+        let (Some(before), Some(found)) = (text.text.get(..range.start), text.text.get(range))
+        else {
+            return;
+        };
         // A unified diff scrolls both sides as the new one; split, a line on both sides
         // scrolls both.
-        let sides: &[usize] = match (prefs.split, text.kind) {
-            (true, LineKind::Removed) => &[0],
-            (true, LineKind::Context) => &[0, 1],
-            _ => &[1],
+        let [old, new] = scroll;
+        let sides: &[&ScrollHandle] = match (prefs.split, text.kind) {
+            (true, LineKind::Removed) => &[old],
+            (true, LineKind::Context) => &[old, new],
+            _ => &[new],
         };
         let theme = Theme::get(cx);
         let digit = crate::ui::diff::digit_width(theme);
-        let start = theme.scaled(backend::columns(&text.text[..range.start]) as f32 * digit);
-        let end = start + theme.scaled(backend::columns(&text.text[range]) as f32 * digit);
-        for handle in sides.iter().map(|side| &scroll[*side]) {
+        let start = theme.scaled(backend::columns(before) as f32 * digit);
+        let end = start + theme.scaled(backend::columns(found) as f32 * digit);
+        for handle in sides {
             let width = handle.bounds().size.width - theme.scaled(8.);
             let offset = -handle.offset().x;
             if start < offset || end > offset + width {
@@ -230,7 +235,7 @@ impl Detail {
             return Vec::new();
         };
         (find.on.get(&spot).into_iter().flatten())
-            .map(|&ix| (find.matches[ix].1.clone(), ix == find.current))
+            .filter_map(|&ix| Some((find.matches.get(ix)?.1.clone(), ix == find.current)))
             .collect()
     }
 

@@ -41,8 +41,8 @@ fn entries(source: &'static str) -> HashMap<&'static str, &'static str> {
 /// one ("d.ts" before "ts"), else a plain document.
 pub fn file_icon(path: &str, cx: &App) -> Img {
     let name = path.rsplit('/').next().unwrap_or(path).to_lowercase();
-    let suffixes =
-        std::iter::once(name.as_str()).chain(name.match_indices('.').map(|(i, _)| &name[i + 1..]));
+    let suffixes = std::iter::once(name.as_str())
+        .chain((name.match_indices('.')).filter_map(|(i, _)| name.get(i + 1..)));
     let icon = suffixes
         .flat_map(|suffix| TYPES.iter().filter_map(move |map| map.get(suffix)))
         .find(|icon| icon_svg(icon).is_some())

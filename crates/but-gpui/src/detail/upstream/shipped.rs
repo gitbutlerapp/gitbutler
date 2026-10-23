@@ -78,11 +78,11 @@ fn carried(releases: &[CommitId], landings: &[Landing], kept: &HashSet<CommitId>
     (starts.iter().enumerate())
         .map(|(ix, &start)| {
             // Tags on one commit carried the same, back to the release before them all.
-            let end = (starts[ix + 1..].iter())
+            let end = (starts.iter().skip(ix + 1))
                 .find(|&&next| next != start)
                 .copied()
                 .unwrap_or(landings.len());
-            (landings[start..end.max(start)].iter())
+            (landings.iter().take(end).skip(start))
                 .filter(|l| l.pull && kept.contains(&l.id))
                 .count()
         })

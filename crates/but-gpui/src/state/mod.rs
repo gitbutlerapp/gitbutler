@@ -133,24 +133,24 @@ impl Cut {
     /// What's cut, a commit by its title where the workspace has one for it.
     pub fn describe(&self, store: &Store) -> String {
         match self {
-            Cut::Commit(_, ids) | Cut::CherryPick(_, ids) if ids.len() > 1 => {
-                format!("{} commits", ids.len())
-            }
-            Cut::Commit(project, ids) | Cut::CherryPick(project, ids) => {
-                match store.find_commit(project, ids[0]) {
+            Cut::Commit(project, ids) | Cut::CherryPick(project, ids) => match &**ids {
+                [id] => match store.find_commit(project, *id) {
                     Some((_, commit)) if !commit.title.is_empty() => {
                         format!("\"{}\"", commit.title)
                     }
-                    _ => format!("commit {}", ids[0].short()),
-                }
-            }
-            Cut::Branch(_, ref_name) => short_ref(ref_name).to_owned(),
-            // Hunks or lines of one file: what of it isn't said here, where the diff isn't.
-            Cut::Files { files, .. } if files.len() == 1 => match &files[0].hunks {
-                Some(_) => format!("changes in {}", files[0].file.path),
-                None => files[0].file.path.clone(),
+                    _ => format!("commit {}", id.short()),
+                },
+                ids => format!("{} commits", ids.len()),
             },
-            Cut::Files { files, .. } => format!("{} files", files.len()),
+            Cut::Branch(_, ref_name) => short_ref(ref_name).to_owned(),
+            Cut::Files { files, .. } => match &**files {
+                // Hunks or lines of one file: what of it isn't said here, where the diff isn't.
+                [file] => match &file.hunks {
+                    Some(_) => format!("changes in {}", file.file.path),
+                    None => file.file.path.clone(),
+                },
+                files => format!("{} files", files.len()),
+            },
         }
     }
 }

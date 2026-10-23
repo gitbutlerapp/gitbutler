@@ -378,7 +378,9 @@ fn checkout_branches(
         branches.last_mut()?.1.push(entry.clone());
     }
     // The target checked out with nothing of its own isn't listed, as the workspace has it.
-    if target_ref.is_some_and(|t| t.as_bstr() == checkout.as_str()) && branches[0].1.is_empty() {
+    if target_ref.is_some_and(|t| t.as_bstr() == checkout.as_str())
+        && (branches.first()).is_some_and(|(_, commits)| commits.is_empty())
+    {
         branches.remove(0);
     }
     Some(branches)

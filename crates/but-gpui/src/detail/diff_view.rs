@@ -209,21 +209,16 @@ impl Detail {
         };
         layout.digits = last.max(length).to_string().len();
         let columns = widest.map(|side| side.max(whole_columns));
-        let scroll = self
+        let [old, new] = self
             .sideways
             .get(&file.file.path)
             .cloned()
             .unwrap_or_default();
+        let sideways = |scroll, columns| diff::Sideways { scroll, columns };
         layout.sideways = match prefs.split {
-            true => [0, 1].map(|side| diff::Sideways {
-                scroll: scroll[side].clone(),
-                columns: columns[side],
-            }),
+            true => [sideways(old, columns[0]), sideways(new, columns[1])],
             false => {
-                let both = diff::Sideways {
-                    scroll: scroll[1].clone(),
-                    columns: columns[0].max(columns[1]),
-                };
+                let both = sideways(new, columns[0].max(columns[1]));
                 [both.clone(), both]
             }
         };
@@ -261,7 +256,7 @@ impl Detail {
         let lines: Vec<&str> = (start.0..=end.0)
             .filter_map(|row| {
                 let text = &self.line_at(row)?.text;
-                Some(&text[self.selected_in_row(row).unwrap_or(0..0)])
+                text.get(self.selected_in_row(row).unwrap_or(0..0))
             })
             .collect();
         Some(lines.join("\n"))
@@ -678,15 +673,13 @@ impl Detail {
         if row == DiffRow::File(file) && top.offset_in_item <= Pixels::ZERO {
             return None;
         }
-        let header = (0..=top.item_ix)
-            .rev()
-            .find(|&ix| diff.rows[ix] == DiffRow::File(file))?;
+        let header =
+            (diff.rows.get(..=top.item_ix)?.iter()).rposition(|row| *row == DiffRow::File(file))?;
         // The file's last row pushes it, so that row and the card's end below it show whole
         // rather than a sliver of them under the header.
-        let last = (top.item_ix..diff.rows.len())
-            .find(|&ix| diff.rows[ix].file() != Some(file))
-            .unwrap_or(diff.rows.len())
-            - 1;
+        let same_file =
+            (diff.rows.iter().skip(top.item_ix)).take_while(|row| row.file() == Some(file));
+        let last = top.item_ix + same_file.count() - 1;
         let lift = self
             .list
             .bounds_for_item(last)
@@ -705,17 +698,20 @@ impl Detail {
         cx: &App,
     ) -> AnyElement {
         let theme = Theme::get(cx);
-        let Some(diff) = self.diff.as_ref().filter(|diff| ix < diff.rows.len()) else {
+        let Some(diff) = &self.diff else {
             return div().into_any_element();
         };
-        let row = diff.rows[ix];
+        let Some(&row) = diff.rows.get(ix) else {
+            return div().into_any_element();
+        };
+        let file_diff = row.file().and_then(|file| diff.files.get(file));
         // A folded file's header ends its card too.
         let last = diff::ends_card(&diff.rows, ix);
         let store = self.store.read(cx);
         // Every file has its path to copy, even where nothing can change it.
         let menu =
-            |menu: Option<Cut>, file: usize, line: Option<u32>, entity: WeakEntity<Detail>| {
-                let path = diff.files[file].file.path.clone();
+            |menu: Option<Cut>, file: &FileDiff, line: Option<u32>, entity: WeakEntity<Detail>| {
+                let path = file.file.path.clone();
                 move |position: Point<Pixels>, cx: &mut App| {
                     let at = At::File(path.clone(), line);
                     (entity.update(cx, |detail, cx| {
@@ -726,13 +722,14 @@ impl Detail {
             };
         // The margin between the cards and the sides of the pane.
         let padded = div().w_full().px(dp(12.));
-        match row {
-            DiffRow::File(file) => {
-                let whole = self.whole_button(ix, file, &diff.files[file], entity.clone());
-                let drawn = self.drawing_button(ix, file, &diff.files[file], entity.clone());
+        match (row, file_diff) {
+            (DiffRow::File(file), Some(file_diff)) => {
+                let whole = self.whole_button(ix, file, file_diff, entity.clone());
+                let drawn = self.drawing_button(ix, file, file_diff, entity.clone());
                 let toggle = entity.clone();
                 // What right-clicking the header offers, behind a ⋯ as well.
-                let open = menu(self.diff_cut(file, None, cx), file, None, entity.clone());
+                let cut = self.diff_cut(file, None, cx);
+                let open = menu(cut, file_diff, None, entity.clone());
                 let more = icon_button(("file-more", ix), Icon::Kebab)
                     .small()
                     .on_click({
@@ -740,7 +737,7 @@ impl Detail {
                         move |event, _, cx| open(event.position(), cx)
                     });
                 // Of commits shown one after another, which one it's from.
-                let from = (diff.files[file].commit).and_then(|id| {
+                let from = (file_diff.commit).and_then(|id| {
                     let store = self.store.read(cx);
                     let (_, commit) = store.workspace(&diff.key.project)?.find_commit(id)?;
                     Some(
@@ -763,7 +760,7 @@ impl Detail {
                     .child(more);
                 let header = diff::file_header(
                     file,
-                    &diff.files[file],
+                    file_diff,
                     theme,
                     HeaderDecor {
                         trailing: Some(trailing.into_any_element()),
@@ -787,12 +784,12 @@ impl Detail {
                     })
                     .into_any_element()
             }
-            DiffRow::Hunk { file, hunk } => {
-                let hunks = diff.files[file].hunks();
-                let Some(key) = hunks.get(hunk).map(|h| h.key) else {
+            (DiffRow::Hunk { file, hunk }, Some(file_diff)) => {
+                let hunks = file_diff.hunks();
+                let Some(found) = hunks.get(hunk) else {
                     return padded.into_any_element();
                 };
-                let path = &diff.files[file].file.path;
+                let (key, path) = (found.key, &file_diff.file.path);
                 let at = Cursor {
                     file,
                     hunk: Some(hunk),
@@ -816,32 +813,30 @@ impl Detail {
                 // reload may have moved other hunks into this row's indices.
                 // A conflicted file goes whole or not at all; see `backend::discard`.
                 // Of a hunk with lines picked, just those, as ⌥⌘Z takes.
-                let discard =
-                    (diff.key.source.live() && !diff.files[file].file.conflicted).then(|| {
-                        let picked: std::collections::BTreeSet<usize> =
-                            (0..hunks[hunk].lines.len())
-                                .filter(|line| self.line_picked(path, key, *line))
-                                .collect();
-                        let (keys, tip) = match picked.is_empty() {
-                            true => (vec![key], "Throw this hunk away"),
-                            false => (
-                                self.part_keys(&hunks[hunk], &picked),
-                                "Throw the picked lines away",
-                            ),
-                        };
-                        let change = diff.files[file].part(Some(keys));
-                        let checkout = (diff.key.project.clone(), diff.key.linked());
-                        let app = self.app.clone();
-                        discard_button(ix, checkout, change, current, tip, app, cx)
-                    });
+                let discard = (diff.key.source.live() && !file_diff.file.conflicted).then(|| {
+                    let picked: std::collections::BTreeSet<usize> = (0..found.lines.len())
+                        .filter(|line| self.line_picked(path, key, *line))
+                        .collect();
+                    let (keys, tip) = match picked.is_empty() {
+                        true => (vec![key], "Throw this hunk away"),
+                        false => (
+                            self.part_keys(found, &picked),
+                            "Throw the picked lines away",
+                        ),
+                    };
+                    let change = file_diff.part(Some(keys));
+                    let checkout = (diff.key.project.clone(), diff.key.linked());
+                    let app = self.app.clone();
+                    discard_button(ix, checkout, change, current, tip, app, cx)
+                });
                 // The lines before the hunk, unless the file shown whole has them above.
-                let unmodified = if self.whole_lines(&diff.files[file]).is_some() {
+                let unmodified = if self.whole_lines(file_diff).is_some() {
                     0
                 } else {
                     diff::unmodified_before(hunks, hunk)
                 };
                 let header = diff::hunk_header(
-                    &hunks[hunk],
+                    found,
                     unmodified,
                     theme,
                     HeaderDecor {
@@ -860,7 +855,7 @@ impl Detail {
                     .group("hunk-row")
                     .child(header)
                     .on_mouse_down(MouseButton::Right, {
-                        let open = menu(carried.clone(), file, Some(line), entity);
+                        let open = menu(carried.clone(), file_diff, Some(line), entity);
                         move |event, _, cx| open(event.position, cx)
                     })
                     .when(unmodified > 0, |el| {
@@ -874,14 +869,13 @@ impl Detail {
                     })
                     .on_mouse_down(MouseButton::Left, press_off(dragged.clone(), Some(at)))
                     .when_some(carried, |el, carried| {
-                        let lines: Vec<_> =
-                            (0..hunks[hunk].lines.len()).map(|l| (hunk, l)).collect();
+                        let lines: Vec<_> = (0..found.lines.len()).map(|l| (hunk, l)).collect();
                         let label = self.lines_label(file, &lines);
                         el.on_drag(carried, self.drag_preview(label, false, dragged))
                     })
                     .into_any_element()
             }
-            DiffRow::Line { file, hunk, line } => {
+            (DiffRow::Line { file, hunk, line }, Some(file_diff)) => {
                 let Some(text) = self.line_at(ix) else {
                     return padded.into_any_element();
                 };
@@ -896,20 +890,23 @@ impl Detail {
                     selected: self.selected_in_row(ix),
                     found: self.found_on(Spot::Line(place)),
                 };
-                let layout = self.layout(&diff.files[file], &store.prefs);
+                let layout = self.layout(file_diff, &store.prefs);
                 let element = diff::line_row(text, place, last, theme, &layout, decor);
                 padded
                     .child(element)
                     .on_mouse_down(MouseButton::Right, menu)
                     .into_any_element()
             }
-            DiffRow::Pair {
-                file,
-                hunk,
-                left,
-                right,
-            } => {
-                let Some(lines) = diff.files[file].hunks().get(hunk).map(|h| &h.lines) else {
+            (
+                DiffRow::Pair {
+                    file,
+                    hunk,
+                    left,
+                    right,
+                },
+                Some(file_diff),
+            ) => {
+                let Some(lines) = file_diff.hunks().get(hunk).map(|h| &h.lines) else {
                     return padded.into_any_element();
                 };
                 let half = |line: Option<usize>| {
@@ -926,14 +923,14 @@ impl Detail {
                     }
                 };
                 let sides = [
-                    left.map(|l| (&lines[l], lines[l].old)),
-                    right.map(|r| (&lines[r], lines[r].new)),
+                    (left.and_then(|l| lines.get(l))).map(|line| (line, line.old)),
+                    (right.and_then(|r| lines.get(r))).map(|line| (line, line.new)),
                 ];
                 // Each line is on one row only, so the right one, or the left where there's
                 // none, tells rows apart.
                 let place = (file, hunk, right.or(left).unwrap_or_default());
                 let halves = [half(left), half(right)];
-                let layout = self.layout(&diff.files[file], &store.prefs);
+                let layout = self.layout(file_diff, &store.prefs);
                 let pair = diff::pair_row(sides, halves, place, last, theme, &layout);
                 let menu = line_menu(ix, entity.clone());
                 let cursor = Some(Cursor {
@@ -946,7 +943,7 @@ impl Detail {
                     .on_mouse_down(MouseButton::Left, press_off(entity, cursor))
                     .into_any_element()
             }
-            DiffRow::Context { file, old, new } => {
+            (DiffRow::Context { file, old, new }, Some(file_diff)) => {
                 let Some(line) = self.line_at(ix) else {
                     return padded.into_any_element();
                 };
@@ -957,7 +954,7 @@ impl Detail {
                     found: self.found_on(Spot::Unchanged(file, new)),
                     ..Default::default()
                 };
-                let layout = self.layout(&diff.files[file], &store.prefs);
+                let layout = self.layout(file_diff, &store.prefs);
                 let element =
                     diff::context_row(line, file, (old, new), last, theme, &layout, decor);
                 padded
@@ -965,27 +962,25 @@ impl Detail {
                     .on_mouse_down(MouseButton::Right, menu)
                     .into_any_element()
             }
-            DiffRow::Conflict {
-                file,
-                conflict,
-                part,
-            } => {
-                let Some(found) = diff.files[file].conflicts().get(conflict) else {
+            (DiffRow::Conflict { conflict, part, .. }, Some(file_diff)) => {
+                let Some(found) = file_diff.conflicts().get(conflict) else {
                     return padded.into_any_element();
                 };
-                let layout = self.layout(&diff.files[file], &store.prefs);
-                let path = &diff.files[file].file.path;
+                let layout = self.layout(file_diff, &store.prefs);
+                let path = &file_diff.file.path;
                 let element =
                     self.conflict_row(path, found, part, &layout, last, entity, window, cx);
                 padded.child(element).into_any_element()
             }
-            DiffRow::Note(file) => padded
-                .child(match self.drawing_of(&diff.files[file]) {
+            (DiffRow::Note(_), Some(file_diff)) => padded
+                .child(match self.drawing_of(file_diff) {
                     Some(drawn) => diff::drawing(drawn.before.clone(), drawn.after.clone(), theme),
-                    None => diff::note(&diff.files[file], theme),
+                    None => diff::note(file_diff, theme),
                 })
                 .into_any_element(),
-            DiffRow::Gap => padded.h(dp(10.)).into_any_element(),
+            (DiffRow::Gap, _) => padded.h(dp(10.)).into_any_element(),
+            // A row whose file is gone draws nothing.
+            (_, None) => padded.into_any_element(),
         }
     }
 }
@@ -1151,14 +1146,20 @@ impl Detail {
         (file, hunk, line): (usize, usize, usize),
         entity: &WeakEntity<Detail>,
     ) -> (bool, Option<diff::OnToggle>) {
-        let Some(hunk) = diff.files[file].hunks().get(hunk) else {
+        let Some(file_diff) = diff.files.get(file) else {
+            return (false, None);
+        };
+        let Some(hunk) = file_diff.hunks().get(hunk) else {
+            return (false, None);
+        };
+        let Some(kind) = hunk.lines.get(line).map(|line| line.kind) else {
             return (false, None);
         };
         if !self.composes() {
             return (false, None);
         }
-        let (path, key) = (diff.files[file].file.path.clone(), hunk.key);
-        if hunk.lines[line].kind == LineKind::Context {
+        let (path, key) = (file_diff.file.path.clone(), hunk.key);
+        if kind == LineKind::Context {
             return (!self.checks.hunk_checked(&path, key), None);
         }
         let excluded = !self.checks.line_checked(&path, key, line);
@@ -1184,9 +1185,8 @@ impl Detail {
     ) -> Option<diff::Gutter> {
         let (file, hunk, line) = place;
         let diff_file = self.diff.as_ref()?.files.get(file)?;
-        let key = diff_file.hunks().get(hunk)?.key;
-        let changed = (diff_file.hunks()[hunk].lines.get(line))
-            .is_some_and(|line| line.kind != LineKind::Context);
+        let (key, lines) = diff_file.hunks().get(hunk).map(|h| (h.key, &h.lines))?;
+        let changed = (lines.get(line)).is_some_and(|line| line.kind != LineKind::Context);
         // The composer's checks own the numbers while it's open.
         if !changed || self.composes() {
             return None;
@@ -1333,8 +1333,11 @@ impl Detail {
                 left,
                 right,
             }) => {
-                let key = diff.files[file].hunks().get(hunk).map(|h| h.key);
-                let path = &diff.files[file].file.path;
+                let Some(file_diff) = diff.files.get(file) else {
+                    return;
+                };
+                let key = file_diff.hunks().get(hunk).map(|h| h.key);
+                let path = &file_diff.file.path;
                 let picked = (key.into_iter())
                     .flat_map(|key| [left, right].into_iter().flatten().map(move |l| (key, l)))
                     .find(|(key, l)| self.line_picked(path, *key, *l))
@@ -1349,9 +1352,11 @@ impl Detail {
             (Some(DiffRow::Context { file, .. }), _) => (*file, None),
             _ => return,
         };
+        let Some(file_diff) = diff.files.get(file) else {
+            return;
+        };
         let line_of = |(file, hunk, line): (usize, usize, usize)| {
-            let lines = diff.files[file].hunks().get(hunk).map(|h| &h.lines);
-            lines.and_then(|lines| lines.get(line))
+            diff.files.get(file)?.hunks().get(hunk)?.lines.get(line)
         };
         let line =
             (paired.and_then(line_of).or(self.line_at(row))).and_then(|line| line.new.or(line.old));
@@ -1367,18 +1372,18 @@ impl Detail {
             };
             let changed = place
                 .filter(|place| line_of(*place).is_some_and(|line| line.kind != LineKind::Context));
-            let key = hunk.and_then(|hunk| Some(diff.files[file].hunks().get(hunk)?.key));
+            let key = hunk.and_then(|hunk| Some(file_diff.hunks().get(hunk)?.key));
             let menu = match changed {
                 Some(place) => self.lines_cut(file, self.grip_takes(place), cx),
                 None => self.diff_cut(file, key.map(|key| vec![key]), cx),
             };
-            let at = At::File(diff.files[file].file.path.clone(), line);
+            let at = At::File(file_diff.file.path.clone(), line);
             self.clear_text_selection(cx);
             self.changes_menu(menu, at, position, cx);
             return;
         };
         let (project, worktree) = (diff.key.project.clone(), diff.key.linked());
-        let path = diff.files[file].file.path.clone();
+        let path = file_diff.file.path.clone();
         // Copy acts where the focus is: on the diff's selection.
         window.focus(&self.focus, cx);
         let mut items = vec![MenuItem::action("Copy", &crate::app::CopySelection, cx)];
@@ -1461,13 +1466,16 @@ fn discard_button(
 /// The word around byte `ix` of `text`, or an empty range when `ix` isn't in one.
 fn word_at(text: &str, ix: usize) -> Range<usize> {
     let is_word = |c: char| c.is_alphanumeric() || c == '_';
-    let start = text[..ix]
+    let Some((before, after)) = text.split_at_checked(ix) else {
+        return ix..ix;
+    };
+    let start = before
         .char_indices()
         .rev()
         .take_while(|(_, c)| is_word(*c))
         .last()
         .map_or(ix, |(at, _)| at);
-    let end = text[ix..]
+    let end = after
         .char_indices()
         .find(|(_, c)| !is_word(*c))
         .map_or(text.len(), |(at, _)| ix + at);

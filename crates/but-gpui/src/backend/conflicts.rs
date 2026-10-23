@@ -99,10 +99,11 @@ pub fn resolve_markers(
         let ids = markers::ids(&lines, &blocks);
         let mut kept = HashMap::new();
         for (id, keep) in picks {
-            let ix = (ids.iter().position(|shown| *shown == id)).with_context(|| {
-                format!("{file} changed since its conflicts were shown. Pick again.")
-            })?;
-            let block = &blocks[ix];
+            let (ix, block) = (ids.iter().zip(&blocks).enumerate())
+                .find_map(|(ix, (shown, block))| (*shown == id).then_some((ix, block)))
+                .with_context(|| {
+                    format!("{file} changed since its conflicts were shown. Pick again.")
+                })?;
             let text = match keep {
                 Keep::NewBase => markers::text(&lines, block.ours.clone()),
                 Keep::Commit => markers::text(&lines, block.theirs.clone()),

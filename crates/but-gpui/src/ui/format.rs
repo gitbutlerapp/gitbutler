@@ -86,7 +86,7 @@ pub fn error_summary(text: &str) -> String {
         if line.is_empty() || !(remote || git(line)) {
             continue;
         }
-        let before = ix.checked_sub(1).map(|ix| lines[ix]);
+        let before = ix.checked_sub(1).and_then(|ix| lines.get(ix)).copied();
         if line == "fatal: Could not read from remote repository."
             // Not the label a wrapper puts over Git's output, when ssh said nothing.
             && let Some(cause) =
@@ -97,7 +97,7 @@ pub fn error_summary(text: &str) -> String {
         keep(line);
     }
     match said.is_empty() {
-        true => lines[..lines.len().min(4)].join("\n"),
+        true => lines.get(..4).unwrap_or(&lines).join("\n"),
         false => said.join("\n"),
     }
 }

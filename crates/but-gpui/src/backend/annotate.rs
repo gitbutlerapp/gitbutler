@@ -1,10 +1,6 @@
 //! What [deltoids](https://github.com/juanibiapina/deltoids) adds to a diff: the words
 //! that changed within a line, and the function or type each hunk sits in.
 
-// What deltoids makes of a diff decides the ranges, so they're read without indexing
-// where a mistake would panic.
-#![cfg_attr(not(test), deny(clippy::indexing_slicing, clippy::string_slice))]
-
 use std::ops::Range;
 
 use deltoids::{EmphKind, LineEmphasis};

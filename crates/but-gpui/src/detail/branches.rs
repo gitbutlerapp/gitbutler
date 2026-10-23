@@ -84,7 +84,7 @@ impl Branches {
     fn listed_commits(&self, ref_name: &str) -> &[TargetCommit] {
         let own = self.branch(ref_name).and_then(|b| b.own_commits);
         match self.commits.get(ref_name) {
-            Some((_, commits)) => &commits[..own.unwrap_or(commits.len()).min(commits.len())],
+            Some((_, commits)) => own.and_then(|own| commits.get(..own)).unwrap_or(commits),
             None => &[],
         }
     }
@@ -506,7 +506,10 @@ impl Detail {
     /// The branches the filters keep, newest first, under headings by when they last
     /// changed, a stack's branches together under a caption while more than one of them shows.
     fn branch_rows(&self, branches: &Branches, cx: &Context<Self>) -> Vec<Row> {
-        let shown = self.kept_in(branches, &branches.list, None, cx);
+        let shown: Vec<(usize, &OtherBranch)> = (self.kept_in(branches, &branches.list, None, cx))
+            .into_iter()
+            .filter_map(|ix| Some((ix, branches.list.get(ix)?)))
+            .collect();
         // A stack goes by its newest branch, as the listing orders them.
         let mut newest: HashMap<usize, i64> = HashMap::new();
         for branch in &branches.list {
@@ -518,11 +521,14 @@ impl Detail {
         let today = upstream::day_of(crate::ui::now());
         let mut rows = Vec::new();
         let mut group = None;
-        for stack in shown.chunk_by(|a, b| branches.list[*a].stack == branches.list[*b].stack) {
+        for stack in shown.chunk_by(|(_, a), (_, b)| a.stack == b.stack) {
+            let Some(&(first_ix, first)) = stack.first() else {
+                continue;
+            };
             // A day ahead, from a machine whose clock runs fast, counts as today, as the
             // activity strip has it.
-            let ago = (newest.get(&branches.list[stack[0]].stack))
-                .map(|time| (today - upstream::day_of(*time)).max(0));
+            let ago =
+                (newest.get(&first.stack)).map(|time| (today - upstream::day_of(*time)).max(0));
             let heading = match ago {
                 Some(0) => "Today",
                 Some(days) if days < 7 => "This week",
@@ -535,18 +541,17 @@ impl Detail {
             }
             let stacked = stack.len() > 1;
             if stacked {
-                let top = (branches.list.iter())
-                    .position(|b| b.stack == branches.list[stack[0]].stack)
-                    .unwrap_or(stack[0]);
-                let folded = branches.folded.contains(&branches.list[top].ref_name);
+                let (top, top_branch) = (branches.list.iter().enumerate())
+                    .find(|(_, b)| b.stack == first.stack)
+                    .unwrap_or((first_ix, first));
+                let folded = branches.folded.contains(&top_branch.ref_name);
                 rows.push(Row::Stack(top, stack.len(), folded));
                 if folded {
                     continue;
                 }
             }
-            for &ix in stack {
+            for &(ix, branch) in stack {
                 rows.push(Row::Branch(ix, stacked));
-                let branch = &branches.list[ix];
                 // By its tip only, so the rows stay while a fetch has them reload. Only its
                 // own commits: a stacked branch's listing goes on through the ones below it.
                 if branches.open.contains(&branch.ref_name)
@@ -596,7 +601,10 @@ impl Detail {
                     || (branches.who.as_ref()).is_none_or(|who| branch.people.contains(who)))
                 && (skip == Some(Facet::Recency) || branches.recency.keeps(branch.time, today))
         };
-        (0..list.len()).filter(|ix| keeps(&list[*ix])).collect()
+        (list.iter().enumerate())
+            .filter(|(_, branch)| keeps(branch))
+            .map(|(ix, _)| ix)
+            .collect()
     }
 
     /// The people at work lately: who wrote commits in the last activity picked, or the last
@@ -611,8 +619,11 @@ impl Detail {
         // The applied ones too, as the overview counts them.
         let listed = self.kept_in(branches, &branches.list, Some(Facet::Who), cx);
         let applied = self.kept_in(branches, &branches.applied, Some(Facet::Who), cx);
-        let kept = (listed.into_iter().map(|ix| &branches.list[ix]))
-            .chain(applied.into_iter().map(|ix| &branches.applied[ix]));
+        let listed = listed.into_iter().filter_map(|ix| branches.list.get(ix));
+        let applied = applied
+            .into_iter()
+            .filter_map(|ix| branches.applied.get(ix));
+        let kept = listed.chain(applied);
         for branch in kept {
             // Who wrote its commits in those days, each once, not everyone on a branch only
             // rebased then.
@@ -622,7 +633,7 @@ impl Detail {
                 .collect();
             theirs.sort_unstable();
             theirs.dedup();
-            for person in theirs.into_iter().map(|p| &branch.people[p]) {
+            for person in theirs.into_iter().filter_map(|p| branch.people.get(p)) {
                 match people.iter_mut().find(|(name, ..)| name == person) {
                     Some((.., n)) => *n += 1,
                     None => people.push((person.clone(), String::new(), 1)),
@@ -650,7 +661,8 @@ impl Detail {
         (STATUSES.iter())
             .map(|(status, _)| {
                 let n = (kept.iter())
-                    .filter(|ix| status_keeps(*status, &branches.list[**ix]))
+                    .filter_map(|ix| branches.list.get(*ix))
+                    .filter(|branch| status_keeps(*status, branch))
                     .count();
                 (*status, n)
             })
@@ -696,8 +708,10 @@ impl Detail {
             return;
         }
         // One folded away in its stack still counts.
-        let selected =
-            |ix: &usize| Some(&branches.list[*ix].ref_name) == branches.selected.as_ref();
+        let selected = |ix: &usize| {
+            (branches.list.get(*ix))
+                .is_some_and(|b| Some(&b.ref_name) == branches.selected.as_ref())
+        };
         if (self.kept_in(branches, &branches.list, None, cx).iter()).any(selected) {
             // A stack the filter leaves one branch of has no caption to stay on.
             if branches.stack {
@@ -784,19 +798,19 @@ impl Detail {
         };
         let rows = self.branch_rows(branches, cx);
         // Over the headings, which aren't selected.
-        let selectable: Vec<usize> = (0..rows.len())
-            .filter(|ix| !matches!(rows[*ix], Row::Heading(_)))
+        let selectable: Vec<(usize, &Row)> = (rows.iter().enumerate())
+            .filter(|(_, row)| !matches!(row, Row::Heading(_)))
             .collect();
         // A selected branch folded away in its stack steps from the stack's row.
         let in_stack = |top: usize| {
-            (branches.selected_branch()).is_some_and(|b| b.stack == branches.list[top].stack)
+            let stack = branches.list.get(top).map(|b| b.stack);
+            (branches.selected_branch()).is_some_and(|b| Some(b.stack) == stack)
         };
-        let at = selectable.iter().position(|ix| {
-            let row = &rows[*ix];
+        let at = selectable.iter().position(|&(_, row)| {
             is_selected(branches, row) || matches!(*row, Row::Stack(top, _, true) if in_stack(top))
         });
-        if let Some(&next) = step_from(&selectable, at, delta) {
-            self.select_branch_row(&rows[next], cx);
+        if let Some(&(next, row)) = step_from(&selectable, at, delta) {
+            self.select_branch_row(row, cx);
             (self.branches_scroll).scroll_to_item(next, gpui::ScrollStrategy::Nearest);
         }
     }
@@ -831,13 +845,13 @@ impl Detail {
             (false, false, false) => {
                 let rows = self.branch_rows(branches, cx);
                 let at = rows.iter().position(|row| is_selected(branches, row));
-                let caption =
-                    (at.filter(|at| matches!(rows[*at], Row::Branch(_, true)))).and_then(|at| {
-                        rows[..at].iter().rev().find_map(|row| match row {
-                            Row::Stack(top, ..) => Some(branches.list[*top].ref_name.clone()),
-                            _ => None,
-                        })
-                    });
+                let in_stack = |at: &usize| matches!(rows.get(*at), Some(Row::Branch(_, true)));
+                let caption = at.filter(in_stack).and_then(|at| {
+                    rows.iter().take(at).rev().find_map(|row| match row {
+                        Row::Stack(top, ..) => branches.list.get(*top).map(|b| b.ref_name.clone()),
+                        _ => None,
+                    })
+                });
                 if let Some(top) = caption {
                     self.select_stack(top, cx);
                 }
@@ -850,22 +864,23 @@ impl Detail {
         let Some(branches) = self.page_branches(cx) else {
             return;
         };
+        let (Row::Stack(ix, ..) | Row::Branch(ix, _) | Row::Commit(ix, ..)) = *row else {
+            return;
+        };
+        let Some(ref_name) = branches.list.get(ix).map(|b| b.ref_name.clone()) else {
+            return;
+        };
         match *row {
             Row::Heading(_) => {}
-            Row::Stack(top, ..) => {
-                let top = branches.list[top].ref_name.clone();
-                self.select_stack(top, cx)
-            }
-            Row::Branch(ix, _) => {
-                let ref_name = branches.list[ix].ref_name.clone();
-                self.select_other_branch(Some(ref_name), cx)
-            }
-            Row::Commit(ix, commit, _) => {
-                let ref_name = branches.list[ix].ref_name.clone();
+            Row::Stack(..) => self.select_stack(ref_name, cx),
+            Row::Branch(..) => self.select_other_branch(Some(ref_name), cx),
+            Row::Commit(_, commit, _) => {
                 let Some((_, commits)) = branches.commits.get(&ref_name) else {
                     return;
                 };
-                let id = commits[commit].id;
+                let Some(id) = commits.get(commit).map(|c| c.id) else {
+                    return;
+                };
                 self.select_branch_commit(&ref_name, id, cx)
             }
         }
@@ -1232,7 +1247,8 @@ impl Detail {
                             let selected = is_selected(branches, row);
                             let on = selected && solid;
                             let ink = |color| if on { theme.text_inverted } else { color };
-                            let top_ref = branches.list[*top].ref_name.clone();
+                            let top_branch = branches.list.get(*top)?;
+                            let top_ref = top_branch.ref_name.clone();
                             let fold = top_ref.clone();
                             let step = fold_button(
                                 ("stack-fold", ix),
@@ -1254,7 +1270,7 @@ impl Detail {
                                             .min_w_0()
                                             .truncate()
                                             .text_color(ink(theme.text_1))
-                                            .child(title(&branches.list[*top]).to_owned()),
+                                            .child(title(top_branch).to_owned()),
                                     )
                                 })
                                 .on_click(cx.listener(move |this, _, _, cx| {
@@ -1263,7 +1279,7 @@ impl Detail {
                                 .into_any_element()
                         }
                         row @ Row::Commit(branch_ix, commit_ix, stacked) => {
-                            let ref_name = branches.list[*branch_ix].ref_name.clone();
+                            let ref_name = branches.list.get(*branch_ix)?.ref_name.clone();
                             let (_, commits) = branches.commits.get(&ref_name)?;
                             let commit = commits.get(*commit_ix)?;
                             let id = commit.id;
@@ -1336,7 +1352,7 @@ impl Detail {
                                 .into_any_element()
                         }
                         row @ Row::Branch(branch_ix, stacked) => {
-                            let branch = &branches.list[*branch_ix];
+                            let branch = branches.list.get(*branch_ix)?;
                             let selected = is_selected(branches, row);
                             let ref_name = branch.ref_name.clone();
                             // The target has it all: landed, as a merged pull request shows.
@@ -1570,7 +1586,8 @@ impl Detail {
         let any_time = self.kept_in(branches, &branches.list, Some(Facet::Recency), cx);
         for (ix, recency) in Recency::ALL.into_iter().enumerate() {
             let n = (any_time.iter())
-                .filter(|ix| recency.keeps(branches.list[**ix].time, today))
+                .filter_map(|ix| branches.list.get(*ix))
+                .filter(|branch| recency.keeps(branch.time, today))
                 .count();
             let item = MenuItem::new(recency.label(), move |app, _, cx| {
                 (app.detail).update(cx, |detail, cx| detail.filter_recency(recency, cx));
@@ -1582,8 +1599,9 @@ impl Detail {
                 _ => item,
             });
         }
-        for (ix, (status, n)) in self.status_counts(branches, cx).into_iter().enumerate() {
-            let item = MenuItem::new(STATUSES[ix].1, move |app, _, cx| {
+        let statuses = self.status_counts(branches, cx).into_iter().zip(STATUSES);
+        for (ix, ((status, n), (_, label))) in statuses.enumerate() {
+            let item = MenuItem::new(label, move |app, _, cx| {
                 (app.detail).update(cx, |detail, cx| detail.filter_status(status, cx));
             })
             .ticked(prefs.branches_status == status)
@@ -1768,13 +1786,15 @@ impl Detail {
 }
 
 fn is_selected(branches: &Branches, row: &Row) -> bool {
-    let selected = |ix: usize| branches.selected.as_ref() == Some(&branches.list[ix].ref_name);
+    let selected = |ix: usize| {
+        (branches.list.get(ix)).is_some_and(|b| branches.selected.as_ref() == Some(&b.ref_name))
+    };
     match *row {
         Row::Heading(_) => false,
         Row::Stack(top, ..) => selected(top) && branches.stack,
         Row::Branch(ix, _) => selected(ix) && !branches.stack && branches.commit.is_none(),
         Row::Commit(ix, commit, _) => {
-            let commits = branches.commits.get(&branches.list[ix].ref_name);
+            let commits = (branches.list.get(ix)).and_then(|b| branches.commits.get(&b.ref_name));
             selected(ix)
                 && commits.and_then(|(_, c)| c.get(commit)).map(|c| c.id) == branches.commit
         }
@@ -1786,7 +1806,9 @@ fn is_picked(branches: &Branches, row: &Row) -> bool {
     let Row::Commit(ix, commit, _) = *row else {
         return false;
     };
-    let ref_name = &branches.list[ix].ref_name;
+    let Some(ref_name) = branches.list.get(ix).map(|b| &b.ref_name) else {
+        return false;
+    };
     branches.selected.as_ref() == Some(ref_name)
         && (branches.commits.get(ref_name))
             .and_then(|(_, commits)| commits.get(commit))

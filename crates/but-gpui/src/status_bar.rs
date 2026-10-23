@@ -301,7 +301,8 @@ fn under_way(label: &str) -> String {
         "Snapshot" => "Taking a snapshot".to_owned(),
         // A short stressed last syllable doubles its consonant.
         "Commit" | "Uncommit" | "Split" | "Rewrap" => {
-            format!("{verb}{}ing", &verb[verb.len() - 1..])
+            let last = verb.get(verb.len() - 1..).unwrap_or_default();
+            format!("{verb}{last}ing")
         }
         _ => format!("{}ing", verb.strip_suffix('e').unwrap_or(verb)),
     };

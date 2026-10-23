@@ -956,7 +956,7 @@ impl Detail {
         let oldest = (ws.stack_of(ref_name))
             .filter(|_| conflicted > 0)
             .and_then(|(stack, at)| {
-                stack.branches[at..].iter().rev().find_map(|holder| {
+                stack.branches.get(at..)?.iter().rev().find_map(|holder| {
                     let commit = holder.commits.iter().rev().find(|c| c.conflicted)?;
                     Some((holder, commit))
                 })

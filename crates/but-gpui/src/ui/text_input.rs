@@ -327,12 +327,14 @@ impl TextInput {
     }
 
     fn line_start(&self, offset: usize) -> usize {
-        self.content[..offset].rfind('\n').map_or(0, |ix| ix + 1)
+        (self.content.get(..offset))
+            .and_then(|before| before.rfind('\n'))
+            .map_or(0, |ix| ix + 1)
     }
 
     fn line_end(&self, offset: usize) -> usize {
-        self.content[offset..]
-            .find('\n')
+        (self.content.get(offset..))
+            .and_then(|after| after.find('\n'))
             .map_or(self.content.len(), |ix| offset + ix)
     }
 
@@ -520,10 +522,11 @@ impl TextInput {
     }
 
     fn copy(&mut self, _: &Copy, _: &mut Window, cx: &mut Context<Self>) {
-        if !self.selected_range.is_empty() && !self.masked {
-            cx.write_to_clipboard(ClipboardItem::new_string(
-                self.content[self.selected_range.clone()].to_string(),
-            ));
+        if !self.selected_range.is_empty()
+            && !self.masked
+            && let Some(text) = self.content.get(self.selected_range.clone())
+        {
+            cx.write_to_clipboard(ClipboardItem::new_string(text.to_string()));
         }
     }
 
@@ -615,7 +618,12 @@ impl TextInput {
         let typed = self.marked_range.is_some()
             || (range.is_empty() && new_text.chars().count() == 1)
                 && !new_text.contains(char::is_whitespace);
-        let deleted = new_text.is_empty() && self.content[range.clone()].chars().count() == 1;
+        // A range that doesn't fit the text, as one the platform gave backwards, changes nothing.
+        let Some(replaced) = self.content.get(range.clone()) else {
+            let at = self.cursor_offset();
+            return at..at;
+        };
+        let deleted = new_text.is_empty() && replaced.chars().count() == 1;
         // Deleting nothing, as backspace at the start, changes nothing to undo.
         if !range.is_empty() || !new_text.is_empty() {
             self.remember(match (typed, deleted) {
@@ -644,7 +652,7 @@ impl EntityInputHandler for TextInput {
         }
         let range = self.range_from_utf16(&range_utf16);
         actual_range.replace(self.range_to_utf16(&range));
-        Some(self.content[range].to_string())
+        self.content.get(range).map(str::to_string)
     }
 
     fn selected_text_range(
@@ -896,8 +904,9 @@ impl Element for TextElement {
                 let line_range = offset..offset + raw.len();
                 let start = marked.start.max(line_range.start);
                 let end = marked.end.min(line_range.end);
-                if start < end {
-                    let base = runs[0].clone();
+                if start < end
+                    && let Some(base) = runs.first().cloned()
+                {
                     runs = [
                         (start - offset, None),
                         (

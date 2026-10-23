@@ -88,7 +88,7 @@ fn land_scope(workspace: &Workspace, ref_name: &str) -> Option<bool> {
         (0, false) => true,
         _ => return None,
     };
-    let landing: Vec<_> = (stack.branches[at..].iter())
+    let landing: Vec<_> = (stack.branches.get(at..)?.iter())
         .flat_map(|branch| &branch.commits)
         .collect();
     (!landing.is_empty() && !landing.iter().any(|c| c.conflicted)).then_some(whole)
@@ -111,11 +111,13 @@ pub struct BranchEdits {
 
 impl BranchEdits {
     pub fn of(workspace: &Workspace, ref_name: &str) -> Self {
-        let Some((lane, at)) = workspace.lane_of(ref_name) else {
+        let Some((lane, branch)) =
+            (workspace.lane_of(ref_name)).and_then(|(lane, at)| Some((lane, lane.get(at)?)))
+        else {
             return Self::default();
         };
-        let commits = lane[at].commits.len();
-        let conflicted = lane[at].commits.iter().any(|c| c.conflicted);
+        let commits = branch.commits.len();
+        let conflicted = branch.commits.iter().any(|c| c.conflicted);
         // A linked worktree's lane takes new branches, but can't come apart yet.
         let stack = workspace.stack_of(ref_name).is_some();
         Self {
@@ -598,9 +600,9 @@ impl AppView {
         }
         // The oplog doesn't keep a linked worktree's branches, so it can't bring one back.
         let undoable = !linked && recorded(store, &project);
-        let above = at.checked_sub(1).map(|ix| &lane[ix]);
+        let above = at.checked_sub(1).and_then(|ix| lane.get(ix));
         let joins = (above.filter(named).or(lane.get(at + 1)))
-            .filter(|_| !lane[at].commits.is_empty())
+            .filter(|_| lane.get(at).is_some_and(|b| !b.commits.is_empty()))
             .map(|next| next.name.clone());
         let (detail, deleted) = match joins {
             Some(next) => (
@@ -977,7 +979,7 @@ impl AppView {
         // The branch and those below it, where its ref is even when it has no commits of its
         // own.
         let landing: Vec<&Branch> = (workspace.stack_of(&ref_name).into_iter())
-            .flat_map(|(stack, at)| &stack.branches[at..])
+            .flat_map(|(stack, at)| stack.branches.get(at..).unwrap_or_default())
             .collect();
         // What the question shows, to land only that: the newest commit among them.
         let Some(tip) = landing.iter().flat_map(|branch| &branch.commits).next() else {

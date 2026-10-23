@@ -439,10 +439,11 @@ impl Store {
         let Some((project, last)) = self.last_snapshot.clone() else {
             return;
         };
-        let Some(at) = (self.undo_steps.iter()).position(|step| step.snapshot == last) else {
+        let Some((at, &UndoStep { asked, done, .. })) =
+            (self.undo_steps.iter().enumerate()).find(|(_, step)| step.snapshot == last)
+        else {
             return;
         };
-        let UndoStep { asked, done, .. } = self.undo_steps[at];
         let step = UndoStep {
             project,
             snapshot,
@@ -1752,13 +1753,12 @@ fn updated_message(target: &str, conflicted: &[(String, usize)], landed: &[Strin
     let mut said = vec![format!("Updated from {target}")];
     said.extend(conflicted_parts(conflicted));
     let landed: Vec<&str> = landed.iter().map(|name| short_ref(name)).collect();
-    match landed.len() {
-        0 => {}
-        1 => said.push(format!("{} landed and was removed", landed[0])),
-        n => said.push(format!(
-            "{} and {} landed and were removed",
-            landed[..n - 1].join(", "),
-            landed[n - 1]
+    match landed.split_last() {
+        None => {}
+        Some((only, [])) => said.push(format!("{only} landed and was removed")),
+        Some((last, rest)) => said.push(format!(
+            "{} and {last} landed and were removed",
+            rest.join(", ")
         )),
     }
     // A snackbar is one fragment, so its parts are listed rather than sentences.

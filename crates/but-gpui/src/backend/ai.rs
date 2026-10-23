@@ -29,7 +29,7 @@ const CONTEXT_LIMIT: usize = 5_000;
 
 fn clipped(text: &str) -> &str {
     match text.char_indices().nth(CONTEXT_LIMIT) {
-        Some((at, _)) => &text[..at],
+        Some((at, _)) => text.get(..at).unwrap_or(text),
         None => text,
     }
 }

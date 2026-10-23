@@ -1,10 +1,6 @@
 //! Diffs of a worktree, a commit, a range of commits, a branch or an operation, parsed into
 //! hunks of lines and, for the first files, highlighted.
 
-// Patches, files and their conflicts decide the offsets here, so they're read without
-// indexing or cutting where a mistake would panic.
-#![cfg_attr(not(test), deny(clippy::indexing_slicing, clippy::string_slice))]
-
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;

@@ -244,7 +244,8 @@ impl Detail {
         let start = after
             .and_then(|after| conflicts.iter().position(|(path, c)| is(after, path, c)))
             .map_or(0, |at| at + 1);
-        (conflicts[start..].iter().chain(&conflicts[..start]))
+        let (before, from) = conflicts.split_at_checked(start)?;
+        (from.iter().chain(before))
             .find(|(path, c)| !self.conflict_view(path, c).settled)
             .map(|(path, c)| key(path, c))
     }
@@ -872,7 +873,7 @@ fn oldest_first(workspace: &Workspace, commit: CommitId) -> Vec<CommitId> {
 fn next_conflicted(workspace: &Workspace, commit: CommitId) -> Option<(CommitId, String)> {
     let order = oldest_first(workspace, commit);
     let at = order.iter().position(|id| *id == commit)?;
-    order[at + 1..].iter().find_map(|id| {
+    order.get(at + 1..)?.iter().find_map(|id| {
         let (_, found) = workspace.find_commit(*id)?;
         found
             .conflicted

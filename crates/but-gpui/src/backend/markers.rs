@@ -2,10 +2,6 @@
 //! `|||||||` before the lines both sides started from, `=======`, and `>>>>>>>`, each at the
 //! start of a line.
 
-// Whatever's in the file decides where the markers are, so it's read without indexing
-// where a mistake would panic.
-#![cfg_attr(not(test), deny(clippy::indexing_slicing, clippy::string_slice))]
-
 use std::collections::HashMap;
 use std::hash::{Hash as _, Hasher as _};
 use std::ops::Range;

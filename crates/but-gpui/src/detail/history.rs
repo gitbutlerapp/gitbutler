@@ -46,7 +46,9 @@ fn rows(history: &History, shown: &[usize]) -> Vec<Row> {
     let mut rows = Vec::new();
     let mut day = None;
     for &ix in shown {
-        let operation = &history.operations[ix];
+        let Some(operation) = history.operations.get(ix) else {
+            continue;
+        };
         let this = local_day(operation.time);
         if day.as_ref() != Some(&this) {
             rows.push(Row::Day(operation.time));
@@ -407,11 +409,15 @@ impl Detail {
             return;
         };
         let shown = self.shown_operations(history, cx);
-        let at = (shown.iter()).position(|&ix| Some(history.operations[ix].id) == history.selected);
+        let at = (shown.iter()).position(|&ix| {
+            (history.operations.get(ix)).is_some_and(|op| Some(op.id) == history.selected)
+        });
         let Some(&next) = step_from(&shown, at, delta) else {
             return;
         };
-        let id = history.operations[next].id;
+        let Some(id) = history.operations.get(next).map(|op| op.id) else {
+            return;
+        };
         // Kept in view by its row, below the day headings.
         let row = rows(history, &shown)
             .iter()
@@ -443,10 +449,12 @@ impl Detail {
             return;
         };
         let shown = self.shown_operations(history, cx);
-        let listed = (shown.iter()).any(|&ix| Some(history.operations[ix].id) == history.selected);
-        if let (false, Some(&first)) = (listed, shown.first()) {
-            let id = history.operations[first].id;
-            self.select_operation(id, cx);
+        let id_of = |ix: &usize| history.operations.get(*ix).map(|op| op.id);
+        let listed = (shown.iter())
+            .filter_map(id_of)
+            .any(|id| Some(id) == history.selected);
+        if let (false, Some(first)) = (listed, shown.first().and_then(id_of)) {
+            self.select_operation(first, cx);
         }
     }
 
@@ -477,8 +485,8 @@ impl Detail {
             return;
         };
         let newest = self.shown_operations(history, cx).first().copied();
-        if let Some(id) = newest.map(|ix| history.operations[ix].id) {
-            self.select_operation(id, cx);
+        if let Some(op) = newest.and_then(|ix| history.operations.get(ix)) {
+            self.select_operation(op.id, cx);
         }
     }
 
@@ -598,9 +606,10 @@ impl Detail {
                     .filter(|_| operation.kind == Some(OperationKind::OnDemandSnapshot)),
                 |el, message| el.child(meta_item(Icon::TextBlock, theme).child(message)),
             )
-            .when_some(Some(branches).filter(|b| b.len() == 1), |el, branches| {
-                el.child(meta_item(Icon::Branch, theme).child(branches[0].to_owned()))
-            });
+            .when_some(
+                branches.first().filter(|_| branches.len() == 1),
+                |el, branch| el.child(meta_item(Icon::Branch, theme).child(branch.to_string())),
+            );
         let more = operation.changes.len().saturating_sub(LISTED);
         let lines = (operation.changes.iter().take(LISTED).enumerate())
             .map(|(ix, change)| self.change_line(ix, project, operation.kind, change, theme, cx));

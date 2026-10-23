@@ -10,6 +10,9 @@
     clippy::allow_attributes,
     clippy::dbg_macro
 )]
+// Indexes and byte offsets go through `get`, `split_once` and the like: what's drawn skips what's
+// gone, as a row a reload just took away, and the rest returns early rather than make up a value.
+#![cfg_attr(not(test), deny(clippy::indexing_slicing, clippy::string_slice))]
 
 mod app;
 mod backend;

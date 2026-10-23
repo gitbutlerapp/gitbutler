@@ -268,8 +268,9 @@ pub fn segmented(
                 .enumerate()
                 .flat_map(|(ix, (segment, on))| {
                     // Always there, so picking another moves nothing.
-                    let rule = (ix > 0).then(|| {
-                        let drawn = !picked[ix - 1] && !on;
+                    let before = ix.checked_sub(1).and_then(|before| picked.get(before));
+                    let rule = before.map(|before| {
+                        let drawn = !before && !on;
                         (div().flex_none().w(fixed(1.)).h(dp(12.)))
                             .when(drawn, |el| el.bg(theme.border_2))
                             .into_any_element()
@@ -951,7 +952,7 @@ pub fn keycap(text: &str, theme: &Theme) -> Div {
         let mut rest = token;
         while let Some(symbol) = rest.chars().next().filter(|c| "⌃⌥⇧⌘".contains(*c)) {
             keys.push(symbol.to_string());
-            rest = &rest[symbol.len_utf8()..];
+            rest = rest.strip_prefix(symbol).unwrap_or_default();
         }
         if !rest.is_empty() {
             keys.push(rest.to_owned());

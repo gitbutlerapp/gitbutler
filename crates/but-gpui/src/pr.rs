@@ -94,9 +94,11 @@ impl ReviewView {
             .read(cx)
             .workspace(&project)
             .and_then(|ws| ws.find_branch(&branch))
-            .filter(|b| b.commits.len() == 1)
-            .map(|b| {
-                let message = &b.commits[0].message;
+            .and_then(|b| match b.commits.as_slice() {
+                [commit] => Some(&commit.message),
+                _ => None,
+            })
+            .map(|message| {
                 let (subject, rest) = message.split_once('\n').unwrap_or((message, ""));
                 (subject.trim().to_owned(), rest.trim().to_owned())
             })
