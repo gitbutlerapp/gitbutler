@@ -458,17 +458,23 @@ impl Detail {
             .target
             .as_ref()
             .map_or("the target", |t| t.name.as_str());
-        let branches: Vec<&Branch> = match selection {
-            Selection::Branch(_, ref_name) => vec![workspace.find_branch(ref_name)?],
-            Selection::Stack(_, bottom) => workspace.lane(bottom)?.iter().collect(),
+        let (branches, what, below): (Vec<&Branch>, _, _) = match selection {
+            Selection::Branch(_, ref_name) => {
+                // A branch stacked on another starts where that one ends.
+                let below = (workspace.lane_of(ref_name)).and_then(|(lane, at)| lane.get(at + 1));
+                let below = below.map(|branch| branch.name.as_str());
+                (vec![workspace.find_branch(ref_name)?], "this branch", below)
+            }
+            Selection::Stack(_, bottom) => (
+                workspace.lane(bottom)?.iter().collect(),
+                "these branches",
+                None,
+            ),
             _ => return None,
         };
-        let what = match selection {
-            Selection::Stack(..) => "these branches",
-            _ => "this branch",
-        };
+        let base = below.unwrap_or(target);
         (branches.iter().all(|branch| branch.commits.is_empty()))
-            .then(|| format!("No commits above {target} on {what}").into())
+            .then(|| format!("No commits above {base} on {what}").into())
     }
 
     /// What a diff of commits with no changes in it says, as but.dev's branch page does: a
