@@ -744,11 +744,22 @@ pub fn pull_remote(path: &Path, branch: &str, theirs: bool) -> Result<()> {
 pub fn pull_conflicts(path: &Path, branch: &str) -> Result<Vec<(String, usize)>> {
     let mut ctx = open(path)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
-    let preview = integrate_remote(&mut ctx, branch, false, DryRun::Yes)?;
-    Ok(newly_conflicted(
-        &info,
-        &preview.workspace.conflicted_commits,
-    ))
+    let (preview, incoming) = integrate_remote(&mut ctx, branch, false, DryRun::Yes)?;
+    let conflicted = &preview.workspace.conflicted_commits;
+    let mut found = newly_conflicted(&info, conflicted);
+    // The remote's own commits can land conflicted too, rebased onto the branch's, and they
+    // aren't the workspace's yet.
+    let incoming = (conflicted.iter())
+        .filter(|(_, change)| incoming.contains(&change.to_string()))
+        .count();
+    if incoming > 0 {
+        let name = full_name(branch)?.to_string();
+        match found.iter_mut().find(|(ref_name, _)| *ref_name == name) {
+            Some((_, count)) => *count += incoming,
+            None => found.push((name, incoming)),
+        }
+    }
+    Ok(found)
 }
 
 fn integrate_remote(
@@ -756,7 +767,7 @@ fn integrate_remote(
     branch: &str,
     theirs: bool,
     dry_run: DryRun,
-) -> Result<but_api::branch::IntegrateBranchResult> {
+) -> Result<(but_api::branch::IntegrateBranchResult, Vec<String>)> {
     use but_api::branch::json::BranchIntegrationStrategy as Strategy;
     let name = full_name(branch)?;
     let strategy = if theirs {
@@ -773,6 +784,8 @@ fn integrate_remote(
     // the same subject by the same author. The remote's new commits were made on those versions, so they go
     // after the newest of them as it is here, keeping the remote's order, rather than under
     // every commit of the branch, and of the branches it's stacked on.
+    // The change IDs of the remote's commits a rebase brings in.
+    let mut incoming = Vec::new();
     if !theirs {
         use but_workspace::branch::IntegrationDivergenceCommit as Version;
         use but_workspace::branch::integrate_branch_upstream::InteractiveIntegrationStep as Step;
@@ -798,6 +811,10 @@ fn integrate_remote(
         };
         let (older, rewritten) = (versions(remote, local), versions(local, remote));
         let upstream: Vec<gix::ObjectId> = remote.iter().map(|c| c.id).collect();
+        incoming = (remote.iter())
+            .filter(|c| !older.contains(&c.id))
+            .map(key)
+            .collect();
         let picked = |step: &Step, among: &[gix::ObjectId]| matches!(step, Step::Pick { commit_id } if among.contains(commit_id));
         let steps = std::mem::take(&mut plan.integration.steps);
         let (incoming, mut ours): (Vec<_>, Vec<_>) = (steps.into_iter())
@@ -810,13 +827,14 @@ fn integrate_remote(
         plan.integration.steps = ours;
     }
     let mut guard = ctx.exclusive_worktree_access();
-    but_api::branch::apply_branch_integration_with_perm(
+    let result = but_api::branch::apply_branch_integration_with_perm(
         ctx,
         name.as_ref(),
         plan.integration,
         dry_run,
         guard.write_permission(),
-    )
+    )?;
+    Ok((result, incoming))
 }
 
 /// What [`update_from_target()`] did.

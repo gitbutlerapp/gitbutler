@@ -149,7 +149,10 @@ unseen is what a laptop's battery pays for.
 - Force-push protection is off by default, so a forced push is a plain `--force`. Every forced
   push except Push anyway fetches first and compares the remote tip and incoming commit ids,
   because counts, titles and change IDs all missed a teammate's amend. Update anyway and Pull
-  anyway run the dry run again and go ahead only on the conflicts the user accepted.
+  anyway run the dry run again and go ahead only on the conflicts the user accepted. Counting
+  them by the workspace's commits misses a pull's incoming ones, so `integrate_remote` returns
+  their change IDs; any conflicted commit the main checkout doesn't know may be a linked
+  worktree's that was conflicted already.
 - The queue tells operations apart by `Overlay::kind` (`OpKind` in `state/mutation.rs`), never by
   their label, which is only what the user reads. One a double-click would ask for twice, and
   whose repeat would only fail, is `OpKind::once`, which drops the repeat while it waits or runs.

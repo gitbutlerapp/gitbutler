@@ -2158,6 +2158,36 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn a_pull_whose_incoming_commit_conflicts_is_caught_before_it_runs() {
+        let dir = repo_with("base\n");
+        let path = dir.path();
+        target_origin_main(path);
+        let commit = |content: &str, message: &str| {
+            std::fs::write(path.join("file"), content).unwrap();
+            git(path, &["commit", "-q", "-am", message]);
+        };
+        git(path, &["checkout", "-q", "-b", "feature"]);
+        commit("one\n", "One");
+        commit("two\n", "Two");
+        git(path, &["update-ref", "refs/remotes/origin/feature", "HEAD"]);
+        git(path, &["config", "branch.feature.remote", "origin"]);
+        git(
+            path,
+            &["config", "branch.feature.merge", "refs/heads/feature"],
+        );
+        // "One" rewritten here, so the remote's "Two" no longer applies on top of it.
+        git(path, &["reset", "-q", "--hard", "main"]);
+        commit("uno\n", "One");
+
+        let found = crate::backend::pull_conflicts(path, "refs/heads/feature").unwrap();
+        assert_eq!(
+            found,
+            [("refs/heads/feature".to_owned(), 1)],
+            "the remote's commit would land conflicted"
+        );
+    }
+
+    #[test]
     fn a_conflicted_deletion_lists_its_file_though_its_tree_changes_nothing() {
         let dir = repo_with("base\n");
         let path = dir.path();
