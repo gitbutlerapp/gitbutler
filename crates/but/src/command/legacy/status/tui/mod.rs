@@ -511,6 +511,7 @@ pub enum Message {
     Reword(RewordMessage),
     Command(CommandMessage),
     Files(FilesMessage),
+    Collapse(CollapseMessage),
     Move(MoveMessage),
     Stack(StackMessage),
     Details(DetailsMessage),
@@ -603,6 +604,14 @@ pub enum ReloadCause {
 pub enum FilesMessage {
     ToggleGlobalFilesList,
     ToggleFilesForSelectedCommit,
+}
+
+#[derive(Debug)]
+pub enum CollapseMessage {
+    /// Collapse or expand the branch the cursor is on, or that owns the selected commit.
+    ToggleSelectedBranch,
+    /// Expand every branch when any is collapsed, otherwise collapse them all.
+    ToggleAllBranches,
 }
 
 /// What to select after reloading
@@ -717,6 +726,9 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
             Message::Files(message) => match message {
                 FilesMessage::ToggleGlobalFilesList
                 | FilesMessage::ToggleFilesForSelectedCommit => false,
+            },
+            Message::Collapse(message) => match message {
+                CollapseMessage::ToggleSelectedBranch | CollapseMessage::ToggleAllBranches => false,
             },
             Message::Move(message) => match message {
                 MoveMessage::Confirm | MoveMessage::MoveToNewBranch => true,

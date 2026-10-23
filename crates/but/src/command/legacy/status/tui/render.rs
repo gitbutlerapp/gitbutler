@@ -1138,9 +1138,9 @@ pub fn commit_operation_display(
                 Some("commit to branch")
             }
         }
-        StatusOutputLineData::Commit { stack_id, .. } => {
+        StatusOutputLineData::Commit { lane, .. } => {
             if let Some(stack_scope) = scope_to_stack
-                && Some(*stack_scope) != *stack_id
+                && Some(*stack_scope) != lane.stack_id()
             {
                 // don't allow selecting commits outside the scoped stack
                 None
