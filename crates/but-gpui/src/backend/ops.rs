@@ -314,17 +314,14 @@ pub fn commit(
     Ok((CommitId(id), left_out, hook_failed))
 }
 
-/// Create a new stack named `name` (or a generated name) and return its full ref name.
+/// Create a new stack with a made-up name and return its full ref name, for renaming after.
 /// With the default branch checked out on its own, the new branch goes on top of it and is
 /// checked out, as `git checkout -b` would. Beside another branch, both go in GitButler's
 /// workspace, as `but branch new` does.
-pub fn create_branch(path: &Path, name: Option<&str>) -> Result<String> {
+pub fn create_branch(path: &Path) -> Result<String> {
     use but_api::branch::json::BranchCreatePlacement as Placement;
     let mut ctx = open(path)?;
     refuse_unborn(&ctx)?;
-    let ref_name = (name.map(str::trim).filter(|name| !name.is_empty()))
-        .map(branch_ref)
-        .transpose()?;
     let head = ctx.repo.get()?.head_name()?;
     // A branch made here and checked out couldn't be undone: the oplog takes a detached
     // HEAD for the workspace and would restore that instead.
@@ -343,7 +340,7 @@ pub fn create_branch(path: &Path, name: Option<&str>) -> Result<String> {
             if (target.as_ref())
                 .is_some_and(|target| target.as_local_full_name_ref() != head.as_ref()) =>
         {
-            return create_beside_checkout(&mut ctx, ref_name, &head);
+            return create_beside_checkout(&mut ctx, &head);
         }
         Some(head) => Placement::Dependent {
             relative_to: but_api::commit::json::RelativeTo::Reference(head),
@@ -351,33 +348,11 @@ pub fn create_branch(path: &Path, name: Option<&str>) -> Result<String> {
         },
         None => Placement::Independent { order: None },
     };
-    let created = but_api::branch::branch_create(&mut ctx, ref_name, placement)?;
+    let created = but_api::branch::branch_create(&mut ctx, None, placement)?;
     Ok(created.new_ref.to_string())
 }
 
-/// A reference keeping `name` from being made, as Git can't hold both `a` and `a/b`: one named
-/// as a folder `name` would be in, or one in the folder `name` would be. A ref edit notices
-/// only a loose one, and with a packed one would write both.
-fn colliding_ref(
-    repo: &gix::Repository,
-    name: &gix::refs::FullNameRef,
-) -> Result<Option<gix::refs::FullName>> {
-    let full_name = name.as_bstr().to_str_lossy();
-    // Past `refs/` and its category, as `refs/heads/`.
-    for (at, _) in full_name.match_indices('/').skip(2) {
-        let outer = gix::refs::FullName::try_from(full_name[..at].to_owned())?;
-        if repo.try_find_reference(outer.as_ref())?.is_some() {
-            return Ok(Some(outer));
-        }
-    }
-    Ok((repo.references()?)
-        .prefixed(format!("{full_name}/").as_str())?
-        .filter_map(Result::ok)
-        .map(|inner| inner.name().to_owned())
-        .next())
-}
-
-/// Make branch `new_ref` (or one with a made-up name) where `head`, the branch checked out,
+/// Make a branch with a made-up name where `head`, the branch checked out,
 /// leaves the target, and apply it beside `head`, which brings in GitButler's workspace for the
 /// two. Returns its full name. Starting there, as `but branch new` does, the two merge without
 /// conflicts, whatever the target has done since.
@@ -387,7 +362,6 @@ fn colliding_ref(
 /// `branch_checkout_new` with the branch applied rather than checked out, in one step to undo.
 fn create_beside_checkout(
     ctx: &mut but_ctx::Context,
-    new_ref: Option<gix::refs::FullName>,
     head: &gix::refs::FullName,
 ) -> Result<String> {
     use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
@@ -395,28 +369,7 @@ fn create_beside_checkout(
     let perm = guard.write_permission();
     let (new_ref, base) = {
         let repo = ctx.repo.get()?;
-        let new_ref = match new_ref {
-            // Taken as `branch_create` sees it, so the clean-up below only ever deletes the
-            // branch made here.
-            Some(new_ref)
-                if but_core::branch::find_unique_refname_excluding(
-                    &repo,
-                    new_ref.as_ref(),
-                    |_| false,
-                )? != new_ref =>
-            {
-                bail!("A branch named {} already exists", new_ref.shorten())
-            }
-            Some(new_ref) => new_ref,
-            None => but_core::branch::unique_canned_refname(&repo)?,
-        };
-        if let Some(colliding) = colliding_ref(&repo, new_ref.as_ref())? {
-            bail!(
-                "Branch name '{}' collides with existing branch '{}'",
-                new_ref.shorten(),
-                colliding.shorten()
-            );
-        }
+        let new_ref = but_core::branch::unique_canned_refname(&repo)?;
         let target = ctx.project_meta()?.resolve_target_commit(&repo)?;
         let base = (repo.merge_base(repo.head_id()?, target)?)
             .with_context(|| format!("{} shares no history with the target", head.shorten()))?;
@@ -451,39 +404,33 @@ fn create_beside_checkout(
     Ok(new_ref.to_string())
 }
 
-/// Stack a new branch on top of `below` (a full ref name).
-pub fn create_dependent_branch(path: &Path, below: &str, name: &str) -> Result<String> {
+/// Stack a new branch with a made-up name on top of `below` (a full ref name).
+pub fn create_dependent_branch(path: &Path, below: &str) -> Result<String> {
     let relative_to = but_api::commit::json::RelativeTo::Reference(full_name(below)?);
-    create_branch_at(path, relative_to, InsertSide::Above, name)
+    create_branch_at(path, relative_to, InsertSide::Above)
 }
 
-/// Make a new branch whose newest commit is `commit`, taking it and the commits below it
-/// in its branch; or with `below`, one that ends just under `commit`.
-pub fn create_branch_at_commit(
-    path: &Path,
-    commit: CommitId,
-    below: bool,
-    name: &str,
-) -> Result<String> {
+/// Make a new branch, with a made-up name, whose newest commit is `commit`, taking it and the
+/// commits below it in its branch; or with `below`, one that ends just under `commit`.
+pub fn create_branch_at_commit(path: &Path, commit: CommitId, below: bool) -> Result<String> {
     let side = if below {
         InsertSide::Below
     } else {
         InsertSide::Above
     };
     let relative_to = but_api::commit::json::RelativeTo::Commit(commit.0);
-    create_branch_at(path, relative_to, side, name)
+    create_branch_at(path, relative_to, side)
 }
 
 fn create_branch_at(
     path: &Path,
     relative_to: but_api::commit::json::RelativeTo,
     side: InsertSide,
-    name: &str,
 ) -> Result<String> {
     let mut ctx = open(path)?;
     let created = but_api::branch::branch_create(
         &mut ctx,
-        Some(branch_ref(name)?),
+        None,
         but_api::branch::json::BranchCreatePlacement::Dependent { relative_to, side },
     )?;
     Ok(created.new_ref.to_string())
@@ -1493,13 +1440,10 @@ pub(super) mod tests {
         let path = dir.path();
         target_origin_main(path);
 
-        assert_eq!(
-            create_branch(path, Some("feature")).unwrap(),
-            "refs/heads/feature"
-        );
+        let new = create_branch(path).unwrap();
         assert_eq!(
             git(path, &["symbolic-ref", "HEAD"]).trim(),
-            "refs/heads/feature",
+            new,
             "it's checked out, as `git checkout -b` would"
         );
         let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
@@ -1508,7 +1452,7 @@ pub(super) mod tests {
             (workspace.stacks.iter().flat_map(|s| &s.branches))
                 .map(|b| b.ref_name.as_str())
                 .collect::<Vec<_>>(),
-            ["refs/heads/feature"],
+            [new.as_str()],
             "the branch checked out is listed as the only one"
         );
     }
@@ -1598,12 +1542,10 @@ pub(super) mod tests {
         target_origin_main(path);
         git(path, &["checkout", "-q", "--detach"]);
 
-        let err = create_branch(path, Some("rescue")).unwrap_err();
+        let before = git(path, &["branch", "--list"]);
+        let err = create_branch(path).unwrap_err();
         assert!(err.to_string().contains("detached"), "{err}");
-        assert!(
-            git(path, &["branch", "--list", "rescue"]).trim().is_empty(),
-            "nothing is made"
-        );
+        assert_eq!(git(path, &["branch", "--list"]), before, "nothing is made");
     }
 
     #[test]
@@ -1627,13 +1569,13 @@ pub(super) mod tests {
         };
         let head = |path: &Path| git(path, &["symbolic-ref", "HEAD"]).trim().to_owned();
 
-        assert_eq!(
-            create_branch(path, Some("second")).unwrap(),
-            "refs/heads/second"
-        );
+        let new = create_branch(path).unwrap();
+        let second = new.strip_prefix("refs/heads/").unwrap();
+        let mut both = vec![vec!["feature".to_owned()], vec![second.to_owned()]];
+        both.sort();
         assert_eq!(
             lanes(path),
-            (true, vec![vec!["feature".into()], vec!["second".into()]]),
+            (true, both),
             "two branches side by side, so GitButler's workspace holds them"
         );
         assert_eq!(head(path), "refs/heads/gitbutler/workspace");
@@ -1651,7 +1593,7 @@ pub(super) mod tests {
             "one undo goes back to the branch on its own"
         );
         assert!(
-            git(path, &["branch", "--list", "second"]).trim().is_empty(),
+            git(path, &["branch", "--list", second]).trim().is_empty(),
             "and takes the new branch away"
         );
         assert_eq!(
@@ -1686,37 +1628,6 @@ pub(super) mod tests {
     }
 
     #[test]
-    fn a_new_branch_beside_named_like_another_changes_nothing() {
-        let dir = repo_with("one\n");
-        let path = dir.path();
-        target_origin_main(path);
-        git(path, &["branch", "topic/old"]);
-        git(path, &["checkout", "-q", "-b", "feature"]);
-        let refs = |path: &Path| git(path, &["show-ref"]);
-        for packed in [false, true] {
-            if packed {
-                git(path, &["pack-refs", "--all"]);
-                // Without reflogs, a ref edit would write a clashing branch beside a packed one.
-                std::fs::remove_dir_all(path.join(".git/logs/refs/heads")).unwrap();
-            }
-            let before = refs(path);
-            // `main` is where the new branch would start; the others clash with a branch's
-            // path, one each way.
-            for name in ["main", "feature/x", "topic"] {
-                assert!(
-                    create_branch(path, Some(name)).is_err(),
-                    "{name} can't be made, packed: {packed}"
-                );
-                assert_eq!(refs(path), before, "{name} leaves every branch as it was");
-            }
-            assert_eq!(
-                git(path, &["symbolic-ref", "HEAD"]).trim(),
-                "refs/heads/feature"
-            );
-        }
-    }
-
-    #[test]
     fn a_new_branch_beside_starts_where_the_checked_out_one_leaves_the_target() {
         let dir = repo_with("one\n");
         let path = dir.path();
@@ -1731,9 +1642,9 @@ pub(super) mod tests {
         git(path, &["checkout", "-q", "feature"]);
         let fork = git(path, &["merge-base", "feature", "main"]);
 
-        create_branch(path, Some("second")).unwrap();
+        let new = create_branch(path).unwrap();
         assert_eq!(
-            git(path, &["rev-parse", "second"]),
+            git(path, &["rev-parse", &new]),
             fork,
             "where feature leaves the target, so the two merge without conflicts"
         );
@@ -1766,7 +1677,7 @@ pub(super) mod tests {
             "main is listed while it has a commit origin doesn't"
         );
 
-        let new = create_branch(path, None).unwrap();
+        let new = create_branch(path).unwrap();
         let name = new.strip_prefix("refs/heads/").unwrap().to_owned();
         assert_eq!(
             branches(path),

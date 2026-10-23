@@ -358,6 +358,10 @@ impl AppView {
     }
 
     fn new_branch(&mut self, _: &NewBranch, window: &mut Window, cx: &mut Context<Self>) {
+        // Not while a prompt or picker is open: the branch would be made out of sight behind it.
+        if self.covered() {
+            return;
+        }
         let Some(project) = self.selected_project(cx).or_else(|| {
             self.store
                 .read(cx)
@@ -368,9 +372,8 @@ impl AppView {
         }) else {
             return;
         };
-        let at = Selection::Project(project);
-        self.prompt_new_branch(at, "New branch", true, window, cx, |path, _, name| {
-            backend::create_branch(path, Some(name))
+        self.new_branch_at(project, true, None, window, cx, |path, _| {
+            backend::create_branch(path)
         });
     }
 
@@ -594,7 +597,12 @@ impl AppView {
         });
     }
 
-    fn focus_navigator(&mut self, _: &FocusNavigator, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn focus_navigator(
+        &mut self,
+        _: &FocusNavigator,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         // Not from under what's open over it, where the keys would go on to rows out of sight.
         if self.covered() {
             return;

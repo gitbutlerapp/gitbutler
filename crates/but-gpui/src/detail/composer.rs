@@ -830,7 +830,7 @@ impl Detail {
                         None if linked => {
                             anyhow::bail!("The worktree has no branch of its own checked out")
                         }
-                        None => (backend::create_branch(path, None)?, true),
+                        None => (backend::create_branch(path)?, true),
                     };
                     // Undone apart from the commit, so a second ⌘Z takes the branch away.
                     let made = created
@@ -1333,27 +1333,28 @@ impl Detail {
                 }
             })
             .collect();
-        choices.push(Choice::new("New branch…", move |this, window, cx| {
+        choices.push(Choice::new("New branch", move |this, _, cx| {
             let (targeted, detail) = (project.clone(), detail.clone());
             // The new branch becomes the target, rather than the page shown.
-            let handle = window.window_handle();
-            this.prompt_branch(
-                Selection::Project(project),
-                "New branch",
-                None,
-                window,
-                cx,
-                |path, _, name| backend::create_branch(path, Some(name)),
-                move |_, ref_name, cx| {
-                    after_landing(&detail, handle, &targeted, cx, |detail, window, cx| {
-                        detail.commit_target = Some(ref_name);
-                        if detail.composing {
-                            window.focus(&detail.message.focus_handle(cx), cx);
-                        }
-                        cx.notify();
-                    })
-                },
-            );
+            let done = move |store: &mut Store, branch: String, cx: &mut Context<Store>| {
+                let message = format!("Created {}", short_ref(&branch));
+                (detail.update(cx, |detail, cx| {
+                    detail.branch_created(&targeted, branch, cx)
+                }))
+                .ok();
+                store.snack_undoable(message, cx)
+            };
+            this.store.update(cx, |store, cx| {
+                let create = |path: &_, _: &_| backend::create_branch(path);
+                store.run(
+                    &project,
+                    "Create branch",
+                    Overlay::default(),
+                    create,
+                    done,
+                    cx,
+                )
+            });
         }));
         (self.app.update(cx, |app, cx| {
             app.open_picker(

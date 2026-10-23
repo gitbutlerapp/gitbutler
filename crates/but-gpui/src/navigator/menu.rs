@@ -71,7 +71,7 @@ fn read_marks<'a, C: Seeable + 'a>(
 /// one in a new linked worktree, as `but worktree new` makes.
 fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuItem> {
     let managed = store.workspace(project).is_some_and(|ws| ws.managed);
-    let mut items = vec![MenuItem::action("New branch…", &NewBranch, cx)];
+    let mut items = vec![MenuItem::action("New branch", &NewBranch, cx)];
     if managed && crate::backend::settings::worktrees_enabled() {
         let project = project.clone();
         items.push(MenuItem::new("New worktree…", move |app, window, cx| {
@@ -394,9 +394,9 @@ impl Navigator {
                     return items;
                 }
                 let edits = BranchEdits::of(workspace, ref_name);
-                items.push(action("New branch on top…", &NewBranchOnTop).separated());
+                items.push(action("New branch on top", &NewBranchOnTop).separated());
                 if edits.new_below {
-                    items.push(action("New branch below…", &NewBranchBelow));
+                    items.push(action("New branch below", &NewBranchBelow));
                 }
                 items.push(action("Add empty commit", &AddEmptyCommitAbove));
                 if edits.squash_all {
@@ -510,7 +510,7 @@ impl Navigator {
                     action("Add empty commit below", &AddEmptyCommitBelow),
                 ]);
                 if edits.new_branch_here && !linked {
-                    items.push(action("New branch ending here…", &NewBranchHere));
+                    items.push(action("New branch ending here", &NewBranchHere));
                 }
                 if store.workspace(project).is_some_and(|ws| ws.managed) {
                     items.push(action("Move to a new branch", &MoveToNewBranch).separated());
@@ -640,7 +640,7 @@ impl Navigator {
                         cx,
                     ));
                 }
-                items.push(action("New branch on top…", &NewBranchOnTop).separated());
+                items.push(action("New branch on top", &NewBranchOnTop).separated());
                 // A linked worktree's lane stays applied while it has it checked out.
                 if store.worktree_of(target).is_none() && workspace.managed {
                     items.push(action("Unapply stack", &UnapplyStack));

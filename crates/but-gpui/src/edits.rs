@@ -10,7 +10,8 @@ use std::sync::Arc;
 use gpui::{App, Context, Div, SharedString, Window, actions, prelude::*};
 
 use crate::app::{
-    AppView, DeleteSelection, NewBranchOnTop, Push, RenameSelection, UncommitSelection,
+    AppView, DeleteSelection, FocusNavigator, NewBranchOnTop, Push, RenameSelection,
+    UncommitSelection,
 };
 use crate::backend::{self, Branch, Commit, CommitId, Destination, Selected, Workspace, short_ref};
 use crate::state::{Cut, Overlay, ProjectId, Remap, Rereads, Selection, Store};
@@ -515,32 +516,26 @@ impl AppView {
         let worktree = (store.selection.as_ref()).and_then(|s| store.worktree_of(s));
         let checked_out = (store.workspace(&project).and_then(|ws| ws.lane_of(&below)))
             .is_some_and(|(_, at)| at == 0);
-        let title = match worktree.filter(|_| checked_out) {
-            Some(worktree) => format!("New branch on top, checked out in {}", worktree.name),
-            None => "New branch on top".to_owned(),
-        };
+        let checked_out_in = (worktree.filter(|_| checked_out)).map(|w| w.name.clone());
         let here = worktree.is_none();
-        let on_branch = (project.clone(), below.clone());
-        let at = Selection::Branch(project, below.clone());
-        self.prompt_new_branch(at, &title, here, window, cx, move |path, _, name| {
-            backend::create_dependent_branch(path, &below, name)
+        self.new_branch_at(project, here, checked_out_in, window, cx, move |path, _| {
+            backend::create_dependent_branch(path, &below)
         });
-        self.prompt_on_branch(on_branch);
     }
 
-    /// Ask for a branch name and make the branch with `op` beside or in what's `at`, then
-    /// select it. One made on top (`on_top`) is what the next commit goes to; one splitting a
-    /// stack isn't.
-    pub(crate) fn prompt_new_branch(
+    /// Make a branch with a made-up name with `op` and select it, for r to rename, as the other
+    /// apps do. One made on top (`on_top`) is what the next commit goes to; one splitting a
+    /// stack isn't. `checked_out_in` names the linked worktree that checks it out.
+    pub(crate) fn new_branch_at(
         &mut self,
-        at: Selection,
-        title: &str,
+        project: ProjectId,
         on_top: bool,
+        checked_out_in: Option<Arc<str>>,
         window: &mut Window,
         cx: &mut Context<Self>,
-        op: impl FnOnce(&Path, &Remap, &str) -> anyhow::Result<String> + Send + 'static,
+        op: impl FnOnce(&Path, &Remap) -> anyhow::Result<String> + Send + 'static,
     ) {
-        let (selected, detail) = (at.project().clone(), self.detail.downgrade());
+        let (selected, detail) = (project.clone(), self.detail.downgrade());
         let done = move |store: &mut Store, branch: String, cx: &mut Context<Store>| {
             if on_top {
                 (detail.update(cx, |detail, cx| {
@@ -548,9 +543,20 @@ impl AppView {
                 }))
                 .ok();
             }
-            store.select(Some(Selection::Branch(selected, branch)), cx)
+            let message = match checked_out_in {
+                Some(worktree) => {
+                    format!("Created {}, checked out in {worktree}", short_ref(&branch))
+                }
+                None => format!("Created {}", short_ref(&branch)),
+            };
+            store.select(Some(Selection::Branch(selected, branch)), cx);
+            store.snack_undoable(message, cx)
         };
-        self.prompt_branch(at, title, None, window, cx, op, done);
+        // The navigator, where it's selected, takes the keys, as r to rename it.
+        self.focus_navigator(&FocusNavigator, window, cx);
+        self.store.update(cx, |store, cx| {
+            store.run(&project, "Create branch", Overlay::default(), op, done, cx)
+        });
     }
 
     fn uncommit_selection(
@@ -864,17 +870,9 @@ impl AppView {
         let Some(oldest) = oldest else {
             return;
         };
-        let title = format!("New branch below {}", short_ref(&ref_name));
-        self.prompt_new_branch(
-            Selection::Branch(project, ref_name),
-            &title,
-            false,
-            window,
-            cx,
-            move |path, remap, name| {
-                backend::create_branch_at_commit(path, remap.get(oldest)?, true, name)
-            },
-        );
+        self.new_branch_at(project, false, None, window, cx, move |path, remap| {
+            backend::create_branch_at_commit(path, remap.get(oldest)?, true)
+        });
     }
 
     /// Split the selected commit's branch: a new branch ending at it takes it and the
@@ -884,17 +882,9 @@ impl AppView {
             return;
         };
         let id = commit.id;
-        let title = format!("New branch ending at {}", id.short());
-        self.prompt_new_branch(
-            Selection::Commit(project, id),
-            &title,
-            false,
-            window,
-            cx,
-            move |path, remap, name| {
-                backend::create_branch_at_commit(path, remap.get(id)?, false, name)
-            },
-        );
+        self.new_branch_at(project, false, None, window, cx, move |path, remap| {
+            backend::create_branch_at_commit(path, remap.get(id)?, false)
+        });
     }
 
     fn unstack(&mut self, _: &Unstack, _: &mut Window, cx: &mut Context<Self>) {
