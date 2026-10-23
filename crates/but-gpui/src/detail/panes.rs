@@ -558,7 +558,8 @@ impl Detail {
                         .tooltip(Tooltip::text(format!("Signed with {signer}, not verified"))),
                 )
             });
-        let rewording = (self.rewording.as_ref()).filter(|(key, ..)| *key == commit.key);
+        let rewording = (self.rewording.as_ref())
+            .filter(|(reworded, ..)| super::composer::rewords(reworded, project, commit, store));
         let main = v_flex()
             .gap(dp(10.))
             .map(|el| match rewording {

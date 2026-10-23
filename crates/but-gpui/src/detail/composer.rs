@@ -185,6 +185,24 @@ fn forget_checks_left(
     .ok();
 }
 
+/// The commit whose message is being edited: its project, its change ID, and what a plain
+/// Git amend keeps of it when it gives it a new ID, as the selection follows it by.
+pub(super) type Reworded = (ProjectId, String, String);
+
+/// Whether `commit` of `project` is the one being reworded: by its change ID, or by what an
+/// amend keeps of it once no commit has that ID, as the selection follows it, and not a
+/// cherry-picked copy, which keeps that too.
+pub(super) fn rewords(
+    reworded: &Reworded,
+    project: &ProjectId,
+    commit: &backend::Commit,
+    store: &Store,
+) -> bool {
+    let (of, key, authored) = reworded;
+    let gone = || (store.workspace(project)).is_some_and(|ws| ws.commits().all(|c| c.key != *key));
+    of == project && (*key == commit.key || (*authored == commit.authored && gone()))
+}
+
 /// A hunk's lines, as kinds and text, hashed: what line picks index into.
 fn fingerprint(hunk: &Hunk) -> u64 {
     let mut hasher = std::hash::DefaultHasher::new();
@@ -627,18 +645,17 @@ impl Detail {
         // The oplog can't take back what rewrites a linked worktree's branch.
         let undoable = !store.in_worktree(&project, id);
         // A rewording still running is where the next one starts.
-        let Some((key, message)) = (store.find_commit(&project, id)).map(|(_, commit)| {
-            let message = store.message_of(&project, commit).1.to_owned();
-            (commit.key.clone(), message)
-        }) else {
+        let Some((_, commit)) = store.find_commit(&project, id) else {
             return;
         };
         // Already open, as after a click elsewhere: back to what's written there.
         if let Some((editing, input, _)) = &self.rewording
-            && *editing == key
+            && rewords(editing, &project, commit, store)
         {
             return window.focus(&input.focus_handle(cx), cx);
         }
+        let message = store.message_of(&project, commit).1.to_owned();
+        let key = (project.clone(), commit.key.clone(), commit.authored.clone());
         let opened = message.trim().to_owned();
         let input = cx.new(|cx| {
             let mut input = TextInput::new("Commit message", true, cx);

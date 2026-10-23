@@ -299,9 +299,9 @@ pub struct Detail {
     /// How far each file's lines are scrolled sideways, by path: the old side's and the new
     /// side's, which a unified diff scrolls.
     sideways: HashMap<String, [ScrollHandle; 2]>,
-    /// The commit message being edited, by the commit's change ID, with the subscription that
-    /// saves it. Looking at another commit keeps it, to pick up again on coming back.
-    rewording: Option<(String, Entity<TextInput>, Subscription)>,
+    /// The commit message being edited, with the subscription that saves it. Looking at
+    /// another commit keeps it, to pick up again on coming back.
+    rewording: Option<(composer::Reworded, Entity<TextInput>, Subscription)>,
     /// The project the checks and commit target above belong to.
     checks_project: Option<ProjectId>,
     /// The linked worktree whose files the checks are of, or `None` for the project's own.
