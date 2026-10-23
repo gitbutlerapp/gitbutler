@@ -1042,6 +1042,8 @@ impl AppView {
                 overlay,
                 move |path, _| backend::land(path, &name, tip, whole_stack),
                 move |store, (update_needed, conflicted), cx| {
+                    // Undo would bring the branch back here while the target keeps it.
+                    store.drop_last_step();
                     // What the update after it left conflicted, as Update says.
                     let mut said = vec![format!("Landed on {target}{}", store.in_project(&landed))];
                     said.extend(crate::state::conflicted_parts(&conflicted));

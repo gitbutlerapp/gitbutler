@@ -809,6 +809,14 @@ impl Store {
         self.snack_undoable(message, cx)
     }
 
+    /// Keep ⌘Z, and the snackbar's Undo, from taking back the mutation that just ran, as a
+    /// land, which the target keeps; History can still restore to before it.
+    pub fn drop_last_step(&mut self) -> Option<(ProjectId, SnapshotId)> {
+        let (project, snapshot) = self.last_snapshot.take()?;
+        (self.undo_steps).retain(|step| step.project != project || step.snapshot != snapshot);
+        Some((project, snapshot))
+    }
+
     /// Whether ⌘Z has something the user did to take back.
     pub fn can_undo(&self) -> bool {
         !self.undo_steps.is_empty()
@@ -817,8 +825,7 @@ impl Store {
     /// Keep ⌘Z, and the snackbar's Undo, from taking back the mutation that just ran: it
     /// changed what the oplog can't bring back, as a linked worktree.
     pub fn keep_last_snapshot(&mut self, cx: &mut Context<Self>) {
-        if let Some((project, snapshot)) = self.last_snapshot.take() {
-            (self.undo_steps).retain(|step| step.project != project || step.snapshot != snapshot);
+        if let Some((project, snapshot)) = self.drop_last_step() {
             (self.kept_snapshots.lock().expect("not poisoned"))
                 .entry(project)
                 .or_default()
