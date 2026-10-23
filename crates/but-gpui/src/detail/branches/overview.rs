@@ -356,7 +356,8 @@ fn lane_row(
     let ref_name = branch.ref_name.clone();
     let applied =
         (branch.applied).then(|| Selection::Branch(branches.project.clone(), ref_name.clone()));
-    // The title and the cells share the room, the cells no wider than a cell a day needs.
+    // The title and the cells share the room, the title most of it when it's tight, giving
+    // up "applied" before its name, the cells no wider than a cell a day needs.
     list_row(id, false, theme)
         .h_auto()
         .py(dp(4.))
@@ -364,11 +365,23 @@ fn lane_row(
         .child(
             h_flex()
                 .flex_1()
+                .flex_grow(2.)
                 .min_w_0()
+                .overflow_hidden()
                 .gap(dp(6.))
-                .child(div().min_w_0().truncate().child(title(branch).to_owned()))
+                .child(
+                    div()
+                        .min_w(dp(40.))
+                        .truncate()
+                        .child(title(branch).to_owned()),
+                )
                 .when(branch.applied, |el| {
-                    el.child(faint("applied", theme).flex_none())
+                    el.child(
+                        faint("applied", theme)
+                            .min_w_0()
+                            .flex_shrink(1000.)
+                            .truncate(),
+                    )
                 })
                 // Short, as the list's ages are, to leave the title room.
                 .children(quiet.map(|days| {
@@ -385,6 +398,8 @@ fn lane_row(
         .child(
             h_flex()
                 .flex_1()
+                .min_w_0()
+                .overflow_hidden()
                 .max_w(dp(360.))
                 .gap(dp(2.))
                 .children(cells),

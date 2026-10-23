@@ -1370,6 +1370,7 @@ pub(super) fn overview_tiles(
                     div()
                         .text_size(dp(22.))
                         .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .whitespace_nowrap()
                         .child(n),
                 )
         }))
