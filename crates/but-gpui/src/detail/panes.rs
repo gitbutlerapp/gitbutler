@@ -1424,7 +1424,7 @@ pub(super) fn overview_title(title: &'static str, scope: String, theme: &Theme) 
                 .font_weight(gpui::FontWeight::SEMIBOLD)
                 .child(title),
         )
-        .child(faint(scope, theme))
+        .child(faint(scope, theme).min_w_0().truncate())
 }
 
 /// An overview's headline numbers, a tile each: what it counts, the number, and more of what

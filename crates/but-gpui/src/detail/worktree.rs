@@ -25,19 +25,17 @@ use crate::ui::file_icons::file_icon;
 use crate::ui::review::state_glyph;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
-    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, count_badge, dp, faint,
-    fold_glyph, fold_row, h_flex, icon, keep_focus_on_press, list_row, plural, relative_time,
-    short_path, shortcut, side_row, small_icon, v_flex,
+    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, count_badge, dp, faint, h_flex,
+    icon, keep_focus_on_press, list_row, relative_time, short_path, shortcut, side_row, small_icon,
+    v_flex,
 };
 
 mod activity;
 
 /// How many quarters of an hour the activity covers: the last 12 hours.
 const BARS: usize = 48;
-/// How far a branch's files sit in under it: past its chevron, under its glyph.
-const STEP_IN: f32 = 20.;
-/// How many files the commits not seen yet changed are listed until "N more".
-const UNSEEN_FILES_SHOWN: usize = 3;
+/// How many of the files a branch's commits not seen yet change show before they scroll.
+const UNSEEN_ROWS: f32 = 5.;
 /// How wide the commits' times are, room for "59m" or "11mo" and no more, so they sit close to
 /// the branch.
 const COMMITS_TIME_WIDTH: f32 = 28.;
@@ -68,12 +66,11 @@ pub(super) struct Now {
     /// The quarters of an hour picked off the activity, by when they begin over `QUARTER`,
     /// which the rest of the overview is narrowed to; none for all it shows.
     span: SlotPick,
-    /// The sections listing all they have rather than their first few, by their fold's id.
-    unfolded: HashSet<SharedString>,
-    /// The branches whose commits not seen yet are folded to their heading, by name.
-    folded: HashSet<SharedString>,
-    /// New's rows, hot files' and the commits', each scrolling within its part of the page.
-    new_scroll: ScrollHandle,
+    /// The branch whose commits not seen yet show, by name: the newest's while none's picked
+    /// or the one picked has none left.
+    unseen_branch: Option<SharedString>,
+    /// The picked branch's files, hot files' and the commits', each scrolling on its own.
+    unseen_scroll: ScrollHandle,
     hot_scroll: ScrollHandle,
     commits_scroll: ScrollHandle,
 }
@@ -170,8 +167,11 @@ impl Detail {
                 None => groups.push((branch, vec![commit])),
             }
         }
-        groups.sort_by_key(|(_, commits)| {
-            std::cmp::Reverse(commits.iter().map(|commit| commit.time).max())
+        // By name where they're as new, so the first stays first whatever order a load lists
+        // the stacks in.
+        groups.sort_by_key(|(branch, commits)| {
+            let newest = commits.iter().map(|commit| commit.time).max();
+            (std::cmp::Reverse(newest), branch.name.clone())
         });
         groups
     }
@@ -495,9 +495,10 @@ impl Detail {
             )
     }
 
-    /// What you haven't looked at, as rows: first the checkout's uncommitted files, with
-    /// whether they're being written or how long it's been quiet, then each branch with
-    /// commits not opened yet, its files under it. All caught up when there's neither.
+    /// What you haven't looked at: a line summing it up (whether files are being written or
+    /// how long it's been quiet, how many files are uncommitted and how many commits not opened
+    /// yet), then a tab for each branch with those, the one picked showing their files, which
+    /// scroll on their own, with Open and Mark as read for them.
     fn now_new(
         &self,
         project: &ProjectId,
@@ -508,9 +509,6 @@ impl Detail {
     ) -> Div {
         let name = worktree.map(|w| &**w);
         let groups = self.unseen_by_branch(project, name, cx);
-        let parts = (groups.iter().enumerate()).map(|(ix, (branch, commits))| {
-            self.unseen_part(ix, project, branch, commits, theme, cx)
-        });
         let store = self.store.read(cx);
         let files = (store.workspace(project))
             .and_then(|ws| ws.uncommitted_in(name))
@@ -524,118 +522,169 @@ impl Detail {
         let now = crate::ui::now();
         let newest = commits.first().map(|commit| commit.time);
         let writing = last_write.is_some_and(|at| now - at <= WRITING_WITHIN && newest < Some(at));
-        let quiet = match (writing, commits.first()) {
-            (true, _) => "being written now".to_owned(),
+        let state = match (writing, commits.first()) {
+            (true, _) => "Being written now".to_owned(),
             (false, Some(last)) => match now - last_write.max(Some(last.time)).unwrap_or(last.time)
             {
-                ..60 => "quiet".to_owned(),
-                quiet => format!("quiet for {}", span_said(quiet)),
+                ..60 => "Quiet".to_owned(),
+                quiet => format!("Quiet for {}", span_said(quiet)),
             },
-            (false, None) => "nothing committed yet".to_owned(),
+            (false, None) => "Nothing committed yet".to_owned(),
         };
-        let (glyph, said) = match (files.len(), groups.is_empty()) {
-            (0, true) => (
-                small_icon(Icon::Tick)
-                    .text_color(theme.text_3)
-                    .into_any_element(),
-                "All caught up".to_owned(),
-            ),
-            (n, _) => (
-                // Lit while an agent writes.
-                div()
-                    .size(dp(7.))
-                    .rounded_full()
-                    .bg(match writing {
+        let unread: usize = groups.iter().map(|(_, commits)| commits.len()).sum();
+        // One line, short enough for a narrow page, its last words cut short before they'd
+        // widen it; the tabs under it say which branches.
+        let summary = meta_row(theme)
+            .min_w_0()
+            .overflow_hidden()
+            .px(dp(14.))
+            .child(
+                h_flex()
+                    .flex_none()
+                    .gap(dp(6.))
+                    // Lit while an agent writes.
+                    .child(div().size(dp(7.)).rounded_full().bg(match writing {
                         true => theme.pop,
                         false => theme.text_3,
-                    })
-                    .into_any_element(),
-                match n {
-                    0 => "Nothing uncommitted".to_owned(),
-                    n => plural(n, "uncommitted file"),
-                },
-            ),
-        };
-        let status = h_flex()
-            .h(dp(ROW_HEIGHT))
-            .px(dp(14.))
-            .gap(dp(8.))
-            .child(
-                div()
-                    .flex_none()
-                    .w(dp(14.))
-                    .flex()
-                    .justify_center()
-                    .child(glyph),
+                    }))
+                    .child(state),
             )
-            .child(div().flex_none().child(said))
-            .child(faint(quiet, theme).flex_1().min_w_0().truncate())
             .when(!files.is_empty(), |el| {
-                // The first of them, as ↓ from the list does.
                 el.child(
-                    button("now-open-changes", "Open")
-                        .small()
-                        .style(ButtonStyle::Ghost)
-                        .on_click(cx.listener(|this, _, _, cx| this.move_file(1, cx))),
+                    meta_item(Icon::File, theme)
+                        .flex_none()
+                        .child(format!("{} uncommitted", files.len())),
                 )
+            })
+            .when(unread > 0, |el| {
+                let said = div().min_w_0().truncate().child(format!("{unread} unread"));
+                el.child(meta_item(Icon::Commit, theme).min_w_0().child(said))
+            })
+            .when(files.is_empty() && unread == 0, |el| {
+                let said = div().min_w_0().truncate().child("All caught up");
+                el.child(meta_item(Icon::Tick, theme).min_w_0().child(said))
             });
-        // At most 40% of the page, and in a short one it gives way first, down to its first
-        // three rows (where it has them), so the lists under the activity keep room.
-        let kept = (1 + groups.len()).min(3) as f32;
+        let picked = (self.now.unseen_branch.as_ref())
+            .and_then(|name| groups.iter().position(|(branch, _)| branch.name == **name))
+            .unwrap_or(0);
         v_flex()
-            .relative()
-            .flex_shrink(1.)
-            .min_h(dp(ROW_HEIGHT * kept))
-            .max_h(relative(0.4))
-            .child(
+            .flex_none()
+            .gap(dp(8.))
+            .child(summary)
+            .children((!groups.is_empty()).then(|| {
+                let tabs = (groups.iter().enumerate()).map(|(ix, group)| {
+                    self.unseen_tab(ix, ix == picked, project, group, theme, cx)
+                });
+                let (_, commits) = &groups[picked];
+                // The tabs across, then the picked branch's: what to do with them, and their
+                // files.
                 v_flex()
-                    .id("now-new")
-                    .min_h_0()
-                    .overflow_y_scroll()
-                    .track_scroll(&self.now.new_scroll)
-                    .child(status)
-                    .children(parts),
-            )
-            .children(scrollbar(
-                "now-new-scrollbar",
-                Scroll::Div(self.now.new_scroll.clone()),
-                theme,
-            ))
+                    .gap(dp(4.))
+                    // The actions beside the tabs where they fit, else on a line of their own.
+                    .child(
+                        (h_flex().min_w_0().px(dp(6.)).flex_wrap().gap(dp(4.)))
+                            .children(tabs)
+                            .child(self.unseen_actions(project, commits, cx)),
+                    )
+                    .child(self.unseen_files(project, commits, theme, cx))
+            }))
     }
 
-    /// A branch's `commits` not opened yet: the branch and who made them, with Open, which
-    /// shows them together, or Mark as read, for those not worth a look; then their files as
-    /// the file list draws them, with the lines each changes, a click on one opening them at
-    /// it.
-    fn unseen_part(
+    /// A branch's tab among those with commits not opened yet: its pull request's title or its
+    /// name and how many; picked, their files show under the tabs.
+    fn unseen_tab(
         &self,
         ix: usize,
+        on: bool,
         project: &ProjectId,
-        branch: &Branch,
-        commits: &[&Commit],
+        (branch, commits): &(&Branch, Vec<&Commit>),
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Stateful<Div> {
-        let mut by: Vec<&str> = Vec::new();
-        for commit in commits {
-            if !by.contains(&who(commit)) {
-                by.push(who(commit));
-            }
-        }
+        let ((glyph, color), label, tip) = branch_said(self.store.read(cx), project, branch, theme);
+        let name: SharedString = branch.name.clone().into();
+        h_flex()
+            .id(("now-branch-tab", ix))
+            .flex_none()
+            .min_w_0()
+            .max_w(dp(260.))
+            .h(dp(26.))
+            .px(dp(8.))
+            .gap(dp(6.))
+            .rounded(dp(6.))
+            .cursor_pointer()
+            .when(on, |el| el.bg(theme.selected_unfocused()))
+            .when(!on, |el| el.hover(|el| el.bg(theme.hover())))
+            .child(small_icon(glyph).flex_none().text_color(color))
+            .child(
+                div()
+                    .min_w_0()
+                    .truncate()
+                    .when(on, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
+                    .child(label),
+            )
+            .child(count_badge(commits.len(), theme))
+            .tooltip(Tooltip::text(tip))
+            .on_mouse_down(MouseButton::Left, keep_focus_on_press)
+            .on_click(cx.listener(move |this, _, _, cx| {
+                this.now.unseen_branch = Some(name.clone());
+                this.now.unseen_scroll.set_offset(Default::default());
+                cx.notify();
+            }))
+    }
+
+    /// Open, which shows the picked branch's `commits` together, and Mark as read, for those
+    /// not worth a look.
+    fn unseen_actions(&self, project: &ProjectId, commits: &[&Commit], cx: &Context<Self>) -> Div {
+        let ids: Arc<[CommitId]> = commits.iter().map(|commit| commit.id).collect();
+        let (to_open, read) = (
+            (project.clone(), ids.clone()),
+            (project.clone(), ids.clone()),
+        );
+        h_flex()
+            .flex_grow(1.)
+            .min_w_0()
+            .h(dp(26.))
+            .gap(dp(4.))
+            .justify_end()
+            .child(
+                button("now-unseen-open", "Open")
+                    .small()
+                    .style(ButtonStyle::Ghost)
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        let (project, ids) = &to_open;
+                        this.open_unseen(project, ids, None, cx)
+                    })),
+            )
+            .child(
+                button("now-unseen-read", "Mark as read")
+                    .small()
+                    .style(ButtonStyle::Ghost)
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        let (project, ids) = read.clone();
+                        this.store.update(cx, |store, cx| {
+                            store.mark_read(&project, ids.iter().copied(), true, cx)
+                        })
+                    })),
+            )
+    }
+
+    /// The files the picked branch's `commits` change, as the file list draws them, with the
+    /// lines each changes, scrolling on their own past a few; a click on one opens the commits
+    /// at it.
+    fn unseen_files(
+        &self,
+        project: &ProjectId,
+        commits: &[&Commit],
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Div {
         let ids: Arc<[CommitId]> = commits.iter().map(|commit| commit.id).collect();
         let lines = self.now.unseen_lines.get(&ids).and_then(Option::as_ref);
-        let fold: SharedString = format!("now-unseen-more-{}", branch.name).into();
-        let name: SharedString = branch.name.clone().into();
-        let open = !self.now.folded.contains(&name);
-        let file_rows = (lines.into_iter().flatten())
-            .take(self.now_shown(&fold, UNSEEN_FILES_SHOWN))
-            .enumerate()
-            .map(|(row, (path, added, removed))| {
-                // Opens them on this file.
+        let rows =
+            (lines.into_iter().flatten().enumerate()).map(|(row, (path, added, removed))| {
                 let (project, ids, file) = (project.clone(), ids.clone(), path.clone());
-                // A step in, under the branch's glyph.
                 list_row(("now-unseen-file", row), false, theme)
-                    .pl(dp(STEP_IN + 8.))
                     .on_mouse_down(MouseButton::Left, keep_focus_on_press)
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.open_unseen(&project, &ids, Some(file.clone()), cx)
@@ -643,90 +692,21 @@ impl Detail {
                     .child(file_label(path, false, theme, cx))
                     .child(diff::stats(*added, *removed, theme))
             });
-        let hidden = lines.map_or(0, |lines| lines.len().saturating_sub(UNSEEN_FILES_SHOWN));
-        let ((glyph, color), label, tip) = branch_said(self.store.read(cx), project, branch, theme);
-        let (to_open, read) = (
-            (project.clone(), ids.clone()),
-            (project.clone(), ids.clone()),
-        );
         v_flex()
-            .id(("now-unseen", ix))
+            .relative()
             .child(
-                // Its actions go under it where the line has no room for them.
-                h_flex()
-                    .flex_wrap()
-                    .min_h(dp(ROW_HEIGHT))
-                    .px(dp(14.))
-                    .py(dp(2.))
-                    .gap_x(dp(8.))
-                    .gap_y(dp(4.))
-                    .child(
-                        h_flex()
-                            .flex_1()
-                            .min_w(dp(160.))
-                            .gap(dp(8.))
-                            .child(
-                                // A click folds its files away, or unfolds them.
-                                h_flex()
-                                    .id("branch")
-                                    .min_w_0()
-                                    .gap(dp(6.))
-                                    .cursor_pointer()
-                                    .on_mouse_down(MouseButton::Left, keep_focus_on_press)
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        if !this.now.folded.remove(&name) {
-                                            this.now.folded.insert(name.clone());
-                                        }
-                                        cx.notify();
-                                    }))
-                                    .child(fold_glyph(Some(open), theme.text_3))
-                                    .child(small_icon(glyph).flex_none().text_color(color))
-                                    .child(
-                                        div()
-                                            .min_w_0()
-                                            .truncate()
-                                            .font_weight(gpui::FontWeight::SEMIBOLD)
-                                            .child(label),
-                                    )
-                                    .tooltip(Tooltip::text(tip)),
-                            )
-                            .child(faint(by.join(", "), theme).flex_1().min_w_0().truncate()),
-                    )
-                    .child(
-                        h_flex()
-                            .flex_none()
-                            .gap(dp(4.))
-                            .child(
-                                button("open", "Open")
-                                    .small()
-                                    .style(ButtonStyle::Ghost)
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        let (project, ids) = &to_open;
-                                        this.open_unseen(project, ids, None, cx)
-                                    })),
-                            )
-                            .child(
-                                button("read", "Mark as read")
-                                    .small()
-                                    .style(ButtonStyle::Ghost)
-                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                        let (project, ids) = read.clone();
-                                        this.store.update(cx, |store, cx| {
-                                            store.mark_read(&project, ids.iter().copied(), true, cx)
-                                        })
-                                    })),
-                            ),
-                    ),
+                v_flex()
+                    .id("now-unseen-files")
+                    .max_h(dp(ROW_HEIGHT * UNSEEN_ROWS))
+                    .overflow_y_scroll()
+                    .track_scroll(&self.now.unseen_scroll)
+                    .children(rows),
             )
-            .when(open, |el| {
-                el.children(file_rows).children(self.now_fold(
-                    fold,
-                    hidden,
-                    14. + STEP_IN,
-                    theme,
-                    cx,
-                ))
-            })
+            .children(scrollbar(
+                "now-unseen-scrollbar",
+                Scroll::Div(self.now.unseen_scroll.clone()),
+                theme,
+            ))
     }
 
     /// Open commits `ids` together, as Review does, on `file` once their diff shows.
@@ -964,40 +944,6 @@ impl Detail {
                     theme,
                 )),
         )
-    }
-
-    /// How many rows the section `fold` folds lists: its first `first`, or all once unfolded.
-    fn now_shown(&self, fold: &str, first: usize) -> usize {
-        match self.now.unfolded.contains(fold) {
-            true => usize::MAX,
-            false => first,
-        }
-    }
-
-    /// "N more" under a section listing its first few, `hidden` left out, or "Show fewer"
-    /// once it lists them all, as the navigator folds a long list: its glyph `at` the rows'
-    /// glyphs, its words under their titles.
-    fn now_fold(
-        &self,
-        fold: impl Into<SharedString>,
-        hidden: usize,
-        at: f32,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> Option<Stateful<Div>> {
-        let fold = fold.into();
-        let (glyph, said) = match (hidden, self.now.unfolded.contains(&fold)) {
-            (0, _) => return None,
-            (_, true) => (Icon::ChevronUp, "Show fewer".to_owned()),
-            (n, false) => (Icon::Kebab, format!("{n} more")),
-        };
-        let row = fold_row(fold.clone(), glyph, at, at + 20., theme).child(said);
-        Some(row.on_click(cx.listener(move |this, _, _, cx| {
-            if !this.now.unfolded.remove(&fold) {
-                this.now.unfolded.insert(fold.clone());
-            }
-            cx.notify();
-        })))
     }
 }
 
