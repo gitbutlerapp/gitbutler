@@ -3083,6 +3083,35 @@ fn repo_in_dev_shm_with_git_elsewhere() -> anyhow::Result<Option<WithMOnAnotherF
 
 #[test]
 #[cfg(unix)]
+fn checkout_leaves_an_emptied_directory_it_cannot_remove_like_git() -> anyhow::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let workdir = repo.workdir().expect("non-bare").to_owned();
+    commit_in_worktree(&repo, &[("d/a", "a\n")])?;
+    let new_commit = commit_files(&repo, "delete d/a", &[("d/a", None)])?;
+    std::fs::set_permissions(&workdir, std::fs::Permissions::from_mode(0o555))?;
+    if std::fs::write(workdir.join("probe"), "").is_ok() {
+        // Directory permissions don't apply to root.
+        std::fs::set_permissions(&workdir, std::fs::Permissions::from_mode(0o755))?;
+        return Ok(());
+    }
+
+    let out = safe_checkout_from_head(new_commit, &repo, Default::default());
+    std::fs::set_permissions(&workdir, std::fs::Permissions::from_mode(0o755))?;
+
+    out?;
+    assert_eq!(repo.head_id()?, new_commit);
+    assert!(!workdir.join("d/a").exists());
+    assert_eq!(
+        std::fs::read_dir(workdir.join("d"))?.count(),
+        0,
+        "like Git, `d` stays when its parent doesn't allow removing it"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
 fn checkout_refuses_an_edit_made_while_filters_run() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
     let workdir = repo.workdir().unwrap().to_owned();

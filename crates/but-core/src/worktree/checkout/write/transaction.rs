@@ -343,18 +343,17 @@ impl Journal {
         )
     }
 
-    /// Remove the directories leading to `path` that are now empty, as Git does.
-    /// Like Git, remove the directories leading to the deleted `path` that it left empty. They're
-    /// moved `aside`, so undo puts each back itself, with all it had, like its ACLs.
+    /// Like Git, remove the directories leading to the deleted `path` that it left empty, as far as
+    /// it can: one that can't be removed, like in a read-only directory, stays. They're moved
+    /// `aside`, so undo puts each back itself, with all it had, like its ACLs.
     fn move_emptied_parents_aside(&mut self, path: &Path, aside: &Path) -> anyhow::Result<()> {
         let workdir = self.workdir.clone();
         for dir in path.ancestors().skip(1).take_while(|dir| *dir != workdir) {
             // A missing one was emptied by another deletion, and moved aside with what it left
             // empty above it.
-            if !is_empty_dir(dir)? {
+            if !is_empty_dir(dir)? || self.move_aside(dir, aside).is_err() {
                 break;
             }
-            self.move_aside(dir, aside)?;
         }
         Ok(())
     }
