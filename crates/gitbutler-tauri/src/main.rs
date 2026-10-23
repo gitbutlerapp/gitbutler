@@ -88,6 +88,10 @@ fn main() -> anyhow::Result<()> {
         && (std::env::args_os().any(|arg| arg == "--gpui")
             || app_settings.get()?.feature_flags.gpui)
     {
+        // As the web app's setup does: hooks and signing need the PATH and the like of the
+        // user's shell, which an app opened from the Dock or Finder doesn't have.
+        but_action::cli::auto_fix_broken_but_cli_symlink();
+        inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
         // It installs nothing itself: it asks the web app's update feed, as often as the web
         // app would, and relaunches into the web app to install what it offers.
         #[allow(deprecated)]
