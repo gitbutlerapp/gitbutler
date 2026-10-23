@@ -127,7 +127,7 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 | j k | next or previous file |
 | z | fold or unfold the file |
 | e | open the file in your editor, at the hunk |
-| ⌥⌘Z, ⌘⌫ | discard the hunk, discard the file (either takes the picked lines when there are any) |
+| ⌥⌘Z, ⌘⌫ | discard the hunk, discard the file (either takes the picked lines when there are any); on the diff of a commit in an applied branch they point to Discard from commit in the file's menu |
 | 1, 2, 3 | on a conflicted commit: keep the new base's lines, the commit's, or both |
 | ↩, A | on a conflicted commit: edit what the conflict keeps, have AI suggest a merge |
 | ⌘↩ | on a conflicted commit: apply what's picked |

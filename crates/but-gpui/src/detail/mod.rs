@@ -1747,7 +1747,7 @@ impl Detail {
             hunk,
         });
         let Some(diff) = (self.diff.as_ref()).filter(|diff| diff.key.source.live()) else {
-            return;
+            return self.not_live(window, cx);
         };
         let Some(file) = diff.files.get(file_ix) else {
             return;
@@ -1780,7 +1780,7 @@ impl Detail {
             files,
         }) = self.line_picks_cut(cx)
         else {
-            return;
+            return self.not_live(window, cx);
         };
         self.app
             .update(cx, |app, cx| {
@@ -1789,10 +1789,20 @@ impl Detail {
             .ok();
     }
 
+    /// Say why the discard keys do nothing on a workspace commit's diff, whose file menu
+    /// discards from it. Not with a page's list in front, as its rows aren't the diff's.
+    fn not_live(&self, window: &Window, cx: &mut Context<Self>) {
+        if !self.side_list_focused(window) && self.owned_cut(Vec::new(), cx).is_some() {
+            let why = "Only uncommitted changes can be discarded with these keys. A commit's file menu has \
+                 Discard from commit";
+            self.store.update(cx, |store, cx| store.snack(why, cx));
+        }
+    }
+
     /// Discard the picked files of a diff of uncommitted changes.
     fn discard_picked(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(diff) = (self.diff.as_ref()).filter(|diff| diff.key.source.live()) else {
-            return;
+            return self.not_live(window, cx);
         };
         let (project, worktree) = (diff.key.project.clone(), diff.key.linked());
         let changes = self.picked_changes();
