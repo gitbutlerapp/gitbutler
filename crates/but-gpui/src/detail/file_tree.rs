@@ -91,8 +91,10 @@ fn walk(
 ) {
     for (name, mut dir) in &node.dirs {
         let mut name = name.clone();
-        while dir.files.is_empty() && dir.dirs.len() == 1 {
-            let (child, inner) = dir.dirs.iter().next().expect("one directory");
+        while dir.files.is_empty()
+            && dir.dirs.len() == 1
+            && let Some((child, inner)) = dir.dirs.iter().next()
+        {
             name = format!("{name}/{child}");
             dir = inner;
         }

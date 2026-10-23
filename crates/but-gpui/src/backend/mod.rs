@@ -50,6 +50,10 @@ pub fn init() {
 /// The runtime every GitButler call runs on. Its threads get big stacks: GitButler's
 /// graph walks and async push futures are deep, especially in debug builds, and would
 /// overflow the small stacks of the UI framework's own worker threads.
+#[expect(
+    clippy::expect_used,
+    reason = "nothing GitButler does works without it, and only a system out of threads fails it"
+)]
 pub(crate) fn runtime() -> &'static tokio::runtime::Runtime {
     static RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
     RUNTIME.get_or_init(|| {

@@ -491,8 +491,8 @@ impl Store {
                 ..Overlay::rewriting_main()
             },
             move |path, _| {
-                let kept = kept.lock().expect("not poisoned").get(&of).cloned();
-                let undid = undid.lock().expect("not poisoned").get(&of).cloned();
+                let kept = kept.lock().get(&of).cloned();
+                let undid = undid.lock().get(&of).cloned();
                 let undid = undid.unwrap_or_default();
                 let started = now_millis();
                 let redone = backend::history::redo_snapshot(
@@ -530,10 +530,7 @@ impl Store {
                     }
                 };
                 (store.redo_steps).retain(|step| *step != (again.clone(), undo));
-                (store.undid.lock().expect("not poisoned"))
-                    .entry(again)
-                    .or_default()
-                    .push(span);
+                (store.undid.lock()).entry(again).or_default().push(span);
                 // Back on top of what ⌘Z takes back.
                 if let Some((project, snapshot)) = store.last_snapshot.clone() {
                     store.push_undo_step(project, snapshot, asked);
@@ -553,7 +550,7 @@ impl Store {
             "Restore",
             Overlay::rewriting_main(),
             move |path, _| {
-                let kept = kept.lock().expect("not poisoned").get(&of).cloned();
+                let kept = kept.lock().get(&of).cloned();
                 backend::history::restore(path, snapshot, &kept.unwrap_or_default())
             },
             |store, (), cx| store.snack_undoable("Restored", cx),
@@ -598,7 +595,7 @@ impl Store {
             },
             move |path, _| {
                 let started = now_millis();
-                let undid = undid.lock().expect("not poisoned").get(&of).cloned();
+                let undid = undid.lock().get(&of).cloned();
                 let undid = undid.unwrap_or_default();
                 let newer_than = newer_than.map(|at| (at, undid.as_slice()));
                 let undone = backend::history::undo_snapshot(path, snapshot, newer_than);
@@ -610,7 +607,7 @@ impl Store {
                     Ok(Undone::Done(operation)) => {
                         (store.undo_steps)
                             .retain(|step| step.project != again || step.snapshot != snapshot);
-                        (store.undid.lock().expect("not poisoned"))
+                        (store.undid.lock())
                             .entry(again.clone())
                             .or_default()
                             .push(span);

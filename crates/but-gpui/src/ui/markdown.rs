@@ -344,7 +344,9 @@ pub fn parse(markdown: &str) -> Vec<Block> {
             match event {
                 Event::Text(text) | Event::Code(text) => alt.push_str(&text),
                 Event::End(TagEnd::Image) => {
-                    let (alt, url) = image.take().expect("in an image");
+                    let Some((alt, url)) = image.take() else {
+                        continue;
+                    };
                     put_image(
                         &mut current,
                         &alt,

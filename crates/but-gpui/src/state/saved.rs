@@ -75,7 +75,7 @@ impl Store {
             widths: self.widths.clone(),
             window: self.window.clone(),
             prefs: self.prefs.clone(),
-            kept_by_project: (self.kept_snapshots.lock().expect("not poisoned").iter())
+            kept_by_project: (self.kept_snapshots.lock().iter())
                 .map(|(project, kept)| {
                     let mut ids: Vec<String> = kept.iter().map(|id| id.0.to_string()).collect();
                     ids.sort();
@@ -95,8 +95,8 @@ impl Store {
         self.seen.commits.retain(|id, _| listed(id));
         self.undo_steps.retain(|step| listed(&step.project));
         self.redo_steps.retain(|(id, _)| listed(id));
-        (self.undid.lock().expect("not poisoned")).retain(|id, _| listed(id));
-        (self.kept_snapshots.lock().expect("not poisoned")).retain(|id, _| listed(id));
+        (self.undid.lock()).retain(|id, _| listed(id));
+        (self.kept_snapshots.lock()).retain(|id, _| listed(id));
         let since = crate::ui::now() - super::activity::KEPT_FOR;
         (self.activity).retain(|(id, _), activity| {
             listed(id) && activity.last.is_some_and(|last| last > since)

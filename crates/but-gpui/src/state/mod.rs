@@ -3,11 +3,12 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use futures::channel::mpsc;
 use gpui::{Context, EventEmitter, SharedString, Subscription, Task};
+use parking_lot::Mutex;
 
 use crate::backend::upstream::TargetCommit;
 use crate::backend::watch::Watcher;
@@ -847,7 +848,7 @@ impl Store {
     /// changed what the oplog can't bring back, as a linked worktree.
     pub fn keep_last_snapshot(&mut self, cx: &mut Context<Self>) {
         if let Some((project, snapshot)) = self.drop_last_step() {
-            (self.kept_snapshots.lock().expect("not poisoned"))
+            (self.kept_snapshots.lock())
                 .entry(project)
                 .or_default()
                 .insert(snapshot);

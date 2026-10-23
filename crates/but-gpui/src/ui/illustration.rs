@@ -68,6 +68,10 @@ pub fn illustration(which: Illustration, theme: &Theme, cx: &App) -> Img {
 /// `which` in `theme`'s colours, for the roles ui-react's drawings are made of: the outline is
 /// `currentColor`, set to `border-1`; enclosed areas the paper, `bg-1`; shaded faces the ground,
 /// `bg-2`; a darker face `border-2`; and what stands for text `text-2`.
+#[expect(
+    clippy::expect_used,
+    reason = "the drawings are compiled in, and a test draws each"
+)]
 fn draw(renderer: &SvgRenderer, which: Illustration, theme: &Theme) -> Arc<RenderImage> {
     let (svg, ..) = which.source();
     let themed = [

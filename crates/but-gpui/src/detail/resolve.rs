@@ -629,7 +629,7 @@ impl Detail {
 
     /// One of the rows of `found`, a conflict of the file at `path`, acting on it through
     /// `entity`.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub(super) fn conflict_row(
         &self,
         path: &str,

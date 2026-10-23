@@ -788,7 +788,7 @@ fn parallel_map<T: Send, S, R: Send>(
     let threads = std::thread::available_parallelism()
         .map_or(4, |n| n.get())
         .min(items.len());
-    let queue = std::sync::Mutex::new(items.into_iter().enumerate());
+    let queue = parking_lot::Mutex::new(items.into_iter().enumerate());
     let mut results: Vec<(usize, R)> = std::thread::scope(|scope| {
         let workers: Vec<_> = (0..threads)
             .map(|_| {
@@ -797,7 +797,7 @@ fn parallel_map<T: Send, S, R: Send>(
                     let mut done = Vec::new();
                     loop {
                         // Taken out first, so the lock is free while `f` runs.
-                        let next = queue.lock().expect("no thread panics holding it").next();
+                        let next = queue.lock().next();
                         let Some((index, item)) = next else {
                             break done;
                         };
@@ -806,8 +806,13 @@ fn parallel_map<T: Send, S, R: Send>(
                 })
             })
             .collect();
+        // A panic in `f` goes on to the caller, whose task makes it an error.
         (workers.into_iter())
-            .flat_map(|worker| worker.join().expect("`f` doesn't panic"))
+            .flat_map(|worker| {
+                worker
+                    .join()
+                    .unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+            })
             .collect()
     });
     results.sort_unstable_by_key(|(index, _)| *index);

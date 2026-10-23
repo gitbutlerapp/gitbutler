@@ -34,8 +34,8 @@
 //! ```
 
 use std::path::PathBuf;
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result, bail};
@@ -44,6 +44,7 @@ use gpui::{
     MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, PlatformInput, Point,
     ScrollDelta, ScrollWheelEvent, TouchPhase, Window, point,
 };
+use parking_lot::Mutex;
 
 use crate::app::AppView;
 
@@ -64,7 +65,7 @@ fn watch_stalls(cx: &mut App) {
             cx.background_executor()
                 .timer(Duration::from_millis(1))
                 .await;
-            let mut stall = STALL.lock().expect("not poisoned");
+            let mut stall = STALL.lock();
             if let Some(since) = stall.0 {
                 let late = asleep
                     .max(since)
@@ -158,7 +159,7 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                         };
                         let (times, every): (usize, u64) = (times.parse()?, every.parse()?);
                         anyhow::ensure!(times > 0, "hold presses at least once");
-                        *STALL.lock().expect("not poisoned") =
+                        *STALL.lock() =
                             (Some(Instant::now()), Duration::ZERO);
                         let mut took = Vec::with_capacity(times);
                         for _ in 0..times {
@@ -172,7 +173,7 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                             let left = Duration::from_millis(every).saturating_sub(start.elapsed());
                             cx.background_executor().timer(left).await;
                         }
-                        let stall = STALL.lock().expect("not poisoned").1;
+                        let stall = STALL.lock().1;
                         let each: Vec<String> = (took.iter())
                             .map(|took| format!("{:.0}", took.as_secs_f64() * 1e3))
                             .collect();
@@ -192,7 +193,7 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                         let (label, input) = rest.split_once(' ').unwrap_or((rest, ""));
                         // Draw first so the timing doesn't include catching up on earlier steps.
                         cx.update_window(window, |_, window, cx| frame(window, cx))?;
-                        *STALL.lock().expect("not poisoned") =
+                        *STALL.lock() =
                             (Some(Instant::now()), Duration::ZERO);
                         let started = match label {
                             "startup" => *LAUNCHED.get().context("mark_launch wasn't called")?,
@@ -216,7 +217,7 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
                         }
                         let data = started.elapsed();
                         let draw = draw.max(frames(window, cx).await?);
-                        let stall = STALL.lock().expect("not poisoned").1.max(draw);
+                        let stall = STALL.lock().1.max(draw);
                         println!(
                             "PERF {label} total={:.1}ms data={:.1}ms draw={:.1}ms stall={:.1}ms",
                             (data + draw).as_secs_f64() * 1e3,

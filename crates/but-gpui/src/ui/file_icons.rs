@@ -20,8 +20,10 @@ thread_local! {
 /// The icon names by whole file name, then by extension, from the UI package's map.
 static TYPES: LazyLock<[HashMap<&'static str, &'static str>; 2]> = LazyLock::new(|| {
     let source = include_str!("../../../../packages/ui-react/src/file-icons/typeMap.ts");
-    let (extensions, names) = (source.split_once("symbolFileNamesToIcons"))
-        .expect("the map has file names after extensions");
+    // File names follow extensions, as a test checks.
+    let (extensions, names) = source
+        .split_once("symbolFileNamesToIcons")
+        .unwrap_or((source, ""));
     [entries(names), entries(extensions)]
 });
 
@@ -54,6 +56,10 @@ pub fn file_icon(path: &str, cx: &App) -> Img {
 }
 
 /// Mark `icon` drawn as `img` draws an SVG asset.
+#[expect(
+    clippy::expect_used,
+    reason = "only compiled-in marks are drawn, and a test draws each"
+)]
 fn draw(renderer: &SvgRenderer, icon: &str) -> Arc<RenderImage> {
     let svg = icon_svg(icon).expect("only compiled-in marks are drawn");
     (renderer.render_single_frame(svg, 1.)).expect("the compiled-in marks draw, as a test checks")

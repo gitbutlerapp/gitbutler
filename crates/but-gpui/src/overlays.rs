@@ -160,7 +160,7 @@ impl AppView {
     /// the prompt to say where. With the branch it's `renaming`, a full ref, that branch is
     /// being renamed; without one, or an empty one for a branch without a name yet, it asks
     /// as for a new branch.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub(crate) fn prompt_branch(
         &mut self,
         at: Selection,
@@ -253,7 +253,7 @@ impl AppView {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub(crate) fn open_prompt(
         &mut self,
         place: Option<SharedString>,

@@ -1,6 +1,15 @@
 //! An experimental native GitButler client built on GPUI. Only macOS builds it for now;
 //! elsewhere GPUI needs system libraries the workspace's CI doesn't install.
 #![cfg(target_os = "macos")]
+// Built into the desktop app, this runs as GitButler itself, so a panic here quits GitButler:
+// failures are handled rather than unwrapped, and a lint is set aside with `#[expect]`, which
+// fails the build once it's needless.
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::allow_attributes,
+    clippy::dbg_macro
+)]
 
 mod app;
 mod backend;
@@ -108,9 +117,10 @@ pub fn run(embedded: Option<Embedded>) {
         .with_assets(ui::Assets)
         .with_quit_mode(QuitMode::LastWindowClosed)
         .run(|cx: &mut App| {
-            cx.text_system()
-                .add_fonts(ui::fonts())
-                .expect("the bundled fonts load");
+            // Without them, text falls back to the system's fonts.
+            if let Err(err) = cx.text_system().add_fonts(ui::fonts()) {
+                tracing::error!("couldn't load the bundled fonts: {err:#}");
+            }
             match embedded {
                 Some(embedded) => cx.set_global(embedded),
                 // The desktop app's bundle gives the Dock its icon.
@@ -175,22 +185,27 @@ pub fn run(embedded: Option<Embedded>) {
                     Bounds::centered(None, size(fixed(1360.), fixed(860.)), cx),
                 ),
             };
-            let window = cx
-                .open_window(
-                    WindowOptions {
-                        window_bounds: Some(WindowBounds::Windowed(bounds)),
-                        display_id,
-                        titlebar: Some(TitlebarOptions {
-                            title: Some("GitButler".into()),
-                            appears_transparent: true,
-                            traffic_light_position: Some(point(fixed(14.), fixed(15.))),
-                        }),
-                        window_min_size: Some(size(fixed(900.), fixed(500.))),
-                        ..Default::default()
-                    },
-                    |window, cx| cx.new(|cx| AppView::new(store, window, cx)),
-                )
-                .expect("the main window opens");
+            let window = cx.open_window(
+                WindowOptions {
+                    window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    display_id,
+                    titlebar: Some(TitlebarOptions {
+                        title: Some("GitButler".into()),
+                        appears_transparent: true,
+                        traffic_light_position: Some(point(fixed(14.), fixed(15.))),
+                    }),
+                    window_min_size: Some(size(fixed(900.), fixed(500.))),
+                    ..Default::default()
+                },
+                |window, cx| cx.new(|cx| AppView::new(store, window, cx)),
+            );
+            let window = match window {
+                Ok(window) => window,
+                Err(err) => {
+                    tracing::error!("couldn't open the window: {err:#}");
+                    return cx.quit();
+                }
+            };
             // With the window minimized no window is active, so the menu's Quit comes here.
             // It asks the window first, as ⌘Q does.
             cx.on_action(move |_: &app::Quit, cx| {

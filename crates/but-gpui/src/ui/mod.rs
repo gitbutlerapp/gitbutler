@@ -38,7 +38,7 @@ pub fn dp(n: f32) -> Rems {
 
 /// `n` pixels at every interface scale, for what must stay put: a hairline, the room for
 /// macOS's traffic lights, the scrollbar.
-#[allow(clippy::disallowed_methods)]
+#[expect(clippy::disallowed_methods)]
 pub const fn fixed(n: f32) -> Pixels {
     gpui::px(n)
 }

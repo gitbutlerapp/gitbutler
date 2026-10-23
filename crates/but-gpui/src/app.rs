@@ -416,7 +416,7 @@ impl AppView {
 
     /// Ask with a native dialog before doing something destructive. Acting on something in a
     /// project, `at`, the detail starts with where, as [`Store::place`] says.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub fn confirm_then(
         &mut self,
         at: Option<Selection>,

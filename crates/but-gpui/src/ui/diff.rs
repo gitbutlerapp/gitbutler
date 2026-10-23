@@ -138,7 +138,7 @@ pub fn ends_card(rows: &[DiffRow], ix: usize) -> bool {
 /// and the files `whole`
 /// gives the length of shown with every unchanged line. With `split`, a hunk's lines pair up
 /// side by side. A file's conflicts sit among its hunks by line, laid out as `view` says.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn rows(
     files: &[FileDiff],
     folded: impl Fn(&FileDiff) -> bool,
