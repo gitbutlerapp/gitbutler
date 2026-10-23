@@ -235,7 +235,8 @@ impl ReviewView {
                     store.refresh_forge(&refreshed);
                     match published {
                         Ok(published) => {
-                            store.snack(format!("Created pull request #{}", published.number), cx);
+                            let made = format!("Created pull request #{}", published.number);
+                            store.snack(store.card_title(&refreshed, made), cx);
                             if let Some(message) = published.sync_failed {
                                 let title = "The stack's other pull requests weren't updated";
                                 store.error(title, message, cx);

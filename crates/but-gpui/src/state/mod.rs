@@ -893,11 +893,16 @@ impl Store {
     /// `title` for a card or the status bar about `project`, naming it when the selection is
     /// in another project.
     pub fn card_title(&self, project: &ProjectId, title: String) -> String {
+        title + &self.in_project(project)
+    }
+
+    /// " in shop" when `project` isn't the one shown, for a card's text to say where it was.
+    pub fn in_project(&self, project: &ProjectId) -> String {
         match self.project(project) {
             Some(entry) if (self.selection.as_ref()).is_some_and(|s| s.project() != project) => {
-                format!("{title} in {}", entry.project.name)
+                format!(" in {}", entry.project.name)
             }
-            _ => title,
+            _ => String::new(),
         }
     }
 

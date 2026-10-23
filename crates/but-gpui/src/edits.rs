@@ -977,32 +977,31 @@ impl AppView {
                 ..Overlay::default()
             },
         };
-        // What the question shows, to land only that: the newest commit of the branch and
-        // those below it, where its ref is even when it has none of its own.
-        let Some(tip) = (workspace.stack_of(&ref_name).into_iter())
+        // The branch and those below it, where its ref is even when it has no commits of its
+        // own.
+        let landing: Vec<&Branch> = (workspace.stack_of(&ref_name).into_iter())
             .flat_map(|(stack, at)| &stack.branches[at..])
-            .flat_map(|branch| &branch.commits)
-            .next()
-        else {
+            .collect();
+        // What the question shows, to land only that: the newest commit among them.
+        let Some(tip) = landing.iter().flat_map(|branch| &branch.commits).next() else {
             return;
         };
         let tip = tip.id;
         // Commits only the landing branches' remotes have, as a teammate's not pulled yet.
-        let remote_only: usize = (workspace.stack_of(&ref_name).into_iter())
-            .flat_map(|(stack, at)| &stack.branches[at..])
-            .map(|branch| branch.incoming.len())
-            .sum();
-        let name = short_ref(&ref_name).to_owned();
-        let (what, whose) = match whole_stack {
-            true => (format!("{name} and the branches below it"), "Their"),
-            false => (name.clone(), "Its"),
+        let remote_only: usize = landing.iter().map(|branch| branch.incoming.len()).sum();
+        let (name, landed) = (short_ref(&ref_name).to_owned(), project.clone());
+        let (what, whose, remotes) = match whole_stack {
+            true => (
+                format!("{name} and the branches below it"),
+                "Their",
+                "their remotes have",
+            ),
+            false => (name.clone(), "Its", "its remote has"),
         };
-        let left_behind = match (remote_only, whole_stack) {
-            (0, _) => String::new(),
-            (1, false) => " The commit only its remote has doesn't land.".into(),
-            (1, true) => " The commit only their remotes have doesn't land.".into(),
-            (n, false) => format!(" The {n} commits only its remote has don't land."),
-            (n, true) => format!(" The {n} commits only their remotes have don't land."),
+        let left_behind = match remote_only {
+            0 => String::new(),
+            1 => format!(" The commit only {remotes} doesn't land."),
+            n => format!(" The {n} commits only {remotes} don't land."),
         };
         // Landing brings the target's new commits into the workspace, as Update does.
         let update = match behind {
@@ -1031,7 +1030,7 @@ impl AppView {
                 overlay,
                 move |path, _| backend::land(path, &name, tip, whole_stack),
                 move |store, update_needed, cx| {
-                    let mut message = format!("Landed on {target}");
+                    let mut message = format!("Landed on {target}{}", store.in_project(&landed));
                     if update_needed {
                         message.push_str(", the other branches need an Update");
                     }

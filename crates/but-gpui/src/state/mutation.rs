@@ -553,7 +553,11 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         if (self.workspace(project)).is_some_and(|ws| ws.editing.is_some()) {
-            return self.snack("Finish or cancel editing the commit first", cx);
+            let why = format!(
+                "Finish or cancel editing the commit{} first",
+                self.in_project(project)
+            );
+            return self.snack(why, cx);
         }
         let step = (self.undo_steps.iter())
             .find(|step| step.project == *project && step.snapshot == snapshot);
@@ -662,7 +666,10 @@ impl Store {
                 // A conflicted commit's files always differ, markers and all, from the commit
                 // as git can store it, so this can't tell whether anything was done to them.
                 false => store.error_with_retry(
-                    "Cancelling drops the files as they are",
+                    format!(
+                        "Cancelling{} drops the files as they are",
+                        store.in_project(&again)
+                    ),
                     "The commit stays as it was, conflicts and all. What was done to its files \
                      since it was checked out, resolving included, is lost.",
                     "Cancel anyway",
@@ -692,13 +699,11 @@ impl Store {
             move |store, fetched_or_not, cx| match fetched_or_not {
                 Ok(any_remote) => {
                     store.fetched_now(&fetched, any_remote);
-                    store.snack(
-                        match any_remote {
-                            true => "Fetched",
-                            false => "No remote to fetch from",
-                        },
-                        cx,
-                    )
+                    let what = match any_remote {
+                        true => "Fetched",
+                        false => "No remote to fetch from",
+                    };
+                    store.snack(store.card_title(&fetched, what.into()), cx)
                 }
                 Err(err) => {
                     store.fetch_failed_now(&fetched);
@@ -810,7 +815,7 @@ impl Store {
                     commit_counts(&found)
                 );
                 store.error_with_retry(
-                    "Pulling leaves conflicts",
+                    store.card_title(&pulled, "Pulling leaves conflicts".into()),
                     detail,
                     "Pull anyway",
                     move |store, cx| {
@@ -862,17 +867,18 @@ impl Store {
                 let reason = match outcome {
                     Err(reason) => reason,
                     Ok(sync_failed) => {
-                        store.snack(format!("Pushed {name}"), cx);
+                        store.snack(store.card_title(&pushed, format!("Pushed {name}")), cx);
                         if let Some(message) = sync_failed {
                             let title = format!(
-                                "Pushed {name}, but the stack's pull requests weren't updated"
+                                "Pushed {name}{}, but the stack's pull requests weren't updated",
+                                store.in_project(&pushed)
                             );
                             store.error(title, message, cx);
                         }
                         return;
                     }
                 };
-                let title = format!("{name} wasn't pushed");
+                let title = store.card_title(&pushed, format!("{name} wasn't pushed"));
                 if !reason.is_empty() {
                     // Forcing past a protected branch or a push rule won't help.
                     return store.error(title, format!("The remote refused it: {reason}"), cx);
@@ -1214,7 +1220,11 @@ impl Store {
         let path = self.path(project).filter(|_| !refused);
         let Some(path) = path else {
             if refused {
-                self.snack("Finish or cancel editing the commit first", cx);
+                let why = format!(
+                    "Finish or cancel editing the commit{} first",
+                    self.in_project(project)
+                );
+                self.snack(why, cx);
             }
             // `start_next` goes on to this project's next operation.
             self.running.remove(project);
