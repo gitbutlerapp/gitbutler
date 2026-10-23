@@ -20,11 +20,14 @@ use super::slots::SlotPick;
 use crate::backend::{self, Branch, Commit, CommitId, Workspace};
 use crate::state::{ProjectId, QUARTER, Selection, Store};
 use crate::theme::Theme;
+use crate::ui::diff;
+use crate::ui::file_icons::file_icon;
 use crate::ui::review::state_glyph;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
-    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dp, faint, fold_row, h_flex,
-    keep_focus_on_press, list_row, plural, relative_time, short_path, side_row, small_icon, v_flex,
+    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dp, faint, fold_glyph, fold_row,
+    h_flex, keep_focus_on_press, list_row, plural, relative_time, short_path, side_row, small_icon,
+    v_flex,
 };
 
 mod activity;
@@ -76,6 +79,8 @@ pub(super) struct Now {
     unfolded: HashSet<SharedString>,
     /// Hot files' rows, scrolling within once they're all listed.
     hot_scroll: ScrollHandle,
+    /// The branches whose commits not seen yet are folded to their heading, by name.
+    folded: HashSet<SharedString>,
 }
 
 /// Files a range of commits changes, each with the lines it adds and removes.
@@ -530,7 +535,7 @@ impl Detail {
             (None, None) => ("Nothing committed here yet".to_owned(), false),
         };
         h_flex()
-            .px(dp(12.))
+            .px(dp(14.))
             .py(dp(8.))
             .gap(dp(8.))
             .child(
@@ -546,9 +551,10 @@ impl Detail {
             .child(div().flex_1().min_w_0().truncate().child(said))
     }
 
-    /// A branch's `commits` not opened yet: the branch, how many and by whom, the lines they
-    /// change and their files, a click on one opening them at it; and Open, which shows them
-    /// together, or Mark as read, for those not worth a look.
+    /// A branch's `commits` not opened yet: the branch and who made them, with Open, which
+    /// shows them together, or Mark as read, for those not worth a look; then their files as
+    /// the file list draws them, with the lines each changes, a click on one opening them at
+    /// it.
     fn unseen_part(
         &self,
         ix: usize,
@@ -558,7 +564,6 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Stateful<Div> {
-        let n = commits.len();
         let mut by: Vec<&str> = Vec::new();
         for commit in commits {
             if !by.contains(&who(commit)) {
@@ -569,16 +574,9 @@ impl Detail {
         let ws = self.store.read(cx).workspace(project);
         let lines = (ws.and_then(|ws| unseen_run(ws, commits)))
             .and_then(|run| self.now.unseen_lines.get(&run)?.as_ref());
-        let (added, removed) = (lines.into_iter().flatten())
-            .fold((0, 0), |(a, r), (_, added, removed)| {
-                (a + added, r + removed)
-            });
-        let most = (lines.into_iter().flatten())
-            .map(|(_, added, removed)| added + removed)
-            .max()
-            .unwrap_or(1)
-            .max(1);
         let fold: SharedString = format!("now-unseen-more-{}", branch.name).into();
+        let name: SharedString = branch.name.clone().into();
+        let open = !self.now.folded.contains(&name);
         let file_rows = (lines.into_iter().flatten())
             .take(self.now_shown(&fold, UNSEEN_FILES_SHOWN))
             .enumerate()
@@ -590,115 +588,90 @@ impl Detail {
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.open_unseen(&project, &ids, Some(file.clone()), cx)
                     }))
-                    .child(div().flex_1().min_w_0().truncate().child(path.clone()))
-                    .child(bar(
-                        (added + removed) as f32 / most as f32,
-                        theme.pop.opacity(0.7),
-                        theme,
-                    ))
-                    .child(overview_column(
-                        format!("+{added} −{removed}"),
-                        OVERVIEW_TIME_WIDTH + 40.,
-                        theme,
-                    ))
+                    .child(file_label(path, false, theme, cx))
+                    .child(diff::stats(*added, *removed, theme))
             });
         let hidden = lines.map_or(0, |lines| lines.len().saturating_sub(UNSEEN_FILES_SHOWN));
         let ((glyph, color), label, tip) = branch_said(self.store.read(cx), project, branch, theme);
-        let (open, read) = (
+        let (to_open, read) = (
             (project.clone(), ids.clone()),
             (project.clone(), ids.clone()),
         );
-        let open_said = match n {
-            1 => "Open the commit".to_owned(),
-            n => format!("Open the {n} commits"),
-        };
         v_flex()
             .id(("now-unseen", ix))
-            .py(dp(4.))
+            .when(open, |el| el.pb(dp(4.)))
             .border_t_1()
             .border_color(theme.border_3)
             .child(
+                // Its actions go under it where the line has no room for them.
                 h_flex()
-                    .px(dp(8.))
+                    .flex_wrap()
+                    .px(dp(14.))
                     .py(dp(6.))
-                    .gap(dp(8.))
+                    .gap_x(dp(8.))
+                    .gap_y(dp(4.))
                     .child(
                         h_flex()
-                            .id("branch")
-                            // It names the card, so it keeps its room, short of a long
-                            // pull request title, while the rest of the line gives way.
-                            .flex_none()
-                            .max_w(relative(0.45))
-                            .gap(dp(6.))
-                            .child(small_icon(glyph).flex_none().text_color(color))
+                            .flex_1()
+                            .min_w(dp(160.))
+                            .gap(dp(8.))
                             .child(
-                                div()
+                                // A click folds its files away, or unfolds them.
+                                h_flex()
+                                    .id("branch")
                                     .min_w_0()
-                                    .truncate()
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
-                                    .child(label),
+                                    .gap(dp(6.))
+                                    .cursor_pointer()
+                                    .on_mouse_down(MouseButton::Left, keep_focus_on_press)
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        if !this.now.folded.remove(&name) {
+                                            this.now.folded.insert(name.clone());
+                                        }
+                                        cx.notify();
+                                    }))
+                                    .child(fold_glyph(Some(open), theme.text_3))
+                                    .child(small_icon(glyph).flex_none().text_color(color))
+                                    .child(
+                                        div()
+                                            .min_w_0()
+                                            .truncate()
+                                            .font_weight(gpui::FontWeight::SEMIBOLD)
+                                            .child(label),
+                                    )
+                                    .tooltip(Tooltip::text(tip)),
                             )
-                            .tooltip(Tooltip::text(tip)),
+                            .child(faint(by.join(", "), theme).flex_1().min_w_0().truncate()),
                     )
                     .child(
-                        div()
-                            .min_w_0()
-                            .truncate()
-                            .text_color(theme.text_2)
-                            .child(format!("{} you haven't seen", plural(n, "commit"))),
-                    )
-                    .child(div().flex_1())
-                    .child(
-                        faint(format!("by {}", by.join(", ")), theme)
-                            .min_w_0()
-                            .truncate(),
-                    )
-                    .when(lines.is_some(), |el| {
-                        el.child(
-                            div()
-                                .flex_none()
-                                .text_size(dp(11.))
-                                .text_color(theme.diff_added)
-                                .child(format!("+{added}")),
-                        )
-                        .child(
-                            div()
-                                .flex_none()
-                                .text_size(dp(11.))
-                                .text_color(theme.diff_removed)
-                                .child(format!("−{removed}")),
-                        )
-                    }),
-            )
-            .children(file_rows)
-            .children(self.now_fold(fold, hidden, theme, cx))
-            .child(
-                h_flex()
-                    .px(dp(8.))
-                    .pt(dp(6.))
-                    .pb(dp(4.))
-                    .gap(dp(8.))
-                    .child(
-                        button("open", open_said)
-                            .small()
-                            .style(ButtonStyle::Pop)
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                let (project, ids) = &open;
-                                this.open_unseen(project, ids, None, cx)
-                            })),
-                    )
-                    .child(
-                        button("read", "Mark as read")
-                            .small()
-                            .style(ButtonStyle::Outline)
-                            .on_click(cx.listener(move |this, _, _, cx| {
-                                let (project, ids) = read.clone();
-                                this.store.update(cx, |store, cx| {
-                                    store.mark_read(&project, ids.iter().copied(), true, cx)
-                                })
-                            })),
+                        h_flex()
+                            .flex_none()
+                            .gap(dp(4.))
+                            .child(
+                                button("open", "Open")
+                                    .small()
+                                    .style(ButtonStyle::Ghost)
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        let (project, ids) = &to_open;
+                                        this.open_unseen(project, ids, None, cx)
+                                    })),
+                            )
+                            .child(
+                                button("read", "Mark as read")
+                                    .small()
+                                    .style(ButtonStyle::Ghost)
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        let (project, ids) = read.clone();
+                                        this.store.update(cx, |store, cx| {
+                                            store.mark_read(&project, ids.iter().copied(), true, cx)
+                                        })
+                                    })),
+                            ),
                     ),
             )
+            .when(open, |el| {
+                el.children(file_rows)
+                    .children(self.now_fold(fold, hidden, theme, cx))
+            })
     }
 
     /// Open commits `ids` together, as Review does, on `file` once their diff shows.
@@ -757,7 +730,7 @@ impl Detail {
                     };
                     let path = path.clone();
                     side_row(("now-hot", ix), on, true, theme)
-                        .child(div().flex_1().min_w_0().truncate().child(path.to_string()))
+                        .child(file_label(&path, on, theme, cx))
                         .child(bar_on(*n as f32 / most as f32, track, fill))
                         .child(
                             div()
@@ -1012,6 +985,41 @@ fn unseen_run(ws: &Workspace, commits: &[&Commit]) -> Option<Run> {
     }
 }
 
+/// A file's icon and name, then its folder fainter and cut in the middle, as the file list
+/// draws one, but quieter, as an overview lists files beside what they belong to; `on` a
+/// solid selection, as the row's text is.
+fn file_label(path: &str, on: bool, theme: &Theme, cx: &App) -> Div {
+    let (name, dir) = diff::split_path(path);
+    let muted = match on {
+        true => theme.muted_on_solid(),
+        false => theme.text_3,
+    };
+    h_flex()
+        .flex_1()
+        .min_w_0()
+        .gap(dp(8.))
+        .child(file_icon(path, cx).flex_none())
+        .child(
+            div()
+                .flex_shrink_0()
+                .max_w_full()
+                .truncate()
+                .when(!on, |el| el.text_color(theme.text_2))
+                .child(name.to_owned()),
+        )
+        .when(!dir.is_empty(), |el| {
+            el.child(
+                div()
+                    .min_w_0()
+                    .overflow_hidden()
+                    .whitespace_nowrap()
+                    .text_ellipsis_middle()
+                    .text_color(muted)
+                    .child(dir.to_owned()),
+            )
+        })
+}
+
 /// What names `branch`: the pull request that takes it to the target, else its name, with
 /// the glyph that says which, and both in full for a hover.
 fn branch_said(
@@ -1034,11 +1042,6 @@ fn branch_said(
         ),
         None => ((Icon::Branch, theme.text_3), name.clone(), name),
     }
-}
-
-/// A bar of `share` of the most, for an overview row, as the project page's areas have.
-fn bar(share: f32, color: gpui::Hsla, theme: &Theme) -> Div {
-    bar_on(share, theme.border_3, color)
 }
 
 /// A bar of `share` of the most, filled with `fill` on `track`.
