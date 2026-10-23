@@ -1125,7 +1125,12 @@ impl Detail {
                     .text_size(dp(12.))
                     .text_color(theme.text_2)
                     .child("Commit to")
-                    .child(self.render_target_picker(target.as_deref(), theme, cx)),
+                    .child(self.render_target_picker(target.as_deref(), theme, cx))
+                    // Saying it's writing, as an answer can take a while to start. Above the
+                    // box, as in it the words would run under it.
+                    .when(self.writing.is_some(), |el| {
+                        el.child(div().flex_1()).child(faint("Writing…", theme))
+                    }),
             )
             .child(
                 div()
@@ -1150,21 +1155,27 @@ impl Detail {
                     )
                     .child(
                         div().absolute().top(dp(4.)).right(dp(4.)).child(
-                            icon_button("write-message", Icon::Ai)
-                                .small()
-                                .disabled_because(if self.writing.is_some() {
-                                    Some("Writing…")
-                                } else if checked == 0 {
-                                    Some("Check some changes to write about")
-                                } else {
-                                    None
-                                })
-                                .tooltip(if self.writing.is_some() {
-                                    "Writing…"
-                                } else {
-                                    "Write the message with AI, guided by what's in the box"
-                                })
-                                .on_click(cx.listener(|this, _, _, cx| this.write_message(cx))),
+                            icon_button(
+                                match self.writing {
+                                    Some(_) => "writing-message",
+                                    None => "write-message",
+                                },
+                                Icon::Ai,
+                            )
+                            .small()
+                            .disabled_because(if self.writing.is_some() {
+                                Some("Writing…")
+                            } else if checked == 0 {
+                                Some("Check some changes to write about")
+                            } else {
+                                None
+                            })
+                            .tooltip(if self.writing.is_some() {
+                                "Writing…"
+                            } else {
+                                "Write the message with AI, guided by what's in the box"
+                            })
+                            .on_click(cx.listener(|this, _, _, cx| this.write_message(cx))),
                         ),
                     ),
             )
