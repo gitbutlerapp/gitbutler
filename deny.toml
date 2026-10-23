@@ -138,13 +138,6 @@ exceptions = [
 #{ path = "LICENSE", hash = 0xbd0eed23 }
 #]
 
-# deltoids, the GPUI client's diff annotation, is MIT, though its crate's manifest doesn't say
-# so: the license is its workspace's.
-[[licenses.clarify]]
-crate = "deltoids"
-expression = "MIT"
-license-files = []
-
 [licenses.private]
 # If true, ignores workspace crates that aren't published, or are only
 # published to private registries.
