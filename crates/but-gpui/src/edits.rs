@@ -478,8 +478,10 @@ impl AppView {
                         None => backend::rename_branch(path, &ref_name, name),
                     },
                     move |store, to, cx| {
-                        (detail.update(cx, |detail, cx| detail.branch_renamed(&from, &to, cx)))
-                            .ok();
+                        (detail.update(cx, |detail, cx| {
+                            detail.branch_renamed(&selected, &from, &to, cx)
+                        }))
+                        .ok();
                         if !undoable {
                             store.keep_last_snapshot();
                         }

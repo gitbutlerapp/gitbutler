@@ -467,9 +467,7 @@ impl Detail {
                 }
                 // What's picked to commit to follows a branch an agent renames.
                 StoreEvent::Renamed(project, from, to) => {
-                    if this.checks_project.as_ref() == Some(project) {
-                        this.branch_renamed(from, to, cx);
-                    }
+                    this.branch_renamed(project, from, to, cx)
                 }
                 StoreEvent::MeshRead(project) => {
                     if let Some(Selection::Mesh(p, ..)) = this.selection(cx)
@@ -1608,10 +1606,21 @@ impl Detail {
             .ok();
     }
 
-    /// Keep committing to branch `from` (a full ref) now that it's renamed `to`.
-    pub fn branch_renamed(&mut self, from: &str, to: &str, cx: &mut Context<Self>) {
-        if self.commit_target.as_deref() == Some(from) {
-            self.commit_target = Some(to.to_owned());
+    /// Keep committing to `project`'s branch `from` (a full ref) now that it's renamed `to`,
+    /// whether it's the project shown or one to come back to.
+    pub fn branch_renamed(
+        &mut self,
+        project: &ProjectId,
+        from: &str,
+        to: &str,
+        cx: &mut Context<Self>,
+    ) {
+        let target = match self.checks_project.as_ref() == Some(project) {
+            true => self.commit_target.as_mut(),
+            false => self.other_targets.get_mut(project),
+        };
+        if let Some(target) = target.filter(|target| *target == from) {
+            *target = to.to_owned();
             cx.notify();
         }
     }
