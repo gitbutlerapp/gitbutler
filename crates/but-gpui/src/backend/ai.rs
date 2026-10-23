@@ -174,10 +174,14 @@ pub fn split_title_body(text: &str) -> (String, String) {
     (title, body.to_owned())
 }
 
-/// `text` without a code fence around it, also while it streams in.
+/// `text` without a code fence around it, also while it streams in. Only blank lines go
+/// around it, as code, a suggested merge's above all, needs its first line's indentation.
 pub fn strip_fence(text: &str) -> &str {
-    let text = text.trim();
-    let Some(after) = text.strip_prefix("```") else {
+    fn lines(text: &str) -> &str {
+        text.trim_start_matches(['\n', '\r']).trim_end()
+    }
+    let text = lines(text);
+    let Some(after) = text.trim_start().strip_prefix("```") else {
         return text;
     };
     // Past the opener's language tag; a lone opener mid-stream goes too.
@@ -185,16 +189,27 @@ pub fn strip_fence(text: &str) -> &str {
         return "";
     };
     match inner.trim_end().strip_suffix("```") {
-        Some(inner) if !inner.contains("```") => inner.trim(),
+        Some(inner) if !inner.contains("```") => lines(inner),
         Some(_) => text,
         None if inner.contains("```") => text,
-        None => inner.trim(),
+        None => lines(inner),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::split_title_body;
+    use super::{split_title_body, strip_fence};
+
+    #[test]
+    fn a_suggested_merge_keeps_its_first_lines_indentation() {
+        let code = "    return a\n}";
+        assert_eq!(strip_fence(code), code, "unfenced, only blank lines go");
+        assert_eq!(
+            strip_fence("\n```python\n    return a\n}\n```\n"),
+            code,
+            "fenced, the fence and blank lines go, the indentation stays"
+        );
+    }
 
     #[test]
     fn splits_title_from_body_and_drops_an_echoed_heading() {
