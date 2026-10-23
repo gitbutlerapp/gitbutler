@@ -302,6 +302,15 @@ impl Remap {
         Ok(now)
     }
 
+    /// `id` itself, refusing once it was rewritten: for what undo can't take back, which
+    /// mustn't reach what an agent made of the commit since it was asked about.
+    pub fn exactly(&self, id: CommitId) -> Result<CommitId> {
+        if self.get(id)? != id {
+            bail!("The commit changed since you asked, so it was left as it is.");
+        }
+        Ok(id)
+    }
+
     /// Each of `ids`, as [`Self::get`] has it.
     pub fn all(&self, ids: &[CommitId]) -> Result<Vec<CommitId>> {
         ids.iter().map(|id| self.get(*id)).collect()
@@ -1778,8 +1787,12 @@ mod tests {
 
     #[test]
     fn remap_follows_rewritten_commits_by_key() {
-        let captured = HashMap::from([(id(1), "a".to_owned()), (id(2), "b".to_owned())]);
-        let remap = Remap::new(&captured, [("a", id(11)), ("b", id(12))]);
+        let captured = HashMap::from([
+            (id(1), "a".to_owned()),
+            (id(2), "b".to_owned()),
+            (id(3), "c".to_owned()),
+        ]);
+        let remap = Remap::new(&captured, [("a", id(11)), ("b", id(12)), ("c", id(3))]);
         assert_eq!(
             remap.get(id(2)).unwrap(),
             id(12),
@@ -1790,6 +1803,11 @@ mod tests {
             id(11),
             "a was rebased to a new id"
         );
+        assert!(
+            remap.exactly(id(2)).is_err(),
+            "what undo can't take back doesn't follow b to its new id"
+        );
+        assert_eq!(remap.exactly(id(3)).unwrap(), id(3), "c wasn't rewritten");
     }
 
     #[test]

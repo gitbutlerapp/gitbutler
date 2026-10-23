@@ -663,7 +663,13 @@ impl AppView {
                 project,
                 "Discard commit",
                 overlay,
-                move |path, remap| backend::discard_commit(path, remap.get(id)?),
+                move |path, remap| {
+                    let now = match undoable {
+                        true => remap.get(id)?,
+                        false => remap.exactly(id)?,
+                    };
+                    backend::discard_commit(path, now)
+                },
                 move |store, (), cx| store.snack_after(undoable, "Commit discarded", cx),
             ),
         );
@@ -1140,7 +1146,11 @@ impl AppView {
                 "Discard from commit",
                 overlay,
                 move |path, remap| {
-                    backend::discard_from_commit(path, remap.taken_from(commit, &files)?, &files)
+                    let from = match undoable {
+                        true => remap.taken_from(commit, &files)?,
+                        false => remap.exactly(commit)?,
+                    };
+                    backend::discard_from_commit(path, from, &files)
                 },
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
