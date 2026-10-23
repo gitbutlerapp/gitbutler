@@ -488,7 +488,11 @@ impl AppView {
     }
 
     pub fn cut(&mut self, cut: Cut, cx: &mut Context<Self>) {
-        let message = format!("{} {}, ready to paste with ⌘V", cut.verb(), cut.describe());
+        let message = format!(
+            "{} {}, ready to paste with ⌘V",
+            cut.verb(),
+            cut.describe(self.store.read(cx))
+        );
         self.store.update(cx, |store, cx| {
             store.set_cut(Some(cut), cx);
             store.snack(message, cx);

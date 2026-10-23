@@ -932,7 +932,7 @@ impl Detail {
             menu => menu.clone(),
         };
         if let Some(dragged) = dragged {
-            let label: SharedString = dragged.describe().into();
+            let label: SharedString = dragged.describe(self.store.read(cx)).into();
             row = row.on_drag(
                 dragged,
                 self.drag_preview(label, false, cx.entity().downgrade()),

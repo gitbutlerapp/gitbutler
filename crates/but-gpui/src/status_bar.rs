@@ -56,7 +56,7 @@ impl AppView {
                         .gap(dp(6.))
                         .min_w_0()
                         .child(div().text_color(theme.pop).child(cut.verb()))
-                        .child(div().truncate().child(cut.describe())),
+                        .child(div().truncate().child(cut.describe(store))),
                 )
                 // Not while typing, where ⌘V pastes text and esc leaves the field.
                 .when(!typing, |el| {

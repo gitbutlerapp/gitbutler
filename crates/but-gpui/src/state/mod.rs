@@ -129,12 +129,20 @@ impl Cut {
         }
     }
 
-    pub fn describe(&self) -> String {
+    /// What's cut, a commit by its title where the workspace has one for it.
+    pub fn describe(&self, store: &Store) -> String {
         match self {
             Cut::Commit(_, ids) | Cut::CherryPick(_, ids) if ids.len() > 1 => {
                 format!("{} commits", ids.len())
             }
-            Cut::Commit(_, ids) | Cut::CherryPick(_, ids) => format!("commit {}", ids[0].short()),
+            Cut::Commit(project, ids) | Cut::CherryPick(project, ids) => {
+                match store.find_commit(project, ids[0]) {
+                    Some((_, commit)) if !commit.title.is_empty() => {
+                        format!("\"{}\"", commit.title)
+                    }
+                    _ => format!("commit {}", ids[0].short()),
+                }
+            }
             Cut::Branch(_, ref_name) => short_ref(ref_name).to_owned(),
             // Hunks or lines of one file: what of it isn't said here, where the diff isn't.
             Cut::Files { files, .. } if files.len() == 1 => match &files[0].hunks {
