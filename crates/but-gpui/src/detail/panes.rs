@@ -1328,9 +1328,7 @@ impl Detail {
         let open_height =
             (window.viewport_size().height * 0.3).clamp(theme.scaled(190.), theme.scaled(380.));
         let clear = anyone_picked.then(|| {
-            button("people-clear", "Clear")
-                .small()
-                .style(ButtonStyle::Ghost)
+            clear_button("people-clear")
                 .on_click(cx.listener(move |this, _, _, cx| pick(this, None, cx)))
         });
         // Its glyph under the pictures, its words under the names, as the navigator's are.
@@ -1538,6 +1536,46 @@ pub(super) const OVERVIEW_TIME_WIDTH: f32 = 40.;
 /// One of an overview row's columns on the right: `text`, faint and flush right, `width` wide.
 pub(super) fn overview_column(text: String, width: f32, theme: &Theme) -> Div {
     faint(text, theme).flex_none().w(dp(width)).text_right()
+}
+
+/// A row of an overview's counted list, as the files committed most or the areas landed in:
+/// its `label`, a bar of its `n` against the `most` any has in `bar`'s box, then `n`. Picked,
+/// it's a filter on, its selection `solid` while its list has the focus.
+pub(super) fn share_row(
+    id: impl Into<gpui::ElementId>,
+    label: impl IntoElement,
+    bar: Div,
+    (n, most): (usize, usize),
+    (picked, solid): (bool, bool),
+    theme: &Theme,
+) -> Stateful<Div> {
+    let on = picked && solid;
+    let (track, fill) = match on {
+        true => (theme.text_inverted.opacity(0.25), theme.muted_on_solid()),
+        false => (theme.border_3, theme.pop.opacity(0.7)),
+    };
+    let share = n as f32 / most.max(1) as f32;
+    side_row(id, picked, solid, theme)
+        .child(label)
+        .child(
+            bar.h(dp(6.)).rounded(dp(3.)).bg(track).child(
+                div()
+                    .h_full()
+                    .rounded(dp(3.))
+                    .w(gpui::relative(share))
+                    .bg(fill),
+            ),
+        )
+        .child(quiet(
+            overview_column(n.to_string(), OVERVIEW_TIME_WIDTH, theme),
+            on,
+            theme,
+        ))
+}
+
+/// The Clear that lets go of what's picked off an overview.
+pub(super) fn clear_button(id: &'static str) -> Button {
+    button(id, "Clear").small().style(ButtonStyle::Ghost)
 }
 
 /// `n` with its thousands set apart, as 1,434 reads more easily than 1434.

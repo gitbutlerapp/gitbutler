@@ -754,7 +754,7 @@ impl Detail {
             Some(Selection::Branches(project)) => self.load_branches(&project, force, cx),
             Some(Selection::Project(project)) => self.load_upstream(&project, false, force, cx),
             Some(Selection::Mesh(project, ..)) => self.load_machines(&project, force, cx),
-            Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => self.load_now(cx),
+            Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => self.load_now(force, cx),
             _ => {}
         }
     }

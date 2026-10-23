@@ -5,20 +5,18 @@
 
 use std::collections::{BTreeSet, HashSet};
 
-use gpui::{Context, Div, MouseButton, MouseDownEvent, MouseMoveEvent, div, prelude::*, relative};
+use gpui::{Context, Div, div, prelude::*, relative};
 
 use crate::backend::{Commit, CommitState};
 use crate::detail::Detail;
-use crate::detail::panes::{grouped, keyed_tiles, overview_split, overview_title};
-use crate::detail::slots::{SlotGesture, SlotPick};
+use crate::detail::panes::{clear_button, grouped, keyed_tiles, overview_split, overview_title};
+use crate::detail::slots::{SlotGesture, SlotPick, ends_drag, picks_slot};
 use crate::state::{Activity, QUARTER};
 use crate::theme::Theme;
-use crate::ui::{
-    ButtonStyle, Icon, Tooltip, button, dp, faint, h_flex, local_clock, plural, small_icon, v_flex,
-};
+use crate::ui::{Icon, Tooltip, dp, faint, h_flex, local_clock, plural, small_icon, v_flex};
 
 use super::BARS as QUARTERS;
-use super::span_said;
+use super::{span_said, window_start};
 
 /// How tall the tallest bar of edits is drawn.
 const BARS_HEIGHT: f32 = 44.;
@@ -101,25 +99,25 @@ fn hour_mark(start: i64) -> Option<String> {
 }
 
 impl Detail {
-    /// What happened over the last 12 hours, or the quarters picked: its counts first, keys
-    /// to the chart under them, then a column for each quarter of an hour, the files `activity`
-    /// saw saved then rising from the line and the `commits` made then hanging under it, each
-    /// to its own scale, as edits run to hundreds and commits to a few; each quarter's counts
-    /// on hover. Pressing, ⌘- or shift-pressing or dragging across them picks quarters, which
-    /// Clear by the title lets go of. `scoped` are the commits of the quarters shown.
+    /// What happened over the last 12 hours up to `now`, or the quarters picked: its counts
+    /// first, keys to the chart under them, then a column for each quarter of an hour, the
+    /// files `activity` saw saved then rising from the line and the `commits` made then hanging
+    /// under it, each to its own scale, as edits run to hundreds and commits to a few; each
+    /// quarter's counts on hover. Pressing, ⌘- or shift-pressing or dragging across them picks
+    /// quarters, which Clear by the title lets go of. `scoped` are the commits of the quarters
+    /// shown.
     pub(super) fn now_activity(
         &self,
-        activity: Option<&Activity>,
+        (activity, now): (Option<&Activity>, i64),
         commits: &[&Commit],
         scoped: &[&Commit],
         status: Div,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Div {
-        let now = crate::ui::now();
         let span = &self.now.span;
         let bars = activity.map_or_else(|| vec![0; QUARTERS], |a| a.bars(now, QUARTERS));
-        let first = (now - now.rem_euclid(QUARTER)) / QUARTER - (QUARTERS as i64 - 1);
+        let first = window_start(now) / QUARTER;
         let mut committed = vec![0usize; QUARTERS];
         for commit in commits {
             let at = commit.time.div_euclid(QUARTER) - first;
@@ -133,13 +131,10 @@ impl Detail {
         let most = bars.iter().copied().max().unwrap_or(0).max(1);
         let most_commits = committed.iter().copied().max().unwrap_or(0).max(1);
         let picked = !span.slots.is_empty();
-        let in_view = |ix: usize| span.keeps(first + ix as i64);
-        let edits: u32 = (0..QUARTERS)
-            .filter(|ix| in_view(*ix))
-            .map(|ix| bars[ix])
-            .sum();
+        let in_view = |ix: &usize| span.keeps(first + *ix as i64);
+        let edits: u32 = (0..QUARTERS).filter(in_view).map(|ix| bars[ix]).sum();
         let busy = (0..QUARTERS)
-            .filter(|ix| in_view(*ix) && (bars[*ix] > 0 || committed[*ix] > 0))
+            .filter(|ix| in_view(ix) && (bars[*ix] > 0 || committed[*ix] > 0))
             .count();
         // Once every commit's files are read, so the count doesn't climb as they come in.
         let changed: Option<HashSet<&String>> = (scoped.iter())
@@ -178,17 +173,17 @@ impl Detail {
         ];
         let range = quarters_said(&span.slots, now).unwrap_or("last 12 hours".to_owned());
         let clear = picked.then(|| {
-            button("now-quarters-clear", "Clear")
-                .small()
-                .style(ButtonStyle::Ghost)
-                .on_click(cx.listener(|this, _, _, cx| this.clear_quarters(cx)))
+            clear_button("now-quarters-clear").on_click(cx.listener(|this, _, _, cx| {
+                this.now.span = SlotPick::default();
+                cx.notify()
+            }))
         });
         let columns =
             (0..QUARTERS).map(|ix| {
                 let quarter = first + ix as i64;
                 let start = quarter * QUARTER;
                 let (n, landed) = (bars[ix], committed[ix]);
-                let inside = !picked || span.keeps(quarter);
+                let inside = span.keeps(quarter);
                 // A run of quarters picked reads as one band, rounded only at its ends.
                 let joined = |next: i64| picked && inside && span.keeps(next);
                 let mut tip = format!("{}–{}", local_clock(start), local_clock(start + QUARTER));
@@ -204,34 +199,15 @@ impl Detail {
                     true => (theme.pop, theme.blue),
                     false => (theme.pop.opacity(0.2), theme.blue.opacity(0.25)),
                 };
-                v_flex()
+                let column = v_flex()
                     .id(("now-quarter", ix))
                     .flex_1()
                     .when(!joined(quarter - 1), |el| el.rounded_l(dp(3.)))
                     .when(!joined(quarter + 1), |el| el.rounded_r(dp(3.)))
                     .when(picked && inside, |el| el.bg(theme.selected_unfocused()))
                     .hover(|el| el.bg(theme.hover()))
-                    .tooltip(Tooltip::text(tip))
-                    .on_mouse_down(
-                        MouseButton::Left,
-                        cx.listener(move |this, event: &MouseDownEvent, _, cx| {
-                            let (shift, toggle) =
-                                (event.modifiers.shift, event.modifiers.secondary());
-                            this.quarter_gesture(
-                                SlotGesture::Press {
-                                    slot: quarter,
-                                    shift,
-                                    toggle,
-                                },
-                                cx,
-                            )
-                        }),
-                    )
-                    .on_mouse_move(cx.listener(move |this, event: &MouseMoveEvent, _, cx| {
-                        if event.pressed_button == Some(MouseButton::Left) {
-                            this.quarter_gesture(SlotGesture::Drag(quarter), cx)
-                        }
-                    }))
+                    .tooltip(Tooltip::text(tip));
+                picks_slot(column, quarter, Detail::quarter_gesture, cx)
                     .child(
                         div()
                             .h(dp(BARS_HEIGHT))
@@ -279,12 +255,6 @@ impl Detail {
                     .child(faint(mark, theme).flex_none()),
             )
         });
-        let release = |this: &mut Detail,
-                       _: &gpui::MouseUpEvent,
-                       _: &mut gpui::Window,
-                       cx: &mut Context<Detail>| {
-            this.quarter_gesture(SlotGesture::Release, cx)
-        };
         v_flex()
             .gap(dp(6.))
             // As tall without Clear as with it, a small button's height and the row's foot.
@@ -301,12 +271,11 @@ impl Detail {
                     .px(dp(14.))
                     .pt(dp(10.))
                     .gap(dp(2.))
-                    .child(
-                        h_flex()
-                            .on_mouse_up(MouseButton::Left, cx.listener(release))
-                            .on_mouse_up_out(MouseButton::Left, cx.listener(release))
-                            .children(columns),
-                    )
+                    .child(ends_drag(
+                        h_flex().children(columns),
+                        Detail::quarter_gesture,
+                        cx,
+                    ))
                     .child(
                         div()
                             .relative()
@@ -321,10 +290,5 @@ impl Detail {
         if self.now.span.apply(gesture) {
             cx.notify();
         }
-    }
-
-    fn clear_quarters(&mut self, cx: &mut Context<Self>) {
-        self.now.span = SlotPick::default();
-        cx.notify();
     }
 }

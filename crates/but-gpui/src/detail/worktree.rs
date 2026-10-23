@@ -9,22 +9,22 @@ use std::sync::Arc;
 use gpui::{AnyElement, App, Context, Div, MouseButton, ScrollHandle, div, prelude::*, relative};
 
 use super::Detail;
+use super::diff_view::files_toggle;
 use super::panes::{
-    OVERVIEW_TIME_WIDTH, meta_item, meta_row, overview_column, overview_heading, page_title,
+    clear_button, meta_item, meta_row, overview_column, overview_heading, page_title, share_row,
     title_text,
 };
 use super::slots::SlotPick;
-use crate::backend::{self, Branch, Commit, CommitId, Workspace};
-use crate::state::{ProjectId, QUARTER, Selection, Store};
+use crate::backend::{self, Branch, Commit, CommitId, FileChange, Workspace};
+use crate::state::{Activity, ProjectId, QUARTER, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
 use crate::ui::review::state_glyph;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
-    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, count_badge, dot, dp, faint,
-    h_flex, icon, keep_focus_on_press, list_row, relative_time, short_path, shortcut, side_row,
-    small_icon, v_flex,
+    Icon, ROW_HEIGHT, Tooltip, commit_title, dot, dp, faint, h_flex, just_now, keep_focus_on_press,
+    list_row, relative_time, short_path, shortcut, small_icon, v_flex,
 };
 
 mod activity;
@@ -34,8 +34,8 @@ const BARS: usize = 48;
 /// How wide the commits' times are, room for "59m" or "11mo" and no more, so they sit close to
 /// the branch.
 const COMMITS_TIME_WIDTH: f32 = 28.;
-/// A checkout written to this lately is being worked in, as the navigator's "active" says.
-const WRITING_WITHIN: i64 = 120;
+/// How many hot files are listed, the rest of a sweeping commit's files told as N more.
+const HOT_SHOWN: usize = 50;
 
 /// What the overview reads beyond the workspace, for the checkout it was read for.
 #[derive(Default)]
@@ -46,13 +46,14 @@ pub(super) struct Now {
     /// the branch and commit it was read at, as the reflog changes only when they do.
     events: Vec<(i64, String)>,
     events_at: Option<(Option<String>, Option<CommitId>)>,
-    /// The commits of the checkout's branches when it last loaded, to tell one an agent just
-    /// made from those already there.
+    /// The commits of the checkout's branches when it was opened or last loaded, to tell one
+    /// an agent just made from those already there.
     known: Option<HashSet<CommitId>>,
     /// The hot file picked, whose commits are all Commits lists.
     file: Option<Arc<str>>,
     /// The files each commit changes, read for those the overview can list as the checkout
-    /// loads, and the commits being read. Commits don't change, so what's read stays.
+    /// loads, and the commits being read. Commits don't change, so what's read stays, with
+    /// another checkout picked too.
     paths: HashMap<CommitId, Vec<String>>,
     reading: HashSet<CommitId>,
     /// The quarters of an hour picked off the activity, by when they begin over `QUARTER`,
@@ -74,15 +75,6 @@ fn checkout_commits<'a>(ws: &'a Workspace, worktree: Option<&str>) -> Vec<&'a Co
         .into_iter()
         .flat_map(|branch| &branch.commits)
         .collect()
-}
-
-/// Who a commit is by, as "Who worked here" counts them: the agent that wrote it, or its
-/// author.
-fn who(commit: &Commit) -> &str {
-    commit
-        .agent
-        .as_ref()
-        .map_or(&commit.author, |agent| &agent.name)
 }
 
 /// A stretch of time said short: "<1m", "45m", "3h 05m", "2d".
@@ -125,8 +117,8 @@ impl Detail {
     }
 
     /// Read what the selected checkout's overview needs beyond the workspace: a linked
-    /// worktree's moves lately, and which files its commits change.
-    pub(super) fn load_now(&mut self, cx: &mut Context<Self>) {
+    /// worktree's moves lately, and which files its commits change. `opened` as it's picked.
+    pub(super) fn load_now(&mut self, opened: bool, cx: &mut Context<Self>) {
         let Some(checkout) = self.selected_checkout(cx) else {
             return;
         };
@@ -139,17 +131,20 @@ impl Detail {
             self.now_open = true;
         }
         if self.now.checkout.as_ref() != Some(&checkout) {
-            // What's there already, so a commit made from now on stands out.
-            let known = (self.store.read(cx).workspace(&checkout.0)).map(|ws| {
+            self.now = Now {
+                checkout: Some(checkout.clone()),
+                paths: std::mem::take(&mut self.now.paths),
+                ..Now::default()
+            };
+        }
+        // What's there already, so a commit made from now on stands out, and not one made
+        // while another page was picked.
+        if opened {
+            self.now.known = (self.store.read(cx).workspace(&checkout.0)).map(|ws| {
                 (checkout_commits(ws, checkout.1.as_deref()).iter())
                     .map(|commit| commit.id)
                     .collect()
             });
-            self.now = Now {
-                checkout: Some(checkout.clone()),
-                known,
-                ..Now::default()
-            };
         }
         let Some(path) = self.store.read(cx).path(&checkout.0) else {
             return;
@@ -165,19 +160,24 @@ impl Detail {
             (w.branch.clone(), tip.map(|commit| commit.id))
         });
         if let Some(name) = checkout.1.clone().filter(|_| head != self.now.events_at) {
-            self.now.events_at = head;
+            self.now.events_at = head.clone();
             let since = window_start(crate::ui::now());
             let (read_from, read_for) = (path.clone(), checkout.clone());
             let events = backend::run(move || backend::worktrees::events(&read_from, &name, since));
             cx.spawn(async move |this, cx| {
                 let events = events.await;
                 this.update(cx, |this, cx| {
-                    if this.now.checkout.as_ref() != Some(&read_for) {
+                    // Not over what a read for where `HEAD` moved on to found.
+                    if this.now.checkout.as_ref() != Some(&read_for) || this.now.events_at != head {
                         return;
                     }
                     match events {
                         Ok(events) => this.now.events = events,
-                        Err(err) => tracing::warn!("couldn't read the worktree's moves: {err:#}"),
+                        // Read again on the next load.
+                        Err(err) => {
+                            this.now.events_at = None;
+                            tracing::warn!("couldn't read the worktree's moves: {err:#}")
+                        }
                     }
                     cx.notify();
                 })
@@ -189,8 +189,9 @@ impl Detail {
     }
 
     /// Follow the file being read in a checkout's changes into the commit an agent just made
-    /// of it, as the workspace loads again, with the file still under the cursor. Not a commit
-    /// of the app's own, which is seen, nor while committing or with the overview picked.
+    /// of it, as the workspace loads again, with the file still under the cursor. Only when
+    /// that's the one commit made, as of several it can't tell which took the file; not a
+    /// commit of the app's own, which is seen, nor while committing or with the overview picked.
     pub(super) fn follow_into_commit(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
         let Some((_, worktree)) = self.selected_checkout(cx).filter(|(p, _)| p == project) else {
             return;
@@ -216,13 +217,14 @@ impl Detail {
         }
         let still = (ws.uncommitted_in(worktree.as_deref()))
             .is_some_and(|files| files.iter().any(|file| file.path == path));
-        let made = (commits.iter())
-            .filter(|commit| !known.contains(&commit.id) && store.is_unread(project, **commit))
-            .max_by_key(|commit| commit.time);
-        let Some(made) = made.filter(|_| !still) else {
+        let mut made = (commits.iter())
+            .filter(|commit| !known.contains(&commit.id) && store.is_unread(project, **commit));
+        let (Some(made), None, false) = (made.next(), made.next(), still) else {
             return;
         };
-        let (id, by) = (made.id, who(made).to_owned());
+        // The agent that wrote it, or its author.
+        let by = (made.agent.as_ref()).map_or(&made.author, |agent| &agent.name);
+        let (id, by) = (made.id, by.to_owned());
         self.pending_file = Some(path);
         let at = Selection::Commit(project.clone(), id);
         self.store.update(cx, |store, cx| {
@@ -313,11 +315,19 @@ impl Detail {
         let scoped: Vec<&Commit> = (commits.iter().copied())
             .filter(|commit| inside(commit.time))
             .collect();
+        let events = (self.now.events.iter())
+            .filter(|(at, _)| inside(*at))
+            .collect::<Vec<_>>();
         let activity = store.activity.get(&(project.clone(), worktree.cloned()));
+        let files = ws.uncommitted_in(name).unwrap_or_default();
         // Side by side where both fit, as the tiles wrap.
         let columns = [
             (self.now_hot_files(&scoped, theme, cx), 2., 240.),
-            (self.now_commits(project, &scoped, now, theme, cx), 3., 340.),
+            (
+                self.now_commits(project, &scoped, &events, theme, cx),
+                3.,
+                340.,
+            ),
         ];
         // The page holds still: hot files and the commits scroll within what's left under the
         // activity. Over it, the bar a file's diff has, its toggle for the file list where the
@@ -327,7 +337,7 @@ impl Detail {
             .flex_1()
             .h_full()
             .min_w_0()
-            .child(self.now_bar(ws.uncommitted_in(name).unwrap_or_default(), theme, cx))
+            .child(self.now_bar(files, theme, cx))
             .child(
                 v_flex()
                     .w_full()
@@ -338,10 +348,10 @@ impl Detail {
                     .py(dp(16.))
                     .gap(dp(6.))
                     .child(self.now_activity(
-                        activity,
+                        (activity, now),
                         &commits,
                         &scoped,
-                        self.now_status(project, worktree, &commits, theme, cx),
+                        self.now_status(project, files, activity, &commits, theme, cx),
                         theme,
                         cx,
                     ))
@@ -363,7 +373,7 @@ impl Detail {
 
     /// The bar over the overview, as over a file's diff: the file list's toggle, counting the
     /// `files` and their lines while the list is hidden, which shows the overview alone.
-    fn now_bar(&self, files: &[backend::FileChange], theme: &Theme, cx: &Context<Self>) -> Div {
+    fn now_bar(&self, files: &[FileChange], theme: &Theme, cx: &Context<Self>) -> Div {
         let (added, removed) = (files.iter().filter_map(|file| file.lines))
             .fold((0, 0), |(a, r), (fa, fr)| (a + fa, r + fr));
         let hidden = self.files_hidden;
@@ -371,25 +381,14 @@ impl Detail {
             true => (Icon::SidebarNarrow, "Show the files"),
             false => (Icon::FilesSidebar, "Hide the files"),
         };
+        let counts = (hidden && !files.is_empty()).then_some((files.len(), added, removed));
         h_flex()
             .flex_none()
             .h(dp(40.))
             .px(dp(12.))
             .bg(theme.bg_1)
             .child(
-                h_flex()
-                    .id("now-files")
-                    .flex_none()
-                    .h(dp(28.))
-                    .px(dp(6.))
-                    .gap(dp(6.))
-                    .rounded(dp(4.))
-                    .hover(|el| el.bg(theme.hover()))
-                    .child(icon(glyph).text_color(theme.text_2))
-                    .when(hidden && !files.is_empty(), |el| {
-                        el.child(count_badge(files.len(), theme))
-                            .child(diff::stats(added, removed, theme))
-                    })
+                files_toggle("now-files", glyph, counts, theme)
                     .tooltip(Tooltip::keyed(tip, shortcut(&super::ToggleFiles, cx)))
                     .on_mouse_down(MouseButton::Left, keep_focus_on_press)
                     .on_click(cx.listener(|this, _, window, cx| this.toggle_files(window, cx))),
@@ -397,22 +396,18 @@ impl Detail {
     }
 
     /// Where the checkout is, in a line: whether files are being written or how long it's
-    /// been quiet, how many files are uncommitted and how many of its `commits` unread, or
+    /// been quiet, how many `files` are uncommitted and how many of its `commits` unread, or
     /// All caught up.
     fn now_status(
         &self,
         project: &ProjectId,
-        worktree: Option<&Arc<str>>,
+        files: &[FileChange],
+        activity: Option<&Activity>,
         commits: &[&Commit],
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Div {
-        let name = worktree.map(|w| &**w);
         let store = self.store.read(cx);
-        let files = (store.workspace(project))
-            .and_then(|ws| ws.uncommitted_in(name))
-            .unwrap_or_default();
-        let activity = store.activity.get(&(project.clone(), worktree.cloned()));
         let written = (files.iter())
             .filter_map(|file| file.modified.map(|ms| ms / 1000))
             .max();
@@ -420,7 +415,7 @@ impl Detail {
         // Written to lately, and since its last commit: once committed, it's quiet again.
         let now = crate::ui::now();
         let newest = commits.first().map(|commit| commit.time);
-        let writing = last_write.is_some_and(|at| now - at <= WRITING_WITHIN && newest < Some(at));
+        let writing = last_write.is_some_and(|at| just_now(at) && newest < Some(at));
         let state = match (writing, commits.first()) {
             (true, _) => "Being written now".to_owned(),
             (false, Some(last)) => match now - last_write.max(Some(last.time)).unwrap_or(last.time)
@@ -481,43 +476,33 @@ impl Detail {
             .collect();
         hot.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
         let picked = self.now.file.as_ref();
+        // A sweeping commit's thousand files would be a thousand rows drawn every frame.
+        let rest = hot.len().saturating_sub(HOT_SHOWN);
+        hot.truncate(HOT_SHOWN);
         // The one picked stays, with its Clear, once no commit listed changed it.
         if let Some(picked) = picked.filter(|p| !hot.iter().any(|(path, _)| path == *p)) {
             hot.push((picked.clone(), 0));
         }
-        let most = hot.first()?.1.max(1);
+        let most = hot.first()?.1;
         let clear = picked.map(|_| {
-            button("now-hot-clear", "Clear")
-                .small()
-                .style(ButtonStyle::Ghost)
+            clear_button("now-hot-clear")
                 .on_click(cx.listener(|this, _, _, cx| this.pick_hot_file(None, cx)))
         });
         let rows = (hot.iter().enumerate()).map(|(ix, (path, n))| {
             let on = picked == Some(path);
-            let (track, fill) = match on {
-                true => (theme.text_inverted.opacity(0.25), theme.muted_on_solid()),
-                false => (theme.border_3, theme.pop.opacity(0.7)),
-            };
+            let label = file_label(path, on, theme, cx);
             let path = path.clone();
-            side_row(("now-hot", ix), on, true, theme)
-                .child(file_label(&path, on, theme, cx))
-                .child(bar_on(*n as f32 / most as f32, track, fill))
-                .child(
-                    div()
-                        .flex_none()
-                        .w(dp(OVERVIEW_TIME_WIDTH))
-                        .text_right()
-                        .text_size(dp(11.))
-                        .text_color(match on {
-                            true => theme.muted_on_solid(),
-                            false => theme.text_3,
-                        })
-                        .child(n.to_string()),
-                )
+            let bar = div().flex_none().w(dp(72.));
+            share_row(("now-hot", ix), label, bar, (*n, most), (on, true), theme)
                 .on_mouse_down(MouseButton::Left, keep_focus_on_press)
                 .on_click(
                     cx.listener(move |this, _, _, cx| this.pick_hot_file(Some(path.clone()), cx)),
                 )
+                .into_any_element()
+        });
+        let more = (rest > 0).then(|| {
+            let said = format!("and {rest} more");
+            faint(said, theme).px(dp(14.)).py(dp(4.)).into_any_element()
         });
         Some(
             v_flex()
@@ -525,13 +510,13 @@ impl Detail {
                 .child(scrolling(
                     ("now-hot-rows", "now-hot-scrollbar"),
                     &self.now.hot_scroll,
-                    rows,
+                    rows.chain(more),
                     theme,
                 )),
         )
     }
 
-    /// List only the commits that changed `file` under Today, or all with `None`.
+    /// List only the commits that changed `file` under Commits, or all with `None`.
     fn pick_hot_file(&mut self, file: Option<Arc<str>>, cx: &mut Context<Self>) {
         self.now.file = file.filter(|file| self.now.file.as_ref() != Some(file));
         self.now.commits_scroll.set_offset(Default::default());
@@ -561,16 +546,16 @@ impl Detail {
             return;
         }
         self.now.reading.extend(unread.iter().copied());
-        let (path, read_for) = (path.to_owned(), checkout.clone());
+        let (path, asked) = (path.to_owned(), unread.clone());
         let paths = backend::run(move || backend::commit_paths(&path, &unread));
         cx.spawn(async move |this, cx| {
             let paths = paths.await;
             this.update(cx, |this, cx| {
-                if this.now.checkout.as_ref() != Some(&read_for) {
-                    return;
+                // Kept with another checkout picked meanwhile, as commits don't change; read
+                // again on the next load when this failed.
+                for id in &asked {
+                    this.now.reading.remove(id);
                 }
-                // Read again on the next load when this failed.
-                this.now.reading.clear();
                 match paths {
                     Ok(paths) => this.now.paths.extend(paths),
                     Err(err) => tracing::warn!("couldn't read which files commits change: {err:#}"),
@@ -582,13 +567,14 @@ impl Detail {
         .detach();
     }
 
-    /// `commits`, and, in a linked worktree, what else moved its `HEAD` then, newest first,
-    /// with a hot file picked only those that changed it. A commit opens on a click.
+    /// `commits`, and, in a linked worktree, the `events` that moved its `HEAD` then, newest
+    /// first, with a hot file picked only the commits that changed it. A commit opens on a
+    /// click.
     fn now_commits(
         &self,
         project: &ProjectId,
         commits: &[&Commit],
-        now: i64,
+        events: &[&(i64, String)],
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<Div> {
@@ -606,9 +592,7 @@ impl Detail {
             })
         };
         let listed: Vec<&Commit> = commits.iter().filter(changed).copied().collect();
-        let (span, start) = (&self.now.span, window_start(now));
-        let events = (self.now.events.iter())
-            .filter(|(at, _)| file.is_none() && *at >= start && span.keeps(at.div_euclid(QUARTER)));
+        let events = events.iter().filter(|_| file.is_none());
         let mut items: Vec<(i64, Item)> = (listed.iter().map(|c| (c.time, Item::Commit(c))))
             .chain(events.map(|(at, said)| (*at, Item::Moved(said))))
             .collect();
@@ -619,7 +603,7 @@ impl Detail {
         let store = self.store.read(cx);
         let ws = store.workspace(project);
         let rows = (items.into_iter().enumerate()).map(|(ix, (at, item))| {
-            let row = list_row(("now-today", ix), false, theme);
+            let row = list_row(("now-commit", ix), false, theme);
             match item {
                 Item::Commit(commit) => {
                     let at_commit = Selection::Commit(project.clone(), commit.id);
@@ -630,7 +614,7 @@ impl Detail {
                             let ((glyph, color), label, tip) =
                                 branch_said(store, project, branch, theme);
                             h_flex()
-                                .id(("now-today-branch", ix))
+                                .id(("now-commit-branch", ix))
                                 .flex_none()
                                 .max_w(relative(0.22))
                                 .gap(dp(4.))
@@ -788,16 +772,4 @@ fn branch_said(
         ),
         None => ((Icon::Branch, theme.text_3), name.clone(), name),
     }
-}
-
-/// A bar of `share` of the most, filled with `fill` on `track`, short, leaving the row's
-/// name the room.
-fn bar_on(share: f32, track: gpui::Hsla, fill: gpui::Hsla) -> Div {
-    div()
-        .flex_none()
-        .w(dp(72.))
-        .h(dp(6.))
-        .rounded(dp(3.))
-        .bg(track)
-        .child(div().h_full().rounded(dp(3.)).w(relative(share)).bg(fill))
 }

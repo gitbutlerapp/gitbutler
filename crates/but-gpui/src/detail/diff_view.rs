@@ -8,9 +8,9 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use gpui::{
-    Action, AnyElement, App, ClickEvent, Context, CursorStyle, Entity, MouseButton, MouseDownEvent,
-    Pixels, Point, SharedString, Subscription, WeakEntity, Window, anchored, deferred, div, list,
-    prelude::*,
+    Action, AnyElement, App, ClickEvent, Context, CursorStyle, Div, Entity, MouseButton,
+    MouseDownEvent, Pixels, Point, SharedString, Stateful, Subscription, WeakEntity, Window,
+    anchored, deferred, div, list, prelude::*,
 };
 
 use super::file_list::At;
@@ -574,19 +574,8 @@ impl Detail {
             (true, true) => Icon::SidebarNarrow,
             (true, false) => Icon::FilesSidebar,
         };
-        let toggle = h_flex()
-            .id("diff-files")
-            .flex_none()
-            .h(dp(28.))
-            .px(dp(6.))
-            .gap(dp(6.))
-            .rounded(dp(4.))
-            .hover(|el| el.bg(theme.hover()))
-            .child(icon(glyph).text_color(theme.text_2))
-            .when(hidden, |el| {
-                el.child(count_badge(diff.files.len(), theme))
-                    .child(diff::stats(added, removed, theme))
-            })
+        let counts = hidden.then_some((diff.files.len(), added, removed));
+        let toggle = files_toggle("diff-files", glyph, counts, theme)
             .on_hover(
                 cx.listener(|this, hovered: &bool, _, cx| this.hover_files_button(*hovered, cx)),
             )
@@ -1483,4 +1472,27 @@ fn word_at(text: &str, ix: usize) -> Range<usize> {
         .find(|(_, c)| !is_word(*c))
         .map_or(text.len(), |(at, _)| ix + at);
     start..end
+}
+
+/// The file list's toggle over a diff, or over a checkout's overview where a diff's would be:
+/// `glyph`, then while the list's hidden its files' `counts`, how many and their lines.
+pub(super) fn files_toggle(
+    id: &'static str,
+    glyph: Icon,
+    counts: Option<(usize, u32, u32)>,
+    theme: &Theme,
+) -> Stateful<Div> {
+    h_flex()
+        .id(id)
+        .flex_none()
+        .h(dp(28.))
+        .px(dp(6.))
+        .gap(dp(6.))
+        .rounded(dp(4.))
+        .hover(|el| el.bg(theme.hover()))
+        .child(icon(glyph).text_color(theme.text_2))
+        .when_some(counts, |el, (n, added, removed)| {
+            el.child(count_badge(n, theme))
+                .child(diff::stats(added, removed, theme))
+        })
 }

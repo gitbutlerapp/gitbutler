@@ -3,6 +3,11 @@
 
 use std::collections::BTreeSet;
 
+use gpui::prelude::*;
+use gpui::{Context, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Window};
+
+use super::Detail;
+
 /// What the pointer did on a strip's slot: pressed it, with shift or ⌘ (`toggle`) held or
 /// not; moved onto it while pressed; or let go.
 #[derive(Debug, Clone, Copy)]
@@ -74,6 +79,50 @@ impl SlotPick {
     pub(super) fn keeps(&self, slot: i64) -> bool {
         self.slots.is_empty() || self.slots.contains(&slot)
     }
+}
+
+/// `slot`'s column of a strip, picking as it's pressed, ⌘- or shift-pressed, or dragged
+/// across, `gesture` applying each to the strip's pick.
+pub(super) fn picks_slot<E: InteractiveElement>(
+    column: E,
+    slot: i64,
+    gesture: impl Fn(&mut Detail, SlotGesture, &mut Context<Detail>) + Clone + 'static,
+    cx: &Context<Detail>,
+) -> E {
+    let drag = gesture.clone();
+    column
+        .on_mouse_down(
+            MouseButton::Left,
+            cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                let (shift, toggle) = (event.modifiers.shift, event.modifiers.secondary());
+                let press = SlotGesture::Press {
+                    slot,
+                    shift,
+                    toggle,
+                };
+                gesture(this, press, cx)
+            }),
+        )
+        .on_mouse_move(cx.listener(move |this, event: &MouseMoveEvent, _, cx| {
+            if event.pressed_button == Some(MouseButton::Left) {
+                drag(this, SlotGesture::Drag(slot), cx)
+            }
+        }))
+}
+
+/// A strip's slots, ending a drag across them wherever the pointer's let go.
+pub(super) fn ends_drag<E: InteractiveElement>(
+    strip: E,
+    gesture: impl Fn(&mut Detail, SlotGesture, &mut Context<Detail>) + Clone + 'static,
+    cx: &Context<Detail>,
+) -> E {
+    let release =
+        move |this: &mut Detail, _: &MouseUpEvent, _: &mut Window, cx: &mut Context<Detail>| {
+            gesture(this, SlotGesture::Release, cx)
+        };
+    strip
+        .on_mouse_up(MouseButton::Left, cx.listener(release.clone()))
+        .on_mouse_up_out(MouseButton::Left, cx.listener(release))
 }
 
 #[cfg(test)]
