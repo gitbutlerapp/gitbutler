@@ -99,12 +99,7 @@ impl Detail {
             // What the bars and the dots are, in their colours.
             false => h_flex()
                 .gap(dp(6.))
-                .child(
-                    div()
-                        .size(dp(7.))
-                        .rounded(dp(1.5))
-                        .bg(theme.pop.opacity(0.7)),
-                )
+                .child(div().size(dp(7.)).rounded(dp(1.5)).bg(theme.pop))
                 .child(faint(
                     format!("{} written", plural(written as usize, "file")),
                     theme,
@@ -164,18 +159,17 @@ impl Detail {
                         .child(
                             div()
                                 .w_full()
-                                .h(dp(match n {
-                                    0 => 0.,
-                                    n => (n as f32 / most as f32 * BARS_HEIGHT).max(2.),
-                                }))
+                                // A quiet quarter a stub on the line, as the project's
+                                // activity draws a quiet day.
+                                .h(dp((n as f32 / most as f32 * BARS_HEIGHT).max(2.)))
                                 .rounded_t(dp(1.))
-                                .bg(match inside {
-                                    true => theme.pop.opacity(0.7),
-                                    false => theme.pop.opacity(0.2),
+                                .bg(match (n, inside) {
+                                    (0, _) => theme.border_2,
+                                    (_, true) => theme.pop,
+                                    (_, false) => theme.pop.opacity(0.2),
                                 }),
                         ),
                 )
-                .child(div().h(dp(1.)).bg(theme.border_3))
                 .child(
                     div()
                         .h(dp(14.))

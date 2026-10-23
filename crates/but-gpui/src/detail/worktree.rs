@@ -7,8 +7,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, Context, Div, MouseButton, ScrollHandle, SharedString, Stateful, div,
-    prelude::*, relative,
+    AnyElement, App, Context, Div, MouseButton, SharedString, Stateful, div, prelude::*, relative,
 };
 
 use super::Detail;
@@ -23,7 +22,6 @@ use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
 use crate::ui::review::state_glyph;
-use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
     ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dp, faint, fold_glyph, fold_row,
     h_flex, keep_focus_on_press, list_row, plural, relative_time, short_path, side_row, small_icon,
@@ -38,9 +36,8 @@ use activity::quarters_said;
 const BARS: usize = 48;
 /// How many of the files written most are listed until "N more" lists them all.
 const HOT_SHOWN: usize = 3;
-/// How many hot files show at once once they're all listed, the rest scrolling within, so
-/// the commits a pick filters stay in view under them.
-const HOT_OPEN_ROWS: f32 = 8.;
+/// How far a branch's files sit in under it: past its chevron, under its glyph.
+const STEP_IN: f32 = 20.;
 /// How many files the commits not seen yet changed are listed until "N more".
 const UNSEEN_FILES_SHOWN: usize = 3;
 /// How many of the commits and moves are listed until "N more".
@@ -77,8 +74,6 @@ pub(super) struct Now {
     span: SlotPick,
     /// The sections listing all they have rather than their first few, by their fold's id.
     unfolded: HashSet<SharedString>,
-    /// Hot files' rows, scrolling within once they're all listed.
-    hot_scroll: ScrollHandle,
     /// The branches whose commits not seen yet are folded to their heading, by name.
     folded: HashSet<SharedString>,
 }
@@ -376,9 +371,11 @@ impl Detail {
     }
 
     /// The overview of the checkout of `project`, linked worktree `worktree` or the main one,
-    /// in two parts: what needs you (whether it's being worked in and the commits not seen
-    /// yet), then what happened over the last 12 hours or the quarters picked off its
-    /// activity (how busy it's been, the files committed most and the commits).
+    /// in two parts, laid out as the project's and Branches' are: New, what you haven't
+    /// looked at (its uncommitted files, whether they're being written, and the commits not
+    /// seen yet), then Activity, what happened over the last 12 hours or the quarters picked
+    /// off it (how busy it's been, the files committed most and the commits, side by side, so
+    /// a file picked filters the commits beside it).
     pub(super) fn render_now(
         &self,
         project: &ProjectId,
@@ -403,10 +400,6 @@ impl Detail {
             .filter(|commit| inside(commit.time))
             .collect();
         let activity = store.activity.get(&(project.clone(), worktree.cloned()));
-        let written = (ws.uncommitted_in(name).unwrap_or_default().iter())
-            .filter_map(|file| file.modified.map(|ms| ms / 1000))
-            .max();
-        let last_write = activity.and_then(|a| a.last).max(written);
         let busy: HashSet<i64> = (activity.into_iter())
             .flat_map(|a| a.quarters.iter().map(|(at, _)| *at))
             .chain(scoped.iter().map(|commit| commit.time))
@@ -438,6 +431,11 @@ impl Detail {
                 "Quarters of an hour a file was written or a commit made in",
             ),
         ];
+        // Side by side where both fit, as the tiles wrap.
+        let columns = [
+            (self.now_hot_files(&scoped, theme, cx), 2., 240.),
+            (self.now_commits(project, &scoped, now, theme, cx), 3., 340.),
+        ];
         v_flex()
             .id("now")
             .flex_1()
@@ -451,104 +449,116 @@ impl Detail {
                     .px(dp(14.))
                     .py(dp(16.))
                     .gap(dp(6.))
-                    // What needs you: what's going on now, and the commits to catch up on.
                     .child(overview_title(
                         "New",
                         "since you last looked".to_owned(),
                         theme,
                     ))
-                    .child(self.now_catch_up(
-                        self.now_status(&commits, last_write, now, theme),
-                        project,
-                        name,
-                        theme,
-                        cx,
-                    ))
-                    // What happened, over the time the activity shows or the quarters picked.
+                    .child(self.now_new(project, worktree, &commits, theme, cx))
                     .child(
                         overview_title(
                             "Activity",
                             range.clone().unwrap_or("last 12 hours".to_owned()),
                             theme,
                         )
-                        .mt(dp(18.)),
+                        .mt(dp(22.)),
                     )
                     .child(self.now_activity(activity, &commits, now, theme, cx))
                     .child(overview_tiles(tiles, theme).mt(dp(6.)))
-                    .children(self.now_hot_files(&scoped, theme, cx))
-                    .children(self.now_commits(project, &scoped, now, theme, cx)),
+                    .child(h_flex().flex_wrap().items_start().children(
+                        columns.into_iter().filter_map(|(column, grow, basis)| {
+                            Some(column?.flex_grow(grow).flex_basis(dp(basis)).min_w_0())
+                        }),
+                    )),
             )
             .into_any_element()
     }
 
-    /// What needs you, in one card: `status`, whether files are being written or how long
-    /// it's been quiet, then the commits not opened yet, a part for each branch they're on.
-    fn now_catch_up(
+    /// What you haven't looked at, as rows: first the checkout's uncommitted files, with
+    /// whether they're being written or how long it's been quiet, then each branch with
+    /// commits not opened yet, its files under it. All caught up when there's neither.
+    fn now_new(
         &self,
-        status: Div,
         project: &ProjectId,
-        worktree: Option<&str>,
+        worktree: Option<&Arc<str>>,
+        commits: &[&Commit],
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Div {
-        let groups = self.unseen_by_branch(project, worktree, cx);
+        let name = worktree.map(|w| &**w);
+        let groups = self.unseen_by_branch(project, name, cx);
         let parts = (groups.iter().enumerate()).map(|(ix, (branch, commits))| {
             self.unseen_part(ix, project, branch, commits, theme, cx)
         });
-        v_flex()
-            .mx(dp(6.))
-            .rounded(dp(8.))
-            .border_1()
-            .border_color(theme.border_3)
-            .child(status.when(groups.is_empty(), |el| {
-                el.child(small_icon(Icon::Tick).flex_none().text_color(theme.text_3))
-                    .child(faint("All caught up", theme).flex_none())
-            }))
-            .children(parts)
-    }
-
-    /// Whether the checkout is being written to, and since when it's been quiet.
-    fn now_status(
-        &self,
-        commits: &[&Commit],
-        last_write: Option<i64>,
-        now: i64,
-        theme: &Theme,
-    ) -> Div {
+        let store = self.store.read(cx);
+        let files = (store.workspace(project))
+            .and_then(|ws| ws.uncommitted_in(name))
+            .unwrap_or_default();
+        let activity = store.activity.get(&(project.clone(), worktree.cloned()));
+        let written = (files.iter())
+            .filter_map(|file| file.modified.map(|ms| ms / 1000))
+            .max();
+        let last_write = activity.and_then(|a| a.last).max(written);
         // Written to lately, and since its last commit: once committed, it's quiet again.
+        let now = crate::ui::now();
         let newest = commits.first().map(|commit| commit.time);
-        let writing = last_write.filter(|at| now - at <= WRITING_WITHIN && newest < Some(*at));
-        let (said, live) = match (writing, commits.first()) {
-            (Some(at), _) => (
-                format!("Writing files · last change {}", relative_time(at)),
-                true,
-            ),
-            (None, Some(last)) => {
-                let quiet = now - last_write.max(Some(last.time)).unwrap_or(last.time);
-                let since = match quiet {
-                    ..60 => String::new(),
-                    _ => format!(" for {}", span_said(quiet)),
-                };
-                let title = commit_title(&last.title);
-                (format!("Quiet{since} · last commit \"{title}\""), false)
-            }
-            (None, None) => ("Nothing committed here yet".to_owned(), false),
+        let writing = last_write.is_some_and(|at| now - at <= WRITING_WITHIN && newest < Some(at));
+        let quiet = match (writing, commits.first()) {
+            (true, _) => "being written now".to_owned(),
+            (false, Some(last)) => match now - last_write.max(Some(last.time)).unwrap_or(last.time)
+            {
+                ..60 => "quiet".to_owned(),
+                quiet => format!("quiet for {}", span_said(quiet)),
+            },
+            (false, None) => "nothing committed yet".to_owned(),
         };
-        h_flex()
+        let (glyph, said) = match (files.len(), groups.is_empty()) {
+            (0, true) => (
+                small_icon(Icon::Tick)
+                    .text_color(theme.text_3)
+                    .into_any_element(),
+                "All caught up".to_owned(),
+            ),
+            (n, _) => (
+                // Lit while an agent writes.
+                div()
+                    .size(dp(7.))
+                    .rounded_full()
+                    .bg(match writing {
+                        true => theme.pop,
+                        false => theme.text_3,
+                    })
+                    .into_any_element(),
+                match n {
+                    0 => "Nothing uncommitted".to_owned(),
+                    n => plural(n, "uncommitted file"),
+                },
+            ),
+        };
+        let status = h_flex()
+            .h(dp(ROW_HEIGHT))
             .px(dp(14.))
-            .py(dp(8.))
             .gap(dp(8.))
             .child(
                 div()
                     .flex_none()
-                    .size(dp(7.))
-                    .rounded_full()
-                    .bg(match live {
-                        true => theme.pop,
-                        false => theme.text_3,
-                    }),
+                    .w(dp(14.))
+                    .flex()
+                    .justify_center()
+                    .child(glyph),
             )
-            .child(div().flex_1().min_w_0().truncate().child(said))
+            .child(div().flex_none().child(said))
+            .child(faint(quiet, theme).flex_1().min_w_0().truncate())
+            .when(!files.is_empty(), |el| {
+                // The first of them, as ↓ from the list does.
+                el.child(
+                    button("now-open-changes", "Open")
+                        .small()
+                        .style(ButtonStyle::Ghost)
+                        .on_click(cx.listener(|this, _, _, cx| this.move_file(1, cx))),
+                )
+            });
+        v_flex().child(status).children(parts)
     }
 
     /// A branch's `commits` not opened yet: the branch and who made them, with Open, which
@@ -583,7 +593,9 @@ impl Detail {
             .map(|(row, (path, added, removed))| {
                 // Opens them on this file.
                 let (project, ids, file) = (project.clone(), ids.clone(), path.clone());
+                // A step in, under the branch's glyph.
                 list_row(("now-unseen-file", row), false, theme)
+                    .pl(dp(STEP_IN + 8.))
                     .on_mouse_down(MouseButton::Left, keep_focus_on_press)
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.open_unseen(&project, &ids, Some(file.clone()), cx)
@@ -599,15 +611,13 @@ impl Detail {
         );
         v_flex()
             .id(("now-unseen", ix))
-            .when(open, |el| el.pb(dp(4.)))
-            .border_t_1()
-            .border_color(theme.border_3)
             .child(
                 // Its actions go under it where the line has no room for them.
                 h_flex()
                     .flex_wrap()
+                    .min_h(dp(ROW_HEIGHT))
                     .px(dp(14.))
-                    .py(dp(6.))
+                    .py(dp(2.))
                     .gap_x(dp(8.))
                     .gap_y(dp(4.))
                     .child(
@@ -669,8 +679,13 @@ impl Detail {
                     ),
             )
             .when(open, |el| {
-                el.children(file_rows)
-                    .children(self.now_fold(fold, hidden, theme, cx))
+                el.children(file_rows).children(self.now_fold(
+                    fold,
+                    hidden,
+                    14. + STEP_IN,
+                    theme,
+                    cx,
+                ))
             })
     }
 
@@ -752,24 +767,8 @@ impl Detail {
         Some(
             v_flex()
                 .child(overview_heading("Hot files", detail, theme).h(dp(28.)))
-                .child(
-                    v_flex()
-                        .relative()
-                        .child(
-                            v_flex()
-                                .id("now-hot-rows")
-                                .max_h(dp(ROW_HEIGHT * HOT_OPEN_ROWS))
-                                .overflow_y_scroll()
-                                .track_scroll(&self.now.hot_scroll)
-                                .children(rows),
-                        )
-                        .children(scrollbar(
-                            "now-hot-scrollbar",
-                            Scroll::Div(self.now.hot_scroll.clone()),
-                            theme,
-                        )),
-                )
-                .children(self.now_fold("now-hot-more", hidden, theme, cx)),
+                .children(rows)
+                .children(self.now_fold("now-hot-more", hidden, 14., theme, cx)),
         )
     }
 
@@ -923,7 +922,8 @@ impl Detail {
         };
         Some(
             v_flex()
-                .child(overview_heading("Commits", faint(detail, theme), theme))
+                // As tall as Hot files' beside it, which has room for Clear.
+                .child(overview_heading("Commits", faint(detail, theme), theme).h(dp(28.)))
                 .children(rows)
                 .when(listed.is_empty() && file.is_some(), |el| {
                     let said = match reading {
@@ -932,7 +932,7 @@ impl Detail {
                     };
                     el.child(faint(said, theme).px(dp(14.)).py(dp(4.)))
                 })
-                .children(self.now_fold("now-commits-more", hidden, theme, cx)),
+                .children(self.now_fold("now-commits-more", hidden, 14., theme, cx)),
         )
     }
 
@@ -945,12 +945,13 @@ impl Detail {
     }
 
     /// "N more" under a section listing its first few, `hidden` left out, or "Show fewer"
-    /// once it lists them all, as the navigator folds a long list: its glyph under the rows'
+    /// once it lists them all, as the navigator folds a long list: its glyph `at` the rows'
     /// glyphs, its words under their titles.
     fn now_fold(
         &self,
         fold: impl Into<SharedString>,
         hidden: usize,
+        at: f32,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<Stateful<Div>> {
@@ -960,7 +961,7 @@ impl Detail {
             (_, true) => (Icon::ChevronUp, "Show fewer".to_owned()),
             (n, false) => (Icon::Kebab, format!("{n} more")),
         };
-        let row = fold_row(fold.clone(), glyph, 14., 34., theme).child(said);
+        let row = fold_row(fold.clone(), glyph, at, at + 20., theme).child(said);
         Some(row.on_click(cx.listener(move |this, _, _, cx| {
             if !this.now.unfolded.remove(&fold) {
                 this.now.unfolded.insert(fold.clone());
@@ -1048,7 +1049,7 @@ fn branch_said(
 fn bar_on(share: f32, track: gpui::Hsla, fill: gpui::Hsla) -> Div {
     div()
         .flex_1()
-        .max_w(dp(OVERVIEW_COUNT_WIDTH * 2.))
+        .max_w(dp(OVERVIEW_COUNT_WIDTH))
         .h(dp(6.))
         .rounded(dp(3.))
         .bg(track)
