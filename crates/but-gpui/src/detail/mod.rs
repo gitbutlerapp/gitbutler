@@ -15,6 +15,7 @@ mod machine;
 mod panes;
 mod pull_request;
 mod resolve;
+mod slots;
 mod upstream;
 mod worktree;
 

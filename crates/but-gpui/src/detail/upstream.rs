@@ -18,6 +18,7 @@ use super::panes::{
     side_list, step_from, title_text, unfinished_banner,
 };
 use super::pull_request::TABS_HEIGHT;
+use super::slots::{SlotGesture, SlotPick};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, Person, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, Forge};
 use crate::overlays::MenuItem;
@@ -99,8 +100,8 @@ pub(super) struct Upstream {
 
 impl Upstream {
     /// The activity's days picked, if any, and which day is today.
-    fn picked_days(&self) -> Option<(&DayPick, i64)> {
-        let pick = Some(&self.view.days).filter(|pick| !pick.days.is_empty())?;
+    fn picked_days(&self) -> Option<(&SlotPick, i64)> {
+        let pick = Some(&self.view.days).filter(|pick| !pick.slots.is_empty())?;
         let summary = self.summary.as_ref()?;
         Some((pick, summary.first_day + summary.daily.len() as i64 - 1))
     }
@@ -118,7 +119,7 @@ impl Upstream {
 /// A reload keeps it.
 #[derive(Default)]
 struct View {
-    days: DayPick,
+    days: SlotPick,
     person: Option<String>,
     area: Option<String>,
     open_merges: HashSet<CommitId>,
@@ -750,7 +751,7 @@ impl Detail {
         };
         let filtered = !query.is_empty();
         let shown = |commit: &TargetCommit| {
-            picked.is_none_or(|(pick, today)| pick.keeps(commit.time, today))
+            picked.is_none_or(|(pick, today)| pick.keeps(upstream::day_of(commit.time).min(today)))
                 && who.is_none_or(|_| person.is_some_and(|p| p.landed.contains(&commit.id)))
                 && area.is_none_or(|_| in_area.contains(&commit.id))
                 && found(commit)
@@ -789,7 +790,7 @@ impl Detail {
         // and older ones a click at a time, rather than the whole history.
         // Without a summary to say where they start, a filter reads on a click from the first.
         let bounded = who.is_some() || area.is_some() || filtered;
-        let first = (picked.and_then(|(pick, _)| pick.days.first()).copied())
+        let first = (picked.and_then(|(pick, _)| pick.slots.first()).copied())
             .or_else(|| {
                 (upstream.summary.as_ref())
                     .filter(|_| bounded)
@@ -852,7 +853,7 @@ impl Detail {
     }
 
     /// Pick the activity's days as `gesture` does, which filters the history to them.
-    fn day_gesture(&mut self, project: &ProjectId, gesture: DayGesture, cx: &mut Context<Self>) {
+    fn day_gesture(&mut self, project: &ProjectId, gesture: SlotGesture, cx: &mut Context<Self>) {
         if let Some(upstream) = self.upstream.get_mut(project)
             && upstream.view.days.apply(gesture)
         {
@@ -863,7 +864,7 @@ impl Detail {
 
     fn clear_days(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
         if let Some(upstream) = self.upstream.get_mut(project) {
-            upstream.view.days = DayPick::default();
+            upstream.view.days = SlotPick::default();
         }
         cx.notify();
     }
@@ -898,7 +899,7 @@ impl Detail {
 
     /// The days picked off `project`'s activity, while any are.
     fn days_picked(&self, project: &ProjectId) -> Option<&BTreeSet<i64>> {
-        Some(&self.upstream_for(project)?.view.days.days).filter(|days| !days.is_empty())
+        Some(&self.upstream_for(project)?.view.days.slots).filter(|days| !days.is_empty())
     }
 
     /// The email of the person whose commits `project`'s history is filtered to, if any.
@@ -1823,7 +1824,7 @@ pub(super) fn noon(day: i64) -> i64 {
 
 /// How busy the target has been: a bar for each day of `daily`, from `first_day`, the last
 /// week's stronger. Pressing a day, shift-pressing another or dragging across them hands
-/// `gesture` what the pointer did, for a [`DayPick`]; Clear, beside the days picked, calls
+/// `gesture` what the pointer did, for a [`SlotPick`]; Clear, beside the days picked, calls
 /// `clear`.
 fn activity_strip(
     daily: &[u32],
@@ -1831,7 +1832,7 @@ fn activity_strip(
     picked: &BTreeSet<i64>,
     theme: &Theme,
     cx: &Context<Detail>,
-    gesture: impl Fn(&mut Detail, DayGesture, &mut Context<Detail>) + Clone + 'static,
+    gesture: impl Fn(&mut Detail, SlotGesture, &mut Context<Detail>) + Clone + 'static,
     clear: impl Fn(&mut Detail, &mut Context<Detail>) + 'static,
 ) -> AnyElement {
     const HEIGHT: f32 = 36.;
@@ -1858,13 +1859,21 @@ fn activity_strip(
                     gpui::MouseButton::Left,
                     cx.listener(move |this, event: &gpui::MouseDownEvent, _, cx| {
                         let (shift, toggle) = (event.modifiers.shift, event.modifiers.secondary());
-                        press(this, DayGesture::Press { day, shift, toggle }, cx)
+                        press(
+                            this,
+                            SlotGesture::Press {
+                                slot: day,
+                                shift,
+                                toggle,
+                            },
+                            cx,
+                        )
                     }),
                 )
                 .on_mouse_move(
                     cx.listener(move |this, event: &gpui::MouseMoveEvent, _, cx| {
                         if event.pressed_button == Some(gpui::MouseButton::Left) {
-                            drag(this, DayGesture::Drag(day), cx)
+                            drag(this, SlotGesture::Drag(day), cx)
                         }
                     }),
                 )
@@ -1930,7 +1939,7 @@ fn activity_strip(
                                 _: &gpui::MouseUpEvent,
                                 _: &mut gpui::Window,
                                 cx: &mut Context<Detail>| {
-                gesture(this, DayGesture::Release, cx)
+                gesture(this, SlotGesture::Release, cx)
             };
             h_flex()
                 .h(dp(HEIGHT))
@@ -1947,76 +1956,6 @@ fn activity_strip(
                 .child(faint("Today", theme)),
         )
         .into_any_element()
-}
-
-/// What the pointer did on an activity strip's day: pressed it, with shift or ⌘ (`toggle`)
-/// held or not; moved onto it while pressed; or let go.
-#[derive(Debug, Clone, Copy)]
-enum DayGesture {
-    Press { day: i64, shift: bool, toggle: bool },
-    Drag(i64),
-    Release,
-}
-
-/// Days picked off an activity strip, as `upstream::day_of` numbers them, none for every day:
-/// one by a click, another added or taken away by ⌘-click, and a span by shift-clicking from
-/// the one clicked before or by dragging across them.
-#[derive(Debug, Default)]
-pub(super) struct DayPick {
-    pub(super) days: BTreeSet<i64>,
-    /// The day a shift-click picks the span from: the one clicked before.
-    anchor: Option<i64>,
-    /// While a press is held: the day the span picked runs from to the one under the pointer.
-    drag_from: Option<i64>,
-}
-
-impl DayPick {
-    /// Apply `gesture`, as a list picks its rows: a click picks a day alone, or lets go of
-    /// the one day picked; ⌘ adds or takes away one; shift picks the days from the one
-    /// clicked before; holding the press, the pointer moving across the days picks those it
-    /// spans from where it was pressed. Whether the days picked changed.
-    fn apply(&mut self, gesture: DayGesture) -> bool {
-        let before = self.days.clone();
-        let span = |a: i64, b: i64| (a.min(b)..=a.max(b)).collect::<BTreeSet<_>>();
-        match gesture {
-            DayGesture::Press {
-                day, shift: true, ..
-            } if self.anchor.is_some() => {
-                let from = self.anchor.unwrap_or(day);
-                self.days = span(from, day);
-                self.drag_from = Some(from);
-            }
-            DayGesture::Press {
-                day, toggle: true, ..
-            } => {
-                if !self.days.remove(&day) {
-                    self.days.insert(day);
-                }
-                self.anchor = Some(day);
-                self.drag_from = None;
-            }
-            DayGesture::Press { day, .. } => {
-                // Clicking the one day picked lets go of it, with nothing to drag from then.
-                let clears = self.days.len() == 1 && self.days.contains(&day);
-                self.drag_from = (!clears).then_some(day);
-                self.days = self.drag_from.into_iter().collect();
-                self.anchor = Some(day);
-            }
-            DayGesture::Drag(day) => {
-                if let Some(from) = self.drag_from {
-                    self.days = span(from, day);
-                }
-            }
-            DayGesture::Release => self.drag_from = None,
-        }
-        self.days != before
-    }
-
-    /// Whether `time` falls on a day picked, with every day picked while none is; one after
-    /// `today` counts as today's.
-    fn keeps(&self, time: i64, today: i64) -> bool {
-        self.days.is_empty() || self.days.contains(&upstream::day_of(time).min(today))
-    }
 }
 
 /// What Git said, as sentences: its lines without `fatal:` or `error:`, each capitalised and
@@ -2040,58 +1979,4 @@ fn git_said(err: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{DayGesture, DayPick};
-
-    #[test]
-    fn days_are_picked_by_click_cmd_click_shift_click_and_drag() {
-        use DayGesture::{Drag, Release};
-        let press = |day| DayGesture::Press {
-            day,
-            shift: false,
-            toggle: false,
-        };
-        let shift = |day| DayGesture::Press {
-            day,
-            shift: true,
-            toggle: false,
-        };
-        let cmd = |day| DayGesture::Press {
-            day,
-            shift: false,
-            toggle: true,
-        };
-        let mut pick = DayPick::default();
-        let mut days = |gestures: &[DayGesture]| {
-            for gesture in gestures {
-                pick.apply(*gesture);
-            }
-            pick.days.iter().copied().collect::<Vec<_>>()
-        };
-        assert_eq!(days(&[press(10), Release]), [10], "a click picks a day");
-        assert_eq!(
-            days(&[shift(13), Release]),
-            [10, 11, 12, 13],
-            "shift picks the days between"
-        );
-        assert_eq!(
-            days(&[cmd(20), Release, cmd(11), Release]),
-            [10, 12, 13, 20],
-            "⌘ adds or takes away one"
-        );
-        assert_eq!(
-            days(&[press(20), Drag(18), Drag(17), Release]),
-            [17, 18, 19, 20],
-            "dragging picks the days crossed"
-        );
-        assert_eq!(days(&[Drag(5)]), [17, 18, 19, 20], "only while pressed");
-        assert_eq!(
-            days(&[press(12), Release, press(12), Drag(12), Release]),
-            [] as [i64; 0],
-            "clicking the one day picked again lets go, though the pointer moves a little"
-        );
-    }
 }
