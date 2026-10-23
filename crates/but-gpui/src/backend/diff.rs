@@ -14,6 +14,50 @@ use super::{
     present_first_parent, worktree_files,
 };
 
+/// The files commits `oldest` to `newest` change together, from `oldest`'s parent, each with
+/// the lines it adds and removes, the most changed first.
+pub fn range_lines(
+    path: &Path,
+    oldest: CommitId,
+    newest: CommitId,
+) -> Result<Vec<(String, u32, u32)>> {
+    let ctx = open(path)?;
+    let repo = checkout(&ctx, None)?;
+    let base = present_first_parent(&repo.find_commit(oldest.0)?);
+    let mut lines: Vec<(String, u32, u32)> = (but_core::diff::tree_changes(&repo, base, newest.0)?)
+        .into_iter()
+        .map(|change| {
+            let (added, removed) = match change.unified_patch(&repo, 0) {
+                Ok(Some(but_core::UnifiedPatch::Patch {
+                    lines_added,
+                    lines_removed,
+                    ..
+                })) => (lines_added, lines_removed),
+                _ => (0, 0),
+            };
+            (change.path.to_str_lossy().into_owned(), added, removed)
+        })
+        .collect();
+    lines.sort_by_key(|(_, added, removed)| std::cmp::Reverse(added + removed));
+    Ok(lines)
+}
+
+/// The files each of `commits` changes, from its first parent, by their paths.
+pub fn commit_paths(path: &Path, commits: &[CommitId]) -> Result<Vec<(CommitId, Vec<String>)>> {
+    let ctx = open(path)?;
+    let repo = checkout(&ctx, None)?;
+    (commits.iter())
+        .map(|id| {
+            let base = present_first_parent(&repo.find_commit(id.0)?);
+            let changes = but_core::diff::tree_changes(&repo, base, id.0)?;
+            let paths = changes
+                .into_iter()
+                .map(|c| c.path.to_str_lossy().into_owned());
+            Ok((*id, paths.collect()))
+        })
+        .collect()
+}
+
 /// What a diff is about.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DiffSource {

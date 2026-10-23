@@ -16,6 +16,7 @@ use crate::backend::{
 };
 
 mod account;
+mod activity;
 mod background;
 mod load;
 mod mesh;
@@ -24,6 +25,7 @@ mod picks;
 mod saved;
 mod seen;
 
+pub use activity::{Activity, QUARTER};
 use load::{Change, Reload};
 pub use mesh::{MeshBranch, MeshPick, MeshState};
 pub use mutation::{NewAt, OpKind, Overlay, Remap, Rereads, SLOW, conflicted_parts};
@@ -343,6 +345,9 @@ pub struct Store {
     /// that changes nothing reloads nothing, so the cache's own time on screen falls behind.
     forge_synced: HashMap<ProjectId, i64>,
     _forge_worker: Task<()>,
+    /// What the file watcher saw written in each checkout lately: a project's main one, or
+    /// its linked worktree with this name.
+    pub activity: HashMap<(ProjectId, Option<Arc<str>>), Activity>,
 }
 
 impl EventEmitter<StoreEvent> for Store {}
@@ -426,6 +431,14 @@ impl Store {
             forge_checking: None,
             forge_synced: HashMap::new(),
             _forge_worker: Self::forge_worker(requested, cx),
+            activity: (saved.activity.into_iter())
+                .map(|saved| {
+                    (
+                        (saved.project.into(), saved.worktree.map(Into::into)),
+                        saved.activity,
+                    )
+                })
+                .collect(),
             _forge_poll: Self::poll_forge(cx),
             fetched: HashMap::new(),
             fetch_failed: HashMap::new(),
@@ -845,6 +858,21 @@ impl Store {
             .filter(|commit| self.picked.contains(&commit.id))
             .map(|commit| commit.id)
             .collect()
+    }
+
+    /// Open commits `ids` of `project`, newest first, to review them: the newest selected and
+    /// the rest picked with it, which shows them together when they're one run. They're read
+    /// once opened.
+    pub fn review(&mut self, project: &ProjectId, ids: &[CommitId], cx: &mut Context<Self>) {
+        let Some(&newest) = ids.first() else {
+            return;
+        };
+        self.select(Some(Selection::Commit(project.clone(), newest)), cx);
+        if ids.len() > 1 {
+            self.picked.all(ids);
+        }
+        self.mark_read(project, ids.iter().copied(), true, cx);
+        cx.notify();
     }
 
     /// The newest and oldest of the commits picked in `project`, as [`Workspace::run_of`].

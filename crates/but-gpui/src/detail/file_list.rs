@@ -19,9 +19,10 @@ use crate::state::{Cut, FileSort, OpKind, Overlay, ProjectId, Rereads, Selection
 use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
+use crate::ui::illustration::Illustration;
 use crate::ui::{
-    Icon, ROW_HEIGHT, checkbox, count_badge, dp, faint, fixed, h_flex, icon_button, muted, popover,
-    quiet, relative_time, side_row, small_icon, v_flex,
+    Icon, ROW_HEIGHT, checkbox, count_badge, dp, empty_state, faint, fixed, h_flex, icon_button,
+    muted, popover, quiet, relative_time, side_row, small_icon, v_flex,
 };
 
 /// Where a file list's files come from.
@@ -153,6 +154,18 @@ impl Detail {
             theme,
             cx,
         );
+        // A clean checkout is good news, as but.dev greets it, here as its overview is beside.
+        let clean = !self.filtering && !files.iter().any(|file| shown(&file.path));
+        let rows = match clean {
+            true => empty_state(
+                Some(Illustration::Waving),
+                "No uncommitted changes",
+                "Edits show up here once saved",
+                theme,
+                cx,
+            ),
+            false => rows.into_any_element(),
+        };
         v_flex()
             .flex_1()
             .min_h_0()
@@ -749,7 +762,8 @@ impl Detail {
         let path = file.path.clone();
         let diff_ix = extras.diff_ix;
         let stats = (diff_ix.and_then(|ix| self.diff.as_ref()?.files.get(ix))).map(FileDiff::stats);
-        let current = diff_ix == Some(self.cursor.file);
+        // None while a checkout's overview shows: no file is picked then.
+        let current = diff_ix == Some(self.cursor.file) && !self.showing_now(cx);
         let picked = extras.picked;
         let solid = (current || picked) && solid;
         // On the solid ground, as ui-react's FileList inverts a selected row's contents.

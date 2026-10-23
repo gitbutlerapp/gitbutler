@@ -121,6 +121,64 @@ fn opened(ctx: &Context, name: &str) -> Option<gix::Repository> {
         .ok()
 }
 
+/// What moved linked worktree `name`'s `HEAD` since `since`, in seconds since the epoch, other
+/// than its commits, which its branch lists: checkouts, rebases, resets, merges and amends,
+/// newest first, each with when, said as a sentence.
+pub fn events(path: &Path, name: &str, since: i64) -> Result<Vec<(i64, String)>> {
+    let repo = gix::open(path)?;
+    let Some(worktree) =
+        (repo.worktrees()?.into_iter()).find(|wt| wt.id().is_ok_and(|id| id == name))
+    else {
+        return Ok(Vec::new());
+    };
+    let log = match std::fs::read(worktree.git_dir().join("logs/HEAD")) {
+        Ok(log) => log,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(err) => return Err(err.into()),
+    };
+    let mut events: Vec<(i64, String)> = (log.lines())
+        .filter_map(|line| {
+            let (who, message) = line.split_once_str("\t")?;
+            // `<old> <new> <name> <<email>> <seconds> <zone>`
+            let mut tail = who.rsplitn(3, |b| *b == b' ');
+            let (_, seconds) = (tail.next()?, tail.next()?);
+            let at: i64 = seconds.to_str().ok()?.parse().ok()?;
+            if at < since {
+                return None;
+            }
+            Some((at, event_said(message.to_str().ok()?)?))
+        })
+        .collect();
+    events.reverse();
+    Ok(events)
+}
+
+/// A reflog `message` said as an event, unless it's a commit, which the branch lists, or
+/// says nothing, as `git stash`'s reset to `HEAD` doesn't.
+fn event_said(message: &str) -> Option<String> {
+    let after = |prefix: &str| message.strip_prefix(prefix);
+    if let Some(moving) = after("checkout: moving from ") {
+        return Some(format!("Checked out {}", moving.rsplit(" to ").next()?));
+    }
+    if let Some(returning) = after("rebase (finish): returning to ") {
+        let branch = returning.strip_prefix("refs/heads/").unwrap_or(returning);
+        return Some(format!("Rebased {branch}"));
+    }
+    if let Some(to) = after("reset: moving to ").filter(|to| *to != "HEAD") {
+        return Some(format!("Reset to {to}"));
+    }
+    if let Some(title) = after("commit (amend): ") {
+        return Some(format!("Amended \"{title}\""));
+    }
+    if let Some(merged) = after("merge ") {
+        return Some(format!("Merged {}", merged.split(':').next()?));
+    }
+    if message.starts_with("pull") {
+        return Some("Pulled".to_owned());
+    }
+    None
+}
+
 /// Where each linked worktree's `HEAD` points, the branch it has checked out and its commit,
 /// to tell whether an operation moved one.
 pub fn heads(path: &Path) -> Vec<Option<(Option<gix::refs::FullName>, gix::ObjectId)>> {

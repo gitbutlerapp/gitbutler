@@ -54,6 +54,15 @@ impl Store {
     }
 
     fn saved(&self) -> Saved {
+        // In one order, so a save of the same state writes the same bytes.
+        let mut activity: Vec<SavedActivity> = (self.activity.iter())
+            .map(|((project, worktree), activity)| SavedActivity {
+                project: project.to_string(),
+                worktree: worktree.as_deref().map(str::to_owned),
+                activity: activity.clone(),
+            })
+            .collect();
+        activity.sort_by(|a, b| (&a.project, &a.worktree).cmp(&(&b.project, &b.worktree)));
         Saved {
             expanded: self
                 .projects
@@ -75,6 +84,7 @@ impl Store {
                     (project.to_string(), ids)
                 })
                 .collect(),
+            activity,
         }
     }
 
@@ -88,6 +98,7 @@ impl Store {
         self.redo_steps.retain(|(id, _)| listed(id));
         (self.undid.lock().expect("not poisoned")).retain(|id, _| listed(id));
         (self.kept_snapshots.lock().expect("not poisoned")).retain(|id, _| listed(id));
+        self.activity.retain(|(id, _), _| listed(id));
         let prefs = &mut self.prefs;
         let sets = [
             &mut prefs.run_hooks,
@@ -331,6 +342,17 @@ pub(super) struct Saved {
     /// they changed, which stays so after a restart. An older file's `kept_snapshots` isn't
     /// read, as it doesn't say whose they are.
     pub(super) kept_by_project: BTreeMap<String, Vec<String>>,
+    /// How busy each checkout was over the last week, so a restart doesn't start it over.
+    pub(super) activity: Vec<SavedActivity>,
+}
+
+/// A checkout's [`super::Activity`], as saved: a project's main checkout, or its linked
+/// worktree with that name.
+#[derive(Serialize, Deserialize)]
+pub(super) struct SavedActivity {
+    pub(super) project: String,
+    pub(super) worktree: Option<String>,
+    pub(super) activity: super::Activity,
 }
 
 /// Choices from Settings, and how the navigator lists projects, that only this app keeps;

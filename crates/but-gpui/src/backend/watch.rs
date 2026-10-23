@@ -12,8 +12,9 @@ pub struct Watcher {
 }
 
 /// Call `on_change` whenever files change in `project`'s worktree or git directory, with
-/// whether the git directory was among them and, for a linked worktree's files, its name.
-/// It runs on a background task, so it should only signal.
+/// whether the git directory was among them, for a linked worktree's files its name, and the
+/// worktree's files that changed, by their path in it. It runs on a background task, so it
+/// should only signal.
 ///
 /// This uses the file monitor alone, not `gitbutler_watcher`, which works out status and
 /// hunk assignments under the exclusive repository lock on every event: the app reloads
@@ -21,7 +22,10 @@ pub struct Watcher {
 /// agent keeps saving.
 pub fn watch(
     project: &Project,
-    on_change: impl Fn(bool, Option<std::sync::Arc<str>>) + Send + Sync + 'static,
+    on_change: impl Fn(bool, Option<std::sync::Arc<str>>, Vec<std::sync::Arc<str>>)
+    + Send
+    + Sync
+    + 'static,
 ) -> Result<Watcher> {
     let settings = app_settings()?;
     let watch_mode = gitbutler_filemonitor::WatchMode::from_env_or_settings(
@@ -43,15 +47,18 @@ pub fn watch(
     runtime().spawn(async move {
         use gitbutler_filemonitor::{Checkout, InternalEvent};
         while let Some(event) = received.recv().await {
-            let (git, checkout) = match event {
-                InternalEvent::GitFilesChange(_, checkout, _) => (true, checkout),
-                InternalEvent::ProjectFilesChange(_, checkout, _) => (false, checkout),
+            let (git, checkout, paths) = match event {
+                InternalEvent::GitFilesChange(_, checkout, _) => (true, checkout, Vec::new()),
+                InternalEvent::ProjectFilesChange(_, checkout, paths) => (false, checkout, paths),
             };
+            let paths = (paths.iter())
+                .map(|path| path.to_string_lossy().into())
+                .collect();
             let linked = match checkout {
                 Checkout::Main => None,
                 Checkout::Linked(name) => Some(name.to_str_lossy().into()),
             };
-            on_change(git, linked);
+            on_change(git, linked, paths);
         }
     });
     Ok(Watcher { _monitor: monitor })

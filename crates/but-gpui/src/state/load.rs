@@ -14,7 +14,9 @@ use crate::backend::{self, CommitId, FileChange, Project, Selected, Workspace};
 
 /// A project whose files changed, whether that included its git directory, and the linked
 /// worktree they're in, by name, unless they're the main checkout's.
-pub(super) type Change = (ProjectId, bool, Option<Arc<str>>);
+/// A watcher's event: the project, whether its git directory changed, the linked worktree
+/// whose files changed, if one did, and which of its files.
+pub(super) type Change = (ProjectId, bool, Option<Arc<str>>, Vec<Arc<str>>);
 
 /// What a reload reads again: everything, the commits and branches, or just the uncommitted
 /// files of the checkouts that changed.
@@ -89,7 +91,7 @@ impl Store {
             // a repository of mise's size; a change after a quiet spell still shows at once.
             const MIN_INTERVAL: Duration = Duration::from_millis(1000);
             let mut last: Option<Instant> = None;
-            while let Some((id, git, linked)) = changed.next().await {
+            while let Some(first) = changed.next().await {
                 // Watchers fire in bursts; let a burst settle before reloading.
                 let throttle = last.map_or(Duration::ZERO, |at| {
                     MIN_INTERVAL.saturating_sub(at.elapsed())
@@ -98,12 +100,25 @@ impl Store {
                     .timer(throttle.max(Duration::from_millis(60)))
                     .await;
                 last = Some(Instant::now());
-                let mut reloads: HashMap<ProjectId, Reload> = HashMap::new();
-                reloads.entry(id).or_default().add(git, linked);
-                while let Ok((id, git, linked)) = changed.try_recv() {
-                    reloads.entry(id).or_default().add(git, linked);
+                let mut events = vec![first];
+                while let Ok(event) = changed.try_recv() {
+                    events.push(event);
                 }
                 let Ok(()) = this.update(cx, |store, cx| {
+                    let mut reloads: HashMap<ProjectId, Reload> = HashMap::new();
+                    let now = crate::ui::now();
+                    for (id, git, linked, paths) in events {
+                        // What the app's own operations write isn't activity in the checkout.
+                        if !paths.is_empty() && !store.running.contains_key(&id) {
+                            let checkout = (id.clone(), linked.clone());
+                            store
+                                .activity
+                                .entry(checkout)
+                                .or_default()
+                                .record(now, paths);
+                        }
+                        reloads.entry(id).or_default().add(git, linked);
+                    }
                     for (id, reload) in reloads {
                         // An operation under way reads these with its own reload, which the
                         // operations queued after it find their commits by, hidden or not.
@@ -797,8 +812,10 @@ fn watch(
     id: ProjectId,
     changes: mpsc::UnboundedSender<Change>,
 ) -> anyhow::Result<Watcher> {
-    backend::watch::watch(project, move |git, linked| {
-        changes.unbounded_send((id.clone(), git, linked)).ok();
+    backend::watch::watch(project, move |git, linked, paths| {
+        changes
+            .unbounded_send((id.clone(), git, linked, paths))
+            .ok();
     })
 }
 

@@ -462,7 +462,10 @@ impl Detail {
     /// Whether the window leaves the diff out, as a pull request and what landed take its
     /// place.
     pub fn diff_hidden(&self, cx: &gpui::App) -> bool {
-        self.showing_review(cx) || self.showing_shipped(cx) || self.showing_branches_overview(cx)
+        self.showing_review(cx)
+            || self.showing_shipped(cx)
+            || self.showing_branches_overview(cx)
+            || self.showing_now(cx)
     }
 
     /// How far right of a list page's list the diff starts: past the files, when there's room

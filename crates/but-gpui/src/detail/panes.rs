@@ -67,7 +67,11 @@ impl Detail {
                         let title = commit_title(&editing.title);
                         crumbs.push((format!("Editing {title}").into(), None));
                     }
-                    None => crumbs.push(("Main worktree".into(), None)),
+                    // While its changes show, it goes back to its overview, as Esc does.
+                    None => crumbs.push((
+                        "Main worktree".into(),
+                        (!self.showing_now(cx)).then(|| selection.clone().into()),
+                    )),
                 },
                 Selection::Branch(project, ref_name) => {
                     let branch = workspace.and_then(|ws| ws.find_branch(ref_name));
@@ -84,7 +88,8 @@ impl Detail {
                     self.branches_crumbs(project, &mut crumbs);
                 }
                 Selection::Worktree(_, name) => {
-                    crumbs.push((name.to_string().into(), None));
+                    let back = (!self.showing_now(cx)).then(|| selection.clone().into());
+                    crumbs.push((name.to_string().into(), back));
                 }
                 Selection::Mesh(project, id, pick) => {
                     machine::mesh_crumbs(store, project, id, pick, &mut crumbs)

@@ -16,6 +16,7 @@ mod panes;
 mod pull_request;
 mod resolve;
 mod upstream;
+mod worktree;
 
 pub use diff_view::DiffPane;
 pub use resolve::ResolveConflicts;
@@ -320,6 +321,13 @@ pub struct Detail {
     message_open: bool,
     /// Whether a branch with a pull request shows it in place of its changes.
     review_tab: bool,
+    /// The selected checkout's page shows its overview, Now, rather than its changes.
+    now_open: bool,
+    /// What that overview reads beyond the workspace.
+    now: worktree::Now,
+    /// The file to put the cursor on once the diff loading now lands, as when following the
+    /// file being read into the commit an agent made of it.
+    pending_file: Option<String>,
     /// Whether the pull request's checks that passed are listed, not just counted.
     passed_checks_open: bool,
     review_scroll: ScrollHandle,
@@ -433,6 +441,8 @@ impl Detail {
                         // Checks are of one checkout's files, which another's share paths with.
                         this.switch_checkout(project, worktree, cx);
                     }
+                    // A checkout's page opens on its overview, as the project's does.
+                    this.now_open = true;
                     // A page read before opens on its overview too.
                     match this.selection(cx) {
                         Some(Selection::Branches(_)) => this.close_branch(cx),
@@ -446,12 +456,16 @@ impl Detail {
                 StoreEvent::Reopened => match this.selection(cx) {
                     Some(Selection::Project(project)) => this.pick_opening(&project, cx),
                     Some(Selection::History(_)) => this.pick_newest_operation(cx),
+                    Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
+                        this.close_changes(cx);
+                    }
                     _ => {
                         this.close_opened_branch(cx);
                     }
                 },
                 StoreEvent::Loaded(project) => {
                     if this.selected_project(cx).as_ref() == Some(project) {
+                        this.follow_into_commit(project, cx);
                         this.reload_page(false, cx);
                         // A reload that didn't touch the files shown, like the forge poll's,
                         // shouldn't re-highlight them. Files of another checkout, left on
@@ -613,6 +627,9 @@ impl Detail {
             cursor: Cursor::default(),
             message_open: false,
             review_tab: false,
+            now_open: false,
+            now: worktree::Now::default(),
+            pending_file: None,
             passed_checks_open: false,
             review_scroll: ScrollHandle::new(),
             target_message_height: Rc::new(Cell::new(0.)),
@@ -733,6 +750,7 @@ impl Detail {
             Some(Selection::Branches(project)) => self.load_branches(&project, force, cx),
             Some(Selection::Project(project)) => self.load_upstream(&project, false, force, cx),
             Some(Selection::Mesh(project, ..)) => self.load_machines(&project, force, cx),
+            Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => self.load_now(cx),
             _ => {}
         }
     }
@@ -1115,6 +1133,17 @@ impl Detail {
         // Another diff's matches count from its first.
         self.run_find(!same, cx);
         self.diff_error = None;
+        if let Some(path) = self.pending_file.take()
+            && let Some(at) = (self.diff.iter())
+                .flat_map(|diff| diff.files.iter())
+                .position(|file| file.file.path == path)
+        {
+            self.cursor = Cursor {
+                file: at,
+                hunk: None,
+            };
+            self.scroll_to_file(at, cx);
+        }
     }
 
     /// What dragging the uncommitted changes of `project`'s checkout `worktree` carries: the
@@ -1462,6 +1491,12 @@ impl Detail {
 
     /// Step `delta` files through the ones shown, letting picks go.
     fn move_file(&mut self, delta: isize, cx: &mut Context<Self>) {
+        // From a checkout's overview, the first step opens the file the list starts with.
+        if self.showing_now(cx)
+            && let Some(&first) = self.listed_files(cx).first()
+        {
+            return self.scroll_to_file(first, cx);
+        }
         if let Some(file) = self.file_step(delta, cx) {
             self.file_picks.clear();
             self.scroll_to_file(file, cx);
@@ -1849,6 +1884,8 @@ impl Detail {
     }
 
     fn scroll_to_file(&mut self, file_ix: usize, cx: &mut Context<Self>) {
+        // A file picked on a checkout's page shows its diff in place of the overview.
+        self.now_open = false;
         self.place_cursor(Cursor {
             file: file_ix,
             hunk: None,
@@ -1890,6 +1927,10 @@ impl Detail {
             Some(Selection::History(project)) if self.selected_operation(&project).is_some() => {
                 self.header_height.get()
             }
+            Some(Selection::Uncommitted(project)) if self.editing(&project, cx).is_none() => {
+                self.header_height.get()
+            }
+            Some(Selection::Worktree(..)) => self.header_height.get(),
             _ => 0.,
         }
     }
@@ -1898,9 +1939,12 @@ impl Detail {
     /// (Branches, Operations history, the project's) it always does: without the list,
     /// nothing says what the diff is of. A window too narrow to leave the diff 320 points
     /// beside the list and the navigator at their narrowest hides the files, as `f` does,
-    /// though not a checkout's, over Commit… or the composer, nor one being filtered.
+    /// though not a checkout's, over Commit… or the composer, nor one being filtered. Beside
+    /// a checkout's overview they always show, as a list page's list does.
     pub fn files_shown(&self, window: &Window, cx: &App) -> bool {
-        self.list_page(cx) || (!self.files_hidden && self.files_fit(window, cx))
+        self.list_page(cx)
+            || self.showing_now(cx)
+            || (!self.files_hidden && self.files_fit(window, cx))
     }
 
     /// Whether the window leaves the diff room beside the file list, or the list holds what
@@ -2006,6 +2050,12 @@ impl Render for Detail {
                     Selection::Project(project) => {
                         Some(self.render_project_header(project, &theme, cx))
                     }
+                    Selection::Uncommitted(project) if self.editing(project, cx).is_none() => {
+                        Some(self.render_checkout_header(project, None, &theme, cx))
+                    }
+                    Selection::Worktree(project, name) => {
+                        Some(self.render_checkout_header(project, Some(name), &theme, cx))
+                    }
                     _ => None,
                 };
                 // Beside a list, the selected branch or commit's tabs when it has a pull
@@ -2035,6 +2085,12 @@ impl Render for Detail {
                     // What the selected operation did, over the files it changed.
                     Selection::History(project) => {
                         self.render_operation_header(project, &theme, cx)
+                    }
+                    Selection::Uncommitted(project) if self.showing_now(cx) => {
+                        Some(self.render_now(project, None, cx))
+                    }
+                    Selection::Worktree(project, name) if self.showing_now(cx) => {
+                        Some(self.render_now(project, Some(name), cx))
                     }
                     _ => None,
                 };

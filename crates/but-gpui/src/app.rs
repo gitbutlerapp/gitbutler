@@ -561,6 +561,7 @@ impl AppView {
                     || detail.close_open_filter(window, cx)
                     || detail.close_opened_branch(cx)
                     || detail.close_opened_target(cx)
+                    || detail.close_changes(cx)
             });
             if handled {
                 return cx.notify();
@@ -577,7 +578,9 @@ impl AppView {
         if store.cut.is_none()
             && store.picked.is_empty()
             && self.detail.update(cx, |detail, cx| {
-                detail.close_opened_branch(cx) || detail.close_opened_target(cx)
+                detail.close_opened_branch(cx)
+                    || detail.close_opened_target(cx)
+                    || detail.close_changes(cx)
             })
         {
             return cx.notify();

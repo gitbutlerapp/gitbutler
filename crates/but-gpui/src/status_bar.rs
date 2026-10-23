@@ -125,7 +125,7 @@ impl AppView {
                 .child(hint("esc", "cancel", &theme))
                 .into_any_element()
         } else if let Some((path, place)) = (detail.is_focused(window, cx)
-            && !detail.showing_review(cx))
+            && !detail.diff_hidden(cx))
         .then(|| detail.cursor_place())
         .flatten()
         {
@@ -186,7 +186,7 @@ impl AppView {
             // Picking takes the keys of the diff, so it needs the focus.
             vec![(&FocusDiff, "pick conflicts")]
         } else if typing
-            || (detail_focused && (!detail.has_files() || detail.showing_review(cx)))
+            || (detail_focused && (!detail.has_files() || detail.diff_hidden(cx)))
             || detail.side_list_focused(window)
             || store.selection.is_none()
         {
