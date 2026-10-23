@@ -1896,8 +1896,10 @@ pub(super) mod tests {
     }
 
     #[test]
-    fn an_undo_stops_for_what_came_after_and_for_files_written_since() {
-        use crate::backend::history::{Undone, oplog_head, take_snapshot, undo_snapshot};
+    fn undo_and_redo_stop_for_what_came_after_and_for_files_written_since() {
+        use crate::backend::history::{
+            Undone, oplog_head, redo_snapshot, take_snapshot, undo_snapshot,
+        };
         let now = || {
             let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
             since.unwrap().as_millis() as i64
@@ -1944,6 +1946,14 @@ pub(super) mod tests {
         assert!(
             matches!(undo_snapshot(path, named, None).unwrap(), Undone::Done(_)),
             "what came before it is still there to undo"
+        );
+
+        let undo = oplog_head(path).unwrap();
+        std::fs::write(path.join("file"), "three\n").unwrap();
+        assert!(
+            matches!(redo_snapshot(path, undo, &Default::default(), Some(&[])).unwrap(),
+                Some(Undone::Newer(files)) if files == ["file"]),
+            "a file written after the undo is one redoing it puts back"
         );
     }
 

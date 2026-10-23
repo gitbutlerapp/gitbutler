@@ -357,6 +357,14 @@ pub(super) struct UndoStep {
     done: i64,
 }
 
+/// A file by its path, or several by how many, as an undo or redo card names what changed.
+fn files_named(files: &[String]) -> String {
+    match files {
+        [file] => file.clone(),
+        files => crate::ui::plural(files.len(), "file"),
+    }
+}
+
 /// Now, in milliseconds since the Unix epoch, as file times are.
 fn now_millis() -> i64 {
     (SystemTime::now().duration_since(UNIX_EPOCH)).map_or(0, |t| t.as_millis() as i64)
@@ -439,8 +447,21 @@ impl Store {
         else {
             return self.snack("Nothing to redo", cx);
         };
-        let (kept, of, again, asked) = (
+        self.redo_snapshot(project, undo, true, cx)
+    }
+
+    /// Redo what the undo that recorded `undo` in `project` took back, unless something
+    /// changed the project since or, with `guard`, a file was written since.
+    fn redo_snapshot(
+        &mut self,
+        project: ProjectId,
+        undo: SnapshotId,
+        guard: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let (kept, undid, of, again, asked) = (
             self.kept_snapshots.clone(),
+            self.undid.clone(),
             project.clone(),
             project.clone(),
             Instant::now(),
@@ -454,17 +475,42 @@ impl Store {
             },
             move |path, _| {
                 let kept = kept.lock().expect("not poisoned").get(&of).cloned();
+                let undid = undid.lock().expect("not poisoned").get(&of).cloned();
+                let undid = undid.unwrap_or_default();
                 let started = now_millis();
-                let redone = backend::history::redo_snapshot(path, undo, &kept.unwrap_or_default());
+                let redone = backend::history::redo_snapshot(
+                    path,
+                    undo,
+                    &kept.unwrap_or_default(),
+                    guard.then_some(undid.as_slice()),
+                );
                 Ok((redone?, (started, now_millis())))
             },
             move |store, (redone, span), cx| {
-                // Done, or something changed the project since, it's no longer to redo.
-                (store.redo_steps).retain(|step| *step != (again.clone(), undo));
-                let Some(operation) = redone else {
-                    let why = "Something changed the project since the undo, so it can't be redone";
-                    return store.snack(store.card_title(&again, why.into()), cx);
+                let operation = match redone {
+                    Some(Undone::Done(operation)) => operation,
+                    Some(Undone::Newer(files)) => {
+                        let what = files_named(&files);
+                        return store.error_with_retry(
+                            store.card_title(&again, "Redo takes back newer changes too".into()),
+                            format!(
+                                "{what} changed after the undo. Redo puts files back as they \
+                                 were before it, and Undo brings the changes back."
+                            ),
+                            "Redo anyway",
+                            move |store, cx| store.redo_snapshot(again.clone(), undo, false, cx),
+                            cx,
+                        );
+                    }
+                    // Something changed the project since, so none of its undos are to redo.
+                    None | Some(Undone::Behind(_) | Undone::Already(_)) => {
+                        (store.redo_steps).retain(|(project, _)| *project != again);
+                        let why =
+                            "Something changed the project since the undo, so it can't be redone";
+                        return store.snack(store.card_title(&again, why.into()), cx);
+                    }
                 };
+                (store.redo_steps).retain(|step| *step != (again.clone(), undo));
                 (store.undid.lock().expect("not poisoned"))
                     .entry(again)
                     .or_default()
@@ -565,10 +611,7 @@ impl Store {
                         store.snack(store.card_title(&again, why), cx)
                     }
                     Ok(Undone::Newer(files)) => {
-                        let what = match files.as_slice() {
-                            [file] => file.clone(),
-                            files => crate::ui::plural(files.len(), "file"),
-                        };
+                        let what = files_named(&files);
                         store.error_with_retry(
                             store.card_title(&again, "Undo takes back newer changes too".into()),
                             format!(

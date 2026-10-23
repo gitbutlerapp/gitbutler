@@ -534,12 +534,14 @@ pub fn take_snapshot(path: &Path, message: Option<String>) -> Result<()> {
 }
 
 /// Redo what the undo that recorded `undo` took back, while that's still the last undo and
-/// isn't one of `kept`: what it was, or `None` when something changed the project since.
+/// isn't one of `kept`, or `None` when something changed the project since. With `spans`, it
+/// stops for uncommitted files written since the undo outside them, as undo does.
 pub fn redo_snapshot(
     path: &Path,
     undo: SnapshotId,
     kept: &HashSet<SnapshotId>,
-) -> Result<Option<&'static str>> {
+    spans: Option<&[(i64, i64)]>,
+) -> Result<Option<Undone>> {
     let mut ctx = open(path)?;
     let target = oplog::get_redo_target_snapshot(&ctx)?;
     let Some(target) = target.filter(|target| target.commit_id == undo.0) else {
@@ -548,8 +550,15 @@ pub fn redo_snapshot(
     if kept.contains(&SnapshotId(target.commit_id)) {
         bail!(UNRECORDED);
     }
+    if let Some(spans) = spans {
+        let newer = written_since(&ctx, target.created_at.seconds * 1000, spans)?;
+        if !newer.is_empty() {
+            return Ok(Some(Undone::Newer(newer)));
+        }
+    }
     let kind = RestoreKind::RestoreFromSnapshotViaRedo;
-    restore_titled(&mut ctx, target.commit_id, target.details, kind).map(Some)
+    restore_titled(&mut ctx, target.commit_id, target.details, kind)
+        .map(|op| Some(Undone::Done(op)))
 }
 
 /// The newest entry in the project's operation log.
@@ -610,21 +619,27 @@ pub fn undo_snapshot(
         )));
     }
     if let Some((after, spans)) = newer_than {
-        let repo = ctx.repo.get()?;
-        let newer: Vec<String> = (but_core::diff::worktree_changes(&repo)?.changes.iter())
-            .filter(|change| {
-                super::written(&repo, change.path.as_bstr()).is_some_and(|at| {
-                    at > after && !spans.iter().any(|(from, to)| (*from..=*to).contains(&at))
-                })
-            })
-            .map(|change| change.path.to_str_lossy().into_owned())
-            .collect();
+        let newer = written_since(&ctx, after, spans)?;
         if !newer.is_empty() {
             return Ok(Undone::Newer(newer));
         }
     }
     let kind = RestoreKind::RestoreFromSnapshotViaUndo;
     restore_titled(&mut ctx, snapshot.0, target.details, kind).map(Undone::Done)
+}
+
+/// Uncommitted files written after `after`, in milliseconds since the Unix epoch, outside
+/// `spans`: the app's own undos and redos, which write files too.
+fn written_since(ctx: &but_ctx::Context, after: i64, spans: &[(i64, i64)]) -> Result<Vec<String>> {
+    let repo = ctx.repo.get()?;
+    Ok((but_core::diff::worktree_changes(&repo)?.changes.iter())
+        .filter(|change| {
+            super::written(&repo, change.path.as_bstr()).is_some_and(|at| {
+                at > after && !spans.iter().any(|(from, to)| (*from..=*to).contains(&at))
+            })
+        })
+        .map(|change| change.path.to_str_lossy().into_owned())
+        .collect())
 }
 
 /// What the app calls an operation, where the oplog's name for it is another client's.
