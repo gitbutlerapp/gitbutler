@@ -234,9 +234,7 @@ impl Journal {
         if let Some(aside) = self.asides_elsewhere.get(dir) {
             return Ok(aside.path().to_owned());
         }
-        let aside = tempfile::Builder::new()
-            .prefix(".gitbutler-checkout-")
-            .tempdir_in(dir)?;
+        let aside = private_builder().tempdir_in(dir)?;
         let path = aside.path().to_owned();
         self.asides_elsewhere.insert(dir.to_owned(), aside);
         Ok(path)
@@ -265,8 +263,8 @@ impl Journal {
 
     /// Create a file with `content` at `dest` like Git creates files, so it gets what its
     /// directory gives new files, like a default ACL or its group. It's written privately next to
-    /// `dest`, then moved there unless something appeared, so `dest` only ever has all of it, and
-    /// nothing written into it meanwhile is taken for checkout's.
+    /// `dest` and [installed](Self::install), so `dest` only ever has all of it, and nothing written
+    /// into it meanwhile is taken for checkout's.
     fn create_file(
         &mut self,
         content: &mut impl std::io::Read,
@@ -276,16 +274,31 @@ impl Journal {
         let mut private = private_file_next_to(dest, executable)?;
         std::io::copy(content, private.as_file_mut())?;
         let written = stat_of(&gix::index::fs::Metadata::from_file(private.as_file())?)?;
-        let mut private = private.into_temp_path();
-        rename_no_replace(&private, dest)?;
-        private.disable_cleanup(true);
-        self.placed(dest, &written)
+        self.install(private.into_temp_path(), &written, dest)
     }
 
+    /// Create a symlink to `target` at `dest`, privately next to it first like a file.
     fn create_symlink(&mut self, target: &Path, dest: &Path) -> std::io::Result<Stat> {
-        gix::fs::symlink::create(target, dest)?;
-        let written = stat_of(&gix::index::fs::Metadata::from_path_no_follow(dest)?)?;
-        self.placed(dest, &written)
+        let private = private_builder()
+            .make_in(parent_of(dest), |path| {
+                gix::fs::symlink::create(target, path)
+            })?
+            .into_temp_path();
+        let written = stat_of(&gix::index::fs::Metadata::from_path_no_follow(&private)?)?;
+        self.install(private, &written, dest)
+    }
+
+    /// Move the `private` file or symlink, which had the `written` stat before anything else could
+    /// see it, to `dest` unless something appeared there, and journal it.
+    fn install(
+        &mut self,
+        mut private: tempfile::TempPath,
+        written: &gix::index::entry::Stat,
+        dest: &Path,
+    ) -> std::io::Result<Stat> {
+        rename_no_replace(&private, dest)?;
+        private.disable_cleanup(true);
+        self.placed(dest, written)
     }
 
     /// Journal the file or symlink placed at `path`, which had the `written` stat when it was
@@ -426,13 +439,23 @@ const ALL_FIELDS: gix::index::entry::stat::Options = gix::index::entry::stat::Op
 /// which the umask or a default ACL then reduce. It's removed when dropped.
 #[cfg_attr(not(unix), allow(unused_variables))]
 fn private_file_next_to(dest: &Path, executable: bool) -> std::io::Result<tempfile::NamedTempFile> {
-    let mut builder = tempfile::Builder::new();
-    builder.prefix(".gitbutler-checkout-");
+    let mut builder = private_builder();
     #[cfg(unix)]
     builder.permissions(std::os::unix::fs::PermissionsExt::from_mode(
         if executable { 0o777 } else { 0o666 },
     ));
-    builder.tempfile_in(dest.parent().expect("in the worktree"))
+    builder.tempfile_in(parent_of(dest))
+}
+
+/// A builder of checkout's private files and directories, which are named alike.
+fn private_builder() -> tempfile::Builder<'static, 'static> {
+    let mut builder = tempfile::Builder::new();
+    builder.prefix(".gitbutler-checkout-");
+    builder
+}
+
+fn parent_of(path: &Path) -> &Path {
+    path.parent().expect("in the worktree")
 }
 
 /// What the index may record about the file placed at `dest`, which had the `written` stat when
@@ -559,16 +582,14 @@ fn checkout_index(target: &gix::index::State, plan: &Plan) -> gix::index::State 
 fn staging_dir(repo: &gix::Repository) -> anyhow::Result<tempfile::TempDir> {
     let in_git_dir = repo.git_dir().join("gitbutler");
     std::fs::create_dir_all(&in_git_dir)?;
-    Ok(tempfile::Builder::new()
-        .prefix(".gitbutler-checkout-")
-        .tempdir_in(in_git_dir)?)
+    Ok(private_builder().tempdir_in(in_git_dir)?)
 }
 
 /// The directories leading to `path` in `workdir`, `workdir` included, that are on the
 /// filesystem `path` is on, from the top down.
 fn dirs_on_the_filesystem_of(workdir: &Path, path: &Path) -> std::io::Result<Vec<PathBuf>> {
     let device = |dir: &Path| gix::index::fs::Metadata::from_path_no_follow(dir).map(|md| md.dev());
-    let parent = path.parent().expect("in the worktree");
+    let parent = parent_of(path);
     let on = device(parent)?;
     let mut dirs = Vec::new();
     for dir in parent.ancestors() {
@@ -855,6 +876,27 @@ mod tests {
                 ]
             );
         }
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn undo_keeps_a_symlink_replaced_after_it_was_placed() -> anyhow::Result<()> {
+        let (workdir, staged) = worktree_and_staging()?;
+        let link = workdir.path().join("link");
+        let new_link = staged.new_files().join("link");
+        std::os::unix::fs::symlink("target", &new_link)?;
+        let mut journal = super::Journal::new(workdir.path());
+        journal.place(&new_link, &link)?;
+        std::fs::remove_file(&link)?;
+        std::os::unix::fs::symlink("target", &link)?;
+
+        journal.undo(staged, anyhow::anyhow!("a later step failed"));
+
+        assert!(
+            link.symlink_metadata().is_ok(),
+            "a symlink saved over the placed one, with the same target, is another symlink"
+        );
         Ok(())
     }
 }
