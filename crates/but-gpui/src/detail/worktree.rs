@@ -25,9 +25,9 @@ use crate::ui::file_icons::file_icon;
 use crate::ui::review::state_glyph;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
-    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, count_badge, dp, faint, h_flex,
-    icon, keep_focus_on_press, list_row, relative_time, short_path, shortcut, side_row, small_icon,
-    v_flex,
+    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, count_badge, dot, dp, faint,
+    h_flex, icon, keep_focus_on_press, list_row, relative_time, short_path, shortcut, side_row,
+    small_icon, v_flex,
 };
 
 mod activity;
@@ -893,14 +893,20 @@ impl Detail {
                                 .child(faint(label, theme).min_w_0().truncate())
                                 .tooltip(Tooltip::text(tip))
                         });
+                    // Read or not as the navigator shows it: quieter once read, in semibold
+                    // with a dot while not.
+                    let unread = store.is_unread(project, commit);
                     row.child(small_icon(Icon::Commit).text_color(theme.blue))
                         .child(
                             div()
                                 .flex_1()
                                 .min_w_0()
                                 .truncate()
+                                .when(!unread, |el| el.text_color(theme.text_2))
+                                .when(unread, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
                                 .child(commit_title(&commit.title)),
                         )
+                        .when(unread, |el| el.child(dot(theme.pop)))
                         .children(branch)
                         .child(overview_column(
                             relative_time(at),
