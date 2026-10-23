@@ -941,14 +941,8 @@ pub fn fetch(path: &Path) -> Result<bool> {
 
 /// Put `branch` (a short name), or with `whole_stack` it and every branch below it,
 /// straight onto the target and push the target, or with no upstream, just move it. Returns
-/// whether the other branches still need an update to sit on the moved target, and the
-/// branches the update after it left with conflicted commits they didn't have, with how many.
-pub fn land(
-    path: &Path,
-    branch: &str,
-    tip: CommitId,
-    whole_stack: bool,
-) -> Result<(bool, Vec<(String, usize)>)> {
+/// what that left for the other branches.
+pub fn land(path: &Path, branch: &str, tip: CommitId, whole_stack: bool) -> Result<Landed> {
     let mut ctx = open(path)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
     // A merge commit when the branch has diverged, as `but land` makes one without its flags.
@@ -962,8 +956,22 @@ pub fn land(
         whole_stack,
         Some(tip.0),
     )?;
-    let conflicted = newly_conflicted(&info, &landed.workspace.conflicted_commits);
-    Ok((landed.reconcile_skipped, conflicted))
+    Ok(Landed {
+        update_needed: landed.reconcile_skipped,
+        conflicted: newly_conflicted(&info, &landed.workspace.conflicted_commits),
+        marked: landed.workspace.checkout_conflict_occurred,
+    })
+}
+
+/// What [`land()`] left for the other branches.
+pub struct Landed {
+    /// They still need an update to sit on the moved target.
+    pub update_needed: bool,
+    /// Branches (full refs) the update after it left with conflicted commits they didn't
+    /// have, each with how many.
+    pub conflicted: Vec<(String, usize)>,
+    /// The update gave uncommitted changes conflict markers.
+    pub marked: bool,
 }
 
 #[cfg(test)]

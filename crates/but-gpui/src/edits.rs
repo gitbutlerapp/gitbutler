@@ -1041,13 +1041,16 @@ impl AppView {
                 format!("Land {name}"),
                 overlay,
                 move |path, _| backend::land(path, &name, tip, whole_stack),
-                move |store, (update_needed, conflicted), cx| {
+                move |store, left: backend::Landed, cx| {
                     // Undo would bring the branch back here while the target keeps it.
                     store.drop_last_step();
                     // What the update after it left conflicted, as Update says.
                     let mut said = vec![format!("Landed on {target}{}", store.in_project(&landed))];
-                    said.extend(crate::state::conflicted_parts(&conflicted));
-                    if update_needed {
+                    said.extend(crate::state::conflicted_parts(&left.conflicted));
+                    if left.marked {
+                        said.push("uncommitted changes got conflict markers".to_owned());
+                    }
+                    if left.update_needed {
                         said.push("the other branches need an Update".to_owned());
                     }
                     store.snack(said.join(", "), cx)

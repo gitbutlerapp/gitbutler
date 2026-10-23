@@ -37,7 +37,7 @@ pub use model::*;
 pub use ops::*;
 pub use reviews::{refresh_checks, refresh_reviews};
 pub use upstream::{
-    fetch, land, pull_conflicts, pull_remote, push, push_refusal, update_from_target,
+    Landed, fetch, land, pull_conflicts, pull_remote, push, push_refusal, update_from_target,
 };
 pub use worktrees::reload_uncommitted;
 
