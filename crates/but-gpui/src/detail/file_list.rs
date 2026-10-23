@@ -1060,7 +1060,6 @@ impl Detail {
                         _ => "changes",
                     },
                     worktree.is_some(),
-                    files.len(),
                 );
                 items.push(
                     MenuItem::new(discard, move |this, window, cx| {
@@ -1098,7 +1097,7 @@ impl Detail {
                 }
                 items.push(
                     MenuItem::new(
-                        format!("Discard {what} from commit…"),
+                        format!("Discard {what} from commit"),
                         move |this, window, cx| {
                             this.discard_from_commit(
                                 drop_project.clone(),

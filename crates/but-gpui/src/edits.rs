@@ -49,19 +49,17 @@ fn needs_rewrap(message: &str) -> bool {
         .any(|line| line.chars().count() > WRAP_AT)
 }
 
-/// What discarding `count` changes is called, "…" when it asks first: in a linked worktree,
-/// or for more than one file, as [`AppView::discard`] does.
-pub fn discard_label(what: &str, linked: bool, count: usize) -> String {
-    let more = if linked || count > 1 { "…" } else { "" };
+/// What discarding changes is called, "…" when it asks first: in a linked worktree, as
+/// [`AppView::discard`] does.
+pub fn discard_label(what: &str, linked: bool) -> String {
+    let more = if linked { "…" } else { "" };
     format!("Discard {what}{more}")
 }
 
-/// What a confirmation says about taking it back: ⌘Z does, unless the oplog can't record it.
-fn undo_note(undoable: bool) -> &'static str {
-    match undoable {
-        true => "You can undo this with ⌘Z.",
-        false => "This can't be undone.",
-    }
+/// Whether GitButler's history records what's done in `project`'s main checkout, so ⌘Z, and
+/// the snackbar's Undo, can take it back. What it can take back is done at once, without asking.
+fn recorded(store: &Store, project: &ProjectId) -> bool {
+    !(store.workspace(project)).is_some_and(|ws| ws.unrecorded)
 }
 
 /// What a confirmation runs: operation `label` on `project`, as [`Store::run`] runs it.
@@ -615,33 +613,37 @@ impl AppView {
             return self.store.update(cx, |store, cx| store.snack(message, cx));
         }
         // The oplog doesn't keep a linked worktree's branches, so it can't bring one back.
-        let undo = undo_note(!linked);
+        let undoable = !linked && recorded(store, &project);
         let above = at.checked_sub(1).map(|ix| &lane[ix]);
-        let detail = match above.filter(named).or(lane.get(at + 1)) {
-            Some(next) if !lane[at].commits.is_empty() => {
-                format!("Its commits stay, as part of {}. {undo}", next.name)
-            }
-            _ => undo.to_owned(),
+        let joins = (above.filter(named).or(lane.get(at + 1)))
+            .filter(|_| !lane[at].commits.is_empty())
+            .map(|next| next.name.clone());
+        let (detail, deleted) = match joins {
+            Some(next) => (
+                format!("Its commits stay, as part of {next}. This can't be undone."),
+                format!("Deleted {name}, its commits joining {next}"),
+            ),
+            None => (
+                "This can't be undone.".to_owned(),
+                format!("Deleted {name}"),
+            ),
         };
         let overlay = Overlay {
             deleted_branches: HashSet::from([ref_name.clone()]),
             ..Overlay::default()
         };
-        self.confirm_then(
-            Some(selection),
-            format!("Delete branch {name}?"),
-            &detail,
-            "Delete",
-            window,
-            cx,
-            then_run(
-                project,
-                "Delete branch",
-                overlay,
-                move |path, _| backend::remove_branch(path, &ref_name, None),
-                move |store, (), cx| store.snack_after(!linked, "Branch deleted", cx),
-            ),
+        let run = then_run(
+            project,
+            "Delete branch",
+            overlay,
+            move |path, _| backend::remove_branch(path, &ref_name, None),
+            move |store, (), cx| store.snack_after(undoable, deleted, cx),
         );
+        if undoable {
+            return run(self, cx);
+        }
+        let message = format!("Delete branch {name}?");
+        self.confirm_then(Some(selection), message, &detail, "Delete", window, cx, run);
     }
 
     fn discard_commit(
@@ -652,39 +654,38 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         let store = self.store.read(cx);
-        let undoable = !store.in_worktree(&project, id);
+        let in_worktree = store.in_worktree(&project, id);
+        let undoable = !in_worktree && recorded(store, &project);
         let overlay = Overlay::commits(store.key_of(&project, id));
-        let detail = match undoable {
-            true => "Its changes are dropped. You can undo this with ⌘Z.",
-            false => "Its changes are dropped from the worktree too. This can't be undone.",
+        let detail = match in_worktree {
+            false => "Its changes are dropped. This can't be undone.",
+            true => "Its changes are dropped from the worktree too. This can't be undone.",
         };
-        self.confirm_then(
-            Some(Selection::Commit(project.clone(), id)),
-            format!("Discard commit {}?", id.short()),
-            detail,
-            "Discard",
-            window,
-            cx,
-            then_run(
-                project,
-                "Discard commit",
-                overlay,
-                move |path, remap| {
-                    let now = match undoable {
-                        true => remap.get(id)?,
-                        false => remap.exactly(id)?,
-                    };
-                    backend::discard_commit(path, now)
-                },
-                move |store, (), cx| store.snack_after(undoable, "Commit discarded", cx),
-            ),
+        let at = Selection::Commit(project.clone(), id);
+        let run = then_run(
+            project,
+            "Discard commit",
+            overlay,
+            move |path, remap| {
+                let now = match in_worktree {
+                    false => remap.get(id)?,
+                    true => remap.exactly(id)?,
+                };
+                backend::discard_commit(path, now)
+            },
+            move |store, (), cx| store.snack_after(undoable, "Commit discarded", cx),
         );
+        if undoable {
+            return run(self, cx);
+        }
+        let message = format!("Discard commit {}?", id.short());
+        self.confirm_then(Some(at), message, detail, "Discard", window, cx, run);
     }
 
     /// Throw away uncommitted changes of the main checkout, or of the linked `worktree`.
-    /// One file or hunk of the main checkout goes at once, with Undo on the snackbar as in
-    /// Zed's review; several files ask first. A linked worktree's always ask, as the oplog
-    /// can't bring them back, and so do the main checkout's while it can't record them.
+    /// The main checkout's go at once, with Undo on the snackbar as in Zed's review. A linked
+    /// worktree's always ask, as the oplog can't bring them back, and so do the main
+    /// checkout's while it can't record them.
     pub fn discard(
         &mut self,
         project: ProjectId,
@@ -714,11 +715,7 @@ impl AppView {
         };
         let ask = match (lasting, &changes[..]) {
             (_, []) => return,
-            (None, [_]) => None,
-            (None, _) => Some((
-                format!("Discard changes to {} files?", changes.len()),
-                "You can undo this with ⌘Z.",
-            )),
+            (None, _) => None,
             (Some(why), picked) => {
                 let what = match picked {
                     [one] if one.hunks.is_some() => format!("part of {}", one.file.path),
@@ -1118,7 +1115,8 @@ impl AppView {
         });
     }
 
-    /// Take `files` out of `commit` as if it had never made them, after asking.
+    /// Take `files` out of `commit` as if it had never made them, asking first when that
+    /// can't be undone.
     pub fn discard_from_commit(
         &mut self,
         project: ProjectId,
@@ -1134,34 +1132,37 @@ impl AppView {
         };
         let store = self.store.read(cx);
         // The oplog can't bring back a linked worktree's files.
-        let undoable = !store.in_worktree(&project, commit);
+        let in_worktree = store.in_worktree(&project, commit);
+        let undoable = !in_worktree && recorded(store, &project);
         let overlay = Overlay::commit_files(store.key_of(&project, commit), files.iter());
+        let at = Selection::Commit(project.clone(), commit);
+        let run = then_run(
+            project,
+            "Discard from commit",
+            overlay,
+            move |path, remap| {
+                let from = match in_worktree {
+                    false => remap.taken_from(commit, &files)?,
+                    true => remap.exactly(commit)?,
+                };
+                backend::discard_from_commit(path, from, &files)
+            },
+            move |store, rewritten, cx| {
+                store.follow(&rewritten, cx);
+                store.snack_after(undoable, "Discarded from the commit", cx)
+            },
+        );
+        if undoable {
+            return run(self, cx);
+        }
         self.confirm_then(
-            Some(Selection::Commit(project.clone(), commit)),
+            Some(at),
             format!("Discard {what} from commit {}?", commit.short()),
-            &format!(
-                "The commit, and the ones after it, lose the change. {}",
-                undo_note(undoable)
-            ),
+            "The commit, and the ones after it, lose the change. This can't be undone.",
             "Discard",
             window,
             cx,
-            then_run(
-                project,
-                "Discard from commit",
-                overlay,
-                move |path, remap| {
-                    let from = match undoable {
-                        true => remap.taken_from(commit, &files)?,
-                        false => remap.exactly(commit)?,
-                    };
-                    backend::discard_from_commit(path, from, &files)
-                },
-                move |store, rewritten, cx| {
-                    store.follow(&rewritten, cx);
-                    store.snack_after(undoable, "Discarded from the commit", cx)
-                },
-            ),
+            run,
         );
     }
 }

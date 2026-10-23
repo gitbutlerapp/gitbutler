@@ -151,19 +151,15 @@ impl Navigator {
         // another checkout right-clicked while it's open, discarding takes them all.
         let detail = self.detail.read(cx);
         let checkout = (project.clone(), linked.clone());
-        let (what, count) =
+        let what =
             match detail.composing() && detail.selected_checkout(cx).as_ref() == Some(&checkout) {
-                true => ("checked changes", detail.selected_changes(cx).len()),
-                false => {
-                    let files = (self.store.read(cx).workspace(project))
-                        .and_then(|ws| ws.uncommitted_in(linked.as_deref()));
-                    ("all changes", files.map_or(0, <[_]>::len))
-                }
+                true => "checked changes",
+                false => "all changes",
             };
         [
             MenuItem::action("Commit…", &StartCommit, cx).separated(),
             MenuItem::action(
-                crate::edits::discard_label(what, linked.is_some(), count),
+                crate::edits::discard_label(what, linked.is_some()),
                 &DeleteSelection,
                 cx,
             )
@@ -436,7 +432,7 @@ impl Navigator {
                 let checked_out =
                     linked && workspace.lane_of(ref_name).is_some_and(|(_, at)| at == 0);
                 if !checked_out {
-                    items.push(action("Delete branch…", &DeleteSelection).danger());
+                    items.push(action("Delete branch", &DeleteSelection).danger());
                 }
                 items
             }
@@ -526,7 +522,7 @@ impl Navigator {
                 }
                 items.push(action("Copy message", &CopyMessage));
                 items.extend(read_marks(store, project, [commit]));
-                let discard = action("Discard commit…", &DeleteSelection).danger();
+                let discard = action("Discard commit", &DeleteSelection).danger();
                 items.extend(match commit.conflicted {
                     // Resolved, not uncommitted, as its files are one side's.
                     true => vec![discard.separated()],
