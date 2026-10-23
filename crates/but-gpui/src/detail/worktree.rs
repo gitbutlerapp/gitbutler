@@ -5,7 +5,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use gpui::{AnyElement, App, Context, Div, MouseButton, div, prelude::*, relative};
+use gpui::{AnyElement, App, Context, Div, MouseButton, Stateful, div, prelude::*, relative};
 
 use super::Detail;
 use super::panes::{
@@ -19,7 +19,7 @@ use crate::theme::Theme;
 use crate::ui::person::byline_avatar;
 use crate::ui::review::state_glyph;
 use crate::ui::{
-    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dp, faint, h_flex,
+    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dp, faint, fold_row, h_flex,
     keep_focus_on_press, list_row, plural, relative_time, short_path, side_row, small_icon, v_flex,
 };
 
@@ -29,12 +29,14 @@ use activity::quarters_said;
 
 /// How many quarters of an hour the activity covers: the last 12 hours.
 const BARS: usize = 48;
-/// How many of the files written most in the last hour are listed.
-const HOT_SHOWN: usize = 5;
-/// How many files the commits not seen yet changed are listed.
-const UNSEEN_FILES_SHOWN: usize = 4;
-/// How many of today's commits and moves are listed before how many more.
-const TODAY_SHOWN: usize = 12;
+/// How many of the files written most are listed until "N more" lists them all.
+const HOT_SHOWN: usize = 3;
+/// How many files the commits not seen yet changed are listed until "N more".
+const UNSEEN_FILES_SHOWN: usize = 3;
+/// How many of those who committed are listed until "N more".
+const WHO_SHOWN: usize = 3;
+/// How many of today's commits and moves are listed until "N more".
+const TODAY_SHOWN: usize = 5;
 /// A checkout written to this lately is being worked in, as the navigator's "active" says.
 const WRITING_WITHIN: i64 = 120;
 
@@ -61,6 +63,8 @@ pub(super) struct Now {
     /// The quarters of an hour picked off the activity, by when they begin over `QUARTER`,
     /// which the rest of the overview is narrowed to; none for today.
     span: SlotPick,
+    /// The sections listing all they have rather than their first few, by their fold's id.
+    unfolded: HashSet<&'static str>,
 }
 
 /// Files a range of commits changes, each with the lines it adds and removes.
@@ -431,8 +435,17 @@ impl Detail {
                     .children(self.now_unseen(project, name, theme, cx))
                     .child(overview_tiles(tiles, theme))
                     .child(self.now_activity(activity, &commits, now, theme, cx))
-                    .children(self.now_hot_files(hot.unwrap_or_default(), hot_said, theme, cx))
-                    .children(self.now_people(&scoped, range.as_deref(), theme))
+                    .child({
+                        // Side by side where both fit, as the tiles wrap, so Today shows
+                        // without scrolling in an ordinary window.
+                        let hot = self.now_hot_files(hot.unwrap_or_default(), hot_said, theme, cx);
+                        let who = self.now_people(&scoped, range.as_deref(), theme, cx);
+                        h_flex().flex_wrap().items_start().children(
+                            [hot, who].into_iter().flatten().map(|section| {
+                                section.flex_grow(1.).flex_basis(dp(300.)).min_w_0()
+                            }),
+                        )
+                    })
                     .children(self.now_today(project, &scoped, range.as_deref(), theme, cx)),
             )
             .into_any_element()
@@ -512,10 +525,11 @@ impl Detail {
             .max()
             .unwrap_or(1)
             .max(1);
+        let files = run.map_or(0, Vec::len);
         let file_rows = (run
             .into_iter()
             .flatten()
-            .take(UNSEEN_FILES_SHOWN)
+            .take(self.now_shown("now-unseen-more", UNSEEN_FILES_SHOWN))
             .enumerate())
         .map(|(ix, (path, added, removed))| {
             // Opens them on this file.
@@ -588,6 +602,12 @@ impl Detail {
                         }),
                 )
                 .children(file_rows)
+                .children(self.now_fold(
+                    "now-unseen-more",
+                    files.saturating_sub(UNSEEN_FILES_SHOWN),
+                    theme,
+                    cx,
+                ))
                 .child(
                     h_flex()
                         .px(dp(8.))
@@ -654,7 +674,11 @@ impl Detail {
                 .into_any_element(),
             None => faint(said, theme).into_any_element(),
         };
-        let listed = |ix: usize, path: &Arc<str>| ix < HOT_SHOWN || picked == Some(path);
+        let shown = self.now_shown("now-hot-more", HOT_SHOWN);
+        let listed = |ix: usize, path: &Arc<str>| ix < shown || picked == Some(path);
+        let hidden = (hot.iter().enumerate())
+            .filter(|(ix, (path, _))| *ix >= HOT_SHOWN && picked != Some(path))
+            .count();
         let rows =
             (hot.iter().enumerate())
                 .filter(|(ix, (path, _))| listed(*ix, path))
@@ -688,7 +712,8 @@ impl Detail {
         Some(
             v_flex()
                 .child(overview_heading("Hot files", detail, theme).h(dp(28.)))
-                .children(rows),
+                .children(rows)
+                .children(self.now_fold("now-hot-more", hidden, theme, cx)),
         )
     }
 
@@ -740,7 +765,13 @@ impl Detail {
 
     /// Who made `commits`, most first, people and agents: today's, or those of the quarters
     /// picked, `range`.
-    fn now_people(&self, commits: &[&Commit], range: Option<&str>, theme: &Theme) -> Option<Div> {
+    fn now_people(
+        &self,
+        commits: &[&Commit],
+        range: Option<&str>,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Option<Div> {
         let mut counts: HashMap<&str, (usize, &Commit)> = HashMap::new();
         for commit in commits {
             counts.entry(who(commit)).or_insert((0, commit)).0 += 1;
@@ -748,17 +779,23 @@ impl Detail {
         let mut people: Vec<_> = counts.into_iter().collect();
         people.sort_by(|a, b| b.1.0.cmp(&a.1.0).then_with(|| a.0.cmp(b.0)));
         let most = people.first()?.1.0.max(1);
+        let hidden = people.len().saturating_sub(WHO_SHOWN);
+        let shown = self.now_shown("now-who-more", WHO_SHOWN);
         Some(
             v_flex()
-                .child(overview_heading(
-                    "Who worked here",
-                    faint(
-                        range.map_or("commits today".to_owned(), |r| format!("commits · {r}")),
+                .child(
+                    overview_heading(
+                        "Who worked here",
+                        faint(
+                            range.map_or("commits today".to_owned(), |r| format!("commits · {r}")),
+                            theme,
+                        ),
                         theme,
-                    ),
-                    theme,
-                ))
-                .children(people.into_iter().map(|(name, (n, commit))| {
+                    )
+                    // As tall as Hot files' beside it, which has room for Clear.
+                    .h(dp(28.)),
+                )
+                .children(people.into_iter().take(shown).map(|(name, (n, commit))| {
                     still_row(theme)
                         .child(byline_avatar(
                             &commit.author,
@@ -770,7 +807,8 @@ impl Detail {
                         .child(div().flex_1().min_w_0().truncate().child(name.to_owned()))
                         .child(bar(n as f32 / most as f32, theme.pop.opacity(0.7), theme))
                         .child(overview_column(n.to_string(), OVERVIEW_TIME_WIDTH, theme))
-                })),
+                }))
+                .children(self.now_fold("now-who-more", hidden, theme, cx)),
         )
     }
 
@@ -808,10 +846,11 @@ impl Detail {
             return None;
         }
         items.sort_by_key(|(at, _)| std::cmp::Reverse(*at));
-        let rest = items.len().saturating_sub(TODAY_SHOWN);
+        let hidden = items.len().saturating_sub(TODAY_SHOWN);
+        let shown = self.now_shown("now-today-more", TODAY_SHOWN);
         let store = self.store.read(cx);
         let ws = store.workspace(project);
-        let rows = (items.into_iter().take(TODAY_SHOWN).enumerate()).map(|(ix, (at, item))| {
+        let rows = (items.into_iter().take(shown).enumerate()).map(|(ix, (at, item))| {
             let row = list_row(("now-today", ix), false, theme);
             match item {
                 Item::Commit(commit) => {
@@ -900,14 +939,40 @@ impl Detail {
                     };
                     el.child(faint(said, theme).px(dp(14.)).py(dp(4.)))
                 })
-                .when(rest > 0, |el| {
-                    el.child(
-                        faint(format!("and {rest} more"), theme)
-                            .px(dp(14.))
-                            .py(dp(4.)),
-                    )
-                }),
+                .children(self.now_fold("now-today-more", hidden, theme, cx)),
         )
+    }
+
+    /// How many rows the section `fold` folds lists: its first `first`, or all once unfolded.
+    fn now_shown(&self, fold: &'static str, first: usize) -> usize {
+        match self.now.unfolded.contains(fold) {
+            true => usize::MAX,
+            false => first,
+        }
+    }
+
+    /// "N more" under a section listing its first few, `hidden` left out, or "Show fewer"
+    /// once it lists them all, as the navigator folds a long list: its glyph under the rows'
+    /// glyphs, its words under their titles.
+    fn now_fold(
+        &self,
+        fold: &'static str,
+        hidden: usize,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Option<Stateful<Div>> {
+        let (glyph, said) = match (hidden, self.now.unfolded.contains(fold)) {
+            (0, _) => return None,
+            (_, true) => (Icon::ChevronUp, "Show fewer".to_owned()),
+            (n, false) => (Icon::Kebab, format!("{n} more")),
+        };
+        let row = fold_row(fold, glyph, 14., 34., theme).child(said);
+        Some(row.on_click(cx.listener(move |this, _, _, cx| {
+            if !this.now.unfolded.remove(fold) {
+                this.now.unfolded.insert(fold);
+            }
+            cx.notify();
+        })))
     }
 }
 
