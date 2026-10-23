@@ -147,6 +147,11 @@ fn local(seconds: i64, format: &'static str) -> String {
     }
 }
 
+/// The time of day `seconds` (since the epoch) fall on here: "14:15".
+pub fn local_clock(seconds: i64) -> String {
+    local(seconds, "%H:%M")
+}
+
 /// The day `seconds` (since the epoch) fall on here, as a short date: "21 Oct".
 pub fn local_date(seconds: i64) -> String {
     local(seconds, "%-d %b")

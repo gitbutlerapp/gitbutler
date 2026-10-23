@@ -12,6 +12,7 @@ use super::panes::{
     OVERVIEW_COUNT_WIDTH, OVERVIEW_TIME_WIDTH, grouped, meta_item, meta_row, overview_column,
     overview_heading, overview_tiles, overview_title, page_title, title_text,
 };
+use super::slots::SlotPick;
 use crate::backend::{self, Branch, Commit, CommitId, Workspace, upstream};
 use crate::state::{ProjectId, QUARTER, Selection};
 use crate::theme::Theme;
@@ -21,6 +22,10 @@ use crate::ui::{
     ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dp, faint, h_flex,
     keep_focus_on_press, list_row, plural, relative_time, short_path, side_row, small_icon, v_flex,
 };
+
+mod activity;
+
+use activity::quarters_said;
 
 /// How many quarters of an hour the activity covers: the last 12 hours.
 const BARS: usize = 48;
@@ -53,6 +58,9 @@ pub(super) struct Now {
     /// The files each commit changes, read for today's once a hot file is picked. Commits
     /// don't change, so what's read stays.
     paths: HashMap<CommitId, Vec<String>>,
+    /// The quarters of an hour picked off the activity, by when they begin over `QUARTER`,
+    /// which the rest of the overview is narrowed to; none for today.
+    span: SlotPick,
 }
 
 /// Files a range of commits changes, each with the lines it adds and removes.
@@ -340,8 +348,15 @@ impl Detail {
         let today = upstream::day_start(upstream::day_of(now));
         let mut commits = checkout_commits(ws, name);
         commits.sort_by_key(|commit| std::cmp::Reverse(commit.time));
-        let todays: Vec<&Commit> = (commits.iter().copied())
-            .filter(|commit| commit.time >= today)
+        // Everything below the activity is of the quarters picked off it, or of today.
+        let span = &self.now.span;
+        let range = quarters_said(&span.slots, now);
+        let inside = |at: i64| match range {
+            Some(_) => span.keeps(at.div_euclid(QUARTER)),
+            None => at >= today,
+        };
+        let scoped: Vec<&Commit> = (commits.iter().copied())
+            .filter(|commit| inside(commit.time))
             .collect();
         let files = ws.uncommitted_in(name).unwrap_or_default();
         let activity = store.activity.get(&(project.clone(), worktree.cloned()));
@@ -350,19 +365,32 @@ impl Detail {
             .filter_map(|file| file.modified.map(|ms| ms / 1000))
             .max();
         let last_write = activity.and_then(|a| a.last).max(written);
-        let first_today = (activity.into_iter())
+        let busy: HashSet<i64> = (activity.into_iter())
             .flat_map(|a| a.quarters.iter().map(|(at, _)| *at))
-            .chain(todays.iter().map(|commit| commit.time))
-            .filter(|at| *at >= today)
-            .min();
-        let last_today = last_write.max(todays.first().map(|commit| commit.time));
-        let people: HashSet<&str> = todays.iter().map(|commit| who(commit)).collect();
-        let tiles = [
-            (
-                "Commits today",
-                grouped(todays.len()),
-                "Commits made here since midnight",
+            .chain(scoped.iter().map(|commit| commit.time))
+            .filter(|at| inside(*at))
+            .map(|at| at.div_euclid(QUARTER))
+            .collect();
+        let people: HashSet<&str> = scoped.iter().map(|commit| who(commit)).collect();
+        let (hot, hot_said) = match &range {
+            Some(range) => (
+                activity.map(|a| a.hot_files(inside)),
+                format!("writes · {range}"),
             ),
+            None => (
+                activity.map(|a| a.hot_files(|at| at > now - 3600)),
+                "writes · last hour".to_owned(),
+            ),
+        };
+        let tiles = [
+            match range {
+                Some(_) => ("Commits", grouped(scoped.len()), "Commits made here then"),
+                None => (
+                    "Commits today",
+                    grouped(scoped.len()),
+                    "Commits made here since midnight",
+                ),
+            },
             (
                 "Uncommitted",
                 match files.len() {
@@ -373,14 +401,16 @@ impl Detail {
             ),
             (
                 "Busy for",
-                (first_today.zip(last_today))
-                    .map_or("–".to_owned(), |(first, last)| span_said(last - first)),
-                "From the first file written or commit today to the last",
+                match busy.len() {
+                    0 => "–".to_owned(),
+                    n => span_said(n as i64 * QUARTER),
+                },
+                "Quarters of an hour a file was written or a commit made in",
             ),
             (
                 "People",
                 grouped(people.len()),
-                "Who committed here today, people and agents",
+                "Who committed here, people and agents",
             ),
         ];
         v_flex()
@@ -400,14 +430,10 @@ impl Detail {
                     .child(self.now_status(&commits, last_write, now, theme))
                     .children(self.now_unseen(project, name, theme, cx))
                     .child(overview_tiles(tiles, theme))
-                    .child(self.now_activity(activity, &commits, now, theme))
-                    .children(self.now_hot_files(
-                        activity.map(|a| a.hot_files(now)).unwrap_or_default(),
-                        theme,
-                        cx,
-                    ))
-                    .children(self.now_people(&todays, theme))
-                    .children(self.now_today(project, &todays, theme, cx)),
+                    .child(self.now_activity(activity, &commits, now, theme, cx))
+                    .children(self.now_hot_files(hot.unwrap_or_default(), hot_said, theme, cx))
+                    .children(self.now_people(&scoped, range.as_deref(), theme))
+                    .children(self.now_today(project, &scoped, range.as_deref(), theme, cx)),
             )
             .into_any_element()
     }
@@ -605,89 +631,17 @@ impl Detail {
             .update(cx, |store, cx| store.review(project, ids, cx))
     }
 
-    /// How many files were written each quarter of an hour over the last 12, with a dot where
-    /// a commit landed.
-    fn now_activity(
-        &self,
-        activity: Option<&crate::state::Activity>,
-        commits: &[&Commit],
-        now: i64,
-        theme: &Theme,
-    ) -> Div {
-        let bars = activity.map_or_else(|| vec![0; BARS], |a| a.bars(now, BARS));
-        let most = bars.iter().copied().max().unwrap_or(0).max(1);
-        let first = now - now.rem_euclid(QUARTER) - QUARTER * (BARS as i64 - 1);
-        let mut committed = vec![false; BARS];
-        for commit in commits.iter().filter(|commit| commit.time >= first) {
-            if let Some(slot) = committed.get_mut(((commit.time - first) / QUARTER) as usize) {
-                *slot = true;
-            }
-        }
-        let written: u32 = bars.iter().sum();
-        v_flex()
-            .child(overview_heading(
-                "Activity",
-                faint(
-                    match written {
-                        0 if activity.is_none() => "files written while the app runs".to_owned(),
-                        n => format!("{} written · last 12 hours", plural(n as usize, "file")),
-                    },
-                    theme,
-                ),
-                theme,
-            ))
-            .child(
-                v_flex()
-                    .px(dp(14.))
-                    .pt(dp(4.))
-                    .gap(dp(3.))
-                    .child(
-                        h_flex()
-                            .h(dp(6.))
-                            .gap(dp(2.))
-                            .children(committed.into_iter().map(|c| {
-                                div().flex_1().flex().justify_center().child(
-                                    div()
-                                        .size(dp(5.))
-                                        .rounded_full()
-                                        .when(c, |el| el.bg(theme.blue)),
-                                )
-                            })),
-                    )
-                    .child(
-                        h_flex()
-                            .h(dp(44.))
-                            .items_end()
-                            .gap(dp(2.))
-                            .border_b_1()
-                            .border_color(theme.border_3)
-                            .children(bars.iter().map(|n| {
-                                div()
-                                    .flex_1()
-                                    .h(relative(*n as f32 / most as f32))
-                                    .rounded_t(dp(1.))
-                                    .bg(theme.pop.opacity(0.7))
-                            })),
-                    )
-                    .child(
-                        h_flex()
-                            .justify_between()
-                            .child(faint("12h ago", theme))
-                            .child(faint("now", theme)),
-                    ),
-            )
-    }
-
-    /// The files written most in the last hour. Clicking one lists only the commits that
-    /// changed it under Today, as an area filters what shipped; Clear lets go of it.
+    /// The files written most, `hot`, when `said` says. Clicking one lists only the commits
+    /// that changed it under Today, as an area filters what shipped; Clear lets go of it.
     fn now_hot_files(
         &self,
         mut hot: Vec<(Arc<str>, usize)>,
+        said: String,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<Div> {
         let picked = self.now.file.as_ref();
-        // The one picked stays, with its Clear, after an hour without writes.
+        // The one picked stays, with its Clear, once it's no longer written.
         if let Some(picked) = picked.filter(|p| !hot.iter().any(|(path, _)| path == *p)) {
             hot.push((picked.clone(), 0));
         }
@@ -698,7 +652,7 @@ impl Detail {
                 .style(ButtonStyle::Ghost)
                 .on_click(cx.listener(|this, _, _, cx| this.pick_hot_file(None, cx)))
                 .into_any_element(),
-            None => faint("writes · last hour", theme).into_any_element(),
+            None => faint(said, theme).into_any_element(),
         };
         let listed = |ix: usize, path: &Arc<str>| ix < HOT_SHOWN || picked == Some(path);
         let rows =
@@ -755,9 +709,11 @@ impl Detail {
         let (Some(ws), Some(path)) = (store.workspace(&project), store.path(&project)) else {
             return;
         };
-        let today = upstream::day_start(upstream::day_of(crate::ui::now()));
+        // Today's commits, and those of the quarters the activity can pick.
+        let now = crate::ui::now();
+        let since = upstream::day_start(upstream::day_of(now)).min(now - QUARTER * BARS as i64);
         let unread: Vec<CommitId> = (checkout_commits(ws, worktree.as_deref()).into_iter())
-            .filter(|commit| commit.time >= today && !self.now.paths.contains_key(&commit.id))
+            .filter(|commit| commit.time >= since && !self.now.paths.contains_key(&commit.id))
             .map(|commit| commit.id)
             .collect();
         if unread.is_empty() {
@@ -782,10 +738,11 @@ impl Detail {
         .detach();
     }
 
-    /// Who committed here today, most first, people and agents.
-    fn now_people(&self, todays: &[&Commit], theme: &Theme) -> Option<Div> {
+    /// Who made `commits`, most first, people and agents: today's, or those of the quarters
+    /// picked, `range`.
+    fn now_people(&self, commits: &[&Commit], range: Option<&str>, theme: &Theme) -> Option<Div> {
         let mut counts: HashMap<&str, (usize, &Commit)> = HashMap::new();
-        for commit in todays {
+        for commit in commits {
             counts.entry(who(commit)).or_insert((0, commit)).0 += 1;
         }
         let mut people: Vec<_> = counts.into_iter().collect();
@@ -795,7 +752,10 @@ impl Detail {
             v_flex()
                 .child(overview_heading(
                     "Who worked here",
-                    faint("commits today", theme),
+                    faint(
+                        range.map_or("commits today".to_owned(), |r| format!("commits · {r}")),
+                        theme,
+                    ),
                     theme,
                 ))
                 .children(people.into_iter().map(|(name, (n, commit))| {
@@ -814,12 +774,13 @@ impl Detail {
         )
     }
 
-    /// Today's commits and, in a linked worktree, what else moved its `HEAD`, newest first.
-    /// A commit opens on a click.
+    /// Today's commits, or those of the quarters picked, `range`, and, in a linked worktree,
+    /// what else moved its `HEAD` then, newest first. A commit opens on a click.
     fn now_today(
         &self,
         project: &ProjectId,
         todays: &[&Commit],
+        range: Option<&str>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<Div> {
@@ -837,7 +798,9 @@ impl Detail {
             })
         };
         let commits: Vec<&Commit> = todays.iter().filter(changed).copied().collect();
-        let events = self.now.events.iter().filter(|_| file.is_none());
+        let span = &self.now.span;
+        let events = (self.now.events.iter())
+            .filter(|(at, _)| file.is_none() && span.keeps(at.div_euclid(QUARTER)));
         let mut items: Vec<(i64, Item)> = (commits.iter().map(|c| (c.time, Item::Commit(c))))
             .chain(events.map(|(at, said)| (*at, Item::Moved(said))))
             .collect();
@@ -921,14 +884,19 @@ impl Detail {
             }
             None => plural(todays.len(), "commit"),
         };
+        let (title, detail) = match range {
+            Some(range) => ("Commits", format!("{detail} · {range}")),
+            None => ("Today", detail),
+        };
         Some(
             v_flex()
-                .child(overview_heading("Today", faint(detail, theme), theme))
+                .child(overview_heading(title, faint(detail, theme), theme))
                 .children(rows)
                 .when(commits.is_empty() && file.is_some(), |el| {
-                    let said = match reading {
-                        true => "Reading which commits changed it…",
-                        false => "No commit today changed it",
+                    let said = match (reading, range) {
+                        (true, _) => "Reading which commits changed it…",
+                        (false, Some(_)) => "No commit then changed it",
+                        (false, None) => "No commit today changed it",
                     };
                     el.child(faint(said, theme).px(dp(14.)).py(dp(4.)))
                 })

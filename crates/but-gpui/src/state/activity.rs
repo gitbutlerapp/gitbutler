@@ -1,6 +1,6 @@
 //! What the file watcher saw written in each checkout lately, for a worktree's overview: how
 //! busy it's been a quarter of an hour at a time over the last week, which a restart keeps,
-//! and the files written in the last hour, which it doesn't.
+//! and the files written in the last 12 hours, which it doesn't.
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
@@ -11,8 +11,10 @@ use serde::{Deserialize, Serialize};
 pub const QUARTER: i64 = 15 * 60;
 /// How far back activity is kept, in seconds: a week, at most 672 quarters a checkout.
 const KEPT_FOR: i64 = 7 * 24 * 3600;
-/// How far back the files written are kept, in seconds.
-pub const FILES_FOR: i64 = 3600;
+/// How far back the files written are kept, in seconds, as the overview's activity shows.
+const FILES_FOR: i64 = 12 * 3600;
+/// How many of the files written are kept at most, for an agent that writes all day.
+const FILES_KEPT: usize = 20_000;
 
 /// One checkout's writes.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -22,7 +24,7 @@ pub struct Activity {
     pub quarters: VecDeque<(i64, u32)>,
     /// When the last file was written, in seconds since the epoch.
     pub last: Option<i64>,
-    /// The files written in the last hour, by their path in the checkout, oldest first.
+    /// The files written in the last 12 hours, by their path in the checkout, oldest first.
     #[serde(skip)]
     files: VecDeque<(i64, Arc<str>)>,
 }
@@ -45,7 +47,9 @@ impl Activity {
         while (self.quarters.front()).is_some_and(|(at, _)| *at <= now - KEPT_FOR) {
             self.quarters.pop_front();
         }
-        while (self.files.front()).is_some_and(|(at, _)| *at <= now - FILES_FOR) {
+        while (self.files.front()).is_some_and(|(at, _)| *at <= now - FILES_FOR)
+            || self.files.len() > FILES_KEPT
+        {
             self.files.pop_front();
         }
     }
@@ -64,10 +68,10 @@ impl Activity {
         bars
     }
 
-    /// The files written in the last hour before `now`, most often first, and how often.
-    pub fn hot_files(&self, now: i64) -> Vec<(Arc<str>, usize)> {
+    /// The files written when `keep` says, by when, most often first, and how often.
+    pub fn hot_files(&self, keep: impl Fn(i64) -> bool) -> Vec<(Arc<str>, usize)> {
         let mut counts: HashMap<&Arc<str>, usize> = HashMap::new();
-        for (_, path) in self.files.iter().filter(|(at, _)| *at > now - FILES_FOR) {
+        for (_, path) in self.files.iter().filter(|(at, _)| keep(*at)) {
             *counts.entry(path).or_default() += 1;
         }
         let mut hot: Vec<_> = (counts.into_iter())
@@ -80,10 +84,10 @@ impl Activity {
 
 #[cfg(test)]
 mod tests {
-    use super::{Activity, FILES_FOR, QUARTER};
+    use super::{Activity, QUARTER};
 
     #[test]
-    fn writes_count_by_quarter_and_hot_files_by_the_hour() {
+    fn writes_count_by_quarter_and_files_by_when() {
         let mut activity = Activity::default();
         let start = 100 * QUARTER;
         activity.record(start, ["a".into(), "b".into()]);
@@ -95,16 +99,22 @@ mod tests {
             "a quarter's writes, oldest first, up to the quarter now is in"
         );
         assert_eq!(
-            activity.hot_files(start + QUARTER),
+            activity.hot_files(|_| true),
             [("a".into(), 3), ("b".into(), 1)],
             "most often first"
         );
-        activity.record(start + FILES_FOR + 1, ["c".into()]);
         assert_eq!(
-            activity.hot_files(start + FILES_FOR + 1),
-            [("a".into(), 2), ("c".into(), 1)],
-            "only the last hour's"
+            activity.hot_files(|at| at >= start + 60),
+            [("a".into(), 2)],
+            "only those written when asked"
         );
-        assert_eq!(activity.last, Some(start + FILES_FOR + 1));
+        let later = start + 12 * 3600 + 1;
+        activity.record(later, ["c".into()]);
+        assert_eq!(
+            activity.hot_files(|_| true),
+            [("a".into(), 2), ("c".into(), 1)],
+            "the last 12 hours' kept"
+        );
+        assert_eq!(activity.last, Some(later));
     }
 }
