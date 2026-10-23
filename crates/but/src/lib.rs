@@ -737,9 +737,7 @@ async fn dispatch_subcommand(
                         },
                         out,
                     )?;
-                    command::config::exec(&mut ctx, out, cmd)
-                        .await
-                        .map_err(CliError::from)
+                    command::config::exec(&mut ctx, out, cmd).await
                 }
                 Some(args::config::Subcommands::Forge { cmd: forge_cmd }) => {
                     command::config::forge_config(out, forge_cmd.clone())
@@ -761,14 +759,10 @@ async fn dispatch_subcommand(
                                 target_requirement: TargetRequirement::Optional,
                                 ..Default::default()
                             }, out)?;
-                            command::config::exec(&mut ctx, out, cmd)
-                                .await
-                                .map_err(CliError::from)
+                            command::config::exec(&mut ctx, out, cmd).await
                         } else {
                             let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
-                            command::config::exec(&mut ctx, out, cmd)
-                                .await
-                                .map_err(CliError::from)
+                            command::config::exec(&mut ctx, out, cmd).await
                         }
                     }
                 }

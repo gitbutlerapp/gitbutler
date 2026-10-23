@@ -11,6 +11,7 @@ use but_core::{GitConfigSettings, GitHubStackingMode};
 use but_core::{
     RepositoryExt,
     git_config::{remove_config_value, set_config_value},
+    ref_metadata::{UnresolvedLegacyTargetReason, UnresolvedLegacyTargetRefError},
 };
 use but_ctx::Context;
 use but_llm::{
@@ -31,10 +32,13 @@ use super::git_config::edit_git_config;
 #[cfg(feature = "legacy")]
 use crate::args::config::GitHubStacksStatus;
 use crate::{
+    CliResult,
     args::config::{
         AiKeyOption, AiSubcommand, FeatureFlag, FeatureStatus, ForgeSubcommand, MetricsStatus,
         Subcommands, UserSubcommand,
     },
+    bad_input,
+    error::track_remote_target_hint,
     theme::{self, Paint},
     tui,
     utils::{ConfirmOrEmpty, InputOutputChannel, OutputChannel},
@@ -82,26 +86,27 @@ pub async fn exec(
     ctx: &mut Context,
     out: &mut OutputChannel,
     cmd: Option<Subcommands>,
-) -> Result<()> {
+) -> CliResult<()> {
     match cmd {
-        Some(Subcommands::User { cmd }) => user_config(Some(ctx), out, cmd).await,
+        Some(Subcommands::User { cmd }) => user_config(Some(ctx), out, cmd).await?,
         Some(Subcommands::Target {
             branch,
             push_remote,
-        }) => target_config(ctx, out, branch, push_remote).await,
-        Some(Subcommands::PushRemote { remote }) => push_remote_config(ctx, out, remote),
+        }) => target_config(ctx, out, branch, push_remote).await?,
+        Some(Subcommands::PushRemote { remote }) => push_remote_config(ctx, out, remote)?,
         #[cfg(feature = "legacy")]
         Some(Subcommands::Forge {
             cmd: Some(ForgeSubcommand::GithubStacks { status }),
-        }) => github_stacks_config(ctx, out, status),
-        Some(Subcommands::Forge { cmd }) => forge_config(out, cmd).await,
-        Some(Subcommands::Metrics { status }) => metrics_config(out, status).await,
-        Some(Subcommands::Feature { flag, status }) => feature_config(out, flag, status),
+        }) => github_stacks_config(ctx, out, status)?,
+        Some(Subcommands::Forge { cmd }) => forge_config(out, cmd).await?,
+        Some(Subcommands::Metrics { status }) => metrics_config(out, status).await?,
+        Some(Subcommands::Feature { flag, status }) => feature_config(out, flag, status)?,
         Some(Subcommands::Ai { local, global, cmd }) => {
-            ai_config_with_repo(ctx, out, cmd, local, global)
+            ai_config_with_repo(ctx, out, cmd, local, global)?
         }
-        None => show_overview(ctx, out).await,
+        None => show_overview(ctx, out).await?,
     }
+    Ok(())
 }
 
 /// Handle AI config subcommand without repository context.
@@ -1809,7 +1814,7 @@ async fn target_config(
     out: &mut OutputChannel,
     branch: Option<String>,
     push_remote: Option<String>,
-) -> Result<()> {
+) -> CliResult<()> {
     let t = theme::get();
     match branch {
         None => {
@@ -1911,7 +1916,24 @@ async fn target_config(
                     repo.try_find_reference(ref_name.as_ref())?
                         .with_context(|| format!("Target branch '{new_branch}' not found"))?;
                 }
-                but_core::ref_metadata::resolve_local_target(ref_name.as_ref(), &repo)?
+                match but_core::ref_metadata::resolve_local_target(ref_name.as_ref(), &repo) {
+                    Ok(target_ref) => target_ref,
+                    // The remote name is shorthand for the local branch tracking it, not a stored
+                    // legacy target, so the error describes the input rather than a migration.
+                    Err(err)
+                        if err
+                            .downcast_ref::<UnresolvedLegacyTargetRefError>()
+                            .is_some_and(|unresolved| {
+                                unresolved.reason == UnresolvedLegacyTargetReason::NoTrackingBranch
+                            }) =>
+                    {
+                        let target_ref = ref_name.shorten();
+                        return Err(bad_input(format!("No local branch tracks {target_ref}"))
+                            .hint(track_remote_target_hint(target_ref))
+                            .into());
+                    }
+                    Err(err) => return Err(err.into()),
+                }
             };
             but_api::workspace::set_target_ref_and_init_project(
                 ctx,
