@@ -270,10 +270,10 @@ pub fn parse(markdown: &str) -> Vec<Block> {
             block.styles.push((start..block.text.len(), style));
         }
     }
-    /// Drop the spaces at the end of `block`'s text, which HTML shows nothing for, and the
-    /// styles and links over only them, so none ends past the text.
-    fn trim_spaces(block: &mut Block) {
-        let end = block.text.trim_end_matches(' ').len();
+    /// Drop the `trailing` characters at the end of `block`'s text, as the spaces HTML shows
+    /// nothing for, and the styles and links over only them, so none ends past the text.
+    fn trim_end(block: &mut Block, trailing: char) {
+        let end = block.text.trim_end_matches(trailing).len();
         block.text.truncate(end);
         let ranges = (block.styles.iter_mut().map(|(range, _)| range))
             .chain(block.links.iter_mut().map(|(range, _)| range));
@@ -285,7 +285,7 @@ pub fn parse(markdown: &str) -> Vec<Block> {
     }
     fn close(blocks: &mut Vec<Block>, current: &mut Option<Block>) {
         if let Some(block) = current.as_mut().filter(|block| block.kind != Kind::Code) {
-            trim_spaces(block);
+            trim_end(block, ' ');
         }
         if let Some(block) = current.take()
             && (!block.text.trim().is_empty() || matches!(block.kind, Kind::Item(_)))
@@ -415,11 +415,15 @@ pub fn parse(markdown: &str) -> Vec<Block> {
             }
             Event::End(
                 TagEnd::Heading(_) | TagEnd::CodeBlock | TagEnd::Item | TagEnd::HtmlBlock,
-            ) => close(&mut blocks, &mut current),
+            ) => {
+                close(&mut blocks, &mut current);
+                link = None;
+            }
             // Each table row is one line, its cells apart and the header bold, because
             // columns can't line up in wrapped text.
             Event::Start(row @ (Tag::TableHead | Tag::TableRow)) => {
                 close(&mut blocks, &mut current);
+                link = None;
                 current = Some(open(Kind::Paragraph, &lists, quotes, outermost));
                 (in_head, cells) = (matches!(row, Tag::TableHead), 0);
                 style.bold = in_head;
@@ -452,8 +456,10 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                 link = Some((at, safe_link(&dest_url).then(|| dest_url.trim().to_owned())));
             }
             Event::End(TagEnd::Link) => {
+                // One opened in a block that's since closed, as a list item, can start anywhere.
                 if let (Some((start, Some(url))), Some(block)) = (link.take(), &mut current)
                     && start < block.text.len()
+                    && block.text.is_char_boundary(start)
                 {
                     block.links.push((start..block.text.len(), url));
                 }
@@ -510,7 +516,11 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                         Html::Open(name, attributes) => match name.as_str() {
                             "br" => {
                                 if let Some(block) = &mut current {
-                                    trim_spaces(block);
+                                    trim_end(block, ' ');
+                                    // A link opened on the spaces starts where they were.
+                                    if let Some((start, _)) = &mut link {
+                                        *start = (*start).min(block.text.len());
+                                    }
                                     push(block, "\n", style);
                                 }
                             }
@@ -604,7 +614,7 @@ pub fn parse(markdown: &str) -> Vec<Block> {
     close(&mut blocks, &mut current);
     for block in &mut blocks {
         if block.kind == Kind::Code {
-            block.text.truncate(block.text.trim_end_matches('\n').len());
+            trim_end(block, '\n');
         }
     }
     if end < markdown.len() {
@@ -817,6 +827,11 @@ mod tests {
             "<b>Note:  </b><br>Über alles",
             "See <a href=\"https://x.io\">docs  </a><br>日本語",
             "<p>abc <a href=\"https://x.io\">x</p><p>€€€€</a></p>",
+            // An inline tag left open going into a code block, whose last line ending goes.
+            "<details>\n<summary><b>Logs</summary>\n\n```\nerr\n```\n</details>",
+            "<p>Run <code>cargo test</p>\n\n```\nok\n```",
+            // A link opened in one list item and closed in the next.
+            "- ab <a href=\"https://x.io\">\n- ééééé</a>\n",
         ] {
             for block in parse(input) {
                 let ranges = (block.styles.iter().map(|(range, _)| range))
@@ -886,6 +901,22 @@ mod tests {
                 ),
             ],
             "the styles cover the words they mark"
+        );
+    }
+
+    #[test]
+    fn a_link_opened_on_spaces_a_line_break_trims_covers_its_words() {
+        let block = &parse("é  [<br>Āb](https://x.io)")[0];
+        let (range, _) = &block.links[0];
+        assert_eq!(&block.text[range.clone()], "\nĀb", "{:?}", block.text);
+    }
+
+    #[test]
+    fn a_link_ends_with_its_block() {
+        let blocks = parse("- ab <a href=\"https://x.io\">\n- hello</a>\n");
+        assert!(
+            blocks.iter().all(|block| block.links.is_empty()),
+            "opened in one list item, it doesn't run on into the next: {blocks:?}"
         );
     }
 
