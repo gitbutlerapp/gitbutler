@@ -37,6 +37,9 @@ const UNSEEN_FILES_SHOWN: usize = 3;
 const WHO_SHOWN: usize = 3;
 /// How many of today's commits and moves are listed until "N more".
 const TODAY_SHOWN: usize = 5;
+/// How wide Today's times are, room for "59m" or "11mo" and no more, so they sit close to
+/// the pictures.
+const TODAY_TIME_WIDTH: f32 = 28.;
 /// A checkout written to this lately is being worked in, as the navigator's "active" says.
 const WRITING_WITHIN: i64 = 120;
 
@@ -855,25 +858,31 @@ impl Detail {
             match item {
                 Item::Commit(commit) => {
                     let at_commit = Selection::Commit(project.clone(), commit.id);
-                    // The branch it's on, and the pull request that takes it there, on hover.
+                    // The pull request that takes it there, else the branch it's on, its
+                    // beginning faint beside the glyph and all of it on hover.
                     let branch =
                         (ws.and_then(|ws| ws.find_commit(commit.id))).map(|(branch, _)| {
                             let name = store.name_of(project, branch).to_owned();
-                            let ((glyph, color), tip) = match &branch.review {
+                            let ((glyph, color), label, tip) = match &branch.review {
                                 Some(review) if review.title.is_empty() => (
                                     state_glyph(review.state, theme),
+                                    name.clone(),
                                     format!("{name} · #{}", review.number),
                                 ),
                                 Some(review) => (
                                     state_glyph(review.state, theme),
+                                    review.title.clone(),
                                     format!("{name} · #{} {}", review.number, review.title),
                                 ),
-                                None => ((Icon::Branch, theme.text_3), name),
+                                None => ((Icon::Branch, theme.text_3), name.clone(), name),
                             };
-                            div()
+                            h_flex()
                                 .id(("now-today-branch", ix))
                                 .flex_none()
-                                .child(small_icon(glyph).text_color(color))
+                                .max_w(relative(0.22))
+                                .gap(dp(4.))
+                                .child(small_icon(glyph).flex_none().text_color(color))
+                                .child(faint(label, theme).min_w_0().truncate())
                                 .tooltip(Tooltip::text(tip))
                         });
                     row.child(small_icon(Icon::Commit).text_color(theme.blue))
@@ -892,11 +901,7 @@ impl Detail {
                             16.,
                             theme,
                         ))
-                        .child(overview_column(
-                            relative_time(at),
-                            OVERVIEW_TIME_WIDTH,
-                            theme,
-                        ))
+                        .child(overview_column(relative_time(at), TODAY_TIME_WIDTH, theme))
                         .on_mouse_down(MouseButton::Left, keep_focus_on_press)
                         .on_click(cx.listener(move |this, _, _, cx| {
                             let at = at_commit.clone();
@@ -908,11 +913,7 @@ impl Detail {
                     .text_color(theme.text_2)
                     .child(small_icon(Icon::Branch).text_color(theme.text_3))
                     .child(div().flex_1().min_w_0().truncate().child(said.to_owned()))
-                    .child(overview_column(
-                        relative_time(at),
-                        OVERVIEW_TIME_WIDTH,
-                        theme,
-                    )),
+                    .child(overview_column(relative_time(at), TODAY_TIME_WIDTH, theme)),
             }
         });
         let reading = file.is_some() && todays.iter().any(|c| !self.now.paths.contains_key(&c.id));
