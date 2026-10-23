@@ -2077,9 +2077,13 @@ impl Render for Detail {
                     return;
                 }
                 this.files_hidden = !this.files_hidden;
-                // Keys go on to the diff once the list they went to is gone.
+                // Keys go on to the diff once the list they went to is gone, and its filter
+                // goes with it, so no file stays out of the diff unseen.
                 if this.files_hidden && this.files_focus.is_focused(window) {
                     window.focus(&this.focus, cx);
+                }
+                if this.files_hidden {
+                    this.close_open_filter(window, cx);
                 }
                 cx.notify();
             }))

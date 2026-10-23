@@ -132,7 +132,7 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 | 1, 2, 3 | on a conflicted commit: keep the new base's lines, the commit's, or both |
 | ↩, A | on a conflicted commit: edit what the conflict keeps, have AI suggest a merge |
 | ⌘↩ | on a conflicted commit: apply what's picked |
-| f | hide or show the file list beside the diff (Branches, Operations history and a project's page always show their list) |
+| f | hide or show the file list beside the diff, hiding it closing its filter (Branches, Operations history and a project's page always show their list) |
 | / | filter the files by path |
 
 ## How it's built
