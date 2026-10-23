@@ -30,6 +30,11 @@ const MAX_BYTES: usize = 64 * 1024;
 /// How far lists and quotes step in at most.
 const MAX_DEPTH: usize = 6;
 
+/// The HTML tags that make a block of their own.
+const HTML_BLOCKS: &[&str] = &[
+    "h1", "h2", "h3", "h4", "h5", "h6", "p", "div", "center", "details", "summary",
+];
+
 /// One block of a description, as drawn: its kind, how far in it steps, and its text with
 /// the styles and links over it.
 #[derive(Debug, Clone, PartialEq)]
@@ -293,6 +298,21 @@ pub fn parse(markdown: &str) -> Vec<Block> {
             blocks.push(block);
         }
     }
+    /// A link from where `current` has got to, to `url` if that's safe to open.
+    fn open_link(current: &Option<Block>, url: &str) -> (usize, Option<String>) {
+        let at = current.as_ref().map_or(0, |block| block.text.len());
+        (at, safe_link(url).then(|| url.trim().to_owned()))
+    }
+    /// Mark the text `link` covers, up to where `current` has got to.
+    fn close_link(link: Option<(usize, Option<String>)>, current: &mut Option<Block>) {
+        // One opened in a block that's since closed, as a list item, can start anywhere.
+        if let (Some((start, Some(url))), Some(block)) = (link, current)
+            && start < block.text.len()
+            && block.text.is_char_boundary(start)
+        {
+            block.links.push((start..block.text.len(), url));
+        }
+    }
     /// An image's words, `alt`, in its place, opening where it's from, `src`, on a click.
     fn put_image(
         current: &mut Option<Block>,
@@ -452,18 +472,9 @@ pub fn parse(markdown: &str) -> Vec<Block> {
             Event::Start(Tag::Strikethrough) => style.strike = true,
             Event::End(TagEnd::Strikethrough) => style.strike = false,
             Event::Start(Tag::Link { dest_url, .. }) => {
-                let at = current.as_ref().map_or(0, |block| block.text.len());
-                link = Some((at, safe_link(&dest_url).then(|| dest_url.trim().to_owned())));
+                link = Some(open_link(&current, &dest_url));
             }
-            Event::End(TagEnd::Link) => {
-                // One opened in a block that's since closed, as a list item, can start anywhere.
-                if let (Some((start, Some(url))), Some(block)) = (link.take(), &mut current)
-                    && start < block.text.len()
-                    && block.text.is_char_boundary(start)
-                {
-                    block.links.push((start..block.text.len(), url));
-                }
-            }
+            Event::End(TagEnd::Link) => close_link(link.take(), &mut current),
             Event::Start(Tag::Image { dest_url, .. }) => {
                 image = Some((String::new(), dest_url.trim().to_owned()));
             }
@@ -524,8 +535,7 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                                     push(block, "\n", style);
                                 }
                             }
-                            "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "p" | "div" | "center"
-                            | "details" | "summary" => {
+                            tag if HTML_BLOCKS.contains(&tag) => {
                                 close(&mut blocks, &mut current);
                                 // A link ends with its block, as GitHub ends it.
                                 link = None;
@@ -551,9 +561,8 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                             "code" | "kbd" | "tt" => style.code = true,
                             "s" | "del" | "strike" => style.strike = true,
                             "a" => {
-                                let at = current.as_ref().map_or(0, |block| block.text.len());
                                 let href = attribute(&attributes, "href").unwrap_or("");
-                                link = Some((at, safe_link(href).then(|| href.trim().to_owned())));
+                                link = Some(open_link(&current, href));
                             }
                             "img" => put_image(
                                 &mut current,
@@ -566,8 +575,7 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                             _ => {}
                         },
                         Html::Close(name) => match name.as_str() {
-                            "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "p" | "div" | "center"
-                            | "details" | "summary" => {
+                            tag if HTML_BLOCKS.contains(&tag) => {
                                 close(&mut blocks, &mut current);
                                 link = None;
                                 if let Some(at) =
@@ -583,15 +591,7 @@ pub fn parse(markdown: &str) -> Vec<Block> {
                             "i" | "em" => style.italic = false,
                             "code" | "kbd" | "tt" => style.code = false,
                             "s" | "del" | "strike" => style.strike = false,
-                            "a" => {
-                                if let (Some((start, Some(url))), Some(block)) =
-                                    (link.take(), &mut current)
-                                    && start < block.text.len()
-                                    && block.text.is_char_boundary(start)
-                                {
-                                    block.links.push((start..block.text.len(), url));
-                                }
-                            }
+                            "a" => close_link(link.take(), &mut current),
                             _ => {}
                         },
                     }

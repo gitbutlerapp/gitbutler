@@ -18,7 +18,7 @@ use crate::ui::review as ui_review;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, ago, button, count_badge, dp, duration, faint, h_flex, icon,
-    keep_focus_on_press, local_time, muted, now, small_icon, v_flex,
+    keep_focus_on_press, list_row, local_time, muted, now, small_icon, v_flex,
 };
 
 /// How tall the tabs over the diff beside a list are.
@@ -247,7 +247,9 @@ impl Detail {
                     false => Icon::ChevronRight,
                 };
                 el.child(
-                    row("passed-checks", theme)
+                    list_row("passed-checks", false, theme)
+                        .mx(dp(-8.))
+                        .text_size(dp(13.))
                         .text_color(theme.text_2)
                         .child(small_icon(chevron).text_color(theme.text_3))
                         .child(folded)
@@ -381,20 +383,6 @@ fn section(title: &'static str, hint: Option<String>, theme: &Theme) -> Div {
     )
 }
 
-/// A line of a section that does something when clicked.
-fn row(id: impl Into<gpui::ElementId>, theme: &Theme) -> Stateful<Div> {
-    let hover = theme.hover();
-    h_flex()
-        .id(id)
-        .h(dp(28.))
-        .gap(dp(8.))
-        .px(dp(8.))
-        .mx(dp(-8.))
-        .rounded(dp(4.))
-        .text_size(dp(13.))
-        .hover(move |el| el.bg(hover))
-}
-
 /// A check: how it stands, its name, how it finished and how long it took, and when; a
 /// click opens its log.
 fn check_row(ix: usize, run: &CheckRun, theme: &Theme) -> Stateful<Div> {
@@ -412,7 +400,9 @@ fn check_row(ix: usize, run: &CheckRun, theme: &Theme) -> Stateful<Div> {
     let when = (run.completed_at.map(ago))
         .or_else(|| run.started_at.map(|at| format!("started {}", ago(at))));
     let url = run.url.clone();
-    row(("check", ix), theme)
+    list_row(("check", ix), false, theme)
+        .mx(dp(-8.))
+        .text_size(dp(13.))
         .when(!url.is_empty(), |el| {
             el.tooltip(Tooltip::text("Open its log"))
                 .on_click(move |_, _, cx| cx.open_url(&url))

@@ -283,14 +283,9 @@ impl Detail {
     /// Keep `pick` for conflict `id`, then go on to the next one without a pick.
     pub(super) fn keep(&mut self, id: Key, pick: Pick, cx: &mut Context<Self>) {
         self.resolving.suggesting.remove(&id);
-        if self
-            .resolving
+        self.resolving
             .editing
-            .as_ref()
-            .is_some_and(|(editing, ..)| *editing == id)
-        {
-            self.resolving.editing = None;
-        }
+            .take_if(|(editing, ..)| *editing == id);
         self.resolving
             .keeping
             .insert(id.clone(), Keeping::Pick(pick));
@@ -304,12 +299,7 @@ impl Detail {
         let r = &mut self.resolving;
         r.keeping.remove(id);
         r.suggesting.remove(id);
-        if r.editing
-            .as_ref()
-            .is_some_and(|(editing, ..)| editing == id)
-        {
-            r.editing = None;
-        }
+        r.editing.take_if(|(editing, ..)| editing == id);
         r.current = Some(id.clone());
         self.rebuild_rows(cx);
     }
@@ -325,6 +315,12 @@ impl Detail {
     /// Write conflict `id`'s lines by hand, from what's kept so far or the user's own: the
     /// commit's, or the uncommitted changes, the first side of a merge's markers.
     fn edit(&mut self, id: Key, window: &mut Window, cx: &mut Context<Self>) {
+        // Already open, as after a click on the diff: back to what's written there.
+        if let Some((editing, input, _)) = &self.resolving.editing
+            && *editing == id
+        {
+            return window.focus(&input.focus_handle(cx), cx);
+        }
         // A commit being edited starts from its own side, as a commit's conflict does.
         let files = matches!(self.conflicted(), Some((_, Conflicted::Files(_))))
             && !self.editing_commit(cx);
@@ -460,6 +456,9 @@ impl Detail {
             }
         });
         self.resolving.keeping.remove(&id);
+        self.resolving
+            .editing
+            .take_if(|(editing, ..)| *editing == id);
         self.resolving.current = Some(id.clone());
         self.resolving
             .suggesting

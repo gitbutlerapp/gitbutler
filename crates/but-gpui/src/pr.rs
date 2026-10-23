@@ -105,7 +105,7 @@ impl ReviewView {
             input.set_text(subject, cx);
             input.select_all_text(cx);
         });
-        body.update(cx, |input, cx| input.set_text(description.clone(), cx));
+        body.update(cx, |input, cx| input.set_text(description, cx));
         let ref_name = branch.clone();
         if let Some(path) = path {
             cx.spawn(async move |this, cx| {
@@ -113,7 +113,9 @@ impl ReviewView {
                 this.update(cx, |this, cx| match found {
                     Ok(new) => {
                         this.target = Some(new.target);
-                        if let Some(template) = new.template.filter(|_| description.is_empty()) {
+                        // What's typed meanwhile stays, as the template fills only an empty body.
+                        let empty = this.body.read(cx).text().is_empty();
+                        if let Some(template) = new.template.filter(|_| empty) {
                             this.body
                                 .update(cx, |input, cx| input.set_text(template, cx));
                         }

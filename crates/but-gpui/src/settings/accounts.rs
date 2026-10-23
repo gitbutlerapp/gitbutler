@@ -74,8 +74,8 @@ impl SettingsView {
         let email = cx.new(|cx| TextInput::new("Email", false, cx));
         // Enter adds it and Esc cancels from either field, as Bitbucket's starts in the email.
         for field in [&token, &email] {
-            cx.subscribe(field, |this, _, event, cx| match event {
-                InputEvent::Submit => this.add_token(cx),
+            cx.subscribe_in(field, window, |this, _, event, window, cx| match event {
+                InputEvent::Submit => this.add_token(window, cx),
                 InputEvent::Cancel => {
                     this.accounts.adding = None;
                     cx.notify();
@@ -94,18 +94,19 @@ impl SettingsView {
         cx.notify();
     }
 
-    fn add_token(&mut self, cx: &mut Context<Self>) {
+    fn add_token(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some((forge, token, email)) = &self.accounts.adding else {
             return;
         };
+        // Enter in the email goes on to the token, while there's none.
+        if token.read(cx).text().trim().is_empty() {
+            return window.focus(&token.focus_handle(cx), cx);
+        }
         let (forge, token, email) = (
             *forge,
             token.read(cx).text().to_owned(),
             email.read(cx).text().to_owned(),
         );
-        if token.trim().is_empty() {
-            return;
-        }
         self.accounts.adding = None;
         cx.notify();
         cx.spawn(async move |this, cx| {

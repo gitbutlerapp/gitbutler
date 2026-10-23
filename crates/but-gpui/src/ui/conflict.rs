@@ -167,8 +167,8 @@ pub fn row(part: Part, row: Row, theme: &Theme) -> AnyElement {
         Part::After(ix) => {
             // After what's kept, which can be more or fewer lines than the new base's.
             let line = &row.conflict.after[ix];
-            let renumbered = kept_len(&row).map(|kept| DiffLine {
-                new: Some(row.conflict.at + (kept + ix) as u32),
+            let renumbered = kept(&row).map(|(_, kept)| DiffLine {
+                new: Some(row.conflict.at + (kept.len() + ix) as u32),
                 ..line.clone()
             });
             plain_line(
@@ -192,16 +192,37 @@ pub fn row(part: Part, row: Row, theme: &Theme) -> AnyElement {
     }
 }
 
-/// How many lines what's kept has, once something is.
-fn kept_len(row: &Row) -> Option<usize> {
-    let c = row.conflict;
-    match &row.kept {
-        Some(Kept::Pick(Pick::NewBase)) => Some(c.new_base.len()),
-        Some(Kept::Pick(Pick::Commit)) => Some(c.commit.len()),
-        Some(Kept::Pick(Pick::Both)) => Some(c.new_base.len() + c.commit.len()),
-        Some(Kept::Text { text, .. }) => Some(text.lines().count()),
-        Some(Kept::Editing(_)) | None => None,
-    }
+/// The lines kept in the conflict's place, as they'd stand in the file, and the line saying
+/// which, once something is.
+fn kept(row: &Row) -> Option<(String, Vec<DiffLine>)> {
+    let (c, sides) = (row.conflict, &row.sides);
+    Some(match row.kept.as_ref()? {
+        Kept::Pick(Pick::NewBase) => (
+            format!("Keeping the lines from {}", sides[0].phrase),
+            c.new_base.clone(),
+        ),
+        Kept::Pick(Pick::Commit) => (
+            format!("Keeping the lines from {}", sides[1].phrase),
+            c.commit.clone(),
+        ),
+        Kept::Pick(Pick::Both) => (
+            format!("Keeping both, {} first", sides[0].phrase),
+            renumbered(c.new_base.iter().chain(&c.commit).cloned(), c.at),
+        ),
+        Kept::Text {
+            text,
+            suggested,
+            writing,
+        } => (
+            match (suggested, writing) {
+                (true, true) => "Suggesting…".into(),
+                (true, false) => "Keeping the suggested merge".into(),
+                (false, _) => "Keeping your edit".into(),
+            },
+            renumbered(text.lines().map(plain), c.at),
+        ),
+        Kept::Editing(_) => return None,
+    })
 }
 
 fn side_lines(conflict: &Conflict, side: Side) -> &[DiffLine] {
@@ -262,8 +283,12 @@ fn bar(row: &Row, theme: &Theme) -> AnyElement {
     };
     let edit = actions.edit.clone();
     let suggest = actions.suggest.clone();
-    // Once something's kept the conflict is handled, and only waits to be applied.
-    let (mark, color, ground) = match row.kept.is_some() {
+    // Once a pick or a finished text is kept, the conflict only waits to be applied.
+    let handled = matches!(
+        row.kept,
+        Some(Kept::Pick(_) | Kept::Text { writing: false, .. })
+    );
+    let (mark, color, ground) = match handled {
         true => (Icon::Tick, theme.safe, theme.text_1.opacity(0.04)),
         false => (Icon::Warning, theme.warn, theme.warn.opacity(0.06)),
     };
@@ -416,38 +441,11 @@ fn side_line(
 /// What's kept in the conflict's place: the picked lines, the text written or suggested, or
 /// the editor writing it, under a line saying which.
 fn result(row: &Row, theme: &Theme) -> AnyElement {
+    if let Some(Kept::Editing(input)) = &row.kept {
+        return editor(input.clone(), row, theme);
+    }
     let conflict = row.conflict;
-    let (says, lines): (String, Vec<DiffLine>) = match &row.kept {
-        Some(Kept::Pick(Pick::NewBase)) => (
-            format!("Keeping the lines from {}", row.sides[0].phrase),
-            conflict.new_base.clone(),
-        ),
-        Some(Kept::Pick(Pick::Commit)) => (
-            format!("Keeping the lines from {}", row.sides[1].phrase),
-            conflict.commit.clone(),
-        ),
-        Some(Kept::Pick(Pick::Both)) => (
-            format!("Keeping both, {} first", row.sides[0].phrase),
-            renumbered(
-                conflict.new_base.iter().chain(&conflict.commit).cloned(),
-                conflict.at,
-            ),
-        ),
-        Some(Kept::Text {
-            text,
-            suggested,
-            writing,
-        }) => (
-            match (suggested, writing) {
-                (true, true) => "Suggesting…".into(),
-                (true, false) => "Keeping the suggested merge".into(),
-                (false, _) => "Keeping your edit".into(),
-            },
-            renumbered(text.lines().map(plain), conflict.at),
-        ),
-        Some(Kept::Editing(input)) => return editor(input.clone(), row, theme),
-        None => (String::new(), Vec::new()),
-    };
+    let (says, lines) = kept(row).unwrap_or_default();
     let change = row.actions.change.clone();
     let edit = row.actions.edit.clone();
     let suggested = matches!(
