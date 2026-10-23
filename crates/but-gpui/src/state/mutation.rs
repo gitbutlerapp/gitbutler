@@ -1004,7 +1004,7 @@ impl Store {
             move |store, (rewritten, left_out, hook_failed), cx| {
                 store.follow(&rewritten, cx);
                 if !undoable {
-                    store.keep_last_snapshot();
+                    store.keep_last_snapshot(cx);
                 }
                 store.report_left_out(&amended, &left_out, cx);
                 if let Some(output) = hook_failed {
@@ -1347,7 +1347,7 @@ impl Store {
                         });
                         store.last_snapshot = recorded.map(|snapshot| (project.clone(), snapshot));
                         if moved_worktree {
-                            store.keep_last_snapshot();
+                            store.keep_last_snapshot(cx);
                         }
                         // Something new done, ⌘Z takes it back first, and what it took back
                         // before can't be redone over it.

@@ -1107,7 +1107,7 @@ impl Detail {
                                         .ok();
                                     });
                                     // The oplog can't bring it back, so ⌘Z won't try.
-                                    store.keep_last_snapshot();
+                                    store.keep_last_snapshot(cx);
                                     store.snack("Branch deleted", cx)
                                 },
                                 cx,

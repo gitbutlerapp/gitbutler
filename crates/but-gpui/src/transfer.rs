@@ -491,7 +491,7 @@ impl Transfer {
                     },
                     move |store, (id, left_out, _), cx| {
                         store.select(Some(Selection::Commit(selected, id)), cx);
-                        store.keep_last_snapshot();
+                        store.keep_last_snapshot(cx);
                         let done = "Committed. Double-click its title to write a message";
                         store.report_left_out(done, &left_out, cx)
                     },

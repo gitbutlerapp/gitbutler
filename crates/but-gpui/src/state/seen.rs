@@ -98,14 +98,21 @@ impl Store {
     /// Bring what's been seen of `id` up to date with the `workspace` it just loaded: what's
     /// new is news unless the app made it, and what's gone is forgotten once there's much of
     /// it. `fresh` is false for a load that started before the app's operation finished,
-    /// which the reload after it still compares with what was there before.
-    pub(super) fn update_seen(&mut self, id: &ProjectId, workspace: &Workspace, fresh: bool) {
+    /// which the reload after it still compares with what was there before. Says whether
+    /// what's seen changed, as it's saved then.
+    pub(super) fn update_seen(
+        &mut self,
+        id: &ProjectId,
+        workspace: &Workspace,
+        fresh: bool,
+    ) -> bool {
         let amended = self.amended_since_last_load(id, workspace);
         let commits: HashSet<String> = (shown(workspace))
             .flat_map(|(_, keys)| keys.map(str::to_owned))
             .collect();
         let first_sight = !self.seen.commits.contains_key(id.as_ref());
         let seen = self.seen.commits.entry(id.to_string()).or_default();
+        let had = seen.len();
         // A branch unapplied for a while, or the default branch checked out in a terminal,
         // comes back read: what isn't shown is kept, up to 4000 keys, two a commit.
         const KEPT: usize = 4000;
@@ -138,12 +145,14 @@ impl Store {
             .collect();
         seen.extend(now_seen);
         // A commit amended since is news again.
+        let mut unread = false;
         for key in amended.iter().flat_map(|commit| commit.ids()) {
-            seen.remove(key);
+            unread |= seen.remove(key);
         }
         if fresh {
             self.rebaseline.remove(id);
         }
+        first_sight || unread || seen.len() != had
     }
 
     /// The commits of `id` that `workspace` has amended since the workspace last loaded, as

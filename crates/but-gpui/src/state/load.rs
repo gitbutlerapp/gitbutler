@@ -224,6 +224,9 @@ impl Store {
             }
         }
         self.projects_loaded = true;
+        if changed {
+            self.save_soon(cx);
+        }
         // A selected project that went, as when removed, leaves the first open one selected.
         if (self.selection.as_ref()).is_some_and(|s| self.project(s.project()).is_none()) {
             let first = (self.projects.iter()).find(|entry| entry.expanded);
@@ -587,7 +590,7 @@ impl Store {
             }
             return;
         }
-        self.update_seen(id, &workspace, fresh);
+        let seen_changed = self.update_seen(id, &workspace, fresh);
         // An agent amending or rebasing the selected commit gives it a new id but keeps its
         // change id, or with plain Git its author, time and message; stay on it.
         // One that's gone, as squashed away, leaves its branch selected, if that's still there.
@@ -694,7 +697,10 @@ impl Store {
         for (from, to) in renamed {
             cx.emit(StoreEvent::Renamed(id.clone(), from, to));
         }
-        self.save_soon(cx);
+        // Not on every load, as an agent writing reloads often, and quitting saves anyway.
+        if seen_changed {
+            self.save_soon(cx);
+        }
     }
 }
 

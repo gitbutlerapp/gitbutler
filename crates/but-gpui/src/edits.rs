@@ -483,7 +483,7 @@ impl AppView {
                         }))
                         .ok();
                         if !undoable {
-                            store.keep_last_snapshot();
+                            store.keep_last_snapshot(cx);
                         }
                         store.select(Some(Selection::Branch(selected, to)), cx)
                     },

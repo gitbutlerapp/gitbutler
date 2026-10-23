@@ -798,7 +798,7 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         if !undoable {
-            self.keep_last_snapshot();
+            self.keep_last_snapshot(cx);
         }
         self.snack_undoable(message, cx)
     }
@@ -810,13 +810,14 @@ impl Store {
 
     /// Keep ⌘Z, and the snackbar's Undo, from taking back the mutation that just ran: it
     /// changed what the oplog can't bring back, as a linked worktree.
-    pub fn keep_last_snapshot(&mut self) {
+    pub fn keep_last_snapshot(&mut self, cx: &mut Context<Self>) {
         if let Some((project, snapshot)) = self.last_snapshot.take() {
             (self.undo_steps).retain(|step| step.project != project || step.snapshot != snapshot);
             (self.kept_snapshots.lock().expect("not poisoned"))
                 .entry(project)
                 .or_default()
                 .insert(snapshot);
+            self.save_soon(cx);
         }
     }
 
