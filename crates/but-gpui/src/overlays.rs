@@ -415,17 +415,17 @@ impl AppView {
             cx.subscribe_in(&view, window, |this, _, _: &DismissEvent, window, cx| {
                 this.close_modal(window, cx)
             });
-        let focus = view.focus_handle(cx);
+        let (focus, returns_to) = (view.focus_handle(cx), window.focused(cx));
         window.focus(&focus, cx);
-        self.modal = Some((view.into(), focus, subscription));
+        self.modal = Some((view.into(), focus, subscription, returns_to));
         cx.notify();
     }
 
     /// Close the modal, and a menu open from it, whose items would act on it.
     pub(crate) fn close_modal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.modal.take().is_some() {
+        if let Some((.., returns_to)) = self.modal.take() {
             self.menu = None;
-            self.focus_main(window, cx);
+            self.give_back_focus(returns_to, window, cx);
             cx.notify();
         }
     }

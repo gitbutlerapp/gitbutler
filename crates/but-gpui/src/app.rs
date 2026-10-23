@@ -128,8 +128,9 @@ pub struct AppView {
     pub icon_picker: Option<crate::projects::IconPicker>,
     pub navigator_open: bool,
     pub palette: Option<Palette>,
-    /// The modal on screen, if any, what takes its keys, and the subscription that closes it.
-    pub modal: Option<(AnyView, FocusHandle, Subscription)>,
+    /// The modal on screen, if any, what takes its keys, the subscription that closes it,
+    /// and what had the keys before it opened, to give them back.
+    pub modal: Option<(AnyView, FocusHandle, Subscription, Option<FocusHandle>)>,
     /// Palette commands by label, most recently run first.
     pub recent_commands: Vec<&'static str>,
     _subscriptions: Vec<Subscription>,
@@ -220,7 +221,8 @@ impl AppView {
                 }
             }),
             // Keys go to what's focused, so when it leaves the screen, as the Branches page's
-            // list does once Apply selects the branch, they go to the navigator instead.
+            // list does once Apply selects the branch, they go to the navigator instead, or to
+            // the diff while a message is being written.
             cx.on_focus_lost(window, |this, window, cx| this.restore_focus(window, cx)),
         ];
         // Closing the window quits, so it asks the same as ⌘Q.
@@ -619,7 +621,13 @@ impl AppView {
     /// Settings, rather than what's under it.
     pub(crate) fn restore_focus(&self, window: &mut Window, cx: &mut App) {
         match &self.modal {
-            Some((_, focus, _)) => window.focus(focus, cx),
+            Some((_, focus, ..)) => window.focus(focus, cx),
+            // A message being written whose box left the screen, as when an operation selects
+            // something else, hands its keys to the diff rather than to the navigator, where
+            // single letters rename and start branches. ⇧P still pushes from either.
+            None if self.detail.read(cx).composing() => self
+                .detail
+                .update(cx, |detail, cx| detail.focus(window, cx)),
             None => self.focus_main(window, cx),
         }
     }
