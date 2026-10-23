@@ -165,6 +165,14 @@ pub fn set_branch_description(path: &Path, ref_name: &str, description: &str) ->
     );
     let _guard = ctx.exclusive_worktree_access();
     let repo = ctx.repo.get()?;
+    // Not under a name that's gone, as after an agent renamed it while it was being written,
+    // where a branch made later by that name would take it up. Copying the error keeps it.
+    if repo.try_find_reference(name.as_ref())?.is_none() {
+        anyhow::bail!(
+            "{} was renamed or deleted meanwhile, so this wasn't saved:\n\n{description}",
+            name.shorten()
+        );
+    }
     let description = Some(description.trim()).filter(|d| !d.is_empty());
     write_description(&repo, name.shorten(), description.map(BStr::new))
 }

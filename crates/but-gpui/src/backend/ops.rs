@@ -1067,6 +1067,10 @@ pub(super) mod tests {
             None,
             "and goes with the branch, as `git branch -d` drops it"
         );
+        assert!(
+            set_branch_description(path, "refs/heads/renamed", "Lost?").is_err(),
+            "a branch that's gone isn't given one, for a later branch by its name to take up"
+        );
     }
 
     /// A repository mid-merge, with `file` changed on both sides and left conflicted.
