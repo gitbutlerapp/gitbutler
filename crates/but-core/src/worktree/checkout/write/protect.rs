@@ -1,7 +1,7 @@
 //! Refusals that keep a checkout from losing what the user has: staged content, and worktree
 //! edits made after the snapshot.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use bstr::{BStr, BString, ByteSlice as _};
 
@@ -81,9 +81,26 @@ pub(super) fn worktree(
     let (pipeline, index) = repo.filter_pipeline(None)?;
     let mut judge = Judge::new(repo, baseline, &index, pipeline)?;
     let mut removals = objects_to_remove(&mut judge, plan)?;
-    let mut changed = Vec::new();
-    for removal in &mut removals {
-        for rela_path in std::mem::take(&mut removal.judged) {
+    refuse_unless_empty(
+        judge_each_once(&mut judge, &mut removals)?,
+        "Uncommitted files would be overwritten by checkout",
+    )?;
+    Ok(clearances(removals))
+}
+
+/// Judge the objects of `removals`, recording the stat of those that are the snapshot's with
+/// their removal, and return the paths of those that changed.
+///
+/// An object can be removed for several reasons, like being deleted and in the way of the files
+/// that replace it, or being in a directory that is removed too. It's judged once.
+fn judge_each_once(judge: &mut Judge<'_>, removals: &mut [Removal]) -> anyhow::Result<Vec<String>> {
+    let (mut judged, mut changed) = (BTreeSet::new(), Vec::new());
+    for removal in removals {
+        let new: Vec<BString> = std::mem::take(&mut removal.judged)
+            .into_iter()
+            .filter(|rela_path| judged.insert(rela_path.clone()))
+            .collect();
+        for rela_path in new {
             match judge.judge(rela_path.as_ref())? {
                 Verdict::Snapshotted(stat) => removal.observed.push(Observed { rela_path, stat }),
                 Verdict::Ignored => {}
@@ -91,11 +108,7 @@ pub(super) fn worktree(
             }
         }
     }
-    refuse_unless_empty(
-        changed,
-        "Uncommitted files would be overwritten by checkout",
-    )?;
-    Ok(clearances(removals))
+    Ok(changed)
 }
 
 /// Fail if an object checked against the snapshot changed since, which no filter run in

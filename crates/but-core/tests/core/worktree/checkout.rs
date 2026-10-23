@@ -1472,6 +1472,41 @@ fn mode_and_group(repo: &gix::Repository, paths: &[&str]) -> anyhow::Result<Vec<
 
 #[test]
 #[cfg(unix)]
+fn checkout_cleans_a_file_once_however_many_files_replace_it() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    commit_in_worktree(&repo, &[("p.f", "p\n")])?;
+    // A racy entry's stat can't vouch for the file, so checking it cleans it.
+    let racy_mtime = std::time::SystemTime::now() + std::time::Duration::from_secs(3600);
+    record_index_stat_with_mtime(&repo, "p.f", racy_mtime)?;
+    std::fs::write(repo.git_dir().join("info/attributes"), "*.f filter=log\n")?;
+    // Log only while checkout checks the worktree, after staging the files it writes.
+    git(&repo)
+        .args([
+            "config",
+            "filter.log.clean",
+            r#"sh -c 'if ls -d "$GIT_DIR"/gitbutler/.gitbutler-checkout-* >/dev/null 2>&1; then echo "$1" >> "$GIT_DIR/cleaned"; fi; cat' -- %f"#,
+        ])
+        .run();
+    let new_commit = commit_files(
+        &repo,
+        "p.f becomes a directory",
+        &[
+            ("p.f", None),
+            ("p.f/a", Some("a\n")),
+            ("p.f/b", Some("b\n")),
+            ("p.f/c", Some("c\n")),
+        ],
+    )?;
+
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
+
+    let cleaned = std::fs::read_to_string(repo.git_dir().join("cleaned"))?;
+    assert_eq!(cleaned, "p.f\n", "checked once before it's moved aside");
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
 fn checkout_keeps_the_index_locked_while_it_runs() -> anyhow::Result<()> {
     // Another Git process tries to discard the staged edit to `a` while checkout snapshots the
     // worktree, like a user running `git checkout -- a` in a terminal.
