@@ -8,7 +8,7 @@ use crate::app::{
     RenameSelection, StartCommit, UncommitSelection, Undo, UpdateFromTarget,
 };
 use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
-use crate::state::{SLOW, Selection};
+use crate::state::{Cut, SLOW, Selection};
 use crate::theme::Theme;
 use crate::ui::{Icon, STATUS_BAR_HEIGHT, dp, duration, h_flex, shortcut, small_icon};
 
@@ -47,6 +47,24 @@ impl AppView {
                 .child(working)
                 .into_any_element()
         } else if let Some(cut) = &store.cut {
+            // On another commit, a commit goes above it, below it with ⇧, or one that's cut
+            // rather than copied into it with ⌥.
+            let onto_commit = matches!((cut, &store.selection),
+                (Cut::Commit(_, ids) | Cut::CherryPick(_, ids), Some(Selection::Commit(_, id)))
+                    if !ids.contains(id));
+            let paste = match (shortcut(&PasteHere, cx), onto_commit) {
+                (None, _) => Vec::new(),
+                (Some(keys), false) => vec![(keys, "paste here")],
+                (Some(keys), true) => [
+                    (keys.clone(), "above"),
+                    (format!("⇧{keys}").into(), "below"),
+                ]
+                .into_iter()
+                .chain(
+                    matches!(cut, Cut::Commit(..)).then(|| (format!("⌥{keys}").into(), "squash")),
+                )
+                .collect(),
+            };
             // Its keys apart from what's cut, as far as the hints on the right are apart.
             h_flex()
                 .gap(dp(10.))
@@ -60,10 +78,8 @@ impl AppView {
                 )
                 // Not while typing, where ⌘V pastes text and esc leaves the field.
                 .when(!typing, |el| {
-                    el.children(
-                        shortcut(&PasteHere, cx).map(|keys| hint(&keys, "paste here", &theme)),
-                    )
-                    .child(hint("esc", "cancel", &theme))
+                    (el.children(paste.iter().map(|(keys, label)| hint(keys, label, &theme))))
+                        .child(hint("esc", "cancel", &theme))
                 })
                 .into_any_element()
         } else if let Some((n, what, how)) = [
