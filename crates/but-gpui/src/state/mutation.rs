@@ -465,7 +465,10 @@ impl Store {
                     let why = "Something changed the project since the undo, so it can't be redone";
                     return store.snack(store.card_title(&again, why.into()), cx);
                 };
-                store.undid.entry(again).or_default().push(span);
+                (store.undid.lock().expect("not poisoned"))
+                    .entry(again)
+                    .or_default()
+                    .push(span);
                 // Back on top of what ⌘Z takes back.
                 if let Some((project, snapshot)) = store.last_snapshot.clone() {
                     store.push_undo_step(project, snapshot, asked);
@@ -509,8 +512,8 @@ impl Store {
         let step = (self.undo_steps.iter())
             .find(|step| step.project == *project && step.snapshot == snapshot);
         let asked = step.map(|step| step.asked);
-        let undid = self.undid.get(project).cloned().unwrap_or_default();
-        let newer_than = (step.filter(|_| guard)).map(|step| (step.done, undid));
+        let newer_than = (step.filter(|_| guard)).map(|step| step.done);
+        let (undid, of) = (self.undid.clone(), project.clone());
         // The snackbar offering to undo it goes with it.
         let offered = (project.clone(), snapshot);
         self.toasts.retain(|toast| {
@@ -526,7 +529,9 @@ impl Store {
             },
             move |path, _| {
                 let started = now_millis();
-                let newer_than = (newer_than.as_ref()).map(|(at, undid)| (*at, undid.as_slice()));
+                let undid = undid.lock().expect("not poisoned").get(&of).cloned();
+                let undid = undid.unwrap_or_default();
+                let newer_than = newer_than.map(|at| (at, undid.as_slice()));
                 let undone = backend::history::undo_snapshot(path, snapshot, newer_than);
                 Ok((undone, (started, now_millis())))
             },
@@ -536,7 +541,10 @@ impl Store {
                     Ok(Undone::Done(operation)) => {
                         (store.undo_steps)
                             .retain(|step| step.project != again || step.snapshot != snapshot);
-                        store.undid.entry(again.clone()).or_default().push(span);
+                        (store.undid.lock().expect("not poisoned"))
+                            .entry(again.clone())
+                            .or_default()
+                            .push(span);
                         let done = store.card_title(&again, format!("Undone: {operation}"));
                         if let Some((_, undo)) = store.last_snapshot {
                             store.redo_steps.push((again, undo));

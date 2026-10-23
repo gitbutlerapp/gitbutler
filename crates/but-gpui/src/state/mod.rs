@@ -221,6 +221,9 @@ impl ProjectEntry {
     }
 }
 
+/// Spans of time in milliseconds since the Unix epoch, by project.
+type Spans = HashMap<ProjectId, Vec<(i64, i64)>>;
+
 pub struct Store {
     pub projects: Vec<ProjectEntry>,
     pub projects_loaded: bool,
@@ -281,8 +284,9 @@ pub struct Store {
     /// whichever project, since the user last did something.
     redo_steps: Vec<(ProjectId, SnapshotId)>,
     /// When, in milliseconds since the Unix epoch, ⌘Z and ⌘⇧Z wrote files, by project: what's
-    /// written then isn't a change of the user's that a later ⌘Z asks about.
-    undid: HashMap<ProjectId, Vec<(i64, i64)>>,
+    /// written then isn't a change of the user's that a later ⌘Z asks about. Shared as
+    /// `kept_snapshots` is, so a queued undo sees the spans of those before it.
+    undid: Arc<Mutex<Spans>>,
     /// Oplog entries of mutations that changed more than the oplog snapshots (a linked
     /// worktree, a branch outside the workspace), which ⌘Z doesn't take back, by project.
     /// Shared with a queued undo, which reads it once it runs, after what ran before it is
@@ -373,7 +377,7 @@ impl Store {
             last_snapshot: None,
             undo_steps: Vec::new(),
             redo_steps: Vec::new(),
-            undid: HashMap::new(),
+            undid: Arc::default(),
             kept_snapshots: Arc::new(Mutex::new(
                 (saved.kept_by_project.into_iter())
                     .map(|(project, ids)| {
