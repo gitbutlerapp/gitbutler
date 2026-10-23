@@ -116,6 +116,8 @@ exceptions = [
     # Each entry is the crate and version constraint, and its specific allow
     # list
     #{ allow = ["Zlib"], crate = "adler32" },
+    # The GPUI client's SVG drawing; BSD-2-Clause asks less than the BSD-3-Clause allowed above.
+    { allow = ["BSD-2-Clause"], crate = "arrayref" },
 ]
 
 # Some crates don't have (easily) machine readable licensing information,
@@ -135,6 +137,13 @@ exceptions = [
 # Each entry is a crate relative path, and the (opaque) hash of its contents
 #{ path = "LICENSE", hash = 0xbd0eed23 }
 #]
+
+# deltoids, the GPUI client's diff annotation, is MIT, though its crate's manifest doesn't say
+# so: the license is its workspace's.
+[[licenses.clarify]]
+crate = "deltoids"
+expression = "MIT"
+license-files = []
 
 [licenses.private]
 # If true, ignores workspace crates that aren't published, or are only
