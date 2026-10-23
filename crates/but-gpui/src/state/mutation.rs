@@ -1733,14 +1733,7 @@ fn update_conflicts_detail(target: &str, found: &UpdateConflicts) -> String {
 /// the ones that `landed` and went.
 fn updated_message(target: &str, conflicted: &[(String, usize)], landed: &[String]) -> String {
     let mut said = vec![format!("Updated from {target}")];
-    for (branch, count) in conflicted {
-        let name = match short_ref(branch) {
-            "" => "an unnamed branch",
-            name => name,
-        };
-        let count = crate::ui::plural(*count, "conflicted commit");
-        said.push(format!("{name} has {count}"));
-    }
+    said.extend(conflicted_parts(conflicted));
     let landed: Vec<&str> = landed.iter().map(|name| short_ref(name)).collect();
     match landed.len() {
         0 => {}
@@ -1753,6 +1746,21 @@ fn updated_message(target: &str, conflicted: &[(String, usize)], landed: &[Strin
     }
     // A snackbar is one fragment, so its parts are listed rather than sentences.
     said.join(", ")
+}
+
+/// "feature/a has 2 conflicted commits" for each of `conflicted`, full refs (empty for an
+/// unnamed branch) with how many.
+pub fn conflicted_parts(conflicted: &[(String, usize)]) -> impl Iterator<Item = String> {
+    conflicted.iter().map(|(branch, count)| {
+        let name = match short_ref(branch) {
+            "" => "an unnamed branch",
+            name => name,
+        };
+        format!(
+            "{name} has {}",
+            crate::ui::plural(*count, "conflicted commit")
+        )
+    })
 }
 
 /// Branches (full refs, empty for an unnamed one) with how many of their commits:

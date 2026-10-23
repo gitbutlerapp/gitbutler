@@ -1041,12 +1041,14 @@ impl AppView {
                 format!("Land {name}"),
                 overlay,
                 move |path, _| backend::land(path, &name, tip, whole_stack),
-                move |store, update_needed, cx| {
-                    let mut message = format!("Landed on {target}{}", store.in_project(&landed));
+                move |store, (update_needed, conflicted), cx| {
+                    // What the update after it left conflicted, as Update says.
+                    let mut said = vec![format!("Landed on {target}{}", store.in_project(&landed))];
+                    said.extend(crate::state::conflicted_parts(&conflicted));
                     if update_needed {
-                        message.push_str(", the other branches need an Update");
+                        said.push("the other branches need an Update".to_owned());
                     }
-                    store.snack(message, cx)
+                    store.snack(said.join(", "), cx)
                 },
             ),
         );

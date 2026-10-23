@@ -940,10 +940,17 @@ pub fn fetch(path: &Path) -> Result<bool> {
 }
 
 /// Put `branch` (a short name), or with `whole_stack` it and every branch below it,
-/// straight onto the target and push the target, or with no upstream, just move it. Returns whether the other branches still
-/// need an update to sit on the moved target.
-pub fn land(path: &Path, branch: &str, tip: CommitId, whole_stack: bool) -> Result<bool> {
+/// straight onto the target and push the target, or with no upstream, just move it. Returns
+/// whether the other branches still need an update to sit on the moved target, and the
+/// branches the update after it left with conflicted commits they didn't have, with how many.
+pub fn land(
+    path: &Path,
+    branch: &str,
+    tip: CommitId,
+    whole_stack: bool,
+) -> Result<(bool, Vec<(String, usize)>)> {
     let mut ctx = open(path)?;
+    let info = but_api::legacy::workspace::head_info(&ctx)?;
     // A merge commit when the branch has diverged, as `but land` makes one without its flags.
     // Only at `tip`, the one the user was asked about: a push can't be undone, so not of
     // commits an agent added since.
@@ -955,7 +962,8 @@ pub fn land(path: &Path, branch: &str, tip: CommitId, whole_stack: bool) -> Resu
         whole_stack,
         Some(tip.0),
     )?;
-    Ok(landed.reconcile_skipped)
+    let conflicted = newly_conflicted(&info, &landed.workspace.conflicted_commits);
+    Ok((landed.reconcile_skipped, conflicted))
 }
 
 #[cfg(test)]
