@@ -1127,7 +1127,7 @@ impl Detail {
         // Not the file list under a pull request's tab, which draws none.
         let handle = if self.list_page(cx) {
             &self.side_focus
-        } else if self.files_shown(cx) && !self.showing_review(cx) {
+        } else if self.files_shown(window, cx) && !self.showing_review(cx) {
             &self.files_focus
         } else {
             &self.focus
@@ -1876,9 +1876,21 @@ impl Detail {
 
     /// Whether the column beside the diff shows. On a page whose column is its list
     /// (Branches, Operations history, the project's) it always does: without the list,
-    /// nothing says what the diff is of.
-    pub fn files_shown(&self, cx: &App) -> bool {
-        !self.files_hidden || self.list_page(cx)
+    /// nothing says what the diff is of. A window too narrow to leave the diff 320 points
+    /// beside the list and the navigator at their narrowest hides the files, as `f` does,
+    /// though not a checkout's, over Commit… or the composer, nor one being filtered.
+    pub fn files_shown(&self, window: &Window, cx: &App) -> bool {
+        self.list_page(cx) || (!self.files_hidden && self.files_fit(window, cx))
+    }
+
+    /// Whether the window leaves the diff room beside the file list, or the list holds what
+    /// it can't do without.
+    fn files_fit(&self, window: &Window, cx: &App) -> bool {
+        let viewport = f32::from(window.viewport_size().width) / Theme::get(cx).scale;
+        let navigator = (!self.beside_traffic_lights)
+            .then(|| (self.store.read(cx)).fitted_width(Pane::Navigator, viewport, true, true));
+        let room = viewport - self.files_width(window, cx) - navigator.unwrap_or(0.) >= 320.;
+        room || self.filtering || self.selected_checkout(cx).is_some()
     }
 
     pub(super) fn list_page(&self, cx: &App) -> bool {
@@ -2001,7 +2013,12 @@ impl Render for Detail {
                     }
                     _ => None,
                 };
-                let (files_shown, list_page) = (self.files_shown(cx), self.list_page(cx));
+                let (files_shown, list_page) = (self.files_shown(window, cx), self.list_page(cx));
+                // A list the window narrowed away hands its keys to the diff, as `f` does.
+                if !files_shown && self.files_focus.is_focused(window) {
+                    let focus = self.focus.clone();
+                    window.defer(cx, move |window, cx| window.focus(&focus, cx));
+                }
                 let panes = match selection {
                     Selection::Branch(project, _) | Selection::Upstream(project, ..)
                         if self.showing_review(cx) =>
@@ -2092,6 +2109,11 @@ impl Render for Detail {
             .on_action(cx.listener(|this, _: &ToggleFiles, window, cx| {
                 if this.list_page(cx) {
                     return;
+                }
+                if !this.files_fit(window, cx) {
+                    let why = "The window is too narrow to show the files beside the diff. Rest \
+                               the pointer on the file count over the diff to list them";
+                    return this.store.update(cx, |store, cx| store.snack(why, cx));
                 }
                 this.files_hidden = !this.files_hidden;
                 // Keys go on to the diff once the list they went to is gone, and its filter

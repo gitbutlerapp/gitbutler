@@ -97,7 +97,7 @@ impl Render for DiffPane {
             (
                 (top.item_ix, top.offset_in_item),
                 detail.focus.clone(),
-                detail.render_diff_tools(&theme, cx),
+                detail.render_diff_tools(window, &theme, cx),
                 detail.render_diff(window, &theme, cx),
                 detail.render_find(window, &theme, cx),
             )
@@ -542,7 +542,12 @@ impl Detail {
     /// their lines while the list isn't beside the diff and lists them on hover, then how
     /// long lines show and where the sides go. A page whose column is its own list has no
     /// toggle, only the count and the list on hover.
-    fn render_diff_tools(&self, theme: &Theme, cx: &Context<Self>) -> Option<AnyElement> {
+    fn render_diff_tools(
+        &self,
+        window: &Window,
+        theme: &Theme,
+        cx: &Context<Self>,
+    ) -> Option<AnyElement> {
         let diff = self.shown_diff()?;
         let prefs = &self.store.read(cx).prefs;
         let (added, removed) = diff::total_stats(diff.files.iter());
@@ -555,7 +560,7 @@ impl Detail {
         };
         let toggles = !self.list_page(cx);
         // The files aren't beside the diff: hidden, or a list page's own list is there.
-        let hidden = !toggles || self.files_hidden;
+        let hidden = !toggles || !self.files_shown(window, cx);
         let files_key = shortcut(&ToggleFiles, cx);
         let glyph = match (toggles, hidden) {
             (false, _) => Icon::FileDiff,

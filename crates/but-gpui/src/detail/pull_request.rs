@@ -61,19 +61,11 @@ impl Detail {
         self.review_tab && self.selected_review(cx).is_some()
     }
 
+    /// A list page's list keeps the keys, and the branch page's file list, which isn't drawn
+    /// beside its pull request, takes them back from the diff.
     fn set_review_tab(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
-        // A list page's list keeps the keys. The branch page's file list isn't drawn beside
-        // its pull request.
-        let focus = match &self.store.read(cx).selection {
-            _ if self.list_page(cx) => &self.side_focus,
-            Some(Selection::Branch(..) | Selection::Upstream(..)) if !on => &self.files_focus,
-            _ => &self.focus,
-        };
-        window.focus(focus, cx);
-        if self.review_tab != on {
-            self.review_tab = on;
-            cx.notify();
-        }
+        self.review_tab = on;
+        self.focus_files(window, cx);
     }
 
     /// A branch or commit's tabs: its changes, with how many files, and its pull request,
