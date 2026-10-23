@@ -20,7 +20,7 @@ use crate::theme::Theme;
 use crate::ui::person::byline_avatar;
 use crate::ui::review::state_glyph;
 use crate::ui::{
-    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dp, faint, fold_row, h_flex,
+    ButtonStyle, Icon, Tooltip, button, commit_title, dp, faint, fold_row, h_flex,
     keep_focus_on_press, list_row, plural, relative_time, short_path, side_row, small_icon, v_flex,
 };
 
@@ -34,12 +34,10 @@ const BARS: usize = 48;
 const HOT_SHOWN: usize = 3;
 /// How many files the commits not seen yet changed are listed until "N more".
 const UNSEEN_FILES_SHOWN: usize = 3;
-/// How many of those who committed are listed until "N more".
-const WHO_SHOWN: usize = 3;
 /// How many of today's commits and moves are listed until "N more".
 const TODAY_SHOWN: usize = 5;
 /// How wide Today's times are, room for "59m" or "11mo" and no more, so they sit close to
-/// the pictures.
+/// the branch.
 const TODAY_TIME_WIDTH: f32 = 28.;
 /// A checkout written to this lately is being worked in, as the navigator's "active" says.
 const WRITING_WITHIN: i64 = 120;
@@ -381,7 +379,6 @@ impl Detail {
             .filter(|at| inside(*at))
             .map(|at| at.div_euclid(QUARTER))
             .collect();
-        let people: HashSet<&str> = scoped.iter().map(|commit| who(commit)).collect();
         let tiles = [
             match range {
                 Some(_) => ("Commits", grouped(scoped.len()), "Commits made here then"),
@@ -407,11 +404,6 @@ impl Detail {
                 },
                 "Quarters of an hour a file was written or a commit made in",
             ),
-            (
-                "People",
-                grouped(people.len()),
-                "Who committed here, people and agents",
-            ),
         ];
         v_flex()
             .id("now")
@@ -431,17 +423,7 @@ impl Detail {
                     .children(self.now_unseen(project, name, theme, cx))
                     .child(overview_tiles(tiles, theme))
                     .child(self.now_activity(activity, &commits, now, theme, cx))
-                    .child({
-                        // Side by side where both fit, as the tiles wrap, so Today shows
-                        // without scrolling in an ordinary window.
-                        let hot = self.now_hot_files(&scoped, range.as_deref(), theme, cx);
-                        let who = self.now_people(&scoped, range.as_deref(), theme, cx);
-                        h_flex().flex_wrap().items_start().children(
-                            [hot, who].into_iter().flatten().map(|section| {
-                                section.flex_grow(1.).flex_basis(dp(300.)).min_w_0()
-                            }),
-                        )
-                    })
+                    .children(self.now_hot_files(&scoped, range.as_deref(), theme, cx))
                     .children(self.now_today(project, &scoped, range.as_deref(), theme, cx)),
             )
             .into_any_element()
@@ -778,55 +760,6 @@ impl Detail {
         .detach();
     }
 
-    /// Who made `commits`, most first, people and agents: today's, or those of the quarters
-    /// picked, `range`.
-    fn now_people(
-        &self,
-        commits: &[&Commit],
-        range: Option<&str>,
-        theme: &Theme,
-        cx: &Context<Self>,
-    ) -> Option<Div> {
-        let mut counts: HashMap<&str, (usize, &Commit)> = HashMap::new();
-        for commit in commits {
-            counts.entry(who(commit)).or_insert((0, commit)).0 += 1;
-        }
-        let mut people: Vec<_> = counts.into_iter().collect();
-        people.sort_by(|a, b| b.1.0.cmp(&a.1.0).then_with(|| a.0.cmp(b.0)));
-        let most = people.first()?.1.0.max(1);
-        let hidden = people.len().saturating_sub(WHO_SHOWN);
-        let shown = self.now_shown("now-who-more", WHO_SHOWN);
-        Some(
-            v_flex()
-                .child(
-                    overview_heading(
-                        "Who worked here",
-                        faint(
-                            range.map_or("commits today".to_owned(), |r| format!("commits · {r}")),
-                            theme,
-                        ),
-                        theme,
-                    )
-                    // As tall as Hot files' beside it, which has room for Clear.
-                    .h(dp(28.)),
-                )
-                .children(people.into_iter().take(shown).map(|(name, (n, commit))| {
-                    still_row(theme)
-                        .child(byline_avatar(
-                            &commit.author,
-                            &commit.email,
-                            commit.agent.as_ref(),
-                            16.,
-                            theme,
-                        ))
-                        .child(div().flex_1().min_w_0().truncate().child(name.to_owned()))
-                        .child(bar(n as f32 / most as f32, theme.pop.opacity(0.7), theme))
-                        .child(overview_column(n.to_string(), OVERVIEW_TIME_WIDTH, theme))
-                }))
-                .children(self.now_fold("now-who-more", hidden, theme, cx)),
-        )
-    }
-
     /// Today's commits, or those of the quarters picked, `range`, and, in a linked worktree,
     /// what else moved its `HEAD` then, newest first. A commit opens on a click.
     fn now_today(
@@ -906,13 +839,6 @@ impl Detail {
                                 .child(commit_title(&commit.title)),
                         )
                         .children(branch)
-                        .child(byline_avatar(
-                            &commit.author,
-                            &commit.email,
-                            commit.agent.as_ref(),
-                            16.,
-                            theme,
-                        ))
                         .child(overview_column(relative_time(at), TODAY_TIME_WIDTH, theme))
                         .on_mouse_down(MouseButton::Left, keep_focus_on_press)
                         .on_click(cx.listener(move |this, _, _, cx| {
@@ -987,18 +913,6 @@ impl Detail {
             cx.notify();
         })))
     }
-}
-
-/// A row of an overview that opens nothing, laid out as a list's but not lit under the
-/// pointer.
-fn still_row(theme: &Theme) -> Div {
-    h_flex()
-        .flex_none()
-        .h(dp(ROW_HEIGHT))
-        .mx(dp(6.))
-        .px(dp(8.))
-        .gap(dp(8.))
-        .text_color(theme.text_1)
 }
 
 /// A bar of `share` of the most, for an overview row, as the project page's areas have.
