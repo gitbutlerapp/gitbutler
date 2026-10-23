@@ -200,6 +200,33 @@ fn branch_remove_checked_out_empty_tip_moves_head_to_ref_below() -> anyhow::Resu
 }
 
 #[test]
+fn branch_remove_checked_out_empty_tip_on_the_target_moves_head_to_the_target() -> anyhow::Result<()>
+{
+    let (repo, _tmp) = repo_with_feature_branch()?;
+    persist_default_target(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let main = gix::refs::FullName::try_from("refs/heads/main")?;
+    let tip = gix::refs::FullName::try_from("refs/heads/tip")?;
+
+    // As `git checkout -b tip` from the target: the target is the workspace's base, not a
+    // segment under `tip`.
+    create_empty_branch_above(&mut ctx, &tip, &main)?;
+    assert_eq!(ctx.repo.get()?.head_name()?.expect("HEAD is symbolic"), tip);
+
+    but_api::branch::branch_remove(&mut ctx, tip.clone())?;
+
+    let repo = ctx.repo.get()?;
+    assert_eq!(
+        repo.head_name()?.expect("HEAD is symbolic"),
+        main,
+        "HEAD is back on the target it was made from"
+    );
+    assert!(repo.try_find_reference(tip.as_ref())?.is_none());
+
+    Ok(())
+}
+
+#[test]
 fn branch_remove_rejects_checked_out_branch_with_commits() -> anyhow::Result<()> {
     let (repo, _tmp) = repo_with_feature_branch()?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();

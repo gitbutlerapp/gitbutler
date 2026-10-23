@@ -6,7 +6,10 @@ use crate::{
     args::atoms::CliIdArg,
     id::{CommitId, CommittedFileId, CommittedHunk},
     theme::Theme,
-    utils::{CliOutput, CliOutputHuman, WriteWithUtils, change_source::ChangeSourceId},
+    utils::{
+        CliOutput, CliOutputHuman, WriteWithUtils,
+        change_source::{ChangeSourceId, InvokedFrom},
+    },
 };
 
 #[derive(Serialize)]
@@ -126,9 +129,13 @@ impl CliOutput for ExpandOutcome {
     }
 }
 
-pub fn handle(ctx: &but_ctx::Context, cli_id: CliIdArg) -> CliResult<ExpandOutcome> {
+pub fn handle(
+    ctx: &but_ctx::Context,
+    cli_id: CliIdArg,
+    invoked_from: &InvokedFrom,
+) -> CliResult<ExpandOutcome> {
     let guard = ctx.shared_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
     let repo = ctx.repo.get()?;
     let matches = cli_id.parse(&repo, &id_map)?;
     if let Some(segment) = matches.iter().find_map(|id| match id {

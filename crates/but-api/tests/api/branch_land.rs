@@ -17,7 +17,7 @@ fn assert_target_rejected_without_changes(
         .output()?
         .stdout;
     let diff_before = git_at_dir(root).args(["diff", "HEAD"]).output()?.stdout;
-    let error = but_api::land::branch_land(&mut ctx, "main".into(), false, false, false)
+    let error = but_api::land::branch_land(&mut ctx, "main".into(), false, false, false, None)
         .expect_err("unsupported targets must be rejected before delivery");
     assert_eq!(
         error.to_string(),
@@ -53,19 +53,6 @@ fn assert_target_rejected_without_changes(
         "worktree changes are preserved"
     );
     Ok(())
-}
-
-#[test]
-fn land_refuses_a_target_without_upstream() -> anyhow::Result<()> {
-    let (repo, tmp) = repo_with_feature_branch()?;
-    set_project_target_to_feature(&repo)?;
-    git_at_dir(tmp.path())
-        .args(["config", "--remove-section", "branch.main"])
-        .run();
-    assert_target_rejected_without_changes(
-        tmp.path(),
-        "Merging without a remote isn't supported yet",
-    )
 }
 
 #[test]
@@ -110,7 +97,7 @@ fn land_refuses_detached_head() -> anyhow::Result<()> {
         .run();
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
 
-    let err = but_api::land::branch_land(&mut ctx, "main".into(), false, false, false)
+    let err = but_api::land::branch_land(&mut ctx, "main".into(), false, false, false, None)
         .expect_err("HEAD is detached, outside the managed workspace");
 
     assert_eq!(
@@ -135,7 +122,7 @@ fn land_refuses_branch_outside_the_workspace() -> anyhow::Result<()> {
     let refs_before = git().args(["show-ref"]).output()?.stdout;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
 
-    let err = but_api::land::branch_land(&mut ctx, "topic".into(), false, false, false)
+    let err = but_api::land::branch_land(&mut ctx, "topic".into(), false, false, false, None)
         .expect_err("topic is not part of the checked-out stack");
 
     assert_eq!(

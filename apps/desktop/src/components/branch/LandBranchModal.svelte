@@ -8,9 +8,14 @@
 		projectId: string;
 		/** Remote-qualified name of the target branch (e.g. origin/master), shown for context. */
 		targetBranchName: string | undefined;
+		/**
+		 * The target has no upstream, so landing only moves the local branch: nothing is published
+		 * and it can be undone, so there is nothing to confirm.
+		 */
+		localTarget: boolean;
 	};
 
-	const { projectId, targetBranchName }: Props = $props();
+	const { projectId, targetBranchName, localTarget }: Props = $props();
 	const stackService = inject(STACK_SERVICE);
 
 	let modalEl = $state<ReturnType<typeof Modal>>();
@@ -33,7 +38,11 @@
 		branchName = branch;
 		wholeStack = stack !== undefined;
 		lowerBranches = stack?.lowerBranches ?? [];
-		modalEl?.show();
+		if (localTarget) {
+			void land();
+		} else {
+			modalEl?.show();
+		}
 	}
 
 	async function land(): Promise<boolean> {

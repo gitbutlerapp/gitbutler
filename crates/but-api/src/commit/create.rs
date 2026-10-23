@@ -124,10 +124,10 @@ pub fn commit_create(
 ) -> anyhow::Result<CommitCreateResult> {
     let context_lines = ctx.settings.context_lines;
     let worktree_ref = crate::worktrees::changes_source_ref(ctx, &changes_source)?;
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_ref_and_perm(
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
         ctx,
         SnapshotDetails::new(OperationKind::CreateCommit),
-        worktree_ref.as_ref().map(|name| name.as_ref()),
+        worktree_ref.as_ref().map(|name| name.as_ref()).as_slice(),
         perm.read_permission(),
         dry_run,
     );

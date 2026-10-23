@@ -53,7 +53,7 @@ pub(crate) fn handle(
     invoked_from: &InvokedFrom,
 ) -> CliResult<()> {
     let mut guard = ctx.exclusive_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
     let source: Option<CliId> = source
         .map(|s| -> CliResult<CliId> {
             // Uncommitted selectors resolve in the uncommitted namespace first

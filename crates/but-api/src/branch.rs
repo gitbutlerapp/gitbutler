@@ -6,7 +6,7 @@ use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
     DryRun, RefMetadata, WORKSPACE_REF_NAME,
-    branch::unique_canned_refname,
+    branch::{refuse_colliding_refname, unique_canned_refname},
     sync::{RepoExclusive, RepoShared},
     ui::TreeChanges,
     update_head_reference,
@@ -1010,10 +1010,13 @@ pub fn branch_create_with_perm(
         unique_canned_refname(&repo)?
     };
 
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+    // The snapshot lists `new_ref` so that undo deletes it again: left behind, it would join
+    // a stack on the next change.
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
         ctx,
         SnapshotDetails::new(OperationKind::CreateBranch)
             .with_trailers([Trailer::Name(new_ref.to_string())]),
+        &[new_ref.as_ref()],
         perm.read_permission(),
         DryRun::No,
     );
@@ -1087,11 +1090,11 @@ pub fn branch_name_segment_with_perm(
     // The snapshot lists `new_ref` so that undo deletes it again. Not when a linked worktree
     // gets it checked out: undo can't restore that worktree, and won't delete a ref it has.
     let undone_ref = matches!(checkout, but_graph::WorktreeKind::Main).then_some(new_ref.as_ref());
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_ref_and_perm(
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
         ctx,
         SnapshotDetails::new(OperationKind::CreateBranch)
             .with_trailers([Trailer::Name(new_ref.to_string())]),
-        undone_ref,
+        undone_ref.as_slice(),
         perm.read_permission(),
         DryRun::No,
     );
@@ -1170,11 +1173,11 @@ pub fn branch_remove_with_perm(
     }
 
     // Name the branch so undo recreates it even when it isn't in the workspace.
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_ref_and_perm(
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
         ctx,
         SnapshotDetails::new(OperationKind::DeleteBranch)
             .with_trailers([Trailer::Name(ref_name.to_string())]),
-        Some(ref_name.as_ref()),
+        &[ref_name.as_ref()],
         perm.read_permission(),
         DryRun::No,
     );
@@ -1186,6 +1189,7 @@ pub fn branch_remove_with_perm(
     // above the checked-out reference" flow. We look at the projection rather
     // than the branch-order metadata on purpose: the metadata is best-effort and
     // may drift, whereas the projection reflects the real segments.
+    let target = ctx.project_meta().ok().and_then(|meta| meta.target_ref);
     let move_head_to = {
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
         let is_checked_out = repo
@@ -1203,9 +1207,20 @@ pub fn branch_remove_with_perm(
                 .position(|s| s.ref_name() == Some(ref_name.as_ref()))
                 .expect("segment we just matched by ref name");
             let is_empty = stack.segments[idx].commits.is_empty();
+            // Made on top of the checked-out target, as `git checkout -b` from it, the
+            // target is the workspace's base rather than a segment underneath.
+            let target_at_head = target
+                .map(|target| target.as_local_full_name_ref().to_owned())
+                .filter(|target| *target != ref_name)
+                .filter(|target| {
+                    let tip = (repo.find_reference(target.as_ref()).ok())
+                        .and_then(|mut r| r.peel_to_id().ok());
+                    tip.is_some_and(|tip| repo.head_id().is_ok_and(|head| head == tip))
+                });
             let below = stack.segments[idx + 1..]
                 .iter()
-                .find_map(|s| s.ref_name().map(|r| r.to_owned()));
+                .find_map(|s| s.ref_name().map(|r| r.to_owned()))
+                .or(target_at_head);
             match (is_empty, below) {
                 (true, Some(below)) => Some(below),
                 (true, None) => bail_precondition!(
@@ -1360,7 +1375,30 @@ pub fn branch_rename_with_perm(
         return Ok(BranchRenameResult { workspace, new_ref });
     }
 
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+    // The snapshot lists `new_ref` so that undo deletes it again, and `ref_name` so that undo
+    // brings it back even when no applied stack holds it, as with the target branch. Not when a
+    // linked worktree has the branch checked out: it follows the rename, and undo won't delete a
+    // ref it has. Nor when one name is the other's directory, as `foo` and `foo/bar`: undo
+    // recreates the old name before it deletes the new one, which git can't hold at once, and
+    // would lose both.
+    let nested = |inner: &gix::refs::FullName, outer: &gix::refs::FullName| {
+        let inner = inner.as_bstr();
+        inner.starts_with(outer.as_bstr()) && inner.get(outer.as_bstr().len()) == Some(&b'/')
+    };
+    let in_linked_worktree = {
+        let repo = ctx.repo.get()?;
+        let worktrees = but_core::branch::SafeDelete::new(&repo)?;
+        repo.try_find_reference(ref_name.as_ref())?
+            .and_then(|reference| worktrees.worktree_dirs_with_ref(&reference))
+            .is_some_and(|dirs| dirs.iter().any(|dir| Some(dir.as_path()) != repo.workdir()))
+    };
+    let names = [ref_name.as_ref(), new_ref.as_ref()];
+    let listed: &[&gix::refs::FullNameRef] =
+        match !in_linked_worktree && !nested(&new_ref, &ref_name) && !nested(&ref_name, &new_ref) {
+            true => &names,
+            false => &[],
+        };
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
         ctx,
         SnapshotDetails::new(OperationKind::UpdateBranchName).with_trailers([
             // Distinct keys (`previous_name` / `name`) so both survive `.find(key)` lookups on the
@@ -1368,6 +1406,7 @@ pub fn branch_rename_with_perm(
             Trailer::PreviousName(ref_name.to_string()),
             Trailer::Name(new_ref.to_string()),
         ]),
+        listed,
         perm.read_permission(),
         DryRun::No,
     );
@@ -1384,6 +1423,7 @@ pub fn branch_rename_with_perm(
         {
             bail_precondition!("A branch named '{}' already exists", new_ref.shorten());
         }
+        refuse_colliding_refname(&repo, new_ref.as_ref(), Some(ref_name.as_ref()))?;
 
         let options = GraphEditorOptions {
             extra_mutable_refs: vec![ref_name.clone()],
@@ -1439,7 +1479,8 @@ pub fn branch_checkout(
 ///
 /// If `name` is provided, it is treated as a short branch name and normalized
 /// before creating `refs/heads/<name>`. If omitted, a unique canned branch name
-/// is generated. The resulting branch must not already exist.
+/// is generated. The resulting branch must not already exist. Records an oplog
+/// snapshot on success, which undo restores by deleting the branch again.
 #[but_api(napi, try_from = json::BranchCheckoutResult)]
 #[instrument(err(Debug))]
 pub fn branch_checkout_new(
@@ -1451,14 +1492,14 @@ pub fn branch_checkout_new(
 }
 
 /// Creates a new local branch at the selected project cutoff and checks it out under
-/// caller-held exclusive repository access.
+/// caller-held exclusive repository access, recording an oplog snapshot on success.
 pub fn branch_checkout_new_with_perm(
     ctx: &mut but_ctx::Context,
     name: Option<String>,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<BranchCheckoutResult> {
     let project_meta = ctx.project_meta()?;
-    let branch = {
+    let (branch, target_commit_id) = {
         let repo = ctx.repo.get()?;
         let target_commit_id = project_meta.resolve_target_commit(&repo)?;
         let branch = match name {
@@ -1472,18 +1513,31 @@ pub fn branch_checkout_new_with_perm(
             }
             None => unique_canned_refname(&repo)?,
         };
-
-        repo.reference(
+        (branch, target_commit_id)
+    };
+    // The snapshot lists the new branch so that undo deletes it again, as `branch_create` does.
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_refs_and_perm(
+        ctx,
+        SnapshotDetails::new(OperationKind::SwitchBranch),
+        &[branch.as_ref()],
+        perm.read_permission(),
+        but_core::DryRun::No,
+    );
+    ctx.repo
+        .get()?
+        .reference(
             branch.as_ref(),
             target_commit_id,
             PreviousValue::MustNotExist,
             "branch checkout new",
         )
         .with_context(|| format!("Could not create branch '{}'", branch.as_bstr()))?;
-        branch
-    };
 
-    branch_checkout_with_perm_only(ctx, branch, perm)
+    let result = branch_checkout_with_perm_only(ctx, branch, perm)?;
+    if let Some(snapshot) = maybe_oplog_entry {
+        _ = snapshot.commit(ctx, perm);
+    }
+    Ok(result)
 }
 
 /// Switch to the workspace reference

@@ -432,18 +432,6 @@
 	opacity: 0.5;
 }
 
-.led {
-	flex-shrink: 0;
-	width: 7px;
-	height: 7px;
-	border-radius: var(--radius-full);
-	background-color: var(--text-3);
-}
-
-.online {
-	background-color: var(--text-safe);
-}
-
 /* A stack's caption names what follows; it doesn't open, so alone it doesn't answer the pointer
    beyond showing its menu. */
 .caption {

@@ -100,15 +100,16 @@ export const Breadcrumbs: FC<Props> = ({ items, className, ...props }) => {
 	// hidden copy before paint, and again whenever either resizes, so the trail never shows
 	// overflowing for a frame.
 	useLayoutEffect(() => {
+		const nav = list.current?.parentElement;
 		const el = list.current;
 		const copy = measure.current;
-		if (!el || !copy) return;
+		if (!nav || !el || !copy) return;
+		// Unrounded, so the whole trail's width doesn't come out a pixel short of what it draws.
+		const widthOf = (e: Element | null) => e?.getBoundingClientRect().width ?? 0;
 		const fit = () => {
-			const widths = [...copy.querySelectorAll<HTMLElement>("[data-level]")].map(
-				(e) => e.offsetWidth,
-			);
-			const separator = copy.querySelector<HTMLElement>("[data-separator]")?.offsetWidth ?? 0;
-			const more = copy.querySelector<HTMLElement>("[data-more]")?.offsetWidth ?? 0;
+			const widths = [...copy.querySelectorAll("[data-level]")].map(widthOf);
+			const separator = widthOf(copy.querySelector("[data-separator]"));
+			const more = widthOf(copy.querySelector("[data-more]"));
 			const columnGap = Number.parseFloat(getComputedStyle(el).columnGap);
 			const gap = Number.isNaN(columnGap) ? 0 : columnGap;
 			const width = (k: number) => {
@@ -116,6 +117,10 @@ export const Breadcrumbs: FC<Props> = ({ items, className, ...props }) => {
 				const joins = shown.length - 1;
 				return shown.reduce((a, w) => a + w, 0) + joins * (separator + 2 * gap);
 			};
+			// The trail asks for its whole width, folded or not. Sized by its content instead, as in a
+			// flex row, its room would be the folded trail's own width, and a trail that folded once
+			// could never measure enough room to open again.
+			nav.style.setProperty("--breadcrumbs-width", `${Math.ceil(width(0))}px`);
 			let k = 0;
 			while (k < items.length - 2 && width(k) > el.clientWidth) k++;
 			setFolded(k);

@@ -121,6 +121,9 @@ struct Stack {
 /// Updates are performed by specifying a particular update operation for a
 /// particular bottom commit.
 ///
+/// `target.ref` is the target branch's upstream or, when none is configured,
+/// the local target branch itself.
+///
 /// All bottom commits can be updated by marking them to be rebased. If a stack
 /// has one head and one bottom, it is eligible to have upstream merged into it.
 ///
@@ -205,9 +208,11 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
             "The configured target branch '{local_target}' is missing. Restore it or configure another target before pulling."
         );
     }
+    // Without an upstream, the local target is all there is to integrate, e.g. after a local
+    // `but merge` moved it.
     let target_ref = project_meta
-        .remote_target_ref_or_err(repo)
-        .context("Cannot integrate upstream without a target upstream")?;
+        .remote_target_ref(repo)?
+        .unwrap_or_else(|| local_target.to_owned());
     let target_ref_commit = repo.find_reference(target_ref.as_ref())?.peel_to_id()?;
     let local_target_ref = Some(local_target.to_owned());
 
@@ -232,8 +237,10 @@ pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
     // The target's own local branch, checked out with no commits of its own, is in no stack,
     // so callers pass no update for it. It follows the target as the workspace commit does:
     // rebased by reference, it moves to the target and stays checked out.
+    // Without an upstream the local target is the target itself, so there is nothing to follow.
     let mut updates = updates;
     if head_is_integrated
+        && target_ref.as_ref() != local_target
         && let Some(head) = direct_checkout_head_ref_name.as_ref()
         && local_target_ref.as_ref() == Some(head)
         && !updates
@@ -728,6 +735,13 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
         &commit_ids(editor, workspace_selectors)?,
     )?;
 
+    // Without an upstream the target is a local branch whose segment owns its tip, so branches on
+    // that commit are stacked on the target's ref step, while a remote-tracking target ref would
+    // sit above them. Such a branch begins at that step.
+    let local_target_step = (target_ref_name.category() == Some(gix::refs::Category::LocalBranch))
+        .then(|| target_ref_name.to_owned().to_selector(editor))
+        .transpose()?;
+
     for stack in &mut output_stacks {
         let Stack { nodes, bottoms, .. } = stack;
 
@@ -735,7 +749,7 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             if editor
                 .direct_parents(*node)?
                 .iter()
-                .all(|(p, _)| !nodes.contains_key(p))
+                .all(|(p, _)| !nodes.contains_key(p) || Some(*p) == local_target_step)
             {
                 bottoms.insert(*node);
             }
@@ -818,10 +832,13 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
                     linear = false;
                 }
                 for (parent, _) in parents {
+                    // Another local branch below is where this one starts, but the commits
+                    // below a local target's step are this branch's own (see `local_target_step`).
                     if !stack.nodes.contains_key(&parent)
-                        || reference_nodes.get(&parent).is_some_and(|parent_ref| {
-                            parent_ref.category() == Some(gix::refs::Category::LocalBranch)
-                        })
+                        || (Some(parent) != local_target_step
+                            && reference_nodes.get(&parent).is_some_and(|parent_ref| {
+                                parent_ref.category() == Some(gix::refs::Category::LocalBranch)
+                            }))
                     {
                         base = Some(parent);
                         continue;

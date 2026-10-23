@@ -207,7 +207,7 @@ but commit --empty -b <branch> -m "message"  # Insert an empty commit
 
 **Important:** `but commit -b <branch> -m "msg"` with no IDs commits ALL uncommitted changes. Pass IDs to commit only specific files or hunks.
 
-Running `but commit` from inside a worktree acts on the main workspace, exactly as from the main worktree: bare `but commit` takes the main worktree's changes, and `but commit <worktree>:@` takes that worktree's own changes. Worktrees require the experimental worktree flag.
+Running `but commit` from inside a worktree takes that worktree's changes and commits them to the branch it has checked out; `but commit <worktree>:@` names them from anywhere. A new unstacked branch (`-b <new-name>` or bare `-b`) is refused there: create it with `but branch new <name> --above <worktree-branch>` first, which makes it the worktree's checkout. Worktrees require the experimental worktree flag.
 
 **Committing specific files or hunks:** Start with `but diff` for selective dirty commits, then pass CLI IDs as positional arguments:
 - **File IDs** from `but diff` or `but status -fv`: commits entire files
@@ -497,6 +497,11 @@ but pull --update=worktrees   # Rebase only the worktrees based on the target
 `--update` takes a comma-separated list and defaults to `worktrees,workspace`. A worktree based on
 an applied branch shares that branch's commits, so it is rebased with `workspace`.
 
+When the target branch has no upstream (e.g. the repository has no remote), there is nothing to
+fetch: `but pull` updates the branches onto the local target branch instead, for example after
+branches were merged into `main` with `git merge`. Its output then lists the new commits on the
+target branch, and removed branches as "has been merged into <target> and removed".
+
 Run `but pull` directly for a straightforward update; its output reports the result and `but undo`
 reverts it. Use `--check` first when the user or repository policy requires a preview without
 updating, or when an applied branch was just merged upstream: `but pull` removes only branches
@@ -550,9 +555,10 @@ project-local and shared with Desktop.
 ### `but merge <branch>`
 
 Merge a branch directly onto the target (e.g. `origin/master`), skipping a pull request. Fast-forwards
-when possible, otherwise makes a signed merge commit; for a `gb-local` target it moves the refs
-locally. Then reconciles the remaining branches like `but pull`, and deletes each landed branch's
-copy on the push remote (only when fully contained in the landed target), reported as
+when possible, otherwise makes a signed merge commit; when the target branch has no upstream (e.g.
+the repository has no remote), or for a `gb-local` target, it moves the refs locally. Then
+reconciles the remaining branches like `but pull`, and deletes each landed branch's copy on the
+push remote (only when fully contained in the landed target), reported as
 `Deleted <remote>/<branch> (landed)`. In single-branch mode, merging the checked-out branch then
 checks out the target branch, or a generated branch when the target can't be reused;
 `Checked out <branch>.` names the branch actually checked out.
@@ -564,7 +570,9 @@ but merge <branch-selector> --ff-only --yes        # Refuse unless the target ca
 but merge <top-branch> --whole-stack --yes   # Merge an entire stack by naming its top segment
 ```
 
-Direct target updates are hard to reverse, so confirmation is required (agents must pass `--yes`).
+Updating a target that has an upstream is hard to reverse, so confirmation is required (agents
+must pass `--yes`). A target without an upstream is merged without asking, and `but undo` reverts
+the merge; `--yes` is accepted there too, so always passing it is safe.
 A branch stacked on other segments is refused (its tip would also publish them); `--whole-stack`
 is the explicit opt-in, and only the stack's top segment can be named with it.
 

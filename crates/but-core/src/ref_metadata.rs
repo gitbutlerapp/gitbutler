@@ -5,7 +5,8 @@ use uuid::Uuid;
 
 use crate::{Id, git_config};
 
-const PROJECT_TARGET_REF: &str = "gitbutler.project.targetRef";
+/// The repository-local Git config key storing [`ProjectMeta::target_ref`].
+pub const PROJECT_TARGET_REF: &str = "gitbutler.project.targetRef";
 const PROJECT_TARGET_COMMIT_ID: &str = "gitbutler.project.targetCommitId";
 const PROJECT_PUSH_REMOTE: &str = "gitbutler.project.pushRemote";
 const PROJECT_PORTED_META: &str = "gitbutler.project.portedMeta";
@@ -606,6 +607,10 @@ impl ProjectMeta {
     }
 
     /// Port project metadata, loading the legacy fallback only if Git config has no metadata.
+    ///
+    /// If the legacy fallback fails with [`AmbiguousLegacyTargetRefError`], its remote target is
+    /// ported as is, along with its cutoff and push remote, so reading project metadata keeps
+    /// failing with that error until a target is chosen.
     pub fn port_if_needed(
         repo: &gix::Repository,
         legacy_fallback: impl FnOnce() -> anyhow::Result<Self>,
@@ -616,7 +621,26 @@ impl ProjectMeta {
             }
             let configured = Self::try_from_config(config, repo)?;
             let project_meta = if configured == Self::default() {
-                legacy_fallback()?
+                match legacy_fallback() {
+                    Ok(project_meta) => project_meta,
+                    Err(err) => {
+                        let Some(ambiguous) = err.downcast_ref::<AmbiguousLegacyTargetRefError>()
+                        else {
+                            return Err(err);
+                        };
+                        ProjectMeta {
+                            target_ref: None,
+                            target_commit_id: ambiguous.target_commit_id,
+                            push_remote: ambiguous.push_remote.clone(),
+                        }
+                        .write_to_config(config)?;
+                        return git_config::set_config_value(
+                            config,
+                            PROJECT_TARGET_REF,
+                            &ambiguous.target_ref.to_string(),
+                        );
+                    }
+                }
             } else {
                 configured
             };
@@ -1093,12 +1117,15 @@ pub fn resolve_local_target(
             bail!("no local branch tracks {target_ref}; configure a local target branch")
         }
         LocalTrackingBranchMatch::Unique(name) => Ok(name),
-        LocalTrackingBranchMatch::Ambiguous { first, second } => {
-            bail!(
-                "multiple local branches track {target_ref}: \
+        LocalTrackingBranchMatch::Ambiguous { first, second } => Err(anyhow::format_err!(
+            "multiple local branches track {target_ref}: \
                     {first} and {second}; choose a local target branch"
-            )
-        }
+        )
+        .context(AmbiguousLegacyTargetRefError {
+            target_ref: target_ref.to_owned(),
+            target_commit_id: None,
+            push_remote: None,
+        })),
     }
 }
 
@@ -1149,4 +1176,38 @@ pub fn find_local_tracking_branch(
         Some(name) => LocalTrackingBranchMatch::Unique(name),
         None => LocalTrackingBranchMatch::None,
     })
+}
+
+/// In the old days `ProjectMeta.target_ref` would always be a remote branch like origin/main.
+/// In <https://github.com/gitbutlerapp/gitbutler/pull/16363> that was changed to always be a
+/// local branch instead.
+///
+/// As part of that transition we have to migrate users from origin/main to main. Doing that
+/// requires finding the local branch thats tracking origin/main and making that the target.
+/// `but_core::ref_metadata::find_local_tracking_branch` does that. However if there are two
+/// local branches that both track origin/main then we need the user to pick.
+///
+/// This error identifies that situation.
+#[derive(Debug)]
+pub struct AmbiguousLegacyTargetRefError {
+    /// The legacy target that is ambiguous.
+    ///
+    /// For example will be origin/main if there are multiple branches tracking that.
+    pub target_ref: gix::refs::FullName,
+    /// The cutoff stored with the legacy target.
+    ///
+    /// Only set when the legacy target was read from `virtual_branches.toml`, so porting can keep
+    /// it. Targets stored in Git config keep their cutoff in place.
+    pub target_commit_id: Option<gix::ObjectId>,
+    /// The push remote stored with the legacy target.
+    ///
+    /// Only set when the legacy target was read from `virtual_branches.toml`, like
+    /// [`Self::target_commit_id`].
+    pub push_remote: Option<String>,
+}
+
+impl std::fmt::Display for AmbiguousLegacyTargetRefError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("AmbiguousLegacyTargetRef")
+    }
 }

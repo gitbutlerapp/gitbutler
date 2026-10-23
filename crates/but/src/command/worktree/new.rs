@@ -47,7 +47,7 @@ impl NewOperation {
         let base = match above {
             Some(above) => {
                 let repo = ctx.repo.get()?;
-                let id_map = IdMap::new_from_context(ctx, perm)?;
+                let id_map = IdMap::new_from_context(ctx, perm, None)?;
                 let base = above.resolve_commit_in_workspace(&repo, &id_map)?;
                 if but_core::Commit::from_id(base.attach(&repo))?.is_conflicted() {
                     return Err(

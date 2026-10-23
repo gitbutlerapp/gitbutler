@@ -1,5 +1,6 @@
-//! Putting the landed commit onto the target: a local two-ref move for a self-remote, or a push
-//! for a real remote. Both report a moved-target race as a retryable `Code::GitNonFastForward`.
+//! Putting the landed commit onto the target: a local ref move for a target without an upstream
+//! or a self-remote, or a push for a real remote. Both report a moved-target race as a retryable
+//! `Code::GitNonFastForward`.
 //!
 //! Lifted from the `but merge` CLI command. The push path still takes `but_ctx::Context` because the
 //! only push helper available today is the legacy `gitbutler_git` one; this is the one piece of land
@@ -10,19 +11,26 @@ use but_ctx::Context;
 use gitbutler_git::GitContextExt as _;
 use gix::refs::transaction::{PreviousValue, RefEdit};
 
-/// Self-remote (`gb-local`) path: move `refs/heads/<target>` and the remote-tracking ref to the
-/// landed commit in a single transaction, guarded by a compare-and-swap on the previous target.
-/// Refuses when `<target>` is checked out in any worktree, as moving it there would leave that
-/// worktree's index and files behind the moved ref.
+/// Move the local target branch, `refs/heads/<target_branch_name>`, from `expected_target_oid` to
+/// `new_target_oid`. This is how a land without a push updates the target.
+///
+/// - The branch only moves if it still points at `expected_target_oid`. If something else moved
+///   it in the meantime, this fails with `Code::GitNonFastForward`.
+/// - For a `gb-local` remote, pass its name as `push_remote_name`. Its tracking ref,
+///   `refs/remotes/<remote>/<target_branch_name>`, then moves together with the branch, and both
+///   must point at the same commit beforehand. Pass `None` when the target has no upstream.
+/// - Fails if the target branch is checked out in any worktree, because moving it would leave
+///   that worktree's files out of date.
 pub(super) fn update_local_target_refs(
     repo: &gix::Repository,
     new_target_oid: gix::ObjectId,
     expected_target_oid: gix::ObjectId,
-    push_remote_name: &str,
+    push_remote_name: Option<&str>,
     target_branch_name: &str,
 ) -> anyhow::Result<()> {
     let head_ref = format!("refs/heads/{target_branch_name}");
-    let tracking_ref = format!("refs/remotes/{push_remote_name}/{target_branch_name}");
+    let tracking_ref =
+        push_remote_name.map(|remote| format!("refs/remotes/{remote}/{target_branch_name}"));
 
     if let Some(reference) = repo.try_find_reference(&head_ref)?
         && let Some(dirs) =
@@ -38,10 +46,12 @@ pub(super) fn update_local_target_refs(
     // The two refs must already point at the same commit. If local `<target>` has diverged from
     // `<remote>/<target>`, the shared compare-and-swap below can never succeed (the head edit keeps
     // failing), so surface that as a clear, non-retryable error rather than looping on it.
-    if let (Some(head), Some(tracking)) = (
-        super::peel_ref(repo, &head_ref)?,
-        super::peel_ref(repo, &tracking_ref)?,
-    ) && head != tracking
+    if let (Some(push_remote_name), Some(tracking_ref)) = (push_remote_name, &tracking_ref)
+        && let (Some(head), Some(tracking)) = (
+            super::peel_ref(repo, &head_ref)?,
+            super::peel_ref(repo, tracking_ref)?,
+        )
+        && head != tracking
     {
         bail!(
             "Local `{target_branch_name}` ({head}) is out of sync with \
@@ -49,23 +59,20 @@ pub(super) fn update_local_target_refs(
         );
     }
 
-    // Advance both refs to the landed commit in one transaction, failing if either moved meanwhile.
+    // Advance the refs to the landed commit in one transaction, failing if any moved meanwhile.
     let expected = PreviousValue::ExistingMustMatch(expected_target_oid.into());
     let ref_log_message = "GitButler land";
-    let edits = [
-        RefEdit::update(
-            head_ref.try_into()?,
-            new_target_oid,
-            expected.clone(),
-            ref_log_message,
-        ),
-        RefEdit::update(
-            tracking_ref.try_into()?,
-            new_target_oid,
-            expected,
-            ref_log_message,
-        ),
-    ];
+    let edits = std::iter::once(head_ref)
+        .chain(tracking_ref)
+        .map(|name| {
+            Ok(RefEdit::update(
+                name.try_into()?,
+                new_target_oid,
+                expected.clone(),
+                ref_log_message,
+            ))
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
 
     match repo.edit_references(edits) {
         Ok(_) => Ok(()),

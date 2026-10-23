@@ -2208,28 +2208,287 @@ fn status_json(env: &Sandbox) -> serde_json::Value {
     serde_json::from_slice(&output).unwrap()
 }
 
-#[test]
-fn pull_gives_decent_error_without_remote() {
+/// A repository without a remote, in the managed workspace, with branches `one` and `two`.
+fn sandbox_without_remote_with_two_branches() -> Sandbox {
     let env = Sandbox::empty();
     env.but("init --commit").assert().success();
-
-    env.but("commit -m 'new commit'").assert().success();
-
-    env.but("pull")
-        .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Cannot pull without a remote
-
-"#]]);
-
     env.but("switch --workspace").assert().success();
+    env.file("one.txt", "one\n");
+    env.but("commit -b one -m 'add one'").assert().success();
+    env.file("two.txt", "two\n");
+    env.but("commit -b two -m 'add two'").assert().success();
+    env
+}
+
+/// Without a remote, the target is the local `main`. After merging branches into it with git,
+/// `but pull` removes them, just as it does for branches merged upstream.
+#[test]
+fn pull_without_remote_removes_branches_merged_into_main() {
+    let env = sandbox_without_remote_with_two_branches();
+    env.invoke_bash("git switch -q main && git merge -q one && git merge -q --no-edit two");
 
     env.but("pull")
+        .env("NO_BG_TASKS", "1")
         .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
-Error: Cannot pull without a remote
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+
+Found 2 new commits on main
+   [..] Merge branch 'two'
+   [..] add one
+
+Updating 1 active branches...
+
+Rebase successful
+
+Branch one has been merged into main and removed
+
+Summary
+────────
+  one - integrated
+
+To undo this operation:
+  Run `but undo`
 
 "#]]);
+
+    // Both branches are gone, and HEAD stays on main.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+*   [..] (gitbutler/workspace) GitButler Workspace Commit
+|/  
+| | * [..] (HEAD -> main) Merge branch 'two'
+| |/| 
+| |/  
+|/|   
+* | [..] add two
+| * [..] add one
+|/  
+* [..] (gitbutler/target) Initial commit
+
+"#]]
+    );
+    env.but("status")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ [..] (common base, main, HEAD) 2000-01-02 Merge branch 'two'
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
+
+/// Without a remote, `main` can move while the workspace stays checked out. `but pull` then
+/// removes the branch now on `main` and rebases the others onto it, and `--check` reports it.
+#[test]
+fn pull_without_remote_updates_the_workspace_onto_main() {
+    let env = sandbox_without_remote_with_two_branches();
+    env.invoke_git("update-ref refs/heads/main one");
+
+    env.but("pull --check")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+
+Base branch:	main
+Incoming:	1 new commits on main
+
+  [..] add one
+
+Branch Status
+  [ok] two
+  [integrated] one
+
+Run `but pull` to update your branches
+
+"#]]);
+
+    env.but("pull")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+
+Found 1 new commits on main
+   [..] add one
+
+Updating 2 active branches...
+
+Rebase successful
+
+Branch one has been merged into main and removed
+
+Summary
+────────
+  two - rebased
+  one - integrated
+
+To undo this operation:
+  Run `but undo`
+
+"#]]);
+
+    // one is gone and two now sits on main.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* [..] (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* [..] (two) add two
+* [..] (main) add one
+* [..] (gitbutler/target) Initial commit
+
+"#]]
+    );
+
+    env.but("pull")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+
+No new commits found
+
+Everything is up to date
+
+"#]]);
+}
+
+/// A target without an upstream has nothing to fetch, so an unreachable, unrelated remote must not
+/// stop `but pull` from updating onto the local `main`.
+#[test]
+fn pull_without_upstream_ignores_unrelated_remotes() {
+    let env = sandbox_without_remote_with_two_branches();
+    env.invoke_git("remote add broken /nonexistent/path/broken.git");
+    env.invoke_git("update-ref refs/heads/main one");
+
+    env.but("pull --check")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success();
+    env.but("pull").env("NO_BG_TASKS", "1").assert().success();
+
+    // one is gone and two now sits on main.
+    snapbox::assert_data_eq!(
+        env.git_log(),
+        str![[r#"
+* [..] (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* [..] (two) add two
+* [..] (main) add one
+* [..] (gitbutler/target) Initial commit
+
+"#]]
+    );
+}
+
+/// The local-only version of `pull_update_worktrees_leaves_the_workspace_for_later`: pulling only
+/// the worktrees moves the stored target to `main`, and a later workspace pull must still find the
+/// branches behind it.
+#[test]
+fn pull_without_remote_update_worktrees_leaves_the_workspace_for_later() {
+    let env = sandbox_without_remote_with_two_branches();
+    enable_worktree_manipulation(&env);
+    // The first read with the flag on archives every worktree already on disk.
+    env.but("status").assert().success();
+    add_worktree_with_commit(&env, "wt-inside", "one");
+    add_worktree_with_commit(&env, "wt-outside", "main");
+    // Advance main with a commit none of the branches have.
+    env.invoke_bash(
+        r#"blob=$(echo main | git hash-object -w --stdin)
+tree=$( (git ls-tree main; printf '100644 blob %s\tmain.txt\n' "$blob") | git mktree)
+git update-ref refs/heads/main "$(git commit-tree "$tree" -p main -m main-change)""#,
+    );
+    let contains_main = |branch: &str| {
+        env.invoke_git(&format!("merge-base main {branch}")) == env.invoke_git("rev-parse main")
+    };
+
+    env.but("pull --update=worktrees")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+
+Found 1 new commits on main
+   [..] main-change
+
+Updating 1 active branches...
+
+Rebase successful
+
+Summary
+────────
+  wt-outside - rebased
+
+To undo this operation:
+  Run `but undo`
+
+"#]]);
+    assert!(
+        contains_main("wt-outside"),
+        "a worktree resting on the target was rebased"
+    );
+    for branch in ["one", "two", "wt-inside"] {
+        assert!(
+            !contains_main(branch),
+            "{branch} is in the workspace or stacked on it, so it was left alone"
+        );
+    }
+
+    env.but("pull --check --update=workspace")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+
+Base branch:	main
+Incoming:	1 new commits on main
+
+  [..] main-change 
+
+Branch Status
+  [ok] two
+  [ok] one
+  [ok] wt-inside
+
+Run `but pull` to update your branches
+
+"#]]);
+    env.but("pull --update=workspace")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+
+Found 1 new commits on main
+   [..] main-change
+
+Updating 3 active branches...
+
+Rebase successful
+
+Summary
+────────
+  two - rebased
+  one - rebased
+  wt-inside - rebased
+
+To undo this operation:
+  Run `but undo`
+
+"#]]);
+    for branch in ["one", "two", "wt-inside"] {
+        assert!(
+            contains_main(branch),
+            "{branch} catches up although the stored target already advanced"
+        );
+    }
 }

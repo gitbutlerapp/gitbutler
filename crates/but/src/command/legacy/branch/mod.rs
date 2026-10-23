@@ -24,7 +24,7 @@ pub fn delete(
 ) -> CliResult<(DiscardOutcome, WorkspaceState)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
 
     let branches = {
         let repo = ctx.repo.get()?;

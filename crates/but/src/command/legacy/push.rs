@@ -71,7 +71,7 @@ pub async fn handle(
 
     let id_map = {
         let guard = ctx.shared_worktree_access();
-        IdMap::new_from_context(ctx, guard.read_permission())?
+        IdMap::new_from_context(ctx, guard.read_permission(), None)?
     };
 
     // If no branch_id is provided, show all branches and prompt or push all

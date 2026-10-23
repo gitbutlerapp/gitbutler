@@ -1,6 +1,10 @@
+/* As wide as the whole trail unfolded, and no wider than its container: the room it measures
+   to fold in is then the room it has, whatever its parent's layout. */
 .breadcrumbs {
 	position: relative;
+	width: var(--breadcrumbs-width, auto);
 	min-width: 0;
+	max-width: 100%;
 	color: var(--text-2);
 }
 

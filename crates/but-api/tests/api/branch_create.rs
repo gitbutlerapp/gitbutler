@@ -1,7 +1,7 @@
 use but_core::RefMetadata;
 use but_rebase::graph_rebase::mutate::InsertSide;
 
-use crate::support::{assert_workspace_ref, repo_with_feature_branch};
+use crate::support::{assert_workspace_ref, repo_with_feature_branch, undo};
 
 #[test]
 fn branch_create_independent_respects_insertion_order() -> anyhow::Result<()> {
@@ -32,6 +32,35 @@ fn branch_create_independent_respects_insertion_order() -> anyhow::Result<()> {
             "new independent branches must respect the requested insertion order"
         );
     }
+    Ok(())
+}
+
+#[test]
+fn undoing_branch_create_deletes_the_new_branch() -> anyhow::Result<()> {
+    let (repo, _tmp) = crate::support::writable_scenario("checkout-head-info");
+    crate::support::persist_default_target(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
+    but_api::branch::apply_only(&mut ctx, feature.as_ref())?;
+
+    let new_ref = gix::refs::FullName::try_from("refs/heads/on-top")?;
+    but_api::branch::branch_create(
+        &mut ctx,
+        Some(new_ref.clone()),
+        but_api::branch::json::BranchCreatePlacement::Dependent {
+            relative_to: but_api::commit::json::RelativeTo::Reference(feature),
+            side: InsertSide::Above,
+        },
+    )?;
+    undo(&mut ctx)?;
+
+    assert!(
+        ctx.repo
+            .get()?
+            .try_find_reference(new_ref.as_ref())?
+            .is_none(),
+        "a branch left behind would join a stack on the next change and take its commits"
+    );
     Ok(())
 }
 

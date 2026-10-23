@@ -413,7 +413,7 @@ pub fn diff<'a>(
     invoked_from: &InvokedFrom,
 ) -> CliResult<DiffOutcome<'a>> {
     let guard = ctx.shared_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), Some(invoked_from))?;
 
     let op = resolve(ctx, &id_map, args, invoked_from)?;
     Ok(run(ctx, op)?)
@@ -461,7 +461,11 @@ fn resolve(
         ResolvedCliIdArg::CommittedHunk(..) => {
             Err(bad_input("viewing diffs for committed hunks is not supported").into())
         }
-        ResolvedCliIdArg::PathPrefix { id, hunks } => Ok(DiffOperation::PathPrefix { id, hunks }),
+        ResolvedCliIdArg::PathPrefix {
+            id,
+            hunks,
+            source: _,
+        } => Ok(DiffOperation::PathPrefix { id, hunks }),
         ResolvedCliIdArg::Stack { .. } => {
             Err(bad_input("viewing diffs for stack assignments is not supported").into())
         }

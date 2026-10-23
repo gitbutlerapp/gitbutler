@@ -152,7 +152,7 @@ pub fn reword(
 ) -> CliResult<(RewordOutcome, Option<WorkspaceState>)> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let id_map = IdMap::new_from_context(ctx, guard.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, guard.read_permission(), None)?;
     let merged = MergedUpstream::from_ctx(ctx, args.allow_merged)?;
     let operation = resolve(ctx, &mut out, &id_map, args, &merged)?;
 

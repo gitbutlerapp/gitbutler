@@ -3,7 +3,7 @@ use gix::bstr::ByteSlice;
 
 use crate::support::{
     assert_workspace_ref, checkout_branch_in_linked_worktree, create_empty_branch_above,
-    persist_default_target, repo_with_feature_branch, workspace_graph, writable_scenario,
+    persist_default_target, repo_with_feature_branch, undo, workspace_graph, writable_scenario,
 };
 
 #[test]
@@ -35,6 +35,83 @@ fn branch_rename_middle_branch_keeps_head_and_order() -> anyhow::Result<()> {
         .expect("branch order still persisted");
     assert_eq!(order, vec![tip, renamed, main, feature]);
 
+    Ok(())
+}
+
+#[test]
+fn undoing_branch_rename_deletes_the_new_name() -> anyhow::Result<()> {
+    let (repo, _tmp) = repo_with_feature_branch()?;
+    persist_default_target(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let main = gix::refs::FullName::try_from("refs/heads/main")?;
+    let middle = gix::refs::FullName::try_from("refs/heads/middle")?;
+    let renamed = gix::refs::FullName::try_from("refs/heads/renamed")?;
+    create_empty_branch_above(&mut ctx, &middle, &main)?;
+
+    but_api::branch::branch_rename(&mut ctx, middle.clone(), "renamed".into())?;
+    undo(&mut ctx)?;
+
+    let repo = ctx.repo.get()?;
+    assert!(
+        repo.try_find_reference(middle.as_ref())?.is_some(),
+        "the old name is back"
+    );
+    assert!(
+        repo.try_find_reference(renamed.as_ref())?.is_none(),
+        "a new name left behind would join a stack on the next change and take its commits"
+    );
+    Ok(())
+}
+
+#[test]
+fn undoing_a_rename_outside_the_applied_stacks_brings_the_old_name_back() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("checkout-head-info");
+    let main_tip = persist_default_target(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
+    but_api::branch::apply_only(&mut ctx, feature.as_ref())?;
+    let main = gix::refs::FullName::try_from("refs/heads/main")?;
+    let renamed = gix::refs::FullName::try_from("refs/heads/renamed")?;
+
+    but_api::branch::branch_rename(&mut ctx, main.clone(), "renamed".into())?;
+    undo(&mut ctx)?;
+
+    let repo = ctx.repo.get()?;
+    assert_eq!(
+        repo.try_find_reference(main.as_ref())?
+            .map(|mut reference| reference.peel_to_id())
+            .transpose()?
+            .map(|id| id.detach()),
+        Some(main_tip),
+        "no applied stack holds the target branch, so the snapshot has to bring it back"
+    );
+    assert!(
+        repo.try_find_reference(renamed.as_ref())?.is_none(),
+        "undo deletes the new name"
+    );
+    Ok(())
+}
+
+#[test]
+fn undoing_a_rename_into_the_old_name_as_a_directory_keeps_a_name() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("checkout-head-info");
+    persist_default_target(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
+    but_api::branch::apply_only(&mut ctx, feature.as_ref())?;
+    let foo = gix::refs::FullName::try_from("refs/heads/foo")?;
+    let foo_bar = gix::refs::FullName::try_from("refs/heads/foo/bar")?;
+    create_empty_branch_above(&mut ctx, &foo, &feature)?;
+
+    but_api::branch::branch_rename(&mut ctx, foo.clone(), "foo/bar".into())?;
+    undo(&mut ctx)?;
+
+    let repo = ctx.repo.get()?;
+    assert!(
+        repo.try_find_reference(foo.as_ref())?.is_some()
+            || repo.try_find_reference(foo_bar.as_ref())?.is_some(),
+        "git can't hold both names, but undo must leave the branch one of them"
+    );
     Ok(())
 }
 
@@ -94,6 +171,40 @@ fn branch_rename_rejects_a_name_that_already_exists() -> anyhow::Result<()> {
 }
 
 #[test]
+fn branch_rename_rejects_a_name_another_branch_nests_with() -> anyhow::Result<()> {
+    use but_testsupport::{CommandExt as _, git_at_dir};
+    let (repo, tmp) = repo_with_feature_branch()?;
+    git_at_dir(tmp.path())
+        .args(["branch", "dir/inner", "feature"])
+        .run();
+    // Packed and without a reflog, `feature` goes unnoticed by the ref edit, which would then
+    // write `feature/sub` beside it.
+    git_at_dir(tmp.path()).args(["pack-refs", "--all"]).run();
+    std::fs::remove_file(tmp.path().join(".git/logs/refs/heads/feature"))?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let main = gix::refs::FullName::try_from("refs/heads/main")?;
+    let tip = gix::refs::FullName::try_from("refs/heads/tip")?;
+    create_empty_branch_above(&mut ctx, &tip, &main)?;
+
+    for (name, in_the_way) in [("feature/sub", "feature"), ("dir", "dir/inner")] {
+        let err = but_api::branch::branch_rename(&mut ctx, tip.clone(), name.into())
+            .expect_err("Git can't hold a branch and another nested in its name");
+        assert_eq!(
+            err.to_string(),
+            format!("Branch name '{name}' collides with existing branch '{in_the_way}'")
+        );
+    }
+
+    let repo = ctx.repo.get()?;
+    assert!(
+        repo.try_find_reference("refs/heads/feature/sub")?.is_none(),
+        "nothing was written beside the packed branch"
+    );
+    assert!(repo.try_find_reference(tip.as_ref())?.is_some());
+    Ok(())
+}
+
+#[test]
 fn branch_rename_same_name_rejects_a_missing_source() -> anyhow::Result<()> {
     let (repo, _tmp) = repo_with_feature_branch()?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
@@ -112,6 +223,7 @@ fn branch_rename_same_name_rejects_a_missing_source() -> anyhow::Result<()> {
 #[test]
 fn branch_rename_moves_head_of_another_worktree_checked_out_on_it() -> anyhow::Result<()> {
     let (repo, tmp) = repo_with_feature_branch()?;
+    persist_default_target(&repo)?;
     let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
     ctx.settings.feature_flags.worktree_manipulation = true;
     assert!(
@@ -147,6 +259,8 @@ fn branch_rename_moves_head_of_another_worktree_checked_out_on_it() -> anyhow::R
         renamed,
         "the linked worktree follows its branch to the new name"
     );
+    drop(repo);
+    undo(&mut ctx).expect("undo doesn't touch the name the linked worktree has checked out");
 
     Ok(())
 }

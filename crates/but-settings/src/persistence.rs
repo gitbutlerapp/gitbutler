@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use serde_json::json;
-use serde_json_lenient::to_string_pretty;
+use serde_json::to_string_pretty;
 
 use crate::{
     AppSettings,

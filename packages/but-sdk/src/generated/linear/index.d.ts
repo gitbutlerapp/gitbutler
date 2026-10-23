@@ -198,7 +198,8 @@ export declare function branchCheckout(projectId: string, branch: FullNameBytes)
  *
  * If `name` is provided, it is treated as a short branch name and normalized
  * before creating `refs/heads/<name>`. If omitted, a unique canned branch name
- * is generated. The resulting branch must not already exist.
+ * is generated. The resulting branch must not already exist. Records an oplog
+ * snapshot on success, which undo restores by deleting the branch again.
  *
  * {@link ../../../../../crates/but-api/src/branch.rs}
  */
@@ -240,19 +241,27 @@ export declare function branchDiff(projectId: string, branch: string): Promise<T
  * must be the bottom segment of its stack — or, with `whole_stack`, the top segment, which
  * publishes every segment below it as well — and the landed segments must be free of conflicted
  * commits. HEAD must be the managed workspace or, in single-branch mode, the checked-out branch
- * (see [`ensure_landable_checkout`]), and the target remote must be configured and non-triangular.
+ * (see [`ensure_landable_checkout`]), and a target remote must be non-triangular.
  *
  * `no_ff` always creates a merge commit; `ff_only` refuses to land unless the target can be
  * fast-forwarded to the branch tip. Passing both is an error.
+ *
+ * `expected_tip`, when given, is the branch tip the caller showed the user: the land is refused
+ * if the branch moved since, as by an agent committing during the confirmation or the fetch,
+ * because the push can't be undone. It's compared under the worktree lock that decides the land.
  *
  * This fetches the target, lands the branch (fast-forward or signed merge commit, retrying when
  * the target moves underneath us), then reconciles the remaining applied branches onto the moved
  * target. The remote push is not undoable; see [`BranchLandResult::reconcile_skipped`] and the
  * workspace state for what to report.
  *
+ * A target without an upstream is moved locally instead, and the whole land is a single undoable
+ * oplog entry, recorded as soon as the target moved so `but undo` reverts even a land whose
+ * reconcile failed.
+ *
  * {@link ../../../../../crates/but-api/src/land/mod.rs}
  */
-export declare function branchLand(projectId: string, branch: string, noFf: boolean, ffOnly: boolean, wholeStack: boolean): Promise<BranchLandResult>
+export declare function branchLand(projectId: string, branch: string, noFf: boolean, ffOnly: boolean, wholeStack: boolean, expectedTip?: string | undefined | null): Promise<BranchLandResult>
 
 /**
  * Lists all local and remote branches of the project, grouped into stacks where
@@ -3965,7 +3974,7 @@ export type OperatingMode = {
   subject: EditModeMetadata;
 };
 
-export type OperationKind = "CreateCommit" | "CreateBranch" | "StashIntoBranch" | "SetBaseBranch" | "MergeUpstream" | "UpdateWorkspaceBase" | "MoveHunk" | "UpdateBranchName" | "UpdateBranchNotes" | "ReorderBranches" | "UpdateBranchRemoteName" | "GenericBranchUpdate" | "DeleteBranch" | "ApplyBranch" | "SwitchBranch" | "SwitchToWorkspace" | "DiscardLines" | "DiscardHunk" | "DiscardFile" | "DiscardChanges" | "Discard" | "AmendCommit" | "Absorb" | "AutoCommit" | "UndoCommit" | "DiscardCommit" | "UnapplyBranch" | "CherryPick" | "SquashCommit" | "UpdateCommitMessage" | "MoveCommit" | "MoveBranch" | "TearOffBranch" | "ReorderCommit" | "InsertBlankCommit" | "MoveCommitFile" | "FileChanges" | "EnterEditMode" | "ResolveConflicts" | "ResolveConflictsAi" | "SyncWorkspace" | "CreateDependentBranch" | "RemoveDependentBranch" | "UpdateDependentBranchName" | "UpdateDependentBranchDescription" | "UpdateDependentBranchPrNumber" | "AutoHandleChangesBefore" | "AutoHandleChangesAfter" | "SplitBranch" | "CleanWorkspace" | "OnDemandSnapshot" | "Unknown" | "RestoreFromSnapshotViaUndo" | "RestoreFromSnapshotViaRedo" | "RestoreFromSnapshot";
+export type OperationKind = "CreateCommit" | "CreateBranch" | "StashIntoBranch" | "SetBaseBranch" | "MergeUpstream" | "MergeBranch" | "UpdateWorkspaceBase" | "MoveHunk" | "UpdateBranchName" | "UpdateBranchNotes" | "ReorderBranches" | "UpdateBranchRemoteName" | "GenericBranchUpdate" | "DeleteBranch" | "ApplyBranch" | "SwitchBranch" | "SwitchToWorkspace" | "DiscardLines" | "DiscardHunk" | "DiscardFile" | "DiscardChanges" | "Discard" | "AmendCommit" | "Absorb" | "AutoCommit" | "UndoCommit" | "DiscardCommit" | "UnapplyBranch" | "CherryPick" | "SquashCommit" | "UpdateCommitMessage" | "MoveCommit" | "MoveBranch" | "TearOffBranch" | "ReorderCommit" | "InsertBlankCommit" | "MoveCommitFile" | "FileChanges" | "EnterEditMode" | "ResolveConflicts" | "ResolveConflictsAi" | "SyncWorkspace" | "CreateDependentBranch" | "RemoveDependentBranch" | "UpdateDependentBranchName" | "UpdateDependentBranchDescription" | "UpdateDependentBranchPrNumber" | "AutoHandleChangesBefore" | "AutoHandleChangesAfter" | "SplitBranch" | "CleanWorkspace" | "OnDemandSnapshot" | "Unknown" | "RestoreFromSnapshotViaUndo" | "RestoreFromSnapshotViaRedo" | "RestoreFromSnapshot";
 
 /** What kind of apply operation completed. */
 export type OutcomeStatus = "alreadyApplied" | "applied" | "conflictAborted";
