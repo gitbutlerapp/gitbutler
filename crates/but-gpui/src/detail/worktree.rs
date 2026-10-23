@@ -3,6 +3,7 @@
 //! the checkout's files and commit box until a file is picked, whose diff takes its place.
 
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
 use std::sync::Arc;
 
 use gpui::{AnyElement, App, Context, Div, MouseButton, Stateful, div, prelude::*, relative};
@@ -60,9 +61,10 @@ pub(super) struct Now {
     known: Option<HashSet<CommitId>>,
     /// The hot file picked, whose commits are all Today lists.
     file: Option<Arc<str>>,
-    /// The files each commit changes, read for today's once a hot file is picked. Commits
-    /// don't change, so what's read stays.
+    /// The files each commit changes, read for those the overview can list as the checkout
+    /// loads, and the commits being read. Commits don't change, so what's read stays.
     paths: HashMap<CommitId, Vec<String>>,
+    reading: HashSet<CommitId>,
     /// The quarters of an hour picked off the activity, by when they begin over `QUARTER`,
     /// which the rest of the overview is narrowed to; none for today.
     span: SlotPick,
@@ -211,6 +213,7 @@ impl Detail {
             })
             .detach();
         }
+        self.read_commit_paths(&checkout, &path, cx);
         let ids: Vec<CommitId> = (self.unseen(&checkout.0, checkout.1.as_deref(), cx).iter())
             .map(|commit| commit.id)
             .collect();
@@ -379,16 +382,6 @@ impl Detail {
             .map(|at| at.div_euclid(QUARTER))
             .collect();
         let people: HashSet<&str> = scoped.iter().map(|commit| who(commit)).collect();
-        let (hot, hot_said) = match &range {
-            Some(range) => (
-                activity.map(|a| a.hot_files(inside)),
-                format!("writes · {range}"),
-            ),
-            None => (
-                activity.map(|a| a.hot_files(|at| at > now - 3600)),
-                "writes · last hour".to_owned(),
-            ),
-        };
         let tiles = [
             match range {
                 Some(_) => ("Commits", grouped(scoped.len()), "Commits made here then"),
@@ -441,7 +434,7 @@ impl Detail {
                     .child({
                         // Side by side where both fit, as the tiles wrap, so Today shows
                         // without scrolling in an ordinary window.
-                        let hot = self.now_hot_files(hot.unwrap_or_default(), hot_said, theme, cx);
+                        let hot = self.now_hot_files(&scoped, range.as_deref(), theme, cx);
                         let who = self.now_people(&scoped, range.as_deref(), theme, cx);
                         h_flex().flex_wrap().items_start().children(
                             [hot, who].into_iter().flatten().map(|section| {
@@ -654,17 +647,28 @@ impl Detail {
             .update(cx, |store, cx| store.review(project, ids, cx))
     }
 
-    /// The files written most, `hot`, when `said` says. Clicking one lists only the commits
-    /// that changed it under Today, as an area filters what shipped; Clear lets go of it.
+    /// The files most of `commits` changed, today's or those of the quarters picked, `range`,
+    /// once read. Clicking one lists only the commits that changed it under Today, as an area
+    /// filters what shipped; Clear lets go of it.
     fn now_hot_files(
         &self,
-        mut hot: Vec<(Arc<str>, usize)>,
-        said: String,
+        commits: &[&Commit],
+        range: Option<&str>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<Div> {
+        let mut counts: HashMap<&str, usize> = HashMap::new();
+        for paths in commits.iter().filter_map(|c| self.now.paths.get(&c.id)) {
+            for path in paths {
+                *counts.entry(path).or_default() += 1;
+            }
+        }
+        let mut hot: Vec<(Arc<str>, usize)> = (counts.into_iter())
+            .map(|(path, n)| (path.into(), n))
+            .collect();
+        hot.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
         let picked = self.now.file.as_ref();
-        // The one picked stays, with its Clear, once it's no longer written.
+        // The one picked stays, with its Clear, once no commit listed changed it.
         if let Some(picked) = picked.filter(|p| !hot.iter().any(|(path, _)| path == *p)) {
             hot.push((picked.clone(), 0));
         }
@@ -675,7 +679,11 @@ impl Detail {
                 .style(ButtonStyle::Ghost)
                 .on_click(cx.listener(|this, _, _, cx| this.pick_hot_file(None, cx)))
                 .into_any_element(),
-            None => faint(said, theme).into_any_element(),
+            None => faint(
+                range.map_or("commits today".to_owned(), |r| format!("commits · {r}")),
+                theme,
+            )
+            .into_any_element(),
         };
         let shown = self.now_shown("now-hot-more", HOT_SHOWN);
         let listed = |ix: usize, path: &Arc<str>| ix < shown || picked == Some(path);
@@ -720,34 +728,36 @@ impl Detail {
         )
     }
 
-    /// List only the commits that changed `file` under Today, or all with `None`, reading
-    /// which files today's commits change first, unless known.
+    /// List only the commits that changed `file` under Today, or all with `None`.
     fn pick_hot_file(&mut self, file: Option<Arc<str>>, cx: &mut Context<Self>) {
         self.now.file = file.filter(|file| self.now.file.as_ref() != Some(file));
         cx.notify();
-        let Some((project, worktree)) = self
-            .now
-            .checkout
-            .clone()
-            .filter(|_| self.now.file.is_some())
-        else {
+    }
+
+    /// Read which files `checkout`'s commits change, those of today and of the hours the
+    /// activity can pick, unless read already or being read, for Hot files and its filter.
+    fn read_commit_paths(
+        &mut self,
+        checkout: &(ProjectId, Option<Arc<str>>),
+        path: &Path,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(ws) = self.store.read(cx).workspace(&checkout.0) else {
             return;
         };
-        let store = self.store.read(cx);
-        let (Some(ws), Some(path)) = (store.workspace(&project), store.path(&project)) else {
-            return;
-        };
-        // Today's commits, and those of the quarters the activity can pick.
         let now = crate::ui::now();
         let since = upstream::day_start(upstream::day_of(now)).min(now - QUARTER * BARS as i64);
-        let unread: Vec<CommitId> = (checkout_commits(ws, worktree.as_deref()).into_iter())
-            .filter(|commit| commit.time >= since && !self.now.paths.contains_key(&commit.id))
+        let known =
+            |id: &CommitId| self.now.paths.contains_key(id) || self.now.reading.contains(id);
+        let unread: Vec<CommitId> = (checkout_commits(ws, checkout.1.as_deref()).into_iter())
+            .filter(|commit| commit.time >= since && !known(&commit.id))
             .map(|commit| commit.id)
             .collect();
         if unread.is_empty() {
             return;
         }
-        let read_for = (project, worktree);
+        self.now.reading.extend(unread.iter().copied());
+        let (path, read_for) = (path.to_owned(), checkout.clone());
         let paths = backend::run(move || backend::commit_paths(&path, &unread));
         cx.spawn(async move |this, cx| {
             let paths = paths.await;
@@ -755,6 +765,8 @@ impl Detail {
                 if this.now.checkout.as_ref() != Some(&read_for) {
                     return;
                 }
+                // Read again on the next load when this failed.
+                this.now.reading.clear();
                 match paths {
                     Ok(paths) => this.now.paths.extend(paths),
                     Err(err) => tracing::warn!("couldn't read which files commits change: {err:#}"),

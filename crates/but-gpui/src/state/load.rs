@@ -115,7 +115,7 @@ impl Store {
                                 .activity
                                 .entry(checkout)
                                 .or_default()
-                                .record(now, paths);
+                                .record(now, paths.len() as u32);
                         }
                         reloads.entry(id).or_default().add(git, linked);
                     }
