@@ -31,7 +31,9 @@ import type { HookContext } from "$lib/state/context";
 import type { Prettify } from "@gitbutler/shared/utils/typeUtils";
 
 /** Extra properties included for event tracking. */
-export type EventProperties = { [key: string]: string | number | boolean | undefined };
+export type EventProperties = {
+	[key: string]: string | number | boolean | string[] | undefined;
+};
 
 /** A callback function for getting extra properties for event tracking. */
 export type PropertiesFn = () => EventProperties;

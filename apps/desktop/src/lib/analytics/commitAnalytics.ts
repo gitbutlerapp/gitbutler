@@ -1,3 +1,4 @@
+import { fileLanguages } from "$lib/analytics/fileLanguages";
 import { autoSelectBranchNameFeature, stagingBehaviorFeature } from "$lib/config/uiFeatureFlags";
 import { StackService } from "$lib/stacks/stackService.svelte";
 import { UiState } from "$lib/state/uiState.svelte";
@@ -7,7 +8,7 @@ import { get } from "svelte/store";
 import type { ProjectsService } from "$lib/project/projectsService";
 import type { Stack } from "$lib/stacks/stack";
 import type { EventProperties } from "$lib/state/customHooks.svelte";
-import type { HunkAssignment } from "@gitbutler/but-sdk";
+import type { DiffSpec, HunkAssignment } from "@gitbutler/but-sdk";
 import type { Commit, Segment } from "@gitbutler/but-sdk";
 import type { FModeManager } from "@gitbutler/ui-svelte/focus/fModeManager";
 
@@ -27,6 +28,7 @@ export class CommitAnalytics {
 		stackId: string;
 		selectedBranchName: string;
 		message: string;
+		changes: DiffSpec[];
 		parentId?: string;
 		isRichTextMode?: boolean;
 	}): Promise<EventProperties> {
@@ -91,6 +93,8 @@ export class CommitAnalytics {
 				fKeyActivations: this.fModeManager.activations,
 				// Whether gerrit mode is enabled for this project
 				gerritMode: project.gerrit_mode,
+				// Languages of the committed files
+				fileLanguages: fileLanguages(args.changes),
 				// Behavior metrics
 				...this.getBehaviorMetrics(),
 			};
