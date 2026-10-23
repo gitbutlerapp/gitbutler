@@ -2,30 +2,28 @@
 
 use std::time::Duration;
 
-use anyhow::{Context, Result};
-use curl::easy::Easy;
+use reqwest::{
+    blocking::{Client, Response},
+    redirect::Policy,
+};
 
 const REQUEST_TIMEOUT_SECS: u64 = 300;
 const CONNECT_TIMEOUT_SECS: u64 = 10;
-const MAX_REDIRECTS: u32 = 5;
+const MAX_REDIRECTS: usize = 5;
 const USER_AGENT: &str = concat!(
     "GitButler-Installer/",
     env!("CARGO_PKG_VERSION"),
     " (Rust installer)"
 );
 
-/// Create a configured curl Easy handle with appropriate timeouts and user agent
-pub(crate) fn create_client() -> Result<Easy> {
-    let mut easy = Easy::new();
-    easy.useragent(USER_AGENT)
-        .context("Failed to set user agent")?;
-    easy.timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
-        .context("Failed to set timeout")?;
-    easy.connect_timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS))
-        .context("Failed to set connect timeout")?;
-    easy.follow_location(true)
-        .context("Failed to enable redirect following")?;
-    easy.max_redirections(MAX_REDIRECTS)
-        .context("Failed to set max redirects")?;
-    Ok(easy)
+/// Send a GET request, following redirects, and return the response with its body still unread.
+pub(crate) fn get(url: &str) -> reqwest::Result<Response> {
+    Client::builder()
+        .user_agent(USER_AGENT)
+        .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+        .connect_timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS))
+        .redirect(Policy::limited(MAX_REDIRECTS))
+        .build()?
+        .get(url)
+        .send()
 }
