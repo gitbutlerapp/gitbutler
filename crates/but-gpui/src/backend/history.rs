@@ -584,9 +584,8 @@ pub enum Undone {
 
 /// Undo the operation that recorded `snapshot`, but only while it's the latest thing to
 /// undo: the log is shared with the CLI and agents, and restoring anything else would take
-/// back more than the user asked for. With `newer_than`, it also stops for uncommitted files
-/// written after that time, in milliseconds since the Unix epoch, outside its spans: the
-/// app's own undos, which write files too.
+/// back more than the user asked for. With `newer_than`, it also stops for the files
+/// [`written_since`] then.
 pub fn undo_snapshot(
     path: &Path,
     snapshot: SnapshotId,

@@ -396,13 +396,8 @@ impl Store {
     /// Undo what the user last did, in whichever project they did it.
     pub fn undo_last(&mut self, cx: &mut Context<Self>) {
         // The newest step not being undone already, as by a ⌘Z just before.
-        let undoing: Vec<SnapshotId> = (self.unfinished_asked())
-            .filter_map(|(o, _)| match o.kind {
-                OpKind::Undo(snapshot) => Some(snapshot),
-                _ => None,
-            })
-            .collect();
-        let last = (self.undo_steps.iter().rev()).find(|step| !undoing.contains(&step.snapshot));
+        let last = (self.undo_steps.iter().rev())
+            .find(|step| !self.pending(&step.project, Some(&OpKind::Undo(step.snapshot)), false));
         // Asked for after it and still running, an operation, a redo too, is what the user
         // means to undo.
         let newer = |asked: Instant| last.is_none_or(|step| asked > step.asked);
@@ -444,14 +439,8 @@ impl Store {
             return self.snack("Wait for the undo to finish, then redo it", cx);
         }
         // The newest not being redone already.
-        let redoing: Vec<SnapshotId> = (self.unfinished_asked())
-            .filter_map(|(o, _)| match o.kind {
-                OpKind::Redo(undo) => Some(undo),
-                _ => None,
-            })
-            .collect();
         let Some((project, undo)) = (self.redo_steps.iter().rev())
-            .find(|(_, undo)| !redoing.contains(undo))
+            .find(|(project, undo)| !self.pending(project, Some(&OpKind::Redo(*undo)), false))
             .cloned()
         else {
             return self.snack("Nothing to redo", cx);
@@ -1433,8 +1422,7 @@ impl Store {
 
     /// Operations quitting now would cut off: the ones running, and the ones waiting.
     pub fn unfinished(&self) -> usize {
-        let running = self.running.values().filter(|r| !r.settling);
-        running.count() + self.queue.len()
+        self.unfinished_asked().count()
     }
 
     /// Operations besides the longest-running one: running elsewhere, or waiting.
