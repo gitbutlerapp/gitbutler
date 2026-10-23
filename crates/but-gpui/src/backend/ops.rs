@@ -2157,6 +2157,33 @@ pub(super) mod tests {
         (dir, commit, diff, edited)
     }
 
+    #[test]
+    fn a_conflicted_deletion_lists_its_file_though_its_tree_changes_nothing() {
+        let dir = repo_with("base\n");
+        let path = dir.path();
+        target_origin_main(path);
+        git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+        std::fs::write(path.join("file"), "edited\n").unwrap();
+        git(path, &["commit", "-q", "-am", "edit"]);
+        let edit = head(path);
+        git(path, &["rm", "-q", "file"]);
+        git(path, &["commit", "-q", "-m", "delete"]);
+        let delete = head(path);
+        let rewritten = move_commits(path, &[delete], &Destination::BelowCommit(edit)).unwrap();
+        let delete = rewritten[&delete];
+
+        let diff = load_diff(path, DiffSource::Commit(delete), None, None, None, None).unwrap();
+        // Below the edit, the deletion conflicts with the file it was to delete and keeps it,
+        // so its tree changes nothing.
+        assert_eq!(diff.len(), 1, "the conflict still lists the file: {diff:?}");
+        assert!(diff[0].file.conflicted, "{:?}", diff[0].file);
+        assert!(
+            matches!(diff[0].body, DiffBody::Unresolvable(_)),
+            "with why it can't be picked: {:?}",
+            diff[0].body
+        );
+    }
+
     /// The line "five b" of `diff`'s one hunk, picked to take out of its commit.
     fn five_b_out(diff: &[FileDiff]) -> Selected {
         let hunk = &diff[0].hunks()[0];

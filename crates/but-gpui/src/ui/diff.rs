@@ -669,9 +669,11 @@ pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
         DiffBody::TooLarge { bytes } => {
             format!("Too large to show ({:.1} MB)", *bytes as f64 / 1_000_000.)
         }
-        DiffBody::Unresolvable(reason) => {
-            format!("Can't be resolved here: {reason}. `but resolve` in a terminal can.")
-        }
+        // The reason is a sentence of its own.
+        DiffBody::Unresolvable(reason) => format!(
+            "{}. Resolve it in a terminal, with `but resolve`.",
+            reason.trim_end_matches('.')
+        ),
         DiffBody::Empty | DiffBody::Hunks { .. } => match (file.file.mode_change(), file.file.kind)
         {
             (Some(mode), _) => mode.to_owned(),

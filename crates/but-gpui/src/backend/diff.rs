@@ -158,30 +158,84 @@ fn add_conflicts(
         Err(err) => return tracing::warn!("couldn't read {commit:?}'s conflicts: {err:#}"),
     };
     for file in &found.files {
-        let conflicts = conflicts_of(file);
-        let ix = match diffs.iter().position(|diff| diff.file.path == file.path) {
-            Some(ix) => ix,
-            None => {
-                diffs.push(FileDiff {
-                    file: file_change(file.change.clone().into()),
-                    body: DiffBody::Empty,
-                    fingerprint: 0,
-                    annotated: true,
-                    scope_lines,
-                    drawing: None,
-                });
-                diffs.len() - 1
-            }
-        };
-        set_conflicts(&mut diffs[ix], conflicts);
+        if let Some(ix) = row(diffs, &file.path, scope_lines, || {
+            Some(file.change.clone().into())
+        }) {
+            set_conflicts(&mut diffs[ix], conflicts_of(file));
+        }
     }
     for manual in found.manual {
-        if let Some(diff) = diffs.iter_mut().find(|diff| diff.file.path == manual.path) {
-            diff.file.conflicted = true;
-            diff.body = DiffBody::Unresolvable(manual.reason);
+        // A deletion that conflicts keeps the file, so the commit's tree may not change it.
+        let change = || {
+            (commit_side(ctx, commit, &manual.path))
+                .inspect_err(|err| tracing::warn!("couldn't read {}: {err:#}", manual.path))
+                .ok()
+                .flatten()
+        };
+        if let Some(ix) = row(diffs, &manual.path, scope_lines, change) {
+            diffs[ix].file.conflicted = true;
+            diffs[ix].body = DiffBody::Unresolvable(manual.reason);
         }
     }
     diffs.sort_by_key(|diff| !diff.file.conflicted);
+}
+
+/// Where `path` is in `diffs`, added as `change` when the diff has nothing of it.
+fn row(
+    diffs: &mut Vec<FileDiff>,
+    path: &str,
+    scope_lines: Option<usize>,
+    change: impl FnOnce() -> Option<but_core::TreeChange>,
+) -> Option<usize> {
+    if let Some(ix) = diffs.iter().position(|diff| diff.file.path == path) {
+        return Some(ix);
+    }
+    diffs.push(FileDiff {
+        file: file_change(change()?),
+        body: DiffBody::Empty,
+        fingerprint: 0,
+        annotated: true,
+        scope_lines,
+        drawing: None,
+    });
+    Some(diffs.len() - 1)
+}
+
+/// What conflicted `commit` does to `path`: from its parent's version to its own side's, as
+/// its other conflicted files show, which also gives a rename's new path a row.
+fn commit_side(
+    ctx: &but_ctx::Context,
+    commit: CommitId,
+    path: &str,
+) -> Result<Option<but_core::TreeChange>> {
+    use but_core::{ChangeState, TreeStatus, commit::TreeKind};
+    use gix::prelude::ObjectIdExt as _;
+    let repo = ctx.repo.get()?;
+    let commit = but_core::Commit::from_id(commit.0.attach(&repo))?;
+    let state = |kind| -> Result<Option<ChangeState>> {
+        let tree = repo.find_tree(commit.tree_id_or_kind(kind)?)?;
+        Ok(tree.lookup_entry_by_path(path)?.map(|entry| ChangeState {
+            id: entry.object_id(),
+            kind: entry.mode().kind(),
+        }))
+    };
+    let status = match (state(TreeKind::Ours)?, state(TreeKind::Theirs)?) {
+        (None, Some(state)) => TreeStatus::Addition {
+            state,
+            is_untracked: false,
+        },
+        (Some(previous_state), None) => TreeStatus::Deletion { previous_state },
+        (Some(previous_state), Some(state)) => TreeStatus::Modification {
+            previous_state,
+            state,
+            flags: None,
+        },
+        (None, None) => return Ok(None),
+    };
+    Ok(Some(but_core::TreeChange {
+        path: path.into(),
+        status,
+    }))
 }
 
 /// Give the conflicted files among the uncommitted `diffs` their conflicts, read from the
