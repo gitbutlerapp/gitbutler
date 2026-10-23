@@ -6,7 +6,9 @@ use std::cell::Cell;
 use std::collections::{BTreeSet, HashSet};
 use std::time::{Duration, Instant};
 
-use gpui::{AnyElement, Context, Pixels, SharedString, div, prelude::*};
+use gpui::{
+    AnyElement, Context, MouseButton, MouseDownEvent, Pixels, Point, SharedString, div, prelude::*,
+};
 
 mod shipped;
 
@@ -18,7 +20,8 @@ use super::panes::{
 use super::pull_request::TABS_HEIGHT;
 use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, Person, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, Forge};
-use crate::state::{ProjectId, Selection};
+use crate::overlays::MenuItem;
+use crate::state::{Cut, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::emoji::ProjectIcon;
 use crate::ui::illustration::Illustration;
@@ -1088,6 +1091,63 @@ impl Detail {
         self.show_picked(cx);
     }
 
+    /// Select the target's commit `merge`, or the one of its commits `merged`, and offer what
+    /// applies to it there: its merged commits shown or hidden, its pull request opened and
+    /// its ID copied, as for a branch's. Only one the workspace doesn't have yet is
+    /// cherry-picked into a branch, as the others are already under every branch, and not a
+    /// merge.
+    fn target_commit_menu(
+        &mut self,
+        project: &ProjectId,
+        merge: CommitId,
+        merged: Option<CommitId>,
+        at: Point<Pixels>,
+        cx: &mut Context<Self>,
+    ) {
+        self.pick_on_page(project, Picked::Commit(merge), merged, cx);
+        let Some(upstream) = self.upstream_for(project) else {
+            return;
+        };
+        let Some(commit) = upstream.commits.iter().find(|c| c.id == merge) else {
+            return;
+        };
+        let mut items = Vec::new();
+        if merged.is_none() {
+            let shown = project.clone();
+            if commit.merge {
+                let label = match upstream.view.open_merges.contains(&merge) {
+                    true => "Hide commits",
+                    false => "Show commits",
+                };
+                items.push(MenuItem::new(label, move |app, _, cx| {
+                    (app.detail).update(cx, |detail, cx| detail.toggle_merge(&shown, merge, cx))
+                }));
+            }
+            if commit.incoming && !commit.merge {
+                let picked = project.clone();
+                items.push(MenuItem::new("Cherry-pick", move |app, _, cx| {
+                    app.cut(Cut::CherryPick(picked.clone(), [merge].into()), cx)
+                }));
+            }
+            if let Some(url) = (commit.review.as_ref()).and_then(|r| r.url.clone()) {
+                items.push(MenuItem::new("Open pull request", move |_, _, cx| {
+                    cx.open_url(&url)
+                }));
+            }
+        }
+        let id = merged.unwrap_or(merge);
+        let copy = MenuItem::new("Copy commit ID", move |app, _, cx| {
+            app.copy_text(id.0.to_string(), cx)
+        });
+        items.push(match items.is_empty() {
+            true => copy,
+            false => copy.separated(),
+        });
+        (self.app)
+            .update(cx, |app, cx| app.open_menu(at, items, cx))
+            .ok();
+    }
+
     /// → in the list: open the picked merge, or step into its commits when it's open, as
     /// on the Branches page. ← folds it, or steps from one of its commits back up to it.
     fn fold_upstream(&mut self, open: bool, cx: &mut Context<Self>) {
@@ -1522,6 +1582,22 @@ impl Detail {
                                             this.pick_on_page(&project, picked, Some(id), cx)
                                         }
                                     }))
+                                    .on_mouse_down(
+                                        MouseButton::Right,
+                                        cx.listener({
+                                            let project = upstream.project.clone();
+                                            move |this, event: &MouseDownEvent, _, cx| {
+                                                let at = event.position;
+                                                this.target_commit_menu(
+                                                    &project,
+                                                    merge,
+                                                    Some(id),
+                                                    at,
+                                                    cx,
+                                                )
+                                            }
+                                        }),
+                                    )
                                     .into_any_element()
                             }
                             Row::Commit(commit_ix) => {
@@ -1604,6 +1680,16 @@ impl Detail {
                                             )
                                         }
                                     }))
+                                    .on_mouse_down(
+                                        MouseButton::Right,
+                                        cx.listener({
+                                            let project = upstream.project.clone();
+                                            move |this, event: &MouseDownEvent, _, cx| {
+                                                let at = event.position;
+                                                this.target_commit_menu(&project, id, None, at, cx)
+                                            }
+                                        }),
+                                    )
                                     .into_any_element()
                             }
                             // A page at a time, on a click, saying so while it reads.
