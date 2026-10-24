@@ -106,15 +106,19 @@ impl Store {
                     let mut reloads: HashMap<ProjectId, Reload> = HashMap::new();
                     let now = crate::ui::now();
                     for (id, git, linked, paths) in events {
-                        // What the app's own operations write isn't activity in the checkout.
+                        // What the app's own operations write isn't activity in the checkout,
+                        // nor is what a repository cloned inside it writes to its own .git.
                         let own = store.running.contains_key(&id) || store.own_write(&id, now);
-                        if !paths.is_empty() && !own {
+                        let saved = (paths.iter())
+                            .filter(|path| !path.split('/').any(|part| part == ".git"))
+                            .count();
+                        if saved > 0 && !own {
                             let checkout = (id.clone(), linked.clone());
                             store
                                 .activity
                                 .entry(checkout)
                                 .or_default()
-                                .record(now, paths.len() as u32);
+                                .record(now, saved as u32);
                         }
                         reloads.entry(id).or_default().add(git, linked);
                     }
