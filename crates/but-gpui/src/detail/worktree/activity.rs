@@ -44,8 +44,9 @@ fn quarters_said(quarters: &BTreeSet<i64>, now: i64) -> Option<String> {
     (!runs.is_empty()).then(|| said.collect::<Vec<_>>().join(", "))
 }
 
-/// `commits` by how far they've got, as a bar, glyphed and coloured as the navigator's commits
-/// are: landed on the target, pushed, and only here; it reads as how far along. With none, an
+/// `commits` by how far they've got, as a bar, glyphed as the navigator's commits are: landed
+/// on the target, pushed, and only here; it reads as how far along. Commits only here fill in
+/// grey, darker than pushed ones, so the page adds no colour beside the edits' teal. With none, an
 /// empty bar holds its place, so picking a quiet quarter moves nothing under it.
 fn commits_split(commits: &[&Commit], theme: &Theme) -> gpui::AnyElement {
     let count = |state: CommitState| commits.iter().filter(|c| c.state == state).count();
@@ -68,7 +69,7 @@ fn commits_split(commits: &[&Commit], theme: &Theme) -> gpui::AnyElement {
             (
                 Icon::Commit,
                 theme.blue,
-                theme.blue,
+                theme.text_2,
                 "not pushed".to_owned(),
                 count(CommitState::Local),
             ),
@@ -157,7 +158,7 @@ impl Detail {
                 "Commits",
                 grouped(scoped.len()),
                 "Commits made here then",
-                Some(theme.blue),
+                Some(theme.text_2),
             ),
             (
                 "Files changed",
@@ -199,8 +200,8 @@ impl Detail {
                     tip.push_str(&format!(" · {}", plural(landed, "commit")));
                 }
                 let (edit, commit) = match inside {
-                    true => (theme.pop, theme.blue),
-                    false => (theme.pop.opacity(0.2), theme.blue.opacity(0.25)),
+                    true => (theme.pop, theme.text_2),
+                    false => (theme.pop.opacity(0.2), theme.text_2.opacity(0.25)),
                 };
                 let column = v_flex()
                     .id(("now-quarter", ix))
