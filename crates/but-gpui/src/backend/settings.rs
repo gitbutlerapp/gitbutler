@@ -154,9 +154,11 @@ pub fn set_sign_commits(path: &Path, sign: bool) -> Result<()> {
     config::set_gb_config(&open(path)?, git)
 }
 
-/// Sign a test commit with the project's settings, to tell whether signing works.
+/// Sign a test commit with the project's settings, to tell whether signing works, or why not
+/// in the signing program's own words, as a failed commit says it.
 pub fn test_signing(path: &Path) -> Result<()> {
-    but_api::legacy::repo::check_signing_settings(&open(path)?)?;
+    but_api::legacy::repo::check_signing_settings(&open(path)?)
+        .map_err(|err| anyhow::anyhow!(super::signing_failure(&err)))?;
     Ok(())
 }
 
