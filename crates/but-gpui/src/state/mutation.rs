@@ -965,6 +965,24 @@ impl Store {
         draft: bool,
         cx: &mut Context<Self>,
     ) {
+        let again = {
+            let (project, ref_name) = (project.clone(), ref_name.clone());
+            let (title, body) = (title.clone(), body.clone());
+            move |store: &mut Store, cx: &mut Context<Store>| {
+                let (title, body) = (title.clone(), body.clone());
+                store.publish(&project, ref_name.clone(), title, body, draft, cx)
+            }
+        };
+        // The queue turns an operation down with only a snackbar while a commit is being
+        // edited, as in `but resolve`, which would lose what was typed: the card keeps it.
+        if self
+            .workspace(project)
+            .is_some_and(|ws| ws.editing.is_some())
+        {
+            let said = self.card_title(project, "Couldn't create the pull request".to_owned());
+            let why = "Finish or cancel editing the commit first.";
+            return self.error_with_retry(said, why, "Try again", again, cx);
+        }
         let published = project.clone();
         let run_hooks = self.runs_hooks(project);
         self.run(
@@ -1002,16 +1020,8 @@ impl Store {
                     }
                     Err(failed) => {
                         let said = "Couldn't create the pull request".to_owned();
-                        store.error_with_retry(
-                            store.card_title(&published, said),
-                            failed,
-                            "Try again",
-                            move |store, cx| {
-                                let (title, body) = (title.clone(), body.clone());
-                                store.publish(&published, ref_name.clone(), title, body, draft, cx)
-                            },
-                            cx,
-                        );
+                        let said = store.card_title(&published, said);
+                        store.error_with_retry(said, failed, "Try again", again, cx);
                     }
                 }
             },
