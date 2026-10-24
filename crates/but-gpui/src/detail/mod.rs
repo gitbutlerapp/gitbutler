@@ -510,6 +510,8 @@ impl Detail {
                         this.skip_taken(cx);
                     }
                 }
+                // The app view asks for it.
+                StoreEvent::AuthorMissing(_) => {}
             }),
             cx.subscribe_in(
                 &file_filter,

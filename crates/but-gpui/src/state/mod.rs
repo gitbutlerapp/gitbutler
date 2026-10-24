@@ -170,6 +170,9 @@ pub enum StoreEvent {
     /// An operation on a project was queued, started or finished, which hides or shows
     /// what it takes away.
     Pending(ProjectId),
+    /// Git has no author to record commits with in a project: ask for the user's name and
+    /// email.
+    AuthorMissing(ProjectId),
 }
 
 /// An error card's button: its label, and what it runs.
@@ -256,6 +259,9 @@ pub struct Store {
     staying: bool,
     /// A project just added, until its first load says which page it opens on.
     added: Option<ProjectId>,
+    /// Whether the user was asked for Git's missing author since the app started: once is
+    /// enough, as it's set for every repository.
+    asked_author: bool,
     /// What the pointer is dragging, followed as agents rewrite it: GPUI's own copy stays as
     /// the drag began. Only meaningful while GPUI has a drag active.
     pub dragging: Option<Cut>,
@@ -399,6 +405,7 @@ impl Store {
             followed: None,
             staying: false,
             added: None,
+            asked_author: false,
             dragging: None,
             drop_at: None,
             toasts: Vec::new(),

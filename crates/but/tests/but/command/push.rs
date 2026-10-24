@@ -296,6 +296,33 @@ fn push_uses_tracking_remote_when_branch_tracks_another_remote() {
 }
 
 #[test]
+fn push_makes_the_pushed_branch_the_upstream() {
+    let env = repo_with_unpushed_branch();
+
+    env.but("push branchB").assert().success();
+
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref branchB@{upstream}"),
+        "origin/branchB",
+        "a first push tracks the remote branch, as `git push -u` does"
+    );
+}
+
+#[test]
+fn push_keeps_an_upstream_already_configured() {
+    let env = repo_with_unpushed_branch();
+    configure_other_tracking_remote(&env);
+
+    env.but("push branchB").assert().success();
+
+    assert_eq!(
+        env.invoke_git("rev-parse --abbrev-ref branchB@{upstream}"),
+        "other/branchB",
+        "the user's own upstream stays"
+    );
+}
+
+#[test]
 fn push_refuses_conflicted_commits() {
     let env = sandbox_with_conflicted_commit();
 

@@ -12,7 +12,7 @@ use crate::navigator::Navigator;
 use crate::overlays::{ContextMenu, Prompt};
 use crate::palette::Palette;
 use crate::projects::pick_folder;
-use crate::state::{Cut, MeshPick, Pane, ProjectId, Selection, Store, snack};
+use crate::state::{Cut, MeshPick, Pane, ProjectId, Selection, Store, StoreEvent, snack};
 use crate::theme::{Theme, UiScale};
 use crate::transfer::{Place, Transfer};
 use crate::ui::{HEADER_HEIGHT, dp, resize_pane};
@@ -199,6 +199,11 @@ impl AppView {
                     snack(&this.store, why, cx);
                 }
                 cx.notify()
+            }),
+            cx.subscribe_in(&store, window, |this, _, event, window, cx| {
+                if let StoreEvent::AuthorMissing(project) = event {
+                    this.ask_author(project.clone(), window, cx);
+                }
             }),
             cx.observe_window_appearance(window, |this, window, cx| {
                 this.apply_appearance(window, cx)

@@ -147,6 +147,20 @@ pub fn rename_project(id: &str, name: String) -> Result<()> {
     )
 }
 
+/// Whether Git has no author for the project at `path` to record commits with, as on a
+/// machine where `user.name` and `user.email` were never set.
+pub fn author_missing(path: &Path) -> Result<bool> {
+    let author = config::get_author_info(&open(path)?)?;
+    Ok(author.name.is_none() || author.email.is_none())
+}
+
+/// Make `name` and `email` the author in the user's global Git config where it has none, as
+/// GitButler's desktop app does.
+pub fn set_author(path: &Path, name: &str, email: &str) -> Result<()> {
+    let (name, email) = (name.trim().to_owned(), email.trim().to_owned());
+    config::store_author_globally_if_unset(&open(path)?, name, email)
+}
+
 /// Only the fields set are written to the repository's own config; what it reads from the
 /// user's global config stays there.
 pub fn set_sign_commits(path: &Path, sign: bool) -> Result<()> {

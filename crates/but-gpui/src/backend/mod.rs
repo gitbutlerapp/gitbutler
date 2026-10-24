@@ -119,8 +119,21 @@ fn last_written(git_dir: &Path, files: &[&str]) -> Option<i64> {
         .map(|since| since.as_secs() as i64)
 }
 
+/// A folder that isn't in a Git repository and holds none: `git init` makes it one to add.
+#[derive(Debug)]
+pub struct NotARepository;
+
+impl std::fmt::Display for NotARepository {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("It isn't a Git repository yet.")
+    }
+}
+
+impl std::error::Error for NotARepository {}
+
 /// Register the repository at `path` with GitButler, so it shows up in [`list_projects()`].
-/// Returns its id, and whether GitButler had it already, as from a folder inside it.
+/// Returns its id, and whether GitButler had it already, as from a folder inside it. A folder
+/// that could become a repository fails with [`NotARepository`].
 pub fn add_project(path: &Path) -> Result<(String, bool)> {
     use AddProjectOutcome as O;
     use gitbutler_project::AddProjectOutcome;
@@ -129,7 +142,15 @@ pub fn add_project(path: &Path) -> Result<(String, bool)> {
         O::AlreadyExists(project) => return Ok((project.id.to_string(), true)),
         O::PathNotFound => "it doesn't exist",
         O::NotADirectory => "it isn't a folder",
-        O::NotAGitRepository(_) | O::NoDotGitDirectory => "it isn't a Git repository",
+        // A folder of projects, picked instead of one of them.
+        O::NotAGitRepository(_) | O::NoDotGitDirectory => match repositories_in(path)[..] {
+            [] => return Err(NotARepository.into()),
+            [ref one] => &format!("it isn't a Git repository, but {one} in it is. Add that"),
+            [ref one, ref two, ..] => &format!(
+                "it isn't a Git repository, but folders in it are, like {one} and {two}. \
+                 Add one of those"
+            ),
+        },
         // A worktree of a bare clone has files, a layout some keep agents' worktrees in.
         O::BareRepository if gix::discover(path).is_ok_and(|repo| repo.workdir().is_some()) => {
             "it's a worktree of a bare repository, and GitButler needs one with a main worktree"
@@ -138,7 +159,26 @@ pub fn add_project(path: &Path) -> Result<(String, bool)> {
         O::NonMainWorktree => "it's a linked worktree. Add the repository it belongs to",
         O::ReftableRefFormatUnsupported => "GitButler can't read its reftable references yet",
     };
-    anyhow::bail!("{} can't be added: {why}.", path.display())
+    // The folder just picked, by name: a card has room for a few lines.
+    let name = path.file_name().map_or(path.as_os_str(), |name| name);
+    anyhow::bail!("{} can't be added: {why}.", name.display())
+}
+
+/// The names of the folders right inside `path` that are Git repositories, sorted.
+fn repositories_in(path: &Path) -> Vec<String> {
+    let mut names: Vec<String> = (std::fs::read_dir(path).into_iter().flatten().flatten())
+        .filter(|entry| entry.path().join(".git").exists())
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    names
+}
+
+/// Make the folder `path` a Git repository, as `git init` does.
+pub fn init_repository(path: &Path) -> Result<()> {
+    gix::init(path)
+        .with_context(|| format!("Couldn't make {} a Git repository", path.display()))?;
+    Ok(())
 }
 
 /// Take the project out of GitButler. The repository stays as it is on disk.
@@ -297,10 +337,10 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         worktree.branches = worktree_branches(&ctx, &cached, segments, &stacks);
     }
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "loaded workspace");
+    let target_branch = (meta.and_then(|meta| meta.target_ref)).map(|name| name.to_string());
     // The oplog records a snapshot against the target, so without one set it records none.
-    // One whose upstream went still records, against the commit it last had.
-    let unrecorded =
-        head.is_none() || tree.is_none() || (target.is_none() && lost_target.is_none());
+    // One whose upstream went, or isn't there yet, still records, against its stored commit.
+    let unrecorded = head.is_none() || tree.is_none() || target_branch.is_none();
     Ok(Workspace {
         target,
         lost_target,
@@ -309,9 +349,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         uncommitted,
         tree,
         managed,
-        target_branch: meta
-            .and_then(|meta| meta.target_ref)
-            .map(|name| name.to_string()),
+        target_branch,
         git_operation,
         unrecorded,
         remoteless,
@@ -351,7 +389,10 @@ fn target(
         return Ok((None, None));
     };
     let Some(tip) = ref_tip(&repo, source.as_ref()) else {
-        return Ok((None, Some(source.shorten().to_string())));
+        // Its upstream went, as when the remote deleted or renamed it, unless the remote has
+        // no branches at all, as a repository just made on a forge before its first push.
+        let lost = remote_has_branches(&repo, source.as_ref());
+        return Ok((None, lost.then(|| source.shorten().to_string())));
     };
     // The stored commit is walked once, though most stacks sit on it too.
     let past = |base| (commits_past(&repo, tip, base), base);
@@ -531,6 +572,25 @@ pub(crate) fn target_source(
                 .to_owned(),
         ),
     }
+}
+
+/// Whether the remote that remote-tracking branch `name` is of has any branches here.
+fn remote_has_branches(repo: &gix::Repository, name: &gix::refs::FullNameRef) -> bool {
+    let Some((remote, _)) =
+        but_core::extract_remote_name_and_short_name(name, &repo.remote_names())
+    else {
+        return false;
+    };
+    let Ok(refs) = repo.references() else {
+        return false;
+    };
+    let prefix = format!("refs/remotes/{remote}/");
+    (refs
+        .prefixed(prefix.as_str())
+        .into_iter()
+        .flatten()
+        .flatten())
+    .any(|branch| !branch.name().as_bstr().ends_with(b"/HEAD"))
 }
 
 /// The commit `name` points at, if it's there.
@@ -906,6 +966,11 @@ pub fn target_choice(path: &Path, err: &anyhow::Error) -> Option<TargetChoice> {
         branches,
         named,
     })
+}
+
+/// Whether `err` is Git having no author to record a commit with.
+pub fn is_author_missing(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<but_error::Code>() == Some(&but_error::Code::AuthorMissing)
 }
 
 /// What a failed operation's card says: the engine's own words, except where those name a

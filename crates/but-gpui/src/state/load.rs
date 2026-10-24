@@ -287,6 +287,7 @@ impl Store {
     pub fn add_project(&mut self, path: PathBuf, cx: &mut Context<Self>) {
         self.project_edits += 1;
         cx.spawn(async move |this, cx| {
+            let folder = path.clone();
             let result = backend::run(move || {
                 let added = backend::add_project(&path)?;
                 backend::list_projects().map(|projects| (projects, added))
@@ -307,11 +308,39 @@ impl Store {
                         _ => store.added = Some(id),
                     }
                 }
+                Err(err) if err.is::<backend::NotARepository>() => store.offer_init(folder, cx),
                 Err(err) => store.failed("Couldn't add the project", &err, cx),
             })
             .ok();
         })
         .detach();
+    }
+
+    /// Offer to make `folder`, which isn't a Git repository, one, then add it.
+    fn offer_init(&mut self, folder: PathBuf, cx: &mut Context<Self>) {
+        let name = (folder.file_name()).map_or_else(
+            || folder.display().to_string(),
+            |name| name.to_string_lossy().into_owned(),
+        );
+        self.error_with_retry(
+            format!("{name} isn't a Git repository yet"),
+            "GitButler can make it one, as git init does, then add it.",
+            "Initialize Git",
+            move |_, cx| {
+                let folder = folder.clone();
+                cx.spawn(async move |this, cx| {
+                    let path = folder.clone();
+                    let made = backend::run(move || backend::init_repository(&path)).await;
+                    this.update(cx, |store, cx| match made {
+                        Ok(()) => store.add_project(folder, cx),
+                        Err(err) => store.failed("Couldn't initialize Git", &err, cx),
+                    })
+                    .ok();
+                })
+                .detach();
+            },
+            cx,
+        );
     }
 
     /// Take `id` out of GitButler; its repository stays on disk.
@@ -457,7 +486,10 @@ impl Store {
             let watch_id = id.clone();
             let watcher = backend::run(move || {
                 backend::activate(&project.path)?;
-                watch(&project, watch_id, changes)
+                // Asked before the first commit fails for it, as the desktop app does.
+                let author_missing =
+                    backend::settings::author_missing(&project.path).unwrap_or(false);
+                Ok((watch(&project, watch_id, changes)?, author_missing))
             })
             .await;
             this.update(cx, |store, cx| {
@@ -470,11 +502,14 @@ impl Store {
                     entry.queued = None;
                 }
                 match watcher {
-                    Ok(watcher) => {
+                    Ok((watcher, author_missing)) => {
                         if entry.expanded {
                             entry.watcher = Some(watcher);
                         }
                         store.refresh_forge(&id);
+                        if author_missing && !std::mem::replace(&mut store.asked_author, true) {
+                            cx.emit(StoreEvent::AuthorMissing(id.clone()));
+                        }
                     }
                     Err(err) => {
                         tracing::warn!("Couldn't open {}: {err:#}", entry.project.name);
@@ -582,8 +617,10 @@ impl Store {
                     store.validate_selection(&id, cx);
                 }
                 // A project just added opens on its page while it has no target: that's
-                // where one is picked.
-                let untargeted = store.workspace(&id).is_some_and(|ws| ws.target.is_none());
+                // where one is picked. One without commits stays on its files, as there's no
+                // branch to pick until the first commit makes one, which it then targets.
+                let untargeted = (store.workspace(&id))
+                    .is_some_and(|ws| ws.target.is_none() && ws.tree.is_some());
                 if store.added.take_if(|added| *added == id).is_some()
                     && untargeted
                     && store.selection == Some(Selection::Uncommitted(id.clone()))
