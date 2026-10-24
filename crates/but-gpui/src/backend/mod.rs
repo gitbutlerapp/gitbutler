@@ -917,10 +917,10 @@ pub fn failure_detail(err: &anyhow::Error) -> String {
                 .to_owned()
         }
         // The engine turns signing off for the project then, and the next commit would
-        // quietly go unsigned.
+        // quietly go unsigned. Why first, as the card shows a few lines.
         Some(but_error::Code::CommitSigningFailed) => format!(
-            "Signing it failed, which turns commit signing off for this project unless it's \
-             on in your global Git config. Check Sign commits in Project settings.\n{}",
+            "{}\nThat turns commit signing off for this project, unless gitbutler.signCommits \
+             is set in your global Git config. Check Sign commits in Project settings.",
             signing_failure(err)
         ),
         // As on a new machine, where the engine's own words name its code.
@@ -1074,8 +1074,8 @@ mod failure_tests {
             .context("Failed to sign commit")
             .context(but_error::Code::CommitSigningFailed);
         assert!(
-            failure_detail(&err).ends_with("\ngpg: signing failed: No secret key"),
-            "gpg's own last line says why, not how it was run, nor its status lines"
+            failure_detail(&err).starts_with("gpg: signing failed: No secret key\n"),
+            "gpg's own last line says why, first, not how it was run, nor its status lines"
         );
         let err = anyhow::anyhow!(
             but_error::Context::new("Uncommitted files would be overwritten by checkout: \"a.rs\"")
