@@ -9,9 +9,9 @@
 	const settingsStore = settingsService.appSettings;
 	const backend = inject(BACKEND);
 
-	// Only macOS and Windows nightly builds include the native app.
+	// Only the desktop app's nightly builds include the native app.
 	let hasNativeApp = $state(false);
-	if (backend.platformName === "macos" || backend.platformName === "windows") {
+	if (backend.platformName !== "web") {
 		backend.getAppInfo().then((info) => (hasNativeApp = info.name === "GitButler Nightly"));
 	}
 </script>
