@@ -177,7 +177,12 @@ impl Store {
     fn set_projects(&mut self, projects: Vec<Project>, cx: &mut Context<Self>) {
         // What was open last time applies to the first listing only; later ones add
         // projects the user just added, which start closed.
-        let restored = std::mem::take(&mut self.restored);
+        // An empty one, as when the list couldn't be read and was set aside, keeps what was
+        // watched for when the projects are back.
+        let restored = match projects.is_empty() {
+            true => self.restored.clone(),
+            false => std::mem::take(&mut self.restored),
+        };
         let mut old: Vec<ProjectEntry> = std::mem::take(&mut self.projects);
         // The watched keep the order they were in, the first listing the saved one.
         let order: Vec<ProjectId> = (old.iter().filter(|entry| entry.expanded))

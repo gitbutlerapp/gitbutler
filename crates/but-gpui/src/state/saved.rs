@@ -64,11 +64,10 @@ impl Store {
             .collect();
         activity.sort_by(|a, b| (&a.project, &a.worktree).cmp(&(&b.project, &b.worktree)));
         Saved {
-            expanded: self
-                .projects
-                .iter()
-                .filter(|entry| entry.expanded)
+            // Those saved last time too until the projects are listed, which can fail.
+            expanded: (self.projects.iter().filter(|entry| entry.expanded))
                 .map(|entry| entry.id.to_string())
+                .chain(self.restored.expanded.iter().cloned())
                 .collect(),
             selection: self.selection.as_ref().map(|s| s.project().to_string()),
             seen: self.seen.clone(),
@@ -92,10 +91,15 @@ impl Store {
     pub(super) fn forget_unlisted(&mut self) {
         let listed: HashSet<&str> = self.projects.iter().map(|entry| &*entry.id).collect();
         let listed = |id: &str| listed.contains(id);
-        self.seen.commits.retain(|id, _| listed(id));
+        // What ⌘Z and ⇧⌘Z would do in one, which can't be done without it.
         self.undo_steps.retain(|step| listed(&step.project));
         self.redo_steps.retain(|(id, _)| listed(id));
         (self.undid.lock()).retain(|id, _| listed(id));
+        // None listed is more likely a list that couldn't be read than every one removed.
+        if self.projects.is_empty() {
+            return;
+        }
+        self.seen.commits.retain(|id, _| listed(id));
         (self.kept_snapshots.lock()).retain(|id, _| listed(id));
         let since = crate::ui::now() - super::activity::KEPT_FOR;
         (self.activity).retain(|(id, _), activity| {
@@ -252,7 +256,7 @@ impl Pane {
 }
 
 /// The part of the saved state that's only read at startup.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(super) struct Restored {
     pub(super) expanded: Vec<String>,
     pub(super) selection: Option<String>,
