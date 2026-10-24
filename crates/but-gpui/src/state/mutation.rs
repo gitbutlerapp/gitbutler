@@ -1812,17 +1812,17 @@ fn update_conflicts_detail(target: &str, found: &UpdateConflicts) -> String {
 }
 
 /// What an update from `target` did: the branches (full refs) it left `conflicted`, and
-/// the ones that `landed` and went.
+/// the ones that `landed` and went. Several landed branches are counted, not named, to
+/// keep the snackbar to one line.
 fn updated_message(target: &str, conflicted: &[(String, usize)], landed: &[String]) -> String {
     let mut said = vec![format!("Updated from {target}")];
     said.extend(conflicted_parts(conflicted));
-    let landed: Vec<&str> = landed.iter().map(|name| short_ref(name)).collect();
-    match landed.split_last() {
-        None => {}
-        Some((only, [])) => said.push(format!("{only} landed and was removed")),
-        Some((last, rest)) => said.push(format!(
-            "{} and {last} landed and were removed",
-            rest.join(", ")
+    match landed {
+        [] => {}
+        [only] => said.push(format!("{} landed and was removed", short_ref(only))),
+        several => said.push(format!(
+            "{} branches landed and were removed",
+            several.len()
         )),
     }
     // A snackbar is one fragment, so its parts are listed rather than sentences.
@@ -1892,8 +1892,8 @@ mod tests {
                     "refs/heads/c".into()
                 ]
             ),
-            "Updated from origin/main, a, b and c landed and were removed",
-            "several are listed as a sentence lists them"
+            "Updated from origin/main, 3 branches landed and were removed",
+            "several are counted so the snackbar stays one line"
         );
     }
 
