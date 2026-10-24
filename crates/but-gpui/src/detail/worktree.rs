@@ -11,8 +11,8 @@ use gpui::{AnyElement, App, Context, Div, MouseButton, ScrollHandle, div, prelud
 use super::Detail;
 use super::diff_view::files_toggle;
 use super::panes::{
-    clear_button, meta_item, meta_row, overview_column, overview_heading, page_title, share_row,
-    title_text,
+    and_more, clear_button, meta_item, meta_row, overview_column, overview_heading, page_title,
+    share_row, title_text,
 };
 use super::slots::SlotPick;
 use crate::backend::{self, Branch, Commit, CommitId, FileChange, Workspace};
@@ -501,10 +501,7 @@ impl Detail {
                 )
                 .into_any_element()
         });
-        let more = (rest > 0).then(|| {
-            let said = format!("and {rest} more");
-            faint(said, theme).px(dp(14.)).py(dp(4.)).into_any_element()
-        });
+        let more = and_more(rest, theme).map(IntoElement::into_any_element);
         Some(
             v_flex()
                 .child(overview_heading("Hot files", div().children(clear), theme).h(dp(28.)))

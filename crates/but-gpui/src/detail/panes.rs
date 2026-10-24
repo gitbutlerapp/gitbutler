@@ -15,8 +15,7 @@ use gpui::{
 use super::{Detail, machine};
 use crate::app::{AppView, Collapse, Expand, SelectNext, SelectPrevious, StartCommit};
 use crate::backend::{self, CommitId, CommitState, PushState, short_ref};
-use crate::overlays::MenuItem;
-use crate::state::{Cut, ProjectId, Selection};
+use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
 use crate::ui::person::{author_avatar, byline};
@@ -198,20 +197,14 @@ impl Detail {
                             // Shrinking by length as well as width, long crumbs give way first and
                             // short ones, like the project's name or a commit's ID, stay whole.
                             let shrink = crumb.chars().count() as f32;
+                            let text = div().truncate().flex_shrink(shrink).child(crumb);
                             let el = match target.filter(|_| ix != last) {
                                 Some(target) => {
                                     let (app, detail) = (self.app.clone(), cx.entity().downgrade());
                                     // A step darker under the pointer: it's still a quiet trail.
                                     let hover = theme.text_2.blend(theme.text_1.opacity(0.5));
-                                    div()
-                                        .id(("crumb", ix))
+                                    text.id(("crumb", ix))
                                         .hover(move |el| el.text_color(hover))
-                                        .truncate()
-                                        .map(|mut el| {
-                                            el.style().flex_shrink = Some(shrink);
-                                            el
-                                        })
-                                        .child(crumb)
                                         .on_click(move |_, window, cx| match &target {
                                             CrumbTo::Select(selection) => {
                                                 (app.update(cx, |app, cx| {
@@ -235,50 +228,12 @@ impl Detail {
                                         })
                                         .into_any_element()
                                 }
-                                None => div()
-                                    .truncate()
-                                    .map(|mut el| {
-                                        el.style().flex_shrink = Some(shrink);
-                                        el
-                                    })
-                                    .child(crumb)
-                                    .into_any_element(),
+                                None => text.into_any_element(),
                             };
                             sep.into_iter().chain([el])
                         }),
                 ),
             )
-    }
-
-    /// The menu of a commit that isn't in the workspace, on the Branches page or only on a
-    /// branch's remote: cherry-pick it, and those picked with it, or copy its ID.
-    pub(super) fn commit_menu(
-        &self,
-        project: &ProjectId,
-        ids: Arc<[backend::CommitId]>,
-        id: backend::CommitId,
-        at: Point<Pixels>,
-        cx: &mut Context<Self>,
-    ) {
-        let label = match ids.len() {
-            1 => "Cherry-pick".to_owned(),
-            n => format!("Cherry-pick {n} commits"),
-        };
-        let project = project.clone();
-        // None for a merge, which can't be.
-        let pick = (!ids.is_empty()).then(|| {
-            MenuItem::new(label, move |app, _, cx| {
-                app.cut(Cut::CherryPick(project.clone(), ids.clone()), cx)
-            })
-        });
-        let items = (pick.into_iter())
-            .chain([MenuItem::new("Copy commit ID", move |app, _, cx| {
-                app.copy_text(id.0.to_string(), cx)
-            })])
-            .collect();
-        (self.app)
-            .update(cx, |app, cx| app.open_menu(at, items, cx))
-            .ok();
     }
 
     /// A list's filter field, over the list.
@@ -422,15 +377,7 @@ impl Detail {
         let (files, git_operation) = match worktree.map(|name| workspace.find_worktree(name)) {
             None => (&workspace.uncommitted, workspace.git_operation),
             Some(Some(worktree)) => (&worktree.uncommitted, worktree.git_operation),
-            Some(None) => {
-                return empty_state(
-                    Some(Illustration::Papers),
-                    "Worktree not found",
-                    "",
-                    theme,
-                    cx,
-                );
-            }
+            Some(None) => return not_found("Worktree not found", theme, cx),
         };
         // A commit being edited, in the main checkout, is finished or cancelled where a commit
         // would be made.
@@ -485,13 +432,7 @@ impl Detail {
     ) -> AnyElement {
         let store = self.store.read(cx);
         let Some((_, commit)) = store.find_commit(project, id) else {
-            return empty_state(
-                Some(Illustration::Papers),
-                "Commit not found",
-                "",
-                theme,
-                cx,
-            );
+            return not_found("Commit not found", theme, cx);
         };
         let files = self.render_diff_file_list(theme, cx);
         let banner = commit
@@ -647,13 +588,7 @@ impl Detail {
                     .min_w_0()
                     .child(div().min_w_0().truncate().child(names.join(", "))),
             )
-            .when(conflicted > 0, |el| {
-                el.child(
-                    div()
-                        .text_color(theme.warn)
-                        .child(format!("{conflicted} conflicted")),
-                )
-            })
+            .children(conflicted_note(conflicted, theme))
             .when(!one_run, |el| {
                 el.child(
                     div()
@@ -854,13 +789,7 @@ impl Detail {
             n => el
                 .child(meta_item(Icon::Commit, theme).child(plural(n, "commit")))
                 .child(div().text_color(color).child(state))
-                .when(conflicted > 0, |el| {
-                    el.child(
-                        div()
-                            .text_color(theme.warn)
-                            .child(format!("{conflicted} conflicted")),
-                    )
-                }),
+                .children(conflicted_note(conflicted, theme)),
         });
         let main = v_flex()
             .gap(dp(10.))
@@ -961,13 +890,7 @@ impl Detail {
         let Some((ws, branch)) =
             (store.workspace(project)).and_then(|ws| Some((ws, ws.find_branch(ref_name)?)))
         else {
-            return empty_state(
-                Some(Illustration::Papers),
-                "Branch not found",
-                "",
-                theme,
-                cx,
-            );
+            return not_found("Branch not found", theme, cx);
         };
         let files = self.render_diff_file_list(theme, cx);
         // Resolving the oldest conflict first, even in a branch below, rebases the rest onto
@@ -1013,11 +936,8 @@ impl Detail {
             .child(files)
             .into_any_element()
     }
-}
 
-impl Detail {
-    /// What a stack's branches change together: its branches, top first, and how many
-    /// commits they have, over their files.
+    /// The files a stack's branches change together. Its header says what the stack is.
     pub(super) fn render_stack_side(
         &self,
         project: &ProjectId,
@@ -1031,9 +951,8 @@ impl Detail {
             .and_then(|ws| ws.lane(bottom))
             .is_none()
         {
-            return empty_state(Some(Illustration::Papers), "Stack not found", "", theme, cx);
+            return not_found("Stack not found", theme, cx);
         }
-        // Its header says what the stack is; here, its files.
         self.render_diff_file_list(theme, cx)
     }
 }
@@ -1211,6 +1130,11 @@ pub(super) fn list_heading(text: impl IntoElement, theme: &Theme) -> AnyElement 
         .px(dp(14.))
         .pb(dp(4.))
         .into_any_element()
+}
+
+/// The page for a selection that's gone, as `title` says.
+pub(super) fn not_found(title: &'static str, theme: &Theme, cx: &App) -> AnyElement {
+    empty_state(Some(Illustration::Papers), title, "", theme, cx)
 }
 
 /// What a side list shows in place of its rows, in the room they'd take.
@@ -1627,6 +1551,24 @@ pub(super) fn overview_heading(
         .gap(dp(8.))
         .child(section_label(title, theme).flex_grow(1.))
         .child(detail)
+}
+
+/// Under a list cut short, how many it left out, when it left any.
+pub(super) fn and_more(rest: usize, theme: &Theme) -> Option<Div> {
+    (rest > 0).then(|| {
+        faint(format!("and {rest} more"), theme)
+            .px(dp(14.))
+            .py(dp(4.))
+    })
+}
+
+/// How many commits are conflicted, when any are.
+fn conflicted_note(n: usize, theme: &Theme) -> Option<Div> {
+    (n > 0).then(|| {
+        div()
+            .text_color(theme.warn)
+            .child(format!("{n} conflicted"))
+    })
 }
 
 /// How tall a side list stays however much else its column holds, as a short window's

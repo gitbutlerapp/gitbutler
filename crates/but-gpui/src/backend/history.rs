@@ -634,7 +634,8 @@ fn written_since(ctx: &but_ctx::Context, after: i64, spans: &[(i64, i64)]) -> Re
     let repo = ctx.repo.get()?;
     Ok((but_core::diff::worktree_changes(&repo)?.changes.iter())
         .filter(|change| {
-            super::written(&repo, change.path.as_bstr()).is_some_and(|at| {
+            let metadata = super::metadata(&repo, change.path.as_bstr());
+            metadata.as_ref().and_then(super::millis).is_some_and(|at| {
                 at > after && !spans.iter().any(|(from, to)| (*from..=*to).contains(&at))
             })
         })

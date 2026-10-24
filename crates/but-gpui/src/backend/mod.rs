@@ -698,6 +698,25 @@ fn file_change(change: but_core::TreeChange) -> FileChange {
     }
 }
 
+#[cfg(test)]
+impl FileChange {
+    /// A modified file at `path`, with null blobs either side.
+    pub fn bare(path: &str) -> Self {
+        let state = ChangeState {
+            id: gix::ObjectId::null(gix::hash::Kind::Sha1),
+            kind: gix::object::tree::EntryKind::Blob,
+        };
+        file_change(TreeChange {
+            path: path.into(),
+            status: TreeStatus::Modification {
+                previous_state: state,
+                state,
+                flags: None,
+            },
+        })
+    }
+}
+
 /// Past this many uncommitted files, as an agent's generated output can make, their lines
 /// aren't counted: reading them all would hold up every reload.
 const COUNT_LINES_UP_TO: usize = 300;
@@ -757,12 +776,6 @@ fn same_change(a: &but_core::TreeStatus, b: &but_core::TreeStatus) -> bool {
         (status.previous_state_and_path()).map(|(s, path)| (state(s), path.map(ToOwned::to_owned)))
     };
     a.kind() == b.kind() && before(a) == before(b) && a.state().map(state) == b.state().map(state)
-}
-
-/// When the file at `path` in `repo`'s checkout was last written, in milliseconds since the
-/// Unix epoch; a deleted file has none.
-fn written(repo: &gix::Repository, path: &bstr::BStr) -> Option<i64> {
-    millis(&metadata(repo, path)?)
 }
 
 /// When the file at `path` in `repo`'s checkout was last written and its size, as
@@ -955,7 +968,7 @@ pub fn branch_name(name: &str) -> Option<String> {
 
 #[cfg(test)]
 mod behind_tests {
-    use crate::backend::ops::tests::{git, repo_with};
+    use crate::backend::ops::tests::{git, head, repo_with};
 
     #[test]
     fn whats_new_runs_down_to_the_oldest_base() {
@@ -963,10 +976,9 @@ mod behind_tests {
         let path = dir.path();
         let commit = |message: &str| {
             git(path, &["commit", "-q", "--allow-empty", "-m", message]);
-            gix::ObjectId::from_hex(git(path, &["rev-parse", "HEAD"]).trim().as_bytes()).unwrap()
+            head(path).0
         };
-        let old =
-            gix::ObjectId::from_hex(git(path, &["rev-parse", "HEAD"]).trim().as_bytes()).unwrap();
+        let old = head(path).0;
         commit("two");
         let stored = commit("three");
         let tip = commit("four");

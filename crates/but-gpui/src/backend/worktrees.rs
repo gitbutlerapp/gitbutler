@@ -226,16 +226,13 @@ pub fn set_archived(path: &Path, name: &str, archived: bool) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use crate::backend::ops::tests::{git, repo_with};
+    use crate::backend::ops::tests::{agent_worktree, git, repo_with};
 
     #[test]
     fn a_linked_worktrees_events_are_its_head_moves_newest_first() {
         let dir = repo_with("one\n");
         let path = dir.path();
-        let outside = tempfile::tempdir().unwrap();
-        let linked = outside.path().join("agent");
-        let linked_dir = linked.to_str().unwrap();
-        git(path, &["worktree", "add", "-q", "-b", "agent", linked_dir]);
+        let (outside, linked) = agent_worktree(path);
         git(&linked, &["checkout", "-q", "-b", "other"]);
         git(&linked, &["commit", "-q", "--allow-empty", "-m", "work"]);
         git(&linked, &["reset", "-q", "--hard", "agent"]);

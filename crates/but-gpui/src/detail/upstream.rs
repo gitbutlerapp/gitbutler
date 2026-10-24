@@ -15,7 +15,7 @@ mod shipped;
 use super::Detail;
 use super::panes::{
     Crumb, CrumbTo, LIST_MIN_HEIGHT, clear_button, list_heading, measured, meta_item, meta_row,
-    side_header, side_list, step_from, title_text, unfinished_banner,
+    not_found, side_header, side_list, step_from, title_text, unfinished_banner,
 };
 use super::pull_request::TABS_HEIGHT;
 use super::slots::{SlotGesture, SlotPick, ends_drag, picks_slot};
@@ -25,7 +25,6 @@ use crate::overlays::MenuItem;
 use crate::state::{Cut, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::emoji::ProjectIcon;
-use crate::ui::illustration::Illustration;
 use crate::ui::markdown;
 use crate::ui::person::{byline, byline_avatar};
 use crate::ui::{
@@ -701,14 +700,11 @@ impl Detail {
 
     /// Whether the project's page shows what landed lately, in place of a diff.
     pub fn showing_shipped(&self, cx: &gpui::App) -> bool {
-        self.showing_on_page(Picked::Shipped, cx)
-    }
-
-    fn showing_on_page(&self, picked: Picked, cx: &gpui::App) -> bool {
         match self.store.read(cx).selection.as_ref() {
             Some(Selection::Project(project)) => {
                 self.editing(project, cx).is_none()
-                    && (self.upstream_for(project)).is_some_and(|u| u.selected == Some(picked))
+                    && (self.upstream_for(project))
+                        .is_some_and(|u| u.selected == Some(Picked::Shipped))
             }
             _ => false,
         }
@@ -1077,13 +1073,7 @@ impl Detail {
         if upstream.selected == Some(Picked::Shipped) {
             return crumbs.push((target.unwrap_or("Target").to_owned().into(), None));
         }
-        let picked = match upstream.selected {
-            Some(Picked::Commit(_)) => {
-                (self.selected_target_commit(project)).map(|commit| commit.id.short())
-            }
-            None | Some(Picked::Shipped) => None,
-        };
-        let Some(picked) = picked else {
+        let Some(picked) = (self.selected_target_commit(project)).map(|c| c.id.short()) else {
             return;
         };
         // The target goes back to how the page opens, as the project's crumb does.
@@ -1240,9 +1230,7 @@ impl Detail {
             true => copy,
             false => copy.separated(),
         });
-        (self.app)
-            .update(cx, |app, cx| app.open_menu(at, items, cx))
-            .ok();
+        self.open_menu(at, items, cx);
     }
 
     /// → in the list: open the picked merge, or step into its commits when it's open, as
@@ -1478,13 +1466,7 @@ impl Detail {
     ) -> AnyElement {
         let store = self.store.read(cx);
         let Some(entry) = store.project(project) else {
-            return crate::ui::empty_state(
-                Some(Illustration::Papers),
-                "Project not found",
-                "",
-                theme,
-                cx,
-            );
+            return not_found("Project not found", theme, cx);
         };
         let target = entry
             .workspace

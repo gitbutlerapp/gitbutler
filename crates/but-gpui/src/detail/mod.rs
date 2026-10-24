@@ -32,13 +32,14 @@ use std::time::{Duration, Instant};
 
 use gpui::{
     AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding,
-    ListAlignment, ListOffset, ListState, Pixels, RenderImage, ScrollHandle, SharedString,
+    ListAlignment, ListOffset, ListState, Pixels, Point, RenderImage, ScrollHandle, SharedString,
     Subscription, Task, UniformListScrollHandle, WeakEntity, Window, actions, div, prelude::*,
 };
 
 use crate::app::{AddProject, AppView, Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::edit::Editing;
 use crate::backend::{self, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected};
+use crate::overlays::MenuItem;
 use crate::state::{Cut, FileSort, Pane, Picks, Prefs, ProjectId, Selection, Store, StoreEvent};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
@@ -446,7 +447,7 @@ impl Detail {
                     this.now_open = true;
                     // A page read before opens on its overview too.
                     match this.selection(cx) {
-                        Some(Selection::Branches(_)) => this.close_branch(cx),
+                        Some(Selection::Branches(_)) => this.select_other_branch(None, cx),
                         Some(Selection::Project(project)) => this.open_on_shipped(&project),
                         Some(Selection::History(project)) => {
                             this.open_on_newest_operation(&project)
@@ -686,6 +687,13 @@ impl Detail {
 
     fn selected_project(&self, cx: &App) -> Option<ProjectId> {
         self.selection(cx).map(|s| s.project().clone())
+    }
+
+    /// The menu of `items`, open at `at`.
+    fn open_menu(&self, at: Point<Pixels>, items: Vec<MenuItem>, cx: &mut App) {
+        self.app
+            .update(cx, |app, cx| app.open_menu(at, items, cx))
+            .ok();
     }
 
     /// The checkout whose uncommitted changes are shown, which the composer commits: the

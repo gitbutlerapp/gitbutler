@@ -17,9 +17,7 @@ use crate::backend::mesh::{self, BranchStatus};
 use crate::overlays::MenuItem;
 use crate::state::{MeshBranch, MeshPick, ProjectId, Selection, Store};
 use crate::theme::Theme;
-use crate::ui::{
-    Icon, Tooltip, dot, faint, icon, just_now, meta_count, plural, section_label, small_icon,
-};
+use crate::ui::{Icon, Tooltip, dot, faint, icon, just_now, section_label, small_icon};
 
 impl Navigator {
     /// `id`'s checkouts on other machines under their heading, unless that's folded without
@@ -206,14 +204,7 @@ impl Navigator {
                             .child(name.clone()),
                     )
                     .children(style.unpushed(unpushed))
-                    .when(!open, |el| {
-                        el.children(meta_count(
-                            Icon::Commit,
-                            n,
-                            style.muted(),
-                            plural(n, "commit"),
-                        ))
-                    })
+                    .when(!open, |el| el.children(style.commits(n)))
                     .when(n > 0, |el| el.on_click(click_opens(clicked, cx)))
             }
             (MeshPick::Checkout, _) => {

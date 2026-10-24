@@ -309,14 +309,7 @@ mod tests {
 
     #[test]
     fn unchanged_lines_are_searched_in_the_order_shown() {
-        let line = |kind, text: &str| DiffLine {
-            kind,
-            old: None,
-            new: None,
-            text: text.into(),
-            spans: Vec::new(),
-            emph: Vec::new(),
-        };
+        let line = |kind, text: &str| DiffLine::new(kind, None, None, text);
         let (scope, changed) = (
             line(LineKind::Context, "fn work() {"),
             line(LineKind::Added, "    work();"),

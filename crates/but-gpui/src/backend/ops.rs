@@ -948,13 +948,24 @@ pub fn mark_resolved(path: &Path, worktree: Option<&str>, files: Vec<String>) ->
 #[cfg(test)]
 pub(super) mod tests {
     use std::collections::HashSet;
+    use std::path::PathBuf;
     use std::process::Command;
 
     use super::*;
     use crate::backend::{DiffBody, DiffSource, FileDiff, Kept, Workspace, load_diff};
 
+    /// A linked worktree of `path` on a new branch `agent`, in a directory of its own. Dropping
+    /// the directory deletes the worktree.
+    pub(in crate::backend) fn agent_worktree(path: &Path) -> (tempfile::TempDir, PathBuf) {
+        let outside = tempfile::tempdir().unwrap();
+        let linked = outside.path().join("agent");
+        let linked_dir = linked.to_str().unwrap();
+        git(path, &["worktree", "add", "-q", "-b", "agent", linked_dir]);
+        (outside, linked)
+    }
+
     /// HEAD's commit in the repository at `dir`.
-    fn head(dir: &Path) -> CommitId {
+    pub(in crate::backend) fn head(dir: &Path) -> CommitId {
         let id = git(dir, &["rev-parse", "HEAD"]);
         CommitId(gix::ObjectId::from_hex(id.trim().as_bytes()).unwrap())
     }
@@ -1145,9 +1156,7 @@ pub(super) mod tests {
             std::fs::write(path.join("new"), "one\ntwo\n").unwrap();
 
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-            let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
-                panic!("a text diff");
-            };
+            let hunks = diff[0].hunks();
             let line = diff[0].part(Some(
                 hunks[0].picked(&std::collections::BTreeSet::from([1])),
             ));
@@ -1172,19 +1181,7 @@ pub(super) mod tests {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
             let path = dir.path();
-            let outside = tempfile::tempdir().unwrap();
-            let linked = outside.path().join("agent");
-            git(
-                path,
-                &[
-                    "worktree",
-                    "add",
-                    "-q",
-                    "-b",
-                    "agent",
-                    linked.to_str().unwrap(),
-                ],
-            );
+            let (_outside, linked) = agent_worktree(path);
             std::fs::write(path.join("file"), "main\n").unwrap();
             std::fs::write(linked.join("file"), "agent\n").unwrap();
 
@@ -1231,19 +1228,7 @@ pub(super) mod tests {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("base\n");
             let path = dir.path();
-            let outside = tempfile::tempdir().unwrap();
-            let linked = outside.path().join("agent");
-            git(
-                path,
-                &[
-                    "worktree",
-                    "add",
-                    "-q",
-                    "-b",
-                    "agent",
-                    linked.to_str().unwrap(),
-                ],
-            );
+            let (outside, linked) = agent_worktree(path);
             std::fs::write(linked.join("file"), "seen\n").unwrap();
             let repo = gix::open(&linked).unwrap();
             let (modified, size) = stamp(&repo, "file".into());
@@ -1289,10 +1274,7 @@ pub(super) mod tests {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("base\n");
             let path = dir.path();
-            let outside = tempfile::tempdir().unwrap();
-            let linked = outside.path().join("agent");
-            let linked_dir = linked.to_str().unwrap();
-            git(path, &["worktree", "add", "-q", "-b", "agent", linked_dir]);
+            let (_outside, linked) = agent_worktree(path);
             git(path, &["checkout", "-q", "-b", "other"]);
             std::fs::write(path.join("file"), "theirs\n").unwrap();
             git(path, &["commit", "-q", "-am", "theirs"]);
@@ -1308,15 +1290,8 @@ pub(super) mod tests {
             assert!(!merge.status.success(), "both sides changed the line");
             std::fs::write(linked.join("gone"), "two\n").unwrap();
 
-            let diff = load_diff(
-                path,
-                DiffSource::Linked("agent".into()),
-                None,
-                None,
-                None,
-                None,
-            )
-            .unwrap();
+            let source = DiffSource::Linked("agent".into());
+            let diff = load_diff(path, source, None, None, None, None).unwrap();
             let selected: Vec<Selected> = (diff.iter())
                 .map(|file| Selected {
                     file: file.file.clone(),
@@ -1356,19 +1331,14 @@ pub(super) mod tests {
             std::fs::write(path.join("file"), lines.concat()).unwrap();
 
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-            let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
-                panic!("a text diff");
-            };
+            let hunks = diff[0].hunks();
             assert_eq!(
                 hunks.len(),
                 2,
                 "the edits are far enough apart for two hunks"
             );
             let head = head(path);
-            let first_hunk = Selected {
-                file: diff[0].file.clone(),
-                hunks: Some(vec![hunks[0].key]),
-            };
+            let first_hunk = diff[0].part(Some(vec![hunks[0].key]));
             amend(path, head, &[first_hunk], None, false).unwrap();
 
             let amended = git(path, &["show", "HEAD:file"]);
@@ -1392,13 +1362,8 @@ pub(super) mod tests {
             lines[19] = "last edit\n".into();
             std::fs::write(path.join("file"), lines.concat()).unwrap();
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-            let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
-                panic!("a text diff");
-            };
-            let first_hunk = Selected {
-                file: diff[0].file.clone(),
-                hunks: Some(vec![hunks[0].key]),
-            };
+            let hunks = diff[0].hunks();
+            let first_hunk = diff[0].part(Some(vec![hunks[0].key]));
             // Committed elsewhere, as by the CLI, which leaves the file as it is.
             git(path, &["commit", "-qam", "elsewhere"]);
             let head = head(path);
@@ -1882,8 +1847,7 @@ pub(super) mod tests {
             target_origin_main(path);
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
-            let head = git(path, &["rev-parse", "HEAD"]);
-            let top = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+            let top = head(path);
             std::fs::write(path.join("file"), "two\n").unwrap();
             let load = |kept| crate::backend::load_workspace(path, kept).unwrap();
             let paths = |ws: &Workspace| {
@@ -1962,8 +1926,7 @@ pub(super) mod tests {
             target_origin_main(path);
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
-            let head = git(path, &["rev-parse", "HEAD"]);
-            let top = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+            let top = head(path);
             name_branch(path, top, "named").unwrap();
             let named = oplog_head(path).unwrap();
             let done = now();
@@ -2043,8 +2006,7 @@ pub(super) mod tests {
             // A commit made with plain Git on the workspace branch belongs to no branch.
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
-            let head = git(path, &["rev-parse", "HEAD"]);
-            let top = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+            let top = head(path);
             let branch_at_top = |path: &Path| {
                 let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
                 (workspace.branches())
@@ -2078,18 +2040,13 @@ pub(super) mod tests {
             std::fs::write(path.join("file"), edited.concat()).unwrap();
 
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-            let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
-                panic!("a text diff");
-            };
+            let hunks = diff[0].hunks();
             assert_eq!(
                 hunks.len(),
                 2,
                 "the edits are far enough apart for two hunks"
             );
-            let hunk = |ix: usize| Selected {
-                file: diff[0].file.clone(),
-                hunks: Some(vec![hunks[ix].key]),
-            };
+            let hunk = |ix: usize| diff[0].part(Some(vec![hunks[ix].key]));
             discard(path, None, &[hunk(0)]).unwrap();
             // Read before the first discard, which took two lines out above it.
             let err = discard(path, None, &[hunk(1)]).unwrap_err();
@@ -2098,13 +2055,8 @@ pub(super) mod tests {
                 "its place in the file is from before the first discard: {err}"
             );
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-            let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
-                panic!("a text diff");
-            };
-            let fresh = Selected {
-                file: diff[0].file.clone(),
-                hunks: Some(vec![hunks[0].key]),
-            };
+            let hunks = diff[0].hunks();
+            let fresh = diff[0].part(Some(vec![hunks[0].key]));
             discard(path, None, &[fresh]).unwrap();
             assert_eq!(
                 std::fs::read_to_string(path.join("file")).unwrap(),
@@ -2125,13 +2077,8 @@ pub(super) mod tests {
             edited[18] = "nineteen\n".into();
             std::fs::write(path.join("file"), edited.concat()).unwrap();
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-            let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
-                panic!("a text diff");
-            };
-            let second = Selected {
-                file: diff[0].file.clone(),
-                hunks: Some(vec![hunks[1].key]),
-            };
+            let hunks = diff[0].hunks();
+            let second = diff[0].part(Some(vec![hunks[1].key]));
             // Commit the first edit alone, as committing part of the file does, without touching
             // the file itself.
             let mut first = lines.clone();
@@ -2175,10 +2122,7 @@ pub(super) mod tests {
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
             let hunk = &diff[0].hunks()[0];
             let picks = std::collections::BTreeSet::from([line_in(hunk, "five b")]);
-            let lines_picked = Selected {
-                file: diff[0].file.clone(),
-                hunks: Some(hunk.picked(&picks)),
-            };
+            let lines_picked = diff[0].part(Some(hunk.picked(&picks)));
             discard(path, None, &[lines_picked]).unwrap();
 
             let mut expected = lines.clone();
@@ -2203,8 +2147,7 @@ pub(super) mod tests {
         edited[4] = "five a\nfive b\n".into();
         std::fs::write(path.join("file"), edited.concat()).unwrap();
         git(path, &["commit", "-q", "-am", "edit"]);
-        let head = git(path, &["rev-parse", "HEAD"]);
-        let commit = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+        let commit = head(path);
         let diff = load_diff(path, DiffSource::Commit(commit), None, None, None, None).unwrap();
         (dir, commit, diff, edited)
     }
@@ -2274,10 +2217,7 @@ pub(super) mod tests {
     fn five_b_out(diff: &[FileDiff]) -> Selected {
         let hunk = &diff[0].hunks()[0];
         let picks = std::collections::BTreeSet::from([line_in(hunk, "five b")]);
-        Selected {
-            file: diff[0].file.clone(),
-            hunks: Some(hunk.picked_out(&picks)),
-        }
+        diff[0].part(Some(hunk.picked_out(&picks)))
     }
 
     #[test]
@@ -2363,10 +2303,7 @@ pub(super) mod tests {
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
             let hunk = &diff[0].hunks()[0];
             let picks = std::collections::BTreeSet::from([line_in(hunk, "five a")]);
-            let picked = Selected {
-                file: diff[0].file.clone(),
-                hunks: Some(hunk.picked(&picks)),
-            };
+            let picked = diff[0].part(Some(hunk.picked(&picks)));
             let head = head(path);
             amend(path, head, &[picked], None, false).unwrap();
 
@@ -2385,19 +2322,7 @@ pub(super) mod tests {
     fn a_new_branch_checked_out_in_a_linked_worktree_moves_it() {
         let dir = repo_with("base\n");
         let path = dir.path();
-        let outside = tempfile::tempdir().unwrap();
-        let linked = outside.path().join("agent");
-        git(
-            path,
-            &[
-                "worktree",
-                "add",
-                "-q",
-                "-b",
-                "agent",
-                linked.to_str().unwrap(),
-            ],
-        );
+        let (_outside, linked) = agent_worktree(path);
         let before = crate::backend::worktrees::heads(path);
         git(&linked, &["checkout", "-q", "-b", "agent-next"]);
         assert_ne!(

@@ -221,15 +221,8 @@ impl Detail {
         r.keeping.retain(|id, _| shown.contains(id));
         r.suggesting.retain(|id, _| shown.contains(id));
         r.ancestors.retain(|id| shown.contains(id));
-        if r.editing
-            .as_ref()
-            .is_some_and(|(id, ..)| !shown.contains(id))
-        {
-            r.editing = None;
-        }
-        if r.current.as_ref().is_some_and(|id| !shown.contains(id)) {
-            r.current = None;
-        }
+        r.editing.take_if(|(id, ..)| !shown.contains(id));
+        r.current.take_if(|id| !shown.contains(id));
     }
 
     /// The conflict the keyboard acts on: the one picked last, else the first undecided.

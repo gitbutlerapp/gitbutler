@@ -585,6 +585,26 @@ impl Commit {
         let made = but_core::commit::Headers::synthetic_change_id_from_commit_id(self.id.0);
         self.key != made.to_string()
     }
+
+    /// A local commit `id` with nothing else to it, its tree `id` too.
+    #[cfg(test)]
+    pub fn bare(id: gix::ObjectId) -> Self {
+        Self {
+            id: CommitId(id),
+            key: String::new(),
+            authored: String::new(),
+            title: String::new(),
+            message: String::new(),
+            author: String::new(),
+            email: String::new(),
+            agent: None,
+            time: 0,
+            state: CommitState::Local,
+            conflicted: false,
+            parent: None,
+            tree: id,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -972,6 +992,20 @@ pub struct DiffLine {
     pub emph: Vec<std::ops::Range<usize>>,
 }
 
+impl DiffLine {
+    /// A line without highlighting or marked words.
+    pub fn new(kind: LineKind, old: Option<u32>, new: Option<u32>, text: &str) -> Self {
+        Self {
+            kind,
+            old,
+            new,
+            text: text.into(),
+            spans: Vec::new(),
+            emph: Vec::new(),
+        }
+    }
+}
+
 pub use super::highlight::Token;
 
 /// A file's changes, or some of its hunks, picked for an operation.
@@ -1021,14 +1055,7 @@ mod tests {
 
     #[test]
     fn lines_picked_out_name_the_hunk_they_leave() {
-        let line = |kind, old, new| DiffLine {
-            kind,
-            old,
-            new,
-            text: "".into(),
-            spans: Vec::new(),
-            emph: Vec::new(),
-        };
+        let line = |kind, old, new| DiffLine::new(kind, old, new, "");
         let hunk = Hunk {
             key: HunkKey(header(1, 3, 1, 3)),
             header: String::new(),
@@ -1068,14 +1095,7 @@ mod tests {
 
     #[test]
     fn picked_lines_become_one_sided_runs() {
-        let line = |kind, old, new| DiffLine {
-            kind,
-            old,
-            new,
-            text: "".into(),
-            spans: Vec::new(),
-            emph: Vec::new(),
-        };
+        let line = |kind, old, new| DiffLine::new(kind, old, new, "");
         let hunk = Hunk {
             key: HunkKey(header(1, 4, 1, 4)),
             header: String::new(),
@@ -1113,19 +1133,8 @@ mod tests {
             ref_name: "refs/heads/feat".into(),
             commits: (states.iter())
                 .map(|state| Commit {
-                    id: CommitId(id),
-                    key: String::new(),
-                    authored: String::new(),
-                    title: String::new(),
-                    message: String::new(),
-                    author: String::new(),
-                    email: String::new(),
-                    agent: None,
-                    time: 0,
                     state: *state,
-                    conflicted: false,
-                    parent: None,
-                    tree: id,
+                    ..Commit::bare(id)
                 })
                 .collect(),
             incoming: vec![
@@ -1236,19 +1245,8 @@ mod tests {
         let id = gix::ObjectId::from_hex(b"99a9648a9b2cf5a631d8ef586f97005604afaabc").unwrap();
         let made = but_core::commit::Headers::synthetic_change_id_from_commit_id(id);
         let commit = |key: String| Commit {
-            id: CommitId(id),
             key,
-            authored: String::new(),
-            title: String::new(),
-            message: String::new(),
-            author: String::new(),
-            email: String::new(),
-            agent: None,
-            time: 0,
-            state: CommitState::Local,
-            conflicted: false,
-            parent: None,
-            tree: id,
+            ..Commit::bare(id)
         };
         assert!(
             !commit(made.to_string()).has_change_id(),

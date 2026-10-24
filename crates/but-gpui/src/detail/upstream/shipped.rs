@@ -12,7 +12,7 @@ use crate::backend::CommitId;
 use crate::backend::upstream::{ACTIVITY_DAYS, Landing, Overview};
 use crate::detail::Detail;
 use crate::detail::panes::{
-    OVERVIEW_COUNT_WIDTH, OVERVIEW_TIME_WIDTH, back_to_list, clear_button, grouped,
+    OVERVIEW_COUNT_WIDTH, OVERVIEW_TIME_WIDTH, and_more, back_to_list, clear_button, grouped,
     overview_column, overview_heading, overview_tiles, overview_title, share_row,
 };
 use crate::state::ProjectId;
@@ -267,13 +267,7 @@ impl Detail {
                     theme,
                 ))
                 .children(rows)
-                .when(rest > 0, |el| {
-                    el.child(
-                        faint(format!("and {rest} more"), theme)
-                            .px(dp(14.))
-                            .py(dp(4.)),
-                    )
-                })
+                .children(and_more(rest, theme))
                 .into_any_element(),
         )
     }
@@ -327,13 +321,7 @@ impl Detail {
             v_flex()
                 .child(overview_heading("Where it landed", detail, theme).h(dp(28.)))
                 .children(rows)
-                .when(rest > 0, |el| {
-                    el.child(
-                        faint(format!("and {rest} more"), theme)
-                            .px(dp(14.))
-                            .py(dp(4.)),
-                    )
-                })
+                .children(and_more(rest, theme))
                 .into_any_element(),
         )
     }

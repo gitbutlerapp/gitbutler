@@ -788,8 +788,8 @@ impl AppView {
         });
     }
 
-    /// Pick up the selected commit to put a copy of it where ⌘V lands.
-    /// Copy the selected commit, and those picked with it, to paste as new commits.
+    /// Pick up the selected commit, and those picked with it, to put copies of them where ⌘V
+    /// lands.
     fn cherry_pick(&mut self, _: &CherryPick, _: &mut Window, cx: &mut Context<Self>) {
         if let Some((project, commit)) = self.selected_commit(cx) {
             let ids = self.store.read(cx).with_picks(&project, commit.id);

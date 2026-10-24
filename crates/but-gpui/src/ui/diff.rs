@@ -70,16 +70,8 @@ impl DiffRow {
                     left,
                     right,
                 },
-            )
-            | (
-                Pair {
-                    file: f,
-                    hunk: h,
-                    left,
-                    right,
-                },
-                Line { file, hunk, line },
             ) => (file, hunk) == (f, h) && (left == Some(line) || right == Some(line)),
+            (Pair { .. }, Line { .. }) => other.same_place(self),
             // The old-side number moves with the hunks above the line.
             (
                 Context { file, new, .. },
@@ -1301,14 +1293,7 @@ mod tests {
             LineKind::Added,
         ]
         .into_iter()
-        .map(|kind| DiffLine {
-            kind,
-            old: None,
-            new: None,
-            text: "".into(),
-            spans: Vec::new(),
-            emph: Vec::new(),
-        })
+        .map(|kind| DiffLine::new(kind, None, None, ""))
         .collect();
         assert_eq!(
             pair_lines(&lines),

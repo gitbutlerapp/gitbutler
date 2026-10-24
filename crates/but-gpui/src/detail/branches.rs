@@ -265,7 +265,8 @@ impl Detail {
         let Some(path) = self.store.read(cx).path(project) else {
             return;
         };
-        let seen = self.branches_fingerprint(project, cx);
+        // What the listing depends on: the project's branches, as its last full load saw them.
+        let seen = (self.store.read(cx).workspace(project)).map_or(0, |ws| ws.refs);
         if !force && self.branches_for(project).is_some_and(|b| b.seen == seen) {
             return;
         }
@@ -319,15 +320,6 @@ impl Detail {
         )
     }
 
-    /// What a branch listing depends on: the project's branches, as its last full load saw
-    /// them.
-    fn branches_fingerprint(&self, project: &ProjectId, cx: &Context<Self>) -> u64 {
-        self.store
-            .read(cx)
-            .workspace(project)
-            .map_or(0, |ws| ws.refs)
-    }
-
     /// `project`'s branches, once read.
     fn branches_for(&self, project: &ProjectId) -> Option<&Branches> {
         self.branches.get(project).filter(|b| b.failed.is_none())
@@ -366,18 +358,13 @@ impl Detail {
         }
     }
 
-    /// Go back to the overview, letting go of the branch opened.
-    pub(super) fn close_branch(&mut self, cx: &mut Context<Self>) {
-        self.select_other_branch(None, cx)
-    }
-
     /// Esc on the Branches page with a branch opened: back to the overview, whether it did. The
     /// app, which Esc is handled in, redraws for the diff that goes.
     pub fn close_opened_branch(&mut self, cx: &mut Context<Self>) -> bool {
         let opened = matches!(&self.store.read(cx).selection,
             Some(Selection::Branches(project)) if self.selected_other_branch(project).is_some());
         if opened {
-            self.close_branch(cx);
+            self.select_other_branch(None, cx);
         }
         opened
     }
@@ -900,9 +887,7 @@ impl Detail {
     ) {
         let items = self.branch_menu_items(project, ref_name, cx);
         if !items.is_empty() {
-            self.app
-                .update(cx, |app, cx| app.open_menu(at, items, cx))
-                .ok();
+            self.open_menu(at, items, cx);
         }
     }
 
@@ -1012,9 +997,26 @@ impl Detail {
             }
             _ => self.select_branch_commit(ref_name, id, cx),
         }
-        if let Some(ids) = self.page_branches(cx).map(|b| b.cherry_picks(id)) {
-            self.commit_menu(project, ids, id, at, cx);
-        }
+        let Some(ids) = self.page_branches(cx).map(|b| b.cherry_picks(id)) else {
+            return;
+        };
+        let label = match ids.len() {
+            1 => "Cherry-pick".to_owned(),
+            n => format!("Cherry-pick {n} commits"),
+        };
+        let project = project.clone();
+        // None for a merge, which can't be.
+        let pick = (!ids.is_empty()).then(|| {
+            MenuItem::new(label, move |app, _, cx| {
+                app.cut(Cut::CherryPick(project.clone(), ids.clone()), cx)
+            })
+        });
+        let items = (pick.into_iter())
+            .chain([MenuItem::new("Copy commit ID", move |app, _, cx| {
+                app.copy_text(id.0.to_string(), cx)
+            })])
+            .collect();
+        self.open_menu(at, items, cx);
     }
 
     /// Pick up the selected commit, with the others picked, to put copies of them where ⌘V
@@ -1575,7 +1577,6 @@ impl Detail {
             return;
         };
         let prefs = &self.store.read(cx).prefs;
-        let everyone = (self.kept_in(branches, &branches.list, Some(Facet::Who), cx)).len();
         let person = |who: Option<String>, label: String, n: usize| {
             let ticked = branches.who == who;
             MenuItem::new(label, move |app, _, cx| {
@@ -1598,7 +1599,7 @@ impl Detail {
                 .filter(|branch| branch.people.contains(name))
                 .count()
         };
-        let mut items = vec![person(None, "Anyone".to_owned(), everyone).under("Person")];
+        let mut items = vec![person(None, "Anyone".to_owned(), anyone.len()).under("Person")];
         items.extend(
             offered.map(|(_, (name, ..))| person(Some(name.clone()), name.clone(), theirs(name))),
         );
@@ -1642,9 +1643,7 @@ impl Detail {
             .ticked(prefs.branches_local_only)
             .separated(),
         );
-        (self.app)
-            .update(cx, |app, cx| app.open_menu(position, items, cx))
-            .ok();
+        self.open_menu(position, items, cx);
     }
 
     /// Under the list, as the project's page has its own: whose the branches the filters keep

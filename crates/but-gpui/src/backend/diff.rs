@@ -908,14 +908,7 @@ const LINE_LIMIT: usize = 2000;
 /// An unchanged line numbered `new` on the new side only, showing `text` as it is, so pass
 /// it through [`display_text`] first.
 pub(super) fn context_line(new: u32, text: &str) -> DiffLine {
-    DiffLine {
-        kind: LineKind::Context,
-        old: None,
-        new: Some(new),
-        text: text.into(),
-        spans: Vec::new(),
-        emph: Vec::new(),
-    }
+    DiffLine::new(LineKind::Context, None, Some(new), text)
 }
 
 /// A diff line as shown: tabs as spaces, no carriage return, and cut at [`LINE_LIMIT`].
@@ -954,14 +947,7 @@ fn parse_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
         };
         old += u32::from(old_no.is_some());
         new += u32::from(new_no.is_some());
-        lines.push(DiffLine {
-            kind,
-            old: old_no,
-            new: new_no,
-            text: display_text(rest).into(),
-            spans: Vec::new(),
-            emph: Vec::new(),
-        });
+        lines.push(DiffLine::new(kind, old_no, new_no, &display_text(rest)));
     }
     Hunk {
         key: HunkKey(hunk.into()),

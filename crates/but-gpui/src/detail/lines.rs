@@ -187,14 +187,11 @@ impl Detail {
     /// Keep the picked lines while the loaded diff has their file as it was, and else let
     /// them go: a line's place in a changed file may be another line by now.
     pub(super) fn settle_line_picks(&mut self) {
-        let Some(picks) = self.line_picks.as_ref() else {
-            return;
-        };
-        let file = (self.diff.as_ref())
-            .and_then(|diff| diff.files.iter().find(|f| f.file.path == picks.path));
-        if file.is_none_or(|file| file.fingerprint != picks.fingerprint) {
-            self.line_picks = None;
-        }
+        let diff = self.diff.as_ref();
+        self.line_picks.take_if(|picks| {
+            let file = diff.and_then(|diff| diff.files.iter().find(|f| f.file.path == picks.path));
+            file.is_none_or(|file| file.fingerprint != picks.fingerprint)
+        });
     }
 
     /// What the grip on line `line` of hunk `hunk` of the file at `file` takes, by hunk and

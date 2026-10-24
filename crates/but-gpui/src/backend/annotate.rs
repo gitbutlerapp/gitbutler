@@ -192,14 +192,7 @@ mod tests {
     fn changed_line(old: &str, new: &str, at: u32) -> Hunk {
         let (old, new): (Vec<&str>, Vec<&str>) = (old.lines().collect(), new.lines().collect());
         let (first, last) = (at.saturating_sub(3).max(1), (at + 3).min(old.len() as u32));
-        let line = |kind, old: Option<u32>, new: Option<u32>, text: &str| DiffLine {
-            kind,
-            old,
-            new,
-            text: text.into(),
-            spans: Vec::new(),
-            emph: Vec::new(),
-        };
+        let line = DiffLine::new;
         let unchanged = |n: u32| line(LineKind::Context, Some(n), Some(n), old[n as usize - 1]);
         let lines = (first..at)
             .map(unchanged)

@@ -1,13 +1,11 @@
 //! The project's pages: the selected project's name, target branch and forge, force-push
 //! protection, commit signing and Git hooks, and removing it from GitButler.
 
-use std::collections::HashSet;
-
 use gpui::{App, ClickEvent, Context, DismissEvent, Window, div, prelude::*};
 
 use super::{Card, Page, Row, SettingsView, field_with_save, read_failed};
 use crate::backend::{Forge, settings as backend};
-use crate::state::{Prefs, ProjectId};
+use crate::state::ProjectId;
 use crate::theme::Theme;
 use crate::ui::{ButtonStyle, button, dp, h_flex, muted, switch};
 
@@ -151,29 +149,24 @@ impl SettingsView {
             })
             .detach();
         });
-        // A switch for one of this app's choices made per project: the projects it's on.
-        let project_switch =
-            |id: &'static str, on: bool, projects: fn(&mut Prefs) -> &mut HashSet<String>| {
-                let project = project.to_string();
-                switch(id, on, theme).on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                    let project = project.clone();
-                    this.store.update(cx, |store, cx| {
-                        store.set_prefs(
-                            |prefs| {
-                                let projects = projects(prefs);
-                                if !projects.remove(&project) {
-                                    projects.insert(project);
-                                }
-                            },
-                            cx,
-                        )
-                    });
-                }))
-            };
-        let store = self.store.read(cx);
-        let hooks = project_switch("run-hooks", store.runs_hooks(project), |prefs| {
-            &mut prefs.run_hooks
-        });
+        // Whether hooks run is this app's choice, kept per project: the prefs list the projects
+        // that run them.
+        let hooks_project = project.to_string();
+        let hooks = switch("run-hooks", self.store.read(cx).runs_hooks(project), theme).on_click(
+            cx.listener(move |this, _: &ClickEvent, _, cx| {
+                let project = hooks_project.clone();
+                this.store.update(cx, |store, cx| {
+                    store.set_prefs(
+                        |prefs| {
+                            if !prefs.run_hooks.remove(&project) {
+                                prefs.run_hooks.insert(project);
+                            }
+                        },
+                        cx,
+                    )
+                });
+            }),
+        );
         let workspace = self.store.read(cx).workspace(project);
         let target = workspace.and_then(|ws| ws.target_name()).map(str::to_owned);
         // With stacks applied, their commits would be read against the new target from

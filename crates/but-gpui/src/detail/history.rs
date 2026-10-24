@@ -67,10 +67,7 @@ fn rows(history: &History, shown: &[usize]) -> Vec<Row> {
 /// to a branch, brought in from the target, taken back, or kept as a snapshot.
 fn describe(kind: Option<OperationKind>) -> (Icon, Group) {
     use OperationKind as K;
-    let Some(kind) = kind else {
-        return (Icon::Commit, Group::Other);
-    };
-    match kind {
+    match kind.unwrap_or(K::Unknown) {
         K::CreateCommit | K::AutoCommit | K::InsertBlankCommit | K::CherryPick => {
             (Icon::Commit, Group::Commits)
         }
@@ -474,9 +471,7 @@ impl Detail {
                 .ticked(!self.history_hidden.contains(&group))
             })
             .collect();
-        (self.app)
-            .update(cx, |app, cx| app.open_menu(position, items, cx))
-            .ok();
+        self.open_menu(position, items, cx);
     }
 
     /// Opening `project`'s history, wherever from: at the top, on the newest operation, which
@@ -555,9 +550,7 @@ impl Detail {
     ) {
         self.select_operation(id, cx);
         let items = Self::operation_menu_items(project, id);
-        self.app
-            .update(cx, |app, cx| app.open_menu(at, items, cx))
-            .ok();
+        self.open_menu(at, items, cx);
     }
 
     /// What Operations history offers for the operation before snapshot `id`, as

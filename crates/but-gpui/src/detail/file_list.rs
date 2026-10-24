@@ -208,13 +208,10 @@ impl Detail {
     /// they aren't beside it: the uncommitted ones of a checkout's page, else the diff's.
     /// A file picked in it scrolls the diff to it and leaves it open, to pick the next.
     pub(super) fn render_files_popover(&self, theme: &Theme, cx: &Context<Self>) -> AnyElement {
-        let source = match &self.store.read(cx).selection {
-            Some(Selection::Uncommitted(project)) => FileSource::Uncommitted(project.clone(), None),
-            Some(Selection::Worktree(project, name)) => {
-                FileSource::Uncommitted(project.clone(), Some(name.clone()))
-            }
-            _ => FileSource::Diff,
-        };
+        let source = (self.selected_checkout(cx))
+            .map_or(FileSource::Diff, |(project, worktree)| {
+                FileSource::Uncommitted(project, worktree)
+            });
         let (rows, count) = self.file_list("popover-files", source, cx);
         popover(theme)
             .w(dp(340.))
@@ -752,9 +749,7 @@ impl Detail {
             by("Name", FileSort::Name).separated().under("Sort by"),
             by("Last modified", FileSort::Modified),
         ];
-        (self.app)
-            .update(cx, |app, cx| app.open_menu(position, items, cx))
-            .ok();
+        self.open_menu(position, items, cx);
     }
 
     fn render_file_row(
@@ -1008,9 +1003,7 @@ impl Detail {
             items.push(first.separated());
         }
         items.extend(paths);
-        self.app
-            .update(cx, |app, cx| app.open_menu(position, items, cx))
-            .ok();
+        self.open_menu(position, items, cx);
     }
 
     /// What can be done to the changes in `payload` from a menu: cutting them, and moving,

@@ -181,6 +181,17 @@ impl RowStyle<'_> {
         meta_count(Icon::ArrowUp, n, color, plural(n, "unpushed commit"))
     }
 
+    /// How many commits a folded row holds, when it holds any.
+    fn commits(&self, n: usize) -> Option<Stateful<Div>> {
+        meta_count(Icon::Commit, n, self.muted(), plural(n, "commit"))
+    }
+
+    /// How many files are uncommitted, when any are.
+    fn files(&self, n: usize) -> Option<Stateful<Div>> {
+        let color = self.meta(self.theme.warn);
+        meta_count(Icon::File, n, color, plural(n, "uncommitted file"))
+    }
+
     /// Meaningful colours wash out on the dark selection ground; keep them legible.
     fn meta(&self, color: Hsla) -> Hsla {
         if self.solid {
@@ -1369,30 +1380,21 @@ impl Navigator {
                         .gap(dp(8.))
                         .when(unread, |el| el.child(dot(style.meta(theme.pop))))
                         .when_some(summary, |el, (files, unpushed, target, worktrees)| {
-                            let (warn, blue) = (style.meta(theme.warn), style.meta(theme.blue));
-                            el.children(meta_count(
-                                Icon::File,
-                                files,
-                                warn,
-                                plural(files, "uncommitted file"),
-                            ))
-                            .children(meta_count(
-                                Icon::ArrowUp,
-                                unpushed,
-                                blue,
-                                plural(unpushed, "unpushed commit"),
-                            ))
-                            .children(target.and_then(|t| {
-                                let behind = plural(t.behind, "commit");
-                                let tip = format!("{behind} behind {}{}", t.name, with_merged(t));
-                                meta_count(Icon::ArrowDown, t.behind, warn, tip)
-                            }))
-                            .children(meta_count(
-                                Icon::Folder,
-                                worktrees,
-                                style.muted(),
-                                plural(worktrees, "worktree"),
-                            ))
+                            let warn = style.meta(theme.warn);
+                            el.children(style.files(files))
+                                .children(style.unpushed(unpushed))
+                                .children(target.and_then(|t| {
+                                    let behind = plural(t.behind, "commit");
+                                    let tip =
+                                        format!("{behind} behind {}{}", t.name, with_merged(t));
+                                    meta_count(Icon::ArrowDown, t.behind, warn, tip)
+                                }))
+                                .children(meta_count(
+                                    Icon::Folder,
+                                    worktrees,
+                                    style.muted(),
+                                    plural(worktrees, "worktree"),
+                                ))
                         })
                         .when(entry.is_loading(), |el| {
                             el.child(small_icon(Icon::Clock).text_color(theme.text_3))
@@ -1893,15 +1895,7 @@ impl Navigator {
                     },
                 ))
                 // Folded, how many commits it holds; open, they're listed under it.
-                .when(!open, |el| {
-                    let n = branch.commits.len();
-                    el.children(meta_count(
-                        Icon::Commit,
-                        n,
-                        style.muted(),
-                        plural(n, "commit"),
-                    ))
-                })
+                .when(!open, |el| el.children(style.commits(branch.commits.len())))
                 .when(unread, |el| el.child(dot(style.meta(theme.pop))))
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
                 // A click looks inside, opening its commits; the chevron, ← and → fold them.
@@ -2337,12 +2331,7 @@ fn change_counts(
         plural(conflicted, "conflicted file"),
     );
     let all = match added + removed {
-        0 => meta_count(
-            Icon::File,
-            n,
-            style.meta(theme.warn),
-            plural(n, "uncommitted file"),
-        ),
+        0 => style.files(n),
         _ => {
             let tip = format!(
                 "{}: {} added, {removed} removed",

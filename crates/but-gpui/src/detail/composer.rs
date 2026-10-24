@@ -1398,9 +1398,7 @@ mod tests {
     use gpui::Toggled;
 
     use super::{Checks, covers_same_lines, fingerprint};
-    use crate::backend::{
-        ChangeKind, DiffBody, DiffLine, FileChange, FileDiff, Hunk, HunkKey, LineKind,
-    };
+    use crate::backend::{DiffBody, DiffLine, FileChange, FileDiff, Hunk, HunkKey, LineKind};
 
     fn key(old_start: u32, old_lines: u32) -> HunkKey {
         HunkKey(but_core::HunkHeader {
@@ -1429,14 +1427,7 @@ mod tests {
 
     #[test]
     fn line_picks_last_only_while_their_hunk_is_unchanged() {
-        let line = |kind, text: &str| DiffLine {
-            kind,
-            old: Some(10),
-            new: Some(10),
-            text: text.into(),
-            spans: Vec::new(),
-            emph: Vec::new(),
-        };
+        let line = |kind, text: &str| DiffLine::new(kind, Some(10), Some(10), text);
         let hunk = |key, added: &str| Hunk {
             key,
             header: String::new(),
@@ -1449,28 +1440,8 @@ mod tests {
             lead: Vec::new(),
             tail: Vec::new(),
         };
-        let state = but_core::ChangeState {
-            id: gix::ObjectId::null(gix::hash::Kind::Sha1),
-            kind: gix::object::tree::EntryKind::Blob,
-        };
         let file = |hunk| FileDiff {
-            file: FileChange {
-                path: "a.rs".into(),
-                previous_path: None,
-                kind: ChangeKind::Modified,
-                modified: None,
-                size: None,
-                conflicted: false,
-                lines: None,
-                change: but_core::TreeChange {
-                    path: "a.rs".into(),
-                    status: but_core::TreeStatus::Modification {
-                        previous_state: state,
-                        state,
-                        flags: None,
-                    },
-                },
-            },
+            file: FileChange::bare("a.rs"),
             body: DiffBody::Hunks {
                 hunks: vec![hunk],
                 added: 1,
