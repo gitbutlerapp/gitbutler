@@ -253,8 +253,13 @@ fn score(label: &str, query: &str) -> Option<i32> {
 
 impl AppView {
     pub fn open_palette(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // Commands the app handles everywhere, as the Help menu's, count too.
+        // `is_action_available` only looks at the focused element's.
+        let available: Vec<std::any::TypeId> = (window.available_actions(cx).iter())
+            .map(|action| action.as_any().type_id())
+            .collect();
         let mut commands: Vec<(&'static str, &dyn Action)> = (COMMANDS.iter().copied())
-            .filter(|(_, action)| window.is_action_available(*action, cx))
+            .filter(|(_, action)| available.contains(&action.as_any().type_id()))
             .collect();
         // Recently run commands first, as in Zed.
         commands.sort_by_key(|(label, _)| {
