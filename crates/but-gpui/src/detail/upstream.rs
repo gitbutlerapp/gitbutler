@@ -1014,8 +1014,8 @@ impl Detail {
             .scroll_to_item(0, gpui::ScrollStrategy::Top);
     }
 
-    /// Whose commits landed on the target, most first, counted on the days picked or all
-    /// the activity's; the one picked stays, however few they have then. Clicking one
+    /// Whose commits landed on the target, the most landings first, counted on the days
+    /// picked or all the activity's; the one picked stays, however few they have then. Clicking one
     /// filters the history to what landed theirs.
     fn render_people(
         &self,
