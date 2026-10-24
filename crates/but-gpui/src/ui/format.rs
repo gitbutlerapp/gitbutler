@@ -10,9 +10,10 @@ pub fn now() -> i64 {
         .unwrap_or_default()
 }
 
-/// Whether `seconds` (since the epoch) is within the last two minutes.
+/// Whether `seconds` (since the epoch) is within two minutes of now: not much later either,
+/// as a file a clock that's off dated years ahead.
 pub fn just_now(seconds: i64) -> bool {
-    now() - seconds < 120
+    (now() - seconds).abs() < 120
 }
 
 /// A commit's title as shown, with a stand-in when its message is empty.

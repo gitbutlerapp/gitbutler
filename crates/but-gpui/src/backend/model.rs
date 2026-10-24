@@ -336,7 +336,12 @@ impl Workspace {
         let committed =
             (self.shown_branches()).flat_map(|branch| branch.commits.iter().map(|c| c.time));
         let in_worktrees = self.worktrees.iter().flat_map(Worktree::activity);
-        edited.chain(committed).chain(in_worktrees).max()
+        // Nothing dated ahead of the clock, as a machine whose clock is off dates its commits,
+        // which would otherwise keep the project active until then.
+        let now = crate::ui::now();
+        (edited.chain(committed).chain(in_worktrees))
+            .filter(|at| *at <= now)
+            .max()
     }
 
     pub fn unpushed_commits(&self) -> usize {
@@ -1292,6 +1297,24 @@ mod tests {
         assert!(
             commit("vtlrvnlmsxrmrsnrkvqlwrzqokpsoxzk".into()).has_change_id(),
             "it carries one"
+        );
+    }
+
+    #[test]
+    fn activity_ahead_of_the_clock_is_left_out() {
+        let now = crate::ui::now();
+        let written = |path, at: i64| super::FileChange {
+            modified: Some(at * 1000),
+            ..super::FileChange::bare(path)
+        };
+        let ws = super::Workspace {
+            uncommitted: vec![written("a", now - 60), written("b", now + 3600)],
+            ..super::Workspace::default()
+        };
+        assert_eq!(
+            ws.last_activity(),
+            Some(now - 60),
+            "a time in the future is a clock that's off, not activity"
         );
     }
 }
