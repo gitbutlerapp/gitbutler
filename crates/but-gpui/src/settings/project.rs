@@ -1,13 +1,13 @@
 //! The project's pages: the selected project's name, target branch and forge, commit
 //! signing and Git hooks, and removing it from GitButler.
 
-use gpui::{App, ClickEvent, Context, DismissEvent, Window, div, prelude::*};
+use gpui::{App, ClickEvent, Context, DismissEvent, Task, Window, div, prelude::*};
 
 use super::{Card, Page, Row, SettingsView, field_with_save, read_failed};
 use crate::backend::{Forge, settings as backend};
 use crate::state::ProjectId;
 use crate::theme::Theme;
-use crate::ui::{ButtonStyle, button, dp, h_flex, muted, switch};
+use crate::ui::{ButtonStyle, button, dp, error_summary, h_flex, muted, switch};
 
 impl SettingsView {
     /// Show `project`'s settings on its pages, loading them.
@@ -21,6 +21,8 @@ impl SettingsView {
             self.reset_name(cx);
             self.project_settings = None;
             self.signing = None;
+            self.credentials = None;
+            self._credentials_test = Task::ready(());
         }
         let Some(project) = project else {
             return;
@@ -119,6 +121,28 @@ impl SettingsView {
                 Self::reload_project,
                 cx,
             );
+        });
+        let credentials_path = path.clone();
+        let test_credentials = cx.listener(move |this, _: &ClickEvent, _, cx| {
+            this.credentials = Some([None, None]);
+            cx.notify();
+            let path = credentials_path.clone();
+            this._credentials_test = cx.spawn(async move |this, cx| {
+                // Push even when fetching failed: reading and writing don't always take the
+                // same credentials.
+                for (step, push) in [false, true].into_iter().enumerate() {
+                    let path = path.clone();
+                    let result =
+                        crate::backend::run(move || backend::test_credentials(&path, push)).await;
+                    this.update(cx, |this, cx| {
+                        if let Some(check) = this.credentials.iter_mut().flatten().nth(step) {
+                            *check = Some(result.map_err(|err| format!("{err:#}").into()));
+                            cx.notify();
+                        }
+                    })
+                    .ok();
+                }
+            });
         });
         let (test_path, tested) = (path, project.clone());
         let test_signing = cx.listener(move |this, _: &ClickEvent, _, cx| {
@@ -290,6 +314,35 @@ impl SettingsView {
                 })
                 .child(switch("sign", sign, theme).on_click(toggle_sign)),
         );
+        let remote = (workspace.and_then(|ws| ws.target.as_ref())).is_some_and(|t| !t.local);
+        let testing = (self.credentials.iter().flatten()).any(Option::is_none);
+        let label = if testing { "Testing…" } else { "Test" };
+        let credentials = Row::new(
+            "Credentials",
+            if remote {
+                "Fetches from the target branch's remote, then pushes an empty branch there and \
+                 deletes it."
+            } else {
+                "Needs a target branch with a remote to test against."
+            },
+            button("test-credentials", label)
+                .small()
+                .disabled_because(testing.then_some("Testing"))
+                .disabled_because((!remote).then_some("The target branch has no remote"))
+                .on_click(test_credentials),
+        );
+        let checks = ["Fetch", "Push"]
+            .into_iter()
+            .zip(self.credentials.iter().flatten());
+        let checks = checks.map(|(name, check)| match check {
+            None => Row::new(name, "", muted("Checking…", theme)),
+            Some(Ok(())) => Row::new(name, "", muted("Works", theme).text_color(theme.safe)),
+            Some(Err(err)) => Row::new(
+                name,
+                error_summary(err),
+                muted("Failed", theme).text_color(theme.danger),
+            ),
+        });
         let hooks = Row::new(
             "Run Git hooks",
             "Runs the repository's pre-commit, commit-msg, post-commit and pre-push hooks \
@@ -313,6 +366,10 @@ impl SettingsView {
             _ => vec![
                 Card::new(None, vec![force, hooks]),
                 Card::new(Some("Signing"), vec![sign]),
+                Card::new(
+                    Some("Authentication"),
+                    std::iter::once(credentials).chain(checks).collect(),
+                ),
             ],
         }
     }

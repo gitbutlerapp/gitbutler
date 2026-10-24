@@ -152,6 +152,12 @@ pub struct SettingsView {
     ai: ai::Ai,
     /// How the last signing test went, while it applies to the project shown.
     signing: Option<Result<(), SharedString>>,
+    /// How fetching and then pushing went in the last credentials test of the project shown,
+    /// each `None` while it runs.
+    credentials: Option<[Option<Result<(), SharedString>>; 2]>,
+    /// The credentials test running: a new test or another project's settings drop it, so only
+    /// its own results show.
+    _credentials_test: Task<()>,
     pages_scroll: ScrollHandle,
     cards_scroll: ScrollHandle,
     _subscriptions: Vec<Subscription>,
@@ -219,6 +225,8 @@ impl SettingsView {
             accounts: Default::default(),
             ai,
             signing: None,
+            credentials: None,
+            _credentials_test: Task::ready(()),
             pages_scroll: ScrollHandle::new(),
             cards_scroll: ScrollHandle::new(),
             _subscriptions: subscriptions,
