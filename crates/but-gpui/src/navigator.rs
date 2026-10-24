@@ -1516,8 +1516,10 @@ impl Navigator {
         let unread = (branches.iter()).any(|branch| store.branch_unread(id, branch));
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
-        // Written to in the last two minutes, likely by the agent working in it.
-        let active = worktree.is_some_and(|wt| wt.last_activity().is_some_and(just_now));
+        // Written to or committed in, in the last two minutes, likely by the agent working in
+        // it, not the app.
+        let active = (worktree.and_then(|wt| wt.last_activity()))
+            .is_some_and(|at| just_now(at) && !store.own_write(id, at));
         let toggle = {
             let (project, name) = (id.clone(), name.clone());
             move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {

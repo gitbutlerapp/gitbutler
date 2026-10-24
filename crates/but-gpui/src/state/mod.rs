@@ -286,6 +286,10 @@ pub struct Store {
     /// until the reload after it lands, so the next one sees what it did; projects don't
     /// wait on each other.
     running: HashMap<ProjectId, Running>,
+    /// When, in seconds since the Unix epoch, each project's last mutation wrote: from its
+    /// start until the file watcher has told of its writes, a second or so after it settled.
+    /// What's written then isn't activity in the checkout.
+    own_writes: HashMap<ProjectId, std::ops::RangeInclusive<i64>>,
     busy_ticker: Task<()>,
     /// Mutations waiting for their project's running one, in order.
     queue: VecDeque<Queued>,
@@ -391,6 +395,7 @@ impl Store {
             newer_version: None,
             mesh: mesh::Mesh::start(cx),
             running: HashMap::new(),
+            own_writes: HashMap::new(),
             busy_ticker: Task::ready(()),
             queue: VecDeque::new(),
             last_snapshot: None,
@@ -837,6 +842,12 @@ impl Store {
         let (project, snapshot) = self.last_snapshot.take()?;
         (self.undo_steps).retain(|step| step.project != project || step.snapshot != snapshot);
         Some((project, snapshot))
+    }
+
+    /// Whether something written in `project` at `at`, in seconds since the Unix epoch, is the
+    /// app's own operation's doing rather than activity in the checkout.
+    pub fn own_write(&self, project: &ProjectId, at: i64) -> bool {
+        (self.own_writes.get(project)).is_some_and(|span| span.contains(&at))
     }
 
     /// Whether ⌘Z has something the user did to take back.

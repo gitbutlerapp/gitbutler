@@ -107,7 +107,8 @@ impl Store {
                     let now = crate::ui::now();
                     for (id, git, linked, paths) in events {
                         // What the app's own operations write isn't activity in the checkout.
-                        if !paths.is_empty() && !store.running.contains_key(&id) {
+                        let own = store.running.contains_key(&id) || store.own_write(&id, now);
+                        if !paths.is_empty() && !own {
                             let checkout = (id.clone(), linked.clone());
                             store
                                 .activity

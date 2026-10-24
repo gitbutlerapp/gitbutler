@@ -410,6 +410,7 @@ impl Detail {
         let store = self.store.read(cx);
         let written = (files.iter())
             .filter_map(|file| file.modified.map(|ms| ms / 1000))
+            .filter(|at| !store.own_write(project, *at))
             .max();
         let last_write = activity.and_then(|a| a.last).max(written);
         // Written to lately, and since its last commit: once committed, it's quiet again.

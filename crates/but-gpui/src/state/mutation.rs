@@ -1429,7 +1429,12 @@ impl Store {
     /// and start what waits on it.
     pub(super) fn settled(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
         if self.settles(id) {
-            self.running.remove(id);
+            // One that only talks to a remote, as a push, writes no files.
+            if let Some(running) = self.running.remove(id).filter(|r| !r.overlay.remote_only) {
+                let now = crate::ui::now();
+                let started = now - running.started.elapsed().as_secs() as i64;
+                self.own_writes.insert(id.clone(), started..=now + 2);
+            }
             cx.emit(StoreEvent::Pending(id.clone()));
             self.start_next(cx);
         }
