@@ -1634,10 +1634,16 @@ impl Detail {
                 // A target the remote renamed or deleted is said so, not as if never picked.
                 let lost = (entry.workspace.as_ref()).and_then(|ws| ws.lost_target.clone());
                 let unpushed = (entry.workspace.as_ref()).and_then(|ws| ws.target_branch.clone());
+                let untargeted = (entry.workspace.as_ref()).is_some() && unpushed.is_none();
                 let (title, detail) = match lost {
                     Some(name) => (
                         format!("{name} is gone"),
                         "The remote no longer has it. Pick the branch your work goes into now",
+                    ),
+                    // A loaded project without a target needs one picked first, remote or not.
+                    None if untargeted => (
+                        "No target branch".to_owned(),
+                        "Pick the branch your work goes into, like main",
                     ),
                     // The history is the target's remote branch's, so a target picked here
                     // shows none either.

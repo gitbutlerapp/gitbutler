@@ -611,8 +611,10 @@ impl Store {
                     store.validate_selection(&id, cx);
                 }
                 // A project just added opens on its page while it has no target: that's
-                // where one is picked.
-                let untargeted = store.workspace(&id).is_some_and(|ws| ws.target.is_none());
+                // where one is picked. One without commits stays on its files, as there's no
+                // branch to pick until the first commit makes one, which it then targets.
+                let untargeted = (store.workspace(&id))
+                    .is_some_and(|ws| ws.target.is_none() && ws.tree.is_some());
                 if store.added.take_if(|added| *added == id).is_some()
                     && untargeted
                     && store.selection == Some(Selection::Uncommitted(id.clone()))
