@@ -1165,11 +1165,14 @@ impl Detail {
         if let (Some(line), true) = (line, on_disk) {
             let (open_project, open_file) = (project.clone(), relative.clone());
             let label = crate::open_in::editor_label(store);
-            items.push(MenuItem::new(label, move |this, _, cx| {
-                let file = Some(open_file.clone());
-                let worktree = worktree.clone();
-                this.open_in_editor(&open_project, worktree, file, line, position, cx)
-            }));
+            items.push(MenuItem {
+                key: crate::ui::shortcut(&crate::open_in::OpenInEditor, cx),
+                ..MenuItem::new(label, move |this, _, cx| {
+                    let file = Some(open_file.clone());
+                    let worktree = worktree.clone();
+                    this.open_in_editor(&open_project, worktree, file, line, position, cx)
+                })
+            });
         }
         items.extend([
             MenuItem::new("Copy path", move |this, _, cx| {
