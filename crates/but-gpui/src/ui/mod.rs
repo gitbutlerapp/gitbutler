@@ -1042,7 +1042,19 @@ impl Render for Tooltip {
 pub fn shortcut(action: &dyn gpui::Action, cx: &App) -> Option<SharedString> {
     let keymap = cx.key_bindings();
     let keymap = keymap.borrow();
-    let binding = keymap.bindings_for_action(action).next_back()?;
+    Some(keys_of(keymap.bindings_for_action(action).next_back()?))
+}
+
+/// The keys that run `action` where the keys go now, unless the same keys do something else
+/// there, as [`shortcut`] writes them.
+pub fn shortcut_here(action: &dyn gpui::Action, window: &Window, cx: &App) -> Option<SharedString> {
+    let focused = window.focused(cx)?;
+    Some(keys_of(&window.highest_precedence_binding_for_action_in(
+        action, &focused,
+    )?))
+}
+
+fn keys_of(binding: &gpui::KeyBinding) -> SharedString {
     let keys: Vec<String> = binding
         .keystrokes()
         .iter()
@@ -1078,7 +1090,7 @@ pub fn shortcut(action: &dyn gpui::Action, cx: &App) -> Option<SharedString> {
             text
         })
         .collect();
-    Some(keys.join(" ").into())
+    keys.join(" ").into()
 }
 
 /// What Windows calls the keys macOS writes as symbols. The app's ⌘ keys are ctrl there, and a
