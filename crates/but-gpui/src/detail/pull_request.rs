@@ -12,7 +12,9 @@ use gpui::{
 use super::Detail;
 use super::panes::title_text;
 use super::resolve::{banner_action, warn_banner};
+use crate::backend::reviews::MergeMethod;
 use crate::backend::{CheckRun, Forge, Review, ReviewState};
+use crate::overlays::MenuItem;
 use crate::pr::{Mergeability, Offer};
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
@@ -20,8 +22,8 @@ use crate::ui::markdown;
 use crate::ui::review as ui_review;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::{
-    ButtonStyle, Icon, Tooltip, ago, button, count_badge, dp, duration, faint, h_flex, icon,
-    keep_focus_on_press, list_row, local_time, muted, now, small_icon, v_flex,
+    ButtonStyle, Icon, Tooltip, ago, button, count_badge, dp, dropdown_button, duration, faint,
+    h_flex, icon, keep_focus_on_press, list_row, local_time, muted, now, small_icon, v_flex,
 };
 
 /// How tall the tabs over the diff beside a list are.
@@ -140,8 +142,9 @@ impl Detail {
         };
         // Turning auto-merge on or off shows at once, until the forge has it.
         let waiting = store.auto_merge_on(project, review) != review.auto_merge;
+        let method = crate::pr::merge_method(store, project);
         let action = merge.offer().map(|offer| {
-            button("merge-offer", offer.label())
+            let action = button("merge-offer", offer.label(method))
                 .small()
                 .style(match offer {
                     Offer::Merge => ButtonStyle::Pop,
@@ -156,12 +159,22 @@ impl Detail {
                 })
                 .dispatch(offer.action())
                 .tooltip(match offer {
-                    Offer::Merge => "Merge it now, choosing how",
+                    Offer::Merge => "Merge it now on the forge",
                     Offer::EnableAutoMerge => {
                         "Merge it by itself once its required checks and reviews pass"
                     }
                     Offer::DisableAutoMerge => "Leave it to merge by hand",
-                })
+                });
+            match (offer, method) {
+                (Offer::Merge, Some(method)) => {
+                    let project = project.clone();
+                    let open = cx.listener(move |this, event: &ClickEvent, _, cx| {
+                        this.open_merge_methods(&project, method, event, cx)
+                    });
+                    dropdown_button(action, "Merge method", open).into_any_element()
+                }
+                _ => action.into_any_element(),
+            }
         });
         Some(
             h_flex()
@@ -186,6 +199,33 @@ impl Detail {
                 )
                 .children(action),
         )
+    }
+
+    /// The ways to merge, as GitHub's merge button offers them, ticking the one `project`
+    /// merges by. Picking one keeps it for the project's next merge.
+    fn open_merge_methods(
+        &mut self,
+        project: &ProjectId,
+        current: MergeMethod,
+        event: &ClickEvent,
+        cx: &mut Context<Self>,
+    ) {
+        let items = [
+            (MergeMethod::Merge, "Create a merge commit"),
+            (MergeMethod::Squash, "Squash and merge"),
+            (MergeMethod::Rebase, "Rebase and merge"),
+        ]
+        .map(|(method, label)| {
+            let project = project.to_string();
+            MenuItem::new(label, move |app, _, cx| {
+                let project = project.clone();
+                (app.store).update(cx, |store, cx| {
+                    store.set_prefs(|p| _ = p.merge_methods.insert(project, method), cx)
+                })
+            })
+            .ticked(method == current)
+        });
+        self.open_menu(event.position(), items.into(), cx);
     }
 
     /// A branch or commit's tabs: its changes, with how many files, and its pull request,

@@ -379,7 +379,10 @@ impl Navigator {
                         }
                         Some((review, S::Open)) => {
                             let offer = crate::pr::mergeability(store, project, review).offer();
-                            items.extend(offer.map(|offer| action(offer.label(), offer.action())))
+                            let method = crate::pr::merge_method(store, project);
+                            items.extend(
+                                offer.map(|offer| action(offer.label(method), offer.action())),
+                            )
                         }
                         _ => {}
                     }
