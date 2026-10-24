@@ -352,6 +352,15 @@ impl AppView {
     /// Push the selected branch, or from the uncommitted changes the branch they commit to.
     pub fn push_selected(&mut self, _: &Push, window: &mut Window, cx: &mut Context<Self>) {
         let branch = match self.selection(cx) {
+            // A message starts with a capital letter, which typed where the keys act, as after
+            // clicking the diff, would push the branch it's for.
+            Some(Selection::Uncommitted(_)) if self.detail.read(cx).composing() => {
+                return snack(
+                    &self.store,
+                    "Not while writing a commit: push from its branch",
+                    cx,
+                );
+            }
             Some(Selection::Uncommitted(project)) => {
                 let target = self.detail.read(cx).effective_target(&project, cx);
                 let Some(target) = target else {
