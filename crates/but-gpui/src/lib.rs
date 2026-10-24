@@ -133,6 +133,7 @@ pub fn run(embedded: Option<Embedded>) {
             if let Err(err) = cx.text_system().add_fonts(ui::fonts()) {
                 tracing::error!("couldn't load the bundled fonts: {err:#}");
             }
+            let has_update_feed = embedded.as_ref().is_some_and(|e| e.update_feed.is_some());
             match embedded {
                 Some(embedded) => cx.set_global(embedded),
                 // The desktop app's bundle gives the Dock its icon.
@@ -151,9 +152,12 @@ pub fn run(embedded: Option<Embedded>) {
             cx.on_action(|_: &app::ShowAll, cx| cx.unhide_other_apps());
             // The standard macOS menus. AppKit fills a menu named "Window" with the window
             // list and tiling, and "Services" with what other apps offer.
+            let mut app_menu = vec![MenuItem::action("About GitButler", help::About)];
+            if has_update_feed {
+                app_menu.push(MenuItem::action("Check for Updates…", app::CheckForUpdates));
+            }
             cx.set_menus([
-                Menu::new("GitButler").items([
-                    MenuItem::action("About GitButler", help::About),
+                Menu::new("GitButler").items(app_menu.into_iter().chain([
                     MenuItem::separator(),
                     MenuItem::action("Settings…", settings::OpenSettings),
                     MenuItem::separator(),
@@ -164,7 +168,7 @@ pub fn run(embedded: Option<Embedded>) {
                     MenuItem::action("Show All", app::ShowAll),
                     MenuItem::separator(),
                     MenuItem::action("Quit GitButler", app::Quit),
-                ]),
+                ])),
                 Menu::new("File").items([
                     MenuItem::action("Add Project…", app::AddProject),
                     MenuItem::action("Clone Repository…", projects::CloneRepository),
