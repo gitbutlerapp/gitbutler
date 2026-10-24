@@ -2382,7 +2382,7 @@ fn uncommitted_counts(tally: Tally, style: RowStyle) -> Div {
 /// How many commits the target's merges brought in besides, as " (N counting merged
 /// commits)" after its count, which counts each merge once as the project's page lists them,
 /// or nothing when they brought in none.
-fn with_merged(target: &Target) -> String {
+pub(crate) fn with_merged(target: &Target) -> String {
     match target.commits_behind > target.behind {
         true => format!(" ({} counting merged commits)", target.commits_behind),
         false => String::new(),

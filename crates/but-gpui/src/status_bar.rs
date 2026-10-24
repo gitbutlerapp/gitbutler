@@ -160,10 +160,11 @@ impl AppView {
                     }
                     0 => format!("{} · up to date with {}", entry.project.name, target.name),
                     n => format!(
-                        "{} · {} behind {}",
+                        "{} · {} behind {}{}",
                         entry.project.name,
                         crate::ui::plural(n, "commit"),
-                        target.name
+                        target.name,
+                        crate::navigator::with_merged(target)
                     ),
                 };
                 Some(standing + fetched.as_deref().unwrap_or_default())
