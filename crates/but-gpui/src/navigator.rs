@@ -832,7 +832,13 @@ impl Navigator {
             match (self.rows.iter())
                 .position(|row| matches!(row, Row::Item(item) if item == selection))
             {
-                Some(ix) => self.list.scroll_to_reveal_item(ix),
+                Some(ix) => {
+                    // Rows not drawn since the list's width changed, as zooming changes it,
+                    // count as one row tall rather than none, so the reveal lands on it.
+                    let row = Theme::get(cx).scaled(ROW_HEIGHT);
+                    self.list.clone().with_uniform_item_height(row);
+                    self.list.scroll_to_reveal_item(ix)
+                }
                 // A project just added has its rows once it's loaded.
                 None => {
                     self.reveal_selection =
