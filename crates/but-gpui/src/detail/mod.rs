@@ -448,6 +448,9 @@ impl Detail {
                     match this.selection(cx) {
                         Some(Selection::Branches(_)) => this.close_branch(cx),
                         Some(Selection::Project(project)) => this.open_on_shipped(&project),
+                        Some(Selection::History(project)) => {
+                            this.open_on_newest_operation(&project)
+                        }
                         _ => {}
                     }
                     this.reload_page(true, cx);

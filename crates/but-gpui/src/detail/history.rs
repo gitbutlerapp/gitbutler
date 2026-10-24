@@ -479,7 +479,18 @@ impl Detail {
             .ok();
     }
 
-    /// Back to the newest operation listed, as the page opens on, when it's picked again.
+    /// Opening `project`'s history, wherever from: at the top, on the newest operation, which
+    /// the reload that follows picks, rather than on one picked a visit ago and since pushed
+    /// out of view by newer ones.
+    pub(super) fn open_on_newest_operation(&mut self, project: &ProjectId) {
+        if let Some(history) = self.history.get_mut(project) {
+            history.selected = None;
+        }
+        (self.history_scroll).scroll_to_item(0, gpui::ScrollStrategy::Top);
+    }
+
+    /// Back to the newest operation listed, at the top, as the page opens on, when it's picked
+    /// again.
     pub(super) fn pick_newest_operation(&mut self, cx: &mut Context<Self>) {
         let Some(history) = self.page_history(cx) else {
             return;
@@ -487,6 +498,7 @@ impl Detail {
         let newest = self.shown_operations(history, cx).first().copied();
         if let Some(op) = newest.and_then(|ix| history.operations.get(ix)) {
             self.select_operation(op.id, cx);
+            (self.history_scroll).scroll_to_item(0, gpui::ScrollStrategy::Top);
         }
     }
 
