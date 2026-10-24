@@ -345,13 +345,9 @@ fn lane_row(
                         .truncate()
                         .child(title(branch).to_owned()),
                 )
+                // Whole, as a cut-off tag reads as a stray glyph; the title gives way.
                 .when(branch.applied, |el| {
-                    el.child(
-                        faint("applied", theme)
-                            .min_w_0()
-                            .flex_shrink(1000.)
-                            .truncate(),
-                    )
+                    el.child(faint("applied", theme).flex_none())
                 })
                 // Short, as the list's ages are, to leave the title room.
                 .children(quiet.map(|days| {

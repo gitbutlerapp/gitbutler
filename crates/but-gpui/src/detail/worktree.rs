@@ -281,7 +281,12 @@ impl Detail {
             .children(folder.map(|folder| {
                 meta_item(Icon::Folder, theme)
                     .min_w_0()
-                    .child(div().min_w_0().truncate().child(folder))
+                    // Cut in the middle, keeping the folder's own name, as the project's page does.
+                    .child(
+                        (div().min_w_0().overflow_hidden().whitespace_nowrap())
+                            .text_ellipsis_middle()
+                            .child(folder),
+                    )
             }));
         let main = v_flex()
             .gap(dp(10.))

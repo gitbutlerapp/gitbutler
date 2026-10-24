@@ -658,7 +658,11 @@ impl AppView {
                                             .child(title.clone()),
                                     ),
                             )
-                            .child(muted(error_summary(detail), theme).line_clamp(4))
+                            .child(
+                                muted(error_summary(detail), theme)
+                                    .line_clamp(4)
+                                    .text_ellipsis(),
+                            )
                             .child(
                                 h_flex()
                                     .gap(dp(6.))
