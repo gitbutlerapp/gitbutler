@@ -654,11 +654,24 @@ impl Detail {
         let Some((_, commit)) = store.find_commit(&project, id) else {
             return;
         };
-        // Already open, as after a click elsewhere: back to what's written there.
-        if let Some((editing, input, _)) = &self.rewording
-            && rewords(editing, &project, commit, store)
-        {
-            return window.focus(&input.focus_handle(cx), cx);
+        if let Some((editing, input, _)) = &self.rewording {
+            // Already open, as after a click elsewhere: back to what's written there.
+            if rewords(editing, &project, commit, store) {
+                return window.focus(&input.focus_handle(cx), cx);
+            }
+            // Open on another commit with changes, which this one would throw away unsaved.
+            let other = (store.workspace(&editing.0).into_iter())
+                .flat_map(|ws| ws.commits())
+                .find(|c| rewords(editing, &editing.0, c, store));
+            if let Some(other) = other
+                && store.message_of(&editing.0, other).1.trim() != input.read(cx).text().trim()
+            {
+                let why = format!(
+                    "Save or cancel the new message for \"{}\" first",
+                    other.title
+                );
+                return self.store.update(cx, |store, cx| store.snack(why, cx));
+            }
         }
         let message = store.message_of(&project, commit).1.to_owned();
         let key = (project.clone(), commit.key.clone(), commit.authored.clone());
