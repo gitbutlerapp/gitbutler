@@ -102,9 +102,9 @@ pub fn label_scopes(hunks: &mut [Hunk], old: &str, new: &str, path: &str, limit:
         let containing = (scoped.hunks().iter())
             .find(|candidate| side(candidate, side_is_new).contains(&number));
         if let Some(containing) = containing {
-            hunk.scope = containing
-                .ancestors
-                .iter()
+            // A one-line item, as `mod foo;`, is the changed line itself, not around it.
+            hunk.scope = (containing.ancestors.iter())
+                .filter(|scope| scope.end_line > scope.start_line)
                 .map(|scope| {
                     scope
                         .text
@@ -312,6 +312,15 @@ mod tests {
                 .all(|hunk| hunk.lead.is_empty() && hunk.tail.is_empty()),
             "each would add few lines, but the function adds more than {LIMIT} in all"
         );
+    }
+
+    #[test]
+    fn a_one_line_item_isnt_named_as_its_own_scope() {
+        let old = "mod a;\nmod b;\nmod c;\n";
+        let new = old.replace("mod b;", "mod bb;");
+        let mut hunks = [changed_line(old, &new, 2)];
+        label_scopes(&mut hunks, old, &new, "lib.rs", LIMIT);
+        assert!(hunks[0].scope.is_empty(), "{:?}", hunks[0].scope);
     }
 
     #[test]
