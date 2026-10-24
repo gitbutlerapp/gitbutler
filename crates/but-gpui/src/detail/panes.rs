@@ -726,14 +726,16 @@ impl Detail {
     ) -> AnyElement {
         let menu = icon_button("page-menu", Icon::Kebab).on_click(cx.listener(
             move |this, event: &ClickEvent, _, cx| {
-                let position = event.position();
-                // What right-clicking its row in the navigator offers.
-                (this.app)
-                    .update(cx, |app, cx| {
+                let (position, target, app) = (event.position(), target.clone(), this.app.clone());
+                // What right-clicking its row in the navigator offers, which reads this view, so
+                // once this update is over.
+                cx.defer(move |cx| {
+                    (app.update(cx, |app, cx| {
                         let items = app.navigator.read(cx).menu_items(&target, cx);
                         app.open_menu(position, items, cx)
-                    })
+                    }))
                     .ok();
+                });
             },
         ));
         self.header_frame(main, menu, extra, tabs, theme)
