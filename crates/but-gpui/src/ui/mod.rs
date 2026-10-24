@@ -1045,7 +1045,8 @@ pub fn pulsing<E: IntoElement + Styled + 'static>(el: E) -> impl IntoElement {
 /// A surface with nothing in it, as ui-react's EmptyState: a drawing picked by what the state
 /// means, a title naming it, and a line saying what happens next, each left out when there's
 /// none. Its foot is padded so the block sits a little above the middle, where it reads as
-/// centred, and it caps its width so it stays a block in a wide pane.
+/// centred, and it caps its width so it stays a block in a wide pane. In a pane too short for
+/// it, it's cut off rather than drawn over what's above.
 pub fn empty_state(
     drawing: Option<Illustration>,
     title: impl Into<SharedString>,
@@ -1056,6 +1057,7 @@ pub fn empty_state(
     let (title, detail): (SharedString, SharedString) = (title.into(), detail.into());
     v_flex()
         .size_full()
+        .overflow_hidden()
         .items_center()
         .justify_center()
         .px(dp(32.))

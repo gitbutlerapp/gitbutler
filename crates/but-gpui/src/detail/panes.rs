@@ -1418,14 +1418,17 @@ pub(super) fn overview_title(title: &'static str, scope: String, theme: &Theme) 
         .px(dp(14.))
         .pb(dp(4.))
         .gap(dp(8.))
+        // In a narrow pane the scope gives way first, then the title is cut short.
         .child(
             div()
-                .flex_1()
+                .flex_grow(1.)
+                .min_w_0()
+                .truncate()
                 .text_size(dp(15.))
                 .font_weight(gpui::FontWeight::SEMIBOLD)
                 .child(title),
         )
-        .child(faint(scope, theme).min_w_0().truncate())
+        .child(faint(scope, theme).flex_shrink(1000.).min_w_0().truncate())
 }
 
 /// An overview's headline numbers, a tile each: what it counts, the number, and more of what
