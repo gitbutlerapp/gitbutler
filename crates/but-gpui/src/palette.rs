@@ -206,15 +206,19 @@ impl Palette {
     }
 }
 
-/// How well `query` matches `label`: the start of a word beats the middle of one, which
-/// beats a scattered match, and earlier beats later. `None` when the letters don't appear
-/// in order.
+/// How well `query` matches `label`: all of it beats the start of a word, which beats the
+/// middle of one, which beats a scattered match, and earlier beats later. `None` when the
+/// letters don't appear in order.
 fn score(label: &str, query: &str) -> Option<i32> {
     if query.is_empty() {
         return Some(0);
     }
     let label = label.to_lowercase();
     let query = query.to_lowercase();
+    // A branch named in full, as `min-size`, before the ones it starts, as `min-size-docs`.
+    if label == query {
+        return Some(3000);
+    }
     if let Some((at, _)) = label
         .match_indices(&query)
         .find(|(at, _)| *at == 0 || label.get(..*at).is_some_and(|head| head.ends_with(' ')))
@@ -441,7 +445,10 @@ impl AppView {
                 if choice.names && !query.is_empty() {
                     return (!taken).then_some((-1, ix));
                 }
-                let detail = (choice.detail.as_ref()).and_then(|detail| score(detail, &query));
+                // The label first on a tie, as a branch named as another's detail says.
+                let detail = (choice.detail.as_ref())
+                    .and_then(|detail| score(detail, &query))
+                    .map(|score| score - 1);
                 let score = score(&choice.label, &query).max(detail)?;
                 // One that throws work away shows for its words, not for letters scattered
                 // through it, so typing a command missing here doesn't land on it.
@@ -606,7 +613,15 @@ impl AppView {
 
 #[cfg(test)]
 mod tests {
-    use super::{COMMANDS, RISKY};
+    use super::{COMMANDS, RISKY, score};
+
+    #[test]
+    fn a_name_typed_in_full_comes_before_the_longer_ones_it_starts() {
+        assert!(
+            score("min-size", "min-size") > score("min-size-docs", "min-size"),
+            "Enter takes the first, so it must be the one named"
+        );
+    }
 
     #[test]
     fn every_risky_name_is_a_command() {
