@@ -568,8 +568,9 @@ impl Detail {
         let keep: Vec<(String, usize, Keep)> = (keep.into_iter())
             .map(|(path, c, keep)| (path, c.index, keep))
             .collect();
-        let next =
-            (self.store.read(cx).workspace(&project)).and_then(|ws| next_conflicted(ws, commit));
+        let after = (self.store.read(cx).workspace(&project))
+            .map(|ws| stack_after(ws, commit))
+            .unwrap_or_default();
         let shown = project.clone();
         self.store.update(cx, |store, cx| {
             store.run(
@@ -590,23 +591,31 @@ impl Detail {
                 },
                 move |store, (rewritten, outcome), cx| {
                     forget(cx);
-                    let next =
-                        next.map(|(id, title)| (rewritten.get(&id).copied().unwrap_or(id), title));
-                    let message = match (outcome.remaining, outcome.emptied, next) {
-                        (0, true, _) => {
-                            store.follow(&rewritten, cx);
-                            "Resolved, with nothing of the commit's change left".into()
-                        }
-                        // On to the stack's next conflicted commit, rebuilt on this one.
-                        (0, false, Some((next, title))) => {
+                    // The commits above it were rebuilt on it, conflicted now or not
+                    // whatever they were; those below stay as they were.
+                    let next = after.into_iter().find_map(|(id, title, was)| {
+                        let now = rewritten.get(&id).copied();
+                        let conflicted = now.map_or(was, |now| outcome.conflicted.contains(&now));
+                        conflicted.then_some((now.unwrap_or(id), title))
+                    });
+                    let resolved = match outcome.emptied {
+                        true => "Resolved, leaving the commit empty",
+                        false => "Resolved",
+                    };
+                    let message = match (outcome.remaining, next) {
+                        // On to the stack's next conflicted commit.
+                        (0, Some((next, title))) => {
                             store.select(Some(Selection::Commit(shown, next)), cx);
-                            format!("Resolved, on to {title}")
+                            format!("{resolved}, on to {title}")
                         }
-                        (0, false, None) => {
+                        (0, None) => {
                             store.follow(&rewritten, cx);
-                            "Resolved, no conflicts left".into()
+                            match outcome.emptied {
+                                true => resolved.into(),
+                                false => "Resolved, no conflicts left".into(),
+                            }
                         }
-                        (left, ..) => {
+                        (left, _) => {
                             store.follow(&rewritten, cx);
                             format!(
                                 "Resolved {}, {left} left",
@@ -863,16 +872,25 @@ fn oldest_first(workspace: &Workspace, commit: CommitId) -> Vec<CommitId> {
         .collect()
 }
 
-/// The next conflicted commit of `commit`'s stack after it, oldest first, with its title.
-fn next_conflicted(workspace: &Workspace, commit: CommitId) -> Option<(CommitId, String)> {
+/// The commits of `commit`'s stack after it, oldest first and then wrapping around to older
+/// ones, with their titles and whether they're conflicted.
+fn stack_after(workspace: &Workspace, commit: CommitId) -> Vec<(CommitId, String, bool)> {
     let order = oldest_first(workspace, commit);
-    let at = order.iter().position(|id| *id == commit)?;
-    order.get(at + 1..)?.iter().find_map(|id| {
-        let (_, found) = workspace.find_commit(*id)?;
-        found
-            .conflicted
-            .then(|| (*id, commit_title(&found.title).to_string()))
-    })
+    let at = order
+        .iter()
+        .position(|id| *id == commit)
+        .unwrap_or(order.len());
+    let (before, from) = order.split_at(at);
+    (from.iter().skip(1).chain(before))
+        .filter_map(|id| {
+            let (_, found) = workspace.find_commit(*id)?;
+            Some((
+                *id,
+                commit_title(&found.title).to_string(),
+                found.conflicted,
+            ))
+        })
+        .collect()
 }
 
 /// A condition on the warn ground, as ui-react's `Banner`: its line, beside the one fix.

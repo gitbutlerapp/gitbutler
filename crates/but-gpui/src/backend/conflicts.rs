@@ -1,7 +1,7 @@
 //! Resolving conflicts without leaving the workspace, a conflicted commit's or those a merge
 //! left in uncommitted files: each keeps one side, the other, or text written for it.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
 
 use anyhow::{Context as _, Result};
@@ -25,6 +25,8 @@ pub struct Resolved {
     pub remaining: usize,
     /// The resolutions dropped all the commit's changes.
     pub emptied: bool,
+    /// The commits above it that its new changes left conflicted, by their new ids.
+    pub conflicted: HashSet<CommitId>,
 }
 
 /// Resolve conflicts of `commit`, each by its file and its place among the file's conflicts.
@@ -58,6 +60,9 @@ pub fn resolve(
             resolved: outcome.resolved,
             remaining,
             emptied: outcome.commit_emptied,
+            conflicted: (outcome.workspace.conflicted_commits.iter())
+                .map(|(id, _)| CommitId(*id))
+                .collect(),
         },
     ))
 }
