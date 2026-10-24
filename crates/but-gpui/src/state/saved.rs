@@ -4,7 +4,9 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Duration;
 
-use gpui::{App, AppContext as _, Bounds, Context, DisplayId, Pixels, Window, point, size};
+use gpui::{
+    App, AppContext as _, Bounds, Context, DisplayId, Pixels, Window, WindowBounds, point, size,
+};
 use serde::{Deserialize, Serialize};
 
 use super::{Seen, Store};
@@ -188,7 +190,8 @@ impl Store {
         let Some(display) = window.display(cx).and_then(|display| display.uuid().ok()) else {
             return;
         };
-        let Bounds { origin, size } = window.window_bounds().get_bounds();
+        let bounds = window.window_bounds();
+        let Bounds { origin, size } = bounds.get_bounds();
         self.window = Some(WindowPlace {
             display: display.to_string(),
             bounds: [
@@ -197,13 +200,18 @@ impl Store {
                 size.width.into(),
                 size.height.into(),
             ],
+            fills: match bounds {
+                WindowBounds::Windowed(_) => None,
+                WindowBounds::Maximized(_) => Some(Fill::Maximized),
+                WindowBounds::Fullscreen(_) => Some(Fill::FullScreen),
+            },
         });
         self.save_soon(cx);
     }
 
     /// Where the window was when the app last quit, while that display is still connected and
     /// the window would still show on it.
-    pub fn window_place(&self, cx: &App) -> Option<(DisplayId, Bounds<Pixels>)> {
+    pub fn window_place(&self, cx: &App) -> Option<(DisplayId, WindowBounds)> {
         let place = self.window.as_ref()?;
         let display = cx.displays().into_iter().find(|display| {
             display
@@ -216,7 +224,15 @@ impl Store {
             size(Pixels::from(width), Pixels::from(height)),
         );
         let screen = Bounds::new(point(Pixels::ZERO, Pixels::ZERO), display.bounds().size);
-        screen.intersects(&bounds).then(|| (display.id(), bounds))
+        if !screen.intersects(&bounds) {
+            return None;
+        }
+        let bounds = match place.fills {
+            None => WindowBounds::Windowed(bounds),
+            Some(Fill::Maximized) => WindowBounds::Maximized(bounds),
+            Some(Fill::FullScreen) => WindowBounds::Fullscreen(bounds),
+        };
+        Some((display.id(), bounds))
     }
 
     /// Resize `pane`, within its limits, or put it back to its default with `None`.
@@ -433,11 +449,21 @@ fn readable<T: serde::de::DeserializeOwned>(value: &mut serde_json::Value) {
 }
 
 /// Where the window was: the display it was on, and its left, top, width and height on that
-/// display. A full-screen window keeps the size it returns to.
+/// display. A maximized or full-screen window keeps the size it returns to, and opens filling
+/// the display again.
 #[derive(Clone, Serialize, Deserialize)]
 pub(super) struct WindowPlace {
     display: String,
     bounds: [f32; 4],
+    #[serde(default)]
+    fills: Option<Fill>,
+}
+
+/// How a window filled its display.
+#[derive(Clone, Copy, Serialize, Deserialize)]
+pub(super) enum Fill {
+    Maximized,
+    FullScreen,
 }
 
 impl Saved {

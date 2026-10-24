@@ -213,12 +213,16 @@ pub fn run(embedded: Option<Embedded>) {
                 Some((display, bounds)) => (Some(display), bounds),
                 None => (
                     None,
-                    Bounds::centered(None, size(fixed(1360.), fixed(860.)), cx),
+                    WindowBounds::Windowed(Bounds::centered(
+                        None,
+                        size(fixed(1360.), fixed(860.)),
+                        cx,
+                    )),
                 ),
             };
             let window = cx.open_window(
                 WindowOptions {
-                    window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    window_bounds: Some(bounds),
                     display_id,
                     titlebar: Some(TitlebarOptions {
                         title: Some("GitButler".into()),
