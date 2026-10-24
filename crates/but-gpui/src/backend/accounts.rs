@@ -70,8 +70,8 @@ pub fn forget(account: AccountId) -> Result<()> {
     }
 }
 
-/// Check `token` with the forge and store it. Bitbucket also needs the account's `email`.
-/// Returns who it signed in as.
+/// Check `token` with the forge and store it. Bitbucket also needs the account's `email`, which
+/// the form asks for first. Returns who it signed in as.
 pub fn add_token(forge: Forge, token: String, email: String) -> Result<String> {
     let token = Sensitive(token.trim().to_owned());
     let handle = runtime().handle();
@@ -88,9 +88,6 @@ pub fn add_token(forge: Forge, token: String, email: String) -> Result<String> {
         }
         Forge::Bitbucket => {
             let email = email.trim().to_owned();
-            if email.is_empty() {
-                bail!("Bitbucket needs the account's email too");
-            }
             handle.block_on(but_api::bitbucket::store_bitbucket_api_token(
                 email.clone(),
                 token,
@@ -98,6 +95,31 @@ pub fn add_token(forge: Forge, token: String, email: String) -> Result<String> {
             email
         }
         Forge::Azure => bail!("GitButler can't sign in to Azure yet"),
+    })
+}
+
+/// Check `token` with the GitHub Enterprise or self-hosted GitLab server whose API is at `url`
+/// and store it. Returns who it signed in as.
+pub fn add_self_hosted_token(forge: Forge, url: String, token: String) -> Result<String> {
+    let (url, token) = (url.trim().to_owned(), Sensitive(token.trim().to_owned()));
+    let handle = runtime().handle();
+    Ok(match forge {
+        Forge::GitHub => {
+            handle
+                .block_on(but_api::github::store_github_enterprise_pat(token, url))?
+                .login
+        }
+        Forge::GitLab => {
+            handle
+                .block_on(but_api::gitlab::store_gitlab_selfhosted_pat(token, url))?
+                .username
+        }
+        Forge::Bitbucket | Forge::Azure => {
+            bail!(
+                "GitButler can't sign in to a self-hosted {} yet",
+                forge.name()
+            )
+        }
     })
 }
 

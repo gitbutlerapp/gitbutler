@@ -1,5 +1,6 @@
 //! Accounts: the GitButler account, on General, and on Integrations the forge accounts pull
-//! requests and CI go through, with ways to add one: GitHub's browser sign-in, or a token.
+//! requests and CI go through, with ways to add one: GitHub's browser sign-in, or a token,
+//! for GitHub Enterprise and self-hosted GitLab with the server's URL.
 
 use std::time::Duration;
 
@@ -15,7 +16,7 @@ use crate::backend::run;
 use crate::overlays::MenuItem;
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{ButtonStyle, button, dp, field, h_flex};
+use crate::ui::{ButtonStyle, button, dp, field, h_flex, v_flex};
 
 /// Where GitHub's browser sign-in takes the code.
 const GITHUB_DEVICE_PAGE: &str = "https://github.com/login/device";
@@ -28,27 +29,58 @@ const SIGN_IN_POLL: Duration = Duration::from_secs(5);
 #[derive(Default)]
 pub(super) struct Accounts {
     list: Vec<Account>,
-    /// A token being added: for which forge, with its fields.
-    adding: Option<(Forge, Entity<TextInput>, Entity<TextInput>)>,
+    adding: Option<Adding>,
     /// GitHub's browser sign-in, waiting: the code the user enters there.
     github_code: Option<SharedString>,
     /// GitButler's sign-in, waiting for the token its page shows.
     login: Option<Entity<TextInput>>,
 }
 
-/// Where to make a token, and what it needs.
-fn token_help(forge: Forge) -> &'static str {
-    match forge {
-        Forge::GitHub => "Make a classic token with the repo scope at github.com/settings/tokens.",
-        Forge::GitLab => {
-            "Make a token with the api scope at gitlab.com/-/user_settings/personal_access_tokens."
+/// A token being added, with its fields.
+struct Adding {
+    forge: Forge,
+    /// GitHub Enterprise or self-hosted GitLab, whose URL `other` takes.
+    self_hosted: bool,
+    token: Entity<TextInput>,
+    /// The field before the token, when it's asked for: the server's URL, or the account's
+    /// email on Bitbucket.
+    other: Entity<TextInput>,
+}
+
+impl Adding {
+    fn asks_other(&self) -> bool {
+        self.self_hosted || self.forge == Forge::Bitbucket
+    }
+
+    fn title(&self) -> String {
+        match (self.forge, self.self_hosted) {
+            (Forge::GitHub, true) => "New GitHub Enterprise token".into(),
+            (forge, true) => format!("New self-hosted {} token", forge.name()),
+            (forge, false) => format!("New {} token", forge.name()),
         }
-        Forge::Bitbucket => {
-            "Make an API token with scopes at id.atlassian.com/manage-profile/security/api-tokens, \
-             and give the account's email."
+    }
+
+    /// Where to make the token, and what it needs.
+    fn help(&self) -> &'static str {
+        match (self.forge, self.self_hosted) {
+            (Forge::GitHub, false) => {
+                "Make a classic token with the repo scope at github.com/settings/tokens."
+            }
+            (Forge::GitHub, true) => {
+                "Give the server's API URL, ending in /api/v3, and a classic token with the repo \
+                 scope."
+            }
+            (Forge::GitLab, false) => {
+                "Make a token with the api scope at gitlab.com/-/user_settings/personal_access_tokens."
+            }
+            (Forge::GitLab, true) => "Give the server's URL and a token with the api scope.",
+            (Forge::Bitbucket, _) => {
+                "Make an API token with scopes at id.atlassian.com/manage-profile/security/api-tokens, \
+                 and give the account's email."
+            }
+            // Nothing offers to add an Azure token.
+            (Forge::Azure, _) => "",
         }
-        // Nothing offers to add an Azure token.
-        Forge::Azure => "",
     }
 }
 
@@ -69,11 +101,22 @@ impl SettingsView {
         .detach();
     }
 
-    fn start_adding(&mut self, forge: Forge, window: &mut Window, cx: &mut Context<Self>) {
+    fn start_adding(
+        &mut self,
+        forge: Forge,
+        self_hosted: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let token = cx.new(|cx| TextInput::new("Token", false, cx).masked());
-        let email = cx.new(|cx| TextInput::new("Email", false, cx));
-        // Enter adds it and Esc cancels from either field, as Bitbucket's starts in the email.
-        for field in [&token, &email] {
+        let placeholder = match (forge, self_hosted) {
+            (Forge::GitHub, true) => "https://github.example.com/api/v3",
+            (_, true) => "https://gitlab.example.com",
+            (_, false) => "Email",
+        };
+        let other = cx.new(|cx| TextInput::new(placeholder, false, cx));
+        // Enter adds it and Esc cancels from either field, as the URL or email comes first.
+        for field in [&token, &other] {
             cx.subscribe_in(field, window, |this, _, event, window, cx| match event {
                 InputEvent::Submit => this.add_token(window, cx),
                 InputEvent::Cancel => {
@@ -84,33 +127,47 @@ impl SettingsView {
             })
             .detach();
         }
-        let first = if forge == Forge::Bitbucket {
-            &email
+        let adding = Adding {
+            forge,
+            self_hosted,
+            token,
+            other,
+        };
+        let first = if adding.asks_other() {
+            &adding.other
         } else {
-            &token
+            &adding.token
         };
         window.focus(&first.focus_handle(cx), cx);
-        self.accounts.adding = Some((forge, token, email));
+        self.accounts.adding = Some(adding);
         cx.notify();
     }
 
     fn add_token(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some((forge, token, email)) = &self.accounts.adding else {
+        let Some(adding) = &self.accounts.adding else {
             return;
         };
-        // Enter in the email goes on to the token, while there's none.
-        if token.read(cx).text().trim().is_empty() {
-            return window.focus(&token.focus_handle(cx), cx);
+        // Enter in the URL or email goes on to the token, while there's none, and back to
+        // them while they're empty.
+        for (field, asked) in [(&adding.token, true), (&adding.other, adding.asks_other())] {
+            if asked && field.read(cx).text().trim().is_empty() {
+                return window.focus(&field.focus_handle(cx), cx);
+            }
         }
-        let (forge, token, email) = (
-            *forge,
-            token.read(cx).text().to_owned(),
-            email.read(cx).text().to_owned(),
-        );
+        let (forge, self_hosted) = (adding.forge, adding.self_hosted);
+        let token = adding.token.read(cx).text().to_owned();
+        let other = adding.other.read(cx).text().to_owned();
         self.accounts.adding = None;
         cx.notify();
         cx.spawn(async move |this, cx| {
-            let added = run(move || accounts::add_token(forge, token, email)).await;
+            let added = run(move || {
+                if self_hosted {
+                    accounts::add_self_hosted_token(forge, other, token)
+                } else {
+                    accounts::add_token(forge, token, other)
+                }
+            })
+            .await;
             this.update(cx, |this, cx| {
                 match added {
                     Ok(who) => this.store.update(cx, |store, cx| {
@@ -326,12 +383,12 @@ impl SettingsView {
             ));
         }
         match &self.accounts.adding {
-            Some((forge, token, email)) => rows.push(Row::new(
-                format!("New {} token", forge.name()),
-                token_help(*forge),
+            Some(adding) => rows.push(Row::new(
+                adding.title(),
+                adding.help(),
                 token_field(
-                    token,
-                    (*forge == Forge::Bitbucket).then_some(email),
+                    &adding.token,
+                    adding.asks_other().then_some(&adding.other),
                     "Add",
                     window,
                     theme,
@@ -343,16 +400,20 @@ impl SettingsView {
                 let menu = cx.entity().downgrade();
                 rows.push(Row::new(
                     "Add an account",
-                    "For pull requests and CI on GitHub, GitLab or Bitbucket. GitButler's other \
-                     apps share them.",
+                    "For pull requests and CI on GitHub, GitHub Enterprise, GitLab, self-hosted \
+                     GitLab or Bitbucket. GitButler's other apps share them.",
                     button("add-account", "Add…")
                         .small()
                         .on_click(move |event, _, cx| {
-                            let item = |label: &'static str, forge: Option<Forge>| {
+                            // A token for a forge, on a server of the user's own when the bool
+                            // says so, or GitHub's browser sign-in.
+                            let item = |label: &'static str, token: Option<(Forge, bool)>| {
                                 let this = this.clone();
                                 MenuItem::new(label, move |_, window, cx| {
-                                    this.update(cx, |this, cx| match forge {
-                                        Some(forge) => this.start_adding(forge, window, cx),
+                                    this.update(cx, |this, cx| match token {
+                                        Some((forge, self_hosted)) => {
+                                            this.start_adding(forge, self_hosted, window, cx)
+                                        }
                                         None => this.sign_in_to_github(cx),
                                     })
                                     .ok();
@@ -360,9 +421,11 @@ impl SettingsView {
                             };
                             let items = vec![
                                 item("Sign in with GitHub", None),
-                                item("GitHub token…", Some(Forge::GitHub)),
-                                item("GitLab token…", Some(Forge::GitLab)),
-                                item("Bitbucket token…", Some(Forge::Bitbucket)),
+                                item("GitHub token…", Some((Forge::GitHub, false))),
+                                item("GitHub Enterprise token…", Some((Forge::GitHub, true))),
+                                item("GitLab token…", Some((Forge::GitLab, false))),
+                                item("Self-hosted GitLab token…", Some((Forge::GitLab, true))),
+                                item("Bitbucket token…", Some((Forge::Bitbucket, false))),
                             ];
                             menu.update(cx, |this, cx| this.open_menu(event, items, cx))
                                 .ok();
@@ -374,21 +437,19 @@ impl SettingsView {
     }
 }
 
-/// A masked token field, with an email field before it when given, and `submit`, which sends
-/// it.
+/// A masked token field, with another field (a URL or an email) before it when given, and
+/// `submit`, which sends it.
 fn token_field(
     token: &Entity<TextInput>,
-    email: Option<&Entity<TextInput>>,
+    other: Option<&Entity<TextInput>>,
     submit: &'static str,
     window: &Window,
     theme: &Theme,
     cx: &Context<SettingsView>,
 ) -> AnyElement {
     let focused = |input: &Entity<TextInput>| input.focus_handle(cx).is_focused(window);
-    h_flex()
+    let buttons = h_flex()
         .gap(dp(6.))
-        .children(email.map(|email| field(email, focused(email), theme).w(dp(150.))))
-        .child(field(token, focused(token), theme).w(dp(180.)))
         .child({
             let token = token.clone();
             button("cancel-token", "Cancel")
@@ -402,6 +463,17 @@ fn token_field(
                 .small()
                 .style(ButtonStyle::Gray)
                 .on_click(move |_, _, cx| token.update(cx, |_, cx| cx.emit(InputEvent::Submit)))
-        })
-        .into_any_element()
+        });
+    let token = field(token, focused(token), theme);
+    match other {
+        // Two fields stack, with the buttons under them, so the row's text keeps its room.
+        Some(other) => v_flex()
+            .gap(dp(6.))
+            .items_end()
+            .child(field(other, focused(other), theme).w(dp(240.)))
+            .child(token.w(dp(240.)))
+            .child(buttons),
+        None => h_flex().gap(dp(6.)).child(token.w(dp(180.))).child(buttons),
+    }
+    .into_any_element()
 }
