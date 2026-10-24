@@ -105,13 +105,6 @@ impl Change {
             Change::ModifyText | Change::Delete | Change::MakeExecutable
         );
         Some(match index {
-            // libgit2 crashes (SIGBUS) applying a submodule update to an index that holds a
-            // submodule at `p`, so these cases come with the in-memory index edit.
-            Index::LikeHead | Index::LikeOverride | Index::StagedApart
-                if matches!(self, Change::ModifySubmodule) =>
-            {
-                return None;
-            }
             Index::LikeHead => head,
             Index::LikeOverride if overridden.is_none() => return None,
             Index::LikeOverride => overridden,
