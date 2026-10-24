@@ -455,9 +455,13 @@ pub enum PushState {
 
 impl Branch {
     /// Whether it has commits the remote doesn't: new ones, or ones rewritten since they were
-    /// pushed. One only behind its remote has none, though Git couldn't push it without force.
+    /// pushed, or, when it has no remote branch, as after a rename, ones the remote has under
+    /// the old name. One only behind its remote has none, though Git couldn't push it without
+    /// force, and neither has one merged whose remote branch was deleted.
     pub fn can_push(&self) -> bool {
-        self.commits.iter().any(|c| c.state == CommitState::Local)
+        (self.commits.iter()).any(|c| c.state == CommitState::Local)
+            || (self.push == PushState::NeverPushed
+                && (self.commits.iter()).any(|c| c.state == CommitState::Pushed))
     }
 
     /// What its header says of it against its remote, short of being in the target: what's
@@ -1158,7 +1162,7 @@ mod tests {
             push,
             review: None,
         };
-        use CommitState::{Local, Pushed};
+        use CommitState::{Integrated, Local, Pushed};
         for (push, states, incoming, said, can_push, why) in [
             (
                 PushState::NothingToPush,
@@ -1199,6 +1203,22 @@ mod tests {
                 "rewritten, needs a force push",
                 true,
                 "rewritten",
+            ),
+            (
+                PushState::NeverPushed,
+                &[Pushed],
+                0,
+                "never pushed",
+                true,
+                "renamed since it was pushed, its commits there under the old name",
+            ),
+            (
+                PushState::NeverPushed,
+                &[Integrated],
+                0,
+                "never pushed",
+                false,
+                "merged, its remote branch deleted",
             ),
         ] {
             let branch = branch(push, states, incoming);
