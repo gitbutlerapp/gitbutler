@@ -382,7 +382,11 @@ impl AppView {
             1 => ("the commit".to_owned(), "it"),
             n => (format!("the {n} commits"), "them"),
         };
-        let detail = match ws.unpullable_drops(&ref_name) {
+        // A branch it takes along whose commits only its remote has can't be pulled first
+        // when others are stacked on it.
+        let stuck = (ws.pushed_with(&ref_name).iter())
+            .find(|b| !b.incoming.is_empty() && !ws.can_pull(&b.ref_name));
+        let detail = match stuck {
             None => format!("It drops {what} only the remote has. Pull first to keep {them}."),
             Some(stuck) => format!(
                 "It drops {what} only the remote has. To keep {name}'s, unstack the branches on \
