@@ -14,8 +14,9 @@ use anyhow::Context as _;
 use bstr::{BStr, BString};
 
 use super::{
+    ALL_FIELDS,
     plan::Plan,
-    protect::{Clearance, Reason},
+    protect::{self, Clearance, Reason},
 };
 use crate::index::Stat;
 
@@ -164,6 +165,7 @@ pub(super) fn commit(
     clearances: &[Clearance],
 ) -> anyhow::Result<Placed> {
     let workdir = repo.workdir().expect("checked by the caller");
+    protect::still_as_checked(workdir, clearances)?;
     let mut journal = Journal::new(workdir);
     match apply(&mut journal, repo, workdir, &staged, clearances) {
         Ok(placed) => {
@@ -643,16 +645,7 @@ fn remove_asides(dirs: impl IntoIterator<Item = tempfile::TempDir>) {
 /// into place may change.
 const ALL_BUT_CTIME: gix::index::entry::stat::Options = gix::index::entry::stat::Options {
     trust_ctime: false,
-    check_stat: true,
-    use_nsec: true,
-    use_stdev: false,
-};
-
-/// Every stat field that changes when a file does, which includes the ctime when its mode or
-/// owner changes.
-const ALL_FIELDS: gix::index::entry::stat::Options = gix::index::entry::stat::Options {
-    trust_ctime: true,
-    ..ALL_BUT_CTIME
+    ..ALL_FIELDS
 };
 
 /// A new file next to `dest` that only checkout knows, created with the permissions Git asks for,
@@ -1052,10 +1045,7 @@ mod tests {
         let removed = super::commit(
             &repo,
             staged,
-            &[super::Clearance {
-                rela_path: "p/e".into(),
-                reason: super::Reason::Deleted,
-            }],
+            &[super::Clearance::unobserved("p/e", super::Reason::Deleted)],
         );
         std::fs::set_permissions(&parent, std::fs::Permissions::from_mode(0o755))?;
 
@@ -1076,10 +1066,7 @@ mod tests {
         super::commit(
             &repo,
             staged,
-            &[super::Clearance {
-                rela_path: "e".into(),
-                reason: super::Reason::Deleted,
-            }],
+            &[super::Clearance::unobserved("e", super::Reason::Deleted)],
         )?;
 
         assert_eq!(
