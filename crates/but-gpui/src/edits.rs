@@ -91,7 +91,11 @@ fn land_scope(workspace: &Workspace, ref_name: &str) -> Option<bool> {
     let landing: Vec<_> = (stack.branches.get(at..)?.iter())
         .flat_map(|branch| &branch.commits)
         .collect();
-    (!landing.is_empty() && !landing.iter().any(|c| c.conflicted)).then_some(whole)
+    // Not when all of it is in the target already, as a branch merged there is.
+    let new = landing
+        .iter()
+        .any(|c| c.state != crate::backend::CommitState::Integrated);
+    (new && !landing.iter().any(|c| c.conflicted)).then_some(whole)
 }
 
 /// Which edits of a named branch have something to do, so its menu and the palette offer
