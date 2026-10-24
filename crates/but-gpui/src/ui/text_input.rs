@@ -71,7 +71,8 @@ struct Delete {
 
 const CONTEXT: &str = "TextInput";
 
-/// The Cocoa text system's keys: ⌘ for lines, ⌥ for words, and Emacs's ⌃ keys.
+/// The platform's text keys: on macOS the Cocoa text system's, ⌘ for lines, ⌥ for words and
+/// Emacs's ⌃ keys; elsewhere ctrl for words and the document, home and end for lines.
 pub fn bind_keys(cx: &mut App) {
     use Target::*;
     let c = Some(CONTEXT);
@@ -93,16 +94,19 @@ pub fn bind_keys(cx: &mut App) {
         extend("shift-down", Down),
         extend("shift-home", LineStart),
         extend("shift-end", LineEnd),
-        KeyBinding::new("cmd-a", SelectAll, c),
+        KeyBinding::new("secondary-a", SelectAll, c),
         KeyBinding::new("enter", Newline, c),
         KeyBinding::new("shift-enter", Newline, c),
-        KeyBinding::new("cmd-enter", Submit, c),
+        KeyBinding::new("secondary-enter", Submit, c),
         KeyBinding::new("escape", Cancel, c),
-        KeyBinding::new("cmd-v", Paste, c),
-        KeyBinding::new("cmd-c", Copy, c),
-        KeyBinding::new("cmd-x", Cut, c),
-        KeyBinding::new("cmd-z", Undo, c),
-        KeyBinding::new("cmd-shift-z", Redo, c),
+        KeyBinding::new("secondary-v", Paste, c),
+        KeyBinding::new("secondary-c", Copy, c),
+        KeyBinding::new("secondary-x", Cut, c),
+        KeyBinding::new("secondary-z", Undo, c),
+        KeyBinding::new("secondary-shift-z", Redo, c),
+    ]);
+    #[cfg(target_os = "macos")]
+    cx.bind_keys([
         delete("alt-backspace", WordLeft),
         delete("alt-delete", WordRight),
         delete("cmd-backspace", LineStart),
@@ -130,6 +134,20 @@ pub fn bind_keys(cx: &mut App) {
         extend("cmd-shift-down", End),
         extend("ctrl-shift-a", LineStart),
         extend("ctrl-shift-e", LineEnd),
+    ]);
+    #[cfg(not(target_os = "macos"))]
+    cx.bind_keys([
+        delete("ctrl-backspace", WordLeft),
+        delete("ctrl-delete", WordRight),
+        go("ctrl-left", WordLeft),
+        go("ctrl-right", WordRight),
+        go("ctrl-home", Start),
+        go("ctrl-end", End),
+        extend("ctrl-shift-left", WordLeft),
+        extend("ctrl-shift-right", WordRight),
+        extend("ctrl-shift-home", Start),
+        extend("ctrl-shift-end", End),
+        KeyBinding::new("ctrl-y", Redo, c),
     ]);
 }
 

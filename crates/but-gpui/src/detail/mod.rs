@@ -94,8 +94,8 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("k", PreviousFile, c),
         KeyBinding::new("down", NextHunk, c),
         KeyBinding::new("up", PreviousHunk, c),
-        KeyBinding::new("cmd-alt-z", DiscardHunk, c),
-        KeyBinding::new("cmd-backspace", DiscardFile, c),
+        KeyBinding::new("secondary-alt-z", DiscardHunk, c),
+        KeyBinding::new("secondary-backspace", DiscardFile, c),
         KeyBinding::new("z", ToggleFold, c),
         KeyBinding::new("pagedown", PageDown, c),
         KeyBinding::new("space", PageDown, c),
@@ -118,7 +118,7 @@ pub fn bind_keys(cx: &mut App) {
             Some("(Navigator || Detail) && !TextInput"),
         ),
         KeyBinding::new(
-            "cmd-b",
+            "secondary-b",
             ToggleSplit,
             Some("(Navigator || Detail) && !TextInput"),
         ),
@@ -133,8 +133,8 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("h", Collapse, side),
         KeyBinding::new("left", Collapse, side),
         // While committing, with the focus anywhere, typing the message too, as ⌘↩ commits.
-        KeyBinding::new("alt-cmd-enter", AmendTop, Some("Workspace")),
-        KeyBinding::new("cmd-shift-b", PickCommitTarget, Some("Workspace")),
+        KeyBinding::new("alt-secondary-enter", AmendTop, Some("Workspace")),
+        KeyBinding::new("secondary-shift-b", PickCommitTarget, Some("Workspace")),
     ]);
     find::bind_keys(cx);
     resolve::bind_keys(cx);

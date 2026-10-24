@@ -322,7 +322,11 @@ fn hint(keys: &str, label: &str, theme: &Theme) -> gpui::Div {
     h_flex()
         .flex_none()
         .gap(dp(4.))
-        .child(div().text_color(theme.text_3).child(keys.to_owned()))
+        .child(
+            div()
+                .text_color(theme.text_3)
+                .child(crate::ui::keys_text(keys)),
+        )
         .child(label.to_owned())
 }
 

@@ -23,7 +23,7 @@ pub fn editors() -> Vec<Program> {
 }
 
 pub fn terminals() -> Vec<Program> {
-    but_api::open::terminal::get_terminal_options_for_platform("macos".into())
+    but_api::open::terminal::get_terminal_options_for_platform(std::env::consts::OS.into())
         .unwrap_or_default()
         .into_iter()
         .map(|terminal| (terminal.identifier, terminal.display_name))
@@ -43,8 +43,19 @@ pub fn open_in_editor(
     but_api::open::open_in_program(&mut ctx, editor.to_owned(), source, file.to_owned(), line)
 }
 
-pub fn open_in_terminal(path: &Path, terminal: &str) -> Result<()> {
-    but_api::open::open_in_terminal(terminal.to_owned(), path.display().to_string())
+/// Open the project at `path` in `terminal`, or with none chosen, in the one the platform has.
+pub fn open_in_terminal(path: &Path, terminal: Option<String>) -> Result<()> {
+    let terminal = match terminal {
+        Some(terminal) => terminal,
+        None => {
+            but_api::open::terminal::get_recommended_terminal_for_platform(
+                std::env::consts::OS.into(),
+            )?
+            .context("found no terminal to open")?
+            .identifier
+        }
+    };
+    but_api::open::open_in_terminal(terminal, path.display().to_string())
 }
 
 /// How often to fetch in the background, in minutes; `None` when it's off.

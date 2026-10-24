@@ -526,8 +526,10 @@ impl Detail {
                 app.confirm_then(
                     Some(Selection::History(project.clone())),
                     format!("Restore to before \"{title}\"?"),
-                    "Branches, commits and uncommitted changes go back to how they were. \
-                     You can undo this with ⌘Z.",
+                    &crate::ui::keys_text(
+                        "Branches, commits and uncommitted changes go back to how they were. \
+                         You can undo this with ⌘Z.",
+                    ),
                     "Restore",
                     window,
                     cx,

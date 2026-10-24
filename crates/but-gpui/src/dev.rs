@@ -110,6 +110,7 @@ pub fn run_from_env(window: AnyWindowHandle, cx: &mut App) {
     });
     // Off screen, macOS naps the app after half a minute: its timers coalesce and its
     // threads lose priority, so every step slows down. Timings should be a visible window's.
+    #[cfg(target_os = "macos")]
     std::mem::forget(
         objc2_foundation::NSProcessInfo::processInfo().beginActivityWithOptions_reason(
             objc2_foundation::NSActivityOptions::UserInitiated

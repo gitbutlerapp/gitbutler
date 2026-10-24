@@ -292,7 +292,9 @@ impl AppView {
         self.confirm_then(
             Some(Selection::Branch(project.clone(), ref_name.clone())),
             format!("Replace {name} with the remote's version?"),
-            "This drops its commits the remote doesn't have. You can undo this with ⌘Z.",
+            &crate::ui::keys_text(
+                "This drops its commits the remote doesn't have. You can undo this with ⌘Z.",
+            ),
             "Replace",
             window,
             cx,

@@ -45,7 +45,11 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("enter", EditConflict, c),
         KeyBinding::new("a", SuggestMerge, c),
         // Only with something to apply, so it still starts a commit otherwise.
-        KeyBinding::new("cmd-enter", ApplyResolutions, Some("Picked && !TextInput")),
+        KeyBinding::new(
+            "secondary-enter",
+            ApplyResolutions,
+            Some("Picked && !TextInput"),
+        ),
     ]);
 }
 

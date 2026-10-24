@@ -1628,6 +1628,7 @@ dependencies = [
  "but-workspace",
  "chrono",
  "deltoids",
+ "embed-resource",
  "futures",
  "gitbutler-filemonitor",
  "gitbutler-operating-modes",
