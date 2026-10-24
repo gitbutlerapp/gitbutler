@@ -488,12 +488,13 @@ fn branch_from(
         incoming: (segment.commits_on_remote.iter())
             .map(|commit| {
                 let ((author, email), agent) = byline_of(&commit.author, &commit.committer);
+                let (title, body) = subject_and_body(&commit.message.to_str_lossy());
                 RemoteCommit {
                     id: CommitId(commit.id),
                     key: commit.change_id().to_string(),
                     authored: model::authored(&commit.author, commit.message.trim_end()),
-                    title: title(&commit.message),
-                    body: body(&commit.message),
+                    title,
+                    body,
                     author,
                     email,
                     agent,
@@ -659,20 +660,22 @@ pub fn commit_signer(path: &Path, id: CommitId) -> Result<Option<&'static str>> 
     )
 }
 
-/// The first line of a commit message or comment, without the whitespace around it.
-fn title(message: &[u8]) -> String {
-    let line = message.lines().next().unwrap_or_default();
-    line.to_str_lossy().trim().to_owned()
+/// A commit message's subject and body as Git and GitHub split them: the subject is its first
+/// paragraph, its lines joined, so a title that runs on to a second line without a blank one
+/// is all of it; the body is the rest, as written, as a pull request description takes it.
+pub fn subject_and_body(message: &str) -> (String, String) {
+    let blank = |line: &&str| line.trim().is_empty();
+    let mut lines = message.lines().skip_while(blank);
+    let subject: Vec<&str> = (lines.by_ref().take_while(|line| !blank(line)))
+        .map(str::trim)
+        .collect();
+    let body: Vec<&str> = lines.skip_while(blank).collect();
+    (subject.join(" "), body.join("\n").trim_end().to_owned())
 }
 
-/// The rest of a commit message, after its title.
-fn body(message: &[u8]) -> String {
-    (message.lines().skip(1))
-        .map(|line| line.to_str_lossy())
-        .collect::<Vec<_>>()
-        .join("\n")
-        .trim()
-        .to_owned()
+/// A commit message or comment's subject, as [`subject_and_body`] has it.
+fn title(message: &[u8]) -> String {
+    subject_and_body(&message.to_str_lossy()).0
 }
 
 fn file_change(change: but_core::TreeChange) -> FileChange {
@@ -964,6 +967,33 @@ pub fn branch_name(name: &str) -> Option<String> {
     but_core::branch::normalize_short_name(name)
         .ok()
         .map(|short| short.to_string())
+}
+
+#[cfg(test)]
+mod message_tests {
+    use super::subject_and_body;
+
+    #[test]
+    fn the_subject_is_the_first_paragraph_as_git_has_it() {
+        assert_eq!(
+            subject_and_body("Fix scanner crash\non empty directories\n\nWhy.\n"),
+            (
+                "Fix scanner crash on empty directories".into(),
+                "Why.".into()
+            ),
+            "with no blank line, the next line is the subject's too, as `git log --oneline` shows"
+        );
+        assert_eq!(
+            subject_and_body("\n\nLeading blank\n"),
+            ("Leading blank".into(), String::new()),
+            "blank lines before it aren't the subject"
+        );
+        assert_eq!(
+            subject_and_body("Add a flag\n\n    cargo run -- --flag\n- a\n  - nested\n\n").1,
+            "    cargo run -- --flag\n- a\n  - nested",
+            "the body keeps its indentation, as Markdown's code blocks and nested lists need it"
+        );
+    }
 }
 
 #[cfg(test)]

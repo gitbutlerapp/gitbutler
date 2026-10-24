@@ -98,10 +98,7 @@ impl ReviewView {
                 [commit] => Some(&commit.message),
                 _ => None,
             })
-            .map(|message| {
-                let (subject, rest) = message.split_once('\n').unwrap_or((message, ""));
-                (subject.trim().to_owned(), rest.trim().to_owned())
-            })
+            .map(|message| backend::subject_and_body(message))
             .unwrap_or_else(|| (short_ref(&branch).to_owned(), String::new()));
         title.update(cx, |input, cx| {
             input.set_text(subject, cx);

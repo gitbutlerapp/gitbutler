@@ -462,9 +462,7 @@ impl Detail {
             return div().into_any_element();
         };
         let (title, message) = store.message_of(project, commit);
-        let body = (message.split_once('\n'))
-            .map(|(_, body)| body.trim().to_owned())
-            .unwrap_or_default();
+        let body = backend::subject_and_body(message).1;
         let target = (store.workspace(project).and_then(|ws| ws.target.as_ref()))
             .map_or("the target", |t| t.name.as_str());
         let (state, color) = match commit.state {

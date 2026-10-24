@@ -14,7 +14,7 @@ use but_core::sync::RepoExclusive;
 use super::ops::{full_name, holds};
 use super::reviews::{cached_reviews, from_cache};
 use super::{
-    Agent, CommitId, RemoteCommit, Review, ReviewState, body, open, present_first_parent, runtime,
+    Agent, CommitId, RemoteCommit, Review, ReviewState, open, present_first_parent, runtime,
     short_ref, title,
 };
 
@@ -173,12 +173,12 @@ fn local_target_page(
 /// `commit` as a target's history lists it. Whether it's incoming, and the pull request it
 /// landed, are for the caller to set.
 pub(super) fn target_commit(commit: &gix::Commit<'_>) -> Result<TargetCommit> {
-    let message = commit.message_raw_sloppy();
+    let (title, body) = super::subject_and_body(&commit.message_raw_sloppy().to_str_lossy());
     let ((author, email), agent) = super::commit_byline(commit)?;
     Ok(TargetCommit {
         id: CommitId(commit.id),
-        title: title(message),
-        body: body(message),
+        title,
+        body,
         time: commit.time()?.seconds,
         author,
         email,
