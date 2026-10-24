@@ -194,10 +194,13 @@ impl Detail {
                                     .text_color(theme.text_3)
                                     .into_any_element()
                             });
-                            // Shrinking by length as well as width, long crumbs give way first and
-                            // short ones, like the project's name or a commit's ID, stay whole.
-                            let shrink = crumb.chars().count() as f32;
-                            let text = div().truncate().flex_shrink(shrink).child(crumb);
+                            // Short ones, like the project's name or a commit's ID, stay whole
+                            // while long ones can give way, by length as well as width.
+                            let shrink = match crumb.chars().count() as f32 {
+                                n if n <= 16. => 0.01,
+                                n => n,
+                            };
+                            let text = (div().truncate()).flex_shrink(shrink).child(crumb);
                             let el = match target.filter(|_| ix != last) {
                                 Some(target) => {
                                     let (app, detail) = (self.app.clone(), cx.entity().downgrade());
