@@ -5,6 +5,7 @@
 
 fn main() {
     use_production_server();
+    but_gpui::init_logging();
     but_gpui::run(None);
 }
 

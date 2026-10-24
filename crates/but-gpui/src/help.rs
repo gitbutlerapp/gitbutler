@@ -1,9 +1,9 @@
 //! The Help menu and About: where the docs and release notes are, where to report a
-//! problem, and where GitButler keeps its settings.
+//! problem, and where GitButler keeps its settings and logs.
 
 use gpui::{App, PromptLevel, actions};
 
-use crate::backend::settings;
+use crate::backend::{logs, settings};
 
 actions!(
     help,
@@ -12,7 +12,8 @@ actions!(
         OpenDocs,
         OpenReleaseNotes,
         ReportIssue,
-        ShowConfigFolder
+        ShowConfigFolder,
+        ShowLogsFolder
     ]
 );
 
@@ -26,6 +27,11 @@ pub fn register(cx: &mut App) {
     cx.on_action(|_: &ReportIssue, cx| cx.open_url(ISSUES));
     cx.on_action(|_: &ShowConfigFolder, cx| {
         if let Ok(dir) = settings::config_dir() {
+            cx.reveal_path(&dir);
+        }
+    });
+    cx.on_action(|_: &ShowLogsFolder, cx| {
+        if let Ok(dir) = logs::dir() {
             cx.reveal_path(&dir);
         }
     });

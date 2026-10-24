@@ -88,6 +88,8 @@ fn main() -> anyhow::Result<()> {
         && (std::env::args_os().any(|arg| arg == "--gpui")
             || app_settings.get()?.feature_flags.gpui)
     {
+        // Into the web app's log folder, so the setup below is logged too.
+        but_gpui::init_logging();
         // As the web app's setup does: hooks and signing need the PATH and the like of the
         // user's shell, which an app opened from the Dock or Finder doesn't have.
         #[cfg(target_os = "macos")]

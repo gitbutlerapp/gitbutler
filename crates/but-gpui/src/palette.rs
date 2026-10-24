@@ -126,6 +126,7 @@ const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Release notes", &crate::help::OpenReleaseNotes),
     ("Report an issue…", &crate::help::ReportIssue),
     ("Show settings folder", &crate::help::ShowConfigFolder),
+    ("Show logs folder", &crate::help::ShowLogsFolder),
     ("About GitButler", &crate::help::About),
     ("Quit", &Quit),
 ];
