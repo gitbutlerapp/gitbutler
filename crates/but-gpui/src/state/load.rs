@@ -250,10 +250,7 @@ impl Store {
         // A selected project that went, as when removed, leaves the first open one selected.
         if (self.selection.as_ref()).is_some_and(|s| self.project(s.project()).is_none()) {
             let first = (self.projects.iter()).find(|entry| entry.expanded);
-            self.select(
-                first.map(|entry| Selection::Uncommitted(entry.id.clone())),
-                cx,
-            );
+            self.select(first.map(|entry| self.opening(&entry.id)), cx);
         }
 
         for id in &open {
@@ -266,12 +263,21 @@ impl Store {
                 .selection
                 .and_then(|id| self.project(&id).filter(|entry| entry.expanded))
                 .or_else(|| self.projects.iter().find(|entry| entry.expanded))
-                .map(|entry| Selection::Uncommitted(entry.id.clone()));
+                .map(|entry| self.opening(&entry.id));
             if let Some(selection) = open {
                 self.select(Some(selection), cx);
             }
         }
         cx.notify();
+    }
+
+    /// What selecting `project` as a whole picks: its Main worktree, or the project itself
+    /// while its card is folded, so it stays folded.
+    fn opening(&self, project: &ProjectId) -> Selection {
+        match self.prefs.folded_projects.contains(project.as_ref()) {
+            true => Selection::Project(project.clone()),
+            false => Selection::Uncommitted(project.clone()),
+        }
     }
 
     pub fn add_project(&mut self, path: PathBuf, cx: &mut Context<Self>) {
