@@ -459,9 +459,14 @@ fn compare(before: &Branches, after: &Branches) -> Vec<Change> {
         index
     };
     let (was, is) = (index(before, true), index(after, false));
+    // Not the commit GitButler stacks on a conflicted one while it's conflicted, which no one
+    // made.
+    let made = |c: &&Recorded| {
+        !but_core::commit::padding::is_padding_by_message(c.message.as_str().into())
+    };
     let mut changes = Vec::new();
     for (name, commits) in after {
-        for commit in commits {
+        for commit in commits.iter().filter(made) {
             match was.get(&commit.key) {
                 None => changes.push(Change::Added {
                     commit: commit.clone(),
@@ -487,7 +492,7 @@ fn compare(before: &Branches, after: &Branches) -> Vec<Change> {
         }
     }
     for (name, commits) in before {
-        for commit in commits.iter().filter(|c| !is.contains_key(&c.key)) {
+        for commit in (commits.iter().filter(made)).filter(|c| !is.contains_key(&c.key)) {
             changes.push(Change::Removed {
                 commit: commit.clone(),
                 branch: name.clone(),
@@ -743,6 +748,21 @@ mod tests {
         assert!(
             lines(&before, &rebased).is_empty(),
             "a rebase alone changes nothing"
+        );
+        let padded: Branches = vec![
+            (
+                "feat".into(),
+                vec![
+                    commit(10, "p", but_core::commit::padding::TITLE),
+                    commit(2, "b", "Two"),
+                    commit(1, "a", "One"),
+                ],
+            ),
+            ("fix".into(), vec![commit(3, "c", "Three")]),
+        ];
+        assert!(
+            lines(&before, &padded).is_empty() && lines(&padded, &before).is_empty(),
+            "the commit GitButler pads a conflicted one with comes and goes unlisted"
         );
 
         let after: Branches = vec![
