@@ -11,7 +11,7 @@ use crate::ref_info::with_workspace_commit::utils::{
 
 #[test]
 fn reword_head_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description, mut db) =
+    let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -26,7 +26,7 @@ fn reword_head_commit() -> Result<()> {
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("three")?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, _meta.connection_mut())?;
     reword(editor, id.detach(), b"New name".into())?
         .0
         .materialize(Default::default())?;
@@ -48,7 +48,7 @@ fn reword_head_commit() -> Result<()> {
 
 #[test]
 fn reword_middle_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description, mut db) =
+    let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -63,7 +63,7 @@ fn reword_middle_commit() -> Result<()> {
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("two")?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, _meta.connection_mut())?;
     reword(editor, id.detach(), b"New name".into())?
         .0
         .materialize(Default::default())?;
@@ -87,7 +87,7 @@ fn reword_middle_commit() -> Result<()> {
 
 #[test]
 fn reword_conflicted_commit_keeps_conflict_markers() -> Result<()> {
-    let (_tmp, repo, mut meta, _description, mut db) =
+    let (_tmp, repo, mut meta, _description) =
         named_writable_scenario_with_description("with-conflict-marked-message")?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -101,14 +101,13 @@ fn reword_conflicted_commit_keeps_conflict_markers() -> Result<()> {
     // A plain single-branch repository without a target.
     let graph = but_graph::Graph::from_head(
         &repo,
-        &meta,
         but_core::ref_metadata::ProjectMeta::default(),
-        &mut db,
+        &mut meta.connection_mut(),
         but_graph::init::Options::limited(),
     )?;
     let id = repo.rev_parse_single("conflicted")?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, meta.connection_mut())?;
     reword(editor, id.detach(), b"New name".into())?
         .0
         .materialize(Default::default())?;
@@ -163,7 +162,7 @@ GitButler-Conflict: This is a GitButler-managed conflicted commit. Files are aut
 
 #[test]
 fn reword_base_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description, mut db) =
+    let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -178,7 +177,7 @@ fn reword_base_commit() -> Result<()> {
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("one")?;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo, &mut db)?;
+    let editor = Editor::create(&mut ws, &repo, _meta.connection_mut())?;
     reword(editor, id.detach(), b"New name".into())?
         .0
         .materialize(Default::default())?;

@@ -27,7 +27,7 @@ impl Context {
         }
         let repo = self.repo.get()?;
         let mut db = self.db.get_cache_mut()?;
-        but_db::worktrees::worktrees_with_state(&repo, &mut db)
+        but_db::worktrees::worktrees_with_state(&repo, &mut db.connection_mut())
     }
 
     /// Persist whether the linked worktree named `name` is archived.

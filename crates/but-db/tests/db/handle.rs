@@ -48,18 +48,18 @@ fn read_only_does_not_create_missing_database() -> anyhow::Result<()> {
 #[test]
 fn read_only_observes_existing_database() -> anyhow::Result<()> {
     let tmp = tempfile::tempdir()?;
+    let order: [gix::refs::FullName; 2] = ["refs/heads/A".try_into()?, "refs/heads/B".try_into()?];
     {
         let mut db = DbHandle::new_in_directory(tmp.path())?;
-        db.branch_order_mut()?
-            .set_order(&["refs/heads/A".to_owned(), "refs/heads/B".to_owned()])?;
+        db.meta_mut()?.set_branch_stack_order(&order)?;
     }
 
     let db = DbHandle::open_existing_read_only_in_directory(tmp.path())?
         .expect("database was created before read-only open");
 
     assert_eq!(
-        db.branch_order().order_for_reference("refs/heads/B")?,
-        Some(vec!["refs/heads/A".to_owned(), "refs/heads/B".to_owned()]),
+        db.meta()?.branch_stack_order("refs/heads/B".try_into()?),
+        Some(order.as_slice()),
         "read-only handles should see existing branch order"
     );
     Ok(())

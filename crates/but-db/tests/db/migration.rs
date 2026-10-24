@@ -374,15 +374,16 @@ first | two
 
         let index_exists: bool = db.query_row(
             "SELECT EXISTS(
-                SELECT 1 FROM sqlite_master
-                WHERE type = 'index' AND name = 'idx_branch_order_parent_ref_name'
+                SELECT 1 FROM pragma_index_list('branch_order') AS idx
+                JOIN pragma_index_info(idx.name) AS column
+                WHERE idx.\"unique\" = 1 AND column.name = 'parent_ref_name'
             )",
             [],
             |row| row.get(0),
         )?;
         assert!(
             index_exists,
-            "existing branch_order table should still receive the branch-order index"
+            "the migrated table still indexes and enforces unique parent references"
         );
         Ok(())
     }
@@ -403,11 +404,24 @@ CREATE TABLE __diesel_schema_migrations (
        run_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- table branch_metadata
+CREATE TABLE branch_metadata (
+    ref_name BLOB NOT NULL PRIMARY KEY,
+    created_at INTEGER,
+    created_at_offset INTEGER,
+    updated_at INTEGER,
+    updated_at_offset INTEGER,
+    pull_request INTEGER CHECK (pull_request >= 0),
+    review_id TEXT,
+    CHECK ((created_at IS NULL) = (created_at_offset IS NULL)),
+    CHECK ((updated_at IS NULL) = (updated_at_offset IS NULL))
+);
+
 -- table branch_order
-CREATE TABLE `branch_order`(
-    `branch_ref_name` TEXT NOT NULL PRIMARY KEY,
-    `parent_ref_name` TEXT UNIQUE,
-    CHECK (`parent_ref_name` IS NULL OR `branch_ref_name` != `parent_ref_name`)
+CREATE TABLE "branch_order" (
+    branch_ref_name BLOB NOT NULL PRIMARY KEY,
+    parent_ref_name BLOB UNIQUE,
+    CHECK (parent_ref_name IS NULL OR branch_ref_name != parent_ref_name)
 );
 
 -- table butler_actions
@@ -527,63 +541,6 @@ CREATE TABLE `hunk_assignments`(
 	PRIMARY KEY(`path`, `hunk_header`)
 );
 
--- table vb_branch_targets
-CREATE TABLE `vb_branch_targets`(
-	`stack_id` TEXT NOT NULL PRIMARY KEY,
-	`remote_name` TEXT NOT NULL,
-	`branch_name` TEXT NOT NULL,
-	`remote_url` TEXT NOT NULL,
-	`sha` TEXT NOT NULL,
-	`push_remote_name` TEXT,
-	FOREIGN KEY(`stack_id`) REFERENCES `vb_stacks`(`id`) ON DELETE CASCADE
-);
-
--- table vb_stack_heads
-CREATE TABLE `vb_stack_heads`(
-	`stack_id` TEXT NOT NULL,
-	`position` INTEGER NOT NULL,
-	`name` TEXT NOT NULL,
-	`head_sha` TEXT NOT NULL,
-	`pr_number` INTEGER,
-	`archived` INTEGER NOT NULL DEFAULT 0,
-	`review_id` TEXT,
-	PRIMARY KEY(`stack_id`, `position`),
-	FOREIGN KEY(`stack_id`) REFERENCES `vb_stacks`(`id`) ON DELETE CASCADE
-);
-
--- table vb_stacks
-CREATE TABLE `vb_stacks`(
-	`id` TEXT NOT NULL PRIMARY KEY,
-	`source_refname` TEXT,
-	`upstream_remote_name` TEXT,
-	`upstream_branch_name` TEXT,
-	`sort_order` INTEGER NOT NULL,
-	`in_workspace` INTEGER NOT NULL,
-	`legacy_name` TEXT NOT NULL DEFAULT '',
-	`legacy_notes` TEXT NOT NULL DEFAULT '',
-	`legacy_ownership` TEXT NOT NULL DEFAULT '',
-	`legacy_allow_rebasing` INTEGER NOT NULL DEFAULT 1,
-	`legacy_post_commits` INTEGER NOT NULL DEFAULT 0,
-	`legacy_tree_sha` TEXT NOT NULL DEFAULT '0000000000000000000000000000000000000000',
-	`legacy_head_sha` TEXT NOT NULL DEFAULT '0000000000000000000000000000000000000000',
-	`legacy_created_timestamp_ms` TEXT NOT NULL DEFAULT '0',
-	`legacy_updated_timestamp_ms` TEXT NOT NULL DEFAULT '0'
-);
-
--- table vb_state
-CREATE TABLE `vb_state`(
-	`id` INTEGER PRIMARY KEY CHECK (`id` = 1),
-	`initialized` INTEGER NOT NULL DEFAULT 0,
-	`default_target_remote_name` TEXT,
-	`default_target_branch_name` TEXT,
-	`default_target_remote_url` TEXT,
-	`default_target_sha` TEXT,
-	`default_target_push_remote_name` TEXT,
-	`last_pushed_base_sha` TEXT,
-	`toml_last_seen_mtime_ns` INTEGER,
-	`toml_last_seen_sha256` TEXT
-);
-
 -- table workflows
 CREATE TABLE `workflows`(
 	`id` TEXT NOT NULL PRIMARY KEY,
@@ -594,6 +551,40 @@ CREATE TABLE `workflows`(
 	`input_commits` TEXT NOT NULL,
 	`output_commits` TEXT NOT NULL,
 	`summary` TEXT
+);
+
+-- table workspace_metadata
+CREATE TABLE workspace_metadata (
+    ref_name BLOB NOT NULL PRIMARY KEY,
+    created_at INTEGER,
+    created_at_offset INTEGER,
+    updated_at INTEGER,
+    updated_at_offset INTEGER,
+    CHECK ((created_at IS NULL) = (created_at_offset IS NULL)),
+    CHECK ((updated_at IS NULL) = (updated_at_offset IS NULL))
+);
+
+-- table workspace_stack_branches
+CREATE TABLE workspace_stack_branches (
+    workspace_ref BLOB NOT NULL,
+    stack_id TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    ref_name BLOB NOT NULL,
+    archived INTEGER NOT NULL,
+    PRIMARY KEY (workspace_ref, stack_id, position),
+    FOREIGN KEY (workspace_ref, stack_id) REFERENCES workspace_stacks(workspace_ref, id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- table workspace_stacks
+CREATE TABLE workspace_stacks (
+    workspace_ref BLOB NOT NULL,
+    id TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    relation TEXT NOT NULL CHECK (relation IN ('merged', 'merge-from', 'outside')),
+    merge_commit BLOB,
+    PRIMARY KEY (workspace_ref, id),
+    FOREIGN KEY (workspace_ref) REFERENCES workspace_metadata(ref_name) ON DELETE CASCADE ON UPDATE CASCADE,
+    CHECK (relation = 'merge-from' OR merge_commit IS NULL)
 );
 
 -- table worktree_adoption
@@ -608,23 +599,11 @@ CREATE TABLE `worktree_meta`(
 	`archived` BOOL NOT NULL DEFAULT FALSE
 );
 
--- index idx_branch_order_parent_ref_name
-CREATE INDEX `idx_branch_order_parent_ref_name` ON `branch_order`(`parent_ref_name`);
-
 -- index idx_butler_actions_created_at
 CREATE INDEX `idx_butler_actions_created_at` ON `butler_actions`(`created_at`);
 
 -- index idx_ci_checks_reference
 CREATE INDEX `idx_ci_checks_reference` ON `ci_checks`(`reference`);
-
--- index idx_vb_stack_heads_stack_id
-CREATE INDEX `idx_vb_stack_heads_stack_id` ON `vb_stack_heads`(`stack_id`);
-
--- index idx_vb_stacks_in_workspace
-CREATE INDEX `idx_vb_stacks_in_workspace` ON `vb_stacks`(`in_workspace`);
-
--- index idx_vb_stacks_sort_order
-CREATE INDEX `idx_vb_stacks_sort_order` ON `vb_stacks`(`sort_order`);
 
 -- index index_claude_messages_on_created_at
 CREATE INDEX index_claude_messages_on_created_at ON claude_messages (created_at);
@@ -680,6 +659,8 @@ Text("20260715120000")
 Text("20260715161258")
 Text("20260716175500")
 Text("20260805120000")
+Text("20260907120000")
+Text("20260908120000")
 
 Table: hunk_assignments
 hunk_header | path | path_bytes | stack_id | id | branch_ref
@@ -711,21 +692,6 @@ html_url | number | title | body | author | labels | draft | source_branch | tar
 Table: ci_checks
 id | name | output_summary | output_text | output_title | started_at | status_type | status_conclusion | status_completed_at | head_sha | url | html_url | details_url | pull_requests | reference | last_sync_at | struct_version
 
-Table: vb_state
-id | initialized | default_target_remote_name | default_target_branch_name | default_target_remote_url | default_target_sha | default_target_push_remote_name | last_pushed_base_sha | toml_last_seen_mtime_ns | toml_last_seen_sha256
-
-Table: vb_stacks
-id | source_refname | upstream_remote_name | upstream_branch_name | sort_order | in_workspace | legacy_name | legacy_notes | legacy_ownership | legacy_allow_rebasing | legacy_post_commits | legacy_tree_sha | legacy_head_sha | legacy_created_timestamp_ms | legacy_updated_timestamp_ms
-
-Table: vb_stack_heads
-stack_id | position | name | head_sha | pr_number | archived | review_id
-
-Table: vb_branch_targets
-stack_id | remote_name | branch_name | remote_url | sha | push_remote_name
-
-Table: branch_order
-branch_ref_name | parent_ref_name
-
 Table: fetch_status
 singleton | last_attempted_ms | last_successful_ms | last_error
 
@@ -734,6 +700,21 @@ name | archived
 
 Table: worktree_adoption
 id | adopted_at
+
+Table: workspace_metadata
+ref_name | created_at | created_at_offset | updated_at | updated_at_offset
+
+Table: workspace_stacks
+workspace_ref | id | position | relation | merge_commit
+
+Table: workspace_stack_branches
+workspace_ref | stack_id | position | ref_name | archived
+
+Table: branch_metadata
+ref_name | created_at | created_at_offset | updated_at | updated_at_offset | pull_request | review_id
+
+Table: branch_order
+branch_ref_name | parent_ref_name
 
 
 "#]]

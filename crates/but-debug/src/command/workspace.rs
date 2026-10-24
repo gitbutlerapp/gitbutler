@@ -15,15 +15,14 @@ pub(crate) fn apply(
 ) -> Result<()> {
     let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
-    let (repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
+    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
     let branch = ref_name(&repo, &mutation_args.ref_name)?;
 
     let outcome = but_workspace::branch::apply(
         branch.as_ref(),
         ws.clone(),
         &repo,
-        &mut meta,
+        &mut db.connection_mut(),
         but_workspace::branch::apply::Options {
             new_stack_id: None,
             ..Default::default()
@@ -43,15 +42,14 @@ pub(crate) fn unapply(
 ) -> Result<()> {
     let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
     let mut guard = ctx.exclusive_worktree_access();
-    let mut meta = ctx.meta()?;
-    let (repo, ws, _) = ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
+    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
     let branch = ref_name(&repo, &mutation_args.ref_name)?;
 
     let outcome = but_workspace::branch::unapply(
         branch.as_ref(),
         &ws,
         &repo,
-        &mut meta,
+        &mut db.connection_mut(),
         but_workspace::branch::unapply::Options {
             workspace_disposition: mutation_args.disposition.into(),
         },

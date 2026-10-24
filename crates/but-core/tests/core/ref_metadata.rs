@@ -804,19 +804,6 @@ mod project_meta {
     }
 
     #[test]
-    fn porting_metadata_preserves_an_unset_cutoff() -> anyhow::Result<()> {
-        let (repo, _tmp) = but_testsupport::writable_scenario("project-target-metadata");
-        let meta = local_target("refs/heads/main")?;
-        ProjectMeta::port_if_needed(&repo, || Ok(meta.clone()))?;
-        assert_eq!(
-            ProjectMeta::resolve(&repo)?,
-            meta,
-            "migration must not invent a stored cutoff"
-        );
-        Ok(())
-    }
-
-    #[test]
     fn malformed_target_ref_and_commit_id_read_as_none() -> anyhow::Result<()> {
         let config = gix::config::File::try_from(
             "[gitbutler \"project\"]\n\

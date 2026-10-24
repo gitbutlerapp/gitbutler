@@ -1,12 +1,11 @@
 use anyhow::Result;
 use but_core::{
-    GitConfigSettings, RefMetadata, RepositoryExt,
+    GitConfigSettings, RepositoryExt,
     ref_metadata::{
         ProjectMeta, StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
     },
 };
 use but_ctx::Context;
-use but_meta::VirtualBranchesTomlMetadata;
 use but_testsupport::{gix_testtools, open_repo};
 use tempfile::TempDir;
 
@@ -150,11 +149,13 @@ fn disable_gitbutler_commit_signing(repo: &gix::Repository) -> Result<()> {
 }
 
 fn write_workspace_metadata(repo: &gix::Repository, stacks: &[StackSpec<'_>]) -> Result<()> {
-    let mut meta = VirtualBranchesTomlMetadata::from_path(
-        repo.gitbutler_storage_path()?.join("virtual_branches.toml"),
-    )?;
+    let mut db = but_testsupport::project_db(repo)?;
+    let meta = db.meta()?;
     let workspace_ref = gix::refs::FullName::try_from("refs/heads/gitbutler/workspace")?;
-    let mut workspace = meta.workspace(workspace_ref.as_ref())?;
+    let mut workspace = meta
+        .workspace(workspace_ref.as_ref())
+        .cloned()
+        .unwrap_or_default();
     workspace.stacks = stacks
         .iter()
         .map(|stack| {
@@ -179,9 +180,8 @@ fn write_workspace_metadata(repo: &gix::Repository, stacks: &[StackSpec<'_>]) ->
             })
         })
         .collect::<Result<Vec<_>>>()?;
-    meta.set_workspace(&workspace)?;
-    meta.set_changed_to_necessitate_write();
-    meta.write_unreconciled()?;
+    db.meta_mut()?
+        .set_workspace(workspace_ref.as_ref(), &workspace)?;
 
     ProjectMeta {
         target_ref: Some(but_core::ref_metadata::LocalRefName::new(

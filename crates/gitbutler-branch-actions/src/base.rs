@@ -2,7 +2,7 @@ use std::time;
 
 use anyhow::{Context as _, Result, anyhow};
 use but_core::{
-    RefMetadata as _, WORKSPACE_REF_NAME,
+    WORKSPACE_REF_NAME,
     git_config::{edit_repo_config, ensure_config_value},
     ref_metadata::{ProjectMeta, StackId, WorkspaceCommitRelation},
     sync::{RepoExclusive, RepoShared},
@@ -273,8 +273,13 @@ pub(crate) fn set_base_branch(
                 head_name.to_string().try_into()?
             };
 
-            let mut meta = ctx.meta()?;
-            let mut workspace = meta.workspace(WORKSPACE_REF_NAME.try_into()?)?;
+            let mut workspace = ctx
+                .db
+                .get_cache()?
+                .meta()?
+                .workspace(WORKSPACE_REF_NAME.try_into()?)
+                .cloned()
+                .unwrap_or_default();
             workspace.add_or_insert_new_stack_if_not_present(
                 stack_ref_name.as_ref(),
                 None,
@@ -288,8 +293,10 @@ pub(crate) fn set_base_branch(
                 let current_workspace = ctx.workspace_from_head_uncached(perm.read_permission())?;
                 current_workspace.reconcile_metadata(&mut workspace)?;
             }
-            meta.set_workspace(&workspace)?;
-            drop((workspace, meta));
+            ctx.db
+                .get_cache_mut()?
+                .meta_mut()?
+                .set_workspace(WORKSPACE_REF_NAME.try_into()?, &workspace)?;
             if !branch_matches_target {
                 repo.reference(
                     WORKSPACE_REF_NAME,
@@ -547,8 +554,6 @@ mod tests {
 
     #[test]
     fn initial_lagging_target_uses_upstream_without_preservation_stack() -> anyhow::Result<()> {
-        use but_core::RefMetadata;
-
         let (repo, _tmp) = but_testsupport::writable_scenario("legacy-target-local-behind");
         let local = repo.head_id()?.detach();
         let upstream = repo.rev_parse_single("origin/main")?.detach();
@@ -560,8 +565,12 @@ mod tests {
             Some(upstream),
             "initialization must select upstream even when local main lags"
         );
-        let meta = ctx.meta()?;
-        let workspace = meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
+        let db = ctx.db.get_cache()?;
+        let meta = db.meta()?;
+        let workspace = meta
+            .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)
+            .cloned()
+            .unwrap_or_default();
         assert_eq!(
             workspace
                 .stacks(but_core::ref_metadata::StackKind::Applied)
@@ -613,8 +622,6 @@ mod tests {
 
     #[test]
     fn setting_differently_named_upstream_does_not_apply_local_target() -> anyhow::Result<()> {
-        use but_core::RefMetadata;
-
         let (repo, _tmp) =
             but_testsupport::writable_scenario("local-target-different-upstream-name");
         let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?;
@@ -624,8 +631,12 @@ mod tests {
             guard.write_permission(),
             &"refs/remotes/origin/trunk".parse()?,
         )?;
-        let meta = ctx.meta()?;
-        let workspace = meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
+        let db = ctx.db.get_cache()?;
+        let meta = db.meta()?;
+        let workspace = meta
+            .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)
+            .cloned()
+            .unwrap_or_default();
         assert_eq!(
             workspace
                 .stacks(but_core::ref_metadata::StackKind::Applied)
