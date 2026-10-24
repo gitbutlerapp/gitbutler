@@ -242,6 +242,29 @@ pub fn fonts() -> Vec<Cow<'static, [u8]>> {
     )
 }
 
+/// Match each of `fonts`' faces against the installed fonts in the background, as Zed does.
+/// cosmic-text otherwise does it on the main thread the first time it lays out text in a face,
+/// and it walks every installed font to do so.
+#[cfg(target_os = "linux")]
+pub fn prewarm_fonts(cx: &gpui::App) {
+    use gpui::FontWeight;
+
+    let fonts = [
+        ("Inter", FontWeight::NORMAL),
+        ("Inter", FontWeight::MEDIUM),
+        ("Inter", FontWeight::SEMIBOLD),
+        ("Geist Mono", FontWeight::NORMAL),
+        ("Geist Mono", FontWeight::SEMIBOLD),
+    ]
+    .map(|(family, weight)| gpui::Font {
+        weight,
+        ..gpui::font(family)
+    });
+    let text_system = cx.text_system().clone();
+    cx.background_spawn(async move { text_system.prewarm_fonts(&fonts) })
+        .detach();
+}
+
 /// Serves the icons compiled into the binary.
 pub struct Assets;
 

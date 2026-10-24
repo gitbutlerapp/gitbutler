@@ -142,6 +142,8 @@ pub fn run(embedded: Option<Embedded>) {
             if let Err(err) = cx.text_system().add_fonts(ui::fonts()) {
                 tracing::error!("couldn't load the bundled fonts: {err:#}");
             }
+            #[cfg(target_os = "linux")]
+            ui::prewarm_fonts(cx);
             let has_update_feed = embedded.as_ref().is_some_and(|e| e.update_feed.is_some());
             match embedded {
                 Some(embedded) => cx.set_global(embedded),
@@ -213,12 +215,16 @@ pub fn run(embedded: Option<Embedded>) {
                 Some((display, bounds)) => (Some(display), bounds),
                 None => (
                     None,
-                    Bounds::centered(None, size(fixed(1360.), fixed(860.)), cx),
+                    WindowBounds::Windowed(Bounds::centered(
+                        None,
+                        size(fixed(1360.), fixed(860.)),
+                        cx,
+                    )),
                 ),
             };
             let window = cx.open_window(
                 WindowOptions {
-                    window_bounds: Some(WindowBounds::Windowed(bounds)),
+                    window_bounds: Some(bounds),
                     display_id,
                     titlebar: Some(TitlebarOptions {
                         title: Some("GitButler".into()),
