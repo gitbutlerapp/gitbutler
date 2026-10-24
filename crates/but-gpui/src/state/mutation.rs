@@ -1431,7 +1431,13 @@ impl Store {
                             store.select(Some(moved), cx);
                         }
                         let title = store.card_title(&project, format!("{label} failed"));
-                        store.failed(title, &err, cx)
+                        // Paths in the project as it names them, so a long one doesn't push
+                        // the reason off the card.
+                        let mut detail = backend::failure_detail(&err);
+                        if let Some(path) = store.path(&project) {
+                            detail = detail.replace(&format!("{}/", path.display()), "");
+                        }
+                        store.error(title, detail, cx)
                     }
                 }
                 // The cards it wrote are its own, for the next run of it that works to take back.
