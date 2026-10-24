@@ -248,7 +248,9 @@ anything else.
 - Rows move under the pointer: a drag inserts drop zones, and an optimistic stand-in adds a row.
   Take a `shot` mid-drag with `hold` and aim from it. Coordinates read off a cropped shot need the
   crop's origin added.
-- The log target is `but_gpui`, as in `RUST_LOG=but_gpui=debug`.
+- The log target is `but_gpui`, as in `RUST_LOG=but_gpui=debug`. The log also goes to the
+  desktop app's log folder (`backend::logs::dir()`), which in a sandbox is
+  `$E2E_TEST_APP_DATA_DIR/logs`.
 - The harness window is off screen, which macOS reports as hidden, so a scripted run ignores
   the real visibility and starts shown. `hide` and `show` steps set it, as covering the window
   and bringing it back would.

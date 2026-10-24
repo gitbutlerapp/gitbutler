@@ -119,9 +119,13 @@ fn set_dock_icon() {
     }
 }
 
+/// Start the log, before anything that could write to it. The desktop app's binary calls it
+/// before its own setup for the client, which logs too.
+pub use backend::logs::init as init_logging;
+
 /// Run the app until it quits: open its window on this thread, which must be the process's
 /// main thread, as macOS draws windows from there. `embedded` when the desktop app's binary
-/// starts it.
+/// starts it. Call [`init_logging`] first.
 pub fn run(embedded: Option<Embedded>) {
     #[cfg(feature = "dev-script")]
     dev::mark_launch();
@@ -133,13 +137,14 @@ pub fn run(embedded: Option<Embedded>) {
     use crate::app::AppView;
     use crate::ui::fixed;
 
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into()),
-        )
-        .with_writer(std::io::stderr)
-        .init();
     backend::init();
+    // The desktop app writes to the same files, so say which app this is.
+    tracing::info!(
+        version = embedded.as_ref().map(|embedded| embedded.version.as_str()),
+        channel = backend::settings::channel(),
+        os = std::env::consts::OS,
+        "starting the GPUI client"
+    );
     #[cfg(target_os = "macos")]
     draw_text_unsmoothed();
 
@@ -147,6 +152,10 @@ pub fn run(embedded: Option<Embedded>) {
         .with_assets(ui::Assets)
         .with_quit_mode(QuitMode::LastWindowClosed)
         .run(|cx: &mut App| {
+            // GPUI awaits what quit handlers return only once they've all run, the store's
+            // save included, so this writes out what they logged.
+            cx.on_app_quit(|_| async { backend::logs::flush() })
+                .detach();
             // Without them, text falls back to the system's fonts.
             if let Err(err) = cx.text_system().add_fonts(ui::fonts()) {
                 tracing::error!("couldn't load the bundled fonts: {err:#}");
@@ -215,6 +224,7 @@ pub fn run(embedded: Option<Embedded>) {
                     MenuItem::separator(),
                     MenuItem::action("Report an Issue…", help::ReportIssue),
                     MenuItem::action("Show Settings Folder", help::ShowConfigFolder),
+                    MenuItem::action("Show Logs Folder", help::ShowLogsFolder),
                 ]),
             ]);
 

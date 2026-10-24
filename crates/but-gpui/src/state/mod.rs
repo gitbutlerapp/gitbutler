@@ -1013,6 +1013,10 @@ impl Store {
     }
 
     fn notify_user(&mut self, notice: Notice, cx: &mut Context<Self>) {
+        // Every error card shown, for the log to say what went wrong for the user and when.
+        if let Notice::Error { title, detail, .. } = &notice {
+            tracing::error!("{title}: {detail}");
+        }
         let id = self.next_toast;
         self.next_toast += 1;
         let linger = match notice {

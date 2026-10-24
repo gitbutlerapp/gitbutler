@@ -11,6 +11,7 @@ mod diff;
 pub mod edit;
 mod highlight;
 pub mod history;
+pub mod logs;
 mod markers;
 pub mod mesh;
 pub mod model;
