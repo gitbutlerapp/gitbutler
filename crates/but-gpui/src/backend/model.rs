@@ -14,6 +14,20 @@ impl CommitId {
     }
 }
 
+/// Saved as its hex, as Git writes it.
+impl serde::Serialize for CommitId {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.collect_str(&self.0)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for CommitId {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let hex = <String as serde::Deserialize>::deserialize(d)?;
+        (gix::ObjectId::from_hex(hex.as_bytes()).map(CommitId)).map_err(serde::de::Error::custom)
+    }
+}
+
 /// A branch's name without `refs/heads/`.
 pub fn short_ref(ref_name: &str) -> &str {
     ref_name.strip_prefix("refs/heads/").unwrap_or(ref_name)
@@ -607,7 +621,7 @@ impl Commit {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CommitState {
     Local,
     Pushed,

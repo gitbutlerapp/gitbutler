@@ -20,7 +20,11 @@ pub fn commit_paths(path: &Path, commits: &[CommitId]) -> Result<Vec<(CommitId, 
     let repo = checkout(&ctx, None)?;
     (commits.iter())
         .map(|id| {
-            let base = present_first_parent(&repo.find_commit(id.0)?);
+            // One gone, as a deleted branch's once pruned, changes nothing that can be read.
+            let Ok(commit) = repo.find_commit(id.0) else {
+                return Ok((*id, Vec::new()));
+            };
+            let base = present_first_parent(&commit);
             let changes = but_core::diff::tree_changes(&repo, base, id.0)?;
             let paths = changes
                 .into_iter()

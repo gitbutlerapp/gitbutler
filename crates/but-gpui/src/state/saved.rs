@@ -103,7 +103,8 @@ impl Store {
         (self.kept_snapshots.lock()).retain(|id, _| listed(id));
         let since = crate::ui::now() - super::activity::KEPT_FOR;
         (self.activity).retain(|(id, _), activity| {
-            listed(id) && activity.last.is_some_and(|last| last > since)
+            let latest = activity.last.max(activity.commits.first().map(|c| c.time));
+            listed(id) && latest.is_some_and(|at| at > since)
         });
         let prefs = &mut self.prefs;
         let sets = [

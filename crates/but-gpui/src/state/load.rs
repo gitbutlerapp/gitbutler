@@ -706,6 +706,7 @@ impl Store {
             };
             old.editing.is_none() && names(old) != names(&workspace)
         });
+        self.remember_commits(id, &workspace, cx);
         if let Some(entry) = self.project_mut(id) {
             entry.workspace = Some(workspace);
             entry.read();

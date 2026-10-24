@@ -26,7 +26,7 @@ mod picks;
 mod saved;
 mod seen;
 
-pub use activity::{Activity, QUARTER};
+pub use activity::{Activity, QUARTER, SeenCommit};
 use load::{Change, Reload};
 pub use mesh::{MeshBranch, MeshPick, MeshState};
 pub use mutation::{NewAt, OpKind, Overlay, Remap, Rereads, SLOW, conflicted_parts};

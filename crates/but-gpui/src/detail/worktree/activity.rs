@@ -7,7 +7,7 @@ use std::collections::{BTreeSet, HashSet};
 
 use gpui::{Context, Div, div, prelude::*, relative};
 
-use crate::backend::{Commit, CommitState};
+use crate::backend::CommitState;
 use crate::detail::Detail;
 use crate::detail::panes::{clear_button, grouped, keyed_tiles, overview_split, overview_title};
 use crate::detail::slots::{SlotGesture, SlotPick, ends_drag, picks_slot};
@@ -16,6 +16,7 @@ use crate::theme::Theme;
 use crate::ui::{Icon, Tooltip, dp, faint, h_flex, local_clock, plural, small_icon, v_flex};
 
 use super::BARS as QUARTERS;
+use super::Made;
 use super::{span_said, window_start};
 
 /// How tall the tallest bar of edits is drawn.
@@ -48,8 +49,8 @@ fn quarters_said(quarters: &BTreeSet<i64>, now: i64) -> Option<String> {
 /// on the target, pushed, and only here; it reads as how far along. Commits only here fill in
 /// grey, darker than pushed ones, so the page adds no colour beside the edits' teal. With none, an
 /// empty bar holds its place, so picking a quiet quarter moves nothing under it.
-fn commits_split(commits: &[&Commit], theme: &Theme) -> gpui::AnyElement {
-    let count = |state: CommitState| commits.iter().filter(|c| c.state == state).count();
+fn commits_split(commits: &[Made], theme: &Theme) -> gpui::AnyElement {
+    let count = |state: CommitState| commits.iter().filter(|c| c.state() == state).count();
     let split = overview_split(
         [
             (
@@ -102,16 +103,16 @@ fn hour_mark(start: i64) -> Option<String> {
 impl Detail {
     /// What happened over the last 12 hours up to `now`, or the quarters picked: its counts
     /// first, keys to the chart under them, then a column for each quarter of an hour, the
-    /// files `activity` saw saved then rising from the line and the `commits` made then hanging
-    /// under it, each to its own scale, as edits run to hundreds and commits to a few; each
-    /// quarter's counts on hover. Pressing, ⌘- or shift-pressing or dragging across them picks
-    /// quarters, which Clear by the title lets go of. `scoped` are the commits of the quarters
-    /// shown.
+    /// files `activity` saw saved then rising from the line and the `commits` made then
+    /// hanging under it, each to its own scale, as edits run to hundreds and commits to a few;
+    /// each quarter's counts on hover. Pressing, ⌘- or shift-pressing or dragging across them
+    /// picks quarters, which Clear by the title lets go of. `scoped` are the commits of the
+    /// quarters shown.
     pub(super) fn now_activity(
         &self,
         (activity, now): (Option<&Activity>, i64),
-        commits: &[&Commit],
-        scoped: &[&Commit],
+        commits: &[Made],
+        scoped: &[Made],
         status: Div,
         theme: &Theme,
         cx: &Context<Self>,
@@ -121,7 +122,7 @@ impl Detail {
         let first = window_start(now) / QUARTER;
         let mut committed = vec![0usize; QUARTERS];
         for commit in commits {
-            let at = commit.time.div_euclid(QUARTER) - first;
+            let at = commit.time().div_euclid(QUARTER) - first;
             if let Some(n) = usize::try_from(at)
                 .ok()
                 .and_then(|at| committed.get_mut(at))
@@ -143,7 +144,7 @@ impl Detail {
             .count();
         // Once every commit's files are read, so the count doesn't climb as they come in.
         let changed: Option<HashSet<&String>> = (scoped.iter())
-            .map(|commit| self.now.paths.get(&commit.id))
+            .map(|commit| self.now.paths.get(&commit.id()))
             .collect::<Option<Vec<_>>>()
             .map(|paths| paths.into_iter().flatten().collect());
         let tiles = [
