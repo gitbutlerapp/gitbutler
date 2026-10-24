@@ -15,7 +15,7 @@ use crate::backend::{
     LineKind, PushState, Selected, ai, short_ref,
 };
 use crate::palette::Choice;
-use crate::state::{Cut, NewAt, Overlay, ProjectId, Selection, Store};
+use crate::state::{Cut, NewAt, Overlay, ProjectId, Selection, Store, snack};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -487,7 +487,7 @@ impl Detail {
                 None
             };
             if let Some(refused) = refused {
-                self.store.update(cx, |store, cx| store.snack(refused, cx));
+                snack(&self.store, refused, cx);
                 return;
             }
         }
@@ -670,7 +670,7 @@ impl Detail {
                     "Save or cancel the new message for \"{}\" first",
                     other.title
                 );
-                return self.store.update(cx, |store, cx| store.snack(why, cx));
+                return snack(&self.store, why, cx);
             }
         }
         let message = store.message_of(&project, commit).1.to_owned();
@@ -691,9 +691,7 @@ impl Detail {
                 InputEvent::Submit => {
                     let message = input.read(cx).text().trim().to_owned();
                     if message.is_empty() {
-                        return (this.store).update(cx, |store, cx| {
-                            store.snack("Write a commit message first", cx)
-                        });
+                        return snack(&this.store, "Write a commit message first", cx);
                     }
                     // Unchanged, rewording would only give it and the commits above it new ids.
                     if message == opened {
@@ -782,16 +780,12 @@ impl Detail {
             return;
         };
         if self.writing.is_some() {
-            self.store.update(cx, |store, cx| {
-                store.snack("The message is still being written", cx)
-            });
+            snack(&self.store, "The message is still being written", cx);
             return;
         }
         let message = self.message.read(cx).text().trim().to_owned();
         if message.is_empty() {
-            self.store.update(cx, |store, cx| {
-                store.snack("Write a commit message first", cx)
-            });
+            snack(&self.store, "Write a commit message first", cx);
             self.focus_message(window, cx);
             return;
         }
@@ -807,7 +801,7 @@ impl Detail {
         // commit isn't what was being written.
         if nothing_changed && self.composing_on_changes {
             let why = "What was here to commit was committed meanwhile";
-            self.store.update(cx, |store, cx| store.snack(why, cx));
+            snack(&self.store, why, cx);
             return;
         }
         if files.is_empty() && !nothing_changed {
@@ -817,7 +811,7 @@ impl Detail {
                 true => "Nothing checked to commit",
                 false => "Wait for the running operation to finish",
             };
-            self.store.update(cx, |store, cx| store.snack(why, cx));
+            snack(&self.store, why, cx);
             return;
         }
         let target = self.effective_target(&project, cx);
@@ -970,9 +964,8 @@ impl Detail {
                 .and_then(|ws| ws.uncommitted_in(worktree))
                 .is_some_and(|files| self.shows_worktree(files));
         if !current {
-            self.store.update(cx, |store, cx| {
-                store.snack("Still loading the diff, try again in a moment", cx)
-            });
+            let why = "Still loading the diff, try again in a moment";
+            snack(&self.store, why, cx);
         }
         !current
     }
@@ -984,9 +977,7 @@ impl Detail {
             return;
         };
         if self.commit_pending(&project, cx) {
-            self.store.update(cx, |store, cx| {
-                store.snack("Wait for the commit to finish", cx)
-            });
+            snack(&self.store, "Wait for the commit to finish", cx);
             return;
         }
         let Some((into, _)) = self.amend_target(&project, cx) else {
@@ -997,8 +988,7 @@ impl Detail {
         }
         let files = self.changes_not_pending(&project, cx);
         if files.is_empty() {
-            self.store
-                .update(cx, |store, cx| store.snack("Nothing checked to amend", cx));
+            snack(&self.store, "Nothing checked to amend", cx);
             return;
         }
         let detail = cx.entity().downgrade();
@@ -1341,7 +1331,7 @@ impl Detail {
                         {
                             let gone =
                                 format!("{name} was renamed or left the workspace meanwhile");
-                            return detail.store.update(cx, |store, cx| store.snack(gone, cx));
+                            return snack(&detail.store, gone, cx);
                         }
                         detail.commit_target = Some(ref_name);
                         cx.notify();

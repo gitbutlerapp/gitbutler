@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use futures::channel::mpsc;
-use gpui::{Context, EventEmitter, SharedString, Subscription, Task};
+use gpui::{App, Context, Entity, EventEmitter, SharedString, Subscription, Task};
 use parking_lot::Mutex;
 
 use crate::backend::upstream::TargetCommit;
@@ -368,6 +368,11 @@ pub struct Store {
 }
 
 impl EventEmitter<StoreEvent> for Store {}
+
+/// [`Store::snack`] from a view holding the store.
+pub fn snack(store: &Entity<Store>, message: impl Into<SharedString>, cx: &mut App) {
+    store.update(cx, |store, cx| store.snack(message, cx));
+}
 
 impl Store {
     /// Projects listed and nothing loading or mutating, for the dev script's timings.
@@ -786,6 +791,15 @@ impl Store {
         self.save_soon(cx);
         cx.emit(StoreEvent::SelectionChanged);
         cx.notify();
+    }
+
+    /// Select `selection`, or with it selected already, take its page back to how it opens.
+    pub fn reopen(&mut self, selection: Selection, cx: &mut Context<Self>) {
+        let again = self.selection.as_ref() == Some(&selection);
+        self.select(Some(selection), cx);
+        if again {
+            cx.emit(StoreEvent::Reopened);
+        }
     }
 
     /// ⌘-click picks `id` along with the selected commit, or drops it from the picks;

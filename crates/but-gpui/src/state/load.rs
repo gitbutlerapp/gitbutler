@@ -836,9 +836,7 @@ fn watch(
 
 #[cfg(test)]
 mod tests {
-    use crate::backend::{
-        Branch, Commit, CommitId, CommitState, PushState, Stack, Workspace, Worktree,
-    };
+    use crate::backend::{Branch, Commit, CommitId, PushState, Stack, Workspace, Worktree};
 
     fn branch(name: &str, commits: &[u8]) -> Branch {
         let id = |n: u8| gix::ObjectId::from_bytes_or_panic(&[n; 20]);
@@ -851,19 +849,8 @@ mod tests {
             },
             commits: (commits.iter())
                 .map(|&n| Commit {
-                    id: CommitId(id(n)),
                     key: format!("key{n}"),
-                    authored: String::new(),
-                    title: String::new(),
-                    message: String::new(),
-                    author: String::new(),
-                    email: String::new(),
-                    agent: None,
-                    time: 0,
-                    state: CommitState::Local,
-                    conflicted: false,
-                    parent: None,
-                    tree: id(n),
+                    ..Commit::bare(id(n))
                 })
                 .collect(),
             incoming: Vec::new(),

@@ -20,7 +20,7 @@ use crate::edits::{
     NewBranchBelow, NewBranchHere, RewrapMessage, SquashAll, UnapplyStack, Unstack,
 };
 use crate::overlays::backdrop;
-use crate::state::{Notice, Selection};
+use crate::state::{Notice, Selection, snack};
 use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -326,7 +326,7 @@ impl AppView {
                             if (this.store.read(cx).workspace(&id))
                                 .is_none_or(|ws| ws.find_branch(&ref_name).is_none())
                             {
-                                return this.store.update(cx, |store, cx| store.snack(gone, cx));
+                                return snack(&this.store, gone, cx);
                             }
                             this.select(Selection::Branch(id, ref_name), window, cx)
                         });

@@ -40,7 +40,9 @@ use crate::app::{AddProject, AppView, Collapse, Expand, SelectNext, SelectPrevio
 use crate::backend::edit::Editing;
 use crate::backend::{self, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
-use crate::state::{Cut, FileSort, Pane, Picks, Prefs, ProjectId, Selection, Store, StoreEvent};
+use crate::state::{
+    Cut, FileSort, Pane, Picks, Prefs, ProjectId, Selection, Store, StoreEvent, snack,
+};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -1877,7 +1879,7 @@ impl Detail {
         if !self.side_list_focused(window) && self.owned_cut(Vec::new(), cx).is_some() {
             let why = "Only uncommitted changes can be discarded with these keys. A commit's file menu has \
                  Discard from commit";
-            self.store.update(cx, |store, cx| store.snack(why, cx));
+            snack(&self.store, why, cx);
         }
     }
 
@@ -1980,7 +1982,7 @@ impl Detail {
         if !self.files_fit(window, cx) {
             let why = "The window is too narrow to show the files beside the diff. Rest the \
                        pointer on the file count over the diff to list them";
-            return self.store.update(cx, |store, cx| store.snack(why, cx));
+            return snack(&self.store, why, cx);
         }
         self.files_hidden = !self.files_hidden;
         // Keys go on to the diff once the list they went to is gone, and its filter goes with

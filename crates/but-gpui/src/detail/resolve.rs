@@ -15,7 +15,7 @@ use super::{Detail, DiffSource};
 use crate::app::AppView;
 use crate::backend::conflicts::{self, Keep};
 use crate::backend::{self, CommitId, Conflict, Workspace, ai};
-use crate::state::{OpKind, Overlay, ProjectId, Rereads, Selection};
+use crate::state::{OpKind, Overlay, ProjectId, Rereads, Selection, snack};
 use crate::theme::Theme;
 use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
 use crate::ui::diff::{DiffRow, Layout, OnToggle};
@@ -477,9 +477,7 @@ impl Detail {
         // Once the one under way is done, the conflicts left are numbered anew, which picks
         // applied again, or along with a finish, would mistake.
         if self.store.read(cx).resolving(&project) {
-            (self.store).update(cx, |store, cx| {
-                store.snack("Wait for the resolve under way", cx)
-            });
+            snack(&self.store, "Wait for the resolve under way", cx);
             return true;
         }
         let Some(diff) = &self.diff else {

@@ -14,7 +14,7 @@ use crate::app::{
     UncommitSelection,
 };
 use crate::backend::{self, Branch, Commit, CommitId, Destination, Selected, Workspace, short_ref};
-use crate::state::{Cut, Overlay, ProjectId, Remap, Rereads, Selection, Store};
+use crate::state::{Cut, Overlay, ProjectId, Remap, Rereads, Selection, Store, snack};
 
 actions!(
     edits,
@@ -349,9 +349,7 @@ impl AppView {
             Some(Selection::Uncommitted(project)) => {
                 let target = self.detail.read(cx).effective_target(&project, cx);
                 let Some(target) = target else {
-                    return self
-                        .store
-                        .update(cx, |store, cx| store.snack("Select a branch to push", cx));
+                    return snack(&self.store, "Select a branch to push", cx);
                 };
                 Some((project, target))
             }
@@ -368,7 +366,7 @@ impl AppView {
             false => Some("Nothing to push yet"),
         };
         if let Some(refused) = refused {
-            return self.store.update(cx, |store, cx| store.snack(refused, cx));
+            return snack(&self.store, refused, cx);
         }
         let drops = ws.push_drops(&ref_name);
         let (what, them) = match drops.len() {
@@ -591,7 +589,7 @@ impl AppView {
         let linked = store.worktree_of(&selection).is_some();
         if at == 0 && linked {
             let message = format!("{name} is checked out in a worktree, which keeps it");
-            return self.store.update(cx, |store, cx| store.snack(message, cx));
+            return snack(&self.store, message, cx);
         }
         // Only the ref goes. Its commits stay in the stack, which needs another named branch
         // to hold them: the one above, or below when there's none above.
@@ -600,7 +598,7 @@ impl AppView {
             let message = format!(
                 "To delete {name} and its commits, unapply it, then delete it from Branches"
             );
-            return self.store.update(cx, |store, cx| store.snack(message, cx));
+            return snack(&self.store, message, cx);
         }
         // The oplog doesn't keep a linked worktree's branches, so it can't bring one back.
         let undoable = !linked && recorded(store, &project);
@@ -1090,7 +1088,7 @@ impl AppView {
         };
         if text.trim().is_empty() {
             cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
-            return (self.store).update(cx, |store, cx| store.snack("Copied an empty message", cx));
+            return snack(&self.store, "Copied an empty message", cx);
         }
         self.copy_text(text, cx);
     }

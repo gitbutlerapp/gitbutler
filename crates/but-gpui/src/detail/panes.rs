@@ -708,8 +708,12 @@ impl Detail {
         let menu = icon_button("page-menu", Icon::Kebab).on_click(cx.listener(
             move |this, event: &ClickEvent, _, cx| {
                 let position = event.position();
+                // What right-clicking its row in the navigator offers.
                 (this.app)
-                    .update(cx, |app, cx| app.open_row_menu(&target, position, cx))
+                    .update(cx, |app, cx| {
+                        let items = app.navigator.read(cx).menu_items(&target, cx);
+                        app.open_menu(position, items, cx)
+                    })
                     .ok();
             },
         ));
