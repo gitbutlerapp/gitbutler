@@ -227,14 +227,21 @@ impl AppView {
                     return;
                 }
                 let name = name.trim().to_owned();
+                let short = branch_name(&name).unwrap_or(name.clone());
                 // Making or naming a branch only writes refs. An unnamed branch has no ref
                 // to tell it from another unnamed one, so its new name waits for the reload.
                 let overlay = Overlay {
-                    renamed: (renaming.clone())
-                        .map(|from| (from, branch_name(&name).unwrap_or(name.clone()))),
+                    renamed: renaming.clone().map(|from| (from, short.clone())),
                     ..Overlay::default()
                 };
                 this.store.update(cx, |store, cx| {
+                    // Git's rules changed the name, as they do spaces and double dots.
+                    if short != name {
+                        store.snack(
+                            format!("Named it {short}, as Git doesn't allow \"{name}\""),
+                            cx,
+                        );
+                    }
                     store.run(
                         &project,
                         label,
