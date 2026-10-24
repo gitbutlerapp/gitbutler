@@ -546,7 +546,11 @@ impl TextInput {
     ) {
         self.is_selecting = true;
         let offset = self.offset_for_mouse(event.position);
-        if event.click_count >= 2 {
+        // Three clicks take the paragraph, as in the platform's fields.
+        if event.click_count >= 3 {
+            self.move_to(self.line_start(offset), window, cx);
+            self.select_to(self.line_end(offset), window, cx);
+        } else if event.click_count == 2 {
             // From past the click, so one at a word's very start selects that word.
             let start = self.previous_word(self.next_boundary(offset));
             let end = self.next_word(start);
