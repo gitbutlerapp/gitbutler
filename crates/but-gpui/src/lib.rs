@@ -142,6 +142,8 @@ pub fn run(embedded: Option<Embedded>) {
             if let Err(err) = cx.text_system().add_fonts(ui::fonts()) {
                 tracing::error!("couldn't load the bundled fonts: {err:#}");
             }
+            #[cfg(target_os = "linux")]
+            ui::prewarm_fonts(cx);
             let has_update_feed = embedded.as_ref().is_some_and(|e| e.update_feed.is_some());
             match embedded {
                 Some(embedded) => cx.set_global(embedded),
