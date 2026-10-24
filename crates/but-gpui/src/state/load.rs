@@ -766,8 +766,10 @@ fn follow_cut(cut: &mut Cut, old: Option<&Workspace>, new: &Workspace) -> bool {
             .map(|new| *commit = new)
             .is_some(),
         // Uncommitted files go when one of them is no longer uncommitted, and some of
-        // a file once it changed, as the lines picked may have moved under the pick;
-        // a branch goes when it's gone, as when renamed.
+        // a file once it changed, as the lines picked may have moved under the pick; a linked
+        // worktree's whole file too, as what an agent wrote since would go along unseen, out
+        // of its worktree, which undo can't bring back. A branch goes when it's gone, as when
+        // renamed.
         Cut::Files {
             from: None,
             worktree,
@@ -776,7 +778,7 @@ fn follow_cut(cut: &mut Cut, old: Option<&Workspace>, new: &Workspace) -> bool {
         } => {
             let uncommitted = new.uncommitted_in(worktree.as_deref());
             let same = |f: &Selected, u: &FileChange| {
-                f.hunks.is_none()
+                (f.hunks.is_none() && worktree.is_none())
                     || (u.modified, u.size, u.lines) == (f.file.modified, f.file.size, f.file.lines)
             };
             uncommitted.is_some_and(|uncommitted| {
