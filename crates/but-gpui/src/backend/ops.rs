@@ -270,13 +270,48 @@ fn post_commit(ctx: &but_ctx::Context) -> Option<String> {
     }
 }
 
-/// GitButler's branches and commits build on a commit; core's own error for a repository
-/// without one names its internals.
+/// GitButler's branches build on a commit; core's own error for a repository without one
+/// names its internals.
 fn refuse_unborn(ctx: &but_ctx::Context) -> Result<()> {
     if ctx.repo.get()?.head()?.is_unborn() {
-        bail!("The repository has no commits yet. Make the first one with Git.");
+        bail!("The repository has no commits yet. Make the first one, then try again.");
     }
     Ok(())
+}
+
+/// Make the repository's first commit, of `changes`, on the branch `HEAD` names, which
+/// `destination` must be, as `git commit` does in a new repository. The caller holds
+/// exclusive worktree access.
+fn commit_first(
+    ctx: &mut but_ctx::Context,
+    destination: &Destination,
+    changes: Vec<DiffSpec>,
+    message: String,
+) -> Result<but_workspace::commit_engine::CreateCommitOutcome> {
+    let repo = ctx.repo.get()?;
+    let branch = repo.head_name()?.context("HEAD names no branch")?;
+    if !matches!(destination, Destination::Branch(name) if branch.as_bstr() == name.as_str()) {
+        bail!(
+            "The first commit goes on {}, the branch checked out.",
+            branch.shorten()
+        );
+    }
+    let outcome = but_workspace::commit_engine::create_commit(
+        &repo,
+        but_workspace::commit_engine::Destination::NewCommit {
+            parent_commit_id: None,
+            stack_segment: None,
+            message,
+        },
+        changes,
+        ctx.settings.context_lines,
+    )?;
+    if let Some(id) = outcome.new_commit {
+        but_workspace::init::publish_first_commit(&repo, branch.as_ref(), id)?;
+    }
+    drop(repo);
+    ctx.invalidate_workspace_cache()?;
+    Ok(outcome)
 }
 
 /// Commit the `selected` uncommitted changes to `destination`. With `run_hooks`, the
@@ -294,7 +329,7 @@ pub fn commit(
     run_hooks: bool,
 ) -> Result<(CommitId, LeftOut, Option<String>)> {
     let mut ctx = open(path)?;
-    refuse_unborn(&ctx)?;
+    let unborn = ctx.repo.get()?.head()?.is_unborn();
     refuse_unfinished(&checkout(&ctx, worktree)?, worktree.is_none())?;
     refuse_conflicted(&ctx, worktree, selected)?;
     // The hooks run in the main checkout, not where a linked worktree's changes are.
@@ -319,22 +354,28 @@ pub fn commit(
             MessageHookResult::Success | MessageHookResult::NotConfigured => {}
         }
     }
-    let (relative_to, side) = destination.relative_to()?;
-    let outcome = {
+    let (new_commit, rejected) = {
         let mut guard = ctx.exclusive_worktree_access();
-        but_api::commit::create::commit_create(
-            &mut ctx,
-            relative_to,
-            side,
-            changes,
-            changes_source(worktree),
-            message,
-            DryRun::No,
-            guard.write_permission(),
-        )?
+        if unborn {
+            let outcome = commit_first(&mut ctx, destination, changes, message)?;
+            (outcome.new_commit, outcome.rejected_specs)
+        } else {
+            let (relative_to, side) = destination.relative_to()?;
+            let outcome = but_api::commit::create::commit_create(
+                &mut ctx,
+                relative_to,
+                side,
+                changes,
+                changes_source(worktree),
+                message,
+                DryRun::No,
+                guard.write_permission(),
+            )?;
+            (outcome.new_commit, outcome.rejected_specs)
+        }
     };
-    let left_out = left_out(&outcome.rejected_specs);
-    let Some(id) = outcome.new_commit else {
+    let left_out = left_out(&rejected);
+    let Some(id) = new_commit else {
         bail!("Nothing could be committed.\n{}", left_out.join("\n"));
     };
     let hook_failed = run_hooks.then(|| post_commit(&ctx)).flatten();
