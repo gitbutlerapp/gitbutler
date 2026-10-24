@@ -1066,6 +1066,8 @@ pub fn empty_state(
         .child(
             v_flex()
                 .max_w(dp(350.))
+                // So a short pane shrinks the drawing rather than clip it.
+                .min_h_0()
                 .items_center()
                 .gap(dp(24.))
                 .children(drawing.map(|drawing| illustration(drawing, theme, cx)))

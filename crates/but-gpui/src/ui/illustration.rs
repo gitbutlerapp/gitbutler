@@ -62,7 +62,10 @@ pub fn illustration(which: Illustration, theme: &Theme, cx: &App) -> Img {
     img(ImageSource::Render(drawn))
         .w(dp(width))
         .h(dp(height))
-        .flex_none()
+        // Smaller, and whole, where there's no room for it: `img` draws it contained.
+        .flex_shrink(1.)
+        .min_h_0()
+        .max_w_full()
 }
 
 /// `which` in `theme`'s colours, for the roles ui-react's drawings are made of: the outline is
