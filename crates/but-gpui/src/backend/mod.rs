@@ -337,10 +337,10 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         worktree.branches = worktree_branches(&ctx, &cached, segments, &stacks);
     }
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "loaded workspace");
+    let target_branch = (meta.and_then(|meta| meta.target_ref)).map(|name| name.to_string());
     // The oplog records a snapshot against the target, so without one set it records none.
-    // One whose upstream went still records, against the commit it last had.
-    let unrecorded =
-        head.is_none() || tree.is_none() || (target.is_none() && lost_target.is_none());
+    // One whose upstream went, or isn't there yet, still records, against its stored commit.
+    let unrecorded = head.is_none() || tree.is_none() || target_branch.is_none();
     Ok(Workspace {
         target,
         lost_target,
@@ -349,9 +349,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         uncommitted,
         tree,
         managed,
-        target_branch: meta
-            .and_then(|meta| meta.target_ref)
-            .map(|name| name.to_string()),
+        target_branch,
         git_operation,
         unrecorded,
         remoteless,
@@ -391,7 +389,10 @@ fn target(
         return Ok((None, None));
     };
     let Some(tip) = ref_tip(&repo, source.as_ref()) else {
-        return Ok((None, Some(source.shorten().to_string())));
+        // Its upstream went, as when the remote deleted or renamed it, unless the remote has
+        // no branches at all, as a repository just made on a forge before its first push.
+        let lost = remote_has_branches(&repo, source.as_ref());
+        return Ok((None, lost.then(|| source.shorten().to_string())));
     };
     // The stored commit is walked once, though most stacks sit on it too.
     let past = |base| (commits_past(&repo, tip, base), base);
@@ -571,6 +572,25 @@ pub(crate) fn target_source(
                 .to_owned(),
         ),
     }
+}
+
+/// Whether the remote that remote-tracking branch `name` is of has any branches here.
+fn remote_has_branches(repo: &gix::Repository, name: &gix::refs::FullNameRef) -> bool {
+    let Some((remote, _)) =
+        but_core::extract_remote_name_and_short_name(name, &repo.remote_names())
+    else {
+        return false;
+    };
+    let Ok(refs) = repo.references() else {
+        return false;
+    };
+    let prefix = format!("refs/remotes/{remote}/");
+    (refs
+        .prefixed(prefix.as_str())
+        .into_iter()
+        .flatten()
+        .flatten())
+    .any(|branch| !branch.name().as_bstr().ends_with(b"/HEAD"))
 }
 
 /// The commit `name` points at, if it's there.

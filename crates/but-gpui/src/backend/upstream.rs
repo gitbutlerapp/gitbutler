@@ -89,11 +89,17 @@ fn target_page(
 ) -> Result<(Vec<TargetCommit>, bool)> {
     let repo = ctx.repo.get()?;
     let meta = ctx.project_meta()?;
-    if let Some(local) = (super::target_source(&repo, &meta))
-        .filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
+    let source = super::target_source(&repo, &meta);
+    if let Some(local) =
+        (source.as_ref()).filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
     {
         let tip = repo.find_reference(local.as_ref())?.peel_to_id()?;
         return local_target_page(&repo, tip.detach(), meta.target_commit_id, after, limit);
+    }
+    // An upstream that isn't there, before a first push or after the remote deleted it, has
+    // no history to list; the project's page says which.
+    if source.is_some_and(|name| super::ref_tip(&repo, name.as_ref()).is_none()) {
+        return Ok((Vec::new(), false));
     }
     drop(repo);
     let page = but_api::target_commits::workspace_target_commits(
