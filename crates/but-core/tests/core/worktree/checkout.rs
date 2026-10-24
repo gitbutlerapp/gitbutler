@@ -1366,56 +1366,30 @@ fn mode_and_group(repo: &gix::Repository, paths: &[&str]) -> anyhow::Result<Vec<
 }
 
 #[test]
-fn checkout_keeps_head_and_the_index_when_a_required_smudge_filter_fails() -> anyhow::Result<()> {
-    let (repo, _tmp) = writable_scenario("required-filter-binary-git-form");
-    commit_in_worktree(&repo, &[("plain", "one\n"), ("d", "d\n")])?;
-    let new_commit = commit_files(
-        &repo,
-        "change a filtered file and a plain file, delete d",
-        &[
-            ("a.secret", Some("SECRET\0yvar1\npunatrq\nyvar3\n")),
-            ("plain", Some("two\n")),
-            ("d", None),
-        ],
-    )?;
-    git(&repo)
-        .args(["config", "filter.secret.smudge", "false"])
-        .run();
-    let before = repo_state(&repo)?;
+#[cfg(unix)]
+fn checkout_deletes_a_directory_it_cannot_list_once_empty_like_git() -> anyhow::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    let workdir = repo.workdir().expect("non-bare").to_owned();
+    commit_in_worktree(&repo, &[("d/a", "a\n")])?;
+    let new_commit = commit_files(&repo, "delete d/a", &[("d/a", None)])?;
+    std::fs::set_permissions(workdir.join("d"), std::fs::Permissions::from_mode(0o333))?;
 
-    safe_checkout_from_head(new_commit, &repo, Default::default())
-        .expect_err("the required smudge filter fails");
+    let out = safe_checkout_from_head(new_commit, &repo, Default::default());
+    if workdir.join("d").exists() {
+        std::fs::set_permissions(workdir.join("d"), std::fs::Permissions::from_mode(0o755))?;
+    }
 
-    let after = repo_state(&repo)?;
-    assert_eq!(
-        (after.head, after.index),
-        (before.head, before.index),
-        "like Git, HEAD and the index stay, while files written so far stay written"
+    out?;
+    assert!(
+        !workdir.join("d").exists(),
+        "like Git, `d` goes with its last file"
     );
     Ok(())
 }
 
 #[test]
-fn checkout_keeps_head_and_the_index_when_a_filter_never_delivers_a_delayed_file()
--> anyhow::Result<()> {
-    let (repo, _tmp) = writable_scenario("process-filter-that-delays");
-    let new_commit = commit_files(
-        &repo,
-        "change the file that the filter never delivers",
-        &[("a.slow", Some("v2\n")), ("never.slow", Some("v2\n"))],
-    )?;
-    let before = repo_state(&repo)?;
-
-    safe_checkout_from_head(new_commit, &repo, Default::default())
-        .expect_err("a file that was never written must not be recorded as checked out");
-
-    let after = repo_state(&repo)?;
-    assert_eq!((after.head, after.index), (before.head, before.index));
-    Ok(())
-}
-
-#[test]
-fn checkout_after_a_commit_keeps_the_index_when_a_required_smudge_filter_fails()
+fn checkout_after_a_commit_changes_nothing_when_a_required_smudge_filter_fails()
 -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("required-filter-binary-git-form");
     commit_in_worktree(&repo, &[("plain", "one\n")])?;
@@ -1451,38 +1425,141 @@ fn checkout_after_a_commit_keeps_the_index_when_a_required_smudge_filter_fails()
     )
     .expect_err("the required smudge filter fails");
 
-    let after = repo_state(&repo)?;
     assert_eq!(
-        (after.head, after.index),
-        (before.head, before.index),
-        "the consumed changes reach the index only with the rest of the checkout"
+        repo_state(&repo)?,
+        before,
+        "HEAD, the index and every file stay as they were"
+    );
+    Ok(())
+}
+
+#[test]
+fn checkout_changes_nothing_when_a_filter_never_delivers_a_delayed_file() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("process-filter-that-delays");
+    let new_commit = commit_files(
+        &repo,
+        "change the file that the filter never delivers",
+        &[("a.slow", Some("v2\n")), ("never.slow", Some("v2\n"))],
+    )?;
+    let before = repo_state(&repo)?;
+
+    safe_checkout_from_head(new_commit, &repo, Default::default())
+        .expect_err("a file that was never written must not be recorded as checked out");
+
+    assert_eq!(
+        repo_state(&repo)?,
+        before,
+        "HEAD, the index and every file stay as they were"
+    );
+    Ok(())
+}
+
+#[test]
+fn checkout_changes_nothing_when_a_required_smudge_filter_fails() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("required-filter-binary-git-form");
+    let workdir = repo.workdir().unwrap().to_owned();
+    commit_in_worktree(&repo, &[("plain", "one\ntwo\nthree\n"), ("d", "d\n")])?;
+    // An uncommitted edit the checkout merges with the target's change to the same file.
+    std::fs::write(workdir.join("plain"), "ONE\ntwo\nthree\n")?;
+    let new_commit = commit_files(
+        &repo,
+        "change a filtered file and a plain file, delete d",
+        &[
+            ("a.secret", Some("SECRET\0yvar1\npunatrq\nyvar3\n")),
+            ("plain", Some("one\ntwo\nTHREE\n")),
+            ("d", None),
+        ],
+    )?;
+    git(&repo)
+        .args(["config", "filter.secret.smudge", "false"])
+        .run();
+    let before = repo_state(&repo)?;
+
+    safe_checkout_from_head(new_commit, &repo, Default::default())
+        .expect_err("the required smudge filter fails");
+
+    assert_eq!(
+        repo_state(&repo)?,
+        before,
+        "HEAD, the index and every file stay as they were, including the uncommitted edit"
     );
     Ok(())
 }
 
 #[test]
 #[cfg(unix)]
-fn checkout_deletes_a_directory_it_cannot_list_once_empty_like_git() -> anyhow::Result<()> {
-    use std::os::unix::fs::PermissionsExt;
+fn checkout_refuses_an_edit_made_while_filters_run() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
-    let workdir = repo.workdir().expect("non-bare").to_owned();
-    commit_in_worktree(&repo, &[("d/a", "a\n")])?;
-    let new_commit = commit_files(&repo, "delete d/a", &[("d/a", None)])?;
-    std::fs::set_permissions(workdir.join("d"), std::fs::Permissions::from_mode(0o333))?;
+    let workdir = repo.workdir().unwrap().to_owned();
+    commit_in_worktree(&repo, &[("a", "one\n"), ("z.f", "z\n")])?;
+    // Smudging `z.f` edits `a`, like an editor saving `a` while an LFS download runs.
+    std::fs::write(
+        repo.git_dir().join("info/attributes"),
+        "*.f filter=meddle\n",
+    )?;
+    git(&repo)
+        .args([
+            "config",
+            "filter.meddle.smudge",
+            r#"sh -c 'printf "edit\n" >> "$GIT_DIR/../a"; cat'"#,
+        ])
+        .run();
+    let new_commit = commit_files(
+        &repo,
+        "change a and z.f",
+        &[("a", Some("two\n")), ("z.f", Some("z changed\n"))],
+    )?;
+    let head = repo.head_id()?.detach();
+    let index = std::fs::read(repo.index_path())?;
 
-    let out = safe_checkout_from_head(new_commit, &repo, Default::default());
-    if workdir.join("d").exists() {
-        std::fs::set_permissions(workdir.join("d"), std::fs::Permissions::from_mode(0o755))?;
-    }
+    let err = safe_checkout_from_head(new_commit, &repo, Default::default())
+        .expect_err("the edit to `a` happened while filters ran and must not be overwritten");
 
-    out?;
-    assert!(
-        !workdir.join("d").exists(),
-        "like Git, `d` goes with its last file"
+    snapbox::assert_data_eq!(
+        err.to_string(),
+        snapbox::str!["Uncommitted files would be overwritten by checkout: \"a\""]
     );
+    assert_eq!(repo.head_id()?.detach(), head, "HEAD stays");
+    assert_eq!(std::fs::read(repo.index_path())?, index, "the index stays");
+    assert_eq!(std::fs::read_to_string(workdir.join("a"))?, "one\nedit\n");
+    assert_eq!(std::fs::read_to_string(workdir.join("z.f"))?, "z\n");
     Ok(())
 }
 
+#[test]
+#[cfg(unix)]
+fn checkout_cleans_a_file_once_however_many_files_replace_it() -> anyhow::Result<()> {
+    let (repo, _tmp) = writable_scenario("worktree-deletion-the-target-also-makes");
+    commit_in_worktree(&repo, &[("p.f", "p\n")])?;
+    // A racy entry's stat can't vouch for the file, so checking it cleans it.
+    let racy_mtime = std::time::SystemTime::now() + std::time::Duration::from_secs(3600);
+    record_index_stat_with_mtime(&repo, "p.f", racy_mtime)?;
+    std::fs::write(repo.git_dir().join("info/attributes"), "*.f filter=log\n")?;
+    // Log only while checkout checks the worktree, after staging the files it writes.
+    git(&repo)
+        .args([
+            "config",
+            "filter.log.clean",
+            r#"sh -c 'if ls -d "$GIT_DIR"/gitbutler/.gitbutler-checkout-* >/dev/null 2>&1; then echo "$1" >> "$GIT_DIR/cleaned"; fi; cat' -- %f"#,
+        ])
+        .run();
+    let new_commit = commit_files(
+        &repo,
+        "p.f becomes a directory",
+        &[
+            ("p.f", None),
+            ("p.f/a", Some("a\n")),
+            ("p.f/b", Some("b\n")),
+            ("p.f/c", Some("c\n")),
+        ],
+    )?;
+
+    safe_checkout_from_head(new_commit, &repo, Default::default())?;
+
+    let cleaned = std::fs::read_to_string(repo.git_dir().join("cleaned"))?;
+    assert_eq!(cleaned, "p.f\n", "checked once before it's moved aside");
+    Ok(())
+}
 #[test]
 #[cfg(unix)]
 fn checkout_keeps_the_index_locked_while_it_runs() -> anyhow::Result<()> {
@@ -2132,52 +2209,6 @@ fn checkout_replaces_a_hard_linked_file_without_changing_its_other_links() -> an
     // Like Git, `a` gets a new file, and `b`, a hard link to the old one, keeps its content.
     assert_eq!(std::fs::read_to_string(workdir.join("a"))?, "changed\n");
     assert_eq!(std::fs::read_to_string(workdir.join("b"))?, "same\n");
-    assert_eq!(
-        untracked(&repo)?,
-        Vec::<String>::new(),
-        "nothing is left behind"
-    );
-    Ok(())
-}
-
-#[test]
-fn checkout_keeps_files_it_never_reached_when_a_required_smudge_filter_fails() -> anyhow::Result<()>
-{
-    let (repo, _tmp) = writable_scenario("required-filter-binary-git-form");
-    // One worker writes the files in index order, like Git: `0first`, `a.secret`, `z`.
-    git(&repo).args(["config", "checkout.workers", "1"]).run();
-    commit_in_worktree(&repo, &[("0first", "one\n"), ("z", "one\n")])?;
-    let workdir = repo.workdir().expect("non-bare").to_owned();
-    std::fs::write(workdir.join("z"), "one\nedit\n")?;
-    let new_commit = commit_files(
-        &repo,
-        "change a file before and after the filtered one",
-        &[
-            ("0first", Some("two\n")),
-            ("a.secret", Some("SECRET\0yvar1\npunatrq\nyvar3\n")),
-            ("z", Some("zero\none\n")),
-        ],
-    )?;
-    git(&repo)
-        .args(["config", "filter.secret.smudge", "false"])
-        .run();
-    let before = repo_state(&repo)?;
-
-    safe_checkout_from_head(new_commit, &repo, Default::default())
-        .expect_err("the required smudge filter fails");
-
-    let after = repo_state(&repo)?;
-    assert_eq!((after.head, after.index), (before.head, before.index));
-    assert_eq!(
-        std::fs::read_to_string(workdir.join("0first"))?,
-        "two\n",
-        "like Git, what was written before the failure stays written"
-    );
-    assert_eq!(
-        std::fs::read_to_string(workdir.join("z"))?,
-        "one\nedit\n",
-        "like Git, a file checkout never reached keeps its content, uncommitted edit included"
-    );
     assert_eq!(
         untracked(&repo)?,
         Vec::<String>::new(),

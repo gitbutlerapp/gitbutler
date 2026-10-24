@@ -1,9 +1,9 @@
 //! Writing a checkout's target tree to the worktree and the index.
 
 mod consumed;
-mod in_place;
 mod plan;
 mod protect;
+mod transaction;
 
 use anyhow::Context as _;
 
@@ -13,10 +13,12 @@ use plan::Plan;
 /// Turn the worktree of `repo`, which matched `trees.baseline` (in Git form) when it was
 /// snapshotted, into `trees.target`, writing only the entries that differ.
 ///
-/// Files are written in place through the repository's worktree filters, so clean/smudge drivers
-/// like git-crypt or Git LFS see the same conversions as with Git. Like Git, checkout refuses
-/// before changing anything if something it removes changed after the snapshot, and a failure
-/// partway leaves what it wrote so far.
+/// Files are written through the repository's worktree filters, so clean/smudge drivers like
+/// git-crypt or Git LFS see the same conversions as with Git. These drivers are the only filters
+/// that can fail, and they run before anything in the worktree is removed, so a filter that fails
+/// changes nothing. Everything checkout removes
+/// is checked against the snapshot after the filters ran. Like Git, a failure while removing or
+/// placing files leaves what was done so far.
 /// `.git/index` is updated for the written and deleted paths only, keeping all other entries as
 /// they are. If `conflicts` is set, its unresolved conflicts are recorded as index stages.
 /// Paths the worktree already has as `trees.new_head` has them aren't written, but their index
@@ -33,8 +35,9 @@ pub(super) fn write_to_worktree(
         &index.entries,
         repo.filesystem_options()?.ignore_case,
     )?;
-    protect::worktree(repo, &trees.baseline, &plan)?;
-    let placed = in_place::write(repo, &trees.target, &plan)?;
+    let staged = transaction::stage(repo, &trees.target, &plan)?;
+    let clearances = protect::worktree(repo, &trees.baseline, &plan)?;
+    let placed = transaction::commit(repo, staged, &clearances)?;
     plan.edit(&mut index.entries, &placed);
     index.write()
 }
@@ -102,6 +105,13 @@ impl Trees {
             target: repo.index_from_tree(&target)?.into(),
         })
     }
+}
+
+/// Whether `path` is a directory, not a symlink to one, that is known to have nothing in it. One
+/// that can't be listed isn't.
+fn is_empty_dir(path: &std::path::Path) -> bool {
+    std::fs::symlink_metadata(path).is_ok_and(|md| md.is_dir())
+        && std::fs::read_dir(path).is_ok_and(|mut entries| entries.next().is_none())
 }
 
 #[cfg(all(test, unix))]
