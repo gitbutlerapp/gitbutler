@@ -402,7 +402,12 @@ impl Store {
         // means to undo.
         let newer = |asked: Instant| last.is_none_or(|step| asked > step.asked);
         if (self.unfinished_asked())
-            .any(|(o, asked)| !o.remote_only && !matches!(o.kind, OpKind::Undo(_)) && newer(asked))
+            // A push running too, which would come before the undo it was asked before.
+            .any(|(o, asked)| {
+                (!o.remote_only || o.pushes.is_some())
+                    && !matches!(o.kind, OpKind::Undo(_))
+                    && newer(asked)
+            })
         {
             return self.snack("Wait for the running operation to finish, then undo it", cx);
         }
@@ -580,13 +585,29 @@ impl Store {
             .find(|step| step.project == *project && step.snapshot == snapshot);
         let asked = step.map(|step| step.asked);
         let newer_than = (step.filter(|_| guard)).map(|step| step.done);
+        let again = project.clone();
+        if (newer_than.zip(self.pushed_at.get(project)))
+            .is_some_and(|(done, pushed)| *pushed > done)
+        {
+            return self.error_with_retry(
+                self.card_title(project, "Undo may take back what was pushed".into()),
+                "A push came after the operation it undoes. If the push took what the \
+                 operation did, the remote keeps that until the branch is force pushed.",
+                "Undo anyway",
+                // Still asking about files written since, as ⌘Z does.
+                move |store, cx| {
+                    store.pushed_at.remove(&again);
+                    store.undo_snapshot(&again, snapshot, true, cx)
+                },
+                cx,
+            );
+        }
         let (undid, of) = (self.undid.clone(), project.clone());
         // The snackbar offering to undo it goes with it.
         let offered = (project.clone(), snapshot);
         self.toasts.retain(|toast| {
             !matches!(&toast.notice, Notice::Snackbar { undo: Some(undo), .. } if *undo == offered)
         });
-        let again = project.clone();
         self.run(
             project,
             "Undo",
@@ -845,6 +866,11 @@ impl Store {
         );
     }
 
+    /// Note that `project` just pushed, so ⌘Z asks before taking back what came before.
+    pub fn pushed(&mut self, project: &ProjectId) {
+        self.pushed_at.insert(project.clone(), now_millis());
+    }
+
     /// Push `ref_name`, and with `protect` refuse to drop commits only the remote has: the
     /// card that says so offers to push anyway. Without it, a forced push goes past the
     /// lease; with `drops`, the commits only the remote has that were shown, it stops at any
@@ -884,6 +910,7 @@ impl Store {
                 let reason = match outcome {
                     Err(reason) => reason,
                     Ok(sync_failed) => {
+                        store.pushed(&pushed);
                         store.snack(store.card_title(&pushed, format!("Pushed {name}")), cx);
                         if let Some(message) = sync_failed {
                             let title = format!(

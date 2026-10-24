@@ -290,6 +290,9 @@ pub struct Store {
     /// start until the file watcher has told of its writes, a second or so after it settled.
     /// What's written then isn't activity in the checkout.
     own_writes: HashMap<ProjectId, std::ops::RangeInclusive<i64>>,
+    /// When, in milliseconds since the Unix epoch, each project last pushed: undoing what
+    /// came before rewrites what the remote has.
+    pushed_at: HashMap<ProjectId, i64>,
     busy_ticker: Task<()>,
     /// Mutations waiting for their project's running one, in order.
     queue: VecDeque<Queued>,
@@ -396,6 +399,7 @@ impl Store {
             mesh: mesh::Mesh::start(cx),
             running: HashMap::new(),
             own_writes: HashMap::new(),
+            pushed_at: HashMap::new(),
             busy_ticker: Task::ready(()),
             queue: VecDeque::new(),
             last_snapshot: None,
