@@ -985,13 +985,44 @@ impl Detail {
         position: Point<Pixels>,
         cx: &mut Context<Self>,
     ) {
+        let items = self.changes_items(payload, at, position, cx);
+        self.open_menu(position, items, cx);
+    }
+
+    /// What M offers while the file list or the diff has the keys: the menu of the file under
+    /// the cursor, as right-clicking it opens. `None` elsewhere.
+    pub(crate) fn focused_file_items(
+        &mut self,
+        window: &gpui::Window,
+        cx: &mut Context<Self>,
+    ) -> Option<Vec<MenuItem>> {
+        if !(self.files_focus.is_focused(window) || self.focus.is_focused(window)) {
+            return None;
+        }
+        let path = self.diff_path(self.cursor.file)?;
+        // A picked file's menu is all the picks', as on its row.
+        let payload = match self.file_picks.contains(&path) {
+            true => self.owned_cut(self.picked_changes(), cx),
+            false => self.diff_cut(self.cursor.file, None, cx),
+        };
+        let at = At::File(path, None);
+        Some(self.changes_items(payload, at, window.mouse_position(), cx))
+    }
+
+    fn changes_items(
+        &mut self,
+        payload: Option<Cut>,
+        at: At,
+        position: Point<Pixels>,
+        cx: &mut Context<Self>,
+    ) -> Vec<MenuItem> {
         let (project, worktree) = match &payload {
             Some(Cut::Files {
                 project, worktree, ..
             }) => (project.clone(), worktree.clone()),
             _ => match &self.diff {
                 Some(diff) => (diff.key.project.clone(), diff.key.linked()),
-                None => return,
+                None => return Vec::new(),
             },
         };
         let mut items = payload.map_or_else(Vec::new, |payload| self.change_items(payload, cx));
@@ -1003,7 +1034,7 @@ impl Detail {
             items.push(first.separated());
         }
         items.extend(paths);
-        self.open_menu(position, items, cx);
+        items
     }
 
     /// What can be done to the changes in `payload` from a menu: cutting them, and moving,

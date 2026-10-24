@@ -345,16 +345,18 @@ impl AppView {
         let Some(selection) = self.store.read(cx).selection.clone() else {
             return;
         };
+        // The file under the cursor while the file list or the diff has the keys.
+        let file = (self.detail).update(cx, |detail, cx| detail.focused_file_items(window, cx));
         // On the Branches and Operations history pages, what's opened there.
         let detail = self.detail.read(cx);
-        let items = match &selection {
+        let items = file.or_else(|| match &selection {
             Selection::Branches(project) => (detail.selected_other_branch(project))
                 .map(|branch| detail.branch_menu_items(project, &branch.ref_name, cx)),
             Selection::History(project) => (detail.selected_operation(project)).map(|operation| {
                 crate::detail::Detail::operation_menu_items(project, operation.id)
             }),
             _ => None,
-        };
+        });
         let items = items.unwrap_or_else(|| self.navigator.read(cx).menu_items(&selection, cx));
         let choices: Vec<Choice> = (items.into_iter())
             .map(|item| Choice {
