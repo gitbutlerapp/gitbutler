@@ -917,6 +917,39 @@ fn conflicted_changes(
     Ok(changes)
 }
 
+/// Whether the project folder at `path` is gone, as after it was moved or deleted. Off the UI
+/// thread, as a disk that's asleep or a network mount that hangs would freeze it.
+pub async fn folder_gone(path: std::path::PathBuf) -> bool {
+    run(move || Ok(!path.exists())).await.unwrap_or(false)
+}
+
+/// What a project that failed to load needs said beyond its error.
+#[derive(Default)]
+pub struct LoadFailure {
+    /// Its folder is gone, which is said instead of the error.
+    pub folder_gone: bool,
+    /// The branches to pick a target from, when several track it.
+    pub target_choice: Option<TargetChoice>,
+}
+
+/// What's behind `err`, if loading the project at `path` failed. Off the UI thread, as finding
+/// out reads the disk.
+pub async fn load_failure(path: std::path::PathBuf, err: Option<&anyhow::Error>) -> LoadFailure {
+    let Some(err) = err else {
+        return LoadFailure::default();
+    };
+    let ambiguous = (err.downcast_ref::<but_core::ref_metadata::AmbiguousLegacyTargetRefError>())
+        .map(|err| err.target_ref.clone());
+    run(move || {
+        Ok(LoadFailure {
+            folder_gone: !path.exists(),
+            target_choice: ambiguous.and_then(|target| target_choice(&path, &target)),
+        })
+    })
+    .await
+    .unwrap_or_default()
+}
+
 /// Why a project or its target couldn't be read: the engine's own words, except for a target
 /// several local branches track, which the project's page asks to pick, as [`TargetChoice`].
 pub fn read_failure(err: &anyhow::Error) -> String {
@@ -937,12 +970,9 @@ pub struct TargetChoice {
     pub named: bool,
 }
 
-/// What `err` asks to choose, when it's that the project at `path` has a target several local
-/// branches track: those branches, picking one of which is the way out.
-pub fn target_choice(path: &Path, err: &anyhow::Error) -> Option<TargetChoice> {
-    let target = &err
-        .downcast_ref::<but_core::ref_metadata::AmbiguousLegacyTargetRefError>()?
-        .target_ref;
+/// What to choose when the project at `path` has `target`, a target several local branches
+/// track: those branches, picking one of which is the way out.
+fn target_choice(path: &Path, target: &gix::refs::FullName) -> Option<TargetChoice> {
     let repo = gix::open(path).ok()?;
     let references = repo.references().ok()?;
     let tracks = |name: &gix::refs::FullNameRef| {

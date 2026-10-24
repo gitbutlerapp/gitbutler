@@ -221,7 +221,7 @@ fn message_get_message_of_type() -> anyhow::Result<()> {
 
     db.claude_mut().insert_message(message1.clone())?;
     db.claude_mut().insert_message(message2.clone())?;
-    db.claude_mut().insert_message(message3.clone())?;
+    db.claude_mut().insert_message(message3)?;
 
     let most_recent_user = db.claude().get_message_of_type("user".to_string(), None)?;
     assert_eq!(most_recent_user, Some(message2));

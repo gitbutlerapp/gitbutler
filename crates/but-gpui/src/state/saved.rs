@@ -476,6 +476,7 @@ impl Saved {
         Some(but_path::app_data_dir().ok()?.join("gpui-state.json"))
     }
 
+    #[expect(clippy::disallowed_methods, reason = "read once, as the app starts")]
     pub(super) fn load() -> Self {
         // Until each had its own, every channel wrote one in the config directory.
         let shared = || {
@@ -513,6 +514,10 @@ impl Saved {
 
     /// Through a temporary file, so a crash mid-write leaves the last state rather than
     /// half a file, which would read back as nothing at all.
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "it runs in `background_spawn`, or on quit"
+    )]
     fn write(bytes: &[u8]) {
         // One writer at a time: a background save can still be going when quit saves.
         static WRITING: std::sync::Mutex<()> = std::sync::Mutex::new(());

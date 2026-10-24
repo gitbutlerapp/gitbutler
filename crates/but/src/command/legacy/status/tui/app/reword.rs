@@ -106,7 +106,7 @@ impl App {
             &mut meta,
             guard.write_permission(),
             RewordOperation::Commit {
-                target: target.clone(),
+                target,
                 new_message: CommitMessageSource::Editor { initial: None },
             },
         )

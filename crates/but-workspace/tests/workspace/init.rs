@@ -662,10 +662,7 @@ mod error {
     fn unrelated_target_is_an_actionable_precondition_failure() {
         let (repo, _tmp) = scenario();
         let meta_before = stored_meta(&repo);
-        let exclude_decoration_before = repo
-            .config_snapshot()
-            .string("log.excludeDecoration")
-            .map(|value| value.to_owned());
+        let exclude_decoration_before = repo.config_snapshot().string("log.excludeDecoration");
         repo.commit(
             "refs/heads/unrelated",
             "unrelated root",
@@ -697,9 +694,7 @@ mod error {
             "rejecting an unrelated target must not write project metadata"
         );
         assert_eq!(
-            repo.config_snapshot()
-                .string("log.excludeDecoration")
-                .map(|value| value.to_owned()),
+            repo.config_snapshot().string("log.excludeDecoration"),
             exclude_decoration_before,
             "rejecting an unrelated target must not finish project initialization"
         );

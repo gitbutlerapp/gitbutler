@@ -1247,7 +1247,7 @@ mod tests {
             person("Codex GPT-6", "codex@openai.com"),
             person("Byron", "b@x.io"),
         );
-        let ((name, _), agent) = super::byline(codex.clone(), byron.clone());
+        let ((name, _), agent) = super::byline(codex.clone(), byron);
         assert_eq!(name, "Byron", "the person leads");
         assert_eq!(
             agent.map(|a| a.name).as_deref(),

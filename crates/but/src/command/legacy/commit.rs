@@ -1031,7 +1031,7 @@ impl CommitAtOperation {
         let (relative_to, side, branch_name_target) = self.create_target(tx, sbm)?;
 
         let commit_create_result =
-            tx.create_commit(relative_to.clone(), side, changes, String::new(), source)?;
+            tx.create_commit(relative_to, side, changes, String::new(), source)?;
 
         Ok((commit_create_result, branch_name_target))
     }

@@ -38,8 +38,7 @@ fn set_all_replaces_existing() -> anyhow::Result<()> {
     let review2 = forge_review(2, "Second PR", "fix-branch");
     let review3 = forge_review(3, "Third PR", "new-feature");
 
-    db.forge_reviews_mut()?
-        .set_all(vec![review1.clone(), review2.clone()])?;
+    db.forge_reviews_mut()?.set_all(vec![review1, review2])?;
 
     let reviews = db.forge_reviews().list_all()?;
     assert_eq!(reviews.len(), 2);

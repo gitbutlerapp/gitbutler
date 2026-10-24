@@ -2149,7 +2149,7 @@ impl<'a> Node<'a> for &'a UncommittedFile {
                         let cli_id = CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
                             id: id.clone(),
                             hunks: NonEmpty::new(IdAndHunk {
-                                id: id.clone(),
+                                id,
                                 tree_status: self.tree_status,
                                 hunk: hunk.to_owned(),
                             }),

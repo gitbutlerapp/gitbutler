@@ -116,7 +116,7 @@ impl ActiveProjects {
             handler,
             ctx.workdir_or_fail()?,
             ctx.legacy_project.id.clone(),
-            app_settings_sync.clone(),
+            app_settings_sync,
             watch_mode,
         )?;
 

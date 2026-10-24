@@ -1314,7 +1314,7 @@ impl Detail {
                                     true => theme.text_inverted,
                                     false => theme.text_3,
                                 }))
-                                .child(div().flex_1().min_w_0().truncate().child(label.clone()))
+                                .child(div().flex_1().min_w_0().truncate().child(label))
                                 // Who wrote it and when, in the branch rows' columns, so the
                                 // two line up.
                                 .child(commit_author(

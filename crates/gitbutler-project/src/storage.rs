@@ -184,7 +184,7 @@ impl Storage {
         }
 
         if let Some(description) = description {
-            project.description = Some(description.clone());
+            project.description = Some(description);
         }
 
         if let Some(path) = git_dir {
@@ -192,11 +192,11 @@ impl Storage {
         }
 
         if let Some(repo_path) = path {
-            project.set_worktree_dir(repo_path.clone())?;
+            project.set_worktree_dir(repo_path)?;
         }
 
         if let Some(api) = api {
-            project.api = Some(api.clone());
+            project.api = Some(api);
         }
 
         if unset_api {
@@ -204,11 +204,11 @@ impl Storage {
         }
 
         if let Some(forge_override) = forge_override {
-            project.forge_override = Some(forge_override.clone());
+            project.forge_override = Some(forge_override);
         }
 
         if let Some(preferred_forge_user) = preferred_forge_user {
-            project.preferred_forge_user = Some(preferred_forge_user.clone());
+            project.preferred_forge_user = Some(preferred_forge_user);
         }
 
         if unset_forge_override {

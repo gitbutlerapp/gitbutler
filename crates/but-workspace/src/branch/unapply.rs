@@ -345,7 +345,7 @@ pub(crate) mod function {
         // Update the workspace *only* after a successful workspace commit merge.
         let overlay = Overlay::default()
             .with_dropped_references([branch.to_owned()])
-            .with_workspace_metadata_override(Some((workspace_ref_name.to_owned(), ws_md.clone())));
+            .with_workspace_metadata_override(Some((workspace_ref_name, ws_md.clone())));
         let ws = ws
             .graph
             .redo_traversal_with_overlay(repo, meta, overlay)?

@@ -213,6 +213,8 @@ pub struct ProjectEntry {
     pub expanded: bool,
     pub workspace: Option<Workspace>,
     pub error: Option<SharedString>,
+    /// Its folder was gone when it last failed to read, which is what `error` says then.
+    pub folder_gone: bool,
     /// Which local branch is the target, when the failure to read it is that several track
     /// it: the project's page asks.
     pub target_choice: Option<crate::backend::TargetChoice>,
@@ -227,14 +229,17 @@ impl ProjectEntry {
         self.loading && self.workspace.is_none()
     }
 
-    /// Keep why it couldn't be read, `err`, and what to choose when that's the way out.
-    fn failed(&mut self, err: &anyhow::Error) {
-        self.error = Some(load::load_error(&self.project, err));
-        self.target_choice = crate::backend::target_choice(&self.project.path, err);
+    /// Keep why it couldn't be read, `err` or its folder being gone, and what to choose when
+    /// that's the way out.
+    fn failed(&mut self, err: &anyhow::Error, failure: crate::backend::LoadFailure) {
+        self.folder_gone = failure.folder_gone;
+        self.error = Some(load::load_error(failure.folder_gone, err));
+        self.target_choice = failure.target_choice;
     }
 
     /// It read, so there's nothing wrong to say.
     fn read(&mut self) {
+        self.folder_gone = false;
         self.error = None;
         self.target_choice = None;
     }

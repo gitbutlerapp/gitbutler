@@ -145,7 +145,6 @@ first
 
         let (started_tx, started_rx) = std::sync::mpsc::sync_channel(0);
         let thread = std::thread::spawn({
-            let db_path = db_path.clone();
             move || -> anyhow::Result<Duration> {
                 let mut db = rusqlite::Connection::open(&db_path)?;
                 db.busy_timeout(busy_timeout)?;

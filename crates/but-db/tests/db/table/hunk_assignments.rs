@@ -30,8 +30,7 @@ fn set_all_replaces_existing() -> anyhow::Result<()> {
     let hunk2 = hunk_assignment("id2", Some("@@ -10,5 +11,6 @@"), "path/to/file.txt", None);
     let hunk3 = hunk_assignment("id3", Some("@@ -1,3 +1,4 @@"), "different.txt", None);
 
-    db.hunk_assignments_mut()?
-        .set_all(vec![hunk1.clone(), hunk2.clone()])?;
+    db.hunk_assignments_mut()?.set_all(vec![hunk1, hunk2])?;
 
     let assignments = db.hunk_assignments().list_all()?;
     assert_eq!(assignments.len(), 2);
@@ -58,9 +57,7 @@ fn set_all_replaces_existing_with_outer_transaction_and_rollback() -> anyhow::Re
     let hunk2 = hunk_assignment("id2", Some("@@ -10,5 +11,6 @@"), "path/to/file.txt", None);
     let hunk3 = hunk_assignment("id3", Some("@@ -1,3 +1,4 @@"), "different.txt", None);
 
-    trans
-        .hunk_assignments_mut()?
-        .set_all(vec![hunk1.clone(), hunk2.clone()])?;
+    trans.hunk_assignments_mut()?.set_all(vec![hunk1, hunk2])?;
 
     trans.hunk_assignments_mut()?.set_all(vec![hunk3.clone()])?;
 

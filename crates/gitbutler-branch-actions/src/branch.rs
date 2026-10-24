@@ -320,7 +320,7 @@ fn branch_group_to_branch(
                 .map(|b| b.short_name())
                 .collect(),
             pull_requests: unarchived_branches
-                .filter_map(|b| b.pr_or_mr.map(|pr| (b.short_name().to_owned(), pr)))
+                .filter_map(|b| b.pr_or_mr.map(|pr| (b.short_name(), pr)))
                 .collect(),
         }
     });

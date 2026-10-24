@@ -292,7 +292,7 @@ mod tests {
             gix::init(repo_dir.path())?;
             let project = gitbutler_project::add_at_app_data_dir(&app_data_dir, repo_dir.path())?
                 .unwrap_project();
-            let project_id = project.id.clone();
+            let project_id = project.id;
 
             delete_project_at_app_data_dir(&app_data_dir, project_id.clone())?;
             delete_project_at_app_data_dir(&app_data_dir, project_id.clone())?;

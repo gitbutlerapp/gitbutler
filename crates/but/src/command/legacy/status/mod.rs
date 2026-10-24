@@ -1111,7 +1111,7 @@ fn print_upstream_state(
         ))]);
         if !last_checked_text.is_empty() {
             upstream_summary.push(Span::raw(" "));
-            upstream_summary.push(Span::styled(last_checked_text.clone(), t.hint));
+            upstream_summary.push(Span::styled(last_checked_text, t.hint));
         }
         output.upstream_changes(Vec::from([Span::raw("┊╭┄ ")]), upstream_summary)?;
 
@@ -1230,7 +1230,7 @@ fn print_common_merge_base_summary(
         Span::raw(format!(" ({label}) ")),
         Span::styled(common_merge_base.commit_date.clone(), t.hint),
         Span::raw(" "),
-        Span::raw(first_line.to_string()),
+        Span::raw(first_line),
     ]);
     output.merge_base(
         Vec::from([Span::raw(connector), Span::raw(" ")]),
@@ -2161,7 +2161,7 @@ fn display_cli_commit_details(
             t.hint,
         )
     };
-    let start_id = Span::styled(short_id.to_string(), t.cli_id);
+    let start_id = Span::styled(short_id, t.cli_id);
 
     let change_id_spans = if let Some(change_id) = change_id {
         let padded = change_id.padded_short_id();

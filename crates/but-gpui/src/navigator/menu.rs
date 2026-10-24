@@ -624,7 +624,7 @@ impl Navigator {
                     true => ("Show branches", &Expand),
                     false => ("Hide branches", &Collapse),
                 };
-                let (fold_project, fold_bottom) = key.clone();
+                let (fold_project, fold_bottom) = key;
                 let mut items = vec![keyed(label, keys, cx, move |this, window, cx| {
                     (this.navigator).update(cx, |nav, cx| {
                         nav.toggle_stack(&fold_project, &fold_bottom, !folded, window, cx)

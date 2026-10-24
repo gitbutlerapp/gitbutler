@@ -345,7 +345,7 @@ fn overriding_references() -> anyhow::Result<()> {
 
     // overriding references take precedence over git.
     let overlay = Overlay::default().with_references([gix::refs::Reference {
-        name: merged.clone(),
+        name: merged,
         target: gix::refs::Target::Object(merged_b.detach()),
         peeled: Some(merged_b.detach()),
     }]);

@@ -3198,7 +3198,7 @@ fn move_empty_branch_above_tip_then_switching_to_workspace() {
 Hint: run `but help` for all commands
 
 "#]];
-    assert_status(&env, expected.clone());
+    assert_status(&env, expected);
 
     env.but("switch --workspace").assert().success();
     assert_head(&env, "gitbutler/workspace");
@@ -3251,7 +3251,7 @@ fn move_empty_branch_below_tip_then_switching_to_workspace() {
 Hint: run `but help` for all commands
 
 "#]];
-    assert_status(&env, expected.clone());
+    assert_status(&env, expected);
 
     env.but("switch --workspace").assert().success();
     assert_head(&env, "gitbutler/workspace");

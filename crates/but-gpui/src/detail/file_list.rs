@@ -782,7 +782,6 @@ impl Detail {
             None => file_icon(&file.path, cx).into_any_element(),
             Some(check) => {
                 let on = check != Toggled::False;
-                let path = path.clone();
                 let check = checkbox(("check", ix), check, theme)
                     // Checking a file doesn't scroll to it.
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
@@ -1069,7 +1068,6 @@ impl Detail {
                         }),
                     );
                 }
-                let (project, worktree, files) = (project.clone(), worktree.clone(), files.clone());
                 let discard = crate::edits::discard_label(
                     match what {
                         "lines" | "hunk" => what,
@@ -1094,7 +1092,7 @@ impl Detail {
                     None => Selection::Uncommitted(project.clone()),
                 };
                 let (split_project, split_files) = (project.clone(), files.clone());
-                let (drop_project, drop_files) = (project.clone(), files.clone());
+                let (drop_project, drop_files) = (project, files.clone());
                 items.push(MenuItem::new(
                     format!("Uncommit {what}"),
                     move |this, window, cx| {
@@ -1160,6 +1158,10 @@ impl Detail {
         // Git's paths use `/`; Windows' own `\`, which "Copy full path" and Explorer expect.
         let absolute = root.join(relative.replace('/', std::path::MAIN_SEPARATOR_STR));
         let full = absolute.display().to_string();
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "one check as the menu opens, in a checkout the app is watching"
+        )]
         let on_disk = absolute.exists();
         let mut items = Vec::new();
         if let (Some(line), true) = (line, on_disk) {

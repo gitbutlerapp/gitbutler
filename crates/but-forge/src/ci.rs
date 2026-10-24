@@ -367,7 +367,7 @@ impl From<but_gitlab::GitLabPipelineJob> for CiCheck {
             status,
             head_sha: String::new(),
             url: job_url.clone(),
-            html_url: job_url.clone(),
+            html_url: job_url,
             details_url: pipeline_url,
             pull_requests: Vec::new(),
             reference: String::new(),

@@ -37,13 +37,8 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
 
     let project_meta = target_project_meta("refs/heads/master", o1_id)?;
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -121,13 +116,8 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
 
     let project_meta = target_project_meta("refs/heads/master", o1_id)?;
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -206,13 +196,8 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
 
     let project_meta = target_project_meta("refs/heads/master", o1_id)?;
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -323,13 +308,8 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
 
     let project_meta = target_project_meta("refs/heads/master", o1_id)?;
     add_stack(&mut meta, 1, "E", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -415,7 +395,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
             ),
         ],
         &meta,
-        project_meta.clone(),
+        project_meta,
         &mut db,
         Options::limited(),
     )?;
@@ -523,7 +503,7 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
             ),
         ],
         &meta,
-        project_meta.clone(),
+        project_meta,
         &mut db,
         Options::limited(),
     )?;
@@ -579,7 +559,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
             ),
         ],
         &meta,
-        project_meta.clone(),
+        project_meta,
         &mut db,
         Options::limited(),
     )?;
@@ -686,13 +666,8 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
 
     let project_meta = target_project_meta("refs/heads/A", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -785,13 +760,8 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -839,13 +809,8 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
         ],
     )?;
 
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -879,13 +844,8 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -921,13 +881,8 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
     )?;
 
     let meta = empty_managed_workspace_metadata(&meta)?;
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -957,13 +912,8 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -1018,13 +968,8 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
     )?;
 
     let meta = empty_managed_workspace_metadata(&meta)?;
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -1056,13 +1001,8 @@ fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     // Branch A holds two commits whose squashed sum is the target's new base commit.
     snapbox::assert_data_eq!(
@@ -1123,13 +1063,8 @@ fn squash_merged_multi_commit_branch_is_pruned() -> Result<()> {
     )?;
 
     let meta = empty_managed_workspace_metadata(&meta)?;
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
     // Neither commit matches the squash commit one-to-one, but their cumulative changeset
     // does - the branch must be recognized as integrated and leave the workspace.
@@ -1163,13 +1098,8 @@ fn squash_merged_branch_below_stacked_work_is_pruned() -> Result<()> {
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     // Branch B with unmerged work sits on branch A, whose commits were squash-merged.
     snapbox::assert_data_eq!(
@@ -1233,13 +1163,8 @@ fn squash_merged_branch_below_stacked_work_is_pruned() -> Result<()> {
     )?;
 
     let meta = empty_managed_workspace_metadata(&meta)?;
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
     // The trial at B's boundary misses (B carries unmerged work), but the retry at A's
     // boundary matches the squash commit: A is pruned while B is rebased onto the new
@@ -1278,13 +1203,8 @@ fn canceling_segments_above_squash_merged_bottom_are_not_swept_up() -> Result<()
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack_with_segments(&mut meta, 1, "C", StackState::InWorkspace, &["B", "A"]);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     // C's tip tree equals A's tip tree (B adds Y, C deletes it), and only A's changes
     // were squash-merged upstream.
@@ -1352,13 +1272,8 @@ fn canceling_segments_above_squash_merged_bottom_are_not_swept_up() -> Result<()
     )?;
 
     let meta = empty_managed_workspace_metadata(&meta)?;
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
     // The cumulative diff at C's boundary equals the squash commit's changeset, but that
     // must only prune A: B's and C's changes cancel out and never landed individually.
@@ -1402,13 +1317,8 @@ fn fully_integrated_single_branch_with_stale_target_parent_reparents_workspace_c
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut workspace = graph.into_workspace()?;
 
     integrate_and_materialize(
@@ -1445,13 +1355,8 @@ fn fully_integrated_branch_with_selected_empty_sibling_keeps_following_it() -> R
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut workspace = graph.into_workspace()?;
 
     integrate_and_materialize(
@@ -1566,13 +1471,8 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -1635,13 +1535,8 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
     )?;
 
     let meta = empty_managed_workspace_metadata(&meta)?;
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -1783,13 +1678,8 @@ fn fully_integrated_direct_checkout_with_diverged_local_target_creates_unique_ca
         "reserve first canned branch name",
     )?;
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
@@ -1869,13 +1759,8 @@ fn empty_integrated_direct_checkout_is_replaced() -> Result<()> {
     );
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut workspace = graph.into_workspace()?;
     assert!(
         workspace
@@ -1927,13 +1812,8 @@ fn local_only_empty_direct_checkout_is_preserved() -> Result<()> {
     let target_tip = repo.rev_parse_single("origin/main")?.detach();
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream_with_hints(
@@ -2071,13 +1951,8 @@ fn empty_direct_checkout_with_merged_review_for_pushed_branch_is_replaced() -> R
     let review_head = repo.rev_parse_single("topic")?.detach();
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
     let out = integrate_upstream_with_hints(
@@ -2130,13 +2005,8 @@ fn empty_direct_checkout_ignores_same_named_review_for_different_head() -> Resul
     );
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut workspace = graph.into_workspace()?;
     let project_meta = workspace.graph.project_meta.clone();
     let out = integrate_upstream_with_hints(
@@ -2192,7 +2062,7 @@ fn empty_workspace_reparents_workspace_commit_to_advanced_target() -> Result<()>
             ),
         ],
         &meta,
-        project_meta.clone(),
+        project_meta,
         &mut db,
         Options::limited(),
     )?;
@@ -2229,7 +2099,7 @@ fn empty_workspace_reparents_workspace_commit_to_merge_advanced_target() -> Resu
             ),
         ],
         &meta,
-        project_meta.clone(),
+        project_meta,
         &mut db,
         Options::limited(),
     )?;
@@ -2256,13 +2126,8 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
         snapbox::str![[r#"
@@ -2304,13 +2169,8 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
         }],
     )?;
 
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -2448,13 +2308,8 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["C"]);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -2505,13 +2360,8 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
         ],
     )?;
 
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -2553,13 +2403,8 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["C"]);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -2610,13 +2455,8 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
         ],
     )?;
 
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -2764,13 +2604,8 @@ fn orphan_reparent_content_integrated_stack_to_target_tip() -> Result<()> {
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut workspace = graph.into_workspace()?;
 
     integrate_and_materialize(
@@ -2803,13 +2638,8 @@ fn content_integrated_stack_does_not_reparent_while_stack_parent_remains() -> Re
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut workspace = graph.into_workspace()?;
 
     integrate_and_materialize(
@@ -2841,13 +2671,8 @@ fn orphan_reparent_does_not_run_when_parent_remains() -> Result<()> {
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut workspace = graph.into_workspace()?;
 
     integrate_and_materialize(
@@ -2883,13 +2708,8 @@ fn orphan_reparent_empty_stack_to_target_tip() -> Result<()> {
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut workspace = graph.into_workspace()?;
 
     integrate_and_materialize(
@@ -3247,13 +3067,8 @@ fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let mut workspace = graph.into_workspace()?;
 
     integrate_and_materialize(
@@ -3356,7 +3171,7 @@ fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
             ),
         ],
         &meta,
-        project_meta.clone(),
+        project_meta,
         &mut db,
         Options::limited(),
     )?;
@@ -3404,13 +3219,8 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
     add_stack(&mut meta, 2, "B", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -3544,7 +3354,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
             ),
         ],
         &meta,
-        project_meta.clone(),
+        project_meta,
         &mut db,
         Options::limited(),
     )?;
@@ -3652,13 +3462,8 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
 
     let project_meta = target_project_meta("refs/heads/main", target_sha)?;
     add_stack(&mut meta, 1, "A", StackState::InWorkspace);
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
 
     snapbox::assert_data_eq!(
         visualize_commit_graph_all(&repo)?,
@@ -3718,13 +3523,8 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
         }],
     )?;
 
-    let graph = but_graph::Graph::from_head(
-        &repo,
-        &meta,
-        project_meta.clone(),
-        &mut db,
-        Options::limited(),
-    )?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta, &mut db, Options::limited())?;
     let workspace = graph.into_workspace()?;
     snapbox::assert_data_eq!(
         graph_workspace(&workspace).to_string(),
@@ -3770,7 +3570,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
             ),
         ],
         &meta,
-        project_meta.clone(),
+        project_meta,
         &mut db,
         Options::limited(),
     )?;
@@ -3907,7 +3707,7 @@ fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
             ),
         ],
         &meta,
-        project_meta.clone(),
+        project_meta,
         &mut db,
         Options::limited(),
     )?;

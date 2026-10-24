@@ -773,7 +773,7 @@ impl Detail {
                 padded
                     .id(("file-header", ix))
                     .child(header)
-                    .on_mouse_down(MouseButton::Left, press_off(entity.clone(), None))
+                    .on_mouse_down(MouseButton::Left, press_off(entity, None))
                     .on_mouse_down(MouseButton::Right, move |event, _, cx| {
                         open(event.position, cx)
                     })

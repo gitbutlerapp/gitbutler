@@ -338,6 +338,9 @@ unnecessary_mut_passed = "warn"
 needless_borrow = "warn"
 explicit_auto_deref = "warn"
 uninlined_format_args = "warn"
+# From `nursery`, so not in `all`: a clone of a value that's never used again, as when one is
+# cloned into a closure that could have taken the value itself.
+redundant_clone = "deny"
 
 [profile.release]
 # There are no overrides here as we optimise for fast release builds,

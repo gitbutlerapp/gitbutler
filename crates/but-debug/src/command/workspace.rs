@@ -21,7 +21,7 @@ pub(crate) fn apply(
 
     let outcome = but_workspace::branch::apply(
         branch.as_ref(),
-        ws.clone(),
+        ws,
         &repo,
         &mut meta,
         but_workspace::branch::apply::Options {

@@ -49,10 +49,8 @@ pub fn read_only_context(script_name: &str, repo_name: &str) -> Result<Context> 
     let repo_name = repo_name.to_owned();
     let repo_name_for_post = repo_name.clone();
     let script_name_for_post = script_name.clone();
-    let (root, _) = gix_testtools::scripted_fixture_read_only_with_post(
-        script_name.clone(),
-        5,
-        move |fixture| {
+    let (root, _) =
+        gix_testtools::scripted_fixture_read_only_with_post(script_name, 5, move |fixture| {
             if fixture.is_uninitialized() {
                 if script_name_for_post == "for-listing.sh" {
                     for repo_name in [
@@ -68,9 +66,8 @@ pub fn read_only_context(script_name: &str, repo_name: &str) -> Result<Context> 
                 }
             }
             Ok(())
-        },
-    )
-    .map_err(anyhow::Error::from_boxed)?;
+        })
+        .map_err(anyhow::Error::from_boxed)?;
     let repo = open_repo(root.join(repo_name).as_path())?;
     Context::from_repo_for_testing(repo)
 }

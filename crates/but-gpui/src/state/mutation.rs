@@ -990,7 +990,7 @@ impl Store {
             "Create pull request",
             Overlay::push(&ref_name, true),
             {
-                let (ref_name, title, body) = (ref_name.clone(), title.clone(), body.clone());
+                let ref_name = ref_name.clone();
                 move |path, _| {
                     let made =
                         backend::reviews::publish(path, &ref_name, title, body, draft, run_hooks);
@@ -1407,6 +1407,10 @@ impl Store {
             // meanwhile, rather than as macOS runs a hidden app's work.
             let _awake = cx.background_executor().prevent_app_nap(&reason);
             // Which oplog entry the operation recorded, if it did, for its Undo button.
+            #[expect(
+                clippy::disallowed_methods,
+                reason = "in `backend::run`, off the UI thread"
+            )]
             let result = backend::run(move || {
                 // Left by a Git that crashed or was killed, as an agent's can be, the lock
                 // stops an operation partway, after it has written files.

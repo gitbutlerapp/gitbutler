@@ -289,7 +289,7 @@ impl Detail {
     /// gone. Without a remote, a fetch says there's none.
     pub(super) fn fetch_button(&self, project: &ProjectId, cx: &Context<Self>) -> Option<Button> {
         let store = self.store.read(cx);
-        if !store.project(project)?.project.path.exists() {
+        if store.project(project)?.folder_gone {
             return None;
         }
         let busy = store.fetching(project);
