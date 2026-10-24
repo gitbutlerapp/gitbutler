@@ -286,10 +286,10 @@ pub struct Store {
     /// until the reload after it lands, so the next one sees what it did; projects don't
     /// wait on each other.
     running: HashMap<ProjectId, Running>,
-    /// When, in seconds since the Unix epoch, each project's last mutation wrote: from its
-    /// start until the file watcher has told of its writes, a second or so after it settled.
-    /// What's written then isn't activity in the checkout.
-    own_writes: HashMap<ProjectId, std::ops::RangeInclusive<i64>>,
+    /// When, in seconds since the Unix epoch, each project's mutations of the last two
+    /// minutes wrote: each from its start until the file watcher has told of its writes, a
+    /// second or so after it settled. What's written then isn't activity in the checkout.
+    own_writes: HashMap<ProjectId, Vec<std::ops::RangeInclusive<i64>>>,
     /// When, in milliseconds since the Unix epoch, each project last pushed: undoing what
     /// came before rewrites what the remote has.
     pushed_at: HashMap<ProjectId, i64>,
@@ -851,7 +851,7 @@ impl Store {
     /// Whether something written in `project` at `at`, in seconds since the Unix epoch, is the
     /// app's own operation's doing rather than activity in the checkout.
     pub fn own_write(&self, project: &ProjectId, at: i64) -> bool {
-        (self.own_writes.get(project)).is_some_and(|span| span.contains(&at))
+        (self.own_writes.get(project)).is_some_and(|spans| spans.iter().any(|s| s.contains(&at)))
     }
 
     /// Whether ⌘Z has something the user did to take back.

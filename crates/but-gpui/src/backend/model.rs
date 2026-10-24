@@ -121,13 +121,12 @@ impl Worktree {
         bottom.commits.last().map(|commit| commit.id)
     }
 
-    /// When one of its uncommitted files was last written, or it last moved, as a commit
-    /// that takes them all does, in seconds since the epoch.
-    pub fn last_activity(&self) -> Option<i64> {
+    /// When its uncommitted files were written, and when it last moved, as a commit that
+    /// takes them all does, in seconds since the epoch.
+    pub fn activity(&self) -> impl Iterator<Item = i64> + '_ {
         (self.uncommitted.iter())
             .filter_map(|file| file.modified.map(|ms| ms / 1000))
             .chain(self.updated_at)
-            .max()
     }
 }
 
@@ -321,7 +320,7 @@ impl Workspace {
         // Any commit, not just the top one, which can be an old one cherry-picked.
         let committed =
             (self.shown_branches()).flat_map(|branch| branch.commits.iter().map(|c| c.time));
-        let in_worktrees = self.worktrees.iter().filter_map(Worktree::last_activity);
+        let in_worktrees = self.worktrees.iter().flat_map(Worktree::activity);
         edited.chain(committed).chain(in_worktrees).max()
     }
 

@@ -1459,8 +1459,11 @@ impl Store {
             // One that only talks to a remote, as a push, writes no files.
             if let Some(running) = self.running.remove(id).filter(|r| !r.overlay.remote_only) {
                 let now = crate::ui::now();
-                let started = now - running.started.elapsed().as_secs() as i64;
-                self.own_writes.insert(id.clone(), started..=now + 2);
+                // A second early, as whole seconds can put its first writes before its start.
+                let started = now - running.started.elapsed().as_secs() as i64 - 1;
+                let spans = self.own_writes.entry(id.clone()).or_default();
+                spans.retain(|span| crate::ui::just_now(*span.end()));
+                spans.push(started..=now + 2);
             }
             cx.emit(StoreEvent::Pending(id.clone()));
             self.start_next(cx);
