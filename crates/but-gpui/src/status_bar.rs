@@ -77,12 +77,15 @@ impl AppView {
             h_flex()
                 .gap(dp(10.))
                 .min_w_0()
+                // What's cut gives way first, then its verb is cut short, never drawn under
+                // the keys.
                 .child(
                     h_flex()
                         .gap(dp(6.))
                         .min_w_0()
-                        .child(div().text_color(theme.pop).child(cut.verb()))
-                        .child(div().truncate().child(cut.describe(store))),
+                        .overflow_hidden()
+                        .child(div().flex_none().text_color(theme.pop).child(cut.verb()))
+                        .child(div().min_w_0().truncate().child(cut.describe(store))),
                 )
                 // Not while typing, where ⌘V pastes text and esc leaves the field.
                 .when(!typing, |el| {
