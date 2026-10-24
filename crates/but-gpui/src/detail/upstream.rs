@@ -1167,6 +1167,11 @@ impl Detail {
         merged: Option<CommitId>,
         cx: &mut Context<Self>,
     ) {
+        // A commit picked again, as by a second click, is shown already, and doesn't change.
+        let again = |u: &Upstream| u.selected == Some(picked) && u.merged_pick == merged;
+        if matches!(picked, Picked::Commit(_)) && self.upstream.get(project).is_some_and(again) {
+            return;
+        }
         if let Some(upstream) = self.upstream.get_mut(project) {
             upstream.selected = Some(picked);
             upstream.merged_pick = merged;
