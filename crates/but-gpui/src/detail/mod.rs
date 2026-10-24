@@ -1672,6 +1672,7 @@ impl Detail {
                     shown.file.path == now.path
                         && (shown.file.modified, shown.file.size) == (now.modified, now.size)
                         && shown.file.base() == now.base()
+                        && shown.file.conflicted == now.conflicted
                 })
         })
     }
