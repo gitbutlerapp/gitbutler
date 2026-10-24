@@ -1411,7 +1411,7 @@ impl Detail {
                     .text_ellipsis_middle()
                     .child(crate::ui::short_path(&entry.project.path)),
             )
-            .when(entry.project.path.exists(), |el| {
+            .when(!entry.folder_gone, |el| {
                 let said = match &fetch {
                     Some(None) => "No remote to fetch from".into(),
                     Some(Some((Some(at), _))) => format!("Fetched {}", crate::ui::ago(*at)),
@@ -1518,7 +1518,7 @@ impl Detail {
             .and_then(|ws| ws.target.as_ref())
             .map(|t| t.name.clone());
         let upstream = self.upstream_for(project);
-        let missing = !entry.project.path.exists();
+        let missing = entry.folder_gone;
         let fetch_error = upstream.and_then(|u| u.fetch.as_ref()?.1.clone());
         let fetched = upstream.and_then(|u| u.fetch.as_ref()?.0);
         let fetching = store.fetching(project);

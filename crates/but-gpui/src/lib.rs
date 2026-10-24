@@ -20,9 +20,14 @@
 #![cfg_attr(not(test), deny(clippy::indexing_slicing, clippy::string_slice))]
 
 mod app;
+#[expect(clippy::disallowed_methods, reason = "its work runs off the UI thread")]
 mod backend;
 mod detail;
 #[cfg(feature = "dev-script")]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "a development tool, driving the app as a user"
+)]
 mod dev;
 mod edits;
 mod help;
@@ -74,6 +79,10 @@ impl gpui::Global for Embedded {}
 pub const WEB_APP_ONCE: &str = "GITBUTLER_WEB_APP_ONCE";
 
 /// Start the desktop app's binary again, as its web app once.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "called in `backend::run`, or when the window failed to open"
+)]
 fn open_web_app() -> std::io::Result<()> {
     std::process::Command::new(std::env::current_exe()?)
         .env(WEB_APP_ONCE, "1")

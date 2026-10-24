@@ -1160,6 +1160,10 @@ impl Detail {
         // Git's paths use `/`; Windows' own `\`, which "Copy full path" and Explorer expect.
         let absolute = root.join(relative.replace('/', std::path::MAIN_SEPARATOR_STR));
         let full = absolute.display().to_string();
+        #[expect(
+            clippy::disallowed_methods,
+            reason = "one check as the menu opens, in a checkout the app is watching"
+        )]
         let on_disk = absolute.exists();
         let mut items = Vec::new();
         if let (Some(line), true) = (line, on_disk) {

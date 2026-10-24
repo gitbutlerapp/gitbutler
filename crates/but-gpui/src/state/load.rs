@@ -223,6 +223,7 @@ impl Store {
                     project,
                     workspace: None,
                     error: None,
+                    folder_gone: false,
                     target_choice: None,
                     loading: false,
                     queued: None,
@@ -455,11 +456,13 @@ impl Store {
         let id = id.clone();
         cx.spawn(async move |this, cx| {
             let watch_id = id.clone();
+            let path = project.path.clone();
             let watcher = backend::run(move || {
                 backend::activate(&project.path)?;
                 watch(&project, watch_id, changes)
             })
             .await;
+            let failure = backend::load_failure(path, watcher.as_ref().err()).await;
             this.update(cx, |store, cx| {
                 let Some(entry) = store.project_mut(&id) else {
                     return;
@@ -478,7 +481,7 @@ impl Store {
                     }
                     Err(err) => {
                         tracing::warn!("Couldn't open {}: {err:#}", entry.project.name);
-                        entry.failed(&err);
+                        entry.failed(&err, failure);
                     }
                 }
                 // Behind a load still running, if one is.
@@ -505,17 +508,31 @@ impl Store {
         }
     }
 
-    /// Load again the expanded projects whose folder went since they last loaded, and those
-    /// that failed to load: a watcher doesn't see its own folder move, and what failed may
-    /// have been fixed in a terminal. One that couldn't be opened, so isn't watched, opens.
+    /// Load again the expanded projects and the selected one whose folder went since they last
+    /// loaded, and those that failed to load: a watcher doesn't see its own folder move, and
+    /// what failed may have been fixed in a terminal. One that couldn't be opened, so isn't
+    /// watched, opens.
     pub fn recheck_folders(&mut self, cx: &mut Context<Self>) {
-        let stale: Vec<ProjectId> = (self.projects.iter())
-            .filter(|entry| entry.expanded && entry.project.path.exists() == entry.error.is_some())
-            .map(|entry| entry.id.clone())
+        let selected = self.selection.as_ref().map(Selection::project);
+        let checked: Vec<(ProjectId, PathBuf)> = (self.projects.iter())
+            .filter(|entry| entry.expanded || selected == Some(&entry.id))
+            .map(|entry| (entry.id.clone(), entry.project.path.clone()))
             .collect();
-        for id in stale {
-            self.reload_or_open(&id, cx);
-        }
+        cx.spawn(async move |this, cx| {
+            for (id, path) in checked {
+                let gone = backend::folder_gone(path).await;
+                this.update(cx, |store, cx| {
+                    if store
+                        .project(&id)
+                        .is_some_and(|entry| gone == entry.error.is_none())
+                    {
+                        store.reload_or_open(&id, cx);
+                    }
+                })
+                .ok();
+            }
+        })
+        .detach();
     }
 
     /// Load `id` again: all of it; or its commits and branches, keeping the files shown but
@@ -556,6 +573,7 @@ impl Store {
         // Started after the mutation finished, so it sees what the mutation did.
         let settles = self.settles(&id);
         cx.spawn(async move |this, cx| {
+            let folder = path.clone();
             let result = backend::run(move || match shown {
                 Some(shown) => {
                     backend::reload_uncommitted(&path, shown, reload.main, &reload.linked)
@@ -563,6 +581,7 @@ impl Store {
                 None => backend::load_workspace(&path, kept),
             })
             .await;
+            let failure = backend::load_failure(folder, result.as_ref().err()).await;
             this.update(cx, |store, cx| {
                 // One that started before the project's operation finished, landing in front
                 // of the reload after it, doesn't show what the operation did yet.
@@ -575,7 +594,7 @@ impl Store {
                 let queued = entry.queued.take();
                 match result {
                     Ok(workspace) => store.workspace_loaded(&id, workspace, fresh, cx),
-                    Err(err) => entry.failed(&err),
+                    Err(err) => entry.failed(&err, failure),
                 }
                 // Checking against a stale one could drop a selection the operation just made.
                 if fresh {
@@ -824,8 +843,8 @@ fn follow_by_key(old: Option<&Workspace>, new: &Workspace, commit: CommitId) -> 
 }
 
 /// Why a project didn't load: plainly when its folder is gone, otherwise as reported.
-pub(super) fn load_error(project: &Project, err: &anyhow::Error) -> SharedString {
-    if project.path.exists() {
+pub(super) fn load_error(folder_gone: bool, err: &anyhow::Error) -> SharedString {
+    if !folder_gone {
         backend::read_failure(err).into()
     } else {
         "The project's folder isn't there any more.".into()
