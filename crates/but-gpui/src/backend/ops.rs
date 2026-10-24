@@ -226,6 +226,29 @@ pub(super) fn hook_output(output: &str) -> String {
     }
 }
 
+/// Refuse to change the checkout while Git is partway through its own operation there, which
+/// would go on from where it stopped, past what's done meanwhile: a rebase or a merge, or a
+/// bisect, whose reset leaves behind what's committed on the commit it checked out. With
+/// `on_branch`, as the main checkout must be, also while no branch is checked out at all.
+fn refuse_unfinished(repo: &gix::Repository, on_branch: bool) -> Result<()> {
+    if let Some(op) = super::git_operation(repo) {
+        bail!(
+            "{op} isn't finished. Finish it with `{op} --continue`, or stop it with \
+             `{op} --abort`, first."
+        );
+    }
+    if matches!(repo.state(), Some(gix::state::InProgress::Bisect)) {
+        bail!("git bisect isn't finished. End it with `git bisect reset` first.");
+    }
+    if on_branch && repo.head()?.is_detached() {
+        bail!(
+            "No branch is checked out (HEAD is detached). Check one out, or make one with \
+             `git switch -c <name>`, first."
+        );
+    }
+    Ok(())
+}
+
 /// Run the pre-commit hook on what `changes` would commit; its failure refuses the commit.
 fn pre_commit(ctx: &but_ctx::Context, changes: &[DiffSpec]) -> Result<()> {
     let result = but_api::legacy::repo::pre_commit_hook_diffspecs(ctx, changes.to_vec())?;
@@ -272,6 +295,7 @@ pub fn commit(
 ) -> Result<(CommitId, LeftOut, Option<String>)> {
     let mut ctx = open(path)?;
     refuse_unborn(&ctx)?;
+    refuse_unfinished(&checkout(&ctx, worktree)?, worktree.is_none())?;
     refuse_conflicted(&ctx, worktree, selected)?;
     // The hooks run in the main checkout, not where a linked worktree's changes are.
     let run_hooks = run_hooks && worktree.is_none();
@@ -326,22 +350,10 @@ pub fn create_branch(path: &Path, name: Option<&str>) -> Result<String> {
     let new_ref = name.map(branch_ref).transpose()?;
     let mut ctx = open(path)?;
     refuse_unborn(&ctx)?;
-    let head = ctx.repo.get()?.head_name()?;
     // A branch made here and checked out couldn't be undone: the oplog takes a detached
-    // HEAD for the workspace and would restore that instead. Git detaches it while it
-    // rebases, which a new branch would leave unfinished.
-    if head.is_none() {
-        match super::git_operation(&*ctx.repo.get()?) {
-            Some(op) => bail!(
-                "{op} isn't finished. Finish it with `{op} --continue`, or stop it with \
-                 `{op} --abort`, first."
-            ),
-            None => bail!(
-                "No branch is checked out (HEAD is detached). Check one out, or make one \
-                 with `git switch -c <name>`, first."
-            ),
-        }
-    }
+    // HEAD for the workspace and would restore that instead.
+    refuse_unfinished(&*ctx.repo.get()?, true)?;
+    let head = ctx.repo.get()?.head_name()?;
     let checked_out = head.filter(|head| {
         head.as_bstr() != but_core::WORKSPACE_REF_NAME
             && head.as_ref().category() == Some(gix::refs::Category::LocalBranch)
@@ -605,6 +617,7 @@ pub fn amend(
     run_hooks: bool,
 ) -> Result<(Rewritten, LeftOut, Option<String>)> {
     let mut ctx = open(path)?;
+    refuse_unfinished(&checkout(&ctx, worktree)?, worktree.is_none())?;
     refuse_conflicted(&ctx, worktree, selected)?;
     let run_hooks = run_hooks && worktree.is_none();
     let changes = selected_specs(selected);
@@ -1109,6 +1122,8 @@ pub(super) mod tests {
             assert!(files[0].conflicted, "its index entry is unmerged");
 
             let whole = Selected::whole(&files[0]);
+            // As an update leaves it: conflicted, with no merge of Git's to finish.
+            std::fs::remove_file(path.join(".git/MERGE_HEAD")).unwrap();
             let refused = amend(path, head, std::slice::from_ref(&whole), None, false).unwrap_err();
             assert!(
                 refused.to_string().contains("resolved first"),
@@ -1421,6 +1436,30 @@ pub(super) mod tests {
             assert!(
                 hook_failed.is_some_and(|output| output.contains("notify failed")),
                 "post-commit's failure comes back to report"
+            );
+        })
+    }
+
+    #[test]
+    fn a_commit_waits_for_a_git_merge_or_bisect_to_finish() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            let main = Destination::Branch("refs/heads/main".into());
+            let first = git(path, &["rev-parse", "HEAD"]);
+            for (state, says) in [("MERGE_HEAD", "git merge"), ("BISECT_LOG", "git bisect")] {
+                std::fs::write(path.join(".git").join(state), format!("{first}\n")).unwrap();
+                let refused = commit(path, &main, &[], None, "Two", false).unwrap_err();
+                assert!(
+                    format!("{refused:#}").contains(&format!("{says} isn't finished")),
+                    "finishing it would go on past the commit: {refused:#}"
+                );
+                std::fs::remove_file(path.join(".git").join(state)).unwrap();
+            }
+            assert_eq!(
+                git(path, &["rev-parse", "HEAD"]),
+                first,
+                "nothing was committed"
             );
         })
     }
