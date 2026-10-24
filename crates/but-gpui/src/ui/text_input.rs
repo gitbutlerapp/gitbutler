@@ -1140,7 +1140,8 @@ fn position_in(
 /// token has, and spaces for the rest; several lines with `\n` for `\r\n`.
 fn cleaned(text: &str, multiline: bool) -> String {
     match multiline {
-        true => text.replace("\r\n", "\n"),
+        // An old Mac's line ending alone too, which would be kept unseen.
+        true => text.replace("\r\n", "\n").replace('\r', "\n"),
         false => text
             .trim_end_matches(['\r', '\n'])
             .replace(['\r', '\n', '\t'], " "),
@@ -1164,8 +1165,8 @@ mod tests {
             "one line, still readable"
         );
         assert_eq!(
-            cleaned("title\r\n\r\nbody\r\n", true),
-            "title\n\nbody\n",
+            cleaned("title\r\n\r\nbody\r\nold\rmac", true),
+            "title\n\nbody\nold\nmac",
             "a message pasted from Windows keeps no carriage returns"
         );
     }
