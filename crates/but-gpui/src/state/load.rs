@@ -287,6 +287,7 @@ impl Store {
     pub fn add_project(&mut self, path: PathBuf, cx: &mut Context<Self>) {
         self.project_edits += 1;
         cx.spawn(async move |this, cx| {
+            let folder = path.clone();
             let result = backend::run(move || {
                 let added = backend::add_project(&path)?;
                 backend::list_projects().map(|projects| (projects, added))
@@ -307,11 +308,39 @@ impl Store {
                         _ => store.added = Some(id),
                     }
                 }
+                Err(err) if err.is::<backend::NotARepository>() => store.offer_init(folder, cx),
                 Err(err) => store.failed("Couldn't add the project", &err, cx),
             })
             .ok();
         })
         .detach();
+    }
+
+    /// Offer to make `folder`, which isn't a Git repository, one, then add it.
+    fn offer_init(&mut self, folder: PathBuf, cx: &mut Context<Self>) {
+        let name = (folder.file_name()).map_or_else(
+            || folder.display().to_string(),
+            |name| name.to_string_lossy().into_owned(),
+        );
+        self.error_with_retry(
+            format!("{name} isn't a Git repository yet"),
+            "GitButler can make it one, as git init does, then add it.",
+            "Initialize Git",
+            move |_, cx| {
+                let folder = folder.clone();
+                cx.spawn(async move |this, cx| {
+                    let path = folder.clone();
+                    let made = backend::run(move || backend::init_repository(&path)).await;
+                    this.update(cx, |store, cx| match made {
+                        Ok(()) => store.add_project(folder, cx),
+                        Err(err) => store.failed("Couldn't initialize Git", &err, cx),
+                    })
+                    .ok();
+                })
+                .detach();
+            },
+            cx,
+        );
     }
 
     /// Take `id` out of GitButler; its repository stays on disk.

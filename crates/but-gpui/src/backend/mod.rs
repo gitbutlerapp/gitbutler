@@ -119,8 +119,21 @@ fn last_written(git_dir: &Path, files: &[&str]) -> Option<i64> {
         .map(|since| since.as_secs() as i64)
 }
 
+/// A folder that isn't in a Git repository and holds none: `git init` makes it one to add.
+#[derive(Debug)]
+pub struct NotARepository;
+
+impl std::fmt::Display for NotARepository {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("It isn't a Git repository yet.")
+    }
+}
+
+impl std::error::Error for NotARepository {}
+
 /// Register the repository at `path` with GitButler, so it shows up in [`list_projects()`].
-/// Returns its id, and whether GitButler had it already, as from a folder inside it.
+/// Returns its id, and whether GitButler had it already, as from a folder inside it. A folder
+/// that could become a repository fails with [`NotARepository`].
 pub fn add_project(path: &Path) -> Result<(String, bool)> {
     use AddProjectOutcome as O;
     use gitbutler_project::AddProjectOutcome;
@@ -129,7 +142,15 @@ pub fn add_project(path: &Path) -> Result<(String, bool)> {
         O::AlreadyExists(project) => return Ok((project.id.to_string(), true)),
         O::PathNotFound => "it doesn't exist",
         O::NotADirectory => "it isn't a folder",
-        O::NotAGitRepository(_) | O::NoDotGitDirectory => "it isn't a Git repository",
+        // A folder of projects, picked instead of one of them.
+        O::NotAGitRepository(_) | O::NoDotGitDirectory => match repositories_in(path)[..] {
+            [] => return Err(NotARepository.into()),
+            [ref one] => &format!("it isn't a Git repository, but {one} in it is. Add that"),
+            [ref one, ref two, ..] => &format!(
+                "it isn't a Git repository, but folders in it are, like {one} and {two}. \
+                 Add one of those"
+            ),
+        },
         // A worktree of a bare clone has files, a layout some keep agents' worktrees in.
         O::BareRepository if gix::discover(path).is_ok_and(|repo| repo.workdir().is_some()) => {
             "it's a worktree of a bare repository, and GitButler needs one with a main worktree"
@@ -138,7 +159,26 @@ pub fn add_project(path: &Path) -> Result<(String, bool)> {
         O::NonMainWorktree => "it's a linked worktree. Add the repository it belongs to",
         O::ReftableRefFormatUnsupported => "GitButler can't read its reftable references yet",
     };
-    anyhow::bail!("{} can't be added: {why}.", path.display())
+    // The folder just picked, by name: a card has room for a few lines.
+    let name = path.file_name().map_or(path.as_os_str(), |name| name);
+    anyhow::bail!("{} can't be added: {why}.", name.display())
+}
+
+/// The names of the folders right inside `path` that are Git repositories, sorted.
+fn repositories_in(path: &Path) -> Vec<String> {
+    let mut names: Vec<String> = (std::fs::read_dir(path).into_iter().flatten().flatten())
+        .filter(|entry| entry.path().join(".git").exists())
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    names
+}
+
+/// Make the folder `path` a Git repository, as `git init` does.
+pub fn init_repository(path: &Path) -> Result<()> {
+    gix::init(path)
+        .with_context(|| format!("Couldn't make {} a Git repository", path.display()))?;
+    Ok(())
 }
 
 /// Take the project out of GitButler. The repository stays as it is on disk.
