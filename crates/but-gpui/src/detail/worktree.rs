@@ -634,7 +634,12 @@ impl Detail {
                     // Read or not as the navigator shows it: quieter once read, in semibold
                     // with a dot while not.
                     let unread = store.is_unread(project, commit);
-                    row.child(small_icon(Icon::Commit).text_color(theme.blue))
+                    // Marked conflicted as the navigator marks it.
+                    let (glyph, color) = match commit.conflicted {
+                        true => (Icon::Warning, theme.warn),
+                        false => (Icon::Commit, theme.blue),
+                    };
+                    row.child(small_icon(glyph).text_color(color))
                         .child(
                             div()
                                 .flex_1()
