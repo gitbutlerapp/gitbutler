@@ -59,6 +59,15 @@ impl BadInput {
     }
 }
 
+/// The hint for a remote-tracking `target_ref` that no local branch tracks.
+pub(crate) fn track_remote_target_hint(target_ref: impl Display) -> String {
+    format!(
+        "Make a local branch track {target_ref} with \
+        `git branch --set-upstream-to={target_ref} <branch>`, \
+        or choose a local target branch with `but config target <branch>`"
+    )
+}
+
 /// Convenience wrapper around [`BadInput::new`].
 pub(crate) fn bad_input<S: AsRef<str>>(message: S) -> BadInput {
     BadInput::new(message)
@@ -138,16 +147,27 @@ where
                 "Run `but switch --workspace` and start conflict resolution with `but resolve`",
             ));
         }
-        if let Some(ambiguous) =
-            error.downcast_ref::<but_core::ref_metadata::AmbiguousLegacyTargetRefError>()
+        if let Some(unresolved) =
+            error.downcast_ref::<but_core::ref_metadata::UnresolvedLegacyTargetRefError>()
         {
-            return CliError::BadInput(
-                bad_input(format!(
-                    "Multiple local branches track {}",
-                    ambiguous.target_ref.shorten()
-                ))
-                .hint("Choose a local target branch with `but config target <branch>`"),
-            );
+            use but_core::ref_metadata::UnresolvedLegacyTargetReason;
+            let target_ref = unresolved.target_ref.shorten();
+            let (message, hint) = match unresolved.reason {
+                // Making a branch track the legacy target keeps pulls coming from it, while
+                // choosing a branch that tracks something else changes where pulls come from.
+                UnresolvedLegacyTargetReason::NoTrackingBranch => (
+                    format!(
+                        "GitButler now requires the target to be a local branch, \
+                        but no local branch tracks your current target, {target_ref}"
+                    ),
+                    track_remote_target_hint(target_ref),
+                ),
+                UnresolvedLegacyTargetReason::MultipleTrackingBranches => (
+                    format!("Multiple local branches track {target_ref}"),
+                    "Choose a local target branch with `but config target <branch>`".to_owned(),
+                ),
+            };
+            return CliError::BadInput(bad_input(message).hint(hint));
         }
         CliError::Internal(error)
     }

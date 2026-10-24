@@ -105,6 +105,35 @@ fn target_configures_distinct_push_remote_for_fork() {
 
 #[cfg(feature = "legacy")]
 #[test]
+fn target_remote_shorthand_without_tracking_branch_hints_to_track_it() {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
+    env.invoke_git("remote add upstream .");
+    env.invoke_git("update-ref refs/remotes/upstream/main refs/remotes/origin/main");
+
+    // nothing is being migrated, so the error doesn't call upstream/main the current target
+    env.but("config target upstream/main")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: No local branch tracks upstream/main
+
+Hint: Make a local branch track upstream/main with `git branch --set-upstream-to=upstream/main <branch>`, or choose a local target branch with `but config target <branch>`
+
+"#]]);
+
+    // run the command the hint suggests
+    env.invoke_git("branch --set-upstream-to=upstream/main main");
+
+    env.but("config target upstream/main").assert().success();
+    assert_eq!(
+        env.invoke_git("config --local --get gitbutler.project.targetRef"),
+        "refs/heads/main",
+        "the shorthand resolves to the branch that now tracks it"
+    );
+}
+
+#[cfg(feature = "legacy")]
+#[test]
 fn target_accepts_local_branch() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
     env.but("config target main").assert().success();
