@@ -165,6 +165,24 @@ pub fn test_signing(path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Whether Git's credentials for the target's remote work: fetch from it, or with `push`, push
+/// an empty branch there and delete it again, as GitButler's other apps test them.
+pub fn test_credentials(path: &Path, push: bool) -> Result<()> {
+    let ctx = open(path)?;
+    let (remote, branch) = {
+        let repo = ctx.repo.get()?;
+        let target = (ctx.project_meta()?.remote_target_ref(&repo)?)
+            .context("The target branch has no remote to test against")?;
+        but_core::extract_remote_name_and_short_name(target.as_ref(), &repo.remote_names())
+            .context("Couldn't tell which remote the target branch is on")?
+    };
+    if push {
+        but_api::legacy::git::git_test_push(&ctx, remote, branch.to_string())
+    } else {
+        but_api::legacy::git::git_test_fetch(&ctx, remote, None)
+    }
+}
+
 const NO_COMMITS: &str =
     "The repository has no commits yet. Make the first one, then pick the target.";
 
