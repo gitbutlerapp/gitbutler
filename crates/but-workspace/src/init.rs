@@ -21,6 +21,7 @@ const FALLBACK_TARGET_BRANCHES: &[&str] = &["main", "master"];
 /// If the repository has an unambiguous default fetch remote, prefer the unique local branch
 /// tracking its symbolic `HEAD`, followed by those tracking its `main` and `master` branches.
 /// Skip remote candidates without a unique local counterpart, then try local `main` and `master`.
+/// A repository without remotes and with a single branch, whatever its name, targets that branch.
 /// Candidates must resolve to a commit. Returns `None` if no suitable local branch is found.
 pub fn infer_default_target_ref(repo: &gix::Repository) -> Result<Option<LocalRefName>> {
     if let Some(remote_name) = repo.remote_default_name(gix::remote::Direction::Fetch) {
@@ -59,7 +60,27 @@ pub fn infer_default_target_ref(repo: &gix::Repository) -> Result<Option<LocalRe
         }
     }
 
+    if repo.remote_names().is_empty() {
+        return only_local_branch(repo);
+    }
     Ok(None)
+}
+
+/// The repository's only local branch, not counting GitButler's own under `gitbutler/`, if it
+/// resolves to a commit.
+fn only_local_branch(repo: &gix::Repository) -> Result<Option<LocalRefName>> {
+    let references = repo.references()?;
+    let mut branches = references
+        .local_branches()?
+        .filter_map(Result::ok)
+        .filter(|branch| !branch.name().shorten().starts_with(b"gitbutler/"));
+    let (Some(mut branch), None) = (branches.next(), branches.next()) else {
+        return Ok(None);
+    };
+    if branch.peel_to_commit().is_err() {
+        return Ok(None);
+    }
+    Ok(Some(LocalRefName::new(branch.name().to_owned())?))
 }
 
 /// Find the unique local branch whose configured upstream is `remote_ref`.

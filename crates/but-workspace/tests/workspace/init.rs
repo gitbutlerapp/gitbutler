@@ -59,9 +59,12 @@ fn inferred_target(repo: &gix::Repository) -> anyhow::Result<Option<String>> {
     Ok(but_workspace::init::infer_default_target_ref(repo)?.map(|name| name.to_string()))
 }
 
-#[test]
-fn initializes_local_target_without_remote() -> anyhow::Result<()> {
-    let (repo, _tmp) = scenario();
+/// The scenario without its remotes, its remote branch, or `main`'s upstream.
+fn remoteless_scenario() -> anyhow::Result<(
+    gix::Repository,
+    but_testsupport::gix_testtools::tempfile::TempDir,
+)> {
+    let (repo, tmp) = scenario();
     repo.find_reference("refs/remotes/origin/main")?.delete()?;
     edit_config(Some(&repo), gix::config::Source::Local, |config| {
         config.remove_section("remote", Some("origin".into()));
@@ -70,6 +73,21 @@ fn initializes_local_target_without_remote() -> anyhow::Result<()> {
         Ok(())
     })?;
     let repo = but_testsupport::open_repo(repo.workdir().expect("fixture has a worktree"))?;
+    Ok((repo, tmp))
+}
+
+/// Make `main` of `repo` the branches `names` instead, at the same commit.
+fn replace_main_with(repo: &gix::Repository, names: &[&str]) -> anyhow::Result<()> {
+    for name in names {
+        create_remote_branch(repo, name)?;
+    }
+    repo.find_reference("refs/heads/main")?.delete()?;
+    Ok(())
+}
+
+#[test]
+fn initializes_local_target_without_remote() -> anyhow::Result<()> {
+    let (repo, _tmp) = remoteless_scenario()?;
     let head_name = repo.head_name()?;
     let head_commit = repo.head_id()?.detach();
     assert!(
@@ -242,6 +260,32 @@ fn returns_none_without_a_candidate_branch() -> anyhow::Result<()> {
         inferred_target(&repo)?,
         None,
         "without remote or local candidates there is no inferred target"
+    );
+    Ok(())
+}
+
+#[test]
+fn infers_the_only_branch_without_a_remote() -> anyhow::Result<()> {
+    let (repo, _tmp) = remoteless_scenario()?;
+    replace_main_with(&repo, &["refs/heads/trunk"])?;
+
+    assert_eq!(
+        inferred_target(&repo)?,
+        Some("refs/heads/trunk".into()),
+        "without a remote, the only branch is the target whatever its name"
+    );
+    Ok(())
+}
+
+#[test]
+fn returns_none_for_several_branches_without_a_remote() -> anyhow::Result<()> {
+    let (repo, _tmp) = remoteless_scenario()?;
+    replace_main_with(&repo, &["refs/heads/trunk", "refs/heads/feature"])?;
+
+    assert_eq!(
+        inferred_target(&repo)?,
+        None,
+        "without main or master, picking among several branches is left to the user"
     );
     Ok(())
 }
