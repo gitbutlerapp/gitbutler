@@ -718,12 +718,63 @@ pub fn squash(path: &Path, commits: &[CommitId], into: CommitId) -> Result<Rewri
 /// Turn `commits` back into uncommitted changes.
 pub fn uncommit(path: &Path, commits: &[CommitId]) -> Result<()> {
     let mut ctx = open(path)?;
+    refuse_buried_merges(&*ctx.repo.get()?, commits)?;
     but_api::commit::uncommit::commit_uncommit(
         &mut ctx,
         commits.iter().map(|id| id.0).collect(),
         None,
         DryRun::No,
     )?;
+    Ok(())
+}
+
+/// Refuse to take a merge commit out from under the commits above it, as an agent's
+/// `git merge` of the target leaves one: the engine has the commit above merge what it merged
+/// instead, so its changes stay and only the history changes. One at the top comes out.
+fn refuse_buried_merges(repo: &gix::Repository, commits: &[CommitId]) -> Result<()> {
+    let merges: Vec<&CommitId> = (commits.iter())
+        .filter(|id| (repo.find_commit(id.0)).is_ok_and(|c| c.parent_ids().count() > 1))
+        .collect();
+    if merges.is_empty() {
+        return Ok(());
+    }
+    // What each checkout has on top: the workspace's stacks, its commit's parents, or HEAD, and
+    // each linked worktree's HEAD. Not other branches, as an agent's backup of one.
+    let head = repo.head_id()?;
+    let mut tips: Vec<gix::ObjectId> = match but_workspace::WorkspaceCommit::from_id(head) {
+        Ok(commit) if commit.is_managed() => commit.inner.parents.to_vec(),
+        _ => vec![head.detach()],
+    };
+    tips.extend(
+        (repo.worktrees()?.into_iter())
+            .filter_map(|wt| Some(wt.into_repo().ok()?.head_id().ok()?.detach())),
+    );
+    // Above it on the way down from a tip, unless all of those go too.
+    let stays_above = |tip: gix::ObjectId, merge: gix::ObjectId| -> Result<bool> {
+        let mut at = tip;
+        while at != merge {
+            if !commits.contains(&CommitId(at)) {
+                return Ok(true);
+            }
+            let Some(parent) = repo.find_commit(at)?.parent_ids().next() else {
+                return Ok(false);
+            };
+            at = parent.detach();
+        }
+        Ok(false)
+    };
+    for merge in merges {
+        let buried = (tips.iter().filter(|tip| **tip != merge.0))
+            .filter(|tip| super::is_ancestor(repo, merge.0, **tip).unwrap_or(false))
+            .any(|tip| stays_above(*tip, merge.0).unwrap_or(true));
+        if buried {
+            bail!(
+                "{} is a merge with commits above it, which would merge the same changes \
+                 instead, so nothing would come back. Take out the commits above it first.",
+                merge.short()
+            );
+        }
+    }
     Ok(())
 }
 
@@ -850,6 +901,7 @@ pub fn reword(path: &Path, commit: CommitId, message: &str) -> Result<Rewritten>
 /// Drop `commits` and everything they changed.
 pub fn discard_commits(path: &Path, commits: &[CommitId]) -> Result<()> {
     let mut ctx = open(path)?;
+    refuse_buried_merges(&*ctx.repo.get()?, commits)?;
     let commits = commits.iter().map(|id| id.0).collect();
     but_api::commit::discard_commit::commit_discard(&mut ctx, commits, DryRun::No)?;
     Ok(())
@@ -1151,6 +1203,38 @@ pub(super) mod tests {
         assert!(!merge.status.success(), "both sides changed the line");
         let head = head(path);
         (dir, head)
+    }
+
+    #[test]
+    fn a_merge_comes_out_only_with_what_sits_on_it() {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        git(path, &["checkout", "-q", "-b", "side"]);
+        git(path, &["commit", "-q", "--allow-empty", "-m", "side"]);
+        git(path, &["checkout", "-q", "-b", "feature", "main"]);
+        git(path, &["commit", "-q", "--allow-empty", "-m", "mine"]);
+        git(path, &["merge", "-q", "--no-edit", "side"]);
+        let merge = head(path);
+        git(path, &["commit", "-q", "--allow-empty", "-m", "above"]);
+        let above = head(path);
+        let repo = gix::open(path).unwrap();
+        let refused = refuse_buried_merges(&repo, &[merge]).unwrap_err();
+        assert!(
+            refused.to_string().contains("commits above it"),
+            "the commit above would merge the same changes: {refused:#}"
+        );
+        assert!(
+            refuse_buried_merges(&repo, &[above, merge]).is_ok(),
+            "taken out together, nothing stays above it"
+        );
+
+        git(path, &["branch", "backup"]);
+        git(path, &["reset", "-q", "--hard", "HEAD~1"]);
+        let repo = gix::open(path).unwrap();
+        assert!(
+            refuse_buried_merges(&repo, &[merge]).is_ok(),
+            "at the top of what's checked out, a backup no checkout has doesn't keep it in"
+        );
     }
 
     #[test]
