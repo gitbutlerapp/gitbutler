@@ -584,7 +584,9 @@ impl AppView {
         {
             return cx.notify();
         }
-        if self.store.read(cx).cut.is_some() {
+        let store = self.store.read(cx);
+        let mut let_go = store.cut.is_some() || !store.picked.is_empty();
+        if store.cut.is_some() {
             self.store.update(cx, |store, cx| store.set_cut(None, cx));
         }
         if !self.store.read(cx).picked.is_empty() {
@@ -593,10 +595,17 @@ impl AppView {
                 cx.notify()
             });
         }
-        self.detail.update(cx, |detail, cx| {
-            detail.clear_file_picks(cx);
-            detail.clear_line_picks(cx);
+        let_go |= self.detail.update(cx, |detail, cx| {
+            detail.clear_file_picks(cx) | detail.clear_line_picks(cx)
         });
+        // With nothing cut or picked, the newest card, as its Dismiss does.
+        let store = self.store.read(cx);
+        let card = (store.toasts.iter().rev())
+            .find(|toast| matches!(toast.notice, crate::state::Notice::Error { .. }));
+        if let Some(id) = card.map(|toast| toast.id).filter(|_| !let_go) {
+            self.store
+                .update(cx, |store, cx| store.dismiss_toast(id, cx));
+        }
     }
 
     pub(crate) fn focus_navigator(

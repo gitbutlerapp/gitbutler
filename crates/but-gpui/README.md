@@ -93,6 +93,7 @@ The Help menu links the docs, the release notes and where to report an issue, sh
 | ⇧⌘B | while committing: pick the branch to commit to |
 | Space, X | while committing: check or uncheck the file under the cursor in the file list, with the files selected along with it, or the hunk under it in the diff |
 | ⌘Z, ⇧⌘Z | undo, redo; in a text field, the typing |
+| Escape | let go of what's cut or picked; with nothing cut or picked, dismiss the newest error card |
 | ⌘X, ⌘V | cut the selection (from a diff or its files, the lines, hunk or file under the cursor, or while committing, what's checked), paste it onto the selected row (⌥⌘V squashes a commit instead of moving it, ⇧⌘V puts it below) |
 | ⌘N | new branch |
 | ⌥⇧F, ⌥⇧R | fetch, update from the target |
