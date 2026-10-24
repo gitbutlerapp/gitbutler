@@ -249,7 +249,7 @@ impl Workspace {
     }
 
     /// `ref_name`'s branch and the ones below it in its stack, which pushing it pushes too.
-    fn pushed_with(&self, ref_name: &str) -> &[Branch] {
+    pub(crate) fn pushed_with(&self, ref_name: &str) -> &[Branch] {
         (self.stack_of(ref_name))
             .and_then(|(stack, at)| stack.branches.get(at..))
             .unwrap_or_default()

@@ -884,6 +884,18 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let name = short_ref(&ref_name).to_owned();
+        // The branches below it in its stack with commits to send go along, which the
+        // snackbar says.
+        let below = self.workspace(project).map_or(0, |ws| {
+            (ws.pushed_with(&ref_name).iter().skip(1))
+                .filter(|b| !b.ref_name.is_empty() && b.can_push())
+                .count()
+        });
+        let all = match below {
+            0 => name.clone(),
+            1 => format!("{name} and the branch below it"),
+            n => format!("{name} and the {n} branches below it"),
+        };
         let pushed = project.clone();
         let run_hooks = self.runs_hooks(project);
         self.run(
@@ -911,7 +923,7 @@ impl Store {
                     Err(reason) => reason,
                     Ok(sync_failed) => {
                         store.pushed(&pushed);
-                        store.snack(store.card_title(&pushed, format!("Pushed {name}")), cx);
+                        store.snack(store.card_title(&pushed, format!("Pushed {all}")), cx);
                         if let Some(message) = sync_failed {
                             let title = format!(
                                 "Pushed {name}{}, but the stack's pull requests weren't updated",
