@@ -861,6 +861,14 @@ impl AppView {
         if rest.is_empty() {
             return;
         }
+        // A conflicted one's change would be dropped, or the engine refuses.
+        if (workspace.commits()).any(|c| c.conflicted && store.picked.contains(&c.id)) {
+            return snack(
+                &self.store,
+                "Resolve the conflicted commits first, then squash",
+                cx,
+            );
+        }
         self.store.update(cx, |store, cx| {
             store.picked.clear();
             store.squash(&project, rest, into, cx)
