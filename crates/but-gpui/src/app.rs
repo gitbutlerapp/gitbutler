@@ -423,17 +423,26 @@ impl AppView {
             window,
             cx,
             |app, cx| {
-                let restarted = std::env::current_exe().and_then(|exe| {
-                    std::process::Command::new(exe)
-                        .env(crate::WEB_APP_ONCE, "1")
-                        .spawn()
-                });
-                match restarted {
-                    Ok(_) => cx.quit(),
-                    Err(err) => app.store.update(cx, |store, cx| {
-                        store.error("Couldn't restart GitButler", err.to_string(), cx)
-                    }),
-                }
+                // Off the UI thread: on Windows, starting a process can run the window's message
+                // loop, which would enter the app again while this holds it.
+                let store = app.store.clone();
+                cx.spawn(async move |_, cx| {
+                    let restarted = backend::run(|| {
+                        let exe = std::env::current_exe()?;
+                        std::process::Command::new(exe)
+                            .env(crate::WEB_APP_ONCE, "1")
+                            .spawn()?;
+                        Ok(())
+                    })
+                    .await;
+                    match restarted {
+                        Ok(()) => cx.update(|cx| cx.quit()),
+                        Err(err) => store.update(cx, |store, cx| {
+                            store.error("Couldn't restart GitButler", err.to_string(), cx)
+                        }),
+                    }
+                })
+                .detach();
             },
         );
     }
