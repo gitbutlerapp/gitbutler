@@ -691,16 +691,18 @@ pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
             (None, _) => "No content changes".to_owned(),
         },
     };
+    // Wrapped, as the reason a file can't be resolved here can run long.
     card(h_flex(), theme)
-        .h(dp(36.))
+        .min_h(dp(36.))
         .px(dp(12.))
+        .py(dp(9.))
         .gap(dp(6.))
         .border_b_1()
         .rounded_b(dp(6.))
         .text_size(dp(12.))
         .text_color(theme.text_2)
-        .child(small_icon(Icon::File).text_color(theme.text_3))
-        .child(text)
+        .child(small_icon(Icon::File).flex_none().text_color(theme.text_3))
+        .child(div().min_w_0().child(text))
         .into_any_element()
 }
 
