@@ -43,10 +43,7 @@ const WRAP_AT: usize = 72;
 
 /// Whether `message` has body lines too long to read in `git log`.
 fn needs_rewrap(message: &str) -> bool {
-    message
-        .lines()
-        .skip(1)
-        .any(|line| line.chars().count() > WRAP_AT)
+    (crate::backend::subject_and_body(message).1.lines()).any(|line| line.chars().count() > WRAP_AT)
 }
 
 /// What discarding changes is called, "…" when it asks first: in a linked worktree, as

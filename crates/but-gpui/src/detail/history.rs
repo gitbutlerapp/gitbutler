@@ -211,11 +211,11 @@ fn subject(operation: &Operation) -> Option<String> {
     }
     let name = |commits: &[&Recorded]| match commits {
         [] => None,
-        [one] => Some(commit_title(one.title()).to_string()),
+        [one] => Some(commit_title(&one.title()).to_string()),
         many => Some(plural(many.len(), "commit")),
     };
     if let (Some(K::SquashCommit), [gone], [into]) = (operation.kind, &removed[..], &edited[..]) {
-        let (gone, into) = (commit_title(gone.title()), commit_title(into.title()));
+        let (gone, into) = (commit_title(&gone.title()), commit_title(&into.title()));
         return Some(format!("{gone} into {into}"));
     }
     if let Some(K::MergeUpstream | K::UpdateWorkspaceBase) = operation.kind {
@@ -660,7 +660,7 @@ impl Detail {
     ) -> AnyElement {
         use OperationKind as K;
         let integrated = matches!(kind, Some(K::MergeUpstream | K::UpdateWorkspaceBase));
-        let title = |commit: &Recorded| commit_title(commit.title()).to_string();
+        let title = |commit: &Recorded| commit_title(&commit.title()).to_string();
         let (glyph, color, commit, text, note): (_, _, Option<CommitId>, _, _) = match change {
             Change::Added { commit, branch } => (
                 Icon::Plus,

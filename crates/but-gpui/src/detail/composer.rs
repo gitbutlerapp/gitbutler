@@ -849,7 +849,7 @@ impl Detail {
         // The files leave the list and the commit shows on its branch right away.
         let overlay = Overlay {
             new_commit: target.clone().map(|branch| {
-                let title = message.lines().next().unwrap_or_default().to_owned();
+                let title = crate::backend::subject_and_body(&message).0;
                 (NewAt::Top(branch), title.into())
             }),
             files_in: worktree.clone(),

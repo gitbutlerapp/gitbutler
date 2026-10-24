@@ -46,8 +46,8 @@ pub struct Recorded {
 }
 
 impl Recorded {
-    pub fn title(&self) -> &str {
-        self.message.lines().next().unwrap_or_default()
+    pub fn title(&self) -> String {
+        super::subject_and_body(&self.message).0
     }
 
     /// Whether it's `before` amended: on the same parent with other changes. One rebased
