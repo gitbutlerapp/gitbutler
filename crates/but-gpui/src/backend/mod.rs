@@ -316,9 +316,15 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         unrecorded,
         remoteless,
         editing: None,
+        // The branches the worktrees shown have checked out, which the Branches page leaves off.
+        refs: (worktrees.iter()).fold(refs ^ reviews_fingerprint(&cached), |sum, w| {
+            use std::hash::{Hash as _, Hasher as _};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            w.branch.hash(&mut hasher);
+            sum ^ hasher.finish()
+        }),
         worktrees,
         archived_worktrees,
-        refs: refs ^ reviews_fingerprint(&cached),
     })
 }
 

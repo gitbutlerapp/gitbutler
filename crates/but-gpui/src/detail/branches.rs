@@ -277,7 +277,7 @@ impl Detail {
                 // When read for the project page's count, that page stays as it is.
                 let shown =
                     matches!(this.selection(cx), Some(Selection::Branches(p)) if p == project);
-                let all = match result {
+                let mut all = match result {
                     Ok(all) => all,
                     // Said in place of the list, which comes back as it was once a read on a
                     // later change works.
@@ -293,6 +293,14 @@ impl Detail {
                         return cx.notify();
                     }
                 };
+                // One a linked worktree the navigator shows has checked out is in use there,
+                // as applied ones are in the workspace.
+                if let Some(ws) = this.store.read(cx).workspace(&project) {
+                    for b in all.iter_mut().filter(|b| b.local) {
+                        b.applied |=
+                            (ws.worktrees.iter()).any(|w| w.branch.as_deref() == Some(&b.name));
+                    }
+                }
                 let previous = this.branches.remove(&project);
                 let branches = Branches::read(project.clone(), seen, all, previous);
                 this.branches.insert(project.clone(), branches);
@@ -885,37 +893,23 @@ impl Detail {
         at: Point<Pixels>,
         cx: &mut Context<Self>,
     ) {
-        let items = self.branch_menu_items(project, ref_name, cx);
+        let items = self.branch_menu_items(project, ref_name);
         if !items.is_empty() {
             self.open_menu(at, items, cx);
         }
     }
 
     /// What the Branches page offers for its branch `ref_name`, as right-clicking it does.
-    pub(crate) fn branch_menu_items(
-        &self,
-        project: &ProjectId,
-        ref_name: &str,
-        cx: &App,
-    ) -> Vec<MenuItem> {
+    pub(crate) fn branch_menu_items(&self, project: &ProjectId, ref_name: &str) -> Vec<MenuItem> {
         // By its name, as the table has none opened.
         let Some(branch) = self.listed_branch(project, ref_name) else {
             return Vec::new();
         };
-        let mut items = Vec::new();
-        let worktree = self.checked_out_in(project, branch, cx);
         let (p, r) = (project.clone(), ref_name.to_owned());
-        items.push(match worktree.clone() {
-            Some(name) => MenuItem::new("Open worktree", move |app, _, cx| {
-                let shown = Selection::Worktree(p.clone(), name.clone());
-                app.store
-                    .update(cx, |store, cx| store.select(Some(shown), cx))
-            }),
-            None => MenuItem::new("Apply", move |app, _, cx| {
-                app.detail
-                    .update(cx, |detail, cx| detail.apply_branch(&p, &r, cx))
-            }),
-        });
+        let mut items = vec![MenuItem::new("Apply", move |app, _, cx| {
+            app.detail
+                .update(cx, |detail, cx| detail.apply_branch(&p, &r, cx))
+        })];
         if let Some(url) = (branch.review.as_ref()).and_then(|r| r.url.clone()) {
             items.push(MenuItem::new("Open pull request", move |_, _, cx| {
                 cx.open_url(&url)
@@ -943,7 +937,7 @@ impl Detail {
                 },
             ));
         }
-        if branch.local && worktree.is_none() {
+        if branch.local {
             let (p, r) = (project.clone(), ref_name.to_owned());
             items.push(
                 // Once the menu's done with the app, which asking to confirm updates too.
@@ -960,24 +954,6 @@ impl Detail {
             );
         }
         items
-    }
-
-    /// The linked worktree that has `branch` checked out, if one does: applying or deleting it
-    /// would pull it out from under that worktree.
-    fn checked_out_in(
-        &self,
-        project: &ProjectId,
-        branch: &OtherBranch,
-        cx: &App,
-    ) -> Option<Arc<str>> {
-        let ws = self
-            .store
-            .read(cx)
-            .workspace(project)
-            .filter(|_| branch.local)?;
-        (ws.worktrees.iter())
-            .find(|w| w.branch.as_deref() == Some(branch.name.as_str()))
-            .map(|worktree| worktree.name.clone())
     }
 
     /// Select commit `id` of `ref_name`, keeping the picks when it's one of them, and offer
