@@ -65,6 +65,9 @@ actions!(
 pub fn bind_keys(cx: &mut App) {
     let nav = Some("Navigator && !TextInput");
     let workspace = Some("Workspace && !TextInput");
+    // Windows' redo, bound first so menus show Ctrl+Shift+Z, as Zed's do.
+    #[cfg(not(target_os = "macos"))]
+    cx.bind_keys([KeyBinding::new("ctrl-y", Redo, workspace)]);
     cx.bind_keys([
         KeyBinding::new("secondary-q", Quit, None),
         // As a browser zooms, and Lite and the desktop app with it.

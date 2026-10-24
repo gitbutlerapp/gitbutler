@@ -29,6 +29,12 @@ use crate::ui::{POPOVER_RADIUS, dp, h_flex, keycap, list_row, muted, popover, sh
 actions!(palette, [PaletteUp, PaletteDown, GoToBranch, ShowActions]);
 
 pub fn bind_keys(cx: &mut gpui::App) {
+    // The keys that open a context menu on Windows and Linux, bound first so menus show M.
+    #[cfg(not(target_os = "macos"))]
+    cx.bind_keys([
+        KeyBinding::new("shift-f10", ShowActions, Some("Workspace && !TextInput")),
+        KeyBinding::new("menu", ShowActions, Some("Workspace && !TextInput")),
+    ]);
     cx.bind_keys([
         KeyBinding::new("secondary-p", GoToBranch, None),
         KeyBinding::new("m", ShowActions, Some("Workspace && !TextInput")),

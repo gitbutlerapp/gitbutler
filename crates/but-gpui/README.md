@@ -89,14 +89,14 @@ The Help menu links the docs, the release notes and where to report an issue, sh
 |---|---|
 | ⌘K | command palette (⌘⇧P works too); ↑ ↓ or ⌃P ⌃N move through it |
 | ⌘P | go to an applied branch by name or pull request title, in any watched project (the Branches page finds the others) |
-| M | what right-clicking the selected row, or the file under the cursor in the file list or the diff, offers, to pick from by typing |
+| M | what right-clicking the selected row, or the file under the cursor in the file list or the diff, offers, to pick from by typing; on Windows and Linux, Shift+F10 and the Menu key too |
 | ⌘1, ⌘2, ⌘3 | focus the navigator, the file list (or the diff while it's hidden), the diff |
 | . | show or hide the navigator |
 | ⌘↩ | write the commit message, or commit once it's written |
 | ⌥⌘↩ | while committing: amend the newest commit of the branch you're committing to instead |
 | ⇧⌘B | while committing: pick the branch to commit to |
 | Space, X | while committing: check or uncheck the file under the cursor in the file list, with the files selected along with it, or the hunk under it in the diff |
-| ⌘Z, ⇧⌘Z | undo, redo; in a text field, the typing |
+| ⌘Z, ⇧⌘Z | undo, redo (on Windows and Linux, Ctrl+Y redoes too); in a text field, the typing |
 | Escape | let go of what's cut or picked; with nothing cut or picked, dismiss the newest error card |
 | ⌘X, ⌘V | cut the selection (from a diff or its files, the lines, hunk or file under the cursor, or while committing, what's checked), paste it onto the selected row (⌥⌘V squashes a commit instead of moving it, ⇧⌘V puts it below) |
 | ⌘N | new branch |
