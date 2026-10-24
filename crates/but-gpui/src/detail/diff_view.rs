@@ -970,7 +970,12 @@ impl Detail {
                 let path = &file_diff.file.path;
                 let element =
                     self.conflict_row(path, found, part, &layout, last, entity, window, cx);
-                padded.child(element).into_any_element()
+                // Its own id, as every conflict's bar names its buttons alike, and GPUI takes
+                // a click by the id: unnamed, a click on the second conflict's went nowhere.
+                padded
+                    .id(("conflict-row", ix))
+                    .child(element)
+                    .into_any_element()
             }
             (DiffRow::Note(_), Some(file_diff)) => padded
                 .child(match self.drawing_of(file_diff) {
