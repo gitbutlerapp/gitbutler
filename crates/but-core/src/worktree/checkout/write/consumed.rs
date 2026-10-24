@@ -5,6 +5,7 @@ use anyhow::Context as _;
 use bstr::{BStr, BString, ByteSlice as _};
 use gix::{index::entry::Mode, objs::Write as _};
 
+use super::plan::Content;
 use crate::{
     RepositoryExt as _,
     index::{Edit, Stat},
@@ -16,7 +17,7 @@ use crate::{
 /// A path with `head_tree`'s entry takes `override_tree`'s, and one with `override_tree`'s keeps
 /// it. Other staged content is merged with the change if both are files and the merge is clean,
 /// and otherwise replaced by `override_tree`'s entry. Entries at other paths keep their stats.
-pub(super) fn carry_into_index(
+pub(in crate::worktree::checkout) fn carry_into_index(
     repo: &gix::Repository,
     index: &mut gix::index::State,
     [head_tree, override_tree]: [gix::ObjectId; 2],
@@ -103,22 +104,6 @@ fn forget_racily_clean_stats(
         }
     }
     Ok(())
-}
-
-/// What an index or tree entry holds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Content {
-    id: gix::ObjectId,
-    mode: Mode,
-}
-
-impl Content {
-    fn of(entry: &gix::index::Entry) -> Self {
-        Content {
-            id: entry.id,
-            mode: entry.mode,
-        }
-    }
 }
 
 /// What the index holds at a path.
