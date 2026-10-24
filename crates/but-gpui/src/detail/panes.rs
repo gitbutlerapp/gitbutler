@@ -534,30 +534,7 @@ impl Detail {
         // A long title wraps rather than hiding its end: it's shown nowhere else.
         let title = page_title(Icon::Commit, theme)
             .id("commit-title")
-            .child(
-                h_flex()
-                    .items_start()
-                    .min_w_0()
-                    .gap(dp(6.))
-                    .child(title_text(commit_title(title)))
-                    .when(!body.is_empty(), |el| {
-                        let open = self.message_open;
-                        el.child(
-                            icon_button("full-message", Icon::TextBlock)
-                                .small()
-                                .selected(open)
-                                .tooltip(if open {
-                                    "Hide full message"
-                                } else {
-                                    "Show full message"
-                                })
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.message_open = !this.message_open;
-                                    cx.notify();
-                                })),
-                        )
-                    }),
-            )
+            .child(self.message_title(title, &body, cx))
             .on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
                 if event.click_count() == 2 {
                     this.start_reword(window, cx)
@@ -592,26 +569,49 @@ impl Detail {
             .gap(dp(10.))
             .map(|el| match rewording {
                 Some((_, input, _)) => el.child(self.reword_editor(input, theme, window, cx)),
-                None => el
-                    .child(title)
-                    // Further off the lines around it than they stand from each other.
-                    .when(self.message_open && !body.is_empty(), |el| {
-                        el.child(
-                            div()
-                                .mt(dp(2.))
-                                .mb(dp(6.))
-                                .max_w(dp(580.))
-                                .font_family(theme.mono_font.clone())
-                                .text_size(dp(12.))
-                                .line_height(dp(19.))
-                                .child(body),
-                        )
-                    }),
+                None => el.child(title).children(self.full_message(body, theme)),
             })
             .child(meta);
         let target = Selection::Commit(project.clone(), id);
         let apply = super::resolve::apply_button(self, cx.entity().downgrade());
         self.page_header(main, target, apply, None, theme, cx)
+    }
+
+    /// A commit's title, with a button that shows the rest of its message, `body`, if any.
+    fn message_title(&self, title: &str, body: &str, cx: &Context<Self>) -> Div {
+        let open = self.message_open;
+        let toggle = (!body.is_empty()).then(|| {
+            icon_button("full-message", Icon::TextBlock)
+                .small()
+                .selected(open)
+                .tooltip(if open {
+                    "Hide full message"
+                } else {
+                    "Show full message"
+                })
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.message_open = !this.message_open;
+                    cx.notify();
+                }))
+        });
+        (h_flex().items_start().min_w_0().gap(dp(6.)))
+            .child(title_text(commit_title(title)))
+            .children(toggle)
+    }
+
+    /// The rest of a commit's message under its title, once its button shows it.
+    fn full_message(&self, body: String, theme: &Theme) -> Option<Div> {
+        // Further off the lines around it than they stand from each other.
+        (self.message_open && !body.is_empty()).then(|| {
+            div()
+                .mt(dp(2.))
+                .mb(dp(6.))
+                .max_w(dp(580.))
+                .font_family(theme.mono_font.clone())
+                .text_size(dp(12.))
+                .line_height(dp(19.))
+                .child(body)
+        })
     }
 
     /// The header of the commits picked together: how many, the branches they're on and how
@@ -716,19 +716,34 @@ impl Detail {
         };
         // Listed, or brought in by a merge that is.
         let listed = ws.upstream(ref_name).iter().find(|c| c.id == id);
-        let commit = match listed {
-            Some(c) => (&c.title, &c.author, &c.email, c.agent.as_ref(), c.time),
-            None => match store.merged_upstream(project, ref_name, id) {
-                Some((_, c)) => (&c.title, &c.author, &c.email, c.agent.as_ref(), c.time),
-                None => return div().into_any_element(),
-            },
+        let (title, body, author, email, agent, time) = match listed {
+            Some(c) => (
+                &c.title,
+                &c.body,
+                &c.author,
+                &c.email,
+                c.agent.as_ref(),
+                c.time,
+            ),
+            None => {
+                let Some((_, c)) = store.merged_upstream(project, ref_name, id) else {
+                    return div().into_any_element();
+                };
+                (
+                    &c.title,
+                    &c.body,
+                    &c.author,
+                    &c.email,
+                    c.agent.as_ref(),
+                    c.time,
+                )
+            }
         };
-        let (title, author, email, agent, time) = commit;
         let remote = match ref_name {
             Some(ref_name) => ws.find_branch(ref_name).and_then(|b| b.remote.clone()),
             None => ws.target.as_ref().map(|target| target.name.clone()),
         };
-        let title = page_title(Icon::ArrowDown, theme).child(title_text(commit_title(title)));
+        let title = page_title(Icon::ArrowDown, theme).child(self.message_title(title, body, cx));
         let meta = meta_row(theme)
             .child(byline(author, email, agent, time, theme))
             .child(self.sha_chip(id, theme, cx))
@@ -736,7 +751,9 @@ impl Detail {
                 Some(remote) => format!("only on {remote}"),
                 None => "only on the remote".to_owned(),
             }));
-        let main = v_flex().gap(dp(10.)).child(title).child(meta);
+        let main = (v_flex().gap(dp(10.)).child(title))
+            .children(self.full_message(body.clone(), theme))
+            .child(meta);
         let target = Selection::Upstream(project.clone(), ref_name.map(str::to_owned), id);
         let tabs = (self.selected_review(cx)).map(|review| self.review_tabs(review, theme, cx));
         self.page_header(main, target, None, tabs, theme, cx)

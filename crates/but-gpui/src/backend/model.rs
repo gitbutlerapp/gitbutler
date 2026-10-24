@@ -489,6 +489,8 @@ pub struct RemoteCommit {
     pub key: String,
     pub authored: String,
     pub title: String,
+    /// The rest of its message, after the title.
+    pub body: String,
     /// Who it's shown by, as [`byline`] picks.
     pub author: String,
     /// Theirs, for their picture.
@@ -1133,6 +1135,7 @@ mod tests {
                     key: String::new(),
                     authored: String::new(),
                     title: String::new(),
+                    body: String::new(),
                     author: String::new(),
                     email: String::new(),
                     agent: None,

@@ -493,6 +493,7 @@ fn branch_from(
                     key: commit.change_id().to_string(),
                     authored: model::authored(&commit.author, commit.message.trim_end()),
                     title: title(&commit.message),
+                    body: body(&commit.message),
                     author,
                     email,
                     agent,
@@ -662,6 +663,16 @@ pub fn commit_signer(path: &Path, id: CommitId) -> Result<Option<&'static str>> 
 fn title(message: &[u8]) -> String {
     let line = message.lines().next().unwrap_or_default();
     line.to_str_lossy().trim().to_owned()
+}
+
+/// The rest of a commit message, after its title.
+fn body(message: &[u8]) -> String {
+    (message.lines().skip(1))
+        .map(|line| line.to_str_lossy())
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim()
+        .to_owned()
 }
 
 fn file_change(change: but_core::TreeChange) -> FileChange {

@@ -14,7 +14,7 @@ use but_core::sync::RepoExclusive;
 use super::ops::{full_name, holds};
 use super::reviews::{cached_reviews, from_cache};
 use super::{
-    Agent, CommitId, RemoteCommit, Review, ReviewState, open, present_first_parent, runtime,
+    Agent, CommitId, RemoteCommit, Review, ReviewState, body, open, present_first_parent, runtime,
     short_ref, title,
 };
 
@@ -70,6 +70,7 @@ pub(super) fn incoming(
                 .map(|review| review.title.clone())
                 .filter(|title| !title.is_empty())
                 .unwrap_or(commit.title),
+            body: commit.body,
             author: commit.author,
             email: commit.email,
             agent: commit.agent,
@@ -177,12 +178,7 @@ pub(super) fn target_commit(commit: &gix::Commit<'_>) -> Result<TargetCommit> {
     Ok(TargetCommit {
         id: CommitId(commit.id),
         title: title(message),
-        body: (message.lines().skip(1))
-            .map(|line| line.to_str_lossy())
-            .collect::<Vec<_>>()
-            .join("\n")
-            .trim()
-            .to_owned(),
+        body: body(message),
         time: commit.time()?.seconds,
         author,
         email,
