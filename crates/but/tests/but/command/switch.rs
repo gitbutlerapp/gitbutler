@@ -3,6 +3,72 @@ use snapbox::{assert_data_eq, str};
 use crate::utils::CommandExt as _;
 use crate::utils::Sandbox;
 
+#[test]
+fn switch_runs_post_checkout() {
+    for hooks_path in [".git/hooks", ".custom-hooks"] {
+        let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+        env.setup_metadata(&["A"]);
+        env.invoke_git(&format!("config core.hooksPath {hooks_path}"));
+        env.file(
+            format!("{hooks_path}/post-checkout"),
+            "#!/bin/sh\nprintf '%s\\n' \"$@\" > .git/checkout-args\ngit symbolic-ref HEAD >> .git/checkout-args\n",
+        );
+        env.invoke_bash(&format!("chmod +x {hooks_path}/post-checkout"));
+
+        for target in ["A", "A", "main", "--workspace"] {
+            let old_head = env.invoke_git("rev-parse HEAD");
+            env.but(format!("switch {target}")).assert().success();
+            let new_head = env.invoke_git("rev-parse HEAD");
+            let head_ref = env.invoke_git("symbolic-ref HEAD");
+            assert_eq!(
+                std::fs::read_to_string(env.projects_root().join(".git/checkout-args")).unwrap(),
+                format!("{old_head}\n{new_head}\n1\n{head_ref}\n"),
+                "hook receives checkout arguments and runs after HEAD changes"
+            );
+        }
+    }
+}
+
+#[test]
+fn switch_does_not_run_post_checkout_when_checkout_fails_or_workspace_is_unchanged() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file(
+        ".git/hooks/post-checkout",
+        "#!/bin/sh\ntouch .git/hook-ran\n",
+    );
+    env.invoke_bash("chmod +x .git/hooks/post-checkout");
+
+    env.but("switch --workspace").assert().success();
+    env.but("switch nonexistent").assert().failure();
+    env.file("A", "uncommitted changes");
+    env.but("switch main").assert().failure();
+    assert!(
+        !env.projects_root().join(".git/hook-ran").exists(),
+        "neither a failed checkout nor an unchanged workspace should run hooks"
+    );
+}
+
+#[test]
+fn switch_post_checkout_failure_keeps_checkout() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+    env.file(
+        ".git/hooks/post-checkout",
+        "#!/bin/sh\necho hook-failed >&2\nexit 1\n",
+    );
+    env.invoke_bash("chmod +x .git/hooks/post-checkout");
+    env.but("switch A").assert().failure().stderr_eq(str![[r#"
+Error: Post-checkout hook failed (exit status: 1): hook-failed
+
+"#]]);
+    assert_eq!(
+        env.invoke_git("symbolic-ref HEAD"),
+        "refs/heads/A",
+        "hook failure must not undo checkout"
+    );
+}
+
 fn status_json(env: &crate::utils::Sandbox) -> serde_json::Value {
     let output = env.but("--json status").allow_json().output().unwrap();
     serde_json::from_slice(&output.stdout)
