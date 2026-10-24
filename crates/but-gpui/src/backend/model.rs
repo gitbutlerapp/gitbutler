@@ -318,9 +318,9 @@ impl Workspace {
             .iter()
             .filter_map(|file| file.modified.map(|ms| ms / 1000));
         // Linked worktrees' too, as an agent committing in one clears its uncommitted files.
-        let committed = self
-            .shown_branches()
-            .filter_map(|branch| branch.commits.first().map(|c| c.time));
+        // Any commit, not just the top one, which can be an old one cherry-picked.
+        let committed =
+            (self.shown_branches()).flat_map(|branch| branch.commits.iter().map(|c| c.time));
         let in_worktrees = self.worktrees.iter().filter_map(Worktree::last_activity);
         edited.chain(committed).chain(in_worktrees).max()
     }
