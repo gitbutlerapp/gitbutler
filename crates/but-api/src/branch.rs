@@ -1131,8 +1131,10 @@ pub fn branch_name_segment_with_perm(
 /// ad-hoc/single-branch workspace it can also remove the currently checked-out
 /// reference: when that reference owns no commits and has another named
 /// reference underneath it, `HEAD` is first moved onto the reference below (the
-/// reverse of creating an empty branch above the checked-out one). For
-/// lower-level implementation details, see
+/// reverse of creating an empty branch above the checked-out one). Like unapply,
+/// leaving a managed workspace with one lane checks out that lane, or with none
+/// the local target branch, and deletes the workspace reference. For lower-level
+/// implementation details, see
 /// [`but_workspace::branch::remove_reference()`].
 #[but_api(
     napi,
@@ -1261,6 +1263,14 @@ pub fn branch_remove_with_perm(
         )?
     };
     let changed = if let Some(new_ws) = new_ws {
+        // Like unapply, leave a workspace that removing the branch left without purpose.
+        let new_ws = but_workspace::branch::dissolve_unnecessary_workspace(
+            &new_ws,
+            &repo,
+            &meta,
+            Default::default(),
+        )?
+        .map_or(new_ws, |(dissolved, _)| dissolved);
         drop(ws);
         drop(repo);
         ctx.update_workspace_cache(new_ws);

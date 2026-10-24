@@ -687,8 +687,42 @@ pub fn run(
     {
         *replaced_commits = std::mem::take(&mut ws.replaced_commits);
     }
+    if matches!(outcome, DiscardOutcome::Branches(_)) {
+        dissolve_unnecessary_workspace(ctx, meta, perm, &mut ws)?;
+    }
 
     Ok((outcome, ws))
+}
+
+/// Like unapply, leave a workspace that removing branches left without purpose, showing the
+/// result in `state` while keeping the commits the operation replaced.
+fn dissolve_unnecessary_workspace(
+    ctx: &mut Context,
+    meta: &mut impl RefMetadata,
+    perm: &mut RepoExclusive,
+    state: &mut WorkspaceState,
+) -> anyhow::Result<()> {
+    let dissolved = {
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+        but_workspace::branch::dissolve_unnecessary_workspace(&ws, &repo, meta, Default::default())?
+    };
+    let Some((new_ws, _)) = dissolved else {
+        return Ok(());
+    };
+    ctx.update_workspace_cache(new_ws);
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+    *state = WorkspaceState {
+        checkout_conflict_occurred: state.checkout_conflict_occurred,
+        ..WorkspaceState::from_workspace_with_db(
+            &ws,
+            meta,
+            &repo,
+            std::mem::take(&mut state.replaced_commits),
+            std::mem::take(&mut state.conflicted_commits),
+            &mut db,
+        )?
+    };
+    Ok(())
 }
 
 #[derive(Debug)]

@@ -623,7 +623,7 @@ pub use apply::apply;
 
 /// Functions and types related to removing a branch from the workspace.
 pub mod unapply;
-pub use unapply::function::unapply;
+pub use unapply::function::{dissolve_unnecessary_workspace, unapply};
 
 /// related types for removing a workspace reference.
 pub mod remove_reference;

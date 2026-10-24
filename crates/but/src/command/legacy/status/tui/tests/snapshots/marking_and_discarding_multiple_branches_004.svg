@@ -16,6 +16,9 @@
     <text x="66" y="60" style="fill:#CCCCCC;">[</text>
     <text x="74 82 90 98 106 114 122 130 138 146" y="60" style="fill:#00AA00;">c-branch-2</text>
     <text x="154" y="60" style="fill:#CCCCCC;">]</text>
+    <text x="170" y="60" style="fill:#CCCCCC;">[</text>
+    <text x="178 186 194 202" y="60" style="fill:#AA00AA;">HEAD</text>
+    <text x="210" y="60" style="fill:#CCCCCC;">]</text>
     <text x="10 18" y="78" style="fill:#CCCCCC;">┊●</text>
     <text x="50" y="78" style="fill:#AA00AA;">o</text>
     <text x="58 66" y="78" style="fill:#CCCCCC;opacity:0.75;">my</text>
