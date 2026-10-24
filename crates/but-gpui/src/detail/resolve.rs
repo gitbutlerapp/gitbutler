@@ -945,22 +945,28 @@ impl AppView {
         el: gpui::Stateful<gpui::Div>,
         cx: &mut Context<Self>,
     ) -> gpui::Stateful<gpui::Div> {
-        let conflicted = self.oldest_conflict(cx).is_some();
+        let conflicted = self.conflict_to_resolve(cx).is_some();
         el.when(conflicted, |el| {
             el.on_action(cx.listener(|this, _: &ResolveConflicts, window, cx| {
-                if let Some((project, id)) = this.oldest_conflict(cx) {
+                if let Some((project, id)) = this.conflict_to_resolve(cx) {
                     this.resolve_commit(project, id, window, cx);
                 }
             }))
         })
     }
 
-    /// The oldest conflicted commit of the selected branch or commit's stack.
-    fn oldest_conflict(&self, cx: &App) -> Option<(ProjectId, CommitId)> {
+    /// The selected commit when it's conflicted, else the oldest conflicted commit of the
+    /// selected branch or commit's stack.
+    fn conflict_to_resolve(&self, cx: &App) -> Option<(ProjectId, CommitId)> {
         let store = self.store.read(cx);
         let selection = (store.selection.as_ref()).filter(|s| store.worktree_of(s).is_none())?;
         let workspace = store.workspace(selection.project())?;
+        let conflicted =
+            |id: CommitId| workspace.find_commit(id).is_some_and(|(_, c)| c.conflicted);
         let commit = match selection {
+            Selection::Commit(project, id) if conflicted(*id) => {
+                return Some((project.clone(), *id));
+            }
             Selection::Commit(_, id) => *id,
             Selection::Branch(_, ref_name) => {
                 let (stack, _) = workspace.stack_of(ref_name)?;
@@ -968,11 +974,9 @@ impl AppView {
             }
             _ => return None,
         };
-        let id = oldest_first(workspace, commit).into_iter().find(|id| {
-            workspace
-                .find_commit(*id)
-                .is_some_and(|(_, c)| c.conflicted)
-        })?;
+        let id = oldest_first(workspace, commit)
+            .into_iter()
+            .find(|id| conflicted(*id))?;
         Some((selection.project().clone(), id))
     }
 
