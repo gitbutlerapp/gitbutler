@@ -420,6 +420,16 @@ impl Prefs {
     }
 }
 
+/// `value`, an object of `T`'s fields, without those `T` can't read.
+fn readable<T: serde::de::DeserializeOwned>(value: &mut serde_json::Value) {
+    if let Some(fields) = value.as_object_mut() {
+        fields.retain(|key, field| {
+            let alone = serde_json::json!({ key.as_str(): field.clone() });
+            serde_json::from_value::<T>(alone).is_ok()
+        });
+    }
+}
+
 /// Where the window was: the display it was on, and its left, top, width and height on that
 /// display. A full-screen window keeps the size it returns to.
 #[derive(Clone, Serialize, Deserialize)]
@@ -448,11 +458,25 @@ impl Saved {
         let Some((bytes, path)) = Self::path().and_then(read).or_else(|| read(shared()?)) else {
             return Self::default();
         };
-        serde_json::from_slice(&bytes).unwrap_or_else(|err| {
+        Self::parse(&bytes).unwrap_or_else(|err| {
             // Keep what couldn't be read rather than write over it.
             tracing::warn!("couldn't read {}: {err}", path.display());
             std::fs::rename(&path, path.with_extension("json.bak")).ok();
             Self::default()
+        })
+    }
+
+    /// What `bytes` saved, but for what this build can't read: a choice a newer build saved
+    /// that this one doesn't know, as a new size, goes back to its default alone.
+    fn parse(bytes: &[u8]) -> serde_json::Result<Self> {
+        serde_json::from_slice(bytes).or_else(|err| {
+            tracing::warn!("reading only some of the saved state: {err}");
+            let mut value: serde_json::Value = serde_json::from_slice(bytes)?;
+            if let Some(prefs) = value.get_mut("prefs") {
+                readable::<Prefs>(prefs);
+            }
+            readable::<Self>(&mut value);
+            serde_json::from_value(value)
         })
     }
 
@@ -487,6 +511,19 @@ mod tests {
         assert!(
             saved.kept_by_project.is_empty(),
             "the old list doesn't say whose they are"
+        );
+    }
+
+    #[test]
+    fn a_choice_this_build_doesnt_know_loses_only_itself() {
+        let newer = r#"{ "expanded": ["a"], "prefs": { "code_size": "Huge", "wrap": true } }"#;
+        let saved = Saved::parse(newer.as_bytes()).expect("the rest still reads");
+        assert_eq!(saved.expanded, ["a"], "the watched projects are kept");
+        assert!(saved.prefs.wrap, "the other choices are kept");
+        assert_eq!(
+            saved.prefs.code_size,
+            Default::default(),
+            "the unknown one is the default"
         );
     }
 
