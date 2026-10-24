@@ -183,69 +183,72 @@ impl Detail {
                 cx.notify()
             }))
         });
-        let columns =
-            quarters().map(|(ix, (n, landed))| {
-                let quarter = first + ix as i64;
-                let start = quarter * QUARTER;
-                let inside = span.keeps(quarter);
-                // A run of quarters picked reads as one band, rounded only at its ends.
-                let joined = |next: i64| picked && inside && span.keeps(next);
-                let mut tip = format!("{}–{}", local_clock(start), local_clock(start + QUARTER));
-                match (n, landed) {
-                    (0, 0) => tip.push_str(" · quiet"),
-                    (0, _) => {}
-                    (n, _) => tip.push_str(&format!(" · {}", plural(n as usize, "edit"))),
-                }
-                if landed > 0 {
-                    tip.push_str(&format!(" · {}", plural(landed, "commit")));
-                }
-                let (edit, commit) = match inside {
-                    true => (theme.pop, theme.text_2),
-                    false => (theme.pop.opacity(0.2), theme.text_2.opacity(0.25)),
-                };
-                let column = v_flex()
-                    .id(("now-quarter", ix))
-                    .flex_1()
-                    .when(!joined(quarter - 1), |el| el.rounded_l(dp(3.)))
-                    .when(!joined(quarter + 1), |el| el.rounded_r(dp(3.)))
-                    .when(picked && inside, |el| el.bg(theme.selected_unfocused()))
-                    .hover(|el| el.bg(theme.hover()))
-                    .tooltip(Tooltip::text(tip));
-                picks_slot(column, quarter, Detail::quarter_gesture, cx)
+        let columns = quarters().map(|(ix, (n, landed))| {
+            let quarter = first + ix as i64;
+            let start = quarter * QUARTER;
+            let inside = span.keeps(quarter);
+            let mut tip = format!("{}–{}", local_clock(start), local_clock(start + QUARTER));
+            match (n, landed) {
+                (0, 0) => tip.push_str(" · quiet"),
+                (0, _) => {}
+                (n, _) => tip.push_str(&format!(" · {}", plural(n as usize, "edit"))),
+            }
+            if landed > 0 {
+                tip.push_str(&format!(" · {}", plural(landed, "commit")));
+            }
+            let (edit, commit) = match inside {
+                true => (theme.pop, theme.text_2),
+                false => (theme.pop.opacity(0.2), theme.text_2.opacity(0.25)),
+            };
+            let column = v_flex()
+                .id(("now-quarter", ix))
+                .flex_1()
+                .tooltip(Tooltip::text(tip));
+            picks_slot(
+                column,
+                quarter,
+                &span.slots,
+                theme,
+                Detail::quarter_gesture,
+                cx,
+            )
+            .child(
+                div()
+                    .h(dp(BARS_HEIGHT))
+                    .px(dp(1.))
+                    .flex()
+                    .items_end()
                     .child(
                         div()
-                            .h(dp(BARS_HEIGHT))
-                            .px(dp(1.))
-                            .flex()
-                            .items_end()
-                            .child(
-                                div()
-                                    .w_full()
-                                    // A quiet quarter a stub on the line, as the project's
-                                    // activity draws a quiet day.
-                                    .h(dp((n as f32 / most as f32 * BARS_HEIGHT).max(2.)))
-                                    .rounded_t(dp(1.))
-                                    .bg(match n {
-                                        0 => theme.border_2,
-                                        _ => edit,
-                                    }),
-                            ),
-                    )
-                    // The commits under the line, apart from the edits over it.
-                    .child(div().h(dp(COMMITS_HEIGHT)).pt(dp(2.)).px(dp(1.)).when(
-                        landed > 0,
-                        |el| {
-                            let share = landed as f32 / most_commits as f32;
-                            el.child(
-                                div()
-                                    .w_full()
-                                    .h(dp((share * (COMMITS_HEIGHT - 2.)).max(4.)))
-                                    .rounded_b(dp(1.))
-                                    .bg(commit),
-                            )
-                        },
-                    ))
-            });
+                            .w_full()
+                            // A quiet quarter a stub on the line, as the project's
+                            // activity draws a quiet day.
+                            .h(dp((n as f32 / most as f32 * BARS_HEIGHT).max(2.)))
+                            .rounded_t(dp(1.))
+                            .bg(match n {
+                                0 => theme.border_2,
+                                _ => edit,
+                            }),
+                    ),
+            )
+            // The commits under the line, apart from the edits over it.
+            .child(
+                div()
+                    .h(dp(COMMITS_HEIGHT))
+                    .pt(dp(2.))
+                    .px(dp(1.))
+                    .when(landed > 0, |el| {
+                        let share = landed as f32 / most_commits as f32;
+                        el.child(
+                            div()
+                                .w_full()
+                                .h(dp((share * (COMMITS_HEIGHT - 2.)).max(4.)))
+                                .rounded_b(dp(1.))
+                                .bg(commit),
+                        )
+                    }),
+            )
+        });
         // Every third hour marked, centred where its quarter begins, clear of both ends and of
         // "now" at the right, which takes the last two hours' room in a narrow window.
         let marks = (2..QUARTERS - 8).filter_map(|ix| {

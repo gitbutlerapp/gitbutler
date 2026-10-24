@@ -1884,24 +1884,32 @@ fn activity_strip(
             let day = first_day + ix as i64;
             let recent = today - day < 7;
             let inside = picked.is_empty() || picked.contains(&day);
+            let said = match n {
+                0 => "quiet".to_owned(),
+                n => plural(n as usize, "commit"),
+            };
+            let tip = format!("{} · {said}", crate::ui::local_weekday(noon(day)));
+            // Room under the bars, so a band of days picked holds them as the quarters' does.
             let column = div()
                 .id(("activity-day", ix))
                 .flex_1()
-                .h_full()
+                .h(dp(HEIGHT + 4.))
+                .px(dp(1.))
+                .pb(dp(4.))
                 .flex()
                 .items_end()
-                .tooltip(Tooltip::text(crate::ui::local_weekday(noon(day))));
-            picks_slot(column, day, gesture.clone(), cx).child(
+                .tooltip(Tooltip::text(tip));
+            picks_slot(column, day, picked, theme, gesture.clone(), cx).child(
                 div()
                     .w_full()
                     .h(dp((n as f32 / most as f32 * HEIGHT).max(2.)))
                     .rounded_t(fixed(1.))
-                    .bg(match (n, !picked.is_empty(), inside, recent) {
-                        (_, true, true, _) => theme.pop,
+                    .bg(match (n, picked.is_empty(), inside, recent) {
                         (0, ..) => theme.border_2,
-                        (_, true, false, _) => theme.pop.opacity(0.2),
-                        (_, false, _, true) => theme.pop,
-                        (_, false, _, false) => theme.pop.opacity(0.4),
+                        (_, false, true, _) => theme.pop,
+                        (_, false, false, _) => theme.pop.opacity(0.2),
+                        (_, true, _, true) => theme.pop,
+                        (_, true, _, false) => theme.pop.opacity(0.4),
                     }),
             )
         })
@@ -1946,15 +1954,7 @@ fn activity_strip(
                 .child(section_label("Activity", theme).flex_grow(1.))
                 .child(said),
         )
-        .child(ends_drag(
-            h_flex()
-                .h(dp(HEIGHT))
-                .gap(dp(2.))
-                .items_end()
-                .children(bars),
-            gesture,
-            cx,
-        ))
+        .child(ends_drag(h_flex().children(bars), gesture, cx))
         .child(
             h_flex()
                 .text_size(dp(11.))
