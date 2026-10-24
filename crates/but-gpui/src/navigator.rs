@@ -1,7 +1,7 @@
 //! The left column: every project as a card, each listing its uncommitted changes,
 //! stacks, branches and commits as one tree of rows.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use gpui::{
@@ -291,6 +291,9 @@ pub struct Navigator {
     /// list, kept until it leaves, so a project an agent wakes doesn't move the row about to
     /// be clicked.
     held_order: Option<Vec<ProjectId>>,
+    /// Each project's linked worktrees in the order they had then, most recently used first,
+    /// which an agent committing in one would change under the pointer as well.
+    held_worktrees: HashMap<ProjectId, Vec<Arc<str>>>,
     /// The project whose watch button the pointer is on, which shows what a click makes it.
     watch_hovered: Option<ProjectId>,
     /// Where a dragged project card would go, while one is over a card's heading.
@@ -398,6 +401,7 @@ impl Navigator {
             projects_unfolded: false,
             pointer_over: false,
             held_order: None,
+            held_worktrees: HashMap::new(),
             watch_hovered: None,
             project_drop: None,
             hold_still: false,
@@ -2495,8 +2499,13 @@ impl Render for Navigator {
                 // GPUI calls a drag's start a leave, and the drop has to land where it's aimed.
                 if !*hovered && !cx.has_active_drag() {
                     this.held_order = None;
+                    this.held_worktrees.clear();
                 } else if this.held_order.is_none() {
                     let watched = this.watched(this.store.read(cx));
+                    this.held_worktrees = (watched.iter())
+                        .filter_map(|e| Some((e.id.clone(), e.workspace.as_ref()?)))
+                        .map(|(id, ws)| (id, ws.worktrees.iter().map(|w| w.name.clone()).collect()))
+                        .collect();
                     this.held_order = Some(watched.into_iter().map(|e| e.id.clone()).collect());
                 }
                 cx.notify();

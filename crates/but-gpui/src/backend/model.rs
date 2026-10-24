@@ -121,10 +121,12 @@ impl Worktree {
         bottom.commits.last().map(|commit| commit.id)
     }
 
-    /// When one of its uncommitted files was last written, in seconds since the epoch.
+    /// When one of its uncommitted files was last written, or it last moved, as a commit
+    /// that takes them all does, in seconds since the epoch.
     pub fn last_activity(&self) -> Option<i64> {
         (self.uncommitted.iter())
             .filter_map(|file| file.modified.map(|ms| ms / 1000))
+            .chain(self.updated_at)
             .max()
     }
 }
