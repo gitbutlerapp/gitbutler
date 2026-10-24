@@ -1,5 +1,6 @@
-use but_core::DiffSpec;
-use but_testsupport::writable_scenario;
+use bstr::ByteSlice;
+use but_core::{ChangeState, DiffSpec, HunkHeader, UnifiedPatch, apply_hunks};
+use but_testsupport::{CommandExt, git, hunk_header, writable_scenario};
 use gix::object::tree::EntryKind;
 
 #[test]
@@ -197,6 +198,162 @@ fn rename_with_new_directory_at_old_path_keeps_directory() -> anyhow::Result<()>
         a.mode().is_tree(),
         "`A` must be a directory, not a leftover blob"
     );
+    Ok(())
+}
+
+#[test]
+fn apply_hunks_keeps_line_boundary_after_unterminated_last_line() -> anyhow::Result<()> {
+    for (old, new, selected_hunk, expected, reason) in [
+        (
+            "\u{feff}1\r\n2\r\n3\r\n4\r\n5\r\n6",
+            "\u{feff}1\r\n2\r\n3\r\n4\r\n5\r\n6\r\n7\r\n8\r\n9",
+            hunk_header("-7,0", "+8,2"),
+            "\u{feff}1\r\n2\r\n3\r\n4\r\n5\r\n6\r\n8\r\n9",
+            "selected CRLF lines 8 and 9 remain separate from retained line 6",
+        ),
+        (
+            "5\n6",
+            "5\n6\n7\r\n8\r\n9",
+            hunk_header("-3,0", "+4,2"),
+            "5\n6\n8\r\n9",
+            "the terminator is the one right after the old image, not the one of skipped line 7",
+        ),
+        (
+            "5\n6",
+            "5\n6\n6\r\n8",
+            hunk_header("-3,0", "+4,1"),
+            "5\n6\n8",
+            "an unselected appended copy of line 6 doesn't decide its terminator",
+        ),
+        (
+            "a\nb",
+            "A\nb\nc\nd",
+            hunk_header("-3,0", "+4,1"),
+            "a\nb\nd",
+            "an unselected earlier edit doesn't hide the new counterpart of the last line",
+        ),
+        (
+            "a\nb",
+            "A\nb\r\nc\nd",
+            hunk_header("-3,0", "+4,1"),
+            "a\nb\r\nd",
+            "after an earlier edit, the terminator still comes from the counterpart of the last line",
+        ),
+        (
+            "a\nq\nb",
+            "b\r\nA\nq\nb\nz",
+            hunk_header("-4,0", "+5,1"),
+            "a\nq\nb\nz",
+            "after an earlier edit, an earlier copy of the last line isn't its counterpart",
+        ),
+        (
+            "5\r\n6",
+            "5\r\n6\r\n7\r\n8\r\n9",
+            hunk_header("-3,0", "+5,1"),
+            "5\r\n6\r\n9",
+            "a selected final line without terminator stays unterminated",
+        ),
+        (
+            "5\r\n6",
+            "5\r\n7",
+            hunk_header("-2,1", "+2,0"),
+            "5\r\n",
+            "deleting the unterminated line keeps the previous one as is",
+        ),
+        (
+            "",
+            "\n2",
+            hunk_header("-1,0", "+2,1"),
+            "2",
+            "nothing is prepended to an empty base",
+        ),
+    ] {
+        assert_eq!(
+            apply_hunks(old.into(), new.into(), &[selected_hunk])?,
+            expected,
+            "{reason}"
+        );
+    }
+    Ok(())
+}
+
+/// Selecting the last of several lines appended after an unterminated last line must
+/// keep that line's boundary, as reported in #16027.
+#[test]
+fn selected_additions_after_unterminated_last_line_keep_line_boundary() -> anyhow::Result<()> {
+    for (autocrlf, committed, worktree, expected) in [
+        (
+            false,
+            "\u{feff}1\r\n2\r\n3\r\n4\r\n5\r\n6",
+            "\u{feff}1\r\n2\r\n3\r\n4\r\n5\r\n6\r\n7\r\n8\r\n9",
+            "\u{feff}1\r\n2\r\n3\r\n4\r\n5\r\n6\r\n8\r\n9",
+        ),
+        (
+            true,
+            "1\n2\n3\n4\n5\n6",
+            "1\r\n2\r\n3\r\n4\r\n5\r\n6\r\n7\r\n8\r\n9",
+            "1\n2\n3\n4\n5\n6\n8\n9",
+        ),
+    ] {
+        let (mut repo, _tmp) = writable_scenario("unborn-empty");
+        let work_dir = repo.workdir().expect("non-bare repo").to_owned();
+        std::fs::write(work_dir.join("file"), committed)?;
+        git(&repo).args(["add", "file"]).run();
+        git(&repo).args(["commit", "-m", "base"]).run();
+        if autocrlf {
+            repo.config_snapshot_mut()
+                .set_raw_value("core.autocrlf", "true")?;
+        } else {
+            let state = |id: gix::Id<'_>| ChangeState {
+                id: id.detach(),
+                kind: EntryKind::Blob,
+            };
+            let Some(UnifiedPatch::Patch { hunks, .. }) = UnifiedPatch::compute(
+                &repo,
+                "file".into(),
+                None,
+                state(repo.write_blob(worktree)?),
+                state(repo.rev_parse_single("HEAD:file")?),
+                0,
+            )?
+            else {
+                unreachable!("text files have a patch")
+            };
+            assert_eq!(
+                hunks.into_iter().map(HunkHeader::from).collect::<Vec<_>>(),
+                [hunk_header("-7,0", "+7,3")],
+                "terminating line 6 isn't a change, so only 7, 8 and 9 are added"
+            );
+        }
+        std::fs::write(work_dir.join("file"), worktree)?;
+
+        let mut changes = vec![Ok(DiffSpec {
+            hunk_headers: vec![hunk_header("-0,0", "+8,2")],
+            ..spec(None, "file")
+        })];
+        let (tree, _) = but_core::tree::apply_worktree_changes(
+            repo.head_tree_id()?.detach(),
+            &repo,
+            &mut changes,
+            0,
+        )?;
+        assert!(
+            changes.iter().all(Result::is_ok),
+            "the selection must be accepted: {changes:?}"
+        );
+        let blob = tree
+            .object()?
+            .into_tree()
+            .lookup_entry_by_path("file")?
+            .expect("file exists")
+            .object()?
+            .into_blob();
+        assert_eq!(
+            blob.data.as_bstr(),
+            expected,
+            "lines 8 and 9 follow line 6 on their own lines (autocrlf = {autocrlf})"
+        );
+    }
     Ok(())
 }
 
