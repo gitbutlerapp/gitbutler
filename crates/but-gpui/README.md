@@ -11,7 +11,7 @@ cargo build -p gitbutler-git --bins   # once: the askpass helper that push and f
 cargo run -p but-gpui
 ```
 
-On Linux, GPUI also links to libxcb and libxkbcommon: on Debian or Ubuntu, `sudo apt install libxcb1-dev libxkbcommon-x11-dev`.
+On Linux, GPUI also links to libxcb, libxkbcommon and fontconfig: on Debian or Ubuntu, `sudo apt install libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev`.
 
 The project list comes from the app data of the build's channel, which is `dev` by default. Build with `CHANNEL=nightly` (or `release`) to see the projects of an installed GitButler.
 
