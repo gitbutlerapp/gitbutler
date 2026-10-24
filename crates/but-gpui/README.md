@@ -84,7 +84,7 @@ The Help menu links the docs, the release notes and where to report an issue, sh
 | Anywhere | |
 |---|---|
 | ⌘K | command palette (⌘⇧P works too); ↑ ↓ or ⌃P ⌃N move through it |
-| ⌘P | go to a branch by name or pull request title, in any watched project |
+| ⌘P | go to an applied branch by name or pull request title, in any watched project (the Branches page finds the others) |
 | M | what right-clicking the selected row, or the file under the cursor in the file list or the diff, offers, to pick from by typing |
 | ⌘1, ⌘2, ⌘3 | focus the navigator, the file list (or the diff while it's hidden), the diff |
 | . | show or hide the navigator |
