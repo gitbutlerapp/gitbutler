@@ -4,9 +4,13 @@
 use std::collections::BTreeSet;
 
 use gpui::prelude::*;
-use gpui::{Context, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Window};
+use gpui::{
+    Context, Div, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Stateful, Window,
+};
 
 use super::Detail;
+use crate::theme::Theme;
+use crate::ui::dp;
 
 /// What the pointer did on a strip's slot: pressed it, with shift or ⌘ (`toggle`) held or
 /// not; moved onto it while pressed; or let go.
@@ -82,15 +86,25 @@ impl SlotPick {
 }
 
 /// `slot`'s column of a strip, picking as it's pressed, ⌘- or shift-pressed, or dragged
-/// across, `gesture` applying each to the strip's pick.
-pub(super) fn picks_slot<E: InteractiveElement>(
-    column: E,
+/// across, `gesture` applying each to the strip's pick. A run of the slots `picked` reads as
+/// one band, rounded only at its ends, and the column under the pointer lights up.
+pub(super) fn picks_slot(
+    column: Stateful<Div>,
     slot: i64,
+    picked: &BTreeSet<i64>,
+    theme: &Theme,
     gesture: impl Fn(&mut Detail, SlotGesture, &mut Context<Detail>) + Clone + 'static,
     cx: &Context<Detail>,
-) -> E {
+) -> Stateful<Div> {
     let drag = gesture.clone();
+    let joined = |next: i64| picked.contains(&slot) && picked.contains(&next);
     column
+        .when(!joined(slot - 1), |el| el.rounded_l(dp(3.)))
+        .when(!joined(slot + 1), |el| el.rounded_r(dp(3.)))
+        .when(picked.contains(&slot), |el| {
+            el.bg(theme.selected_unfocused())
+        })
+        .hover(|el| el.bg(theme.hover()))
         .on_mouse_down(
             MouseButton::Left,
             cx.listener(move |this, event: &MouseDownEvent, _, cx| {
