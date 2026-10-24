@@ -116,9 +116,12 @@ fn read(
 /// Worktree `name`'s own repository, to read its checkout from, or nothing when it can't be
 /// opened, as [`read`] says.
 fn opened(ctx: &Context, name: &str) -> Option<gix::Repository> {
-    (checkout(ctx, Some(name)))
+    let repo = (checkout(ctx, Some(name)))
         .inspect_err(|err| tracing::warn!("couldn't open worktree {name}: {err:#}"))
-        .ok()
+        .ok()?;
+    // Deleted without Git, as by `rm -rf`, Git still lists it, and its files as last read
+    // would show on with nothing changing them.
+    repo.workdir().is_some_and(Path::exists).then_some(repo)
 }
 
 /// What moved linked worktree `name`'s `HEAD` since `since`, in seconds since the epoch, other
