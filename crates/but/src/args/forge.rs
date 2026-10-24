@@ -95,7 +95,7 @@ pub mod integration {
     }
     #[derive(Debug, clap::Subcommand)]
     pub enum Subcommands {
-        /// Authenticate with your forge provider (at the moment, only GitHub is supported)
+        /// Authenticate with your forge provider (GitHub, GitLab, Bitbucket, or Forgejo)
         Auth,
         /// List authenticated forge accounts known to GitButler
         ListUsers,

@@ -49,6 +49,9 @@ fn determine_forge_from_host(host: &str) -> Option<ForgeName> {
         Some(ForgeName::Bitbucket)
     } else if host.contains("azure.com") {
         Some(ForgeName::Azure)
+    } else if host.contains("codeberg.org") || host.starts_with("forgejo.") {
+        // forgejo-fork: self-hosted instances resolve through their account's host.
+        Some(ForgeName::Forgejo)
     } else {
         None
     }
@@ -203,6 +206,9 @@ fn canonical_repository_host<'a>(forge: &ForgeName, host: &'a str) -> &'a str {
         ForgeName::GitLab => "altssh.gitlab.com",
         ForgeName::Bitbucket => "altssh.bitbucket.org",
         ForgeName::Azure => "ssh.dev.azure.com",
+        // Forgejo instances have no public alt-SSH host; this never matches a
+        // parsed repository host.
+        ForgeName::Forgejo => "\0",
     };
     if repository_hosts_match(host, alias) {
         forge.public_host().unwrap_or(host)
@@ -261,6 +267,10 @@ pub(crate) fn find_forge_account(
             .into_iter()
             .map(ForgeUser::Bitbucket)
             .collect(),
+        ForgeName::Forgejo => but_forgejo::list_known_forgejo_accounts(storage)?
+            .into_iter()
+            .map(ForgeUser::Forgejo)
+            .collect(), // forgejo-fork
         ForgeName::Azure => return Ok(None),
     };
     Ok(accounts.into_iter().find(|account| {
@@ -301,6 +311,7 @@ pub fn current_forge_login(
     Ok(account.and_then(|account| match account {
         ForgeUser::GitHub(account) => Some(account.username().to_string()),
         ForgeUser::GitLab(account) => Some(account.username().to_string()),
+        ForgeUser::Forgejo(account) => Some(account.username().to_string()), // forgejo-fork
         ForgeUser::Bitbucket(_) => None,
     }))
 }
@@ -319,6 +330,13 @@ pub fn get_all_forge_accounts() -> anyhow::Result<Vec<ForgeUser>> {
     for gl_account in gl_accounts {
         forge_users.push(ForgeUser::GitLab(gl_account));
     }
+
+    // forgejo-fork
+    forge_users.extend(
+        but_forgejo::list_known_forgejo_accounts(&storage)?
+            .into_iter()
+            .map(ForgeUser::Forgejo),
+    );
 
     Ok(forge_users)
 }
@@ -728,6 +746,19 @@ mod tests {
         assert_eq!(
             match_host_to_accounts_custom_host("gl.example.com", &accounts),
             Some(ForgeName::GitLab)
+        );
+    }
+
+    #[test]
+    fn matches_forgejo_instance_host() {
+        let accounts = vec![ForgeUser::Forgejo(
+            but_forgejo::ForgejoAccountIdentifier::new("alice", "git.example.com"),
+        )];
+
+        assert_eq!(
+            match_host_to_accounts_custom_host("git.example.com", &accounts),
+            Some(ForgeName::Forgejo),
+            "any host a Forgejo account was added for is a Forgejo remote"
         );
     }
 

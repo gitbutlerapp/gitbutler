@@ -357,6 +357,20 @@ fn compare_urls_encode_url_delimiters_in_branch_names() {
     }
 }
 
+#[test]
+fn forgejo_compare_url() {
+    let url = compare_branch_url(
+        "git@codeberg.org:owner/repo.git",
+        "main",
+        "feat",
+        None,
+        &[],
+        None,
+    )
+    .unwrap();
+    assert_eq!(url, "https://codeberg.org/owner/repo/compare/main...feat");
+}
+
 // Commit and PR/MR hyperlinks are built on the frontend as
 // `{baseUrl}{commitUrlPath}{sha}` / `{baseUrl}{prUrlPath}{number}`.
 // These assert the full composed URL per forge so a typo in the
@@ -385,6 +399,19 @@ fn github_commit_and_pr_urls() {
     assert_eq!(
         composed_pr_url("https://github.com/owner/repo.git", 42),
         "https://github.com/owner/repo/pull/42"
+    );
+}
+
+#[test]
+fn forgejo_commit_and_pr_urls() {
+    assert_eq!(
+        composed_commit_url("git@codeberg.org:owner/repo.git", "abc123"),
+        "https://codeberg.org/owner/repo/commit/abc123"
+    );
+    assert_eq!(
+        composed_pr_url("https://codeberg.org/owner/repo.git", 42),
+        "https://codeberg.org/owner/repo/pulls/42",
+        "Forgejo pull requests live under /pulls/, not GitHub's /pull/"
     );
 }
 

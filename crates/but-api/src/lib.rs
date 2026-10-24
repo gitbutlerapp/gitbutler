@@ -27,6 +27,9 @@ pub mod gitlab;
 /// Functions for Bitbucket authentication.
 pub mod bitbucket;
 
+/// Functions for Forgejo authentication. (forgejo-fork)
+pub mod forgejo;
+
 /// Functions that take a branch as input.
 pub mod branch;
 

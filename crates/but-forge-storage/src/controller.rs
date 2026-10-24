@@ -196,6 +196,53 @@ impl Controller {
         self.save_settings(&settings)
     }
 
+    // forgejo-fork
+    /// Get all known Forgejo accounts.
+    pub fn forgejo_accounts(&self) -> anyhow::Result<Vec<crate::settings::ForgejoAccount>> {
+        Ok(self.read_settings()?.forgejo.known_accounts)
+    }
+
+    /// Add a Forgejo account if it does not already exist.
+    pub fn add_forgejo_account(
+        &self,
+        account: &crate::settings::ForgejoAccount,
+    ) -> anyhow::Result<()> {
+        let mut settings = self.read_settings()?;
+        if settings.forgejo.known_accounts.contains(account) {
+            return Ok(());
+        }
+        settings.forgejo.known_accounts.push(account.to_owned());
+        self.save_settings(&settings)
+    }
+
+    /// Clear all Forgejo accounts.
+    /// Returns the list of access token keys that should be deleted.
+    pub fn clear_all_forgejo_accounts(&self) -> anyhow::Result<Vec<String>> {
+        let mut settings = self.read_settings()?;
+        let keys = settings
+            .forgejo
+            .known_accounts
+            .drain(..)
+            .map(|account| account.access_token_key)
+            .collect::<Vec<_>>();
+        for key in &keys {
+            settings.cached_profiles.remove(key);
+        }
+        self.save_settings(&settings)?;
+        Ok(keys)
+    }
+
+    /// Remove a Forgejo account and its cached profile.
+    pub fn remove_forgejo_account(
+        &self,
+        account: &crate::settings::ForgejoAccount,
+    ) -> anyhow::Result<()> {
+        let mut settings = self.read_settings()?;
+        settings.cached_profiles.remove(&account.access_token_key);
+        settings.forgejo.known_accounts.retain(|a| a != account);
+        self.save_settings(&settings)
+    }
+
     fn read_settings(&self) -> anyhow::Result<crate::settings::ForgeSettings> {
         self.settings_storage.read()
     }
@@ -208,7 +255,9 @@ impl Controller {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::settings::{BitbucketAccount, CachedProfile, GitHubAccount, GitLabAccount};
+    use crate::settings::{
+        BitbucketAccount, CachedProfile, ForgejoAccount, GitHubAccount, GitLabAccount,
+    };
 
     fn test_controller() -> (Controller, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
@@ -308,6 +357,38 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
+    }
+
+    #[test]
+    fn forgejo_accounts_on_one_host_are_kept_apart() {
+        let (controller, _dir) = test_controller();
+        let alice = ForgejoAccount {
+            host: "https://git.example.com".into(),
+            username: "alice".into(),
+            access_token_key: "forgejo_https://git.example.com_alice".into(),
+        };
+        let bob = ForgejoAccount {
+            username: "bob".into(),
+            access_token_key: "forgejo_https://git.example.com_bob".into(),
+            ..alice.clone()
+        };
+        controller.add_forgejo_account(&alice).unwrap();
+        controller.add_forgejo_account(&bob).unwrap();
+        controller.add_forgejo_account(&bob).unwrap();
+        assert_eq!(
+            controller.forgejo_accounts().unwrap(),
+            vec![alice.clone(), bob.clone()],
+            "two users on the same host are distinct accounts, and re-adding is a no-op"
+        );
+
+        controller.remove_forgejo_account(&alice).unwrap();
+        assert_eq!(controller.forgejo_accounts().unwrap(), vec![bob.clone()]);
+        assert_eq!(
+            controller.clear_all_forgejo_accounts().unwrap(),
+            vec![bob.access_token_key],
+            "clearing hands back the keychain keys to delete"
+        );
+        assert!(controller.forgejo_accounts().unwrap().is_empty());
     }
 
     #[test]

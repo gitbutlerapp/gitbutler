@@ -110,7 +110,9 @@ pub fn compare_branch_url(
         None => encode_path(branch),
     };
     Some(match repo_info.forge {
-        ForgeName::GitHub => format!("{base_url}/compare/{}...{path_head}", encode_path(base)),
+        ForgeName::GitHub | ForgeName::Forgejo => {
+            format!("{base_url}/compare/{}...{path_head}", encode_path(base))
+        } // forgejo-fork
         ForgeName::GitLab => format!("{base_url}/-/compare/{}...{path_head}", encode_path(base)),
         ForgeName::Bitbucket => format!(
             "{base_url}/branch/{path_head}?dest={}",
@@ -149,6 +151,7 @@ fn build_base_url(remote_url: &str, repo_info: &ForgeRepoInfo, accounts: &[Forge
             ForgeName::GitLab => "gitlab.com".into(),
             ForgeName::Bitbucket => "bitbucket.org".into(),
             ForgeName::Azure => "dev.azure.com".into(),
+            ForgeName::Forgejo => "codeberg.org".into(), // forgejo-fork
         });
     let host = match parsed.as_ref().and_then(|url| url.port) {
         Some(port) if !rewrote_scheme => format!("{host}:{port}"),
@@ -212,12 +215,13 @@ fn url_paths(forge: &ForgeName) -> (&'static str, &'static str) {
         ForgeName::GitLab => ("/-/commit/", "/-/merge_requests/"),
         ForgeName::Bitbucket => ("/commits/", "/pull-requests/"),
         ForgeName::Azure => ("/commit/", "/pullrequest/"),
+        ForgeName::Forgejo => ("/commit/", "/pulls/"), // forgejo-fork
     }
 }
 
 fn label_for(forge: &ForgeName) -> (ForgeUnitInfo, &'static str) {
     match forge {
-        ForgeName::GitHub | ForgeName::Bitbucket | ForgeName::Azure => (
+        ForgeName::GitHub | ForgeName::Bitbucket | ForgeName::Azure | ForgeName::Forgejo => (
             ForgeUnitInfo {
                 name: "Pull request".into(),
                 abbr: "PR".into(),
@@ -254,7 +258,8 @@ fn capabilities_for(forge: &ForgeName) -> ForgeCapabilities {
             review_comments: false,
             review_management: false,
         },
-        ForgeName::Bitbucket => ForgeCapabilities {
+        // forgejo-fork
+        ForgeName::Bitbucket | ForgeName::Forgejo => ForgeCapabilities {
             checks: true,
             repo_info: true,
             pr_service: true,
@@ -272,7 +277,6 @@ fn capabilities_for(forge: &ForgeName) -> ForgeCapabilities {
         },
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
