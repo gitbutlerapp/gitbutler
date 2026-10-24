@@ -896,7 +896,7 @@ impl Render for AppView {
             .on_action(cx.listener(Self::open_pull_request))
             .on_action(cx.listener(|this, _: &ToggleFileTree, _, cx| {
                 (this.store).update(cx, |store, cx| {
-                    store.set_prefs(|prefs| prefs.file_tree = !prefs.file_tree, cx)
+                    store.set_prefs(|prefs| prefs.flat_files = !prefs.flat_files, cx)
                 })
             }))
             .on_action(cx.listener(Self::cancel))

@@ -226,7 +226,7 @@ impl Detail {
     /// screen: an agent can leave thousands of files. Also how many rows it has.
     fn file_list(&self, id: &'static str, source: FileSource, cx: &Context<Self>) -> (Div, usize) {
         let store = self.store.read(cx);
-        let tree = store.prefs.file_tree;
+        let tree = !store.prefs.flat_files;
         let terms = self.filter_terms(cx);
         // Each shown file's position in its source, as files a pending operation takes away
         // aren't shown.
@@ -726,11 +726,11 @@ impl Detail {
     /// the last written first. Files with no write time, as a commit's, go by name either way.
     fn view_menu(&self, position: Point<Pixels>, cx: &mut Context<Self>) {
         let prefs = &self.store.read(cx).prefs;
-        let (tree, sort) = (prefs.file_tree, prefs.file_sort);
+        let (tree, sort) = (!prefs.flat_files, prefs.file_sort);
         let show = |label: &str, as_tree: bool| {
             MenuItem::new(label.to_owned(), move |this, _, cx| {
                 (this.store).update(cx, |store, cx| {
-                    store.set_prefs(|prefs| prefs.file_tree = as_tree, cx)
+                    store.set_prefs(|prefs| prefs.flat_files = !as_tree, cx)
                 })
             })
             .ticked(tree == as_tree)
@@ -810,53 +810,23 @@ impl Detail {
                     .into_any_element()
             }
         };
-        // The ⋯ takes the mark's place while the pointer is on the row: every file has its
-        // path to copy, even where nothing can change it.
-        // A plain glyph rather than a button: a list draws it on every row.
-        let (menu, path) = (extras.menu.clone(), file.path.clone());
-        let more = {
-            div()
-                .id(("file-menu", ix))
-                .absolute()
-                .inset_0()
-                .flex()
-                .items_center()
-                .justify_center()
-                .rounded(dp(4.))
-                .hover(|el| match solid {
-                    true => el.bg(theme.text_inverted.opacity(0.1)),
-                    false => el.bg(theme.hover()),
-                })
-                .invisible()
-                .group_hover(ROW_GROUP, |s| s.visible())
-                .child(small_icon(Icon::Kebab).text_color(muted))
-                .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
-                    cx.stop_propagation();
-                    let at = At::File(path.clone(), None);
-                    this.changes_menu(menu.clone(), at, event.position(), cx)
-                }))
-        };
-        let mark =
-            div()
-                .group_hover(ROW_GROUP, |s| s.invisible())
-                .map(|el| match file.conflicted {
-                    true => el.child(small_icon(Icon::Warning).text_color(theme.warn)),
-                    false => el
-                        .text_size(dp(11.))
-                        .font_weight(gpui::FontWeight::SEMIBOLD)
-                        .text_color(diff::change_color(file.kind, theme))
-                        .child(file.kind.letter()),
-                });
+        // Its menu is a right-click away, as a commit's is.
+        let mark = div().map(|el| match file.conflicted {
+            true => el.child(small_icon(Icon::Warning).text_color(theme.warn)),
+            false => el
+                .text_size(dp(11.))
+                .font_weight(gpui::FontWeight::SEMIBOLD)
+                .text_color(diff::change_color(file.kind, theme))
+                .child(file.kind.letter()),
+        });
         let end = div()
-            .relative()
             .flex_none()
             .w(dp(22.))
             .h_full()
             .flex()
             .items_center()
             .justify_center()
-            .child(mark)
-            .child(more);
+            .child(mark);
         let mut row = file_row(("file", ix), current || picked, solid, theme)
             .map(|el| crate::ui::joined(el, extras.joined, solid, theme))
             .aria_label(file.path.clone())
