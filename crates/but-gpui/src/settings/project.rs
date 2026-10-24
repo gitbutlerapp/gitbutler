@@ -1,5 +1,5 @@
-//! The project's pages: the selected project's name, target branch and forge, force-push
-//! protection, commit signing and Git hooks, and removing it from GitButler.
+//! The project's pages: the selected project's name, target branch and forge, commit
+//! signing and Git hooks, and removing it from GitButler.
 
 use gpui::{App, ClickEvent, Context, DismissEvent, Window, div, prelude::*};
 
@@ -74,7 +74,7 @@ impl SettingsView {
         }
         self.apply(
             "Couldn't rename the project",
-            move || backend::update_project(&project, Some(name), None),
+            move || backend::rename_project(&project, name),
             Self::reload_project,
             cx,
         );
@@ -109,18 +109,7 @@ impl SettingsView {
         };
         let name_changed =
             self.project_name(cx).as_deref() != Some(self.name.read(cx).text().trim());
-        let id = project.clone();
-        let force = settings.force_push_protection;
         let sign = settings.sign_commits;
-        let protect = cx.listener(move |this, _: &ClickEvent, _, cx| {
-            let id = id.clone();
-            this.apply(
-                "Couldn't change force-push protection",
-                move || backend::update_project(&id, None, Some(!force)),
-                Self::reload_project,
-                cx,
-            );
-        });
         let sign_path = path.clone();
         let toggle_sign = cx.listener(move |this, _: &ClickEvent, _, cx| {
             let path = sign_path.clone();
@@ -271,11 +260,13 @@ impl SettingsView {
                 pick_forge,
             ),
         };
+        // The push checks this itself, whatever the setting GitButler's other apps share says.
         let force = Row::new(
-            "Protect force pushes",
-            "A force push stops if someone else pushed to the branch since you last fetched, \
-                 rather than dropping their commits.",
-            switch("force-push", force, theme).on_click(protect),
+            "Force pushes",
+            "A force push fetches first, stops if someone else pushed to the branch since, and \
+             asks before dropping commits only the remote has, so there's no protection to turn \
+             on here.",
+            muted("Always checked", theme),
         );
         let sign = Row::new(
             "Sign commits",
