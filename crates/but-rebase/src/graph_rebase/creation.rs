@@ -134,6 +134,11 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             .managed_entrypoint_commit(repo)?
             .map(|c| c.id);
 
+        let target_commit_id = workspace
+            .target_commit
+            .as_ref()
+            .map(|commit| commit.commit_id);
+
         let mut commits: Vec<Commit> = vec![];
         let mut commit_to_idx = HashMap::<gix::ObjectId, SegmentIndex>::new();
         let mut commit_to_pick_ix = HashMap::<gix::ObjectId, StepGraphIndex>::new();
@@ -176,6 +181,8 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             }
 
             for commit in &segment.commits {
+                // References that merely rest on the target commit point at it from the side.
+                let mut resting_on_target = vec![];
                 for ref_info in &commit.refs {
                     let refname = ref_info.ref_name.clone();
                     let reference_mutable = segment_mutable
@@ -190,6 +197,10 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                         mutable: reference_mutable,
                     });
                     reference_to_ix.insert(refname, ix);
+                    if target_commit_id == Some(commit.id) {
+                        resting_on_target.push(ix);
+                        continue;
+                    }
                     if let Some(previous_ix) = nodes.last() {
                         graph.add_edge(*previous_ix, ix, Edge { order: 0 });
                     }
@@ -217,6 +228,9 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 commit_to_pick_ix.insert(commit.id, ix);
                 if let Some(previous_ix) = nodes.last() {
                     graph.add_edge(*previous_ix, ix, Edge { order: 0 });
+                }
+                for reference in resting_on_target {
+                    graph.add_edge(reference, ix, Edge { order: 0 });
                 }
                 nodes.push(ix);
             }

@@ -24,8 +24,7 @@ use crate::graph_rebase::{
 /// The stacks of local branches in a rewrite, each from tip to base.
 ///
 /// A stack follows first parents until it reaches the target or a step that an
-/// earlier stack already owns, so no branch is in more than one of them. Like the
-/// target itself, the references that merely rest on it are no branch of any stack.
+/// earlier stack already owns, so no branch is in more than one of them.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct BranchStacks {
     /// One stack per parent of the workspace commit, in parent order, or the stack `HEAD`
@@ -211,18 +210,6 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
             .or(base)
             .map(|tip| traverse::reachable_from(graph, tip).collect())
             .unwrap_or_default();
-        let resting_on_base: HashSet<_> = base
-            .and_then(|base| match &graph[base] {
-                Step::Pick(Pick { id, .. }) => Some(*id),
-                _ => None,
-            })
-            .and_then(|id| {
-                let segment = self.workspace.graph.segment_by_commit_id(id).ok()?;
-                segment.commits.iter().find(|commit| commit.id == id)
-            })
-            .into_iter()
-            .flat_map(|commit| commit.refs.iter().map(|ri| &ri.ref_name))
-            .collect();
         let mut owned = HashSet::new();
         let mut stack_from = |start: StepGraphIndex, own_checkout: Option<StepGraphIndex>| {
             let mut stack = Vec::new();
@@ -233,10 +220,7 @@ impl<M: RefMetadata> SuccessfulRebase<'_, '_, M> {
                 if !owned.insert(ix) {
                     break;
                 }
-                stack.extend(
-                    self.stacked_branch(ix, &upstream, &workspace_metadata)
-                        .filter(|name| !resting_on_base.contains(name)),
-                );
+                stack.extend(self.stacked_branch(ix, &upstream, &workspace_metadata));
             }
             stack
         };
