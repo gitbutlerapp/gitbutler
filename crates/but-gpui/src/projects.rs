@@ -5,14 +5,14 @@ use std::path::PathBuf;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Entity, Focusable as _, PathPromptOptions, Pixels, Point,
-    Subscription, Window, actions, div, prelude::*,
+    Subscription, Task, Window, actions, div, prelude::*,
 };
 
 use crate::app::AppView;
 use crate::backend::{self, settings};
 use crate::overlays::floating;
 use crate::palette::Choice;
-use crate::state::{ProjectId, Selection};
+use crate::state::{ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::emoji::{self, ProjectIcon};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -20,18 +20,24 @@ use crate::ui::{Tooltip, dp, faint, field, popover, section_label};
 
 actions!(projects, [CloneRepository]);
 
-/// Ask for one folder with the system's picker, `prompt` on its button.
-pub fn pick_folder(
-    prompt: &'static str,
-    cx: &App,
-) -> impl Future<Output = Option<PathBuf>> + use<> {
+/// Ask for one folder with the system's picker, `prompt` on its button. When the picker can't
+/// open, as on Linux without a desktop portal, a card says why.
+pub fn pick_folder(prompt: &'static str, store: Entity<Store>, cx: &App) -> Task<Option<PathBuf>> {
     let paths = cx.prompt_for_paths(PathPromptOptions {
         files: false,
         directories: true,
         multiple: false,
         prompt: Some(prompt.into()),
     });
-    async move { paths.await.ok()?.ok()??.into_iter().next() }
+    cx.spawn(async move |cx| match paths.await.ok()? {
+        Ok(paths) => paths?.into_iter().next(),
+        Err(err) => {
+            store.update(cx, |store, cx| {
+                store.failed("Couldn't open the folder picker", &err, cx)
+            });
+            None
+        }
+    })
 }
 
 /// The folder a clone of `url` goes in: the repository's name.
@@ -68,8 +74,8 @@ impl AppView {
                 let Some(name) = clone_name(&url) else {
                     return;
                 };
-                let folder = pick_folder("Clone here", cx);
                 let store = this.store.clone();
+                let folder = pick_folder("Clone here", store.clone(), cx);
                 cx.spawn(async move |_, cx| {
                     let Some(into) = folder.await.map(|dir| dir.join(&name)) else {
                         return;

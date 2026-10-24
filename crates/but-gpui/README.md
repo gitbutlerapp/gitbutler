@@ -101,7 +101,7 @@ The Help menu links the docs, the release notes and where to report an issue, sh
 | ⌘X, ⌘V | cut the selection (from a diff or its files, the lines, hunk or file under the cursor, or while committing, what's checked), paste it onto the selected row (⌥⌘V squashes a commit instead of moving it, ⇧⌘V puts it below) |
 | ⌘N | new branch |
 | ⌥⇧F, ⌥⇧R | fetch, update from the target |
-| ⌘O | add a project |
+| ⌘O | add a project; when the system's folder picker can't open, as on Linux without an xdg-desktop-portal, an error card says why |
 | ⌘, | settings |
 | ⌘F, ⌘G, ⇧⌘G | find in the diff, then, from the diff or the find bar, the next or previous match |
 | ⌥Z, ⌘B | wrap long lines in diffs or stop, show them side by side or one above the other |

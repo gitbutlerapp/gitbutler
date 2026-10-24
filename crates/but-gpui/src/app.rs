@@ -328,8 +328,8 @@ impl AppView {
     }
 
     pub fn add_project(&mut self, _: &AddProject, _: &mut Window, cx: &mut Context<Self>) {
-        let folder = pick_folder("Add project", cx);
         let store = self.store.clone();
+        let folder = pick_folder("Add project", store.clone(), cx);
         cx.spawn(async move |_, cx| {
             if let Some(path) = folder.await {
                 store.update(cx, |store, cx| store.add_project(path, cx));
