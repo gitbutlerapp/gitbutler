@@ -106,12 +106,52 @@ where
     Fut: std::future::Future<Output = Option<String>>,
 {
     let envs = new_env_with_git_ssh_configured(&harness_env);
+    let stall_limits = http_stall_limit_args(&harness_env);
+    let args: Vec<&str> = stall_limits
+        .iter()
+        .map(String::as_str)
+        .chain(args.iter().copied())
+        .collect();
 
     if let Some(on_prompt) = on_prompt {
-        execute_with_indirect_askpass(harness_env, executor, args, envs, on_prompt).await
+        execute_with_indirect_askpass(harness_env, executor, &args, envs, on_prompt).await
     } else {
-        execute_direct(harness_env, executor, args, envs).await
+        execute_direct(harness_env, executor, &args, envs).await
     }
+}
+
+/// Git's HTTP transport has no timeout, so a remote that accepts the connection and then goes
+/// silent hangs the operation forever. These settings abort a transfer that moves less than
+/// 1 byte per second for 60 seconds, while slow transfers that still make progress keep going.
+const HTTP_STALL_LIMITS: [(&str, &str); 2] =
+    [("http.lowSpeedLimit", "1"), ("http.lowSpeedTime", "60")];
+
+/// Returns `-c` arguments for each of [`HTTP_STALL_LIMITS`] the user hasn't configured.
+fn http_stall_limit_args<P>(harness_env: &HarnessEnv<P>) -> Vec<String>
+where
+    P: AsRef<Path>,
+{
+    let config = match harness_env {
+        HarnessEnv::Repo(repo_path) => gix::open(repo_path.as_ref())
+            .ok()
+            .map(|repo| repo.config_snapshot().plumbing().clone()),
+        HarnessEnv::Global(_) => gix::config::File::from_globals().ok().map(|mut config| {
+            // Git applies `GIT_CONFIG_*` overrides on top; a repository's config has them already.
+            if let Ok(overrides) = gix::config::File::from_environment_overrides() {
+                config.append(overrides).ok();
+            }
+            config
+        }),
+    };
+    HTTP_STALL_LIMITS
+        .into_iter()
+        .filter(|(key, _)| {
+            config
+                .as_ref()
+                .is_none_or(|config| config.raw_value(*key).is_err())
+        })
+        .flat_map(|(key, value)| ["-c".to_owned(), format!("{key}={value}")])
+        .collect()
 }
 
 /// Askpass-aware execution of Git commands, allowing the GUI to communicate with the askpass
@@ -383,8 +423,10 @@ where
         }
     };
 
+    // Keepalives close the connection once the server hasn't answered for 60 seconds
+    // (4 probes, 15 seconds apart); without them a half-open connection hangs forever.
     let git_ssh_command = format!(
-        "ssh -o StrictHostKeyChecking=accept-new -o KbdInteractiveAuthentication=no{additional_options}"
+        "ssh -o StrictHostKeyChecking=accept-new -o KbdInteractiveAuthentication=no -o ServerAliveInterval=15 -o ServerAliveCountMax=4{additional_options}"
     );
     envs.insert("GIT_SSH_COMMAND".into(), git_ssh_command);
     envs
