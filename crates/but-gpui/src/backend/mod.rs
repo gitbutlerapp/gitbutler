@@ -931,7 +931,16 @@ pub fn failure_detail(err: &anyhow::Error) -> String {
         // around it names refs and hashes, which a short card fills up with.
         _ => match err.downcast_ref::<but_error::Context>() {
             Some(said) if said.code == but_error::Code::PreconditionFailed => said.to_string(),
-            _ => format!("{err:#}"),
+            // Without the code's own name, as `DefaultTerminalNotFound`, which is for code.
+            _ => {
+                let code = err
+                    .downcast_ref::<but_error::Code>()
+                    .map(ToString::to_string);
+                (err.chain().map(ToString::to_string))
+                    .filter(|said| Some(said) != code.as_ref())
+                    .collect::<Vec<_>>()
+                    .join(": ")
+            }
         },
     }
 }
