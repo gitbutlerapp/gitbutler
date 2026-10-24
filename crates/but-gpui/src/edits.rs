@@ -599,9 +599,20 @@ impl AppView {
         // to hold them: the one above, or below when there's none above.
         let named = |b: &&Branch| !b.ref_name.is_empty();
         if lane.iter().filter(named).count() < 2 && lane.iter().any(|b| !b.commits.is_empty()) {
-            let message = format!(
-                "To delete {name} and its commits, unapply it, then delete it from Branches"
-            );
+            // Checked out on its own, it can't be unapplied, only switched away from.
+            let target = (store.workspace(&project).filter(|ws| !ws.managed))
+                .and_then(|ws| ws.target_branch.as_deref())
+                .map(short_ref)
+                .filter(|target| *target != name);
+            let message = match target {
+                Some(target) => format!(
+                    "To delete {name}, check out another branch, as with `git switch {target}`, \
+                     then delete it from Branches"
+                ),
+                None => format!(
+                    "To delete {name} and its commits, unapply it, then delete it from Branches"
+                ),
+            };
             return snack(&self.store, message, cx);
         }
         // The oplog doesn't keep a linked worktree's branches, so it can't bring one back.
