@@ -108,7 +108,7 @@ members = [
     "crates/but-server",
     # Should be reviewed to mostly use `but-api`, to be renamed to `but-tauri` or something.
     "crates/gitbutler-tauri",
-    "crates/but-gpui", # An experimental native client on GPUI, macOS only for now.
+    "crates/but-gpui", # An experimental native client on GPUI.
     # GitButler installation binary
     "crates/but-installer",
     # Documentation binary

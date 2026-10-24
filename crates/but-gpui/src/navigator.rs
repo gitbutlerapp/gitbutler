@@ -2528,13 +2528,13 @@ impl Render for Navigator {
                 true => theme.border_3,
                 false => gpui::transparent_black(),
             })
-            // Room for macOS's traffic lights; Windows' buttons are at the window's other end.
+            // Room for macOS's traffic lights; elsewhere the window's buttons are at its other end.
             .map(|el| match cfg!(target_os = "macos") {
                 true => el.pl(fixed(84.)),
                 false => el.pl(dp(8.)),
             })
             .pr(dp(8.))
-            .window_control_area(gpui::WindowControlArea::Drag)
+            .map(crate::ui::drags_window)
             .gap(dp(6.))
             // Its clear button inside it, so typing the first letter doesn't narrow it.
             .child(

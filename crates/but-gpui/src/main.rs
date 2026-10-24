@@ -3,12 +3,6 @@
 // A release build on Windows opens no console window beside the app's.
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
-fn main() {
-    eprintln!("The GPUI client only builds on macOS and Windows for now.");
-}
-
-#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn main() {
     use_production_server();
     but_gpui::run(None);
@@ -17,7 +11,6 @@ fn main() {
 /// Sign in, and use the account, on GitButler's production server, where people's accounts
 /// are, rather than the staging one `gitbutler-user` takes a build from source to want.
 /// Either of the variables it reads still names another.
-#[cfg(any(target_os = "macos", target_os = "windows"))]
 fn use_production_server() {
     const SERVER: [&str; 2] = ["GITBUTLER_API_URL", "PUBLIC_API_BASE_URL"];
     if SERVER.iter().all(|key| std::env::var_os(key).is_none()) {

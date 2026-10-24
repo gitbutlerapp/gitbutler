@@ -333,6 +333,10 @@ jobs:
       - name: Dependencies for 'keyring'
         if: runner.os == 'Linux'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
+      # The libraries GPUI's X11 and Wayland windows link to.
+      - name: Dependencies for the GPUI client
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y --no-install-recommends libxcb1-dev libxkbcommon-x11-dev
       - name: Install cargo-nextest (Linux)
         if: runner.os == 'Linux'
         run: |

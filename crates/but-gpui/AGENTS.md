@@ -285,23 +285,27 @@ anything else.
 
 ## Platforms
 
-The client runs on macOS and Windows, and Linux builds a stub `main`. AppKit code sits behind
-`#[cfg(target_os = "macos")]`. A Mac never compiles the `cfg(windows)` code; the Windows CI
-job lints and tests it.
+The client runs on macOS, Windows and Linux. AppKit code sits behind
+`#[cfg(target_os = "macos")]`. A Mac never compiles the `cfg(windows)` or Linux code; the
+Windows CI job lints and tests the one, the Linux lint and test jobs the other.
 
-- Bind keys with `secondary-`, which is ⌘ on macOS and Ctrl on Windows. Keys only macOS has, as
+- Bind keys with `secondary-`, which is ⌘ on macOS and Ctrl elsewhere. Keys only macOS has, as
   Hide and the Emacs keys in text fields, go in a `#[cfg(target_os = "macos")]` block.
 - Write keys in copy as macOS does (`⌘↩`) and pass the text through `ui::keys_text`, which
-  shows `Ctrl+Enter` on Windows. `ui::keycap` and the status bar's hints already do.
+  shows `Ctrl+Enter` on Windows and Linux. `ui::keycap` and the status bar's hints already do.
 - Name platform things through one place: `ui::REVEAL` for the file manager,
   `std::env::consts::OS` for `but-api`'s per-platform lists, `EXE_SUFFIX` for a program's name.
-- Windows has no menu bar, so every command in `cx.set_menus` also needs a palette entry.
+- Windows and Linux have no menu bar, so every command in `cx.set_menus` also needs a palette
+  entry.
 - Git paths use `/`. Before showing, copying or revealing one joined onto a checkout, replace
   it with `MAIN_SEPARATOR_STR`, as the file list's menu does.
 - A program the app starts gets `CREATE_NO_WINDOW` on Windows, as `backend::mesh` does, so no
   console window opens with it.
-- The headers drag the window on Windows (`WindowControlArea::Drag`). Wrap anything clickable
-  in a header in `ui::above_drag` so it keeps its clicks.
+- The window has no title bar off macOS, so the headers drag it (`ui::drags_window`), and the
+  app draws the window's buttons where `ui::draws_window_controls` says: on Windows, and on
+  Linux where the desktop leaves the frame to the app (GNOME on Wayland), where
+  `ui::window_frame` also draws the shadow that resizes the window. Wrap anything clickable in
+  a header in `ui::above_drag` so it keeps its clicks.
 - Tests that need Unix APIs, as file modes or `sh`, carry `#[cfg(unix)]`.
 
 ## Conventions
