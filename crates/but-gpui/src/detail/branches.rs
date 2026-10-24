@@ -1591,8 +1591,17 @@ impl Detail {
             .iter()
             .enumerate()
             .filter(|(ix, (name, ..))| *ix < PEOPLE_IN_MENU || branches.who.as_ref() == Some(name));
+        // Each says how many picking them lists, not the People card's count of recent work.
+        let anyone = self.kept_in(branches, &branches.list, Some(Facet::Who), cx);
+        let theirs = |name: &String| {
+            (anyone.iter().filter_map(|ix| branches.list.get(*ix)))
+                .filter(|branch| branch.people.contains(name))
+                .count()
+        };
         let mut items = vec![person(None, "Anyone".to_owned(), everyone).under("Person")];
-        items.extend(offered.map(|(_, (name, _, n))| person(Some(name.clone()), name.clone(), *n)));
+        items.extend(
+            offered.map(|(_, (name, ..))| person(Some(name.clone()), name.clone(), theirs(name))),
+        );
         let today = upstream::day_of(crate::ui::now());
         let any_time = self.kept_in(branches, &branches.list, Some(Facet::Recency), cx);
         for (ix, recency) in Recency::ALL.into_iter().enumerate() {
