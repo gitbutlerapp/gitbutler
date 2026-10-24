@@ -296,7 +296,7 @@ impl Navigator {
                         MenuItem::new("Open in terminal", move |this, _, cx| {
                             this.open_in_terminal(&terminal_project, cx)
                         }),
-                        MenuItem::new("Reveal in Finder", move |_, _, cx| cx.reveal_path(&path)),
+                        MenuItem::new(crate::ui::REVEAL, move |_, _, cx| cx.reveal_path(&path)),
                     ]);
                 }
                 // The note saying why the project can't be read may name a command to run.
@@ -572,7 +572,7 @@ impl Navigator {
                 let linked = Some(name.clone());
                 let changes = (!lost.is_empty()).then(|| self.changes_items(&project, linked, cx));
                 let mut items = vec![
-                    MenuItem::new("Reveal in Finder", move |_, _, cx| cx.reveal_path(&path)),
+                    MenuItem::new(crate::ui::REVEAL, move |_, _, cx| cx.reveal_path(&path)),
                     MenuItem::new("Copy path", move |this, _, cx| {
                         this.copy_text(copied.clone(), cx)
                     }),

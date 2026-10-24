@@ -3,7 +3,7 @@
 
 use gpui::{
     AnyView, App, ClipboardItem, Context, Entity, FocusHandle, Focusable, FontFeatures, KeyBinding,
-    PromptLevel, Role, StyleRefinement, Subscription, Window, actions, div, point, prelude::*,
+    PromptLevel, Role, StyleRefinement, Subscription, Window, actions, div, prelude::*,
 };
 
 use crate::backend::{self, short_ref};
@@ -15,7 +15,7 @@ use crate::projects::pick_folder;
 use crate::state::{Cut, MeshPick, Pane, ProjectId, Selection, Store, snack};
 use crate::theme::{Theme, UiScale};
 use crate::transfer::{Place, Transfer};
-use crate::ui::{HEADER_HEIGHT, dp, fixed, resize_pane};
+use crate::ui::{HEADER_HEIGHT, dp, resize_pane};
 
 actions!(
     gitbutler,
@@ -66,36 +66,33 @@ pub fn bind_keys(cx: &mut App) {
     let nav = Some("Navigator && !TextInput");
     let workspace = Some("Workspace && !TextInput");
     cx.bind_keys([
-        KeyBinding::new("cmd-q", Quit, None),
-        KeyBinding::new("cmd-h", Hide, None),
-        KeyBinding::new("alt-cmd-h", HideOthers, None),
-        KeyBinding::new("cmd-m", Minimize, None),
+        KeyBinding::new("secondary-q", Quit, None),
         // As a browser zooms, and Lite and the desktop app with it.
-        KeyBinding::new("cmd-=", ZoomIn, None),
-        KeyBinding::new("cmd-+", ZoomIn, None),
-        KeyBinding::new("cmd--", ZoomOut, None),
-        KeyBinding::new("cmd-0", ActualSize, None),
-        KeyBinding::new("cmd-o", AddProject, None),
+        KeyBinding::new("secondary-=", ZoomIn, None),
+        KeyBinding::new("secondary-+", ZoomIn, None),
+        KeyBinding::new("secondary--", ZoomOut, None),
+        KeyBinding::new("secondary-0", ActualSize, None),
+        KeyBinding::new("secondary-o", AddProject, None),
         // Not while typing, where they're ‰ and Ï.
         KeyBinding::new("alt-shift-f", Fetch, Some("!TextInput")),
         KeyBinding::new("alt-shift-r", UpdateFromTarget, Some("!TextInput")),
-        KeyBinding::new("cmd-n", NewBranch, None),
+        KeyBinding::new("secondary-n", NewBranch, None),
         // Zed's key works too; ⌘K is the one shown, as the last binding wins.
-        KeyBinding::new("cmd-shift-p", CommandPalette, None),
-        KeyBinding::new("cmd-k", CommandPalette, None),
-        KeyBinding::new("cmd-1", FocusNavigator, None),
-        KeyBinding::new("cmd-2", FocusChanges, None),
-        KeyBinding::new("cmd-3", FocusDiff, None),
-        KeyBinding::new("cmd-enter", StartCommit, workspace),
-        KeyBinding::new("cmd-z", Undo, workspace),
-        KeyBinding::new("cmd-shift-z", Redo, workspace),
-        KeyBinding::new("cmd-x", CutSelection, workspace),
+        KeyBinding::new("secondary-shift-p", CommandPalette, None),
+        KeyBinding::new("secondary-k", CommandPalette, None),
+        KeyBinding::new("secondary-1", FocusNavigator, None),
+        KeyBinding::new("secondary-2", FocusChanges, None),
+        KeyBinding::new("secondary-3", FocusDiff, None),
+        KeyBinding::new("secondary-enter", StartCommit, workspace),
+        KeyBinding::new("secondary-z", Undo, workspace),
+        KeyBinding::new("secondary-shift-z", Redo, workspace),
+        KeyBinding::new("secondary-x", CutSelection, workspace),
         // ⌥ turns moving a commit onto another into squashing it, as when dragging. Bound
         // first, so ⌘V is the key shown.
-        KeyBinding::new("alt-cmd-v", PasteHere, workspace),
-        KeyBinding::new("shift-cmd-v", PasteHere, workspace),
-        KeyBinding::new("cmd-v", PasteHere, workspace),
-        KeyBinding::new("cmd-c", CopySelection, workspace),
+        KeyBinding::new("alt-secondary-v", PasteHere, workspace),
+        KeyBinding::new("shift-secondary-v", PasteHere, workspace),
+        KeyBinding::new("secondary-v", PasteHere, workspace),
+        KeyBinding::new("secondary-c", CopySelection, workspace),
         KeyBinding::new("escape", Cancel, workspace),
         KeyBinding::new(".", ToggleNavigator, workspace),
         KeyBinding::new("shift-p", Push, workspace),
@@ -113,8 +110,15 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("r", RenameSelection, nav),
         KeyBinding::new("b", NewBranchOnTop, nav),
         KeyBinding::new("o", OpenPullRequest, nav),
-        KeyBinding::new("cmd-backspace", DeleteSelection, nav),
-        KeyBinding::new("cmd-alt-backspace", UncommitSelection, nav),
+        KeyBinding::new("secondary-backspace", DeleteSelection, nav),
+        KeyBinding::new("secondary-alt-backspace", UncommitSelection, nav),
+    ]);
+    // Windows has these on the title bar instead.
+    #[cfg(target_os = "macos")]
+    cx.bind_keys([
+        KeyBinding::new("cmd-h", Hide, None),
+        KeyBinding::new("alt-cmd-h", HideOthers, None),
+        KeyBinding::new("cmd-m", Minimize, None),
     ]);
 }
 
@@ -151,6 +155,7 @@ impl AppView {
 
     pub fn new(store: Entity<Store>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         cx.set_global(theme_for(store.read(cx), window));
+        #[cfg(target_os = "macos")]
         place_traffic_lights(window, cx);
         let app = cx.entity().downgrade();
         let detail = cx.new(|cx| Detail::new(store.clone(), app.clone(), window, cx));
@@ -198,6 +203,7 @@ impl AppView {
             cx.observe_window_appearance(window, |this, window, cx| {
                 this.apply_appearance(window, cx)
             }),
+            #[cfg(target_os = "macos")]
             cx.observe_global_in::<Theme>(window, |_, window, cx| place_traffic_lights(window, cx)),
             cx.observe_window_bounds(window, |this, window, cx| {
                 this.store
@@ -213,6 +219,7 @@ impl AppView {
             // The CLI and GitButler's other apps add and remove projects too, and folders move.
             cx.observe_window_activation(window, |this, window, cx| {
                 if window.is_window_active() {
+                    #[cfg(target_os = "macos")]
                     show_cursor_again(window);
                     this.store.update(cx, |store, cx| {
                         store.load_projects(cx);
@@ -416,17 +423,26 @@ impl AppView {
             window,
             cx,
             |app, cx| {
-                let restarted = std::env::current_exe().and_then(|exe| {
-                    std::process::Command::new(exe)
-                        .env(crate::WEB_APP_ONCE, "1")
-                        .spawn()
-                });
-                match restarted {
-                    Ok(_) => cx.quit(),
-                    Err(err) => app.store.update(cx, |store, cx| {
-                        store.error("Couldn't restart GitButler", err.to_string(), cx)
-                    }),
-                }
+                // Off the UI thread: on Windows, starting a process can run the window's message
+                // loop, which would enter the app again while this holds it.
+                let store = app.store.clone();
+                cx.spawn(async move |_, cx| {
+                    let restarted = backend::run(|| {
+                        let exe = std::env::current_exe()?;
+                        std::process::Command::new(exe)
+                            .env(crate::WEB_APP_ONCE, "1")
+                            .spawn()?;
+                        Ok(())
+                    })
+                    .await;
+                    match restarted {
+                        Ok(()) => cx.update(|cx| cx.quit()),
+                        Err(err) => store.update(cx, |store, cx| {
+                            store.error("Couldn't restart GitButler", err.to_string(), cx)
+                        }),
+                    }
+                })
+                .detach();
             },
         );
     }
@@ -448,8 +464,10 @@ impl AppView {
             Some(at) => format!("{}\n{detail}", self.store.read(cx).place(&at)),
             None => detail.to_owned(),
         };
+        // Info rather than Warning: macOS draws the two alike, and Windows would title every
+        // confirmation "Warning", with a warning sign, as if something had gone wrong.
         let answer = window.prompt(
-            PromptLevel::Warning,
+            PromptLevel::Info,
             &message,
             Some(&detail),
             &[confirm, "Cancel"],
@@ -518,9 +536,10 @@ impl AppView {
 
     pub fn cut(&mut self, cut: Cut, cx: &mut Context<Self>) {
         let message = format!(
-            "{} {}, ready to paste with ⌘V",
+            "{} {}, ready to paste with {}",
             cut.verb(),
-            cut.describe(self.store.read(cx))
+            cut.describe(self.store.read(cx)),
+            crate::ui::keys_text("⌘V")
         );
         self.store.update(cx, |store, cx| {
             store.set_cut(Some(cut), cx);
@@ -885,6 +904,9 @@ impl Render for AppView {
         crate::ui::Covered::note(self.covered(), window, cx);
         let theme = Theme::get(cx).clone();
         let ligatures = self.store.read(cx).prefs.ligatures;
+        let has_update_feed = cx
+            .try_global::<crate::Embedded>()
+            .is_some_and(|e| e.update_feed.is_some());
         div()
             .id("root")
             .role(Role::Application)
@@ -907,7 +929,10 @@ impl Render for AppView {
                 }),
             )
             .on_action(cx.listener(Self::add_project))
-            .on_action(cx.listener(Self::check_for_updates))
+            // Only with a feed to ask, so the palette offers it only then, as the menu does.
+            .when(has_update_feed, |el| {
+                el.on_action(cx.listener(Self::check_for_updates))
+            })
             .on_action(cx.listener(Self::open_settings))
             .on_action(cx.listener(Self::clone_repository))
             // Here rather than around the navigator, so the details pane's buttons reach them.
@@ -1048,12 +1073,23 @@ impl Render for AppView {
             .child(self.render_toasts(cx))
             .children(self.render_menu(cx))
             .children(self.render_icon_picker(window, cx))
+            // Last, so the window can be closed while a modal or menu is open.
+            .map(|el| {
+                #[cfg(target_os = "windows")]
+                return el.child(crate::ui::window_controls::window_controls(window, cx));
+                #[cfg(not(target_os = "windows"))]
+                el
+            })
     }
 }
 
 /// Puts macOS's traffic lights, which keep their size at every interface scale, halfway down
 /// the header, however tall the scale draws it.
+#[cfg(target_os = "macos")]
 fn place_traffic_lights(window: &Window, cx: &App) {
+    use crate::ui::fixed;
+    use gpui::point;
+
     const LIGHTS: f32 = 14.;
     let top = (Theme::get(cx).scaled(HEADER_HEIGHT) - fixed(LIGHTS)) / 2.;
     window.set_traffic_light_position(point(fixed(14.), top));
@@ -1078,6 +1114,7 @@ fn copied(text: &str) -> String {
 /// Have AppKit show the window's cursor again. GPUI tells it only when the cursor it wants
 /// changes, so one left by another app or by the window's edge stays on screen when the window
 /// becomes key with the pointer already over it, and its own cursor wanted there is the same.
+#[cfg(target_os = "macos")]
 fn show_cursor_again(window: &Window) {
     use objc2::{msg_send, runtime::AnyObject};
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};

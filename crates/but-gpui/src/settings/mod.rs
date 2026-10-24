@@ -30,7 +30,7 @@ use crate::ui::{
 actions!(settings, [OpenSettings]);
 
 pub fn bind_keys(cx: &mut App) {
-    cx.bind_keys([KeyBinding::new("cmd-,", OpenSettings, None)]);
+    cx.bind_keys([KeyBinding::new("secondary-,", OpenSettings, None)]);
 }
 
 /// A page of settings, in the sidebar's order, as Lite's has them: the app's, then the
@@ -426,7 +426,9 @@ impl SettingsView {
         );
         let size = Row::new(
             "Interface size",
-            "How large everything draws, as a browser zooms. ⌘+ and ⌘− step it, ⌘0 puts it back.",
+            crate::ui::keys_text(
+                "How large everything draws, as a browser zooms. ⌘+ and ⌘− step it, ⌘0 puts it back.",
+            ),
             size,
         );
         let mut diff = vec![
@@ -440,15 +442,19 @@ impl SettingsView {
             ),
             Row::new(
                 "Wrap long lines",
-                "Diff lines wider than the pane continue on the next row. ⌥Z in a diff turns it \
-                 on and off.",
+                crate::ui::keys_text(
+                    "Diff lines wider than the pane continue on the next row. ⌥Z in a diff turns \
+                     it on and off.",
+                ),
                 switch("wrap", prefs.wrap, theme).on_click(cx.listener(|this, _, _, cx| {
                     this.detail.update(cx, |detail, cx| detail.toggle_wrap(cx));
                 })),
             ),
             Row::new(
                 "Side by side",
-                "Diffs show the old lines beside the new ones. ⌘B in a diff switches.",
+                crate::ui::keys_text(
+                    "Diffs show the old lines beside the new ones. ⌘B in a diff switches.",
+                ),
                 switch("split", prefs.split, theme).on_click(cx.listener(|this, _, _, cx| {
                     this.detail.update(cx, |detail, cx| detail.toggle_split(cx));
                 })),

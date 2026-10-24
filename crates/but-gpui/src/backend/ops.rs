@@ -1019,8 +1019,9 @@ pub(super) mod tests {
         crate::backend::settings::set_target(path, "refs/heads/main").unwrap();
     }
 
-    /// A repository on `main` with one commit of `file` holding `content`. It signs nothing
-    /// and reads hooks from its own `.git/hooks`, whatever the global config says.
+    /// A repository on `main` with one commit of `file` holding `content`. It signs nothing,
+    /// checks files out with the line endings they were committed with, and reads hooks from its
+    /// own `.git/hooks`, whatever the global config says.
     pub(in crate::backend) fn repo_with(content: &str) -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path();
@@ -1029,6 +1030,8 @@ pub(super) mod tests {
         git(path, &["config", "user.email", "t@example.com"]);
         git(path, &["config", "commit.gpgsign", "false"]);
         git(path, &["config", "gitbutler.signCommits", "false"]);
+        // Git for Windows turns this on by default, which would check files out with CRLF.
+        git(path, &["config", "core.autocrlf", "false"]);
         let hooks = path.join(".git/hooks");
         git(path, &["config", "core.hooksPath", hooks.to_str().unwrap()]);
         std::fs::write(path.join("file"), content).unwrap();
@@ -1391,6 +1394,8 @@ pub(super) mod tests {
         })
     }
 
+    // Its hooks are shell scripts made executable the Unix way.
+    #[cfg(unix)]
     #[test]
     fn a_failing_pre_commit_hook_refuses_the_commit_and_passing_hooks_shape_it() {
         but_testsupport::isolated_app_data_dir(|| {

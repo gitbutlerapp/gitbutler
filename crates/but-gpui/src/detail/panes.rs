@@ -22,9 +22,9 @@ use crate::ui::person::{author_avatar, byline};
 use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dp,
-    empty_state, faint, field, fixed, fold_row, h_flex, icon, icon_button, plural, quiet,
-    section_label, side_row, small_icon, v_flex,
+    Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, WINDOW_CONTROLS_WIDTH,
+    above_drag, button, commit_title, dp, empty_state, faint, field, fixed, fold_row, h_flex, icon,
+    icon_button, plural, quiet, section_label, side_row, small_icon, v_flex,
 };
 
 impl Detail {
@@ -174,13 +174,21 @@ impl Detail {
             .h(dp(HEADER_HEIGHT))
             .flex_none()
             .px(dp(12.))
-            .when(self.beside_traffic_lights, |el| el.pl(fixed(84.)))
+            .when(
+                self.beside_traffic_lights && cfg!(target_os = "macos"),
+                |el| el.pl(fixed(84.)),
+            )
+            // Clear of Windows' window buttons, which the app draws over its right end.
+            .when(cfg!(target_os = "windows"), |el| {
+                el.pr(fixed(WINDOW_CONTROLS_WIDTH + 12.))
+            })
+            .window_control_area(gpui::WindowControlArea::Drag)
             .gap(dp(12.))
             .bg(theme.bg_2)
             .border_b_1()
             .border_color(theme.border_3)
             .text_color(theme.text_2)
-            .child(toggle)
+            .child(above_drag(div().child(toggle)))
             .child(div().flex_none().w(fixed(1.)).h(dp(16.)).bg(theme.border_3))
             .child(
                 h_flex().flex_1().min_w_0().gap(dp(6.)).children(
@@ -206,7 +214,7 @@ impl Detail {
                                     let (app, detail) = (self.app.clone(), cx.entity().downgrade());
                                     // A step darker under the pointer: it's still a quiet trail.
                                     let hover = theme.text_2.blend(theme.text_1.opacity(0.5));
-                                    text.id(("crumb", ix))
+                                    above_drag(text.id(("crumb", ix)))
                                         .hover(move |el| el.text_color(hover))
                                         .on_click(move |_, window, cx| match &target {
                                             CrumbTo::Select(selection) => {
@@ -862,7 +870,7 @@ impl Detail {
                 h_flex()
                     .gap(dp(8.))
                     .justify_end()
-                    .child(faint("⌘↩ to save, esc to cancel", theme).flex_1())
+                    .child(faint(crate::ui::keys_text("⌘↩ to save, esc to cancel"), theme).flex_1())
                     .child({
                         let input = input.clone();
                         button("cancel-reword", "Cancel")

@@ -1,6 +1,6 @@
-//! An experimental native GitButler client built on GPUI. Only macOS builds it for now;
-//! elsewhere GPUI needs system libraries the workspace's CI doesn't install.
-#![cfg(target_os = "macos")]
+//! An experimental native GitButler client built on GPUI, for macOS and Windows. Linux doesn't
+//! build it: there GPUI needs system libraries the workspace's CI doesn't install.
+#![cfg(any(target_os = "macos", target_os = "windows"))]
 // Built into the desktop app, this runs as GitButler itself, so a panic here quits GitButler:
 // failures are handled rather than unwrapped, and a lint is set aside with `#[expect]`, which
 // fails the build once it's needless. A task let go of with `let _` is cancelled, and each
@@ -45,6 +45,7 @@ mod ui;
 /// app's `AppleFontSmoothing` says otherwise, GPUI thickens glyph strokes the way macOS font
 /// smoothing would, lighter text more, so the same fonts read heavier here than in but.dev.
 /// A registered default lives in memory only and is never written to the app's preferences.
+#[cfg(target_os = "macos")]
 fn draw_text_unsmoothed() {
     use objc2_foundation::{NSDictionary, NSNumber, NSString, NSUserDefaults};
 
@@ -76,6 +77,7 @@ pub const WEB_APP_ONCE: &str = "GITBUTLER_WEB_APP_ONCE";
 
 /// Give the Dock the desktop app's icon for this build's channel, as its bundle has it. A
 /// binary run on its own has no bundle to carry one, so the Dock would show a terminal's.
+#[cfg(target_os = "macos")]
 fn set_dock_icon() {
     use but_path::AppChannel;
     use objc2::rc::{Allocated, Retained};
@@ -123,6 +125,7 @@ pub fn run(embedded: Option<Embedded>) {
         .with_writer(std::io::stderr)
         .init();
     backend::init();
+    #[cfg(target_os = "macos")]
     draw_text_unsmoothed();
 
     gpui_platform::application()
@@ -137,7 +140,10 @@ pub fn run(embedded: Option<Embedded>) {
             match embedded {
                 Some(embedded) => cx.set_global(embedded),
                 // The desktop app's bundle gives the Dock its icon.
+                #[cfg(target_os = "macos")]
                 None => set_dock_icon(),
+                #[cfg(not(target_os = "macos"))]
+                None => {}
             }
             ui::text_input::bind_keys(cx);
             app::bind_keys(cx);

@@ -1142,11 +1142,10 @@ impl Detail {
                 app.open_prompt(
                     Some(place),
                     &title,
-                    Some(
+                    Some(crate::ui::keys_text(
                         "Git keeps it as the branch's description, where git branch \
-                         --edit-description does. Leave it empty to remove it. ⌘↩ saves it."
-                            .to_owned(),
-                    ),
+                         --edit-description does. Leave it empty to remove it. ⌘↩ saves it.",
+                    )),
                     "Save",
                     input,
                     None,

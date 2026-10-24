@@ -12,6 +12,8 @@ pub mod person;
 pub mod review;
 pub mod scrollbar;
 pub mod text_input;
+#[cfg(target_os = "windows")]
+pub mod window_controls;
 
 use std::borrow::Cow;
 
@@ -43,6 +45,24 @@ pub const fn fixed(n: f32) -> Pixels {
     gpui::px(n)
 }
 
+/// `el`, in a header the window is dragged by, as it can be on Windows, still taking its own
+/// clicks: the drag area under it would take them. It's as it was elsewhere.
+pub fn above_drag<E: InteractiveElement>(el: E) -> E {
+    #[cfg(target_os = "windows")]
+    return el.occlude();
+    #[cfg(not(target_os = "windows"))]
+    el
+}
+
+/// What "Reveal in Finder" is called where the file manager isn't Finder.
+pub const REVEAL: &str = match cfg!(windows) {
+    true => "Reveal in File Explorer",
+    false => "Reveal in Finder",
+};
+
+/// How much of the header's right end Windows' window buttons cover: three as wide as Windows
+/// draws its own.
+pub const WINDOW_CONTROLS_WIDTH: f32 = 3. * 46.;
 pub const ROW_HEIGHT: f32 = 28.;
 pub const HEADER_HEIGHT: f32 = 44.;
 pub const STATUS_BAR_HEIGHT: f32 = 28.;
@@ -902,7 +922,8 @@ impl Render for Tooltip {
     }
 }
 
-/// The keys bound to `action`, as macOS shows them, like `⌘⇧P`.
+/// The keys bound to `action`, as macOS writes them, like `⌘⇧P`: [`keycap`] and [`keys_text`]
+/// show them as the platform does.
 pub fn shortcut(action: &dyn gpui::Action, cx: &App) -> Option<SharedString> {
     let keymap = cx.key_bindings();
     let keymap = keymap.borrow();
@@ -945,17 +966,52 @@ pub fn shortcut(action: &dyn gpui::Action, cx: &App) -> Option<SharedString> {
     Some(keys.join(" ").into())
 }
 
-/// Keys as Lite's `Kbd` draws them: a small box per key, like `⌘` `⇧` `P`.
+/// What Windows calls the keys macOS writes as symbols. The app's ⌘ keys are ctrl there, and a
+/// modifier's name ends in `+`, as it's written before the key.
+#[cfg(not(target_os = "macos"))]
+const KEY_NAMES: [(char, &str); 8] = [
+    ('⌘', "Ctrl+"),
+    ('⌃', "Ctrl+"),
+    ('⌥', "Alt+"),
+    ('⇧', "Shift+"),
+    ('↩', "Enter"),
+    ('⌫', "Backspace"),
+    ('⌦', "Delete"),
+    ('⇥', "Tab"),
+];
+
+/// `text` with the keys in it, written as macOS writes them (`⌘⇧P`), as the platform writes
+/// them: unchanged on macOS, `Ctrl+Shift+P` on Windows.
+pub fn keys_text(text: &str) -> String {
+    #[cfg(target_os = "macos")]
+    return text.to_owned();
+    #[cfg(not(target_os = "macos"))]
+    text.chars()
+        .map(
+            |c| match KEY_NAMES.iter().find(|(symbol, _)| *symbol == c) {
+                Some((_, name)) => (*name).to_owned(),
+                None => c.to_string(),
+            },
+        )
+        .collect()
+}
+
+/// Keys as Lite's `Kbd` draws them: a small box per key, like `⌘` `⇧` `P`, or `Ctrl` `Shift`
+/// `P` on Windows. `text` writes them as macOS does.
 pub fn keycap(text: &str, theme: &Theme) -> Div {
     let mut keys: Vec<String> = Vec::new();
     for token in text.split(' ') {
         let mut rest = token;
         while let Some(symbol) = rest.chars().next().filter(|c| "⌃⌥⇧⌘".contains(*c)) {
-            keys.push(symbol.to_string());
+            keys.push(
+                keys_text(&symbol.to_string())
+                    .trim_end_matches('+')
+                    .to_owned(),
+            );
             rest = rest.strip_prefix(symbol).unwrap_or_default();
         }
         if !rest.is_empty() {
-            keys.push(rest.to_owned());
+            keys.push(keys_text(rest));
         }
     }
     h_flex()

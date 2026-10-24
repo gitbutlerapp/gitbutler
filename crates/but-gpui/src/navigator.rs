@@ -24,10 +24,10 @@ use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, button, commit_title, count_badge, dot,
-    dp, empty_state, faint, field, fixed, fold_button, fold_glyph, fold_row, guide, h_flex, icon,
-    icon_button, just_now, list_row, meta_count, plural, pulsing, relative_time, resize_handle,
-    review, section_label, small_icon, v_flex,
+    ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, above_drag, button, commit_title,
+    count_badge, dot, dp, empty_state, faint, field, fixed, fold_button, fold_glyph, fold_row,
+    guide, h_flex, icon, icon_button, just_now, list_row, meta_count, plural, pulsing,
+    relative_time, resize_handle, review, section_label, small_icon, v_flex,
 };
 
 mod account;
@@ -2528,12 +2528,17 @@ impl Render for Navigator {
                 true => theme.border_3,
                 false => gpui::transparent_black(),
             })
-            .pl(fixed(84.))
+            // Room for macOS's traffic lights; Windows' buttons are at the window's other end.
+            .map(|el| match cfg!(target_os = "macos") {
+                true => el.pl(fixed(84.)),
+                false => el.pl(dp(8.)),
+            })
             .pr(dp(8.))
+            .window_control_area(gpui::WindowControlArea::Drag)
             .gap(dp(6.))
             // Its clear button inside it, so typing the first letter doesn't narrow it.
             .child(
-                field(&self.filter, filter_focused, &theme)
+                above_drag(field(&self.filter, filter_focused, &theme))
                     .relative()
                     .flex_1()
                     .min_w_0()
@@ -2552,9 +2557,9 @@ impl Render for Navigator {
                         )
                     }),
             )
-            .children(self.update_button(cx))
-            .child(self.view_button(cx))
-            .child(self.account(&theme, cx));
+            .children(self.update_button(cx).map(|el| above_drag(div().child(el))))
+            .child(above_drag(div().child(self.view_button(cx))))
+            .child(above_drag(div().child(self.account(&theme, cx))));
 
         v_flex()
             .id("navigator")
@@ -2620,7 +2625,7 @@ impl Render for Navigator {
                     el.child(div().flex_1().min_h_0().child(empty_state(
                         Some(Illustration::Cactus),
                         "No projects yet",
-                        "Add a Git repository with ⌘O",
+                        crate::ui::keys_text("Add a Git repository with ⌘O"),
                         &theme,
                         cx,
                     )))

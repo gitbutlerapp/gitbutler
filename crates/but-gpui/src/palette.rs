@@ -7,9 +7,9 @@ use gpui::{
 };
 
 use crate::app::{
-    ActualSize, AddProject, AppView, CopySelection, CutSelection, DeleteSelection, Fetch,
-    FocusChanges, FocusDiff, FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest, PasteHere,
-    Push, Quit, Redo, RenameSelection, StartCommit, ToggleFileTree, ToggleNavigator,
+    ActualSize, AddProject, AppView, CheckForUpdates, CopySelection, CutSelection, DeleteSelection,
+    Fetch, FocusChanges, FocusDiff, FocusNavigator, NewBranch, NewBranchOnTop, OpenPullRequest,
+    PasteHere, Push, Quit, Redo, RenameSelection, StartCommit, ToggleFileTree, ToggleNavigator,
     UncommitSelection, Undo, UpdateFromTarget, ZoomIn, ZoomOut,
 };
 use crate::detail::{
@@ -30,7 +30,7 @@ actions!(palette, [PaletteUp, PaletteDown, GoToBranch, ShowActions]);
 
 pub fn bind_keys(cx: &mut gpui::App) {
     cx.bind_keys([
-        KeyBinding::new("cmd-p", GoToBranch, None),
+        KeyBinding::new("secondary-p", GoToBranch, None),
         KeyBinding::new("m", ShowActions, Some("Workspace && !TextInput")),
     ]);
     // Registered after the text field's own keys, so these win inside the palette.
@@ -114,6 +114,13 @@ const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Resolve conflicts", &crate::detail::ResolveConflicts),
     ("Open in editor", &crate::open_in::OpenInEditor),
     ("Open in terminal", &crate::open_in::OpenInTerminal),
+    // The menu bar's, for Windows, which has none.
+    ("Check for updates…", &CheckForUpdates),
+    ("GitButler docs", &crate::help::OpenDocs),
+    ("Release notes", &crate::help::OpenReleaseNotes),
+    ("Report an issue…", &crate::help::ReportIssue),
+    ("Show settings folder", &crate::help::ShowConfigFolder),
+    ("About GitButler", &crate::help::About),
     ("Quit", &Quit),
 ];
 

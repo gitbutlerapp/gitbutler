@@ -1157,7 +1157,8 @@ impl Detail {
             At::File(path, line) => (path, Some(line)),
             At::Folder(path) => (path, None),
         };
-        let absolute = root.join(&relative);
+        // Git's paths use `/`; Windows' own `\`, which "Copy full path" and Explorer expect.
+        let absolute = root.join(relative.replace('/', std::path::MAIN_SEPARATOR_STR));
         let full = absolute.display().to_string();
         let on_disk = absolute.exists();
         let mut items = Vec::new();
@@ -1179,7 +1180,7 @@ impl Detail {
             }),
         ]);
         if on_disk {
-            items.push(MenuItem::new("Reveal in Finder", move |_, _, cx| {
+            items.push(MenuItem::new(crate::ui::REVEAL, move |_, _, cx| {
                 cx.reveal_path(&absolute)
             }));
         }

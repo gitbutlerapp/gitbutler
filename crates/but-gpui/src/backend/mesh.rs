@@ -117,7 +117,7 @@ fn program() -> Result<PathBuf> {
     let installed = std::env::var_os("HOME").map(|home| Path::new(&home).join(".local/bin"));
     on_path
         .chain(installed)
-        .map(|dir| dir.join("but-mesh"))
+        .map(|dir| dir.join(format!("but-mesh{}", std::env::consts::EXE_SUFFIX)))
         .find(|program| program.is_file())
         .context("GitButler's mesh isn't installed on this machine.")
 }
@@ -126,6 +126,10 @@ fn program() -> Result<PathBuf> {
 /// printed. A failure carries what it said on stderr.
 fn mesh(dir: Option<&Path>, args: &[&str], timeout: Duration) -> Result<String> {
     let mut command = Command::new(program()?);
+    // `CREATE_NO_WINDOW`: on Windows a console program started from a window would open a
+    // console of its own.
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(&mut command, 0x0800_0000);
     if let Some(dir) = dir {
         command.arg("-C").arg(dir);
     }

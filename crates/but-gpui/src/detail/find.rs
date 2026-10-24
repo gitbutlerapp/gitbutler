@@ -25,11 +25,15 @@ pub fn bind_keys(cx: &mut App) {
     let diff = Some("Detail || FindBar");
     cx.bind_keys([
         // From the navigator too, which has nothing to find in. The app passes it on.
-        KeyBinding::new("cmd-f", FindInDiff, Some("Navigator || Detail || FindBar")),
+        KeyBinding::new(
+            "secondary-f",
+            FindInDiff,
+            Some("Navigator || Detail || FindBar"),
+        ),
         KeyBinding::new("enter", FindNext, field),
         KeyBinding::new("shift-enter", FindPrevious, field),
-        KeyBinding::new("cmd-g", FindNext, diff),
-        KeyBinding::new("cmd-shift-g", FindPrevious, diff),
+        KeyBinding::new("secondary-g", FindNext, diff),
+        KeyBinding::new("secondary-shift-g", FindPrevious, diff),
     ]);
 }
 

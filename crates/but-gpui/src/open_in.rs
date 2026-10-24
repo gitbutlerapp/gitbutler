@@ -20,9 +20,6 @@ pub fn bind_keys(cx: &mut App) {
     )]);
 }
 
-/// The macOS terminal everyone has, until another is chosen.
-const DEFAULT_TERMINAL: &str = "terminal";
-
 /// What "Open in …" says for the chosen editor, or that it will ask.
 pub fn editor_label(store: &Store) -> String {
     (store.prefs.editor.as_ref())
@@ -116,12 +113,8 @@ impl AppView {
         let Some(path) = store.path(project) else {
             return;
         };
-        let terminal = store
-            .prefs
-            .terminal
-            .clone()
-            .unwrap_or_else(|| DEFAULT_TERMINAL.to_owned());
-        let open = move || settings::open_in_terminal(&path, &terminal);
+        let terminal = store.prefs.terminal.clone();
+        let open = move || settings::open_in_terminal(&path, terminal);
         self.open_with("Couldn't open the terminal", open, cx);
     }
 
