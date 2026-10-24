@@ -1,5 +1,6 @@
 //! Getting projects into shape: cloning a repository to start one, picking the target branch
-//! the workspace integrates into, and picking a project's icon.
+//! the workspace integrates into, asking for the author Git records commits with, and picking a
+//! project's icon.
 
 use std::path::PathBuf;
 
@@ -165,6 +166,84 @@ impl AppView {
             .ok();
         })
         .detach();
+    }
+}
+
+impl AppView {
+    /// Ask for the name, then the email, Git records commits with, and save them to the user's
+    /// global Git config, as the desktop app asks when Git has none.
+    pub fn ask_author(&mut self, project: ProjectId, window: &mut Window, cx: &mut Context<Self>) {
+        let input = cx.new(|cx| TextInput::new("Your full name", false, cx));
+        let check = |_: &AppView, name: &str, _: &App| {
+            name.trim().is_empty().then(|| "Enter your name".into())
+        };
+        self.open_prompt(
+            None,
+            "Set up your Git author",
+            Some(
+                "Commits record who made them. Your name and email go in your global Git \
+                 config, for every repository."
+                    .into(),
+            ),
+            "Next",
+            input,
+            None,
+            Some(Box::new(check)),
+            window,
+            cx,
+            // After this prompt gives the keys back, so the next one keeps them.
+            move |_, name, window, cx| {
+                cx.defer_in(window, move |this, window, cx| {
+                    this.ask_author_email(project, name, window, cx)
+                })
+            },
+        );
+    }
+
+    fn ask_author_email(
+        &mut self,
+        project: ProjectId,
+        name: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let input = cx.new(|cx| TextInput::new("your.email@example.com", false, cx));
+        let check = |_: &AppView, email: &str, _: &App| {
+            let email = email.trim();
+            let looks_right = email.split_once('@').is_some_and(|(user, host)| {
+                !user.is_empty()
+                    && host.contains('.')
+                    && !host.contains('@')
+                    && !email.contains(char::is_whitespace)
+            });
+            (!looks_right).then(|| "Enter an email address".into())
+        };
+        self.open_prompt(
+            None,
+            "Set up your Git author",
+            Some("Next, the email address commits record with your name.".into()),
+            "Save",
+            input,
+            None,
+            Some(Box::new(check)),
+            window,
+            cx,
+            move |this, email, _, cx| {
+                let Some(path) = this.store.read(cx).path(&project) else {
+                    return;
+                };
+                let store = this.store.clone();
+                cx.spawn(async move |_, cx| {
+                    let set =
+                        backend::run(move || settings::set_author(&path, &name, &email)).await;
+                    store.update(cx, |store, cx| match set {
+                        Ok(()) => store.snack("Saved your name and email for Git", cx),
+                        Err(err) => store.failed("Couldn't save your name and email", &err, cx),
+                    });
+                })
+                .detach();
+            },
+        );
     }
 }
 

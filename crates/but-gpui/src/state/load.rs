@@ -486,7 +486,10 @@ impl Store {
             let watch_id = id.clone();
             let watcher = backend::run(move || {
                 backend::activate(&project.path)?;
-                watch(&project, watch_id, changes)
+                // Asked before the first commit fails for it, as the desktop app does.
+                let author_missing =
+                    backend::settings::author_missing(&project.path).unwrap_or(false);
+                Ok((watch(&project, watch_id, changes)?, author_missing))
             })
             .await;
             this.update(cx, |store, cx| {
@@ -499,11 +502,14 @@ impl Store {
                     entry.queued = None;
                 }
                 match watcher {
-                    Ok(watcher) => {
+                    Ok((watcher, author_missing)) => {
                         if entry.expanded {
                             entry.watcher = Some(watcher);
                         }
                         store.refresh_forge(&id);
+                        if author_missing && !std::mem::replace(&mut store.asked_author, true) {
+                            cx.emit(StoreEvent::AuthorMissing(id.clone()));
+                        }
                     }
                     Err(err) => {
                         tracing::warn!("Couldn't open {}: {err:#}", entry.project.name);

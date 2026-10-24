@@ -968,6 +968,11 @@ pub fn target_choice(path: &Path, err: &anyhow::Error) -> Option<TargetChoice> {
     })
 }
 
+/// Whether `err` is Git having no author to record a commit with.
+pub fn is_author_missing(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<but_error::Code>() == Some(&but_error::Code::AuthorMissing)
+}
+
 /// What a failed operation's card says: the engine's own words, except where those name a
 /// commit the user never saw, or leave out what the engine did about it.
 pub fn failure_detail(err: &anyhow::Error) -> String {

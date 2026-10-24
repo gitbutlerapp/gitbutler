@@ -1514,7 +1514,18 @@ impl Store {
                         if let Some(path) = store.path(&project) {
                             detail = detail.replace(&format!("{}/", path.display()), "");
                         }
-                        store.error(title, detail, cx)
+                        // Set here with its button, rather than in a terminal.
+                        if backend::is_author_missing(&err) {
+                            let detail = "Git doesn't know your name and email yet, which \
+                                          every commit records.";
+                            let asked = project.clone();
+                            let ask = move |_: &mut Store, cx: &mut Context<Store>| {
+                                cx.emit(StoreEvent::AuthorMissing(asked.clone()))
+                            };
+                            store.error_with_retry(title, detail, "Set name and email…", ask, cx)
+                        } else {
+                            store.error(title, detail, cx)
+                        }
                     }
                 }
                 // The cards it wrote are its own, for the next run of it that works to take back.
