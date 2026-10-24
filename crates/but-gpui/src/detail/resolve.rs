@@ -15,7 +15,7 @@ use super::{Detail, DiffSource};
 use crate::app::AppView;
 use crate::backend::conflicts::{self, Keep};
 use crate::backend::{self, CommitId, Conflict, Workspace, ai};
-use crate::state::{OpKind, Overlay, ProjectId, Rereads, Selection};
+use crate::state::{OpKind, Overlay, ProjectId, Rereads, Selection, snack};
 use crate::theme::Theme;
 use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
 use crate::ui::diff::{DiffRow, Layout, OnToggle};
@@ -173,7 +173,7 @@ impl Detail {
 
     /// What `conflict`'s sides are called, alone and in a sentence. A commit sits on the
     /// target when it's its stack's oldest, else on the commit below, as a commit checked out
-    /// for editing does. An update's markers put the uncommitted changes first, as Git's do,
+    /// for editing does, and then its lines can come from the target too. An update's markers put the uncommitted changes first, as Git's do,
     /// then what the update brought; any other merge's markers name the sides themselves.
     fn side_names(&self, conflict: &Conflict, cx: &App) -> [(String, String); 2] {
         let Some((project, conflicted)) = self.conflicted() else {
@@ -195,12 +195,15 @@ impl Detail {
         match conflicted {
             Conflicted::Commit(id) => {
                 let oldest = workspace.is_some_and(|ws| oldest_first(ws, id).first() == Some(&id));
-                [
-                    target
-                        .filter(|_| oldest)
-                        .unwrap_or_else(|| named("Commit below", "the commit below")),
-                    named("This commit", "this commit"),
-                ]
+                let base = match target {
+                    Some(target) if oldest => target,
+                    Some((name, _)) => (
+                        format!("{name} and below"),
+                        format!("{name} and the commits below"),
+                    ),
+                    None => named("Commit below", "the commit below"),
+                };
+                [base, named("This commit", "this commit")]
             }
             Conflicted::Files(_) => match &conflict.labels {
                 [ours, theirs] if ours.is_empty() || (ours == "ours" && theirs == "theirs") => [
@@ -221,15 +224,8 @@ impl Detail {
         r.keeping.retain(|id, _| shown.contains(id));
         r.suggesting.retain(|id, _| shown.contains(id));
         r.ancestors.retain(|id| shown.contains(id));
-        if r.editing
-            .as_ref()
-            .is_some_and(|(id, ..)| !shown.contains(id))
-        {
-            r.editing = None;
-        }
-        if r.current.as_ref().is_some_and(|id| !shown.contains(id)) {
-            r.current = None;
-        }
+        r.editing.take_if(|(id, ..)| !shown.contains(id));
+        r.current.take_if(|id| !shown.contains(id));
     }
 
     /// The conflict the keyboard acts on: the one picked last, else the first undecided.
@@ -484,9 +480,7 @@ impl Detail {
         // Once the one under way is done, the conflicts left are numbered anew, which picks
         // applied again, or along with a finish, would mistake.
         if self.store.read(cx).resolving(&project) {
-            (self.store).update(cx, |store, cx| {
-                store.snack("Wait for the resolve under way", cx)
-            });
+            snack(&self.store, "Wait for the resolve under way", cx);
             return true;
         }
         let Some(diff) = &self.diff else {
@@ -574,8 +568,9 @@ impl Detail {
         let keep: Vec<(String, usize, Keep)> = (keep.into_iter())
             .map(|(path, c, keep)| (path, c.index, keep))
             .collect();
-        let next =
-            (self.store.read(cx).workspace(&project)).and_then(|ws| next_conflicted(ws, commit));
+        let after = (self.store.read(cx).workspace(&project))
+            .map(|ws| stack_after(ws, commit))
+            .unwrap_or_default();
         let shown = project.clone();
         self.store.update(cx, |store, cx| {
             store.run(
@@ -596,23 +591,31 @@ impl Detail {
                 },
                 move |store, (rewritten, outcome), cx| {
                     forget(cx);
-                    let next =
-                        next.map(|(id, title)| (rewritten.get(&id).copied().unwrap_or(id), title));
-                    let message = match (outcome.remaining, outcome.emptied, next) {
-                        (0, true, _) => {
-                            store.follow(&rewritten, cx);
-                            "Resolved, with nothing of the commit's change left".into()
-                        }
-                        // On to the stack's next conflicted commit, rebuilt on this one.
-                        (0, false, Some((next, title))) => {
+                    // The commits above it were rebuilt on it, conflicted now or not
+                    // whatever they were; those below stay as they were.
+                    let next = after.into_iter().find_map(|(id, title, was)| {
+                        let now = rewritten.get(&id).copied();
+                        let conflicted = now.map_or(was, |now| outcome.conflicted.contains(&now));
+                        conflicted.then_some((now.unwrap_or(id), title))
+                    });
+                    let resolved = match outcome.emptied {
+                        true => "Resolved, leaving the commit empty",
+                        false => "Resolved",
+                    };
+                    let message = match (outcome.remaining, next) {
+                        // On to the stack's next conflicted commit.
+                        (0, Some((next, title))) => {
                             store.select(Some(Selection::Commit(shown, next)), cx);
-                            format!("Resolved, on to {title}")
+                            format!("{resolved}, on to {title}")
                         }
-                        (0, false, None) => {
+                        (0, None) => {
                             store.follow(&rewritten, cx);
-                            "Resolved, no conflicts left".into()
+                            match outcome.emptied {
+                                true => resolved.into(),
+                                false => "Resolved, no conflicts left".into(),
+                            }
                         }
-                        (left, ..) => {
+                        (left, _) => {
                             store.follow(&rewritten, cx);
                             format!(
                                 "Resolved {}, {left} left",
@@ -869,16 +872,25 @@ fn oldest_first(workspace: &Workspace, commit: CommitId) -> Vec<CommitId> {
         .collect()
 }
 
-/// The next conflicted commit of `commit`'s stack after it, oldest first, with its title.
-fn next_conflicted(workspace: &Workspace, commit: CommitId) -> Option<(CommitId, String)> {
+/// The commits of `commit`'s stack after it, oldest first and then wrapping around to older
+/// ones, with their titles and whether they're conflicted.
+fn stack_after(workspace: &Workspace, commit: CommitId) -> Vec<(CommitId, String, bool)> {
     let order = oldest_first(workspace, commit);
-    let at = order.iter().position(|id| *id == commit)?;
-    order.get(at + 1..)?.iter().find_map(|id| {
-        let (_, found) = workspace.find_commit(*id)?;
-        found
-            .conflicted
-            .then(|| (*id, commit_title(&found.title).to_string()))
-    })
+    let at = order
+        .iter()
+        .position(|id| *id == commit)
+        .unwrap_or(order.len());
+    let (before, from) = order.split_at(at);
+    (from.iter().skip(1).chain(before))
+        .filter_map(|id| {
+            let (_, found) = workspace.find_commit(*id)?;
+            Some((
+                *id,
+                commit_title(&found.title).to_string(),
+                found.conflicted,
+            ))
+        })
+        .collect()
 }
 
 /// A condition on the warn ground, as ui-react's `Banner`: its line, beside the one fix.
@@ -933,22 +945,28 @@ impl AppView {
         el: gpui::Stateful<gpui::Div>,
         cx: &mut Context<Self>,
     ) -> gpui::Stateful<gpui::Div> {
-        let conflicted = self.oldest_conflict(cx).is_some();
+        let conflicted = self.conflict_to_resolve(cx).is_some();
         el.when(conflicted, |el| {
             el.on_action(cx.listener(|this, _: &ResolveConflicts, window, cx| {
-                if let Some((project, id)) = this.oldest_conflict(cx) {
+                if let Some((project, id)) = this.conflict_to_resolve(cx) {
                     this.resolve_commit(project, id, window, cx);
                 }
             }))
         })
     }
 
-    /// The oldest conflicted commit of the selected branch or commit's stack.
-    fn oldest_conflict(&self, cx: &App) -> Option<(ProjectId, CommitId)> {
+    /// The selected commit when it's conflicted, else the oldest conflicted commit of the
+    /// selected branch or commit's stack.
+    fn conflict_to_resolve(&self, cx: &App) -> Option<(ProjectId, CommitId)> {
         let store = self.store.read(cx);
         let selection = (store.selection.as_ref()).filter(|s| store.worktree_of(s).is_none())?;
         let workspace = store.workspace(selection.project())?;
+        let conflicted =
+            |id: CommitId| workspace.find_commit(id).is_some_and(|(_, c)| c.conflicted);
         let commit = match selection {
+            Selection::Commit(project, id) if conflicted(*id) => {
+                return Some((project.clone(), *id));
+            }
             Selection::Commit(_, id) => *id,
             Selection::Branch(_, ref_name) => {
                 let (stack, _) = workspace.stack_of(ref_name)?;
@@ -956,11 +974,9 @@ impl AppView {
             }
             _ => return None,
         };
-        let id = oldest_first(workspace, commit).into_iter().find(|id| {
-            workspace
-                .find_commit(*id)
-                .is_some_and(|(_, c)| c.conflicted)
-        })?;
+        let id = oldest_first(workspace, commit)
+            .into_iter()
+            .find(|id| conflicted(*id))?;
         Some((selection.project().clone(), id))
     }
 

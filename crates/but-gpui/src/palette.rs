@@ -20,7 +20,7 @@ use crate::edits::{
     NewBranchBelow, NewBranchHere, RewrapMessage, SquashAll, UnapplyStack, Unstack,
 };
 use crate::overlays::backdrop;
-use crate::state::{Notice, Selection};
+use crate::state::{Notice, Selection, snack};
 use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -129,7 +129,8 @@ const RISKY: &[&str] = &[
     "Merge pull request",
 ];
 
-type Run = Box<dyn FnOnce(&mut AppView, &mut Window, &mut Context<AppView>)>;
+/// What picking a choice does, given what's typed.
+type Run = Box<dyn FnOnce(&mut AppView, &str, &mut Window, &mut Context<AppView>)>;
 
 /// A row of the palette: what it's called, what it says at its end (keys, or a detail like
 /// the project a branch is in), and what picking it does.
@@ -139,6 +140,9 @@ pub struct Choice {
     detail: Option<SharedString>,
     /// It throws work away, so letters scattered through its label don't find it.
     risky: bool,
+    /// It makes something named as typed: any text but another choice's label finds it,
+    /// shown after its label.
+    names: bool,
     run: Run,
 }
 
@@ -152,7 +156,20 @@ impl Choice {
             key: None,
             detail: None,
             risky: false,
+            names: false,
+            run: Box::new(move |this, _, window, cx| run(this, window, cx)),
+        }
+    }
+
+    /// A choice that makes something named as typed, or with nothing typed, as it likes.
+    pub fn naming(
+        label: impl Into<SharedString>,
+        run: impl FnOnce(&mut AppView, &str, &mut Window, &mut Context<AppView>) + 'static,
+    ) -> Self {
+        Self {
+            names: true,
             run: Box::new(run),
+            ..Self::new(label, |_, _, _| {})
         }
     }
 
@@ -189,15 +206,19 @@ impl Palette {
     }
 }
 
-/// How well `query` matches `label`: the start of a word beats the middle of one, which
-/// beats a scattered match, and earlier beats later. `None` when the letters don't appear
-/// in order.
+/// How well `query` matches `label`: all of it beats the start of a word, which beats the
+/// middle of one, which beats a scattered match, and earlier beats later. `None` when the
+/// letters don't appear in order.
 fn score(label: &str, query: &str) -> Option<i32> {
     if query.is_empty() {
         return Some(0);
     }
     let label = label.to_lowercase();
     let query = query.to_lowercase();
+    // A branch named in full, as `min-size`, before the ones it starts, as `min-size-docs`.
+    if label == query {
+        return Some(3000);
+    }
     if let Some((at, _)) = label
         .match_indices(&query)
         .find(|(at, _)| *at == 0 || label.get(..*at).is_some_and(|head| head.ends_with(' ')))
@@ -305,7 +326,7 @@ impl AppView {
                             if (this.store.read(cx).workspace(&id))
                                 .is_none_or(|ws| ws.find_branch(&ref_name).is_none())
                             {
-                                return this.store.update(cx, |store, cx| store.snack(gone, cx));
+                                return snack(&this.store, gone, cx);
                             }
                             this.select(Selection::Branch(id, ref_name), window, cx)
                         });
@@ -324,16 +345,18 @@ impl AppView {
         let Some(selection) = self.store.read(cx).selection.clone() else {
             return;
         };
+        // The file under the cursor while the file list or the diff has the keys.
+        let file = (self.detail).update(cx, |detail, cx| detail.focused_file_items(window, cx));
         // On the Branches and Operations history pages, what's opened there.
         let detail = self.detail.read(cx);
-        let items = match &selection {
+        let items = file.or_else(|| match &selection {
             Selection::Branches(project) => (detail.selected_other_branch(project))
-                .map(|branch| detail.branch_menu_items(project, &branch.ref_name, cx)),
+                .map(|branch| detail.branch_menu_items(project, &branch.ref_name)),
             Selection::History(project) => (detail.selected_operation(project)).map(|operation| {
                 crate::detail::Detail::operation_menu_items(project, operation.id)
             }),
             _ => None,
-        };
+        });
         let items = items.unwrap_or_else(|| self.navigator.read(cx).menu_items(&selection, cx));
         let choices: Vec<Choice> = (items.into_iter())
             .map(|item| Choice {
@@ -341,7 +364,8 @@ impl AppView {
                 key: item.key,
                 detail: item.detail,
                 risky: item.danger,
-                run: Box::new(move |this, window, cx| (item.handler)(this, window, cx)),
+                names: false,
+                run: Box::new(move |this, _, window, cx| (item.handler)(this, window, cx)),
             })
             .collect();
         if choices.is_empty() {
@@ -412,12 +436,21 @@ impl AppView {
             return Vec::new();
         };
         let query = palette.input.read(cx).text().trim().to_owned();
+        let taken =
+            (palette.choices.iter()).any(|c| !c.names && c.label.eq_ignore_ascii_case(&query));
         let mut scored: Vec<(i32, usize)> = palette
             .choices
             .iter()
             .enumerate()
             .filter_map(|(ix, choice)| {
-                let detail = (choice.detail.as_ref()).and_then(|detail| score(detail, &query));
+                // Last, under what the text finds.
+                if choice.names && !query.is_empty() {
+                    return (!taken).then_some((-1, ix));
+                }
+                // The label first on a tie, as a branch named as another's detail says.
+                let detail = (choice.detail.as_ref())
+                    .and_then(|detail| score(detail, &query))
+                    .map(|score| score - 1);
                 let score = score(&choice.label, &query).max(detail)?;
                 // One that throws work away shows for its words, not for letters scattered
                 // through it, so typing a command missing here doesn't land on it.
@@ -434,6 +467,7 @@ impl AppView {
         let Some(palette) = self.palette.take() else {
             return;
         };
+        let typed = palette.input.read(cx).text().trim().to_owned();
         let Some(choice) = palette.choices.into_iter().nth(ix) else {
             return;
         };
@@ -441,7 +475,7 @@ impl AppView {
         if let Some(focus) = palette.restore_focus {
             window.focus(&focus, cx);
         }
-        (choice.run)(self, window, cx);
+        (choice.run)(self, &typed, window, cx);
         cx.notify();
     }
 
@@ -472,6 +506,7 @@ impl AppView {
         let palette = self.palette.as_ref()?;
         let theme = Theme::get(cx).clone();
         let matches = self.matches(cx);
+        let typed = palette.input.read(cx).text().trim().to_owned();
         let rows: Vec<AnyElement> = matches
             .iter()
             .enumerate()
@@ -480,7 +515,12 @@ impl AppView {
                 let selected = row == palette.selected;
                 let el = list_row(("command", ix), selected, &theme)
                     .gap(dp(12.))
-                    .child(div().flex_1().truncate().child(choice.label.clone()))
+                    .child(div().flex_1().truncate().child(
+                        match choice.names && !typed.is_empty() {
+                            true => format!("{} \"{typed}\"", choice.label).into(),
+                            false => choice.label.clone(),
+                        },
+                    ))
                     .when_some(choice.detail.clone(), |el, detail| {
                         el.child(muted(detail, &theme))
                     })
@@ -575,7 +615,15 @@ impl AppView {
 
 #[cfg(test)]
 mod tests {
-    use super::{COMMANDS, RISKY};
+    use super::{COMMANDS, RISKY, score};
+
+    #[test]
+    fn a_name_typed_in_full_comes_before_the_longer_ones_it_starts() {
+        assert!(
+            score("min-size", "min-size") > score("min-size-docs", "min-size"),
+            "Enter takes the first, so it must be the one named"
+        );
+    }
 
     #[test]
     fn every_risky_name_is_a_command() {

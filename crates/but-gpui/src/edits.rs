@@ -14,7 +14,7 @@ use crate::app::{
     UncommitSelection,
 };
 use crate::backend::{self, Branch, Commit, CommitId, Destination, Selected, Workspace, short_ref};
-use crate::state::{Cut, Overlay, ProjectId, Remap, Rereads, Selection, Store};
+use crate::state::{Cut, Overlay, ProjectId, Remap, Rereads, Selection, Store, snack};
 
 actions!(
     edits,
@@ -91,7 +91,11 @@ fn land_scope(workspace: &Workspace, ref_name: &str) -> Option<bool> {
     let landing: Vec<_> = (stack.branches.get(at..)?.iter())
         .flat_map(|branch| &branch.commits)
         .collect();
-    (!landing.is_empty() && !landing.iter().any(|c| c.conflicted)).then_some(whole)
+    // Not when all of it is in the target already, as a branch merged there is.
+    let new = landing
+        .iter()
+        .any(|c| c.state != crate::backend::CommitState::Integrated);
+    (new && !landing.iter().any(|c| c.conflicted)).then_some(whole)
 }
 
 /// Which edits of a named branch have something to do, so its menu and the palette offer
@@ -349,9 +353,7 @@ impl AppView {
             Some(Selection::Uncommitted(project)) => {
                 let target = self.detail.read(cx).effective_target(&project, cx);
                 let Some(target) = target else {
-                    return self
-                        .store
-                        .update(cx, |store, cx| store.snack("Select a branch to push", cx));
+                    return snack(&self.store, "Select a branch to push", cx);
                 };
                 Some((project, target))
             }
@@ -368,7 +370,7 @@ impl AppView {
             false => Some("Nothing to push yet"),
         };
         if let Some(refused) = refused {
-            return self.store.update(cx, |store, cx| store.snack(refused, cx));
+            return snack(&self.store, refused, cx);
         }
         let drops = ws.push_drops(&ref_name);
         let (what, them) = match drops.len() {
@@ -380,9 +382,17 @@ impl AppView {
             1 => ("the commit".to_owned(), "it"),
             n => (format!("the {n} commits"), "them"),
         };
-        let detail = match ws.can_pull(&ref_name) {
-            true => format!("It drops {what} only the remote has. Pull first to keep {them}."),
-            false => format!("It drops {what} only the remote has."),
+        // A branch it takes along whose commits only its remote has can't be pulled first
+        // when others are stacked on it.
+        let stuck = (ws.pushed_with(&ref_name).iter())
+            .find(|b| !b.incoming.is_empty() && !ws.can_pull(&b.ref_name));
+        let detail = match stuck {
+            None => format!("It drops {what} only the remote has. Pull first to keep {them}."),
+            Some(stuck) => format!(
+                "It drops {what} only the remote has. To keep {name}'s, unstack the branches on \
+                 it and pull it first.",
+                name = stuck.name
+            ),
         };
         // Asked here, as the project's own protection is off unless turned on.
         self.confirm_then(
@@ -587,16 +597,27 @@ impl AppView {
         let linked = store.worktree_of(&selection).is_some();
         if at == 0 && linked {
             let message = format!("{name} is checked out in a worktree, which keeps it");
-            return self.store.update(cx, |store, cx| store.snack(message, cx));
+            return snack(&self.store, message, cx);
         }
         // Only the ref goes. Its commits stay in the stack, which needs another named branch
         // to hold them: the one above, or below when there's none above.
         let named = |b: &&Branch| !b.ref_name.is_empty();
         if lane.iter().filter(named).count() < 2 && lane.iter().any(|b| !b.commits.is_empty()) {
-            let message = format!(
-                "To delete {name} and its commits, unapply it, then delete it from Branches"
-            );
-            return self.store.update(cx, |store, cx| store.snack(message, cx));
+            // Checked out on its own, it can't be unapplied, only switched away from.
+            let target = (store.workspace(&project).filter(|ws| !ws.managed))
+                .and_then(|ws| ws.target_branch.as_deref())
+                .map(short_ref)
+                .filter(|target| *target != name);
+            let message = match target {
+                Some(target) => format!(
+                    "To delete {name}, check out another branch, as with `git switch {target}`, \
+                     then delete it from Branches"
+                ),
+                None => format!(
+                    "To delete {name} and its commits, unapply it, then delete it from Branches"
+                ),
+            };
+            return snack(&self.store, message, cx);
         }
         // The oplog doesn't keep a linked worktree's branches, so it can't bring one back.
         let undoable = !linked && recorded(store, &project);
@@ -784,8 +805,8 @@ impl AppView {
         });
     }
 
-    /// Pick up the selected commit to put a copy of it where ⌘V lands.
-    /// Copy the selected commit, and those picked with it, to paste as new commits.
+    /// Pick up the selected commit, and those picked with it, to put copies of them where ⌘V
+    /// lands.
     fn cherry_pick(&mut self, _: &CherryPick, _: &mut Window, cx: &mut Context<Self>) {
         if let Some((project, commit)) = self.selected_commit(cx) {
             let ids = self.store.read(cx).with_picks(&project, commit.id);
@@ -843,6 +864,14 @@ impl AppView {
         let rest: Vec<_> = picked.into_iter().filter(|id| *id != into).collect();
         if rest.is_empty() {
             return;
+        }
+        // A conflicted one's change would be dropped, or the engine refuses.
+        if (workspace.commits()).any(|c| c.conflicted && store.picked.contains(&c.id)) {
+            return snack(
+                &self.store,
+                "Resolve the conflicted commits first, then squash",
+                cx,
+            );
         }
         self.store.update(cx, |store, cx| {
             store.picked.clear();
@@ -1086,7 +1115,7 @@ impl AppView {
         };
         if text.trim().is_empty() {
             cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
-            return (self.store).update(cx, |store, cx| store.snack("Copied an empty message", cx));
+            return snack(&self.store, "Copied an empty message", cx);
         }
         self.copy_text(text, cx);
     }

@@ -277,21 +277,21 @@ impl SettingsView {
         let mut connected = Vec::new();
         for account in &self.accounts.list {
             let id = account.id.clone();
-            let forget = button(
-                SharedString::from(format!("forget-{}", account.label)),
-                "Forget",
-            )
-            .small()
-            .style(ButtonStyle::Ghost)
-            .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                let id = id.clone();
-                this.apply(
-                    "Couldn't forget the account",
-                    move || accounts::forget(id),
-                    Self::load_accounts,
-                    cx,
-                )
-            }));
+            // By forge too, as a GitHub and a GitLab account can share a username, and a shared
+            // id takes the second's clicks as the first's.
+            let key = format!("forget-{}-{}", account.forge.name(), account.label);
+            let forget = button(SharedString::from(key), "Forget")
+                .small()
+                .style(ButtonStyle::Ghost)
+                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    let id = id.clone();
+                    this.apply(
+                        "Couldn't forget the account",
+                        move || accounts::forget(id),
+                        Self::load_accounts,
+                        cx,
+                    )
+                }));
             connected.push(Row::new(
                 account.forge.name(),
                 account.label.clone(),

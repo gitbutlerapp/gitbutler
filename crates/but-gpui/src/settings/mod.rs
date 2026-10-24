@@ -23,8 +23,8 @@ use crate::ui::modal::{MODAL_RADIUS, ModalSize, modal};
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    self, ButtonStyle, Icon, Tooltip, button, dp, dropdown, error_summary, field, h_flex, icon,
-    muted, side_row, switch, v_flex,
+    self, ButtonStyle, Icon, button, dp, dropdown, error_summary, field, h_flex, icon, muted,
+    side_row, switch, v_flex,
 };
 
 actions!(settings, [OpenSettings]);
@@ -842,8 +842,8 @@ impl Render for SettingsView {
                             })
                         })
                         .collect();
+                    // No tooltip: it would cover the menu's first project.
                     el.child(icon(Icon::ChevronDown).text_color(theme.text_3))
-                        .tooltip(Tooltip::text("Another project's settings"))
                         .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
                             this.open_menu(event, items.clone(), cx)
                         }))

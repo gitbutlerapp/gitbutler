@@ -219,26 +219,10 @@ mod tests {
 
     #[test]
     fn conflicted_files_come_first_in_either_order() {
-        let state = but_core::ChangeState {
-            id: gix::ObjectId::null(gix::hash::Kind::Sha1),
-            kind: gix::object::tree::EntryKind::Blob,
-        };
         let file = |path: &str, modified, conflicted| FileChange {
-            path: path.into(),
-            previous_path: None,
-            kind: crate::backend::ChangeKind::Modified,
             modified: Some(modified),
-            size: None,
             conflicted,
-            lines: None,
-            change: but_core::TreeChange {
-                path: path.into(),
-                status: but_core::TreeStatus::Modification {
-                    previous_state: state,
-                    state,
-                    flags: None,
-                },
-            },
+            ..FileChange::bare(path)
         };
         let (plain, conflicted) = (file("a.rs", 2, false), file("b.rs", 1, true));
         for sort in [FileSort::Name, FileSort::Modified] {

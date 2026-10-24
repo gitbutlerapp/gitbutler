@@ -1,7 +1,7 @@
 //! The left column: every project as a card, each listing its uncommitted changes,
 //! stacks, branches and commits as one tree of rows.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use gpui::{
@@ -181,6 +181,17 @@ impl RowStyle<'_> {
         meta_count(Icon::ArrowUp, n, color, plural(n, "unpushed commit"))
     }
 
+    /// How many commits a folded row holds, when it holds any.
+    fn commits(&self, n: usize) -> Option<Stateful<Div>> {
+        meta_count(Icon::Commit, n, self.muted(), plural(n, "commit"))
+    }
+
+    /// How many files are uncommitted, when any are.
+    fn files(&self, n: usize) -> Option<Stateful<Div>> {
+        let color = self.meta(self.theme.warn);
+        meta_count(Icon::File, n, color, plural(n, "uncommitted file"))
+    }
+
     /// Meaningful colours wash out on the dark selection ground; keep them legible.
     fn meta(&self, color: Hsla) -> Hsla {
         if self.solid {
@@ -291,6 +302,9 @@ pub struct Navigator {
     /// list, kept until it leaves, so a project an agent wakes doesn't move the row about to
     /// be clicked.
     held_order: Option<Vec<ProjectId>>,
+    /// Each project's linked worktrees in the order they had then, most recently used first,
+    /// which an agent committing in one would change under the pointer as well.
+    held_worktrees: HashMap<ProjectId, Vec<Arc<str>>>,
     /// The project whose watch button the pointer is on, which shows what a click makes it.
     watch_hovered: Option<ProjectId>,
     /// Where a dragged project card would go, while one is over a card's heading.
@@ -398,6 +412,7 @@ impl Navigator {
             projects_unfolded: false,
             pointer_over: false,
             held_order: None,
+            held_worktrees: HashMap::new(),
             watch_hovered: None,
             project_drop: None,
             hold_still: false,
@@ -462,13 +477,8 @@ impl Navigator {
     }
 
     fn select(&mut self, selection: Selection, window: &mut Window, cx: &mut Context<Self>) {
-        self.store.update(cx, |store, cx| {
-            let again = store.selection.as_ref() == Some(&selection);
-            store.select(Some(selection), cx);
-            if again {
-                cx.emit(StoreEvent::Reopened);
-            }
-        });
+        self.store
+            .update(cx, |store, cx| store.reopen(selection, cx));
         window.focus(&self.focus, cx);
     }
 
@@ -828,7 +838,13 @@ impl Navigator {
             match (self.rows.iter())
                 .position(|row| matches!(row, Row::Item(item) if item == selection))
             {
-                Some(ix) => self.list.scroll_to_reveal_item(ix),
+                Some(ix) => {
+                    // Rows not drawn since the list's width changed, as zooming changes it,
+                    // count as one row tall rather than none, so the reveal lands on it.
+                    let row = Theme::get(cx).scaled(ROW_HEIGHT);
+                    self.list.clone().with_uniform_item_height(row);
+                    self.list.scroll_to_reveal_item(ix)
+                }
                 // A project just added has its rows once it's loaded.
                 None => {
                     self.reveal_selection =
@@ -1359,30 +1375,21 @@ impl Navigator {
                         .gap(dp(8.))
                         .when(unread, |el| el.child(dot(style.meta(theme.pop))))
                         .when_some(summary, |el, (files, unpushed, target, worktrees)| {
-                            let (warn, blue) = (style.meta(theme.warn), style.meta(theme.blue));
-                            el.children(meta_count(
-                                Icon::File,
-                                files,
-                                warn,
-                                plural(files, "uncommitted file"),
-                            ))
-                            .children(meta_count(
-                                Icon::ArrowUp,
-                                unpushed,
-                                blue,
-                                plural(unpushed, "unpushed commit"),
-                            ))
-                            .children(target.and_then(|t| {
-                                let behind = plural(t.behind, "commit");
-                                let tip = format!("{behind} behind {}{}", t.name, with_merged(t));
-                                meta_count(Icon::ArrowDown, t.behind, warn, tip)
-                            }))
-                            .children(meta_count(
-                                Icon::Folder,
-                                worktrees,
-                                style.muted(),
-                                plural(worktrees, "worktree"),
-                            ))
+                            let warn = style.meta(theme.warn);
+                            el.children(style.files(files))
+                                .children(style.unpushed(unpushed))
+                                .children(target.and_then(|t| {
+                                    let behind = plural(t.behind, "commit");
+                                    let tip =
+                                        format!("{behind} behind {}{}", t.name, with_merged(t));
+                                    meta_count(Icon::ArrowDown, t.behind, warn, tip)
+                                }))
+                                .children(meta_count(
+                                    Icon::Folder,
+                                    worktrees,
+                                    style.muted(),
+                                    plural(worktrees, "worktree"),
+                                ))
                         })
                         .when(entry.is_loading(), |el| {
                             el.child(small_icon(Icon::Clock).text_color(theme.text_3))
@@ -1512,8 +1519,10 @@ impl Navigator {
         let unread = (branches.iter()).any(|branch| store.branch_unread(id, branch));
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
-        // Written to in the last two minutes, likely by the agent working in it.
-        let active = worktree.is_some_and(|wt| wt.last_activity().is_some_and(just_now));
+        // Written to or committed in, in the last two minutes, likely by the agent working in
+        // it, not the app.
+        let active = worktree
+            .is_some_and(|wt| (wt.activity()).any(|at| just_now(at) && !store.own_write(id, at)));
         let toggle = {
             let (project, name) = (id.clone(), name.clone());
             move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
@@ -1881,15 +1890,7 @@ impl Navigator {
                     },
                 ))
                 // Folded, how many commits it holds; open, they're listed under it.
-                .when(!open, |el| {
-                    let n = branch.commits.len();
-                    el.children(meta_count(
-                        Icon::Commit,
-                        n,
-                        style.muted(),
-                        plural(n, "commit"),
-                    ))
-                })
+                .when(!open, |el| el.children(style.commits(branch.commits.len())))
                 .when(unread, |el| el.child(dot(style.meta(theme.pop))))
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
                 // A click looks inside, opening its commits; the chevron, ← and → fold them.
@@ -2325,12 +2326,7 @@ fn change_counts(
         plural(conflicted, "conflicted file"),
     );
     let all = match added + removed {
-        0 => meta_count(
-            Icon::File,
-            n,
-            style.meta(theme.warn),
-            plural(n, "uncommitted file"),
-        ),
+        0 => style.files(n),
         _ => {
             let tip = format!(
                 "{}: {} added, {removed} removed",
@@ -2376,7 +2372,7 @@ fn uncommitted_counts(tally: Tally, style: RowStyle) -> Div {
 /// How many commits the target's merges brought in besides, as " (N counting merged
 /// commits)" after its count, which counts each merge once as the project's page lists them,
 /// or nothing when they brought in none.
-fn with_merged(target: &Target) -> String {
+pub(crate) fn with_merged(target: &Target) -> String {
     match target.commits_behind > target.behind {
         true => format!(" ({} counting merged commits)", target.commits_behind),
         false => String::new(),
@@ -2495,8 +2491,13 @@ impl Render for Navigator {
                 // GPUI calls a drag's start a leave, and the drop has to land where it's aimed.
                 if !*hovered && !cx.has_active_drag() {
                     this.held_order = None;
+                    this.held_worktrees.clear();
                 } else if this.held_order.is_none() {
                     let watched = this.watched(this.store.read(cx));
+                    this.held_worktrees = (watched.iter())
+                        .filter_map(|e| Some((e.id.clone(), e.workspace.as_ref()?)))
+                        .map(|(id, ws)| (id, ws.worktrees.iter().map(|w| w.name.clone()).collect()))
+                        .collect();
                     this.held_order = Some(watched.into_iter().map(|e| e.id.clone()).collect());
                 }
                 cx.notify();

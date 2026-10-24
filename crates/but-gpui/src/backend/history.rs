@@ -459,9 +459,14 @@ fn compare(before: &Branches, after: &Branches) -> Vec<Change> {
         index
     };
     let (was, is) = (index(before, true), index(after, false));
+    // Not the commit GitButler stacks on a conflicted one while it's conflicted, which no one
+    // made.
+    let made = |c: &&Recorded| {
+        !but_core::commit::padding::is_padding_by_message(c.message.as_str().into())
+    };
     let mut changes = Vec::new();
     for (name, commits) in after {
-        for commit in commits {
+        for commit in commits.iter().filter(made) {
             match was.get(&commit.key) {
                 None => changes.push(Change::Added {
                     commit: commit.clone(),
@@ -487,7 +492,7 @@ fn compare(before: &Branches, after: &Branches) -> Vec<Change> {
         }
     }
     for (name, commits) in before {
-        for commit in commits.iter().filter(|c| !is.contains_key(&c.key)) {
+        for commit in (commits.iter().filter(made)).filter(|c| !is.contains_key(&c.key)) {
             changes.push(Change::Removed {
                 commit: commit.clone(),
                 branch: name.clone(),
@@ -549,7 +554,12 @@ pub fn redo_snapshot(
         bail!(UNRECORDED);
     }
     if let Some(spans) = spans {
-        let newer = written_since(&ctx, target.created_at.seconds * 1000, spans)?;
+        let undone_at = target.created_at.seconds * 1000;
+        // As for undo, a commit made outside the app since would be taken out of every branch.
+        if let Some(commit) = committed_since(&ctx, undone_at, spans)? {
+            return Ok(Some(Undone::Behind(commit)));
+        }
+        let newer = written_since(&ctx, undone_at, spans)?;
         if !newer.is_empty() {
             return Ok(Some(Undone::Newer(newer)));
         }
@@ -614,6 +624,14 @@ pub fn undo_snapshot(
         )));
     }
     if let Some((after, spans)) = newer_than {
+        // As another client's operation would be: the undo would take it out of every branch.
+        if let Some(commit) = committed_since(&ctx, after, spans)? {
+            let ours = titled(&ctx, snapshot.0, target.details)?;
+            return Ok(Undone::Behind(format!(
+                "\"{ours}\" can't be undone on its own: the commit \"{commit}\", made outside \
+                 the app, came after it. Operations history can restore to before both."
+            )));
+        }
         let newer = written_since(&ctx, after, spans)?;
         if !newer.is_empty() {
             return Ok(Undone::Newer(newer));
@@ -623,13 +641,49 @@ pub fn undo_snapshot(
     restore_titled(&mut ctx, snapshot.0, target.details, kind).map(Undone::Done)
 }
 
+/// The title of the newest commit HEAD has that was made after `after`, in milliseconds since
+/// the Unix epoch, outside `spans`, as one made in a terminal: GitButler's own workspace
+/// commit aside, which it rewrites.
+fn committed_since(
+    ctx: &but_ctx::Context,
+    after: i64,
+    spans: &[(i64, i64)],
+) -> Result<Option<String>> {
+    use gix::revision::walk::Sorting;
+    use gix::traverse::commit::simple::CommitTimeOrder;
+    let repo = ctx.repo.get()?;
+    let Ok(head) = repo.head_id() else {
+        return Ok(None);
+    };
+    let walk = (repo.rev_walk([head.detach()]))
+        .sorting(Sorting::ByCommitTime(CommitTimeOrder::NewestFirst))
+        .all()?;
+    for info in walk {
+        let info = info?;
+        // Whole seconds, so a second early.
+        let at = info.commit_time.unwrap_or_default() * 1000;
+        if at <= after {
+            break;
+        }
+        let own = spans
+            .iter()
+            .any(|(from, to)| (*from - 1000..=*to).contains(&at));
+        let commit = but_workspace::WorkspaceCommit::from_id(info.id())?;
+        if !own && !commit.is_managed() {
+            return Ok(Some(super::title(&commit.message)));
+        }
+    }
+    Ok(None)
+}
+
 /// Uncommitted files written after `after`, in milliseconds since the Unix epoch, outside
 /// `spans`: the app's own undos and redos, which write files too.
 fn written_since(ctx: &but_ctx::Context, after: i64, spans: &[(i64, i64)]) -> Result<Vec<String>> {
     let repo = ctx.repo.get()?;
     Ok((but_core::diff::worktree_changes(&repo)?.changes.iter())
         .filter(|change| {
-            super::written(&repo, change.path.as_bstr()).is_some_and(|at| {
+            let metadata = super::metadata(&repo, change.path.as_bstr());
+            metadata.as_ref().and_then(super::millis).is_some_and(|at| {
                 at > after && !spans.iter().any(|(from, to)| (*from..=*to).contains(&at))
             })
         })
@@ -743,6 +797,21 @@ mod tests {
         assert!(
             lines(&before, &rebased).is_empty(),
             "a rebase alone changes nothing"
+        );
+        let padded: Branches = vec![
+            (
+                "feat".into(),
+                vec![
+                    commit(10, "p", but_core::commit::padding::TITLE),
+                    commit(2, "b", "Two"),
+                    commit(1, "a", "One"),
+                ],
+            ),
+            ("fix".into(), vec![commit(3, "c", "Three")]),
+        ];
+        assert!(
+            lines(&before, &padded).is_empty() && lines(&padded, &before).is_empty(),
+            "the commit GitButler pads a conflicted one with comes and goes unlisted"
         );
 
         let after: Branches = vec![

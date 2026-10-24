@@ -12,7 +12,7 @@ use crate::navigator::Navigator;
 use crate::overlays::{ContextMenu, Prompt};
 use crate::palette::Palette;
 use crate::projects::pick_folder;
-use crate::state::{Cut, MeshPick, Pane, ProjectId, Selection, Store, StoreEvent};
+use crate::state::{Cut, MeshPick, Pane, ProjectId, Selection, Store, snack};
 use crate::theme::{Theme, UiScale};
 use crate::transfer::{Place, Transfer};
 use crate::ui::{HEADER_HEIGHT, dp, fixed, resize_pane};
@@ -190,7 +190,7 @@ impl AppView {
                 // Saying why, as it went from under what was being typed.
                 if let Some(why) = prompt_gone {
                     this.cancel_prompt(window, cx);
-                    this.store.update(cx, |store, cx| store.snack(why, cx));
+                    snack(&this.store, why, cx);
                 }
                 cx.notify()
             }),
@@ -261,13 +261,8 @@ impl AppView {
     /// Select `selection`. Asked for again, as a crumb naming the page shown is clicked, the
     /// page goes back to how it opens, as the navigator's row does.
     pub fn select(&mut self, selection: Selection, window: &mut Window, cx: &mut Context<Self>) {
-        self.store.update(cx, |store, cx| {
-            let again = store.selection.as_ref() == Some(&selection);
-            store.select(Some(selection), cx);
-            if again {
-                cx.emit(StoreEvent::Reopened);
-            }
-        });
+        self.store
+            .update(cx, |store, cx| store.reopen(selection, cx));
         self.focus_main(window, cx);
     }
 
@@ -320,9 +315,8 @@ impl AppView {
     fn scale_ui(&mut self, step: fn(UiScale) -> UiScale, cx: &mut Context<Self>) {
         let scale = step(self.store.read(cx).prefs.ui_scale);
         self.set_ui_scale(scale, cx);
-        (self.store).update(cx, |store, cx| {
-            store.snack(format!("Interface at {}%", scale.percent()), cx)
-        });
+        let message = format!("Interface at {}%", scale.percent());
+        snack(&self.store, message, cx);
     }
 
     pub fn add_project(&mut self, _: &AddProject, _: &mut Window, cx: &mut Context<Self>) {
@@ -334,16 +328,6 @@ impl AppView {
             }
         })
         .detach();
-    }
-
-    /// Undo what the user last did, in whichever project, or with `redo` what ⌘Z last took
-    /// back. The selection doesn't decide: an operation that finished in another project is
-    /// still the last thing done.
-    fn undo(&mut self, redo: bool, cx: &mut Context<Self>) {
-        self.store.update(cx, |store, cx| match redo {
-            true => store.redo_last(cx),
-            false => store.undo_last(cx),
-        });
     }
 
     /// Fetch the selected project, and ask its forge about pull requests and CI again.
@@ -372,7 +356,7 @@ impl AppView {
             return;
         };
         self.new_branch_at(project, true, None, window, cx, |path, _| {
-            backend::create_branch(path)
+            backend::create_branch(path, None)
         });
     }
 
@@ -384,9 +368,7 @@ impl AppView {
             return;
         };
         if store.unfinished() > 0 {
-            self.store.update(cx, |store, cx| {
-                store.snack("Wait for the running operations to finish", cx)
-            });
+            snack(&self.store, "Wait for the running operations to finish", cx);
             return;
         }
         let detail = "GitButler opens its web app to install it, then starts in this app if \
@@ -521,8 +503,7 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         let Some(transfer) = Transfer::resolve(payload, target, place, self.store.read(cx)) else {
-            self.store
-                .update(cx, |store, cx| store.snack("That can't go there", cx));
+            snack(&self.store, "That can't go there", cx);
             return;
         };
         let project = target.project().clone();
@@ -584,7 +565,9 @@ impl AppView {
         {
             return cx.notify();
         }
-        if self.store.read(cx).cut.is_some() {
+        let store = self.store.read(cx);
+        let mut let_go = store.cut.is_some() || !store.picked.is_empty();
+        if store.cut.is_some() {
             self.store.update(cx, |store, cx| store.set_cut(None, cx));
         }
         if !self.store.read(cx).picked.is_empty() {
@@ -593,10 +576,17 @@ impl AppView {
                 cx.notify()
             });
         }
-        self.detail.update(cx, |detail, cx| {
-            detail.clear_file_picks(cx);
-            detail.clear_line_picks(cx);
+        let_go |= self.detail.update(cx, |detail, cx| {
+            detail.clear_file_picks(cx) | detail.clear_line_picks(cx)
         });
+        // With nothing cut or picked, the newest card, as its Dismiss does.
+        let store = self.store.read(cx);
+        let card = (store.toasts.iter().rev())
+            .find(|toast| matches!(toast.notice, crate::state::Notice::Error { .. }));
+        if let Some(id) = card.map(|toast| toast.id).filter(|_| !let_go) {
+            self.store
+                .update(cx, |store, cx| store.dismiss_toast(id, cx));
+        }
     }
 
     pub(crate) fn focus_navigator(
@@ -705,9 +695,7 @@ impl AppView {
             None if window.is_action_available(&create, cx) => {
                 self.create_pull_request(&create, window, cx)
             }
-            None => self
-                .store
-                .update(cx, |store, cx| store.snack("No pull request here", cx)),
+            None => snack(&self.store, "No pull request here", cx),
         }
     }
 
@@ -780,22 +768,11 @@ impl AppView {
             || self.icon_picker.is_some()
     }
 
-    /// What right-clicking `target`'s row in the navigator offers, opened at `position`.
-    pub fn open_row_menu(
-        &mut self,
-        target: &Selection,
-        position: gpui::Point<gpui::Pixels>,
-        cx: &mut Context<Self>,
-    ) {
-        let items = self.navigator.read(cx).menu_items(target, cx);
-        self.open_menu(position, items, cx);
-    }
-
     /// Put `text` on the clipboard and say so.
     pub fn copy_text(&mut self, text: String, cx: &mut Context<Self>) {
         let message = copied(&text);
         cx.write_to_clipboard(ClipboardItem::new_string(text));
-        self.store.update(cx, |store, cx| store.snack(message, cx));
+        snack(&self.store, message, cx);
     }
 
     fn update_selected_project(
@@ -818,7 +795,7 @@ impl AppView {
         };
         if !target.needs_update {
             let message = format!("Already up to date with {}", target.name);
-            self.store.update(cx, |store, cx| store.snack(message, cx));
+            snack(&self.store, message, cx);
             return;
         }
         self.store
@@ -903,8 +880,10 @@ impl Render for AppView {
             .on_action(cx.listener(Self::go_to_branch))
             .on_action(cx.listener(Self::show_actions))
             .on_action(cx.listener(Self::open_selected_in_terminal))
-            .on_action(cx.listener(|this, _: &Undo, _, cx| this.undo(false, cx)))
-            .on_action(cx.listener(|this, _: &Redo, _, cx| this.undo(true, cx)))
+            // The selection doesn't decide: an operation that finished in another project is
+            // still the last thing done.
+            .on_action(cx.listener(|this, _: &Undo, _, cx| this.store.update(cx, Store::undo_last)))
+            .on_action(cx.listener(|this, _: &Redo, _, cx| this.store.update(cx, Store::redo_last)))
             .on_action(cx.listener(Self::fetch))
             .on_action(cx.listener(Self::new_branch))
             .on_action(cx.listener(Self::push_selected))
@@ -917,7 +896,7 @@ impl Render for AppView {
             .on_action(cx.listener(Self::open_pull_request))
             .on_action(cx.listener(|this, _: &ToggleFileTree, _, cx| {
                 (this.store).update(cx, |store, cx| {
-                    store.set_prefs(|prefs| prefs.file_tree = !prefs.file_tree, cx)
+                    store.set_prefs(|prefs| prefs.flat_files = !prefs.flat_files, cx)
                 })
             }))
             .on_action(cx.listener(Self::cancel))

@@ -15,7 +15,7 @@ use crate::backend::{
     LineKind, PushState, Selected, ai, short_ref,
 };
 use crate::palette::Choice;
-use crate::state::{Cut, NewAt, Overlay, ProjectId, Selection, Store};
+use crate::state::{Cut, NewAt, Overlay, ProjectId, Selection, Store, snack};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
@@ -394,6 +394,11 @@ impl Detail {
             .and_then(|hunk| Some(file.hunks().get(hunk)?.key));
         match hunk {
             Some(key) => self.toggle_hunk(&path, key, cx),
+            // The files selected with it go as it goes.
+            None if self.file_picks.contains(&path) => {
+                let check = self.checks.file_check(&path) == Toggled::False;
+                self.set_checked(self.file_picks.to_vec(), check, cx)
+            }
             None => self.toggle_checked(&path, cx),
         }
     }
@@ -482,7 +487,7 @@ impl Detail {
                 None
             };
             if let Some(refused) = refused {
-                self.store.update(cx, |store, cx| store.snack(refused, cx));
+                snack(&self.store, refused, cx);
                 return;
             }
         }
@@ -649,11 +654,24 @@ impl Detail {
         let Some((_, commit)) = store.find_commit(&project, id) else {
             return;
         };
-        // Already open, as after a click elsewhere: back to what's written there.
-        if let Some((editing, input, _)) = &self.rewording
-            && rewords(editing, &project, commit, store)
-        {
-            return window.focus(&input.focus_handle(cx), cx);
+        if let Some((editing, input, _)) = &self.rewording {
+            // Already open, as after a click elsewhere: back to what's written there.
+            if rewords(editing, &project, commit, store) {
+                return window.focus(&input.focus_handle(cx), cx);
+            }
+            // Open on another commit with changes, which this one would throw away unsaved.
+            let other = (store.workspace(&editing.0).into_iter())
+                .flat_map(|ws| ws.commits())
+                .find(|c| rewords(editing, &editing.0, c, store));
+            if let Some(other) = other
+                && store.message_of(&editing.0, other).1.trim() != input.read(cx).text().trim()
+            {
+                let why = format!(
+                    "Save or cancel the new message for \"{}\" first",
+                    other.title
+                );
+                return snack(&self.store, why, cx);
+            }
         }
         let message = store.message_of(&project, commit).1.to_owned();
         let key = (project.clone(), commit.key.clone(), commit.authored.clone());
@@ -673,9 +691,7 @@ impl Detail {
                 InputEvent::Submit => {
                     let message = input.read(cx).text().trim().to_owned();
                     if message.is_empty() {
-                        return (this.store).update(cx, |store, cx| {
-                            store.snack("Write a commit message first", cx)
-                        });
+                        return snack(&this.store, "Write a commit message first", cx);
                     }
                     // Unchanged, rewording would only give it and the commits above it new ids.
                     if message == opened {
@@ -764,16 +780,12 @@ impl Detail {
             return;
         };
         if self.writing.is_some() {
-            self.store.update(cx, |store, cx| {
-                store.snack("The message is still being written", cx)
-            });
+            snack(&self.store, "The message is still being written", cx);
             return;
         }
         let message = self.message.read(cx).text().trim().to_owned();
         if message.is_empty() {
-            self.store.update(cx, |store, cx| {
-                store.snack("Write a commit message first", cx)
-            });
+            snack(&self.store, "Write a commit message first", cx);
             self.focus_message(window, cx);
             return;
         }
@@ -789,7 +801,7 @@ impl Detail {
         // commit isn't what was being written.
         if nothing_changed && self.composing_on_changes {
             let why = "What was here to commit was committed meanwhile";
-            self.store.update(cx, |store, cx| store.snack(why, cx));
+            snack(&self.store, why, cx);
             return;
         }
         if files.is_empty() && !nothing_changed {
@@ -799,7 +811,7 @@ impl Detail {
                 true => "Nothing checked to commit",
                 false => "Wait for the running operation to finish",
             };
-            self.store.update(cx, |store, cx| store.snack(why, cx));
+            snack(&self.store, why, cx);
             return;
         }
         let target = self.effective_target(&project, cx);
@@ -831,7 +843,7 @@ impl Detail {
                         None if linked => {
                             anyhow::bail!("The worktree has no branch of its own checked out")
                         }
-                        None => (backend::create_branch(path)?, true),
+                        None => (backend::create_branch(path, None)?, true),
                     };
                     // Undone apart from the commit, so a second ⌘Z takes the branch away.
                     let made = created
@@ -952,9 +964,8 @@ impl Detail {
                 .and_then(|ws| ws.uncommitted_in(worktree))
                 .is_some_and(|files| self.shows_worktree(files));
         if !current {
-            self.store.update(cx, |store, cx| {
-                store.snack("Still loading the diff, try again in a moment", cx)
-            });
+            let why = "Still loading the diff, try again in a moment";
+            snack(&self.store, why, cx);
         }
         !current
     }
@@ -966,9 +977,7 @@ impl Detail {
             return;
         };
         if self.commit_pending(&project, cx) {
-            self.store.update(cx, |store, cx| {
-                store.snack("Wait for the commit to finish", cx)
-            });
+            snack(&self.store, "Wait for the commit to finish", cx);
             return;
         }
         let Some((into, _)) = self.amend_target(&project, cx) else {
@@ -979,8 +988,7 @@ impl Detail {
         }
         let files = self.changes_not_pending(&project, cx);
         if files.is_empty() {
-            self.store
-                .update(cx, |store, cx| store.snack("Nothing checked to amend", cx));
+            snack(&self.store, "Nothing checked to amend", cx);
             return;
         }
         let detail = cx.entity().downgrade();
@@ -1081,21 +1089,24 @@ impl Detail {
     }
 
     pub(super) fn toggle_checked(&mut self, path: &str, cx: &mut Context<Self>) {
+        let check = self.checks.file_check(path) == Toggled::False;
+        self.set_checked(vec![path.to_owned()], check, cx);
+    }
+
+    /// Put the whole of each of `paths` in the next commit, or with `check` false, leave it out.
+    fn set_checked(&mut self, paths: Vec<String>, check: bool, cx: &mut Context<Self>) {
         let checks = &mut self.checks;
-        let check = checks.file_check(path);
-        checks
-            .unchecked_hunks
-            .retain(|(hunk_path, _)| hunk_path != path);
-        checks
-            .line_picks
-            .retain(|(hunk_path, _), _| hunk_path != path);
-        match check {
-            Toggled::True | Toggled::Mixed => {
-                checks.unchecked.insert(path.to_owned());
-            }
-            Toggled::False => {
-                checks.unchecked.remove(path);
-            }
+        for path in paths {
+            checks
+                .unchecked_hunks
+                .retain(|(hunk_path, _)| *hunk_path != path);
+            checks
+                .line_picks
+                .retain(|(hunk_path, _), _| *hunk_path != path);
+            match check {
+                true => checks.unchecked.remove(&path),
+                false => checks.unchecked.insert(path),
+            };
         }
         cx.emit(ChecksChanged);
         cx.notify();
@@ -1320,7 +1331,7 @@ impl Detail {
                         {
                             let gone =
                                 format!("{name} was renamed or left the workspace meanwhile");
-                            return detail.store.update(cx, |store, cx| store.snack(gone, cx));
+                            return snack(&detail.store, gone, cx);
                         }
                         detail.commit_target = Some(ref_name);
                         cx.notify();
@@ -1334,8 +1345,9 @@ impl Detail {
                 }
             })
             .collect();
-        choices.push(Choice::new("New branch", move |this, _, cx| {
+        choices.push(Choice::naming("New branch", move |this, name, _, cx| {
             let (targeted, detail) = (project.clone(), detail.clone());
+            let name = (!name.is_empty()).then(|| name.to_owned());
             // The new branch becomes the target, rather than the page shown.
             let done = move |store: &mut Store, branch: String, cx: &mut Context<Store>| {
                 let message = format!("Created {}", short_ref(&branch));
@@ -1346,7 +1358,7 @@ impl Detail {
                 store.snack_undoable(message, cx)
             };
             this.store.update(cx, |store, cx| {
-                let create = |path: &_, _: &_| backend::create_branch(path);
+                let create = move |path: &_, _: &_| backend::create_branch(path, name.as_deref());
                 store.run(
                     &project,
                     "Create branch",
@@ -1389,9 +1401,7 @@ mod tests {
     use gpui::Toggled;
 
     use super::{Checks, covers_same_lines, fingerprint};
-    use crate::backend::{
-        ChangeKind, DiffBody, DiffLine, FileChange, FileDiff, Hunk, HunkKey, LineKind,
-    };
+    use crate::backend::{DiffBody, DiffLine, FileChange, FileDiff, Hunk, HunkKey, LineKind};
 
     fn key(old_start: u32, old_lines: u32) -> HunkKey {
         HunkKey(but_core::HunkHeader {
@@ -1420,14 +1430,7 @@ mod tests {
 
     #[test]
     fn line_picks_last_only_while_their_hunk_is_unchanged() {
-        let line = |kind, text: &str| DiffLine {
-            kind,
-            old: Some(10),
-            new: Some(10),
-            text: text.into(),
-            spans: Vec::new(),
-            emph: Vec::new(),
-        };
+        let line = |kind, text: &str| DiffLine::new(kind, Some(10), Some(10), text);
         let hunk = |key, added: &str| Hunk {
             key,
             header: String::new(),
@@ -1440,28 +1443,8 @@ mod tests {
             lead: Vec::new(),
             tail: Vec::new(),
         };
-        let state = but_core::ChangeState {
-            id: gix::ObjectId::null(gix::hash::Kind::Sha1),
-            kind: gix::object::tree::EntryKind::Blob,
-        };
         let file = |hunk| FileDiff {
-            file: FileChange {
-                path: "a.rs".into(),
-                previous_path: None,
-                kind: ChangeKind::Modified,
-                modified: None,
-                size: None,
-                conflicted: false,
-                lines: None,
-                change: but_core::TreeChange {
-                    path: "a.rs".into(),
-                    status: but_core::TreeStatus::Modification {
-                        previous_state: state,
-                        state,
-                        flags: None,
-                    },
-                },
-            },
+            file: FileChange::bare("a.rs"),
             body: DiffBody::Hunks {
                 hunks: vec![hunk],
                 added: 1,

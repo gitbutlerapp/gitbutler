@@ -10,7 +10,7 @@ use crate::app::AppView;
 use crate::backend::ai;
 use crate::backend::reviews::{self, MergeMethod};
 use crate::backend::{self, Forge, Review, ReviewState, short_ref};
-use crate::state::{Overlay, ProjectId, Selection, Store, StoreEvent};
+use crate::state::{Overlay, ProjectId, Selection, Store, StoreEvent, snack};
 use crate::theme::Theme;
 use crate::ui::modal::{ModalSize, modal};
 use crate::ui::text_input::{InputEvent, Newline, TextInput};
@@ -98,10 +98,7 @@ impl ReviewView {
                 [commit] => Some(&commit.message),
                 _ => None,
             })
-            .map(|message| {
-                let (subject, rest) = message.split_once('\n').unwrap_or((message, ""));
-                (subject.trim().to_owned(), rest.trim().to_owned())
-            })
+            .map(|message| backend::subject_and_body(message))
             .unwrap_or_else(|| (short_ref(&branch).to_owned(), String::new()));
         title.update(cx, |input, cx| {
             input.set_text(subject, cx);
@@ -239,6 +236,7 @@ impl ReviewView {
                     store.refresh_forge(&refreshed);
                     match published {
                         Ok(published) => {
+                            store.pushed(&refreshed);
                             let made = format!("Created pull request #{}", published.number);
                             store.snack(store.card_title(&refreshed, made), cx);
                             if let Some(message) = published.sync_failed {
@@ -477,7 +475,7 @@ impl AppView {
         let refused =
             (self.store.read(cx).workspace(&project)).and_then(|ws| ws.push_refused(&branch));
         if let Some(refused) = refused {
-            return self.store.update(cx, |store, cx| store.snack(refused, cx));
+            return snack(&self.store, refused, cx);
         }
         let store = self.store.clone();
         let view = cx.new(|cx| ReviewView::new(store, project, branch, window, cx));
@@ -505,10 +503,8 @@ impl AppView {
         };
         // The forge merges what it has, not the commits only here.
         if (self.store.read(cx).workspace(&project)).is_some_and(|ws| ws.can_push(&branch)) {
-            self.store.update(cx, |store, cx| {
-                store.snack("Push first, so the pull request has these commits", cx)
-            });
-            return;
+            let why = "Push first, so the pull request has these commits";
+            return snack(&self.store, why, cx);
         }
         // GitLab merges as the project is set up to, whatever is asked for.
         let gitlab = (self.store.read(cx).workspace(&project)).and_then(|ws| ws.forge)

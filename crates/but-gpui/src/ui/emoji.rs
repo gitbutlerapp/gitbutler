@@ -19,6 +19,10 @@ pub struct Colour {
 }
 
 impl Colour {
+    const fn new(key: &'static str, name: &'static str, fill: Option<Icon>) -> Self {
+        Self { key, name, fill }
+    }
+
     /// The icon as but.dev stores it.
     pub fn stored(&self) -> Option<String> {
         self.fill.map(|_| format!("glyph:{}", self.key))
@@ -27,41 +31,13 @@ impl Colour {
 
 /// The glyph's colours, in the order ui-react's picker offers them: the outline first.
 pub const COLOURS: [Colour; 7] = [
-    Colour {
-        key: "outline",
-        name: "Outline",
-        fill: None,
-    },
-    Colour {
-        key: "pop",
-        name: "Teal",
-        fill: Some(Icon::RepoPop),
-    },
-    Colour {
-        key: "safe",
-        name: "Green",
-        fill: Some(Icon::RepoSafe),
-    },
-    Colour {
-        key: "purple",
-        name: "Purple",
-        fill: Some(Icon::RepoPurple),
-    },
-    Colour {
-        key: "danger",
-        name: "Red",
-        fill: Some(Icon::RepoDanger),
-    },
-    Colour {
-        key: "warn",
-        name: "Orange",
-        fill: Some(Icon::RepoWarn),
-    },
-    Colour {
-        key: "gray",
-        name: "Gray",
-        fill: Some(Icon::RepoGray),
-    },
+    Colour::new("outline", "Outline", None),
+    Colour::new("pop", "Teal", Some(Icon::RepoPop)),
+    Colour::new("safe", "Green", Some(Icon::RepoSafe)),
+    Colour::new("purple", "Purple", Some(Icon::RepoPurple)),
+    Colour::new("danger", "Red", Some(Icon::RepoDanger)),
+    Colour::new("warn", "Orange", Some(Icon::RepoWarn)),
+    Colour::new("gray", "Gray", Some(Icon::RepoGray)),
 ];
 
 /// The colours whose name holds every word of `query`, as ui-react finds them, by their

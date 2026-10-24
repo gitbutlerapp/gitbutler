@@ -67,10 +67,7 @@ fn rows(history: &History, shown: &[usize]) -> Vec<Row> {
 /// to a branch, brought in from the target, taken back, or kept as a snapshot.
 fn describe(kind: Option<OperationKind>) -> (Icon, Group) {
     use OperationKind as K;
-    let Some(kind) = kind else {
-        return (Icon::Commit, Group::Other);
-    };
-    match kind {
+    match kind.unwrap_or(K::Unknown) {
         K::CreateCommit | K::AutoCommit | K::InsertBlankCommit | K::CherryPick => {
             (Icon::Commit, Group::Commits)
         }
@@ -474,12 +471,21 @@ impl Detail {
                 .ticked(!self.history_hidden.contains(&group))
             })
             .collect();
-        (self.app)
-            .update(cx, |app, cx| app.open_menu(position, items, cx))
-            .ok();
+        self.open_menu(position, items, cx);
     }
 
-    /// Back to the newest operation listed, as the page opens on, when it's picked again.
+    /// Opening `project`'s history, wherever from: at the top, on the newest operation, which
+    /// the reload that follows picks, rather than on one picked a visit ago and since pushed
+    /// out of view by newer ones.
+    pub(super) fn open_on_newest_operation(&mut self, project: &ProjectId) {
+        if let Some(history) = self.history.get_mut(project) {
+            history.selected = None;
+        }
+        (self.history_scroll).scroll_to_item(0, gpui::ScrollStrategy::Top);
+    }
+
+    /// Back to the newest operation listed, at the top, as the page opens on, when it's picked
+    /// again.
     pub(super) fn pick_newest_operation(&mut self, cx: &mut Context<Self>) {
         let Some(history) = self.page_history(cx) else {
             return;
@@ -487,6 +493,7 @@ impl Detail {
         let newest = self.shown_operations(history, cx).first().copied();
         if let Some(op) = newest.and_then(|ix| history.operations.get(ix)) {
             self.select_operation(op.id, cx);
+            (self.history_scroll).scroll_to_item(0, gpui::ScrollStrategy::Top);
         }
     }
 
@@ -543,9 +550,7 @@ impl Detail {
     ) {
         self.select_operation(id, cx);
         let items = Self::operation_menu_items(project, id);
-        self.app
-            .update(cx, |app, cx| app.open_menu(at, items, cx))
-            .ok();
+        self.open_menu(at, items, cx);
     }
 
     /// What Operations history offers for the operation before snapshot `id`, as

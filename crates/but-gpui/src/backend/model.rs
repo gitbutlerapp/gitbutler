@@ -67,8 +67,9 @@ pub struct Workspace {
     pub worktrees: Vec<Worktree>,
     /// The names of the worktrees archived, to bring back.
     pub archived_worktrees: Vec<std::sync::Arc<str>>,
-    /// A fingerprint of the repository's local and remote branches and of the pull requests
-    /// the forge cache knows, which the Branches page lists again when it changes.
+    /// A fingerprint of the repository's local and remote branches, of the pull requests the
+    /// forge cache knows and of the branches linked worktrees shown have checked out, which
+    /// the Branches page lists again when it changes.
     pub refs: u64,
 }
 
@@ -121,11 +122,12 @@ impl Worktree {
         bottom.commits.last().map(|commit| commit.id)
     }
 
-    /// When one of its uncommitted files was last written, in seconds since the epoch.
-    pub fn last_activity(&self) -> Option<i64> {
+    /// When its uncommitted files were written, and when it last moved, as a commit that
+    /// takes them all does, in seconds since the epoch.
+    pub fn activity(&self) -> impl Iterator<Item = i64> + '_ {
         (self.uncommitted.iter())
             .filter_map(|file| file.modified.map(|ms| ms / 1000))
-            .max()
+            .chain(self.updated_at)
     }
 }
 
@@ -247,7 +249,7 @@ impl Workspace {
     }
 
     /// `ref_name`'s branch and the ones below it in its stack, which pushing it pushes too.
-    fn pushed_with(&self, ref_name: &str) -> &[Branch] {
+    pub(crate) fn pushed_with(&self, ref_name: &str) -> &[Branch] {
         (self.stack_of(ref_name))
             .and_then(|(stack, at)| stack.branches.get(at..))
             .unwrap_or_default()
@@ -309,10 +311,10 @@ impl Workspace {
             .iter()
             .filter_map(|file| file.modified.map(|ms| ms / 1000));
         // Linked worktrees' too, as an agent committing in one clears its uncommitted files.
-        let committed = self
-            .shown_branches()
-            .filter_map(|branch| branch.commits.first().map(|c| c.time));
-        let in_worktrees = self.worktrees.iter().filter_map(Worktree::last_activity);
+        // Any commit, not just the top one, which can be an old one cherry-picked.
+        let committed =
+            (self.shown_branches()).flat_map(|branch| branch.commits.iter().map(|c| c.time));
+        let in_worktrees = self.worktrees.iter().flat_map(Worktree::activity);
         edited.chain(committed).chain(in_worktrees).max()
     }
 
@@ -446,9 +448,13 @@ pub enum PushState {
 
 impl Branch {
     /// Whether it has commits the remote doesn't: new ones, or ones rewritten since they were
-    /// pushed. One only behind its remote has none, though Git couldn't push it without force.
+    /// pushed, or, when it has no remote branch, as after a rename, ones the remote has under
+    /// the old name. One only behind its remote has none, though Git couldn't push it without
+    /// force, and neither has one merged whose remote branch was deleted.
     pub fn can_push(&self) -> bool {
-        self.commits.iter().any(|c| c.state == CommitState::Local)
+        (self.commits.iter()).any(|c| c.state == CommitState::Local)
+            || (self.push == PushState::NeverPushed
+                && (self.commits.iter()).any(|c| c.state == CommitState::Pushed))
     }
 
     /// What its header says of it against its remote, short of being in the target: what's
@@ -480,6 +486,8 @@ pub struct RemoteCommit {
     pub key: String,
     pub authored: String,
     pub title: String,
+    /// The rest of its message, after the title.
+    pub body: String,
     /// Who it's shown by, as [`byline`] picks.
     pub author: String,
     /// Theirs, for their picture.
@@ -574,6 +582,26 @@ impl Commit {
     pub fn has_change_id(&self) -> bool {
         let made = but_core::commit::Headers::synthetic_change_id_from_commit_id(self.id.0);
         self.key != made.to_string()
+    }
+
+    /// A local commit `id` with nothing else to it, its tree `id` too.
+    #[cfg(test)]
+    pub fn bare(id: gix::ObjectId) -> Self {
+        Self {
+            id: CommitId(id),
+            key: String::new(),
+            authored: String::new(),
+            title: String::new(),
+            message: String::new(),
+            author: String::new(),
+            email: String::new(),
+            agent: None,
+            time: 0,
+            state: CommitState::Local,
+            conflicted: false,
+            parent: None,
+            tree: id,
+        }
     }
 }
 
@@ -962,6 +990,20 @@ pub struct DiffLine {
     pub emph: Vec<std::ops::Range<usize>>,
 }
 
+impl DiffLine {
+    /// A line without highlighting or marked words.
+    pub fn new(kind: LineKind, old: Option<u32>, new: Option<u32>, text: &str) -> Self {
+        Self {
+            kind,
+            old,
+            new,
+            text: text.into(),
+            spans: Vec::new(),
+            emph: Vec::new(),
+        }
+    }
+}
+
 pub use super::highlight::Token;
 
 /// A file's changes, or some of its hunks, picked for an operation.
@@ -1011,14 +1053,7 @@ mod tests {
 
     #[test]
     fn lines_picked_out_name_the_hunk_they_leave() {
-        let line = |kind, old, new| DiffLine {
-            kind,
-            old,
-            new,
-            text: "".into(),
-            spans: Vec::new(),
-            emph: Vec::new(),
-        };
+        let line = |kind, old, new| DiffLine::new(kind, old, new, "");
         let hunk = Hunk {
             key: HunkKey(header(1, 3, 1, 3)),
             header: String::new(),
@@ -1058,14 +1093,7 @@ mod tests {
 
     #[test]
     fn picked_lines_become_one_sided_runs() {
-        let line = |kind, old, new| DiffLine {
-            kind,
-            old,
-            new,
-            text: "".into(),
-            spans: Vec::new(),
-            emph: Vec::new(),
-        };
+        let line = |kind, old, new| DiffLine::new(kind, old, new, "");
         let hunk = Hunk {
             key: HunkKey(header(1, 4, 1, 4)),
             header: String::new(),
@@ -1103,19 +1131,8 @@ mod tests {
             ref_name: "refs/heads/feat".into(),
             commits: (states.iter())
                 .map(|state| Commit {
-                    id: CommitId(id),
-                    key: String::new(),
-                    authored: String::new(),
-                    title: String::new(),
-                    message: String::new(),
-                    author: String::new(),
-                    email: String::new(),
-                    agent: None,
-                    time: 0,
                     state: *state,
-                    conflicted: false,
-                    parent: None,
-                    tree: id,
+                    ..Commit::bare(id)
                 })
                 .collect(),
             incoming: vec![
@@ -1124,6 +1141,7 @@ mod tests {
                     key: String::new(),
                     authored: String::new(),
                     title: String::new(),
+                    body: String::new(),
                     author: String::new(),
                     email: String::new(),
                     agent: None,
@@ -1137,7 +1155,7 @@ mod tests {
             push,
             review: None,
         };
-        use CommitState::{Local, Pushed};
+        use CommitState::{Integrated, Local, Pushed};
         for (push, states, incoming, said, can_push, why) in [
             (
                 PushState::NothingToPush,
@@ -1178,6 +1196,22 @@ mod tests {
                 "rewritten, needs a force push",
                 true,
                 "rewritten",
+            ),
+            (
+                PushState::NeverPushed,
+                &[Pushed],
+                0,
+                "never pushed",
+                true,
+                "renamed since it was pushed, its commits there under the old name",
+            ),
+            (
+                PushState::NeverPushed,
+                &[Integrated],
+                0,
+                "never pushed",
+                false,
+                "merged, its remote branch deleted",
             ),
         ] {
             let branch = branch(push, states, incoming);
@@ -1225,19 +1259,8 @@ mod tests {
         let id = gix::ObjectId::from_hex(b"99a9648a9b2cf5a631d8ef586f97005604afaabc").unwrap();
         let made = but_core::commit::Headers::synthetic_change_id_from_commit_id(id);
         let commit = |key: String| Commit {
-            id: CommitId(id),
             key,
-            authored: String::new(),
-            title: String::new(),
-            message: String::new(),
-            author: String::new(),
-            email: String::new(),
-            agent: None,
-            time: 0,
-            state: CommitState::Local,
-            conflicted: false,
-            parent: None,
-            tree: id,
+            ..Commit::bare(id)
         };
         assert!(
             !commit(made.to_string()).has_change_id(),

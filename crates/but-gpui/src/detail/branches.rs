@@ -92,16 +92,20 @@ impl Branches {
     /// What cherry-picking commit `id` takes: the picks, in the order they're listed, when
     /// it's one of them, or else just it.
     fn cherry_picks(&self, id: CommitId) -> Arc<[CommitId]> {
+        // Not merges, as `git cherry-pick` refuses them too: which side to take isn't said.
+        let merge = |id: &CommitId| {
+            (self.commits.values().flat_map(|(_, commits)| commits)).any(|c| c.id == *id && c.merge)
+        };
         let Some(ref_name) = self
             .selected
             .as_deref()
             .filter(|_| self.picked.contains(&id))
         else {
-            return [id].into();
+            return [id].into_iter().filter(|id| !merge(id)).collect();
         };
         (self.listed_commits(ref_name).iter())
             .map(|commit| commit.id)
-            .filter(|id| self.picked.contains(id))
+            .filter(|id| self.picked.contains(id) && !merge(id))
             .collect()
     }
 
@@ -261,7 +265,8 @@ impl Detail {
         let Some(path) = self.store.read(cx).path(project) else {
             return;
         };
-        let seen = self.branches_fingerprint(project, cx);
+        // What the listing depends on: the project's branches, as its last full load saw them.
+        let seen = (self.store.read(cx).workspace(project)).map_or(0, |ws| ws.refs);
         if !force && self.branches_for(project).is_some_and(|b| b.seen == seen) {
             return;
         }
@@ -272,7 +277,7 @@ impl Detail {
                 // When read for the project page's count, that page stays as it is.
                 let shown =
                     matches!(this.selection(cx), Some(Selection::Branches(p)) if p == project);
-                let all = match result {
+                let mut all = match result {
                     Ok(all) => all,
                     // Said in place of the list, which comes back as it was once a read on a
                     // later change works.
@@ -288,6 +293,14 @@ impl Detail {
                         return cx.notify();
                     }
                 };
+                // One a linked worktree the navigator shows has checked out is in use there,
+                // as applied ones are in the workspace.
+                if let Some(ws) = this.store.read(cx).workspace(&project) {
+                    for b in all.iter_mut().filter(|b| b.local) {
+                        b.applied |=
+                            (ws.worktrees.iter()).any(|w| w.branch.as_deref() == Some(&b.name));
+                    }
+                }
                 let previous = this.branches.remove(&project);
                 let branches = Branches::read(project.clone(), seen, all, previous);
                 this.branches.insert(project.clone(), branches);
@@ -313,15 +326,6 @@ impl Detail {
                 .filter(|b| status_keeps(BranchStatus::NotMerged, b))
                 .count(),
         )
-    }
-
-    /// What a branch listing depends on: the project's branches, as its last full load saw
-    /// them.
-    fn branches_fingerprint(&self, project: &ProjectId, cx: &Context<Self>) -> u64 {
-        self.store
-            .read(cx)
-            .workspace(project)
-            .map_or(0, |ws| ws.refs)
     }
 
     /// `project`'s branches, once read.
@@ -362,18 +366,13 @@ impl Detail {
         }
     }
 
-    /// Go back to the overview, letting go of the branch opened.
-    pub(super) fn close_branch(&mut self, cx: &mut Context<Self>) {
-        self.select_other_branch(None, cx)
-    }
-
     /// Esc on the Branches page with a branch opened: back to the overview, whether it did. The
     /// app, which Esc is handled in, redraws for the diff that goes.
     pub fn close_opened_branch(&mut self, cx: &mut Context<Self>) -> bool {
         let opened = matches!(&self.store.read(cx).selection,
             Some(Selection::Branches(project)) if self.selected_other_branch(project).is_some());
         if opened {
-            self.close_branch(cx);
+            self.select_other_branch(None, cx);
         }
         opened
     }
@@ -894,39 +893,23 @@ impl Detail {
         at: Point<Pixels>,
         cx: &mut Context<Self>,
     ) {
-        let items = self.branch_menu_items(project, ref_name, cx);
+        let items = self.branch_menu_items(project, ref_name);
         if !items.is_empty() {
-            self.app
-                .update(cx, |app, cx| app.open_menu(at, items, cx))
-                .ok();
+            self.open_menu(at, items, cx);
         }
     }
 
     /// What the Branches page offers for its branch `ref_name`, as right-clicking it does.
-    pub(crate) fn branch_menu_items(
-        &self,
-        project: &ProjectId,
-        ref_name: &str,
-        cx: &App,
-    ) -> Vec<MenuItem> {
+    pub(crate) fn branch_menu_items(&self, project: &ProjectId, ref_name: &str) -> Vec<MenuItem> {
         // By its name, as the table has none opened.
         let Some(branch) = self.listed_branch(project, ref_name) else {
             return Vec::new();
         };
-        let mut items = Vec::new();
-        let worktree = self.checked_out_in(project, branch, cx);
         let (p, r) = (project.clone(), ref_name.to_owned());
-        items.push(match worktree.clone() {
-            Some(name) => MenuItem::new("Open worktree", move |app, _, cx| {
-                let shown = Selection::Worktree(p.clone(), name.clone());
-                app.store
-                    .update(cx, |store, cx| store.select(Some(shown), cx))
-            }),
-            None => MenuItem::new("Apply", move |app, _, cx| {
-                app.detail
-                    .update(cx, |detail, cx| detail.apply_branch(&p, &r, cx))
-            }),
-        });
+        let mut items = vec![MenuItem::new("Apply", move |app, _, cx| {
+            app.detail
+                .update(cx, |detail, cx| detail.apply_branch(&p, &r, cx))
+        })];
         if let Some(url) = (branch.review.as_ref()).and_then(|r| r.url.clone()) {
             items.push(MenuItem::new("Open pull request", move |_, _, cx| {
                 cx.open_url(&url)
@@ -954,7 +937,7 @@ impl Detail {
                 },
             ));
         }
-        if branch.local && worktree.is_none() {
+        if branch.local {
             let (p, r) = (project.clone(), ref_name.to_owned());
             items.push(
                 // Once the menu's done with the app, which asking to confirm updates too.
@@ -971,24 +954,6 @@ impl Detail {
             );
         }
         items
-    }
-
-    /// The linked worktree that has `branch` checked out, if one does: applying or deleting it
-    /// would pull it out from under that worktree.
-    fn checked_out_in(
-        &self,
-        project: &ProjectId,
-        branch: &OtherBranch,
-        cx: &App,
-    ) -> Option<Arc<str>> {
-        let ws = self
-            .store
-            .read(cx)
-            .workspace(project)
-            .filter(|_| branch.local)?;
-        (ws.worktrees.iter())
-            .find(|w| w.branch.as_deref() == Some(branch.name.as_str()))
-            .map(|worktree| worktree.name.clone())
     }
 
     /// Select commit `id` of `ref_name`, keeping the picks when it's one of them, and offer
@@ -1008,9 +973,26 @@ impl Detail {
             }
             _ => self.select_branch_commit(ref_name, id, cx),
         }
-        if let Some(ids) = self.page_branches(cx).map(|b| b.cherry_picks(id)) {
-            self.commit_menu(project, ids, id, at, cx);
-        }
+        let Some(ids) = self.page_branches(cx).map(|b| b.cherry_picks(id)) else {
+            return;
+        };
+        let label = match ids.len() {
+            1 => "Cherry-pick".to_owned(),
+            n => format!("Cherry-pick {n} commits"),
+        };
+        let project = project.clone();
+        // None for a merge, which can't be.
+        let pick = (!ids.is_empty()).then(|| {
+            MenuItem::new(label, move |app, _, cx| {
+                app.cut(Cut::CherryPick(project.clone(), ids.clone()), cx)
+            })
+        });
+        let items = (pick.into_iter())
+            .chain([MenuItem::new("Copy commit ID", move |app, _, cx| {
+                app.copy_text(id.0.to_string(), cx)
+            })])
+            .collect();
+        self.open_menu(at, items, cx);
     }
 
     /// Pick up the selected commit, with the others picked, to put copies of them where ⌘V
@@ -1021,7 +1003,11 @@ impl Detail {
         else {
             return;
         };
-        let cut = Cut::CherryPick(project.clone(), branches.cherry_picks(id));
+        let ids = branches.cherry_picks(id);
+        if ids.is_empty() {
+            return;
+        }
+        let cut = Cut::CherryPick(project.clone(), ids);
         self.app.update(cx, |app, cx| app.cut(cut, cx)).ok();
     }
 
@@ -1287,6 +1273,7 @@ impl Detail {
                             let project = branches.project.clone();
                             // A picked one takes the others picked along.
                             let ids = branches.cherry_picks(id);
+                            let draggable = !ids.is_empty();
                             let dragged: SharedString = match ids.len() {
                                 1 => label.clone(),
                                 n => format!("{n} commits").into(),
@@ -1348,7 +1335,9 @@ impl Detail {
                                         this.branch_commit_menu(&project, &menu_ref, id, at, cx)
                                     }),
                                 )
-                                .on_drag(payload, drag_preview(this.store.clone(), dragged))
+                                .when(draggable, |el| {
+                                    el.on_drag(payload, drag_preview(this.store.clone(), dragged))
+                                })
                                 .into_any_element()
                         }
                         row @ Row::Branch(branch_ix, stacked) => {
@@ -1564,7 +1553,6 @@ impl Detail {
             return;
         };
         let prefs = &self.store.read(cx).prefs;
-        let everyone = (self.kept_in(branches, &branches.list, Some(Facet::Who), cx)).len();
         let person = |who: Option<String>, label: String, n: usize| {
             let ticked = branches.who == who;
             MenuItem::new(label, move |app, _, cx| {
@@ -1580,8 +1568,17 @@ impl Detail {
             .iter()
             .enumerate()
             .filter(|(ix, (name, ..))| *ix < PEOPLE_IN_MENU || branches.who.as_ref() == Some(name));
-        let mut items = vec![person(None, "Anyone".to_owned(), everyone).under("Person")];
-        items.extend(offered.map(|(_, (name, _, n))| person(Some(name.clone()), name.clone(), *n)));
+        // Each says how many picking them lists, not the People card's count of recent work.
+        let anyone = self.kept_in(branches, &branches.list, Some(Facet::Who), cx);
+        let theirs = |name: &String| {
+            (anyone.iter().filter_map(|ix| branches.list.get(*ix)))
+                .filter(|branch| branch.people.contains(name))
+                .count()
+        };
+        let mut items = vec![person(None, "Anyone".to_owned(), anyone.len()).under("Person")];
+        items.extend(
+            offered.map(|(_, (name, ..))| person(Some(name.clone()), name.clone(), theirs(name))),
+        );
         let today = upstream::day_of(crate::ui::now());
         let any_time = self.kept_in(branches, &branches.list, Some(Facet::Recency), cx);
         for (ix, recency) in Recency::ALL.into_iter().enumerate() {
@@ -1622,9 +1619,7 @@ impl Detail {
             .ticked(prefs.branches_local_only)
             .separated(),
         );
-        (self.app)
-            .update(cx, |app, cx| app.open_menu(position, items, cx))
-            .ok();
+        self.open_menu(position, items, cx);
     }
 
     /// Under the list, as the project's page has its own: whose the branches the filters keep

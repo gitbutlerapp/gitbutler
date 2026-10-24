@@ -1,13 +1,11 @@
-//! The project's pages: the selected project's name, target branch and forge, force-push
-//! protection, commit signing and Git hooks, and removing it from GitButler.
-
-use std::collections::HashSet;
+//! The project's pages: the selected project's name, target branch and forge, commit
+//! signing and Git hooks, and removing it from GitButler.
 
 use gpui::{App, ClickEvent, Context, DismissEvent, Window, div, prelude::*};
 
 use super::{Card, Page, Row, SettingsView, field_with_save, read_failed};
 use crate::backend::{Forge, settings as backend};
-use crate::state::{Prefs, ProjectId};
+use crate::state::ProjectId;
 use crate::theme::Theme;
 use crate::ui::{ButtonStyle, button, dp, h_flex, muted, switch};
 
@@ -76,7 +74,7 @@ impl SettingsView {
         }
         self.apply(
             "Couldn't rename the project",
-            move || backend::update_project(&project, Some(name), None),
+            move || backend::rename_project(&project, name),
             Self::reload_project,
             cx,
         );
@@ -111,18 +109,7 @@ impl SettingsView {
         };
         let name_changed =
             self.project_name(cx).as_deref() != Some(self.name.read(cx).text().trim());
-        let id = project.clone();
-        let force = settings.force_push_protection;
         let sign = settings.sign_commits;
-        let protect = cx.listener(move |this, _: &ClickEvent, _, cx| {
-            let id = id.clone();
-            this.apply(
-                "Couldn't change force-push protection",
-                move || backend::update_project(&id, None, Some(!force)),
-                Self::reload_project,
-                cx,
-            );
-        });
         let sign_path = path.clone();
         let toggle_sign = cx.listener(move |this, _: &ClickEvent, _, cx| {
             let path = sign_path.clone();
@@ -151,29 +138,24 @@ impl SettingsView {
             })
             .detach();
         });
-        // A switch for one of this app's choices made per project: the projects it's on.
-        let project_switch =
-            |id: &'static str, on: bool, projects: fn(&mut Prefs) -> &mut HashSet<String>| {
-                let project = project.to_string();
-                switch(id, on, theme).on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                    let project = project.clone();
-                    this.store.update(cx, |store, cx| {
-                        store.set_prefs(
-                            |prefs| {
-                                let projects = projects(prefs);
-                                if !projects.remove(&project) {
-                                    projects.insert(project);
-                                }
-                            },
-                            cx,
-                        )
-                    });
-                }))
-            };
-        let store = self.store.read(cx);
-        let hooks = project_switch("run-hooks", store.runs_hooks(project), |prefs| {
-            &mut prefs.run_hooks
-        });
+        // Whether hooks run is this app's choice, kept per project: the prefs list the projects
+        // that run them.
+        let hooks_project = project.to_string();
+        let hooks = switch("run-hooks", self.store.read(cx).runs_hooks(project), theme).on_click(
+            cx.listener(move |this, _: &ClickEvent, _, cx| {
+                let project = hooks_project.clone();
+                this.store.update(cx, |store, cx| {
+                    store.set_prefs(
+                        |prefs| {
+                            if !prefs.run_hooks.remove(&project) {
+                                prefs.run_hooks.insert(project);
+                            }
+                        },
+                        cx,
+                    )
+                });
+            }),
+        );
         let workspace = self.store.read(cx).workspace(project);
         let target = workspace.and_then(|ws| ws.target_name()).map(str::to_owned);
         // With stacks applied, their commits would be read against the new target from
@@ -278,11 +260,13 @@ impl SettingsView {
                 pick_forge,
             ),
         };
+        // The push checks this itself, whatever the setting GitButler's other apps share says.
         let force = Row::new(
-            "Protect force pushes",
-            "A force push stops if someone else pushed to the branch since you last fetched, \
-                 rather than dropping their commits.",
-            switch("force-push", force, theme).on_click(protect),
+            "Force pushes",
+            "A force push fetches first, stops if someone else pushed to the branch since, and \
+             asks before dropping commits only the remote has, so there's no protection to turn \
+             on here.",
+            muted("Always checked", theme),
         );
         let sign = Row::new(
             "Sign commits",
@@ -314,7 +298,8 @@ impl SettingsView {
         );
         let remove = Row::new(
             "Remove project",
-            "Takes it out of GitButler. The repository stays on disk as it is.",
+            "Takes it out of GitButler, and its operations history with it. The repository's \
+             files and branches stay on disk.",
             button("remove-project", "Remove…")
                 .small()
                 .style(ButtonStyle::Danger)

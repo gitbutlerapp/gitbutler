@@ -316,9 +316,15 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         unrecorded,
         remoteless,
         editing: None,
+        // The branches the worktrees shown have checked out, which the Branches page leaves off.
+        refs: (worktrees.iter()).fold(refs ^ reviews_fingerprint(&cached), |sum, w| {
+            use std::hash::{Hash as _, Hasher as _};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            w.branch.hash(&mut hasher);
+            sum ^ hasher.finish()
+        }),
         worktrees,
         archived_worktrees,
-        refs: refs ^ reviews_fingerprint(&cached),
     })
 }
 
@@ -488,11 +494,13 @@ fn branch_from(
         incoming: (segment.commits_on_remote.iter())
             .map(|commit| {
                 let ((author, email), agent) = byline_of(&commit.author, &commit.committer);
+                let (title, body) = subject_and_body(&commit.message.to_str_lossy());
                 RemoteCommit {
                     id: CommitId(commit.id),
                     key: commit.change_id().to_string(),
                     authored: model::authored(&commit.author, commit.message.trim_end()),
-                    title: title(&commit.message),
+                    title,
+                    body,
                     author,
                     email,
                     agent,
@@ -658,10 +666,22 @@ pub fn commit_signer(path: &Path, id: CommitId) -> Result<Option<&'static str>> 
     )
 }
 
-/// The first line of a commit message or comment, without the whitespace around it.
+/// A commit message's subject and body as Git and GitHub split them: the subject is its first
+/// paragraph, its lines joined, so a title that runs on to a second line without a blank one
+/// is all of it; the body is the rest, as written, as a pull request description takes it.
+pub fn subject_and_body(message: &str) -> (String, String) {
+    let blank = |line: &&str| line.trim().is_empty();
+    let mut lines = message.lines().skip_while(blank);
+    let subject: Vec<&str> = (lines.by_ref().take_while(|line| !blank(line)))
+        .map(str::trim)
+        .collect();
+    let body: Vec<&str> = lines.skip_while(blank).collect();
+    (subject.join(" "), body.join("\n").trim_end().to_owned())
+}
+
+/// A commit message or comment's subject, as [`subject_and_body`] has it.
 fn title(message: &[u8]) -> String {
-    let line = message.lines().next().unwrap_or_default();
-    line.to_str_lossy().trim().to_owned()
+    subject_and_body(&message.to_str_lossy()).0
 }
 
 fn file_change(change: but_core::TreeChange) -> FileChange {
@@ -684,6 +704,25 @@ fn file_change(change: but_core::TreeChange) -> FileChange {
         conflicted: false,
         lines: None,
         change,
+    }
+}
+
+#[cfg(test)]
+impl FileChange {
+    /// A modified file at `path`, with null blobs either side.
+    pub fn bare(path: &str) -> Self {
+        let state = ChangeState {
+            id: gix::ObjectId::null(gix::hash::Kind::Sha1),
+            kind: gix::object::tree::EntryKind::Blob,
+        };
+        file_change(TreeChange {
+            path: path.into(),
+            status: TreeStatus::Modification {
+                previous_state: state,
+                state,
+                flags: None,
+            },
+        })
     }
 }
 
@@ -746,12 +785,6 @@ fn same_change(a: &but_core::TreeStatus, b: &but_core::TreeStatus) -> bool {
         (status.previous_state_and_path()).map(|(s, path)| (state(s), path.map(ToOwned::to_owned)))
     };
     a.kind() == b.kind() && before(a) == before(b) && a.state().map(state) == b.state().map(state)
-}
-
-/// When the file at `path` in `repo`'s checkout was last written, in milliseconds since the
-/// Unix epoch; a deleted file has none.
-fn written(repo: &gix::Repository, path: &bstr::BStr) -> Option<i64> {
-    millis(&metadata(repo, path)?)
 }
 
 /// When the file at `path` in `repo`'s checkout was last written and its size, as
@@ -884,10 +917,10 @@ pub fn failure_detail(err: &anyhow::Error) -> String {
                 .to_owned()
         }
         // The engine turns signing off for the project then, and the next commit would
-        // quietly go unsigned.
+        // quietly go unsigned. Why first, as the card shows a few lines.
         Some(but_error::Code::CommitSigningFailed) => format!(
-            "Signing it failed, which turns commit signing off for this project unless it's \
-             on in your global Git config. Check Sign commits in Project settings.\n{}",
+            "{}\nThat turns commit signing off for this project, unless gitbutler.signCommits \
+             is set in your global Git config. Check Sign commits in Project settings.",
             signing_failure(err)
         ),
         // As on a new machine, where the engine's own words name its code.
@@ -898,7 +931,16 @@ pub fn failure_detail(err: &anyhow::Error) -> String {
         // around it names refs and hashes, which a short card fills up with.
         _ => match err.downcast_ref::<but_error::Context>() {
             Some(said) if said.code == but_error::Code::PreconditionFailed => said.to_string(),
-            _ => format!("{err:#}"),
+            // Without the code's own name, as `DefaultTerminalNotFound`, which is for code.
+            _ => {
+                let code = err
+                    .downcast_ref::<but_error::Code>()
+                    .map(ToString::to_string);
+                (err.chain().map(ToString::to_string))
+                    .filter(|said| Some(said) != code.as_ref())
+                    .collect::<Vec<_>>()
+                    .join(": ")
+            }
         },
     }
 }
@@ -943,8 +985,35 @@ pub fn branch_name(name: &str) -> Option<String> {
 }
 
 #[cfg(test)]
+mod message_tests {
+    use super::subject_and_body;
+
+    #[test]
+    fn the_subject_is_the_first_paragraph_as_git_has_it() {
+        assert_eq!(
+            subject_and_body("Fix scanner crash\non empty directories\n\nWhy.\n"),
+            (
+                "Fix scanner crash on empty directories".into(),
+                "Why.".into()
+            ),
+            "with no blank line, the next line is the subject's too, as `git log --oneline` shows"
+        );
+        assert_eq!(
+            subject_and_body("\n\nLeading blank\n"),
+            ("Leading blank".into(), String::new()),
+            "blank lines before it aren't the subject"
+        );
+        assert_eq!(
+            subject_and_body("Add a flag\n\n    cargo run -- --flag\n- a\n  - nested\n\n").1,
+            "    cargo run -- --flag\n- a\n  - nested",
+            "the body keeps its indentation, as Markdown's code blocks and nested lists need it"
+        );
+    }
+}
+
+#[cfg(test)]
 mod behind_tests {
-    use crate::backend::ops::tests::{git, repo_with};
+    use crate::backend::ops::tests::{git, head, repo_with};
 
     #[test]
     fn whats_new_runs_down_to_the_oldest_base() {
@@ -952,10 +1021,9 @@ mod behind_tests {
         let path = dir.path();
         let commit = |message: &str| {
             git(path, &["commit", "-q", "--allow-empty", "-m", message]);
-            gix::ObjectId::from_hex(git(path, &["rev-parse", "HEAD"]).trim().as_bytes()).unwrap()
+            head(path).0
         };
-        let old =
-            gix::ObjectId::from_hex(git(path, &["rev-parse", "HEAD"]).trim().as_bytes()).unwrap();
+        let old = head(path).0;
         commit("two");
         let stored = commit("three");
         let tip = commit("four");
@@ -1006,8 +1074,8 @@ mod failure_tests {
             .context("Failed to sign commit")
             .context(but_error::Code::CommitSigningFailed);
         assert!(
-            failure_detail(&err).ends_with("\ngpg: signing failed: No secret key"),
-            "gpg's own last line says why, not how it was run, nor its status lines"
+            failure_detail(&err).starts_with("gpg: signing failed: No secret key\n"),
+            "gpg's own last line says why, first, not how it was run, nor its status lines"
         );
         let err = anyhow::anyhow!(
             but_error::Context::new("Uncommitted files would be overwritten by checkout: \"a.rs\"")

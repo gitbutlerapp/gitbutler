@@ -15,7 +15,7 @@ mod shipped;
 use super::Detail;
 use super::panes::{
     Crumb, CrumbTo, LIST_MIN_HEIGHT, clear_button, list_heading, measured, meta_item, meta_row,
-    side_header, side_list, step_from, title_text, unfinished_banner,
+    not_found, side_header, side_list, step_from, title_text, unfinished_banner,
 };
 use super::pull_request::TABS_HEIGHT;
 use super::slots::{SlotGesture, SlotPick, ends_drag, picks_slot};
@@ -25,7 +25,6 @@ use crate::overlays::MenuItem;
 use crate::state::{Cut, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::emoji::ProjectIcon;
-use crate::ui::illustration::Illustration;
 use crate::ui::markdown;
 use crate::ui::person::{byline, byline_avatar};
 use crate::ui::{
@@ -701,14 +700,11 @@ impl Detail {
 
     /// Whether the project's page shows what landed lately, in place of a diff.
     pub fn showing_shipped(&self, cx: &gpui::App) -> bool {
-        self.showing_on_page(Picked::Shipped, cx)
-    }
-
-    fn showing_on_page(&self, picked: Picked, cx: &gpui::App) -> bool {
         match self.store.read(cx).selection.as_ref() {
             Some(Selection::Project(project)) => {
                 self.editing(project, cx).is_none()
-                    && (self.upstream_for(project)).is_some_and(|u| u.selected == Some(picked))
+                    && (self.upstream_for(project))
+                        .is_some_and(|u| u.selected == Some(Picked::Shipped))
             }
             _ => false,
         }
@@ -1018,8 +1014,8 @@ impl Detail {
             .scroll_to_item(0, gpui::ScrollStrategy::Top);
     }
 
-    /// Whose commits landed on the target, most first, counted on the days picked or all
-    /// the activity's; the one picked stays, however few they have then. Clicking one
+    /// Whose commits landed on the target, the most landings first, counted on the days
+    /// picked or all the activity's; the one picked stays, however few they have then. Clicking one
     /// filters the history to what landed theirs.
     fn render_people(
         &self,
@@ -1077,13 +1073,7 @@ impl Detail {
         if upstream.selected == Some(Picked::Shipped) {
             return crumbs.push((target.unwrap_or("Target").to_owned().into(), None));
         }
-        let picked = match upstream.selected {
-            Some(Picked::Commit(_)) => {
-                (self.selected_target_commit(project)).map(|commit| commit.id.short())
-            }
-            None | Some(Picked::Shipped) => None,
-        };
-        let Some(picked) = picked else {
+        let Some(picked) = (self.selected_target_commit(project)).map(|c| c.id.short()) else {
             return;
         };
         // The target goes back to how the page opens, as the project's crumb does.
@@ -1177,6 +1167,11 @@ impl Detail {
         merged: Option<CommitId>,
         cx: &mut Context<Self>,
     ) {
+        // A commit picked again, as by a second click, is shown already, and doesn't change.
+        let again = |u: &Upstream| u.selected == Some(picked) && u.merged_pick == merged;
+        if matches!(picked, Picked::Commit(_)) && self.upstream.get(project).is_some_and(again) {
+            return;
+        }
         if let Some(upstream) = self.upstream.get_mut(project) {
             upstream.selected = Some(picked);
             upstream.merged_pick = merged;
@@ -1240,9 +1235,7 @@ impl Detail {
             true => copy,
             false => copy.separated(),
         });
-        (self.app)
-            .update(cx, |app, cx| app.open_menu(at, items, cx))
-            .ok();
+        self.open_menu(at, items, cx);
     }
 
     /// → in the list: open the picked merge, or step into its commits when it's open, as
@@ -1478,13 +1471,7 @@ impl Detail {
     ) -> AnyElement {
         let store = self.store.read(cx);
         let Some(entry) = store.project(project) else {
-            return crate::ui::empty_state(
-                Some(Illustration::Papers),
-                "Project not found",
-                "",
-                theme,
-                cx,
-            );
+            return not_found("Project not found", theme, cx);
         };
         let target = entry
             .workspace
@@ -1646,15 +1633,17 @@ impl Detail {
                         let solid = this.side_focus.is_focused(window);
                         // A commit, or one that merge `under` brought in. A click picks it and
                         // a right-click opens its menu.
-                        let commit_row = |commit: &TargetCommit, under: Option<CommitId>| {
+                        let commit_row = |commit: &TargetCommit, under: Option<&TargetCommit>| {
                             let id = commit.id;
-                            let (merge, merged) = under.map_or((id, None), |m| (m, Some(id)));
+                            let (merge, merged) = under.map_or((id, None), |m| (m.id, Some(id)));
+                            // One a merge brought in is as new to the workspace as the merge.
+                            let incoming = under.map_or(commit.incoming, |m| m.incoming);
                             let selected = upstream.selected == Some(Picked::Commit(merge))
                                 && upstream.merged_pick == merged;
                             let on = selected && solid;
                             // Landed, as everything here has, in purple, as the app marks what
                             // landed; amber while the workspace doesn't have it yet.
-                            let glyph = match (on, commit.incoming) {
+                            let glyph = match (on, incoming) {
                                 (true, _) => theme.text_inverted,
                                 (false, true) => theme.warn,
                                 (false, false) => theme.purple,
@@ -1703,9 +1692,7 @@ impl Detail {
                                         .flex_1()
                                         .min_w_0()
                                         .truncate()
-                                        .when(!commit.incoming && !on, |el| {
-                                            el.text_color(theme.text_2)
-                                        })
+                                        .when(!incoming && !on, |el| el.text_color(theme.text_2))
                                         .child(SharedString::from(label(commit).to_owned()))
                                         .when_some(tip, |el, tip| el.tooltip(Tooltip::text(tip))),
                                 )
@@ -1739,9 +1726,9 @@ impl Detail {
                                 .child(faint(*note, theme))
                                 .into_any_element(),
                             Row::Merged(merge_ix, merged_ix) => {
-                                let merge = upstream.commits.get(*merge_ix)?.id;
+                                let merge = upstream.commits.get(*merge_ix)?;
                                 let (merged, _) =
-                                    this.store.read(cx).merged.get(&merge)?.as_ref()?;
+                                    this.store.read(cx).merged.get(&merge.id)?.as_ref()?;
                                 commit_row(merged.get(*merged_ix)?, Some(merge))
                             }
                             Row::Commit(commit_ix) => {

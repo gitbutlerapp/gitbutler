@@ -970,7 +970,12 @@ impl Detail {
                 let path = &file_diff.file.path;
                 let element =
                     self.conflict_row(path, found, part, &layout, last, entity, window, cx);
-                padded.child(element).into_any_element()
+                // Its own id, as every conflict's bar names its buttons alike, and GPUI takes
+                // a click by the id: unnamed, a click on the second conflict's went nowhere.
+                padded
+                    .id(("conflict-row", ix))
+                    .child(element)
+                    .into_any_element()
             }
             (DiffRow::Note(_), Some(file_diff)) => padded
                 .child(match self.drawing_of(file_diff) {
@@ -983,9 +988,7 @@ impl Detail {
             (_, None) => padded.into_any_element(),
         }
     }
-}
 
-impl Detail {
     /// On a changed file's header: show the unchanged lines around its hunks, or hide them.
     fn whole_button(
         &self,
@@ -1135,9 +1138,7 @@ impl Detail {
         })
         .detach();
     }
-}
 
-impl Detail {
     /// Whether a hunk's line is left out of the next commit, and while composing, for a
     /// changed line, what clicking its numbers does.
     fn line_check(
@@ -1171,9 +1172,7 @@ impl Detail {
         });
         (excluded, Some(toggle))
     }
-}
 
-impl Detail {
     /// What line `place` (its file, hunk and index in the hunk) offers in its numbers outside
     /// the composer: picking it, and a grip that drags what it takes. None for an unchanged
     /// line, and in a diff whose changes can't move, like a branch's.
@@ -1403,9 +1402,7 @@ impl Detail {
             })
             .separated(),
         );
-        (self.app)
-            .update(cx, |app, cx| app.open_menu(position, items, cx))
-            .ok();
+        self.open_menu(position, items, cx);
     }
 }
 

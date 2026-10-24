@@ -811,6 +811,11 @@ mod tests {
             .collect()
     }
 
+    /// Where `block`'s links go.
+    fn urls(block: &Block) -> Vec<&str> {
+        block.links.iter().map(|(_, url)| url.as_str()).collect()
+    }
+
     #[test]
     fn html_keeps_its_lines_and_blocks_apart() {
         let blocks = parse("one<br>two\n\n<p>A</p>\n<p>B</p>\n\n<div>C</div>\n");
@@ -931,13 +936,8 @@ mod tests {
             "[web](https://gitbutler.com) [mail](mailto:a@b.c) [script](javascript:alert(1)) \
              [file](file:///etc/passwd) [app](vscode://x) [path](../README.md)",
         );
-        let urls: Vec<_> = blocks[0]
-            .links
-            .iter()
-            .map(|(_, url)| url.as_str())
-            .collect();
         assert_eq!(
-            urls,
+            urls(&blocks[0]),
             ["https://gitbutler.com", "mailto:a@b.c"],
             "any other address stays plain text"
         );
@@ -954,13 +954,8 @@ mod tests {
             blocks[0].text, "Image: a chart Image",
             "an image's words stand in for it"
         );
-        let urls: Vec<_> = blocks[0]
-            .links
-            .iter()
-            .map(|(_, url)| url.as_str())
-            .collect();
         assert_eq!(
-            urls,
+            urls(&blocks[0]),
             ["https://example.com/c.png"],
             "a web image can be opened in the browser by its words; nothing else links"
         );

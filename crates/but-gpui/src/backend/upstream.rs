@@ -70,6 +70,7 @@ pub(super) fn incoming(
                 .map(|review| review.title.clone())
                 .filter(|title| !title.is_empty())
                 .unwrap_or(commit.title),
+            body: commit.body,
             author: commit.author,
             email: commit.email,
             agent: commit.agent,
@@ -172,17 +173,12 @@ fn local_target_page(
 /// `commit` as a target's history lists it. Whether it's incoming, and the pull request it
 /// landed, are for the caller to set.
 pub(super) fn target_commit(commit: &gix::Commit<'_>) -> Result<TargetCommit> {
-    let message = commit.message_raw_sloppy();
+    let (title, body) = super::subject_and_body(&commit.message_raw_sloppy().to_str_lossy());
     let ((author, email), agent) = super::commit_byline(commit)?;
     Ok(TargetCommit {
         id: CommitId(commit.id),
-        title: title(message),
-        body: (message.lines().skip(1))
-            .map(|line| line.to_str_lossy())
-            .collect::<Vec<_>>()
-            .join("\n")
-            .trim()
-            .to_owned(),
+        title,
+        body,
         time: commit.time()?.seconds,
         author,
         email,
@@ -227,7 +223,7 @@ pub struct Overview {
     /// How many commits landed on the target's own line, as its history lists them, each of
     /// the last [`ACTIVITY_DAYS`] days here, oldest first.
     pub daily: Vec<u32>,
-    /// Whose commits landed on it in those days, merges left out, most first.
+    /// Whose commits landed on it in those days, merges left out, the most landings first.
     pub people: Vec<Person>,
     /// The commits of its own line in those days, newest first.
     pub landings: Vec<Landing>,
@@ -272,7 +268,9 @@ pub struct Release {
 pub struct Person {
     pub name: String,
     pub email: String,
-    /// How many of their commits landed each day, as [`Overview::daily`] counts them.
+    /// How many times theirs landed each day, as [`Overview::daily`] counts them: a merge of
+    /// many of their commits counts once, as hundreds landing in one pull request isn't
+    /// hundreds of changes to the target.
     pub daily: Vec<u32>,
     /// The commits of the target's own line that landed theirs: one of theirs, or a merge
     /// bringing theirs in.
@@ -339,10 +337,11 @@ pub fn overview(path: &Path, now: i64) -> Result<Option<Overview>> {
             let Some(person) = people.get_mut(at) else {
                 continue;
             };
-            if let Some(count) = person.daily.get_mut(day) {
+            if person.landed.insert(CommitId(landed.id))
+                && let Some(count) = person.daily.get_mut(day)
+            {
                 *count += 1;
             }
-            person.landed.insert(CommitId(landed.id));
         }
         landings.push(landing(
             &repo,
@@ -660,11 +659,20 @@ pub fn push(
             ),
         )
         .map_err(|err| {
+            let root = err.root_cause().to_string();
+            if let Some(output) = root.strip_prefix("pre-push hook failed: ") {
+                let output = super::ops::hook_output(output);
+                return anyhow::anyhow!("The pre-push hook refused the push:\n{output}");
+            }
             if err.downcast_ref::<but_error::Code>() != Some(&but_error::Code::GitNonFastForward) {
                 return err;
             }
             tracing::warn!(?err, "push rejected");
-            anyhow::anyhow!("The remote has commits this branch doesn't. Fetch, then pull them in.")
+            anyhow::anyhow!(match force {
+                // Forced, it's the remote that won't rewrite it.
+                true => "The remote refused the force push, as it does for a protected branch.",
+                false => "The remote has commits this branch doesn't. Fetch, then pull them in.",
+            })
         })?;
     let short = short_ref(ref_name);
     let remote = (outcome.push.branch_to_remote.into_iter())
@@ -1062,6 +1070,7 @@ mod tests {
             std::fs::write(path.join("docs/guide.md"), "").unwrap();
             git(&["add", "."], now - DAY / 3);
             commit("Dan", now - DAY / 3);
+            commit("Dan", now - DAY / 3);
             git(&["checkout", "-q", "main"], now - DAY / 4);
             git(
                 &["merge", "-q", "--no-ff", "-m", "merge later", "later"],
@@ -1090,7 +1099,8 @@ mod tests {
                     ("Cat", "cat@example.com", 1),
                     ("Bob", "bob@example.com", 1),
                 ],
-                "most commits first, the merged branches' authors too and the merges left out"
+                "most landings first, the merged branches' authors too and the merges left out; \
+                 Dan's two commits landed in one merge, once"
             );
             let repo = gix::open(path).unwrap();
             let landed_by = |name: &str| {
@@ -1121,7 +1131,7 @@ mod tests {
                 landings,
                 [
                     ("by Ann", 1, vec![]),
-                    ("merge later", 1, vec!["crates/but", "docs"]),
+                    ("merge later", 2, vec!["crates/but", "docs"]),
                     ("merge side", 1, vec![]),
                     ("by Bob", 1, vec![]),
                     ("by Ann", 1, vec!["Top level"]),

@@ -106,14 +106,19 @@ impl Store {
                     let mut reloads: HashMap<ProjectId, Reload> = HashMap::new();
                     let now = crate::ui::now();
                     for (id, git, linked, paths) in events {
-                        // What the app's own operations write isn't activity in the checkout.
-                        if !paths.is_empty() && !store.running.contains_key(&id) {
+                        // What the app's own operations write isn't activity in the checkout,
+                        // nor is what a repository cloned inside it writes to its own .git.
+                        let own = store.running.contains_key(&id) || store.own_write(&id, now);
+                        let saved = (paths.iter())
+                            .filter(|path| !path.split('/').any(|part| part == ".git"))
+                            .count();
+                        if saved > 0 && !own {
                             let checkout = (id.clone(), linked.clone());
                             store
                                 .activity
                                 .entry(checkout)
                                 .or_default()
-                                .record(now, paths.len() as u32);
+                                .record(now, saved as u32);
                         }
                         reloads.entry(id).or_default().add(git, linked);
                     }
@@ -176,7 +181,12 @@ impl Store {
     fn set_projects(&mut self, projects: Vec<Project>, cx: &mut Context<Self>) {
         // What was open last time applies to the first listing only; later ones add
         // projects the user just added, which start closed.
-        let restored = std::mem::take(&mut self.restored);
+        // An empty one, as when the list couldn't be read and was set aside, keeps what was
+        // watched for when the projects are back.
+        let restored = match projects.is_empty() {
+            true => self.restored.clone(),
+            false => std::mem::take(&mut self.restored),
+        };
         let mut old: Vec<ProjectEntry> = std::mem::take(&mut self.projects);
         // The watched keep the order they were in, the first listing the saved one.
         let order: Vec<ProjectId> = (old.iter().filter(|entry| entry.expanded))
@@ -244,10 +254,7 @@ impl Store {
         // A selected project that went, as when removed, leaves the first open one selected.
         if (self.selection.as_ref()).is_some_and(|s| self.project(s.project()).is_none()) {
             let first = (self.projects.iter()).find(|entry| entry.expanded);
-            self.select(
-                first.map(|entry| Selection::Uncommitted(entry.id.clone())),
-                cx,
-            );
+            self.select(first.map(|entry| self.opening(&entry.id)), cx);
         }
 
         for id in &open {
@@ -260,12 +267,21 @@ impl Store {
                 .selection
                 .and_then(|id| self.project(&id).filter(|entry| entry.expanded))
                 .or_else(|| self.projects.iter().find(|entry| entry.expanded))
-                .map(|entry| Selection::Uncommitted(entry.id.clone()));
+                .map(|entry| self.opening(&entry.id));
             if let Some(selection) = open {
                 self.select(Some(selection), cx);
             }
         }
         cx.notify();
+    }
+
+    /// What selecting `project` as a whole picks: its Main worktree, or the project itself
+    /// while its card is folded, so it stays folded.
+    fn opening(&self, project: &ProjectId) -> Selection {
+        match self.prefs.folded_projects.contains(project.as_ref()) {
+            true => Selection::Project(project.clone()),
+            false => Selection::Uncommitted(project.clone()),
+        }
     }
 
     pub fn add_project(&mut self, path: PathBuf, cx: &mut Context<Self>) {
@@ -766,8 +782,10 @@ fn follow_cut(cut: &mut Cut, old: Option<&Workspace>, new: &Workspace) -> bool {
             .map(|new| *commit = new)
             .is_some(),
         // Uncommitted files go when one of them is no longer uncommitted, and some of
-        // a file once it changed, as the lines picked may have moved under the pick;
-        // a branch goes when it's gone, as when renamed.
+        // a file once it changed, as the lines picked may have moved under the pick; a linked
+        // worktree's whole file too, as what an agent wrote since would go along unseen, out
+        // of its worktree, which undo can't bring back. A branch goes when it's gone, as when
+        // renamed.
         Cut::Files {
             from: None,
             worktree,
@@ -776,7 +794,7 @@ fn follow_cut(cut: &mut Cut, old: Option<&Workspace>, new: &Workspace) -> bool {
         } => {
             let uncommitted = new.uncommitted_in(worktree.as_deref());
             let same = |f: &Selected, u: &FileChange| {
-                f.hunks.is_none()
+                (f.hunks.is_none() && worktree.is_none())
                     || (u.modified, u.size, u.lines) == (f.file.modified, f.file.size, f.file.lines)
             };
             uncommitted.is_some_and(|uncommitted| {
@@ -828,9 +846,7 @@ fn watch(
 
 #[cfg(test)]
 mod tests {
-    use crate::backend::{
-        Branch, Commit, CommitId, CommitState, PushState, Stack, Workspace, Worktree,
-    };
+    use crate::backend::{Branch, Commit, CommitId, PushState, Stack, Workspace, Worktree};
 
     fn branch(name: &str, commits: &[u8]) -> Branch {
         let id = |n: u8| gix::ObjectId::from_bytes_or_panic(&[n; 20]);
@@ -843,19 +859,8 @@ mod tests {
             },
             commits: (commits.iter())
                 .map(|&n| Commit {
-                    id: CommitId(id(n)),
                     key: format!("key{n}"),
-                    authored: String::new(),
-                    title: String::new(),
-                    message: String::new(),
-                    author: String::new(),
-                    email: String::new(),
-                    agent: None,
-                    time: 0,
-                    state: CommitState::Local,
-                    conflicted: false,
-                    parent: None,
-                    tree: id(n),
+                    ..Commit::bare(id(n))
                 })
                 .collect(),
             incoming: Vec::new(),

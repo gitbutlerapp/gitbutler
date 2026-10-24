@@ -171,8 +171,11 @@ impl Transfer {
                     _ => None,
                 };
                 let (already, to) = match place {
+                    // Not with a conflicted commit on either side, whose change the squash
+                    // would drop, or the engine refuses.
                     Place::Into => {
-                        return Some(Transfer::Squash {
+                        let clean = !(ids.iter().chain([target_id])).any(|id| conflicted(*id));
+                        return clean.then(|| Transfer::Squash {
                             ids: ids.clone(),
                             into: *target_id,
                         });

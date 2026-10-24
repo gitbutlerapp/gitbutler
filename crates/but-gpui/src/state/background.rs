@@ -16,10 +16,12 @@ impl Store {
     /// next one tries again.
     pub(super) fn fetch_in_background(cx: &mut Context<Self>) -> Task<()> {
         cx.spawn(async move |this, cx| {
+            // A few seconds after launch, by when the projects have usually loaded, as the
+            // remote may have moved while the app was closed; then each minute.
+            let mut wait = Duration::from_secs(5);
             loop {
-                cx.background_executor()
-                    .timer(Duration::from_secs(60))
-                    .await;
+                cx.background_executor().timer(wait).await;
+                wait = Duration::from_secs(60);
                 let interval = backend::run(|| Ok(backend::settings::fetch_interval())).await;
                 let Ok(Some(minutes)) = interval else {
                     continue;
@@ -68,6 +70,7 @@ impl Store {
         let Some(crate::Embedded {
             update_feed: Some(feed),
             check_every,
+            ..
         }) = cx.try_global::<crate::Embedded>().cloned()
         else {
             return Task::ready(());

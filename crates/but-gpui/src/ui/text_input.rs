@@ -29,7 +29,8 @@ actions!(
 /// What the last change to a field's text was, for undoing runs of them as one.
 #[derive(Clone, Copy, PartialEq)]
 enum Edit {
-    /// A character typed after another, or text an input method is still composing.
+    /// A character typed after another, spaces too, as the platform's fields undo a run of
+    /// typing at once; or text an input method is still composing.
     Typed,
     /// A character deleted after another.
     Deleted,
@@ -545,7 +546,11 @@ impl TextInput {
     ) {
         self.is_selecting = true;
         let offset = self.offset_for_mouse(event.position);
-        if event.click_count >= 2 {
+        // Three clicks take the paragraph, as in the platform's fields.
+        if event.click_count >= 3 {
+            self.move_to(self.line_start(offset), window, cx);
+            self.select_to(self.line_end(offset), window, cx);
+        } else if event.click_count == 2 {
             // From past the click, so one at a word's very start selects that word.
             let start = self.previous_word(self.next_boundary(offset));
             let end = self.next_word(start);
@@ -610,14 +615,18 @@ impl TextInput {
     /// Put `new_text` over the UTF-16 range the platform gave, or else the marked text or
     /// the selection, and return the byte range it now takes.
     fn splice(&mut self, range_utf16: Option<Range<usize>>, new_text: &str) -> Range<usize> {
+        // Tab isn't typing in a one-line field, as a branch name, as in the platform's own.
+        if !self.multiline && new_text == "\t" {
+            let at = self.cursor_offset();
+            return at..at;
+        }
         let new_text = &cleaned(new_text, self.multiline);
         let range = range_utf16
             .map(|range_utf16| self.range_from_utf16(&range_utf16))
             .or(self.marked_range.clone())
             .unwrap_or(self.selected_range.clone());
         let typed = self.marked_range.is_some()
-            || (range.is_empty() && new_text.chars().count() == 1)
-                && !new_text.contains(char::is_whitespace);
+            || (range.is_empty() && new_text.chars().count() == 1) && new_text != "\n";
         // A range that doesn't fit the text, as one the platform gave backwards, changes nothing.
         let Some(replaced) = self.content.get(range.clone()) else {
             let at = self.cursor_offset();
@@ -1135,10 +1144,11 @@ fn position_in(
 /// token has, and spaces for the rest; several lines with `\n` for `\r\n`.
 fn cleaned(text: &str, multiline: bool) -> String {
     match multiline {
-        true => text.replace("\r\n", "\n"),
+        // An old Mac's line ending alone too, which would be kept unseen.
+        true => text.replace("\r\n", "\n").replace('\r', "\n"),
         false => text
             .trim_end_matches(['\r', '\n'])
-            .replace(['\r', '\n'], " "),
+            .replace(['\r', '\n', '\t'], " "),
     }
 }
 
@@ -1154,13 +1164,13 @@ mod tests {
             "a token copied from a terminal is sent as it is, not with a space"
         );
         assert_eq!(
-            cleaned("two\nlines", false),
-            "two lines",
+            cleaned("two\nlines\tand a tab", false),
+            "two lines and a tab",
             "one line, still readable"
         );
         assert_eq!(
-            cleaned("title\r\n\r\nbody\r\n", true),
-            "title\n\nbody\n",
+            cleaned("title\r\n\r\nbody\r\nold\rmac", true),
+            "title\n\nbody\nold\nmac",
             "a message pasted from Windows keeps no carriage returns"
         );
     }

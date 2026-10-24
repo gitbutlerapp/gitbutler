@@ -32,14 +32,17 @@ use std::time::{Duration, Instant};
 
 use gpui::{
     AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding,
-    ListAlignment, ListOffset, ListState, Pixels, RenderImage, ScrollHandle, SharedString,
+    ListAlignment, ListOffset, ListState, Pixels, Point, RenderImage, ScrollHandle, SharedString,
     Subscription, Task, UniformListScrollHandle, WeakEntity, Window, actions, div, prelude::*,
 };
 
 use crate::app::{AddProject, AppView, Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::edit::Editing;
 use crate::backend::{self, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected};
-use crate::state::{Cut, FileSort, Pane, Picks, Prefs, ProjectId, Selection, Store, StoreEvent};
+use crate::overlays::MenuItem;
+use crate::state::{
+    Cut, FileSort, Pane, Picks, Prefs, ProjectId, Selection, Store, StoreEvent, snack,
+};
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -446,8 +449,11 @@ impl Detail {
                     this.now_open = true;
                     // A page read before opens on its overview too.
                     match this.selection(cx) {
-                        Some(Selection::Branches(_)) => this.close_branch(cx),
+                        Some(Selection::Branches(_)) => this.select_other_branch(None, cx),
                         Some(Selection::Project(project)) => this.open_on_shipped(&project),
+                        Some(Selection::History(project)) => {
+                            this.open_on_newest_operation(&project)
+                        }
                         _ => {}
                     }
                     this.reload_page(true, cx);
@@ -553,7 +559,7 @@ impl Detail {
                     .collect();
                 this.forget(gone, cx);
                 let prefs = &store.read(cx).prefs;
-                let order = (prefs.file_tree, prefs.file_sort);
+                let order = (!prefs.flat_files, prefs.file_sort);
                 if let Some(diff) =
                     (this.diff.as_ref()).filter(|diff| (diff.tree, diff.sort) != order)
                 {
@@ -683,6 +689,13 @@ impl Detail {
 
     fn selected_project(&self, cx: &App) -> Option<ProjectId> {
         self.selection(cx).map(|s| s.project().clone())
+    }
+
+    /// The menu of `items`, open at `at`.
+    fn open_menu(&self, at: Point<Pixels>, items: Vec<MenuItem>, cx: &mut App) {
+        self.app
+            .update(cx, |app, cx| app.open_menu(at, items, cx))
+            .ok();
     }
 
     /// The checkout whose uncommitted changes are shown, which the composer commits: the
@@ -1082,7 +1095,7 @@ impl Detail {
         // The keys step through the files as the list shows them: in the order picked, and
         // in a tree, folder by folder. Copied only when that's not how they came.
         let prefs = &self.store.read(cx).prefs;
-        let (tree, sort) = (prefs.file_tree, prefs.file_sort);
+        let (tree, sort) = (!prefs.flat_files, prefs.file_sort);
         let order = |a: &FileDiff, b: &FileDiff| {
             let folders = match tree {
                 true => file_tree::folder_order(&a.file.path, &b.file.path),
@@ -1536,7 +1549,7 @@ impl Detail {
         let Some(diff) = self
             .diff
             .as_ref()
-            .filter(|_| self.store.read(cx).prefs.file_tree)
+            .filter(|_| !self.store.read(cx).prefs.flat_files)
         else {
             return shown;
         };
@@ -1659,6 +1672,7 @@ impl Detail {
                     shown.file.path == now.path
                         && (shown.file.modified, shown.file.size) == (now.modified, now.size)
                         && shown.file.base() == now.base()
+                        && shown.file.conflicted == now.conflicted
                 })
         })
     }
@@ -1866,7 +1880,7 @@ impl Detail {
         if !self.side_list_focused(window) && self.owned_cut(Vec::new(), cx).is_some() {
             let why = "Only uncommitted changes can be discarded with these keys. A commit's file menu has \
                  Discard from commit";
-            self.store.update(cx, |store, cx| store.snack(why, cx));
+            snack(&self.store, why, cx);
         }
     }
 
@@ -1969,7 +1983,7 @@ impl Detail {
         if !self.files_fit(window, cx) {
             let why = "The window is too narrow to show the files beside the diff. Rest the \
                        pointer on the file count over the diff to list them";
-            return self.store.update(cx, |store, cx| store.snack(why, cx));
+            return snack(&self.store, why, cx);
         }
         self.files_hidden = !self.files_hidden;
         // Keys go on to the diff once the list they went to is gone, and its filter goes with

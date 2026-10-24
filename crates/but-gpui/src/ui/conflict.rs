@@ -523,14 +523,7 @@ fn renumbered(lines: impl Iterator<Item = DiffLine>, at: u32) -> Vec<DiffLine> {
 }
 
 fn plain(text: &str) -> DiffLine {
-    DiffLine {
-        kind: LineKind::Context,
-        old: None,
-        new: None,
-        text: text.into(),
-        spans: Vec::new(),
-        emph: Vec::new(),
-    }
+    DiffLine::new(LineKind::Context, None, None, text)
 }
 
 /// The lines being written, with what keeps them and what drops the edit.
@@ -582,19 +575,12 @@ fn editor(input: Entity<TextInput>, row: &Row, theme: &Theme) -> AnyElement {
 mod tests {
     use super::{Part, Side, View};
     use crate::backend::{
-        ChangeKind, Conflict, DiffBody, DiffLine, FileChange, FileDiff, Hunk, HunkKey, LineKind,
+        Conflict, DiffBody, DiffLine, FileChange, FileDiff, Hunk, HunkKey, LineKind,
     };
     use crate::ui::diff::{DiffRow, rows};
 
     fn line(new: u32) -> DiffLine {
-        DiffLine {
-            kind: LineKind::Context,
-            old: Some(new),
-            new: Some(new),
-            text: "x".into(),
-            spans: Vec::new(),
-            emph: Vec::new(),
-        }
+        DiffLine::new(LineKind::Context, Some(new), Some(new), "x")
     }
 
     /// A conflict of one line each side, with a line of context either way.
@@ -616,10 +602,6 @@ mod tests {
 
     /// A file with one changed line at 30, and conflicts at 12 and 50.
     fn file() -> FileDiff {
-        let state = but_core::ChangeState {
-            id: gix::ObjectId::null(gix::hash::Kind::Sha1),
-            kind: gix::object::tree::EntryKind::Blob,
-        };
         let header = but_core::HunkHeader {
             old_start: 30,
             old_lines: 1,
@@ -628,21 +610,8 @@ mod tests {
         };
         FileDiff {
             file: FileChange {
-                path: "a.rs".into(),
-                previous_path: None,
-                kind: ChangeKind::Modified,
-                modified: None,
-                size: None,
                 conflicted: true,
-                lines: None,
-                change: but_core::TreeChange {
-                    path: "a.rs".into(),
-                    status: but_core::TreeStatus::Modification {
-                        previous_state: state,
-                        state,
-                        flags: None,
-                    },
-                },
+                ..FileChange::bare("a.rs")
             },
             body: DiffBody::Hunks {
                 hunks: vec![Hunk {
@@ -666,6 +635,23 @@ mod tests {
         }
     }
 
+    /// The rows of [`file`], shown whole to line `whole` when that's given, each conflict laid
+    /// out as `view`.
+    fn file_rows(whole: Option<u32>, view: View) -> Vec<DiffRow> {
+        let none = |_: &FileDiff| false;
+        rows(
+            &[file()],
+            none,
+            none,
+            none,
+            |_, _| false,
+            |_, _, _| false,
+            |_| whole,
+            false,
+            |_, _| view,
+        )
+    }
+
     fn parts(rows: &[DiffRow], of: usize) -> Vec<Part> {
         (rows.iter())
             .filter_map(|row| match *row {
@@ -677,20 +663,7 @@ mod tests {
 
     #[test]
     fn conflicts_sit_among_the_hunks_by_line() {
-        let files = [file()];
-        let none = |_: &FileDiff| false;
-        let open = |_: &FileDiff, _: &Conflict| View::default();
-        let shown = rows(
-            &files,
-            none,
-            none,
-            none,
-            |_, _| false,
-            |_, _, _| false,
-            |_| None,
-            false,
-            open,
-        );
+        let shown = file_rows(None, View::default());
         let first_bar = shown.iter().position(|row| {
             matches!(
                 row,
@@ -735,39 +708,17 @@ mod tests {
 
     #[test]
     fn a_settled_conflict_shows_what_it_keeps_and_a_whole_file_its_own_context() {
-        let files = [file()];
-        let none = |_: &FileDiff| false;
-        let settled = |_: &FileDiff, _: &Conflict| View {
+        let settled = View {
             settled: true,
             ancestor: false,
         };
-        let shown = rows(
-            &files,
-            none,
-            none,
-            none,
-            |_, _| false,
-            |_, _, _| false,
-            |_| None,
-            false,
-            settled,
-        );
+        let shown = file_rows(None, settled);
         assert_eq!(
             parts(&shown, 0),
             [Part::Bar, Part::Before(0), Part::Result, Part::After(0)],
             "what's kept stands in for the two sides"
         );
-        let whole = rows(
-            &files,
-            none,
-            none,
-            none,
-            |_, _| false,
-            |_, _, _| false,
-            |_| Some(60),
-            false,
-            settled,
-        );
+        let whole = file_rows(Some(60), settled);
         assert_eq!(
             parts(&whole, 0),
             [Part::Bar, Part::Result],

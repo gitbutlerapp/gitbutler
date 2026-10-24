@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use futures::channel::mpsc;
-use gpui::{Context, EventEmitter, SharedString, Subscription, Task};
+use gpui::{App, Context, Entity, EventEmitter, SharedString, Subscription, Task};
 use parking_lot::Mutex;
 
 use crate::backend::upstream::TargetCommit;
@@ -286,6 +286,13 @@ pub struct Store {
     /// until the reload after it lands, so the next one sees what it did; projects don't
     /// wait on each other.
     running: HashMap<ProjectId, Running>,
+    /// When, in seconds since the Unix epoch, each project's mutations of the last two
+    /// minutes wrote: each from its start until the file watcher has told of its writes, a
+    /// second or so after it settled. What's written then isn't activity in the checkout.
+    own_writes: HashMap<ProjectId, Vec<std::ops::RangeInclusive<i64>>>,
+    /// When, in milliseconds since the Unix epoch, each project last pushed: undoing what
+    /// came before rewrites what the remote has.
+    pushed_at: HashMap<ProjectId, i64>,
     busy_ticker: Task<()>,
     /// Mutations waiting for their project's running one, in order.
     queue: VecDeque<Queued>,
@@ -362,6 +369,11 @@ pub struct Store {
 
 impl EventEmitter<StoreEvent> for Store {}
 
+/// [`Store::snack`] from a view holding the store.
+pub fn snack(store: &Entity<Store>, message: impl Into<SharedString>, cx: &mut App) {
+    store.update(cx, |store, cx| store.snack(message, cx));
+}
+
 impl Store {
     /// Projects listed and nothing loading or mutating, for the dev script's timings.
     /// Nothing waits without something running: queued mutations wait on a running one,
@@ -391,6 +403,8 @@ impl Store {
             newer_version: None,
             mesh: mesh::Mesh::start(cx),
             running: HashMap::new(),
+            own_writes: HashMap::new(),
+            pushed_at: HashMap::new(),
             busy_ticker: Task::ready(()),
             queue: VecDeque::new(),
             last_snapshot: None,
@@ -779,6 +793,15 @@ impl Store {
         cx.notify();
     }
 
+    /// Select `selection`, or with it selected already, take its page back to how it opens.
+    pub fn reopen(&mut self, selection: Selection, cx: &mut Context<Self>) {
+        let again = self.selection.as_ref() == Some(&selection);
+        self.select(Some(selection), cx);
+        if again {
+            cx.emit(StoreEvent::Reopened);
+        }
+    }
+
     /// ⌘-click picks `id` along with the selected commit, or drops it from the picks;
     /// ⇧-click and ⇧-arrows pick the run of commits to `id` in `range`, the commits as
     /// they're shown, from where the last other click left off. The clicked commit becomes
@@ -837,6 +860,12 @@ impl Store {
         let (project, snapshot) = self.last_snapshot.take()?;
         (self.undo_steps).retain(|step| step.project != project || step.snapshot != snapshot);
         Some((project, snapshot))
+    }
+
+    /// Whether something written in `project` at `at`, in seconds since the Unix epoch, is the
+    /// app's own operation's doing rather than activity in the checkout.
+    pub fn own_write(&self, project: &ProjectId, at: i64) -> bool {
+        (self.own_writes.get(project)).is_some_and(|spans| spans.iter().any(|s| s.contains(&at)))
     }
 
     /// Whether ⌘Z has something the user did to take back.

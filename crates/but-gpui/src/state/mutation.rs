@@ -402,7 +402,12 @@ impl Store {
         // means to undo.
         let newer = |asked: Instant| last.is_none_or(|step| asked > step.asked);
         if (self.unfinished_asked())
-            .any(|(o, asked)| !o.remote_only && !matches!(o.kind, OpKind::Undo(_)) && newer(asked))
+            // A push running too, which would come before the undo it was asked before.
+            .any(|(o, asked)| {
+                (!o.remote_only || o.pushes.is_some())
+                    && !matches!(o.kind, OpKind::Undo(_))
+                    && newer(asked)
+            })
         {
             return self.snack("Wait for the running operation to finish, then undo it", cx);
         }
@@ -580,13 +585,29 @@ impl Store {
             .find(|step| step.project == *project && step.snapshot == snapshot);
         let asked = step.map(|step| step.asked);
         let newer_than = (step.filter(|_| guard)).map(|step| step.done);
+        let again = project.clone();
+        if (newer_than.zip(self.pushed_at.get(project)))
+            .is_some_and(|(done, pushed)| *pushed > done)
+        {
+            return self.error_with_retry(
+                self.card_title(project, "Undo may take back what was pushed".into()),
+                "A push came after the operation it undoes. If the push took what the \
+                 operation did, the remote keeps that until the branch is force pushed.",
+                "Undo anyway",
+                // Still asking about files written since, as ⌘Z does.
+                move |store, cx| {
+                    store.pushed_at.remove(&again);
+                    store.undo_snapshot(&again, snapshot, true, cx)
+                },
+                cx,
+            );
+        }
         let (undid, of) = (self.undid.clone(), project.clone());
         // The snackbar offering to undo it goes with it.
         let offered = (project.clone(), snapshot);
         self.toasts.retain(|toast| {
             !matches!(&toast.notice, Notice::Snackbar { undo: Some(undo), .. } if *undo == offered)
         });
-        let again = project.clone();
         self.run(
             project,
             "Undo",
@@ -845,6 +866,11 @@ impl Store {
         );
     }
 
+    /// Note that `project` just pushed, so ⌘Z asks before taking back what came before.
+    pub fn pushed(&mut self, project: &ProjectId) {
+        self.pushed_at.insert(project.clone(), now_millis());
+    }
+
     /// Push `ref_name`, and with `protect` refuse to drop commits only the remote has: the
     /// card that says so offers to push anyway. Without it, a forced push goes past the
     /// lease; with `drops`, the commits only the remote has that were shown, it stops at any
@@ -858,6 +884,18 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let name = short_ref(&ref_name).to_owned();
+        // The branches below it in its stack with commits to send go along, which the
+        // snackbar says.
+        let below = self.workspace(project).map_or(0, |ws| {
+            (ws.pushed_with(&ref_name).iter().skip(1))
+                .filter(|b| !b.ref_name.is_empty() && b.can_push())
+                .count()
+        });
+        let all = match below {
+            0 => name.clone(),
+            1 => format!("{name} and the branch below it"),
+            n => format!("{name} and the {n} branches below it"),
+        };
         let pushed = project.clone();
         let run_hooks = self.runs_hooks(project);
         self.run(
@@ -884,7 +922,8 @@ impl Store {
                 let reason = match outcome {
                     Err(reason) => reason,
                     Ok(sync_failed) => {
-                        store.snack(store.card_title(&pushed, format!("Pushed {name}")), cx);
+                        store.pushed(&pushed);
+                        store.snack(store.card_title(&pushed, format!("Pushed {all}")), cx);
                         if let Some(message) = sync_failed {
                             let title = format!(
                                 "Pushed {name}{}, but the stack's pull requests weren't updated",
@@ -1392,7 +1431,13 @@ impl Store {
                             store.select(Some(moved), cx);
                         }
                         let title = store.card_title(&project, format!("{label} failed"));
-                        store.failed(title, &err, cx)
+                        // Paths in the project as it names them, so a long one doesn't push
+                        // the reason off the card.
+                        let mut detail = backend::failure_detail(&err);
+                        if let Some(path) = store.path(&project) {
+                            detail = detail.replace(&format!("{}/", path.display()), "");
+                        }
+                        store.error(title, detail, cx)
                     }
                 }
                 // The cards it wrote are its own, for the next run of it that works to take back.
@@ -1429,7 +1474,15 @@ impl Store {
     /// and start what waits on it.
     pub(super) fn settled(&mut self, id: &ProjectId, cx: &mut Context<Self>) {
         if self.settles(id) {
-            self.running.remove(id);
+            // One that only talks to a remote, as a push, writes no files.
+            if let Some(running) = self.running.remove(id).filter(|r| !r.overlay.remote_only) {
+                let now = crate::ui::now();
+                // A second early, as whole seconds can put its first writes before its start.
+                let started = now - running.started.elapsed().as_secs() as i64 - 1;
+                let spans = self.own_writes.entry(id.clone()).or_default();
+                spans.retain(|span| crate::ui::just_now(*span.end()));
+                spans.push(started..=now + 2);
+            }
             cx.emit(StoreEvent::Pending(id.clone()));
             self.start_next(cx);
         }

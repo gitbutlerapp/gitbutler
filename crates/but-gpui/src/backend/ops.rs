@@ -212,7 +212,7 @@ pub(super) fn branch_ref(name: &str) -> Result<gix::refs::FullName> {
 /// What a hook printed, as an error card shows it: its last lines first, where a linter or
 /// test runner says what failed, without the labels put before each of its streams, then all
 /// of it, for copying.
-fn hook_output(output: &str) -> String {
+pub(super) fn hook_output(output: &str) -> String {
     let said: Vec<&str> = (output.lines())
         .map(str::trim_end)
         .filter(|line| !matches!(line.trim(), "" | "stdout:" | "stderr:"))
@@ -224,6 +224,29 @@ fn hook_output(output: &str) -> String {
             said.get(n - 3..).unwrap_or_default().join("\n")
         ),
     }
+}
+
+/// Refuse to change the checkout while Git is partway through its own operation there, which
+/// would go on from where it stopped, past what's done meanwhile: a rebase or a merge, or a
+/// bisect, whose reset leaves behind what's committed on the commit it checked out. With
+/// `on_branch`, as the main checkout must be, also while no branch is checked out at all.
+fn refuse_unfinished(repo: &gix::Repository, on_branch: bool) -> Result<()> {
+    if let Some(op) = super::git_operation(repo) {
+        bail!(
+            "{op} isn't finished. Finish it with `{op} --continue`, or stop it with \
+             `{op} --abort`, first."
+        );
+    }
+    if matches!(repo.state(), Some(gix::state::InProgress::Bisect)) {
+        bail!("git bisect isn't finished. End it with `git bisect reset` first.");
+    }
+    if on_branch && repo.head()?.is_detached() {
+        bail!(
+            "No branch is checked out (HEAD is detached). Check one out, or make one with \
+             `git switch -c <name>`, first."
+        );
+    }
+    Ok(())
 }
 
 /// Run the pre-commit hook on what `changes` would commit; its failure refuses the commit.
@@ -272,6 +295,7 @@ pub fn commit(
 ) -> Result<(CommitId, LeftOut, Option<String>)> {
     let mut ctx = open(path)?;
     refuse_unborn(&ctx)?;
+    refuse_unfinished(&checkout(&ctx, worktree)?, worktree.is_none())?;
     refuse_conflicted(&ctx, worktree, selected)?;
     // The hooks run in the main checkout, not where a linked worktree's changes are.
     let run_hooks = run_hooks && worktree.is_none();
@@ -317,22 +341,19 @@ pub fn commit(
     Ok((CommitId(id), left_out, hook_failed))
 }
 
-/// Create a new stack with a made-up name and return its full ref name, for renaming after.
+/// Create a new stack, named `name` or with a made-up name, and return its full ref name.
 /// With the default branch checked out on its own, the new branch goes on top of it and is
 /// checked out, as `git checkout -b` would. Beside another branch, both go in GitButler's
 /// workspace, as `but branch new` does.
-pub fn create_branch(path: &Path) -> Result<String> {
+pub fn create_branch(path: &Path, name: Option<&str>) -> Result<String> {
     use but_api::branch::json::BranchCreatePlacement as Placement;
+    let new_ref = name.map(branch_ref).transpose()?;
     let mut ctx = open(path)?;
     refuse_unborn(&ctx)?;
-    let head = ctx.repo.get()?.head_name()?;
     // A branch made here and checked out couldn't be undone: the oplog takes a detached
     // HEAD for the workspace and would restore that instead.
-    anyhow::ensure!(
-        head.is_some(),
-        "No branch is checked out (HEAD is detached). Check one out, or make one with \
-         `git switch -c <name>`, first."
-    );
+    refuse_unfinished(&*ctx.repo.get()?, true)?;
+    let head = ctx.repo.get()?.head_name()?;
     let checked_out = head.filter(|head| {
         head.as_bstr() != but_core::WORKSPACE_REF_NAME
             && head.as_ref().category() == Some(gix::refs::Category::LocalBranch)
@@ -343,7 +364,7 @@ pub fn create_branch(path: &Path) -> Result<String> {
             if (target.as_ref())
                 .is_some_and(|target| target.as_local_full_name_ref() != head.as_ref()) =>
         {
-            return create_beside_checkout(&mut ctx, &head);
+            return create_beside_checkout(&mut ctx, &head, new_ref);
         }
         Some(head) => Placement::Dependent {
             relative_to: but_api::commit::json::RelativeTo::Reference(head),
@@ -351,11 +372,11 @@ pub fn create_branch(path: &Path) -> Result<String> {
         },
         None => Placement::Independent { order: None },
     };
-    let created = but_api::branch::branch_create(&mut ctx, None, placement)?;
+    let created = but_api::branch::branch_create(&mut ctx, new_ref, placement)?;
     Ok(created.new_ref.to_string())
 }
 
-/// Make a branch with a made-up name where `head`, the branch checked out,
+/// Make a branch, `new_ref` or with a made-up name, where `head`, the branch checked out,
 /// leaves the target, and apply it beside `head`, which brings in GitButler's workspace for the
 /// two. Returns its full name. Starting there, as `but branch new` does, the two merge without
 /// conflicts, whatever the target has done since.
@@ -366,13 +387,25 @@ pub fn create_branch(path: &Path) -> Result<String> {
 fn create_beside_checkout(
     ctx: &mut but_ctx::Context,
     head: &gix::refs::FullName,
+    new_ref: Option<gix::refs::FullName>,
 ) -> Result<String> {
     use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
     let (new_ref, base) = {
         let repo = ctx.repo.get()?;
-        let new_ref = but_core::branch::unique_canned_refname(&repo)?;
+        let new_ref = match new_ref {
+            // As `branch_create` refuses one taken locally or by a remote's branch, or nesting
+            // with another.
+            Some(new_ref) => {
+                if but_core::branch::find_unique_refname(&repo, new_ref.as_ref())? != new_ref {
+                    bail!("Reference '{}' already exists", new_ref.shorten());
+                }
+                but_core::branch::refuse_colliding_refname(&repo, new_ref.as_ref(), None)?;
+                new_ref
+            }
+            None => but_core::branch::unique_canned_refname(&repo)?,
+        };
         let target = ctx.project_meta()?.resolve_target_commit(&repo)?;
         let base = (repo.merge_base(repo.head_id()?, target)?)
             .with_context(|| format!("{} shares no history with the target", head.shorten()))?;
@@ -584,6 +617,7 @@ pub fn amend(
     run_hooks: bool,
 ) -> Result<(Rewritten, LeftOut, Option<String>)> {
     let mut ctx = open(path)?;
+    refuse_unfinished(&checkout(&ctx, worktree)?, worktree.is_none())?;
     refuse_conflicted(&ctx, worktree, selected)?;
     let run_hooks = run_hooks && worktree.is_none();
     let changes = selected_specs(selected);
@@ -713,7 +747,8 @@ pub fn split_off(
         &mut ctx,
         &mut meta,
         guard.write_permission(),
-        SnapshotDetails::new(OperationKind::MoveCommitFile),
+        // There's no kind for a split; it makes a commit, rather than moving a file.
+        SnapshotDetails::new(OperationKind::CreateCommit),
         DryRun::No,
         |mut tx| {
             let blank = tx.insert_blank_commit(RelativeTo::Commit(commit.0), InsertSide::Above)?;
@@ -927,13 +962,24 @@ pub fn mark_resolved(path: &Path, worktree: Option<&str>, files: Vec<String>) ->
 #[cfg(test)]
 pub(super) mod tests {
     use std::collections::HashSet;
+    use std::path::PathBuf;
     use std::process::Command;
 
     use super::*;
     use crate::backend::{DiffBody, DiffSource, FileDiff, Kept, Workspace, load_diff};
 
+    /// A linked worktree of `path` on a new branch `agent`, in a directory of its own. Dropping
+    /// the directory deletes the worktree.
+    pub(in crate::backend) fn agent_worktree(path: &Path) -> (tempfile::TempDir, PathBuf) {
+        let outside = tempfile::tempdir().unwrap();
+        let linked = outside.path().join("agent");
+        let linked_dir = linked.to_str().unwrap();
+        git(path, &["worktree", "add", "-q", "-b", "agent", linked_dir]);
+        (outside, linked)
+    }
+
     /// HEAD's commit in the repository at `dir`.
-    fn head(dir: &Path) -> CommitId {
+    pub(in crate::backend) fn head(dir: &Path) -> CommitId {
         let id = git(dir, &["rev-parse", "HEAD"]);
         CommitId(gix::ObjectId::from_hex(id.trim().as_bytes()).unwrap())
     }
@@ -1077,6 +1123,8 @@ pub(super) mod tests {
             assert!(files[0].conflicted, "its index entry is unmerged");
 
             let whole = Selected::whole(&files[0]);
+            // As an update leaves it: conflicted, with no merge of Git's to finish.
+            std::fs::remove_file(path.join(".git/MERGE_HEAD")).unwrap();
             let refused = amend(path, head, std::slice::from_ref(&whole), None, false).unwrap_err();
             assert!(
                 refused.to_string().contains("resolved first"),
@@ -1124,9 +1172,7 @@ pub(super) mod tests {
             std::fs::write(path.join("new"), "one\ntwo\n").unwrap();
 
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-            let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
-                panic!("a text diff");
-            };
+            let hunks = diff[0].hunks();
             let line = diff[0].part(Some(
                 hunks[0].picked(&std::collections::BTreeSet::from([1])),
             ));
@@ -1151,19 +1197,7 @@ pub(super) mod tests {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
             let path = dir.path();
-            let outside = tempfile::tempdir().unwrap();
-            let linked = outside.path().join("agent");
-            git(
-                path,
-                &[
-                    "worktree",
-                    "add",
-                    "-q",
-                    "-b",
-                    "agent",
-                    linked.to_str().unwrap(),
-                ],
-            );
+            let (_outside, linked) = agent_worktree(path);
             std::fs::write(path.join("file"), "main\n").unwrap();
             std::fs::write(linked.join("file"), "agent\n").unwrap();
 
@@ -1210,19 +1244,7 @@ pub(super) mod tests {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("base\n");
             let path = dir.path();
-            let outside = tempfile::tempdir().unwrap();
-            let linked = outside.path().join("agent");
-            git(
-                path,
-                &[
-                    "worktree",
-                    "add",
-                    "-q",
-                    "-b",
-                    "agent",
-                    linked.to_str().unwrap(),
-                ],
-            );
+            let (outside, linked) = agent_worktree(path);
             std::fs::write(linked.join("file"), "seen\n").unwrap();
             let repo = gix::open(&linked).unwrap();
             let (modified, size) = stamp(&repo, "file".into());
@@ -1268,10 +1290,7 @@ pub(super) mod tests {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("base\n");
             let path = dir.path();
-            let outside = tempfile::tempdir().unwrap();
-            let linked = outside.path().join("agent");
-            let linked_dir = linked.to_str().unwrap();
-            git(path, &["worktree", "add", "-q", "-b", "agent", linked_dir]);
+            let (_outside, linked) = agent_worktree(path);
             git(path, &["checkout", "-q", "-b", "other"]);
             std::fs::write(path.join("file"), "theirs\n").unwrap();
             git(path, &["commit", "-q", "-am", "theirs"]);
@@ -1287,15 +1306,8 @@ pub(super) mod tests {
             assert!(!merge.status.success(), "both sides changed the line");
             std::fs::write(linked.join("gone"), "two\n").unwrap();
 
-            let diff = load_diff(
-                path,
-                DiffSource::Linked("agent".into()),
-                None,
-                None,
-                None,
-                None,
-            )
-            .unwrap();
+            let source = DiffSource::Linked("agent".into());
+            let diff = load_diff(path, source, None, None, None, None).unwrap();
             let selected: Vec<Selected> = (diff.iter())
                 .map(|file| Selected {
                     file: file.file.clone(),
@@ -1335,19 +1347,14 @@ pub(super) mod tests {
             std::fs::write(path.join("file"), lines.concat()).unwrap();
 
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-            let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
-                panic!("a text diff");
-            };
+            let hunks = diff[0].hunks();
             assert_eq!(
                 hunks.len(),
                 2,
                 "the edits are far enough apart for two hunks"
             );
             let head = head(path);
-            let first_hunk = Selected {
-                file: diff[0].file.clone(),
-                hunks: Some(vec![hunks[0].key]),
-            };
+            let first_hunk = diff[0].part(Some(vec![hunks[0].key]));
             amend(path, head, &[first_hunk], None, false).unwrap();
 
             let amended = git(path, &["show", "HEAD:file"]);
@@ -1371,13 +1378,8 @@ pub(super) mod tests {
             lines[19] = "last edit\n".into();
             std::fs::write(path.join("file"), lines.concat()).unwrap();
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-            let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
-                panic!("a text diff");
-            };
-            let first_hunk = Selected {
-                file: diff[0].file.clone(),
-                hunks: Some(vec![hunks[0].key]),
-            };
+            let hunks = diff[0].hunks();
+            let first_hunk = diff[0].part(Some(vec![hunks[0].key]));
             // Committed elsewhere, as by the CLI, which leaves the file as it is.
             git(path, &["commit", "-qam", "elsewhere"]);
             let head = head(path);
@@ -1440,6 +1442,30 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn a_commit_waits_for_a_git_merge_or_bisect_to_finish() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            let main = Destination::Branch("refs/heads/main".into());
+            let first = git(path, &["rev-parse", "HEAD"]);
+            for (state, says) in [("MERGE_HEAD", "git merge"), ("BISECT_LOG", "git bisect")] {
+                std::fs::write(path.join(".git").join(state), format!("{first}\n")).unwrap();
+                let refused = commit(path, &main, &[], None, "Two", false).unwrap_err();
+                assert!(
+                    format!("{refused:#}").contains(&format!("{says} isn't finished")),
+                    "finishing it would go on past the commit: {refused:#}"
+                );
+                std::fs::remove_file(path.join(".git").join(state)).unwrap();
+            }
+            assert_eq!(
+                git(path, &["rev-parse", "HEAD"]),
+                first,
+                "nothing was committed"
+            );
+        })
+    }
+
+    #[test]
     fn committing_no_changes_makes_an_empty_commit() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
@@ -1472,7 +1498,11 @@ pub(super) mod tests {
             let path = dir.path();
             target_origin_main(path);
 
-            let new = create_branch(path).unwrap();
+            let new = create_branch(path, Some("my feature")).unwrap();
+            assert_eq!(
+                new, "refs/heads/my-feature",
+                "named as typed, as Git allows"
+            );
             assert_eq!(
                 git(path, &["symbolic-ref", "HEAD"]).trim(),
                 new,
@@ -1584,7 +1614,7 @@ pub(super) mod tests {
             git(path, &["checkout", "-q", "--detach"]);
 
             let before = git(path, &["branch", "--list"]);
-            let err = create_branch(path).unwrap_err();
+            let err = create_branch(path, None).unwrap_err();
             assert!(err.to_string().contains("detached"), "{err}");
             assert_eq!(git(path, &["branch", "--list"]), before, "nothing is made");
         })
@@ -1612,7 +1642,15 @@ pub(super) mod tests {
             };
             let head = |path: &Path| git(path, &["symbolic-ref", "HEAD"]).trim().to_owned();
 
-            let new = create_branch(path).unwrap();
+            // A teammate's branch on the remote, which a branch of that name would take as
+            // its own.
+            git(path, &["update-ref", "refs/remotes/origin/fix", "HEAD"]);
+            let taken = create_branch(path, Some("fix"));
+            assert!(
+                taken.is_err() && !lanes(path).0,
+                "fix is taken, so nothing changes"
+            );
+            let new = create_branch(path, Some("second")).unwrap();
             let second = new.strip_prefix("refs/heads/").unwrap();
             let mut both = vec![vec!["feature".to_owned()], vec![second.to_owned()]];
             both.sort();
@@ -1689,7 +1727,7 @@ pub(super) mod tests {
             git(path, &["checkout", "-q", "feature"]);
             let fork = git(path, &["merge-base", "feature", "main"]);
 
-            let new = create_branch(path).unwrap();
+            let new = create_branch(path, None).unwrap();
             assert_eq!(
                 git(path, &["rev-parse", &new]),
                 fork,
@@ -1726,7 +1764,7 @@ pub(super) mod tests {
                 "main is listed while it has a commit origin doesn't"
             );
 
-            let new = create_branch(path).unwrap();
+            let new = create_branch(path, None).unwrap();
             let name = new.strip_prefix("refs/heads/").unwrap().to_owned();
             assert_eq!(
                 branches(path),
@@ -1849,8 +1887,7 @@ pub(super) mod tests {
             target_origin_main(path);
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
-            let head = git(path, &["rev-parse", "HEAD"]);
-            let top = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+            let top = head(path);
             std::fs::write(path.join("file"), "two\n").unwrap();
             let load = |kept| crate::backend::load_workspace(path, kept).unwrap();
             let paths = |ws: &Workspace| {
@@ -1929,8 +1966,7 @@ pub(super) mod tests {
             target_origin_main(path);
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
-            let head = git(path, &["rev-parse", "HEAD"]);
-            let top = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+            let top = head(path);
             name_branch(path, top, "named").unwrap();
             let named = oplog_head(path).unwrap();
             let done = now();
@@ -1979,6 +2015,53 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn undo_and_redo_stop_for_a_commit_made_outside_the_app_since() {
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::history::{Undone, oplog_head, redo_snapshot, undo_snapshot};
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
+            name_branch(path, head(path), "named").unwrap();
+            let named = oplog_head(path).unwrap();
+            let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+            let done = since.unwrap().as_millis() as i64;
+            // In a terminal, `minutes` on.
+            let commit_later = |minutes: i64, title: &str| {
+                let later = format!("{} +0000", done / 1000 + minutes * 60);
+                let committed = std::process::Command::new("git")
+                    .current_dir(path)
+                    .env("GIT_COMMITTER_DATE", later)
+                    .args(["commit", "-q", "--allow-empty", "-m", title])
+                    .status()
+                    .unwrap();
+                assert!(committed.success(), "git commits");
+            };
+            commit_later(1, "terminal work");
+            assert!(
+                matches!(undo_snapshot(path, named, Some((done, &[]))).unwrap(),
+                    Undone::Behind(why) if why.contains("terminal work")),
+                "undoing would take the commit out of every branch, so it says what came after"
+            );
+
+            assert!(
+                matches!(undo_snapshot(path, named, None).unwrap(), Undone::Done(_)),
+                "undone anyway"
+            );
+            let undo = oplog_head(path).unwrap();
+            commit_later(2, "more terminal work");
+            assert!(
+                matches!(
+                    redo_snapshot(path, undo, &Default::default(), Some(&[])).unwrap(),
+                    Some(Undone::Behind(_))
+                ),
+                "redoing would take that one out too"
+            );
+        })
+    }
+
+    #[test]
     fn a_branch_that_moved_since_it_was_asked_about_isnt_deleted() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
@@ -2010,8 +2093,7 @@ pub(super) mod tests {
             // A commit made with plain Git on the workspace branch belongs to no branch.
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
-            let head = git(path, &["rev-parse", "HEAD"]);
-            let top = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+            let top = head(path);
             let branch_at_top = |path: &Path| {
                 let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
                 (workspace.branches())
@@ -2045,18 +2127,13 @@ pub(super) mod tests {
             std::fs::write(path.join("file"), edited.concat()).unwrap();
 
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-            let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
-                panic!("a text diff");
-            };
+            let hunks = diff[0].hunks();
             assert_eq!(
                 hunks.len(),
                 2,
                 "the edits are far enough apart for two hunks"
             );
-            let hunk = |ix: usize| Selected {
-                file: diff[0].file.clone(),
-                hunks: Some(vec![hunks[ix].key]),
-            };
+            let hunk = |ix: usize| diff[0].part(Some(vec![hunks[ix].key]));
             discard(path, None, &[hunk(0)]).unwrap();
             // Read before the first discard, which took two lines out above it.
             let err = discard(path, None, &[hunk(1)]).unwrap_err();
@@ -2065,13 +2142,8 @@ pub(super) mod tests {
                 "its place in the file is from before the first discard: {err}"
             );
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-            let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
-                panic!("a text diff");
-            };
-            let fresh = Selected {
-                file: diff[0].file.clone(),
-                hunks: Some(vec![hunks[0].key]),
-            };
+            let hunks = diff[0].hunks();
+            let fresh = diff[0].part(Some(vec![hunks[0].key]));
             discard(path, None, &[fresh]).unwrap();
             assert_eq!(
                 std::fs::read_to_string(path.join("file")).unwrap(),
@@ -2092,13 +2164,8 @@ pub(super) mod tests {
             edited[18] = "nineteen\n".into();
             std::fs::write(path.join("file"), edited.concat()).unwrap();
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
-            let DiffBody::Hunks { hunks, .. } = &diff[0].body else {
-                panic!("a text diff");
-            };
-            let second = Selected {
-                file: diff[0].file.clone(),
-                hunks: Some(vec![hunks[1].key]),
-            };
+            let hunks = diff[0].hunks();
+            let second = diff[0].part(Some(vec![hunks[1].key]));
             // Commit the first edit alone, as committing part of the file does, without touching
             // the file itself.
             let mut first = lines.clone();
@@ -2142,10 +2209,7 @@ pub(super) mod tests {
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
             let hunk = &diff[0].hunks()[0];
             let picks = std::collections::BTreeSet::from([line_in(hunk, "five b")]);
-            let lines_picked = Selected {
-                file: diff[0].file.clone(),
-                hunks: Some(hunk.picked(&picks)),
-            };
+            let lines_picked = diff[0].part(Some(hunk.picked(&picks)));
             discard(path, None, &[lines_picked]).unwrap();
 
             let mut expected = lines.clone();
@@ -2170,8 +2234,7 @@ pub(super) mod tests {
         edited[4] = "five a\nfive b\n".into();
         std::fs::write(path.join("file"), edited.concat()).unwrap();
         git(path, &["commit", "-q", "-am", "edit"]);
-        let head = git(path, &["rev-parse", "HEAD"]);
-        let commit = CommitId(gix::ObjectId::from_hex(head.trim().as_bytes()).unwrap());
+        let commit = head(path);
         let diff = load_diff(path, DiffSource::Commit(commit), None, None, None, None).unwrap();
         (dir, commit, diff, edited)
     }
@@ -2241,10 +2304,7 @@ pub(super) mod tests {
     fn five_b_out(diff: &[FileDiff]) -> Selected {
         let hunk = &diff[0].hunks()[0];
         let picks = std::collections::BTreeSet::from([line_in(hunk, "five b")]);
-        Selected {
-            file: diff[0].file.clone(),
-            hunks: Some(hunk.picked_out(&picks)),
-        }
+        diff[0].part(Some(hunk.picked_out(&picks)))
     }
 
     #[test]
@@ -2330,10 +2390,7 @@ pub(super) mod tests {
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
             let hunk = &diff[0].hunks()[0];
             let picks = std::collections::BTreeSet::from([line_in(hunk, "five a")]);
-            let picked = Selected {
-                file: diff[0].file.clone(),
-                hunks: Some(hunk.picked(&picks)),
-            };
+            let picked = diff[0].part(Some(hunk.picked(&picks)));
             let head = head(path);
             amend(path, head, &[picked], None, false).unwrap();
 
@@ -2352,19 +2409,7 @@ pub(super) mod tests {
     fn a_new_branch_checked_out_in_a_linked_worktree_moves_it() {
         let dir = repo_with("base\n");
         let path = dir.path();
-        let outside = tempfile::tempdir().unwrap();
-        let linked = outside.path().join("agent");
-        git(
-            path,
-            &[
-                "worktree",
-                "add",
-                "-q",
-                "-b",
-                "agent",
-                linked.to_str().unwrap(),
-            ],
-        );
+        let (_outside, linked) = agent_worktree(path);
         let before = crate::backend::worktrees::heads(path);
         git(&linked, &["checkout", "-q", "-b", "agent-next"]);
         assert_ne!(

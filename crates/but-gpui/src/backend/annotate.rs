@@ -102,9 +102,9 @@ pub fn label_scopes(hunks: &mut [Hunk], old: &str, new: &str, path: &str, limit:
         let containing = (scoped.hunks().iter())
             .find(|candidate| side(candidate, side_is_new).contains(&number));
         if let Some(containing) = containing {
-            hunk.scope = containing
-                .ancestors
-                .iter()
+            // A one-line item, as `mod foo;`, is the changed line itself, not around it.
+            hunk.scope = (containing.ancestors.iter())
+                .filter(|scope| scope.end_line > scope.start_line)
                 .map(|scope| {
                     scope
                         .text
@@ -192,14 +192,7 @@ mod tests {
     fn changed_line(old: &str, new: &str, at: u32) -> Hunk {
         let (old, new): (Vec<&str>, Vec<&str>) = (old.lines().collect(), new.lines().collect());
         let (first, last) = (at.saturating_sub(3).max(1), (at + 3).min(old.len() as u32));
-        let line = |kind, old: Option<u32>, new: Option<u32>, text: &str| DiffLine {
-            kind,
-            old,
-            new,
-            text: text.into(),
-            spans: Vec::new(),
-            emph: Vec::new(),
-        };
+        let line = DiffLine::new;
         let unchanged = |n: u32| line(LineKind::Context, Some(n), Some(n), old[n as usize - 1]);
         let lines = (first..at)
             .map(unchanged)
@@ -312,6 +305,15 @@ mod tests {
                 .all(|hunk| hunk.lead.is_empty() && hunk.tail.is_empty()),
             "each would add few lines, but the function adds more than {LIMIT} in all"
         );
+    }
+
+    #[test]
+    fn a_one_line_item_isnt_named_as_its_own_scope() {
+        let old = "mod a;\nmod b;\nmod c;\n";
+        let new = old.replace("mod b;", "mod bb;");
+        let mut hunks = [changed_line(old, &new, 2)];
+        label_scopes(&mut hunks, old, &new, "lib.rs", LIMIT);
+        assert!(hunks[0].scope.is_empty(), "{:?}", hunks[0].scope);
     }
 
     #[test]

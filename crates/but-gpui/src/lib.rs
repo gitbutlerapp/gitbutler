@@ -59,6 +59,8 @@ fn draw_text_unsmoothed() {
 /// What the desktop app's binary gives the client when it starts it instead of its web one.
 #[derive(Clone)]
 pub struct Embedded {
+    /// The desktop app's version, as its updates count it.
+    pub version: String,
     /// The desktop app's update feed for this build and version, which answers with a newer
     /// version or with nothing; `None` when the build doesn't look for updates.
     pub update_feed: Option<String>,

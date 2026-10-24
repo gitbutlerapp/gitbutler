@@ -65,10 +65,9 @@ impl AppView {
                                     cx,
                                 )
                             });
-                            let worktree = worktree.clone();
                             this.run_editor(
                                 path.clone(),
-                                worktree,
+                                worktree.clone(),
                                 id.clone(),
                                 file.clone(),
                                 line,

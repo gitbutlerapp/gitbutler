@@ -204,24 +204,16 @@ mod tests {
     use std::collections::HashSet;
 
     use super::{Seeable, amended, amended_since, was_seen};
-    use crate::backend::{Commit, CommitId, CommitState};
+    use crate::backend::{Commit, CommitId};
 
     fn commit(id: u8, parent: u8, tree: u8) -> Commit {
         let oid = |n: u8| gix::ObjectId::from_bytes_or_panic(&[n; 20]);
         Commit {
-            id: CommitId(oid(id)),
             key: "change".into(),
             authored: "authored".into(),
-            title: String::new(),
-            message: String::new(),
-            author: String::new(),
-            email: String::new(),
-            agent: None,
-            time: 0,
-            state: CommitState::Local,
-            conflicted: false,
             parent: Some(CommitId(oid(parent))),
             tree: oid(tree),
+            ..Commit::bare(oid(id))
         }
     }
 

@@ -40,10 +40,15 @@ fn show_about(cx: &mut App) {
     };
     window
         .update(cx, |_, window, cx| {
-            let channel = settings::channel();
+            // The version is the desktop app's, which started this one; built on its own,
+            // there's none.
+            let version = (cx.try_global::<crate::Embedded>()).map_or(String::new(), |embedded| {
+                format!(", version {}", embedded.version)
+            });
             let detail = format!(
                 "A native GitButler client, built on GPUI. It shares projects, settings and \
-                 accounts with GitButler's other apps.\n\nThis is a {channel} build."
+                 accounts with GitButler's other apps.\n\nThis is a {} build{version}.",
+                settings::channel()
             );
             // Nothing to wait for: OK only closes it.
             drop(window.prompt(PromptLevel::Info, "GitButler", Some(&detail), &["OK"], cx));

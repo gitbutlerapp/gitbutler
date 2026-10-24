@@ -11,7 +11,7 @@ use gpui::{
 
 use super::conflict::{self, Part};
 use super::file_icons::file_icon;
-use super::{Icon, dp, fixed, h_flex, plural, small_icon, v_flex};
+use super::{Icon, dp, faint, fixed, h_flex, plural, small_icon, v_flex};
 use crate::backend::{ChangeKind, Conflict, DiffBody, DiffLine, FileDiff, Hunk, LineKind, Picture};
 use crate::theme::Theme;
 
@@ -70,16 +70,8 @@ impl DiffRow {
                     left,
                     right,
                 },
-            )
-            | (
-                Pair {
-                    file: f,
-                    hunk: h,
-                    left,
-                    right,
-                },
-                Line { file, hunk, line },
             ) => (file, hunk) == (f, h) && (left == Some(line) || right == Some(line)),
+            (Pair { .. }, Line { .. }) => other.same_place(self),
             // The old-side number moves with the hunks above the line.
             (
                 Context { file, new, .. },
@@ -538,7 +530,10 @@ pub fn file_header(
                             Some(previous) => format!("{dir}  ← {previous}"),
                             None => dir.to_owned(),
                         }),
-                ),
+                )
+                // Here rather than under it, as it can come with changed lines too; cut off
+                // before the name is.
+                .children((file.file.mode_change()).map(|mode| faint(mode, theme).flex_none())),
         )
         .when(file.file.conflicted, |el| el.child(conflicted_badge(theme)))
         .child(stats(added, removed, theme))
@@ -678,29 +673,28 @@ pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
             "{}. Resolve it in a terminal, with `but resolve`.",
             reason.trim_end_matches('.')
         ),
-        DiffBody::Empty | DiffBody::Hunks { .. } => match (file.file.mode_change(), file.file.kind)
-        {
-            (Some(mode), _) => mode.to_owned(),
-            (None, ChangeKind::Renamed) => "Renamed without changes".to_owned(),
-            (None, _) if let Some(submodule) = file.file.submodule() => submodule,
+        DiffBody::Empty | DiffBody::Hunks { .. } => match file.file.kind {
+            ChangeKind::Renamed => "Renamed without changes".to_owned(),
+            _ if let Some(submodule) = file.file.submodule() => submodule,
             // Git couldn't read it, as when it isn't readable.
-            (None, _) if matches!(file.body, DiffBody::Empty) => {
-                "Can't show its content".to_owned()
-            }
-            (None, ChangeKind::Added) => "Empty file".to_owned(),
-            (None, _) => "No content changes".to_owned(),
+            _ if matches!(file.body, DiffBody::Empty) => "Can't show its content".to_owned(),
+            ChangeKind::Added => "Empty file".to_owned(),
+            // As a mode change alone, which the header says.
+            _ => "No content changes".to_owned(),
         },
     };
+    // Wrapped, as the reason a file can't be resolved here can run long.
     card(h_flex(), theme)
-        .h(dp(36.))
+        .min_h(dp(36.))
         .px(dp(12.))
+        .py(dp(9.))
         .gap(dp(6.))
         .border_b_1()
         .rounded_b(dp(6.))
         .text_size(dp(12.))
         .text_color(theme.text_2)
-        .child(small_icon(Icon::File).text_color(theme.text_3))
-        .child(text)
+        .child(small_icon(Icon::File).flex_none().text_color(theme.text_3))
+        .child(div().min_w_0().child(text))
         .into_any_element()
 }
 
@@ -1299,14 +1293,7 @@ mod tests {
             LineKind::Added,
         ]
         .into_iter()
-        .map(|kind| DiffLine {
-            kind,
-            old: None,
-            new: None,
-            text: "".into(),
-            spans: Vec::new(),
-            emph: Vec::new(),
-        })
+        .map(|kind| DiffLine::new(kind, None, None, ""))
         .collect();
         assert_eq!(
             pair_lines(&lines),

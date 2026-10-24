@@ -85,22 +85,14 @@ pub fn byline_avatar(
 /// Who it's by and when, as a page's header says it: `name`'s picture, with `agent`'s, and
 /// "Ada with Claude at" `time`.
 pub fn byline(name: &str, email: &str, agent: Option<&Agent>, time: i64, theme: &Theme) -> Div {
+    let by = match agent {
+        Some(agent) => format!("{name} with {}", agent.name),
+        None => name.to_owned(),
+    };
     super::h_flex()
         .gap(dp(8.))
         .child(byline_avatar(name, email, agent, 16., theme))
-        .child(format!(
-            "{} at {}",
-            byline_text(name, agent),
-            super::local_time(time)
-        ))
-}
-
-/// Who it's by, in words: `name`, and `agent` with them when an agent wrote it.
-fn byline_text(name: &str, agent: Option<&Agent>) -> String {
-    match agent {
-        Some(agent) => format!("{name} with {}", agent.name),
-        None => name.to_owned(),
-    }
+        .child(format!("{by} at {}", super::local_time(time)))
 }
 
 /// The photo for a lowercased email, fetched once a run, off the UI thread: the GitHub
@@ -133,7 +125,11 @@ fn github(email: &str) -> Option<Arc<gpui::Image>> {
     let default = match DEFAULT.get() {
         Some(default) => *default,
         None => {
-            let bytes = fetch(url("nobody@users.invalid")?.as_str()).ok()?;
+            // Made up anew each run: GitHub has a picture of its own for some made-up
+            // addresses, as for nobody@users.invalid, and with it every author counted as
+            // having a photo, all of them GitHub's default.
+            let nobody = format!("nobody-{}@users.invalid", std::process::id());
+            let bytes = fetch(url(&nobody)?.as_str()).ok()?;
             *DEFAULT.get_or_init(|| md5::compute(bytes))
         }
     };

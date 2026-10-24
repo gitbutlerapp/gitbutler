@@ -64,11 +64,10 @@ impl Store {
             .collect();
         activity.sort_by(|a, b| (&a.project, &a.worktree).cmp(&(&b.project, &b.worktree)));
         Saved {
-            expanded: self
-                .projects
-                .iter()
-                .filter(|entry| entry.expanded)
+            // Those saved last time too until the projects are listed, which can fail.
+            expanded: (self.projects.iter().filter(|entry| entry.expanded))
                 .map(|entry| entry.id.to_string())
+                .chain(self.restored.expanded.iter().cloned())
                 .collect(),
             selection: self.selection.as_ref().map(|s| s.project().to_string()),
             seen: self.seen.clone(),
@@ -92,10 +91,15 @@ impl Store {
     pub(super) fn forget_unlisted(&mut self) {
         let listed: HashSet<&str> = self.projects.iter().map(|entry| &*entry.id).collect();
         let listed = |id: &str| listed.contains(id);
-        self.seen.commits.retain(|id, _| listed(id));
+        // What ⌘Z and ⇧⌘Z would do in one, which can't be done without it.
         self.undo_steps.retain(|step| listed(&step.project));
         self.redo_steps.retain(|(id, _)| listed(id));
         (self.undid.lock()).retain(|id, _| listed(id));
+        // None listed is more likely a list that couldn't be read than every one removed.
+        if self.projects.is_empty() {
+            return;
+        }
+        self.seen.commits.retain(|id, _| listed(id));
         (self.kept_snapshots.lock()).retain(|id, _| listed(id));
         let since = crate::ui::now() - super::activity::KEPT_FOR;
         (self.activity).retain(|(id, _), activity| {
@@ -252,7 +256,7 @@ impl Pane {
 }
 
 /// The part of the saved state that's only read at startup.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(super) struct Restored {
     pub(super) expanded: Vec<String>,
     pub(super) selection: Option<String>,
@@ -353,8 +357,9 @@ pub struct Prefs {
     pub editor: Option<String>,
     /// The terminal the project opens in, by id.
     pub terminal: Option<String>,
-    /// File lists show a tree of directories rather than a flat list.
-    pub file_tree: bool,
+    /// File lists show their files flat rather than as a tree of folders. A key of its own,
+    /// as the old `file_tree` saved false for everyone from before the tree was the default.
+    pub flat_files: bool,
     /// The order file lists show files in.
     pub file_sort: FileSort,
     /// Long diff lines wrap instead of running off the edge.
@@ -416,6 +421,16 @@ impl Prefs {
     }
 }
 
+/// `value`, an object of `T`'s fields, without those `T` can't read.
+fn readable<T: serde::de::DeserializeOwned>(value: &mut serde_json::Value) {
+    if let Some(fields) = value.as_object_mut() {
+        fields.retain(|key, field| {
+            let alone = serde_json::json!({ key.as_str(): field.clone() });
+            serde_json::from_value::<T>(alone).is_ok()
+        });
+    }
+}
+
 /// Where the window was: the display it was on, and its left, top, width and height on that
 /// display. A full-screen window keeps the size it returns to.
 #[derive(Clone, Serialize, Deserialize)]
@@ -444,11 +459,25 @@ impl Saved {
         let Some((bytes, path)) = Self::path().and_then(read).or_else(|| read(shared()?)) else {
             return Self::default();
         };
-        serde_json::from_slice(&bytes).unwrap_or_else(|err| {
+        Self::parse(&bytes).unwrap_or_else(|err| {
             // Keep what couldn't be read rather than write over it.
             tracing::warn!("couldn't read {}: {err}", path.display());
             std::fs::rename(&path, path.with_extension("json.bak")).ok();
             Self::default()
+        })
+    }
+
+    /// What `bytes` saved, but for what this build can't read: a choice a newer build saved
+    /// that this one doesn't know, as a new size, goes back to its default alone.
+    fn parse(bytes: &[u8]) -> serde_json::Result<Self> {
+        serde_json::from_slice(bytes).or_else(|err| {
+            tracing::warn!("reading only some of the saved state: {err}");
+            let mut value: serde_json::Value = serde_json::from_slice(bytes)?;
+            if let Some(prefs) = value.get_mut("prefs") {
+                readable::<Prefs>(prefs);
+            }
+            readable::<Self>(&mut value);
+            serde_json::from_value(value)
         })
     }
 
@@ -483,6 +512,19 @@ mod tests {
         assert!(
             saved.kept_by_project.is_empty(),
             "the old list doesn't say whose they are"
+        );
+    }
+
+    #[test]
+    fn a_choice_this_build_doesnt_know_loses_only_itself() {
+        let newer = r#"{ "expanded": ["a"], "prefs": { "code_size": "Huge", "wrap": true } }"#;
+        let saved = Saved::parse(newer.as_bytes()).expect("the rest still reads");
+        assert_eq!(saved.expanded, ["a"], "the watched projects are kept");
+        assert!(saved.prefs.wrap, "the other choices are kept");
+        assert_eq!(
+            saved.prefs.code_size,
+            Default::default(),
+            "the unknown one is the default"
         );
     }
 

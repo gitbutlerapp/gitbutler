@@ -11,8 +11,8 @@ use gpui::{AnyElement, App, Context, Div, MouseButton, ScrollHandle, div, prelud
 use super::Detail;
 use super::diff_view::files_toggle;
 use super::panes::{
-    clear_button, meta_item, meta_row, overview_column, overview_heading, page_title, share_row,
-    title_text,
+    and_more, clear_button, meta_item, meta_row, overview_column, overview_heading, page_title,
+    share_row, title_text,
 };
 use super::slots::SlotPick;
 use crate::backend::{self, Branch, Commit, CommitId, FileChange, Workspace};
@@ -262,9 +262,15 @@ impl Detail {
             }
             None => (
                 "Main worktree".to_owned(),
-                match ws.map_or(0, |ws| ws.branches().count()) {
-                    1 => "1 branch applied".to_owned(),
-                    n => format!("{n} branches applied"),
+                match ws {
+                    // Checked out on its own, as in Git, the branch is named.
+                    Some(ws) if !ws.managed => (ws.branches().next().map(|b| b.name.as_str()))
+                        .or(ws.target_branch.as_deref().map(backend::short_ref))
+                        .map_or("No branch checked out".to_owned(), str::to_owned),
+                    ws => match ws.map_or(0, |ws| ws.branches().count()) {
+                        1 => "1 branch applied".to_owned(),
+                        n => format!("{n} branches applied"),
+                    },
                 },
                 Some(short_path(&entry.project.path)),
                 Selection::Uncommitted(project.clone()),
@@ -275,7 +281,12 @@ impl Detail {
             .children(folder.map(|folder| {
                 meta_item(Icon::Folder, theme)
                     .min_w_0()
-                    .child(div().min_w_0().truncate().child(folder))
+                    // Cut in the middle, keeping the folder's own name, as the project's page does.
+                    .child(
+                        (div().min_w_0().overflow_hidden().whitespace_nowrap())
+                            .text_ellipsis_middle()
+                            .child(folder),
+                    )
             }));
         let main = v_flex()
             .gap(dp(10.))
@@ -410,6 +421,7 @@ impl Detail {
         let store = self.store.read(cx);
         let written = (files.iter())
             .filter_map(|file| file.modified.map(|ms| ms / 1000))
+            .filter(|at| !store.own_write(project, *at))
             .max();
         let last_write = activity.and_then(|a| a.last).max(written);
         // Written to lately, and since its last commit: once committed, it's quiet again.
@@ -500,10 +512,7 @@ impl Detail {
                 )
                 .into_any_element()
         });
-        let more = (rest > 0).then(|| {
-            let said = format!("and {rest} more");
-            faint(said, theme).px(dp(14.)).py(dp(4.)).into_any_element()
-        });
+        let more = and_more(rest, theme).map(IntoElement::into_any_element);
         Some(
             v_flex()
                 .child(overview_heading("Hot files", div().children(clear), theme).h(dp(28.)))
@@ -625,7 +634,12 @@ impl Detail {
                     // Read or not as the navigator shows it: quieter once read, in semibold
                     // with a dot while not.
                     let unread = store.is_unread(project, commit);
-                    row.child(small_icon(Icon::Commit).text_color(theme.blue))
+                    // Marked conflicted as the navigator marks it.
+                    let (glyph, color) = match commit.conflicted {
+                        true => (Icon::Warning, theme.warn),
+                        false => (Icon::Commit, theme.blue),
+                    };
+                    row.child(small_icon(glyph).text_color(color))
                         .child(
                             div()
                                 .flex_1()

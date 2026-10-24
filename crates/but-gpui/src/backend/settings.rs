@@ -93,7 +93,6 @@ pub fn set_opens_at_start(on: bool) -> Result<()> {
 /// What the Project section of the settings shows.
 #[derive(Debug, Clone)]
 pub struct ProjectSettings {
-    pub force_push_protection: bool,
     pub sign_commits: bool,
     /// The forge the project's remote, or a forge account with its host, names.
     pub detected_forge: Option<Forge>,
@@ -106,8 +105,6 @@ pub fn project_settings(path: &Path) -> Result<ProjectSettings> {
     let git = config::get_gb_config(&ctx)?;
     let (detected_forge, forge_override) = super::reviews::detected_and_saved_forge(&ctx);
     Ok(ProjectSettings {
-        // The value a push checks.
-        force_push_protection: ctx.legacy_project.force_push_protection,
         sign_commits: git.gitbutler_sign_commits.unwrap_or(false),
         detected_forge,
         forge_override,
@@ -126,19 +123,14 @@ pub fn set_forge_override(id: &str, forge: Option<Forge>) -> Result<()> {
     projects::update_project(request).map(|_| ())
 }
 
-/// Change the project's name, or whether it refuses force pushes that would drop others'
-/// commits.
-pub fn update_project(
-    id: &str,
-    name: Option<String>,
-    force_push_protection: Option<bool>,
-) -> Result<()> {
+/// Change the project's name.
+pub fn rename_project(id: &str, name: String) -> Result<()> {
     projects::update_project_settings(
         id.parse().context("Invalid project id")?,
         projects::ProjectSettingsUpdate {
-            title: name,
+            title: Some(name),
             description: None,
-            force_push_protection,
+            force_push_protection: None,
             omit_certificate_check: None,
         },
     )
@@ -154,9 +146,11 @@ pub fn set_sign_commits(path: &Path, sign: bool) -> Result<()> {
     config::set_gb_config(&open(path)?, git)
 }
 
-/// Sign a test commit with the project's settings, to tell whether signing works.
+/// Sign a test commit with the project's settings, to tell whether signing works, or why not
+/// in the signing program's own words, as a failed commit says it.
 pub fn test_signing(path: &Path) -> Result<()> {
-    but_api::legacy::repo::check_signing_settings(&open(path)?)?;
+    but_api::legacy::repo::check_signing_settings(&open(path)?)
+        .map_err(|err| anyhow::anyhow!(super::signing_failure(&err)))?;
     Ok(())
 }
 

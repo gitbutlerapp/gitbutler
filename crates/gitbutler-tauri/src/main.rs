@@ -97,6 +97,7 @@ fn main() -> anyhow::Result<()> {
         #[allow(deprecated)]
         let interval = app_settings.get()?.ui.check_for_updates_interval_in_seconds;
         but_gpui::run(Some(but_gpui::Embedded {
+            version: tauri_context.package_info().version.to_string(),
             update_feed: (interval > 0)
                 .then(|| update_feed(&tauri_context))
                 .flatten(),

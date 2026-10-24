@@ -184,14 +184,7 @@ impl Theme {
         let pick = |light: u32, dark_value: u32| -> Hsla {
             rgb(if dark { dark_value } else { light }).into()
         };
-        // Embedded by `ui::fonts`.
-        let ui_font = "Inter";
-        let mono_font = "Geist Mono";
-
-        let safe = pick(0x259466, 0x2eb87f);
-        let danger = pick(0xd64029, 0xe28576);
         let (code_text, code_line) = code.metrics();
-        let bg_1 = pick(0xffffff, 0x292929);
         // GitHub's light and dark, which but.dev's diffs take their colours from.
         let added = pick(0x28a745, 0x34d058);
         let removed = pick(0xd73a49, 0xea4a5a);
@@ -199,7 +192,7 @@ impl Theme {
             code_text,
             code_line,
             scale: 1.,
-            bg_1,
+            bg_1: pick(0xffffff, 0x292929),
             bg_2: pick(0xf2f2f2, 0x1e1e1e),
             text_1: pick(0x1e1e1e, 0xf8f8f8),
             // Secondary text meets WCAG AA (4.5:1), faint text the 3:1 for de-emphasised
@@ -214,9 +207,9 @@ impl Theme {
             pop: pick(0x177a7a, 0x25b1b1),
             pop_bg: pick(0x25b1b1, 0x1e8e8e),
             blue: pick(0x0b61eb, 0x84aff5),
-            safe,
+            safe: pick(0x259466, 0x2eb87f),
             warn: pick(0xa05f04, 0xf99406),
-            danger,
+            danger: pick(0xd64029, 0xe28576),
             purple: pick(0x6e2cb1, 0xb287de),
             snackbar_bg: pick(0x1e1e1e, 0x434343),
             snackbar_text: rgb(0xf8f8f8).into(),
@@ -243,8 +236,9 @@ impl Theme {
                 [(0xf4dad6, 0x621d13), (0xebb4ab, 0x87291a)],
             ]
             .map(|steps| steps.map(|(light, dark_value)| pick(light, dark_value))),
-            ui_font: ui_font.into(),
-            mono_font: mono_font.into(),
+            // Embedded by `ui::fonts`.
+            ui_font: "Inter".into(),
+            mono_font: "Geist Mono".into(),
             // Shiki's GitHub light and dark, as but.dev highlights diffs. In `Token` order:
             // comment, string, constant, keyword, function, type, tag.
             syntax: [

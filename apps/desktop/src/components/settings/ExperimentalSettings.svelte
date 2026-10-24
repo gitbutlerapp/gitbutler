@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { BACKEND } from "$lib/backend";
 	import { fModeEnabled } from "$lib/config/uiFeatureFlags";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { inject } from "@gitbutler/core/context";
@@ -6,6 +7,13 @@
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
+	const backend = inject(BACKEND);
+
+	// Only macOS nightly builds include the native app.
+	let hasNativeApp = $state(false);
+	if (backend.platformName === "macos") {
+		backend.getAppInfo().then((info) => (hasNativeApp = info.name === "GitButler Nightly"));
+	}
 </script>
 
 <p class="text-12 text-body experimental-settings__text">
@@ -49,6 +57,28 @@
 			/>
 		{/snippet}
 	</CardGroup.Item>
+
+	{#if hasNativeApp}
+		<CardGroup.Item labelFor="native-app">
+			{#snippet title()}
+				Native app
+			{/snippet}
+			{#snippet caption()}
+				Open GitButler's experimental native app instead of this one. Takes effect after you restart
+				GitButler. To come back, turn off "Open this app at start" in the native app's settings.
+			{/snippet}
+			{#snippet actions()}
+				<Toggle
+					id="native-app"
+					checked={$settingsStore?.featureFlags.gpui}
+					onclick={() =>
+						settingsService.updateFeatureFlags({
+							gpui: !$settingsStore?.featureFlags.gpui,
+						})}
+				/>
+			{/snippet}
+		</CardGroup.Item>
+	{/if}
 </CardGroup>
 
 <style>
