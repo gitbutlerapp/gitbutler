@@ -262,9 +262,15 @@ impl Detail {
             }
             None => (
                 "Main worktree".to_owned(),
-                match ws.map_or(0, |ws| ws.branches().count()) {
-                    1 => "1 branch applied".to_owned(),
-                    n => format!("{n} branches applied"),
+                match ws {
+                    // Checked out on its own, as in Git, the branch is named.
+                    Some(ws) if !ws.managed => (ws.branches().next().map(|b| b.name.as_str()))
+                        .or(ws.target_branch.as_deref().map(backend::short_ref))
+                        .map_or("No branch checked out".to_owned(), str::to_owned),
+                    ws => match ws.map_or(0, |ws| ws.branches().count()) {
+                        1 => "1 branch applied".to_owned(),
+                        n => format!("{n} branches applied"),
+                    },
                 },
                 Some(short_path(&entry.project.path)),
                 Selection::Uncommitted(project.clone()),
