@@ -380,9 +380,13 @@ impl AppView {
             1 => ("the commit".to_owned(), "it"),
             n => (format!("the {n} commits"), "them"),
         };
-        let detail = match ws.can_pull(&ref_name) {
-            true => format!("It drops {what} only the remote has. Pull first to keep {them}."),
-            false => format!("It drops {what} only the remote has."),
+        let detail = match ws.unpullable_drops(&ref_name) {
+            None => format!("It drops {what} only the remote has. Pull first to keep {them}."),
+            Some(stuck) => format!(
+                "It drops {what} only the remote has. To keep {name}'s, unstack the branches on \
+                 it and pull it first.",
+                name = stuck.name
+            ),
         };
         // Asked here, as the project's own protection is off unless turned on.
         self.confirm_then(

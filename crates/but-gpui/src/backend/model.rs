@@ -302,6 +302,13 @@ impl Workspace {
         })
     }
 
+    /// The branch pushing `ref_name` takes along, it or one below, whose commits only its
+    /// remote has can't be pulled first, as others are stacked on it.
+    pub fn unpullable_drops(&self, ref_name: &str) -> Option<&Branch> {
+        (self.pushed_with(ref_name).iter())
+            .find(|branch| !branch.incoming.is_empty() && !self.can_pull(&branch.ref_name))
+    }
+
     /// When anything last happened here, in seconds: a file written or a commit made.
     pub fn last_activity(&self) -> Option<i64> {
         let edited = self
