@@ -109,6 +109,8 @@ const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Show or hide the files", &crate::detail::ToggleFiles),
     ("Create pull request", &crate::pr::CreatePullRequest),
     ("Merge pull request", &crate::pr::MergePullRequest),
+    ("Enable auto-merge", &crate::pr::EnableAutoMerge),
+    ("Disable auto-merge", &crate::pr::DisableAutoMerge),
     ("Resolve conflicts", &crate::detail::ResolveConflicts),
     ("Open in editor", &crate::open_in::OpenInEditor),
     ("Open in terminal", &crate::open_in::OpenInTerminal),

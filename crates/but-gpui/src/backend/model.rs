@@ -381,6 +381,8 @@ pub struct Review {
     pub title: String,
     pub state: ReviewState,
     pub url: Option<String>,
+    /// It merges by itself once its required checks and reviews let it.
+    pub auto_merge: bool,
     /// The CI checks on the branch, once any have been seen.
     pub checks: Option<Checks>,
     /// Each check, failed ones first, then those still running.

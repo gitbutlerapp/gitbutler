@@ -366,8 +366,8 @@ impl Navigator {
                 }
                 if crate::pr::on_forge(store, target) && !ref_name.is_empty() && !linked {
                     use crate::backend::ReviewState as S;
-                    match (branch.review.as_ref()).map(|r| store.review_state(target.project(), r))
-                    {
+                    let project = target.project();
+                    match (branch.review.as_ref()).map(|r| (r, store.review_state(project, r))) {
                         // Creating one pushes first.
                         None if !branch.commits.is_empty()
                             && workspace.push_refused(ref_name).is_none() =>
@@ -377,8 +377,9 @@ impl Navigator {
                                 &crate::pr::CreatePullRequest,
                             ))
                         }
-                        Some(S::Open) => {
-                            items.push(action("Merge pull request…", &crate::pr::MergePullRequest))
+                        Some((review, S::Open)) => {
+                            let offer = crate::pr::mergeability(store, project, review).offer();
+                            items.extend(offer.map(|offer| action(offer.label(), offer.action())))
                         }
                         _ => {}
                     }

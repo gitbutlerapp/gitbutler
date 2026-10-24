@@ -362,6 +362,9 @@ pub struct Store {
     /// that changes nothing reloads nothing, so the cache's own time on screen falls behind.
     forge_synced: HashMap<ProjectId, i64>,
     _forge_worker: Task<()>,
+    /// What the forge said about whether pull requests can merge, by project and number: see
+    /// [`Store::read_merge_status`].
+    merge_reads: HashMap<(ProjectId, u64), background::MergeRead>,
     /// What the file watcher saw written in each checkout lately: a project's main one, or
     /// its linked worktree with this name.
     pub activity: HashMap<(ProjectId, Option<Arc<str>>), Activity>,
@@ -453,6 +456,7 @@ impl Store {
             forge_checking: None,
             forge_synced: HashMap::new(),
             _forge_worker: Self::forge_worker(requested, cx),
+            merge_reads: HashMap::new(),
             activity: (saved.activity.into_iter())
                 .map(|saved| {
                     (
