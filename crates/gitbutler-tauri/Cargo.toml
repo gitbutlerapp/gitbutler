@@ -77,12 +77,10 @@ url = "2.5.4"
 but-path.workspace = true
 tauri-plugin-deep-link = "2"
 document-features = { version = "0.2", optional = true }
+but-gpui = { path = "../but-gpui", optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-plugin-trafficlights-positioner = { git = "https://github.com/gitbutlerapp/tauri-plugin-trafficlights-positioner", branch = "v2" }
-
-[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
-but-gpui = { path = "../but-gpui", optional = true }
 
 [lints]
 workspace = true
@@ -92,8 +90,7 @@ default = ["custom-protocol", "devtools", "opener"]
 #! ## Build- and package-related Options
 ## If enabled, we will pretend to be `but` when the binary filename is `but`.
 builtin-but = ["dep:but", "but-action/builtin-but"]
-## On macOS and Windows, start the experimental native client instead of the web one when run
-## with `--gpui`.
+## Start the experimental native client instead of the web one when run with `--gpui`.
 builtin-gpui = ["dep:but-gpui"]
 ## Enable experimental CLI commands and features for nightly releases only.
 nightly = ["but?/nightly"]

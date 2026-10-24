@@ -28,15 +28,9 @@ fn main() -> anyhow::Result<()> {
     // The native client relaunches this to install an update, which the web app does. Taken
     // out of the environment, which the web app's own relaunch after installing passes on,
     // so that relaunch opens what Settings say.
-    #[cfg(all(
-        feature = "builtin-gpui",
-        any(target_os = "macos", target_os = "windows")
-    ))]
+    #[cfg(feature = "builtin-gpui")]
     let web_once = std::env::var_os(but_gpui::WEB_APP_ONCE).is_some();
-    #[cfg(all(
-        feature = "builtin-gpui",
-        any(target_os = "macos", target_os = "windows")
-    ))]
+    #[cfg(feature = "builtin-gpui")]
     // SAFETY: first thing in `main`, before any other thread could read the environment.
     unsafe {
         std::env::remove_var(but_gpui::WEB_APP_ONCE)
@@ -89,10 +83,7 @@ fn main() -> anyhow::Result<()> {
 
     // The native client, on the same settings, accounts and keychain entries. It owns the main
     // thread until it quits, so it starts here, before Tauri does.
-    #[cfg(all(
-        feature = "builtin-gpui",
-        any(target_os = "macos", target_os = "windows")
-    ))]
+    #[cfg(feature = "builtin-gpui")]
     if !web_once
         && (std::env::args_os().any(|arg| arg == "--gpui")
             || app_settings.get()?.feature_flags.gpui)
@@ -534,10 +525,7 @@ fn inherit_interactive_login_shell_environment_if_not_launched_from_terminal() {
 
 /// The update feed the web app asks for this build: its updater's first endpoint, filled in
 /// as the updater fills it for this machine and version.
-#[cfg(all(
-    feature = "builtin-gpui",
-    any(target_os = "macos", target_os = "windows")
-))]
+#[cfg(feature = "builtin-gpui")]
 fn update_feed(context: &tauri::Context<tauri::Wry>) -> Option<String> {
     let updater = context.config().plugins.0.get("updater")?;
     let endpoint = updater.get("endpoints")?.get(0)?.as_str()?;
