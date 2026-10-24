@@ -70,6 +70,7 @@ impl Store {
         let Some(crate::Embedded {
             update_feed: Some(feed),
             check_every,
+            ..
         }) = cx.try_global::<crate::Embedded>().cloned()
         else {
             return Task::ready(());
