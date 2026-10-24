@@ -57,6 +57,7 @@ actions!(
         StartCommit,
         ToggleNavigator,
         CommandPalette,
+        CheckForUpdates,
     ]
 );
 
@@ -358,6 +359,40 @@ impl AppView {
         self.new_branch_at(project, true, None, window, cx, |path, _| {
             backend::create_branch(path, None)
         });
+    }
+
+    /// Ask the desktop app's update feed now: offer the newer version it has, or say this one
+    /// is the latest.
+    fn check_for_updates(
+        &mut self,
+        _: &CheckForUpdates,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(feed) = cx
+            .try_global::<crate::Embedded>()
+            .and_then(|e| e.update_feed.clone())
+        else {
+            return;
+        };
+        cx.spawn_in(window, async move |this, cx| {
+            let newer = backend::run(move || backend::settings::newer_version(&feed)).await;
+            this.update_in(cx, |app, window, cx| match newer {
+                Ok(Some(version)) => {
+                    app.store.update(cx, |store, cx| {
+                        store.newer_version = Some(version);
+                        cx.notify();
+                    });
+                    app.restart_to_update(window, cx);
+                }
+                Ok(None) => snack(&app.store, "GitButler is up to date", cx),
+                Err(err) => app.store.update(cx, |store, cx| {
+                    store.failed("Couldn't check for updates", &err, cx)
+                }),
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// Install the version the desktop app's update feed offers: start the desktop app's web
@@ -872,6 +907,7 @@ impl Render for AppView {
                 }),
             )
             .on_action(cx.listener(Self::add_project))
+            .on_action(cx.listener(Self::check_for_updates))
             .on_action(cx.listener(Self::open_settings))
             .on_action(cx.listener(Self::clone_repository))
             // Here rather than around the navigator, so the details pane's buttons reach them.
