@@ -179,16 +179,18 @@ pub(crate) struct OwnedHistory {
 }
 
 /// Walk down the first-parent history of `start`, owned by the branch named
-/// `identity`, until its exclusive history ends: at workspace or integrated
-/// commits, at the selected cutoff, at a segment named after another branch, or at
-/// history shared with other branches. This is the single definition of where
-/// one branch ends, used for both commit counts and stack inference.
+/// `identity`, until its exclusive history ends: at integrated commits, at workspace
+/// commits while the workspace is checked out (`in_workspace`), at the selected cutoff,
+/// at a segment named after another branch, or at history shared with other branches.
+/// This is the single definition of where one branch ends, used for both commit counts
+/// and stack inference.
 pub(crate) fn owned_history(
     graph: &Graph,
     start: SegmentIndex,
     identity: &BString,
     remote_names: &gix::remote::Names,
     cutoff_id: Option<gix::ObjectId>,
+    in_workspace: bool,
 ) -> OwnedHistory {
     let mut out = OwnedHistory {
         commit_count: 0,
@@ -196,7 +198,7 @@ pub(crate) fn owned_history(
         clipped: false,
     };
     graph.visit_segments_downward_along_first_parent_include_start(start, |seg| {
-        if boundary_flags(seg, cutoff_id) {
+        if boundary_flags(seg, cutoff_id, in_workspace) {
             return true;
         }
         if seg.id != start {
@@ -269,17 +271,22 @@ fn segment_has_foreign_name(
         .is_some_and(|info| display_identity(info.ref_name.as_ref(), remote_names) != *identity)
 }
 
-/// Return `true` if `segment` starts history that belongs to the workspace or target.
+/// Return `true` if `segment` starts history that belongs to the target, or to the workspace
+/// while `in_workspace`, which is `false` while another branch is checked out: the
+/// workspace's branches then own their commits as any other branch does.
 ///
 /// The cutoff can also be reachable as local history, where it carries no integrated flag.
-fn boundary_flags(segment: &but_graph::Segment, cutoff_id: Option<gix::ObjectId>) -> bool {
+fn boundary_flags(
+    segment: &but_graph::Segment,
+    cutoff_id: Option<gix::ObjectId>,
+    in_workspace: bool,
+) -> bool {
     let Some(first_commit) = segment.commits.first() else {
         return false;
     };
-    first_commit
-        .flags
-        .intersects(CommitFlags::InWorkspace | CommitFlags::Integrated)
-        || Some(first_commit.id) == cutoff_id
+    let mut boundary = CommitFlags::Integrated;
+    boundary.set(CommitFlags::InWorkspace, in_workspace);
+    first_commit.flags.intersects(boundary) || Some(first_commit.id) == cutoff_id
 }
 
 /// Return `true` if `segment` is history shared with other branches, i.e. more than

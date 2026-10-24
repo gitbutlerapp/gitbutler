@@ -316,6 +316,7 @@ impl<'a> ListingContext<'a> {
             identity,
             &self.remote_names,
             self.cutoff_id,
+            self.ws.kind.has_managed_ref(),
         )
     }
 
