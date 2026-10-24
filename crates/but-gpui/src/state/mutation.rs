@@ -91,6 +91,8 @@ pub enum OpKind {
     /// ⌘Z and ⌘⇧Z, of the step with this oplog entry, which keep the undo history themselves.
     Undo(SnapshotId),
     Redo(SnapshotId),
+    /// Operations history's restore, the way back when a project can't be read.
+    Restore,
 }
 
 impl OpKind {
@@ -559,7 +561,10 @@ impl Store {
         self.run(
             project,
             "Restore",
-            Overlay::rewriting_main(),
+            Overlay {
+                kind: OpKind::Restore,
+                ..Overlay::rewriting_main()
+            },
             move |path, _| {
                 let kept = kept.lock().get(&of).cloned();
                 backend::history::restore(path, snapshot, &kept.unwrap_or_default())
@@ -1387,11 +1392,28 @@ impl Store {
             .is_some_and(|ws| ws.editing.is_some());
         let refused =
             editing && !(self.running.get(project)).is_some_and(|r| r.overlay.kind.while_editing());
-        let path = self.path(project).filter(|_| !refused);
+        // What's shown is what it last read, which an agent's `git merge` onto the workspace
+        // can leave it unable to read again: the operation would act on what's gone, and the
+        // engine can make a commit it then fails to report.
+        let unreadable = (self.project(project)).is_some_and(|p| p.error.is_some())
+            && !(self.running.get(project)).is_some_and(|r| {
+                r.overlay.remote_only
+                    || matches!(
+                        r.overlay.kind,
+                        OpKind::Undo(_) | OpKind::Redo(_) | OpKind::Restore
+                    )
+            });
+        let path = self.path(project).filter(|_| !refused && !unreadable);
         let Some(path) = path else {
             if refused {
                 let why = format!(
                     "Finish or cancel editing the commit{} first",
+                    self.in_project(project)
+                );
+                self.snack(why, cx);
+            } else if unreadable {
+                let why = format!(
+                    "Can't read the project{} now; fix what it says first",
                     self.in_project(project)
                 );
                 self.snack(why, cx);
