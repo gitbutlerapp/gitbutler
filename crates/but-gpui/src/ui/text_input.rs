@@ -610,6 +610,11 @@ impl TextInput {
     /// Put `new_text` over the UTF-16 range the platform gave, or else the marked text or
     /// the selection, and return the byte range it now takes.
     fn splice(&mut self, range_utf16: Option<Range<usize>>, new_text: &str) -> Range<usize> {
+        // Tab isn't typing in a one-line field, as a branch name, as in the platform's own.
+        if !self.multiline && new_text == "\t" {
+            let at = self.cursor_offset();
+            return at..at;
+        }
         let new_text = &cleaned(new_text, self.multiline);
         let range = range_utf16
             .map(|range_utf16| self.range_from_utf16(&range_utf16))
@@ -1138,7 +1143,7 @@ fn cleaned(text: &str, multiline: bool) -> String {
         true => text.replace("\r\n", "\n"),
         false => text
             .trim_end_matches(['\r', '\n'])
-            .replace(['\r', '\n'], " "),
+            .replace(['\r', '\n', '\t'], " "),
     }
 }
 
@@ -1154,8 +1159,8 @@ mod tests {
             "a token copied from a terminal is sent as it is, not with a space"
         );
         assert_eq!(
-            cleaned("two\nlines", false),
-            "two lines",
+            cleaned("two\nlines\tand a tab", false),
+            "two lines and a tab",
             "one line, still readable"
         );
         assert_eq!(
