@@ -277,3 +277,47 @@ fn branch_remove_refuses_when_checked_out_in_another_worktree() -> anyhow::Resul
 
     Ok(())
 }
+
+#[test]
+fn branch_remove_of_the_second_to_last_lane_leaves_the_workspace() -> anyhow::Result<()> {
+    let (repo, _tmp) = crate::support::writable_scenario("checkout-head-info");
+    persist_default_target(&repo)?;
+    let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
+    let feature = gix::refs::FullName::try_from("refs/heads/feature")?;
+    let lane = gix::refs::FullName::try_from("refs/heads/lane")?;
+    but_api::branch::apply_only(&mut ctx, feature.as_ref())?;
+    but_api::branch::branch_create(
+        &mut ctx,
+        Some(lane.clone()),
+        but_api::branch::json::BranchCreatePlacement::Independent { order: None },
+    )?;
+    assert_eq!(
+        ctx.repo.get()?.head_name()?.expect("HEAD is symbolic"),
+        but_core::WORKSPACE_REF_NAME,
+        "a second lane needs the workspace"
+    );
+
+    let result = but_api::branch::branch_remove(&mut ctx, lane.clone())?;
+
+    let repo = ctx.repo.get()?;
+    // With one lane left the workspace serves no purpose, so `HEAD` moves onto it, as unapply does.
+    assert_eq!(repo.head_name()?.expect("HEAD is symbolic"), feature);
+    assert!(
+        repo.try_find_reference(but_core::WORKSPACE_REF_NAME)?
+            .is_none(),
+        "the workspace reference is gone"
+    );
+    assert!(repo.try_find_reference(lane.as_ref())?.is_none());
+    assert_workspace_ref(&result.workspace, "refs/heads/feature");
+
+    drop(repo);
+    crate::support::undo(&mut ctx)?;
+    let repo = ctx.repo.get()?;
+    assert_eq!(
+        repo.head_name()?.expect("HEAD is symbolic"),
+        but_core::WORKSPACE_REF_NAME,
+        "undo brings the workspace back"
+    );
+    assert!(repo.try_find_reference(lane.as_ref())?.is_some());
+    Ok(())
+}

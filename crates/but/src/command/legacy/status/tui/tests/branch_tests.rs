@@ -108,23 +108,24 @@ fn deleted_branch_name_can_be_reused_without_restoring_old_branch() {
 
     tui.input('b');
     tui.input('n')
-        .assert_current_line_eq(str!["┊╭┄ br [c-branch-1] (no commits)"]);
+        .assert_current_line_eq(str!["┊╭┄ br [c-branch-1] [HEAD] (no commits)"]);
 
     tui.input(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊╭┄ br [c-branch-1 ] (no commits)"]);
+        .assert_current_line_eq(str!["┊╭┄ br [c-branch-1 ] [HEAD] (no commits)"]);
 
     for _ in 0..10 {
         tui.input(KeyCode::Backspace);
     }
 
     tui.input("A")
-        .assert_current_line_eq(str!["┊╭┄ br [A ] (no commits)"]);
+        .assert_current_line_eq(str!["┊╭┄ br [A ] [HEAD] (no commits)"]);
 
     tui.input(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊╭┄ g0 [A] (no commits)"]);
+        .assert_current_line_eq(str!["┊╭┄ g0 [A] [HEAD] (no commits)"]);
 
     let mut tui = tui.recreate();
-    tui.reload().assert_rendered_contains("[A] (no commits)");
+    tui.reload()
+        .assert_rendered_contains("[A] [HEAD] (no commits)");
 }
 
 #[test]
