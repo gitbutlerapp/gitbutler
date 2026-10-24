@@ -14,6 +14,9 @@
 //! - [`checkout_of_paths_differing_in_case_differs_from_git_only_where_listed`] repeats the
 //!   comparison where the target names `p` what `HEAD` names `P`, on case-insensitive
 //!   filesystems.
+//! - [`changes_during_checkout_are_refused_or_carried_like_before_it`] makes each worktree change
+//!   while checkout runs, which Git doesn't guard against, and lists the cases where GitButler
+//!   loses it.
 
 use std::{
     collections::BTreeMap,
@@ -47,6 +50,20 @@ fn checkout_of_paths_differing_in_case_differs_from_git_only_where_listed() -> a
         report(cases.into_iter().flatten().collect()),
         snapbox::file!["snapshots/checkout_vs_git_differing_in_case.txt"]
     );
+    Ok(())
+}
+
+#[test]
+fn changes_during_checkout_are_refused_or_carried_like_before_it() -> anyhow::Result<()> {
+    let cases = in_parallel(&Pair::all(), change_during_checkout)?;
+    let total = cases.iter().map(Vec::len).sum::<usize>();
+    let mut report = format!("{total} cases");
+    for case in cases.into_iter().flatten() {
+        if !case.is_kept_or_refused() {
+            write!(report, "\n\n{}", case.describe().trim_end())?;
+        }
+    }
+    snapbox::assert_data_eq!(report, snapbox::str!["540 cases"]);
     Ok(())
 }
 
@@ -274,7 +291,7 @@ impl Pair {
     }
 
     /// A script that builds the repository `base`, where `main` is `HEAD` and `target` the
-    /// target.
+    /// target. The target also changes `z.f`, so checkout always writes it and runs its filters.
     fn script(&self) -> String {
         let head = put(self.head, self.head_path, "head");
         let target = put(self.target, self.target_path, "target");
@@ -294,11 +311,13 @@ git init -q -b main base
 (cd base && git commit-tree "$empty" -m target) >submodule-target
 cd base
 printf 'keep\n' >keep
+printf 'z\n' >z.f
 {head}
 git commit -qm head
 git switch -qc target
 git rm -rq --cached --ignore-unmatch {head_path} {target_path}
 rm -rf {head_path} {target_path}
+printf 'z changed\n' >z.f
 {target}
 git commit -qm target
 git switch -q main
@@ -573,7 +592,7 @@ fn stage_name(stage: gix::index::entry::Stage) -> &'static str {
 
 /// Files every case has, which say nothing about it.
 fn is_scaffolding(rela_path: &str) -> bool {
-    matches!(rela_path, ".git" | "keep")
+    matches!(rela_path, ".git" | "keep" | "z.f")
 }
 
 /// What the worktree at `dir` has, apart from the scaffolding, sorted, without following
@@ -727,6 +746,183 @@ fn report(cases: Vec<Case>) -> String {
         }
     }
     out
+}
+
+/// A worktree change made while checkout runs.
+struct During {
+    name: String,
+    /// The worktree with the change, before any checkout.
+    changed: State,
+    /// GitButler's checkout of the worktree with the change made before it.
+    after: Checkout,
+    /// GitButler's checkout during which the change was made.
+    during: Checkout,
+    /// Whether everything the change created is still on disk after the checkout during it.
+    change_kept: bool,
+    /// Index entries behind a symlinked directory after the checkout during the change. Git
+    /// never records them, as the worktree doesn't have them there, so a checkout that did
+    /// wrote through a symlink.
+    behind_symlinks: Vec<String>,
+}
+
+impl During {
+    /// The change must not be lost: checkout refuses and changes nothing, or succeeds without
+    /// writing through a symlink and ends as if the change had been made before it, or keeps
+    /// everything the change created.
+    fn is_kept_or_refused(&self) -> bool {
+        let refused_without_changes = !self.during.checked_out && self.during.state == self.changed;
+        refused_without_changes
+            || self.during.checked_out
+                && self.behind_symlinks.is_empty()
+                && (self.during == self.after || self.change_kept)
+    }
+
+    fn describe(&self) -> String {
+        format!(
+            "{}\n  with the change:    {}\n  checkout after it:  {}\n  checkout during it: {}\n  behind a symlink:   {}\n",
+            self.name,
+            self.changed,
+            self.after.describe(&self.changed),
+            self.during.describe(&self.changed),
+            match self.behind_symlinks.is_empty() {
+                true => "nothing".to_owned(),
+                false => self.behind_symlinks.join(", "),
+            }
+        )
+    }
+}
+
+/// When during checkout a change is made.
+#[derive(Clone, Copy, Debug)]
+enum When {
+    /// While checkout writes the target's files to its staging directory, through the smudge
+    /// filter of `z.f`.
+    Staging,
+    /// While checkout checks what it removes against the snapshot, through the clean filter of
+    /// `z.f`, whose modification time no longer matches the index so the check must clean it.
+    /// `p` sorts first, so it's already checked by then.
+    Checking,
+}
+
+impl When {
+    fn describe(self) -> &'static str {
+        match self {
+            When::Staging => "while checkout stages the files",
+            When::Checking => "while checkout checks the worktree",
+        }
+    }
+}
+
+/// Make each worktree change in `pair` while checkout runs, at each time a filter runs.
+fn change_during_checkout(pair: Pair) -> anyhow::Result<Vec<During>> {
+    let tmp = but_testsupport::gix_testtools::tempfile::TempDir::new()?;
+    let mut script = pair.script();
+    let mut variants = Vec::new();
+    for when in [When::Staging, When::Checking] {
+        for worktree in WORKTREES.into_iter().skip(1) {
+            if !applies(pair, Index::LikeHead, worktree) {
+                continue;
+            }
+            let at = variants.len();
+            let change = change_worktree(worktree, on_disk(pair.head, Index::LikeHead));
+            let edit_z = match when {
+                When::Staging => "true",
+                When::Checking => "touch -m -t 200001010000 z.f",
+            };
+            write!(
+                script,
+                r#"mkdir {at} && cp -a base {at}/changed
+(cd {at}/changed && {edit_z}) && cp -a {at}/changed {at}/during
+(cd {at}/changed && {change}) && cp -a {at}/changed {at}/after
+cat >{at}/during/.git/meddle.sh <<'EOF'
+cd "$GIT_DIR/.." && ({change}) >/dev/null 2>&1
+EOF
+"#
+            )?;
+            variants.push((
+                format!(
+                    "{}; worktree {} {}",
+                    pair.describe(),
+                    worktree.describe(),
+                    when.describe()
+                ),
+                when,
+            ));
+        }
+    }
+    invoke_bash_at_dir(&script, tmp.path());
+    let names = Names::read(tmp.path())?;
+    let unchanged = disk(&tmp.path().join("base"))?;
+    let mut cases = Vec::new();
+    for (at, (name, when)) in variants.into_iter().enumerate() {
+        let dir = tmp.path().join(at.to_string());
+        let during = dir.join("during");
+        configure_meddling(&during, when)?;
+        let created: Vec<String> = disk(&dir.join("changed"))?
+            .into_iter()
+            .filter(|entry| !unchanged.contains(entry))
+            .collect();
+        let checked_out_during = Checkout::by_gitbutler(&during, &names)?;
+        let after_during = disk(&during)?;
+        cases.push(During {
+            name,
+            changed: State::read(&dir.join("changed"), &names)?,
+            after: Checkout::by_gitbutler(&dir.join("after"), &names)?,
+            during: checked_out_during,
+            change_kept: created.iter().all(|entry| after_during.contains(entry)),
+            behind_symlinks: behind_symlinks(&during)?,
+        });
+    }
+    Ok(cases)
+}
+
+/// Make `z.f`'s filter run `.git/meddle.sh` in the repository at `dir`, once, at `when`. The
+/// snapshot and the merge clean `z.f` too, but only before checkout creates its staging directory
+/// below `.git/gitbutler`, so the clean filter meddles only once that directory exists.
+fn configure_meddling(dir: &Path, when: When) -> anyhow::Result<()> {
+    std::fs::write(dir.join(".git/info/attributes"), "*.f filter=meddle\n")?;
+    let meddle = r#". "$GIT_DIR/meddle.sh" >&2"#;
+    let (smudge, clean) = match when {
+        When::Staging => (format!("sh -c '{meddle}; cat'"), "cat".to_owned()),
+        When::Checking => (
+            "cat".to_owned(),
+            format!(
+                r#"sh -c 'if [ ! -e "$GIT_DIR/meddled" ] && ls -d "$GIT_DIR"/gitbutler/.gitbutler-checkout-* >/dev/null 2>&1; then touch "$GIT_DIR/meddled"; {meddle}; fi; cat'"#
+            ),
+        ),
+    };
+    for (key, value) in [
+        ("filter.meddle.smudge", smudge),
+        ("filter.meddle.clean", clean),
+    ] {
+        but_testsupport::git_at_dir(dir)
+            .args(["config", key, &value])
+            .status()?;
+    }
+    Ok(())
+}
+
+/// The index entries of the repository at `dir` that have a symlink among their leading
+/// directories in its worktree.
+fn behind_symlinks(dir: &Path) -> anyhow::Result<Vec<String>> {
+    let repo = open_repo(dir)?;
+    let index = repo.open_index()?;
+    let mut out = Vec::new();
+    for entry in index.entries() {
+        let path = entry.path(&index).to_str_lossy().into_owned();
+        let mut leading = std::path::Path::new(&path).ancestors().skip(1);
+        let through_symlink = leading.any(|ancestor| {
+            !ancestor.as_os_str().is_empty()
+                && dir
+                    .join(ancestor)
+                    .symlink_metadata()
+                    .is_ok_and(|md| md.is_symlink())
+        });
+        if through_symlink {
+            out.push(path);
+        }
+    }
+    Ok(out)
 }
 
 /// Run `per_pair` for each of `pairs` on all available threads, and return the results in order.

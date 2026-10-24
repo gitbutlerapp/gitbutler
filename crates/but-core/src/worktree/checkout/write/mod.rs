@@ -108,6 +108,15 @@ impl Trees {
     }
 }
 
+/// Every stat field that changes when a file does, which includes the ctime when its mode or
+/// owner changes.
+const ALL_FIELDS: gix::index::entry::stat::Options = gix::index::entry::stat::Options {
+    trust_ctime: true,
+    check_stat: true,
+    use_nsec: true,
+    use_stdev: false,
+};
+
 /// Whether `path` is a directory, not a symlink to one, that is known to have nothing in it. One
 /// that can't be listed isn't.
 fn is_empty_dir(path: &std::path::Path) -> bool {
