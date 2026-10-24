@@ -1646,15 +1646,17 @@ impl Detail {
                         let solid = this.side_focus.is_focused(window);
                         // A commit, or one that merge `under` brought in. A click picks it and
                         // a right-click opens its menu.
-                        let commit_row = |commit: &TargetCommit, under: Option<CommitId>| {
+                        let commit_row = |commit: &TargetCommit, under: Option<&TargetCommit>| {
                             let id = commit.id;
-                            let (merge, merged) = under.map_or((id, None), |m| (m, Some(id)));
+                            let (merge, merged) = under.map_or((id, None), |m| (m.id, Some(id)));
+                            // One a merge brought in is as new to the workspace as the merge.
+                            let incoming = under.map_or(commit.incoming, |m| m.incoming);
                             let selected = upstream.selected == Some(Picked::Commit(merge))
                                 && upstream.merged_pick == merged;
                             let on = selected && solid;
                             // Landed, as everything here has, in purple, as the app marks what
                             // landed; amber while the workspace doesn't have it yet.
-                            let glyph = match (on, commit.incoming) {
+                            let glyph = match (on, incoming) {
                                 (true, _) => theme.text_inverted,
                                 (false, true) => theme.warn,
                                 (false, false) => theme.purple,
@@ -1703,9 +1705,7 @@ impl Detail {
                                         .flex_1()
                                         .min_w_0()
                                         .truncate()
-                                        .when(!commit.incoming && !on, |el| {
-                                            el.text_color(theme.text_2)
-                                        })
+                                        .when(!incoming && !on, |el| el.text_color(theme.text_2))
                                         .child(SharedString::from(label(commit).to_owned()))
                                         .when_some(tip, |el, tip| el.tooltip(Tooltip::text(tip))),
                                 )
@@ -1739,9 +1739,9 @@ impl Detail {
                                 .child(faint(*note, theme))
                                 .into_any_element(),
                             Row::Merged(merge_ix, merged_ix) => {
-                                let merge = upstream.commits.get(*merge_ix)?.id;
+                                let merge = upstream.commits.get(*merge_ix)?;
                                 let (merged, _) =
-                                    this.store.read(cx).merged.get(&merge)?.as_ref()?;
+                                    this.store.read(cx).merged.get(&merge.id)?.as_ref()?;
                                 commit_row(merged.get(*merged_ix)?, Some(merge))
                             }
                             Row::Commit(commit_ix) => {
