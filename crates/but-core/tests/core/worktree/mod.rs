@@ -1,4 +1,6 @@
 mod checkout;
+#[cfg(unix)]
+mod checkout_vs_git;
 
 mod utils {
     /// Using the `repo` `HEAD` commit, build a new commit based on its tree with `edit` and `message`, and return the new commit.
