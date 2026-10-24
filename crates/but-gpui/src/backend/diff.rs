@@ -145,6 +145,9 @@ pub fn load_diff(
         Some(first) => (first, FIRST_HIGHLIGHT_LIMIT),
         None => (usize::MAX, HIGHLIGHT_LIMIT),
     };
+    // Drawing both sides of hundreds of SVGs, as snapshot tests leave, takes seconds and
+    // gigabytes; that many show as text.
+    let draw_svgs = changes.iter().filter(|file| is_svg(&file.path)).count() <= SVGS_DRAWN;
     let repo = repo.into_sync();
     let mut diffs = parallel_map(
         changes,
@@ -158,6 +161,7 @@ pub fn load_diff(
                 previous,
                 (index < first).then_some(limit),
                 scope_lines,
+                draw_svgs,
             )
         },
     )
@@ -449,7 +453,7 @@ fn annotate_conflict(path: &str, conflict: &mut Conflict) {
 
 /// One file's diff, reused from `previous` when its patch is the same, else parsed and,
 /// with `annotate`, highlighted and given scope names while it changes no more lines than
-/// that.
+/// that, and with `draw_svgs`, drawn when it's an SVG.
 fn load_file(
     repo: &gix::Repository,
     file: FileChange,
@@ -457,6 +461,7 @@ fn load_file(
     previous: Option<&FileDiff>,
     annotate: Option<u32>,
     scope_lines: Option<usize>,
+    draw_svgs: bool,
 ) -> Result<FileDiff> {
     // Annotated as this load would, its scopes no wider or narrower.
     let up_to_date = |old: &FileDiff| old.annotated && old.scope_lines == scope_lines;
@@ -567,7 +572,8 @@ fn load_file(
     let annotated = annotate.is_some_and(|limit| lines <= limit || limit >= HIGHLIGHT_LIMIT)
         || !matches!(body, DiffBody::Hunks { .. } | DiffBody::Binary);
     // An SVG is drawn as images are decoded, with the highlighting.
-    let drawing = (annotate.is_some() && matches!(body, DiffBody::Hunks { .. } | DiffBody::Binary))
+    let drawable = matches!(body, DiffBody::Hunks { .. } | DiffBody::Binary);
+    let drawing = (draw_svgs && annotate.is_some() && drawable)
         .then(|| svg_drawing(repo, &file))
         .flatten();
     Ok(FileDiff {
@@ -670,9 +676,16 @@ fn draw_svg(bytes: &[u8]) -> Option<Picture> {
 /// SVGs bigger than this show as text, rather than spend the time drawing them.
 const SVG_LIMIT: usize = 1_000_000;
 
+/// The most SVGs one diff draws; with more, all show as text.
+const SVGS_DRAWN: usize = 24;
+
+fn is_svg(path: &str) -> bool {
+    path.to_ascii_lowercase().ends_with(".svg")
+}
+
 /// Both sides of `file` drawn, when it's an SVG that draws.
 fn svg_drawing(repo: &gix::Repository, file: &FileChange) -> Option<super::Drawing> {
-    if !file.path.to_ascii_lowercase().ends_with(".svg") {
+    if !is_svg(&file.path) {
         return None;
     }
     let (before, after) = both_sides(file, |state, path| {
