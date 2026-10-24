@@ -554,7 +554,12 @@ pub fn redo_snapshot(
         bail!(UNRECORDED);
     }
     if let Some(spans) = spans {
-        let newer = written_since(&ctx, target.created_at.seconds * 1000, spans)?;
+        let undone_at = target.created_at.seconds * 1000;
+        // As for undo, a commit made outside the app since would be taken out of every branch.
+        if let Some(commit) = committed_since(&ctx, undone_at, spans)? {
+            return Ok(Some(Undone::Behind(commit)));
+        }
+        let newer = written_since(&ctx, undone_at, spans)?;
         if !newer.is_empty() {
             return Ok(Some(Undone::Newer(newer)));
         }
@@ -619,6 +624,14 @@ pub fn undo_snapshot(
         )));
     }
     if let Some((after, spans)) = newer_than {
+        // As another client's operation would be: the undo would take it out of every branch.
+        if let Some(commit) = committed_since(&ctx, after, spans)? {
+            let ours = titled(&ctx, snapshot.0, target.details)?;
+            return Ok(Undone::Behind(format!(
+                "\"{ours}\" can't be undone on its own: the commit \"{commit}\", made outside \
+                 the app, came after it. Operations history can restore to before both."
+            )));
+        }
         let newer = written_since(&ctx, after, spans)?;
         if !newer.is_empty() {
             return Ok(Undone::Newer(newer));
@@ -626,6 +639,41 @@ pub fn undo_snapshot(
     }
     let kind = RestoreKind::RestoreFromSnapshotViaUndo;
     restore_titled(&mut ctx, snapshot.0, target.details, kind).map(Undone::Done)
+}
+
+/// The title of the newest commit HEAD has that was made after `after`, in milliseconds since
+/// the Unix epoch, outside `spans`, as one made in a terminal: GitButler's own workspace
+/// commit aside, which it rewrites.
+fn committed_since(
+    ctx: &but_ctx::Context,
+    after: i64,
+    spans: &[(i64, i64)],
+) -> Result<Option<String>> {
+    use gix::revision::walk::Sorting;
+    use gix::traverse::commit::simple::CommitTimeOrder;
+    let repo = ctx.repo.get()?;
+    let Ok(head) = repo.head_id() else {
+        return Ok(None);
+    };
+    let walk = (repo.rev_walk([head.detach()]))
+        .sorting(Sorting::ByCommitTime(CommitTimeOrder::NewestFirst))
+        .all()?;
+    for info in walk {
+        let info = info?;
+        // Whole seconds, so a second early.
+        let at = info.commit_time.unwrap_or_default() * 1000;
+        if at <= after {
+            break;
+        }
+        let own = spans
+            .iter()
+            .any(|(from, to)| (*from - 1000..=*to).contains(&at));
+        let commit = but_workspace::WorkspaceCommit::from_id(info.id())?;
+        if !own && !commit.is_managed() {
+            return Ok(Some(super::title(&commit.message)));
+        }
+    }
+    Ok(None)
 }
 
 /// Uncommitted files written after `after`, in milliseconds since the Unix epoch, outside

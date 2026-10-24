@@ -1975,6 +1975,53 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn undo_and_redo_stop_for_a_commit_made_outside_the_app_since() {
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::history::{Undone, oplog_head, redo_snapshot, undo_snapshot};
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
+            name_branch(path, head(path), "named").unwrap();
+            let named = oplog_head(path).unwrap();
+            let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+            let done = since.unwrap().as_millis() as i64;
+            // In a terminal, `minutes` on.
+            let commit_later = |minutes: i64, title: &str| {
+                let later = format!("{} +0000", done / 1000 + minutes * 60);
+                let committed = std::process::Command::new("git")
+                    .current_dir(path)
+                    .env("GIT_COMMITTER_DATE", later)
+                    .args(["commit", "-q", "--allow-empty", "-m", title])
+                    .status()
+                    .unwrap();
+                assert!(committed.success(), "git commits");
+            };
+            commit_later(1, "terminal work");
+            assert!(
+                matches!(undo_snapshot(path, named, Some((done, &[]))).unwrap(),
+                    Undone::Behind(why) if why.contains("terminal work")),
+                "undoing would take the commit out of every branch, so it says what came after"
+            );
+
+            assert!(
+                matches!(undo_snapshot(path, named, None).unwrap(), Undone::Done(_)),
+                "undone anyway"
+            );
+            let undo = oplog_head(path).unwrap();
+            commit_later(2, "more terminal work");
+            assert!(
+                matches!(
+                    redo_snapshot(path, undo, &Default::default(), Some(&[])).unwrap(),
+                    Some(Undone::Behind(_))
+                ),
+                "redoing would take that one out too"
+            );
+        })
+    }
+
+    #[test]
     fn a_branch_that_moved_since_it_was_asked_about_isnt_deleted() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
