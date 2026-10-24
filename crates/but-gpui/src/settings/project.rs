@@ -307,7 +307,8 @@ impl SettingsView {
         );
         let remove = Row::new(
             "Remove project",
-            "Takes it out of GitButler. The repository stays on disk as it is.",
+            "Takes it out of GitButler, and its operations history with it. The repository's \
+             files and branches stay on disk.",
             button("remove-project", "Remove…")
                 .small()
                 .style(ButtonStyle::Danger)
