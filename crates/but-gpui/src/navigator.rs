@@ -20,14 +20,13 @@ use crate::state::{Cut, Pane, Prefs, ProjectId, Selection, Store, StoreEvent, Wa
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::emoji::{Colour, ProjectIcon};
-use crate::ui::illustration::Illustration;
 use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, above_drag, button, commit_title,
-    count_badge, dot, dp, empty_state, faint, field, fixed, fold_button, fold_glyph, fold_row,
-    guide, h_flex, icon, icon_button, just_now, list_row, meta_count, plural, pulsing,
-    relative_time, resize_handle, review, section_label, small_icon, v_flex,
+    count_badge, dot, dp, faint, field, fixed, fold_button, fold_glyph, fold_row, guide, h_flex,
+    icon, icon_button, just_now, list_row, meta_count, plural, pulsing, relative_time,
+    resize_handle, review, section_label, small_icon, v_flex,
 };
 
 mod account;
@@ -2627,14 +2626,9 @@ impl Render for Navigator {
             .border_color(theme.border_3)
             .child(header)
             .map(|el| {
+                // With no projects, the welcome beside it says what to do.
                 if empty {
-                    el.child(div().flex_1().min_h_0().child(empty_state(
-                        Some(Illustration::Cactus),
-                        "No projects yet",
-                        crate::ui::keys_text("Add a Git repository with ⌘O"),
-                        &theme,
-                        cx,
-                    )))
+                    el
                 } else {
                     let rows = list(
                         self.list.clone(),
