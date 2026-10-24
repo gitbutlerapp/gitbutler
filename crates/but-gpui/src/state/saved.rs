@@ -117,6 +117,7 @@ impl Store {
             ids.retain(|id| listed(id));
         }
         prefs.project_icons.retain(|id, _| listed(id));
+        prefs.merge_methods.retain(|id, _| listed(id));
     }
 
     pub fn runs_hooks(&self, project: &super::ProjectId) -> bool {
@@ -385,6 +386,8 @@ pub struct Prefs {
     /// The icon each project shows before its name in the navigator, by id, as but.dev
     /// stores a repository's: an emoji, or `glyph:<colour>`. The mesh's, once read, wins.
     pub project_icons: HashMap<String, String>,
+    /// How each project's pull requests merge, by id, as last picked beside Merge.
+    pub merge_methods: HashMap<String, crate::backend::reviews::MergeMethod>,
     /// The navigator's other projects go by when they were last active rather than by name.
     pub projects_by_activity: bool,
     /// The navigator's other projects leave out those not active in the last 7 days.

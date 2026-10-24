@@ -670,6 +670,14 @@ pub struct Button {
     tooltip_key: Option<SharedString>,
     /// The action whose keys the tooltip shows when it names none.
     tooltip_action: Option<Box<dyn Action>>,
+    /// Which half of a [`dropdown_button`] it is, squared where the halves meet.
+    half: Option<Half>,
+}
+
+#[derive(Clone, Copy)]
+enum Half {
+    Action,
+    Menu,
 }
 
 type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
@@ -688,6 +696,7 @@ pub fn button(id: impl Into<ElementId>, label: impl Into<SharedString>) -> Butto
         tooltip: None,
         tooltip_key: None,
         tooltip_action: None,
+        half: None,
     }
 }
 
@@ -837,13 +846,20 @@ impl RenderOnce for Button {
             .gap(dp(if self.small { 4. } else { 6. }))
             .when(has_label, |el| el.px(dp(if self.small { 6. } else { 10. })))
             .when(!has_label, |el| el.w(width).justify_center())
-            .rounded(dp(4.))
             .text_size(dp(if self.small { 12. } else { 13. }))
             .font_weight(gpui::FontWeight::SEMIBOLD)
             .whitespace_nowrap()
             .text_color(fg)
             .when_some(bg, |el, bg| el.bg(bg))
             .when_some(border, |el, border| el.border_1().border_color(border))
+            // The halves meet square, split by a seam: an outline's border, or a faint rule
+            // across a fill.
+            .map(|el| match self.half {
+                None => el.rounded(dp(4.)),
+                Some(Half::Action) => el.rounded_l(dp(4.)).border_r_0(),
+                Some(Half::Menu) => (el.rounded_r(dp(4.)).border_l_1())
+                    .border_color(border.unwrap_or(fg.opacity(0.3))),
+            })
             .when(self.disabled.is_none(), |el| {
                 el.hover(move |el| el.bg(hover))
                     // Gives under the pointer while pressed.
@@ -874,6 +890,36 @@ impl RenderOnce for Button {
                 },
             )
     }
+}
+
+/// `action` joined to a chevron that opens its menu, as ui-react's `DropdownButton`: one
+/// control split by a seam. The chevron, called `menu_label`, is disabled with the action.
+pub fn dropdown_button(
+    action: Button,
+    menu_label: impl Into<SharedString>,
+    on_menu: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+) -> Div {
+    let menu = Button {
+        label: None,
+        icon: Some(Icon::ChevronDown),
+        style: action.style,
+        disabled: action.disabled.clone(),
+        small: action.small,
+        tooltip: Some(menu_label.into()),
+        half: Some(Half::Menu),
+        ..button(
+            ElementId::NamedChild(std::sync::Arc::new(action.id.clone()), "menu".into()),
+            "",
+        )
+    };
+    let action = Button {
+        half: Some(Half::Action),
+        ..action
+    };
+    h_flex()
+        .flex_none()
+        .child(action)
+        .child(menu.on_click(on_menu))
 }
 
 /// A plain text tooltip, with the keys that do the same thing at its end.

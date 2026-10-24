@@ -3,7 +3,7 @@
 
 use gpui::{
     Action, App, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle, Focusable,
-    PromptLevel, ScrollHandle, SharedString, Stateful, Task, Window, actions, div, prelude::*,
+    ScrollHandle, SharedString, Stateful, Task, Window, actions, div, prelude::*,
 };
 
 use crate::app::AppView;
@@ -423,11 +423,11 @@ impl AppView {
         self.open_modal(view, window, cx);
     }
 
-    /// Merge the pull request, asking how.
+    /// Merge the pull request, the way its project last picked.
     pub fn merge_pull_request(
         &mut self,
         _: &MergePullRequest,
-        window: &mut Window,
+        _: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let Some((
@@ -445,52 +445,20 @@ impl AppView {
         if let Some(why) = push_first(self.store.read(cx), &project, &branch) {
             return snack(&self.store, why, cx);
         }
-        // GitLab merges as the project is set up to, whatever is asked for.
-        let gitlab = (self.store.read(cx).workspace(&project)).and_then(|ws| ws.forge)
-            == Some(Forge::GitLab);
-        let methods: &[&str] = if gitlab {
-            &["Merge", "Cancel"]
-        } else {
-            &["Merge", "Squash and merge", "Rebase and merge", "Cancel"]
-        };
-        let place =
-            (self.store.read(cx)).place(&Selection::Branch(project.clone(), branch.clone()));
-        let answer = window.prompt(
-            PromptLevel::Info,
-            &format!("Merge #{number}, {}?", short_ref(&branch)),
-            Some(&format!(
-                "{place}\nIts commits go into the branch it targets on the forge."
-            )),
-            methods,
-            cx,
-        );
-        cx.spawn(async move |this, cx| {
-            let method = match (answer.await, gitlab) {
-                (Ok(0), _) => MergeMethod::Merge,
-                (Ok(1), false) => MergeMethod::Squash,
-                (Ok(2), false) => MergeMethod::Rebase,
-                _ => return,
-            };
-            this.update(cx, |this, cx| {
-                this.store.update(cx, |store, cx| {
-                    store.run(
-                        &project,
-                        "Merge pull request",
-                        Overlay {
-                            merges: Some(number),
-                            ..Overlay::remote()
-                        },
-                        move |path, _| reviews::merge(path, number, method),
-                        |store, (), cx| {
-                            store.snack("Merged, Update brings it into your workspace", cx)
-                        },
-                        cx,
-                    )
-                })
-            })
-            .ok();
-        })
-        .detach();
+        let method = merge_method(self.store.read(cx), &project).unwrap_or(MergeMethod::Merge);
+        self.store.update(cx, |store, cx| {
+            store.run(
+                &project,
+                "Merge pull request",
+                Overlay {
+                    merges: Some(number),
+                    ..Overlay::remote()
+                },
+                move |path, _| reviews::merge(path, number, method),
+                |store, (), cx| store.snack("Merged, Update brings it into your workspace", cx),
+                cx,
+            )
+        });
     }
 
     pub fn enable_auto_merge(
@@ -586,11 +554,14 @@ pub enum Offer {
 }
 
 impl Offer {
-    pub fn label(self) -> &'static str {
-        match self {
-            Offer::Merge => "Merge pull request…",
-            Offer::EnableAutoMerge => "Enable auto-merge",
-            Offer::DisableAutoMerge => "Disable auto-merge",
+    /// What it's called, merging by `method`, as GitHub's merge button says it.
+    pub fn label(self, method: Option<MergeMethod>) -> &'static str {
+        match (self, method) {
+            (Offer::Merge, Some(MergeMethod::Squash)) => "Squash and merge",
+            (Offer::Merge, Some(MergeMethod::Rebase)) => "Rebase and merge",
+            (Offer::Merge, Some(MergeMethod::Merge) | None) => "Merge pull request",
+            (Offer::EnableAutoMerge, _) => "Enable auto-merge",
+            (Offer::DisableAutoMerge, _) => "Disable auto-merge",
         }
     }
 
@@ -645,6 +616,15 @@ pub fn mergeability(store: &Store, project: &ProjectId, review: &Review) -> Merg
         store.auto_merge_on(project, review),
         store.merge_status(project, review.number),
     )
+}
+
+/// How pull requests in `project` merge: as last picked there, with a merge commit until one
+/// is. `None` on GitLab, which merges as the project is set up to, whatever is asked for.
+pub fn merge_method(store: &Store, project: &ProjectId) -> Option<MergeMethod> {
+    let forge = store.workspace(project).and_then(|ws| ws.forge);
+    (forge != Some(Forge::GitLab)).then(|| {
+        (store.prefs.merge_methods.get(project.as_ref()).copied()).unwrap_or(MergeMethod::Merge)
+    })
 }
 
 /// Whether `selection`'s project is on a forge, so pull requests apply.
