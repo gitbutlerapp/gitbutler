@@ -1772,12 +1772,16 @@ impl Navigator {
             (None, PushState::Integrated) => (Icon::BranchMerge, theme.purple),
             (None, _) => (Icon::Branch, style.muted()),
         };
+        // Once a pull request merged, how its CI stands no longer matters.
+        let checks = (branch.review.as_ref())
+            .filter(|review| store.review_state(id, review) != ReviewState::Merged)
+            .and_then(|review| review.checks);
         // A pull request's title names the row (see `branch_name`); its branch's name, number
         // and how CI stands are in the tooltip, and on the branch's page.
         let tip = (branch.review.as_ref())
             .filter(|review| !review.title.is_empty())
             .map(|review| {
-                let checks = (review.checks)
+                let checks = checks
                     .map(|checks| format!(" · {}", review::checks_summary(checks, theme).2))
                     .unwrap_or_default();
                 format!("{name} · #{}{checks}", review.number)
@@ -1839,9 +1843,9 @@ impl Navigator {
                     )
                 })
                 // CI only while it runs or after it failed: passing is the usual state.
-                .when_some(branch.review.as_ref(), |el, review| {
-                    let unsettled = review.checks.filter(|c| c.running > 0 || c.failed > 0);
-                    el.when_some(unsettled, |el, checks| {
+                .when_some(
+                    checks.filter(|c| c.running > 0 || c.failed > 0),
+                    |el, checks| {
                         let (glyph, color, text) = review::checks_summary(checks, theme);
                         let tip = format!("{text}, click to check again");
                         let (store, project) = (self.store.clone(), id.clone());
@@ -1860,8 +1864,8 @@ impl Navigator {
                                     })
                                 }),
                         )
-                    })
-                })
+                    },
+                )
                 // So conflicts show while the commits are hidden too.
                 .children(meta_count(
                     Icon::Warning,
