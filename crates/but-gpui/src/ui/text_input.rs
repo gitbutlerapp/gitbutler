@@ -29,7 +29,8 @@ actions!(
 /// What the last change to a field's text was, for undoing runs of them as one.
 #[derive(Clone, Copy, PartialEq)]
 enum Edit {
-    /// A character typed after another, or text an input method is still composing.
+    /// A character typed after another, spaces too, as the platform's fields undo a run of
+    /// typing at once; or text an input method is still composing.
     Typed,
     /// A character deleted after another.
     Deleted,
@@ -621,8 +622,7 @@ impl TextInput {
             .or(self.marked_range.clone())
             .unwrap_or(self.selected_range.clone());
         let typed = self.marked_range.is_some()
-            || (range.is_empty() && new_text.chars().count() == 1)
-                && !new_text.contains(char::is_whitespace);
+            || (range.is_empty() && new_text.chars().count() == 1) && new_text != "\n";
         // A range that doesn't fit the text, as one the platform gave backwards, changes nothing.
         let Some(replaced) = self.content.get(range.clone()) else {
             let at = self.cursor_offset();
