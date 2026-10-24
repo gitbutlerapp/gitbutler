@@ -92,16 +92,20 @@ impl Branches {
     /// What cherry-picking commit `id` takes: the picks, in the order they're listed, when
     /// it's one of them, or else just it.
     fn cherry_picks(&self, id: CommitId) -> Arc<[CommitId]> {
+        // Not merges, as `git cherry-pick` refuses them too: which side to take isn't said.
+        let merge = |id: &CommitId| {
+            (self.commits.values().flat_map(|(_, commits)| commits)).any(|c| c.id == *id && c.merge)
+        };
         let Some(ref_name) = self
             .selected
             .as_deref()
             .filter(|_| self.picked.contains(&id))
         else {
-            return [id].into();
+            return [id].into_iter().filter(|id| !merge(id)).collect();
         };
         (self.listed_commits(ref_name).iter())
             .map(|commit| commit.id)
-            .filter(|id| self.picked.contains(id))
+            .filter(|id| self.picked.contains(id) && !merge(id))
             .collect()
     }
 
@@ -1021,7 +1025,11 @@ impl Detail {
         else {
             return;
         };
-        let cut = Cut::CherryPick(project.clone(), branches.cherry_picks(id));
+        let ids = branches.cherry_picks(id);
+        if ids.is_empty() {
+            return;
+        }
+        let cut = Cut::CherryPick(project.clone(), ids);
         self.app.update(cx, |app, cx| app.cut(cut, cx)).ok();
     }
 
@@ -1287,6 +1295,7 @@ impl Detail {
                             let project = branches.project.clone();
                             // A picked one takes the others picked along.
                             let ids = branches.cherry_picks(id);
+                            let draggable = !ids.is_empty();
                             let dragged: SharedString = match ids.len() {
                                 1 => label.clone(),
                                 n => format!("{n} commits").into(),
@@ -1348,7 +1357,9 @@ impl Detail {
                                         this.branch_commit_menu(&project, &menu_ref, id, at, cx)
                                     }),
                                 )
-                                .on_drag(payload, drag_preview(this.store.clone(), dragged))
+                                .when(draggable, |el| {
+                                    el.on_drag(payload, drag_preview(this.store.clone(), dragged))
+                                })
                                 .into_any_element()
                         }
                         row @ Row::Branch(branch_ix, stacked) => {

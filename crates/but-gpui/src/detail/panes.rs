@@ -265,14 +265,17 @@ impl Detail {
             n => format!("Cherry-pick {n} commits"),
         };
         let project = project.clone();
-        let items = vec![
+        // None for a merge, which can't be.
+        let pick = (!ids.is_empty()).then(|| {
             MenuItem::new(label, move |app, _, cx| {
                 app.cut(Cut::CherryPick(project.clone(), ids.clone()), cx)
-            }),
-            MenuItem::new("Copy commit ID", move |app, _, cx| {
+            })
+        });
+        let items = (pick.into_iter())
+            .chain([MenuItem::new("Copy commit ID", move |app, _, cx| {
                 app.copy_text(id.0.to_string(), cx)
-            }),
-        ];
+            })])
+            .collect();
         (self.app)
             .update(cx, |app, cx| app.open_menu(at, items, cx))
             .ok();
