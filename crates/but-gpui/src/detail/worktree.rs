@@ -15,8 +15,10 @@ use super::panes::{
     share_row, title_text,
 };
 use super::slots::SlotPick;
-use crate::backend::{self, Branch, Commit, CommitId, FileChange, Workspace};
-use crate::state::{Activity, ProjectId, QUARTER, Selection, Store};
+use crate::backend::{
+    self, Branch, Commit, CommitId, CommitState, FileChange, ReviewState, Workspace,
+};
+use crate::state::{Activity, ProjectId, QUARTER, SeenCommit, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::diff;
 use crate::ui::file_icons::file_icon;
@@ -64,17 +66,75 @@ pub(super) struct Now {
     commits_scroll: ScrollHandle,
 }
 
-/// The commits of a checkout's branches, as listed: linked worktree `worktree`'s, or the main
-/// checkout's.
-fn checkout_commits<'a>(ws: &'a Workspace, worktree: Option<&str>) -> Vec<&'a Commit> {
-    let branches: Vec<&Branch> = match worktree {
+/// A checkout's branches, as listed: linked worktree `worktree`'s, or the main checkout's.
+fn checkout_branches<'a>(ws: &'a Workspace, worktree: Option<&str>) -> Vec<&'a Branch> {
+    match worktree {
         Some(name) => (ws.find_worktree(name)).map_or(Vec::new(), |w| w.branches.iter().collect()),
         None => ws.branches().collect(),
-    };
-    branches
-        .into_iter()
+    }
+}
+
+/// The commits of a checkout's branches, as [`checkout_branches`] lists them.
+fn checkout_commits<'a>(ws: &'a Workspace, worktree: Option<&str>) -> Vec<&'a Commit> {
+    (checkout_branches(ws, worktree).into_iter())
         .flat_map(|branch| &branch.commits)
         .collect()
+}
+
+/// A commit the overview counts: on one of the checkout's branches, or taken by a branch
+/// that left it since, as merged or unapplied, as last seen there.
+#[derive(Clone, Copy)]
+enum Made<'a> {
+    Here(&'a Branch, &'a Commit),
+    Gone(&'a SeenCommit),
+}
+
+impl<'a> Made<'a> {
+    fn id(self) -> CommitId {
+        match self {
+            Made::Here(_, commit) => commit.id,
+            Made::Gone(commit) => commit.id,
+        }
+    }
+
+    fn time(self) -> i64 {
+        match self {
+            Made::Here(_, commit) => commit.time,
+            Made::Gone(commit) => commit.time,
+        }
+    }
+
+    fn state(self) -> CommitState {
+        match self {
+            Made::Here(_, commit) => commit.state,
+            Made::Gone(commit) => commit.state,
+        }
+    }
+
+    fn title(self) -> &'a str {
+        match self {
+            Made::Here(_, commit) => &commit.title,
+            Made::Gone(commit) => &commit.title,
+        }
+    }
+}
+
+/// What the overview of the checkout of `ws`, linked worktree `worktree` or the main one,
+/// counts: its branches' commits, and those its `activity` remembers of branches gone since,
+/// newest first.
+fn made<'a>(
+    ws: &'a Workspace,
+    worktree: Option<&str>,
+    activity: Option<&'a Activity>,
+) -> Vec<Made<'a>> {
+    let branches = checkout_branches(ws, worktree);
+    let gone = activity.map_or(Vec::new(), |a| a.gone(&branches));
+    let mut made: Vec<Made> = (branches.iter())
+        .flat_map(|&branch| branch.commits.iter().map(move |c| Made::Here(branch, c)))
+        .chain(gone.into_iter().map(Made::Gone))
+        .collect();
+    made.sort_by_key(|commit| std::cmp::Reverse(commit.time()));
+    made
 }
 
 /// A stretch of time said short: "<1m", "45m", "3h 05m", "2d".
@@ -317,19 +377,19 @@ impl Detail {
         };
         let name = worktree.map(|w| &**w);
         let now = crate::ui::now();
-        let mut commits = checkout_commits(ws, name);
-        commits.sort_by_key(|commit| std::cmp::Reverse(commit.time));
-        // Everything under the activity is of the 12 hours it covers, or the quarters picked.
+        // Everything under the activity is of the 12 hours it covers, or the quarters picked,
+        // the commits of branches that left since too.
         let span = &self.now.span;
         let start = window_start(now);
         let inside = |at: i64| at >= start && span.keeps(at.div_euclid(QUARTER));
-        let scoped: Vec<&Commit> = (commits.iter().copied())
-            .filter(|commit| inside(commit.time))
+        let activity = store.activity.get(&(project.clone(), worktree.cloned()));
+        let all = made(ws, name, activity);
+        let scoped: Vec<Made> = (all.iter().copied())
+            .filter(|commit| inside(commit.time()))
             .collect();
         let events = (self.now.events.iter())
             .filter(|(at, _)| inside(*at))
             .collect::<Vec<_>>();
-        let activity = store.activity.get(&(project.clone(), worktree.cloned()));
         let files = ws.uncommitted_in(name).unwrap_or_default();
         // Side by side where both fit, as the tiles wrap.
         let columns = [
@@ -360,9 +420,9 @@ impl Detail {
                     .gap(dp(6.))
                     .child(self.now_activity(
                         (activity, now),
-                        &commits,
+                        &all,
                         &scoped,
-                        self.now_status(project, files, activity, &commits, theme, cx),
+                        self.now_status(project, files, activity, &all, theme, cx),
                         theme,
                         cx,
                     ))
@@ -414,7 +474,7 @@ impl Detail {
         project: &ProjectId,
         files: &[FileChange],
         activity: Option<&Activity>,
-        commits: &[&Commit],
+        commits: &[Made],
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Div {
@@ -426,19 +486,18 @@ impl Detail {
         let last_write = activity.and_then(|a| a.last).max(written);
         // Written to lately, and since its last commit: once committed, it's quiet again.
         let now = crate::ui::now();
-        let newest = commits.first().map(|commit| commit.time);
+        let newest = commits.first().map(|commit| commit.time());
         let writing = last_write.is_some_and(|at| just_now(at) && newest < Some(at));
-        let state = match (writing, commits.first()) {
+        let state = match (writing, newest) {
             (true, _) => "Being written now".to_owned(),
-            (false, Some(last)) => match now - last_write.max(Some(last.time)).unwrap_or(last.time)
-            {
+            (false, Some(last)) => match now - last_write.max(Some(last)).unwrap_or(last) {
                 ..60 => "Quiet".to_owned(),
                 quiet => format!("Quiet for {}", span_said(quiet)),
             },
             (false, None) => "Nothing committed yet".to_owned(),
         };
         let unread = (commits.iter())
-            .filter(|commit| store.is_unread(project, **commit))
+            .filter(|c| matches!(c, Made::Here(_, commit) if store.is_unread(project, *commit)))
             .count();
         // One line, short enough for a narrow page, its last words cut short before they'd
         // widen it.
@@ -476,9 +535,9 @@ impl Detail {
 
     /// The files most of `commits` changed, once read. Clicking one lists only the commits
     /// that changed it under Commits, as an area filters what shipped; Clear lets go of it.
-    fn now_hot_files(&self, commits: &[&Commit], theme: &Theme, cx: &Context<Self>) -> Option<Div> {
+    fn now_hot_files(&self, commits: &[Made], theme: &Theme, cx: &Context<Self>) -> Option<Div> {
         let mut counts: HashMap<&str, usize> = HashMap::new();
-        for paths in commits.iter().filter_map(|c| self.now.paths.get(&c.id)) {
+        for paths in commits.iter().filter_map(|c| self.now.paths.get(&c.id())) {
             for path in paths {
                 *counts.entry(path).or_default() += 1;
             }
@@ -525,6 +584,38 @@ impl Detail {
         )
     }
 
+    /// On the page a click on a commit of a branch that left a checkout picked, open what took
+    /// it: on the project's page the commit that landed it, on the Branches page its branch.
+    /// It waits for the page to read its list, as it's picked before it has, or reads it
+    /// again: once that's `read`, it opens or not, the history read further back first, and
+    /// another page picked lets go of it.
+    pub(super) fn open_waiting(&mut self, read: bool, cx: &mut Context<Self>) {
+        let Some((page, seen)) = self.opening.take() else {
+            return;
+        };
+        if self.selection(cx).as_ref() != Some(&page) {
+            return;
+        }
+        let done = match &page {
+            // A landing past the pages read is looked for further back, as far as the commit.
+            Selection::Project(project) => {
+                self.open_landing(project, seen.pull, seen.id, cx)
+                    || (read && !self.read_back_to(project, seen.time, cx))
+            }
+            Selection::Branches(project) => {
+                let listed = self.listed_branch(project, &seen.branch).is_some();
+                if listed {
+                    self.select_other_branch(Some(seen.branch.clone()), cx);
+                }
+                listed || read
+            }
+            _ => true,
+        };
+        if !done {
+            self.opening = Some((page, seen));
+        }
+    }
+
     /// List only the commits that changed `file` under Commits, or all with `None`.
     fn pick_hot_file(&mut self, file: Option<Arc<str>>, cx: &mut Context<Self>) {
         self.now.file = file.filter(|file| self.now.file.as_ref() != Some(file));
@@ -540,16 +631,18 @@ impl Detail {
         path: &Path,
         cx: &mut Context<Self>,
     ) {
-        let Some(ws) = self.store.read(cx).workspace(&checkout.0) else {
+        let store = self.store.read(cx);
+        let Some(ws) = store.workspace(&checkout.0) else {
             return;
         };
         let now = crate::ui::now();
         let since = window_start(now);
         let known =
             |id: &CommitId| self.now.paths.contains_key(id) || self.now.reading.contains(id);
-        let unread: Vec<CommitId> = (checkout_commits(ws, checkout.1.as_deref()).into_iter())
-            .filter(|commit| commit.time >= since && !known(&commit.id))
-            .map(|commit| commit.id)
+        let made = made(ws, checkout.1.as_deref(), store.activity.get(checkout));
+        let unread: Vec<CommitId> = (made.into_iter())
+            .filter(|commit| commit.time() >= since && !known(&commit.id()))
+            .map(Made::id)
             .collect();
         if unread.is_empty() {
             return;
@@ -578,31 +671,31 @@ impl Detail {
 
     /// `commits`, and, in a linked worktree, the `events` that moved its `HEAD` then, newest
     /// first, with a hot file picked only the commits that changed it. A commit opens on a
-    /// click.
+    /// click, and one whose branch left the checkout opens the page that has it now.
     fn now_commits(
         &self,
         project: &ProjectId,
-        commits: &[&Commit],
+        commits: &[Made],
         events: &[&(i64, String)],
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<Div> {
         enum Item<'a> {
-            Commit(&'a Commit),
+            Commit(Made<'a>),
             Moved(&'a str),
         }
         // With a hot file picked, the commits that changed it, once that's read; nothing
         // else that moved `HEAD` changed a file.
         let file = self.now.file.as_ref();
-        let changed = |commit: &&&Commit| {
+        let changed = |commit: &&Made| {
             file.is_none_or(|file| {
-                (self.now.paths.get(&commit.id))
+                (self.now.paths.get(&commit.id()))
                     .is_some_and(|paths| paths.iter().any(|path| **path == **file))
             })
         };
-        let listed: Vec<&Commit> = commits.iter().filter(changed).copied().collect();
+        let listed: Vec<Made> = commits.iter().filter(changed).copied().collect();
         let events = events.iter().filter(|_| file.is_none());
-        let mut items: Vec<(i64, Item)> = (listed.iter().map(|c| (c.time, Item::Commit(c))))
+        let mut items: Vec<(i64, Item)> = (listed.iter().map(|c| (c.time(), Item::Commit(*c))))
             .chain(events.map(|(at, said)| (*at, Item::Moved(said))))
             .collect();
         if items.is_empty() && file.is_none() {
@@ -610,35 +703,56 @@ impl Detail {
         }
         items.sort_by_key(|(at, _)| std::cmp::Reverse(*at));
         let store = self.store.read(cx);
-        let ws = store.workspace(project);
         let rows = (items.into_iter().enumerate()).map(|(ix, (at, item))| {
             let row = list_row(("now-commit", ix), false, theme);
             match item {
-                Item::Commit(commit) => {
-                    let at_commit = Selection::Commit(project.clone(), commit.id);
+                Item::Commit(made) => {
+                    // On one of the checkout's branches, it opens, read or not as the
+                    // navigator shows it: quieter once read, in semibold with a dot while not,
+                    // and marked conflicted as there. Gone with its branch, it shows as last
+                    // seen, and opens what took it: the commit that landed it on the project's
+                    // page, else its branch on the Branches page.
+                    let ((glyph, color), said, unread, target) = match made {
+                        Made::Here(branch, commit) => (
+                            match commit.conflicted {
+                                true => (Icon::Warning, theme.warn),
+                                false => (Icon::Commit, theme.blue),
+                            },
+                            branch_said(store, project, branch, theme),
+                            store.is_unread(project, commit),
+                            Selection::Commit(project.clone(), commit.id),
+                        ),
+                        Made::Gone(seen) => (
+                            (Icon::Commit, theme.text_3),
+                            left_said(seen, theme),
+                            false,
+                            match seen.state {
+                                CommitState::Integrated => Selection::Project(project.clone()),
+                                CommitState::Local | CommitState::Pushed => {
+                                    Selection::Branches(project.clone())
+                                }
+                            },
+                        ),
+                    };
+                    let opening = match made {
+                        Made::Gone(seen) => Some((target.clone(), seen.clone())),
+                        Made::Here(..) => None,
+                    };
                     // The pull request that takes it there, else the branch it's on, its
                     // beginning faint beside the glyph and all of it on hover.
-                    let branch =
-                        (ws.and_then(|ws| ws.find_commit(commit.id))).map(|(branch, _)| {
-                            let ((glyph, color), label, tip) =
-                                branch_said(store, project, branch, theme);
-                            h_flex()
-                                .id(("now-commit-branch", ix))
+                    let ((branch_glyph, branch_color), label, tip) = said;
+                    let branch = h_flex()
+                        .id(("now-commit-branch", ix))
+                        .flex_none()
+                        .max_w(relative(0.22))
+                        .gap(dp(4.))
+                        .child(
+                            small_icon(branch_glyph)
                                 .flex_none()
-                                .max_w(relative(0.22))
-                                .gap(dp(4.))
-                                .child(small_icon(glyph).flex_none().text_color(color))
-                                .child(faint(label, theme).min_w_0().truncate())
-                                .tooltip(Tooltip::text(tip))
-                        });
-                    // Read or not as the navigator shows it: quieter once read, in semibold
-                    // with a dot while not.
-                    let unread = store.is_unread(project, commit);
-                    // Marked conflicted as the navigator marks it.
-                    let (glyph, color) = match commit.conflicted {
-                        true => (Icon::Warning, theme.warn),
-                        false => (Icon::Commit, theme.blue),
-                    };
+                                .text_color(branch_color),
+                        )
+                        .child(faint(label, theme).min_w_0().truncate())
+                        .tooltip(Tooltip::text(tip));
                     row.child(small_icon(glyph).text_color(color))
                         .child(
                             div()
@@ -647,10 +761,10 @@ impl Detail {
                                 .truncate()
                                 .when(!unread, |el| el.text_color(theme.text_2))
                                 .when(unread, |el| el.font_weight(gpui::FontWeight::SEMIBOLD))
-                                .child(commit_title(&commit.title)),
+                                .child(commit_title(made.title())),
                         )
                         .when(unread, |el| el.child(dot(theme.pop)))
-                        .children(branch)
+                        .child(branch)
                         .child(overview_column(
                             relative_time(at),
                             COMMITS_TIME_WIDTH,
@@ -658,9 +772,10 @@ impl Detail {
                         ))
                         .on_mouse_down(MouseButton::Left, keep_focus_on_press)
                         .on_click(cx.listener(move |this, _, _, cx| {
-                            let at = at_commit.clone();
+                            this.opening = opening.clone();
+                            let target = target.clone();
                             this.store
-                                .update(cx, |store, cx| store.select(Some(at), cx))
+                                .update(cx, |store, cx| store.select(Some(target), cx))
                         }))
                 }
                 Item::Moved(said) => row
@@ -674,7 +789,10 @@ impl Detail {
                     )),
             }
         });
-        let reading = file.is_some() && commits.iter().any(|c| !self.now.paths.contains_key(&c.id));
+        let reading = file.is_some()
+            && commits
+                .iter()
+                .any(|c| !self.now.paths.contains_key(&c.id()));
         Some(
             v_flex()
                 // As tall as Hot files' beside it, which has room for Clear.
@@ -762,6 +880,24 @@ fn file_label(path: &str, on: bool, theme: &Theme, cx: &App) -> Div {
                     .child(dir.to_owned()),
             )
         })
+}
+
+/// What names the branch `commit` left the checkout on: its name, with the glyph of a merged
+/// pull request for one that landed, and where it is now for a hover.
+fn left_said(commit: &SeenCommit, theme: &Theme) -> ((Icon, gpui::Hsla), String, String) {
+    let name = backend::short_ref(&commit.branch).to_owned();
+    match commit.state {
+        CommitState::Integrated => (
+            state_glyph(ReviewState::Merged, theme),
+            name.clone(),
+            format!("{name} · landed, on the project's page"),
+        ),
+        CommitState::Local | CommitState::Pushed => (
+            (Icon::Branch, theme.text_3),
+            name.clone(),
+            format!("{name} · left this worktree, on the Branches page"),
+        ),
+    }
 }
 
 /// What names `branch`: the pull request that takes it to the target, else its name, with

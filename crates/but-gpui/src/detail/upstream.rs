@@ -360,6 +360,9 @@ impl Detail {
                     }
                     None => {}
                 }
+                if shown {
+                    this.open_waiting(true, cx);
+                }
                 // A page further back that cut short a reload of the newest reads them again.
                 if pending.is_some() {
                     this.load_upstream(&project, true, false, cx);
@@ -1122,6 +1125,42 @@ impl Detail {
         if let Some(project) = self.selected_project(cx) {
             self.pick_on_page(&project, Picked::Commit(id), None, cx)
         }
+    }
+
+    /// Open the commit on `project`'s history that landed a branch: the one that landed its
+    /// pull request `pull`, else its commit `id` itself, as when it landed as it was. Says
+    /// whether the history lists either.
+    pub(super) fn open_landing(
+        &mut self,
+        project: &ProjectId,
+        pull: Option<u64>,
+        id: CommitId,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let commits = self.upstream_for(project).map_or(&[][..], |u| &u.commits);
+        let landed = (commits.iter())
+            .find(|c| c.id == id || (c.review.as_ref()).is_some_and(|r| Some(r.number) == pull))
+            .map(|c| c.id);
+        if let Some(landed) = landed {
+            self.pick_landed(project, landed, cx);
+        }
+        landed.is_some()
+    }
+
+    /// Read the next page of `project`'s history, while its oldest read is no older than
+    /// `since`. Says whether it does.
+    pub(super) fn read_back_to(
+        &mut self,
+        project: &ProjectId,
+        since: i64,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let older = (self.upstream_for(project))
+            .is_some_and(|u| u.more && u.commits.last().is_some_and(|c| c.time >= since));
+        if older {
+            self.load_upstream(project, true, false, cx);
+        }
+        older
     }
 
     /// Open commit `id` of what landed lately, reading older pages of the history until

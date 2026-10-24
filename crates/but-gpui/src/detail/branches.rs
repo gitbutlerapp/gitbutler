@@ -306,6 +306,7 @@ impl Detail {
                 this.branches.insert(project.clone(), branches);
                 this.load_open_commits(&project, cx);
                 if shown {
+                    this.open_waiting(true, cx);
                     // The filter may hide what's selected now.
                     this.select_shown_branch(cx);
                     this.refresh_diff(false, cx);
@@ -388,7 +389,11 @@ impl Detail {
 
     /// Branch `ref_name` of `project`'s list, while it's still listed: what a menu opened on
     /// it acts on, even once a reload has selected another.
-    fn listed_branch(&self, project: &ProjectId, ref_name: &str) -> Option<&OtherBranch> {
+    pub(super) fn listed_branch(
+        &self,
+        project: &ProjectId,
+        ref_name: &str,
+    ) -> Option<&OtherBranch> {
         self.branches_for(project)?.branch(ref_name)
     }
 

@@ -332,6 +332,9 @@ pub struct Detail {
     /// The file to put the cursor on once the diff loading now lands, as when following the
     /// file being read into the commit an agent made of it.
     pending_file: Option<String>,
+    /// The page a click on a commit of a branch that left a checkout picked, and that commit,
+    /// whose landing or branch it opens once it has read its list.
+    opening: Option<(Selection, crate::state::SeenCommit)>,
     /// Whether the pull request's checks that passed are listed, not just counted.
     passed_checks_open: bool,
     review_scroll: ScrollHandle,
@@ -458,6 +461,7 @@ impl Detail {
                     }
                     this.reload_page(true, cx);
                     this.refresh_diff(true, cx);
+                    this.open_waiting(false, cx);
                 }
                 // Picked again, as by the crumb naming it, a page goes back to how it opens.
                 StoreEvent::Reopened => match this.selection(cx) {
@@ -640,6 +644,7 @@ impl Detail {
             now_open: false,
             now: worktree::Now::default(),
             pending_file: None,
+            opening: None,
             passed_checks_open: false,
             review_scroll: ScrollHandle::new(),
             target_message_height: Rc::new(Cell::new(0.)),
