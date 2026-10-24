@@ -102,6 +102,7 @@ pub(super) fn from_cache(found: &but_forge::ForgeReview) -> Review {
         title: found.title.clone(),
         state: review_state(found),
         url: Some(found.html_url.clone()),
+        auto_merge: found.auto_merge_enabled,
         checks: None,
         check_runs: Vec::new(),
         labels: (found.labels.iter())
@@ -345,6 +346,30 @@ pub fn merge(path: &Path, number: u64, method: MergeMethod) -> Result<()> {
     }
     if let Err(err) = super::fetch(path) {
         tracing::warn!(?err, "merged, but couldn't fetch");
+    }
+    Ok(())
+}
+
+/// What the forge says about whether a pull request can merge now.
+pub use but_forge::ReviewMergeStatus as MergeStatus;
+
+/// Ask the forge whether pull request `number` can merge now. GitHub works it out when asked,
+/// so it can answer that it doesn't know yet.
+pub fn merge_status(path: &Path, number: u64) -> Result<MergeStatus> {
+    let ctx = open(path)?.into_sync();
+    (runtime().handle()).block_on(forge::get_review_merge_status(ctx, number as usize))
+}
+
+/// Turn auto-merge of pull request `number` on or off. Asking for the request again records
+/// that in the cache, so the reload after shows it.
+pub fn set_auto_merge(path: &Path, number: u64, on: bool) -> Result<()> {
+    let ctx = open(path)?.into_sync();
+    (runtime().handle()).block_on(forge::set_review_auto_merge(ctx, number as usize, on))?;
+    if let Err(err) = open(path).and_then(|ctx| forge::get_review(&ctx, number as usize)) {
+        tracing::warn!(
+            ?err,
+            "set auto-merge, but couldn't read the pull request back"
+        );
     }
     Ok(())
 }

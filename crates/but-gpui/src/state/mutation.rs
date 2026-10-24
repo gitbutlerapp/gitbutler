@@ -60,6 +60,8 @@ pub struct Overlay {
     pub rereads: Rereads,
     /// The pull request, by number, it merges.
     pub merges: Option<u64>,
+    /// The pull request, by number, whose auto-merge it turns on or off, and which.
+    pub auto_merges: Option<(u64, bool)>,
     /// The branch (full ref) it pushes, with the ones below it.
     pub pushes: Option<String>,
     /// It opens a pull request for the branch it pushes.
@@ -1634,6 +1636,15 @@ impl Store {
             true => ReviewState::Merged,
             false => review.state,
         }
+    }
+
+    /// Whether `review` merges by itself once it can, as pending mutations leave it.
+    pub fn auto_merge_on(&self, project: &ProjectId, review: &Review) -> bool {
+        // The last asked for wins.
+        (self.overlays(project).filter_map(|o| o.auto_merges))
+            .filter(|(number, _)| *number == review.number)
+            .last()
+            .map_or(review.auto_merge, |(_, on)| on)
     }
 
     pub fn hides_worktree(&self, project: &ProjectId, name: &str) -> bool {

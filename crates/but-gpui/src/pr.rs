@@ -1,14 +1,14 @@
 //! A branch's pull request: opening one (pushing the branch first when it needs it), and
-//! merging one that's open.
+//! merging one that's open, at once or by auto-merge once it can.
 
 use gpui::{
-    App, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle, Focusable, PromptLevel,
-    ScrollHandle, SharedString, Stateful, Task, Window, actions, div, prelude::*,
+    Action, App, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle, Focusable,
+    PromptLevel, ScrollHandle, SharedString, Stateful, Task, Window, actions, div, prelude::*,
 };
 
 use crate::app::AppView;
 use crate::backend::ai;
-use crate::backend::reviews::{self, MergeMethod};
+use crate::backend::reviews::{self, MergeMethod, MergeStatus};
 use crate::backend::{self, Forge, Review, ReviewState, short_ref};
 use crate::state::{Overlay, ProjectId, Selection, Store, StoreEvent, snack};
 use crate::theme::Theme;
@@ -16,7 +16,15 @@ use crate::ui::modal::{ModalSize, modal};
 use crate::ui::text_input::{InputEvent, Newline, TextInput};
 use crate::ui::{ButtonStyle, button, dp, faint, field, h_flex, muted, switch, v_flex};
 
-actions!(pr, [CreatePullRequest, MergePullRequest]);
+actions!(
+    pr,
+    [
+        CreatePullRequest,
+        MergePullRequest,
+        EnableAutoMerge,
+        DisableAutoMerge
+    ]
+);
 
 pub struct ReviewView {
     store: Entity<Store>,
@@ -440,12 +448,21 @@ impl AppView {
         else {
             return el;
         };
-        match (branch.review.as_ref()).map(|r| store.review_state(selection.project(), r)) {
+        let project = selection.project();
+        match (branch.review.as_ref()).map(|r| (r, store.review_state(project, r))) {
             None => el.when(!branch.commits.is_empty(), |el| {
                 el.on_action(cx.listener(Self::create_pull_request))
             }),
-            Some(ReviewState::Open) => el.on_action(cx.listener(Self::merge_pull_request)),
-            Some(ReviewState::Draft | ReviewState::Closed | ReviewState::Merged) => el,
+            Some((review, ReviewState::Open)) => match mergeability(store, project, review).offer()
+            {
+                Some(Offer::Merge) => el.on_action(cx.listener(Self::merge_pull_request)),
+                Some(Offer::EnableAutoMerge) => el.on_action(cx.listener(Self::enable_auto_merge)),
+                Some(Offer::DisableAutoMerge) => {
+                    el.on_action(cx.listener(Self::disable_auto_merge))
+                }
+                None => el,
+            },
+            Some((_, ReviewState::Draft | ReviewState::Closed | ReviewState::Merged)) => el,
         }
     }
 
@@ -501,9 +518,7 @@ impl AppView {
         else {
             return;
         };
-        // The forge merges what it has, not the commits only here.
-        if (self.store.read(cx).workspace(&project)).is_some_and(|ws| ws.can_push(&branch)) {
-            let why = "Push first, so the pull request has these commits";
+        if let Some(why) = push_first(self.store.read(cx), &project, &branch) {
             return snack(&self.store, why, cx);
         }
         // GitLab merges as the project is set up to, whatever is asked for.
@@ -553,6 +568,159 @@ impl AppView {
         })
         .detach();
     }
+
+    pub fn enable_auto_merge(
+        &mut self,
+        _: &EnableAutoMerge,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.set_auto_merge(true, cx);
+    }
+
+    pub fn disable_auto_merge(
+        &mut self,
+        _: &DisableAutoMerge,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.set_auto_merge(false, cx);
+    }
+
+    /// Turn the pull request's auto-merge on or off. It's shown at once as it'll be.
+    fn set_auto_merge(&mut self, on: bool, cx: &mut Context<Self>) {
+        let Some((
+            project,
+            branch,
+            Some(Review {
+                number,
+                state: ReviewState::Open,
+                ..
+            }),
+        )) = self.review_target(cx)
+        else {
+            return;
+        };
+        if let Some(why) = push_first(self.store.read(cx), &project, &branch).filter(|_| on) {
+            return snack(&self.store, why, cx);
+        }
+        let (label, done) = match on {
+            true => (
+                "Enable auto-merge",
+                "Auto-merge is on: it merges once its required checks and reviews pass",
+            ),
+            false => ("Disable auto-merge", "Auto-merge is off"),
+        };
+        self.store.update(cx, |store, cx| {
+            store.run(
+                &project,
+                label,
+                Overlay {
+                    auto_merges: Some((number, on)),
+                    ..Overlay::remote()
+                },
+                move |path, _| reviews::set_auto_merge(path, number, on),
+                move |store, (), cx| store.snack(done, cx),
+                cx,
+            )
+        });
+    }
+}
+
+/// Why `branch` (a full ref) can't merge, nor auto-merge, yet: the forge merges what it has,
+/// not the commits only here.
+pub fn push_first(store: &Store, project: &ProjectId, branch: &str) -> Option<&'static str> {
+    (store.workspace(project))
+        .is_some_and(|ws| ws.can_push(branch))
+        .then_some("Push first, so the pull request has these commits")
+}
+
+/// Where an open pull request stands on merging, which decides the one thing it offers, as
+/// GitHub's merge box does: merging once it can, auto-merge while it waits on required checks
+/// or reviews, and turning auto-merge off while that's on.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Mergeability {
+    /// Auto-merge is on, so it merges by itself once it can.
+    AutoMerging,
+    /// It can merge now, with a note when checks that aren't required haven't passed.
+    Ready(Option<&'static str>),
+    /// It waits on what auto-merge can wait for: required checks or reviews, or catching up
+    /// with the branch it merges into.
+    Waiting(&'static str),
+    /// It can't merge until someone fixes something, like its conflicts.
+    Blocked(String),
+    /// The forge hasn't said yet, or couldn't say why, so merging is left to it to refuse.
+    Unknown(Option<String>),
+}
+
+/// The one thing an open pull request offers on merging.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Offer {
+    Merge,
+    EnableAutoMerge,
+    DisableAutoMerge,
+}
+
+impl Offer {
+    pub fn label(self) -> &'static str {
+        match self {
+            Offer::Merge => "Merge pull request…",
+            Offer::EnableAutoMerge => "Enable auto-merge",
+            Offer::DisableAutoMerge => "Disable auto-merge",
+        }
+    }
+
+    pub fn action(self) -> &'static dyn Action {
+        match self {
+            Offer::Merge => &MergePullRequest,
+            Offer::EnableAutoMerge => &EnableAutoMerge,
+            Offer::DisableAutoMerge => &DisableAutoMerge,
+        }
+    }
+}
+
+impl Mergeability {
+    /// From whether auto-merge is on and what the forge last said, if it was asked. GitHub's
+    /// and GitLab's words for where it stands differ; GitLab's say nothing of its pipeline.
+    pub fn of(auto_merge: bool, status: Option<&Result<MergeStatus, String>>) -> Self {
+        let status = match status {
+            _ if auto_merge => return Self::AutoMerging,
+            None => return Self::Unknown(None),
+            Some(Err(err)) => return Self::Unknown(Some(err.clone())),
+            Some(Ok(status)) => status,
+        };
+        match (status.is_mergeable, status.mergeable_state.as_deref()) {
+            (true, Some("unstable")) => {
+                Self::Ready(Some("Checks that aren't required haven't passed"))
+            }
+            (true, _) => Self::Ready(None),
+            (false, Some("blocked")) => Self::Waiting("Waiting on required checks or reviews"),
+            (false, Some("behind")) => Self::Waiting("Behind the branch it merges into"),
+            (false, Some("dirty" | "cannot_be_merged")) => {
+                Self::Blocked("Has conflicts with the branch it merges into".into())
+            }
+            (false, Some("draft")) => Self::Blocked("A draft can't merge".into()),
+            (false, None | Some("unknown" | "checking" | "unchecked")) => Self::Unknown(None),
+            (false, Some(state)) => Self::Blocked(format!("Can't merge yet ({state})")),
+        }
+    }
+
+    pub fn offer(&self) -> Option<Offer> {
+        match self {
+            Self::AutoMerging => Some(Offer::DisableAutoMerge),
+            Self::Ready(_) | Self::Unknown(_) => Some(Offer::Merge),
+            Self::Waiting(_) => Some(Offer::EnableAutoMerge),
+            Self::Blocked(_) => None,
+        }
+    }
+}
+
+/// Where `review`, open, of `project` stands on merging, as far as the app knows.
+pub fn mergeability(store: &Store, project: &ProjectId, review: &Review) -> Mergeability {
+    Mergeability::of(
+        store.auto_merge_on(project, review),
+        store.merge_status(project, review.number),
+    )
 }
 
 /// Whether `selection`'s project is on a forge, so pull requests apply.
@@ -560,4 +728,49 @@ pub fn on_forge(store: &Store, selection: &Selection) -> bool {
     store
         .workspace(selection.project())
         .is_some_and(|ws| ws.forge.is_some())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{MergeStatus, Mergeability, Offer};
+
+    #[test]
+    fn offers_one_thing_as_github_does() {
+        let status = |state: Option<&str>, mergeable| {
+            Some(Ok(MergeStatus {
+                mergeable_state: state.map(Into::into),
+                comments_count: 0,
+                is_mergeable: mergeable,
+            }))
+        };
+        let offer = |auto_merge, status: Option<Result<MergeStatus, String>>| {
+            Mergeability::of(auto_merge, status.as_ref()).offer()
+        };
+        assert_eq!(
+            [
+                offer(false, status(Some("clean"), true)),
+                offer(false, status(Some("unstable"), true)),
+                offer(false, status(Some("blocked"), false)),
+                offer(false, status(Some("behind"), false)),
+                offer(false, status(Some("dirty"), false)),
+                offer(false, status(Some("unknown"), false)),
+                offer(false, None),
+                offer(true, status(Some("blocked"), false)),
+                offer(true, status(Some("dirty"), false)),
+            ],
+            [
+                Some(Offer::Merge),
+                Some(Offer::Merge),
+                Some(Offer::EnableAutoMerge),
+                Some(Offer::EnableAutoMerge),
+                None,
+                Some(Offer::Merge),
+                Some(Offer::Merge),
+                Some(Offer::DisableAutoMerge),
+                Some(Offer::DisableAutoMerge),
+            ],
+            "merge once it can, auto-merge while it waits on requirements, nothing over \
+             conflicts, and with auto-merge on only turning it off"
+        );
+    }
 }

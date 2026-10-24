@@ -1,16 +1,19 @@
 //! A branch's pull request, on a tab of the branch's page beside its changes: what it is,
 //! where it stands, its description and its checks, as the forge cache last saw them.
-//! Nothing here asks the forge; the store's background refresh does, and the page says how
-//! old what it shows is.
+//! The store's background refresh asks the forge, and the page says how old what it shows
+//! is. Only whether an open one can merge is asked as the tab shows it, as the cache doesn't
+//! keep that.
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Div, MouseButton, Stateful, Window, div, prelude::*,
+    AnyElement, App, ClickEvent, Context, Div, MouseButton, SharedString, Stateful, Window, div,
+    prelude::*,
 };
 
 use super::Detail;
 use super::panes::title_text;
 use super::resolve::{banner_action, warn_banner};
 use crate::backend::{CheckRun, Forge, Review, ReviewState};
+use crate::pr::{Mergeability, Offer};
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::markdown;
@@ -66,6 +69,123 @@ impl Detail {
     fn set_review_tab(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
         self.review_tab = on;
         self.focus_files(window, cx);
+        self.read_merge_status(cx);
+    }
+
+    /// The selected branch, in the main checkout, and its pull request, while the tab shows
+    /// it open: what the merge box is for, as the pull request actions are.
+    fn merge_box_review<'a>(&'a self, cx: &'a App) -> Option<(&'a ProjectId, &'a str, &'a Review)> {
+        let store = self.store.read(cx);
+        let selection = store.selection.as_ref()?;
+        let Selection::Branch(project, ref_name) = selection else {
+            return None;
+        };
+        let review = self.selected_review(cx)?;
+        let applies = self.review_tab
+            && crate::pr::on_forge(store, selection)
+            && store.worktree_of(selection).is_none()
+            && store.review_state(project, review) == ReviewState::Open;
+        applies.then_some((project, ref_name.as_str(), review))
+    }
+
+    /// Have the store ask the forge whether the pull request the tab shows can merge, for its
+    /// merge box, when it hasn't lately.
+    pub(super) fn read_merge_status(&self, cx: &mut Context<Self>) {
+        let Some((project, _, review)) = self.merge_box_review(cx) else {
+            return;
+        };
+        let (project, review) = (project.clone(), review.clone());
+        (self.store).update(cx, |store, cx| {
+            store.read_merge_status(&project, &review, cx)
+        });
+    }
+
+    /// Where the open pull request stands on merging, and the one thing that offers, as
+    /// GitHub's merge box has it.
+    fn merge_box(&self, theme: &Theme, cx: &Context<Self>) -> Option<Div> {
+        let (project, branch, review) = self.merge_box_review(cx)?;
+        let store = self.store.read(cx);
+        let merge = crate::pr::mergeability(store, project, review);
+        let (glyph, color, title, note): (_, _, SharedString, Option<SharedString>) = match &merge {
+            Mergeability::AutoMerging => (
+                Icon::Clock,
+                theme.safe,
+                "Auto-merge is on".into(),
+                Some("It merges once its required checks and reviews pass".into()),
+            ),
+            Mergeability::Ready(note) => (
+                Icon::Tick,
+                if note.is_some() {
+                    theme.warn
+                } else {
+                    theme.safe
+                },
+                "Ready to merge".into(),
+                note.map(Into::into),
+            ),
+            Mergeability::Waiting(why) => (Icon::Clock, theme.warn, (*why).into(), None),
+            Mergeability::Blocked(why) => (Icon::Cross, theme.danger, why.clone().into(), None),
+            Mergeability::Unknown(None) => (
+                Icon::Clock,
+                theme.text_3,
+                "Checking whether it can merge…".into(),
+                None,
+            ),
+            Mergeability::Unknown(Some(err)) => (
+                Icon::Cross,
+                theme.warn,
+                "Couldn't ask whether it can merge".into(),
+                Some(err.clone().into()),
+            ),
+        };
+        // Turning auto-merge on or off shows at once, until the forge has it.
+        let waiting = store.auto_merge_on(project, review) != review.auto_merge;
+        let action = merge.offer().map(|offer| {
+            button("merge-offer", offer.label())
+                .small()
+                .style(match offer {
+                    Offer::Merge => ButtonStyle::Pop,
+                    Offer::EnableAutoMerge | Offer::DisableAutoMerge => ButtonStyle::Outline,
+                })
+                .disabled_because(match offer {
+                    _ if waiting => Some("Waiting for the forge"),
+                    Offer::Merge | Offer::EnableAutoMerge => {
+                        crate::pr::push_first(store, project, branch)
+                    }
+                    Offer::DisableAutoMerge => None,
+                })
+                .dispatch(offer.action())
+                .tooltip(match offer {
+                    Offer::Merge => "Merge it now, choosing how",
+                    Offer::EnableAutoMerge => {
+                        "Merge it by itself once its required checks and reviews pass"
+                    }
+                    Offer::DisableAutoMerge => "Leave it to merge by hand",
+                })
+        });
+        Some(
+            h_flex()
+                .gap(dp(10.))
+                .px(dp(12.))
+                .py(dp(10.))
+                .rounded(dp(6.))
+                .border_1()
+                .border_color(theme.border_2)
+                .child(icon(glyph).text_color(color))
+                .child(
+                    v_flex()
+                        .flex_grow(1.)
+                        .min_w_0()
+                        .child(
+                            div()
+                                .text_size(dp(13.))
+                                .font_weight(gpui::FontWeight::MEDIUM)
+                                .child(title),
+                        )
+                        .children(note.map(|note| muted(note, theme).truncate())),
+                )
+                .children(action),
+        )
     }
 
     /// A branch or commit's tabs: its changes, with how many files, and its pull request,
@@ -196,6 +316,7 @@ impl Detail {
                 theme,
             ))
             .children(stale)
+            .children(self.merge_box(theme, cx))
             .when(!body.is_empty(), |el| {
                 el.child(section("Description", None, theme).child(markdown::render(
                     &format!("review-{}", review.number),

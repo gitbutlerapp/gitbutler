@@ -8,7 +8,17 @@ use futures::{StreamExt as _, channel::mpsc};
 use gpui::{Context, Task};
 
 use super::{ProjectId, Reload, Store};
-use crate::backend;
+use crate::backend::reviews::{self, MergeStatus};
+use crate::backend::{self, Checks, Review};
+
+/// What the forge said about whether a pull request can merge, and what it was asked for:
+/// when the forge was last asked about the project, and the request's last change and
+/// checks then.
+pub(super) struct MergeRead {
+    asked_for: (Option<i64>, Option<i64>, Option<Checks>),
+    /// `None` until it answers; why it couldn't, if it couldn't.
+    status: Option<Result<MergeStatus, String>>,
+}
 
 impl Store {
     /// Fetch the expanded projects as often as GitButler's shared setting says, so what the
@@ -177,6 +187,78 @@ impl Store {
     /// When asking `id`'s forge last worked in this run, in seconds since the epoch.
     pub fn forge_synced(&self, id: &ProjectId) -> Option<i64> {
         self.forge_synced.get(id).copied()
+    }
+
+    /// Ask the forge whether `review` of `project` can merge, unless it was asked since the
+    /// forge was last asked about the project, with the request and its checks as they are.
+    /// What it said before shows meanwhile. GitHub works the answer out when asked, so while
+    /// it doesn't know yet this asks again a few times. Not while the window is hidden, as
+    /// nobody sees the answer; the reload as it shows again comes back here.
+    pub fn read_merge_status(
+        &mut self,
+        project: &ProjectId,
+        review: &Review,
+        cx: &mut Context<Self>,
+    ) {
+        if self.hidden {
+            return;
+        }
+        let asked_for = (self.forge_synced(project), review.updated_at, review.checks);
+        let key = (project.clone(), review.number);
+        let status = match self.merge_reads.remove(&key) {
+            Some(read) if read.asked_for == asked_for => {
+                self.merge_reads.insert(key, read);
+                return;
+            }
+            read => read.and_then(|read| read.status),
+        };
+        let Some(path) = self.path(project) else {
+            return;
+        };
+        self.merge_reads
+            .insert(key.clone(), MergeRead { asked_for, status });
+        let number = review.number;
+        cx.spawn(async move |this, cx| {
+            let mut asked = 0;
+            let status = loop {
+                let path = path.clone();
+                let status = backend::run(move || reviews::merge_status(&path, number)).await;
+                asked += 1;
+                let unknown = status.as_ref().is_ok_and(|status| {
+                    !status.is_mergeable
+                        && matches!(
+                            status.mergeable_state.as_deref(),
+                            None | Some("unknown" | "checking" | "unchecked")
+                        )
+                });
+                if !unknown || asked == 4 {
+                    break status;
+                }
+                cx.background_executor().timer(Duration::from_secs(2)).await;
+            };
+            this.update(cx, |store, cx| {
+                // Not over what a newer ask found.
+                if let Some(read) =
+                    (store.merge_reads.get_mut(&key)).filter(|read| read.asked_for == asked_for)
+                {
+                    read.status = Some(status.map_err(|err| format!("{err:#}")));
+                    cx.notify();
+                }
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// What the forge last said about whether pull request `number` of `project` can merge.
+    pub fn merge_status(
+        &self,
+        project: &ProjectId,
+        number: u64,
+    ) -> Option<&Result<MergeStatus, String>> {
+        (self.merge_reads.get(&(project.clone(), number)))?
+            .status
+            .as_ref()
     }
 
     /// Pull requests and CI change on the forge, where no watcher sees them: opening a

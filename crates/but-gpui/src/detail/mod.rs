@@ -583,6 +583,7 @@ impl Detail {
                 {
                     this.refresh_diff(false, cx);
                 }
+                this.read_merge_status(cx);
                 cx.notify()
             }),
         ];
