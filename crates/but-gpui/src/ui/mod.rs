@@ -1,5 +1,7 @@
 //! Shared building blocks so every surface draws rows, buttons and counts the same way.
 
+#[cfg(target_os = "linux")]
+pub mod alert;
 pub mod conflict;
 pub mod diff;
 pub mod emoji;
@@ -12,8 +14,8 @@ pub mod person;
 pub mod review;
 pub mod scrollbar;
 pub mod text_input;
-#[cfg(target_os = "windows")]
 pub mod window_controls;
+pub mod window_frame;
 
 use std::borrow::Cow;
 
@@ -45,24 +47,68 @@ pub const fn fixed(n: f32) -> Pixels {
     gpui::px(n)
 }
 
-/// `el`, in a header the window is dragged by, as it can be on Windows, still taking its own
-/// clicks: the drag area under it would take them. It's as it was elsewhere.
-pub fn above_drag<E: InteractiveElement>(el: E) -> E {
-    #[cfg(target_os = "windows")]
-    return el.occlude();
-    #[cfg(not(target_os = "windows"))]
+/// `el`, a header the window is dragged by, as a title bar is, where the app has none: Windows
+/// drags it itself, and on Linux the app starts the move once the pointer moves with the button
+/// held, so a click there is still a click. A double click maximizes it there, and a right
+/// click opens the window's menu, as GNOME's title bars do.
+pub fn drags_window(el: Div) -> Div {
+    let el = el.window_control_area(gpui::WindowControlArea::Drag);
+    #[cfg(target_os = "linux")]
+    let el = {
+        use std::cell::Cell;
+        thread_local! {
+            /// The left button went down on a header and hasn't moved or come up since.
+            static PRESSED: Cell<bool> = const { Cell::new(false) };
+        }
+        el.on_mouse_down(MouseButton::Left, |event, window, _| {
+            match event.click_count {
+                2 => window.zoom_window(),
+                _ => PRESSED.set(true),
+            }
+        })
+        .on_mouse_down_out(|_, _, _| PRESSED.set(false))
+        .on_mouse_up(MouseButton::Left, |_, _, _| PRESSED.set(false))
+        .on_mouse_move(|_, window, _| {
+            if PRESSED.replace(false) {
+                window.start_window_move();
+            }
+        })
+        .on_mouse_down(MouseButton::Right, |event, window, _| {
+            window.show_window_menu(event.position)
+        })
+    };
     el
 }
 
+/// `el`, in a header the window is dragged by, still taking its own clicks: the drag area under
+/// it would take them. It's as it was on macOS, which drags the window by its title bar only.
+pub fn above_drag<E: InteractiveElement>(el: E) -> E {
+    #[cfg(not(target_os = "macos"))]
+    return el.occlude();
+    #[cfg(target_os = "macos")]
+    el
+}
+
+/// Whether the app draws the window's minimize, maximize and close buttons: on Windows, and on
+/// Linux where the desktop leaves the window's frame to the app, as GNOME does on Wayland.
+pub fn draws_window_controls(window: &Window) -> bool {
+    cfg!(target_os = "windows")
+        || matches!(
+            window.window_decorations(),
+            gpui::Decorations::Client { .. }
+        )
+}
+
 /// What "Reveal in Finder" is called where the file manager isn't Finder.
-pub const REVEAL: &str = match cfg!(windows) {
-    true => "Reveal in File Explorer",
-    false => "Reveal in Finder",
+pub const REVEAL: &str = if cfg!(target_os = "macos") {
+    "Reveal in Finder"
+} else if cfg!(windows) {
+    "Reveal in File Explorer"
+} else {
+    "Reveal in File Manager"
 };
 
-/// How much of the header's right end Windows' window buttons cover: three as wide as Windows
-/// draws its own.
-pub const WINDOW_CONTROLS_WIDTH: f32 = 3. * 46.;
+pub use window_controls::WINDOW_CONTROLS_WIDTH;
 pub const ROW_HEIGHT: f32 = 28.;
 pub const HEADER_HEIGHT: f32 = 44.;
 pub const STATUS_BAR_HEIGHT: f32 = 28.;

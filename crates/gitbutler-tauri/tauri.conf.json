@@ -25,7 +25,7 @@
 		},
 		"linux": {
 			"rpm": {
-				"depends": ["webkit2gtk4.1"],
+				"depends": ["webkit2gtk4.1", "libxkbcommon-x11"],
 				"compression": {
 					"type": "zstd",
 					"level": 3
@@ -34,7 +34,7 @@
 				"preRemoveScript": "rpm-preremove.sh"
 			},
 			"deb": {
-				"depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],
+				"depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0", "libxkbcommon-x11-0"],
 				"files": {
 					"/usr/share/metainfo/com.gitbutler.gitbutler.metainfo.xml": "com.gitbutler.gitbutler.metainfo.xml"
 				}

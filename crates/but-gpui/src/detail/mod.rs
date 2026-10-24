@@ -2265,7 +2265,7 @@ impl Render for Detail {
             })
             .size_full()
             .bg(theme.bg_1)
-            .child(self.render_header(selection.as_ref(), &theme, cx))
+            .child(self.render_header(selection.as_ref(), &theme, window, cx))
             .child(div().flex_1().min_h_0().child(body))
     }
 }

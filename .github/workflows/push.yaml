@@ -290,6 +290,9 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Dependencies for 'keyring'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
+      # fontconfig's build script looks it up with pkg-config.
+      - name: Dependencies for the GPUI client
+        run: sudo apt-get install -y --no-install-recommends libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev
       - name: Check documentation
         run: cargo doc --workspace --no-deps --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly
 
@@ -333,6 +336,10 @@ jobs:
       - name: Dependencies for 'keyring'
         if: runner.os == 'Linux'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
+      # The libraries GPUI links to on Linux, for its windows and its font lookup.
+      - name: Dependencies for the GPUI client
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y --no-install-recommends libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev
       - name: Install cargo-nextest (Linux)
         if: runner.os == 'Linux'
         run: |

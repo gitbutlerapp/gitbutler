@@ -32,6 +32,7 @@ impl Detail {
         &self,
         selection: Option<&Selection>,
         theme: &Theme,
+        window: &Window,
         cx: &Context<Self>,
     ) -> impl IntoElement {
         let store = self.store.read(cx);
@@ -178,11 +179,11 @@ impl Detail {
                 self.beside_traffic_lights && cfg!(target_os = "macos"),
                 |el| el.pl(fixed(84.)),
             )
-            // Clear of Windows' window buttons, which the app draws over its right end.
-            .when(cfg!(target_os = "windows"), |el| {
+            // Clear of the window's buttons, where the app draws them over its right end.
+            .when(crate::ui::draws_window_controls(window), |el| {
                 el.pr(fixed(WINDOW_CONTROLS_WIDTH + 12.))
             })
-            .window_control_area(gpui::WindowControlArea::Drag)
+            .map(crate::ui::drags_window)
             .gap(dp(12.))
             .bg(theme.bg_2)
             .border_b_1()

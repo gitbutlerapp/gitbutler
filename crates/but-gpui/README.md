@@ -4,18 +4,20 @@ An experimental native GitButler client built on [GPUI](https://gpui.rs), the UI
 
 ## Run it
 
-From the repository root, on macOS or Windows:
+From the repository root, on macOS, Windows or Linux:
 
 ```bash
 cargo build -p gitbutler-git --bins   # once: the askpass helper that push and fetch run
 cargo run -p but-gpui
 ```
 
+On Linux, GPUI also links to libxcb, libxkbcommon and fontconfig: on Debian or Ubuntu, `sudo apt install libxcb1-dev libxkbcommon-x11-dev libfontconfig-dev`.
+
 The project list comes from the app data of the build's channel, which is `dev` by default. Build with `CHANNEL=nightly` (or `release`) to see the projects of an installed GitButler.
 
 ## What you can do
 
-Keys are written as on macOS. On Windows, ⌘ is Ctrl and ⌥ is Alt, as the app's own labels show.
+Keys are written as on macOS. On Windows and Linux, ⌘ is Ctrl and ⌥ is Alt, as the app's own labels show.
 
 The app is built for watching what coding agents change. Reading their changes comes first, and committing by hand is there when you need it. It follows their changes as they land while any of its window shows. Hidden, behind another app's windows, minimized, on another Space or with the display asleep, it reads no changes and catches up once it shows again, so an agent at work costs a laptop's battery almost nothing while the app sits out of sight. It still asks the forge about pull requests and CI, every five minutes instead of every minute, as agents read what it last heard through `but`.
 
@@ -81,7 +83,7 @@ Changes to commits, branches and the main checkout's files undo with ⌘Z, and t
 
 With no projects yet, the window says what the app is for and offers to add or clone a repository. File → Clone Repository… asks for a URL and a folder, clones it there and adds it. A project whose folder moved stays listed and says so, with Remove. A project with no target branch offers to pick one from its remote branches. One that an older GitButler stored as a remote branch several local branches track, as agent worktrees' branches made from origin/main do, says Choose which branch is its target under its name in the navigator, and its page and checkout pages ask: whether to use the one named as the remote's branch, as main is for origin/main, with Use main, else which of those tracking it, a row each, and Choose another… to pick any local branch. Picking one makes it the target and opens the project.
 
-The Help menu links the docs, the release notes and where to report an issue, shows the folder GitButler keeps its settings in, and opens the command palette as the list of shortcuts. Windows has no menu bar, so the palette has these commands too. When a commit or amend has to leave changes out, the error says why for each, in plain words. While Git's index is locked, as by a Git that crashed and left `.git/index.lock` behind, operations that change files refuse up front, saying so, rather than stop partway; fetching and pushing still run.
+The Help menu links the docs, the release notes and where to report an issue, shows the folder GitButler keeps its settings in, and opens the command palette as the list of shortcuts. Windows and Linux have no menu bar, so the palette has these commands too. When a commit or amend has to leave changes out, the error says why for each, in plain words. While Git's index is locked, as by a Git that crashed and left `.git/index.lock` behind, operations that change files refuse up front, saying so, rather than stop partway; fetching and pushing still run.
 
 | Anywhere | |
 |---|---|
@@ -148,7 +150,7 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 - `src/palette.rs` is the command palette, `src/overlays.rs` the menus, prompts, modals and snackbars above the window, and `src/status_bar.rs` the strip along the bottom.
 - `src/ui` has the small components GPUI doesn't ship: buttons, a text field, a scrollbar, diff rows, and the empty states with ui-react's drawings, read from `packages/ui-react` and coloured for the theme.
 
-It is a member of the main workspace, so `cargo check --workspace` catches `but-api` changes that break it. GPUI is a git dependency on Zed that brings around 900 crates and needs Rust 1.98. macOS and Windows build the client. On Linux GPUI needs system libraries the workspace's CI doesn't install, so `main` is a stub there and GPUI isn't compiled. The desktop app's binary can start it too: built with `gitbutler-tauri`'s `builtin-gpui` feature on macOS or Windows, it runs this client instead of the web one when started with `--gpui`, or always when GitButler's `featureFlags.gpui` setting is on, which only this client's Settings › Experimental › Open this app at start shows (or an edit of `settings.json`), on the same settings, accounts and keychain entries. Started that way, it asks the web app's update feed for a newer version as often as the web app would, and New version beside Sign in restarts into the web app once to install it; the web app's own restart after installing comes back here when that setting is on. GitButler › Check for Updates… asks the feed at once and offers that restart, or says the app is up to date. With the update interval at 0, as builds that don't update themselves set it, the client neither checks nor shows the menu item.
+It is a member of the main workspace, so `cargo check --workspace` catches `but-api` changes that break it. GPUI is a git dependency on Zed that brings around 900 crates and needs Rust 1.98. It builds on macOS, Windows and Linux. On Linux it opens on Wayland or X11, whichever the session runs, and draws its own window frame where the desktop leaves that to the app, as GNOME does on Wayland: a shadow whose band resizes the window, the buttons Windows has, and a header that drags the window, maximizes it on a double click and opens the window menu on a right click. The desktop app's binary can start it too: built with `gitbutler-tauri`'s `builtin-gpui` feature, it runs this client instead of the web one when started with `--gpui`, or always when GitButler's `featureFlags.gpui` setting is on, which only this client's Settings › Experimental › Open this app at start shows (or an edit of `settings.json`), on the same settings, accounts and keychain entries. If it can't open its window, as when the GPU's drivers can't draw it, the web app opens instead. Started that way, it asks the web app's update feed for a newer version as often as the web app would, and New version beside Sign in restarts into the web app once to install it; the web app's own restart after installing comes back here when that setting is on. GitButler › Check for Updates… asks the feed at once and offers that restart, or says the app is up to date. With the update interval at 0, as builds that don't update themselves set it, the client neither checks nor shows the menu item.
 
 ## Development
 

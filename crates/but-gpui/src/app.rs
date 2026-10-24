@@ -113,7 +113,7 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("secondary-backspace", DeleteSelection, nav),
         KeyBinding::new("secondary-alt-backspace", UncommitSelection, nav),
     ]);
-    // Windows has these on the title bar instead.
+    // Elsewhere the window's buttons do these.
     #[cfg(target_os = "macos")]
     cx.bind_keys([
         KeyBinding::new("cmd-h", Hide, None),
@@ -427,14 +427,7 @@ impl AppView {
                 // loop, which would enter the app again while this holds it.
                 let store = app.store.clone();
                 cx.spawn(async move |_, cx| {
-                    let restarted = backend::run(|| {
-                        let exe = std::env::current_exe()?;
-                        std::process::Command::new(exe)
-                            .env(crate::WEB_APP_ONCE, "1")
-                            .spawn()?;
-                        Ok(())
-                    })
-                    .await;
+                    let restarted = backend::run(|| Ok(crate::open_web_app()?)).await;
                     match restarted {
                         Ok(()) => cx.update(|cx| cx.quit()),
                         Err(err) => store.update(cx, |store, cx| {
@@ -907,7 +900,7 @@ impl Render for AppView {
         let has_update_feed = cx
             .try_global::<crate::Embedded>()
             .is_some_and(|e| e.update_feed.is_some());
-        div()
+        let root = div()
             .id("root")
             .role(Role::Application)
             .aria_label("GitButler")
@@ -1074,12 +1067,10 @@ impl Render for AppView {
             .children(self.render_menu(cx))
             .children(self.render_icon_picker(window, cx))
             // Last, so the window can be closed while a modal or menu is open.
-            .map(|el| {
-                #[cfg(target_os = "windows")]
-                return el.child(crate::ui::window_controls::window_controls(window, cx));
-                #[cfg(not(target_os = "windows"))]
-                el
-            })
+            .when(crate::ui::draws_window_controls(window), |el| {
+                el.child(crate::ui::window_controls::window_controls(window, cx))
+            });
+        crate::ui::window_frame::window_frame(root, window, cx)
     }
 }
 
