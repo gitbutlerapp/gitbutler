@@ -339,7 +339,7 @@ impl Detail {
                         app.confirm_then(
                             Some(at),
                             format!("Finish with {} still conflicted?", plural(left, "file")),
-                            "Their conflict markers go into the commit as they are.",
+                            "They go into the commit as they are now, with any conflict markers.",
                             "Finish",
                             window,
                             cx,
