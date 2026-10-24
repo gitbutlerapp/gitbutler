@@ -328,12 +328,20 @@ pub fn create_branch(path: &Path, name: Option<&str>) -> Result<String> {
     refuse_unborn(&ctx)?;
     let head = ctx.repo.get()?.head_name()?;
     // A branch made here and checked out couldn't be undone: the oplog takes a detached
-    // HEAD for the workspace and would restore that instead.
-    anyhow::ensure!(
-        head.is_some(),
-        "No branch is checked out (HEAD is detached). Check one out, or make one with \
-         `git switch -c <name>`, first."
-    );
+    // HEAD for the workspace and would restore that instead. Git detaches it while it
+    // rebases, which a new branch would leave unfinished.
+    if head.is_none() {
+        match super::git_operation(&*ctx.repo.get()?) {
+            Some(op) => bail!(
+                "{op} isn't finished. Finish it with `{op} --continue`, or stop it with \
+                 `{op} --abort`, first."
+            ),
+            None => bail!(
+                "No branch is checked out (HEAD is detached). Check one out, or make one \
+                 with `git switch -c <name>`, first."
+            ),
+        }
+    }
     let checked_out = head.filter(|head| {
         head.as_bstr() != but_core::WORKSPACE_REF_NAME
             && head.as_ref().category() == Some(gix::refs::Category::LocalBranch)
