@@ -173,7 +173,7 @@ impl Detail {
 
     /// What `conflict`'s sides are called, alone and in a sentence. A commit sits on the
     /// target when it's its stack's oldest, else on the commit below, as a commit checked out
-    /// for editing does. An update's markers put the uncommitted changes first, as Git's do,
+    /// for editing does, and then its lines can come from the target too. An update's markers put the uncommitted changes first, as Git's do,
     /// then what the update brought; any other merge's markers name the sides themselves.
     fn side_names(&self, conflict: &Conflict, cx: &App) -> [(String, String); 2] {
         let Some((project, conflicted)) = self.conflicted() else {
@@ -195,12 +195,15 @@ impl Detail {
         match conflicted {
             Conflicted::Commit(id) => {
                 let oldest = workspace.is_some_and(|ws| oldest_first(ws, id).first() == Some(&id));
-                [
-                    target
-                        .filter(|_| oldest)
-                        .unwrap_or_else(|| named("Commit below", "the commit below")),
-                    named("This commit", "this commit"),
-                ]
+                let base = match target {
+                    Some(target) if oldest => target,
+                    Some((name, _)) => (
+                        format!("{name} and below"),
+                        format!("{name} and the commits below"),
+                    ),
+                    None => named("Commit below", "the commit below"),
+                };
+                [base, named("This commit", "this commit")]
             }
             Conflicted::Files(_) => match &conflict.labels {
                 [ours, theirs] if ours.is_empty() || (ours == "ours" && theirs == "theirs") => [
