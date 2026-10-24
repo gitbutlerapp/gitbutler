@@ -373,13 +373,17 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
             } else {
                 MouseButton::Left
             };
-            // A double or triple click is the clicks before it, then one with that count.
+            // A double or triple click is the clicks before it, then one with that count, a
+            // frame apart, as a hand's are, so each sees what the one before it changed.
             let clicks = match command {
                 "dclick" => 2,
                 "tclick" => 3,
                 _ => 1,
             };
             for count in 1..=clicks {
+                if count > 1 {
+                    frame(window, cx);
+                }
                 window.dispatch_event(mouse_move(at, None, modifiers), cx);
                 window.dispatch_event(mouse_down(button, at, modifiers, count), cx);
                 window.dispatch_event(mouse_up(button, at, modifiers, count), cx);

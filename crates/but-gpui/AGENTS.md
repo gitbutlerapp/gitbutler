@@ -234,6 +234,8 @@ anything else.
   started.
 - Each step settles for 120ms, so a delay shorter than that never shows. Stretch the constant to
   check one. A hover registers only after a second small `move`.
+- `dclick` draws a frame between its clicks, as a hand's double-click has several, so the second
+  click's handler sees what the first one changed, not what the step started with.
 - `drop` moves the pointer before letting go, and that move redraws. `release` lets go in place,
   which catches a drag end that forgets to redraw. `drag` presses and moves with no frame
   between; `press`, then `move`s a step apart, drags with frames between, as a hand does.
