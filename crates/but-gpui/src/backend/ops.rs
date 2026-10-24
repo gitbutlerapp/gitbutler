@@ -212,7 +212,7 @@ pub(super) fn branch_ref(name: &str) -> Result<gix::refs::FullName> {
 /// What a hook printed, as an error card shows it: its last lines first, where a linter or
 /// test runner says what failed, without the labels put before each of its streams, then all
 /// of it, for copying.
-fn hook_output(output: &str) -> String {
+pub(super) fn hook_output(output: &str) -> String {
     let said: Vec<&str> = (output.lines())
         .map(str::trim_end)
         .filter(|line| !matches!(line.trim(), "" | "stdout:" | "stderr:"))

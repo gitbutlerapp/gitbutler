@@ -656,11 +656,20 @@ pub fn push(
             ),
         )
         .map_err(|err| {
+            let root = err.root_cause().to_string();
+            if let Some(output) = root.strip_prefix("pre-push hook failed: ") {
+                let output = super::ops::hook_output(output);
+                return anyhow::anyhow!("The pre-push hook refused the push:\n{output}");
+            }
             if err.downcast_ref::<but_error::Code>() != Some(&but_error::Code::GitNonFastForward) {
                 return err;
             }
             tracing::warn!(?err, "push rejected");
-            anyhow::anyhow!("The remote has commits this branch doesn't. Fetch, then pull them in.")
+            anyhow::anyhow!(match force {
+                // Forced, it's the remote that won't rewrite it.
+                true => "The remote refused the force push, as it does for a protected branch.",
+                false => "The remote has commits this branch doesn't. Fetch, then pull them in.",
+            })
         })?;
     let short = short_ref(ref_name);
     let remote = (outcome.push.branch_to_remote.into_iter())
