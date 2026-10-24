@@ -295,21 +295,23 @@ impl Detail {
         }
         // By path: finding each file in the diff in turn takes time squared in the files, as
         // after an `npm install` with nothing ignored.
-        let hunks: HashMap<&str, &[Hunk]> = (self.checks_diff().into_iter())
+        let loaded: HashMap<&str, &FileDiff> = (self.checks_diff().into_iter())
             .flat_map(|diff| diff.files.iter())
-            .map(|f| (f.file.path.as_str(), f.hunks()))
+            .map(|f| (f.file.path.as_str(), f))
             .collect();
         (files.iter())
-            .filter_map(|file| {
-                let hunks = hunks.get(file.path.as_str()).copied().unwrap_or_default();
-                self.selected_change(file, hunks)
-            })
+            .filter_map(|file| self.selected_change(file, loaded.get(file.path.as_str()).copied()))
             .collect()
     }
 
-    /// What of uncommitted `file`, whose loaded `hunks` these are, is checked: the file
-    /// narrowed to its checked hunks and lines, unless none of it is.
-    pub(super) fn selected_change(&self, file: &FileChange, hunks: &[Hunk]) -> Option<Selected> {
+    /// What of uncommitted `file`, as `loaded` in the diff, is checked: the file narrowed to
+    /// its checked hunks and lines, unless none of it is.
+    pub(super) fn selected_change(
+        &self,
+        file: &FileChange,
+        loaded: Option<&FileDiff>,
+    ) -> Option<Selected> {
+        let hunks = loaded.map_or(&[][..], FileDiff::hunks);
         if self.checks.unchecked.contains(&file.path) {
             return None;
         }
@@ -332,7 +334,11 @@ impl Detail {
             return None;
         }
         Some(Selected {
-            file: file.clone(),
+            // Picked hunks go with the file as the diff read it, whose lines place them, so a
+            // write since is refused rather than taking whatever lies there now.
+            file: (loaded.filter(|_| partial))
+                .map_or(file, |loaded| &loaded.file)
+                .clone(),
             hunks: partial.then_some(picked),
         })
     }
@@ -359,8 +365,12 @@ impl Detail {
 
     /// The hunks of `path` in the loaded worktree diff.
     pub(super) fn worktree_file_hunks(&self, path: &str) -> &[Hunk] {
-        self.checks_diff()
-            .map_or(&[], |diff| file_hunks(&diff.files, path))
+        self.loaded_file(path).map_or(&[], FileDiff::hunks)
+    }
+
+    /// `path` as the diff of the composer's checkout loaded it.
+    pub(super) fn loaded_file(&self, path: &str) -> Option<&FileDiff> {
+        (self.checks_diff()?.files.iter()).find(|f| f.file.path == path)
     }
 
     /// The loaded diff when it's of the checkout the checks are about: another's stays on

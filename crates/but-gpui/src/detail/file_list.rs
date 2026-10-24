@@ -907,8 +907,8 @@ impl Detail {
                 worktree,
                 ..
             }) if !picked && extras.checkbox == Some(Toggled::Mixed) => {
-                let hunks = self.worktree_file_hunks(&file.path);
-                (self.selected_change(file, hunks)).map(|change| Cut::Files {
+                let loaded = self.loaded_file(&file.path);
+                (self.selected_change(file, loaded)).map(|change| Cut::Files {
                     project: project.clone(),
                     from: *from,
                     worktree: worktree.clone(),
