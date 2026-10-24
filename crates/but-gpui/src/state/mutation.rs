@@ -954,6 +954,71 @@ impl Store {
         );
     }
 
+    /// Open `ref_name`'s pull request, pushing it and the branches below it first where they
+    /// have anything to push. A failure's card tries again with the same title and description.
+    pub fn publish(
+        &mut self,
+        project: &ProjectId,
+        ref_name: String,
+        title: String,
+        body: String,
+        draft: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let published = project.clone();
+        let run_hooks = self.runs_hooks(project);
+        self.run(
+            project,
+            "Create pull request",
+            Overlay::push(&ref_name, true),
+            {
+                let (ref_name, title, body) = (ref_name.clone(), title.clone(), body.clone());
+                move |path, _| {
+                    let made =
+                        backend::reviews::publish(path, &ref_name, title, body, draft, run_hooks);
+                    Ok(
+                        made.map_err(|err| match backend::push_refusal(&err).as_deref() {
+                            None => backend::failure_detail(&err),
+                            Some("") => "Someone pushed to the branch since the last fetch, and \
+                                     pushing would drop their commits. Fetch to see them."
+                                .to_owned(),
+                            Some(said) => format!("The remote refused the push: {said}"),
+                        }),
+                    )
+                }
+            },
+            move |store, made, cx| {
+                // The push can move the stack's other pull requests too.
+                store.refresh_forge(&published);
+                match made {
+                    Ok(made) => {
+                        store.pushed(&published);
+                        let said = format!("Created pull request #{}", made.number);
+                        store.snack(store.card_title(&published, said), cx);
+                        if let Some(message) = made.sync_failed {
+                            let said = "The stack's other pull requests weren't updated";
+                            store.error(said, message, cx);
+                        }
+                    }
+                    Err(failed) => {
+                        let said = "Couldn't create the pull request".to_owned();
+                        store.error_with_retry(
+                            store.card_title(&published, said),
+                            failed,
+                            "Try again",
+                            move |store, cx| {
+                                let (title, body) = (title.clone(), body.clone());
+                                store.publish(&published, ref_name.clone(), title, body, draft, cx)
+                            },
+                            cx,
+                        );
+                    }
+                }
+            },
+            cx,
+        );
+    }
+
     /// Hide linked worktree `name` from the workspace, or with `archived` false show it
     /// again. Like GitButler's other apps, this isn't something undo takes back.
     pub fn set_worktree_archived(

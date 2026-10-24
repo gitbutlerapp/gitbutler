@@ -40,10 +40,6 @@ pub struct ReviewView {
     draft: bool,
     /// The title and description being written with AI, streaming into the fields.
     writing: Option<Task<()>>,
-    /// The pull request is being created; the form closes once it is.
-    submitting: bool,
-    /// Why creating it failed, with the form left as it was to try again.
-    error: Option<String>,
 }
 
 impl EventEmitter<DismissEvent> for ReviewView {}
@@ -75,18 +71,8 @@ impl ReviewView {
             })
             .detach();
         }
-        // The store can turn the operation down before it starts, as while `but resolve`
-        // edits a commit, and then nothing reports back: the form is free again.
-        cx.subscribe(&store, |this, store, event, cx| match event {
-            StoreEvent::Pending(project)
-                if this.submitting
-                    && *project == this.project
-                    && !store.read(cx).publishing(&this.project, &this.branch) =>
-            {
-                this.submitting = false;
-                cx.notify();
-            }
-            // What's written stays for the branch under its new name, as an agent renamed it.
+        // What's written stays for the branch under its new name, as an agent renamed it.
+        cx.subscribe(&store, |this, _, event, cx| match event {
             StoreEvent::Renamed(project, from, to)
                 if *project == this.project && *from == this.branch =>
             {
@@ -146,8 +132,6 @@ impl ReviewView {
             target: None,
             draft: false,
             writing: None,
-            submitting: false,
-            error: None,
         }
     }
 
@@ -207,67 +191,19 @@ impl ReviewView {
         cx.notify();
     }
 
+    /// Close the form and create the pull request: the branch's row shows it coming, as the
+    /// push and the forge take seconds, and a failure's card tries again with what was typed.
     fn submit(&mut self, cx: &mut Context<Self>) {
         let title = self.title.read(cx).text().trim().to_owned();
-        if title.is_empty() || self.writing.is_some() || self.submitting {
+        if title.is_empty() || self.writing.is_some() {
             return;
         }
         let body = self.body.read(cx).text().trim().to_owned();
-        let (branch, draft) = (self.branch.clone(), self.draft);
-        let project = self.project.clone();
-        let refreshed = project.clone();
-        let view = cx.entity().downgrade();
-        self.submitting = true;
-        self.error = None;
-        cx.notify();
-        self.store.update(cx, |store, cx| {
-            let run_hooks = store.runs_hooks(&project);
-            store.run(
-                &project,
-                "Create pull request",
-                Overlay::push(&branch, true),
-                // A failure goes to the form, which keeps what was typed.
-                move |path, _| {
-                    let published = reviews::publish(path, &branch, title, body, draft, run_hooks);
-                    Ok(
-                        published.map_err(|err| match backend::push_refusal(&err).as_deref() {
-                            None => format!("{err:#}"),
-                            Some("") => "Someone pushed to the branch since the last fetch, and \
-                                     pushing would drop their commits. Fetch to see them."
-                                .to_owned(),
-                            Some(said) => format!("The remote refused the push: {said}"),
-                        }),
-                    )
-                },
-                move |store, published, cx| {
-                    // The push can move the stack's other pull requests too.
-                    store.refresh_forge(&refreshed);
-                    match published {
-                        Ok(published) => {
-                            store.pushed(&refreshed);
-                            let made = format!("Created pull request #{}", published.number);
-                            store.snack(store.card_title(&refreshed, made), cx);
-                            if let Some(message) = published.sync_failed {
-                                let title = "The stack's other pull requests weren't updated";
-                                store.error(title, message, cx);
-                            }
-                            view.update(cx, |_, cx| cx.emit(DismissEvent)).ok();
-                        }
-                        Err(failed) => {
-                            let shown = view.update(cx, |this, cx| {
-                                this.submitting = false;
-                                this.error = Some(failed.clone());
-                                cx.notify();
-                            });
-                            if shown.is_err() {
-                                store.error("Create pull request failed", failed, cx);
-                            }
-                        }
-                    }
-                },
-                cx,
-            )
+        let (project, branch, draft) = (self.project.clone(), self.branch.clone(), self.draft);
+        (self.store).update(cx, |store, cx| {
+            store.publish(&project, branch, title, body, draft, cx)
         });
+        cx.emit(DismissEvent);
     }
 }
 
@@ -387,14 +323,7 @@ impl Render for ReviewView {
                                     .child(div().text_size(dp(13.)).child("Draft"))
                                     .child(muted("Not ready for review yet", &theme)),
                             ),
-                    )
-                    .children(self.error.clone().map(|err| {
-                        div()
-                            .pt(dp(4.))
-                            .text_size(dp(12.))
-                            .text_color(theme.danger)
-                            .child(err)
-                    })),
+                    ),
             )
             .child(
                 h_flex()
@@ -412,25 +341,16 @@ impl Render for ReviewView {
                             .on_click(cx.listener(|_, _, _, cx| cx.emit(DismissEvent))),
                     )
                     .child(
-                        button(
-                            "pr-submit",
-                            if self.submitting {
-                                "Creating…"
+                        button("pr-submit", confirm)
+                            .style(ButtonStyle::Gray)
+                            .disabled_because(if self.writing.is_some() {
+                                Some("Wait for the AI to finish writing")
+                            } else if empty_title {
+                                Some("Give it a title first")
                             } else {
-                                confirm
-                            },
-                        )
-                        .style(ButtonStyle::Gray)
-                        .disabled_because(if self.submitting {
-                            Some("Creating the pull request…")
-                        } else if self.writing.is_some() {
-                            Some("Wait for the AI to finish writing")
-                        } else if empty_title {
-                            Some("Give it a title first")
-                        } else {
-                            None
-                        })
-                        .on_click(cx.listener(|this, _, _, cx| this.submit(cx))),
+                                None
+                            })
+                            .on_click(cx.listener(|this, _, _, cx| this.submit(cx))),
                     ),
             )
     }
@@ -488,6 +408,10 @@ impl AppView {
         let Some((project, branch, None)) = self.review_target(cx) else {
             return;
         };
+        // The form closes as it's submitted, so another would open a second pull request.
+        if self.store.read(cx).publishing(&project, &branch) {
+            return snack(&self.store, "Its pull request is being created", cx);
+        }
         // Creating one pushes first.
         let refused =
             (self.store.read(cx).workspace(&project)).and_then(|ws| ws.push_refused(&branch));

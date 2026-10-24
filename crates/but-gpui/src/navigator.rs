@@ -1826,8 +1826,11 @@ impl Navigator {
         let name = store.name_of(id, branch);
         let unpushed_n = unpushed(std::iter::once(branch));
         let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
+        // Its pull request shows as it's asked for, pulsing until the forge has it.
+        let publishing = branch.review.is_none() && store.publishing(id, ref_name);
         let (glyph, glyph_color) = match (&branch.review, branch.push) {
             (Some(review), _) => review::state_glyph(store.review_state(id, review), theme),
+            (None, _) if publishing => review::state_glyph(ReviewState::Open, theme),
             // Landed without a pull request, as one that landed with one shows.
             (None, PushState::Integrated) => (Icon::BranchMerge, theme.purple),
             (None, _) => (Icon::Branch, style.muted()),
@@ -1880,7 +1883,10 @@ impl Navigator {
                 .row(format!("branch-{id}-{ref_name}"), 6.)
                 .aria_label(format!("Branch {name}"))
                 .child(step)
-                .child(icon(glyph).text_color(style.meta(glyph_color)))
+                .child(match icon(glyph).text_color(style.meta(glyph_color)) {
+                    glyph if publishing => pulsing(glyph).into_any_element(),
+                    glyph => glyph.into_any_element(),
+                })
                 .child(
                     branch_name(name, review, unread, &style)
                         .id(ElementId::Name(format!("name-{id}-{ref_name}").into()))
