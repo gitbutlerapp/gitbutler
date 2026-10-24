@@ -394,6 +394,11 @@ impl Detail {
             .and_then(|hunk| Some(file.hunks().get(hunk)?.key));
         match hunk {
             Some(key) => self.toggle_hunk(&path, key, cx),
+            // The files selected with it go as it goes.
+            None if self.file_picks.contains(&path) => {
+                let check = self.checks.file_check(&path) == Toggled::False;
+                self.set_checked(self.file_picks.to_vec(), check, cx)
+            }
             None => self.toggle_checked(&path, cx),
         }
     }
@@ -1081,21 +1086,24 @@ impl Detail {
     }
 
     pub(super) fn toggle_checked(&mut self, path: &str, cx: &mut Context<Self>) {
+        let check = self.checks.file_check(path) == Toggled::False;
+        self.set_checked(vec![path.to_owned()], check, cx);
+    }
+
+    /// Put the whole of each of `paths` in the next commit, or with `check` false, leave it out.
+    fn set_checked(&mut self, paths: Vec<String>, check: bool, cx: &mut Context<Self>) {
         let checks = &mut self.checks;
-        let check = checks.file_check(path);
-        checks
-            .unchecked_hunks
-            .retain(|(hunk_path, _)| hunk_path != path);
-        checks
-            .line_picks
-            .retain(|(hunk_path, _), _| hunk_path != path);
-        match check {
-            Toggled::True | Toggled::Mixed => {
-                checks.unchecked.insert(path.to_owned());
-            }
-            Toggled::False => {
-                checks.unchecked.remove(path);
-            }
+        for path in paths {
+            checks
+                .unchecked_hunks
+                .retain(|(hunk_path, _)| *hunk_path != path);
+            checks
+                .line_picks
+                .retain(|(hunk_path, _), _| *hunk_path != path);
+            match check {
+                true => checks.unchecked.remove(&path),
+                false => checks.unchecked.insert(path),
+            };
         }
         cx.emit(ChecksChanged);
         cx.notify();

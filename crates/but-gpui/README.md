@@ -91,7 +91,7 @@ The Help menu links the docs, the release notes and where to report an issue, sh
 | ⌘↩ | write the commit message, or commit once it's written |
 | ⌥⌘↩ | while committing: amend the newest commit of the branch you're committing to instead |
 | ⇧⌘B | while committing: pick the branch to commit to |
-| Space, X | while committing: check or uncheck the file under the cursor in the file list, the hunk under it in the diff |
+| Space, X | while committing: check or uncheck the file under the cursor in the file list, with the files selected along with it, or the hunk under it in the diff |
 | ⌘Z, ⇧⌘Z | undo, redo; in a text field, the typing |
 | ⌘X, ⌘V | cut the selection (from a diff or its files, the lines, hunk or file under the cursor, or while committing, what's checked), paste it onto the selected row (⌥⌘V squashes a commit instead of moving it, ⇧⌘V puts it below) |
 | ⌘N | new branch |
