@@ -376,6 +376,8 @@ fn files_named(files: &[String]) -> String {
     }
 }
 
+const WAIT_TO_UNDO: &str = "Wait for the running operation to finish, then undo it";
+
 /// Now, in milliseconds since the Unix epoch, as file times are.
 fn now_millis() -> i64 {
     (SystemTime::now().duration_since(UNIX_EPOCH)).map_or(0, |t| t.as_millis() as i64)
@@ -400,18 +402,9 @@ impl Store {
         // The newest step not being undone already, as by a ⌘Z just before.
         let last = (self.undo_steps.iter().rev())
             .find(|step| !self.pending(&step.project, Some(&OpKind::Undo(step.snapshot)), false));
-        // Asked for after it and still running, an operation, a redo too, is what the user
-        // means to undo.
-        let newer = |asked: Instant| last.is_none_or(|step| asked > step.asked);
-        if (self.unfinished_asked())
-            // A push running too, which would come before the undo it was asked before.
-            .any(|(o, asked)| {
-                (!o.remote_only || o.pushes.is_some())
-                    && !matches!(o.kind, OpKind::Undo(_))
-                    && newer(asked)
-            })
-        {
-            return self.snack("Wait for the running operation to finish, then undo it", cx);
+        // Asked for after it in any project, as ⌘Z follows the user there, and still running.
+        if self.running_after(last.map(|step| step.asked), None) {
+            return self.snack(WAIT_TO_UNDO, cx);
         }
         match last.map(|step| (step.project.clone(), step.snapshot)) {
             Some((project, snapshot)) => self.undo_snapshot(&project, snapshot, true, cx),
@@ -419,12 +412,24 @@ impl Store {
         }
     }
 
-    /// Every operation waiting or running, but for one waiting only for its reload, with when
-    /// it was asked for.
-    fn unfinished_asked(&self) -> impl Iterator<Item = (&Overlay, Instant)> {
-        let running = self.running.values().filter(|r| !r.settling);
-        (running.map(|r| (&r.overlay, r.asked)))
-            .chain(self.queue.iter().map(|q| (&q.overlay, q.asked)))
+    /// Whether an operation asked for after `asked`, or any at all without it, is waiting or
+    /// running in `project`, or in any without it, a push or a redo too: it's what the user
+    /// means to undo, and an undo asked for now would run after it.
+    fn running_after(&self, asked: Option<Instant>, project: Option<&ProjectId>) -> bool {
+        self.unfinished_asked().any(|(p, o, at)| {
+            project.is_none_or(|project| p == project)
+                && (!o.remote_only || o.pushes.is_some())
+                && !matches!(o.kind, OpKind::Undo(_))
+                && asked.is_none_or(|asked| at > asked)
+        })
+    }
+
+    /// Every operation waiting or running, but for one waiting only for its reload, with its
+    /// project and when it was asked for.
+    fn unfinished_asked(&self) -> impl Iterator<Item = (&ProjectId, &Overlay, Instant)> {
+        let running = self.running.iter().filter(|(_, r)| !r.settling);
+        (running.map(|(p, r)| (p, &r.overlay, r.asked)))
+            .chain(self.queue.iter().map(|q| (&q.project, &q.overlay, q.asked)))
     }
 
     /// Make the operation that recorded `snapshot` in `project` one ⌘Z takes back, among the
@@ -462,7 +467,7 @@ impl Store {
 
     /// Redo what ⌘Z last took back, unless the user has done something since.
     pub fn redo_last(&mut self, cx: &mut Context<Self>) {
-        if (self.unfinished_asked()).any(|(o, _)| matches!(o.kind, OpKind::Undo(_))) {
+        if (self.unfinished_asked()).any(|(_, o, _)| matches!(o.kind, OpKind::Undo(_))) {
             return self.snack("Wait for the undo to finish, then redo it", cx);
         }
         // The newest not being redone already.
@@ -586,6 +591,9 @@ impl Store {
         let step = (self.undo_steps.iter())
             .find(|step| step.project == *project && step.snapshot == snapshot);
         let asked = step.map(|step| step.asked);
+        if guard && self.running_after(asked, Some(project)) {
+            return self.snack(WAIT_TO_UNDO, cx);
+        }
         let newer_than = (step.filter(|_| guard)).map(|step| step.done);
         let again = project.clone();
         if (newer_than.zip(self.pushed_at.get(project)))
