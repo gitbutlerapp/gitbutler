@@ -723,9 +723,9 @@ mod tests {
     }
 
     fn numbered_targets(
-        groups: Vec<Vec<but_forge::ForgeReviewUpdate>>,
+        groups: Vec<Vec<(gix::refs::FullName, but_forge::ForgeReviewTargetUpdate)>>,
     ) -> Vec<Vec<(i64, Option<String>)>> {
-        groups
+        without_refs(groups)
             .into_iter()
             .map(|group| {
                 group
@@ -847,6 +847,31 @@ mod tests {
             review_creation_target(&ctx, w.as_ref())
                 .is_err_and(|err| err.to_string().contains("remote ancestry does not match")),
             "a pushed worktree missing the commit it rests on has not pushed what it stacks on"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_review_created_alone_is_not_synced_after_creation() -> Result<()> {
+        let (ctx, _tmp) = context_with_worktree_on_reviewed_stack_at("main")?;
+        let after_creation = |branch: &str| {
+            let branch = gix::refs::Category::LocalBranch.to_full_name(branch);
+            sync_review_stack_after_review_creation(ctx.to_sync(), branch.expect("valid name"))
+        };
+
+        assert!(
+            matches!(
+                after_creation("W").await,
+                but_forge::ReviewSyncOutcome::NotNeeded
+            ),
+            "the worktree's review rests on the target alone, so the forge isn't asked"
+        );
+        assert!(
+            matches!(
+                after_creation("B").await,
+                but_forge::ReviewSyncOutcome::Failed { .. }
+            ),
+            "a stack of reviews is still synced, which fails here as the fixture has no forge"
         );
         Ok(())
     }
@@ -2167,7 +2192,17 @@ pub async fn sync_review_stack_for_branch(
         let ctx = ctx.clone().into_thread_local();
         review_update_groups_for_branch(&ctx, branch.as_ref())
     };
-    sync_review_update_groups(ctx, update_groups).await
+    sync_review_update_groups(ctx, update_groups.map(without_refs)).await
+}
+
+/// `groups` as the forge takes them, without the branch each update is for.
+fn without_refs(
+    groups: Vec<Vec<(gix::refs::FullName, but_forge::ForgeReviewTargetUpdate)>>,
+) -> Vec<Vec<but_forge::ForgeReviewUpdate>> {
+    groups
+        .into_iter()
+        .map(|group| group.into_iter().map(|(_, update)| update.into()).collect())
+        .collect()
 }
 
 async fn sync_review_update_groups(
@@ -2240,11 +2275,23 @@ pub async fn sync_review_stack_for_review(
 }
 
 /// Synchronize the complete workspace review stack containing a newly-created review.
+///
+/// A review alone in its group has no stack to link or describe, and was created with the
+/// target the group gives it, so `branch`'s review standing alone is left out rather than
+/// asking the forge to change nothing.
 pub async fn sync_review_stack_after_review_creation(
     ctx: ThreadSafeContext,
     branch: gix::refs::FullName,
 ) -> but_forge::ReviewSyncOutcome {
-    sync_review_stack_for_branch(ctx, branch).await
+    let update_groups = {
+        let ctx = ctx.clone().into_thread_local();
+        review_update_groups_for_branch(&ctx, branch.as_ref())
+    };
+    let update_groups = update_groups.map(|groups| {
+        let alone = |group: &Vec<_>| matches!(group.as_slice(), [(name, _)] if *name == branch);
+        without_refs(groups.into_iter().filter(|group| !alone(group)).collect())
+    });
+    sync_review_update_groups(ctx, update_groups).await
 }
 
 fn review_updates_after_push(
@@ -2317,7 +2364,7 @@ fn review_updates_after_push(
 fn review_update_groups_for_branch(
     ctx: &Context,
     branch: &gix::refs::FullNameRef,
-) -> Result<Vec<Vec<but_forge::ForgeReviewUpdate>>> {
+) -> Result<Vec<Vec<(gix::refs::FullName, but_forge::ForgeReviewTargetUpdate)>>> {
     let base_branch = remote_target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
     let info = crate::legacy::workspace::head_info(ctx)?;
     let chain = lane_chain_for_branch(&info, branch)?;
@@ -2327,7 +2374,6 @@ fn review_update_groups_for_branch(
         .flat_map(|(lane, _)| {
             review_update_groups_for_lane(&info, lane, &base_branch, &open_reviews)
         })
-        .map(|group| group.into_iter().map(|(_, update)| update.into()).collect())
         .collect())
 }
 
