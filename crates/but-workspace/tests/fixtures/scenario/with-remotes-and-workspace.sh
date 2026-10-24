@@ -78,6 +78,32 @@ git clone remote target-ahead-remote-rewritten
   create_workspace_commit_once A
 )
 
+# The pushed branch got the advanced target merged in on the forge ("Update branch"),
+# while the local branch was rebased onto the same target. Both tips have the same tree.
+git clone remote remote-merged-target-local-rebased-same-tree
+(cd remote-merged-target-local-rebased-same-tree
+  git checkout -b A main
+  commit-file a1
+  commit-file a2
+  setup_remote_tracking A
+
+  git checkout -b target-ahead main
+  commit-file target1
+  commit-file target2
+  git update-ref refs/remotes/origin/main target-ahead
+  git update-ref refs/heads/main target-ahead
+
+  git checkout --detach origin/A
+  git merge --no-ff -m "Merge branch 'main' into A" target-ahead
+  git update-ref refs/remotes/origin/A HEAD
+
+  git checkout A
+  git rebase target-ahead
+  git branch -D target-ahead
+
+  create_workspace_commit_once A
+)
+
 git init disjoint
 (cd disjoint
   commit "init"
