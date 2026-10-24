@@ -5,12 +5,13 @@
 
 use std::sync::Arc;
 
-use gpui::{AnyElement, App, ClickEvent, Context, ElementId, MouseButton, Window, div, prelude::*};
+use gpui::{AnyElement, App, Context, ElementId, MouseButton, Window, div, prelude::*};
 
 use super::menu::keyed;
 use super::rows::{COMMIT_INDENT, Row, Rows, found, matches};
 use super::{
-    ClickOpened, NEST, Navigator, RowStyle, click_opens, section_heading, uncommitted_counts,
+    ClickOpened, NEST, Navigator, RowStyle, click_opens, double_click, section_click,
+    section_heading, uncommitted_counts,
 };
 use crate::app::CopySelection;
 use crate::backend::mesh::{self, BranchStatus};
@@ -129,11 +130,14 @@ impl Navigator {
             .tooltip(Tooltip::text(
                 "Unfinished work on your other machines, from your mesh",
             ))
-            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
-                let inside = matches!(&this.store.read(cx).selection,
-                    Some(Selection::Mesh(p, ..)) if *p == project);
-                this.toggle_shown(&project, |p| &mut p.shown_mesh, open, inside, window, cx)
-            }))
+            .on_click(section_click(
+                move |this, window, cx| {
+                    let inside = matches!(&this.store.read(cx).selection,
+                        Some(Selection::Mesh(p, ..)) if *p == project);
+                    this.toggle_shown(&project, |p| &mut p.shown_mesh, open, inside, window, cx)
+                },
+                cx,
+            ))
             .into_any_element()
     }
 
@@ -205,7 +209,7 @@ impl Navigator {
                     )
                     .children(style.unpushed(unpushed))
                     .when(!open, |el| el.children(style.commits(n)))
-                    .when(n > 0, |el| el.on_click(click_opens(clicked, cx)))
+                    .when(n > 0, |el| el.on_click(click_opens(clicked, toggle, cx)))
             }
             (MeshPick::Checkout, _) => {
                 let fold = (project.clone(), key.clone());
@@ -233,7 +237,13 @@ impl Navigator {
                 (style.row(format!("mesh-{project}-{key}"), 6.))
                     .aria_label(checkout.label())
                     .aria_expanded(open)
-                    .child(self.fold(("mesh-fold", ix), folds.then_some(open), quiet, cx, toggle))
+                    .child(self.fold(
+                        ("mesh-fold", ix),
+                        folds.then_some(open),
+                        quiet,
+                        cx,
+                        toggle.clone(),
+                    ))
                     .child(icon(Icon::Computer).text_color(style.muted()))
                     .child(
                         div()
@@ -256,6 +266,7 @@ impl Navigator {
                     })
                     .when(!open, |el| el.children(style.unpushed(unpushed)))
                     .when(active, |el| el.child(style.active(("mesh-active", ix))))
+                    .when(folds, |el| el.on_click(double_click(toggle, cx)))
             }
             _ => return None,
         };
