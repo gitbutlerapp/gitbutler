@@ -73,6 +73,14 @@ impl gpui::Global for Embedded {}
 /// the web app, which installs it, and takes the variable out before its own relaunch.
 pub const WEB_APP_ONCE: &str = "GITBUTLER_WEB_APP_ONCE";
 
+/// Start the desktop app's binary again, as its web app once.
+fn open_web_app() -> std::io::Result<()> {
+    std::process::Command::new(std::env::current_exe()?)
+        .env(WEB_APP_ONCE, "1")
+        .spawn()?;
+    Ok(())
+}
+
 /// Give the Dock the desktop app's icon for this build's channel, as its bundle has it. A
 /// binary run on its own has no bundle to carry one, so the Dock would show a terminal's.
 #[cfg(target_os = "macos")]
@@ -233,7 +241,18 @@ pub fn run(embedded: Option<Embedded>) {
                 Ok(window) => window,
                 Err(err) => {
                     tracing::error!("couldn't open the window: {err:#}");
-                    return cx.quit();
+                    // As when the GPU's drivers can't draw it. Started by the desktop app,
+                    // GitButler then opens as its web app: with the setting that opens this
+                    // client on, quitting alone would keep it from opening at all.
+                    if cx.has_global::<Embedded>()
+                        && let Err(err) = open_web_app()
+                    {
+                        tracing::error!("couldn't open the web app instead: {err:#}");
+                    }
+                    // Once the event loop runs: on Linux it only starts after this returns, and
+                    // forgets a quit asked for before.
+                    cx.spawn(async |cx| cx.update(|cx| cx.quit())).detach();
+                    return;
                 }
             };
             // With the window minimized no window is active, so the menu's Quit comes here.

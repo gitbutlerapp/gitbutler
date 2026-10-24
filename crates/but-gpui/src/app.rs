@@ -427,14 +427,7 @@ impl AppView {
                 // loop, which would enter the app again while this holds it.
                 let store = app.store.clone();
                 cx.spawn(async move |_, cx| {
-                    let restarted = backend::run(|| {
-                        let exe = std::env::current_exe()?;
-                        std::process::Command::new(exe)
-                            .env(crate::WEB_APP_ONCE, "1")
-                            .spawn()?;
-                        Ok(())
-                    })
-                    .await;
+                    let restarted = backend::run(|| Ok(crate::open_web_app()?)).await;
                     match restarted {
                         Ok(()) => cx.update(|cx| cx.quit()),
                         Err(err) => store.update(cx, |store, cx| {
