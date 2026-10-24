@@ -322,6 +322,9 @@ sapling-renderdag = "0.1.0"
 # This is relevant to force `git-meta` to use our version.
 gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "4dc73c31afa936828fca5bbf69ada5a94c480d43" }
 git2 = { git = "https://github.com/gitbutlerapp/git2-rs", rev = "a87a7bb3f6843504339fe7434ee0732a3e968f3e" }
+# GPUI's Linux event loop, as Zed patches it: each turn runs queued tasks for about 10ms, then
+# lets input and frames through, rather than run them all. Only GPUI uses it.
+calloop = { git = "https://github.com/zed-industries/calloop", rev = "3759371fee14c40066d64777e2a36b6ffcc22590" }
 
 [workspace.lints.clippy]
 # Note that `all` doesn't include everything, so extra lints should be added here.
