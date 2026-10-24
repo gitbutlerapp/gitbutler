@@ -345,7 +345,7 @@ fn from_selections() -> anyhow::Result<()> {
 
     let discard_spec = DiffSpec {
         previous_path: None,
-        path: change.path.clone(),
+        path: change.path,
         hunk_headers: vec![
             // Split first hunk into two yielding
             // '+1\n+3\n+4\n'
@@ -424,7 +424,7 @@ fn handles_multiple_diffspecs_for_same_file() -> anyhow::Result<()> {
     };
     let second_spec = DiffSpec {
         previous_path: None,
-        path: change.path.clone(),
+        path: change.path,
         hunk_headers: vec![hunk_header("-13,2", "+17,0")],
     };
     let dropped = discard_workspace_changes(&repo, vec![first_spec, second_spec], CONTEXT_LINES)?;
@@ -503,7 +503,7 @@ fn from_selections_with_context() -> anyhow::Result<()> {
     let original_file_content = read_file_content()?;
     let mut discard_spec = DiffSpec {
         previous_path: None,
-        path: change.path.clone(),
+        path: change.path,
         hunk_headers: vec![
             // Discard 2,3, keeping 1,4
             hunk_header("-1,14", "+2,2"),
@@ -610,7 +610,7 @@ fn hunk_removal_of_additions_single_line() -> anyhow::Result<()> {
 
     let discard_spec = DiffSpec {
         previous_path: None,
-        path: change.path.clone(),
+        path: change.path,
         hunk_headers: vec![
             // Anchor at the old hunk, and redefine change to discard in the new hunk,
             // effectively discarding only line 5.
@@ -672,7 +672,7 @@ fn hunk_removal_of_removal_single_line() -> anyhow::Result<()> {
 
     let discard_spec = DiffSpec {
         previous_path: None,
-        path: change.path.clone(),
+        path: change.path,
         hunk_headers: vec![
             // Anchor at the new hunk, and redefine change to discard in the old hunk,
             // effectively keeping only line 5.
@@ -735,7 +735,7 @@ fn hunk_removal_of_modifications() -> anyhow::Result<()> {
 
     let discard_spec = DiffSpec {
         previous_path: None,
-        path: change.path.clone(),
+        path: change.path,
         hunk_headers: vec![
             // Anchor at the new hunk, and redefine change to discard in the old hunk,
             // effectively keeping only line 5.

@@ -387,11 +387,7 @@ fn create_reference_and_checkout_are_undoable_together() {
     env.setup_metadata(&["branch"]);
 
     let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let original_head = repo
-        .head_name()
-        .unwrap()
-        .expect("HEAD starts symbolic")
-        .to_owned();
+    let original_head = repo.head_name().unwrap().expect("HEAD starts symbolic");
     let mut ctx = Context::from_repo_for_testing(repo)
         .map(Context::with_memory_app_cache)
         .unwrap();
@@ -453,11 +449,7 @@ fn checkout_is_not_applied_when_transaction_rolls_back() {
     env.setup_metadata(&["branch"]);
 
     let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let original_head = repo
-        .head_name()
-        .unwrap()
-        .expect("HEAD starts symbolic")
-        .to_owned();
+    let original_head = repo.head_name().unwrap().expect("HEAD starts symbolic");
     let mut ctx = Context::from_repo_for_testing(repo)
         .map(Context::with_memory_app_cache)
         .unwrap();
@@ -504,11 +496,7 @@ fn checkout_dry_run_only_previews_the_new_head() {
     env.setup_metadata(&["branch"]);
 
     let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
-    let original_head = repo
-        .head_name()
-        .unwrap()
-        .expect("HEAD starts symbolic")
-        .to_owned();
+    let original_head = repo.head_name().unwrap().expect("HEAD starts symbolic");
     let mut ctx = Context::from_repo_for_testing(repo)
         .map(Context::with_memory_app_cache)
         .unwrap();

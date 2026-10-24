@@ -668,7 +668,7 @@ impl Detail {
                     .when(!open, |el| {
                         el.truncate().tooltip(Tooltip::text(title.clone()))
                     })
-                    .child(SharedString::from(title.clone())),
+                    .child(SharedString::from(title)),
             )
             // As a commit's page header says who wrote it and when, with its ID to copy.
             .child(

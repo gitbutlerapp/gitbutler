@@ -37,7 +37,7 @@ impl BranchArg {
         let Some(segment) = self.try_resolve_segment(head_info)? else {
             return Err(bad_input(format!("Branch '{self}' not found in any lane")).into());
         };
-        Ok(segment.clone())
+        Ok(segment)
     }
 
     /// Resolve the argument to its corresponding segment.

@@ -1902,7 +1902,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
     let (id, ref_name) = id_at(&repo, "B");
     let graph = Graph::from_commit_traversal(
         id,
-        ref_name.clone(),
+        ref_name,
         &*meta,
         ProjectMeta::default(),
         &mut db,
@@ -1935,7 +1935,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
     let (id, ref_name) = id_at(&repo, "A");
     let graph = Graph::from_commit_traversal(
         id,
-        ref_name.clone(),
+        ref_name,
         &*meta,
         ProjectMeta::default(),
         &mut db,
@@ -2336,10 +2336,10 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
             desired_ref_name: stack_ref("E"),
         }),
         Tip::new(commit_id).with_role(TipRole::TargetLocal {
-            local_ref_name: main_ref.clone(),
+            local_ref_name: main_ref,
         }),
         Tip::new(commit_id)
-            .with_ref_name(Some(ws_ref_name.clone()))
+            .with_ref_name(Some(ws_ref_name))
             .with_role(TipRole::Workspace)
             .with_metadata(SegmentMetadata::Workspace(workspace_metadata))
             .with_entrypoint(),
@@ -2384,7 +2384,7 @@ fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Resu
 
     let graph = Graph::from_commit_traversal_tips(
         &repo,
-        explicit_tips.clone(),
+        explicit_tips,
         &*meta,
         default_project_meta(&repo),
         &mut db,
@@ -2516,7 +2516,7 @@ fn just_init_with_archived_branches() -> anyhow::Result<()> {
     let (id, ws_ref_name) = id_at(&repo, "gitbutler/workspace");
     let graph = Graph::from_commit_traversal(
         id,
-        ws_ref_name.clone(),
+        ws_ref_name,
         &*meta,
         default_project_meta(&repo),
         &mut db,
@@ -2779,7 +2779,7 @@ fn two_stacks_many_refs() -> anyhow::Result<()> {
 
     let graph = Graph::from_commit_traversal(
         id,
-        ref_name.clone(),
+        ref_name,
         &*meta,
         default_project_meta(&repo),
         &mut db,
@@ -2842,7 +2842,7 @@ fn just_init_with_branches_complex() -> anyhow::Result<()> {
     let (id, ref_name) = id_at(&repo, "gitbutler/workspace");
     let graph = Graph::from_commit_traversal(
         id,
-        ref_name.clone(),
+        ref_name,
         &*meta,
         default_project_meta(&repo),
         &mut db,
@@ -2891,7 +2891,7 @@ fn just_init_with_branches_complex() -> anyhow::Result<()> {
     let (id, ref_name) = id_at(&repo, "C");
     let graph = Graph::from_commit_traversal(
         id,
-        ref_name.clone(),
+        ref_name,
         &*meta,
         default_project_meta(&repo),
         &mut db,
@@ -4174,7 +4174,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     // the lower bound of the workspace includes it.
     let graph = Graph::from_commit_traversal(
         id,
-        ref_name.clone(),
+        ref_name,
         &*meta,
         default_project_meta(&repo),
         &mut db,
@@ -4194,7 +4194,7 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     let (id, ref_name) = id_at(&repo, "main");
     let graph = Graph::from_commit_traversal(
         id,
-        ref_name.clone(),
+        ref_name,
         &*meta,
         default_project_meta(&repo),
         &mut db,
@@ -6991,7 +6991,7 @@ fn without_target_ref_or_managed_commit_ambiguous_with_remotes() -> anyhow::Resu
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
     let graph = Graph::from_commit_traversal(
         id,
-        a_ref.clone(),
+        a_ref,
         &*meta,
         ProjectMeta::default(),
         &mut db,

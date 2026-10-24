@@ -1188,10 +1188,10 @@ mod tests {
         disable_askpass();
         let (repo, tmp) = repo_with_feature_branch()?;
         let feature: gix::refs::FullName = "refs/heads/feature".try_into()?;
-        let main = repo.head_name()?.expect("HEAD is symbolic").to_owned();
+        let main = repo.head_name()?.expect("HEAD is symbolic");
         let mut ctx = but_ctx::Context::from_repo_for_testing(repo)?.with_memory_app_cache();
         ctx.meta()?
-            .set_branch_stack_order(&[feature.clone(), main.clone()])?;
+            .set_branch_stack_order(&[feature, main.clone()])?;
 
         git_at_dir(tmp.path())
             .args(["branch", "-D", "feature"])

@@ -2173,7 +2173,7 @@ pub(super) mod tests {
             let second = diff[0].part(Some(vec![hunks[1].key]));
             // Commit the first edit alone, as committing part of the file does, without touching
             // the file itself.
-            let mut first = lines.clone();
+            let mut first = lines;
             first[1] = "two\n".into();
             std::fs::write(path.join("staged"), first.concat()).unwrap();
             let blob = git(path, &["hash-object", "-w", "staged"]);
@@ -2217,7 +2217,7 @@ pub(super) mod tests {
             let lines_picked = diff[0].part(Some(hunk.picked(&picks)));
             discard(path, None, &[lines_picked]).unwrap();
 
-            let mut expected = lines.clone();
+            let mut expected = lines;
             expected[4] = "five a\n".into();
             assert_eq!(
                 std::fs::read_to_string(path.join("file")).unwrap(),
@@ -2235,7 +2235,7 @@ pub(super) mod tests {
         let path = dir.path();
         target_origin_main(path);
         git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
-        let mut edited = lines.clone();
+        let mut edited = lines;
         edited[4] = "five a\nfive b\n".into();
         std::fs::write(path.join("file"), edited.concat()).unwrap();
         git(path, &["commit", "-q", "-am", "edit"]);
@@ -2388,7 +2388,7 @@ pub(super) mod tests {
             let lines: Vec<String> = twenty_lines();
             let dir = repo_with(&lines.concat());
             let path = dir.path();
-            let mut edited = lines.clone();
+            let mut edited = lines;
             edited[4] = "five a\nfive b\n".into();
             std::fs::write(path.join("file"), edited.concat()).unwrap();
 

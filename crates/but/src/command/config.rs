@@ -1861,7 +1861,7 @@ async fn target_config(
                         )?;
                     } else if let Some(out) = out.for_json() {
                         out.write_value(serde_json::json!({
-                            "branch": target_branch.branch_name.to_string(),
+                            "branch": target_branch.branch_name,
                             "remote_url": target_branch.remote_url,
                             "sha": target_branch.base_sha.to_string(),
                         }))?;

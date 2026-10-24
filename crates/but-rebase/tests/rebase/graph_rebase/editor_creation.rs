@@ -646,7 +646,7 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
             &repo,
             &mut db,
             &GraphEditorOptions {
-                extra_mutable_refs: vec![main_ref.clone()],
+                extra_mutable_refs: vec![main_ref],
                 ..<_>::default()
             },
         )?;

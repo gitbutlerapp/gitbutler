@@ -29,7 +29,7 @@ pub fn restore_selection(ctx: &Context, lines: &[StatusOutputLine]) -> Option<Cu
 }
 
 fn load_saved_selection_from_disk(ctx: &Context) -> std::io::Result<String> {
-    Ok(std::fs::read_to_string(path(ctx))?.to_owned())
+    std::fs::read_to_string(path(ctx))
 }
 
 fn remove_saved_selection_from_disk(ctx: &Context) -> std::io::Result<()> {

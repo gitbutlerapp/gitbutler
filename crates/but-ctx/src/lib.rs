@@ -323,8 +323,8 @@ impl Context {
                 repo_open_mode,
                 legacy_project,
                 repo: new_ondemand_repo(gitdir.clone(), repo_open_mode),
-                git2_repo: new_ondemand_git2_repo(gitdir.clone()),
-                db: new_ondemand_db(project_data_dir.clone()),
+                git2_repo: new_ondemand_git2_repo(gitdir),
+                db: new_ondemand_db(project_data_dir),
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone(), cache_mode),
                 app_cache_dir,
                 workspace: Default::default(),
@@ -445,8 +445,8 @@ impl Context {
                 repo_open_mode,
                 legacy_project,
                 repo: new_ondemand_repo(gitdir.clone(), repo_open_mode),
-                git2_repo: new_ondemand_git2_repo(gitdir.clone()),
-                db: new_ondemand_db(project_data_dir.clone()),
+                git2_repo: new_ondemand_git2_repo(gitdir),
+                db: new_ondemand_db(project_data_dir),
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone(), cache_mode),
                 app_cache_dir,
                 workspace: Default::default(),
@@ -516,8 +516,8 @@ impl Context {
             cache_mode,
             repo_open_mode,
             repo: new_ondemand_repo(gitdir.clone(), repo_open_mode),
-            git2_repo: new_ondemand_git2_repo(gitdir.clone()),
-            db: new_ondemand_db(project_data_dir.clone()),
+            git2_repo: new_ondemand_git2_repo(gitdir),
+            db: new_ondemand_db(project_data_dir),
             app_cache: new_ondemand_app_cache(app_cache_dir.clone(), cache_mode),
             app_cache_dir,
             workspace: Default::default(),
@@ -1026,10 +1026,7 @@ fn open_repo(gitdir: &Path, repo_open_mode: RepoOpenMode) -> anyhow::Result<gix:
 
 #[instrument(level = "trace")]
 fn new_ondemand_git2_repo(gitdir: PathBuf) -> OnDemand<git2::Repository> {
-    OnDemand::new({
-        let gitdir = gitdir.clone();
-        move || but_oxidize::open_git2_repo(&gitdir)
-    })
+    OnDemand::new(move || but_oxidize::open_git2_repo(&gitdir))
 }
 
 #[instrument(level = "trace")]

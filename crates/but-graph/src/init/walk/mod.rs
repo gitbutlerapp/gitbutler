@@ -567,7 +567,7 @@ fn extract_local_branch_metadata<T: RefMetadata>(
         // through the current tip.
         .or_else(|| {
             meta.workspace_opt(ref_name)
-                .map(|res| res.map(|md| SegmentMetadata::Workspace(md.clone())))
+                .map(|res| res.map(SegmentMetadata::Workspace))
                 .transpose()
         })
         .transpose()

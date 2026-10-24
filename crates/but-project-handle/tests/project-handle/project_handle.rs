@@ -45,7 +45,7 @@ fn convenience_path_methods_round_trip() -> anyhow::Result<()> {
     let canonical = gix::path::realpath(input)?;
 
     assert_eq!(handle.to_path()?, canonical);
-    assert_eq!(handle.clone().into_path()?, canonical);
+    assert_eq!(handle.into_path()?, canonical);
     Ok(())
 }
 

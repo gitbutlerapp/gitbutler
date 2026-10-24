@@ -1428,7 +1428,7 @@ fn remember_selection() {
     let mut tui = test_status_tui_with_options(
         env,
         TestTuiOptions {
-            launch_options: launch_options.clone(),
+            launch_options,
             ..Default::default()
         },
     );

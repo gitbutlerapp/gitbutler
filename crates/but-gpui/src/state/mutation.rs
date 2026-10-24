@@ -990,7 +990,7 @@ impl Store {
             "Create pull request",
             Overlay::push(&ref_name, true),
             {
-                let (ref_name, title, body) = (ref_name.clone(), title.clone(), body.clone());
+                let ref_name = ref_name.clone();
                 move |path, _| {
                     let made =
                         backend::reviews::publish(path, &ref_name, title, body, draft, run_hooks);

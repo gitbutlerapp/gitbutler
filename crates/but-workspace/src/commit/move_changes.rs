@@ -83,7 +83,7 @@ pub fn move_changes_between_commits<'ws, 'meta, M: RefMetadata>(
     }
 
     let new_source_commit_id = {
-        let mut new_source_commit = source_commit.clone();
+        let mut new_source_commit = source_commit;
         new_source_commit.tree = source_tree_without_changes_id;
         editor.new_commit(new_source_commit, DateMode::CommitterUpdateAuthorKeep)?
     };

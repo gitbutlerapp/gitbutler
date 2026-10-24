@@ -114,7 +114,7 @@ fn move_non_empty_branch_dry_run_previews_new_tip_without_mutating_repository() 
     let (head_before, subject_tip_before, target_tip_before) = {
         let repo = ctx.repo.get()?;
         (
-            repo.head_name()?.expect("HEAD is symbolic").to_owned(),
+            repo.head_name()?.expect("HEAD is symbolic"),
             repo.rev_parse_single(subject.as_ref())?.detach(),
             repo.rev_parse_single(target.as_ref())?.detach(),
         )

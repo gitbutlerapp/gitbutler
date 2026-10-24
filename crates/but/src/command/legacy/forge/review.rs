@@ -291,7 +291,7 @@ pub fn set_review_template(
                 .ok_or_else(|| anyhow::anyhow!("Could not determine selected review template"))?
         };
         let message = format!("Set review template path to: {selected_template}");
-        but_api::legacy::forge::set_review_template(ctx, Some(selected_template.clone()))?;
+        but_api::legacy::forge::set_review_template(ctx, Some(selected_template))?;
         if let Some(out) = out.for_human() {
             writeln!(out, "{message}")?;
         }

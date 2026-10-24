@@ -168,7 +168,7 @@ impl From<HunkAssignment> for but_core::DiffSpec {
         };
         but_core::DiffSpec {
             previous_path: None, // TODO
-            path: value.path_bytes.clone(),
+            path: value.path_bytes,
             hunk_headers,
         }
     }
@@ -1324,7 +1324,7 @@ mod tests {
         };
 
         assert!(
-            binary1.clone().intersects(binary2.clone()),
+            binary1.intersects(binary2.clone()),
             "Binary files with same path should intersect"
         );
         assert!(
@@ -1351,7 +1351,7 @@ mod tests {
         };
 
         assert!(
-            text_with_hunk.clone().intersects(whole_file.clone()),
+            text_with_hunk.intersects(whole_file.clone()),
             "Text file with hunk should intersect with whole-file assignment"
         );
         assert!(

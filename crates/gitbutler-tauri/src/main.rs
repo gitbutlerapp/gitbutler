@@ -78,7 +78,7 @@ fn main() -> anyhow::Result<()> {
         custom_settings
     };
     let mut app_settings =
-        AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), custom_settings)
+        AppSettingsWithDiskSync::new_with_customization(config_dir, custom_settings)
             .expect("failed to create app settings");
 
     // The native client, on the same settings, accounts and keychain entries. It owns the main

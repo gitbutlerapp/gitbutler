@@ -465,7 +465,7 @@ Workspace {
         id: stack_id1,
         workspacecommit_relation: Merged,
         branches: vec![WorkspaceStackBranch {
-            ref_name: branch1.clone(),
+            ref_name: branch1,
             archived: false,
         }],
     });
@@ -473,7 +473,7 @@ Workspace {
         id: stack_id2,
         workspacecommit_relation: Outside,
         branches: vec![WorkspaceStackBranch {
-            ref_name: branch2.clone(),
+            ref_name: branch2,
             archived: false,
         }],
     });

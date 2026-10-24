@@ -565,7 +565,7 @@ impl Graph {
                                 .branch_opt(s.ref_name().expect("just set"))
                                 .ok()
                                 .flatten()
-                                .map(|md| SegmentMetadata::Branch(md.clone()));
+                                .map(SegmentMetadata::Branch);
                         }
                     }
                     _ => {

@@ -381,7 +381,7 @@ fn mouse_is_over_details(app: &App, terminal_area: Rect, column: u16, row: u16) 
 
 fn start_watcher(ctx: &mut Context, tx: Sender<Message>) -> anyhow::Result<Sender<()>> {
     let project_id = ctx.legacy_project.id.clone();
-    let workdir = ctx.workdir_or_fail()?.to_owned();
+    let workdir = ctx.workdir_or_fail()?;
     let events_tx = tx.clone();
 
     let runtime = tokio::runtime::Handle::current();

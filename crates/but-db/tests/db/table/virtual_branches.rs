@@ -142,7 +142,7 @@ fn toml_sync_metadata_roundtrips_across_replacements() -> anyhow::Result<()> {
         handle.replace_snapshot(&first)?;
     }
 
-    let mut second = first.clone();
+    let mut second = first;
     second.state.toml_last_seen_mtime_ns = Some(101);
     second.state.toml_last_seen_sha256 = Some("hash-second".into());
     {

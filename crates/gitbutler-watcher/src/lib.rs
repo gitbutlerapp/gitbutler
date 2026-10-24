@@ -82,7 +82,7 @@ pub fn watch_in_background(
             let app_settings = app_settings.clone();
             move || active_linked_worktrees(project_id.clone(), &app_settings)
         },
-        events_out.clone(),
+        events_out,
         watch_mode,
     )?;
 
