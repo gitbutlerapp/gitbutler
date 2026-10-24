@@ -230,7 +230,7 @@ pub(super) fn hook_output(output: &str) -> String {
 /// would go on from where it stopped, past what's done meanwhile: a rebase or a merge, or a
 /// bisect, whose reset leaves behind what's committed on the commit it checked out. With
 /// `on_branch`, as the main checkout must be, also while no branch is checked out at all.
-fn refuse_unfinished(repo: &gix::Repository, on_branch: bool) -> Result<()> {
+pub(super) fn refuse_unfinished(repo: &gix::Repository, on_branch: bool) -> Result<()> {
     if let Some(op) = super::git_operation(repo) {
         bail!(
             "{op} isn't finished. Finish it with `{op} --continue`, or stop it with \
@@ -1998,6 +1998,41 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn the_apps_own_operations_dont_stop_undoing_the_one_before() {
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::history::{Undone, oplog_head, undo_snapshot};
+            let now = || {
+                let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+                since.unwrap().as_millis() as i64
+            };
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
+            name_branch(path, head(path), "named").unwrap();
+            let (named, done) = (oplog_head(path).unwrap(), now());
+            // Git logs moves in whole seconds.
+            std::thread::sleep(std::time::Duration::from_millis(1100));
+            let started = now();
+            insert_empty_commit(path, &Destination::Branch("refs/heads/named".into())).unwrap();
+            let mut ran = vec![(started, now())];
+            let inserted = oplog_head(path).unwrap();
+            let started = now();
+            let undone = undo_snapshot(path, inserted, Some((ran[0].1, &ran))).unwrap();
+            assert!(matches!(undone, Undone::Done(_)), "the newest undoes");
+            ran.push((started, now()));
+            assert!(
+                matches!(
+                    undo_snapshot(path, named, Some((done, &ran))).unwrap(),
+                    Undone::Done(_)
+                ),
+                "the branch moves the app's own operation and undo logged aren't another's"
+            );
+        })
+    }
+
+    #[test]
     fn undo_and_redo_stop_for_what_came_after_and_for_files_written_since() {
         but_testsupport::isolated_app_data_dir(|| {
             use crate::backend::history::{
@@ -2098,11 +2133,48 @@ pub(super) mod tests {
             let undo = oplog_head(path).unwrap();
             commit_later(2, "more terminal work");
             assert!(
-                matches!(
-                    redo_snapshot(path, undo, &Default::default(), Some(&[])).unwrap(),
-                    Some(Undone::Behind(_))
-                ),
+                redo_snapshot(path, undo, &Default::default(), Some(&[]))
+                    .unwrap()
+                    .is_none(),
                 "redoing would take that one out too"
+            );
+        })
+    }
+
+    #[test]
+    fn undo_stops_for_an_applied_branch_moved_outside_the_app_since() {
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::history::{Undone, oplog_head, undo_snapshot};
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
+            name_branch(path, head(path), "named").unwrap();
+            let named = oplog_head(path).unwrap();
+            let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+            let done = since.unwrap().as_millis() as i64;
+            // A minute on, a commit put on the branch from a terminal, as `update-ref` or a
+            // cherry-pick in another checkout does, with HEAD left where it is.
+            let later = format!("{} +0000", done / 1000 + 60);
+            let in_terminal = |args: &[&str]| {
+                let out = Command::new("git")
+                    .current_dir(path)
+                    .env("GIT_COMMITTER_DATE", &later)
+                    .args(args)
+                    .output()
+                    .unwrap();
+                assert!(out.status.success(), "git {args:?}: {out:?}");
+                String::from_utf8(out.stdout).unwrap()
+            };
+            let tree = git(path, &["rev-parse", "named^{tree}"]);
+            let commit =
+                in_terminal(&["commit-tree", tree.trim(), "-p", "named", "-m", "elsewhere"]);
+            in_terminal(&["update-ref", "refs/heads/named", commit.trim()]);
+            assert!(
+                matches!(undo_snapshot(path, named, Some((done, &[]))).unwrap(),
+                    Undone::Behind(why) if why.contains("named")),
+                "undoing would move the branch back and drop that commit, so it says so"
             );
         })
     }

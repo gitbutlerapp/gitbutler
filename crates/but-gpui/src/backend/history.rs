@@ -14,6 +14,7 @@ use gix::bstr::ByteSlice as _;
 use serde::Deserialize;
 
 use super::{CommitId, SnapshotId, open, short_ref};
+use but_core::WORKSPACE_REF_NAME;
 
 /// One operation in the log.
 #[derive(Debug, Clone)]
@@ -518,6 +519,7 @@ const UNRECORDED: &str = "GitButler's history records only the workspace and the
 /// can be undone.
 pub fn restore(path: &Path, id: SnapshotId, kept: &HashSet<SnapshotId>) -> Result<()> {
     let mut ctx = open(path)?;
+    super::ops::refuse_unfinished(&*ctx.repo.get()?, false)?;
     // Each snapshot is made on the one before, so one taken since `id` has it as its base.
     let repo = ctx.repo.get()?;
     let since =
@@ -546,6 +548,7 @@ pub fn redo_snapshot(
     spans: Option<&[(i64, i64)]>,
 ) -> Result<Option<Undone>> {
     let mut ctx = open(path)?;
+    super::ops::refuse_unfinished(&*ctx.repo.get()?, false)?;
     let target = oplog::get_redo_target_snapshot(&ctx)?;
     let Some(target) = target.filter(|target| target.commit_id == undo.0) else {
         return Ok(None);
@@ -555,9 +558,9 @@ pub fn redo_snapshot(
     }
     if let Some(spans) = spans {
         let undone_at = target.created_at.seconds * 1000;
-        // As for undo, a commit made outside the app since would be taken out of every branch.
-        if let Some(commit) = committed_since(&ctx, undone_at, spans)? {
-            return Ok(Some(Undone::Behind(commit)));
+        // As for undo, what a terminal did since would be taken back too.
+        if moved_since(&ctx, undone_at, spans)?.is_some() {
+            return Ok(None);
         }
         let newer = written_since(&ctx, undone_at, spans)?;
         if !newer.is_empty() {
@@ -600,6 +603,8 @@ pub fn undo_snapshot(
     newer_than: Option<(i64, &[(i64, i64)])>,
 ) -> Result<Undone> {
     let mut ctx = open(path)?;
+    // Git would go on from where it stopped, past what the restore puts back.
+    super::ops::refuse_unfinished(&*ctx.repo.get()?, false)?;
     // With nothing left to undo, or only what came before it, something undid it already.
     let before_it = |target: gix::ObjectId| -> Result<bool> {
         Ok(target != snapshot.0 && super::is_ancestor(&*ctx.repo.get()?, target, snapshot.0)?)
@@ -624,12 +629,12 @@ pub fn undo_snapshot(
         )));
     }
     if let Some((after, spans)) = newer_than {
-        // As another client's operation would be: the undo would take it out of every branch.
-        if let Some(commit) = committed_since(&ctx, after, spans)? {
+        // As another client's operation would be: the undo would take it back too.
+        if let Some(what) = moved_since(&ctx, after, spans)? {
             let ours = titled(&ctx, snapshot.0, target.details)?;
             return Ok(Undone::Behind(format!(
-                "\"{ours}\" can't be undone on its own: the commit \"{commit}\", made outside \
-                 the app, came after it. Operations history can restore to before both."
+                "\"{ours}\" can't be undone on its own: {what}, outside the app, came after \
+                 it. Operations history can restore to before both."
             )));
         }
         let newer = written_since(&ctx, after, spans)?;
@@ -641,39 +646,54 @@ pub fn undo_snapshot(
     restore_titled(&mut ctx, snapshot.0, target.details, kind).map(Undone::Done)
 }
 
-/// The title of the newest commit HEAD has that was made after `after`, in milliseconds since
-/// the Unix epoch, outside `spans`, as one made in a terminal: GitButler's own workspace
-/// commit aside, which it rewrites.
-fn committed_since(
-    ctx: &but_ctx::Context,
-    after: i64,
-    spans: &[(i64, i64)],
-) -> Result<Option<String>> {
-    use gix::revision::walk::Sorting;
-    use gix::traverse::commit::simple::CommitTimeOrder;
+/// What a terminal or another tool did after `after`, in milliseconds since the Unix epoch,
+/// outside `spans`, to what a restore puts back, as Git logged it: a commit, checkout, reset,
+/// rename, `update-ref` or `git stash` that moved HEAD, the workspace's branches or the stash.
+/// The app's own operations log before they return, and its undos and redos inside `spans`.
+/// Branches the workspace doesn't have applied, as agents' in linked worktrees, aren't restored.
+fn moved_since(ctx: &but_ctx::Context, after: i64, spans: &[(i64, i64)]) -> Result<Option<String>> {
+    use but_core::RefMetadata as _;
     let repo = ctx.repo.get()?;
-    let Ok(head) = repo.head_id() else {
-        return Ok(None);
-    };
-    let walk = (repo.rev_walk([head.detach()]))
-        .sorting(Sorting::ByCommitTime(CommitTimeOrder::NewestFirst))
-        .all()?;
-    for info in walk {
-        let info = info?;
+    let workspace: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
+    // As the workspace's metadata has them: one moved off the workspace no longer shows in it.
+    let applied: Vec<String> = (ctx.meta()?.workspace(workspace.as_ref())?.stacks.iter())
+        .filter(|stack| stack.is_in_workspace())
+        .flat_map(|stack| &stack.branches)
+        .map(|branch| branch.ref_name.to_string())
+        .collect();
+    let checked_out = repo.head_name()?.map(|name| name.to_string());
+    // The stash first, whose log says more of a `git stash` than HEAD's reset at that moment.
+    let names = ["refs/stash", "HEAD", WORKSPACE_REF_NAME].map(String::from);
+    let names = names.into_iter().chain(applied).chain(checked_out);
+    let mut newest: Option<(i64, String)> = None;
+    for name in names {
+        let Some(reference) = repo.try_find_reference(name.as_str())? else {
+            continue;
+        };
+        let mut log = reference.log_iter();
+        let Some(lines) = log.rev()? else {
+            continue;
+        };
         // Whole seconds, so a second early.
-        let at = info.commit_time.unwrap_or_default() * 1000;
-        if at <= after {
-            break;
-        }
-        let own = spans
-            .iter()
-            .any(|(from, to)| (*from - 1000..=*to).contains(&at));
-        let commit = but_workspace::WorkspaceCommit::from_id(info.id())?;
-        if !own && !commit.is_managed() {
-            return Ok(Some(super::title(&commit.message)));
+        let line = (lines.filter_map(Result::ok))
+            .map(|line| (line.signature.time.seconds * 1000, line))
+            .take_while(|(at, _)| *at > after)
+            .find(|(at, _)| {
+                !spans
+                    .iter()
+                    .any(|(from, to)| (*from - 1000..=*to).contains(at))
+            });
+        if let Some((at, line)) = line
+            && newest.as_ref().is_none_or(|(newest, _)| at > *newest)
+        {
+            let what = match line.message.trim().to_str_lossy() {
+                message if message.is_empty() => format!("a change to {}", short_ref(&name)),
+                message => format!("\"{message}\""),
+            };
+            newest = Some((at, what));
         }
     }
-    Ok(None)
+    Ok(newest.map(|(_, what)| what))
 }
 
 /// Uncommitted files written after `after`, in milliseconds since the Unix epoch, outside

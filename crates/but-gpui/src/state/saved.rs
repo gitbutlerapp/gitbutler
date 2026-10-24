@@ -96,7 +96,7 @@ impl Store {
         // What ⌘Z and ⇧⌘Z would do in one, which can't be done without it.
         self.undo_steps.retain(|step| listed(&step.project));
         self.redo_steps.retain(|(id, _)| listed(id));
-        (self.undid.lock()).retain(|id, _| listed(id));
+        (self.ran.lock()).retain(|id, _| listed(id));
         // None listed is more likely a list that couldn't be read than every one removed.
         if self.projects.is_empty() {
             return;

@@ -489,9 +489,9 @@ impl Store {
         guard: bool,
         cx: &mut Context<Self>,
     ) {
-        let (kept, undid, of, again, asked) = (
+        let (kept, ran, of, again, asked) = (
             self.kept_snapshots.clone(),
-            self.undid.clone(),
+            self.ran.clone(),
             project.clone(),
             project.clone(),
             Instant::now(),
@@ -505,18 +505,15 @@ impl Store {
             },
             move |path, _| {
                 let kept = kept.lock().get(&of).cloned();
-                let undid = undid.lock().get(&of).cloned();
-                let undid = undid.unwrap_or_default();
-                let started = now_millis();
-                let redone = backend::history::redo_snapshot(
+                let ran = ran.lock().get(&of).cloned().unwrap_or_default();
+                backend::history::redo_snapshot(
                     path,
                     undo,
                     &kept.unwrap_or_default(),
-                    guard.then_some(undid.as_slice()),
-                );
-                Ok((redone?, (started, now_millis())))
+                    guard.then_some(ran.as_slice()),
+                )
             },
-            move |store, (redone, span), cx| {
+            move |store, redone, cx| {
                 let operation = match redone {
                     Some(Undone::Done(operation)) => operation,
                     Some(Undone::Newer(files)) => {
@@ -543,7 +540,6 @@ impl Store {
                     }
                 };
                 (store.redo_steps).retain(|step| *step != (again.clone(), undo));
-                (store.undid.lock()).entry(again).or_default().push(span);
                 // Back on top of what ⌘Z takes back.
                 if let Some((project, snapshot)) = store.last_snapshot.clone() {
                     store.push_undo_step(project, snapshot, asked);
@@ -612,7 +608,7 @@ impl Store {
                 cx,
             );
         }
-        let (undid, of) = (self.undid.clone(), project.clone());
+        let (ran, of) = (self.ran.clone(), project.clone());
         // The snackbar offering to undo it goes with it.
         let offered = (project.clone(), snapshot);
         self.toasts.retain(|toast| {
@@ -626,23 +622,16 @@ impl Store {
                 ..Overlay::rewriting_main()
             },
             move |path, _| {
-                let started = now_millis();
-                let undid = undid.lock().get(&of).cloned();
-                let undid = undid.unwrap_or_default();
-                let newer_than = newer_than.map(|at| (at, undid.as_slice()));
-                let undone = backend::history::undo_snapshot(path, snapshot, newer_than);
-                Ok((undone, (started, now_millis())))
+                let ran = ran.lock().get(&of).cloned().unwrap_or_default();
+                let newer_than = newer_than.map(|at| (at, ran.as_slice()));
+                Ok(backend::history::undo_snapshot(path, snapshot, newer_than))
             },
-            move |store, (undone, span), cx| {
+            move |store, undone, cx| {
                 let title = |store: &Store| store.card_title(&again, "Undo failed".into());
                 match undone {
                     Ok(Undone::Done(operation)) => {
                         (store.undo_steps)
                             .retain(|step| step.project != again || step.snapshot != snapshot);
-                        (store.undid.lock())
-                            .entry(again.clone())
-                            .or_default()
-                            .push(span);
                         let done = store.card_title(&again, format!("Undone: {operation}"));
                         if let Some((_, undo)) = store.last_snapshot {
                             store.redo_steps.push((again, undo));
@@ -1429,13 +1418,17 @@ impl Store {
                 );
                 let before = backend::history::oplog_head(&path);
                 let heads = backend::worktrees::heads(&path);
+                // Just the work itself: what Git logs right after it, as an agent's commit
+                // waiting on the lock does, isn't the app's.
+                let started = now_millis();
                 let value = op(&path, &remap)?;
+                let ran = (started, now_millis());
                 let recorded =
                     backend::history::oplog_head(&path).filter(|after| Some(*after) != before);
                 // The oplog records only the main checkout: what moved a linked worktree,
                 // even one stacked on a branch here, can't be undone.
                 let moved_worktree = backend::worktrees::heads(&path) != heads;
-                Ok((value, recorded, moved_worktree))
+                Ok((value, recorded, moved_worktree, ran))
             })
             .await;
             this.update(cx, |store, cx| {
@@ -1476,7 +1469,17 @@ impl Store {
                 let source = (project.clone(), label.clone());
                 let first_card = store.next_toast;
                 match result {
-                    Ok((value, recorded, moved_worktree)) => {
+                    Ok((value, recorded, moved_worktree, ran)) => {
+                        // A push or fetch writes only what the remote has, which undo leaves,
+                        // so what an agent did while it ran still counts.
+                        if !remote_only {
+                            store
+                                .ran
+                                .lock()
+                                .entry(project.clone())
+                                .or_default()
+                                .push(ran);
+                        }
                         // Set here rather than at the start, so a load the watcher started
                         // mid-operation can't use it up; not after a failure, which made
                         // nothing.

@@ -171,11 +171,13 @@ unseen is what a laptop's battery pays for.
   the CLI's work. Undo and Redo are `OpKind::Undo` and `OpKind::Redo` and keep the lists
   themselves; an operation the oplog can't undo calls `keep_last_snapshot`, which drops it.
 - An oplog restore puts the whole worktree back, so `history::undo_snapshot` first checks for
-  files written after the operation, leaving out the spans the app's own undos wrote in
-  (`Store::undid`, read when the undo runs, so a queued one sees those before it), and returns
-  `Undone::Newer` for ⌘Z to ask about; `redo_snapshot` checks the same from the undo's own
-  snapshot. A step stays on the list unless it was undone, `Undone::Behind` says something
-  came after it, or `Undone::Already` says something else undid it.
+  files written and branches moved after the operation, leaving out the spans the app's own
+  local operations ran in (`Store::ran`, read when the undo runs, so a queued one sees those
+  before it; pushes and fetches record none, as they write only what the remote has): a move
+  Git logged then is `Undone::Behind`, a file written then `Undone::Newer` for ⌘Z to ask
+  about; `redo_snapshot` checks the same from the undo's own snapshot. A step stays on the
+  list unless it was undone, `Undone::Behind` says something came after it, or
+  `Undone::Already` says something else undid it.
 - An operation's `done` runs with `Store::staying` set when the user has moved to another
   project, which makes `Store::select` do nothing: what it would select, and the picks a select
   clears, stay where the user is, and `card_title` names the operation's project.
