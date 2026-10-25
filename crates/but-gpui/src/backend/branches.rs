@@ -245,12 +245,38 @@ pub enum ApplyOutcome {
     Conflicts(Vec<String>),
 }
 
-/// Apply `ref_name` to the workspace. A remote branch gets a local branch to apply.
-pub fn apply(path: &Path, ref_name: &str) -> Result<ApplyOutcome> {
+/// Apply `ref_name` to the workspace, once the archived worktree `freeing`, if any, let go of
+/// it. A remote branch gets a local branch to apply.
+pub fn apply(path: &Path, ref_name: &str, freeing: Option<&str>) -> Result<ApplyOutcome> {
     use but_workspace::branch::apply::OutcomeStatus;
     let mut ctx = open(path)?;
     let name = full_name(ref_name)?;
-    let outcome = but_api::branch::apply(&mut ctx, name.as_ref())?;
+    // One lock throughout, so nothing else moves the worktree's HEAD or the branch meanwhile.
+    let mut guard = ctx.exclusive_worktree_access();
+    // The archived worktree `freeing` lets go of the branch first, staying on its commit with
+    // its files as they are, or the workspace's commits would move the branch under it.
+    let freed = match freeing {
+        Some(worktree) => {
+            let repo = super::checkout(&ctx, Some(worktree))?;
+            (repo.head_name()?.as_ref() == Some(&name)).then_some(repo)
+        }
+        None => None,
+    };
+    if let Some(repo) = &freed {
+        let at = gix::refs::Target::Object(repo.head_id()?.detach());
+        let why = format!("leaving {} to the workspace", name.shorten());
+        but_core::update_head_reference(repo, at, false, "checkout", why.as_str().into(), 0)?;
+    }
+    let outcome =
+        but_api::branch::apply_with_perm(&mut ctx, name.as_ref(), guard.write_permission());
+    // Not applied after all, it goes back to the worktree, so its next commits move it again.
+    let kept = matches!(&outcome, Ok(o) if !matches!(o.status, OutcomeStatus::ConflictAborted));
+    if let Some(repo) = freed.filter(|_| !kept) {
+        let back = gix::refs::Target::Symbolic(name.clone());
+        let why = format!("taking {} back, as it wasn't applied", name.shorten());
+        but_core::update_head_reference(&repo, back, false, "checkout", why.as_str().into(), 0)?;
+    }
+    let outcome = outcome?;
     Ok(match outcome.status {
         OutcomeStatus::Applied => ApplyOutcome::Applied,
         OutcomeStatus::AlreadyApplied => ApplyOutcome::AlreadyApplied,

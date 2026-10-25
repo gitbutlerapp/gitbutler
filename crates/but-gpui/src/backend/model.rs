@@ -79,8 +79,9 @@ pub struct Workspace {
     /// Its linked worktrees, like ones agents work in, when GitButler's worktree support is
     /// on: newest first, archived ones left out.
     pub worktrees: Vec<Worktree>,
-    /// The names of the worktrees archived, to bring back.
-    pub archived_worktrees: Vec<std::sync::Arc<str>>,
+    /// The names of the worktrees archived, to bring back, with the branch each has checked
+    /// out.
+    pub archived_worktrees: Vec<(std::sync::Arc<str>, Option<String>)>,
     /// A fingerprint of the repository's local and remote branches, of the pull requests the
     /// forge cache knows and of the branches linked worktrees shown have checked out, which
     /// the Branches page lists again when it changes.

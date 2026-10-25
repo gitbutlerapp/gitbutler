@@ -249,8 +249,11 @@ impl Navigator {
                     // With Fetch, else apart from Watch.
                     items.push(if expanded { update } else { update.separated() });
                 }
-                let archived = (store.workspace(project))
-                    .map_or_else(Vec::new, |ws| ws.archived_worktrees.clone());
+                let archived = (store.workspace(project)).map_or_else(Vec::new, |ws| {
+                    (ws.archived_worktrees.iter())
+                        .map(|(name, _)| name.clone())
+                        .collect()
+                });
                 if !archived.is_empty() {
                     let project = project.clone();
                     items.push(MenuItem::new(

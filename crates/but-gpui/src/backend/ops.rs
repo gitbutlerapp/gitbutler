@@ -2567,6 +2567,64 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn applying_a_branch_an_archived_worktree_has_lets_the_worktree_go_of_it() {
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::branches::{ApplyOutcome, apply};
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            let (_outside, linked) = agent_worktree(path);
+            git(&linked, &["commit", "-q", "--allow-empty", "-m", "agent's"]);
+            let theirs = head(&linked);
+            git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+
+            let applied = apply(path, "refs/heads/agent", Some("agent")).unwrap();
+            assert!(
+                matches!(applied, ApplyOutcome::Applied),
+                "the branch is applied"
+            );
+            assert_eq!(
+                git(&linked, &["rev-parse", "--abbrev-ref", "HEAD"]).trim(),
+                "HEAD",
+                "the worktree let go of the branch, so the workspace's commits don't move under it"
+            );
+            assert_eq!(
+                head(&linked),
+                theirs,
+                "and stays on its commit, files and all"
+            );
+        })
+    }
+
+    #[test]
+    fn a_branch_that_doesnt_apply_goes_back_to_its_archived_worktree() {
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::branches::{ApplyOutcome, apply};
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            let (_outside, linked) = agent_worktree(path);
+            std::fs::write(linked.join("file"), "agent's\n").unwrap();
+            git(&linked, &["commit", "-q", "-am", "agent's"]);
+            git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+            std::fs::write(path.join("file"), "ours\n").unwrap();
+            git(path, &["commit", "-q", "-am", "ours"]);
+            name_branch(path, head(path), "ours").unwrap();
+
+            let applied = apply(path, "refs/heads/agent", Some("agent")).unwrap();
+            assert!(
+                matches!(applied, ApplyOutcome::Conflicts(_)),
+                "both change the same line"
+            );
+            assert_eq!(
+                git(&linked, &["rev-parse", "--abbrev-ref", "HEAD"]).trim(),
+                "agent",
+                "not applied, the branch goes back to the worktree, so its next commits move it"
+            );
+        })
+    }
+
+    #[test]
     fn a_folder_the_enclosing_repository_ignores_isnt_added_as_it() {
         but_testsupport::isolated_app_data_dir(|| {
             // As a home folder kept as a dotfiles repository.
