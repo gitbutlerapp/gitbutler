@@ -43,6 +43,7 @@ mod status_bar;
 mod theme;
 mod transfer;
 mod ui;
+mod whats_new;
 
 /// Draw text as GitButler's web apps do, with `-webkit-font-smoothing: antialiased`. Unless the
 /// app's `AppleFontSmoothing` says otherwise, GPUI thickens glyph strokes the way macOS font
@@ -226,6 +227,7 @@ pub fn run(embedded: Option<Embedded>) {
             detail::bind_keys(cx);
             palette::bind_keys(cx);
             settings::bind_keys(cx);
+            whats_new::bind_keys(cx);
             open_in::bind_keys(cx);
             help::register(cx);
             cx.on_action(|_: &app::Hide, cx| cx.hide());
@@ -265,7 +267,7 @@ pub fn run(embedded: Option<Embedded>) {
                 ]),
                 Menu::new("Help").items([
                     MenuItem::action("GitButler Docs", help::OpenDocs),
-                    MenuItem::action("Release Notes", help::OpenReleaseNotes),
+                    MenuItem::action("What's New", help::OpenReleaseNotes),
                     MenuItem::action("Keyboard Shortcuts", app::CommandPalette),
                     MenuItem::separator(),
                     MenuItem::action("Report an Issue…", help::ReportIssue),

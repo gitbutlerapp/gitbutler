@@ -298,6 +298,43 @@ pub fn newer_version(feed: &str) -> Result<Option<String>> {
     Ok(Some(serde_json::from_slice::<Release>(&body)?.version))
 }
 
+/// One of GitButler's releases, as the downloads API lists it.
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct Published {
+    pub version: String,
+    /// Markdown, when it has notes.
+    pub notes: Option<String>,
+    /// When it came out, in RFC 3339.
+    pub released_at: String,
+}
+
+/// GitButler's newest releases, newest first, from the downloads API the website reads too.
+/// They're kept for [`cached_releases`], as the API takes most of a second to answer.
+pub fn releases() -> Result<Vec<Published>> {
+    let url = "https://app.gitbutler.com/api/downloads?limit=40&channel=release";
+    let releases: Vec<Published> = serde_json::from_slice(&super::accounts::fetch(url)?)?;
+    // Without the downloads the API lists too, which are most of what it sends.
+    let kept = releases_file().and_then(|file| {
+        if let Some(dir) = file.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        Ok(std::fs::write(file, serde_json::to_vec(&releases)?)?)
+    });
+    if let Err(err) = kept {
+        tracing::debug!("couldn't keep the release notes: {err:#}");
+    }
+    Ok(releases)
+}
+
+/// The releases as [`releases`] last read them.
+pub fn cached_releases() -> Result<Vec<Published>> {
+    Ok(serde_json::from_slice(&std::fs::read(releases_file()?)?)?)
+}
+
+fn releases_file() -> Result<PathBuf> {
+    Ok(but_path::app_cache_dir()?.join("release-notes.json"))
+}
+
 /// GitButler's app settings as they are on disk now. Read afresh each time: the other apps
 /// change them too, and saving a copy read earlier would put their changes back.
 pub(super) fn app_settings() -> Result<AppSettingsWithDiskSync> {

@@ -1,5 +1,5 @@
-//! The Help menu and About: where the docs and release notes are, where to report a
-//! problem, and where GitButler keeps its settings and logs.
+//! The Help menu and About: where the docs are, where to report a problem, and where
+//! GitButler keeps its settings and logs. Its release notes open in the app (`whats_new`).
 
 use gpui::{App, PromptLevel, actions};
 
@@ -18,12 +18,10 @@ actions!(
 );
 
 const DOCS: &str = "https://docs.gitbutler.com";
-const RELEASE_NOTES: &str = "https://github.com/gitbutlerapp/gitbutler/releases";
 const ISSUES: &str = "https://github.com/gitbutlerapp/gitbutler/issues/new/choose";
 
 pub fn register(cx: &mut App) {
     cx.on_action(|_: &OpenDocs, cx| cx.open_url(DOCS));
-    cx.on_action(|_: &OpenReleaseNotes, cx| cx.open_url(RELEASE_NOTES));
     cx.on_action(|_: &ReportIssue, cx| cx.open_url(ISSUES));
     cx.on_action(|_: &ShowConfigFolder, cx| {
         if let Ok(dir) = settings::config_dir() {
