@@ -2524,6 +2524,34 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn a_submodule_added_as_a_project_is_listed_at_its_files() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let lib = repo_with("lib\n");
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            let from = lib.path().to_str().unwrap();
+            let add = [
+                "-c",
+                "protocol.file.allow=always",
+                "submodule",
+                "add",
+                "-q",
+                from,
+                "lib",
+            ];
+            git(path, &add);
+            let (id, _) = crate::backend::add_project(&path.join("lib")).unwrap();
+            let listed = crate::backend::list_projects().unwrap();
+            let project = listed.iter().find(|project| project.id == id).unwrap();
+            assert_eq!(
+                project.path.canonicalize().unwrap(),
+                path.join("lib").canonicalize().unwrap(),
+                "its repository is in the superproject's, but its files are in lib"
+            );
+        })
+    }
+
+    #[test]
     fn a_branch_that_moved_since_it_was_asked_about_isnt_deleted() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");

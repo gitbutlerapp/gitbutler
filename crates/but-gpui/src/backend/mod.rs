@@ -82,10 +82,12 @@ pub fn list_projects() -> Result<Vec<Project>> {
         .filter_map(|entry| {
             let project: gitbutler_project::Project = entry.inner.into();
             let git_dir = project.git_dir();
-            let path = if git_dir.ends_with(".git") {
-                git_dir.parent()?.to_owned()
-            } else {
-                git_dir.to_owned()
+            let path = match git_dir.ends_with(".git") {
+                true => git_dir.parent()?.to_owned(),
+                // A submodule's is in its superproject's, and its config says where its files are.
+                false => (gix::open_opts(git_dir, gix::open::Options::isolated()).ok())
+                    .and_then(|repo| repo.workdir().map(Path::to_owned))
+                    .unwrap_or_else(|| git_dir.to_owned()),
             };
             // Kept when the folder is gone, so the app can say so and offer to find it.
             Some(Project {
