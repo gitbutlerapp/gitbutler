@@ -539,13 +539,15 @@ pub fn take_snapshot(path: &Path, message: Option<String>) -> Result<()> {
 }
 
 /// Redo what the undo that recorded `undo` took back, while that's still the last undo and
-/// isn't one of `kept`, or `None` when something changed the project since. With `spans`, it
-/// stops for uncommitted files written since the undo outside them, as undo does.
+/// isn't one of `kept`, or `None` when something changed the project since. It stops for
+/// uncommitted files written since the undo outside `spans`, as undo does, or since `accepted`
+/// when the user said to redo anyway then.
 pub fn redo_snapshot(
     path: &Path,
     undo: SnapshotId,
     kept: &HashSet<SnapshotId>,
-    spans: Option<&[(i64, i64)]>,
+    spans: &[(i64, i64)],
+    accepted: Option<i64>,
 ) -> Result<Option<Undone>> {
     let mut ctx = open(path)?;
     super::ops::refuse_unfinished(&*ctx.repo.get()?, false)?;
@@ -556,16 +558,14 @@ pub fn redo_snapshot(
     if kept.contains(&SnapshotId(target.commit_id)) {
         bail!(UNRECORDED);
     }
-    if let Some(spans) = spans {
-        let undone_at = target.created_at.seconds * 1000;
-        // As for undo, what a terminal did since would be taken back too.
-        if moved_since(&ctx, undone_at, spans)?.is_some() {
-            return Ok(None);
-        }
-        let newer = written_since(&ctx, undone_at, spans)?;
-        if !newer.is_empty() {
-            return Ok(Some(Undone::Newer(newer)));
-        }
+    let since = (target.created_at.seconds * 1000).max(accepted.unwrap_or_default());
+    // As for undo, what a terminal did since would be taken back too.
+    if moved_since(&ctx, since, spans)?.is_some() {
+        return Ok(None);
+    }
+    let newer = written_since(&ctx, since, spans)?;
+    if !newer.is_empty() {
+        return Ok(Some(Undone::Newer(newer)));
     }
     let kind = RestoreKind::RestoreFromSnapshotViaRedo;
     restore_titled(&mut ctx, target.commit_id, target.details, kind)

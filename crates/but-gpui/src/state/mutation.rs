@@ -407,7 +407,7 @@ impl Store {
             return self.snack(WAIT_TO_UNDO, cx);
         }
         match last.map(|step| (step.project.clone(), step.snapshot)) {
-            Some((project, snapshot)) => self.undo_snapshot(&project, snapshot, true, cx),
+            Some((project, snapshot)) => self.undo_snapshot(&project, snapshot, None, None, cx),
             None => self.snack("Nothing to undo", cx),
         }
     }
@@ -477,16 +477,17 @@ impl Store {
         else {
             return self.snack("Nothing to redo", cx);
         };
-        self.redo_snapshot(project, undo, true, cx)
+        self.redo_snapshot(project, undo, None, cx)
     }
 
     /// Redo what the undo that recorded `undo` in `project` took back, unless something
-    /// changed the project since or, with `guard`, a file was written since.
+    /// changed the project or a file was written since, or since `accepted` once the user said
+    /// to redo anyway.
     fn redo_snapshot(
         &mut self,
         project: ProjectId,
         undo: SnapshotId,
-        guard: bool,
+        accepted: Option<i64>,
         cx: &mut Context<Self>,
     ) {
         let (kept, ran, of, again, asked) = (
@@ -510,14 +511,15 @@ impl Store {
                     path,
                     undo,
                     &kept.unwrap_or_default(),
-                    guard.then_some(ran.as_slice()),
+                    &ran,
+                    accepted,
                 )
             },
             move |store, redone, cx| {
                 let operation = match redone {
                     Some(Undone::Done(operation)) => operation,
                     Some(Undone::Newer(files)) => {
-                        let what = files_named(&files);
+                        let (what, asked) = (files_named(&files), Some(now_millis()));
                         return store.error_with_retry(
                             store.card_title(&again, "Redo takes back newer changes too".into()),
                             format!(
@@ -525,7 +527,7 @@ impl Store {
                                  were before it, and Undo brings the changes back."
                             ),
                             "Redo anyway",
-                            move |store, cx| store.redo_snapshot(again.clone(), undo, false, cx),
+                            move |store, cx| store.redo_snapshot(again.clone(), undo, asked, cx),
                             cx,
                         );
                     }
@@ -568,13 +570,16 @@ impl Store {
     }
 
     /// Undo the operation that recorded `snapshot` in `project`, as long as nothing came
-    /// after it there and, with `guard`, no file was written since; for ⌘⇧Z to redo. Its step
-    /// stays among those ⌘Z takes back until it's undone, or can't ever be on its own.
+    /// after it there, in Git's logs or the files, and no push did, or none since `accepted`
+    /// and `pushed_ok` once the user said to undo anyway about the files or a push; for ⌘⇧Z to
+    /// redo. Its step stays among those ⌘Z takes back until it's undone, or can't ever be on
+    /// its own.
     pub fn undo_snapshot(
         &mut self,
         project: &ProjectId,
         snapshot: SnapshotId,
-        guard: bool,
+        accepted: Option<i64>,
+        pushed_ok: Option<i64>,
         cx: &mut Context<Self>,
     ) {
         if (self.workspace(project)).is_some_and(|ws| ws.editing.is_some()) {
@@ -587,24 +592,25 @@ impl Store {
         let step = (self.undo_steps.iter())
             .find(|step| step.project == *project && step.snapshot == snapshot);
         let asked = step.map(|step| step.asked);
-        if guard && self.running_after(asked, Some(project)) {
+        if self.running_after(asked, Some(project)) {
             return self.snack(WAIT_TO_UNDO, cx);
         }
-        let newer_than = (step.filter(|_| guard)).map(|step| step.done);
+        // What came after it, or after the user said to undo anyway, which still stops for
+        // anything newer than that.
+        let newer_than = accepted.or(step.map(|step| step.done));
         let again = project.clone();
-        if (newer_than.zip(self.pushed_at.get(project)))
-            .is_some_and(|(done, pushed)| *pushed > done)
+        if (newer_than.max(pushed_ok).zip(self.pushed_at.get(project)))
+            .is_some_and(|(since, pushed)| *pushed > since)
         {
+            // The card comes before anything else is checked, so going ahead still checks
+            // from where it would have, but for pushes up to now.
+            let asked_now = Some(now_millis());
             return self.error_with_retry(
                 self.card_title(project, "Undo may take back what was pushed".into()),
                 "A push came after the operation it undoes. If the push took what the \
                  operation did, the remote keeps that until the branch is force pushed.",
                 "Undo anyway",
-                // Still asking about files written since, as ⌘Z does.
-                move |store, cx| {
-                    store.pushed_at.remove(&again);
-                    store.undo_snapshot(&again, snapshot, true, cx)
-                },
+                move |store, cx| store.undo_snapshot(&again, snapshot, accepted, asked_now, cx),
                 cx,
             );
         }
@@ -652,7 +658,7 @@ impl Store {
                         store.snack(store.card_title(&again, why), cx)
                     }
                     Ok(Undone::Newer(files)) => {
-                        let what = files_named(&files);
+                        let (what, asked) = (files_named(&files), Some(now_millis()));
                         store.error_with_retry(
                             store.card_title(&again, "Undo takes back newer changes too".into()),
                             format!(
@@ -660,7 +666,9 @@ impl Store {
                                  back as they were before it, and Redo brings the changes back."
                             ),
                             "Undo anyway",
-                            move |store, cx| store.undo_snapshot(&again, snapshot, false, cx),
+                            move |store, cx| {
+                                store.undo_snapshot(&again, snapshot, asked, pushed_ok, cx)
+                            },
                             cx,
                         )
                     }

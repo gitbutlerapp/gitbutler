@@ -2088,7 +2088,7 @@ pub(super) mod tests {
             let undo = oplog_head(path).unwrap();
             std::fs::write(path.join("file"), "three\n").unwrap();
             assert!(
-                matches!(redo_snapshot(path, undo, &Default::default(), Some(&[])).unwrap(),
+                matches!(redo_snapshot(path, undo, &Default::default(), &[], None).unwrap(),
                     Some(Undone::Newer(files)) if files == ["file"]),
                 "a file written after the undo is one redoing it puts back"
             );
@@ -2133,7 +2133,7 @@ pub(super) mod tests {
             let undo = oplog_head(path).unwrap();
             commit_later(2, "more terminal work");
             assert!(
-                redo_snapshot(path, undo, &Default::default(), Some(&[]))
+                redo_snapshot(path, undo, &Default::default(), &[], None)
                     .unwrap()
                     .is_none(),
                 "redoing would take that one out too"
