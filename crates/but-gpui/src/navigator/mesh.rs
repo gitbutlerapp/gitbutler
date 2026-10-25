@@ -10,8 +10,8 @@ use gpui::{AnyElement, App, Context, ElementId, MouseButton, Window, div, prelud
 use super::menu::keyed;
 use super::rows::{COMMIT_INDENT, Row, Rows, found, matches};
 use super::{
-    ClickOpened, NEST, Navigator, RowStyle, click_opens, double_click, section_click,
-    section_heading, uncommitted_counts,
+    ClickOpened, NEST, Navigator, RowStyle, change_counts, click_opens, double_click,
+    section_click, section_heading,
 };
 use crate::app::CopySelection;
 use crate::backend::mesh::{self, BranchStatus};
@@ -259,11 +259,10 @@ impl Navigator {
                             .tooltip(Tooltip::text(tip))
                             .child(checkout.label()),
                     )
-                    // As a worktree's, the quiet "uncommitted" gives way before the name does.
-                    .when(!files.is_empty(), |el| {
-                        let lines = (added as u32, removed as u32);
-                        el.child(uncommitted_counts((files.len(), 0, lines), style))
-                    })
+                    .children(change_counts(
+                        (files.len(), 0, (added as u32, removed as u32)),
+                        style,
+                    ))
                     .when(!open, |el| el.children(style.unpushed(unpushed)))
                     .when(active, |el| el.child(style.active(("mesh-active", ix))))
                     .when(folds, |el| el.on_click(double_click(toggle, cx)))
