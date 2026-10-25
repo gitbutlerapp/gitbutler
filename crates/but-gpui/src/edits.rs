@@ -13,7 +13,9 @@ use crate::app::{
     AppView, DeleteSelection, FocusNavigator, NewBranchOnTop, Push, RenameSelection,
     UncommitSelection,
 };
-use crate::backend::{self, Branch, Commit, CommitId, Destination, Selected, Workspace, short_ref};
+use crate::backend::{
+    self, Branch, Commit, CommitId, Destination, Selected, Undiscarded, Workspace, short_ref,
+};
 use crate::state::{Cut, Label, Overlay, ProjectId, Remap, Rereads, Selection, Store, snack};
 
 actions!(
@@ -57,6 +59,34 @@ pub fn discard_label(what: &str, linked: bool) -> String {
 /// the snackbar's Undo, can take it back. What it can take back is done at once, without asking.
 fn recorded(store: &Store, project: &ProjectId) -> bool {
     !(store.workspace(project)).is_some_and(|ws| ws.unrecorded)
+}
+
+/// Throw away `changes` of `project`'s main checkout, though undo can't take it back as
+/// GitButler couldn't record it.
+fn discard_unrecorded(
+    store: &mut Store,
+    project: &ProjectId,
+    changes: &[Selected],
+    cx: &mut Context<Store>,
+) {
+    let overlay = Overlay {
+        rereads: Rereads::Files,
+        ..Overlay::files(changes)
+    };
+    let (changes, named) = (changes.to_vec(), project.clone());
+    store.run(
+        project,
+        "Discard",
+        overlay,
+        move |path, _| backend::discard(path, None, &changes, true),
+        move |store, outcome, cx| match outcome {
+            None => store.snack(store.card_title(&named, "Changes discarded".into()), cx),
+            Some(Undiscarded::Partway(why) | Undiscarded::Unrecorded(why)) => {
+                store.error(store.card_title(&named, "Discard failed".into()), why, cx)
+            }
+        },
+        cx,
+    );
 }
 
 /// What a confirmation runs: operation `label` on `project`, as [`Store::run`] runs it.
@@ -823,12 +853,29 @@ impl AppView {
             files_in: worktree.clone(),
             ..Overlay::files(&changes)
         };
+        // Asked already when undo can't take it back; else, when GitButler can't record it
+        // after all, nothing goes, and the card asks.
+        let (asked, again) = (project.clone(), changes.clone());
         let run = then_run(
             project,
             "Discard",
             overlay,
-            move |path, _| backend::discard(path, worktree.as_deref(), &changes),
-            move |store, (), cx| store.snack_after(undoable, "Changes discarded", cx),
+            move |path, _| backend::discard(path, worktree.as_deref(), &changes, !undoable),
+            move |store, outcome, cx| match outcome {
+                None => store.snack_after(undoable, "Changes discarded", cx),
+                Some(Undiscarded::Unrecorded(why)) => store.error_with_retry(
+                    store.card_title(&asked, "Changes weren't discarded".into()),
+                    format!("GitButler couldn't record them to undo: {why}"),
+                    "Discard anyway",
+                    move |store, cx| discard_unrecorded(store, &asked, &again, cx),
+                    cx,
+                ),
+                Some(Undiscarded::Partway(why)) => store.error(
+                    store.card_title(&asked, "Discard failed".into()),
+                    format!("{why}\nUndo puts back anything it threw away before that."),
+                    cx,
+                ),
+            },
         );
         match ask {
             None => run(self, cx),
