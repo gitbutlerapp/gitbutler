@@ -54,6 +54,19 @@ pub(super) fn shown(workspace: &Workspace) -> impl Iterator<Item = (CommitId, [&
     local.chain((workspace.remote_commits()).map(|commit| (commit.id, commit.ids())))
 }
 
+/// The commit a branch's or a stack's page shows, when it's their only one: their diff is
+/// just its changes, so opening them reads it.
+pub(super) fn lone_commit(workspace: &Workspace, selection: &Selection) -> Option<CommitId> {
+    let branches = match selection {
+        Selection::Branch(_, ref_name) => std::slice::from_ref(workspace.find_branch(ref_name)?),
+        Selection::Stack(_, bottom) => workspace.lane(bottom)?,
+        _ => return None,
+    };
+    let mut commits = branches.iter().flat_map(|branch| &branch.commits);
+    let lone = commits.next()?;
+    commits.next().is_none().then_some(lone.id)
+}
+
 /// Whether a commit going by `ids` was seen, by either.
 fn was_seen(seen: &HashSet<String>, ids: [&str; 2]) -> bool {
     ids.iter().any(|id| seen.contains(*id))
@@ -276,8 +289,10 @@ fn amended(old: &Commit, new: &Commit) -> bool {
 mod tests {
     use std::collections::HashSet;
 
-    use super::{Seeable, amended, amended_since, was_seen};
+    use super::{Seeable, amended, amended_since, lone_commit, was_seen};
     use crate::backend::{Commit, CommitId};
+    use crate::state::Selection;
+    use crate::state::load::tests::{branch, workspace};
 
     fn commit(id: u8, parent: u8, tree: u8) -> Commit {
         let oid = |n: u8| gix::ObjectId::from_bytes_or_panic(&[n; 20]);
@@ -330,6 +345,29 @@ mod tests {
             ..rebased
         };
         assert!(!was_seen(&seen, other.ids()), "another commit isn't");
+    }
+
+    #[test]
+    fn a_branch_or_stack_of_one_commit_reads_it() {
+        let ws = workspace(
+            vec![
+                vec![branch("empty", &[]), branch("lone", &[1])],
+                vec![branch("two", &[2, 3])],
+            ],
+            vec![],
+        );
+        let lone = |selection| lone_commit(&ws, &selection);
+        let branch = |name: &str| Selection::Branch("p".into(), format!("refs/heads/{name}"));
+        let stack = |bottom: &str| Selection::Stack("p".into(), format!("refs/heads/{bottom}"));
+        let one = Some(ws.find_branch("refs/heads/lone").unwrap().commits[0].id);
+        assert_eq!(lone(branch("lone")), one, "its diff is that commit's");
+        assert_eq!(lone(stack("lone")), one, "a branch with none adds nothing");
+        assert_eq!(
+            lone(branch("two")),
+            None,
+            "two commits' diff isn't either's"
+        );
+        assert_eq!(lone(branch("empty")), None, "nothing to read");
     }
 
     #[test]
