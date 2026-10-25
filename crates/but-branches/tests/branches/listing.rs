@@ -310,6 +310,41 @@ Target [main]
 }
 
 #[test]
+fn remote_branches_sharing_a_tip_both_count_their_commits() -> anyhow::Result<()> {
+    let (repo, meta, mut db) =
+        named_read_only_in_memory_scenario("remote-branches-sharing-a-tip", "")?;
+    snapbox::assert_data_eq!(
+        visualize_commit_graph_all(&repo)?,
+        snapbox::str![[r#"
+* 5b1591c (origin/above) above-1
+* f10236e (origin/team-b, origin/team-a) shared-1
+* 353b35c (HEAD -> main, origin/main) init
+
+"#]]
+    );
+
+    let listing = but_branches::list(&repo, &*meta, &mut db, options_with_target(&repo)?)?;
+    // Each counts the commit, though the graph keeps just one of the two names, and the
+    // branch above stacks on neither, as shared tips stay separate.
+    snapbox::assert_data_eq!(
+        listing_snapshot(&listing),
+        snapbox::str![[r#"
+target: refs/heads/main, incomplete: false
+Standalone [above]
+  above (remote: refs/remotes/origin/above) 5b1591c commits=1 target(+2)
+Standalone [team-a]
+  team-a (remote: refs/remotes/origin/team-a) f10236e commits=1 target(+1)
+Standalone [team-b]
+  team-b (remote: refs/remotes/origin/team-b) f10236e commits=1 target(+1)
+Target [main]
+  main (local+remote: refs/remotes/origin/main) 353b35c commits=0 target(+0)
+
+"#]]
+    );
+    Ok(())
+}
+
+#[test]
 fn hard_limit_marks_incomplete_and_hides_clipped_counts() -> anyhow::Result<()> {
     let (repo, mut meta, mut db) = named_read_only_in_memory_scenario("branch-listing", "")?;
     add_stack_with_segments(

@@ -271,6 +271,10 @@ struct ListingContext<'a> {
     /// the segment's first commit, or for empty segments the peeled id recorded on the
     /// ref itself. Refs found on non-first commits map to the owning segment.
     segment_by_ref: BTreeMap<FullName, (SegmentIndex, Option<gix::ObjectId>)>,
+    /// The segment each commit starts, for the refs the graph leaves out: it seeds one ref
+    /// per commit, so of two branches on the same tip, as a remote branch pushed under two
+    /// names, only one has a segment.
+    segment_by_tip: BTreeMap<gix::ObjectId, SegmentIndex>,
     /// All segments reachable from the configured local target.
     local_target_reachable: BTreeSet<SegmentIndex>,
     /// The configured local target's tip, used only for ahead counts.
@@ -289,6 +293,9 @@ impl<'a> ListingContext<'a> {
     ) -> Self {
         ListingContext {
             segment_by_ref: walk::ref_index(&ws.graph),
+            segment_by_tip: (ws.graph.segments())
+                .filter_map(|sidx| Some((ws.graph[sidx].commits.first()?.id, sidx)))
+                .collect(),
             local_target_reachable: local_target
                 .map(|(_, start)| walk::reachable_from(&ws.graph, start))
                 .unwrap_or_default(),
@@ -322,7 +329,8 @@ impl<'a> ListingContext<'a> {
 
     /// How `name` relates to the graph, given the `tip` it was enumerated at.
     fn anchor_of(&self, name: &FullName, tip: gix::ObjectId) -> Option<walk::Anchor> {
-        let (segment, commit) = self.segment_by_ref.get(name).copied()?;
+        let (segment, commit) = (self.segment_by_ref.get(name).copied())
+            .or_else(|| Some((*self.segment_by_tip.get(&tip)?, Some(tip))))?;
         Some(walk::Anchor::classify(segment, commit, tip))
     }
 
@@ -474,10 +482,13 @@ impl<'a> ListingContext<'a> {
                 _ => None,
             })
             .collect();
-        let identity_by_segment: BTreeMap<SegmentIndex, &BString> = anchors
-            .iter()
-            .map(|&(identity, segment)| (segment, identity))
-            .collect();
+        // A tip two branches share stacks under neither, so it maps to none.
+        let mut identity_by_segment = BTreeMap::<SegmentIndex, Option<&BString>>::new();
+        for &(identity, segment) in &anchors {
+            (identity_by_segment.entry(segment))
+                .and_modify(|shared| *shared = None)
+                .or_insert(Some(identity));
+        }
 
         // `A -> B` when `B` is the first named segment below `A`.
         let mut below = BTreeMap::<&BString, &BString>::new();
@@ -486,7 +497,7 @@ impl<'a> ListingContext<'a> {
             let Some(child) = self
                 .owned_history(segment, identity)
                 .boundary
-                .and_then(|boundary| identity_by_segment.get(&boundary).copied())
+                .and_then(|boundary| identity_by_segment.get(&boundary).copied().flatten())
             else {
                 continue;
             };
