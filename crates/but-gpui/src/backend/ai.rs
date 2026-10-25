@@ -120,6 +120,7 @@ fn stream(
     let model = provider.model_or_default();
     provider
         .stream_response(system, vec![ChatMessage::User(prompt)], &model, on_text)?
+        .map(|answer| without_thinking(&answer).to_owned())
         .filter(|answer| !answer.trim().is_empty())
         .context("The AI provider answered with nothing")
 }
@@ -141,7 +142,7 @@ pub async fn write(
         let mut text = String::new();
         while let Some(token) = futures::StreamExt::next(&mut tokens).await {
             text.push_str(&token);
-            show(&text);
+            show(without_thinking(&text));
         }
     };
     futures::join!(answer, pump).0
@@ -174,6 +175,17 @@ pub fn split_title_body(text: &str) -> (String, String) {
     (title, body.to_owned())
 }
 
+/// `text` without the reasoning a reasoning model, as DeepSeek-R1 or Qwen3 run locally, can
+/// put before its answer in `<think>` tags, and nothing while it's still reasoning.
+fn without_thinking(text: &str) -> &str {
+    match text.trim_start().strip_prefix("<think>") {
+        // Only blank lines go, as a suggested merge's first line keeps its indentation.
+        Some(thinking) => (thinking.split_once("</think>"))
+            .map_or("", |(_, answer)| answer.trim_start_matches(['\n', '\r'])),
+        None => text,
+    }
+}
+
 /// `text` without a code fence around it, also while it streams in. Only blank lines go
 /// around it, as code, a suggested merge's above all, needs its first line's indentation.
 pub fn strip_fence(text: &str) -> &str {
@@ -198,7 +210,32 @@ pub fn strip_fence(text: &str) -> &str {
 
 #[cfg(test)]
 mod tests {
-    use super::{split_title_body, strip_fence};
+    use super::{split_title_body, strip_fence, without_thinking};
+
+    #[test]
+    fn a_reasoning_models_thinking_is_left_out() {
+        let answer = "<think>\nThe diff adds pagination.\n</think>\n\nPaginate orders";
+        assert_eq!(
+            without_thinking(answer),
+            "Paginate orders",
+            "only the answer goes in"
+        );
+        assert_eq!(
+            without_thinking("<think>\nThe diff"),
+            "",
+            "nothing shows while it reasons"
+        );
+        assert_eq!(
+            without_thinking("<think>merge</think>\n\n    return a"),
+            "    return a",
+            "code after it keeps its first line's indentation"
+        );
+        assert_eq!(
+            without_thinking("Mention <think> tags"),
+            "Mention <think> tags",
+            "an answer that only names the tag stays"
+        );
+    }
 
     #[test]
     fn a_suggested_merge_keeps_its_first_lines_indentation() {

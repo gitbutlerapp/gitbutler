@@ -179,18 +179,23 @@ pub fn test_signing(path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Whether Git's credentials for the target's remote work: fetch from it, or with `push`, push
-/// an empty branch there and delete it again, as GitButler's other apps test them.
+/// Whether Git's credentials work: fetch from the target's remote, or with `push`, push an
+/// empty branch to the remote branches are pushed to, as a fork's own, and delete it again,
+/// as GitButler's other apps test them.
 pub fn test_credentials(path: &Path, push: bool) -> Result<()> {
     let ctx = open(path)?;
-    let (remote, branch) = {
+    let (remote, branch, push_remote) = {
         let repo = ctx.repo.get()?;
-        let target = (ctx.project_meta()?.remote_target_ref(&repo)?)
+        let meta = ctx.project_meta()?;
+        let target = (meta.remote_target_ref(&repo)?)
             .context("The target branch has no remote to test against")?;
-        but_core::extract_remote_name_and_short_name(target.as_ref(), &repo.remote_names())
-            .context("Couldn't tell which remote the target branch is on")?
+        let (remote, branch) =
+            but_core::extract_remote_name_and_short_name(target.as_ref(), &repo.remote_names())
+                .context("Couldn't tell which remote the target branch is on")?;
+        (remote, branch, meta.try_push_remote_name(&repo)?)
     };
     if push {
+        let remote = push_remote.unwrap_or(remote);
         but_api::legacy::git::git_test_push(&ctx, remote, branch.to_string())
     } else {
         but_api::legacy::git::git_test_fetch(&ctx, remote, None)

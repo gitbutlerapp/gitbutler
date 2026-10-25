@@ -320,8 +320,8 @@ impl SettingsView {
         let credentials = Row::new(
             "Credentials",
             if remote {
-                "Fetches from the target branch's remote, then pushes an empty branch there and \
-                 deletes it."
+                "Fetches from the target branch's remote, then pushes an empty branch to the one \
+                 branches are pushed to and deletes it."
             } else {
                 "Needs a target branch with a remote to test against."
             },

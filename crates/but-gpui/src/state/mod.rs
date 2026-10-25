@@ -316,10 +316,11 @@ pub struct Store {
     /// What ⌘⇧Z redoes, newest last: the oplog entries ⌘Z recorded taking something back, in
     /// whichever project, since the user last did something.
     redo_steps: Vec<(ProjectId, SnapshotId)>,
-    /// When, in milliseconds since the Unix epoch, ⌘Z and ⌘⇧Z wrote files, by project: what's
-    /// written then isn't a change of the user's that a later ⌘Z asks about. Shared as
-    /// `kept_snapshots` is, so a queued undo sees the spans of those before it.
-    undid: Arc<Mutex<Spans>>,
+    /// When, in milliseconds since the Unix epoch, the app's operations ran, ⌘Z and ⌘⇧Z
+    /// included but not pushes and fetches, by project: the files they wrote and the branches
+    /// they moved aren't changes a later ⌘Z asks about. Shared as `kept_snapshots` is, so a queued undo sees the spans of
+    /// those before it.
+    ran: Arc<Mutex<Spans>>,
     /// Oplog entries of mutations that changed more than the oplog snapshots (a linked
     /// worktree, a branch outside the workspace), which ⌘Z doesn't take back, by project.
     /// Shared with a queued undo, which reads it once it runs, after what ran before it is
@@ -425,7 +426,7 @@ impl Store {
             last_snapshot: None,
             undo_steps: Vec::new(),
             redo_steps: Vec::new(),
-            undid: Arc::default(),
+            ran: Arc::default(),
             kept_snapshots: Arc::new(Mutex::new(
                 (saved.kept_by_project.into_iter())
                     .map(|(project, ids)| {

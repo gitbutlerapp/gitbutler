@@ -615,7 +615,9 @@ impl AppView {
                                         .child("Undo")
                                         .on_click(cx.listener(move |this, _, _, cx| {
                                             this.store.update(cx, |store, cx| {
-                                                store.undo_snapshot(&project, snapshot, true, cx)
+                                                store.undo_snapshot(
+                                                    &project, snapshot, None, None, cx,
+                                                )
                                             })
                                         })),
                                 )

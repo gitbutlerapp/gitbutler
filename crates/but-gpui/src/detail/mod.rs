@@ -316,10 +316,14 @@ pub struct Detail {
     composing: bool,
     /// The checkout had changes when the composer opened, so it isn't for an empty commit.
     composing_on_changes: bool,
+    /// The branch the composer showed the commit going to, which mustn't change unseen.
+    composing_target: Option<String>,
     /// Where the focus was when writing a commit message started, to go back to after.
     composer_back: Option<FocusHandle>,
     /// What scrolls the commit message box, which keeps the caret in view.
     message_scroll: ScrollHandle,
+    /// The reword box's, which scrolls past a dozen lines as the commit box does.
+    reword_scroll: ScrollHandle,
     cursor: Cursor,
     /// Whether the selected commit's message shows its body, not just its title.
     message_open: bool,
@@ -638,8 +642,10 @@ impl Detail {
             checks_worktree: None,
             composing: false,
             composing_on_changes: false,
+            composing_target: None,
             composer_back: None,
             message_scroll,
+            reword_scroll: ScrollHandle::new(),
             cursor: Cursor::default(),
             message_open: false,
             review_tab: false,
@@ -1180,22 +1186,24 @@ impl Detail {
         }
     }
 
-    /// What dragging the uncommitted changes of `project`'s checkout `worktree` carries: the
-    /// checked files and hunks when they're shown here, otherwise all of them.
+    /// What dragging or cutting the uncommitted changes of `project`'s checkout `worktree`
+    /// carries: the checked files and hunks when they're shown here, otherwise all of them, but
+    /// not conflicted files, which a commit refuses until they're resolved.
     pub fn files_to_move(
         &self,
         project: &ProjectId,
         worktree: Option<Arc<str>>,
         cx: &App,
     ) -> Vec<Selected> {
-        if self.selected_checkout(cx) == Some((project.clone(), worktree.clone())) {
-            return self.selected_changes(cx);
-        }
-        let store = self.store.read(cx);
-        let files = (store.workspace(project))
-            .and_then(|ws| ws.uncommitted_in(worktree.as_deref()))
-            .unwrap_or_default();
-        files.iter().map(Selected::whole).collect()
+        let files = match self.selected_checkout(cx) == Some((project.clone(), worktree.clone())) {
+            true => self.selected_changes(cx),
+            false => (self.store.read(cx).workspace(project))
+                .and_then(|ws| ws.uncommitted_in(worktree.as_deref()))
+                .map_or_else(Vec::new, |files| {
+                    files.iter().map(Selected::whole).collect()
+                }),
+        };
+        files.into_iter().filter(|s| !s.file.conflicted).collect()
     }
 
     /// Focus the diff.

@@ -376,6 +376,8 @@ fn files_named(files: &[String]) -> String {
     }
 }
 
+const WAIT_TO_UNDO: &str = "Wait for the running operation to finish, then undo it";
+
 /// Now, in milliseconds since the Unix epoch, as file times are.
 fn now_millis() -> i64 {
     (SystemTime::now().duration_since(UNIX_EPOCH)).map_or(0, |t| t.as_millis() as i64)
@@ -400,31 +402,34 @@ impl Store {
         // The newest step not being undone already, as by a ⌘Z just before.
         let last = (self.undo_steps.iter().rev())
             .find(|step| !self.pending(&step.project, Some(&OpKind::Undo(step.snapshot)), false));
-        // Asked for after it and still running, an operation, a redo too, is what the user
-        // means to undo.
-        let newer = |asked: Instant| last.is_none_or(|step| asked > step.asked);
-        if (self.unfinished_asked())
-            // A push running too, which would come before the undo it was asked before.
-            .any(|(o, asked)| {
-                (!o.remote_only || o.pushes.is_some())
-                    && !matches!(o.kind, OpKind::Undo(_))
-                    && newer(asked)
-            })
-        {
-            return self.snack("Wait for the running operation to finish, then undo it", cx);
+        // Asked for after it in any project, as ⌘Z follows the user there, and still running.
+        if self.running_after(last.map(|step| step.asked), None) {
+            return self.snack(WAIT_TO_UNDO, cx);
         }
         match last.map(|step| (step.project.clone(), step.snapshot)) {
-            Some((project, snapshot)) => self.undo_snapshot(&project, snapshot, true, cx),
+            Some((project, snapshot)) => self.undo_snapshot(&project, snapshot, None, None, cx),
             None => self.snack("Nothing to undo", cx),
         }
     }
 
-    /// Every operation waiting or running, but for one waiting only for its reload, with when
-    /// it was asked for.
-    fn unfinished_asked(&self) -> impl Iterator<Item = (&Overlay, Instant)> {
-        let running = self.running.values().filter(|r| !r.settling);
-        (running.map(|r| (&r.overlay, r.asked)))
-            .chain(self.queue.iter().map(|q| (&q.overlay, q.asked)))
+    /// Whether an operation asked for after `asked`, or any at all without it, is waiting or
+    /// running in `project`, or in any without it, a push or a redo too: it's what the user
+    /// means to undo, and an undo asked for now would run after it.
+    fn running_after(&self, asked: Option<Instant>, project: Option<&ProjectId>) -> bool {
+        self.unfinished_asked().any(|(p, o, at)| {
+            project.is_none_or(|project| p == project)
+                && (!o.remote_only || o.pushes.is_some())
+                && !matches!(o.kind, OpKind::Undo(_))
+                && asked.is_none_or(|asked| at > asked)
+        })
+    }
+
+    /// Every operation waiting or running, but for one waiting only for its reload, with its
+    /// project and when it was asked for.
+    fn unfinished_asked(&self) -> impl Iterator<Item = (&ProjectId, &Overlay, Instant)> {
+        let running = self.running.iter().filter(|(_, r)| !r.settling);
+        (running.map(|(p, r)| (p, &r.overlay, r.asked)))
+            .chain(self.queue.iter().map(|q| (&q.project, &q.overlay, q.asked)))
     }
 
     /// Make the operation that recorded `snapshot` in `project` one ⌘Z takes back, among the
@@ -462,7 +467,7 @@ impl Store {
 
     /// Redo what ⌘Z last took back, unless the user has done something since.
     pub fn redo_last(&mut self, cx: &mut Context<Self>) {
-        if (self.unfinished_asked()).any(|(o, _)| matches!(o.kind, OpKind::Undo(_))) {
+        if (self.unfinished_asked()).any(|(_, o, _)| matches!(o.kind, OpKind::Undo(_))) {
             return self.snack("Wait for the undo to finish, then redo it", cx);
         }
         // The newest not being redone already.
@@ -472,21 +477,22 @@ impl Store {
         else {
             return self.snack("Nothing to redo", cx);
         };
-        self.redo_snapshot(project, undo, true, cx)
+        self.redo_snapshot(project, undo, None, cx)
     }
 
     /// Redo what the undo that recorded `undo` in `project` took back, unless something
-    /// changed the project since or, with `guard`, a file was written since.
+    /// changed the project or a file was written since, or since `accepted` once the user said
+    /// to redo anyway.
     fn redo_snapshot(
         &mut self,
         project: ProjectId,
         undo: SnapshotId,
-        guard: bool,
+        accepted: Option<i64>,
         cx: &mut Context<Self>,
     ) {
-        let (kept, undid, of, again, asked) = (
+        let (kept, ran, of, again, asked) = (
             self.kept_snapshots.clone(),
-            self.undid.clone(),
+            self.ran.clone(),
             project.clone(),
             project.clone(),
             Instant::now(),
@@ -500,22 +506,20 @@ impl Store {
             },
             move |path, _| {
                 let kept = kept.lock().get(&of).cloned();
-                let undid = undid.lock().get(&of).cloned();
-                let undid = undid.unwrap_or_default();
-                let started = now_millis();
-                let redone = backend::history::redo_snapshot(
+                let ran = ran.lock().get(&of).cloned().unwrap_or_default();
+                backend::history::redo_snapshot(
                     path,
                     undo,
                     &kept.unwrap_or_default(),
-                    guard.then_some(undid.as_slice()),
-                );
-                Ok((redone?, (started, now_millis())))
+                    &ran,
+                    accepted,
+                )
             },
-            move |store, (redone, span), cx| {
+            move |store, redone, cx| {
                 let operation = match redone {
                     Some(Undone::Done(operation)) => operation,
                     Some(Undone::Newer(files)) => {
-                        let what = files_named(&files);
+                        let (what, asked) = (files_named(&files), Some(now_millis()));
                         return store.error_with_retry(
                             store.card_title(&again, "Redo takes back newer changes too".into()),
                             format!(
@@ -523,7 +527,7 @@ impl Store {
                                  were before it, and Undo brings the changes back."
                             ),
                             "Redo anyway",
-                            move |store, cx| store.redo_snapshot(again.clone(), undo, false, cx),
+                            move |store, cx| store.redo_snapshot(again.clone(), undo, asked, cx),
                             cx,
                         );
                     }
@@ -538,7 +542,6 @@ impl Store {
                     }
                 };
                 (store.redo_steps).retain(|step| *step != (again.clone(), undo));
-                (store.undid.lock()).entry(again).or_default().push(span);
                 // Back on top of what ⌘Z takes back.
                 if let Some((project, snapshot)) = store.last_snapshot.clone() {
                     store.push_undo_step(project, snapshot, asked);
@@ -567,13 +570,16 @@ impl Store {
     }
 
     /// Undo the operation that recorded `snapshot` in `project`, as long as nothing came
-    /// after it there and, with `guard`, no file was written since; for ⌘⇧Z to redo. Its step
-    /// stays among those ⌘Z takes back until it's undone, or can't ever be on its own.
+    /// after it there, in Git's logs or the files, and no push did, or none since `accepted`
+    /// and `pushed_ok` once the user said to undo anyway about the files or a push; for ⌘⇧Z to
+    /// redo. Its step stays among those ⌘Z takes back until it's undone, or can't ever be on
+    /// its own.
     pub fn undo_snapshot(
         &mut self,
         project: &ProjectId,
         snapshot: SnapshotId,
-        guard: bool,
+        accepted: Option<i64>,
+        pushed_ok: Option<i64>,
         cx: &mut Context<Self>,
     ) {
         if (self.workspace(project)).is_some_and(|ws| ws.editing.is_some()) {
@@ -586,25 +592,29 @@ impl Store {
         let step = (self.undo_steps.iter())
             .find(|step| step.project == *project && step.snapshot == snapshot);
         let asked = step.map(|step| step.asked);
-        let newer_than = (step.filter(|_| guard)).map(|step| step.done);
+        if self.running_after(asked, Some(project)) {
+            return self.snack(WAIT_TO_UNDO, cx);
+        }
+        // What came after it, or after the user said to undo anyway, which still stops for
+        // anything newer than that.
+        let newer_than = accepted.or(step.map(|step| step.done));
         let again = project.clone();
-        if (newer_than.zip(self.pushed_at.get(project)))
-            .is_some_and(|(done, pushed)| *pushed > done)
+        if (newer_than.max(pushed_ok).zip(self.pushed_at.get(project)))
+            .is_some_and(|(since, pushed)| *pushed > since)
         {
+            // The card comes before anything else is checked, so going ahead still checks
+            // from where it would have, but for pushes up to now.
+            let asked_now = Some(now_millis());
             return self.error_with_retry(
                 self.card_title(project, "Undo may take back what was pushed".into()),
                 "A push came after the operation it undoes. If the push took what the \
                  operation did, the remote keeps that until the branch is force pushed.",
                 "Undo anyway",
-                // Still asking about files written since, as ⌘Z does.
-                move |store, cx| {
-                    store.pushed_at.remove(&again);
-                    store.undo_snapshot(&again, snapshot, true, cx)
-                },
+                move |store, cx| store.undo_snapshot(&again, snapshot, accepted, asked_now, cx),
                 cx,
             );
         }
-        let (undid, of) = (self.undid.clone(), project.clone());
+        let (ran, of) = (self.ran.clone(), project.clone());
         // The snackbar offering to undo it goes with it.
         let offered = (project.clone(), snapshot);
         self.toasts.retain(|toast| {
@@ -618,28 +628,34 @@ impl Store {
                 ..Overlay::rewriting_main()
             },
             move |path, _| {
-                let started = now_millis();
-                let undid = undid.lock().get(&of).cloned();
-                let undid = undid.unwrap_or_default();
-                let newer_than = newer_than.map(|at| (at, undid.as_slice()));
-                let undone = backend::history::undo_snapshot(path, snapshot, newer_than);
-                Ok((undone, (started, now_millis())))
+                let ran = ran.lock().get(&of).cloned().unwrap_or_default();
+                let newer_than = newer_than.map(|at| (at, ran.as_slice()));
+                Ok(backend::history::undo_snapshot(path, snapshot, newer_than))
             },
-            move |store, (undone, span), cx| {
+            move |store, undone, cx| {
                 let title = |store: &Store| store.card_title(&again, "Undo failed".into());
                 match undone {
                     Ok(Undone::Done(operation)) => {
                         (store.undo_steps)
                             .retain(|step| step.project != again || step.snapshot != snapshot);
-                        (store.undid.lock())
-                            .entry(again.clone())
-                            .or_default()
-                            .push(span);
                         let done = store.card_title(&again, format!("Undone: {operation}"));
                         if let Some((_, undo)) = store.last_snapshot {
                             store.redo_steps.push((again, undo));
                         }
                         store.snack(done, cx)
+                    }
+                    // Behind a newer step of the user's own, as a quick second ⌘Z asks for
+                    // this one while the first still waits to run: that one goes first, and
+                    // this one stays.
+                    // The list is oldest first, a new branch's step just before its commit's.
+                    Ok(Undone::Behind(_))
+                        if (store.undo_steps.iter())
+                            .skip_while(|step| step.project != again || step.snapshot != snapshot)
+                            .skip(1)
+                            .any(|step| step.project == again) =>
+                    {
+                        let why = "Undo the newer operation first".into();
+                        store.snack(store.card_title(&again, why), cx)
                     }
                     // It, and the project's steps before it, are behind what came after.
                     Ok(Undone::Behind(why)) => {
@@ -655,7 +671,7 @@ impl Store {
                         store.snack(store.card_title(&again, why), cx)
                     }
                     Ok(Undone::Newer(files)) => {
-                        let what = files_named(&files);
+                        let (what, asked) = (files_named(&files), Some(now_millis()));
                         store.error_with_retry(
                             store.card_title(&again, "Undo takes back newer changes too".into()),
                             format!(
@@ -663,7 +679,9 @@ impl Store {
                                  back as they were before it, and Redo brings the changes back."
                             ),
                             "Undo anyway",
-                            move |store, cx| store.undo_snapshot(&again, snapshot, false, cx),
+                            move |store, cx| {
+                                store.undo_snapshot(&again, snapshot, asked, pushed_ok, cx)
+                            },
                             cx,
                         )
                     }
@@ -1421,13 +1439,17 @@ impl Store {
                 );
                 let before = backend::history::oplog_head(&path);
                 let heads = backend::worktrees::heads(&path);
+                // Just the work itself: what Git logs right after it, as an agent's commit
+                // waiting on the lock does, isn't the app's.
+                let started = now_millis();
                 let value = op(&path, &remap)?;
+                let ran = (started, now_millis());
                 let recorded =
                     backend::history::oplog_head(&path).filter(|after| Some(*after) != before);
                 // The oplog records only the main checkout: what moved a linked worktree,
                 // even one stacked on a branch here, can't be undone.
                 let moved_worktree = backend::worktrees::heads(&path) != heads;
-                Ok((value, recorded, moved_worktree))
+                Ok((value, recorded, moved_worktree, ran))
             })
             .await;
             this.update(cx, |store, cx| {
@@ -1468,7 +1490,17 @@ impl Store {
                 let source = (project.clone(), label.clone());
                 let first_card = store.next_toast;
                 match result {
-                    Ok((value, recorded, moved_worktree)) => {
+                    Ok((value, recorded, moved_worktree, ran)) => {
+                        // A push or fetch writes only what the remote has, which undo leaves,
+                        // so what an agent did while it ran still counts.
+                        if !remote_only {
+                            store
+                                .ran
+                                .lock()
+                                .entry(project.clone())
+                                .or_default()
+                                .push(ran);
+                        }
                         // Set here rather than at the start, so a load the watcher started
                         // mid-operation can't use it up; not after a failure, which made
                         // nothing.

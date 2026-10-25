@@ -298,6 +298,13 @@ impl Workspace {
             Some("Pick the project's target branch first")
         } else if (pushed.iter()).any(|b| b.commits.iter().any(|c| c.conflicted)) {
             Some("Resolve the conflicted commits first")
+        } else if (pushed.iter()).any(|b| {
+            // What the remote has of it counts as the target's incoming commits, not the
+            // branch's, so a force push wouldn't say what it drops from everyone's branch.
+            b.push == PushState::NeedsForce && self.target_branch.as_ref() == Some(&b.ref_name)
+        }) {
+            // Its remote moved on, or a commit it already pushed was rewritten here.
+            Some("Pushing the target branch would force it, rewriting it for everyone")
         } else {
             None
         }

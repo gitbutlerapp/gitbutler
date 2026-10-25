@@ -23,6 +23,10 @@ use crate::ui::{
     small_icon, v_flex,
 };
 
+/// Why the commit box, opened on changes something else committed since, as an agent can,
+/// doesn't make an empty commit instead.
+const COMMITTED_MEANWHILE: &str = "What was here to commit was committed meanwhile";
+
 /// What the next commit leaves out of the uncommitted changes; the rest goes in.
 #[derive(Default)]
 pub(super) struct Checks {
@@ -86,9 +90,9 @@ impl Checks {
 
     /// Carry what's left out over to a reload of the worktree diff, `files`.
     pub(super) fn reconcile(&mut self, files: &[FileDiff]) {
+        // A file left out stays out while it's gone, as an agent's `git stash` and `git stash
+        // pop` take it away and bring it back.
         let present: HashSet<&str> = files.iter().map(|f| f.file.path.as_str()).collect();
-        self.unchecked
-            .retain(|path| present.contains(path.as_str()));
         let find_hunk =
             |path: &str, key: HunkKey| file_hunks(files, path).iter().find(|h| h.key == key);
         // A hunk left out stays out when an edit renumbers it: what's out now is every
@@ -295,21 +299,23 @@ impl Detail {
         }
         // By path: finding each file in the diff in turn takes time squared in the files, as
         // after an `npm install` with nothing ignored.
-        let hunks: HashMap<&str, &[Hunk]> = (self.checks_diff().into_iter())
+        let loaded: HashMap<&str, &FileDiff> = (self.checks_diff().into_iter())
             .flat_map(|diff| diff.files.iter())
-            .map(|f| (f.file.path.as_str(), f.hunks()))
+            .map(|f| (f.file.path.as_str(), f))
             .collect();
         (files.iter())
-            .filter_map(|file| {
-                let hunks = hunks.get(file.path.as_str()).copied().unwrap_or_default();
-                self.selected_change(file, hunks)
-            })
+            .filter_map(|file| self.selected_change(file, loaded.get(file.path.as_str()).copied()))
             .collect()
     }
 
-    /// What of uncommitted `file`, whose loaded `hunks` these are, is checked: the file
-    /// narrowed to its checked hunks and lines, unless none of it is.
-    pub(super) fn selected_change(&self, file: &FileChange, hunks: &[Hunk]) -> Option<Selected> {
+    /// What of uncommitted `file`, as `loaded` in the diff, is checked: the file narrowed to
+    /// its checked hunks and lines, unless none of it is.
+    pub(super) fn selected_change(
+        &self,
+        file: &FileChange,
+        loaded: Option<&FileDiff>,
+    ) -> Option<Selected> {
+        let hunks = loaded.map_or(&[][..], FileDiff::hunks);
         if self.checks.unchecked.contains(&file.path) {
             return None;
         }
@@ -332,7 +338,11 @@ impl Detail {
             return None;
         }
         Some(Selected {
-            file: file.clone(),
+            // Picked hunks go with the file as the diff read it, whose lines place them, so a
+            // write since is refused rather than taking whatever lies there now.
+            file: (loaded.filter(|_| partial))
+                .map_or(file, |loaded| &loaded.file)
+                .clone(),
             hunks: partial.then_some(picked),
         })
     }
@@ -359,8 +369,12 @@ impl Detail {
 
     /// The hunks of `path` in the loaded worktree diff.
     pub(super) fn worktree_file_hunks(&self, path: &str) -> &[Hunk] {
-        self.checks_diff()
-            .map_or(&[], |diff| file_hunks(&diff.files, path))
+        self.loaded_file(path).map_or(&[], FileDiff::hunks)
+    }
+
+    /// `path` as the diff of the composer's checkout loaded it.
+    pub(super) fn loaded_file(&self, path: &str) -> Option<&FileDiff> {
+        (self.checks_diff()?.files.iter()).find(|f| f.file.path == path)
     }
 
     /// The loaded diff when it's of the checkout the checks are about: another's stays on
@@ -523,6 +537,8 @@ impl Detail {
                 .map(|file| file.path.clone());
             self.checks.unchecked.extend(conflicted.collect::<Vec<_>>());
             self.composing_on_changes = !files.is_empty();
+            self.composing_target = (self.checks_project.clone())
+                .and_then(|project| self.effective_target(&project, cx));
         }
         let message = self.message.focus_handle(cx);
         if !self.composing {
@@ -676,8 +692,9 @@ impl Detail {
         let message = store.message_of(&project, commit).1.to_owned();
         let key = (project.clone(), commit.key.clone(), commit.authored.clone());
         let opened = message.trim().to_owned();
+        let scroll = self.reword_scroll.clone();
         let input = cx.new(|cx| {
-            let mut input = TextInput::new("Commit message", true, cx);
+            let mut input = TextInput::new("Commit message", true, cx).scrolled_by(scroll);
             input.set_text(message, cx);
             input
         });
@@ -780,7 +797,11 @@ impl Detail {
             return;
         };
         if self.writing.is_some() {
-            snack(&self.store, "The message is still being written", cx);
+            snack(
+                &self.store,
+                "The message is still being written: the sparkle keeps what's written so far",
+                cx,
+            );
             return;
         }
         let message = self.message.read(cx).text().trim().to_owned();
@@ -800,8 +821,7 @@ impl Detail {
         // Opened on changes that all went meanwhile, as an agent committed them, an empty
         // commit isn't what was being written.
         if nothing_changed && self.composing_on_changes {
-            let why = "What was here to commit was committed meanwhile";
-            snack(&self.store, why, cx);
+            snack(&self.store, COMMITTED_MEANWHILE, cx);
             return;
         }
         if files.is_empty() && !nothing_changed {
@@ -815,6 +835,9 @@ impl Detail {
             return;
         }
         let target = self.effective_target(&project, cx);
+        if self.target_went(&project, &target, cx) {
+            return;
+        }
         // A linked worktree's commit goes on its own branch, so the next one in the main
         // checkout still goes where it would have.
         let linked = worktree.is_some();
@@ -937,6 +960,32 @@ impl Detail {
         (self.selected_project(cx)).is_some_and(|project| self.amend_target(&project, cx).is_some())
     }
 
+    /// Whether the branch the composer showed went, as an agent can unapply or rename it, so
+    /// `target` is elsewhere than picked: says where, once, rather than go there unseen.
+    fn target_went(
+        &mut self,
+        project: &ProjectId,
+        target: &Option<String>,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let shown = std::mem::replace(&mut self.composing_target, target.clone());
+        let Some(gone) = shown.filter(|shown| {
+            Some(shown) != target.as_ref()
+                && self.commit_target != *target
+                && (self.store.read(cx).workspace(project))
+                    .is_none_or(|ws| ws.find_branch(shown).is_none())
+        }) else {
+            return false;
+        };
+        let to = target.as_deref().map_or("a new branch", short_ref);
+        let why = format!(
+            "{} was renamed or left the workspace meanwhile. Try again for {to}",
+            short_ref(&gone)
+        );
+        snack(&self.store, why, cx);
+        true
+    }
+
     /// The newest commit on the branch new commits go to, which Amend adds to.
     fn amend_target(&self, project: &ProjectId, cx: &App) -> Option<(CommitId, String)> {
         if self.commit_pending(project, cx) {
@@ -983,6 +1032,9 @@ impl Detail {
         let Some((into, _)) = self.amend_target(&project, cx) else {
             return;
         };
+        if self.target_went(&project, &self.effective_target(&project, cx), cx) {
+            return;
+        }
         if self.choices_loading(&project, cx) {
             return;
         }
@@ -1059,8 +1111,9 @@ impl Detail {
         let input = self.message.clone();
         input.update(cx, |input, _| input.break_undo_run());
         let task = cx.spawn(async move |this, cx| {
+            // Without a code fence around it, as a model can put one.
             let written = ai::write(ai::COMMIT_SYSTEM, prompt, |text| {
-                let shown = text.trim_start().to_owned();
+                let shown = ai::strip_fence(text).trim_start().to_owned();
                 input.update(cx, |input, cx| input.set_text(shown, cx));
             })
             .await;
@@ -1068,7 +1121,7 @@ impl Detail {
                 this.writing = None;
                 match written {
                     Ok(message) => {
-                        let message = backend::wrapped_message(message.trim());
+                        let message = backend::wrapped_message(ai::strip_fence(&message).trim());
                         this.message
                             .update(cx, |input, cx| input.set_text(message, cx));
                     }
@@ -1182,19 +1235,25 @@ impl Detail {
                                 Icon::Ai,
                             )
                             .small()
-                            .disabled_because(if self.writing.is_some() {
-                                Some("Writing…")
-                            } else if checked == 0 {
-                                Some("Check some changes to write about")
-                            } else {
-                                None
-                            })
+                            .disabled_because(
+                                (self.writing.is_none() && checked == 0)
+                                    .then_some("Check some changes to write about"),
+                            )
                             .tooltip(if self.writing.is_some() {
-                                "Writing…"
+                                "Writing… Click to keep what's written so far"
                             } else {
                                 "Write the message with AI, guided by what's in the box"
                             })
-                            .on_click(cx.listener(|this, _, _, cx| this.write_message(cx))),
+                            // A slow model, as a local one can be, would otherwise hold the
+                            // commit until it's done.
+                            .on_click(cx.listener(|this, _, _, cx| match this.writing.take() {
+                                // Before it wrote anything, what guided it comes back.
+                                Some((_, notes)) if this.message.read(cx).text().is_empty() => {
+                                    (this.message).update(cx, |input, cx| input.set_text(notes, cx))
+                                }
+                                Some(_) => cx.notify(),
+                                None => this.write_message(cx),
+                            })),
                         ),
                     ),
             )
@@ -1254,10 +1313,10 @@ impl Detail {
                         button("commit", "Commit")
                             .small()
                             .style(ButtonStyle::Pop)
-                            .disabled_because(
-                                (checked == 0 && !files.is_empty())
-                                    .then_some("Check some changes first"),
-                            )
+                            .disabled_because(match files.is_empty() {
+                                true => self.composing_on_changes.then_some(COMMITTED_MEANWHILE),
+                                false => (checked == 0).then_some("Check some changes first"),
+                            })
                             .tooltip_with_key(
                                 if files.is_empty() {
                                     "Make an empty commit"
