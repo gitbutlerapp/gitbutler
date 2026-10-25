@@ -931,6 +931,7 @@ pub fn discard(path: &Path, worktree: Option<&str>, selected: &[Selected]) -> Re
     // A linked worktree's discard can't be undone, so not of what was written after the
     // diff was shown, as by an agent while the confirmation was up.
     refuse_changed(repo, selected, worktree.is_some())?;
+    refuse_submodule_work(repo, selected)?;
     let conflicted: Vec<bstr::BString> = conflicted.into_iter().map(Into::into).collect();
     // Hunks that moved since the diff was shown refuse it before anything is recorded.
     let context_lines = ctx.settings.context_lines;
@@ -960,6 +961,43 @@ pub fn discard(path: &Path, worktree: Option<&str>, selected: &[Selected]) -> Re
         if let Some(spec) = (rejected.iter()).find(|spec| left.iter().any(|c| c.path == spec.path))
         {
             bail!("Couldn't discard {}", spec.path);
+        }
+    }
+    Ok(())
+}
+
+/// Refuse to discard a submodule with work of its own: discarding resets and cleans its
+/// checkout, or deletes a repository not yet recorded, and undo can't bring that back, as
+/// GitButler's history records only this checkout's files.
+fn refuse_submodule_work(repo: &gix::Repository, selected: &[Selected]) -> Result<()> {
+    let Some(workdir) = repo.workdir() else {
+        return Ok(());
+    };
+    for part in selected
+        .iter()
+        .filter(|part| part.file.submodule().is_some())
+    {
+        let path = &part.file.path;
+        if matches!(
+            part.file.change.status,
+            but_core::TreeStatus::Addition { .. }
+        ) {
+            bail!(
+                "{path} is a repository of its own, which discarding would delete for good. \
+                 Delete it yourself if that's what you want."
+            );
+        }
+        // One that isn't checked out has nothing of its own to lose; one that can't be read
+        // may have.
+        let changed = gix::open(workdir.join(path)).is_ok_and(|sub| {
+            but_core::diff::worktree_changes(&sub)
+                .map_or(true, |changes| !changes.changes.is_empty())
+        });
+        if changed {
+            bail!(
+                "{path} has uncommitted changes of its own, which discarding the submodule \
+                 would delete for good. Commit or stash them there first."
+            );
         }
     }
     Ok(())
@@ -1263,6 +1301,47 @@ pub(super) mod tests {
             let files = uncommitted(path);
             assert_eq!(files.len(), 1, "the markers are still a change: {files:?}");
             assert!(!files[0].conflicted, "the index takes the file as it is");
+        })
+    }
+
+    #[test]
+    fn a_submodule_with_work_of_its_own_isnt_discarded() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let lib = repo_with("v1\n");
+            git(
+                lib.path(),
+                &["commit", "-q", "--allow-empty", "-m", "second"],
+            );
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            let url = lib.path().to_str().unwrap();
+            git(
+                path,
+                &[
+                    "-c",
+                    "protocol.file.allow=always",
+                    "submodule",
+                    "add",
+                    "-q",
+                    url,
+                    "lib",
+                ],
+            );
+            git(path, &["commit", "-q", "-m", "add lib"]);
+            let sub = path.join("lib");
+            git(&sub, &["checkout", "-q", "HEAD~1"]);
+            std::fs::write(sub.join("notes"), "an agent's\n").unwrap();
+
+            let files = uncommitted(path);
+            let moved: Vec<Selected> = files.iter().map(Selected::whole).collect();
+            let refused = discard(path, None, &moved).unwrap_err();
+            assert!(
+                refused
+                    .to_string()
+                    .contains("uncommitted changes of its own"),
+                "resetting the submodule would delete its new file, past undo: {refused:#}"
+            );
+            assert!(sub.join("notes").exists(), "the file inside stays");
         })
     }
 
