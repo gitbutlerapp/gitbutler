@@ -875,11 +875,11 @@ impl ForgeRepository {
 
     fn get_review_card(&self, ctx: &but_ctx::Context, review_number: usize) -> Result<ReviewCard> {
         let review = self.get_review(ctx, review_number)?;
-        let ci = self.ci_for_ref(ctx, &review.source_branch);
+        let ci = self.ci_for_review(ctx, &review);
         Ok(ReviewCard::from_review(review, &self.display, ci))
     }
 
-    fn ci_for_ref(&self, ctx: &but_ctx::Context, reference: &str) -> ReviewCi {
+    fn ci_for_review(&self, ctx: &but_ctx::Context, review: &but_forge::ForgeReview) -> ReviewCi {
         if !self.display.capabilities.checks {
             return ReviewCi::unsupported();
         }
@@ -890,7 +890,9 @@ impl ForgeRepository {
                 self.preferred_user.clone(),
                 &self.repository,
                 &self.storage,
-                reference,
+                &review.source_branch,
+                // A fork's branch isn't in the base repository, so ask about the head commit.
+                (review.head_repo_is_fork && !review.sha.is_empty()).then_some(&*review.sha),
                 db,
                 Some(but_forge::CacheConfig::NoCache),
             )
@@ -900,7 +902,7 @@ impl ForgeRepository {
             Ok(checks) => ReviewCi::from_checks(checks),
             Err(err) => {
                 tracing::warn!(
-                    review_reference = reference,
+                    review_reference = review.source_branch,
                     error = %err,
                     "Could not load CI checks for MCP review card"
                 );
