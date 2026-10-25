@@ -3,8 +3,9 @@ use serde::{Deserialize, Serialize};
 use crate::ForgeName;
 
 /// The CI checks of `reference`, cached under that name. When set, `head_commit`
-/// is what the forge is asked about instead, as for a review from a fork, whose
-/// branch the base repository doesn't have.
+/// is what GitHub is asked about instead, as for a review from a fork, whose
+/// branch the base repository doesn't have. The other forges look checks up by
+/// branch, so they are always asked about `reference`.
 pub fn ci_checks_for_ref_with_cache(
     preferred_forge_user: Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
@@ -62,7 +63,10 @@ fn fetch_and_refresh_cache(
     head_commit: Option<&str>,
     db: &mut but_db::DbHandle,
 ) -> anyhow::Result<Vec<CiCheck>> {
-    let asked = head_commit.unwrap_or(reference);
+    let asked = match forge_repo_info.forge {
+        ForgeName::GitHub => head_commit.unwrap_or(reference),
+        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure => reference,
+    };
     let fetched = ci_checks_for_ref(preferred_forge_user, forge_repo_info, storage, asked)?;
     Ok(refresh_cache_with_fetched(db, reference, fetched))
 }
