@@ -23,6 +23,10 @@ use crate::ui::{
     small_icon, v_flex,
 };
 
+/// Why the commit box, opened on changes something else committed since, as an agent can,
+/// doesn't make an empty commit instead.
+const COMMITTED_MEANWHILE: &str = "What was here to commit was committed meanwhile";
+
 /// What the next commit leaves out of the uncommitted changes; the rest goes in.
 #[derive(Default)]
 pub(super) struct Checks {
@@ -810,8 +814,7 @@ impl Detail {
         // Opened on changes that all went meanwhile, as an agent committed them, an empty
         // commit isn't what was being written.
         if nothing_changed && self.composing_on_changes {
-            let why = "What was here to commit was committed meanwhile";
-            snack(&self.store, why, cx);
+            snack(&self.store, COMMITTED_MEANWHILE, cx);
             return;
         }
         if files.is_empty() && !nothing_changed {
@@ -1264,10 +1267,10 @@ impl Detail {
                         button("commit", "Commit")
                             .small()
                             .style(ButtonStyle::Pop)
-                            .disabled_because(
-                                (checked == 0 && !files.is_empty())
-                                    .then_some("Check some changes first"),
-                            )
+                            .disabled_because(match files.is_empty() {
+                                true => self.composing_on_changes.then_some(COMMITTED_MEANWHILE),
+                                false => (checked == 0).then_some("Check some changes first"),
+                            })
                             .tooltip_with_key(
                                 if files.is_empty() {
                                     "Make an empty commit"
