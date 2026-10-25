@@ -42,6 +42,9 @@ pub struct Project {
     /// When Git last recorded something done in it, in seconds since the epoch: a commit,
     /// checkout or rebase, or the index changing, in its main checkout or a linked one.
     pub last_active: Option<i64>,
+    /// When GitButler last fetched it, or tried to, in seconds since the epoch. The desktop
+    /// app fetches the project it has open, and `but` the one it runs in.
+    pub last_fetch: Option<i64>,
 }
 
 #[derive(Debug, Clone, Default)]

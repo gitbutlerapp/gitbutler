@@ -274,6 +274,8 @@ impl Pane {
 pub(super) struct Restored {
     pub(super) expanded: Vec<String>,
     pub(super) selection: Option<String>,
+    /// Nothing was saved before, as on the first launch.
+    pub(super) fresh: bool,
 }
 
 /// The order file lists show files in, as but.dev's do.
@@ -463,15 +465,18 @@ pub(super) enum Fill {
 
 impl Saved {
     /// What `db` holds, a row per field. It's the channel's, as each knows the projects by ids
-    /// of its own and forgets what's kept for those its list doesn't have.
-    pub(super) fn load(db: &Database) -> Self {
-        let fields = (db.read().into_iter())
+    /// of its own and forgets what's kept for those its list doesn't have. And whether it held
+    /// nothing, as on the first launch.
+    pub(super) fn load(db: &Database) -> (Self, bool) {
+        let rows = db.read();
+        let fresh = rows.is_empty();
+        let fields = (rows.into_iter())
             .filter_map(|(key, value)| Some((key, serde_json::from_str(&value).ok()?)))
             .collect();
         let saved = Self::parse(serde_json::Value::Object(fields));
         // As this build writes them, so only what changes from here on is written.
         db.loaded(saved.rows());
-        saved
+        (saved, fresh)
     }
 
     /// What `value` saved, but for what this build can't read: a choice a newer build saved
