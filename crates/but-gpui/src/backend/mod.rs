@@ -795,8 +795,33 @@ const COUNT_LINES_UP_TO: usize = 300;
 /// the lines it adds and removes, and the files the index has conflicted, as a merge leaves
 /// them. A file `previous` has with the same change, written at the same time, keeps the lines
 /// counted then: while an agent writes, most files stay as they were between reads.
+/// What status says changed in `repo`'s checkout, but for the repository's linked worktrees
+/// inside it, as agents' under `.claude/worktrees`, which look to status like repositories
+/// added: they're checkouts of their own, which committing would record and discarding would
+/// reset.
+fn own_changes(repo: &gix::Repository) -> Result<but_core::WorktreeChanges> {
+    let mut changes = but_core::diff::worktree_changes(repo)?;
+    let workdir = repo
+        .workdir()
+        .and_then(|dir| std::fs::canonicalize(dir).ok());
+    let inside = |base: std::path::PathBuf| -> Option<bstr::BString> {
+        let base = std::fs::canonicalize(base).ok()?;
+        let path = base.strip_prefix(workdir.as_ref()?).ok()?.to_owned();
+        Some(
+            gix::path::to_unix_separators_on_windows(gix::path::into_bstr(path).ok()?).into_owned(),
+        )
+    };
+    let linked: Vec<bstr::BString> = (repo.worktrees().into_iter().flatten())
+        .filter_map(|wt| inside(wt.base().ok()?))
+        .collect();
+    changes
+        .changes
+        .retain(|change| !linked.contains(&change.path));
+    Ok(changes)
+}
+
 fn worktree_files(repo: &gix::Repository, previous: &[FileChange]) -> Result<Vec<FileChange>> {
-    let changes = but_core::diff::worktree_changes(repo)?;
+    let changes = own_changes(repo)?;
     // Status leaves out files with unresolved index conflicts; they're changes too.
     let conflicted = conflicted_changes(repo, &changes.ignored_changes)?;
     let count = conflicted.len() + changes.changes.len() <= COUNT_LINES_UP_TO;

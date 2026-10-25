@@ -1305,6 +1305,32 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn a_linked_worktree_inside_the_checkout_isnt_an_uncommitted_change() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            git(
+                path,
+                &[
+                    "worktree",
+                    "add",
+                    "-q",
+                    "-b",
+                    "agent",
+                    ".claude/worktrees/c1",
+                ],
+            );
+            std::fs::write(path.join("file"), "two\n").unwrap();
+            let files: Vec<String> = uncommitted(path).into_iter().map(|f| f.path).collect();
+            assert_eq!(
+                files,
+                ["file"],
+                "as agents put them, it's a checkout of its own"
+            );
+        });
+    }
+
+    #[test]
     fn a_submodule_with_work_of_its_own_isnt_discarded() {
         but_testsupport::isolated_app_data_dir(|| {
             let lib = repo_with("v1\n");
