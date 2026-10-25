@@ -42,7 +42,7 @@ unicode-segmentation.workspace = true
 bstr.workspace = true
 # The forge cache's timestamps.
 chrono = { workspace = true, features = ["clock"] }
-gix = { workspace = true, features = ["sha1"] }
+gix = { workspace = true, features = ["sha1", "blame"] }
 reqwest.workspace = true
 md5.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }

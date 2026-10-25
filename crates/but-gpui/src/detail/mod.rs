@@ -2,6 +2,7 @@
 //! Uncommitted changes are for reviewing what an agent did, and committing it;
 //! a commit shows its message.
 
+mod blame;
 mod branches;
 mod composer;
 mod diff_view;
