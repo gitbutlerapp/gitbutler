@@ -363,6 +363,9 @@ impl Workspace {
 pub struct Target {
     /// Short name, like `origin/main`.
     pub name: String,
+    /// The branch without its remote, like `main`, as pull requests name the branch they merge
+    /// into.
+    pub branch: String,
     /// It's the local target branch itself, like `main`, as it has no upstream, as in a
     /// repository with no remote: a land moves it rather than pushing it.
     pub local: bool,
@@ -1330,6 +1333,7 @@ mod tests {
             target_branch: Some("refs/heads/main".into()),
             target: Some(super::Target {
                 name: "origin/main".into(),
+                branch: "main".into(),
                 local: false,
                 behind: 1,
                 commits_behind: 1,
