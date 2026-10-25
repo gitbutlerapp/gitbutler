@@ -456,8 +456,8 @@ impl Detail {
     }
 
     /// Which kinds of operation the list shows, each ticked or not.
-    fn history_filters_menu(&self, position: Point<Pixels>, cx: &mut Context<Self>) {
-        let items = (Group::ALL.into_iter())
+    fn history_filter_items(&self, _: &mut Context<Self>) -> Vec<MenuItem> {
+        (Group::ALL.into_iter())
             .map(|group| {
                 MenuItem::new(group.label(), move |app, _, cx| {
                     app.detail.update(cx, |detail, cx| {
@@ -470,8 +470,7 @@ impl Detail {
                 })
                 .ticked(!self.history_hidden.contains(&group))
             })
-            .collect();
-        self.open_menu(position, items, cx);
+            .collect()
     }
 
     /// Opening `project`'s history, wherever from: at the top, on the newest operation, which
@@ -551,8 +550,8 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         self.select_operation(id, cx);
-        let items = Self::operation_menu_items(project, id);
-        self.open_menu(at, items, cx);
+        let project = project.clone();
+        self.open_menu(at, move |_, _| Self::operation_menu_items(&project, id), cx);
     }
 
     /// What Operations history offers for the operation before snapshot `id`, as
@@ -819,7 +818,7 @@ impl Detail {
             .filter_bar(
                 &self.history_filter,
                 "Kinds of operation",
-                Self::history_filters_menu,
+                Self::history_filter_items,
                 narrowed,
                 window,
                 cx,

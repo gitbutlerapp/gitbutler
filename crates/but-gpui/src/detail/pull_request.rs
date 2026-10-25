@@ -210,22 +210,26 @@ impl Detail {
         event: &ClickEvent,
         cx: &mut Context<Self>,
     ) {
-        let items = [
-            (MergeMethod::Merge, "Create a merge commit"),
-            (MergeMethod::Squash, "Squash and merge"),
-            (MergeMethod::Rebase, "Rebase and merge"),
-        ]
-        .map(|(method, label)| {
-            let project = project.to_string();
-            MenuItem::new(label, move |app, _, cx| {
+        let project = project.to_string();
+        let items = move |_: &mut Self, _: &mut Context<Self>| {
+            [
+                (MergeMethod::Merge, "Create a merge commit"),
+                (MergeMethod::Squash, "Squash and merge"),
+                (MergeMethod::Rebase, "Rebase and merge"),
+            ]
+            .map(|(method, label)| {
                 let project = project.clone();
-                (app.store).update(cx, |store, cx| {
-                    store.set_prefs(|p| _ = p.merge_methods.insert(project, method), cx)
+                MenuItem::new(label, move |app, _, cx| {
+                    let project = project.clone();
+                    (app.store).update(cx, |store, cx| {
+                        store.set_prefs(|p| _ = p.merge_methods.insert(project, method), cx)
+                    })
                 })
+                .ticked(method == current)
             })
-            .ticked(method == current)
-        });
-        self.open_menu(event.position(), items.into(), cx);
+            .into()
+        };
+        self.open_menu(event.position(), items, cx);
     }
 
     /// A branch or commit's tabs: its changes, with how many files, and its pull request,

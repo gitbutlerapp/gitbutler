@@ -149,10 +149,8 @@ impl Navigator {
                         this.select(menu_target.clone(), window, cx);
                     }
                     // After selecting, which reads a commit, so its menu offers to unread it.
-                    let items = this.menu_items(&menu_target, cx);
-                    this.app
-                        .update(cx, |app, cx| app.open_menu(event.position, items, cx))
-                        .ok();
+                    let target = menu_target.clone();
+                    this.open_menu(event.position, move |this, cx| this.menu_items(&target, cx), cx);
                 }),
             )
             .into_any_element()

@@ -717,14 +717,14 @@ impl Detail {
                     .small()
                     .tooltip("View options")
                     .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
-                        this.view_menu(event.position(), cx)
+                        this.open_menu(event.position(), |this, cx| this.view_items(cx), cx)
                     })),
             )
     }
 
     /// The file list's ⋯ menu, as but.dev's: the files as a list or as a tree, by name or
     /// the last written first. Files with no write time, as a commit's, go by name either way.
-    fn view_menu(&self, position: Point<Pixels>, cx: &mut Context<Self>) {
+    fn view_items(&self, cx: &App) -> Vec<MenuItem> {
         let prefs = &self.store.read(cx).prefs;
         let (tree, sort) = (!prefs.flat_files, prefs.file_sort);
         let show = |label: &str, as_tree: bool| {
@@ -743,13 +743,12 @@ impl Detail {
             })
             .ticked(sort == by)
         };
-        let items = vec![
+        vec![
             show("As list", false).under("View"),
             show("As tree", true),
             by("Name", FileSort::Name).separated().under("Sort by"),
             by("Last modified", FileSort::Modified),
-        ];
-        self.open_menu(position, items, cx);
+        ]
     }
 
     fn render_file_row(
@@ -954,8 +953,11 @@ impl Detail {
         position: Point<Pixels>,
         cx: &mut Context<Self>,
     ) {
-        let items = self.changes_items(payload, at, position, cx);
-        self.open_menu(position, items, cx);
+        self.open_menu(
+            position,
+            move |this, cx| this.changes_items(payload, at, position, cx),
+            cx,
+        );
     }
 
     /// What M offers while the file list or the diff has the keys: the menu of the file under

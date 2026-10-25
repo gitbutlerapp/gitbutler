@@ -898,10 +898,12 @@ impl Detail {
         at: Point<Pixels>,
         cx: &mut Context<Self>,
     ) {
-        let items = self.branch_menu_items(project, ref_name);
-        if !items.is_empty() {
-            self.open_menu(at, items, cx);
-        }
+        let (project, ref_name) = (project.clone(), ref_name.to_owned());
+        self.open_menu(
+            at,
+            move |this, _| this.branch_menu_items(&project, &ref_name),
+            cx,
+        );
     }
 
     /// What the Branches page offers for its branch `ref_name`, as right-clicking it does.
@@ -986,18 +988,23 @@ impl Detail {
             n => format!("Cherry-pick {n} commits"),
         };
         let project = project.clone();
-        // None for a merge, which can't be.
-        let pick = (!ids.is_empty()).then(|| {
-            MenuItem::new(label, move |app, _, cx| {
-                app.cut(Cut::CherryPick(project.clone(), ids.clone()), cx)
-            })
-        });
-        let items = (pick.into_iter())
-            .chain([MenuItem::new("Copy commit ID", move |app, _, cx| {
-                app.copy_text(id.0.to_string(), cx)
-            })])
-            .collect();
-        self.open_menu(at, items, cx);
+        self.open_menu(
+            at,
+            move |_, _| {
+                // None for a merge, which can't be.
+                let pick = (!ids.is_empty()).then(|| {
+                    MenuItem::new(label, move |app, _, cx| {
+                        app.cut(Cut::CherryPick(project.clone(), ids.clone()), cx)
+                    })
+                });
+                (pick.into_iter())
+                    .chain([MenuItem::new("Copy commit ID", move |app, _, cx| {
+                        app.copy_text(id.0.to_string(), cx)
+                    })])
+                    .collect()
+            },
+            cx,
+        );
     }
 
     /// Pick up the selected commit, with the others picked, to put copies of them where ⌘V
@@ -1491,7 +1498,7 @@ impl Detail {
         self.filter_bar(
             &self.branch_filter,
             "Branch filters",
-            Self::branch_filters_menu,
+            Self::branch_filter_items,
             narrowed,
             window,
             cx,
@@ -1552,9 +1559,9 @@ impl Detail {
 
     /// Whose branches the list shows, how recently changed, and which by their pull request,
     /// each choice with how many it would show; and whether only local ones.
-    fn branch_filters_menu(&self, position: Point<Pixels>, cx: &mut Context<Self>) {
+    fn branch_filter_items(&self, cx: &mut Context<Self>) -> Vec<MenuItem> {
         let Some(branches) = self.page_branches(cx) else {
-            return;
+            return Vec::new();
         };
         let prefs = &self.store.read(cx).prefs;
         let person = |who: Option<String>, label: String, n: usize| {
@@ -1623,7 +1630,7 @@ impl Detail {
             .ticked(prefs.branches_local_only)
             .separated(),
         );
-        self.open_menu(position, items, cx);
+        items
     }
 
     /// Under the list, as the project's page has its own: whose the branches the filters keep

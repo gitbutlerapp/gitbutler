@@ -7,8 +7,8 @@ use std::sync::Arc;
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, DragMoveEvent, ElementId, Entity, FocusHandle,
     Focusable, Hsla, KeyBinding, ListAlignment, ListOffset, ListState, MouseButton, MouseDownEvent,
-    Pixels, ScrollWheelEvent, SharedString, Stateful, Subscription, Task, WeakEntity, Window,
-    actions, div, list, prelude::*,
+    Pixels, Point, ScrollWheelEvent, SharedString, Stateful, Subscription, Task, WeakEntity,
+    Window, actions, div, list, prelude::*,
 };
 
 use crate::app::{AddProject, AppView, Collapse, Confirm, Expand, SelectNext, SelectPrevious};
@@ -16,6 +16,7 @@ use crate::backend::{
     Branch, CommitId, CommitState, FileChange, PushState, Review, ReviewState, Target,
 };
 use crate::detail::{ChecksChanged, Detail};
+use crate::overlays::MenuItem;
 use crate::state::{Cut, Pane, Prefs, ProjectId, Selection, Store, StoreEvent, WatchedOrder};
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
@@ -359,6 +360,16 @@ pub struct Navigator {
 }
 
 impl Navigator {
+    /// The menu `items` makes from this view, open at `at` once the update running now is over.
+    fn open_menu(
+        &self,
+        at: Point<Pixels>,
+        items: impl FnOnce(&mut Self, &mut Context<Self>) -> Vec<MenuItem> + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        crate::overlays::open_menu(&self.app, &cx.entity().downgrade(), at, items, cx);
+    }
+
     pub fn new(
         app: WeakEntity<AppView>,
         store: Entity<Store>,
@@ -1245,12 +1256,7 @@ impl Navigator {
                         .small()
                         .tooltip("Sort and show")
                         .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
-                            let position = event.position();
-                            let items = this.view_options(cx);
-                            (this
-                                .app
-                                .update(cx, |app, cx| app.open_menu(position, items, cx)))
-                            .ok();
+                            this.open_menu(event.position(), |this, cx| this.view_options(cx), cx)
                         })),
                 )
             })

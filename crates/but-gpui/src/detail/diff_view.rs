@@ -1385,26 +1385,29 @@ impl Detail {
         let path = file_diff.file.path.clone();
         // Copy acts where the focus is: on the diff's selection.
         window.focus(&self.focus, cx);
-        let mut items = vec![MenuItem::action("Copy", &crate::app::CopySelection, cx)];
-        let query = text.trim();
-        if !query.is_empty() && !query.contains('\n') {
-            let label = format!("Find {}", crate::ui::quoted(query));
-            let (query, entity) = (query.to_owned(), cx.entity().downgrade());
-            items.push(MenuItem::new(label, move |_, window, cx| {
-                (entity.update(cx, |detail, cx| detail.find_text(&query, window, cx))).ok();
-            }));
-        }
-        let label = crate::open_in::editor_label(self.store.read(cx));
-        items.push(
-            MenuItem {
-                key: shortcut(&crate::open_in::OpenInEditor, cx),
-                ..MenuItem::new(label, move |this, _, cx| {
-                    let (file, worktree) = (Some(path.clone()), worktree.clone());
-                    this.open_in_editor(&project, worktree, file, line, position, cx)
-                })
+        let query = text.trim().to_owned();
+        let items = move |this: &mut Self, cx: &mut Context<Self>| {
+            let mut items = vec![MenuItem::action("Copy", &crate::app::CopySelection, cx)];
+            if !query.is_empty() && !query.contains('\n') {
+                let label = format!("Find {}", crate::ui::quoted(&query));
+                let entity = cx.entity().downgrade();
+                items.push(MenuItem::new(label, move |_, window, cx| {
+                    (entity.update(cx, |detail, cx| detail.find_text(&query, window, cx))).ok();
+                }));
             }
-            .separated(),
-        );
+            let label = crate::open_in::editor_label(this.store.read(cx));
+            items.push(
+                MenuItem {
+                    key: shortcut(&crate::open_in::OpenInEditor, cx),
+                    ..MenuItem::new(label, move |this, _, cx| {
+                        let (file, worktree) = (Some(path.clone()), worktree.clone());
+                        this.open_in_editor(&project, worktree, file, line, position, cx)
+                    })
+                }
+                .separated(),
+            );
+            items
+        };
         self.open_menu(position, items, cx);
     }
 }

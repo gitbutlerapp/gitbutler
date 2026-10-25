@@ -43,11 +43,7 @@ impl Navigator {
             .small()
             .tooltip("Order and fold watched projects")
             .on_click(cx.listener(|this, event: &ClickEvent, _, cx| {
-                let items = this.view_menu(cx);
-                let position = event.position();
-                (this.app)
-                    .update(cx, |app, cx| app.open_menu(position, items, cx))
-                    .ok();
+                this.open_menu(event.position(), |this, cx| this.view_menu(cx), cx)
             }))
             .into_any_element()
     }

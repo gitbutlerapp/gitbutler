@@ -1236,11 +1236,25 @@ impl Detail {
         cx: &mut Context<Self>,
     ) {
         self.pick_on_page(project, Picked::Commit(merge), merged, cx);
+        let project = project.clone();
+        let items = move |this: &mut Self, _: &mut Context<Self>| {
+            this.target_commit_items(&project, merge, merged)
+        };
+        self.open_menu(at, items, cx);
+    }
+
+    /// What right-clicking the target's commit `merge`, or `merged` among its commits, offers.
+    fn target_commit_items(
+        &self,
+        project: &ProjectId,
+        merge: CommitId,
+        merged: Option<CommitId>,
+    ) -> Vec<MenuItem> {
         let Some(upstream) = self.upstream_for(project) else {
-            return;
+            return Vec::new();
         };
         let Some(commit) = upstream.commits.iter().find(|c| c.id == merge) else {
-            return;
+            return Vec::new();
         };
         let mut items = Vec::new();
         if merged.is_none() {
@@ -1274,7 +1288,7 @@ impl Detail {
             true => copy,
             false => copy.separated(),
         });
-        self.open_menu(at, items, cx);
+        items
     }
 
     /// → in the list: open the picked merge, or step into its commits when it's open, as

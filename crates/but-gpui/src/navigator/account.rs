@@ -63,18 +63,18 @@ impl Navigator {
                         Some(email) => format!("{} · {email}", user.name),
                         None => user.name.clone(),
                     };
-                    let items = vec![
-                        MenuItem::new(identity, |app, window, cx| {
-                            app.open_settings(&crate::settings::OpenSettings, window, cx)
-                        }),
-                        MenuItem::new(format!("Sign out {who}"), |app, _, cx| {
-                            app.store.update(cx, |store, cx| store.sign_out(cx))
-                        })
-                        .separated(),
-                    ];
-                    this.app
-                        .update(cx, |app, cx| app.open_menu(event.position, items, cx))
-                        .ok();
+                    let items = move |_: &mut Self, _: &mut Context<Self>| {
+                        vec![
+                            MenuItem::new(identity, |app, window, cx| {
+                                app.open_settings(&crate::settings::OpenSettings, window, cx)
+                            }),
+                            MenuItem::new(format!("Sign out {who}"), |app, _, cx| {
+                                app.store.update(cx, |store, cx| store.sign_out(cx))
+                            })
+                            .separated(),
+                        ]
+                    };
+                    this.open_menu(event.position, items, cx);
                 }),
             )
             .into_any_element()

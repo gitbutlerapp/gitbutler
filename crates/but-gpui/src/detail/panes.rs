@@ -15,6 +15,7 @@ use gpui::{
 use super::{Detail, machine};
 use crate::app::{AppView, Collapse, Expand, SelectNext, SelectPrevious, StartCommit};
 use crate::backend::{self, CommitId, CommitState, PushState, short_ref};
+use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
@@ -263,13 +264,13 @@ impl Detail {
             .child(field(input, focused, Theme::get(cx)).flex_1())
     }
 
-    /// A side list's filter field, then the button whose `menu` picks what the list shows,
-    /// lit while that leaves some out.
+    /// A side list's filter field, then the button whose menu of `items` picks what the list
+    /// shows, lit while that leaves some out.
     pub(super) fn filter_bar(
         &self,
         input: &Entity<TextInput>,
         tooltip: &'static str,
-        menu: fn(&Self, Point<Pixels>, &mut Context<Self>),
+        items: fn(&Self, &mut Context<Self>) -> Vec<MenuItem>,
         narrowed: bool,
         window: &Window,
         cx: &Context<Self>,
@@ -280,7 +281,7 @@ impl Detail {
                 .selected(narrowed)
                 .tooltip(tooltip)
                 .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
-                    menu(this, event.position(), cx)
+                    this.open_menu(event.position(), move |this, cx| items(this, cx), cx)
                 })),
         )
     }
@@ -726,14 +727,13 @@ impl Detail {
     ) -> AnyElement {
         let menu = icon_button("page-menu", Icon::Kebab).on_click(cx.listener(
             move |this, event: &ClickEvent, _, cx| {
-                let position = event.position();
-                // What right-clicking its row in the navigator offers.
-                (this.app)
-                    .update(cx, |app, cx| {
-                        let items = app.navigator.read(cx).menu_items(&target, cx);
-                        app.open_menu(position, items, cx)
-                    })
-                    .ok();
+                // What right-clicking its row in the navigator offers, which reads this view, so
+                // made from the app rather than from this view.
+                let target = target.clone();
+                let items = move |app: &mut AppView, cx: &mut Context<AppView>| {
+                    app.navigator.read(cx).menu_items(&target, cx)
+                };
+                crate::overlays::open_menu(&this.app, &this.app, event.position(), items, cx);
             },
         ));
         self.header_frame(main, menu, extra, tabs, theme)

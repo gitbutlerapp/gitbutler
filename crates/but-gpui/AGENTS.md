@@ -92,6 +92,10 @@ unseen is what a laptop's battery pays for.
 - A context menu's handlers run inside `AppView`'s update, so anything that updates `AppView`
   again from one panics with "already being updated". Wait with `window.defer`, as the menus in
   `detail/branches.rs` do. A store `done` callback runs mid-update too and mustn't read the store.
+- Reading a view while it's being updated panics the same way, as a menu built in one view's
+  click handler that reads that view would. So menus open through `overlays::open_menu`, or a
+  view's `open_menu` that calls it, with a builder it runs once the update is over: build the
+  items in it, not before.
 - `window.context_stack()` panics during render. Read key contexts in an event handler.
 - A binding that a text field could also take needs `&& !TextInput` in its context, or typing
   the letter runs it (P once pushed). Bind shortcuts shared by both halves to
