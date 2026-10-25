@@ -9,6 +9,7 @@ use gpui::{
     Point, ScrollStrategy, SharedString, Stateful, Toggled, div, img, prelude::*,
 };
 
+use super::blame::Blamed;
 use super::file_tree::{self, TreeRow};
 use super::panes::side_list;
 use super::{Detail, FilterFiles, keeps_path};
@@ -649,7 +650,8 @@ impl Detail {
                 let (source, path) = (source.clone(), path.clone());
                 move |this, event: &MouseDownEvent, _, cx| {
                     let payload = this.folder_payload(&source, &path, cx);
-                    this.changes_menu(payload, At::Folder(path.clone()), event.position, cx)
+                    let at = At::Folder(path.clone());
+                    this.changes_menu(payload, at, None, event.position, cx)
                 }
             }),
         )
@@ -936,26 +938,27 @@ impl Detail {
                     }
                 }
                 let at = At::File(path.clone(), None);
-                this.changes_menu(menu.clone(), at, event.position, cx)
+                this.changes_menu(menu.clone(), at, None, event.position, cx)
             }),
         )
         .into_any_element()
     }
 
     /// What right-clicking files, a folder, lines or a hunk offers: what can be done to the
-    /// changes in `payload`, when they're the workspace's to change, then opening, copying or
-    /// revealing the path `at`. A branch outside the workspace, or a commit of the target, has
-    /// only the second.
+    /// changes in `payload`, when they're the workspace's to change, or going to the last
+    /// commit of `blamed`, then opening, copying or revealing the path `at`. A branch outside the
+    /// workspace, or a commit of the target, has only the last.
     pub(super) fn changes_menu(
         &mut self,
         payload: Option<Cut>,
         at: At,
+        blamed: Option<Blamed>,
         position: Point<Pixels>,
         cx: &mut Context<Self>,
     ) {
         self.open_menu(
             position,
-            move |this, cx| this.changes_items(payload, at, position, cx),
+            move |this, cx| this.changes_items(payload, at, blamed, position, cx),
             cx,
         );
     }
@@ -977,13 +980,14 @@ impl Detail {
             false => self.diff_cut(self.cursor.file, None, cx),
         };
         let at = At::File(path, None);
-        Some(self.changes_items(payload, at, window.mouse_position(), cx))
+        Some(self.changes_items(payload, at, None, window.mouse_position(), cx))
     }
 
     fn changes_items(
         &mut self,
         payload: Option<Cut>,
         at: At,
+        blamed: Option<Blamed>,
         position: Point<Pixels>,
         cx: &mut Context<Self>,
     ) -> Vec<MenuItem> {
@@ -997,6 +1001,9 @@ impl Detail {
             },
         };
         let mut items = payload.map_or_else(Vec::new, |payload| self.change_items(payload, cx));
+        if let (Some(blamed), At::File(path, _)) = (blamed, &at) {
+            items.extend(self.last_commit_item(path, blamed, cx));
+        }
         let mut paths = self
             .path_items(&project, worktree, at, position, cx)
             .into_iter();

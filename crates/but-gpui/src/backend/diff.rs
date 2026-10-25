@@ -34,6 +34,35 @@ pub fn commit_paths(path: &Path, commits: &[CommitId]) -> Result<Vec<(CommitId, 
         .collect()
 }
 
+/// The commits that last changed `lines` (1-based) of `file` as commit `tip` has it, following
+/// it through renames, each with the file's path in that commit.
+pub fn blame_lines(
+    path: &Path,
+    tip: CommitId,
+    file: &str,
+    lines: &[u32],
+) -> Result<HashMap<CommitId, String>> {
+    let ctx = open(path)?;
+    let repo = checkout(&ctx, None)?;
+    let options = gix::repository::blame_file::Options {
+        ranges: gix::blame::BlameRanges::from_one_based_inclusive_ranges(
+            lines.iter().map(|&line| line..=line).collect(),
+        )?,
+        rewrites: Some(Default::default()),
+        ..Default::default()
+    };
+    let blame = repo.blame_file(file.as_bytes().as_bstr(), tip.0, options)?;
+    Ok((blame.entries.iter())
+        .map(|e| {
+            let named = e.source_file_name.as_ref().map(|name| name.to_string());
+            (
+                CommitId(e.commit_id),
+                named.unwrap_or_else(|| file.to_owned()),
+            )
+        })
+        .collect())
+}
+
 /// What a diff is about.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DiffSource {
@@ -973,5 +1002,39 @@ fn parse_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
         scope: Vec::new(),
         lead: Vec::new(),
         tail: Vec::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use crate::backend::ops::tests::{git, head, repo_with};
+
+    #[test]
+    fn blame_names_the_last_commit_of_each_line_across_a_rename() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\ntwo\nthree\n");
+            let path = dir.path();
+            let first = head(path);
+            git(path, &["mv", "file", "moved"]);
+            git(path, &["commit", "-q", "-m", "rename"]);
+            std::fs::write(path.join("moved"), "one\nTWO\nthree\n").unwrap();
+            git(path, &["commit", "-q", "-am", "edit"]);
+            let edit = head(path);
+
+            let blame = |lines: &[u32]| super::blame_lines(path, edit, "moved", lines).unwrap();
+            assert_eq!(
+                blame(&[2]),
+                HashMap::from([(edit, "moved".to_owned())]),
+                "line 2 counts from 1, the line the edit changed"
+            );
+            assert_eq!(
+                blame(&[1, 3]),
+                HashMap::from([(first, "file".to_owned())]),
+                "the rename wrote no lines, so the others go back to the commit before it, \
+                 where the file had its old name"
+            );
+        });
     }
 }

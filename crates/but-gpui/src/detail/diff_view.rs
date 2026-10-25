@@ -13,6 +13,7 @@ use gpui::{
     anchored, deferred, div, list, prelude::*,
 };
 
+use super::blame::Blamed;
 use super::file_list::At;
 use super::find::Spot;
 use super::lines::Pick;
@@ -22,7 +23,7 @@ use super::{
 };
 use crate::app::AppHandle;
 use crate::backend::{
-    self, Branch, ChangeKind, DiffBody, DiffLine, DiffSource, Drawing, FileDiff, LineKind,
+    self, Branch, ChangeKind, DiffBody, DiffLine, DiffSource, Drawing, FileDiff, HunkKey, LineKind,
     PushState, Selected,
 };
 use crate::overlays::MenuItem;
@@ -718,17 +719,20 @@ impl Detail {
         let last = diff::ends_card(&diff.rows, ix);
         let store = self.store.read(cx);
         // Every file has its path to copy, even where nothing can change it.
-        let menu =
-            |menu: Option<Cut>, file: &FileDiff, line: Option<u32>, entity: WeakEntity<Detail>| {
-                let path = file.file.path.clone();
-                move |position: Point<Pixels>, cx: &mut App| {
-                    let at = At::File(path.clone(), line);
-                    (entity.update(cx, |detail, cx| {
-                        detail.changes_menu(menu.clone(), at, position, cx)
-                    }))
-                    .ok();
-                }
-            };
+        let menu = |menu: Option<Cut>,
+                    file: &FileDiff,
+                    hunk: Option<HunkKey>,
+                    entity: WeakEntity<Detail>| {
+            let path = file.file.path.clone();
+            let line = hunk.map(|key| key.0.new_start);
+            move |position: Point<Pixels>, cx: &mut App| {
+                let at = At::File(path.clone(), line);
+                (entity.update(cx, |detail, cx| {
+                    detail.changes_menu(menu.clone(), at, hunk.map(Blamed::Hunk), position, cx)
+                }))
+                .ok();
+            }
+        };
         // The margin between the cards and the sides of the pane.
         let padded = div().w_full().px(dp(12.));
         match (row, file_diff) {
@@ -856,7 +860,6 @@ impl Detail {
                         ..Default::default()
                     },
                 );
-                let line = key.0.new_start;
                 let carried = self.diff_cut(file, Some(vec![key]), cx);
                 let (whole, dragged) = (entity.clone(), entity.clone());
                 padded
@@ -864,7 +867,7 @@ impl Detail {
                     .group("hunk-row")
                     .child(header)
                     .on_mouse_down(MouseButton::Right, {
-                        let open = menu(carried.clone(), file_diff, Some(line), entity);
+                        let open = menu(carried.clone(), file_diff, Some(key), entity);
                         move |event, _, cx| open(event.position, cx)
                     })
                     .when(unmodified > 0, |el| {
@@ -1385,9 +1388,13 @@ impl Detail {
                 Some(place) => self.lines_cut(file, self.grip_takes(place), cx),
                 None => self.diff_cut(file, key.map(|key| vec![key]), cx),
             };
+            let added = (changed.and_then(line_of))
+                .filter(|line| line.kind == LineKind::Added)
+                .and_then(|line| line.new);
+            let blamed = added.map(Blamed::Line).or(key.map(Blamed::Hunk));
             let at = At::File(file_diff.file.path.clone(), line);
             self.clear_text_selection(cx);
-            self.changes_menu(menu, at, position, cx);
+            self.changes_menu(menu, at, blamed, position, cx);
             return;
         };
         let (project, worktree) = (diff.key.project.clone(), diff.key.linked());
