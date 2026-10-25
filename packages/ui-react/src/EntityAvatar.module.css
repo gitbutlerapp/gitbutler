@@ -49,45 +49,72 @@
 	object-fit: contain;
 }
 
-/* Each fill runs from the hue's 70 step down to its 60, the same in light and dark: a picture
-   keeps its colours whatever the theme. */
-/* Teal into purple, as ⚛️ Core draws it, so the first fill is not only a lighter green. */
-.pop {
-	--avatar-top: var(--clr-pop-70);
-	--avatar-bottom: var(--clr-purple-60);
+/* A book in each hue: its cover filled and edged in a deeper shade over a cream page, the same in
+   light and dark, as a picture keeps its colours whatever the theme. */
+/* stylelint-disable declaration-property-value-disallowed-list -- The glyph is a picture in ⚛️ Core's own hues, which no token scale holds; they are its colours as the file icons' are theirs. */
+.blue {
+	--glyph-cover: #76a8f9;
+	--glyph-edge: #3d87ff;
 }
 
-.safe {
-	--avatar-top: var(--clr-safe-70);
-	--avatar-bottom: var(--clr-safe-60);
+.green {
+	--glyph-cover: #6cd05b;
+	--glyph-edge: #3bb641;
+}
+
+.orange {
+	--glyph-cover: #e7b22e;
+	--glyph-edge: #d1792c;
+}
+
+.red {
+	--glyph-cover: #e97a7c;
+	--glyph-edge: #d12c2f;
 }
 
 .purple {
-	--avatar-top: var(--clr-purple-70);
-	--avatar-bottom: var(--clr-purple-60);
-}
-
-.danger {
-	--avatar-top: var(--clr-danger-70);
-	--avatar-bottom: var(--clr-danger-60);
-}
-
-.warn {
-	--avatar-top: var(--clr-warn-70);
-	--avatar-bottom: var(--clr-warn-60);
+	--glyph-cover: #e375d4;
+	--glyph-edge: #a32cd1;
 }
 
 .gray {
-	--avatar-top: var(--clr-gray-60);
-	--avatar-bottom: var(--clr-gray-20);
+	--glyph-cover: #787878;
+	--glyph-edge: #717171;
 }
 
-.top {
-	stop-color: var(--avatar-top);
+.blue,
+.green,
+.orange,
+.red,
+.purple,
+.gray {
+	--glyph-page: #f0eedc;
+}
+/* stylelint-enable declaration-property-value-disallowed-list */
+
+/* The outline is the book's edges alone, in the text colour: the `repo` icon. */
+.outline {
+	--glyph-edge: currentColor;
+	--glyph-windows: currentColor;
 }
 
-.bottom {
-	stop-color: var(--avatar-bottom);
+.cover {
+	fill: var(--glyph-cover);
+}
+
+.page {
+	fill: var(--glyph-page, none);
+}
+
+/* As the icons are: the line stays 1.5px however large the glyph is drawn. */
+.edge {
+	vector-effect: non-scaling-stroke;
+	stroke: var(--glyph-edge);
+	stroke-width: 1.5px;
+}
+
+.windows {
+	fill: var(--glyph-windows, var(--clr-gray-100));
 }
 
 .trigger,

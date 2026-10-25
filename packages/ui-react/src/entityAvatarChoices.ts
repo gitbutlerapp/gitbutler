@@ -1,12 +1,12 @@
 /** The glyph's colours, in the order the picker offers them: the outline first, then the fills. */
 export const entityAvatarColours = [
 	"outline",
-	"pop",
-	"safe",
-	"purple",
-	"danger",
-	"warn",
 	"gray",
+	"blue",
+	"green",
+	"orange",
+	"red",
+	"purple",
 ] as const;
 
 export type EntityAvatarColour = (typeof entityAvatarColours)[number];
@@ -44,12 +44,12 @@ export const sameEntityAvatar = (a: EntityAvatarValue, b: EntityAvatarValue): bo
 
 const colourNames: Record<EntityAvatarColour, string> = {
 	outline: "Outline",
-	pop: "Teal",
-	safe: "Green",
-	purple: "Purple",
-	danger: "Red",
-	warn: "Orange",
 	gray: "Gray",
+	blue: "Blue",
+	green: "Green",
+	orange: "Orange",
+	red: "Red",
+	purple: "Purple",
 };
 
 /** The glyph in each of its colours: what a project picks from first. */
