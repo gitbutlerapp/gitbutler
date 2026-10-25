@@ -167,6 +167,7 @@ icons! {
     ChevronRight => "chevron-right",
     Clock => "clock",
     Contrast => "contrast",
+    Copy => "copy",
     Commit => "commit",
     CommitFill => "commit-fill",
     Diff => "diff",

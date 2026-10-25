@@ -19,6 +19,7 @@ use crate::backend::{
 mod account;
 mod activity;
 mod background;
+mod cli;
 mod load;
 mod mesh;
 mod mutation;
@@ -293,6 +294,11 @@ pub struct Store {
     pub toasts: Vec<Toast>,
     /// Who is signed in to GitButler.
     pub account: account::Account,
+    /// Where a terminal finds `but`, if it does; `None` until looked for, which only macOS
+    /// does.
+    pub cli: Option<Option<PathBuf>>,
+    /// While this app's `but` installs.
+    pub installing_cli: bool,
     /// The version the desktop app's update feed offers, newer than this build, when the
     /// desktop app's binary started this client.
     pub newer_version: Option<String>,
@@ -428,6 +434,8 @@ impl Store {
             drop_at: None,
             toasts: Vec::new(),
             account: account::Account::default(),
+            cli: None,
+            installing_cli: false,
             newer_version: None,
             updating: None,
             mesh: mesh::Mesh::start(cx),
@@ -502,6 +510,7 @@ impl Store {
         };
         store.load_projects(cx);
         store.load_account(cx);
+        store.read_cli(cx);
         store
     }
 

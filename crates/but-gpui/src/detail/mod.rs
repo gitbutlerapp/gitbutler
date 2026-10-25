@@ -1999,7 +1999,7 @@ impl Render for Detail {
         let theme = Theme::get(cx).clone();
         let selection = self.selection(cx);
         let body: AnyElement = match &selection {
-            None if self.store.read(cx).projects.is_empty() => welcome(&theme, cx),
+            None if self.store.read(cx).projects.is_empty() => welcome(&self.store, &theme, cx),
             None => empty_state(
                 None,
                 "Nothing selected",
@@ -2265,9 +2265,10 @@ fn keeps_path(terms: &[String], path: &str) -> bool {
     terms.iter().all(|term| path.contains(term.as_str()))
 }
 
-/// What the app shows before it has a project: what it's for and the two ways in, with the
-/// docs, GitButler's Discord and the usage notice at the bottom, out of the way.
-fn welcome(theme: &Theme, cx: &App) -> AnyElement {
+/// What the app shows before it has a project: what it's for and the two ways in, then the
+/// CLI for agents, with the docs, GitButler's Discord and the usage notice at the bottom, out
+/// of the way.
+fn welcome(store: &Entity<Store>, theme: &Theme, cx: &App) -> AnyElement {
     let link = |id: &'static str, label: &'static str, icon: Icon, action: &dyn gpui::Action| {
         button(id, label)
             .icon(icon)
@@ -2320,6 +2321,9 @@ fn welcome(theme: &Theme, cx: &App) -> AnyElement {
                             button("welcome-clone", "Clone a repository…")
                                 .dispatch(&crate::projects::CloneRepository),
                         ),
+                )
+                .children(
+                    crate::settings::welcome_card(store, theme, cx).map(|card| card.mt(dp(28.))),
                 ),
         )
         .child(

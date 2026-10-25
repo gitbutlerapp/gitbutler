@@ -20,6 +20,8 @@ pub enum Illustration {
     Papers,
     /// All good with nothing to do, in a large view only.
     Waving,
+    /// The command line.
+    Terminal,
 }
 
 impl Illustration {
@@ -40,6 +42,11 @@ impl Illustration {
                 include_str!("../../../../packages/ui-react/src/illustrations/waving.svg"),
                 186.,
                 215.,
+            ),
+            Illustration::Terminal => (
+                include_str!("../../../../packages/ui-react/src/illustrations/terminal.svg"),
+                79.,
+                59.,
             ),
         }
     }
@@ -113,6 +120,7 @@ mod tests {
                 Illustration::Cactus,
                 Illustration::Papers,
                 Illustration::Waving,
+                Illustration::Terminal,
             ] {
                 draw(&renderer, which, &theme);
             }

@@ -6,6 +6,7 @@ pub mod ai;
 mod annotate;
 pub mod askpass;
 pub mod branches;
+pub mod cli;
 pub mod conflicts;
 mod diff;
 pub mod edit;

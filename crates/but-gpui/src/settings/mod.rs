@@ -11,6 +11,7 @@ use gpui::{
 
 mod accounts;
 mod ai;
+mod cli;
 mod keyboard;
 mod mesh;
 mod metrics;
@@ -28,6 +29,8 @@ use crate::ui::{
     self, ButtonStyle, Icon, button, dp, dropdown, error_summary, field, h_flex, icon, muted,
     side_row, switch, v_flex,
 };
+
+pub use cli::welcome_card;
 
 actions!(settings, [OpenSettings, OpenKeyboardShortcuts]);
 
@@ -115,6 +118,8 @@ struct Row {
     title: SharedString,
     description: SharedString,
     control: AnyElement,
+    /// What shows under its description, as a command to copy.
+    below: Option<AnyElement>,
     /// More that a search finds it by, as a command's keys.
     keywords: SharedString,
 }
@@ -129,8 +134,14 @@ impl Row {
             title: title.into(),
             description: description.into(),
             control: control.into_any_element(),
+            below: None,
             keywords: SharedString::default(),
         }
+    }
+
+    fn with_below(mut self, below: impl IntoElement) -> Self {
+        self.below = Some(below.into_any_element());
+        self
     }
 
     fn with_keywords(mut self, keywords: impl Into<SharedString>) -> Self {
@@ -262,6 +273,8 @@ impl SettingsView {
         };
         view.show_project(project, cx);
         view.load_accounts(cx);
+        // A terminal may have installed `but` meanwhile.
+        (view.store).update(cx, |store, cx| store.read_cli(cx));
         view.load_app_settings(cx);
         view
     }
@@ -680,6 +693,8 @@ impl SettingsView {
                     vec![self.gitbutler_row(window, cx), self.mesh_row(cx)],
                 ),
                 Card::new(None, self.program_rows(cx)),
+                // Only once it's been looked for, which only macOS does.
+                Card::new(None, self.cli_row(cx).into_iter().collect()),
                 // Last, out of the way, as the desktop app keeps it on a page of its own.
                 Card::new(Some("Metrics"), self.metrics_rows(cx)),
             ],
@@ -820,7 +835,8 @@ impl SettingsView {
                                 .text_color(theme.text_2)
                                 .child(row.description),
                         )
-                    }),
+                    })
+                    .children(row.below.map(|below| div().mt(dp(4.)).child(below))),
             )
             .child(div().flex_none().child(row.control))
             .into_any_element()
