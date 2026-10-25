@@ -37,11 +37,14 @@ pub(super) struct Checks {
     /// Hunks only some of whose changed lines go in the next commit: those lines by their
     /// index in the hunk, and the [`fingerprint`] of the lines they index.
     line_picks: HashMap<(String, HunkKey), (BTreeSet<usize>, u64)>,
+    /// The uncommitted paths listed since the composer opened, `None` while it's closed. A
+    /// file that turns up after, as an agent writes one, starts out: nobody picked it.
+    known: Option<HashSet<String>>,
 }
 
 impl Checks {
     pub(super) fn file_check(&self, path: &str) -> Toggled {
-        if self.unchecked.contains(path) {
+        if self.unchecked.contains(path) || self.is_new(path) {
             Toggled::False
         } else if (self.unchecked_hunks.iter()).any(|(p, _)| p == path)
             || self.line_picks.keys().any(|(p, _)| p == path)
@@ -77,6 +80,11 @@ impl Checks {
         }
     }
 
+    /// Whether `path` turned up since the composer opened, and isn't in the next commit yet.
+    fn is_new(&self, path: &str) -> bool {
+        (self.known.as_ref()).is_some_and(|known| !known.contains(path))
+    }
+
     fn is_empty(&self) -> bool {
         self.unchecked.is_empty() && self.unchecked_hunks.is_empty() && self.line_picks.is_empty()
     }
@@ -86,6 +94,7 @@ impl Checks {
         self.unchecked.clear();
         self.unchecked_hunks.clear();
         self.line_picks.clear();
+        self.known = None;
     }
 
     /// Carry what's left out over to a reload of the worktree diff, `files`.
@@ -93,6 +102,13 @@ impl Checks {
         // A file left out stays out while it's gone, as an agent's `git stash` and `git stash
         // pop` take it away and bring it back.
         let present: HashSet<&str> = files.iter().map(|f| f.file.path.as_str()).collect();
+        if let Some(known) = &mut self.known {
+            for path in &present {
+                if known.insert((*path).to_owned()) {
+                    self.unchecked.insert((*path).to_owned());
+                }
+            }
+        }
         let find_hunk =
             |path: &str, key: HunkKey| file_hunks(files, path).iter().find(|h| h.key == key);
         // A hunk left out stays out when an edit renumbers it: what's out now is every
@@ -242,7 +258,9 @@ impl Detail {
         let next = (self.other_checks)
             .remove(&(project.clone(), worktree.clone()))
             .unwrap_or_default();
-        let checks = std::mem::replace(&mut self.checks, next);
+        let mut checks = std::mem::replace(&mut self.checks, next);
+        // Opened again, the composer starts from what's there then.
+        checks.known = None;
         if !checks.is_empty() {
             self.other_checks.insert(left.clone(), checks);
         }
@@ -316,7 +334,7 @@ impl Detail {
         loaded: Option<&FileDiff>,
     ) -> Option<Selected> {
         let hunks = loaded.map_or(&[][..], FileDiff::hunks);
-        if self.checks.unchecked.contains(&file.path) {
+        if self.checks.unchecked.contains(&file.path) || self.checks.is_new(&file.path) {
             return None;
         }
         let partial = self.checks.file_check(&file.path) == Toggled::Mixed;
@@ -536,6 +554,7 @@ impl Detail {
                 .filter(|file| file.conflicted)
                 .map(|file| file.path.clone());
             self.checks.unchecked.extend(conflicted.collect::<Vec<_>>());
+            self.checks.known = Some(files.iter().map(|file| file.path.clone()).collect());
             self.composing_on_changes = !files.is_empty();
             self.composing_target = (self.checks_project.clone())
                 .and_then(|project| self.effective_target(&project, cx));
@@ -1156,6 +1175,9 @@ impl Detail {
             checks
                 .line_picks
                 .retain(|(hunk_path, _), _| *hunk_path != path);
+            if let Some(known) = &mut checks.known {
+                known.insert(path.clone());
+            }
             match check {
                 true => checks.unchecked.remove(&path),
                 false => checks.unchecked.insert(path),
@@ -1553,6 +1575,42 @@ mod tests {
             checks.hunk_check("a.rs", key(11, 2)),
             Toggled::False,
             "a hunk an edit above moved is left out under its new header too"
+        );
+    }
+
+    #[test]
+    fn a_file_that_turns_up_while_committing_starts_out() {
+        let file = |path: &str| FileDiff {
+            file: FileChange::bare(path),
+            body: DiffBody::Binary,
+            fingerprint: 0,
+            annotated: true,
+            scope_lines: None,
+            drawing: None,
+            commit: None,
+        };
+        let mut checks = Checks {
+            known: Some(["picked.rs".to_owned()].into()),
+            ..Checks::default()
+        };
+        assert_eq!(
+            checks.file_check("agent.md"),
+            Toggled::False,
+            "a file the composer didn't list when it opened isn't in, even before the diff has it"
+        );
+        checks.reconcile(&[file("picked.rs"), file("agent.md")]);
+        assert_eq!(checks.file_check("picked.rs"), Toggled::True);
+        assert_eq!(
+            checks.file_check("agent.md"),
+            Toggled::False,
+            "an agent's new file stays out of a commit it wasn't picked for"
+        );
+        checks.clear();
+        checks.reconcile(&[file("picked.rs"), file("agent.md")]);
+        assert_eq!(
+            checks.file_check("agent.md"),
+            Toggled::True,
+            "with the composer closed, everything goes in again"
         );
     }
 
