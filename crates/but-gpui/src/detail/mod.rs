@@ -1639,15 +1639,8 @@ impl Detail {
 
     /// Whether the loaded diff is the worktree's and shows exactly `files` as they are now.
     fn shows_worktree(&self, files: &[FileChange]) -> bool {
-        self.worktree_diff().is_some_and(|diff| {
-            diff.files.len() == files.len()
-                && diff.files.iter().zip(files).all(|(shown, now)| {
-                    shown.file.path == now.path
-                        && (shown.file.modified, shown.file.size) == (now.modified, now.size)
-                        && shown.file.base() == now.base()
-                        && shown.file.conflicted == now.conflicted
-                })
-        })
+        (self.worktree_diff())
+            .is_some_and(|diff| same_files(diff.files.iter().map(|shown| &shown.file), files))
     }
 
     /// Open the file under the cursor in the editor, at its hunk.
@@ -2435,11 +2428,54 @@ fn code_line(cx: &App) -> Pixels {
     theme.scaled(theme.code_line)
 }
 
+/// Whether `shown`, a diff's files in the order its list draws them, are `files` as they are
+/// now, in the order the workspace lists them: a tree puts folders first, and status puts
+/// conflicted files first.
+fn same_files<'a>(
+    shown: impl ExactSizeIterator<Item = &'a FileChange>,
+    files: &[FileChange],
+) -> bool {
+    if shown.len() != files.len() {
+        return false;
+    }
+    let shown: HashMap<&str, &FileChange> = shown.map(|file| (file.path.as_str(), file)).collect();
+    files.iter().all(|now| {
+        shown.get(now.path.as_str()).is_some_and(|shown| {
+            (shown.modified, shown.size) == (now.modified, now.size)
+                && shown.base() == now.base()
+                && shown.conflicted == now.conflicted
+        })
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
 
-    use super::{follow_hunk, unfolded};
+    use super::{follow_hunk, same_files, unfolded};
+    use crate::backend::FileChange;
+
+    #[test]
+    fn a_diff_in_tree_order_shows_the_files_status_lists_by_path() {
+        let files = [FileChange::bare("src/a.rs"), FileChange::bare("src/b/x.rs")];
+        let tree = [FileChange::bare("src/b/x.rs"), FileChange::bare("src/a.rs")];
+        assert!(
+            same_files(tree.iter(), &files),
+            "a tree draws the folder before the file beside it, which sorts first by path"
+        );
+        let written = FileChange {
+            modified: Some(1),
+            ..FileChange::bare("src/a.rs")
+        };
+        assert!(
+            !same_files(tree.iter(), &[written, FileChange::bare("src/b/x.rs")]),
+            "a file written since the diff was read isn't shown as it is"
+        );
+        assert!(
+            !same_files(tree.iter().take(1), &files),
+            "nor is a file the diff doesn't have"
+        );
+    }
     use crate::backend::HunkKey;
 
     #[test]
