@@ -1565,13 +1565,36 @@ pub(super) fn grouped(n: usize) -> String {
     out
 }
 
-/// A section of an overview's heading: `title`, and what its numbers count.
+/// An overview's sections, side by side where the page has room for each to be its `basis`
+/// wide, else stacked, so a wide window shows more of them at once.
+pub(super) fn overview_sections(
+    sections: impl IntoIterator<Item = (Option<AnyElement>, f32)>,
+) -> Div {
+    h_flex()
+        .flex_wrap()
+        .items_start()
+        .gap_x(dp(12.))
+        .gap_y(dp(6.))
+        .children(sections.into_iter().filter_map(|(section, basis)| {
+            Some(
+                div()
+                    .flex_grow(1.)
+                    .flex_basis(dp(basis))
+                    .min_w_0()
+                    .child(section?),
+            )
+        }))
+}
+
+/// A section of an overview's heading: `title`, and what its numbers count. Each is as tall as
+/// one with a Clear, so sections side by side start their rows level.
 pub(super) fn overview_heading(
     title: &'static str,
     detail: impl IntoElement,
     theme: &Theme,
 ) -> Div {
     h_flex()
+        .h(dp(28.))
         .mt(dp(14.))
         .px(dp(14.))
         .pb(dp(2.))
