@@ -1,6 +1,6 @@
 use but_forge::{
     ForgeReview, cache_review, preferred_review, review_associations_by_head, review_for_head_ref,
-    reviews_by_head,
+    reviews_by_head, without_unrelated_forks,
 };
 
 /// An open, non-fork review on `source_branch` with the given `number`.
@@ -206,5 +206,39 @@ fn review_associations_follow_a_remote_that_pushes_to_a_fork() {
             .map(|(number, ..)| *number),
         Some(1),
         "a branch published to a fork through the remote's push URL keeps that fork's review"
+    );
+}
+
+#[test]
+fn unrelated_forks_are_dropped_before_matching_by_name() {
+    let tmp = tempfile::tempdir().unwrap();
+    let reviews = || {
+        vec![
+            from_fork(review(1, "feature"), "https://github.com/alice/app.git"),
+            from_fork(review(2, "feature"), "https://github.com/mallory/app.git"),
+            review(3, "feature"),
+        ]
+    };
+    let numbers = |reviews: Vec<ForgeReview>| reviews.iter().map(|r| r.number).collect::<Vec<_>>();
+    let config = r#"
+[remote "origin"]
+	url = git@github.com:acme/app.git
+[remote "alice"]
+	url = https://github.com/alice/app.git
+"#;
+
+    let repo = repo_with_config(&tmp.path().join("known"), config);
+    assert_eq!(
+        numbers(without_unrelated_forks(reviews(), &repo)),
+        vec![1, 3],
+        "a fork no remote points at is someone else's, while yours and the base repository's stay"
+    );
+
+    let with_local = format!("{config}[remote \"gb-local\"]\n\turl = /some/path\n");
+    let repo = repo_with_config(&tmp.path().join("local"), &with_local);
+    assert_eq!(
+        numbers(without_unrelated_forks(reviews(), &repo)),
+        vec![1, 2, 3],
+        "a remote whose URL names no forge repository might be the fork, so nothing is dropped"
     );
 }

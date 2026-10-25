@@ -13,7 +13,7 @@ mod repo;
 mod review;
 pub use association::{
     ReviewAssociation, preferred_review, review_associations_by_head, review_for_head_ref,
-    reviews_by_head,
+    reviews_by_head, without_unrelated_forks,
 };
 pub use ci::{CiCheck, CiConclusion, CiOutput, CiStatus, ci_checks_for_ref_with_cache};
 pub use forge_info::{ForgeCapabilities, ForgeInfo, ForgeUnitInfo, compare_branch_url, forge_info};
