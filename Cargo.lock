@@ -1696,6 +1696,7 @@ name = "but-gpui"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "backtrace",
  "bstr",
  "but-action",
  "but-api",
@@ -1733,6 +1734,7 @@ dependencies = [
  "objc2 0.6.4",
  "objc2-foundation 0.3.2",
  "parking_lot",
+ "posthog-rs",
  "pulldown-cmark",
  "raw-window-handle",
  "reqwest",
@@ -1748,6 +1750,7 @@ dependencies = [
  "tracing-subscriber",
  "two-face",
  "unicode-segmentation",
+ "uuid",
 ]
 
 [[package]]

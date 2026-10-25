@@ -25,7 +25,7 @@ use crate::backend::upstream::{self, ACTIVITY_DAYS, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, ReviewState};
 use crate::edits::CherryPick;
 use crate::overlays::MenuItem;
-use crate::state::{BranchStatus, Cut, Overlay, Picks, ProjectId, Selection, Store};
+use crate::state::{BranchStatus, Cut, Label, Overlay, Picks, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::illustration::Illustration;
@@ -1058,7 +1058,7 @@ impl Detail {
         let apply = move |store: &mut Store, cx: &mut Context<Store>| {
             store.run(
                 &project,
-                format!("Apply {name}"),
+                Label::new("Apply", format!("Apply {name}")),
                 Overlay::default(),
                 move |path, _| branches::apply(path, &ref_name, freeing.as_deref()),
                 move |store, applied, cx| match applied {

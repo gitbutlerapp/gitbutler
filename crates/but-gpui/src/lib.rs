@@ -185,6 +185,7 @@ pub fn run(embedded: Option<Embedded>) {
     use crate::ui::fixed;
 
     backend::init();
+    backend::metrics::start(embedded.as_ref().map(|embedded| embedded.version.clone()));
     // The desktop app writes to the same files, so say which app this is.
     tracing::info!(
         version = embedded.as_ref().map(|embedded| embedded.version.as_str()),
@@ -199,6 +200,13 @@ pub fn run(embedded: Option<Embedded>) {
         .with_assets(ui::Assets)
         .with_quit_mode(QuitMode::LastWindowClosed)
         .run(|cx: &mut App| {
+            // Before the other quit handlers run, and so outside the little time GPUI gives
+            // what they return, as it sends what's queued.
+            cx.on_app_quit(|_| {
+                backend::metrics::quit();
+                async {}
+            })
+            .detach();
             // GPUI awaits what quit handlers return only once they've all run, the store's
             // save included, so this writes out what they logged.
             cx.on_app_quit(|_| async { backend::logs::flush() })
@@ -317,10 +325,11 @@ pub fn run(embedded: Option<Embedded>) {
                     // As when the GPU's drivers can't draw it. Started by the desktop app,
                     // GitButler then opens as its web app: with the setting that opens this
                     // client on, quitting alone would keep it from opening at all.
-                    if cx.has_global::<Embedded>()
-                        && let Err(err) = relaunch(true)
-                    {
-                        tracing::error!("couldn't open the web app instead: {err:#}");
+                    if cx.has_global::<Embedded>() {
+                        backend::metrics::fell_back_to_web(&err);
+                        if let Err(err) = relaunch(true) {
+                            tracing::error!("couldn't open the web app instead: {err:#}");
+                        }
                     }
                     // Once the event loop runs: on Linux it only starts after this returns, and
                     // forgets a quit asked for before.

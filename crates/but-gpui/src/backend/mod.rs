@@ -14,6 +14,7 @@ pub mod history;
 pub mod logs;
 mod markers;
 pub mod mesh;
+pub mod metrics;
 pub mod model;
 mod ops;
 pub mod reviews;

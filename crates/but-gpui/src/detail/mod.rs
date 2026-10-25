@@ -2349,6 +2349,45 @@ fn welcome(theme: &Theme) -> AnyElement {
                         .dispatch(&crate::projects::CloneRepository),
                 ),
         )
+        .child(usage_notice(theme))
+        .into_any_element()
+}
+
+/// The welcome's last line, as VS Code's welcome page ends: that GitButler collects usage
+/// data, with its privacy policy and the switches that turn it off a click away.
+fn usage_notice(theme: &Theme) -> AnyElement {
+    let mut text = String::from("GitButler collects usage data. Read our ");
+    let link = |words: &str, text: &mut String| {
+        let at = text.len();
+        text.push_str(words);
+        at..text.len()
+    };
+    let policy = link("privacy policy", &mut text);
+    text.push_str(" and learn how to ");
+    let opt_out = link("opt out", &mut text);
+    text.push('.');
+    let linked = gpui::HighlightStyle {
+        underline: Some(gpui::UnderlineStyle {
+            thickness: fixed(1.),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let styled = gpui::StyledText::new(text)
+        .with_highlights([(policy.clone(), linked), (opt_out.clone(), linked)]);
+    // One line the column centers, not `text_center`: GPUI maps a click on centered text as if
+    // the line were left-aligned, so the links would miss.
+    div()
+        .mt(dp(14.))
+        .text_size(dp(12.))
+        .text_color(theme.text_3)
+        .child(gpui::InteractiveText::new("usage-notice", styled).on_click(
+            vec![policy, opt_out],
+            |link, window, cx| match link {
+                0 => cx.open_url("https://gitbutler.com/privacy"),
+                _ => window.dispatch_action(Box::new(crate::settings::OpenSettings), cx),
+            },
+        ))
         .into_any_element()
 }
 

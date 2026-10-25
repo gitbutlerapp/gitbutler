@@ -221,9 +221,13 @@ pub fn gitbutler_login_url() -> Result<String> {
 }
 
 pub fn gitbutler_log_in(token: &str) -> Result<GitButlerUser> {
-    Ok(but_api::legacy::users::login_and_persist(token.trim().to_owned())?.into())
+    let user = but_api::legacy::users::login_and_persist(token.trim().to_owned())?;
+    super::metrics::signed_in(&user);
+    Ok(user.into())
 }
 
 pub fn gitbutler_log_out() -> Result<()> {
-    but_api::legacy::users::delete_user()
+    but_api::legacy::users::delete_user()?;
+    super::metrics::signed_out();
+    Ok(())
 }

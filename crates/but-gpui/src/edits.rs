@@ -14,7 +14,7 @@ use crate::app::{
     UncommitSelection,
 };
 use crate::backend::{self, Branch, Commit, CommitId, Destination, Selected, Workspace, short_ref};
-use crate::state::{Cut, Overlay, ProjectId, Remap, Rereads, Selection, Store, snack};
+use crate::state::{Cut, Label, Overlay, ProjectId, Remap, Rereads, Selection, Store, snack};
 
 actions!(
     edits,
@@ -62,7 +62,7 @@ fn recorded(store: &Store, project: &ProjectId) -> bool {
 /// What a confirmation runs: operation `label` on `project`, as [`Store::run`] runs it.
 fn then_run<T: Send + 'static>(
     project: ProjectId,
-    label: impl Into<SharedString>,
+    label: impl Into<Label>,
     overlay: Overlay,
     op: impl FnOnce(&Path, &Remap) -> anyhow::Result<T> + Send + 'static,
     done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
@@ -1119,7 +1119,7 @@ impl AppView {
             cx,
             then_run(
                 project,
-                format!("Land {name}"),
+                Label::new("Land", format!("Land {name}")),
                 overlay,
                 move |path, _| backend::land(path, &name, tip, whole_stack),
                 move |store, left: backend::Landed, cx| {

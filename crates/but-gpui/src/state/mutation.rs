@@ -73,6 +73,29 @@ pub struct Overlay {
     pub kind: OpKind,
 }
 
+/// What an operation is called: `text` is what the user reads, which may name a branch or a
+/// commit, and `name` the same without them, which the metrics know it by. A label that names
+/// nothing is both.
+pub struct Label {
+    name: &'static str,
+    text: SharedString,
+}
+
+impl Label {
+    pub fn new(name: &'static str, text: impl Into<SharedString>) -> Self {
+        Self {
+            name,
+            text: text.into(),
+        }
+    }
+}
+
+impl From<&'static str> for Label {
+    fn from(text: &'static str) -> Self {
+        Self::new(text, text)
+    }
+}
+
 /// The operations the queue treats apart from the rest. Labels are only what the user reads.
 #[derive(Default, Clone, PartialEq)]
 pub enum OpKind {
@@ -881,7 +904,7 @@ impl Store {
         let pulled = project.clone();
         self.run(
             project,
-            format!("Pull {name}"),
+            Label::new("Pull", format!("Pull {name}")),
             Overlay {
                 kind,
                 ..Overlay::default()
@@ -953,7 +976,7 @@ impl Store {
         let run_hooks = self.runs_hooks(project);
         self.run(
             project,
-            format!("Push {name}"),
+            Label::new("Push", format!("Push {name}")),
             Overlay::push(&ref_name, false),
             {
                 let ref_name = ref_name.clone();
@@ -1180,7 +1203,7 @@ impl Store {
         });
         self.run(
             project,
-            format!("Amend {}", into.short()),
+            Label::new("Amend", format!("Amend {}", into.short())),
             overlay,
             move |path, remap| {
                 let into = remap.get(into)?;
@@ -1215,7 +1238,7 @@ impl Store {
         let undoable = !(ids.iter().chain([&into])).any(|id| self.in_worktree(project, *id));
         self.run(
             project,
-            format!("Squash {} commits", ids.len() + 1),
+            Label::new("Squash", format!("Squash {} commits", ids.len() + 1)),
             overlay,
             move |path, remap| {
                 let oldest_first: Vec<CommitId> = ids.iter().rev().copied().collect();
@@ -1253,8 +1276,8 @@ impl Store {
             .filter_map(|id| self.key_of(project, *id))
             .collect();
         let label = match ids.len() {
-            1 => "Uncommit".to_owned(),
-            n => format!("Uncommit {n} commits"),
+            1 => Label::from("Uncommit"),
+            n => Label::new("Uncommit", format!("Uncommit {n} commits")),
         };
         // A linked worktree's commits uncommit into it, which the oplog can't bring back.
         let undoable = !ids.iter().any(|id| self.in_worktree(project, *id));
@@ -1293,7 +1316,7 @@ impl Store {
     pub fn run<T: Send + 'static>(
         &mut self,
         project: &ProjectId,
-        label: impl Into<SharedString>,
+        label: impl Into<Label>,
         overlay: Overlay,
         op: impl FnOnce(&Path, &Remap) -> Result<T> + Send + 'static,
         done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
@@ -1302,7 +1325,7 @@ impl Store {
         if overlay.kind.once() && self.pending(project, Some(&overlay.kind), false) {
             return;
         }
-        let label = label.into();
+        let Label { name, text: label } = label.into();
         let mut captured = self.workspace(project).map_or_else(HashMap::new, |ws| {
             ws.commits()
                 .map(|commit| (commit.id, commit.key.clone()))
@@ -1337,7 +1360,7 @@ impl Store {
             self.select(Some(Selection::Uncommitted(project.clone())), cx);
         }
         let id = project.clone();
-        let start_label = label.clone();
+        let start_label = Label::new(name, label.clone());
         // Drawn again when the commit it makes, if any, is due to dim.
         if overlay.new_commit.is_some() {
             cx.spawn(async move |this, cx| {
@@ -1426,12 +1449,13 @@ impl Store {
     fn start<T: Send + 'static>(
         &mut self,
         project: &ProjectId,
-        label: SharedString,
+        label: Label,
         op: impl FnOnce(&Path, &Remap) -> Result<T> + Send + 'static,
         done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
         remap: Remap,
         cx: &mut Context<Self>,
     ) {
+        let Label { name, text: label } = label;
         let editing = self
             .workspace(project)
             .is_some_and(|ws| ws.editing.is_some());
@@ -1487,6 +1511,7 @@ impl Store {
         cx.notify();
         let project = project.clone();
         let reason = label.to_string();
+        let began = Instant::now();
         cx.spawn(async move |this, cx| {
             // Asked for by the user, so it runs at full speed even if they switch away
             // meanwhile, rather than as macOS runs a hidden app's work.
@@ -1554,6 +1579,12 @@ impl Store {
                     };
                     reload.merge(std::mem::take(&mut running.deferred));
                 }
+                backend::metrics::operation(
+                    name,
+                    began.elapsed(),
+                    result.as_ref().err(),
+                    store.workspace(&project),
+                );
                 let source = (project.clone(), label.clone());
                 let first_card = store.next_toast;
                 match result {

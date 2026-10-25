@@ -48,6 +48,10 @@ md5.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 # Locks that can't be poisoned, so taking one can't fail.
 parking_lot.workspace = true
+# Metrics, and the stacks of panics and crashes they report.
+posthog-rs.workspace = true
+uuid = { workspace = true, features = ["v7"] }
+backtrace = "0.3.76"
 # What the app remembers between launches.
 rusqlite.workspace = true
 
