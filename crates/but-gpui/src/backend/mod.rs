@@ -134,13 +134,48 @@ impl std::fmt::Display for NotARepository {
 
 impl std::error::Error for NotARepository {}
 
+/// Whether `path` is a folder inside a repository's checkout, not its top, that the
+/// repository ignores and has no files of; `None` when it isn't in one below its top, or that
+/// can't be read.
+fn ignored_by_enclosing_repository(path: &Path) -> Option<bool> {
+    use gix::worktree::stack::state::ignore::Source;
+    let repo = gix::discover(path).ok()?;
+    let (workdir, path) = (
+        repo.workdir()?.canonicalize().ok()?,
+        path.canonicalize().ok()?,
+    );
+    let inside = path
+        .strip_prefix(&workdir)
+        .ok()
+        .filter(|p| !p.as_os_str().is_empty())?;
+    let index = repo.index_or_empty().ok()?;
+    // As a dotfiles repository has ~/.config/nvim, added despite ignoring everything.
+    let inside_bstr = gix::path::into_bstr(inside).ok()?;
+    let prefix = format!("{}/", gix::path::to_unix_separators_on_windows(inside_bstr));
+    if (index.entries().iter()).any(|e| e.path(&index).starts_with(prefix.as_bytes())) {
+        return Some(false);
+    }
+    let mut excludes =
+        (repo.excludes(&index, None, Source::WorktreeThenIdMappingIfNotSkipped)).ok()?;
+    let at = excludes
+        .at_path(inside, Some(gix::index::entry::Mode::DIR))
+        .ok()?;
+    Some(at.is_excluded())
+}
+
 /// Register the repository at `path` with GitButler, so it shows up in [`list_projects()`].
 /// Returns its id, and whether GitButler had it already, as from a folder inside it. A folder
 /// that could become a repository fails with [`NotARepository`].
 pub fn add_project(path: &Path) -> Result<(String, bool)> {
     use AddProjectOutcome as O;
     use gitbutler_project::AddProjectOutcome;
-    let why = match but_api::legacy::projects::add_project_best_effort(path.to_owned())? {
+    // As a home folder kept as a dotfiles repository, which ignores all but its dotfiles: the
+    // folder isn't that repository's work, and adding it would watch the whole home folder.
+    let outcome = match ignored_by_enclosing_repository(path) {
+        Some(true) => O::NoDotGitDirectory,
+        _ => but_api::legacy::projects::add_project_best_effort(path.to_owned())?,
+    };
+    let why = match outcome {
         O::Added(project) => return Ok((project.id.to_string(), false)),
         O::AlreadyExists(project) => return Ok((project.id.to_string(), true)),
         O::PathNotFound => "it doesn't exist",

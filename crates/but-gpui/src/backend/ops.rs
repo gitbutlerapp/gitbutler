@@ -2552,6 +2552,48 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn a_folder_the_enclosing_repository_ignores_isnt_added_as_it() {
+        but_testsupport::isolated_app_data_dir(|| {
+            // As a home folder kept as a dotfiles repository.
+            let home = repo_with("one\n");
+            std::fs::write(home.path().join(".gitignore"), "*\n!.gitignore\n").unwrap();
+            let picked = home.path().join("code/new");
+            std::fs::create_dir_all(&picked).unwrap();
+            let refused = crate::backend::add_project(&picked).unwrap_err();
+            assert!(
+                refused.is::<crate::backend::NotARepository>(),
+                "it's no work of the home folder's, so it's offered to become a repository: \
+                 {refused:#}"
+            );
+
+            // One with a file force-added, as dotfiles keep ~/.config/nvim, is the home's.
+            let tracked = home.path().join("tracked");
+            std::fs::create_dir(&tracked).unwrap();
+            std::fs::write(tracked.join("init.lua"), "x\n").unwrap();
+            git(home.path(), &["add", "-f", "tracked/init.lua"]);
+            assert!(
+                crate::backend::add_project(&tracked).is_ok(),
+                "a folder with files the repository tracks adds the repository"
+            );
+            // One that holds repositories names them, as anywhere else.
+            let code = home.path().join("code");
+            git(&code, &["init", "-q", "app"]);
+            let named = crate::backend::add_project(&code).unwrap_err();
+            assert!(
+                format!("{named:#}").contains("app in it is"),
+                "it says which to add: {named:#}"
+            );
+
+            let project = repo_with("one\n");
+            std::fs::create_dir(project.path().join("src")).unwrap();
+            assert!(
+                crate::backend::add_project(&project.path().join("src")).is_ok(),
+                "a folder the repository doesn't ignore adds the repository"
+            );
+        })
+    }
+
+    #[test]
     fn a_branch_that_moved_since_it_was_asked_about_isnt_deleted() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
