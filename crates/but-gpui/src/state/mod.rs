@@ -233,7 +233,7 @@ impl ProjectEntry {
     /// that's the way out.
     fn failed(&mut self, err: &anyhow::Error, failure: crate::backend::LoadFailure) {
         self.folder_gone = failure.folder_gone;
-        self.error = Some(load::load_error(failure.folder_gone, err));
+        self.error = Some(load::load_error(&failure, err));
         self.target_choice = failure.target_choice;
     }
 

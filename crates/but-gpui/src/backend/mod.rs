@@ -991,6 +991,8 @@ pub async fn folder_gone(path: std::path::PathBuf) -> bool {
 pub struct LoadFailure {
     /// Its folder is gone, which is said instead of the error.
     pub folder_gone: bool,
+    /// Its index is sparse, which the engine can't read yet, and which is said instead.
+    pub sparse_index: bool,
     /// The branches to pick a target from, when several track it.
     pub target_choice: Option<TargetChoice>,
 }
@@ -1006,6 +1008,9 @@ pub async fn load_failure(path: std::path::PathBuf, err: Option<&anyhow::Error>)
     run(move || {
         Ok(LoadFailure {
             folder_gone: !path.exists(),
+            sparse_index: (gix::open(&path).ok())
+                .and_then(|repo| repo.index_or_empty().ok())
+                .is_some_and(|index| index.is_sparse()),
             target_choice: ambiguous.and_then(|target| target_choice(&path, &target)),
         })
     })
