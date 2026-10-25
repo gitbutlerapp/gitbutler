@@ -1,7 +1,6 @@
 //! What the app remembers between launches, and the pane widths it keeps.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::path::PathBuf;
 use std::time::Duration;
 
 use gpui::{
@@ -10,6 +9,7 @@ use gpui::{
 use serde::{Deserialize, Serialize};
 
 use super::{Seen, Store};
+use crate::backend::saved::Database;
 use crate::theme::Appearance;
 
 impl Store {
@@ -20,39 +20,35 @@ impl Store {
             return;
         }
         self.save_queued = true;
+        let db = self.saved_db.clone();
         self.save_task = cx.spawn(async move |this, cx| {
             cx.background_executor()
                 .timer(Duration::from_millis(500))
                 .await;
-            let Ok(Some(bytes)) = this.update(cx, |store, _| {
+            let Ok((version, rows)) = this.update(cx, |store, _| {
                 store.save_queued = false;
-                store.changed_state()
+                store.next_save()
             }) else {
                 return;
             };
             // Detached, so a newer save replacing this task can't cancel the write.
-            cx.background_spawn(async move { Saved::write(&bytes) })
+            cx.background_spawn(async move { db.write(version, rows) })
                 .detach();
         });
     }
 
-    /// Write the saved state now, as on quit, even if a background save of the same state
-    /// hasn't finished: the process may end before it does.
+    /// Write the saved state now, as on quit: the process may end before a background save
+    /// would.
     pub(super) fn save(&mut self) {
-        if let Ok(bytes) = serde_json::to_vec_pretty(&self.saved()) {
-            Saved::write(&bytes);
-            self.last_saved = bytes;
-        }
+        let (version, rows) = self.next_save();
+        self.saved_db.write(version, rows);
     }
 
-    /// The state to save, unless it's what was saved last.
-    fn changed_state(&mut self) -> Option<Vec<u8>> {
-        let bytes = serde_json::to_vec_pretty(&self.saved()).ok()?;
-        if bytes == self.last_saved {
-            return None;
-        }
-        self.last_saved = bytes.clone();
-        Some(bytes)
+    /// The saved state's rows, numbered in the order they're taken, so a background write
+    /// that comes late can't undo a newer one.
+    fn next_save(&mut self) -> (u64, Vec<(String, String)>) {
+        self.saves += 1;
+        (self.saves, self.saved().rows())
     }
 
     fn saved(&self) -> Saved {
@@ -304,10 +300,8 @@ pub enum WatchedOrder {
 /// Which branches the Branches page lists by their pull request.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BranchStatus {
-    /// Those under way: with an open or draft pull request, or none. It keeps its old name so
-    /// saved choices still load, and only merged ones, a choice once, loads as it.
+    /// Those under way: with an open or draft pull request, or none.
     #[default]
-    #[serde(alias = "Merged")]
     NotMerged,
     Open,
     Draft,
@@ -349,8 +343,7 @@ pub(super) struct Saved {
     pub(super) window: Option<WindowPlace>,
     pub(super) prefs: Prefs,
     /// The oplog entries ⌘Z mustn't take back, by project, as the oplog can't restore all
-    /// they changed, which stays so after a restart. An older file's `kept_snapshots` isn't
-    /// read, as it doesn't say whose they are.
+    /// they changed, which stays so after a restart.
     pub(super) kept_by_project: BTreeMap<String, Vec<String>>,
     /// How busy each checkout was over the last week, so a restart doesn't start it over.
     pub(super) activity: Vec<SavedActivity>,
@@ -375,8 +368,7 @@ pub struct Prefs {
     pub editor: Option<String>,
     /// The terminal the project opens in, by id.
     pub terminal: Option<String>,
-    /// File lists show their files flat rather than as a tree of folders. A key of its own,
-    /// as the old `file_tree` saved false for everyone from before the tree was the default.
+    /// File lists show their files flat rather than as a tree of folders.
     pub flat_files: bool,
     /// The order file lists show files in.
     pub file_sort: FileSort,
@@ -470,67 +462,38 @@ pub(super) enum Fill {
 }
 
 impl Saved {
-    /// One per channel, beside its list of projects: each knows the projects by ids of its
-    /// own, and forgets what's kept for those its list doesn't have.
-    fn path() -> Option<PathBuf> {
-        Some(but_path::app_data_dir().ok()?.join("gpui-state.json"))
+    /// What `db` holds, a row per field. It's the channel's, as each knows the projects by ids
+    /// of its own and forgets what's kept for those its list doesn't have.
+    pub(super) fn load(db: &Database) -> Self {
+        let fields = (db.read().into_iter())
+            .filter_map(|(key, value)| Some((key, serde_json::from_str(&value).ok()?)))
+            .collect();
+        let saved = Self::parse(serde_json::Value::Object(fields));
+        // As this build writes them, so only what changes from here on is written.
+        db.loaded(saved.rows());
+        saved
     }
 
-    #[expect(clippy::disallowed_methods, reason = "read once, as the app starts")]
-    pub(super) fn load() -> Self {
-        // Until each had its own, every channel wrote one in the config directory.
-        let shared = || {
-            Some(
-                crate::backend::settings::config_dir()
-                    .ok()?
-                    .join("gpui-state.json"),
-            )
-        };
-        let read = |path: PathBuf| Some((std::fs::read(&path).ok()?, path));
-        let Some((bytes, path)) = Self::path().and_then(read).or_else(|| read(shared()?)) else {
-            return Self::default();
-        };
-        Self::parse(&bytes).unwrap_or_else(|err| {
-            // Keep what couldn't be read rather than write over it.
-            tracing::warn!("couldn't read {}: {err}", path.display());
-            std::fs::rename(&path, path.with_extension("json.bak")).ok();
-            Self::default()
-        })
-    }
-
-    /// What `bytes` saved, but for what this build can't read: a choice a newer build saved
+    /// What `value` saved, but for what this build can't read: a choice a newer build saved
     /// that this one doesn't know, as a new size, goes back to its default alone.
-    fn parse(bytes: &[u8]) -> serde_json::Result<Self> {
-        serde_json::from_slice(bytes).or_else(|err| {
+    fn parse(mut value: serde_json::Value) -> Self {
+        Self::deserialize(&value).unwrap_or_else(|err| {
             tracing::warn!("reading only some of the saved state: {err}");
-            let mut value: serde_json::Value = serde_json::from_slice(bytes)?;
             if let Some(prefs) = value.get_mut("prefs") {
                 readable::<Prefs>(prefs);
             }
             readable::<Self>(&mut value);
-            serde_json::from_value(value)
+            Self::deserialize(&value).unwrap_or_default()
         })
     }
 
-    /// Through a temporary file, so a crash mid-write leaves the last state rather than
-    /// half a file, which would read back as nothing at all.
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "it runs in `background_spawn`, or on quit"
-    )]
-    fn write(bytes: &[u8]) {
-        // One writer at a time: a background save can still be going when quit saves.
-        static WRITING: std::sync::Mutex<()> = std::sync::Mutex::new(());
-        let _writing = WRITING.lock();
-        let Some(path) = Self::path() else {
-            return;
-        };
-        if let Some(dir) = path.parent() {
-            std::fs::create_dir_all(dir).ok();
-        }
-        let temporary = path.with_extension("json.tmp");
-        if std::fs::write(&temporary, bytes).is_ok() {
-            std::fs::rename(&temporary, &path).ok();
+    /// A row per field, its value as JSON.
+    fn rows(&self) -> Vec<(String, String)> {
+        match serde_json::to_value(self) {
+            Ok(serde_json::Value::Object(fields)) => (fields.into_iter())
+                .map(|(key, value)| (key, value.to_string()))
+                .collect(),
+            _ => Vec::new(),
         }
     }
 }
@@ -540,37 +503,15 @@ mod tests {
     use super::Saved;
 
     #[test]
-    fn a_file_from_before_kept_snapshots_went_by_project_still_loads() {
-        let old = r#"{ "expanded": ["a"], "kept_snapshots": ["0123456789abcdef0123456789abcdef01234567"] }"#;
-        let saved: Saved = serde_json::from_str(old).expect("one that fails is set aside whole");
-        assert_eq!(saved.expanded, ["a"], "the rest of what it saved is kept");
-        assert!(
-            saved.kept_by_project.is_empty(),
-            "the old list doesn't say whose they are"
-        );
-    }
-
-    #[test]
     fn a_choice_this_build_doesnt_know_loses_only_itself() {
         let newer = r#"{ "expanded": ["a"], "prefs": { "code_size": "Huge", "wrap": true } }"#;
-        let saved = Saved::parse(newer.as_bytes()).expect("the rest still reads");
+        let saved = Saved::parse(serde_json::from_str(newer).expect("it's JSON"));
         assert_eq!(saved.expanded, ["a"], "the watched projects are kept");
         assert!(saved.prefs.wrap, "the other choices are kept");
         assert_eq!(
             saved.prefs.code_size,
             Default::default(),
             "the unknown one is the default"
-        );
-    }
-
-    #[test]
-    fn a_file_that_listed_only_merged_branches_still_loads() {
-        let old = r#"{ "expanded": ["a"], "prefs": { "branches_status": "Merged" } }"#;
-        let saved: Saved = serde_json::from_str(old).expect("one that fails is set aside whole");
-        assert_eq!(
-            saved.prefs.branches_status,
-            super::BranchStatus::NotMerged,
-            "the choice that's gone lists what the page lists at first"
         );
     }
 }

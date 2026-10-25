@@ -1738,6 +1738,7 @@ dependencies = [
  "pulldown-cmark",
  "raw-window-handle",
  "reqwest",
+ "rusqlite",
  "serde",
  "serde_json",
  "syntect",
