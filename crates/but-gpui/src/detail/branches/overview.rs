@@ -323,7 +323,7 @@ fn lane_row(
             .bg(if dim { color.opacity(0.3) } else { color })
             .tooltip(Tooltip::text(tip))
     });
-    let ref_name = branch.ref_name.clone();
+    let (ref_name, detail) = (branch.ref_name.clone(), cx.entity().downgrade());
     let applied =
         (branch.applied).then(|| Selection::Branch(branches.project.clone(), ref_name.clone()));
     // The title and the cells share the room, the title most of it when it's tight, giving
@@ -376,14 +376,21 @@ fn lane_row(
                 .w(dp(OVERVIEW_TIME_WIDTH))
                 .text_right(),
         )
-        .on_click(cx.listener(move |this, _, window, cx| match &applied {
+        // Not a listener, which runs inside this view's update: selecting can focus this view,
+        // which updates it again, and that panics.
+        .on_click(move |_, window, cx| match &applied {
             Some(selection) => {
-                (this.app)
-                    .update(cx, |app, cx| app.select(selection.clone(), window, cx))
-                    .ok();
+                if let Ok(app) = detail.read_with(cx, |detail, _| detail.app.clone()) {
+                    (app.update(cx, |app, cx| app.select(selection.clone(), window, cx))).ok();
+                }
             }
-            None => this.select_other_branch(Some(ref_name.clone()), cx),
-        }))
+            None => {
+                (detail.update(cx, |detail, cx| {
+                    detail.select_other_branch(Some(ref_name.clone()), cx)
+                }))
+                .ok();
+            }
+        })
         .into_any_element()
 }
 
