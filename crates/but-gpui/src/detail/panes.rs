@@ -8,12 +8,12 @@ use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, Bounds, ClickEvent, Context, Div, Entity, FocusHandle, Focusable as _,
-    MouseDownEvent, Pixels, Point, SharedString, Stateful, UniformListScrollHandle, WeakEntity,
-    Window, div, prelude::*, uniform_list,
+    MouseDownEvent, Pixels, Point, SharedString, Stateful, UniformListScrollHandle, Window, div,
+    prelude::*, uniform_list,
 };
 
 use super::{Detail, machine};
-use crate::app::{AppView, Collapse, Expand, SelectNext, SelectPrevious, StartCommit};
+use crate::app::{AppHandle, Collapse, Expand, SelectNext, SelectPrevious, StartCommit};
 use crate::backend::{self, CommitId, CommitState, PushState, short_ref};
 use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Selection};
@@ -213,32 +213,32 @@ impl Detail {
                             let text = (div().truncate()).flex_shrink(shrink).child(crumb);
                             let el = match target.filter(|_| ix != last) {
                                 Some(target) => {
-                                    let (app, detail) = (self.app.clone(), cx.entity().downgrade());
                                     // A step darker under the pointer: it's still a quiet trail.
                                     let hover = theme.text_2.blend(theme.text_1.opacity(0.5));
                                     above_drag(text.id(("crumb", ix)))
                                         .hover(move |el| el.text_color(hover))
-                                        .on_click(move |_, window, cx| match &target {
-                                            CrumbTo::Select(selection) => {
-                                                (app.update(cx, |app, cx| {
-                                                    app.select(selection.clone(), window, cx)
-                                                }))
-                                                .ok();
+                                        .on_click(cx.listener(move |this, _, window, cx| {
+                                            match &target {
+                                                CrumbTo::Select(selection) => {
+                                                    let selection = selection.clone();
+                                                    this.app.update_later(
+                                                        window,
+                                                        cx,
+                                                        move |app, window, cx| {
+                                                            app.select(selection, window, cx)
+                                                        },
+                                                    )
+                                                }
+                                                CrumbTo::OtherBranch(ref_name) => this
+                                                    .select_other_branch(
+                                                        Some(ref_name.clone()),
+                                                        cx,
+                                                    ),
+                                                CrumbTo::Merge(id) => {
+                                                    this.pick_target_commit(*id, cx)
+                                                }
                                             }
-                                            CrumbTo::OtherBranch(ref_name) => {
-                                                let ref_name = Some(ref_name.clone());
-                                                (detail.update(cx, |detail, cx| {
-                                                    detail.select_other_branch(ref_name, cx)
-                                                }))
-                                                .ok();
-                                            }
-                                            CrumbTo::Merge(id) => {
-                                                (detail.update(cx, |detail, cx| {
-                                                    detail.pick_target_commit(*id, cx)
-                                                }))
-                                                .ok();
-                                            }
-                                        })
+                                        }))
                                         .into_any_element()
                                 }
                                 None => text.into_any_element(),
@@ -345,7 +345,7 @@ impl Detail {
                         return finish(this, cx);
                     }
                     let detail = cx.entity();
-                    (this.app.update(cx, |app, cx| {
+                    this.app.update_later(window, cx, move |app, window, cx| {
                         app.confirm_then(
                             Some(at),
                             format!("Finish with {} still conflicted?", plural(left, "file")),
@@ -355,8 +355,7 @@ impl Detail {
                             cx,
                             move |_, cx| detail.update(cx, finish),
                         )
-                    }))
-                    .ok();
+                    });
                 }))
                 .into_any_element(),
         ]
@@ -647,9 +646,9 @@ impl Detail {
             )
             .child(id.short())
             .tooltip(Tooltip::text("Copy commit ID"))
-            .on_click(cx.listener(move |this, _, _, cx| {
+            .on_click(cx.listener(move |this, _, window, cx| {
                 let sha = sha.clone();
-                this.app.update(cx, |app, cx| app.copy_text(sha, cx)).ok();
+                (this.app).update_later(window, cx, move |app, _, cx| app.copy_text(sha, cx));
             }))
     }
 
@@ -726,14 +725,13 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         let menu = icon_button("page-menu", Icon::Kebab).on_click(cx.listener(
-            move |this, event: &ClickEvent, _, cx| {
-                // What right-clicking its row in the navigator offers, which reads this view, so
-                // made from the app rather than from this view.
-                let target = target.clone();
-                let items = move |app: &mut AppView, cx: &mut Context<AppView>| {
-                    app.navigator.read(cx).menu_items(&target, cx)
-                };
-                crate::overlays::open_menu(&this.app, &this.app, event.position(), items, cx);
+            move |this, event: &ClickEvent, window, cx| {
+                // What right-clicking its row in the navigator offers.
+                let (target, at) = (target.clone(), event.position());
+                this.app.update_later(window, cx, move |app, _, cx| {
+                    let items = app.navigator.read(cx).menu_items(&target, cx);
+                    app.open_menu(at, items, cx)
+                });
             },
         ));
         self.header_frame(main, menu, extra, tabs, theme)
@@ -944,10 +942,10 @@ impl Detail {
                 Some(
                     super::resolve::banner_action("resolve", "Resolve", theme)
                         .on_click(move |_, window, cx| {
-                            app.update(cx, |app, cx| {
-                                app.resolve_commit(project.clone(), id, window, cx)
-                            })
-                            .ok();
+                            let project = project.clone();
+                            app.update_later(window, cx, move |app, window, cx| {
+                                app.resolve_commit(project, id, window, cx)
+                            });
                         })
                         .into_any_element(),
                 ),
@@ -1086,17 +1084,15 @@ fn footer(
 /// is drawing isn't drawn again.
 pub(super) fn measured(
     cell: &Rc<Cell<f32>>,
-    app: &WeakEntity<AppView>,
+    app: &AppHandle,
     measure: impl FnOnce(Bounds<Pixels>) -> f32 + 'static,
 ) -> impl IntoElement {
     let (cell, app) = (cell.clone(), app.clone());
     gpui::canvas(
-        move |bounds, _, cx| {
+        move |bounds, window, cx| {
             let drawn = measure(bounds) / Theme::get(cx).scale;
             if cell.replace(drawn) != drawn {
-                cx.defer(move |cx| {
-                    app.update(cx, |_, cx| cx.notify()).ok();
-                });
+                app.update_later(window, cx, |_, _, cx| cx.notify());
             }
         },
         |_, _, _, _| {},

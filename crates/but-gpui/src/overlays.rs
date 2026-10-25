@@ -8,7 +8,7 @@ use anyhow::Result;
 use gpui::{
     Action, AnyElement, App, ClickEvent, Context, DismissEvent, Div, Entity, FocusHandle,
     Focusable as _, ManagedView, MouseButton, Pixels, Point, Role, SharedString, Stateful,
-    Subscription, WeakEntity, Window, anchored, deferred, div, prelude::*, relative,
+    Subscription, Window, anchored, deferred, div, prelude::*, relative,
 };
 
 use crate::app::AppView;
@@ -140,27 +140,17 @@ pub struct Prompt {
     _subscription: Subscription,
 }
 
-/// Open at `at` the menu `items` makes from the view `from`, once the update running now is
-/// over. No view is being updated then, so building the menu can read any of them without the
-/// "already being updated" panic. An empty menu doesn't open.
-pub fn open_menu<V: 'static>(
-    app: &WeakEntity<AppView>,
-    from: &WeakEntity<V>,
-    at: Point<Pixels>,
-    items: impl FnOnce(&mut V, &mut Context<V>) -> Vec<MenuItem> + 'static,
-    cx: &mut App,
-) {
-    let (app, from) = (app.clone(), from.clone());
-    cx.defer(move |cx| {
-        let items = from.update(cx, items).unwrap_or_default();
-        if !items.is_empty() {
-            app.update(cx, |app, cx| app.open_menu(at, items, cx)).ok();
-        }
-    });
-}
-
 impl AppView {
-    fn open_menu(&mut self, position: Point<Pixels>, items: Vec<MenuItem>, cx: &mut Context<Self>) {
+    /// The menu of `items`, open at `position`, unless there are none.
+    pub(crate) fn open_menu(
+        &mut self,
+        position: Point<Pixels>,
+        items: Vec<MenuItem>,
+        cx: &mut Context<Self>,
+    ) {
+        if items.is_empty() {
+            return;
+        }
         self.menu = Some(ContextMenu {
             position,
             items,

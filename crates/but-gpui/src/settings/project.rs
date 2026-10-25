@@ -191,9 +191,9 @@ impl SettingsView {
         let target_project = project.clone();
         let change_target = cx.listener(move |this, _: &ClickEvent, window, cx| {
             let project = target_project.clone();
-            this.app
-                .update(cx, |app, cx| app.pick_target(project, window, cx))
-                .ok();
+            this.app.update_later(window, cx, move |app, window, cx| {
+                app.pick_target(project, window, cx)
+            });
         });
         let remove_id = project.clone();
         let project_name = self.project_name(cx).unwrap_or_default();
@@ -251,7 +251,7 @@ impl SettingsView {
                 Some(Forge::Azure),
             ]
             .map(|forge| (forge, name_of(forge).to_owned())),
-            move |this, forge, cx| {
+            move |this, forge, _, cx| {
                 let id = forge_id.clone();
                 this.apply(
                     "Couldn't change the project's forge",
@@ -381,23 +381,24 @@ impl SettingsView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let this = cx.entity().downgrade();
-        self.app
-            .update(cx, |app, cx| {
-                app.confirm_then(
-                    None,
-                    format!("Remove {name} from GitButler?"),
-                    "The repository and its branches stay on disk; add it again any time.",
-                    "Remove",
-                    window,
-                    cx,
-                    move |app, cx| {
-                        this.update(cx, |_, cx| cx.emit(DismissEvent)).ok();
-                        app.store
-                            .update(cx, |store, cx| store.remove_project(&project, cx));
-                    },
-                )
-            })
-            .ok();
+        let (this, title) = (
+            cx.entity().downgrade(),
+            format!("Remove {name} from GitButler?"),
+        );
+        self.app.update_later(window, cx, move |app, window, cx| {
+            app.confirm_then(
+                None,
+                title,
+                "The repository and its branches stay on disk; add it again any time.",
+                "Remove",
+                window,
+                cx,
+                move |app, cx| {
+                    this.update(cx, |_, cx| cx.emit(DismissEvent)).ok();
+                    app.store
+                        .update(cx, |store, cx| store.remove_project(&project, cx));
+                },
+            )
+        });
     }
 }

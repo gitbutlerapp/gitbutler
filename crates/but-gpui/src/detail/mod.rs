@@ -33,10 +33,10 @@ use std::time::{Duration, Instant};
 use gpui::{
     AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding,
     ListAlignment, ListOffset, ListState, Pixels, Point, RenderImage, ScrollHandle, SharedString,
-    Subscription, Task, UniformListScrollHandle, WeakEntity, Window, actions, div, prelude::*,
+    Subscription, Task, UniformListScrollHandle, Window, actions, div, prelude::*,
 };
 
-use crate::app::{AddProject, AppView, Collapse, Expand, SelectNext, SelectPrevious};
+use crate::app::{AddProject, AppHandle, Collapse, Expand, SelectNext, SelectPrevious};
 use crate::backend::edit::Editing;
 use crate::backend::{self, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
@@ -230,7 +230,7 @@ pub struct ChecksChanged;
 pub struct Detail {
     store: Entity<Store>,
     /// For what the window owns: focus, menus, and prompts that ask first.
-    app: WeakEntity<AppView>,
+    app: AppHandle,
     focus: FocusHandle,
     /// The file list's own, where ↑ and ↓ step through the files.
     files_focus: FocusHandle,
@@ -413,7 +413,7 @@ impl Detail {
 
     pub fn new(
         store: Entity<Store>,
-        app: WeakEntity<AppView>,
+        app: AppHandle,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -712,7 +712,7 @@ impl Detail {
         items: impl FnOnce(&mut Self, &mut Context<Self>) -> Vec<MenuItem> + 'static,
         cx: &mut Context<Self>,
     ) {
-        crate::overlays::open_menu(&self.app, &cx.entity().downgrade(), at, items, cx);
+        self.app.open_menu(&cx.entity().downgrade(), at, items, cx);
     }
 
     /// The checkout whose uncommitted changes are shown, which the composer commits: the
@@ -1710,11 +1710,9 @@ impl Detail {
         let (project, path) = (diff.key.project.clone(), file.file.path.clone());
         let worktree = diff.key.linked();
         let position = window.mouse_position();
-        self.app
-            .update(cx, |app, cx| {
-                app.open_in_editor(&project, worktree, Some(path), line, position, cx)
-            })
-            .ok();
+        self.app.update_later(window, cx, move |app, _, cx| {
+            app.open_in_editor(&project, worktree, Some(path), line, position, cx)
+        });
     }
 
     /// Keep committing to `project`'s branch `from` (a full ref) now that it's renamed `to`,
@@ -1876,11 +1874,9 @@ impl Detail {
         };
         let (project, worktree) = (diff.key.project.clone(), diff.key.linked());
         let change = file.part(hunks);
-        self.app
-            .update(cx, |app, cx| {
-                app.discard(project, worktree, vec![change], window, cx)
-            })
-            .ok();
+        self.app.update_later(window, cx, move |app, window, cx| {
+            app.discard(project, worktree, vec![change], window, cx)
+        });
     }
 
     /// Discard the picked lines of a diff of uncommitted changes.
@@ -1894,11 +1890,9 @@ impl Detail {
         else {
             return self.not_live(window, cx);
         };
-        self.app
-            .update(cx, |app, cx| {
-                app.discard(project, worktree, files.to_vec(), window, cx)
-            })
-            .ok();
+        self.app.update_later(window, cx, move |app, window, cx| {
+            app.discard(project, worktree, files.to_vec(), window, cx)
+        });
     }
 
     /// Say why the discard keys do nothing on a workspace commit's diff, whose file menu
@@ -1918,11 +1912,9 @@ impl Detail {
         };
         let (project, worktree) = (diff.key.project.clone(), diff.key.linked());
         let changes = self.picked_changes();
-        self.app
-            .update(cx, |app, cx| {
-                app.discard(project, worktree, changes, window, cx)
-            })
-            .ok();
+        self.app.update_later(window, cx, move |app, window, cx| {
+            app.discard(project, worktree, changes, window, cx)
+        });
     }
 
     /// Bring diff row `row` into view: left where it is when it's on screen, else scrolled to

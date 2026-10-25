@@ -7,11 +7,11 @@ use std::sync::Arc;
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, DragMoveEvent, ElementId, Entity, FocusHandle,
     Focusable, Hsla, KeyBinding, ListAlignment, ListOffset, ListState, MouseButton, MouseDownEvent,
-    Pixels, Point, ScrollWheelEvent, SharedString, Stateful, Subscription, Task, WeakEntity,
-    Window, actions, div, list, prelude::*,
+    Pixels, Point, ScrollWheelEvent, SharedString, Stateful, Subscription, Task, Window, actions,
+    div, list, prelude::*,
 };
 
-use crate::app::{AddProject, AppView, Collapse, Confirm, Expand, SelectNext, SelectPrevious};
+use crate::app::{AddProject, AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious};
 use crate::backend::{
     Branch, CommitId, CommitState, FileChange, PushState, Review, ReviewState, Target,
 };
@@ -288,7 +288,7 @@ impl RowStyle<'_> {
 }
 
 pub struct Navigator {
-    app: WeakEntity<AppView>,
+    app: AppHandle,
     store: Entity<Store>,
     detail: Entity<Detail>,
     focus: FocusHandle,
@@ -367,11 +367,11 @@ impl Navigator {
         items: impl FnOnce(&mut Self, &mut Context<Self>) -> Vec<MenuItem> + 'static,
         cx: &mut Context<Self>,
     ) {
-        crate::overlays::open_menu(&self.app, &cx.entity().downgrade(), at, items, cx);
+        self.app.open_menu(&cx.entity().downgrade(), at, items, cx);
     }
 
     pub fn new(
-        app: WeakEntity<AppView>,
+        app: AppHandle,
         store: Entity<Store>,
         detail: Entity<Detail>,
         window: &mut Window,
@@ -2196,11 +2196,11 @@ impl Navigator {
         .inverted(inverted)
         .disabled_because(updating.then_some("Updating already"))
         .tooltip("Rebase your branches onto the target's new commits")
-        .on_click(cx.listener(move |this, _, _, cx| {
+        .on_click(cx.listener(move |this, _, window, cx| {
             let project = project.clone();
-            (this.app)
-                .update(cx, |app, cx| app.update_from_target(project, cx))
-                .ok();
+            this.app.update_later(window, cx, move |app, _, cx| {
+                app.update_from_target(project, cx)
+            });
         }));
         div()
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())

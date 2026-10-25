@@ -20,7 +20,7 @@ use super::{
     Cursor, Detail, DiscardHunk, FILES_POPOVER_DELAY, FileLines, LoadedDiff, TextPoint,
     ToggleFiles, TogglePlainLines, ToggleSplit, ToggleWrap,
 };
-use crate::app::AppView;
+use crate::app::AppHandle;
 use crate::backend::{
     self, Branch, ChangeKind, DiffBody, DiffLine, DiffSource, Drawing, FileDiff, LineKind,
     PushState, Selected,
@@ -1450,7 +1450,7 @@ fn discard_button(
     change: Selected,
     current: bool,
     tip: &'static str,
-    app: WeakEntity<AppView>,
+    app: AppHandle,
     cx: &App,
 ) -> AnyElement {
     div()
@@ -1465,11 +1465,11 @@ fn discard_button(
                 .style(ButtonStyle::Ghost)
                 .tooltip_for(tip, &DiscardHunk)
                 .on_click(move |_, window, cx| {
-                    let (changes, linked) = (vec![change.clone()], linked.clone());
-                    app.update(cx, |app, cx| {
-                        app.discard(project.clone(), linked, changes, window, cx)
-                    })
-                    .ok();
+                    let (project, linked) = (project.clone(), linked.clone());
+                    let changes = vec![change.clone()];
+                    app.update_later(window, cx, move |app, window, cx| {
+                        app.discard(project, linked, changes, window, cx)
+                    });
                 }),
         )
         .into_any_element()

@@ -20,9 +20,9 @@ impl Navigator {
                 .style(ButtonStyle::Gray)
                 .tooltip(format!("Update to {version}"))
                 .on_click(cx.listener(|this, _, window, cx| {
-                    (this.app)
-                        .update(cx, |app, cx| app.restart_to_update(window, cx))
-                        .ok();
+                    this.app.update_later(window, cx, move |app, window, cx| {
+                        app.restart_to_update(window, cx)
+                    });
                 }))
                 .into_any_element(),
         )
@@ -36,7 +36,8 @@ impl Navigator {
                 .style(ButtonStyle::Ghost)
                 .tooltip("Sign in to GitButler, for its AI key")
                 .on_click(cx.listener(|this, _, window, cx| {
-                    this.app.update(cx, |app, cx| app.sign_in(window, cx)).ok();
+                    this.app
+                        .update_later(window, cx, move |app, window, cx| app.sign_in(window, cx));
                 }))
                 .into_any_element();
         };

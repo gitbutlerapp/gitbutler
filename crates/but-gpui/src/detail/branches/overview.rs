@@ -376,14 +376,14 @@ fn lane_row(
                 .w(dp(OVERVIEW_TIME_WIDTH))
                 .text_right(),
         )
-        .on_click(cx.listener(move |this, _, window, cx| match &applied {
-            Some(selection) => {
-                (this.app)
-                    .update(cx, |app, cx| app.select(selection.clone(), window, cx))
-                    .ok();
-            }
-            None => this.select_other_branch(Some(ref_name.clone()), cx),
-        }))
+        .on_click(
+            cx.listener(move |this, _, window, cx| match applied.clone() {
+                Some(selection) => this.app.update_later(window, cx, move |app, window, cx| {
+                    app.select(selection, window, cx)
+                }),
+                None => this.select_other_branch(Some(ref_name.clone()), cx),
+            }),
+        )
         .into_any_element()
 }
 

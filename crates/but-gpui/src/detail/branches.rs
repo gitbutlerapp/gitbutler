@@ -914,12 +914,8 @@ impl Detail {
             return Vec::new();
         };
         let (p, r) = (project.clone(), ref_name.to_owned());
-        // Once the menu's done with the app, which asking to confirm updates too.
         let mut items = vec![MenuItem::new("Apply", move |app, window, cx| {
-            let (detail, p, r) = (app.detail.clone(), p.clone(), r.clone());
-            window.defer(cx, move |window, cx| {
-                detail.update(cx, |detail, cx| detail.apply_branch(&p, &r, window, cx))
-            })
+            (app.detail).update(cx, |detail, cx| detail.apply_branch(&p, &r, window, cx))
         })];
         if let Some(url) = (branch.review.as_ref()).and_then(|r| r.url.clone()) {
             items.push(MenuItem::new("Open pull request", move |_, _, cx| {
@@ -935,15 +931,11 @@ impl Detail {
         );
         if branch.local {
             let (p, r) = (project.clone(), ref_name.to_owned());
-            // Once the menu's done with the app, which the prompt updates too.
             items.push(MenuItem::new(
                 "Edit description…",
                 move |app, window, cx| {
-                    let (detail, p, r) = (app.detail.clone(), p.clone(), r.clone());
-                    window.defer(cx, move |window, cx| {
-                        detail.update(cx, |detail, cx| {
-                            detail.edit_branch_description(&p, &r, window, cx)
-                        })
+                    (app.detail).update(cx, |detail, cx| {
+                        detail.edit_branch_description(&p, &r, window, cx)
                     })
                 },
             ));
@@ -951,13 +943,9 @@ impl Detail {
         if branch.local {
             let (p, r) = (project.clone(), ref_name.to_owned());
             items.push(
-                // Once the menu's done with the app, which asking to confirm updates too.
                 MenuItem::new("Delete branch…", move |app, window, cx| {
-                    let (detail, p, r) = (app.detail.clone(), p.clone(), r.clone());
-                    window.defer(cx, move |window, cx| {
-                        detail.update(cx, |detail, cx| {
-                            detail.delete_other_branch(&p, &r, window, cx)
-                        })
+                    (app.detail).update(cx, |detail, cx| {
+                        detail.delete_other_branch(&p, &r, window, cx)
                     })
                 })
                 .danger()
@@ -1013,7 +1001,12 @@ impl Detail {
 
     /// Pick up the selected commit, with the others picked, to put copies of them where ⌘V
     /// lands in the workspace.
-    fn copy_branch_commit(&mut self, project: &ProjectId, cx: &mut Context<Self>) {
+    fn copy_branch_commit(
+        &mut self,
+        project: &ProjectId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some((branches, id)) =
             (self.branches_for(project)).and_then(|branches| Some((branches, branches.commit?)))
         else {
@@ -1024,7 +1017,8 @@ impl Detail {
             return;
         }
         let cut = Cut::CherryPick(project.clone(), ids);
-        self.app.update(cx, |app, cx| app.cut(cut, cx)).ok();
+        self.app
+            .update_later(window, cx, move |app, _, cx| app.cut(cut, cx));
     }
 
     fn apply_branch(
@@ -1088,15 +1082,11 @@ impl Detail {
         };
         match ask {
             None => self.store.update(cx, apply),
-            Some(why) => {
-                (self.app.update(cx, |app, cx| {
-                    let run = move |app: &mut AppView, cx: &mut Context<AppView>| {
-                        app.store.update(cx, apply)
-                    };
-                    app.confirm_then(Some(at), title, &why, "Apply", window, cx, run)
-                }))
-                .ok();
-            }
+            Some(why) => self.app.update_later(window, cx, move |app, window, cx| {
+                let run =
+                    move |app: &mut AppView, cx: &mut Context<AppView>| app.store.update(cx, apply);
+                app.confirm_then(Some(at), title, &why, "Apply", window, cx, run)
+            }),
         }
     }
 
@@ -1113,58 +1103,54 @@ impl Detail {
         let ref_name = format!("refs/heads/{}", branch.name);
         let (project, name, tip) = (project.clone(), branch.name.clone(), branch.tip);
         let detail = cx.entity().downgrade();
-        self.app
-            .update(cx, |app, cx| {
-                app.confirm_then(
-                    Some(Selection::Branches(project.clone())),
-                    format!("Delete branch {name}?"),
-                    "Its commits go too, unless a remote has them. Undo can't bring back a branch \
-                     outside the workspace.",
-                    "Delete",
-                    window,
-                    cx,
-                    move |app, cx| {
-                        app.store.update(cx, |store, cx| {
-                            let overlay = Overlay {
-                                branches: HashSet::from([ref_name.clone()]),
-                                ..Overlay::default()
-                            };
-                            let (gone, listed_in) = (ref_name.clone(), project.clone());
-                            store.run(
-                                &project,
-                                "Delete branch",
-                                overlay,
-                                move |path, _| backend::remove_branch(path, &ref_name, Some(tip)),
-                                // Out of the list now: reading the branches again, as their
-                                // refs changed, lands after the overlay is gone.
-                                move |store, (), cx| {
-                                    (detail.update(cx, |detail, _| {
-                                        if let Some(branches) = detail.branches.get_mut(&listed_in)
-                                        {
-                                            branches.list.retain(|b| b.ref_name != gone);
-                                        }
-                                    }))
+        self.app.update_later(window, cx, move |app, window, cx| {
+            app.confirm_then(
+                Some(Selection::Branches(project.clone())),
+                format!("Delete branch {name}?"),
+                "Its commits go too, unless a remote has them. Undo can't bring back a branch \
+                 outside the workspace.",
+                "Delete",
+                window,
+                cx,
+                move |app, cx| {
+                    app.store.update(cx, |store, cx| {
+                        let overlay = Overlay {
+                            branches: HashSet::from([ref_name.clone()]),
+                            ..Overlay::default()
+                        };
+                        let (gone, listed_in) = (ref_name.clone(), project.clone());
+                        store.run(
+                            &project,
+                            "Delete branch",
+                            overlay,
+                            move |path, _| backend::remove_branch(path, &ref_name, Some(tip)),
+                            // Out of the list now: reading the branches again, as their
+                            // refs changed, lands after the overlay is gone.
+                            move |store, (), cx| {
+                                (detail.update(cx, |detail, _| {
+                                    if let Some(branches) = detail.branches.get_mut(&listed_in) {
+                                        branches.list.retain(|b| b.ref_name != gone);
+                                    }
+                                }))
+                                .ok();
+                                // The overview, rather than its diff, once it's gone: after
+                                // this update of the store, which the list reads.
+                                let detail = detail.clone();
+                                cx.defer(move |cx| {
+                                    (detail
+                                        .update(cx, |detail, cx| detail.select_shown_branch(cx)))
                                     .ok();
-                                    // The overview, rather than its diff, once it's gone: after
-                                    // this update of the store, which the list reads.
-                                    let detail = detail.clone();
-                                    cx.defer(move |cx| {
-                                        (detail.update(cx, |detail, cx| {
-                                            detail.select_shown_branch(cx)
-                                        }))
-                                        .ok();
-                                    });
-                                    // The oplog can't bring it back, so ⌘Z won't try.
-                                    store.keep_last_snapshot(cx);
-                                    store.snack("Branch deleted", cx)
-                                },
-                                cx,
-                            )
-                        })
-                    },
-                )
-            })
-            .ok();
+                                });
+                                // The oplog can't bring it back, so ⌘Z won't try.
+                                store.keep_last_snapshot(cx);
+                                store.snack("Branch deleted", cx)
+                            },
+                            cx,
+                        )
+                    })
+                },
+            )
+        });
     }
 
     /// Ask for local branch `ref_name`'s description and keep it where Git does.
@@ -1187,61 +1173,54 @@ impl Detail {
             input
         });
         let (project, ref_name) = (project.clone(), ref_name.to_owned());
-        let (detail, app) = (cx.entity().downgrade(), self.app.clone());
-        // Opened from a click, inside this view's update.
-        window.defer(cx, move |window, cx| {
-            app.update(cx, |app, cx| {
-                let place = app
-                    .store
-                    .read(cx)
-                    .place(&Selection::Project(project.clone()));
-                app.open_prompt(
-                    Some(place),
-                    &title,
-                    Some(crate::ui::keys_text(
-                        "Git keeps it as the branch's description, where git branch \
-                         --edit-description does. Leave it empty to remove it. ⌘↩ saves it.",
-                    )),
-                    "Save",
-                    input,
-                    None,
-                    None,
-                    window,
-                    cx,
-                    move |app, text, _, cx| {
-                        let text = text.trim().to_owned();
-                        let (saved, gone, listed_in) =
-                            (text.clone(), ref_name.clone(), project.clone());
-                        app.store.update(cx, |store, cx| {
-                            store.run(
-                                &project,
-                                "Describe branch",
-                                Overlay::default(),
-                                move |path, _| {
-                                    branches::set_branch_description(path, &ref_name, &text)
-                                },
-                                // Its refs didn't change, so the list isn't read again.
-                                move |_, (), cx| {
-                                    (detail.update(cx, |detail, cx| {
-                                        let listed = (detail.branches.get_mut(&listed_in))
-                                            .and_then(|b| {
-                                                b.list.iter_mut().find(|b| b.ref_name == gone)
-                                            });
-                                        if let Some(branch) = listed {
-                                            branch.description =
-                                                (!saved.is_empty()).then_some(saved);
-                                        }
-                                        cx.notify();
-                                    }))
-                                    .ok();
-                                },
-                                cx,
-                            )
-                        })
-                    },
-                )
-            })
-            .ok();
+        let detail = cx.entity().downgrade();
+        self.app.update_later(window, cx, move |app, window, cx| {
+            let place = app
+                .store
+                .read(cx)
+                .place(&Selection::Project(project.clone()));
+            app.open_prompt(
+                Some(place),
+                &title,
+                Some(crate::ui::keys_text(
+                    "Git keeps it as the branch's description, where git branch \
+                     --edit-description does. Leave it empty to remove it. ⌘↩ saves it.",
+                )),
+                "Save",
+                input,
+                None,
+                None,
+                window,
+                cx,
+                move |app, text, _, cx| {
+                    let text = text.trim().to_owned();
+                    let (saved, gone, listed_in) =
+                        (text.clone(), ref_name.clone(), project.clone());
+                    app.store.update(cx, |store, cx| {
+                        store.run(
+                            &project,
+                            "Describe branch",
+                            Overlay::default(),
+                            move |path, _| branches::set_branch_description(path, &ref_name, &text),
+                            // Its refs didn't change, so the list isn't read again.
+                            move |_, (), cx| {
+                                (detail.update(cx, |detail, cx| {
+                                    let listed =
+                                        (detail.branches.get_mut(&listed_in)).and_then(|b| {
+                                            b.list.iter_mut().find(|b| b.ref_name == gone)
+                                        });
+                                    if let Some(branch) = listed {
+                                        branch.description = (!saved.is_empty()).then_some(saved);
+                                    }
+                                    cx.notify();
+                                }))
+                                .ok();
+                            },
+                            cx,
+                        )
+                    })
+                },
+            )
         });
     }
 
@@ -1510,8 +1489,8 @@ impl Detail {
         self.list_column(Self::step_branches, Some(Self::fold_branches), cx)
             .when(self.selected_branch_commit(project).is_some(), |el| {
                 let project = project.clone();
-                el.on_action(cx.listener(move |this, _: &CherryPick, _, cx| {
-                    this.copy_branch_commit(&project, cx)
+                el.on_action(cx.listener(move |this, _: &CherryPick, window, cx| {
+                    this.copy_branch_commit(&project, window, cx)
                 }))
             })
             .child(filter)
