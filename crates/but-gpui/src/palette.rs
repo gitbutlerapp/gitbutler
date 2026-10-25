@@ -2,8 +2,8 @@
 //! filtered as you type. It doubles as the list of shortcuts, as in Lite and Zed.
 
 use gpui::{
-    Action, AnyElement, ClickEvent, Context, Entity, FocusHandle, Focusable as _, KeyBinding,
-    ScrollHandle, SharedString, Subscription, Window, actions, div, prelude::*,
+    Action, AnyElement, ClickEvent, Context, Entity, FocusHandle, Focusable as _, ScrollHandle,
+    SharedString, Subscription, Window, actions, div, prelude::*,
 };
 
 use crate::app::{
@@ -29,27 +29,6 @@ use crate::ui::{
 };
 
 actions!(palette, [PaletteUp, PaletteDown, GoToBranch, ShowActions]);
-
-pub fn bind_keys(cx: &mut gpui::App) {
-    // The keys that open a context menu on Windows and Linux, bound first so menus show M.
-    #[cfg(not(target_os = "macos"))]
-    cx.bind_keys([
-        KeyBinding::new("shift-f10", ShowActions, Some("Workspace && !TextInput")),
-        KeyBinding::new("menu", ShowActions, Some("Workspace && !TextInput")),
-    ]);
-    cx.bind_keys([
-        KeyBinding::new("secondary-p", GoToBranch, None),
-        KeyBinding::new("m", ShowActions, Some("Workspace && !TextInput")),
-    ]);
-    // Registered after the text field's own keys, so these win inside the palette.
-    let c = Some("Palette > TextInput");
-    cx.bind_keys([
-        KeyBinding::new("up", PaletteUp, c),
-        KeyBinding::new("down", PaletteDown, c),
-        KeyBinding::new("ctrl-p", PaletteUp, c),
-        KeyBinding::new("ctrl-n", PaletteDown, c),
-    ]);
-}
 
 /// Every command, in the order they're listed before anything is typed.
 const COMMANDS: &[(&str, &dyn Action)] = &[

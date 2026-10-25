@@ -6,9 +6,9 @@ use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, DragMoveEvent, ElementId, Entity, FocusHandle,
-    Focusable, Hsla, KeyBinding, ListAlignment, ListOffset, ListState, MouseButton, MouseDownEvent,
-    Pixels, Point, ScrollWheelEvent, SharedString, Stateful, Subscription, Task, Window, actions,
-    div, list, prelude::*,
+    Focusable, Hsla, ListAlignment, ListOffset, ListState, MouseButton, MouseDownEvent, Pixels,
+    Point, ScrollWheelEvent, SharedString, Stateful, Subscription, Task, Window, actions, div,
+    list, prelude::*,
 };
 
 use crate::app::{AddProject, AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious};
@@ -69,23 +69,6 @@ actions!(
         FocusFilter
     ]
 );
-
-/// Jumps through the tree: to either end, and between branches and projects. ⇧ with an arrow
-/// picks commits, as ⇧-click does.
-pub fn bind_keys(cx: &mut App) {
-    let nav = Some("Navigator && !TextInput");
-    cx.bind_keys([
-        KeyBinding::new("g g", SelectFirst, nav),
-        KeyBinding::new("home", SelectFirst, nav),
-        KeyBinding::new("shift-g", SelectLast, nav),
-        KeyBinding::new("end", SelectLast, nav),
-        KeyBinding::new("alt-up", PreviousSection, nav),
-        KeyBinding::new("alt-down", NextSection, nav),
-        KeyBinding::new("shift-up", PickPrevious, nav),
-        KeyBinding::new("shift-down", PickNext, nav),
-        KeyBinding::new("/", FocusFilter, nav),
-    ]);
-}
 
 /// A branch, here or on another machine, whose commits a click on its row opens.
 #[derive(Clone, PartialEq, Eq, Hash)]

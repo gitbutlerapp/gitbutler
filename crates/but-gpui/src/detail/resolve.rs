@@ -7,8 +7,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, Context, Entity, Focusable, KeyBinding, Subscription, Task, WeakEntity,
-    Window, actions, div, prelude::*,
+    AnyElement, App, Context, Entity, Focusable, Subscription, Task, WeakEntity, Window, actions,
+    div, prelude::*,
 };
 
 use super::{Detail, DiffSource};
@@ -23,7 +23,7 @@ use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{ButtonStyle, Icon, Tooltip, button, commit_title, dp, h_flex, plural, small_icon};
 
 actions!(
-    resolve,
+    conflict,
     [
         /// Go to the oldest conflicted commit of the selected branch or commit's stack.
         ResolveConflicts,
@@ -35,23 +35,6 @@ actions!(
         ApplyResolutions,
     ]
 );
-
-pub fn bind_keys(cx: &mut App) {
-    let c = Some("Conflicts && !TextInput");
-    cx.bind_keys([
-        KeyBinding::new("1", KeepNewBase, c),
-        KeyBinding::new("2", KeepCommit, c),
-        KeyBinding::new("3", KeepBoth, c),
-        KeyBinding::new("enter", EditConflict, c),
-        KeyBinding::new("a", SuggestMerge, c),
-        // Only with something to apply, so it still starts a commit otherwise.
-        KeyBinding::new(
-            "secondary-enter",
-            ApplyResolutions,
-            Some("Picked && !TextInput"),
-        ),
-    ]);
-}
 
 /// What the conflicts shown belong to.
 #[derive(Clone, PartialEq)]
@@ -125,9 +108,9 @@ impl Detail {
     /// The key context of the detail: with conflicts to pick, and with picks to apply.
     pub(super) fn key_context(&self) -> &'static str {
         match (self.conflicts().next(), self.resolving.keeping.is_empty()) {
-            (None, _) => "Detail",
-            (Some(_), true) => "Detail Conflicts",
-            (Some(_), false) => "Detail Conflicts Picked",
+            (None, _) => "Diff",
+            (Some(_), true) => "Diff Conflicts",
+            (Some(_), false) => "Diff Conflicts Picked",
         }
     }
 

@@ -31,6 +31,7 @@ mod detail;
 mod dev;
 mod edits;
 mod help;
+mod keymap;
 mod navigator;
 mod open_in;
 mod overlays;
@@ -222,13 +223,7 @@ pub fn run(embedded: Option<Embedded>) {
             #[cfg(target_os = "linux")]
             cx.set_prompt_builder(ui::alert::alert);
             ui::text_input::bind_keys(cx);
-            app::bind_keys(cx);
-            navigator::bind_keys(cx);
-            detail::bind_keys(cx);
-            palette::bind_keys(cx);
-            settings::bind_keys(cx);
-            whats_new::bind_keys(cx);
-            open_in::bind_keys(cx);
+            keymap::bind_keys(cx);
             help::register(cx);
             cx.on_action(|_: &app::Hide, cx| cx.hide());
             cx.on_action(|_: &app::HideOthers, cx| cx.hide_other_apps());

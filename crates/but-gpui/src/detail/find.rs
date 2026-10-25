@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use std::ops::Range;
 
 use gpui::{
-    AnyElement, App, Context, Entity, Focusable as _, KeyBinding, Pixels, ScrollHandle, Window,
-    actions, point, prelude::*,
+    AnyElement, Context, Entity, Focusable as _, Pixels, ScrollHandle, Window, actions, point,
+    prelude::*,
 };
 
 use super::Detail;
@@ -17,25 +17,6 @@ use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{Icon, dp, field, h_flex, icon_button, muted, popover};
 
 actions!(find, [FindInDiff, FindNext, FindPrevious]);
-
-pub fn bind_keys(cx: &mut App) {
-    // After the text field's own keys, so these win in the find field.
-    let field = Some("FindBar > TextInput");
-    // The bar is drawn by `DiffPane`, outside the detail's key context.
-    let diff = Some("Detail || FindBar");
-    cx.bind_keys([
-        // From the navigator too, which has nothing to find in. The app passes it on.
-        KeyBinding::new(
-            "secondary-f",
-            FindInDiff,
-            Some("Navigator || Detail || FindBar"),
-        ),
-        KeyBinding::new("enter", FindNext, field),
-        KeyBinding::new("shift-enter", FindPrevious, field),
-        KeyBinding::new("secondary-g", FindNext, diff),
-        KeyBinding::new("secondary-shift-g", FindPrevious, diff),
-    ]);
-}
 
 /// A diff line, by file, hunk and line, which stays put when files fold.
 pub(super) type LineId = (usize, usize, usize);

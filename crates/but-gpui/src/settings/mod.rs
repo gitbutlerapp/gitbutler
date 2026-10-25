@@ -5,8 +5,8 @@
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle,
-    Focusable, KeyBinding, ScrollHandle, SharedString, Stateful, Subscription, Task, Window,
-    actions, div, prelude::*,
+    Focusable, ScrollHandle, SharedString, Stateful, Subscription, Task, Window, actions, div,
+    prelude::*,
 };
 
 mod accounts;
@@ -28,10 +28,6 @@ use crate::ui::{
 };
 
 actions!(settings, [OpenSettings]);
-
-pub fn bind_keys(cx: &mut App) {
-    cx.bind_keys([KeyBinding::new("secondary-,", OpenSettings, None)]);
-}
 
 /// A page of settings, in the sidebar's order, as Lite's has them: the app's, then the
 /// project's.

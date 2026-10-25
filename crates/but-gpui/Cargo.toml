@@ -50,6 +50,9 @@ tokio = { workspace = true, features = ["rt-multi-thread"] }
 parking_lot.workspace = true
 # What the app remembers between launches.
 rusqlite.workspace = true
+# The keymap, in Zed's format: JSON with comments, bindings kept in the file's order.
+serde_json_lenient.workspace = true
+indexmap = { workspace = true, features = ["serde"] }
 
 # GitButler, consumed only from `src/backend`.
 but-action.workspace = true

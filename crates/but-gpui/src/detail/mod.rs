@@ -32,12 +32,12 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use gpui::{
-    AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyBinding,
-    ListAlignment, ListOffset, ListState, Pixels, Point, RenderImage, ScrollHandle, SharedString,
-    Subscription, Task, UniformListScrollHandle, Window, actions, div, prelude::*,
+    AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, ListAlignment,
+    ListOffset, ListState, Pixels, Point, RenderImage, ScrollHandle, SharedString, Subscription,
+    Task, UniformListScrollHandle, Window, actions, div, prelude::*,
 };
 
-use crate::app::{AddProject, AppHandle, Collapse, Expand, SelectNext, SelectPrevious};
+use crate::app::{AddProject, AppHandle};
 use crate::backend::edit::Editing;
 use crate::backend::{self, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
@@ -53,7 +53,7 @@ use crate::ui::{
 };
 
 actions!(
-    detail,
+    diff,
     [
         NextFile,
         PreviousFile,
@@ -77,69 +77,6 @@ actions!(
         ToggleCheck,
     ]
 );
-
-/// Discarding a hunk follows Zed's agent review, whose cmd-alt-z rejects one. Moving between
-/// files and hunks follows Lite; in the file list, as in but.dev's, ↑ and ↓ step through files,
-/// and with ⇧ pick them, as in Finder.
-pub fn bind_keys(cx: &mut App) {
-    let c = Some("Detail && !TextInput");
-    let files = Some("Files && !TextInput");
-    let side = Some("SideList && !TextInput");
-    cx.bind_keys([
-        KeyBinding::new("down", NextFile, files),
-        KeyBinding::new("up", PreviousFile, files),
-        KeyBinding::new("shift-down", PickNextFile, files),
-        KeyBinding::new("shift-up", PickPreviousFile, files),
-        KeyBinding::new("secondary-a", PickAllFiles, files),
-        KeyBinding::new("j", NextFile, c),
-        KeyBinding::new("k", PreviousFile, c),
-        KeyBinding::new("down", NextHunk, c),
-        KeyBinding::new("up", PreviousHunk, c),
-        KeyBinding::new("secondary-alt-z", DiscardHunk, c),
-        KeyBinding::new("secondary-backspace", DiscardFile, c),
-        KeyBinding::new("z", ToggleFold, c),
-        KeyBinding::new("pagedown", PageDown, c),
-        KeyBinding::new("space", PageDown, c),
-        KeyBinding::new("pageup", PageUp, c),
-        KeyBinding::new("shift-space", PageUp, c),
-        KeyBinding::new("f", ToggleFiles, c),
-        KeyBinding::new("/", FilterFiles, c),
-        // While committing, as a click on the checkbox does: space a file in the list, as in
-        // Lite, and x the hunk under the diff's cursor.
-        KeyBinding::new(
-            "space",
-            ToggleCheck,
-            Some("Files && Composing && !TextInput"),
-        ),
-        KeyBinding::new("x", ToggleCheck, c),
-        // From the navigator too: they change how every diff shows. The app passes them on.
-        KeyBinding::new(
-            "alt-z",
-            ToggleWrap,
-            Some("(Navigator || Detail) && !TextInput"),
-        ),
-        KeyBinding::new(
-            "secondary-b",
-            ToggleSplit,
-            Some("(Navigator || Detail) && !TextInput"),
-        ),
-        // The History and Branches lists step and fold as the navigator does.
-        KeyBinding::new("down", SelectNext, side),
-        KeyBinding::new("j", SelectNext, side),
-        KeyBinding::new("up", SelectPrevious, side),
-        KeyBinding::new("k", SelectPrevious, side),
-        // The arrows last, as the navigator's, so menus show them.
-        KeyBinding::new("l", Expand, side),
-        KeyBinding::new("right", Expand, side),
-        KeyBinding::new("h", Collapse, side),
-        KeyBinding::new("left", Collapse, side),
-        // While committing, with the focus anywhere, typing the message too, as ⌘↩ commits.
-        KeyBinding::new("alt-secondary-enter", AmendTop, Some("Workspace")),
-        KeyBinding::new("secondary-shift-b", PickCommitTarget, Some("Workspace")),
-    ]);
-    find::bind_keys(cx);
-    resolve::bind_keys(cx);
-}
 
 /// Where the keyboard is in the diff.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -2203,7 +2140,7 @@ impl Render for Detail {
                                     .when(!list_page, |el| {
                                         el.track_focus(&self.files_focus).key_context(
                                             match self.composing {
-                                                true => "Files Composing",
+                                                true => "Files Composer",
                                                 false => "Files",
                                             },
                                         )
@@ -2227,7 +2164,7 @@ impl Render for Detail {
         v_flex()
             .id("detail")
             .key_context(context)
-            .when(context != "Detail", |el| resolve::conflict_keys(el, cx))
+            .when(context != "Diff", |el| resolve::conflict_keys(el, cx))
             .track_focus(&self.focus)
             .on_action(cx.listener(|this, _: &NextFile, _, cx| this.move_file(1, cx)))
             .on_action(cx.listener(|this, _: &PreviousFile, _, cx| this.move_file(-1, cx)))

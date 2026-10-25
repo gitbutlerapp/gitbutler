@@ -1221,7 +1221,7 @@ impl Detail {
         v_flex()
             .size_full()
             .track_focus(&self.side_focus)
-            .key_context("SideList")
+            .key_context("List")
             .on_action(cx.listener(move |this, _: &SelectNext, _, cx| step(this, 1, cx)))
             .on_action(cx.listener(move |this, _: &SelectPrevious, _, cx| step(this, -1, cx)))
             .when_some(fold, |el, fold| {

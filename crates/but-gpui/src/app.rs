@@ -2,9 +2,9 @@
 //! and the actions that work anywhere in the window. `overlays.rs` draws what opens above.
 
 use gpui::{
-    AnyView, App, ClipboardItem, Context, Entity, FocusHandle, Focusable, FontFeatures, KeyBinding,
-    Pixels, Point, PromptLevel, Role, StyleRefinement, Subscription, WeakEntity, Window, actions,
-    div, prelude::*,
+    AnyView, App, ClipboardItem, Context, Entity, FocusHandle, Focusable, FontFeatures, Pixels,
+    Point, PromptLevel, Role, StyleRefinement, Subscription, WeakEntity, Window, actions, div,
+    prelude::*,
 };
 
 use crate::backend::{self, short_ref};
@@ -18,8 +18,9 @@ use crate::theme::{Theme, UiScale};
 use crate::transfer::{Place, Transfer};
 use crate::ui::{HEADER_HEIGHT, dp, resize_pane};
 
+// Named in the keymap as area::Action, by where they act.
 actions!(
-    gitbutler,
+    app,
     [
         Quit,
         Hide,
@@ -31,29 +32,10 @@ actions!(
         ZoomOut,
         ActualSize,
         AddProject,
-        CopySelection,
-        OpenPullRequest,
-        ToggleRead,
-        MarkAllRead,
         ToggleFileTree,
         Undo,
         Redo,
-        Fetch,
-        UpdateFromTarget,
-        NewBranch,
-        NewBranchOnTop,
-        SelectPrevious,
-        SelectNext,
-        Expand,
-        Collapse,
-        Confirm,
-        CutSelection,
-        PasteHere,
         Cancel,
-        DeleteSelection,
-        UncommitSelection,
-        RenameSelection,
-        Push,
         FocusNavigator,
         FocusChanges,
         FocusDiff,
@@ -63,72 +45,28 @@ actions!(
         CheckForUpdates,
     ]
 );
-
-/// Keys follow GitButler Lite where it has one, and Zed's agent review for discarding a hunk.
-pub fn bind_keys(cx: &mut App) {
-    let nav = Some("Navigator && !TextInput");
-    let workspace = Some("Workspace && !TextInput");
-    // Windows' redo, bound first so menus show Ctrl+Shift+Z, as Zed's do.
-    #[cfg(not(target_os = "macos"))]
-    cx.bind_keys([KeyBinding::new("ctrl-y", Redo, workspace)]);
-    cx.bind_keys([
-        KeyBinding::new("secondary-q", Quit, None),
-        // As a browser zooms, and Lite and the desktop app with it.
-        KeyBinding::new("secondary-=", ZoomIn, None),
-        KeyBinding::new("secondary-+", ZoomIn, None),
-        KeyBinding::new("secondary--", ZoomOut, None),
-        KeyBinding::new("secondary-0", ActualSize, None),
-        KeyBinding::new("secondary-o", AddProject, None),
-        // Not while typing, where they're ‰ and Ï.
-        KeyBinding::new("alt-shift-f", Fetch, Some("!TextInput")),
-        KeyBinding::new("alt-shift-r", UpdateFromTarget, Some("!TextInput")),
-        KeyBinding::new("secondary-n", NewBranch, None),
-        // Zed's key works too; ⌘K is the one shown, as the last binding wins.
-        KeyBinding::new("secondary-shift-p", CommandPalette, None),
-        KeyBinding::new("secondary-k", CommandPalette, None),
-        KeyBinding::new("secondary-1", FocusNavigator, None),
-        KeyBinding::new("secondary-2", FocusChanges, None),
-        KeyBinding::new("secondary-3", FocusDiff, None),
-        KeyBinding::new("secondary-enter", StartCommit, workspace),
-        KeyBinding::new("secondary-z", Undo, workspace),
-        KeyBinding::new("secondary-shift-z", Redo, workspace),
-        KeyBinding::new("secondary-x", CutSelection, workspace),
-        // ⌥ turns moving a commit onto another into squashing it, as when dragging. Bound
-        // first, so ⌘V is the key shown.
-        KeyBinding::new("alt-secondary-v", PasteHere, workspace),
-        KeyBinding::new("shift-secondary-v", PasteHere, workspace),
-        KeyBinding::new("secondary-v", PasteHere, workspace),
-        KeyBinding::new("secondary-c", CopySelection, workspace),
-        KeyBinding::new("escape", Cancel, workspace),
-        KeyBinding::new(".", ToggleNavigator, workspace),
-        KeyBinding::new("shift-p", Push, workspace),
-        KeyBinding::new("up", SelectPrevious, nav),
-        KeyBinding::new("k", SelectPrevious, nav),
-        KeyBinding::new("down", SelectNext, nav),
-        KeyBinding::new("j", SelectNext, nav),
-        // The arrows come last, so menus show them.
-        KeyBinding::new("l", Expand, nav),
-        KeyBinding::new("right", Expand, nav),
-        KeyBinding::new("h", Collapse, nav),
-        KeyBinding::new("left", Collapse, nav),
-        KeyBinding::new("enter", Confirm, nav),
-        KeyBinding::new("space", Confirm, nav),
-        KeyBinding::new("r", RenameSelection, nav),
-        KeyBinding::new("b", NewBranchOnTop, nav),
-        KeyBinding::new("o", OpenPullRequest, nav),
-        KeyBinding::new("u", ToggleRead, nav),
-        KeyBinding::new("shift-u", MarkAllRead, nav),
-        KeyBinding::new("secondary-backspace", DeleteSelection, nav),
-        KeyBinding::new("secondary-alt-backspace", UncommitSelection, nav),
-    ]);
-    // Elsewhere the window's buttons do these.
-    #[cfg(target_os = "macos")]
-    cx.bind_keys([
-        KeyBinding::new("cmd-h", Hide, None),
-        KeyBinding::new("alt-cmd-h", HideOthers, None),
-        KeyBinding::new("cmd-m", Minimize, None),
-    ]);
-}
+actions!(
+    navigator,
+    [
+        CopySelection,
+        ToggleRead,
+        MarkAllRead,
+        NewBranch,
+        NewBranchOnTop,
+        SelectPrevious,
+        SelectNext,
+        Expand,
+        Collapse,
+        Confirm,
+        CutSelection,
+        PasteHere,
+        DeleteSelection,
+        UncommitSelection,
+        RenameSelection,
+    ]
+);
+actions!(remote, [Fetch, UpdateFromTarget, Push]);
+actions!(pr, [OpenPullRequest]);
 
 pub struct AppView {
     pub store: Entity<Store>,
