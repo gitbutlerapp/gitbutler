@@ -917,10 +917,10 @@ fn watch(
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use crate::backend::{Branch, Commit, CommitId, PushState, Stack, Workspace, Worktree};
 
-    fn branch(name: &str, commits: &[u8]) -> Branch {
+    pub(in crate::state) fn branch(name: &str, commits: &[u8]) -> Branch {
         let id = |n: u8| gix::ObjectId::from_bytes_or_panic(&[n; 20]);
         Branch {
             name: name.into(),
@@ -942,7 +942,7 @@ mod tests {
         }
     }
 
-    fn workspace(stacks: Vec<Vec<Branch>>, linked: Vec<Branch>) -> Workspace {
+    pub(in crate::state) fn workspace(stacks: Vec<Vec<Branch>>, linked: Vec<Branch>) -> Workspace {
         Workspace {
             stacks: stacks
                 .into_iter()

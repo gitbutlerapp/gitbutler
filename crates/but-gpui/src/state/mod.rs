@@ -812,6 +812,12 @@ impl Store {
         {
             self.mark_read(project, [*id], true, cx);
         }
+        if let Some(selection) = &selection
+            && let Some(id) = (self.workspace(selection.project()))
+                .and_then(|workspace| seen::lone_commit(workspace, selection))
+        {
+            self.mark_read(selection.project(), [id], true, cx);
+        }
         // An unwatched project's page reads it once, unwatched, so it can say whether the
         // target moved on and update it.
         if let Some(Selection::Project(project)) = &selection
