@@ -128,11 +128,10 @@ impl Navigator {
                 else {
                     return;
                 };
-                (this.app)
-                    .update(cx, |app, cx| {
-                        app.transfer(&payload, &target, place, window, cx)
-                    })
-                    .ok();
+                let target = target.clone();
+                this.app.update_later(window, cx, move |app, window, cx| {
+                    app.transfer(&payload, &target, place, window, cx)
+                });
             }))
             .on_mouse_down(
                 MouseButton::Right,

@@ -283,7 +283,7 @@ impl SettingsView {
             "ai-provider",
             provider_name,
             PROVIDERS.map(|(id, name)| (id.to_owned(), name.to_owned())),
-            |this, provider: String, cx| {
+            |this, provider: String, _, cx| {
                 this.update_ai(None, move |update| update.provider = provider, cx)
             },
             cx,

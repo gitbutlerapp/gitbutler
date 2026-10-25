@@ -58,23 +58,20 @@ impl SettingsView {
                             .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
                                 let store = this.store.clone();
                                 let message = format!("Take {machine} out of your mesh?");
-                                this.app
-                                    .update(cx, |app, cx| {
-                                        app.confirm_then(
-                                            None,
-                                            message,
-                                            "Its daemon stops, and your other machines no longer \
-                                             see its work. Its repositories stay as they are.",
-                                            "Sign out",
-                                            window,
-                                            cx,
-                                            move |_, cx| {
-                                                store
-                                                    .update(cx, |store, cx| store.mesh_sign_out(cx))
-                                            },
-                                        )
-                                    })
-                                    .ok();
+                                this.app.update_later(window, cx, move |app, window, cx| {
+                                    app.confirm_then(
+                                        None,
+                                        message,
+                                        "Its daemon stops, and your other machines no longer \
+                                         see its work. Its repositories stay as they are.",
+                                        "Sign out",
+                                        window,
+                                        cx,
+                                        move |_, cx| {
+                                            store.update(cx, |store, cx| store.mesh_sign_out(cx))
+                                        },
+                                    )
+                                });
                             }))
                             .into_any_element(),
                     ),

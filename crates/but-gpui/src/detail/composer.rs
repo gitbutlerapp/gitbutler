@@ -1428,7 +1428,7 @@ impl Detail {
                 )
             });
         }));
-        (self.app.update(cx, |app, cx| {
+        self.app.update_later(window, cx, move |app, window, cx| {
             app.open_picker(
                 Some(place),
                 "Commit to a branch",
@@ -1437,8 +1437,7 @@ impl Detail {
                 window,
                 cx,
             )
-        }))
-        .ok();
+        });
     }
 }
 

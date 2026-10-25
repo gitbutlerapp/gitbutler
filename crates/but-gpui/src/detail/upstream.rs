@@ -841,11 +841,11 @@ impl Detail {
         let pick = |name: &str| {
             let (project, full) = (project.clone(), format!("refs/heads/{name}"));
             cx.listener(
-                move |this: &mut Self, _: &gpui::ClickEvent, _: &mut gpui::Window, cx| {
+                move |this: &mut Self, _: &gpui::ClickEvent, window: &mut gpui::Window, cx| {
                     let (project, full) = (project.clone(), full.clone());
-                    (this.app)
-                        .update(cx, |app, cx| app.set_target(project, full, cx))
-                        .ok();
+                    this.app.update_later(window, cx, move |app, _, cx| {
+                        app.set_target(project, full, cx)
+                    });
                 },
             )
         };
@@ -855,9 +855,9 @@ impl Detail {
                 .style(ButtonStyle::Ghost)
                 .on_click(cx.listener(move |this, _, window, cx| {
                     let project = project.clone();
-                    (this.app)
-                        .update(cx, |app, cx| app.pick_target(project, window, cx))
-                        .ok();
+                    this.app.update_later(window, cx, move |app, window, cx| {
+                        app.pick_target(project, window, cx)
+                    });
                 }))
         };
         let remote = &choice.remote;
@@ -962,9 +962,9 @@ impl Detail {
                 crate::ui::button("pick-target", "Choose a target branch…").on_click(cx.listener(
                     move |this, _, window, cx| {
                         let project = project.clone();
-                        (this.app)
-                            .update(cx, |app, cx| app.pick_target(project, window, cx))
-                            .ok();
+                        this.app.update_later(window, cx, move |app, window, cx| {
+                            app.pick_target(project, window, cx)
+                        });
                     },
                 )),
             )
@@ -1410,9 +1410,9 @@ impl Detail {
                     let at =
                         event.position() + gpui::point(Pixels::ZERO, Theme::get(cx).scaled(14.));
                     let project = picked.clone();
-                    (this.app)
-                        .update(cx, |app, cx| app.open_icon_picker(project, at, window, cx))
-                        .ok();
+                    this.app.update_later(window, cx, move |app, window, cx| {
+                        app.open_icon_picker(project, at, window, cx)
+                    });
                 }),
             );
         let meta = meta_row(theme)
@@ -1577,9 +1577,9 @@ impl Detail {
                         crate::ui::button("connect-forge", "Connect…")
                             .small()
                             .on_click(cx.listener(|this, _, window, cx| {
-                                this.app
-                                    .update(cx, |app, cx| app.open_accounts(window, cx))
-                                    .ok();
+                                this.app.update_later(window, cx, move |app, window, cx| {
+                                    app.open_accounts(window, cx)
+                                });
                             })),
                     )
                     .into_any_element()

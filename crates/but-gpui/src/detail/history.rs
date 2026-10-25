@@ -556,25 +556,23 @@ impl Detail {
         // Named as its row is, by what it was done to.
         let title = summary(operation).unwrap_or_else(|| operation.title.clone());
         let project = project.clone();
-        self.app
-            .update(cx, |app, cx| {
-                app.confirm_then(
-                    Some(Selection::History(project.clone())),
-                    format!("Restore to before \"{title}\"?"),
-                    &crate::ui::keys_text(
-                        "Branches, commits and uncommitted changes go back to how they were. \
-                         You can undo this with ⌘Z.",
-                    ),
-                    "Restore",
-                    window,
-                    cx,
-                    move |app, cx| {
-                        app.store
-                            .update(cx, |store, cx| store.restore(&project, id, cx))
-                    },
-                )
-            })
-            .ok();
+        self.app.update_later(window, cx, move |app, window, cx| {
+            app.confirm_then(
+                Some(Selection::History(project.clone())),
+                format!("Restore to before \"{title}\"?"),
+                &crate::ui::keys_text(
+                    "Branches, commits and uncommitted changes go back to how they were. \
+                     You can undo this with ⌘Z.",
+                ),
+                "Restore",
+                window,
+                cx,
+                move |app, cx| {
+                    app.store
+                        .update(cx, |store, cx| store.restore(&project, id, cx))
+                },
+            )
+        });
     }
 
     /// Select operation `id` and offer what its page's header does for it, and its ID.
@@ -595,13 +593,9 @@ impl Detail {
     pub(crate) fn operation_menu_items(project: &ProjectId, id: SnapshotId) -> Vec<MenuItem> {
         let project = project.clone();
         vec![
-            // Once the menu's done with the app, which asking to confirm updates too.
             MenuItem::new("Restore to before this…", move |app, window, cx| {
-                let (detail, project) = (app.detail.clone(), project.clone());
-                window.defer(cx, move |window, cx| {
-                    detail.update(cx, |detail, cx| {
-                        detail.restore_operation(&project, id, window, cx)
-                    })
+                (app.detail).update(cx, |detail, cx| {
+                    detail.restore_operation(&project, id, window, cx)
                 })
             }),
             MenuItem::new("Copy snapshot ID", move |app, _, cx| {
@@ -796,7 +790,7 @@ impl Detail {
     /// Ask what a snapshot is for, which it may go without, then take it.
     fn take_snapshot(&self, project: &ProjectId, window: &mut Window, cx: &mut Context<Self>) {
         let project = project.clone();
-        (self.app.update(cx, |app, cx| {
+        self.app.update_later(window, cx, move |app, window, cx| {
             let input = cx.new(|cx| TextInput::new("What it's for (optional)", false, cx));
             let place = app
                 .store
@@ -826,8 +820,7 @@ impl Detail {
                     })
                 },
             )
-        }))
-        .ok();
+        });
     }
 
     pub(super) fn render_history_side(

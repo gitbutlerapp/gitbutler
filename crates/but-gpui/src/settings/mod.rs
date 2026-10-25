@@ -5,8 +5,8 @@
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle,
-    Focusable, KeyBinding, ScrollHandle, SharedString, Stateful, Subscription, Task, WeakEntity,
-    Window, actions, div, prelude::*,
+    Focusable, KeyBinding, ScrollHandle, SharedString, Stateful, Subscription, Task, Window,
+    actions, div, prelude::*,
 };
 
 mod accounts;
@@ -14,7 +14,7 @@ mod ai;
 mod mesh;
 mod project;
 
-use crate::app::AppView;
+use crate::app::{AppHandle, AppView};
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::overlays::MenuItem;
 use crate::state::{Prefs, ProjectId, ScopeLines, Store};
@@ -132,7 +132,7 @@ fn interval_label(minutes: Option<u64>) -> String {
 
 pub struct SettingsView {
     store: Entity<Store>,
-    app: WeakEntity<AppView>,
+    app: AppHandle,
     /// The diff's settings change through it, as its own toggles do.
     detail: Entity<crate::detail::Detail>,
     search: Entity<TextInput>,
@@ -175,7 +175,7 @@ impl Focusable for SettingsView {
 impl SettingsView {
     pub fn new(
         store: Entity<Store>,
-        app: WeakEntity<AppView>,
+        app: AppHandle,
         detail: Entity<crate::detail::Detail>,
         project: Option<ProjectId>,
         window: &mut Window,
@@ -302,8 +302,7 @@ impl SettingsView {
         items: impl FnOnce(&mut Self, &mut Context<Self>) -> Vec<MenuItem> + 'static,
         cx: &mut Context<Self>,
     ) {
-        let (app, from) = (&self.app, &cx.entity().downgrade());
-        crate::overlays::open_menu(app, from, event.position(), items, cx);
+        (self.app).open_menu(&cx.entity().downgrade(), event.position(), items, cx);
     }
 
     /// A dropdown showing `label`, whose menu sets one of `options` through `set` and ticks
@@ -313,7 +312,7 @@ impl SettingsView {
         id: &'static str,
         label: impl Into<SharedString>,
         options: impl IntoIterator<Item = (T, String)>,
-        set: impl Fn(&mut Self, T, &mut Context<Self>) + Clone + 'static,
+        set: impl Fn(&mut Self, T, &mut Window, &mut Context<Self>) + Clone + 'static,
         cx: &Context<Self>,
     ) -> AnyElement {
         let label = label.into();
@@ -323,9 +322,8 @@ impl SettingsView {
             .map(|(value, option)| {
                 let (this, set) = (this.clone(), set.clone());
                 let ticked = option == *label;
-                MenuItem::new(option, move |_, _, cx| {
-                    this.update(cx, |this, cx| set(this, value.clone(), cx))
-                        .ok();
+                MenuItem::new(option, move |_, window, cx| {
+                    (this.update(cx, |this, cx| set(this, value.clone(), window, cx))).ok();
                 })
                 .ticked(ticked)
             })
@@ -351,7 +349,7 @@ impl SettingsView {
             "editor",
             editor,
             (self.editors.iter()).map(|(id, name)| (id.clone(), name.clone())),
-            |this, id: String, cx| {
+            |this, id: String, _, cx| {
                 this.store
                     .update(cx, |store, cx| store.set_prefs(|p| p.editor = Some(id), cx));
             },
@@ -361,7 +359,7 @@ impl SettingsView {
             "terminal",
             terminal,
             (self.terminals.iter()).map(|(id, name)| (id.clone(), name.clone())),
-            |this, id: String, cx| {
+            |this, id: String, _, cx| {
                 this.store.update(cx, |store, cx| {
                     store.set_prefs(|p| p.terminal = Some(id), cx)
                 });
@@ -399,8 +397,9 @@ impl SettingsView {
                 store.update(cx, |store, cx| {
                     store.set_prefs(|prefs| prefs.appearance = choice, cx)
                 });
-                app.update(cx, |app, cx| app.apply_appearance(window, cx))
-                    .ok();
+                app.update_later(window, cx, |app, window, cx| {
+                    app.apply_appearance(window, cx)
+                });
             },
             theme,
         );
@@ -428,12 +427,8 @@ impl SettingsView {
             "ui-scale",
             percent(prefs.ui_scale),
             UiScale::STEPS.map(|scale| (scale, percent(scale))),
-            |this, scale, cx| {
-                // A menu's handler runs inside `AppView`'s update.
-                let app = this.app.clone();
-                cx.defer(move |cx| {
-                    app.update(cx, |app, cx| app.set_ui_scale(scale, cx)).ok();
-                });
+            |this, scale, window, cx| {
+                (this.app).update_later(window, cx, move |app, _, cx| app.set_ui_scale(scale, cx))
             },
             cx,
         );
@@ -548,7 +543,7 @@ impl SettingsView {
             "fetch",
             interval_label(self.fetch_interval),
             FETCH_INTERVALS.map(|minutes| (minutes, interval_label(minutes))),
-            |this, minutes: Option<u64>, cx| {
+            |this, minutes: Option<u64>, _, cx| {
                 this.fetch_interval = minutes;
                 cx.notify();
                 this.apply(
@@ -1007,7 +1002,7 @@ impl AppView {
                 .map(|s| s.project().clone())
                 .or_else(|| store.projects.first().map(|entry| entry.id.clone()))
         });
-        let (app, detail) = (cx.entity().downgrade(), self.detail.clone());
+        let (app, detail) = (AppHandle::of(cx), self.detail.clone());
         let view = cx.new(|cx| {
             let mut view = SettingsView::new(store, app, detail, project, window, cx);
             view.page = page;

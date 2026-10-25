@@ -3,13 +3,14 @@
 
 use gpui::{
     AnyView, App, ClipboardItem, Context, Entity, FocusHandle, Focusable, FontFeatures, KeyBinding,
-    PromptLevel, Role, StyleRefinement, Subscription, Window, actions, div, prelude::*,
+    Pixels, Point, PromptLevel, Role, StyleRefinement, Subscription, WeakEntity, Window, actions,
+    div, prelude::*,
 };
 
 use crate::backend::{self, short_ref};
 use crate::detail::{Detail, DiffPane};
 use crate::navigator::Navigator;
-use crate::overlays::{ContextMenu, Prompt};
+use crate::overlays::{ContextMenu, MenuItem, Prompt};
 use crate::palette::Palette;
 use crate::projects::pick_folder;
 use crate::state::{Cut, MeshPick, Pane, ProjectId, Selection, Store, StoreEvent, snack};
@@ -144,6 +145,47 @@ pub struct AppView {
     _subscriptions: Vec<Subscription>,
 }
 
+/// The app, as the views it owns reach it: only once the update running now is over. Reached
+/// at once, the app could update or read the view that asked, which is being updated, and that
+/// panics with "already being updated". So would a view the app's own handler is updating that
+/// updated the app back. Work that depends on what the app does goes in the closure.
+#[derive(Clone)]
+pub struct AppHandle(WeakEntity<AppView>);
+
+impl AppHandle {
+    pub fn of(cx: &Context<AppView>) -> Self {
+        Self(cx.entity().downgrade())
+    }
+
+    pub fn update_later(
+        &self,
+        window: &mut Window,
+        cx: &mut App,
+        update: impl FnOnce(&mut AppView, &mut Window, &mut Context<AppView>) + 'static,
+    ) {
+        let app = self.0.clone();
+        window.defer(cx, move |window, cx| {
+            app.update(cx, |app, cx| update(app, window, cx)).ok();
+        });
+    }
+
+    /// Open at `at` the menu `items` makes from the view `from`, once the update running now is
+    /// over, so building it can read any view.
+    pub fn open_menu<V: 'static>(
+        &self,
+        from: &WeakEntity<V>,
+        at: Point<Pixels>,
+        items: impl FnOnce(&mut V, &mut Context<V>) -> Vec<MenuItem> + 'static,
+        cx: &mut App,
+    ) {
+        let (app, from) = (self.0.clone(), from.clone());
+        cx.defer(move |cx| {
+            let items = from.update(cx, items).unwrap_or_default();
+            app.update(cx, |app, cx| app.open_menu(at, items, cx)).ok();
+        });
+    }
+}
+
 impl AppView {
     /// Where the diff starts beside the detail's file list, when the selection has a diff.
     fn diff_left(&self, window: &Window, cx: &App) -> Option<f32> {
@@ -160,7 +202,7 @@ impl AppView {
         cx.set_global(theme_for(store.read(cx), window));
         #[cfg(target_os = "macos")]
         place_traffic_lights(window, cx);
-        let app = cx.entity().downgrade();
+        let app = AppHandle::of(cx);
         let detail = cx.new(|cx| Detail::new(store.clone(), app.clone(), window, cx));
         let diff = cx.new(|cx| DiffPane::new(&detail, window, cx));
         let navigator = cx.new(|cx| Navigator::new(app, store.clone(), detail.clone(), window, cx));
@@ -791,26 +833,21 @@ impl AppView {
         }
     }
 
-    /// Do `act` in the composer, if it's open, once this update ends: it opens its pickers
-    /// and prompts through this view.
+    /// Do `act` in the composer, if it's open.
     fn in_composer(
         &self,
         window: &mut Window,
         cx: &mut Context<Self>,
-        act: impl FnOnce(&mut crate::detail::Detail, &mut Window, &mut Context<crate::detail::Detail>)
-        + 'static,
+        act: impl FnOnce(&mut crate::detail::Detail, &mut Window, &mut Context<crate::detail::Detail>),
     ) {
         // Not from what's open over it.
         if self.covered() {
             return;
         }
-        let detail = self.detail.clone();
-        window.defer(cx, move |window, cx| {
-            detail.update(cx, |detail, cx| {
-                if detail.composing() {
-                    act(detail, window, cx)
-                }
-            })
+        self.detail.update(cx, |detail, cx| {
+            if detail.composing() {
+                act(detail, window, cx)
+            }
         });
     }
 
