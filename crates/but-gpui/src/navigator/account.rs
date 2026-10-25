@@ -10,18 +10,28 @@ use crate::ui::person::person_avatar;
 use crate::ui::{ButtonStyle, button, dp};
 
 impl Navigator {
-    /// New version, when the desktop app's update feed offers one. Not "Update", which a
-    /// project's row says for bringing in its target's new commits.
+    /// New version, when the desktop app's update feed offers one, and how far installing it
+    /// has got once it installs. Not "Update", which a project's row says for bringing in its
+    /// target's new commits.
     pub(super) fn update_button(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let version = self.store.read(cx).newer_version.clone()?;
+        let store = self.store.read(cx);
+        let version = store.newer_version.clone()?;
+        let label = match store.updating {
+            None => "New version".to_owned(),
+            Some(0) => "Downloading…".to_owned(),
+            Some(100..) => "Installing…".to_owned(),
+            Some(percent) => format!("Downloading {percent}%"),
+        };
+        let installing = store.updating.map(|_| format!("Installing {version}"));
         Some(
-            button("update-app", "New version")
+            button("update-app", label)
                 .small()
                 .style(ButtonStyle::Gray)
                 .tooltip(format!("Update to {version}"))
+                .disabled_because(installing)
                 .on_click(cx.listener(|this, _, window, cx| {
                     this.app.update_later(window, cx, move |app, window, cx| {
-                        app.restart_to_update(window, cx)
+                        app.install_update(window, cx)
                     });
                 }))
                 .into_any_element(),

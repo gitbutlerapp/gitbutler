@@ -292,6 +292,8 @@ pub struct Store {
     /// The version the desktop app's update feed offers, newer than this build, when the
     /// desktop app's binary started this client.
     pub newer_version: Option<String>,
+    /// How much of it has downloaded, in percent, while it installs.
+    pub updating: Option<u8>,
     /// The user's other machines, and what they have of the watched projects. Everything the
     /// mesh does lives in `state/mesh.rs`; see the crate's AGENTS.md for its rules.
     pub mesh: mesh::Mesh,
@@ -420,6 +422,7 @@ impl Store {
             toasts: Vec::new(),
             account: account::Account::default(),
             newer_version: None,
+            updating: None,
             mesh: mesh::Mesh::start(cx),
             running: HashMap::new(),
             own_writes: HashMap::new(),
