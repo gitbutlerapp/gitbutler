@@ -170,6 +170,8 @@ icons! {
     Commit => "commit",
     CommitFill => "commit-fill",
     Diff => "diff",
+    Discord => "discord",
+    Docs => "docs",
     DragVertical => "drag-vertical",
     Edit => "edit",
     Eye => "eye",
