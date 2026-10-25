@@ -86,9 +86,9 @@ impl Checks {
 
     /// Carry what's left out over to a reload of the worktree diff, `files`.
     pub(super) fn reconcile(&mut self, files: &[FileDiff]) {
+        // A file left out stays out while it's gone, as an agent's `git stash` and `git stash
+        // pop` take it away and bring it back.
         let present: HashSet<&str> = files.iter().map(|f| f.file.path.as_str()).collect();
-        self.unchecked
-            .retain(|path| present.contains(path.as_str()));
         let find_hunk =
             |path: &str, key: HunkKey| file_hunks(files, path).iter().find(|h| h.key == key);
         // A hunk left out stays out when an edit renumbers it: what's out now is every
