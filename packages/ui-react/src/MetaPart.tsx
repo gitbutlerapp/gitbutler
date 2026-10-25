@@ -37,7 +37,7 @@ export const MetaPart: FC<Props> = ({ icon, tone = "neutral", href, children, ..
 			<span className={styles.words}>{children}</span>
 		</>
 	);
-	return href ? (
+	return href !== undefined ? (
 		<a {...props} href={href} className={classes(className, styles.link)}>
 			{content}
 		</a>
