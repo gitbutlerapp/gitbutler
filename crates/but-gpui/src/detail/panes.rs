@@ -1006,7 +1006,7 @@ pub(super) const COMMIT_HEADER_HEIGHT: f32 = 85.;
 /// The title row of a page's header: `icon`, then the title, which a caller adds, wrapping
 /// rather than hiding its end.
 pub(super) fn page_title(icon_name: Icon, theme: &Theme) -> Div {
-    h_flex().items_start().gap(dp(8.)).child(
+    h_flex().min_w_0().items_start().gap(dp(8.)).child(
         div()
             .h(dp(22.))
             .flex()
