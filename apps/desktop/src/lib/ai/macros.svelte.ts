@@ -42,7 +42,7 @@ export default class AIMacros {
 
 		const prompt = this.promptService.selectedCommitPrompt(this.projectId);
 		const diffInput = params.diffInput ?? (await this.diffInputContext.diffInput());
-		if (!diffInput) {
+		if (!diffInput?.length) {
 			// "No changes" is a benign UX state (user clicked Generate with
 			// nothing selected). Surface it as an info toast rather than an
 			// error, to avoid spamming error telemetry and to keep the tone
@@ -97,7 +97,7 @@ export default class AIMacros {
 		if (!this.canUseAI) return { branchName: undefined, commitMessage: undefined };
 
 		const diffInput = await this.diffInputContext.diffInput();
-		if (!diffInput) {
+		if (!diffInput?.length) {
 			showToast({
 				style: "info",
 				message: "Nothing to summarize yet — add or select some changes first.",
