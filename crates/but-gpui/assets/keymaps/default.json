@@ -9,6 +9,16 @@
     "context": "Workspace && !TextInput",
     "bindings": { "ctrl-y": "app::Redo" }
   },
+  // Letters for what ⌘K and ⌘B do, first so those are the keys shown: ? as on GitHub, Linear
+  // and the TUI, : as vim's and the TUI's command line, and . as in Lite.
+  {
+    "context": "Workspace && !TextInput",
+    "bindings": {
+      "?": "app::CommandPalette",
+      ":": "app::CommandPalette",
+      ".": "app::ToggleNavigator"
+    }
+  },
   {
     "bindings": {
       "secondary-q": "app::Quit",
@@ -18,22 +28,28 @@
       "secondary--": "app::ZoomOut",
       "secondary-0": "app::ActualSize",
       "secondary-o": "app::AddProject",
+      "secondary-shift-o": "projects::CloneRepository",
       "secondary-n": "navigator::NewBranch",
-      // Zed's key works too; ⌘K is the one shown.
+      // VS Code's and Zed's key works too, and ⌘/ as in GitKraken; ⌘K, Linear's and
+      // GitHub's, is the one shown.
       "secondary-shift-p": "app::CommandPalette",
+      "secondary-/": "app::CommandPalette",
       "secondary-k": "app::CommandPalette",
       "secondary-1": "app::FocusNavigator",
       "secondary-2": "app::FocusChanges",
-      "secondary-3": "app::FocusDiff"
+      "secondary-3": "app::FocusDiff",
+      // As VS Code, Cursor and Zed hide their sidebar.
+      "secondary-b": "app::ToggleNavigator"
     }
   },
-  // Not while typing, where they're ‰ and Ï.
+  // Fetching runs in the background, so this is a refresh: ⌘R, as Fork, Tower and the
+  // desktop app refresh, and F5 too on Windows and Linux, first so menus show Ctrl+R.
   {
-    "context": "!TextInput",
-    "bindings": {
-      "alt-shift-f": "remote::Fetch",
-      "alt-shift-r": "remote::UpdateFromTarget"
-    }
+    "os": ["windows", "linux"],
+    "bindings": { "f5": "remote::Fetch" }
+  },
+  {
+    "bindings": { "secondary-r": "remote::Fetch" }
   },
   {
     "context": "Workspace && !TextInput",
@@ -42,6 +58,8 @@
       "secondary-z": "app::Undo",
       "secondary-shift-z": "app::Redo",
       "secondary-x": "navigator::CutSelection",
+      // y as in vim and the TUI, first so ⌘C is the key shown.
+      "y": "navigator::CopySelection",
       // ⌥ turns moving a commit onto another into squashing it, as when dragging. Bound
       // first, so ⌘V is the key shown.
       "alt-secondary-v": "navigator::PasteHere",
@@ -49,8 +67,10 @@
       "secondary-v": "navigator::PasteHere",
       "secondary-c": "navigator::CopySelection",
       "escape": "app::Cancel",
-      ".": "app::ToggleNavigator",
-      "shift-p": "remote::Push"
+      "shift-p": "remote::Push",
+      // ⌘R only looks at the remote; ⇧R brings the target's changes in.
+      "shift-r": "remote::UpdateFromTarget",
+      "secondary-shift-t": "open_in::OpenInTerminal"
     }
   },
   {
@@ -67,13 +87,29 @@
       "left": "navigator::Collapse",
       "enter": "navigator::Confirm",
       "space": "navigator::Confirm",
+      // F2 is the rename key on Windows and Linux, and Lite's; r is the one shown.
+      "f2": "navigator::RenameSelection",
       "r": "navigator::RenameSelection",
       "b": "navigator::NewBranchOnTop",
       "o": "pr::OpenPullRequest",
       "u": "navigator::ToggleRead",
       "shift-u": "navigator::MarkAllRead",
-      "secondary-backspace": "navigator::DeleteSelection",
-      "secondary-alt-backspace": "navigator::UncommitSelection"
+      "secondary-backspace": "navigator::DeleteSelection"
+    }
+  },
+  {
+    "os": ["macos"],
+    "context": "Navigator && !TextInput",
+    "bindings": { "secondary-alt-backspace": "navigator::UncommitSelection" }
+  },
+  // Ctrl+Alt+Backspace kills the X server where that's still on, and Ctrl+Alt is AltGr on
+  // many European layouts. Delete deletes as Explorer and Files do, last so it's shown.
+  {
+    "os": ["windows", "linux"],
+    "context": "Navigator && !TextInput",
+    "bindings": {
+      "ctrl-shift-backspace": "navigator::UncommitSelection",
+      "delete": "navigator::DeleteSelection"
     }
   },
   // Elsewhere the window's buttons do these.
@@ -94,6 +130,9 @@
       "home": "navigator::SelectFirst",
       "shift-g": "navigator::SelectLast",
       "end": "navigator::SelectLast",
+      // ⌥↑↓ jumps a paragraph in macOS text, { and } in vim.
+      "{": "navigator::PreviousSection",
+      "}": "navigator::NextSection",
       "alt-up": "navigator::PreviousSection",
       "alt-down": "navigator::NextSection",
       "shift-up": "navigator::PickPrevious",
@@ -120,6 +159,9 @@
     "bindings": {
       "j": "diff::NextFile",
       "k": "diff::PreviousFile",
+      // Vim's next and previous change, first so the arrows are shown.
+      "] c": "diff::NextHunk",
+      "[ c": "diff::PreviousHunk",
       "down": "diff::NextHunk",
       "up": "diff::PreviousHunk",
       "secondary-alt-z": "diff::DiscardHunk",
@@ -132,6 +174,11 @@
       "f": "diff::ToggleFiles",
       "/": "diff::FilterFiles"
     }
+  },
+  {
+    "os": ["windows", "linux"],
+    "context": "Diff && !TextInput",
+    "bindings": { "delete": "diff::DiscardFile" }
   },
   // While committing, as a click on the checkbox does: space a file in the list, as in Lite,
   // and x the hunk under the diff's cursor.
@@ -148,7 +195,8 @@
     "context": "(Navigator || Diff) && !TextInput",
     "bindings": {
       "alt-z": "diff::ToggleWrap",
-      "secondary-b": "diff::ToggleSplit"
+      // No git client agrees on a key for this, and a letter works on every layout.
+      "s": "diff::ToggleSplit"
     }
   },
   // The History and Branches lists step and fold as the navigator does, the arrows last so
@@ -170,7 +218,8 @@
   {
     "context": "Workspace",
     "bindings": {
-      "alt-secondary-enter": "diff::AmendTop",
+      // Zed's amend key.
+      "secondary-shift-enter": "diff::AmendTop",
       "secondary-shift-b": "diff::PickCommitTarget"
     }
   },
@@ -185,6 +234,14 @@
     "bindings": {
       "enter": "find::FindNext",
       "shift-enter": "find::FindPrevious"
+    }
+  },
+  // As vim steps through matches.
+  {
+    "context": "Diff && !TextInput",
+    "bindings": {
+      "n": "find::FindNext",
+      "shift-n": "find::FindPrevious"
     }
   },
   // The bar is drawn by `DiffPane`, outside the diff's key context.
@@ -218,6 +275,10 @@
       "shift-f10": "palette::ShowActions",
       "menu": "palette::ShowActions"
     }
+  },
+  {
+    "context": "Workspace && !TextInput",
+    "bindings": { "t": "palette::GoToBranch" }
   },
   {
     "bindings": { "secondary-p": "palette::GoToBranch" }

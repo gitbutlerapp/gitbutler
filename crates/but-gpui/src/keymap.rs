@@ -273,6 +273,101 @@ mod tests {
         }
     }
 
+    /// Keys the platform keeps: an app can't have them, or would take them from the system.
+    fn reserved(os: &str) -> &'static [&'static str] {
+        match os {
+            "macos" => &[
+                "cmd-tab",
+                "cmd-`",
+                "cmd-space",
+                "ctrl-space",
+                "ctrl-up",
+                "ctrl-down",
+                "ctrl-left",
+                "ctrl-right",
+                "cmd-shift-3",
+                "cmd-shift-4",
+                "cmd-shift-5",
+                "cmd-alt-escape",
+                "cmd-ctrl-q",
+                "cmd-ctrl-f",
+            ],
+            // Ctrl+Alt+Backspace kills the X server where that's on; Ctrl+Alt with an arrow
+            // switches workspaces on Linux desktops.
+            _ => &[
+                "ctrl-alt-backspace",
+                "ctrl-alt-delete",
+                "alt-f4",
+                "alt-tab",
+                "alt-space",
+                "ctrl-escape",
+                "ctrl-shift-escape",
+                "ctrl-alt-up",
+                "ctrl-alt-down",
+                "ctrl-alt-left",
+                "ctrl-alt-right",
+            ],
+        }
+    }
+
+    /// A keystroke's modifiers, with `secondary` as the platform writes it, and its key.
+    fn normal(keystroke: &str, os: &str) -> (std::collections::BTreeSet<String>, String) {
+        let (modifiers, key) = match keystroke.strip_suffix("--") {
+            Some(modifiers) => (modifiers, "-"),
+            None => keystroke.rsplit_once('-').unwrap_or(("", keystroke)),
+        };
+        let secondary = if os == "macos" { "cmd" } else { "ctrl" };
+        let modifiers = (modifiers.split('-').filter(|m| !m.is_empty()))
+            .map(|m| if m == "secondary" { secondary } else { m }.to_owned())
+            .collect();
+        (modifiers, key.to_owned())
+    }
+
+    #[test]
+    fn defaults_leave_the_platforms_keys_alone() {
+        for os in PLATFORMS {
+            let reserved: Vec<_> = reserved(os).iter().map(|keys| normal(keys, os)).collect();
+            for entry in entries(DEFAULT, os).expect("the default keymap parses") {
+                for keystroke in entry.keys.split_whitespace() {
+                    let (modifiers, key) = normal(keystroke, os);
+                    let taken = reserved.contains(&(modifiers.clone(), key));
+                    assert!(!taken, "{os}: {keystroke} is the platform's");
+                    let kept = ["super", "win", "cmd"]
+                        .iter()
+                        .any(|m| modifiers.contains(*m));
+                    assert!(
+                        os == "macos" || !kept,
+                        "{os}: {keystroke} needs a modifier Windows and Linux keep for the system"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_shown_key_is_the_last_bound() {
+        // Menus, tooltips and the status bar show an action's last binding, so a key added
+        // after the one meant to show takes its place everywhere.
+        let shown = [
+            ("app::CommandPalette", "secondary-k"),
+            ("app::ToggleNavigator", "secondary-b"),
+            ("palette::GoToBranch", "secondary-p"),
+            ("navigator::RenameSelection", "r"),
+            ("navigator::CopySelection", "secondary-c"),
+            ("diff::NextHunk", "down"),
+            ("find::FindNext", "secondary-g"),
+        ];
+        for os in PLATFORMS {
+            let entries = entries(DEFAULT, os).expect("the default keymap parses");
+            for (action, keys) in shown {
+                let last = (entries.iter().rev())
+                    .find(|entry| entry.action.as_str() == Some(action))
+                    .map(|entry| entry.keys.as_str());
+                assert_eq!(last, Some(keys), "{os}: {action} shows its last binding");
+            }
+        }
+    }
+
     #[test]
     fn sections_bind_only_on_their_platforms() {
         let json = r#"[

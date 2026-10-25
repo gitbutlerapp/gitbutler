@@ -1449,7 +1449,7 @@ impl Detail {
                             )
                         }),
                 );
-                // When it last fetched, which fetches again on a click, as ⌥⇧F does.
+                // When it last fetched, which fetches again on a click, as ⌘R does.
                 el.child(match fetch {
                     Some(None) => item.into_any_element(),
                     _ => {

@@ -286,7 +286,7 @@ impl Detail {
         )
     }
 
-    /// Fetch, as ⌥⇧F does, to go beside a list's filter: nothing for a project whose folder is
+    /// Fetch, as ⌘R does, to go beside a list's filter: nothing for a project whose folder is
     /// gone. Without a remote, a fetch says there's none.
     pub(super) fn fetch_button(&self, project: &ProjectId, cx: &Context<Self>) -> Option<Button> {
         let store = self.store.read(cx);
