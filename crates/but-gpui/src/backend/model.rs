@@ -299,16 +299,20 @@ impl Workspace {
             Some("Pick the project's target branch first")
         } else if (pushed.iter()).any(|b| b.commits.iter().any(|c| c.conflicted)) {
             Some("Resolve the conflicted commits first")
-        } else if (pushed.iter()).any(|b| {
-            // What the remote has of it counts as the target's incoming commits, not the
-            // branch's, so a force push wouldn't say what it drops from everyone's branch.
-            b.push == PushState::NeedsForce && self.target_branch.as_ref() == Some(&b.ref_name)
-        }) {
-            // Its remote moved on, or a commit it already pushed was rewritten here.
-            Some("Pushing the target branch would force it, rewriting it for everyone")
         } else {
             None
         }
+    }
+
+    /// The target, when pushing `ref_name` forces the target branch, which others' work builds
+    /// on. What only its remote has counts as the target's incoming commits, not the branch's.
+    pub fn forced_target(&self, ref_name: &str) -> Option<&Target> {
+        (self.pushed_with(ref_name).iter())
+            .any(|b| {
+                b.push == PushState::NeedsForce && self.target_branch.as_ref() == Some(&b.ref_name)
+            })
+            .then_some(self.target.as_ref())
+            .flatten()
     }
 
     /// Whether pushing `ref_name` has to force: it or a branch below it was rewritten since
@@ -1298,6 +1302,47 @@ mod tests {
         assert!(
             commit("vtlrvnlmsxrmrsnrkvqlwrzqokpsoxzk".into()).has_change_id(),
             "it carries one"
+        );
+    }
+
+    #[test]
+    fn force_pushing_the_target_branch_asks_rather_than_refuses() {
+        let id = gix::ObjectId::from_bytes_or_panic(&[1; 20]);
+        let main = Branch {
+            name: "main".into(),
+            ref_name: "refs/heads/main".into(),
+            commits: vec![Commit {
+                state: CommitState::Local,
+                ..Commit::bare(id)
+            }],
+            incoming: Vec::new(),
+            remote: None,
+            push: PushState::NeedsForce,
+            review: None,
+        };
+        let ws = super::Workspace {
+            stacks: vec![super::Stack {
+                branches: vec![main],
+            }],
+            target_branch: Some("refs/heads/main".into()),
+            target: Some(super::Target {
+                name: "origin/main".into(),
+                local: false,
+                behind: 1,
+                commits_behind: 1,
+                needs_update: true,
+                incoming: Vec::new(),
+            }),
+            ..super::Workspace::default()
+        };
+        assert_eq!(
+            ws.push_refused("refs/heads/main"),
+            None,
+            "rewriting your own main and forcing it is allowed"
+        );
+        assert!(
+            ws.forced_target("refs/heads/main").is_some(),
+            "though it always asks first, as others' work builds on it"
         );
     }
 

@@ -75,6 +75,34 @@ fn then_run<T: Send + 'static>(
     }
 }
 
+/// What force pushing the target branch does, asked every time as others' work builds on it:
+/// the commits only its remote has that it drops, the newest named, or else that it rewrites
+/// commits already there.
+fn target_force_detail(target: &backend::Target) -> String {
+    let (what, them) = match target.commits_behind {
+        0 => {
+            return "Others' work builds on the target branch, and this rewrites commits already \
+                    on its remote."
+                .into();
+        }
+        1 => ("the commit".to_owned(), "it"),
+        n => (format!("the {n} commits"), "them"),
+    };
+    let titles: Vec<String> = (target.incoming.iter().take(3))
+        .map(|commit| format!("\"{}\"", commit.title))
+        .collect();
+    let named = match target.commits_behind.saturating_sub(titles.len()) {
+        _ if titles.is_empty() => String::new(),
+        0 => format!(": {}", titles.join(", ")),
+        more => format!(": {}, and {more} more", titles.join(", ")),
+    };
+    format!(
+        "Others' work builds on the target branch, and this drops {what} only {} has{named}. \
+         Update first to keep {them}.",
+        target.name
+    )
+}
+
 /// Whether `ref_name` can land, and if so whether with the branches below it: the bottom
 /// branch of a stack lands alone, the top one of a taller stack lands the whole stack. What
 /// lands needs commits, and none conflicted, which the engine won't land.
@@ -383,26 +411,34 @@ impl AppView {
             return snack(&self.store, refused, cx);
         }
         let drops = ws.push_drops(&ref_name);
-        let (what, them) = match drops.len() {
-            0 => {
-                return self.store.update(cx, |store, cx| {
-                    store.push(&project, ref_name, true, Some(drops), cx)
-                });
+        let detail = match ws.forced_target(&ref_name) {
+            // Others' work builds on it, so forcing it always asks.
+            Some(target) => target_force_detail(target),
+            None => {
+                let (what, them) = match drops.len() {
+                    0 => {
+                        return self.store.update(cx, |store, cx| {
+                            store.push(&project, ref_name, true, Some(drops), cx)
+                        });
+                    }
+                    1 => ("the commit".to_owned(), "it"),
+                    n => (format!("the {n} commits"), "them"),
+                };
+                // A branch it takes along whose commits only its remote has can't be pulled
+                // first when others are stacked on it.
+                let stuck = (ws.pushed_with(&ref_name).iter())
+                    .find(|b| !b.incoming.is_empty() && !ws.can_pull(&b.ref_name));
+                match stuck {
+                    None => {
+                        format!("It drops {what} only the remote has. Pull first to keep {them}.")
+                    }
+                    Some(stuck) => format!(
+                        "It drops {what} only the remote has. To keep {name}'s, unstack the \
+                         branches on it and pull it first.",
+                        name = stuck.name
+                    ),
+                }
             }
-            1 => ("the commit".to_owned(), "it"),
-            n => (format!("the {n} commits"), "them"),
-        };
-        // A branch it takes along whose commits only its remote has can't be pulled first
-        // when others are stacked on it.
-        let stuck = (ws.pushed_with(&ref_name).iter())
-            .find(|b| !b.incoming.is_empty() && !ws.can_pull(&b.ref_name));
-        let detail = match stuck {
-            None => format!("It drops {what} only the remote has. Pull first to keep {them}."),
-            Some(stuck) => format!(
-                "It drops {what} only the remote has. To keep {name}'s, unstack the branches on \
-                 it and pull it first.",
-                name = stuck.name
-            ),
         };
         // Asked here, as the project's own protection is off unless turned on.
         self.confirm_then(
