@@ -875,23 +875,15 @@ impl ForgeRepository {
 
     fn get_review_card(&self, ctx: &but_ctx::Context, review_number: usize) -> Result<ReviewCard> {
         let review = self.get_review(ctx, review_number)?;
-        let ci = self.ci_for_review(ctx, &review);
+        let ci = self.ci_for_ref(ctx, &review.source_branch);
         Ok(ReviewCard::from_review(review, &self.display, ci))
     }
 
-    fn ci_for_review(&self, ctx: &but_ctx::Context, review: &but_forge::ForgeReview) -> ReviewCi {
+    fn ci_for_ref(&self, ctx: &but_ctx::Context, reference: &str) -> ReviewCi {
         if !self.display.capabilities.checks {
             return ReviewCi::unsupported();
         }
 
-        // A fork's branch isn't in the base repository, so GitHub is asked about the head
-        // commit, cached under that so a same-named local branch keeps its own checks.
-        let reference = match self.repository.forge {
-            but_forge::ForgeName::GitHub if review.head_repo_is_fork && !review.sha.is_empty() => {
-                &review.sha
-            }
-            _ => &review.source_branch,
-        };
         let result = (|| {
             let db = &mut *ctx.db.get_cache_mut()?;
             but_forge::ci_checks_for_ref_with_cache(
