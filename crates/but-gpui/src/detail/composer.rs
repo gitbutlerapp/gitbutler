@@ -1211,6 +1211,10 @@ impl Detail {
                             // A slow model, as a local one can be, would otherwise hold the
                             // commit until it's done.
                             .on_click(cx.listener(|this, _, _, cx| match this.writing.take() {
+                                // Before it wrote anything, what guided it comes back.
+                                Some((_, notes)) if this.message.read(cx).text().is_empty() => {
+                                    (this.message).update(cx, |input, cx| input.set_text(notes, cx))
+                                }
                                 Some(_) => cx.notify(),
                                 None => this.write_message(cx),
                             })),
