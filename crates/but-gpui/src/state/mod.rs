@@ -281,8 +281,10 @@ pub struct Store {
     /// Counts projects added and removed, as each starts and lands, so a listing begun
     /// before one doesn't put back what it removed or drop what it added.
     project_edits: u64,
-    /// The saved state as last written, so unchanged state isn't written again.
-    last_saved: Vec<u8>,
+    /// Where the saved state goes.
+    saved_db: Arc<backend::saved::Database>,
+    /// How many times the saved state has been taken to write, numbering each.
+    saves: u64,
     pub prefs: Prefs,
     pub toasts: Vec<Toast>,
     /// Who is signed in to GitButler.
@@ -401,7 +403,8 @@ impl Store {
     pub fn new(cx: &mut Context<Self>) -> Self {
         let (changes, changed) = mpsc::unbounded();
         let (forge_requests, requested) = mpsc::unbounded();
-        let saved = Saved::load();
+        let saved_db = Arc::new(backend::saved::Database::open());
+        let saved = Saved::load(&saved_db);
         let mut store = Self {
             projects: Vec::new(),
             projects_loaded: false,
@@ -450,7 +453,8 @@ impl Store {
                 selection: saved.selection,
             },
             project_edits: 0,
-            last_saved: Vec::new(),
+            saved_db,
+            saves: 0,
             rebaseline: HashMap::new(),
             save_task: Task::ready(()),
             save_queued: false,

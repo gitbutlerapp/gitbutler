@@ -17,6 +17,7 @@ pub mod mesh;
 pub mod model;
 mod ops;
 pub mod reviews;
+pub mod saved;
 pub mod settings;
 pub mod upstream;
 pub mod watch;

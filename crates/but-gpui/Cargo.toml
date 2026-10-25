@@ -48,6 +48,8 @@ md5.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 # Locks that can't be poisoned, so taking one can't fail.
 parking_lot.workspace = true
+# What the app remembers between launches.
+rusqlite.workspace = true
 
 # GitButler, consumed only from `src/backend`.
 but-action.workspace = true
