@@ -721,28 +721,13 @@ async fn do_capture(
     event: Event,
     app_settings: &AppSettings,
 ) -> Result<(), posthog_rs::Error> {
-    let id = app_settings
-        .telemetry
-        .app_distinct_id
-        .clone()
-        .unwrap_or_else(machine);
+    let id = app_settings.telemetry.distinct_id();
     let mut posthog_event = posthog_rs::Event::new(event.event_name.to_string(), id);
     for (key, prop) in event.props {
         let _ = posthog_event.insert_prop(key, prop);
     }
     // The CLI exits right after this, so send inline instead of via the background queue.
     client.capture_immediate(posthog_event).await.map(|_| ())
-}
-
-fn machine() -> String {
-    if let Ok(id) = machine_uid::get() {
-        format!(
-            "machine_{:x}",
-            <sha2::Sha256 as sha2::Digest>::digest(format!("{}{}", id, "gitbutler").as_bytes())
-        )
-    } else {
-        "anonymous".to_string()
-    }
 }
 
 /// Creates a PostHog client if metrics are enabled and the API key is set.

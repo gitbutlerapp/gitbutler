@@ -11,7 +11,7 @@ use std::time::Duration;
 use futures::{FutureExt as _, StreamExt as _, channel::mpsc};
 use gpui::{Context, Task};
 
-use super::mutation::Overlay;
+use super::mutation::{Label, Overlay};
 use super::{ProjectId, Selection, Store, StoreEvent};
 use crate::backend::{
     self, CommitId,
@@ -431,7 +431,7 @@ impl Store {
             this.update(cx, |store, cx| match fetched {
                 Ok(_) => store.run(
                     &project,
-                    format!("Bring {branch} here"),
+                    Label::new("Bring here", format!("Bring {branch} here")),
                     Overlay::rewriting_main(),
                     move |path, _| backend::mesh::apply(path, &mesh_id),
                     move |store, applied_as, cx| store.snack(format!("Applied {applied_as}"), cx),

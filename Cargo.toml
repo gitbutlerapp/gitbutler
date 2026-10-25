@@ -271,6 +271,8 @@ hex = "0.4.3"
 indexmap = "2"
 md5 = "0.8.0"
 sha2 = "0.10"
+# The CLI and the GPUI client share one build, so both get the async client.
+posthog-rs = { version = "0.27.1", default-features = false, features = ["async-client"] }
 base64 = "0.22"
 bitflags = "2.11.1"
 notify = "8.2.0"

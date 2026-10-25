@@ -46,10 +46,11 @@ use crate::state::{
 };
 use crate::theme::Theme;
 use crate::ui::diff::{self, DiffRow};
+use crate::ui::illustration::{Illustration, illustration};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, button, commit_title, dp, empty_state, fixed, h_flex, resize_handle, resize_pane,
-    v_flex,
+    ButtonStyle, Icon, button, commit_title, dp, empty_state, fixed, h_flex, resize_handle,
+    resize_pane, v_flex,
 };
 
 actions!(
@@ -2046,7 +2047,7 @@ impl Render for Detail {
         let theme = Theme::get(cx).clone();
         let selection = self.selection(cx);
         let body: AnyElement = match &selection {
-            None if self.store.read(cx).projects.is_empty() => welcome(&theme),
+            None if self.store.read(cx).projects.is_empty() => welcome(&theme, cx),
             None => empty_state(
                 None,
                 "Nothing selected",
@@ -2309,46 +2310,123 @@ fn keeps_path(terms: &[String], path: &str) -> bool {
     terms.iter().all(|term| path.contains(term.as_str()))
 }
 
-/// What the app shows before it has a project: what it's for, and the two ways in.
-fn welcome(theme: &Theme) -> AnyElement {
+/// What the app shows before it has a project: what it's for and the two ways in, with the
+/// docs, GitButler's Discord and the usage notice at the bottom, out of the way.
+fn welcome(theme: &Theme, cx: &App) -> AnyElement {
+    let link = |id: &'static str, label: &'static str, icon: Icon, action: &dyn gpui::Action| {
+        button(id, label)
+            .icon(icon)
+            .style(ButtonStyle::Ghost)
+            .small()
+            .dispatch(action)
+    };
     v_flex()
         .size_full()
         .items_center()
-        .justify_center()
-        .gap(dp(10.))
+        .gap(dp(24.))
         .child(
-            div()
-                .text_size(dp(18.))
-                .font_weight(gpui::FontWeight::SEMIBOLD)
-                .text_color(theme.text_1)
-                .child("Welcome to GitButler"),
-        )
-        .child(
-            div()
-                .max_w(dp(420.))
-                .text_center()
-                .text_size(dp(13.))
-                .text_color(theme.text_2)
+            v_flex()
+                .flex_1()
+                // So a short pane shrinks the drawing rather than clip it.
+                .min_h_0()
+                .items_center()
+                .justify_center()
+                .gap(dp(10.))
+                .child(illustration(Illustration::Waving, theme, cx).mb(dp(14.)))
                 .child(
-                    "Add a repository your coding agents work in. What they change shows up \
-                     here as it happens, to review, commit and stack into branches.",
-                ),
-        )
-        .child(
-            h_flex()
-                .mt(dp(6.))
-                .gap(dp(8.))
-                .child(
-                    button("welcome-add", "Add a repository…")
-                        .style(ButtonStyle::Pop)
-                        .tooltip("Pick a folder with a Git repository")
-                        .dispatch(&AddProject),
+                    div()
+                        .text_size(dp(18.))
+                        .font_weight(gpui::FontWeight::SEMIBOLD)
+                        .text_color(theme.text_1)
+                        .child("Welcome to GitButler"),
                 )
                 .child(
-                    button("welcome-clone", "Clone a repository…")
-                        .dispatch(&crate::projects::CloneRepository),
+                    div()
+                        .max_w(dp(420.))
+                        .text_center()
+                        .text_size(dp(13.))
+                        .text_color(theme.text_2)
+                        .child(
+                            "Add a repository your coding agents work in. What they change shows \
+                             up here as it happens, to review, commit and stack into branches.",
+                        ),
+                )
+                .child(
+                    h_flex()
+                        .mt(dp(6.))
+                        .gap(dp(8.))
+                        .child(
+                            button("welcome-add", "Add a repository…")
+                                .style(ButtonStyle::Pop)
+                                .tooltip("Pick a folder with a Git repository")
+                                .dispatch(&AddProject),
+                        )
+                        .child(
+                            button("welcome-clone", "Clone a repository…")
+                                .dispatch(&crate::projects::CloneRepository),
+                        ),
                 ),
         )
+        .child(
+            v_flex()
+                .items_center()
+                .gap(dp(6.))
+                .pb(dp(16.))
+                .child(
+                    h_flex()
+                        .gap(dp(4.))
+                        .child(link(
+                            "welcome-docs",
+                            "Docs",
+                            Icon::Docs,
+                            &crate::help::OpenDocs,
+                        ))
+                        .child(link(
+                            "welcome-discord",
+                            "Discord",
+                            Icon::Discord,
+                            &crate::help::OpenDiscord,
+                        )),
+                )
+                .child(usage_notice(theme)),
+        )
+        .into_any_element()
+}
+
+/// The welcome's last line, as VS Code's welcome page ends: that GitButler collects usage
+/// data, with its privacy policy and the switches that turn it off a click away.
+fn usage_notice(theme: &Theme) -> AnyElement {
+    let mut text = String::from("GitButler collects usage data. Read our ");
+    let link = |words: &str, text: &mut String| {
+        let at = text.len();
+        text.push_str(words);
+        at..text.len()
+    };
+    let policy = link("privacy policy", &mut text);
+    text.push_str(" and learn how to ");
+    let opt_out = link("opt out", &mut text);
+    text.push('.');
+    let linked = gpui::HighlightStyle {
+        underline: Some(gpui::UnderlineStyle {
+            thickness: fixed(1.),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let styled = gpui::StyledText::new(text)
+        .with_highlights([(policy.clone(), linked), (opt_out.clone(), linked)]);
+    // One line the column centers, not `text_center`: GPUI maps a click on centered text as if
+    // the line were left-aligned, so the links would miss.
+    div()
+        .text_size(dp(12.))
+        .text_color(theme.text_3)
+        .child(gpui::InteractiveText::new("usage-notice", styled).on_click(
+            vec![policy, opt_out],
+            |link, window, cx| match link {
+                0 => cx.open_url("https://gitbutler.com/privacy"),
+                _ => window.dispatch_action(Box::new(crate::settings::OpenSettings), cx),
+            },
+        ))
         .into_any_element()
 }
 

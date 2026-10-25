@@ -130,6 +130,8 @@ unseen is what a laptop's battery pays for.
   `Detail::view_header_height`. Anything that changes the height above the file list, like tabs
   or a banner, must be counted there, or the diff covers it and takes its clicks. Side-column
   content wider than the column slides under the diff the same way.
+- `InteractiveText` maps a click on centered text (`text_center`) as if each line were
+  left-aligned, so its links miss. Let the parent center a block that fits its text instead.
 
 ## GitButler semantics
 
@@ -196,6 +198,23 @@ unseen is what a laptop's battery pays for.
   the network to render. CI checks refresh only for applied branches, so cached checks on an
   unapplied branch are stale.
 
+## Metrics
+
+Like the mesh, metrics must never break or slow anything else.
+
+- Its code stays in `backend/metrics.rs` and `backend/metrics/crashes.rs`; the rest calls
+  `backend::metrics::*` at a few places: launch and quit in `lib.rs`, `Store::start` for each
+  operation, `Store::failed` for each error card, `Store::count_view` for what's opened,
+  `ProjectEntry::failed` for a project that stops reading, signing in and out, and the Metrics
+  card's switches in `settings/metrics.rs`.
+- A property the desktop app sends too keeps its name and values (`totalLanesInWorkspace`,
+  `theme`, `error_code`), so one chart covers both apps.
+- Nothing sent may name a branch, file, project or anything the user wrote. An operation's label
+  that names one needs `Label::new` with a fixed name for the metrics, which the compiler asks for;
+  a fixed `&'static str` label is its own name. Errors go through `redact`.
+- Capture only where the user acts, never in render, loads, the watcher or a loop. Failures and
+  errors of one kind go out once a minute (`limit`).
+
 ## Mesh
 
 The mesh shows the user's other machines' work. It's optional, and it must never break or slow
@@ -243,6 +262,9 @@ anything else.
   check one. A hover registers only after a second small `move`.
 - `dclick` draws a frame between its clicks, as a hand's double-click has several, so the second
   click's handler sees what the first one changed, not what the step started with.
+- `click` presses and lets go within one frame. `InteractiveText`, which links in text use, starts
+  listening for the let-go only on the frame after the press, so click those with `press`, then
+  `release`.
 - `drop` moves the pointer before letting go, and that move redraws. `release` lets go in place,
   which catches a drag end that forgets to redraw. `drag` presses and moves with no frame
   between; `press`, then `move`s a step apart, drags with frames between, as a hand does.

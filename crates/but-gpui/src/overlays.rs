@@ -179,10 +179,9 @@ impl AppView {
         let place = self.store.read(cx).place(&at);
         let renaming = renaming.filter(|from| !from.is_empty());
         let initial = renaming.as_deref().map_or("", short_ref);
-        let confirm = if initial.is_empty() {
-            "Create"
-        } else {
-            "Rename"
+        let (confirm, label) = match initial.is_empty() {
+            true => ("Create", "Create branch"),
+            false => ("Rename", "Rename branch"),
         };
         let input = cx.new(|cx| {
             let mut input = TextInput::new("Branch name", false, cx);
@@ -190,7 +189,6 @@ impl AppView {
             input.select_all_text(cx);
             input
         });
-        let label = format!("{confirm} branch");
         let (current, checked) = (initial.to_owned(), project.clone());
         let check = move |this: &AppView, name: &str, cx: &App| {
             let short = match branch_name(name) {

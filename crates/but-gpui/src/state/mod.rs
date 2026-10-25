@@ -29,7 +29,7 @@ mod seen;
 pub use activity::{Activity, QUARTER, SeenCommit};
 use load::{Change, Reload};
 pub use mesh::{MeshBranch, MeshPick, MeshState};
-pub use mutation::{NewAt, OpKind, Overlay, Remap, Rereads, SLOW, conflicted_parts};
+pub use mutation::{Label, NewAt, OpKind, Overlay, Remap, Rereads, SLOW, conflicted_parts};
 use mutation::{Queued, Running};
 pub use picks::Picks;
 pub use saved::{BranchStatus, FileSort, Pane, Prefs, ScopeLines, WatchedOrder};
@@ -232,6 +232,10 @@ impl ProjectEntry {
     /// Keep why it couldn't be read, `err` or its folder being gone, and what to choose when
     /// that's the way out.
     fn failed(&mut self, err: &anyhow::Error, failure: crate::backend::LoadFailure) {
+        // Once as it stops reading, as every reload until it's fixed fails again.
+        if self.error.is_none() {
+            crate::backend::metrics::load_failed(&failure, err, self.workspace.as_ref());
+        }
         self.folder_gone = failure.folder_gone;
         self.error = Some(load::load_error(&failure, err));
         self.target_choice = failure.target_choice;
@@ -785,6 +789,9 @@ impl Store {
         if self.selection == selection {
             return;
         }
+        if let Some(selection) = &selection {
+            self.count_view(selection);
+        }
         // Opened, it's read, by both ids, so a rebase by Git keeps it read, as does pulling
         // one only its branch's remote had.
         if let Some(Selection::Commit(project, id) | Selection::Upstream(project, Some(_), id)) =
@@ -816,6 +823,40 @@ impl Store {
         self.save_soon(cx);
         cx.emit(StoreEvent::SelectionChanged);
         cx.notify();
+    }
+
+    /// For the metrics: what the user opens in the window, with the app as it is then.
+    fn count_view(&self, selection: &Selection) {
+        // Selecting what's left as it changes, while the user is away, isn't use, nor is the
+        // launch putting back what was selected, before the workspace has loaded.
+        let workspace = self.workspace(selection.project());
+        let Some(workspace) = workspace.filter(|_| !self.hidden) else {
+            return;
+        };
+        let view = match selection {
+            Selection::Project(_) => "project",
+            Selection::Uncommitted(_) => "uncommitted",
+            Selection::Branch(..) => "branch",
+            Selection::Commit(..) => "commit",
+            Selection::Branches(_) => "branches",
+            Selection::History(_) => "history",
+            Selection::Worktree(..) => "worktree",
+            Selection::Stack(..) => "stack",
+            Selection::Mesh(..) => "mesh",
+            Selection::Upstream(..) => "upstream",
+        };
+        backend::metrics::viewed(view, || backend::metrics::State {
+            theme: match self.prefs.appearance {
+                crate::theme::Appearance::System => "system",
+                crate::theme::Appearance::Light => "light",
+                crate::theme::Appearance::Dark => "dark",
+            },
+            zoom: f64::from(self.prefs.ui_scale.percent()) / 100.,
+            editor: self.prefs.editor.as_deref(),
+            ligatures: self.prefs.ligatures,
+            projects: self.projects.len(),
+            workspace,
+        });
     }
 
     /// Select `selection`, or with it selected already, take its page back to how it opens.
@@ -975,13 +1016,21 @@ impl Store {
     }
 
     /// An error card saying `title`, with what went wrong in `err` in the user's words where
-    /// there are some.
+    /// there are some. The metrics name it by where it was asked for.
+    #[track_caller]
     pub fn failed(
         &mut self,
         title: impl Into<SharedString>,
         err: &anyhow::Error,
         cx: &mut Context<Self>,
     ) {
+        backend::metrics::failure_shown(
+            std::panic::Location::caller(),
+            err,
+            self.projects
+                .iter()
+                .filter_map(|project| project.workspace.as_ref()),
+        );
         self.error(title, backend::failure_detail(err), cx)
     }
 

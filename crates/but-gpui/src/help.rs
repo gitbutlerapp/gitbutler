@@ -1,5 +1,5 @@
-//! The Help menu and About: where the docs are, where to report a problem, and where
-//! GitButler keeps its settings and logs. Its release notes open in the app (`whats_new`).
+//! The Help menu and About: where the docs are, where to talk to us or report a problem, and
+//! where GitButler keeps its settings and logs. Its release notes open in the app (`whats_new`).
 
 use gpui::{App, PromptLevel, actions};
 
@@ -9,6 +9,7 @@ actions!(
     help,
     [
         About,
+        OpenDiscord,
         OpenDocs,
         OpenReleaseNotes,
         ReportIssue,
@@ -17,10 +18,12 @@ actions!(
     ]
 );
 
+const DISCORD: &str = "https://discord.gg/MmFkmaJ42D";
 const DOCS: &str = "https://docs.gitbutler.com";
 const ISSUES: &str = "https://github.com/gitbutlerapp/gitbutler/issues/new/choose";
 
 pub fn register(cx: &mut App) {
+    cx.on_action(|_: &OpenDiscord, cx| cx.open_url(DISCORD));
     cx.on_action(|_: &OpenDocs, cx| cx.open_url(DOCS));
     cx.on_action(|_: &ReportIssue, cx| cx.open_url(ISSUES));
     cx.on_action(|_: &ShowConfigFolder, cx| {

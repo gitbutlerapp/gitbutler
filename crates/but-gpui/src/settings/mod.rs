@@ -12,6 +12,7 @@ use gpui::{
 mod accounts;
 mod ai;
 mod mesh;
+mod metrics;
 mod project;
 
 use crate::app::{AppHandle, AppView};
@@ -148,6 +149,9 @@ pub struct SettingsView {
     worktrees: bool,
     /// The desktop app opens this client at start: GitButler's `featureFlags.gpui`.
     open_at_start: bool,
+    /// GitButler's apps send usage metrics, and error reports.
+    usage_metrics: bool,
+    error_reporting: bool,
     accounts: accounts::Accounts,
     ai: ai::Ai,
     /// How the last signing test went, while it applies to the project shown.
@@ -222,6 +226,8 @@ impl SettingsView {
             fetch_interval: None,
             worktrees: false,
             open_at_start: false,
+            usage_metrics: false,
+            error_reporting: false,
             accounts: Default::default(),
             ai,
             signing: None,
@@ -249,16 +255,20 @@ impl SettingsView {
                     backend::fetch_interval(),
                     backend::worktrees_enabled(),
                     backend::opens_at_start(),
+                    crate::backend::metrics::enabled(),
                 ))
             })
             .await;
-            if let Ok((editors, terminals, fetch_interval, worktrees, open_at_start)) = loaded {
+            if let Ok((editors, terminals, fetch_interval, worktrees, open_at_start, metrics)) =
+                loaded
+            {
                 this.update(cx, |this, cx| {
                     this.editors = editors;
                     this.terminals = terminals;
                     this.fetch_interval = fetch_interval;
                     this.worktrees = worktrees;
                     this.open_at_start = open_at_start;
+                    (this.usage_metrics, this.error_reporting) = metrics;
                     cx.notify();
                 })
                 .ok();
@@ -647,6 +657,8 @@ impl SettingsView {
                     vec![self.gitbutler_row(window, cx), self.mesh_row(cx)],
                 ),
                 Card::new(None, self.program_rows(cx)),
+                // Last, out of the way, as the desktop app keeps it on a page of its own.
+                Card::new(Some("Metrics"), self.metrics_rows(cx)),
             ],
             Page::Appearance => self.appearance_cards(cx),
             Page::Ai => vec![Card::new(None, self.ai_rows(window, cx))],

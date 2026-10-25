@@ -8,7 +8,7 @@ use gpui::{
 };
 
 use crate::backend::{self, CommitId, Destination, Selected, short_ref};
-use crate::state::{Cut, NewAt, Overlay, ProjectId, Selection, Store};
+use crate::state::{Cut, Label, NewAt, Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::{Icon, dp, popover, small_icon};
 
@@ -343,7 +343,8 @@ impl Transfer {
         store: &mut Store,
         cx: &mut Context<Store>,
     ) -> Option<(String, Arc<[Selected]>)> {
-        let label = self.describe();
+        // The pill's verb names it without a branch or commit.
+        let label = Label::new(self.verb(), self.describe());
         // Picked commits that moved, or went into one, are no longer what's picked.
         if let Transfer::MoveCommit { ids, .. } | Transfer::Squash { ids, .. } = &self
             && ids.len() > 1

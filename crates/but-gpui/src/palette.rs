@@ -127,6 +127,7 @@ const COMMANDS: &[(&str, &dyn Action)] = &[
     ("GitButler docs", &crate::help::OpenDocs),
     ("What's new (release notes)", &crate::help::OpenReleaseNotes),
     ("Report an issue…", &crate::help::ReportIssue),
+    ("GitButler Discord", &crate::help::OpenDiscord),
     ("Show settings folder", &crate::help::ShowConfigFolder),
     ("Show logs folder", &crate::help::ShowLogsFolder),
     ("About GitButler", &crate::help::About),
