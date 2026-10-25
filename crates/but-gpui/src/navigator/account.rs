@@ -16,24 +16,44 @@ impl Navigator {
     pub(super) fn update_button(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let store = self.store.read(cx);
         let version = store.newer_version.clone()?;
-        let label = match store.updating {
+        let updating = store.updating;
+        let label = match updating {
             None => "New version".to_owned(),
             Some(0) => "Downloading…".to_owned(),
             Some(100..) => "Installing…".to_owned(),
             Some(percent) => format!("Downloading {percent}%"),
         };
-        let installing = store.updating.map(|_| format!("Installing {version}"));
+        let installing = updating.map(|_| format!("Installing {version}"));
+        let update = button("update-app", label)
+            .small()
+            .style(ButtonStyle::Gray)
+            .tooltip(format!("Update to {version}"))
+            .disabled_because(installing)
+            .on_click(cx.listener(|this, _, window, cx| {
+                this.app.update_later(window, cx, move |app, window, cx| {
+                    app.install_update(window, cx)
+                });
+            }))
+            .into_any_element();
+        if updating.is_none() {
+            return Some(update);
+        }
+        // The percent changes its width as it counts, which would shift the filter beside it,
+        // so while it installs it keeps the room of its widest label, sized as a small button's.
+        // Plain text, as a hidden button would still be announced by a screen reader.
+        let room = div()
+            .invisible()
+            .h(dp(20.))
+            .px(dp(6.))
+            .text_size(dp(12.))
+            .font_weight(gpui::FontWeight::SEMIBOLD)
+            .whitespace_nowrap()
+            .child("Downloading 100%");
         Some(
-            button("update-app", label)
-                .small()
-                .style(ButtonStyle::Gray)
-                .tooltip(format!("Update to {version}"))
-                .disabled_because(installing)
-                .on_click(cx.listener(|this, _, window, cx| {
-                    this.app.update_later(window, cx, move |app, window, cx| {
-                        app.install_update(window, cx)
-                    });
-                }))
+            div()
+                .relative()
+                .child(room)
+                .child(div().absolute().top_0().right_0().child(update))
                 .into_any_element(),
         )
     }
