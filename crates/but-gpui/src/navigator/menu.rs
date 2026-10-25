@@ -4,9 +4,9 @@ use gpui::{Action, App, Context, SharedString, Window};
 
 use super::{ClickOpened, Navigator};
 use crate::app::{
-    AppView, Collapse, CopySelection, CutSelection, DeleteSelection, Expand, Fetch, NewBranch,
-    NewBranchOnTop, OpenPullRequest, Push, RenameSelection, StartCommit, UncommitSelection,
-    UpdateFromTarget,
+    AppView, Collapse, CopySelection, CutSelection, DeleteSelection, Expand, Fetch, MarkAllRead,
+    NewBranch, NewBranchOnTop, OpenPullRequest, Push, RenameSelection, StartCommit, ToggleRead,
+    UncommitSelection, UpdateFromTarget,
 };
 use crate::backend::{CommitId, short_ref};
 use crate::edits::{
@@ -34,31 +34,29 @@ pub(super) fn keyed(
     }
 }
 
-/// An item marking `ids`, commits of `project`, read, or with `read` false unread.
-fn mark_read(label: &str, project: &ProjectId, ids: Vec<CommitId>, read: bool) -> MenuItem {
-    let project = project.clone();
-    MenuItem::new(label.to_owned(), move |this, _, cx| {
-        let ids = ids.clone();
-        (this.store).update(cx, |store, cx| store.mark_read(&project, ids, read, cx))
-    })
-}
-
 /// Marking `commits` of `project` read, the ones that aren't, and unread, the ones that
-/// are: one item or the other, or both when some are each.
+/// are: one item or the other, or both when some are each. The first is what u does.
 fn read_marks<'a, C: Seeable + 'a>(
     store: &Store,
     project: &ProjectId,
     commits: impl IntoIterator<Item = &'a C>,
+    cx: &App,
 ) -> Vec<MenuItem> {
     let (unread, read): (Vec<&C>, Vec<&C>) =
         (commits.into_iter()).partition(|commit| store.is_unread(project, *commit));
-    let ids = |commits: Vec<&C>| commits.iter().map(|commit| commit.id()).collect();
     let mut items = Vec::new();
     if !unread.is_empty() {
-        items.push(mark_read("Mark as read", project, ids(unread), true));
+        items.push(MenuItem::action("Mark as read", &ToggleRead, cx));
     }
-    if !read.is_empty() {
-        items.push(mark_read("Mark as unread", project, ids(read), false));
+    if !read.is_empty() && unread.is_empty() {
+        items.push(MenuItem::action("Mark as unread", &ToggleRead, cx));
+    } else if !read.is_empty() {
+        let ids: Vec<CommitId> = read.iter().map(|commit| commit.id()).collect();
+        let project = project.clone();
+        items.push(MenuItem::new("Mark as unread", move |this, _, cx| {
+            let ids = ids.clone();
+            (this.store).update(cx, |store, cx| store.mark_read(&project, ids, false, cx))
+        }));
     }
     if let Some(first) = items.first_mut() {
         first.separated = true;
@@ -125,17 +123,8 @@ impl Navigator {
                     (this.navigator).update(cx, |nav, cx| nav.set_open(key, !open, cx))
                 }));
             }
-            let unread: Vec<CommitId> = (branch.commits.iter())
-                .filter(|commit| store.is_unread(project, *commit))
-                .map(|commit| commit.id)
-                .chain(
-                    (branch.incoming.iter())
-                        .filter(|commit| store.is_unread(project, *commit))
-                        .map(|commit| commit.id),
-                )
-                .collect();
-            if !unread.is_empty() {
-                view.push(mark_read("Mark all as read", project, unread, true));
+            if store.read_marks_of(target).is_some() {
+                view.push(MenuItem::action("Mark all as read", &ToggleRead, cx));
             }
             if let Some(first) = items.first_mut().filter(|_| !view.is_empty()) {
                 first.separated = true;
@@ -188,7 +177,7 @@ impl Navigator {
                     let commits = store.workspace(project)?.upstream(Some(ref_name));
                     commits.iter().find(|commit| commit.id == *id)
                 });
-                let marks = read_marks(store, project, commit);
+                let marks = read_marks(store, project, commit, cx);
                 let (project, id) = (project.clone(), *id);
                 let mut items = vec![
                     MenuItem::new("Cherry-pick", move |app, _, cx| {
@@ -216,6 +205,9 @@ impl Navigator {
                             .update(cx, |store, cx| store.set_expanded(&id, true, cx))
                     })
                 }];
+                if store.read_marks_of(target).is_some() {
+                    items.push(MenuItem::action("Mark all as read", &MarkAllRead, cx));
+                }
                 if expanded {
                     // Its card swaps places with the watched one's above or below: it goes
                     // before the one above, or before the one after the one below.
@@ -490,7 +482,7 @@ impl Navigator {
                 }
                 let conflicted = picked.iter().any(|commit| commit.conflicted);
                 // A run picks commits without opening them, as clicking one does.
-                items.extend(read_marks(store, project, picked));
+                items.extend(read_marks(store, project, picked, cx));
                 let discard =
                     MenuItem::action(format!("Discard {n} commits"), &DeleteSelection, cx).danger();
                 items.extend(match conflicted {
@@ -550,7 +542,7 @@ impl Navigator {
                     items.push(action("Copy change ID", &CopyChangeId));
                 }
                 items.push(action("Copy message", &CopyMessage));
-                items.extend(read_marks(store, project, [commit]));
+                items.extend(read_marks(store, project, [commit], cx));
                 let discard = action("Discard commit", &DeleteSelection).danger();
                 items.extend(match commit.conflicted {
                     // Resolved, not uncommitted, as its files are one side's.
