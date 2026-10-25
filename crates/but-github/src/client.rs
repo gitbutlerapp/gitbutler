@@ -1442,6 +1442,9 @@ impl GitHubClient {
     }
 
     /// Merge a PR.
+    ///
+    /// GitHub refuses to merge a stacked PR here and points to its asynchronous merge, so a
+    /// stacked PR is merged that way instead.
     pub async fn merge_pull_request(&self, params: &MergePullRequestParams<'_>) -> Result<()> {
         #[derive(Serialize)]
         struct MergePullRequestBody<'a> {
@@ -1469,22 +1472,80 @@ impl GitHubClient {
         let response = self.client.put(&url).json(&body).send().await?;
 
         let status = response.status();
-        if !status.is_success() {
-            // The body carries GitHub's reason. Only its `message` reads well in
-            // a toast; the raw envelope drags a documentation URL along.
-            let body = response.text().await.unwrap_or_default();
-            let reason = serde_json::from_str::<serde_json::Value>(&body)
-                .ok()
-                .and_then(|value| {
-                    value
-                        .get("message")
-                        .and_then(|m| m.as_str().map(String::from))
-                })
-                .unwrap_or(body);
-            bail!("GitHub refused the merge ({status}): {reason}");
+        if status.is_success() {
+            return Ok(());
         }
+        let reason = refusal_message(response.text().await.unwrap_or_default());
+        if status == reqwest::StatusCode::FORBIDDEN
+            && reason.contains("asynchronous merge endpoint")
+        {
+            return self.merge_pull_request_async(&url, &body).await;
+        }
+        bail!("GitHub refused the merge ({status}): {reason}");
+    }
 
-        Ok(())
+    /// Merge a PR through GitHub's asynchronous merge at `{merge_url}-async`, and wait until
+    /// it merges or joins the merge queue. For a stacked PR this merges the open PRs below it too.
+    async fn merge_pull_request_async(&self, merge_url: &str, body: &impl Serialize) -> Result<()> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "lowercase")]
+        enum Status {
+            Pending,
+            Merged,
+            Enqueued,
+            Failed,
+        }
+        #[derive(Deserialize)]
+        struct Details {
+            message: Option<String>,
+            uuid: Option<String>,
+        }
+        #[derive(Deserialize)]
+        struct AsyncMerge {
+            status: Status,
+            details: Details,
+        }
+        // The API version GitHub documents the endpoint under.
+        const API_VERSION: &str = "2026-03-10";
+        // GitHub says a merge can take a few minutes, so this waits five.
+        const POLLS: u32 = 300;
+
+        let url = format!("{merge_url}-async");
+        let response = (self.client.put(&url))
+            .header("X-GitHub-Api-Version", API_VERSION)
+            .json(body)
+            .send()
+            .await?;
+        let status = response.status();
+        let body = response.text().await?;
+        // A merge asked for while another is under way gets that one's id, to follow instead.
+        if !status.is_success() && status != reqwest::StatusCode::CONFLICT {
+            bail!(
+                "GitHub refused the merge ({status}): {}",
+                refusal_message(body)
+            );
+        }
+        let mut merge: AsyncMerge = serde_json::from_str(&body)
+            .with_context(|| format!("GitHub answered the merge ({status}) with {body}"))?;
+        let uuid = merge.details.uuid.take();
+        for _ in 0..POLLS {
+            match merge.status {
+                Status::Merged | Status::Enqueued => return Ok(()),
+                Status::Failed => bail!(
+                    "GitHub couldn't merge the pull request: {}",
+                    merge.details.message.unwrap_or_default()
+                ),
+                Status::Pending => {}
+            }
+            let uuid = (uuid.as_deref()).context("GitHub accepted the merge without an id")?;
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            let response = (self.client.get(format!("{url}/{uuid}")))
+                .header("X-GitHub-Api-Version", API_VERSION)
+                .send()
+                .await?;
+            merge = ensure_success(response).await?.json().await?;
+        }
+        bail!("GitHub is still merging the pull request after five minutes; check it on GitHub")
     }
 
     /// Set the draftiness of a PR.
@@ -2988,6 +3049,15 @@ pub(crate) async fn response_error(response: reqwest::Response) -> String {
     }
 }
 
+/// GitHub's reason for refusing a request. Only its `message` reads well in a toast; the raw
+/// envelope drags a documentation URL along.
+fn refusal_message(body: String) -> String {
+    serde_json::from_str::<serde_json::Value>(&body)
+        .ok()
+        .and_then(|value| value.get("message")?.as_str().map(String::from))
+        .unwrap_or(body)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3114,6 +3184,120 @@ mod tests {
                 result.is_ok(),
                 succeeds,
                 "missing, refused, or unchanged resolution must fail"
+            );
+        }
+    }
+
+    /// Answer one connection per response, in order, checking each request's method and path.
+    fn serve(
+        responses: Vec<(&'static str, &'static str, &'static str)>,
+    ) -> (String, std::thread::JoinHandle<()>) {
+        use std::io::{Read as _, Write as _};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base_url = format!("http://{}", listener.local_addr().unwrap());
+        listener.set_nonblocking(true).unwrap();
+        let server = std::thread::spawn(move || {
+            for (request_line, status, body) in responses {
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+                let (mut stream, _) = loop {
+                    match listener.accept() {
+                        Ok(connection) => break connection,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            assert!(
+                                std::time::Instant::now() < deadline,
+                                "no request came for `{request_line}`"
+                            );
+                            std::thread::sleep(std::time::Duration::from_millis(5));
+                        }
+                        Err(error) => panic!("failed to accept request: {error}"),
+                    }
+                };
+                stream.set_nonblocking(false).unwrap();
+                stream
+                    .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                    .unwrap();
+                // Read the whole request, its body too, before answering.
+                let mut request = Vec::new();
+                let mut buffer = [0; 4096];
+                loop {
+                    if let Some(end) = request.windows(4).position(|bytes| bytes == b"\r\n\r\n") {
+                        let length = String::from_utf8_lossy(&request[..end])
+                            .lines()
+                            .find_map(|line| {
+                                let (name, value) = line.split_once(':')?;
+                                name.eq_ignore_ascii_case("content-length")
+                                    .then(|| value.trim().parse().unwrap())
+                            })
+                            .unwrap_or(0);
+                        if request.len() >= end + 4 + length {
+                            break;
+                        }
+                    }
+                    let n = stream.read(&mut buffer).unwrap();
+                    assert!(n > 0, "the request ended early");
+                    request.extend_from_slice(&buffer[..n]);
+                }
+                assert!(
+                    String::from_utf8_lossy(&request).starts_with(request_line),
+                    "expected `{request_line}`, got {}",
+                    String::from_utf8_lossy(&request)
+                );
+                write!(
+                    stream,
+                    "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .unwrap();
+            }
+        });
+        (base_url, server)
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_stacked_pull_request_merges_through_the_asynchronous_endpoint() {
+        // What GitHub answers the synchronous merge of a pull request in a stack.
+        let refused = r#"{"message":"Merging stacked PRs via this endpoint is not supported. Use the asynchronous merge endpoint instead."}"#;
+        let pending =
+            r#"{"status":"pending","details":{"message":"Merge requested","uuid":"m-1"}}"#;
+        let merged = r#"{"status":"merged","details":{"message":"Merged","sha":"abc"}}"#;
+        for (accepted, result, expected) in [
+            ("202 Accepted", merged, Ok(())),
+            (
+                "202 Accepted",
+                r#"{"status":"failed","details":{"message":"Required status check \"ci\" is failing."}}"#,
+                Err(
+                    r#"GitHub couldn't merge the pull request: Required status check "ci" is failing."#,
+                ),
+            ),
+            // A merge asked for again while the first is still under way.
+            ("409 Conflict", merged, Ok(())),
+        ] {
+            let (base_url, server) = serve(vec![
+                ("PUT /repos/o/r/pulls/7/merge ", "403 Forbidden", refused),
+                ("PUT /repos/o/r/pulls/7/merge-async ", accepted, pending),
+                ("GET /repos/o/r/pulls/7/merge-async/m-1 ", "200 OK", pending),
+                ("GET /repos/o/r/pulls/7/merge-async/m-1 ", "200 OK", result),
+            ]);
+            let client = GitHubClient {
+                client: reqwest::Client::new(),
+                base_url,
+            };
+            let merged = client
+                .merge_pull_request(&MergePullRequestParams {
+                    owner: "o",
+                    repo: "r",
+                    pr_number: 7,
+                    commit_title: None,
+                    commit_message: None,
+                    merge_method: Some(MergeMethod::Merge),
+                })
+                .await;
+            server.join().unwrap();
+            assert_eq!(
+                merged.map_err(|err| err.to_string()),
+                expected.map_err(String::from),
+                "the merge waits for GitHub's result, its own or one already under way, and \
+                 reports a failure in GitHub's words"
             );
         }
     }
