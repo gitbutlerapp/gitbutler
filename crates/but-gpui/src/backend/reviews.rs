@@ -337,17 +337,22 @@ pub use but_forge::ReviewMergeMethod as MergeMethod;
 
 /// Merge pull request `number`, then fetch so the target has the merge and the workspace can
 /// update from it. Asking for the request again records it merged in the cache, so the
-/// reload after shows it merged without waiting for the next listing.
-pub fn merge(path: &Path, number: u64, method: MergeMethod) -> Result<()> {
+/// reload after shows it merged without waiting for the next listing. Whether it merged, as
+/// GitHub can put a stacked one in its merge queue instead.
+pub fn merge(path: &Path, number: u64, method: MergeMethod) -> Result<bool> {
     let ctx = open(path)?.into_sync();
     (runtime().handle()).block_on(forge::merge_review(ctx, number as usize, Some(method)))?;
-    if let Err(err) = open(path).and_then(|ctx| forge::get_review(&ctx, number as usize)) {
-        tracing::warn!(?err, "merged, but couldn't read the pull request back");
-    }
+    let merged = match open(path).and_then(|ctx| forge::get_review(&ctx, number as usize)) {
+        Ok(review) => review.merged_at.is_some(),
+        Err(err) => {
+            tracing::warn!(?err, "merged, but couldn't read the pull request back");
+            true
+        }
+    };
     if let Err(err) = super::fetch(path) {
         tracing::warn!(?err, "merged, but couldn't fetch");
     }
-    Ok(())
+    Ok(merged)
 }
 
 /// What the forge says about whether a pull request can merge now.

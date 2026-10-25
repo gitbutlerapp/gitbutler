@@ -455,7 +455,13 @@ impl AppView {
                     ..Overlay::remote()
                 },
                 move |path, _| reviews::merge(path, number, method),
-                |store, (), cx| store.snack("Merged, Update brings it into your workspace", cx),
+                |store, merged, cx| {
+                    let said = match merged {
+                        true => "Merged, Update brings it into your workspace",
+                        false => "In the merge queue, it merges when the queue gets to it",
+                    };
+                    store.snack(said, cx)
+                },
                 cx,
             )
         });
