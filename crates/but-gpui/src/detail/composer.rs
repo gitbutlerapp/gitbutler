@@ -794,7 +794,11 @@ impl Detail {
             return;
         };
         if self.writing.is_some() {
-            snack(&self.store, "The message is still being written", cx);
+            snack(
+                &self.store,
+                "The message is still being written: the sparkle keeps what's written so far",
+                cx,
+            );
             return;
         }
         let message = self.message.read(cx).text().trim().to_owned();
@@ -1195,19 +1199,21 @@ impl Detail {
                                 Icon::Ai,
                             )
                             .small()
-                            .disabled_because(if self.writing.is_some() {
-                                Some("Writing…")
-                            } else if checked == 0 {
-                                Some("Check some changes to write about")
-                            } else {
-                                None
-                            })
+                            .disabled_because(
+                                (self.writing.is_none() && checked == 0)
+                                    .then_some("Check some changes to write about"),
+                            )
                             .tooltip(if self.writing.is_some() {
-                                "Writing…"
+                                "Writing… Click to keep what's written so far"
                             } else {
                                 "Write the message with AI, guided by what's in the box"
                             })
-                            .on_click(cx.listener(|this, _, _, cx| this.write_message(cx))),
+                            // A slow model, as a local one can be, would otherwise hold the
+                            // commit until it's done.
+                            .on_click(cx.listener(|this, _, _, cx| match this.writing.take() {
+                                Some(_) => cx.notify(),
+                                None => this.write_message(cx),
+                            })),
                         ),
                     ),
             )
