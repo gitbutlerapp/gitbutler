@@ -9,14 +9,14 @@
     "context": "Workspace && !TextInput",
     "bindings": { "ctrl-y": "app::Redo" }
   },
-  // Letters for what ⌘K and ⌘B do, first so those are the keys shown: ? as on GitHub, Linear
-  // and the TUI, : as vim's and the TUI's command line, and . as in Lite.
+  // Letters for what ⌘K and ⌘B do, first so those are the keys shown: : as vim's and the TUI's
+  // command line, and . as in Lite. ? lists the keys, as on GitHub, Linear and the TUI.
   {
     "context": "Workspace && !TextInput",
     "bindings": {
-      "?": "app::CommandPalette",
       ":": "app::CommandPalette",
-      ".": "app::ToggleNavigator"
+      ".": "app::ToggleNavigator",
+      "?": "settings::OpenKeyboardShortcuts"
     }
   },
   {
@@ -30,11 +30,11 @@
       "secondary-o": "app::AddProject",
       "secondary-shift-o": "projects::CloneRepository",
       "secondary-n": "navigator::NewBranch",
-      // VS Code's and Zed's key works too, and ⌘/ as in GitKraken; ⌘K, Linear's and
-      // GitHub's, is the one shown.
+      // VS Code's and Zed's key works too; ⌘K, Linear's and GitHub's, is the one shown.
       "secondary-shift-p": "app::CommandPalette",
-      "secondary-/": "app::CommandPalette",
       "secondary-k": "app::CommandPalette",
+      // The keys, as GitKraken lists them.
+      "secondary-/": "settings::OpenKeyboardShortcuts",
       "secondary-1": "app::FocusNavigator",
       "secondary-2": "app::FocusChanges",
       "secondary-3": "app::FocusDiff",

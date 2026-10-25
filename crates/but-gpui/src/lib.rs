@@ -265,7 +265,7 @@ pub fn run(embedded: Option<Embedded>) {
                     Menu::new("Help").items([
                         MenuItem::action("GitButler Docs", help::OpenDocs),
                         MenuItem::action("What's New", help::OpenReleaseNotes),
-                        MenuItem::action("Keyboard Shortcuts", app::CommandPalette),
+                        MenuItem::action("Keyboard Shortcuts", settings::OpenKeyboardShortcuts),
                         MenuItem::action("Open Keymap File", keymap::OpenKeymap),
                         MenuItem::separator(),
                         MenuItem::action("Report an Issue…", help::ReportIssue),

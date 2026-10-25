@@ -30,6 +30,11 @@ pub fn create(template: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
+/// Replace the keymap with `contents`, as Settings › Keyboard changes it.
+pub fn write(contents: &str) -> Result<()> {
+    std::fs::write(path()?, contents).context("couldn't write keymap.json")
+}
+
 /// `contents` in the system's temporary folder as `name`, to open and read.
 pub fn temporary(name: &str, contents: &str) -> Result<PathBuf> {
     let path = std::env::temp_dir().join(name);

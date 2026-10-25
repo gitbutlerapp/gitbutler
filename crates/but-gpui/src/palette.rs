@@ -31,7 +31,7 @@ use crate::ui::{
 actions!(palette, [PaletteUp, PaletteDown, GoToBranch, ShowActions]);
 
 /// Every command, in the order they're listed before anything is typed.
-const COMMANDS: &[(&str, &dyn Action)] = &[
+pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Next hunk", &NextHunk),
     ("Previous hunk", &PreviousHunk),
     ("Next file", &NextFile),
@@ -87,6 +87,10 @@ const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Add project…", &AddProject),
     ("Clone a repository…", &crate::projects::CloneRepository),
     ("Settings", &crate::settings::OpenSettings),
+    (
+        "Keyboard shortcuts",
+        &crate::settings::OpenKeyboardShortcuts,
+    ),
     ("Operations history", &crate::app::OperationsHistory),
     ("Next pane", &crate::app::FocusNextPane),
     ("Previous pane", &crate::app::FocusPreviousPane),

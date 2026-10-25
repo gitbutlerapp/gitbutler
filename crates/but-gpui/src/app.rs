@@ -1000,6 +1000,7 @@ impl Render for AppView {
                 el.on_action(cx.listener(Self::check_for_updates))
             })
             .on_action(cx.listener(Self::open_settings))
+            .on_action(cx.listener(Self::open_keyboard_shortcuts))
             .on_action(cx.listener(Self::open_whats_new))
             .on_action(cx.listener(Self::clone_repository))
             // Here rather than around the navigator, so the details pane's buttons reach them.
