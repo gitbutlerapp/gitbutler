@@ -781,7 +781,23 @@ impl AppView {
             ),
             None => None,
         };
-        let ask = match (lasting, &changes[..]) {
+        // A submodule's own work goes with it too, which the oplog doesn't record.
+        let why = (changes.iter())
+            .find(|change| change.file.submodule().is_some())
+            .map(|sub| match sub.file.kind {
+                backend::ChangeKind::Added => format!(
+                    "{} is a repository of its own. Discarding deletes it and everything in it, \
+                     and undo can't bring it back.",
+                    sub.file.path
+                ),
+                _ => format!(
+                    "Discarding resets {} to the commit recorded for it. Uncommitted changes in it \
+                     are deleted, and undo can't bring them back.",
+                    sub.file.path
+                ),
+            })
+            .or(lasting.map(str::to_owned));
+        let ask = match (why, &changes[..]) {
             (_, []) => return,
             (None, _) => None,
             (Some(why), picked) => {
@@ -813,7 +829,7 @@ impl AppView {
         match ask {
             None => run(self, cx),
             Some((message, detail)) => {
-                self.confirm_then(Some(at), message, detail, "Discard", window, cx, run)
+                self.confirm_then(Some(at), message, &detail, "Discard", window, cx, run)
             }
         }
     }
