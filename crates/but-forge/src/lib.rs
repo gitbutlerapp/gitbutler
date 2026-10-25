@@ -568,18 +568,6 @@ mod tests {
     }
 
     #[test]
-    fn repository_identity_ignores_owner_and_repo_case() {
-        let lower =
-            derive_forge_repo_info("https://github.com/gitbutlerapp/gitbutler.git", None).unwrap();
-        let mixed =
-            derive_forge_repo_info("git@github.com:GitButlerApp/GitButler.git", None).unwrap();
-        assert!(
-            lower.same_repository(&mixed),
-            "forges resolve owner and repo names regardless of case"
-        );
-    }
-
-    #[test]
     fn repository_identity_distinguishes_hosts_and_known_api_ports() {
         let (_tmp, storage, accounts) = accounts();
         for (account, alias) in accounts.iter().zip([

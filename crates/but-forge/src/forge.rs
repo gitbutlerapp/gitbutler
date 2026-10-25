@@ -92,16 +92,13 @@ impl ForgeRepoInfo {
     }
 
     /// Whether these remotes can identify the same repository for remote reuse
-    /// and fork detection. Provider, canonical host, owner, and repo must match,
-    /// owner and repo ignoring case as the forges do; known API ports must agree,
-    /// while private SSH's API port is unknown.
+    /// and fork detection. Provider, canonical host, owner, and repo must match;
+    /// known API ports must agree, while private SSH's API port is unknown.
     ///
     /// This is symmetric but not transitive: SSH can match HTTPS on either of
     /// two ports that do not match each other. It does not authorize credentials.
     pub fn same_repository(&self, other: &Self) -> bool {
-        self.same_server(other)
-            && self.owner.eq_ignore_ascii_case(&other.owner)
-            && self.repo.eq_ignore_ascii_case(&other.repo)
+        self.same_server(other) && self.owner == other.owner && self.repo == other.repo
     }
 
     /// Known API port for server and account checks. Private SSH remotes remain

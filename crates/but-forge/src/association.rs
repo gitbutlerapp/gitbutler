@@ -36,11 +36,11 @@ pub type ReviewAssociation = (usize, bool, Option<String>);
 /// `origin/my-feature`, to the preferred cached review's `(number, is open,
 /// merged head)`.
 ///
-/// A review is listed under each remote that fetches from or pushes to the
-/// review's head repository, so a branch never picks up a same-named review
-/// from someone else's fork. When the forge doesn't report the head repository,
-/// or a remote's URLs name no forge repository, the review is listed under that
-/// remote anyway and matches by branch name alone.
+/// A review from a fork is listed only under remotes that fetch from or push to
+/// that fork, so a branch never picks up a same-named review from someone else's
+/// fork. Every other review is listed under every remote and matches by branch
+/// name alone, as are fork reviews when the forge doesn't report the head
+/// repository or a remote's URLs name no forge repository.
 ///
 /// The merged head is the review's source commit (lowercased hex) when the
 /// review merged, letting the projection recognize a branch whose tip landed
@@ -65,21 +65,25 @@ pub fn review_associations_by_head(
             (name.to_string(), remote_repos)
         })
         .collect();
-    // Forks open many reviews each, so parse each head repository once.
-    let mut head_repos = HashMap::new();
+    // Forks open many reviews each, so parse each fork's repository once.
+    let mut fork_repos = HashMap::new();
     let mut by_head: HashMap<String, &ForgeReview> = HashMap::new();
     for review in &reviews {
-        let head_repo = (review.repository_https_url.as_ref())
+        // Base-repository reviews skip the check, so a remote whose URL renames the
+        // repository, like an old name or an SSH alias, keeps them.
+        let fork_repo = (review.repository_https_url.as_ref())
             .or(review.repository_ssh_url.as_ref())
+            .filter(|_| review.head_repo_is_fork)
             .and_then(|url| {
-                (head_repos.entry(url))
+                (fork_repos.entry(url))
                     .or_insert_with(|| crate::derive_forge_repo_info(url, None))
                     .clone()
             });
         for (remote, remote_repos) in &remotes {
-            if let Some(head_repo) = &head_repo
+            if let Some(fork_repo) = &fork_repo
                 && !remote_repos.is_empty()
-                && !(remote_repos.iter()).any(|remote_repo| head_repo.same_repository(remote_repo))
+                && !(remote_repos.iter())
+                    .any(|remote_repo| same_owner_and_name(fork_repo, remote_repo))
             {
                 continue;
             }
@@ -100,6 +104,12 @@ pub fn review_associations_by_head(
             Some((head, (number, review.is_open(), merged_head)))
         })
         .collect())
+}
+
+/// Whether `a` and `b` have the same owner and name, ignoring case as the forges
+/// do. Hosts aren't compared, as an SSH alias like `github.com-work` renames them.
+fn same_owner_and_name(a: &crate::ForgeRepoInfo, b: &crate::ForgeRepoInfo) -> bool {
+    a.owner.eq_ignore_ascii_case(&b.owner) && a.repo.eq_ignore_ascii_case(&b.repo)
 }
 
 /// Build a lookup from a branch's remote/pushed short name to its associated

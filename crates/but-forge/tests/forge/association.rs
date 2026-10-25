@@ -146,7 +146,7 @@ fn review_associations_follow_the_head_repository() {
 [remote "origin"]
 	url = git@github.com:acme/app.git
 [remote "alice"]
-	url = https://github.com/Alice/app.git
+	url = git@github.com-alice:Alice/app.git
 "#,
     );
     cache_review(
@@ -159,14 +159,16 @@ fn review_associations_follow_the_head_repository() {
         &from_fork(review(2, "feature"), "https://github.com/mallory/app.git"),
     )
     .unwrap();
-    cache_review(&mut db, &review(3, "unreported")).unwrap();
+    let mut renamed = review(3, "renamed");
+    renamed.repository_https_url = Some("https://github.com/acme/new-app.git".into());
+    cache_review(&mut db, &renamed).unwrap();
 
     let by_head = review_associations_by_head(&db, &repo).unwrap();
     let number = |head: &str| by_head.get(head).map(|(number, ..)| *number);
     assert_eq!(
         number("alice/feature"),
         Some(1),
-        "a fork's branch associates with the review opened from that fork, whatever the case of its URL"
+        "a fork's branch associates with the review opened from that fork, through an SSH alias and whatever the case"
     );
     assert_eq!(
         number("origin/feature"),
@@ -174,9 +176,9 @@ fn review_associations_follow_the_head_repository() {
         "a same-named review from someone else's fork must not attach to the base repository's branch"
     );
     assert_eq!(
-        (number("origin/unreported"), number("alice/unreported")),
+        (number("origin/renamed"), number("alice/renamed")),
         (Some(3), Some(3)),
-        "without a reported head repository, the branch name alone decides"
+        "a base-repository review matches by branch name alone, so a remote on the repository's old name keeps it"
     );
 }
 
