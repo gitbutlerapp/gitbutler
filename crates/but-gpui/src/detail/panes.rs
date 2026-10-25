@@ -477,14 +477,7 @@ impl Detail {
         };
         // A long title wraps rather than hiding its end, as it's shown nowhere else, and
         // scrolls past a dozen lines.
-        let title = page_title(Icon::Commit, theme)
-            .id("commit-title")
-            .child(self.message_title(title, &body, cx))
-            .on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
-                if event.click_count() == 2 {
-                    this.start_reword(window, cx)
-                }
-            }));
+        let title = page_title(Icon::Commit, theme).child(self.message_title(title, &body, cx));
         let meta = meta_row(theme)
             .child(byline(
                 &commit.author,
@@ -514,7 +507,14 @@ impl Detail {
             .gap(dp(10.))
             .map(|el| match rewording {
                 Some((_, input, _)) => el.child(self.reword_editor(input, theme, window, cx)),
-                None => el.child(self.message(title, body, theme)),
+                // A double-click on its title or body edits the message.
+                None => el.child(self.message(title, body, theme).on_click(cx.listener(
+                    |this, event: &ClickEvent, window, cx| {
+                        if event.click_count() == 2 {
+                            this.start_reword(window, cx)
+                        }
+                    },
+                ))),
             })
             .child(meta);
         let target = Selection::Commit(project.clone(), id);
