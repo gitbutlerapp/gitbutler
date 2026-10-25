@@ -40,7 +40,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result, bail};
 use gpui::{
-    AnyWindowHandle, App, AppContext as _, Keystroke, Modifiers, ModifiersChangedEvent,
+    AnyWindowHandle, App, AppContext as _, KeyUpEvent, Keystroke, Modifiers, ModifiersChangedEvent,
     MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, PlatformInput, Point,
     ScrollDelta, ScrollWheelEvent, TouchPhase, Window, point,
 };
@@ -323,7 +323,9 @@ fn dispatch(command: &str, rest: &str, window: &mut Window, cx: &mut App) -> Res
                 })
             };
             window.dispatch_event(hold(keystroke.modifiers), cx);
-            window.dispatch_keystroke(keystroke, cx);
+            window.dispatch_keystroke(keystroke.clone(), cx);
+            // Let go, which presses a focused button.
+            window.dispatch_event(PlatformInput::KeyUp(KeyUpEvent { keystroke }), cx);
             window.dispatch_event(hold(Modifiers::default()), cx);
         }
         "type" => {

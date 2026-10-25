@@ -836,10 +836,13 @@ impl SettingsView {
     ) -> impl IntoElement {
         let selected = !searching && self.page == page;
         // Solid while it's shown, as a side list's is with the focus.
-        side_row(
-            SharedString::from(format!("{page:?}")),
-            selected,
-            true,
+        ui::tab_stop(
+            side_row(
+                SharedString::from(format!("{page:?}")),
+                selected,
+                true,
+                theme,
+            ),
             theme,
         )
         .mx_0()

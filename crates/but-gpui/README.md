@@ -163,6 +163,12 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 | f | hide or show the file list beside the diff, hiding it closing its filter (Branches, Operations history and a project's page always show their list) |
 | / | filter the files by path |
 
+| In a prompt or a modal, as Settings | |
+|---|---|
+| Tab, ⇧Tab | the next or previous field, button, switch or dropdown, round again within it, scrolled into view |
+| ↩, Space | press the button, switch or dropdown that has the keys |
+| Escape | cancel or close it, whichever control has the keys |
+
 ## How it's built
 
 - `src/backend` is the only code that touches GitButler crates, and `src/backend/annotate.rs` the only code that touches deltoids. It turns `but-api` results into plain structs (`model.rs`) and diffs into hunks of lines (`diff.rs`), and runs every call on a tokio pool with large stacks, since GitButler's graph walks and push futures overflow the small stacks of GPUI's worker threads in debug builds.

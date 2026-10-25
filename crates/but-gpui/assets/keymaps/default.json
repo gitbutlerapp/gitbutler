@@ -79,6 +79,14 @@
       "shift-tab": "app::FocusPreviousPane"
     }
   },
+  // A prompt's or a modal's fields and buttons, from its text fields too, as in a macOS sheet.
+  {
+    "context": "Dialog",
+    "bindings": {
+      "tab": "app::FocusNextPane",
+      "shift-tab": "app::FocusPreviousPane"
+    }
+  },
   // As Explorer and browsers move between panes.
   {
     "os": ["windows", "linux"],

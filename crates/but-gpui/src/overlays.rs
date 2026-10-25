@@ -11,14 +11,14 @@ use gpui::{
     Subscription, Window, anchored, deferred, div, prelude::*, relative,
 };
 
-use crate::app::AppView;
+use crate::app::{AppView, Cancel, FocusNextPane, FocusPreviousPane};
 use crate::backend::{self, short_ref};
 use crate::state::{Notice, Overlay, ProjectId, Remap, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
-    ButtonStyle, Icon, STATUS_BAR_HEIGHT, button, dp, error_summary, field, fixed, h_flex, icon,
-    keycap, list_row, muted, popover, shortcut, small_icon, v_flex,
+    ButtonStyle, FocusedAt, Icon, STATUS_BAR_HEIGHT, ShowFocused, button, dp, error_summary, field,
+    fixed, h_flex, icon, keycap, list_row, muted, popover, shortcut, small_icon, v_flex,
 };
 
 /// A right-click menu.
@@ -151,6 +151,8 @@ pub struct Prompt {
     pub(crate) on_branch: Option<(ProjectId, String)>,
     /// What had the keys before, as a message being written, to give them back to.
     restore_focus: Option<FocusHandle>,
+    /// Its own, around its field and buttons, which Tab keeps to.
+    pub(crate) focus: FocusHandle,
     _subscription: Subscription,
 }
 
@@ -359,6 +361,7 @@ impl AppView {
             hint: None,
             on_branch: None,
             restore_focus,
+            focus: cx.focus_handle(),
             _subscription: subscription,
         });
         cx.notify();
@@ -434,7 +437,8 @@ impl AppView {
             });
         let (focus, returns_to) = (view.focus_handle(cx), window.focused(cx));
         window.focus(&focus, cx);
-        self.modal = Some((view.into(), focus, subscription, returns_to));
+        let card = cx.focus_handle();
+        self.modal = Some((view.into(), focus, card, subscription, returns_to));
         cx.notify();
     }
 
@@ -448,10 +452,11 @@ impl AppView {
     }
 
     pub(crate) fn render_modal(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let (view, ..) = self.modal.as_ref()?;
+        let (view, _, focus, ..) = self.modal.as_ref()?;
         // At most most of the window: the modal inside can't say so itself, as this box is
         // only as wide as the modal.
         let card = (div().flex().max_w(relative(0.92)).max_h(relative(0.88))).child(view.clone());
+        let card = dialog(card, focus);
         let backdrop = backdrop("modal-backdrop", card, cx, Self::close_modal);
         Some(backdrop.items_center().into_any_element())
     }
@@ -525,8 +530,9 @@ impl AppView {
         let theme = Theme::get(cx);
         let input = prompt.input.clone();
         let focused = input.focus_handle(cx).is_focused(window);
-        let card = popover(theme)
-            .id("prompt")
+        let card = dialog(popover(theme).id("prompt"), &prompt.focus)
+            // Escape from its buttons, which the field's own Escape doesn't reach.
+            .on_action(cx.listener(|this, _: &Cancel, window, cx| this.cancel_prompt(window, cx)))
             .w(dp(380.))
             .h_auto()
             .p(dp(16.))
@@ -768,6 +774,48 @@ pub(crate) fn backdrop(
             cx.listener(move |this, _, window, cx| dismiss(this, window, cx)),
         )
         .child(card.on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation()))
+}
+
+/// `el`, a prompt or a modal around `focus`. Tab and ⇧Tab go round its fields and buttons,
+/// as in a macOS sheet, and never to the window behind it.
+fn dialog<E: InteractiveElement>(el: E, focus: &FocusHandle) -> E {
+    let (next, previous) = (focus.clone(), focus.clone());
+    el.key_context("Dialog")
+        .track_focus(focus)
+        .on_action(move |_: &FocusNextPane, window, cx| tab_within(&next, false, window, cx))
+        .on_action(move |_: &FocusPreviousPane, window, cx| tab_within(&previous, true, window, cx))
+}
+
+/// Give the keys to the control in `dialog` after the one that has them, or before it when
+/// going `back`. The window's tab order runs through what's behind the dialog too, so this
+/// steps on past those. Focusing them on the way tells them nothing, as GPUI only reports
+/// focus changes when it draws.
+fn tab_within(dialog: &FocusHandle, back: bool, window: &mut Window, cx: &mut App) {
+    let start = window.focused(cx);
+    let mut first = None;
+    loop {
+        match back {
+            true => window.focus_prev(cx),
+            false => window.focus_next(cx),
+        }
+        if dialog.contains_focused(window, cx) {
+            // A list scrolled past it brings it into view. One left from a control outside any
+            // list mustn't scroll this one's.
+            if cx.has_global::<FocusedAt>() {
+                cx.remove_global::<FocusedAt>();
+            }
+            return window.dispatch_action(Box::new(ShowFocused), cx);
+        }
+        let now = window.focused(cx);
+        // Round the whole window without reaching the dialog.
+        if now.is_none() || now == first {
+            break;
+        }
+        first = first.or(now);
+    }
+    if let Some(start) = start {
+        window.focus(&start, cx);
+    }
 }
 
 /// `card` at `position`, kept inside the window, over everything as a native menu is: what's

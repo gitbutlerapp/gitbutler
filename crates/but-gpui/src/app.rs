@@ -83,9 +83,16 @@ pub struct AppView {
     pub icon_picker: Option<crate::projects::IconPicker>,
     pub navigator_open: bool,
     pub palette: Option<Palette>,
-    /// The modal on screen, if any, what takes its keys, the subscription that closes it,
-    /// and what had the keys before it opened, to give them back.
-    pub modal: Option<(AnyView, FocusHandle, Subscription, Option<FocusHandle>)>,
+    /// The modal on screen, if any, what takes its keys, its card's own, which Tab keeps
+    /// to, the subscription that closes it, and what had the keys before it opened, to give
+    /// them back.
+    pub modal: Option<(
+        AnyView,
+        FocusHandle,
+        FocusHandle,
+        Subscription,
+        Option<FocusHandle>,
+    )>,
     /// Palette commands by label, most recently run first.
     pub recent_commands: Vec<&'static str>,
     _subscriptions: Vec<Subscription>,
