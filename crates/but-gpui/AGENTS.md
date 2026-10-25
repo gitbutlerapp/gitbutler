@@ -342,6 +342,22 @@ Windows CI job lints and tests the one, the Linux lint and test jobs the other.
   a header in `ui::above_drag` so it keeps its clicks.
 - Tests that need Unix APIs, as file modes or `sh`, carry `#[cfg(unix)]`.
 
+## Accessibility
+
+- Build controls from `ui`'s helpers (`button`, `switch`, `dropdown`, `segmented`, `list_row`,
+  `checkbox`). Each gives VoiceOver a role and a name, and the first four are tab stops. GPUI
+  reports only elements with both an id and a `role`, so a hand-built clickable `div` needs
+  `.role()` and `.aria_label()`, and `ui::tab_stop` when it's a control in a dialog.
+- In the window Tab moves between panes. In a prompt or a modal (`dialog` in `overlays.rs`,
+  the `Dialog` key context) it goes round that dialog's tab stops, and `open_modal` gives a new
+  modal this. Clicking a tab stop leaves the keys where they were, as clicking a macOS button
+  does. Tab scrolls the control it reaches into view only inside `ui::scrollbar::scrolled`, so
+  a dialog's scrolling list goes in one.
+- A colour comes from `Theme`, and a new one is a step on design-core's scales (`tokens.css` in
+  `@gitbutler/design-core`). Text needs 4.5:1 and a control's marks 3:1, on `bg_1` and `bg_2`
+  in both themes. Design-core's own text-safe, text-danger and fill-pop fall short in light,
+  so `Theme` takes the next darker step.
+
 ## Conventions
 
 - Match Lite's wording and structure and the rules in `packages/ui-react/design/`. Adapt Lite,

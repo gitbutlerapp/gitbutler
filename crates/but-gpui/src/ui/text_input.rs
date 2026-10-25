@@ -196,7 +196,8 @@ impl TextInput {
         cx: &mut Context<Self>,
     ) -> Self {
         Self {
-            focus_handle: cx.focus_handle(),
+            // Where Tab goes in a dialog: in the window, Tab moves between panes instead.
+            focus_handle: cx.focus_handle().tab_stop(true),
             content: String::new(),
             placeholder: placeholder.into(),
             multiline,
@@ -808,8 +809,7 @@ impl Focusable for TextInput {
 
 impl Render for TextInput {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        div()
-            .id("text-input")
+        super::shown_when_focused(div().id("text-input"))
             .role(if self.multiline {
                 Role::MultilineTextInput
             } else {

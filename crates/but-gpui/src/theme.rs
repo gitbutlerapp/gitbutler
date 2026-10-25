@@ -23,6 +23,8 @@ pub struct Theme {
     pub text_inverted: Hsla,
     pub pop: Hsla,
     pub pop_bg: Hsla,
+    /// A Pop button's ground, darker than `pop_bg` so its white label reads at 4.5:1.
+    pub pop_button: Hsla,
     pub blue: Hsla,
     pub safe: Hsla,
     pub warn: Hsla,
@@ -205,11 +207,16 @@ impl Theme {
             fill_gray: pick(0x434343, 0xf2f2f2),
             text_inverted: pick(0xf8f8f8, 0x1e1e1e),
             pop: pick(0x177a7a, 0x25b1b1),
-            pop_bg: pick(0x25b1b1, 0x1e8e8e),
+            // Design-core's pop 40 and pop 30, darker than its fill-pop. A white tick on pop 40
+            // reads at 3:1, and a white label needs pop 30 for 4.5:1.
+            pop_bg: rgb(0x1e8e8e).into(),
+            pop_button: rgb(0x177070).into(),
             blue: pick(0x0b61eb, 0x84aff5),
-            safe: pick(0x259466, 0x2eb87f),
+            // In light, design-core's safe 30 and danger 40, a step darker than its text-safe
+            // and text-danger, which read under 4.5:1 on `bg_2`.
+            safe: pick(0x1d744e, 0x2eb87f),
             warn: pick(0xa05f04, 0xf99406),
-            danger: pick(0xd64029, 0xe28576),
+            danger: pick(0xac3421, 0xe28576),
             purple: pick(0x6e2cb1, 0xb287de),
             snackbar_bg: pick(0x1e1e1e, 0x434343),
             snackbar_text: rgb(0xf8f8f8).into(),

@@ -11,7 +11,7 @@ use gpui::{
     prelude::*, size,
 };
 
-use super::fixed;
+use super::{FocusedAt, ShowFocused, fixed};
 use crate::theme::Theme;
 
 /// The width of the strip that takes the pointer.
@@ -35,6 +35,22 @@ impl Scroll {
             ),
             Scroll::Div(handle) => (-handle.offset().y, handle.max_offset().y),
         }
+    }
+
+    /// Scroll the least that shows `bounds`, part of the content as last drawn, or its top
+    /// when it's taller than the view. A list keeps its own place.
+    fn reveal(&self, bounds: Bounds<Pixels>) {
+        let Scroll::Div(handle) = self else { return };
+        let view = handle.bounds();
+        let by = if bounds.top() < view.top() {
+            bounds.top() - view.top()
+        } else if bounds.bottom() > view.bottom() {
+            (bounds.bottom() - view.bottom()).min(bounds.top() - view.top())
+        } else {
+            return;
+        };
+        let (offset, max) = self.offsets();
+        self.scroll_to((offset + by).max(Pixels::ZERO).min(max));
     }
 
     fn scroll_to(&self, offset: Pixels) {
@@ -67,10 +83,17 @@ struct BarState {
 
 /// `list` filling the height left for it, with its scrollbar over its right edge.
 pub fn scrolled(list: impl IntoElement, id: &'static str, scroll: Scroll, theme: &Theme) -> Div {
+    let shown = scroll.clone();
     div()
         .relative()
         .flex_1()
         .min_h_0()
+        .on_action(move |_: &ShowFocused, window, cx| {
+            if cx.has_global::<FocusedAt>() {
+                shown.reveal(cx.remove_global::<FocusedAt>().0);
+                window.refresh();
+            }
+        })
         .child(list)
         .children(scrollbar(id, scroll, theme))
 }
