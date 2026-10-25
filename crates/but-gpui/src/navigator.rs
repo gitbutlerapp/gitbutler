@@ -531,6 +531,32 @@ impl Navigator {
             .collect()
     }
 
+    /// Space at the end of a commit's diff: on to the next unread commit, in any branch or
+    /// project, going on from the top past the end, as a feed reader goes on to the next unread
+    /// article, until there are none.
+    pub fn read_on(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        if !matches!(store.selection, Some(Selection::Commit(..))) {
+            return;
+        }
+        let items = self.items();
+        let at = (store.selection.as_ref()).and_then(|s| items.iter().position(|item| *item == s));
+        let unread = |item: &&&Selection| match item {
+            Selection::Commit(project, id) => (store.workspace(project))
+                .and_then(|ws| ws.commits().find(|commit| commit.id == *id))
+                .is_some_and(|commit| store.is_unread(project, commit)),
+            _ => false,
+        };
+        let after = at.map_or(0, |at| at + 1);
+        let next = (items.iter().skip(after).chain(items.iter().take(after)))
+            .find(unread)
+            .map(|item| (*item).clone());
+        match next {
+            Some(next) => self.select(next, window, cx),
+            None => crate::state::snack(&self.store, "All caught up", cx),
+        }
+    }
+
     fn step(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
         let items = self.items();
         if items.is_empty() {

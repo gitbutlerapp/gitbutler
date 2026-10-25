@@ -13,7 +13,7 @@ use gpui::{
 };
 
 use super::{Detail, machine};
-use crate::app::{AppHandle, Collapse, Expand, SelectNext, SelectPrevious, StartCommit};
+use crate::app::{AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious, StartCommit};
 use crate::backend::{self, CommitId, CommitState, PushState, short_ref};
 use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Selection};
@@ -1210,12 +1210,13 @@ pub(super) fn back_to_list(
 }
 
 impl Detail {
-    /// A list page's column, whose list takes the focus: ↑ and ↓ `step` through it, and
-    /// → and ← `fold` what's selected, on a page whose rows fold.
+    /// A list page's column, whose list takes the focus: ↑ and ↓ `step` through it, → and ←
+    /// `fold` what's selected, on a page whose rows fold, and Return does `confirm` to it.
     pub(super) fn list_column(
         &self,
         step: fn(&mut Self, isize, &mut Context<Self>),
         fold: Option<fn(&mut Self, bool, &mut Context<Self>)>,
+        confirm: Option<fn(&mut Self, &mut Window, &mut Context<Self>)>,
         cx: &Context<Self>,
     ) -> Div {
         v_flex()
@@ -1227,6 +1228,11 @@ impl Detail {
             .when_some(fold, |el, fold| {
                 el.on_action(cx.listener(move |this, _: &Expand, _, cx| fold(this, true, cx)))
                     .on_action(cx.listener(move |this, _: &Collapse, _, cx| fold(this, false, cx)))
+            })
+            .when_some(confirm, |el, confirm| {
+                el.on_action(
+                    cx.listener(move |this, _: &Confirm, window, cx| confirm(this, window, cx)),
+                )
             })
     }
 

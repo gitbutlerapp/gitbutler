@@ -1021,6 +1021,16 @@ impl Detail {
             .update_later(window, cx, move |app, _, cx| app.cut(cut, cx));
     }
 
+    /// Return on the list: apply the selected branch, as its menu's Apply does.
+    fn apply_selected_branch(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(Selection::Branches(project)) = self.store.read(cx).selection.clone() else {
+            return;
+        };
+        if let Some(ref_name) = (self.selected_other_branch(&project)).map(|b| b.ref_name.clone()) {
+            self.apply_branch(&project, &ref_name, window, cx)
+        }
+    }
+
     fn apply_branch(
         &mut self,
         project: &ProjectId,
@@ -1486,18 +1496,23 @@ impl Detail {
             .min_h(dp(LIST_MIN_HEIGHT))
             .into_any_element()
         };
-        self.list_column(Self::step_branches, Some(Self::fold_branches), cx)
-            .when(self.selected_branch_commit(project).is_some(), |el| {
-                let project = project.clone();
-                el.on_action(cx.listener(move |this, _: &CherryPick, window, cx| {
-                    this.copy_branch_commit(&project, window, cx)
-                }))
-            })
-            .child(filter)
-            .children(chips)
-            .child(list)
-            .child(people)
-            .into_any_element()
+        self.list_column(
+            Self::step_branches,
+            Some(Self::fold_branches),
+            Some(Self::apply_selected_branch),
+            cx,
+        )
+        .when(self.selected_branch_commit(project).is_some(), |el| {
+            let project = project.clone();
+            el.on_action(cx.listener(move |this, _: &CherryPick, window, cx| {
+                this.copy_branch_commit(&project, window, cx)
+            }))
+        })
+        .child(filter)
+        .children(chips)
+        .child(list)
+        .child(people)
+        .into_any_element()
     }
 
     /// Whether the filter menu's choices leave some branches out, as they don't at rest.

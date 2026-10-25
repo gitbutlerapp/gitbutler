@@ -114,6 +114,10 @@ The Help menu's What's New (the palette finds it by "release notes" too) opens G
 | ⌘, | settings |
 | ⌘F, ⌘G, ⇧⌘G | find in the diff, then, from the diff or the find bar, the next or previous match (n and N in the diff too) |
 | ⌥Z, s | wrap long lines in diffs or stop, show them side by side or one above the other |
+| Tab, ⇧Tab | the next or previous of the navigator, the file list and the diff (F6 and ⇧F6 too on Windows and Linux) |
+| ⌃Tab | a branch's other tab, Changes or Pull request |
+| ⇧⌘H | the selected project's Operations history |
+| ⌘W | close the window, which quits, asking first as ⌘Q does (macOS) |
 
 Text fields take the keys of the platform's own: on macOS the Cocoa text system's (⌘A selects all, ⌥ moves and deletes by word, ⌘ by line, and ⌃A ⌃E ⌃B ⌃F ⌃P ⌃N ⌃D ⌃H ⌃K as in Emacs), on Linux and Windows Ctrl for select all, the clipboard, undo and words, with Ctrl-Y to redo.
 
@@ -121,6 +125,7 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 |---|---|
 | / | filter the projects, worktrees, branches and commits |
 | ↑ ↓ or j k | move through the tree |
+| Space ⇧Space | scroll the diff beside it; at the end of a commit, go on to the next unread commit, from the top again past the end, until All caught up |
 | ⇧↑ ⇧↓ | select a run of commits |
 | ⌥↑ ⌥↓, { } | previous or next branch or project |
 | Home End, gg ⇧G | first or last row |
@@ -130,7 +135,12 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 | u | mark the selected commit, or the picks it's among, read, or unread when they're all read; on a branch or project, mark all its commits read |
 | ⇧U | mark all of the selected project's commits read, as Mark all as read in its right-click menu does |
 | ⌘⌫ | discard the selected commit or delete the selected branch (Delete too on Windows and Linux) |
-| ⌥⌘⌫ | uncommit the selected commit (Ctrl+Shift+Backspace on Windows and Linux) |
+| ⌥⌘⌫ | uncommit the selected commit, or unapply the selected branch with its stack (Ctrl+Shift+Backspace on Windows and Linux) |
+
+| On Branches and Operations history | |
+|---|---|
+| ↑ ↓ or j k, ← → or h l | move through the list, fold or unfold a stack |
+| ↩ | apply the selected branch; on Operations history, restore to before the selected operation, after asking |
 
 | In the file list | |
 |---|---|
@@ -140,7 +150,8 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 | In the diff | |
 |---|---|
 | ↑ ↓, ]c [c | previous or next hunk |
-| Space ⇧Space, PageDown PageUp | a page down or up |
+| Space ⇧Space, PageDown PageUp | a page down or up; at the end of a commit, Space goes on to the next unread commit |
+| ⌃D ⌃U | half a page down or up |
 | j k | next or previous file |
 | z | fold or unfold the file |
 | e | open the file in your editor, at the hunk |

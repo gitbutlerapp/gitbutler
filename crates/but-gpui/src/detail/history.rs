@@ -539,6 +539,17 @@ impl Detail {
         history.operations.iter().find(|op| op.id == id)
     }
 
+    /// Return on the list: restore to before the selected operation, after asking, as its
+    /// menu's Restore does.
+    fn restore_selected_operation(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(Selection::History(project)) = self.store.read(cx).selection.clone() else {
+            return;
+        };
+        if let Some(id) = self.selected_operation(&project).map(|op| op.id) {
+            self.restore_operation(&project, id, window, cx)
+        }
+    }
+
     /// Put the project back to how it was before operation `id`, after asking. The restore
     /// goes in the log too, so it can be undone.
     fn restore_operation(
@@ -957,9 +968,14 @@ impl Detail {
             )
             .into_any_element()
         };
-        self.list_column(Self::step_history, None, cx)
-            .child(bar)
-            .child(list)
-            .into_any_element()
+        self.list_column(
+            Self::step_history,
+            None,
+            Some(Self::restore_selected_operation),
+            cx,
+        )
+        .child(bar)
+        .child(list)
+        .into_any_element()
     }
 }

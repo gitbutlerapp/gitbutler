@@ -68,6 +68,13 @@ impl Detail {
 
     /// A list page's list keeps the keys, and the branch page's file list, which isn't drawn
     /// beside its pull request, takes them back from the diff.
+    /// ⌃Tab: the other of a branch's Changes and Pull request tabs, when it has both.
+    pub(crate) fn switch_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.selected_review(cx).is_some() {
+            self.set_review_tab(!self.review_tab, window, cx)
+        }
+    }
+
     fn set_review_tab(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
         self.review_tab = on;
         self.focus_files(window, cx);

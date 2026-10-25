@@ -67,6 +67,9 @@ actions!(
         ToggleFold,
         PageDown,
         PageUp,
+        HalfPageDown,
+        HalfPageUp,
+        SwitchTab,
         AmendTop,
         PickCommitTarget,
         ToggleWrap,
@@ -77,6 +80,9 @@ actions!(
         ToggleCheck,
     ]
 );
+
+/// How far Space and Page Down scroll the diff, in its heights, keeping a few lines in view.
+pub const PAGE: f32 = 0.85;
 
 /// Where the keyboard is in the diff.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -1322,10 +1328,19 @@ impl Detail {
     }
 
     /// Scroll the diff by most of a screen, keeping a few lines in view for context.
-    fn page(&mut self, direction: f32, cx: &mut Context<Self>) {
+    /// Scroll the diff `by` its height, down or, negative, up. Down from its end, the app goes
+    /// on to the next unread commit, so Space reads a run of commits from the first to the last.
+    pub fn page(&mut self, by: f32, window: &mut Window, cx: &mut Context<Self>) {
+        let at_end = -self.list.scroll_px_offset_for_scrollbar().y
+            >= self.list.max_offset_for_scrollbar().y - crate::ui::fixed(1.);
+        if by > 0. && at_end {
+            return self.app.update_later(window, cx, |app, window, cx| {
+                (app.navigator).update(cx, |navigator, cx| navigator.read_on(window, cx))
+            });
+        }
         self.pinned = false;
         let height = self.list.viewport_bounds().size.height;
-        self.list.scroll_by(height * 0.85 * direction);
+        self.list.scroll_by(height * by);
         cx.notify();
     }
 
@@ -2193,8 +2208,11 @@ impl Render for Detail {
             .on_action(
                 cx.listener(|this, _: &ToggleFold, _, cx| this.toggle_fold(this.cursor.file, cx)),
             )
-            .on_action(cx.listener(|this, _: &PageDown, _, cx| this.page(1., cx)))
-            .on_action(cx.listener(|this, _: &PageUp, _, cx| this.page(-1., cx)))
+            .on_action(cx.listener(|this, _: &PageDown, window, cx| this.page(PAGE, window, cx)))
+            .on_action(cx.listener(|this, _: &PageUp, window, cx| this.page(-PAGE, window, cx)))
+            .on_action(cx.listener(|this, _: &HalfPageDown, window, cx| this.page(0.5, window, cx)))
+            .on_action(cx.listener(|this, _: &HalfPageUp, window, cx| this.page(-0.5, window, cx)))
+            .on_action(cx.listener(|this, _: &SwitchTab, window, cx| this.switch_tab(window, cx)))
             .on_action(cx.listener(|this, _: &ToggleWrap, _, cx| this.toggle_wrap(cx)))
             .on_action(cx.listener(|this, _: &TogglePlainLines, _, cx| this.toggle_plain_lines(cx)))
             .on_action(cx.listener(|this, _: &ToggleSplit, _, cx| this.toggle_split(cx)))

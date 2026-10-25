@@ -250,6 +250,8 @@ pub fn run(embedded: Option<Embedded>) {
                     Menu::new("File").items([
                         MenuItem::action("Add Project…", app::AddProject),
                         MenuItem::action("Clone Repository…", projects::CloneRepository),
+                        MenuItem::separator(),
+                        MenuItem::action("Close Window", app::CloseWindow),
                     ]),
                     Menu::new("View").items([
                         MenuItem::action("Actual Size", app::ActualSize),
