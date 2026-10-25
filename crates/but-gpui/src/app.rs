@@ -440,7 +440,7 @@ impl AppView {
                         store.newer_version = Some(version);
                         cx.notify();
                     });
-                    app.restart_to_update(window, cx);
+                    app.install_update(window, cx);
                 }
                 Ok(None) => snack(&app.store, "GitButler is up to date", cx),
                 Err(err) => app.store.update(cx, |store, cx| {
@@ -452,38 +452,76 @@ impl AppView {
         .detach();
     }
 
-    /// Install the version the desktop app's update feed offers: start the desktop app's web
-    /// client once, which installs it and starts again, and quit.
-    pub fn restart_to_update(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// Install the version the desktop app's update feed offers, with a run of the desktop
+    /// app's binary that shows its progress here, then start again on it.
+    pub fn install_update(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let store = self.store.read(cx);
         let Some(version) = store.newer_version.clone() else {
             return;
         };
+        if store.updating.is_some() {
+            return;
+        }
         if store.unfinished() > 0 {
             snack(&self.store, "Wait for the running operations to finish", cx);
             return;
         }
-        let detail = "GitButler opens its web app to install it, then starts in this app if \
-                      Settings › Experimental › Open this app at start is on.";
         self.confirm_then(
             None,
-            format!("Restart to update to GitButler {version}?"),
-            detail,
-            "Restart",
+            format!("Update to GitButler {version}?"),
+            "GitButler downloads and installs it, then restarts.",
+            "Update",
             window,
             cx,
             |app, cx| {
-                // Off the UI thread: on Windows, starting a process can run the window's message
-                // loop, which would enter the app again while this holds it.
+                use futures::StreamExt as _;
+
                 let store = app.store.clone();
+                let (sender, mut progress) = futures::channel::mpsc::unbounded();
+                store.update(cx, |store, cx| {
+                    store.updating = Some(0);
+                    cx.notify();
+                });
                 cx.spawn(async move |_, cx| {
-                    let restarted = backend::run(|| Ok(crate::open_web_app()?)).await;
-                    match restarted {
-                        Ok(()) => cx.update(|cx| cx.quit()),
-                        Err(err) => store.update(cx, |store, cx| {
-                            store.error("Couldn't restart GitButler", err.to_string(), cx)
-                        }),
+                    // Off the UI thread: on Windows, starting a process can run the window's
+                    // message loop, which would enter the app again while this holds it.
+                    let installed = backend::run(move || {
+                        crate::install_update(|percent| _ = sender.unbounded_send(percent))
+                    });
+                    let shown = async {
+                        while let Some(percent) = progress.next().await {
+                            store.update(cx, |store, cx| {
+                                store.updating = Some(percent);
+                                cx.notify();
+                            });
+                        }
+                    };
+                    let (installed, ()) = futures::join!(installed, shown);
+                    if let Err(err) = installed {
+                        store.update(cx, |store, cx| {
+                            store.updating = None;
+                            store.failed("Couldn't update GitButler", &err, cx)
+                        });
+                        return;
                     }
+                    // What was started while it downloaded finishes first.
+                    while store.update(cx, |store, _| store.unfinished() > 0) {
+                        cx.background_executor()
+                            .timer(std::time::Duration::from_millis(100))
+                            .await;
+                    }
+                    // The Windows installer it started closes this app and starts the new one
+                    // itself.
+                    if !cfg!(windows)
+                        && let Err(err) = backend::run(|| Ok(crate::relaunch(false)?)).await
+                    {
+                        store.update(cx, |store, cx| {
+                            store.updating = None;
+                            store.failed("Couldn't restart GitButler", &err, cx)
+                        });
+                        return;
+                    }
+                    cx.update(|cx| cx.quit());
                 })
                 .detach();
             },

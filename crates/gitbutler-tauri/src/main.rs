@@ -25,15 +25,18 @@ use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_log::{Target, TargetKind};
 
 fn main() -> anyhow::Result<()> {
-    // The native client relaunches this to install an update, which the web app does. Taken
-    // out of the environment, which the web app's own relaunch after installing passes on,
-    // so that relaunch opens what Settings say.
+    // The native client relaunches this as the web app when its window can't open, and to
+    // install an update. Both are taken out of the environment, which the relaunches after
+    // them pass on: the web app's after installing, and the Windows installer's once done.
     #[cfg(feature = "builtin-gpui")]
     let web_once = std::env::var_os(but_gpui::WEB_APP_ONCE).is_some();
     #[cfg(feature = "builtin-gpui")]
+    let install_update = std::env::var_os(but_gpui::INSTALL_UPDATE).is_some();
+    #[cfg(feature = "builtin-gpui")]
     // SAFETY: first thing in `main`, before any other thread could read the environment.
     unsafe {
-        std::env::remove_var(but_gpui::WEB_APP_ONCE)
+        std::env::remove_var(but_gpui::WEB_APP_ONCE);
+        std::env::remove_var(but_gpui::INSTALL_UPDATE);
     };
     but_api::panic_capture::install_panic_hook();
     let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -50,6 +53,10 @@ fn main() -> anyhow::Result<()> {
     let tauri_debug_logging = std::env::var_os("GITBUTLER_TAURI_DEBUG_LOG").is_some();
 
     let mut tauri_context = generate_context!();
+    #[cfg(feature = "builtin-gpui")]
+    if install_update {
+        return install_update_for_gpui(tauri_context);
+    }
     but_secret::secret::set_application_namespace(&tauri_context.config().identifier);
 
     // Set the macOS notification bundle ID so notifications appear as GitButler.
@@ -95,8 +102,8 @@ fn main() -> anyhow::Result<()> {
         #[cfg(target_os = "macos")]
         but_action::cli::auto_fix_broken_but_cli_symlink();
         inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
-        // It installs nothing itself: it asks the web app's update feed, as often as the web
-        // app would, and relaunches into the web app to install what it offers.
+        // It asks the web app's update feed, as often as the web app would, and installs what
+        // it offers with a run of this binary, `install_update_for_gpui`.
         #[allow(deprecated)]
         let interval = app_settings.get()?.ui.check_for_updates_interval_in_seconds;
         but_gpui::run(Some(but_gpui::Embedded {
@@ -523,6 +530,62 @@ fn inherit_interactive_login_shell_environment_if_not_launched_from_terminal() {
     } else {
         doit();
     }
+}
+
+/// Install the update the feed offers, with the updater the web app uses, for the native
+/// client, which started this run to do it and stays open meanwhile. No window opens; stdout
+/// gets how much has downloaded, in percent, a line each time it changes, and a failure ends
+/// the run with its message on stderr.
+#[cfg(feature = "builtin-gpui")]
+fn install_update_for_gpui(context: tauri::Context<tauri::Wry>) -> anyhow::Result<()> {
+    use std::io::Write as _;
+    use tauri_plugin_updater::UpdaterExt as _;
+
+    async fn install(app: &tauri::AppHandle) -> anyhow::Result<()> {
+        let update = (app.updater()?.check().await?).context("there's no newer version")?;
+        let (mut downloaded, mut shown) = (0, None);
+        let bytes = update
+            .download(
+                |chunk, total| {
+                    downloaded += chunk as u64;
+                    let percent = total.map(|total| downloaded * 100 / total.max(1));
+                    if percent != shown {
+                        shown = percent;
+                        if let Some(percent) = percent {
+                            // The client may have quit, which doesn't stop the install.
+                            writeln!(std::io::stdout(), "{percent}").ok();
+                        }
+                    }
+                },
+                || {},
+            )
+            .await?;
+        update.install(bytes)?;
+        Ok(())
+    }
+
+    tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .setup(|app| {
+            // No Dock icon beside the client's.
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            let app = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let code = match install(&app).await {
+                    Ok(()) => 0,
+                    Err(err) => {
+                        eprintln!("{err:#}");
+                        1
+                    }
+                };
+                // Not `app.exit`, which ends the run with 0 whatever the code.
+                std::process::exit(code);
+            });
+            Ok(())
+        })
+        .run(context)?;
+    Ok(())
 }
 
 /// The update feed the web app asks for this build: its updater's first endpoint, filled in

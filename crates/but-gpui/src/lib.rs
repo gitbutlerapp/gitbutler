@@ -74,19 +74,65 @@ pub struct Embedded {
 
 impl gpui::Global for Embedded {}
 
-/// Set when the client relaunches the desktop app to install an update: that launch opens
-/// the web app, which installs it, and takes the variable out before its own relaunch.
+/// Set when the client's window can't open and it starts the desktop app's binary again:
+/// that launch opens the web app, and takes the variable out before its own relaunches.
 pub const WEB_APP_ONCE: &str = "GITBUTLER_WEB_APP_ONCE";
 
-/// Start the desktop app's binary again, as its web app once.
+/// Set when the client starts the desktop app's binary to install the update its feed offers:
+/// that run opens no window, installs it with the web app's updater, and writes how much it
+/// has downloaded, in percent, a line each time it changes.
+pub const INSTALL_UPDATE: &str = "GITBUTLER_INSTALL_UPDATE";
+
+/// The desktop app's binary, to start again. On Linux an AppImage's own file: this one is
+/// inside it, from a mount that goes once this process ends.
+fn this_app() -> std::io::Result<std::path::PathBuf> {
+    match std::env::var_os("APPIMAGE") {
+        Some(appimage) => Ok(appimage.into()),
+        None => std::env::current_exe(),
+    }
+}
+
+/// Start the desktop app's binary again, as its web app once with `web_once`.
 #[expect(
     clippy::disallowed_methods,
     reason = "called in `backend::run`, or when the window failed to open"
 )]
-fn open_web_app() -> std::io::Result<()> {
-    std::process::Command::new(std::env::current_exe()?)
-        .env(WEB_APP_ONCE, "1")
+fn relaunch(web_once: bool) -> std::io::Result<()> {
+    let mut app = std::process::Command::new(this_app()?);
+    if web_once {
+        app.env(WEB_APP_ONCE, "1");
+    }
+    app.spawn()?;
+    Ok(())
+}
+
+/// Install the update the desktop app's feed offers with a run of its binary, telling
+/// `progress` how much it has downloaded, in percent. Waits until it's installed.
+#[expect(clippy::disallowed_methods, reason = "called in `backend::run`")]
+fn install_update(progress: impl Fn(u8)) -> anyhow::Result<()> {
+    use std::io::BufRead as _;
+    use std::process::{Command, Stdio};
+
+    let mut install = Command::new(this_app()?);
+    // `CREATE_NO_WINDOW`: a debug build is a console program, which would open a console.
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(&mut install, 0x0800_0000);
+    let mut install = install
+        .env(INSTALL_UPDATE, "1")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()?;
+    if let Some(stdout) = install.stdout.take() {
+        for line in std::io::BufReader::new(stdout).lines() {
+            if let Ok(percent) = line?.trim().parse() {
+                progress(percent);
+            }
+        }
+    }
+    let output = install.wait_with_output()?;
+    if !output.status.success() {
+        anyhow::bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
+    }
     Ok(())
 }
 
@@ -270,7 +316,7 @@ pub fn run(embedded: Option<Embedded>) {
                     // GitButler then opens as its web app: with the setting that opens this
                     // client on, quitting alone would keep it from opening at all.
                     if cx.has_global::<Embedded>()
-                        && let Err(err) = open_web_app()
+                        && let Err(err) = relaunch(true)
                     {
                         tracing::error!("couldn't open the web app instead: {err:#}");
                     }
