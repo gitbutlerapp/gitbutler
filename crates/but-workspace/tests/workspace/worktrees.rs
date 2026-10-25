@@ -259,10 +259,10 @@ fn worktrees_are_projected_onto_the_workspace() -> Result<()> {
         ]
     );
 
-    info.apply_forge_review_associations(
-        &repo,
-        &HashMap::from([("wt-pushed".to_string(), (42, true, None))]),
-    );
+    info.apply_forge_review_associations(&HashMap::from([(
+        "origin/wt-pushed".to_string(),
+        (42, true, None),
+    )]));
     let pushed = info
         .worktrees
         .iter()

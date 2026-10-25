@@ -37,6 +37,27 @@ fn merged(mut review: ForgeReview) -> ForgeReview {
     review
 }
 
+/// `review` with its head in the fork at `url`.
+fn from_fork(mut review: ForgeReview, url: &str) -> ForgeReview {
+    review.repository_https_url = Some(url.to_string());
+    review.head_repo_is_fork = true;
+    review
+}
+
+/// A new repository at `path` with each of `remotes`, as `(name, url)`.
+fn repo_with_remotes(path: &std::path::Path, remotes: &[(&str, &str)]) -> gix::Repository {
+    use std::io::Write as _;
+    let repo = gix::init(path).unwrap();
+    let mut config = std::fs::OpenOptions::new()
+        .append(true)
+        .open(repo.git_dir().join("config"))
+        .unwrap();
+    for (name, url) in remotes {
+        writeln!(config, "[remote \"{name}\"]\n\turl = {url}").unwrap();
+    }
+    gix::open(path).unwrap()
+}
+
 #[test]
 fn preferred_review_uses_cache_association_ranking() {
     let reviews = vec![merged(review(9, "feature")), review(2, "feature")];
@@ -50,6 +71,11 @@ fn test_db() -> (tempfile::TempDir, but_db::DbHandle) {
     let tmp = tempfile::tempdir().unwrap();
     let db = but_db::DbHandle::new_in_directory(tmp.path()).unwrap();
     (tmp, db)
+}
+
+/// A directory for a repository next to the database in `tmp`.
+fn repo_dir(tmp: &tempfile::TempDir) -> std::path::PathBuf {
+    tmp.path().join("repo")
 }
 
 #[test]
@@ -94,15 +120,62 @@ fn reviews_by_head_dedups_preferring_highest_number() {
 
 #[test]
 fn review_associations_include_settled_state() {
-    let (_tmp, mut db) = test_db();
+    let (tmp, mut db) = test_db();
     let mut settled = merged(review(1, "feature"));
     // Seed a recently merged review rather than the fixed timestamp from `merged()`.
     settled.merged_at = Some(chrono::Utc::now().to_rfc3339());
     cache_review(&mut db, &settled).unwrap();
+    let repo = repo_with_remotes(
+        &repo_dir(&tmp),
+        &[("origin", "https://github.com/acme/app.git")],
+    );
 
     assert_eq!(
-        review_associations_by_head(&db).unwrap().get("feature"),
+        review_associations_by_head(&db, &repo)
+            .unwrap()
+            .get("origin/feature"),
         // The fixture's sha is empty, so no merged head is exposed.
         Some(&(1, false, None))
+    );
+}
+
+#[test]
+fn review_associations_follow_the_head_repository() {
+    let (tmp, mut db) = test_db();
+    let repo = repo_with_remotes(
+        &repo_dir(&tmp),
+        &[
+            ("origin", "git@github.com:acme/app.git"),
+            ("alice", "https://github.com/Alice/app.git"),
+        ],
+    );
+    cache_review(
+        &mut db,
+        &from_fork(review(1, "feature"), "https://github.com/alice/app.git"),
+    )
+    .unwrap();
+    cache_review(
+        &mut db,
+        &from_fork(review(2, "feature"), "https://github.com/mallory/app.git"),
+    )
+    .unwrap();
+    cache_review(&mut db, &review(3, "unreported")).unwrap();
+
+    let by_head = review_associations_by_head(&db, &repo).unwrap();
+    let number = |head: &str| by_head.get(head).map(|(number, ..)| *number);
+    assert_eq!(
+        number("alice/feature"),
+        Some(1),
+        "a fork's branch associates with the review opened from that fork, whatever the case of its URL"
+    );
+    assert_eq!(
+        number("origin/feature"),
+        None,
+        "a same-named review from someone else's fork must not attach to the base repository's branch"
+    );
+    assert_eq!(
+        (number("origin/unreported"), number("alice/unreported")),
+        (Some(3), Some(3)),
+        "without a reported head repository, the branch name alone decides"
     );
 }

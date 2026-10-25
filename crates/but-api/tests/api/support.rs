@@ -190,8 +190,8 @@ pub fn fresh_head_info(ctx: &but_ctx::Context) -> anyhow::Result<but_workspace::
     )?;
     drop(db);
     let db = ctx.db.get_cache()?;
-    let prs_by_head = but_forge::review_associations_by_head(&db)?;
-    info.apply_forge_review_associations(&repo, &prs_by_head);
+    let prs_by_head = but_forge::review_associations_by_head(&db, &repo)?;
+    info.apply_forge_review_associations(&prs_by_head);
     Ok(info)
 }
 

@@ -743,24 +743,6 @@ fn apply_review_to_metadata(
     }
 }
 
-fn forge_review_for_branch(
-    reviews_by_head: &std::collections::HashMap<String, (usize, bool, Option<String>)>,
-    short_name: &str,
-) -> Option<(usize, bool, Option<String>)> {
-    if let Some(review) = reviews_by_head.get(short_name) {
-        return Some(review.clone());
-    }
-
-    let mut prefixed_matches = reviews_by_head.iter().filter_map(|(head, review)| {
-        let (_, branch) = head.rsplit_once(':')?;
-        (branch == short_name).then_some(review)
-    });
-    let review = prefixed_matches.next()?;
-    prefixed_matches
-        .all(|candidate| candidate == review)
-        .then(|| review.clone())
-}
-
 impl RefInfo {
     /// Whether a stack, or a worktree with something of its own to rebase onto the target, lacks
     /// `target`.
@@ -841,8 +823,8 @@ impl RefInfo {
     }
 
     /// Resolve each segment's forge review association from a cache-derived map,
-    /// keyed by the segment's remote/pushed short name (what the forge records as
-    /// a review's `source_branch`).
+    /// keyed by the short name of the segment's remote-tracking branch, like
+    /// `origin/my-feature`.
     ///
     /// For active branches this remains a projection-time view of forge truth:
     /// an open review, or a review merged exactly at the branch's tip — the
@@ -853,27 +835,17 @@ impl RefInfo {
     /// with the cache as a migration fallback when no number has been
     /// persisted yet. A cache match on an otherwise metadata-less segment
     /// synthesizes metadata so single-branch mode surfaces the association
-    /// too. `reviews_by_head` maps a pushed short name to
+    /// too. `reviews_by_head` maps a remote-tracking short name to
     /// `(number, is open, merged head)`; build it from the forge cache at the
-    /// call boundary so this crate stays free of DB and forge wiring. As a
-    /// defensive fallback, a uniquely matching `owner:branch` key is accepted,
-    /// while ambiguous fork heads are ignored.
+    /// call boundary so this crate stays free of DB and forge wiring.
     pub fn apply_forge_review_associations(
         &mut self,
-        repo: &gix::Repository,
         reviews_by_head: &std::collections::HashMap<String, (usize, bool, Option<String>)>,
     ) {
-        let remote_names = repo.remote_names();
         for segment in self.lane_segments_mut().flatten() {
-            let cached = segment
-                .remote_tracking_ref_name
-                .as_ref()
-                .and_then(|rtb| {
-                    but_core::extract_remote_name_and_short_name(rtb.as_ref(), &remote_names)
-                })
-                .and_then(|(_, short)| {
-                    forge_review_for_branch(reviews_by_head, short.to_str().ok()?)
-                });
+            let cached = (segment.remote_tracking_ref_name.as_ref())
+                .and_then(|rtb| reviews_by_head.get(rtb.shorten().to_str().ok()?))
+                .cloned();
             // The merged head is the review's PUSHED commit, so match the
             // tip's remote counterpart when it has one: a local rewrite
             // between push and merge must not break the window.
@@ -1089,9 +1061,7 @@ impl LocalCommit {
 
 #[cfg(test)]
 mod review_association_tests {
-    use std::collections::HashMap;
-
-    use super::{apply_review_to_metadata, forge_review_for_branch};
+    use super::apply_review_to_metadata;
     use but_core::ref_metadata::Branch;
 
     fn branch_with_review(review: Option<usize>) -> Branch {
@@ -1211,44 +1181,5 @@ mod review_association_tests {
         let mut metadata = Some(branch_with_review(None));
         apply_review_to_metadata(&mut metadata, Some((42, false, None)), true, None);
         assert_eq!(metadata.unwrap().review.pull_request, Some(42));
-    }
-
-    #[test]
-    fn owner_prefixed_review_head_matches_the_short_branch_name() {
-        let reviews = HashMap::from([("alice:feature".to_string(), (42, true, None))]);
-
-        assert_eq!(
-            forge_review_for_branch(&reviews, "feature"),
-            Some((42, true, None)),
-            "a uniquely matching fork head should be accepted defensively"
-        );
-    }
-
-    #[test]
-    fn exact_review_head_takes_precedence_over_a_prefixed_head() {
-        let reviews = HashMap::from([
-            ("feature".to_string(), (42, true, None)),
-            ("alice:feature".to_string(), (99, true, None)),
-        ]);
-
-        assert_eq!(
-            forge_review_for_branch(&reviews, "feature"),
-            Some((42, true, None)),
-            "the forge's normal short-name representation should take precedence"
-        );
-    }
-
-    #[test]
-    fn ambiguous_owner_prefixed_review_heads_do_not_match() {
-        let reviews = HashMap::from([
-            ("alice:feature".to_string(), (42, true, None)),
-            ("bob:feature".to_string(), (99, true, None)),
-        ]);
-
-        assert_eq!(
-            forge_review_for_branch(&reviews, "feature"),
-            None,
-            "a short branch name cannot safely select between fork owners"
-        );
     }
 }
