@@ -33,6 +33,8 @@ actions!(
         AddProject,
         CopySelection,
         OpenPullRequest,
+        ToggleRead,
+        MarkAllRead,
         ToggleFileTree,
         Undo,
         Redo,
@@ -114,6 +116,8 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("r", RenameSelection, nav),
         KeyBinding::new("b", NewBranchOnTop, nav),
         KeyBinding::new("o", OpenPullRequest, nav),
+        KeyBinding::new("u", ToggleRead, nav),
+        KeyBinding::new("shift-u", MarkAllRead, nav),
         KeyBinding::new("secondary-backspace", DeleteSelection, nav),
         KeyBinding::new("secondary-alt-backspace", UncommitSelection, nav),
     ]);
@@ -993,6 +997,18 @@ impl Render for AppView {
             })
             .on_action(cx.listener(Self::copy_selection))
             .on_action(cx.listener(Self::open_pull_request))
+            .on_action(cx.listener(|this, _: &ToggleRead, _, cx| {
+                if let Some(selection) = this.selection(cx) {
+                    (this.store).update(cx, |store, cx| store.toggle_read(&selection, cx))
+                }
+            }))
+            // The selected project's, from wherever in it the selection is.
+            .on_action(cx.listener(|this, _: &MarkAllRead, _, cx| {
+                if let Some(selection) = this.selection(cx) {
+                    let project = Selection::Project(selection.project().clone());
+                    (this.store).update(cx, |store, cx| store.toggle_read(&project, cx))
+                }
+            }))
             .on_action(cx.listener(|this, _: &ToggleFileTree, _, cx| {
                 (this.store).update(cx, |store, cx| {
                     store.set_prefs(|prefs| prefs.flat_files = !prefs.flat_files, cx)

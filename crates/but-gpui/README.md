@@ -120,6 +120,8 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 | ← → or h l | collapse or expand: a project, or a branch's commits; ← on a commit goes to its branch |
 | r, b, ⇧P | rename, new branch on top, push |
 | o | open the pull request |
+| u | mark the selected commit, or the picks it's among, read, or unread when they're all read; on a branch or project, mark all its commits read |
+| ⇧U | mark all of the selected project's commits read, as Mark all as read in its right-click menu does |
 | ⌘⌫ | discard the selected commit or delete the selected branch |
 | ⌥⌘⌫ | uncommit the selected commit |
 

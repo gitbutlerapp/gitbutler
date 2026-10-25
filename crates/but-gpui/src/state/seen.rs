@@ -95,6 +95,50 @@ impl Store {
         cx.notify();
     }
 
+    /// What marking `selection` read does, as its right-click menu offers: the commits it
+    /// marks, and whether read. A commit, the picks it's among, or a branch remote's commit
+    /// turn read, or unread when they all are already; a branch or a project has its unread
+    /// commits, and its remotes', turn read. None with nothing to mark.
+    pub fn read_marks_of(&self, selection: &Selection) -> Option<(Vec<CommitId>, bool)> {
+        let project = selection.project();
+        let workspace = self.workspace(project)?;
+        let (ids, toggles): (HashSet<CommitId>, bool) = match selection {
+            Selection::Commit(_, id) => (
+                self.with_picks(project, *id).iter().copied().collect(),
+                true,
+            ),
+            Selection::Upstream(_, Some(_), id) => ([*id].into(), true),
+            Selection::Branch(..) => {
+                let branch = self.branch_for(selection)?;
+                let incoming = branch.incoming.iter().map(|commit| commit.id);
+                let ids = branch
+                    .commits
+                    .iter()
+                    .map(|commit| commit.id)
+                    .chain(incoming);
+                (ids.collect(), false)
+            }
+            Selection::Project(_) => (shown(workspace).map(|(id, _)| id).collect(), false),
+            _ => return None,
+        };
+        let seen = self.seen.commits.get(project.as_ref())?;
+        let unread: Vec<CommitId> = (shown(workspace))
+            .filter(|(id, keys)| ids.contains(id) && !was_seen(seen, *keys))
+            .map(|(id, _)| id)
+            .collect();
+        match unread.is_empty() {
+            false => Some((unread, true)),
+            true => toggles.then(|| (ids.into_iter().collect(), false)),
+        }
+    }
+
+    /// Mark `selection` read, or unread, as [`Self::read_marks_of`] says.
+    pub fn toggle_read(&mut self, selection: &Selection, cx: &mut Context<Self>) {
+        if let Some((ids, read)) = self.read_marks_of(selection) {
+            self.mark_read(selection.project(), ids, read, cx);
+        }
+    }
+
     /// Bring what's been seen of `id` up to date with the `workspace` it just loaded: what's
     /// new is news unless the app made it, and what's gone is forgotten once there's much of
     /// it. `fresh` is false for a load that started before the app's operation finished,
