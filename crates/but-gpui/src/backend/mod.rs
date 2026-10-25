@@ -97,6 +97,9 @@ pub fn list_projects() -> Result<Vec<Project>> {
                 // When Git last wrote its reflog or index: a few file times, cheap enough for
                 // every project, unlike reading its status.
                 last_active: last_written(git_dir, &["logs/HEAD", "index"]),
+                last_fetch: (project.project_data_last_fetch.as_ref())
+                    .and_then(|fetch| fetch.timestamp().duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|since| since.as_secs() as i64),
                 path,
             })
         })

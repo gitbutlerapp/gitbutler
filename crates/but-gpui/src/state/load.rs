@@ -235,6 +235,15 @@ impl Store {
         // The listing has every project, loaded or not, so one it doesn't have was removed.
         self.forget_unlisted();
         let first_load = !self.projects_loaded;
+        // On the first launch, the project fetched last is watched, as the one GitButler was
+        // last used in.
+        if restored.fresh
+            && let Some(entry) = (self.projects.iter_mut())
+                .filter(|entry| entry.project.last_fetch.is_some())
+                .max_by_key(|entry| entry.project.last_fetch)
+        {
+            entry.expanded = true;
+        }
         // A single project is always open, and one left closed, as after removing the
         // others, has nothing loaded or watched yet. Only when the list changed: reading it
         // again as the window comes forward leaves a project the user collapsed alone.

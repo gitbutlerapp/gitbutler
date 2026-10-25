@@ -406,7 +406,7 @@ impl Store {
         let (changes, changed) = mpsc::unbounded();
         let (forge_requests, requested) = mpsc::unbounded();
         let saved_db = Arc::new(backend::saved::Database::open());
-        let saved = Saved::load(&saved_db);
+        let (saved, fresh) = Saved::load(&saved_db);
         let mut store = Self {
             projects: Vec::new(),
             projects_loaded: false,
@@ -454,6 +454,7 @@ impl Store {
             restored: Restored {
                 expanded: saved.expanded,
                 selection: saved.selection,
+                fresh,
             },
             project_edits: 0,
             saved_db,
