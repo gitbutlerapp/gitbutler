@@ -126,6 +126,56 @@ mod spawn {
     }
 
     #[tokio::test]
+    async fn a_ref_change_is_not_held_back_while_files_keep_changing() -> anyhow::Result<()> {
+        let generous_timeout_for_ci = Duration::from_secs(10);
+        let (repo, _tmp) = but_testsupport::writable_scenario("watch-plan-rename-dir");
+        let workdir = repo.workdir().expect("non-bare").to_owned();
+        let project_id =
+            ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(&workdir)?);
+
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        let _monitor = gitbutler_filemonitor::spawn(
+            project_id.clone(),
+            &workdir,
+            || Ok(Vec::new()),
+            tx,
+            WatchMode::Legacy,
+        )?;
+
+        // As a build writes its output, file after file, the disk never goes quiet.
+        let stop = Arc::new(AtomicBool::new(false));
+        let writer = std::thread::spawn({
+            let (stop, out) = (stop.clone(), workdir.join("out"));
+            move || {
+                std::fs::create_dir(&out).ok();
+                for n in 0.. {
+                    if stop.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    std::fs::write(out.join(n.to_string()), "built").ok();
+                    std::thread::sleep(Duration::from_millis(50));
+                }
+            }
+        });
+        std::thread::sleep(Duration::from_millis(500));
+        // As an agent's commit moves its branch; the watcher doesn't read what it points at.
+        std::fs::write(
+            workdir.join(".git/refs/heads/agent"),
+            format!("{}\n", "1".repeat(40)),
+        )?;
+        let seen = expect_matching_event(&mut rx, generous_timeout_for_ci, |event| match event {
+            InternalEvent::GitFilesChange(id, Checkout::Main, paths) => {
+                *id == project_id && contains_path(paths, Path::new("refs/heads/agent"))
+            }
+            _ => false,
+        })
+        .await;
+        stop.store(true, Ordering::Relaxed);
+        writer.join().expect("the writer stops");
+        seen
+    }
+
+    #[tokio::test]
     async fn ignore_rules_do_not_apply_to_the_git_dir() -> anyhow::Result<()> {
         let generous_timeout_for_ci = Duration::from_secs(10);
         let (repo, _tmp) = but_testsupport::writable_scenario("watch-plan-rename-dir");
