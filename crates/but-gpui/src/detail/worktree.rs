@@ -6,7 +6,9 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Arc;
 
-use gpui::{AnyElement, App, Context, Div, MouseButton, ScrollHandle, div, prelude::*, relative};
+use gpui::{
+    AnyElement, App, Context, Div, ElementId, MouseButton, ScrollHandle, div, prelude::*, relative,
+};
 
 use super::Detail;
 use super::diff_view::files_toggle;
@@ -25,8 +27,8 @@ use crate::ui::file_icons::file_icon;
 use crate::ui::review::state_glyph;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
-    Icon, ROW_HEIGHT, Tooltip, commit_title, dot, dp, faint, h_flex, just_now, keep_focus_on_press,
-    list_row, relative_time, short_path, shortcut, small_icon, v_flex,
+    Icon, ROW_HEIGHT, Tooltip, commit_title, dot, dp, faint, glow_once, h_flex, just_now,
+    keep_focus_on_press, list_row, relative_time, short_path, shortcut, small_icon, v_flex,
 };
 
 mod activity;
@@ -738,6 +740,9 @@ impl Detail {
                         Made::Gone(seen) => Some((target.clone(), seen.clone())),
                         Made::Here(..) => None,
                     };
+                    // Under the row's place in the list, so its own id goes by the commit.
+                    let glow = matches!(made, Made::Here(_, commit) if store.glows(commit.id))
+                        .then(|| ElementId::Name(format!("glow-{}", made.id().0).into()));
                     // The pull request that takes it there, else the branch it's on, its
                     // beginning faint beside the glyph and all of it on hover.
                     let ((branch_glyph, branch_color), label, tip) = said;
@@ -753,7 +758,8 @@ impl Detail {
                         )
                         .child(faint(label, theme).min_w_0().truncate())
                         .tooltip(Tooltip::text(tip));
-                    row.child(small_icon(glyph).text_color(color))
+                    row.when_some(glow, |el, glow| el.relative().child(glow_once(glow, theme)))
+                        .child(small_icon(glyph).text_color(color))
                         .child(
                             div()
                                 .flex_1()
@@ -777,6 +783,7 @@ impl Detail {
                             this.store
                                 .update(cx, |store, cx| store.select(Some(target), cx))
                         }))
+                        .into_any_element()
                 }
                 Item::Moved(said) => row
                     .text_color(theme.text_2)
@@ -786,7 +793,8 @@ impl Detail {
                         relative_time(at),
                         COMMITS_TIME_WIDTH,
                         theme,
-                    )),
+                    ))
+                    .into_any_element(),
             }
         });
         let reading = file.is_some()

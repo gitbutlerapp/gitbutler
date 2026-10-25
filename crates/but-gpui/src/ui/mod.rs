@@ -1261,6 +1261,21 @@ pub fn pulsing<E: IntoElement + Styled + 'static>(el: E) -> impl IntoElement {
     )
 }
 
+/// A faint pop wash over a `list_row`'s ground that fades out once, as for a commit that just
+/// showed up (`Store::glows`), so an agent's commit is noticed where it lands rather than in a
+/// card. Make it the row's first child, of a `relative` row, so the row's text draws over it.
+/// A child rather than a wrapper, so the row keeps its identity, and with it a press about to
+/// become a drag, when the wash goes. Keep it off a selected row, whose ground marks it.
+pub fn glow_once(id: impl Into<ElementId>, theme: &Theme) -> impl IntoElement {
+    use gpui::{Animation, AnimationExt as _};
+    let wash = theme.pop;
+    div().absolute().inset_0().rounded(dp(4.)).with_animation(
+        id,
+        Animation::new(crate::state::GLOW).with_easing(gpui::ease_in_out),
+        move |el, delta| el.bg(wash.opacity(0.08 * (1. - delta))),
+    )
+}
+
 /// A surface with nothing in it, as ui-react's EmptyState: a drawing picked by what the state
 /// means, a title naming it, and a line saying what happens next, each left out when there's
 /// none. Its foot is padded so the block sits a little above the middle, where it reads as
