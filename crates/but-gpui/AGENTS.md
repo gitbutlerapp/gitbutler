@@ -173,7 +173,10 @@ unseen is what a laptop's battery pays for.
 - An oplog restore puts the whole worktree back, so `history::undo_snapshot` first checks for
   files written and branches moved after the operation, leaving out the spans the app's own
   local operations ran in (`Store::ran`, read when the undo runs, so a queued one sees those
-  before it; pushes and fetches record none, as they write only what the remote has): a move
+  before it; pushes and fetches record none, as they write only what the remote has, and a
+  Git commit logged in a second wholly after the operation counts even inside a later one's,
+  as the app never logs "commit"; with no log of HEAD, as
+  with core.logAllRefUpdates off, undo refuses rather than guess): a move
   Git logged then is `Undone::Behind`, a file written then `Undone::Newer` for ⌘Z to ask
   about; `redo_snapshot` checks the same from the undo's own snapshot. A step stays on the
   list unless it was undone, `Undone::Behind` says something came after it, or

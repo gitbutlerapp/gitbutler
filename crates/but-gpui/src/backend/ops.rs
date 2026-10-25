@@ -2010,16 +2010,18 @@ pub(super) mod tests {
             target_origin_main(path);
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
+            let started = now();
             name_branch(path, head(path), "named").unwrap();
             let (named, done) = (oplog_head(path).unwrap(), now());
+            let mut ran = vec![(started, done)];
             // Git logs moves in whole seconds.
             std::thread::sleep(std::time::Duration::from_millis(1100));
             let started = now();
             insert_empty_commit(path, &Destination::Branch("refs/heads/named".into())).unwrap();
-            let mut ran = vec![(started, now())];
+            ran.push((started, now()));
             let inserted = oplog_head(path).unwrap();
             let started = now();
-            let undone = undo_snapshot(path, inserted, Some((ran[0].1, &ran))).unwrap();
+            let undone = undo_snapshot(path, inserted, Some((ran[1].1, &ran))).unwrap();
             assert!(matches!(undone, Undone::Done(_)), "the newest undoes");
             ran.push((started, now()));
             assert!(
@@ -2028,6 +2030,70 @@ pub(super) mod tests {
                     Undone::Done(_)
                 ),
                 "the branch moves the app's own operation and undo logged aren't another's"
+            );
+        })
+    }
+
+    #[test]
+    fn undo_stops_for_a_commit_in_the_second_of_a_later_operation() {
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::history::{Undone, oplog_head, undo_snapshot};
+            let now = || {
+                let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+                since.unwrap().as_millis() as i64
+            };
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
+            let started = now();
+            name_branch(path, head(path), "named").unwrap();
+            let done = now();
+            let named = oplog_head(path).unwrap();
+            // Another of the app's operations ran a minute on, and an agent committed in its
+            // second.
+            let later = (done + 60_000, done + 60_500);
+            let committed = Command::new("git")
+                .current_dir(path)
+                .env("GIT_COMMITTER_DATE", format!("{} +0000", later.0 / 1000))
+                .args(["commit", "-q", "--allow-empty", "-m", "agent work"])
+                .status()
+                .unwrap();
+            assert!(committed.success(), "git commits");
+            assert!(
+                matches!(
+                    undo_snapshot(path, named, Some((done, &[(started, done), later]))).unwrap(),
+                    Undone::Behind(why) if why.contains("agent work")
+                ),
+                "a Git commit is no operation of the app's, whichever second it's in"
+            );
+        })
+    }
+
+    #[test]
+    fn undo_refuses_without_a_log_of_head() {
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::history::{oplog_head, undo_snapshot};
+            let now = || {
+                let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+                since.unwrap().as_millis() as i64
+            };
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
+            let started = now();
+            name_branch(path, head(path), "named").unwrap();
+            let done = now();
+            let named = oplog_head(path).unwrap();
+            // As core.logAllRefUpdates off leaves it.
+            std::fs::remove_file(path.join(".git/logs/HEAD")).unwrap();
+            let undone = undo_snapshot(path, named, Some((done, &[(started, done)])));
+            assert!(
+                undone.is_err_and(|refused| refused.to_string().contains("no log")),
+                "with nothing to tell what moved by, undo doesn't guess"
             );
         })
     }
@@ -2048,6 +2114,7 @@ pub(super) mod tests {
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
             let top = head(path);
+            let started = now();
             name_branch(path, top, "named").unwrap();
             let named = oplog_head(path).unwrap();
             let done = now();
@@ -2055,7 +2122,7 @@ pub(super) mod tests {
             std::thread::sleep(std::time::Duration::from_millis(5));
             std::fs::write(path.join("file"), "two\n").unwrap();
             assert!(
-                matches!(undo_snapshot(path, named, Some((done, &[]))).unwrap(),
+                matches!(undo_snapshot(path, named, Some((done, &[(started, done)]))).unwrap(),
                     Undone::Newer(files) if files == ["file"]),
                 "a file written after the operation is one undoing it puts back"
             );
@@ -2080,15 +2147,19 @@ pub(super) mod tests {
                 ),
                 "undone once, as by another client, it isn't taken for behind what came before"
             );
+            let undoing = now();
             assert!(
                 matches!(undo_snapshot(path, named, None).unwrap(), Undone::Done(_)),
                 "what came before it is still there to undo"
             );
+            let undone = now();
 
             let undo = oplog_head(path).unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(5));
             std::fs::write(path.join("file"), "three\n").unwrap();
+            let spans = [(undoing, undone)];
             assert!(
-                matches!(redo_snapshot(path, undo, &Default::default(), &[], None).unwrap(),
+                matches!(redo_snapshot(path, undo, &Default::default(), &spans, None).unwrap(),
                     Some(Undone::Newer(files)) if files == ["file"]),
                 "a file written after the undo is one redoing it puts back"
             );
@@ -2150,10 +2221,14 @@ pub(super) mod tests {
             target_origin_main(path);
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
+            let now = || {
+                let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+                since.unwrap().as_millis() as i64
+            };
+            let started = now();
             name_branch(path, head(path), "named").unwrap();
             let named = oplog_head(path).unwrap();
-            let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
-            let done = since.unwrap().as_millis() as i64;
+            let done = now();
             // A minute on, a commit put on the branch from a terminal, as `update-ref` or a
             // cherry-pick in another checkout does, with HEAD left where it is.
             let later = format!("{} +0000", done / 1000 + 60);
@@ -2172,9 +2247,89 @@ pub(super) mod tests {
                 in_terminal(&["commit-tree", tree.trim(), "-p", "named", "-m", "elsewhere"]);
             in_terminal(&["update-ref", "refs/heads/named", commit.trim()]);
             assert!(
-                matches!(undo_snapshot(path, named, Some((done, &[]))).unwrap(),
+                matches!(undo_snapshot(path, named, Some((done, &[(started, done)]))).unwrap(),
                     Undone::Behind(why) if why.contains("named")),
                 "undoing would move the branch back and drop that commit, so it says so"
+            );
+        })
+    }
+
+    #[test]
+    fn undo_goes_on_past_what_git_logged_that_a_restore_leaves() {
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::history::{Undone, oplog_head, undo_snapshot};
+            let now = || {
+                let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+                since.unwrap().as_millis() as i64
+            };
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
+            let (_outside, linked) = agent_worktree(path);
+            let started = now();
+            name_branch(path, head(path), "named").unwrap();
+            let done = now();
+            let named = oplog_head(path).unwrap();
+            // A minute on, in a terminal.
+            let later = format!("{} +0000", done / 1000 + 60);
+            let in_terminal = |dir: &Path, args: &[&str]| {
+                let out = Command::new("git")
+                    .current_dir(dir)
+                    .env("GIT_COMMITTER_DATE", &later)
+                    .args(args)
+                    .output()
+                    .unwrap();
+                assert!(out.status.success(), "git {args:?}: {out:?}");
+            };
+            std::fs::write(linked.join("file"), "agent's\n").unwrap();
+            in_terminal(&linked, &["stash", "-q"]);
+            in_terminal(path, &["reset", "-q", "--hard", "HEAD"]);
+            assert!(
+                matches!(
+                    undo_snapshot(path, named, Some((done, &[(started, done)]))).unwrap(),
+                    Undone::Done(_)
+                ),
+                "an agent's stash in its worktree and a reset to where HEAD was move nothing \
+                 the undo puts back"
+            );
+        })
+    }
+
+    #[test]
+    fn undo_stops_for_a_commit_in_the_same_second_it_was_asked_after() {
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::history::{Undone, oplog_head, undo_snapshot};
+            let now = || {
+                let since = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+                since.unwrap().as_millis() as i64
+            };
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+            git(path, &["commit", "-q", "--allow-empty", "-m", "loose"]);
+            let started = now();
+            name_branch(path, head(path), "named").unwrap();
+            let done = now();
+            let named = oplog_head(path).unwrap();
+            // "Undo anyway" a minute on, and a terminal commit 10ms after, which Git logs at
+            // the start of that second.
+            let accepted = done + 60_000 + 500;
+            let committed = Command::new("git")
+                .current_dir(path)
+                .env("GIT_COMMITTER_DATE", format!("{} +0000", accepted / 1000))
+                .args(["commit", "-q", "--allow-empty", "-m", "terminal work"])
+                .status()
+                .unwrap();
+            assert!(committed.success(), "git commits");
+            assert!(
+                matches!(
+                    undo_snapshot(path, named, Some((accepted, &[(started, done)]))).unwrap(),
+                    Undone::Behind(why) if why.contains("terminal work")
+                ),
+                "logged in the second the user said to undo anyway, it may be after that"
             );
         })
     }

@@ -595,8 +595,8 @@ pub enum Undone {
 
 /// Undo the operation that recorded `snapshot`, but only while it's the latest thing to
 /// undo: the log is shared with the CLI and agents, and restoring anything else would take
-/// back more than the user asked for. With `newer_than`, it also stops for the files
-/// [`written_since`] then.
+/// back more than the user asked for. With `newer_than`, it also stops for what Git logged
+/// since outside its spans, as [`moved_since`] reads it, and for the files [`written_since`].
 pub fn undo_snapshot(
     path: &Path,
     snapshot: SnapshotId,
@@ -647,10 +647,11 @@ pub fn undo_snapshot(
 }
 
 /// What a terminal or another tool did after `after`, in milliseconds since the Unix epoch,
-/// outside `spans`, to what a restore puts back, as Git logged it: a commit, checkout, reset,
-/// rename, `update-ref` or `git stash` that moved HEAD, the workspace's branches or the stash.
-/// The app's own operations log before they return, and its undos and redos inside `spans`.
-/// Branches the workspace doesn't have applied, as agents' in linked worktrees, aren't restored.
+/// outside `spans`, to what a restore puts back, as Git logged it: a commit, checkout, reset or
+/// `update-ref` that moved HEAD or the workspace's branches. The app's own operations log
+/// inside `spans`. Branches the workspace doesn't have applied, as agents' in linked worktrees,
+/// aren't restored, and neither is the stash, which every worktree shares. A branch renamed
+/// outside isn't noticed, as its old name's log goes with it.
 fn moved_since(ctx: &but_ctx::Context, after: i64, spans: &[(i64, i64)]) -> Result<Option<String>> {
     use but_core::RefMetadata as _;
     let repo = ctx.repo.get()?;
@@ -662,8 +663,7 @@ fn moved_since(ctx: &but_ctx::Context, after: i64, spans: &[(i64, i64)]) -> Resu
         .map(|branch| branch.ref_name.to_string())
         .collect();
     let checked_out = repo.head_name()?.map(|name| name.to_string());
-    // The stash first, whose log says more of a `git stash` than HEAD's reset at that moment.
-    let names = ["refs/stash", "HEAD", WORKSPACE_REF_NAME].map(String::from);
+    let names = ["HEAD", WORKSPACE_REF_NAME].map(String::from);
     let names = names.into_iter().chain(applied).chain(checked_out);
     let mut newest: Option<(i64, String)> = None;
     for name in names {
@@ -672,16 +672,31 @@ fn moved_since(ctx: &but_ctx::Context, after: i64, spans: &[(i64, i64)]) -> Resu
         };
         let mut log = reference.log_iter();
         let Some(lines) = log.rev()? else {
+            // HEAD always has a log while Git keeps them: without, nothing here can tell.
+            if name == "HEAD" {
+                anyhow::bail!(
+                    "Git keeps no log of what moved HEAD here, as with core.logAllRefUpdates \
+                     off, so undo can't tell what happened since. Operations history can still \
+                     restore to before it."
+                );
+            }
             continue;
         };
-        // Whole seconds, so a second early.
+        // Whole seconds, so a line logged in `after`'s second or a span's may be on either side.
         let line = (lines.filter_map(Result::ok))
             .map(|line| (line.signature.time.seconds * 1000, line))
-            .take_while(|(at, _)| *at > after)
-            .find(|(at, _)| {
-                !spans
-                    .iter()
-                    .any(|(from, to)| (*from - 1000..=*to).contains(at))
+            .take_while(|(at, _)| at + 1000 > after)
+            // A stash, an abort or `git reset --hard HEAD` logs a reset to where it was, which a
+            // restore doesn't take back; a rename or `git switch -c` moves nothing either, but
+            // a restore would undo it.
+            .filter(|(_, line)| {
+                line.previous_oid != line.new_oid || !line.message.starts_with(b"reset:")
+            })
+            // The app never logs a "commit: …" or "commit (amend): …" line, so one Git logged in
+            // a second wholly after `after` is an agent's, even in a later operation's second.
+            .find(|(at, line)| {
+                (*at > after && line.message.starts_with(b"commit"))
+                    || !(spans.iter()).any(|(from, to)| (*from - 1000..=*to).contains(at))
             });
         if let Some((at, line)) = line
             && newest.as_ref().is_none_or(|(newest, _)| at > *newest)
