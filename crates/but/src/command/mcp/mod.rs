@@ -884,15 +884,22 @@ impl ForgeRepository {
             return ReviewCi::unsupported();
         }
 
+        // A fork's branch isn't in the base repository, so GitHub is asked about the head
+        // commit, cached under that so a same-named local branch keeps its own checks.
+        let reference = match self.repository.forge {
+            but_forge::ForgeName::GitHub if review.head_repo_is_fork && !review.sha.is_empty() => {
+                &review.sha
+            }
+            _ => &review.source_branch,
+        };
         let result = (|| {
             let db = &mut *ctx.db.get_cache_mut()?;
             but_forge::ci_checks_for_ref_with_cache(
                 self.preferred_user.clone(),
                 &self.repository,
                 &self.storage,
-                &review.source_branch,
-                // A fork's branch isn't in the base repository, so ask about the head commit.
-                (review.head_repo_is_fork && !review.sha.is_empty()).then_some(&*review.sha),
+                reference,
+                None,
                 db,
                 Some(but_forge::CacheConfig::NoCache),
             )
@@ -902,7 +909,7 @@ impl ForgeRepository {
             Ok(checks) => ReviewCi::from_checks(checks),
             Err(err) => {
                 tracing::warn!(
-                    review_reference = review.source_branch,
+                    review_reference = reference,
                     error = %err,
                     "Could not load CI checks for MCP review card"
                 );
