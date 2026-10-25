@@ -36,11 +36,11 @@ pub type ReviewAssociation = (usize, bool, Option<String>);
 /// `origin/my-feature`, to the preferred cached review's `(number, is open,
 /// merged head)`.
 ///
-/// A review is listed under each remote whose repository is the review's head
-/// repository, so a branch never picks up a same-named review from someone
-/// else's fork. When the forge doesn't report the head repository, or a
-/// remote's URL names no forge repository, the review is listed under every
-/// remote and matches by branch name alone.
+/// A review is listed under each remote that fetches from or pushes to the
+/// review's head repository, so a branch never picks up a same-named review
+/// from someone else's fork. When the forge doesn't report the head repository,
+/// or a remote's URLs name no forge repository, the review is listed under that
+/// remote anyway and matches by branch name alone.
 ///
 /// The merged head is the review's source commit (lowercased hex) when the
 /// review merged, letting the projection recognize a branch whose tip landed
@@ -52,11 +52,17 @@ pub fn review_associations_by_head(
     let reviews = crate::list_cached_forge_reviews(db)?;
     let remotes: Vec<_> = (repo.remote_names().iter())
         .map(|name| {
-            let url = (repo.find_remote(&**name).ok()).and_then(|remote| {
-                (remote.url(gix::remote::Direction::Fetch)).map(|url| url.to_bstring().to_string())
-            });
-            let remote_repo = url.and_then(|url| crate::derive_forge_repo_info(&url, None));
-            (name.to_string(), remote_repo)
+            let remote = repo.find_remote(&**name).ok();
+            // A remote can fetch from one repository and push to a fork.
+            let remote_repos: Vec<_> =
+                [gix::remote::Direction::Fetch, gix::remote::Direction::Push]
+                    .into_iter()
+                    .filter_map(|direction| {
+                        let url = remote.as_ref()?.url(direction)?.to_bstring().to_string();
+                        crate::derive_forge_repo_info(&url, None)
+                    })
+                    .collect();
+            (name.to_string(), remote_repos)
         })
         .collect();
     // Forks open many reviews each, so parse each head repository once.
@@ -70,9 +76,10 @@ pub fn review_associations_by_head(
                     .or_insert_with(|| crate::derive_forge_repo_info(url, None))
                     .clone()
             });
-        for (remote, remote_repo) in &remotes {
-            if let (Some(head_repo), Some(remote_repo)) = (&head_repo, remote_repo)
-                && !head_repo.same_repository(remote_repo)
+        for (remote, remote_repos) in &remotes {
+            if let Some(head_repo) = &head_repo
+                && !remote_repos.is_empty()
+                && !(remote_repos.iter()).any(|remote_repo| head_repo.same_repository(remote_repo))
             {
                 continue;
             }

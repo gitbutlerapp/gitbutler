@@ -44,17 +44,15 @@ fn from_fork(mut review: ForgeReview, url: &str) -> ForgeReview {
     review
 }
 
-/// A new repository at `path` with each of `remotes`, as `(name, url)`.
-fn repo_with_remotes(path: &std::path::Path, remotes: &[(&str, &str)]) -> gix::Repository {
+/// A new repository at `path` with `config` added to its Git config.
+fn repo_with_config(path: &std::path::Path, config: &str) -> gix::Repository {
     use std::io::Write as _;
     let repo = gix::init(path).unwrap();
-    let mut config = std::fs::OpenOptions::new()
-        .append(true)
+    (std::fs::OpenOptions::new().append(true))
         .open(repo.git_dir().join("config"))
+        .unwrap()
+        .write_all(config.as_bytes())
         .unwrap();
-    for (name, url) in remotes {
-        writeln!(config, "[remote \"{name}\"]\n\turl = {url}").unwrap();
-    }
     gix::open(path).unwrap()
 }
 
@@ -125,9 +123,9 @@ fn review_associations_include_settled_state() {
     // Seed a recently merged review rather than the fixed timestamp from `merged()`.
     settled.merged_at = Some(chrono::Utc::now().to_rfc3339());
     cache_review(&mut db, &settled).unwrap();
-    let repo = repo_with_remotes(
+    let repo = repo_with_config(
         &repo_dir(&tmp),
-        &[("origin", "https://github.com/acme/app.git")],
+        "[remote \"origin\"]\n\turl = https://github.com/acme/app.git\n",
     );
 
     assert_eq!(
@@ -142,12 +140,14 @@ fn review_associations_include_settled_state() {
 #[test]
 fn review_associations_follow_the_head_repository() {
     let (tmp, mut db) = test_db();
-    let repo = repo_with_remotes(
+    let repo = repo_with_config(
         &repo_dir(&tmp),
-        &[
-            ("origin", "git@github.com:acme/app.git"),
-            ("alice", "https://github.com/Alice/app.git"),
-        ],
+        r#"
+[remote "origin"]
+	url = git@github.com:acme/app.git
+[remote "alice"]
+	url = https://github.com/Alice/app.git
+"#,
     );
     cache_review(
         &mut db,
@@ -177,5 +177,32 @@ fn review_associations_follow_the_head_repository() {
         (number("origin/unreported"), number("alice/unreported")),
         (Some(3), Some(3)),
         "without a reported head repository, the branch name alone decides"
+    );
+}
+
+#[test]
+fn review_associations_follow_a_remote_that_pushes_to_a_fork() {
+    let (tmp, mut db) = test_db();
+    let repo = repo_with_config(
+        &repo_dir(&tmp),
+        r#"
+[remote "origin"]
+	url = https://github.com/acme/app.git
+	pushurl = git@github.com:alice/app.git
+"#,
+    );
+    cache_review(
+        &mut db,
+        &from_fork(review(1, "feature"), "https://github.com/alice/app.git"),
+    )
+    .unwrap();
+
+    assert_eq!(
+        review_associations_by_head(&db, &repo)
+            .unwrap()
+            .get("origin/feature")
+            .map(|(number, ..)| *number),
+        Some(1),
+        "a branch published to a fork through the remote's push URL keeps that fork's review"
     );
 }
