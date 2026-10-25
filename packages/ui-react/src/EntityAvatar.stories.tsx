@@ -58,7 +58,7 @@ const machineSection: EntityAvatarSection = {
 };
 
 const ProjectPicker = () => {
-	const [value, setValue] = useState<EntityAvatarValue>({ _tag: "Glyph", colour: "pop" });
+	const [value, setValue] = useState<EntityAvatarValue>({ _tag: "Glyph", colour: "blue" });
 	return (
 		<EntityAvatarPicker
 			value={value}
