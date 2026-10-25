@@ -320,6 +320,8 @@ pub struct Detail {
     composer_back: Option<FocusHandle>,
     /// What scrolls the commit message box, which keeps the caret in view.
     message_scroll: ScrollHandle,
+    /// The reword box's, which scrolls past a dozen lines as the commit box does.
+    reword_scroll: ScrollHandle,
     cursor: Cursor,
     /// Whether the selected commit's message shows its body, not just its title.
     message_open: bool,
@@ -640,6 +642,7 @@ impl Detail {
             composing_on_changes: false,
             composer_back: None,
             message_scroll,
+            reword_scroll: ScrollHandle::new(),
             cursor: Cursor::default(),
             message_open: false,
             review_tab: false,

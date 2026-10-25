@@ -475,7 +475,8 @@ impl Detail {
             CommitState::Pushed => ("on the remote".to_owned(), theme.safe),
             CommitState::Integrated => (format!("in {target}"), theme.text_2),
         };
-        // A long title wraps rather than hiding its end: it's shown nowhere else.
+        // A long title wraps rather than hiding its end, as it's shown nowhere else, and
+        // scrolls past a dozen lines.
         let title = page_title(Icon::Commit, theme)
             .id("commit-title")
             .child(self.message_title(title, &body, cx))
@@ -513,7 +514,7 @@ impl Detail {
             .gap(dp(10.))
             .map(|el| match rewording {
                 Some((_, input, _)) => el.child(self.reword_editor(input, theme, window, cx)),
-                None => el.child(title).children(self.full_message(body, theme)),
+                None => el.child(self.message(title, body, theme)),
             })
             .child(meta);
         let target = Selection::Commit(project.clone(), id);
@@ -541,6 +542,19 @@ impl Detail {
         (h_flex().items_start().min_w_0().gap(dp(6.)))
             .child(title_text(commit_title(title)))
             .children(toggle)
+    }
+
+    /// A commit's `title` and, once its button shows it, the rest of its message, `body`, under
+    /// it, scrolling past a dozen lines: an agent's message can run to thousands of characters
+    /// on one line, and the files and diff under the header stay in reach.
+    fn message(&self, title: impl IntoElement, body: String, theme: &Theme) -> Stateful<Div> {
+        (v_flex()
+            .id("message")
+            .gap(dp(10.))
+            .max_h(dp(260.))
+            .overflow_y_scroll())
+        .child(title)
+        .children(self.full_message(body, theme))
     }
 
     /// The rest of a commit's message under its title, once its button shows it.
@@ -689,8 +703,8 @@ impl Detail {
                 Some(remote) => format!("only on {remote}"),
                 None => "only on the remote".to_owned(),
             }));
-        let main = (v_flex().gap(dp(10.)).child(title))
-            .children(self.full_message(body.clone(), theme))
+        let main = (v_flex().gap(dp(10.)))
+            .child(self.message(title, body.clone(), theme))
             .child(meta);
         let target = Selection::Upstream(project.clone(), ref_name.map(str::to_owned), id);
         let tabs = (self.selected_review(cx)).map(|review| self.review_tabs(review, theme, cx));
@@ -858,7 +872,11 @@ impl Detail {
                     .px(dp(10.))
                     .py(dp(8.))
                     .rounded(dp(6.))
-                    .line_height(dp(19.)),
+                    .line_height(dp(19.))
+                    .id("reword-box")
+                    .max_h(dp(260.))
+                    .overflow_y_scroll()
+                    .track_scroll(&self.reword_scroll),
             )
             .child(
                 h_flex()

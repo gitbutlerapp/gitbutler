@@ -690,8 +690,9 @@ impl Detail {
         let message = store.message_of(&project, commit).1.to_owned();
         let key = (project.clone(), commit.key.clone(), commit.authored.clone());
         let opened = message.trim().to_owned();
+        let scroll = self.reword_scroll.clone();
         let input = cx.new(|cx| {
-            let mut input = TextInput::new("Commit message", true, cx);
+            let mut input = TextInput::new("Commit message", true, cx).scrolled_by(scroll);
             input.set_text(message, cx);
             input
         });
