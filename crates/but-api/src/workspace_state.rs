@@ -120,7 +120,7 @@ impl WorkspaceState {
             // responses (which Lite renders directly) carry the same
             // associations: open reviews from the forge cache for active
             // branches, durable stored identity for integrated ones.
-            head_info.apply_forge_review_associations(repo, prs_by_head);
+            head_info.apply_forge_review_associations(prs_by_head);
 
             Ok(WorkspaceState {
                 replaced_commits,
@@ -163,7 +163,7 @@ impl WorkspaceState {
         conflicted_commits: Vec<(gix::ObjectId, ChangeId)>,
         db: &mut but_db::DbHandle,
     ) -> anyhow::Result<WorkspaceState> {
-        let prs_by_head = but_forge::review_associations_by_head(db)?;
+        let prs_by_head = but_forge::review_associations_by_head(db, repo)?;
         Self::from_workspace_with_prs(
             workspace,
             meta,
@@ -209,7 +209,7 @@ impl WorkspaceState {
     pub(crate) fn from_rebase_preview<M: RefMetadata>(
         rebase: &mut SuccessfulRebase<'_, '_, M>,
     ) -> anyhow::Result<WorkspaceState> {
-        let prs_by_head = but_forge::review_associations_by_head(rebase.db())?;
+        let prs_by_head = but_forge::review_associations_by_head(rebase.db(), rebase.repo())?;
         Self::from_rebase_preview_with_prs(rebase, &prs_by_head)
     }
 
@@ -223,7 +223,7 @@ impl WorkspaceState {
         materialized: MaterializeOutcome<'_, '_, M>,
         repo: &gix::Repository,
     ) -> anyhow::Result<WorkspaceState> {
-        let prs_by_head = but_forge::review_associations_by_head(materialized.db)?;
+        let prs_by_head = but_forge::review_associations_by_head(materialized.db, repo)?;
         Self::from_workspace_with_prs(
             materialized.workspace,
             materialized.meta,
@@ -253,7 +253,7 @@ impl WorkspaceState {
     ) -> anyhow::Result<WorkspaceState> {
         if dry_run.into() {
             let mut rebase = rebase;
-            let prs_by_head = but_forge::review_associations_by_head(rebase.db())?;
+            let prs_by_head = but_forge::review_associations_by_head(rebase.db(), rebase.repo())?;
             return Self::from_rebase_preview_with_prs(&mut rebase, &prs_by_head);
         }
 

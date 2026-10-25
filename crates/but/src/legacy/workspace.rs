@@ -102,8 +102,8 @@ fn head_info(
     // Enrich active associations from the forge cache while keeping durable
     // stored identity for integrated branches, mirroring desktop `head_info`.
     let review_cache = ctx.db.get_cache()?;
-    let prs_by_head = but_forge::review_associations_by_head(&review_cache)?;
-    info.apply_forge_review_associations(&repo, &prs_by_head);
+    let prs_by_head = but_forge::review_associations_by_head(&review_cache, &repo)?;
+    info.apply_forge_review_associations(&prs_by_head);
 
     Ok((info, object_hash))
 }

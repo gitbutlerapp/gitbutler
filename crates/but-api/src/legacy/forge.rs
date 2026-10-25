@@ -1582,6 +1582,17 @@ pub fn list_ci_checks_for_ref(
     reference: &str,
     cache_config: Option<but_forge::CacheConfig>,
 ) -> Result<Vec<but_forge::CiCheck>> {
+    ci_checks(ctx, reference, None, cache_config)
+}
+
+/// [`list_ci_checks_for_ref`], asking the forge about `head_commit` instead of
+/// `reference` when set.
+fn ci_checks(
+    ctx: &Context,
+    reference: &str,
+    head_commit: Option<&str>,
+    cache_config: Option<but_forge::CacheConfig>,
+) -> Result<Vec<but_forge::CiCheck>> {
     let (storage, forge_repo_info, preferred_forge_user) = {
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
@@ -1603,6 +1614,7 @@ pub fn list_ci_checks_for_ref(
         &forge_repo_info.context("No forge could be determined for this repository branch")?,
         &storage,
         reference,
+        head_commit,
         db,
         cache_config,
     )
@@ -2714,16 +2726,14 @@ pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
 
     // Collect branch references that have CI checks cached
     let mut current_refs = std::collections::HashSet::new();
+    let reviews = but_forge::list_cached_forge_reviews(&*ctx.db.get_cache()?)?;
 
     // Process each branch that has a PR
     for segment in workspace.lanes().flat_map(|lane| lane.segments) {
-        let has_pull_request = segment
-            .metadata
-            .as_ref()
-            .is_some_and(|meta| meta.review.pull_request.is_some());
-        if !has_pull_request {
+        let Some(number) = (segment.metadata.as_ref()).and_then(|meta| meta.review.pull_request)
+        else {
             continue;
-        }
+        };
         let Some(name) = segment
             .ref_info
             .as_ref()
@@ -2731,9 +2741,19 @@ pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
         else {
             continue;
         };
+        // A fork's branch isn't in the base repository, so ask about its review's head commit.
+        let head_commit = (reviews.iter())
+            .find(|review| review.number as usize == number && review.head_repo_is_fork)
+            .map(|review| review.sha.as_str())
+            .filter(|sha| !sha.is_empty());
 
         // Fetch CI checks with NoCache to force refresh
-        let _ = list_ci_checks(ctx, name.clone(), Some(but_forge::CacheConfig::NoCache));
+        let _ = ci_checks(
+            ctx,
+            &name,
+            head_commit,
+            Some(but_forge::CacheConfig::NoCache),
+        );
         // Ignore errors for individual branches to ensure we process all branches
 
         // Track this reference as having CI checks

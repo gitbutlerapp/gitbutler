@@ -2,11 +2,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::ForgeName;
 
+/// The CI checks of `reference`, cached under that name. When set, `head_commit`
+/// is what GitHub is asked about instead, as for a review from a fork, whose
+/// branch the base repository doesn't have. The other forges look checks up by
+/// branch, so they are always asked about `reference`.
 pub fn ci_checks_for_ref_with_cache(
     preferred_forge_user: Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     storage: &but_forge_storage::Controller,
     reference: &str,
+    head_commit: Option<&str>,
     db: &mut but_db::DbHandle,
     cache_config: Option<crate::CacheConfig>,
 ) -> anyhow::Result<Vec<CiCheck>> {
@@ -26,6 +31,7 @@ pub fn ci_checks_for_ref_with_cache(
                 forge_repo_info,
                 storage,
                 reference,
+                head_commit,
                 db,
             )?
         }
@@ -34,6 +40,7 @@ pub fn ci_checks_for_ref_with_cache(
             forge_repo_info,
             storage,
             reference,
+            head_commit,
             db,
         )?,
     };
@@ -53,9 +60,14 @@ fn fetch_and_refresh_cache(
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     storage: &but_forge_storage::Controller,
     reference: &str,
+    head_commit: Option<&str>,
     db: &mut but_db::DbHandle,
 ) -> anyhow::Result<Vec<CiCheck>> {
-    let fetched = ci_checks_for_ref(preferred_forge_user, forge_repo_info, storage, reference)?;
+    let asked = match forge_repo_info.forge {
+        ForgeName::GitHub => head_commit.unwrap_or(reference),
+        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure => reference,
+    };
+    let fetched = ci_checks_for_ref(preferred_forge_user, forge_repo_info, storage, asked)?;
     Ok(refresh_cache_with_fetched(db, reference, fetched))
 }
 
@@ -66,7 +78,8 @@ fn fetch_and_refresh_cache(
 /// means the ref did not resolve; it is surfaced as "no checks" for display but
 /// deliberately leaves the cache untouched, since a
 /// cache-only reader such as `but status` must not lose previously-good checks
-/// to a momentary blip.
+/// to a momentary blip. The checks are filed under `reference` even when they
+/// were fetched for a commit.
 fn refresh_cache_with_fetched(
     db: &mut but_db::DbHandle,
     reference: &str,
@@ -74,6 +87,12 @@ fn refresh_cache_with_fetched(
 ) -> Vec<CiCheck> {
     match fetched {
         Some(checks) => {
+            let checks: Vec<_> = (checks.into_iter())
+                .map(|check| CiCheck {
+                    reference: reference.to_owned(),
+                    ..check
+                })
+                .collect();
             crate::db::cache_ci_checks(db, reference, &checks).ok();
             checks
         }
@@ -548,6 +567,7 @@ mod tests {
                         &repo,
                         &cache_storage,
                         REFERENCE,
+                        None,
                         &mut db,
                         Some(config),
                     )
@@ -624,6 +644,23 @@ mod tests {
             cached_ids(&db),
             vec![1],
             "a transient unresolvable ref must not wipe the cache"
+        );
+    }
+
+    #[test]
+    fn checks_fetched_for_a_commit_are_cached_under_the_reference() {
+        let (_tmp, mut db) = test_db();
+        let fetched = CiCheck {
+            reference: "deadbeef".into(),
+            ..cache_check(1)
+        };
+
+        refresh_cache_with_fetched(&mut db, REFERENCE, Some(vec![fetched]));
+
+        assert_eq!(
+            cached_ids(&db),
+            vec![1],
+            "a fork review's checks, fetched by its head commit, must be found by its branch"
         );
     }
 }

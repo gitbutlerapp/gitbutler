@@ -891,6 +891,7 @@ impl ForgeRepository {
                 &self.repository,
                 &self.storage,
                 reference,
+                None,
                 db,
                 Some(but_forge::CacheConfig::NoCache),
             )
