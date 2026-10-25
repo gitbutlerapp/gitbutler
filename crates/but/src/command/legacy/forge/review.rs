@@ -1125,7 +1125,10 @@ pub fn get_review_map(
     cache_config: Option<but_forge::CacheConfig>,
 ) -> anyhow::Result<std::collections::HashMap<String, Vec<but_forge::ForgeReview>>> {
     let reviews = but_api::legacy::forge::list_reviews(ctx, cache_config).unwrap_or_default();
-    Ok(review_map_from_reviews(reviews))
+    Ok(review_map_from_reviews(but_forge::without_unrelated_forks(
+        reviews,
+        &*ctx.repo.get()?,
+    )))
 }
 
 fn get_review_map_strict(
@@ -1133,7 +1136,10 @@ fn get_review_map_strict(
     cache_config: Option<but_forge::CacheConfig>,
 ) -> anyhow::Result<std::collections::HashMap<String, Vec<but_forge::ForgeReview>>> {
     let reviews = but_api::legacy::forge::list_reviews(ctx, cache_config)?;
-    Ok(review_map_from_reviews(reviews))
+    Ok(review_map_from_reviews(but_forge::without_unrelated_forks(
+        reviews,
+        &*ctx.repo.get()?,
+    )))
 }
 
 fn review_map_from_reviews(
