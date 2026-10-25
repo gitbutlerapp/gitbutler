@@ -212,6 +212,10 @@ icons! {
     own: FolderFill => "folder-fill",
     // ui-react's eye, struck through, for a project not watched.
     EyeOff => "eye-off",
+    // ui-react's folders with their top right corner cut away, for a dot there while a
+    // worktree has uncommitted changes.
+    FolderDot => "folder-dot",
+    FolderCopyDot => "folder-copy-dot",
     // Another machine, which ui-react has no glyph for, in the style of its folder.
     Computer => "computer",
     // The repo glyph filled as ui-react's `EntityGlyph` fills it, its gradient baked in, for a

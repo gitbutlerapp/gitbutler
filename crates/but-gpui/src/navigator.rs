@@ -1603,13 +1603,11 @@ impl Navigator {
             .aria_label(label.clone())
             .aria_expanded(open)
             .child(step)
-            .child(
-                icon(match name {
-                    Some(_) => Icon::FolderCopy,
-                    None => Icon::Folder,
-                })
-                .text_color(style.muted()),
-            )
+            .child(worktree_icon(
+                name.is_some(),
+                !uncommitted.is_empty(),
+                style,
+            ))
             // Its own width, so the quiet "uncommitted" gives way before the name does.
             .child(
                 div()
@@ -2432,6 +2430,25 @@ fn change_counts(
         }
     };
     conflicts.into_iter().chain(all)
+}
+
+/// A worktree heading's folder, a linked one's doubled, with a dot in its corner while it has
+/// uncommitted changes, as an edited document has.
+fn worktree_icon(linked: bool, changed: bool, style: RowStyle) -> Div {
+    let glyph = match (linked, changed) {
+        (false, false) => Icon::Folder,
+        (false, true) => Icon::FolderDot,
+        (true, false) => Icon::FolderCopy,
+        (true, true) => Icon::FolderCopyDot,
+    };
+    div()
+        .relative()
+        .flex_none()
+        .child(icon(glyph).text_color(style.muted()))
+        .when(changed, |el| {
+            let color = style.meta(style.theme.warn);
+            el.child(dot(color).absolute().top_0().right_0().size(dp(5.)))
+        })
 }
 
 /// A checkout heading's [`change_counts`], with a quiet "uncommitted" ahead of them while
