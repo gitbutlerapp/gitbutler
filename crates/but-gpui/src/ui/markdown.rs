@@ -71,6 +71,8 @@ pub struct Style {
     pub italic: bool,
     pub strike: bool,
     pub code: bool,
+    /// Matches a search, tinted as the diff's find tints its matches.
+    pub mark: bool,
 }
 
 /// Where a link may go when clicked: the web, or mail. Anything else, as a file, another
@@ -750,6 +752,7 @@ fn text(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
                     italic: all.italic || style.italic,
                     strike: all.strike || style.strike,
                     code: all.code || style.code,
+                    mark: all.mark || style.mark,
                 });
             let linked = block.links.iter().any(|(range, _)| range.contains(&at));
             let weight = match (style.bold || heading, style.italic) {
@@ -767,7 +770,11 @@ fn text(id: &str, ix: usize, block: &Block, theme: &Theme) -> AnyElement {
                     true => theme.blue,
                     false => color,
                 },
-                background_color: style.code.then(|| theme.fill_gray.opacity(0.12)),
+                background_color: match (style.mark, style.code) {
+                    (true, _) => Some(theme.warn.opacity(0.28)),
+                    (false, true) => Some(theme.fill_gray.opacity(0.12)),
+                    (false, false) => None,
+                },
                 underline: linked.then(|| UnderlineStyle {
                     thickness: fixed(1.),
                     color: Some(theme.blue.opacity(0.4)),

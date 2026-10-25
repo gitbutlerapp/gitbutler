@@ -125,7 +125,7 @@ const COMMANDS: &[(&str, &dyn Action)] = &[
     // The menu bar's, for Windows, which has none.
     ("Check for updates…", &CheckForUpdates),
     ("GitButler docs", &crate::help::OpenDocs),
-    ("Release notes", &crate::help::OpenReleaseNotes),
+    ("What's new (release notes)", &crate::help::OpenReleaseNotes),
     ("Report an issue…", &crate::help::ReportIssue),
     ("Show settings folder", &crate::help::ShowConfigFolder),
     ("Show logs folder", &crate::help::ShowLogsFolder),
