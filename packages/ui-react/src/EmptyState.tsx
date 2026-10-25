@@ -68,7 +68,15 @@ export const EmptyState: FC<Props> = ({
 		<div className={styles.body}>
 			<div className={styles.lines}>
 				{title !== undefined && (
-					<p className={classes("text-14", "text-semibold", "text-balance", styles.title)}>
+					<p
+						className={classes(
+							"text-14",
+							"text-semibold",
+							"text-body",
+							"text-balance",
+							styles.title,
+						)}
+					>
 						{title}
 					</p>
 				)}
