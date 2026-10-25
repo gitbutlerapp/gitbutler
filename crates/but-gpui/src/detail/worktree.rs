@@ -27,8 +27,9 @@ use crate::ui::file_icons::file_icon;
 use crate::ui::review::state_glyph;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::{
-    Icon, ROW_HEIGHT, Tooltip, commit_title, dot, dp, faint, glow_once, h_flex, just_now,
-    keep_focus_on_press, list_row, relative_time, short_path, shortcut, small_icon, v_flex,
+    ButtonStyle, Icon, ROW_HEIGHT, Tooltip, button, commit_title, dot, dp, faint, glow_once,
+    h_flex, just_now, keep_focus_on_press, list_row, relative_time, short_path, shortcut,
+    small_icon, v_flex,
 };
 
 mod activity;
@@ -393,11 +394,19 @@ impl Detail {
             .filter(|(at, _)| inside(*at))
             .collect::<Vec<_>>();
         let files = ws.uncommitted_in(name).unwrap_or_default();
+        // Of all its commits, not only those listed, so marking them read leaves it caught up.
+        let unread: Vec<CommitId> = (all.iter())
+            .filter_map(|c| match c {
+                Made::Here(_, commit) if store.is_unread(project, *commit) => Some(commit.id),
+                _ => None,
+            })
+            .collect();
+        let status = self.now_status(project, files, activity, &all, unread.len(), theme, cx);
         // Side by side where both fit, as the tiles wrap.
         let columns = [
             (self.now_hot_files(&scoped, theme, cx), 2., 240.),
             (
-                self.now_commits(project, &scoped, &events, theme, cx),
+                self.now_commits(project, &scoped, &events, unread, theme, cx),
                 3.,
                 340.,
             ),
@@ -419,14 +428,7 @@ impl Detail {
                     .px(dp(14.))
                     .py(dp(16.))
                     .gap(dp(6.))
-                    .child(self.now_activity(
-                        (activity, now),
-                        &all,
-                        &scoped,
-                        self.now_status(project, files, activity, &all, theme, cx),
-                        theme,
-                        cx,
-                    ))
+                    .child(self.now_activity((activity, now), &all, &scoped, status, theme, cx))
                     // Stacked, each half of what's left, where they don't fit side by side.
                     .child(
                         h_flex()
@@ -468,14 +470,16 @@ impl Detail {
     }
 
     /// Where the checkout is, in a line: whether files are being written or how long it's
-    /// been quiet, how many `files` are uncommitted and how many of its `commits` unread, or
-    /// All caught up.
+    /// been quiet, how many `files` are uncommitted and how many of its `commits` are `unread`,
+    /// or All caught up.
+    #[expect(clippy::too_many_arguments)]
     fn now_status(
         &self,
         project: &ProjectId,
         files: &[FileChange],
         activity: Option<&Activity>,
         commits: &[Made],
+        unread: usize,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Div {
@@ -497,9 +501,6 @@ impl Detail {
             },
             (false, None) => "Nothing committed yet".to_owned(),
         };
-        let unread = (commits.iter())
-            .filter(|c| matches!(c, Made::Here(_, commit) if store.is_unread(project, *commit)))
-            .count();
         // One line, short enough for a narrow page, its last words cut short before they'd
         // widen it.
         meta_row(theme)
@@ -678,6 +679,7 @@ impl Detail {
         project: &ProjectId,
         commits: &[Made],
         events: &[&(i64, String)],
+        unread: Vec<CommitId>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> Option<Div> {
@@ -699,7 +701,9 @@ impl Detail {
         let mut items: Vec<(i64, Item)> = (listed.iter().map(|c| (c.time(), Item::Commit(*c))))
             .chain(events.map(|(at, said)| (*at, Item::Moved(said))))
             .collect();
-        if items.is_empty() && file.is_none() {
+        // Kept with none listed while any is unread, for its Mark all as read.
+        let none = items.is_empty();
+        if none && file.is_none() && unread.is_empty() {
             return None;
         }
         items.sort_by_key(|(at, _)| std::cmp::Reverse(*at));
@@ -800,16 +804,35 @@ impl Detail {
             && commits
                 .iter()
                 .any(|c| !self.now.paths.contains_key(&c.id()));
+        let said = match file {
+            Some(_) if listed.is_empty() => Some(match reading {
+                true => "Reading which commits changed it…",
+                false => "No commit then changed it",
+            }),
+            None if none => Some("No commits then"),
+            _ => None,
+        };
+        // Where Hot files has its Clear, while any is unread, and quieter than the unread
+        // titles under it.
+        let mark_read = (!unread.is_empty()).then(|| {
+            let project = project.clone();
+            button("now-mark-read", "Mark all as read")
+                .small()
+                .style(ButtonStyle::Ghost)
+                .tint(theme.text_2)
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    let ids = unread.clone();
+                    (this.store).update(cx, |store, cx| store.mark_read(&project, ids, true, cx))
+                }))
+        });
         Some(
             v_flex()
-                .child(overview_heading("Commits", div(), theme))
-                .when(listed.is_empty() && file.is_some(), |el| {
-                    let said = match reading {
-                        true => "Reading which commits changed it…",
-                        false => "No commit then changed it",
-                    };
-                    el.child(faint(said, theme).px(dp(14.)).py(dp(4.)))
-                })
+                .child(overview_heading(
+                    "Commits",
+                    div().children(mark_read),
+                    theme,
+                ))
+                .children(said.map(|said| faint(said, theme).px(dp(14.)).py(dp(4.))))
                 .child(scrolling(
                     ("now-commits-rows", "now-commits-scrollbar"),
                     &self.now.commits_scroll,
