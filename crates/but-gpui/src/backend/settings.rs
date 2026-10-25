@@ -109,17 +109,35 @@ pub struct ProjectSettings {
     pub detected_forge: Option<Forge>,
     /// The forge picked for the project, which counts only when none is detected.
     pub forge_override: Option<Forge>,
+    /// The project's remotes, and the one new branches are pushed to.
+    pub remotes: Vec<String>,
+    pub push_remote: Option<String>,
 }
 
 pub fn project_settings(path: &Path) -> Result<ProjectSettings> {
     let ctx = open(path)?;
     let git = config::get_gb_config(&ctx)?;
     let (detected_forge, forge_override) = super::reviews::detected_and_saved_forge(&ctx);
+    let repo = ctx.repo.get()?;
     Ok(ProjectSettings {
         sign_commits: git.gitbutler_sign_commits.unwrap_or(false),
         detected_forge,
         forge_override,
+        remotes: repo
+            .remote_names()
+            .iter()
+            .map(ToString::to_string)
+            .collect(),
+        // None with no target yet, or one an older GitButler stored ambiguously, which the
+        // settings still show around.
+        push_remote: (ctx.project_meta().ok())
+            .and_then(|meta| meta.try_push_remote_name(&repo).ok().flatten()),
     })
+}
+
+/// Push new branches to `remote`, as a fork whose target is the original repository's.
+pub fn set_push_remote(path: &Path, remote: String) -> Result<()> {
+    but_api::workspace::set_push_remote(&mut open(path)?, remote)
 }
 
 /// Pick the forge the project uses when its remote doesn't name one, or clear the pick
@@ -243,18 +261,35 @@ pub fn target_branches(path: &Path) -> Result<Vec<String>> {
 /// Make `target` what the workspace integrates into: a local branch's full ref, or a remote
 /// one that a single local branch tracks, as the CLI takes it. The branch's upstream is what
 /// pulls bring in. Only the project's settings change: a new project stays on the branch it
-/// has checked out, and branches rebase onto a changed target at the next update.
+/// has checked out, and branches rebase onto a changed target at the next update. New
+/// branches go on pushing where they did, as a fork's to the fork when the target becomes the
+/// original repository's main, as the desktop app keeps it.
 pub fn set_target(path: &Path, target: &str) -> Result<()> {
     let mut ctx = open(path)?;
-    anyhow::ensure!(!ctx.repo.get()?.head()?.is_unborn(), NO_COMMITS);
-    let local = but_core::ref_metadata::resolve_local_target(
-        full_name(target)?.as_ref(),
-        &*ctx.repo.get()?,
-    )?;
+    let (local, push_remote) = {
+        let repo = ctx.repo.get()?;
+        anyhow::ensure!(!repo.head()?.is_unborn(), NO_COMMITS);
+        let local =
+            but_core::ref_metadata::resolve_local_target(full_name(target)?.as_ref(), &repo)?;
+        // One picked stays as it is. One that follows the old target's remote is kept only
+        // where it would change: one pushing where the new target fetches from goes on
+        // following the target, as through a rename of that remote.
+        let fetches_from = repo
+            .branch_remote_name(
+                local.as_local_full_name_ref().shorten(),
+                gix::remote::Direction::Fetch,
+            )
+            .map(|name| name.as_bstr().to_string());
+        let pushes_to = (ctx.project_meta().ok())
+            .filter(|meta| meta.push_remote.is_none())
+            .and_then(|meta| meta.try_push_remote_name(&repo).ok().flatten())
+            .filter(|to| Some(to) != fetches_from.as_ref());
+        (local, pushes_to)
+    };
     but_api::workspace::set_target_ref_and_init_project(
         &mut ctx,
         local.as_local_full_name_ref(),
-        None,
+        push_remote,
     )
 }
 
@@ -388,6 +423,49 @@ mod tests {
                 Some("origin/main"),
                 "a remote ref picks the local branch tracking it, which goes by its upstream"
             );
+        })
+    }
+
+    #[test]
+    fn a_fork_targeting_the_original_repository_keeps_pushing_to_the_fork() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            for remote in ["origin", "upstream"] {
+                let url = format!("https://example.com/{remote}.git");
+                git(path, &["remote", "add", remote, &url]);
+                git(
+                    path,
+                    &["update-ref", &format!("refs/remotes/{remote}/main"), "HEAD"],
+                );
+            }
+            git(path, &["branch", "--set-upstream-to=origin/main", "main"]);
+            git(
+                path,
+                &["branch", "--track", "upstream-main", "upstream/main"],
+            );
+            super::set_target(path, "refs/heads/main").unwrap();
+
+            super::set_target(path, "refs/heads/upstream-main").unwrap();
+            let settings = super::project_settings(path).unwrap();
+            assert_eq!(settings.remotes, ["origin", "upstream"]);
+            assert_eq!(
+                settings.push_remote.as_deref(),
+                Some("origin"),
+                "new branches go on to the fork, not to the original repository now targeted"
+            );
+            super::set_push_remote(path, "upstream".into()).unwrap();
+            assert_eq!(
+                super::project_settings(path)
+                    .unwrap()
+                    .push_remote
+                    .as_deref(),
+                Some("upstream"),
+                "picking where branches go is saved"
+            );
+            git(path, &["remote", "remove", "upstream"]);
+            super::set_target(path, "refs/heads/main")
+                .expect("a picked remote that's gone doesn't keep the target from changing");
         })
     }
 }

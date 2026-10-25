@@ -144,6 +144,7 @@ impl SettingsView {
                 }
             });
         });
+        let push_path = path.clone();
         let (test_path, tested) = (path, project.clone());
         let test_signing = cx.listener(move |this, _: &ClickEvent, _, cx| {
             let path = test_path.clone();
@@ -284,6 +285,33 @@ impl SettingsView {
                 pick_forge,
             ),
         };
+        // As the desktop app offers it, only where there's a choice.
+        let push_to = (settings.push_remote.clone())
+            .filter(|_| settings.remotes.len() > 1)
+            .map(|current| {
+                let pick = self.choice(
+                    "push-remote",
+                    current,
+                    (settings.remotes.iter()).map(|remote| (remote.clone(), remote.clone())),
+                    move |this, remote, _, cx| {
+                        let path = push_path.clone();
+                        this.apply(
+                            "Couldn't change where branches are pushed",
+                            move || backend::set_push_remote(&path, remote),
+                            Self::reload_project,
+                            cx,
+                        )
+                    },
+                    cx,
+                );
+                Row::new(
+                    "Push new branches to",
+                    "The remote a branch goes to on its first push, as your fork when the \
+                     target is the original repository's. Updates come from the target \
+                     branch's remote.",
+                    pick,
+                )
+            });
         // The push checks this itself, whatever the setting GitButler's other apps share says.
         let force = Row::new(
             "Force pushes",
@@ -364,7 +392,7 @@ impl SettingsView {
                 Card::new(None, vec![remove]),
             ],
             _ => vec![
-                Card::new(None, vec![force, hooks]),
+                Card::new(None, push_to.into_iter().chain([force, hooks]).collect()),
                 Card::new(Some("Signing"), vec![sign]),
                 Card::new(
                     Some("Authentication"),
