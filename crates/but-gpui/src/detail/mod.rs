@@ -316,6 +316,8 @@ pub struct Detail {
     composing: bool,
     /// The checkout had changes when the composer opened, so it isn't for an empty commit.
     composing_on_changes: bool,
+    /// The branch the composer showed the commit going to, which mustn't change unseen.
+    composing_target: Option<String>,
     /// Where the focus was when writing a commit message started, to go back to after.
     composer_back: Option<FocusHandle>,
     /// What scrolls the commit message box, which keeps the caret in view.
@@ -640,6 +642,7 @@ impl Detail {
             checks_worktree: None,
             composing: false,
             composing_on_changes: false,
+            composing_target: None,
             composer_back: None,
             message_scroll,
             reword_scroll: ScrollHandle::new(),

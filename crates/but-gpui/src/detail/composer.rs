@@ -537,6 +537,8 @@ impl Detail {
                 .map(|file| file.path.clone());
             self.checks.unchecked.extend(conflicted.collect::<Vec<_>>());
             self.composing_on_changes = !files.is_empty();
+            self.composing_target = (self.checks_project.clone())
+                .and_then(|project| self.effective_target(&project, cx));
         }
         let message = self.message.focus_handle(cx);
         if !self.composing {
@@ -833,6 +835,9 @@ impl Detail {
             return;
         }
         let target = self.effective_target(&project, cx);
+        if self.target_went(&project, &target, cx) {
+            return;
+        }
         // A linked worktree's commit goes on its own branch, so the next one in the main
         // checkout still goes where it would have.
         let linked = worktree.is_some();
@@ -955,6 +960,32 @@ impl Detail {
         (self.selected_project(cx)).is_some_and(|project| self.amend_target(&project, cx).is_some())
     }
 
+    /// Whether the branch the composer showed went, as an agent can unapply or rename it, so
+    /// `target` is elsewhere than picked: says where, once, rather than go there unseen.
+    fn target_went(
+        &mut self,
+        project: &ProjectId,
+        target: &Option<String>,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let shown = std::mem::replace(&mut self.composing_target, target.clone());
+        let Some(gone) = shown.filter(|shown| {
+            Some(shown) != target.as_ref()
+                && self.commit_target != *target
+                && (self.store.read(cx).workspace(project))
+                    .is_none_or(|ws| ws.find_branch(shown).is_none())
+        }) else {
+            return false;
+        };
+        let to = target.as_deref().map_or("a new branch", short_ref);
+        let why = format!(
+            "{} was renamed or left the workspace meanwhile. Try again for {to}",
+            short_ref(&gone)
+        );
+        snack(&self.store, why, cx);
+        true
+    }
+
     /// The newest commit on the branch new commits go to, which Amend adds to.
     fn amend_target(&self, project: &ProjectId, cx: &App) -> Option<(CommitId, String)> {
         if self.commit_pending(project, cx) {
@@ -1001,6 +1032,9 @@ impl Detail {
         let Some((into, _)) = self.amend_target(&project, cx) else {
             return;
         };
+        if self.target_went(&project, &self.effective_target(&project, cx), cx) {
+            return;
+        }
         if self.choices_loading(&project, cx) {
             return;
         }
