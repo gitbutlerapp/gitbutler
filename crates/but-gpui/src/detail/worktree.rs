@@ -412,7 +412,6 @@ impl Detail {
             .child(
                 v_flex()
                     .w_full()
-                    .max_w(dp(820.))
                     .flex_1()
                     .min_h_0()
                     .px(dp(14.))
@@ -574,7 +573,7 @@ impl Detail {
         let more = and_more(rest, theme).map(IntoElement::into_any_element);
         Some(
             v_flex()
-                .child(overview_heading("Hot files", div().children(clear), theme).h(dp(28.)))
+                .child(overview_heading("Hot files", div().children(clear), theme))
                 .child(scrolling(
                     ("now-hot-rows", "now-hot-scrollbar"),
                     &self.now.hot_scroll,
@@ -795,8 +794,7 @@ impl Detail {
                 .any(|c| !self.now.paths.contains_key(&c.id()));
         Some(
             v_flex()
-                // As tall as Hot files' beside it, which has room for Clear.
-                .child(overview_heading("Commits", div(), theme).h(dp(28.)))
+                .child(overview_heading("Commits", div(), theme))
                 .when(listed.is_empty() && file.is_some(), |el| {
                     let said = match reading {
                         true => "Reading which commits changed it…",

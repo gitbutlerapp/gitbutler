@@ -13,7 +13,8 @@ use crate::backend::upstream::{ACTIVITY_DAYS, Landing, Overview};
 use crate::detail::Detail;
 use crate::detail::panes::{
     OVERVIEW_COUNT_WIDTH, OVERVIEW_TIME_WIDTH, and_more, back_to_list, clear_button, grouped,
-    overview_column, overview_heading, overview_tiles, overview_title, share_row,
+    overview_column, overview_heading, overview_sections, overview_tiles, overview_title,
+    share_row,
 };
 use crate::state::ProjectId;
 use crate::theme::Theme;
@@ -180,7 +181,6 @@ impl Detail {
             .child(
                 v_flex()
                     .w_full()
-                    .max_w(dp(820.))
                     .px(dp(14.))
                     .py(dp(16.))
                     .gap(dp(6.))
@@ -205,9 +205,12 @@ impl Detail {
                             .py(dp(8.)),
                         )
                     })
-                    .children(self.releases(project, upstream, &kept_ids, theme, cx))
-                    .children(self.areas(project, &by_who, area, solid, cx))
-                    .children(self.largest(project, summary, &kept, theme, cx)),
+                    // Largest's titles want the most room, so it's the first to go under.
+                    .child(overview_sections([
+                        (self.releases(project, upstream, &kept_ids, theme, cx), 320.),
+                        (self.areas(project, &by_who, area, solid, cx), 420.),
+                        (self.largest(project, summary, &kept, theme, cx), 560.),
+                    ])),
             )
             .into_any_element()
     }
@@ -319,7 +322,7 @@ impl Detail {
         };
         Some(
             v_flex()
-                .child(overview_heading("Where it landed", detail, theme).h(dp(28.)))
+                .child(overview_heading("Where it landed", detail, theme))
                 .children(rows)
                 .children(and_more(rest, theme))
                 .into_any_element(),

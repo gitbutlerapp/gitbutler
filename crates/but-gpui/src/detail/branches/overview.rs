@@ -13,7 +13,8 @@ use crate::backend::branches::OtherBranch;
 use crate::backend::upstream::{self, ACTIVITY_DAYS};
 use crate::detail::Detail;
 use crate::detail::panes::{
-    OVERVIEW_TIME_WIDTH, grouped, overview_heading, overview_split, overview_tiles, overview_title,
+    OVERVIEW_TIME_WIDTH, grouped, overview_heading, overview_sections, overview_split,
+    overview_tiles, overview_title,
 };
 use crate::detail::upstream::noon;
 use crate::state::{BranchStatus, ProjectId, Selection};
@@ -200,6 +201,27 @@ impl Detail {
             },
             (false, false) => "No commits in the last week".to_owned(),
         };
+        let cooking = v_flex()
+            .gap(dp(6.))
+            .child(overview_heading(
+                "Cooking",
+                faint("commits a day", theme),
+                theme,
+            ))
+            .when(cooking_lanes.is_empty(), |el| {
+                el.child(faint(nothing, theme).px(dp(14.)).py(dp(4.)))
+            })
+            .children(cooking_lanes);
+        let quiet = (!quiet_lanes.is_empty()).then(|| {
+            v_flex()
+                .gap(dp(6.))
+                .child(overview_heading(
+                    "Gone quiet",
+                    faint("no commits for a week", theme),
+                    theme,
+                ))
+                .children(quiet_lanes)
+        });
         v_flex()
             .id("branches-overview")
             .flex_1()
@@ -209,7 +231,6 @@ impl Detail {
             .child(
                 v_flex()
                     .w_full()
-                    .max_w(dp(820.))
                     .px(dp(14.))
                     .py(dp(16.))
                     .gap(dp(6.))
@@ -220,23 +241,11 @@ impl Detail {
                     ))
                     .child(overview_tiles(tiles, theme))
                     .children(review_split(&summary, theme))
-                    .child(overview_heading(
-                        "Cooking",
-                        faint("commits a day", theme),
-                        theme,
-                    ))
-                    .when(cooking_lanes.is_empty(), |el| {
-                        el.child(faint(nothing, theme).px(dp(14.)).py(dp(4.)))
-                    })
-                    .children(cooking_lanes)
-                    .when(!quiet_lanes.is_empty(), |el| {
-                        el.child(overview_heading(
-                            "Gone quiet",
-                            faint("no commits for a week", theme),
-                            theme,
-                        ))
-                    })
-                    .children(quiet_lanes),
+                    // Side by side only where a lane has room for a cell a day and its name.
+                    .child(overview_sections([
+                        (Some(cooking.into_any_element()), 880.),
+                        (quiet.map(IntoElement::into_any_element), 880.),
+                    ])),
             )
             .into_any_element()
     }
