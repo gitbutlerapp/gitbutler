@@ -444,8 +444,16 @@ fn target(
     let stacks = (info.stacks.iter().filter_map(|s| s.base)).filter(|&b| Some(b) != target_commit);
     let (behind, commits_behind) =
         behind_oldest(&repo, tip, ahead.into_iter().chain(stacks.map(past)));
+    // The longest remote name that fits, as remote names can hold slashes too.
+    let branch =
+        but_core::extract_remote_name_and_short_name(source.as_ref(), &repo.remote_names())
+            .map_or_else(
+                || source.shorten().to_string(),
+                |(_, branch)| branch.to_string(),
+            );
     let target = Target {
         name: source.shorten().to_string(),
+        branch,
         local: source.category() == Some(gix::refs::Category::LocalBranch),
         behind,
         commits_behind,

@@ -455,7 +455,13 @@ impl AppView {
                     ..Overlay::remote()
                 },
                 move |path, _| reviews::merge(path, number, method),
-                |store, (), cx| store.snack("Merged, Update brings it into your workspace", cx),
+                |store, merged, cx| {
+                    let said = match merged {
+                        true => "Merged, Update brings it into your workspace",
+                        false => "In the merge queue, it merges when the queue gets to it",
+                    };
+                    store.snack(said, cx)
+                },
                 cx,
             )
         });
@@ -575,11 +581,26 @@ impl Offer {
 }
 
 impl Mergeability {
-    /// From whether auto-merge is on and what the forge last said, if it was asked. GitHub's
-    /// and GitLab's words for where it stands differ; GitLab's say nothing of its pipeline.
-    pub fn of(auto_merge: bool, status: Option<&Result<MergeStatus, String>>) -> Self {
+    /// From whether auto-merge is on, the branch it merges into, `base`, the workspace's
+    /// `target` branch without its remote, like `main`, and what the forge last said, if it
+    /// was asked. GitHub's and GitLab's words for where it stands differ; GitLab's say nothing
+    /// of its pipeline.
+    pub fn of(
+        auto_merge: bool,
+        base: &str,
+        target: Option<&str>,
+        status: Option<&Result<MergeStatus, String>>,
+    ) -> Self {
         let status = match status {
             _ if auto_merge => return Self::AutoMerging,
+            // One into another branch is stacked on the pull request below it. GitHub merges a
+            // stacked one together with every one below it, so a stack merges from the bottom,
+            // as in the desktop app.
+            _ if target.is_some_and(|target| target != base) => {
+                return Self::Blocked(format!(
+                    "Merges into {base}, so the pull requests below it merge first"
+                ));
+            }
             None => return Self::Unknown(None),
             Some(Err(err)) => return Self::Unknown(Some(err.clone())),
             Some(Ok(status)) => status,
@@ -612,8 +633,13 @@ impl Mergeability {
 
 /// Where `review`, open, of `project` stands on merging, as far as the app knows.
 pub fn mergeability(store: &Store, project: &ProjectId, review: &Review) -> Mergeability {
+    let target = (store.workspace(project))
+        .and_then(|ws| ws.target.as_ref())
+        .map(|target| target.branch.as_str());
     Mergeability::of(
         store.auto_merge_on(project, review),
+        &review.target_branch,
+        target,
         store.merge_status(project, review.number),
     )
 }
@@ -648,7 +674,7 @@ mod tests {
             }))
         };
         let offer = |auto_merge, status: Option<Result<MergeStatus, String>>| {
-            Mergeability::of(auto_merge, status.as_ref()).offer()
+            Mergeability::of(auto_merge, "main", Some("main"), status.as_ref()).offer()
         };
         assert_eq!(
             [
@@ -675,6 +701,37 @@ mod tests {
             ],
             "merge once it can, auto-merge while it waits on requirements, nothing over \
              conflicts, and with auto-merge on only turning it off"
+        );
+    }
+
+    #[test]
+    fn a_stacked_pull_request_merges_only_from_the_bottom() {
+        let ready = Some(Ok(MergeStatus {
+            mergeable_state: Some("clean".into()),
+            comments_count: 0,
+            is_mergeable: true,
+        }));
+        let offer = |auto_merge, base, target| {
+            Mergeability::of(auto_merge, base, target, ready.as_ref()).offer()
+        };
+        assert_eq!(
+            [
+                offer(false, "main", Some("main")),
+                offer(false, "main", Some("release/main")),
+                offer(false, "gpui-stack-2", Some("main")),
+                offer(true, "gpui-stack-2", Some("main")),
+                offer(false, "gpui-stack-2", None),
+            ],
+            [
+                Some(Offer::Merge),
+                None,
+                None,
+                Some(Offer::DisableAutoMerge),
+                Some(Offer::Merge),
+            ],
+            "only a pull request into the target, by its whole name, merges, as GitHub merges \
+             a stacked one with every one below it; auto-merge already on can still be turned \
+             off, and without a target nothing is held back"
         );
     }
 }

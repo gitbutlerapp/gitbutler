@@ -28,6 +28,7 @@ thiserror.workspace = true
 tracing.workspace = true
 serde_json.workspace = true
 reqwest = { workspace = true, features = ["json"] }
+tokio = { workspace = true, features = ["time"] }
 schemars = { workspace = true, optional = true }
 but-schemars = { workspace = true, optional = true }
 
@@ -35,7 +36,7 @@ but-schemars = { workspace = true, optional = true }
 keyring.workspace = true
 reqwest = { workspace = true, features = ["blocking"] }
 tempfile.workspace = true
-tokio = { workspace = true, features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["macros", "rt", "test-util"] }
 
 [lints]
 workspace = true
