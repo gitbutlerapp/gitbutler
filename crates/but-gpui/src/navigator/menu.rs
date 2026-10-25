@@ -92,6 +92,13 @@ fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuIte
     items
 }
 
+/// Updating `project` from its target, when that would change anything.
+fn update_item(store: &Store, project: &ProjectId, cx: &App) -> Option<MenuItem> {
+    let target = (store.workspace(project)?.target.as_ref()).filter(|t| t.needs_update)?;
+    let label = format!("Update from {}", target.name);
+    Some(MenuItem::action(label, &UpdateFromTarget, cx))
+}
+
 impl Navigator {
     /// What right-clicking `target` offers. Right-clicking selects the row first, so the
     /// items run the same actions as their keys. A branch with commits starts with hiding
@@ -237,15 +244,7 @@ impl Navigator {
                     items.push(action("Fetch", &Fetch).separated());
                 }
                 // An unwatched project's too, once its page has read it.
-                if let Some(target) = (store.workspace(project))
-                    .and_then(|ws| ws.target.as_ref())
-                    .filter(|target| target.needs_update)
-                {
-                    let update = MenuItem::action(
-                        format!("Update from {}", target.name),
-                        &UpdateFromTarget,
-                        cx,
-                    );
+                if let Some(update) = update_item(store, project, cx) {
                     // With Fetch, else apart from Watch.
                     items.push(if expanded { update } else { update.separated() });
                 }
@@ -321,6 +320,8 @@ impl Navigator {
             }
             Selection::Uncommitted(project) => {
                 let mut items = new_branch_items(store, project, cx);
+                items.push(action("Fetch", &Fetch).separated());
+                items.extend(update_item(store, project, cx));
                 if store
                     .workspace(project)
                     .is_none_or(|ws| ws.uncommitted.is_empty())
@@ -584,6 +585,8 @@ impl Navigator {
                     MenuItem::new("Copy path", move |this, _, cx| {
                         this.copy_text(copied.clone(), cx)
                     }),
+                    // Not Update: it rebases the workspace's stacks, not this worktree's.
+                    action("Fetch", &Fetch).separated(),
                     MenuItem::new("Archive", move |this, _, cx| {
                         let (project, name) = (project.clone(), name.clone());
                         this.store.update(cx, |store, cx| {
@@ -618,8 +621,8 @@ impl Navigator {
                     })
                     .danger(),
                 ];
-                // As Main worktree's, after where it is and before what happens to it.
-                items.splice(2..2, changes.into_iter().flatten());
+                // As Main worktree's, after Fetch and before what happens to it.
+                items.splice(3..3, changes.into_iter().flatten());
                 items
             }
             Selection::Stack(project, bottom) => {
