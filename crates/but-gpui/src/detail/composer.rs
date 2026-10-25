@@ -506,6 +506,12 @@ impl Detail {
     }
 
     pub fn focus_message(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.compose(true, window, cx)
+    }
+
+    /// Open the composer. With `picks`, files and lines picked, or the files a filter shows,
+    /// are what it commits; without, as after a drop on a branch, the checks are already set.
+    fn compose(&mut self, picks: bool, window: &mut Window, cx: &mut Context<Self>) {
         // A commit being edited isn't committed but finished, and a linked worktree with no
         // branch has nowhere to commit. With no changes, the commit is an empty one.
         if let Some((project, worktree)) = self.selected_checkout(cx)
@@ -526,11 +532,17 @@ impl Detail {
         if !self.composing {
             // Its checks take over the line numbers, and lines or files picked in its
             // checkout's diff are what it commits, as dropped on a branch they would be.
-            let picks = match self.line_picks.is_some() {
-                true => self.line_picks_cut(cx),
-                false => (!self.file_picks.is_empty())
-                    .then(|| self.owned_cut(self.picked_changes(), cx))
-                    .flatten(),
+            let picks = if !picks {
+                None
+            } else if self.line_picks.is_some() {
+                self.line_picks_cut(cx)
+            } else if !self.file_picks.is_empty() {
+                self.owned_cut(self.picked_changes(), cx)
+            } else if !self.filter_terms(cx).is_empty() {
+                // A filter narrowing the list commits what it shows, as picking those would.
+                self.owned_cut(self.shown_changes(), cx)
+            } else {
+                None
             };
             if let Some(Cut::Files {
                 project,
@@ -601,7 +613,7 @@ impl Detail {
         // What was dropped is what goes in, not what's picked.
         self.file_picks.clear();
         self.line_picks = None;
-        self.focus_message(window, cx);
+        self.compose(false, window, cx);
     }
 
     /// Check just `files` of `project`'s main checkout, or of its `linked` worktree, down to

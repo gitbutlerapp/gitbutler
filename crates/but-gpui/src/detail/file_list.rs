@@ -453,13 +453,19 @@ impl Detail {
 
     /// The loaded diff's picked files, whole, in its order: not those it doesn't show.
     pub(super) fn picked_changes(&self) -> Vec<Selected> {
+        let picks: HashSet<&str> = self.file_picks.iter().map(String::as_str).collect();
+        (self.shown_changes().into_iter())
+            .filter(|s| picks.contains(s.file.path.as_str()))
+            .collect()
+    }
+
+    /// The whole of each file the diff shows, as a filter leaves them.
+    pub(super) fn shown_changes(&self) -> Vec<Selected> {
         let Some(diff) = &self.diff else {
             return Vec::new();
         };
-        let picks: HashSet<&str> = self.file_picks.iter().map(String::as_str).collect();
         (self.shown_files().into_iter())
             .filter_map(|ix| diff.files.get(ix))
-            .filter(|f| picks.contains(f.file.path.as_str()))
             .map(|f| Selected::whole(&f.file))
             .collect()
     }

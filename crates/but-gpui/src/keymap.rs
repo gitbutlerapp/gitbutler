@@ -651,6 +651,14 @@ mod tests {
                 .any(|entry| entry.keys == "shift-p" && !entry.runs("remote::Push")),
             "a default key given again isn't unbound as well"
         );
+        let commit =
+            rebind(None, "app::StartCommit", "secondary-shift-c", false, &[]).expect("rebinds");
+        let commit = entries(&commit, std::env::consts::OS).expect("it writes a keymap");
+        assert!(
+            commit.iter().any(|entry| entry.keys == "secondary-shift-c"
+                && entry.context.as_deref() == Some("Workspace && !TextInput")),
+            "Commit's key works in the whole window, not only in the file filter it also starts from"
+        );
     }
 
     #[test]
