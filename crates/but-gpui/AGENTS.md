@@ -326,7 +326,7 @@ Windows CI job lints and tests the one, the Linux lint and test jobs the other.
   Tauri and but.dev rather than copy them, and leave out what GPUI has no data for.
 - Conflicts are `warn`, never danger red. One accent button per surface. Controls keep the
   arrow cursor, as the desktop does, and a focused field rings in gray (`focus_border`), not
-  pop. A disabled control says why in its tooltip. Tooltips are a few words, with the shortcut in its key slot. Snackbars are
+  pop. A disabled control says why in its tooltip. Tooltips are a few words, with the shortcut in its key slot, and a right-click item that a key also does shows it, built with `MenuItem::keyed` or `MenuItem::action`. Snackbars are
   fragments without a full stop. Misleading copy is a bug.
 - The app is reactive, so no reload buttons. Nothing added may make it slower.
 - Nothing outside tests may panic, as the app runs as GitButler itself: clippy denies unwrap,

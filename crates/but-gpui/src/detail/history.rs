@@ -596,19 +596,32 @@ impl Detail {
     ) {
         self.select_operation(id, cx);
         let project = project.clone();
-        self.open_menu(at, move |_, _| Self::operation_menu_items(&project, id), cx);
+        self.open_menu(
+            at,
+            move |_, cx| Self::operation_menu_items(&project, id, cx),
+            cx,
+        );
     }
 
     /// What Operations history offers for the operation before snapshot `id`, as
     /// right-clicking it does.
-    pub(crate) fn operation_menu_items(project: &ProjectId, id: SnapshotId) -> Vec<MenuItem> {
+    pub(crate) fn operation_menu_items(
+        project: &ProjectId,
+        id: SnapshotId,
+        cx: &App,
+    ) -> Vec<MenuItem> {
         let project = project.clone();
         vec![
-            MenuItem::new("Restore to before this…", move |app, window, cx| {
-                (app.detail).update(cx, |detail, cx| {
-                    detail.restore_operation(&project, id, window, cx)
-                })
-            }),
+            MenuItem::keyed(
+                "Restore to before this…",
+                &crate::app::Confirm,
+                cx,
+                move |app, window, cx| {
+                    (app.detail).update(cx, |detail, cx| {
+                        detail.restore_operation(&project, id, window, cx)
+                    })
+                },
+            ),
             MenuItem::new("Copy snapshot ID", move |app, _, cx| {
                 app.copy_text(id.0.to_string(), cx)
             })

@@ -364,9 +364,9 @@ impl AppView {
         let detail = self.detail.read(cx);
         let items = file.or_else(|| match &selection {
             Selection::Branches(project) => (detail.selected_other_branch(project))
-                .map(|branch| detail.branch_menu_items(project, &branch.ref_name)),
+                .map(|branch| detail.branch_menu_items(project, &branch.ref_name, cx)),
             Selection::History(project) => (detail.selected_operation(project)).map(|operation| {
-                crate::detail::Detail::operation_menu_items(project, operation.id)
+                crate::detail::Detail::operation_menu_items(project, operation.id, cx)
             }),
             _ => None,
         });

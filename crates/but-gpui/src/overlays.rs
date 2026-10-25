@@ -68,6 +68,20 @@ impl MenuItem {
         }
     }
 
+    /// An item that runs `handler` on what it opened on, showing the keys of `action`, which
+    /// does the same from where the keys are: a right-click menu says what its items' keys are.
+    pub fn keyed(
+        label: impl Into<SharedString>,
+        action: &dyn Action,
+        cx: &App,
+        handler: impl Fn(&mut AppView, &mut Window, &mut Context<AppView>) + 'static,
+    ) -> Self {
+        Self {
+            key: shortcut(action, cx),
+            ..Self::new(label, handler)
+        }
+    }
+
     /// An item that dispatches `action` where focus is, showing the keys bound to it.
     pub fn action(label: impl Into<SharedString>, action: &dyn Action, cx: &App) -> Self {
         let key = shortcut(action, cx);

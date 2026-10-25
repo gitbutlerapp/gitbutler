@@ -902,21 +902,31 @@ impl Detail {
         let (project, ref_name) = (project.clone(), ref_name.to_owned());
         self.open_menu(
             at,
-            move |this, _| this.branch_menu_items(&project, &ref_name),
+            move |this, cx| this.branch_menu_items(&project, &ref_name, cx),
             cx,
         );
     }
 
     /// What the Branches page offers for its branch `ref_name`, as right-clicking it does.
-    pub(crate) fn branch_menu_items(&self, project: &ProjectId, ref_name: &str) -> Vec<MenuItem> {
+    pub(crate) fn branch_menu_items(
+        &self,
+        project: &ProjectId,
+        ref_name: &str,
+        cx: &App,
+    ) -> Vec<MenuItem> {
         // By its name, as the table has none opened.
         let Some(branch) = self.listed_branch(project, ref_name) else {
             return Vec::new();
         };
         let (p, r) = (project.clone(), ref_name.to_owned());
-        let mut items = vec![MenuItem::new("Apply", move |app, window, cx| {
-            (app.detail).update(cx, |detail, cx| detail.apply_branch(&p, &r, window, cx))
-        })];
+        let mut items = vec![MenuItem::keyed(
+            "Apply",
+            &crate::app::Confirm,
+            cx,
+            move |app, window, cx| {
+                (app.detail).update(cx, |detail, cx| detail.apply_branch(&p, &r, window, cx))
+            },
+        )];
         if let Some(url) = (branch.review.as_ref()).and_then(|r| r.url.clone()) {
             items.push(MenuItem::new("Open pull request", move |_, _, cx| {
                 cx.open_url(&url)
