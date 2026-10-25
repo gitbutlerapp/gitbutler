@@ -378,6 +378,8 @@ impl AppView {
         };
         let refused = match ws.can_push(&ref_name) {
             true => ws.push_refused(&ref_name),
+            // A branch whose ref was deleted, as by `git branch -D`, has commits but no name.
+            false if ref_name.is_empty() => Some("Name the branch first, then push it"),
             false => Some("Nothing to push yet"),
         };
         if let Some(refused) = refused {
