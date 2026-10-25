@@ -644,6 +644,19 @@ impl Store {
                         }
                         store.snack(done, cx)
                     }
+                    // Behind a newer step of the user's own, as a quick second ⌘Z asks for
+                    // this one while the first still waits to run: that one goes first, and
+                    // this one stays.
+                    // The list is oldest first, a new branch's step just before its commit's.
+                    Ok(Undone::Behind(_))
+                        if (store.undo_steps.iter())
+                            .skip_while(|step| step.project != again || step.snapshot != snapshot)
+                            .skip(1)
+                            .any(|step| step.project == again) =>
+                    {
+                        let why = "Undo the newer operation first".into();
+                        store.snack(store.card_title(&again, why), cx)
+                    }
                     // It, and the project's steps before it, are behind what came after.
                     Ok(Undone::Behind(why)) => {
                         store.undo_steps.retain(|step| {
