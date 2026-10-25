@@ -87,6 +87,8 @@ const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Add project…", &AddProject),
     ("Clone a repository…", &crate::projects::CloneRepository),
     ("Settings", &crate::settings::OpenSettings),
+    ("Open keymap file", &crate::keymap::OpenKeymap),
+    ("Open default keymap", &crate::keymap::OpenDefaultKeymap),
     ("Go to branch", &GoToBranch),
     ("Find in diff", &crate::detail::FindInDiff),
     ("Filter files", &crate::detail::FilterFiles),

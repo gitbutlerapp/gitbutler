@@ -1733,6 +1733,7 @@ dependencies = [
  "image",
  "indexmap 2.14.0",
  "md5",
+ "notify",
  "objc2 0.6.4",
  "objc2-foundation 0.3.2",
  "parking_lot",

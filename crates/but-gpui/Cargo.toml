@@ -53,6 +53,8 @@ rusqlite.workspace = true
 # The keymap, in Zed's format: JSON with comments, bindings kept in the file's order.
 serde_json_lenient.workspace = true
 indexmap = { workspace = true, features = ["serde"] }
+# Reading the keymap again when it's saved.
+notify.workspace = true
 
 # GitButler, consumed only from `src/backend`.
 but-action.workspace = true
