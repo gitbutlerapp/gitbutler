@@ -693,6 +693,7 @@ impl Store {
             return;
         }
         let seen_changed = self.update_seen(id, &workspace, fresh);
+        self.note_arrivals(id, &workspace);
         // An agent amending or rebasing the selected commit gives it a new id but keeps its
         // change id, or with plain Git its author, time and message; stay on it.
         // One that's gone, as squashed away, leaves its branch selected, if that's still there.

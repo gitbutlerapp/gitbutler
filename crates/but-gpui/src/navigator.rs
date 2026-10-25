@@ -25,8 +25,8 @@ use crate::ui::scrollbar::{Scroll, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, above_drag, button, commit_title,
-    count_badge, dot, dp, faint, field, fixed, fold_button, fold_glyph, fold_row, guide, h_flex,
-    icon, icon_button, just_now, list_row, meta_count, plural, pulsing, relative_time,
+    count_badge, dot, dp, faint, field, fixed, fold_button, fold_glyph, fold_row, glow_once, guide,
+    h_flex, icon, icon_button, just_now, list_row, meta_count, plural, pulsing, relative_time,
     resize_handle, review, section_label, small_icon, v_flex,
 };
 
@@ -88,6 +88,8 @@ struct RowStyle<'a> {
     inset: f32,
     /// The rows above and below are picked with it: see [`crate::ui::joined`].
     joined: (bool, bool),
+    /// A commit that just showed up, not selected: see [`crate::ui::glow_once`].
+    glow: bool,
 }
 
 /// How far a remote's commits sit in: the target's as a branch's commits do, a branch's a
@@ -243,6 +245,10 @@ impl RowStyle<'_> {
         self.row(id, indent)
             .gap(dp(10.))
             .aria_label(title.clone())
+            // Under its row's id, which goes by the commit.
+            .when(self.glow, |el| {
+                el.relative().child(glow_once("glow", self.theme))
+            })
             .child(glyph)
             .child(
                 div()
@@ -1151,6 +1157,7 @@ impl Navigator {
             cut,
             inset,
             joined,
+            glow: !selected && matches!(item, Selection::Commit(_, commit) if store.glows(*commit)),
         };
         let el = match item {
             Selection::Project(id) => self.project_row(item, id, style, cx),

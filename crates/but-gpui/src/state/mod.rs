@@ -4,7 +4,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 
 use futures::channel::mpsc;
 use gpui::{App, Context, Entity, EventEmitter, SharedString, Subscription, Task};
@@ -34,8 +34,8 @@ use mutation::{Queued, Running};
 pub use picks::Picks;
 pub use saved::{BranchStatus, FileSort, Pane, Prefs, ScopeLines, WatchedOrder};
 use saved::{Restored, Saved};
-pub use seen::Seeable;
 use seen::Seen;
+pub use seen::{GLOW, Seeable};
 
 pub type ProjectId = SharedString;
 
@@ -336,6 +336,9 @@ pub struct Store {
     kept_snapshots: Arc<Mutex<HashMap<ProjectId, HashSet<SnapshotId>>>>,
     next_toast: usize,
     seen: Seen,
+    /// When each commit an agent made showed up, while its rows still glow: see
+    /// [`Store::glows`].
+    arrived: HashMap<CommitId, Instant>,
     /// Commit messages being written, by project and linked worktree, for coming back to.
     /// Like the composer's checks they last the session, so a message never comes back
     /// without them.
@@ -450,6 +453,7 @@ impl Store {
             )),
             next_toast: 0,
             seen: saved.seen,
+            arrived: HashMap::new(),
             drafts: HashMap::new(),
             merged: HashMap::new(),
             widths: saved.widths,

@@ -1,6 +1,7 @@
 //! What the user has looked at: the commits seen, so new work by agents stands out.
 
 use std::collections::{HashMap, HashSet};
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +17,9 @@ pub(super) struct Seen {
     /// [`Commit::authored`].
     pub(super) commits: HashMap<String, HashSet<String>>,
 }
+
+/// How long a commit's rows glow once it shows up.
+pub const GLOW: Duration = Duration::from_millis(2400);
 
 /// A commit that can be read: a branch's own, or one only its remote has.
 pub trait Seeable {
@@ -61,6 +65,31 @@ impl Store {
             .commits
             .get(project)
             .is_some_and(|seen| !was_seen(seen, commit.ids()))
+    }
+
+    /// Whether commit `id` showed up unread in the last [`GLOW`], so the rows listing it glow
+    /// once: an agent just made it.
+    pub fn glows(&self, id: CommitId) -> bool {
+        (self.arrived.get(&id)).is_some_and(|at| at.elapsed() < GLOW)
+    }
+
+    /// Note when the unread commits `workspace` brings to project `id` showed up: those it
+    /// didn't have by either id, so a rebase or an amend isn't news here, nor anything the
+    /// first time it loads.
+    pub(super) fn note_arrivals(&mut self, id: &ProjectId, workspace: &Workspace) {
+        self.arrived.retain(|_, at| at.elapsed() < GLOW);
+        let Some(old) = self.workspace(id) else {
+            return;
+        };
+        let had: HashSet<&str> = old.commits().flat_map(Seeable::ids).collect();
+        let new: Vec<CommitId> = (workspace.commits())
+            .filter(|commit| !commit.ids().iter().any(|key| had.contains(key)))
+            .filter(|commit| self.is_unread(id, *commit))
+            .map(|commit| commit.id)
+            .collect();
+        let now = Instant::now();
+        self.arrived
+            .extend(new.into_iter().map(|commit| (commit, now)));
     }
 
     /// Whether any of `branch`'s commits is unread, or any only its remote has.
