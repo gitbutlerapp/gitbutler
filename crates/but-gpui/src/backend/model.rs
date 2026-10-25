@@ -297,7 +297,7 @@ impl Workspace {
         if self.remoteless {
             Some("The project has no remote to push to: add one with `git remote add`")
         } else if unpushed {
-            Some("The target branch isn't on the remote yet: push it once, with `git push -u`")
+            Some("The target branch tracks no remote branch: push it once, with `git push -u`")
         } else if self.target.is_none() {
             Some("Pick the project's target branch first")
         } else if (pushed.iter()).any(|b| b.commits.iter().any(|c| c.conflicted)) {
