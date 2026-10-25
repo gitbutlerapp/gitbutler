@@ -504,15 +504,15 @@ impl AppView {
             }
             Some(Selection::Uncommitted(_) | Selection::Worktree(..)) => {
                 let detail = self.detail.read(cx);
-                let files = detail.selected_changes(cx);
-                (detail.selected_checkout(cx))
-                    .filter(|_| !files.is_empty())
-                    .map(|(project, worktree)| Cut::Files {
+                (detail.selected_checkout(cx)).and_then(|(project, worktree)| {
+                    let files = detail.files_to_move(&project, worktree.clone(), cx);
+                    (!files.is_empty()).then(|| Cut::Files {
                         project,
                         from: None,
                         worktree,
                         files: files.into(),
                     })
+                })
             }
             _ => None,
         };

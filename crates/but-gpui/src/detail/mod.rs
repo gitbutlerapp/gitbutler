@@ -1180,22 +1180,24 @@ impl Detail {
         }
     }
 
-    /// What dragging the uncommitted changes of `project`'s checkout `worktree` carries: the
-    /// checked files and hunks when they're shown here, otherwise all of them.
+    /// What dragging or cutting the uncommitted changes of `project`'s checkout `worktree`
+    /// carries: the checked files and hunks when they're shown here, otherwise all of them, but
+    /// not conflicted files, which a commit refuses until they're resolved.
     pub fn files_to_move(
         &self,
         project: &ProjectId,
         worktree: Option<Arc<str>>,
         cx: &App,
     ) -> Vec<Selected> {
-        if self.selected_checkout(cx) == Some((project.clone(), worktree.clone())) {
-            return self.selected_changes(cx);
-        }
-        let store = self.store.read(cx);
-        let files = (store.workspace(project))
-            .and_then(|ws| ws.uncommitted_in(worktree.as_deref()))
-            .unwrap_or_default();
-        files.iter().map(Selected::whole).collect()
+        let files = match self.selected_checkout(cx) == Some((project.clone(), worktree.clone())) {
+            true => self.selected_changes(cx),
+            false => (self.store.read(cx).workspace(project))
+                .and_then(|ws| ws.uncommitted_in(worktree.as_deref()))
+                .map_or_else(Vec::new, |files| {
+                    files.iter().map(Selected::whole).collect()
+                }),
+        };
+        files.into_iter().filter(|s| !s.file.conflicted).collect()
     }
 
     /// Focus the diff.

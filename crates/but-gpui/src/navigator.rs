@@ -1623,11 +1623,14 @@ impl Navigator {
             .when(active, |el| el.child(style.active(("worktree-active", ix))))
             .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
             .when(folds, |el| el.on_click(double_click(toggle, cx)));
-        // The worktree's checked files while it's shown, else all of them.
-        let drags = !uncommitted.is_empty();
+        // The worktree's checked files while it's shown, else all of them, but not conflicted
+        // ones: with only those, there's nothing to drag.
+        let files = match uncommitted.is_empty() {
+            true => Vec::new(),
+            false => self.detail.read(cx).files_to_move(id, name.clone(), cx),
+        };
         Some(
-            row.when(drags, |el| {
-                let files = self.detail.read(cx).files_to_move(id, name.clone(), cx);
+            row.when(!files.is_empty(), |el| {
                 let label: SharedString = match files.as_slice() {
                     [file] => file.file.path.clone().into(),
                     files => format!("{} files", files.len()).into(),
