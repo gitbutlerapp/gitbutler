@@ -840,9 +840,9 @@ impl RenderOnce for Button {
             ),
             ButtonStyle::Pop => (
                 gpui::white(),
-                Some(theme.pop_bg),
+                Some(theme.pop_button),
                 None,
-                theme.pop_bg.opacity(0.85),
+                theme.pop_button.opacity(0.9),
             ),
             ButtonStyle::Danger => (
                 theme.danger,

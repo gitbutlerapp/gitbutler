@@ -342,6 +342,13 @@ Windows CI job lints and tests the one, the Linux lint and test jobs the other.
   a header in `ui::above_drag` so it keeps its clicks.
 - Tests that need Unix APIs, as file modes or `sh`, carry `#[cfg(unix)]`.
 
+## Accessibility
+
+- A colour comes from `Theme`, and a new one is a step on design-core's scales (`tokens.css` in
+  `@gitbutler/design-core`). Text needs 4.5:1 and a control's marks 3:1, on `bg_1` and `bg_2`
+  in both themes. Design-core's own text-safe, text-danger and fill-pop fall short in light,
+  so `Theme` takes the next darker step.
+
 ## Conventions
 
 - Match Lite's wording and structure and the rules in `packages/ui-react/design/`. Adapt Lite,
