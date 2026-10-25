@@ -24,6 +24,9 @@ tracing.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }
 schemars.workspace = true
 but-schemars.workspace = true
+# The metrics ID of a machine that hasn't stored one.
+machine-uid = "0.5.4"
+sha2.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

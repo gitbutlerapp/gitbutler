@@ -95,7 +95,7 @@ gitbutler-git = { workspace = true, optional = true }
 gitbutler-watcher = { workspace = true, optional = true }
 
 schemars.workspace = true
-posthog-rs = { version = "0.23.3", default-features = false, features = ["async-client"] }
+posthog-rs.workspace = true
 serde.workspace = true
 shell-words.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
@@ -141,8 +141,6 @@ ratatui = { workspace = true, features = [
     "serde",
 ] }
 crossterm.workspace = true
-sha2.workspace = true
-machine-uid = "0.5.4"
 tempfile.workspace = true
 nonempty.workspace = true
 itertools.workspace = true
