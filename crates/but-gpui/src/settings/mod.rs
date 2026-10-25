@@ -294,11 +294,16 @@ impl SettingsView {
         .detach();
     }
 
-    fn open_menu(&self, event: &ClickEvent, items: Vec<MenuItem>, cx: &mut App) {
-        let position = event.position();
-        self.app
-            .update(cx, |app, cx| app.open_menu(position, items, cx))
-            .ok();
+    /// The menu `items` makes from this view, open where `event` clicked once the update
+    /// running now is over.
+    fn open_menu(
+        &self,
+        event: &ClickEvent,
+        items: impl FnOnce(&mut Self, &mut Context<Self>) -> Vec<MenuItem> + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        let (app, from) = (&self.app, &cx.entity().downgrade());
+        crate::overlays::open_menu(app, from, event.position(), items, cx);
     }
 
     /// A dropdown showing `label`, whose menu sets one of `options` through `set` and ticks
@@ -327,8 +332,8 @@ impl SettingsView {
             .collect();
         dropdown(id, label, Theme::get(cx))
             .on_click(move |event, _, cx| {
-                this.update(cx, |this, cx| this.open_menu(event, items.clone(), cx))
-                    .ok();
+                let items = items.clone();
+                (this.update(cx, |this, cx| this.open_menu(event, move |_, _| items, cx))).ok();
             })
             .into_any_element()
     }
@@ -859,7 +864,8 @@ impl Render for SettingsView {
                     // No tooltip: it would cover the menu's first project.
                     el.child(icon(Icon::ChevronDown).text_color(theme.text_3))
                         .on_click(cx.listener(move |this, event: &ClickEvent, _, cx| {
-                            this.open_menu(event, items.clone(), cx)
+                            let items = items.clone();
+                            this.open_menu(event, move |_, _| items, cx)
                         }))
                 });
             v_flex()

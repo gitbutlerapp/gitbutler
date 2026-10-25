@@ -50,30 +50,36 @@ impl AppView {
         match self.store.read(cx).prefs.editor.clone() {
             Some(editor) => self.run_editor(path, worktree, editor, file, line, cx),
             None => {
-                let items = settings::editors()
-                    .into_iter()
-                    .map(|(id, name)| {
-                        let (path, worktree, file) = (path.clone(), worktree.clone(), file.clone());
-                        MenuItem::new(name.clone(), move |this, _, cx| {
-                            this.store.update(cx, |store, cx| {
-                                store.set_prefs(|prefs| prefs.editor = Some(id.clone()), cx);
-                                store.snack(
-                                    format!("Files now open in {name}, set in Settings → General"),
+                let items = move |_: &mut Self, _: &mut Context<Self>| -> Vec<MenuItem> {
+                    settings::editors()
+                        .into_iter()
+                        .map(|(id, name)| {
+                            let (path, worktree, file) =
+                                (path.clone(), worktree.clone(), file.clone());
+                            MenuItem::new(name.clone(), move |this, _, cx| {
+                                this.store.update(cx, |store, cx| {
+                                    store.set_prefs(|prefs| prefs.editor = Some(id.clone()), cx);
+                                    store.snack(
+                                        format!(
+                                            "Files now open in {name}, set in Settings → General"
+                                        ),
+                                        cx,
+                                    )
+                                });
+                                this.run_editor(
+                                    path.clone(),
+                                    worktree.clone(),
+                                    id.clone(),
+                                    file.clone(),
+                                    line,
                                     cx,
-                                )
-                            });
-                            this.run_editor(
-                                path.clone(),
-                                worktree.clone(),
-                                id.clone(),
-                                file.clone(),
-                                line,
-                                cx,
-                            );
+                                );
+                            })
                         })
-                    })
-                    .collect();
-                self.open_menu(position, items, cx);
+                        .collect()
+                };
+                let app = cx.entity().downgrade();
+                crate::overlays::open_menu(&app, &app, position, items, cx);
             }
         }
     }

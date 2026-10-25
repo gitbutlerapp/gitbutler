@@ -705,11 +705,14 @@ impl Detail {
         self.selection(cx).map(|s| s.project().clone())
     }
 
-    /// The menu of `items`, open at `at`.
-    fn open_menu(&self, at: Point<Pixels>, items: Vec<MenuItem>, cx: &mut App) {
-        self.app
-            .update(cx, |app, cx| app.open_menu(at, items, cx))
-            .ok();
+    /// The menu `items` makes from this view, open at `at` once the update running now is over.
+    fn open_menu(
+        &self,
+        at: Point<Pixels>,
+        items: impl FnOnce(&mut Self, &mut Context<Self>) -> Vec<MenuItem> + 'static,
+        cx: &mut Context<Self>,
+    ) {
+        crate::overlays::open_menu(&self.app, &cx.entity().downgrade(), at, items, cx);
     }
 
     /// The checkout whose uncommitted changes are shown, which the composer commits: the

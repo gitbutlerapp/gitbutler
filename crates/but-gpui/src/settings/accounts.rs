@@ -427,8 +427,10 @@ impl SettingsView {
                                 item("Self-hosted GitLab token…", Some((Forge::GitLab, true))),
                                 item("Bitbucket token…", Some((Forge::Bitbucket, false))),
                             ];
-                            menu.update(cx, |this, cx| this.open_menu(event, items, cx))
-                                .ok();
+                            (menu.update(cx, |this, cx| {
+                                this.open_menu(event, move |_, _| items, cx)
+                            }))
+                            .ok();
                         }),
                 ));
             }
