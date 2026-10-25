@@ -15,8 +15,8 @@ use super::{
 };
 
 /// The active linked worktrees with their uncommitted changes, and the names of the
-/// archived ones.
-type Listing = (Vec<Worktree>, Vec<Arc<str>>);
+/// archived ones with the branch each has checked out.
+type Listing = (Vec<Worktree>, Vec<(Arc<str>, Option<String>)>);
 
 /// The project's [`Listing`]; `None` with GitButler's worktree support off. A worktree's
 /// files in `kept` are shown again rather than read, while its `HEAD` has the tree they
@@ -58,7 +58,10 @@ pub(super) fn linked(
         })
         .collect();
     let archived = (listing.archived.iter())
-        .map(|listed| listed.name.to_str_lossy().into())
+        .map(|listed| {
+            let branch = (listed.ref_name.as_ref()).map(|name| name.shorten().to_string());
+            (listed.name.to_str_lossy().into(), branch)
+        })
         .collect();
     Ok(Some((active, archived)))
 }
@@ -116,9 +119,12 @@ fn read(
 /// Worktree `name`'s own repository, to read its checkout from, or nothing when it can't be
 /// opened, as [`read`] says.
 fn opened(ctx: &Context, name: &str) -> Option<gix::Repository> {
-    (checkout(ctx, Some(name)))
+    let repo = (checkout(ctx, Some(name)))
         .inspect_err(|err| tracing::warn!("couldn't open worktree {name}: {err:#}"))
-        .ok()
+        .ok()?;
+    // Deleted without Git, as by `rm -rf`, Git still lists it, and its files as last read
+    // would show on with nothing changing them.
+    repo.workdir().is_some_and(Path::exists).then_some(repo)
 }
 
 /// What moved linked worktree `name`'s `HEAD` since `since`, in seconds since the epoch, other

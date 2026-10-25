@@ -43,10 +43,7 @@ const WRAP_AT: usize = 72;
 
 /// Whether `message` has body lines too long to read in `git log`.
 fn needs_rewrap(message: &str) -> bool {
-    message
-        .lines()
-        .skip(1)
-        .any(|line| line.chars().count() > WRAP_AT)
+    (crate::backend::subject_and_body(message).1.lines()).any(|line| line.chars().count() > WRAP_AT)
 }
 
 /// What discarding changes is called, "…" when it asks first: in a linked worktree, as
@@ -76,6 +73,34 @@ fn then_run<T: Send + 'static>(
             store.run(&project, label, overlay, op, done, cx)
         })
     }
+}
+
+/// What force pushing the target branch does, asked every time as others' work builds on it:
+/// the commits only its remote has that it drops, the newest named, or else that it rewrites
+/// commits already there.
+fn target_force_detail(target: &backend::Target) -> String {
+    let (what, them) = match target.commits_behind {
+        0 => {
+            return "Others' work builds on the target branch, and this rewrites commits already \
+                    on its remote."
+                .into();
+        }
+        1 => ("the commit".to_owned(), "it"),
+        n => (format!("the {n} commits"), "them"),
+    };
+    let titles: Vec<String> = (target.incoming.iter().take(3))
+        .map(|commit| format!("\"{}\"", commit.title))
+        .collect();
+    let named = match target.commits_behind.saturating_sub(titles.len()) {
+        _ if titles.is_empty() => String::new(),
+        0 => format!(": {}", titles.join(", ")),
+        more => format!(": {}, and {more} more", titles.join(", ")),
+    };
+    format!(
+        "Others' work builds on the target branch, and this drops {what} only {} has{named}. \
+         Update first to keep {them}.",
+        target.name
+    )
 }
 
 /// Whether `ref_name` can land, and if so whether with the branches below it: the bottom
@@ -386,26 +411,34 @@ impl AppView {
             return snack(&self.store, refused, cx);
         }
         let drops = ws.push_drops(&ref_name);
-        let (what, them) = match drops.len() {
-            0 => {
-                return self.store.update(cx, |store, cx| {
-                    store.push(&project, ref_name, true, Some(drops), cx)
-                });
+        let detail = match ws.forced_target(&ref_name) {
+            // Others' work builds on it, so forcing it always asks.
+            Some(target) => target_force_detail(target),
+            None => {
+                let (what, them) = match drops.len() {
+                    0 => {
+                        return self.store.update(cx, |store, cx| {
+                            store.push(&project, ref_name, true, Some(drops), cx)
+                        });
+                    }
+                    1 => ("the commit".to_owned(), "it"),
+                    n => (format!("the {n} commits"), "them"),
+                };
+                // A branch it takes along whose commits only its remote has can't be pulled
+                // first when others are stacked on it.
+                let stuck = (ws.pushed_with(&ref_name).iter())
+                    .find(|b| !b.incoming.is_empty() && !ws.can_pull(&b.ref_name));
+                match stuck {
+                    None => {
+                        format!("It drops {what} only the remote has. Pull first to keep {them}.")
+                    }
+                    Some(stuck) => format!(
+                        "It drops {what} only the remote has. To keep {name}'s, unstack the \
+                         branches on it and pull it first.",
+                        name = stuck.name
+                    ),
+                }
             }
-            1 => ("the commit".to_owned(), "it"),
-            n => (format!("the {n} commits"), "them"),
-        };
-        // A branch it takes along whose commits only its remote has can't be pulled first
-        // when others are stacked on it.
-        let stuck = (ws.pushed_with(&ref_name).iter())
-            .find(|b| !b.incoming.is_empty() && !ws.can_pull(&b.ref_name));
-        let detail = match stuck {
-            None => format!("It drops {what} only the remote has. Pull first to keep {them}."),
-            Some(stuck) => format!(
-                "It drops {what} only the remote has. To keep {name}'s, unstack the branches on \
-                 it and pull it first.",
-                name = stuck.name
-            ),
         };
         // Asked here, as the project's own protection is off unless turned on.
         self.confirm_then(
@@ -748,7 +781,23 @@ impl AppView {
             ),
             None => None,
         };
-        let ask = match (lasting, &changes[..]) {
+        // A submodule's own work goes with it too, which the oplog doesn't record.
+        let why = (changes.iter())
+            .find(|change| change.file.submodule().is_some())
+            .map(|sub| match sub.file.kind {
+                backend::ChangeKind::Added => format!(
+                    "{} is a repository of its own. Discarding deletes it and everything in it, \
+                     and undo can't bring it back.",
+                    sub.file.path
+                ),
+                _ => format!(
+                    "Discarding resets {} to the commit recorded for it. Uncommitted changes in it \
+                     are deleted, and undo can't bring them back.",
+                    sub.file.path
+                ),
+            })
+            .or(lasting.map(str::to_owned));
+        let ask = match (why, &changes[..]) {
             (_, []) => return,
             (None, _) => None,
             (Some(why), picked) => {
@@ -780,7 +829,7 @@ impl AppView {
         match ask {
             None => run(self, cx),
             Some((message, detail)) => {
-                self.confirm_then(Some(at), message, detail, "Discard", window, cx, run)
+                self.confirm_then(Some(at), message, &detail, "Discard", window, cx, run)
             }
         }
     }

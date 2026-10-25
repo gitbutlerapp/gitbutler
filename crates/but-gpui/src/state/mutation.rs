@@ -91,6 +91,8 @@ pub enum OpKind {
     /// ⌘Z and ⌘⇧Z, of the step with this oplog entry, which keep the undo history themselves.
     Undo(SnapshotId),
     Redo(SnapshotId),
+    /// Operations history's restore, the way back when a project can't be read.
+    Restore,
 }
 
 impl OpKind {
@@ -257,8 +259,11 @@ impl Overlay {
 }
 
 /// The commits an operation captured, found again by key when it runs, as operations queued
-/// before it may have rewritten them.
-pub struct Remap(HashMap<CommitId, CommitId>);
+/// before it may have rewritten them, and the branches renamed meanwhile, by full name.
+pub struct Remap {
+    commits: HashMap<CommitId, CommitId>,
+    branches: HashMap<String, String>,
+}
 
 impl Remap {
     fn new<'a>(
@@ -275,20 +280,41 @@ impl Remap {
                 .and_modify(|found| *found = None)
                 .or_insert(Some(id));
         }
-        Self(
-            captured
-                .iter()
+        Self {
+            commits: (captured.iter())
                 .filter_map(|(id, key)| match ids.contains(id) {
                     // Still there: nothing rewrote it.
                     true => Some((*id, *id)),
                     false => Some((*id, (*by_key.get(key.as_str())?)?)),
                 })
                 .collect(),
-        )
+            branches: HashMap::new(),
+        }
+    }
+
+    /// With the branches of `captured`, each with the key of its top commit (empty for one
+    /// with none), that are gone from `now` followed to the one whose top that commit is now,
+    /// as a rename queued before leaves them. Not to a branch `captured` has, as the one below
+    /// that took a deleted branch's commits, nor to no name: those aren't renames.
+    fn following(mut self, captured: &[(String, String)], now: &[&Branch]) -> Self {
+        for (name, top) in captured {
+            if top.is_empty() || now.iter().any(|b| b.ref_name == *name) {
+                continue;
+            }
+            let top_now = now.iter().find(|b| {
+                b.commits.first().is_some_and(|c| c.key == *top)
+                    && !b.ref_name.is_empty()
+                    && !captured.iter().any(|(was, _)| *was == b.ref_name)
+            });
+            if let Some(b) = top_now {
+                self.branches.insert(name.clone(), b.ref_name.clone());
+            }
+        }
+        self
     }
 
     pub fn get(&self, id: CommitId) -> Result<CommitId> {
-        self.0
+        self.commits
             .get(&id)
             .copied()
             .context("A commit changed before this could run. Try again.")
@@ -323,7 +349,9 @@ impl Remap {
         Ok(match to {
             Destination::AboveCommit(id) => Destination::AboveCommit(self.get(id)?),
             Destination::BelowCommit(id) => Destination::BelowCommit(self.get(id)?),
-            branch => branch,
+            Destination::Branch(name) => {
+                Destination::Branch(self.branches.get(&name).cloned().unwrap_or(name))
+            }
         })
     }
 }
@@ -333,8 +361,10 @@ pub(super) struct Queued {
     project: ProjectId,
     label: SharedString,
     overlay: Overlay,
-    /// The project's commits when it was asked for, for its [`Remap`].
+    /// The project's commits when it was asked for, and its branches with their top commits'
+    /// keys (empty for one with none), for its [`Remap`].
     captured: HashMap<CommitId, String>,
+    tops: Vec<(String, String)>,
     /// The selection it moved off what it takes away, back if it fails.
     moved: Option<Selection>,
     /// When it was asked for, which its stand-ins count from.
@@ -559,7 +589,10 @@ impl Store {
         self.run(
             project,
             "Restore",
-            Overlay::rewriting_main(),
+            Overlay {
+                kind: OpKind::Restore,
+                ..Overlay::rewriting_main()
+            },
             move |path, _| {
                 let kept = kept.lock().get(&of).cloned();
                 backend::history::restore(path, snapshot, &kept.unwrap_or_default())
@@ -1282,6 +1315,18 @@ impl Store {
         {
             captured.insert(from, key);
         }
+        let tops = (self
+            .workspace(project)
+            .into_iter()
+            .flat_map(|ws| ws.branches()))
+        .map(|b| {
+            let top = b
+                .commits
+                .first()
+                .map_or_else(String::new, |c| c.key.clone());
+            (b.ref_name.clone(), top)
+        })
+        .collect();
         // What's selected leaving with its branch or worktree, the selection goes now where
         // the reload after it would put it.
         let selection = self.selection.as_ref();
@@ -1306,6 +1351,7 @@ impl Store {
             label,
             overlay,
             captured,
+            tops,
             moved,
             asked: Instant::now(),
             start: Box::new(move |store, remap, cx| {
@@ -1326,13 +1372,17 @@ impl Store {
             let Some(next) = self.queue.remove(ix) else {
                 break;
             };
-            let now = self
-                .workspace(&next.project)
-                .into_iter()
-                .flat_map(|ws| ws.commits());
+            let ws = self.workspace(&next.project);
+            let now = ws.into_iter().flat_map(|ws| ws.commits());
             let remap = Remap::new(
                 &next.captured,
                 now.map(|commit| (commit.key.as_str(), commit.id)),
+            )
+            .following(
+                &next.tops,
+                &ws.into_iter()
+                    .flat_map(|ws| ws.branches())
+                    .collect::<Vec<_>>(),
             );
             self.running.insert(
                 next.project,
@@ -1387,11 +1437,28 @@ impl Store {
             .is_some_and(|ws| ws.editing.is_some());
         let refused =
             editing && !(self.running.get(project)).is_some_and(|r| r.overlay.kind.while_editing());
-        let path = self.path(project).filter(|_| !refused);
+        // What's shown is what it last read, which an agent's `git merge` onto the workspace
+        // can leave it unable to read again: the operation would act on what's gone, and the
+        // engine can make a commit it then fails to report.
+        let unreadable = (self.project(project)).is_some_and(|p| p.error.is_some())
+            && !(self.running.get(project)).is_some_and(|r| {
+                r.overlay.remote_only
+                    || matches!(
+                        r.overlay.kind,
+                        OpKind::Undo(_) | OpKind::Redo(_) | OpKind::Restore
+                    )
+            });
+        let path = self.path(project).filter(|_| !refused && !unreadable);
         let Some(path) = path else {
             if refused {
                 let why = format!(
                     "Finish or cancel editing the commit{} first",
+                    self.in_project(project)
+                );
+                self.snack(why, cx);
+            } else if unreadable {
+                let why = format!(
+                    "Can't read the project{} now; fix what it says first",
                     self.in_project(project)
                 );
                 self.snack(why, cx);
@@ -2021,6 +2088,76 @@ mod tests {
 
     fn id(n: u8) -> CommitId {
         CommitId(gix::ObjectId::from([n; 20]))
+    }
+
+    #[test]
+    fn remap_follows_a_renamed_branch_by_its_top_commit() {
+        let branch = |name: &str, key: &str| Branch {
+            name: name.into(),
+            ref_name: format!("refs/heads/{name}"),
+            commits: vec![Commit {
+                key: key.into(),
+                ..Commit::bare(id(1).0)
+            }],
+            incoming: Vec::new(),
+            remote: None,
+            push: crate::backend::PushState::NeverPushed,
+            review: None,
+        };
+        let (renamed, other) = (branch("fix-v2", "top"), branch("other", "else"));
+        let captured = [
+            ("refs/heads/fix".to_owned(), "top".to_owned()),
+            ("refs/heads/gone".to_owned(), "missing".to_owned()),
+        ];
+        let remap = Remap::new(&HashMap::new(), []).following(&captured, &[&renamed, &other]);
+        let to = |name: &str| match remap.destination(Destination::Branch(name.into())) {
+            Ok(Destination::Branch(name)) => name,
+            _ => String::new(),
+        };
+        assert_eq!(
+            to("refs/heads/fix"),
+            "refs/heads/fix-v2",
+            "renamed, its top went with it"
+        );
+        assert_eq!(
+            to("refs/heads/gone"),
+            "refs/heads/gone",
+            "nothing to follow, as it was"
+        );
+        assert_eq!(to("refs/heads/other"), "refs/heads/other", "still there");
+    }
+
+    #[test]
+    fn remap_doesnt_take_the_branch_below_for_a_deleted_one() {
+        let branch = |name: &str, key: &str| Branch {
+            name: name.into(),
+            ref_name: format!("refs/heads/{name}"),
+            commits: vec![Commit {
+                key: key.into(),
+                ..Commit::bare(id(1).0)
+            }],
+            incoming: Vec::new(),
+            remote: None,
+            push: crate::backend::PushState::NeverPushed,
+            review: None,
+        };
+        // Deleted from the top of their stacks, their commits joined the branch below, which
+        // had commits of its own in one and none in the other.
+        let (below, empty) = (branch("below", "top"), branch("empty", "top2"));
+        let captured = [
+            ("refs/heads/top".to_owned(), "top".to_owned()),
+            ("refs/heads/below".to_owned(), "own".to_owned()),
+            ("refs/heads/top2".to_owned(), "top2".to_owned()),
+            ("refs/heads/empty".to_owned(), String::new()),
+        ];
+        let remap = Remap::new(&HashMap::new(), []).following(&captured, &[&below, &empty]);
+        for gone in ["refs/heads/top", "refs/heads/top2"] {
+            let to = remap.destination(Destination::Branch(gone.into()));
+            assert!(
+                matches!(to, Ok(Destination::Branch(name)) if name == gone),
+                "deleted, not renamed, so what waited for it refuses rather than go below"
+            );
+        }
     }
 
     #[test]

@@ -1848,7 +1848,8 @@ impl Navigator {
             .filter(|review| store.review_state(id, review) != ReviewState::Merged)
             .and_then(|review| review.checks);
         // A pull request's title names the row (see `branch_name`); its branch's name, number
-        // and how CI stands are in the tooltip, and on the branch's page.
+        // and how CI stands are in the tooltip, and on the branch's page. Else its name is, in
+        // full, as agents' branches can differ only at their end, past where the row cuts it.
         let tip = (branch.review.as_ref())
             .filter(|review| !review.title.is_empty())
             .map(|review| {
@@ -1856,7 +1857,8 @@ impl Navigator {
                     .map(|checks| format!(" · {}", review::checks_summary(checks, theme).2))
                     .unwrap_or_default();
                 format!("{name} · #{}{checks}", review.number)
-            });
+            })
+            .unwrap_or_else(|| name.to_owned());
         let key = (id.clone(), ref_name.to_owned());
         let clicked = ClickOpened::Here(key.clone());
         let closed = !self.is_open(&clicked) && !branch.commits.is_empty();
@@ -1899,7 +1901,7 @@ impl Navigator {
                     branch_name(name, review, unread, &style)
                         .id(ElementId::Name(format!("name-{id}-{ref_name}").into()))
                         .flex_1()
-                        .when_some(tip, |el, tip| el.tooltip(Tooltip::text(tip))),
+                        .tooltip(Tooltip::text(tip)),
                 )
                 // As ui-react's empty MetaCount, the quietest meta, ahead of any counts.
                 .when(branch.commits.is_empty(), |el| {

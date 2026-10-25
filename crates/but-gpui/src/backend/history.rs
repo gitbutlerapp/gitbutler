@@ -46,8 +46,8 @@ pub struct Recorded {
 }
 
 impl Recorded {
-    pub fn title(&self) -> &str {
-        self.message.lines().next().unwrap_or_default()
+    pub fn title(&self) -> String {
+        super::subject_and_body(&self.message).0
     }
 
     /// Whether it's `before` amended: on the same parent with other changes. One rebased
@@ -712,10 +712,10 @@ fn moved_since(ctx: &but_ctx::Context, after: i64, spans: &[(i64, i64)]) -> Resu
 }
 
 /// Uncommitted files written after `after`, in milliseconds since the Unix epoch, outside
-/// `spans`: the app's own undos and redos, which write files too.
+/// `spans`, when the app's own operations wrote files.
 fn written_since(ctx: &but_ctx::Context, after: i64, spans: &[(i64, i64)]) -> Result<Vec<String>> {
     let repo = ctx.repo.get()?;
-    Ok((but_core::diff::worktree_changes(&repo)?.changes.iter())
+    Ok((super::own_changes(&repo)?.changes.iter())
         .filter(|change| {
             let metadata = super::metadata(&repo, change.path.as_bstr());
             metadata.as_ref().and_then(super::millis).is_some_and(|at| {

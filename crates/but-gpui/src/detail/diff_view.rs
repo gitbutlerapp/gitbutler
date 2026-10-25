@@ -482,6 +482,15 @@ impl Detail {
         };
         let workspace = store.workspace(selection.project());
         let branches: Vec<_> = match selection {
+            // As when a merge's rename detection conflicts with no file to show for it.
+            Selection::Commit(_, id)
+                if (store.find_commit(selection.project(), *id))
+                    .is_some_and(|(_, commit)| commit.conflicted) =>
+            {
+                return "GitButler marked this commit conflicted, but Git names no file to \
+                        resolve. Operations history can restore to before what conflicted it"
+                    .into();
+            }
             Selection::Commit(..) => return "This commit changes no files".into(),
             // A stack's branches all, as it has no branch of its own.
             Selection::Stack(_, bottom) => (workspace.and_then(|ws| ws.lane(bottom)))

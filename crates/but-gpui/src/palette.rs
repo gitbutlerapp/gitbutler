@@ -24,7 +24,9 @@ use crate::state::{Notice, Selection, snack};
 use crate::theme::Theme;
 use crate::ui::scrollbar::{Scroll, scrollbar};
 use crate::ui::text_input::{InputEvent, TextInput};
-use crate::ui::{POPOVER_RADIUS, dp, h_flex, keycap, list_row, muted, popover, shortcut, v_flex};
+use crate::ui::{
+    POPOVER_RADIUS, dp, h_flex, keycap, list_row, muted, popover, shortcut_here, v_flex,
+};
 
 actions!(palette, [PaletteUp, PaletteDown, GoToBranch, ShowActions]);
 
@@ -271,7 +273,8 @@ impl AppView {
         let mut choices: Vec<Choice> = commands
             .into_iter()
             .map(|(label, action)| {
-                let key = shortcut(action, cx);
+                // What pressing it would run from where the keys were, not another place's.
+                let key = shortcut_here(action, window, cx);
                 let action = action.boxed_clone();
                 let risky = RISKY.contains(&label);
                 Choice {

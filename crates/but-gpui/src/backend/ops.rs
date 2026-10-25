@@ -175,9 +175,24 @@ fn selected_specs(selected: &[Selected]) -> Vec<DiffSpec> {
 pub type LeftOut = Vec<String>;
 
 fn left_out(rejected: &[(RejectionReason, DiffSpec)]) -> LeftOut {
-    rejected
-        .iter()
-        .map(|(reason, spec)| format!("{}: {}", spec.path, why(reason)))
+    // By reason, the first few of each named: a change to thousands of files, as an agent's
+    // move of a folder, can have them all left out for one.
+    let mut by_reason: Vec<(&str, Vec<String>)> = Vec::new();
+    for (reason, spec) in rejected {
+        let (why, path) = (why(reason), spec.path.to_string());
+        match by_reason.iter_mut().find(|(said, _)| *said == why) {
+            Some((_, paths)) => paths.push(path),
+            None => by_reason.push((why, vec![path])),
+        }
+    }
+    (by_reason.into_iter())
+        .map(|(why, paths)| match paths.split_at_checked(3) {
+            Some((named, rest)) if !rest.is_empty() => {
+                let more = crate::ui::plural(rest.len(), "more file");
+                format!("{} and {more}: {why}", named.join(", "))
+            }
+            _ => format!("{}: {why}", paths.join(", ")),
+        })
         .collect()
 }
 
@@ -718,12 +733,63 @@ pub fn squash(path: &Path, commits: &[CommitId], into: CommitId) -> Result<Rewri
 /// Turn `commits` back into uncommitted changes.
 pub fn uncommit(path: &Path, commits: &[CommitId]) -> Result<()> {
     let mut ctx = open(path)?;
+    refuse_buried_merges(&*ctx.repo.get()?, commits)?;
     but_api::commit::uncommit::commit_uncommit(
         &mut ctx,
         commits.iter().map(|id| id.0).collect(),
         None,
         DryRun::No,
     )?;
+    Ok(())
+}
+
+/// Refuse to take a merge commit out from under the commits above it, as an agent's
+/// `git merge` of the target leaves one: the engine has the commit above merge what it merged
+/// instead, so its changes stay and only the history changes. One at the top comes out.
+fn refuse_buried_merges(repo: &gix::Repository, commits: &[CommitId]) -> Result<()> {
+    let merges: Vec<&CommitId> = (commits.iter())
+        .filter(|id| (repo.find_commit(id.0)).is_ok_and(|c| c.parent_ids().count() > 1))
+        .collect();
+    if merges.is_empty() {
+        return Ok(());
+    }
+    // What each checkout has on top: the workspace's stacks, its commit's parents, or HEAD, and
+    // each linked worktree's HEAD. Not other branches, as an agent's backup of one.
+    let head = repo.head_id()?;
+    let mut tips: Vec<gix::ObjectId> = match but_workspace::WorkspaceCommit::from_id(head) {
+        Ok(commit) if commit.is_managed() => commit.inner.parents.to_vec(),
+        _ => vec![head.detach()],
+    };
+    tips.extend(
+        (repo.worktrees()?.into_iter())
+            .filter_map(|wt| Some(wt.into_repo().ok()?.head_id().ok()?.detach())),
+    );
+    // Above it on the way down from a tip, unless all of those go too.
+    let stays_above = |tip: gix::ObjectId, merge: gix::ObjectId| -> Result<bool> {
+        let mut at = tip;
+        while at != merge {
+            if !commits.contains(&CommitId(at)) {
+                return Ok(true);
+            }
+            let Some(parent) = repo.find_commit(at)?.parent_ids().next() else {
+                return Ok(false);
+            };
+            at = parent.detach();
+        }
+        Ok(false)
+    };
+    for merge in merges {
+        let buried = (tips.iter().filter(|tip| **tip != merge.0))
+            .filter(|tip| super::is_ancestor(repo, merge.0, **tip).unwrap_or(false))
+            .any(|tip| stays_above(*tip, merge.0).unwrap_or(true));
+        if buried {
+            bail!(
+                "{} is a merge with commits above it, which would merge the same changes \
+                 instead, so nothing would come back. Take out the commits above it first.",
+                merge.short()
+            );
+        }
+    }
     Ok(())
 }
 
@@ -850,6 +916,7 @@ pub fn reword(path: &Path, commit: CommitId, message: &str) -> Result<Rewritten>
 /// Drop `commits` and everything they changed.
 pub fn discard_commits(path: &Path, commits: &[CommitId]) -> Result<()> {
     let mut ctx = open(path)?;
+    refuse_buried_merges(&*ctx.repo.get()?, commits)?;
     let commits = commits.iter().map(|id| id.0).collect();
     but_api::commit::discard_commit::commit_discard(&mut ctx, commits, DryRun::No)?;
     Ok(())
@@ -1154,6 +1221,38 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn a_merge_comes_out_only_with_what_sits_on_it() {
+        let dir = repo_with("one\n");
+        let path = dir.path();
+        git(path, &["checkout", "-q", "-b", "side"]);
+        git(path, &["commit", "-q", "--allow-empty", "-m", "side"]);
+        git(path, &["checkout", "-q", "-b", "feature", "main"]);
+        git(path, &["commit", "-q", "--allow-empty", "-m", "mine"]);
+        git(path, &["merge", "-q", "--no-edit", "side"]);
+        let merge = head(path);
+        git(path, &["commit", "-q", "--allow-empty", "-m", "above"]);
+        let above = head(path);
+        let repo = gix::open(path).unwrap();
+        let refused = refuse_buried_merges(&repo, &[merge]).unwrap_err();
+        assert!(
+            refused.to_string().contains("commits above it"),
+            "the commit above would merge the same changes: {refused:#}"
+        );
+        assert!(
+            refuse_buried_merges(&repo, &[above, merge]).is_ok(),
+            "taken out together, nothing stays above it"
+        );
+
+        git(path, &["branch", "backup"]);
+        git(path, &["reset", "-q", "--hard", "HEAD~1"]);
+        let repo = gix::open(path).unwrap();
+        assert!(
+            refuse_buried_merges(&repo, &[merge]).is_ok(),
+            "at the top of what's checked out, a backup no checkout has doesn't keep it in"
+        );
+    }
+
+    #[test]
     fn a_conflicted_file_is_listed_and_kept_out_until_marked_resolved() {
         but_testsupport::isolated_app_data_dir(|| {
             let (dir, head) = conflicted_repo();
@@ -1180,6 +1279,32 @@ pub(super) mod tests {
             assert_eq!(files.len(), 1, "the markers are still a change: {files:?}");
             assert!(!files[0].conflicted, "the index takes the file as it is");
         })
+    }
+
+    #[test]
+    fn a_linked_worktree_inside_the_checkout_isnt_an_uncommitted_change() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            git(
+                path,
+                &[
+                    "worktree",
+                    "add",
+                    "-q",
+                    "-b",
+                    "agent",
+                    ".claude/worktrees/c1",
+                ],
+            );
+            std::fs::write(path.join("file"), "two\n").unwrap();
+            let files: Vec<String> = uncommitted(path).into_iter().map(|f| f.path).collect();
+            assert_eq!(
+                files,
+                ["file"],
+                "as agents put them, it's a checkout of its own"
+            );
+        });
     }
 
     #[test]
@@ -2332,6 +2457,157 @@ pub(super) mod tests {
                 "logged in the second the user said to undo anyway, it may be after that"
             );
         })
+    }
+
+    #[test]
+    fn a_submodule_added_as_a_project_is_listed_at_its_files() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let lib = repo_with("lib\n");
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            let from = lib.path().to_str().unwrap();
+            let add = [
+                "-c",
+                "protocol.file.allow=always",
+                "submodule",
+                "add",
+                "-q",
+                from,
+                "lib",
+            ];
+            git(path, &add);
+            let (id, _) = crate::backend::add_project(&path.join("lib")).unwrap();
+            let listed = crate::backend::list_projects().unwrap();
+            let project = listed.iter().find(|project| project.id == id).unwrap();
+            assert_eq!(
+                project.path.canonicalize().unwrap(),
+                path.join("lib").canonicalize().unwrap(),
+                "its repository is in the superproject's, but its files are in lib"
+            );
+        })
+    }
+
+    #[test]
+    fn applying_a_branch_an_archived_worktree_has_lets_the_worktree_go_of_it() {
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::branches::{ApplyOutcome, apply};
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            let (_outside, linked) = agent_worktree(path);
+            git(&linked, &["commit", "-q", "--allow-empty", "-m", "agent's"]);
+            let theirs = head(&linked);
+            git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+
+            let applied = apply(path, "refs/heads/agent", Some("agent")).unwrap();
+            assert!(
+                matches!(applied, ApplyOutcome::Applied),
+                "the branch is applied"
+            );
+            assert_eq!(
+                git(&linked, &["rev-parse", "--abbrev-ref", "HEAD"]).trim(),
+                "HEAD",
+                "the worktree let go of the branch, so the workspace's commits don't move under it"
+            );
+            assert_eq!(
+                head(&linked),
+                theirs,
+                "and stays on its commit, files and all"
+            );
+        })
+    }
+
+    #[test]
+    fn a_branch_that_doesnt_apply_goes_back_to_its_archived_worktree() {
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::branches::{ApplyOutcome, apply};
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            let (_outside, linked) = agent_worktree(path);
+            std::fs::write(linked.join("file"), "agent's\n").unwrap();
+            git(&linked, &["commit", "-q", "-am", "agent's"]);
+            git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
+            std::fs::write(path.join("file"), "ours\n").unwrap();
+            git(path, &["commit", "-q", "-am", "ours"]);
+            name_branch(path, head(path), "ours").unwrap();
+
+            let applied = apply(path, "refs/heads/agent", Some("agent")).unwrap();
+            assert!(
+                matches!(applied, ApplyOutcome::Conflicts(_)),
+                "both change the same line"
+            );
+            assert_eq!(
+                git(&linked, &["rev-parse", "--abbrev-ref", "HEAD"]).trim(),
+                "agent",
+                "not applied, the branch goes back to the worktree, so its next commits move it"
+            );
+        })
+    }
+
+    #[test]
+    fn a_folder_the_enclosing_repository_ignores_isnt_added_as_it() {
+        but_testsupport::isolated_app_data_dir(|| {
+            // As a home folder kept as a dotfiles repository.
+            let home = repo_with("one\n");
+            std::fs::write(home.path().join(".gitignore"), "*\n!.gitignore\n").unwrap();
+            let picked = home.path().join("code/new");
+            std::fs::create_dir_all(&picked).unwrap();
+            let refused = crate::backend::add_project(&picked).unwrap_err();
+            assert!(
+                refused.is::<crate::backend::NotARepository>(),
+                "it's no work of the home folder's, so it's offered to become a repository: \
+                 {refused:#}"
+            );
+
+            // One with a file force-added, as dotfiles keep ~/.config/nvim, is the home's.
+            let tracked = home.path().join("tracked");
+            std::fs::create_dir(&tracked).unwrap();
+            std::fs::write(tracked.join("init.lua"), "x\n").unwrap();
+            git(home.path(), &["add", "-f", "tracked/init.lua"]);
+            assert!(
+                crate::backend::add_project(&tracked).is_ok(),
+                "a folder with files the repository tracks adds the repository"
+            );
+            // One that holds repositories names them, as anywhere else.
+            let code = home.path().join("code");
+            git(&code, &["init", "-q", "app"]);
+            let named = crate::backend::add_project(&code).unwrap_err();
+            assert!(
+                format!("{named:#}").contains("app in it is"),
+                "it says which to add: {named:#}"
+            );
+
+            let project = repo_with("one\n");
+            std::fs::create_dir(project.path().join("src")).unwrap();
+            assert!(
+                crate::backend::add_project(&project.path().join("src")).is_ok(),
+                "a folder the repository doesn't ignore adds the repository"
+            );
+        })
+    }
+
+    #[test]
+    fn changes_left_out_are_said_by_reason() {
+        use but_core::tree::create_tree::RejectionReason as R;
+        let spec = |path: &str| DiffSpec {
+            previous_path: None,
+            path: path.into(),
+            hunk_headers: Vec::new(),
+        };
+        let mut rejected: Vec<_> = (0..3000)
+            .map(|n| (R::WorkspaceMergeConflict, spec(&format!("lib/{n}.ts"))))
+            .collect();
+        rejected.push((R::WorktreeFileMissingForObjectConversion, spec("gone.ts")));
+        assert_eq!(
+            super::left_out(&rejected),
+            [
+                "lib/0.ts, lib/1.ts, lib/2.ts and 2997 more files: it builds on changes in another \
+                 branch; commit there, or move those first",
+                "gone.ts: the file is gone from disk",
+            ],
+            "a moved folder's thousands of files are one line, not one each"
+        );
     }
 
     #[test]

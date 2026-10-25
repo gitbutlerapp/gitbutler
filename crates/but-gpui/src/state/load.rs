@@ -879,12 +879,17 @@ fn follow_by_key(old: Option<&Workspace>, new: &Workspace, commit: CommitId) -> 
         .map(|c| c.id)
 }
 
-/// Why a project didn't load: plainly when its folder is gone, otherwise as reported.
-pub(super) fn load_error(folder_gone: bool, err: &anyhow::Error) -> SharedString {
-    if !folder_gone {
-        backend::read_failure(err).into()
-    } else {
+/// Why a project didn't load: plainly when its folder is gone or its index sparse, otherwise
+/// as reported.
+pub(super) fn load_error(failure: &backend::LoadFailure, err: &anyhow::Error) -> SharedString {
+    if failure.folder_gone {
         "The project's folder isn't there any more.".into()
+    } else if failure.sparse_index {
+        "GitButler can't read a sparse index yet. `git sparse-checkout reapply \
+         --no-sparse-index` keeps the sparse checkout and makes it readable."
+            .into()
+    } else {
+        backend::read_failure(err).into()
     }
 }
 

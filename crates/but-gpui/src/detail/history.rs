@@ -32,6 +32,10 @@ const LISTED: usize = 8;
 /// How many operations a page of the log holds.
 const PAGE: usize = 60;
 
+/// How many operations the filter reads on its own to find one, as a reload reads as many
+/// again while the page is open.
+const READ_FOR_FILTER: usize = 10 * PAGE;
+
 /// A row of the list: a day's heading over its operations, an operation by index, or the
 /// button for older ones.
 enum Row {
@@ -211,11 +215,11 @@ fn subject(operation: &Operation) -> Option<String> {
     }
     let name = |commits: &[&Recorded]| match commits {
         [] => None,
-        [one] => Some(commit_title(one.title()).to_string()),
+        [one] => Some(commit_title(&one.title()).to_string()),
         many => Some(plural(many.len(), "commit")),
     };
     if let (Some(K::SquashCommit), [gone], [into]) = (operation.kind, &removed[..], &edited[..]) {
-        let (gone, into) = (commit_title(gone.title()), commit_title(into.title()));
+        let (gone, into) = (commit_title(&gone.title()), commit_title(&into.title()));
         return Some(format!("{gone} into {into}"));
     }
     if let Some(K::MergeUpstream | K::UpdateWorkspaceBase) = operation.kind {
@@ -319,6 +323,7 @@ impl Detail {
                 history.loading = false;
                 let queued = std::mem::take(&mut history.reload_queued) && after.is_some();
                 let selected_before = history.selected;
+                let (read, first) = (result.is_ok(), history.operations.is_empty());
                 match result {
                     // What's listed stays, Show older too, to try again.
                     Err(err) if after.is_some() => this.store.update(cx, |store, cx| {
@@ -351,8 +356,13 @@ impl Detail {
                 }
                 let moved = history.selected != selected_before;
                 this.refresh_diff(moved, cx);
-                // Not one the filter or the kinds hide.
-                this.select_shown_operation(cx);
+                // Not one the filter or the kinds hide. An older page, or the first, read while
+                // the filter showed none goes on to the next; a reload doesn't, nor a page that
+                // failed, which Show older asks for again.
+                let older = read && (after.is_some() || first);
+                if read && !(older && this.read_older_while_none_shown(cx)) {
+                    this.select_first_shown(cx);
+                }
                 if queued {
                     this.load_history(&project, false, cx);
                 }
@@ -440,8 +450,34 @@ impl Detail {
     }
 
     /// Select the first operation the list shows when it hides the selected one, so the
-    /// header and diff are of one in the list.
+    /// header and diff are of one in the list, or read older ones while it shows none.
     pub(super) fn select_shown_operation(&mut self, cx: &mut Context<Self>) {
+        if !self.read_older_while_none_shown(cx) {
+            self.select_first_shown(cx);
+        }
+    }
+
+    /// Read the next older page while the filter shows none of those read, as it finds an old
+    /// operation in a long log agents add to, up to [`READ_FOR_FILTER`] operations, past which
+    /// Show older goes on. Whether it did.
+    fn read_older_while_none_shown(&mut self, cx: &mut Context<Self>) -> bool {
+        let Some(history) = self.page_history(cx) else {
+            return false;
+        };
+        let reads = history.more
+            && history.operations.len() < READ_FOR_FILTER
+            && self.history_hidden.len() < Group::ALL.len()
+            && self.shown_operations(history, cx).is_empty();
+        match (reads, self.store.read(cx).selection.clone()) {
+            (true, Some(Selection::History(project))) => {
+                self.load_history(&project, true, cx);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn select_first_shown(&mut self, cx: &mut Context<Self>) {
         let Some(history) = self.page_history(cx) else {
             return;
         };
@@ -660,7 +696,7 @@ impl Detail {
     ) -> AnyElement {
         use OperationKind as K;
         let integrated = matches!(kind, Some(K::MergeUpstream | K::UpdateWorkspaceBase));
-        let title = |commit: &Recorded| commit_title(commit.title()).to_string();
+        let title = |commit: &Recorded| commit_title(&commit.title()).to_string();
         let (glyph, color, commit, text, note): (_, _, Option<CommitId>, _, _) = match change {
             Change::Added { commit, branch } => (
                 Icon::Plus,

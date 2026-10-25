@@ -1756,6 +1756,14 @@ impl Detail {
         self.composing
     }
 
+    /// Whether the composer is open on `project`'s main checkout, or its linked worktree
+    /// `linked`, whose changes then go by what's checked.
+    pub fn composing_in(&self, project: &ProjectId, linked: Option<&str>) -> bool {
+        self.composing
+            && self.checks_project.as_ref() == Some(project)
+            && self.checks_worktree.as_deref() == linked
+    }
+
     /// Whether the diff's cursor is on a hunk, rather than a file's header, for ⌥⌘Z to discard.
     pub fn on_hunk(&self) -> bool {
         self.cursor.hunk.is_some()

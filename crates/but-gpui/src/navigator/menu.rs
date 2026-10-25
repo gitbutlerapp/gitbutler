@@ -149,13 +149,15 @@ impl Navigator {
     ) -> [MenuItem; 2] {
         // Only the composer checks files, and only its own checkout's: without it, or for
         // another checkout right-clicked while it's open, discarding takes them all.
-        let detail = self.detail.read(cx);
-        let checkout = (project.clone(), linked.clone());
-        let what =
-            match detail.composing() && detail.selected_checkout(cx).as_ref() == Some(&checkout) {
-                true => "checked changes",
-                false => "all changes",
-            };
+        // The composer's own checkout, not the selection's, which a right-click has just moved.
+        let what = match self
+            .detail
+            .read(cx)
+            .composing_in(project, linked.as_deref())
+        {
+            true => "checked changes",
+            false => "all changes",
+        };
         [
             MenuItem::action("Commit…", &StartCommit, cx).separated(),
             MenuItem::action(
@@ -247,8 +249,11 @@ impl Navigator {
                     // With Fetch, else apart from Watch.
                     items.push(if expanded { update } else { update.separated() });
                 }
-                let archived = (store.workspace(project))
-                    .map_or_else(Vec::new, |ws| ws.archived_worktrees.clone());
+                let archived = (store.workspace(project)).map_or_else(Vec::new, |ws| {
+                    (ws.archived_worktrees.iter())
+                        .map(|(name, _)| name.clone())
+                        .collect()
+                });
                 if !archived.is_empty() {
                     let project = project.clone();
                     items.push(MenuItem::new(

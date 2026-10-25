@@ -83,10 +83,12 @@ pub fn list_projects() -> Result<Vec<Project>> {
         .filter_map(|entry| {
             let project: gitbutler_project::Project = entry.inner.into();
             let git_dir = project.git_dir();
-            let path = if git_dir.ends_with(".git") {
-                git_dir.parent()?.to_owned()
-            } else {
-                git_dir.to_owned()
+            let path = match git_dir.ends_with(".git") {
+                true => git_dir.parent()?.to_owned(),
+                // A submodule's is in its superproject's, and its config says where its files are.
+                false => (gix::open_opts(git_dir, gix::open::Options::isolated()).ok())
+                    .and_then(|repo| repo.workdir().map(Path::to_owned))
+                    .unwrap_or_else(|| git_dir.to_owned()),
             };
             // Kept when the folder is gone, so the app can say so and offer to find it.
             Some(Project {
@@ -133,13 +135,48 @@ impl std::fmt::Display for NotARepository {
 
 impl std::error::Error for NotARepository {}
 
+/// Whether `path` is a folder inside a repository's checkout, not its top, that the
+/// repository ignores and has no files of; `None` when it isn't in one below its top, or that
+/// can't be read.
+fn ignored_by_enclosing_repository(path: &Path) -> Option<bool> {
+    use gix::worktree::stack::state::ignore::Source;
+    let repo = gix::discover(path).ok()?;
+    let (workdir, path) = (
+        repo.workdir()?.canonicalize().ok()?,
+        path.canonicalize().ok()?,
+    );
+    let inside = path
+        .strip_prefix(&workdir)
+        .ok()
+        .filter(|p| !p.as_os_str().is_empty())?;
+    let index = repo.index_or_empty().ok()?;
+    // As a dotfiles repository has ~/.config/nvim, added despite ignoring everything.
+    let inside_bstr = gix::path::into_bstr(inside).ok()?;
+    let prefix = format!("{}/", gix::path::to_unix_separators_on_windows(inside_bstr));
+    if (index.entries().iter()).any(|e| e.path(&index).starts_with(prefix.as_bytes())) {
+        return Some(false);
+    }
+    let mut excludes =
+        (repo.excludes(&index, None, Source::WorktreeThenIdMappingIfNotSkipped)).ok()?;
+    let at = excludes
+        .at_path(inside, Some(gix::index::entry::Mode::DIR))
+        .ok()?;
+    Some(at.is_excluded())
+}
+
 /// Register the repository at `path` with GitButler, so it shows up in [`list_projects()`].
 /// Returns its id, and whether GitButler had it already, as from a folder inside it. A folder
 /// that could become a repository fails with [`NotARepository`].
 pub fn add_project(path: &Path) -> Result<(String, bool)> {
     use AddProjectOutcome as O;
     use gitbutler_project::AddProjectOutcome;
-    let why = match but_api::legacy::projects::add_project_best_effort(path.to_owned())? {
+    // As a home folder kept as a dotfiles repository, which ignores all but its dotfiles: the
+    // folder isn't that repository's work, and adding it would watch the whole home folder.
+    let outcome = match ignored_by_enclosing_repository(path) {
+        Some(true) => O::NoDotGitDirectory,
+        _ => but_api::legacy::projects::add_project_best_effort(path.to_owned())?,
+    };
+    let why = match outcome {
         O::Added(project) => return Ok((project.id.to_string(), false)),
         O::AlreadyExists(project) => return Ok((project.id.to_string(), true)),
         O::PathNotFound => "it doesn't exist",
@@ -796,8 +833,33 @@ const COUNT_LINES_UP_TO: usize = 300;
 /// the lines it adds and removes, and the files the index has conflicted, as a merge leaves
 /// them. A file `previous` has with the same change, written at the same time, keeps the lines
 /// counted then: while an agent writes, most files stay as they were between reads.
+/// What status says changed in `repo`'s checkout, but for the repository's linked worktrees
+/// inside it, as agents' under `.claude/worktrees`, which look to status like repositories
+/// added: they're checkouts of their own, which committing would record and discarding would
+/// reset.
+fn own_changes(repo: &gix::Repository) -> Result<but_core::WorktreeChanges> {
+    let mut changes = but_core::diff::worktree_changes(repo)?;
+    let workdir = repo
+        .workdir()
+        .and_then(|dir| std::fs::canonicalize(dir).ok());
+    let inside = |base: std::path::PathBuf| -> Option<bstr::BString> {
+        let base = std::fs::canonicalize(base).ok()?;
+        let path = base.strip_prefix(workdir.as_ref()?).ok()?.to_owned();
+        Some(
+            gix::path::to_unix_separators_on_windows(gix::path::into_bstr(path).ok()?).into_owned(),
+        )
+    };
+    let linked: Vec<bstr::BString> = (repo.worktrees().into_iter().flatten())
+        .filter_map(|wt| inside(wt.base().ok()?))
+        .collect();
+    changes
+        .changes
+        .retain(|change| !linked.contains(&change.path));
+    Ok(changes)
+}
+
 fn worktree_files(repo: &gix::Repository, previous: &[FileChange]) -> Result<Vec<FileChange>> {
-    let changes = but_core::diff::worktree_changes(repo)?;
+    let changes = own_changes(repo)?;
     // Status leaves out files with unresolved index conflicts; they're changes too.
     let conflicted = conflicted_changes(repo, &changes.ignored_changes)?;
     let count = conflicted.len() + changes.changes.len() <= COUNT_LINES_UP_TO;
@@ -930,6 +992,8 @@ pub async fn folder_gone(path: std::path::PathBuf) -> bool {
 pub struct LoadFailure {
     /// Its folder is gone, which is said instead of the error.
     pub folder_gone: bool,
+    /// Its index is sparse, which the engine can't read yet, and which is said instead.
+    pub sparse_index: bool,
     /// The branches to pick a target from, when several track it.
     pub target_choice: Option<TargetChoice>,
 }
@@ -945,6 +1009,9 @@ pub async fn load_failure(path: std::path::PathBuf, err: Option<&anyhow::Error>)
     run(move || {
         Ok(LoadFailure {
             folder_gone: !path.exists(),
+            sparse_index: (gix::open(&path).ok())
+                .and_then(|repo| repo.index_or_empty().ok())
+                .is_some_and(|index| index.is_sparse()),
             target_choice: ambiguous.and_then(|target| target_choice(&path, &target)),
         })
     })

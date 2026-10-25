@@ -19,12 +19,13 @@ use super::panes::{
 };
 use super::upstream::commit_author;
 
+use crate::app::AppView;
 use crate::backend::branches::{self, ApplyOutcome, OtherBranch};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, ReviewState};
 use crate::edits::CherryPick;
 use crate::overlays::MenuItem;
-use crate::state::{BranchStatus, Cut, Overlay, Picks, ProjectId, Selection};
+use crate::state::{BranchStatus, Cut, Overlay, Picks, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::transfer::drag_preview;
 use crate::ui::illustration::Illustration;
@@ -913,9 +914,12 @@ impl Detail {
             return Vec::new();
         };
         let (p, r) = (project.clone(), ref_name.to_owned());
-        let mut items = vec![MenuItem::new("Apply", move |app, _, cx| {
-            app.detail
-                .update(cx, |detail, cx| detail.apply_branch(&p, &r, cx))
+        // Once the menu's done with the app, which asking to confirm updates too.
+        let mut items = vec![MenuItem::new("Apply", move |app, window, cx| {
+            let (detail, p, r) = (app.detail.clone(), p.clone(), r.clone());
+            window.defer(cx, move |window, cx| {
+                detail.update(cx, |detail, cx| detail.apply_branch(&p, &r, window, cx))
+            })
         })];
         if let Some(url) = (branch.review.as_ref()).and_then(|r| r.url.clone()) {
             items.push(MenuItem::new("Open pull request", move |_, _, cx| {
@@ -1023,18 +1027,46 @@ impl Detail {
         self.app.update(cx, |app, cx| app.cut(cut, cx)).ok();
     }
 
-    fn apply_branch(&mut self, project: &ProjectId, ref_name: &str, cx: &mut Context<Self>) {
+    fn apply_branch(
+        &mut self,
+        project: &ProjectId,
+        ref_name: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(branch) = self.listed_branch(project, ref_name) else {
             return;
         };
+        // Applied, it would move under the archived worktree that has it checked out, leaving
+        // that worktree's index behind for the agent's next commit there to take back, so that
+        // worktree lets go of it first, once asked.
+        let archived = (self.store.read(cx).workspace(project))
+            .and_then(|ws| {
+                (ws.archived_worktrees.iter())
+                    .find(|(_, checked_out)| checked_out.as_deref() == Some(&branch.name))
+            })
+            .map(|(worktree, _)| worktree.clone());
         let (ref_name, name) = (branch.ref_name.clone(), branch.name.clone());
-        let selected = project.clone();
-        self.store.update(cx, |store, cx| {
+        let (title, at) = (
+            format!("Apply {name}?"),
+            Selection::Branches(project.clone()),
+        );
+        let (project, selected) = (project.clone(), project.clone());
+        let (freeing, ask) = (
+            archived.clone(),
+            archived.map(|worktree| {
+                format!(
+                    "{name} is checked out in the archived worktree {worktree}, which stays on its \
+                 last commit, without the branch."
+                )
+            }),
+        );
+        let apply = move |store: &mut Store, cx: &mut Context<Store>| {
             store.run(
-                project,
+                &project,
                 format!("Apply {name}"),
                 Overlay::default(),
-                move |path, _| branches::apply(path, &ref_name),
+                move |path, _| branches::apply(path, &ref_name, freeing.as_deref()),
                 move |store, applied, cx| match applied {
                     ApplyOutcome::Applied | ApplyOutcome::AlreadyApplied => {
                         let local = format!("refs/heads/{name}");
@@ -1053,7 +1085,19 @@ impl Detail {
                 },
                 cx,
             )
-        });
+        };
+        match ask {
+            None => self.store.update(cx, apply),
+            Some(why) => {
+                (self.app.update(cx, |app, cx| {
+                    let run = move |app: &mut AppView, cx: &mut Context<AppView>| {
+                        app.store.update(cx, apply)
+                    };
+                    app.confirm_then(Some(at), title, &why, "Apply", window, cx, run)
+                }))
+                .ok();
+            }
+        }
     }
 
     fn delete_other_branch(
