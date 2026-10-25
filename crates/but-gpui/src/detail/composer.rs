@@ -1076,8 +1076,9 @@ impl Detail {
         let input = self.message.clone();
         input.update(cx, |input, _| input.break_undo_run());
         let task = cx.spawn(async move |this, cx| {
+            // Without a code fence around it, as a model can put one.
             let written = ai::write(ai::COMMIT_SYSTEM, prompt, |text| {
-                let shown = text.trim_start().to_owned();
+                let shown = ai::strip_fence(text).trim_start().to_owned();
                 input.update(cx, |input, cx| input.set_text(shown, cx));
             })
             .await;
@@ -1085,7 +1086,7 @@ impl Detail {
                 this.writing = None;
                 match written {
                     Ok(message) => {
-                        let message = backend::wrapped_message(message.trim());
+                        let message = backend::wrapped_message(ai::strip_fence(&message).trim());
                         this.message
                             .update(cx, |input, cx| input.set_text(message, cx));
                     }
