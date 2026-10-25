@@ -5,12 +5,13 @@
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, DismissEvent, Div, Entity, EventEmitter, FocusHandle,
-    Focusable, KeyBinding, ScrollHandle, SharedString, Stateful, Subscription, Task, Window,
-    actions, div, prelude::*,
+    Focusable, ScrollHandle, SharedString, Stateful, Subscription, Task, Window, actions, div,
+    prelude::*,
 };
 
 mod accounts;
 mod ai;
+mod keyboard;
 mod mesh;
 mod metrics;
 mod project;
@@ -28,10 +29,13 @@ use crate::ui::{
     side_row, switch, v_flex,
 };
 
-actions!(settings, [OpenSettings]);
+actions!(settings, [OpenSettings, OpenKeyboardShortcuts]);
 
-pub fn bind_keys(cx: &mut App) {
-    cx.bind_keys([KeyBinding::new("secondary-,", OpenSettings, None)]);
+/// " ⌥Z in a diff turns it on and off.", with the keys bound to `action`, or nothing when no key
+/// is, as the user's keymap can leave it.
+fn keys_in_diff(action: &dyn gpui::Action, does: &str, cx: &App) -> String {
+    crate::ui::shortcut(action, cx)
+        .map_or_else(String::new, |keys| format!(" {keys} in a diff {does}."))
 }
 
 /// A page of settings, in the sidebar's order, as Lite's has them: the app's, then the
@@ -40,6 +44,7 @@ pub fn bind_keys(cx: &mut App) {
 enum Page {
     General,
     Appearance,
+    Keyboard,
     Ai,
     Git,
     Integrations,
@@ -49,9 +54,10 @@ enum Page {
 }
 
 impl Page {
-    const APP: [Page; 6] = [
+    const APP: [Page; 7] = [
         Page::General,
         Page::Appearance,
+        Page::Keyboard,
         Page::Ai,
         Page::Git,
         Page::Integrations,
@@ -63,6 +69,7 @@ impl Page {
         match self {
             Page::General => "General",
             Page::Appearance => "Appearance",
+            Page::Keyboard => "Keyboard",
             Page::Ai => "AI",
             Page::Git | Page::ProjectGit => "Git",
             Page::Integrations => "Integrations",
@@ -75,6 +82,7 @@ impl Page {
         match self {
             Page::General => Icon::Settings,
             Page::Appearance => Icon::Contrast,
+            Page::Keyboard => Icon::Keyboard,
             Page::Ai => Icon::Ai,
             Page::Git | Page::ProjectGit => Icon::Pr,
             Page::Integrations => Icon::Plug,
@@ -99,11 +107,16 @@ impl Card {
     }
 }
 
+/// The hover group of a row, for a control shown only while the pointer is on it.
+const ROW_GROUP: &str = "settings-row";
+
 /// One setting: what it's called, what it does, and the control that changes it.
 struct Row {
     title: SharedString,
     description: SharedString,
     control: AnyElement,
+    /// More that a search finds it by, as a command's keys.
+    keywords: SharedString,
 }
 
 impl Row {
@@ -116,7 +129,13 @@ impl Row {
             title: title.into(),
             description: description.into(),
             control: control.into_any_element(),
+            keywords: SharedString::default(),
         }
+    }
+
+    fn with_keywords(mut self, keywords: impl Into<SharedString>) -> Self {
+        self.keywords = keywords.into();
+        self
     }
 }
 
@@ -162,6 +181,7 @@ pub struct SettingsView {
     /// The credentials test running: a new test or another project's settings drop it, so only
     /// its own results show.
     _credentials_test: Task<()>,
+    recording: Option<keyboard::Recording>,
     pages_scroll: ScrollHandle,
     cards_scroll: ScrollHandle,
     _subscriptions: Vec<Subscription>,
@@ -203,6 +223,7 @@ impl SettingsView {
             }),
             // The target and the project's name show what the store has.
             cx.observe(&store, |_, _, cx| cx.notify()),
+            cx.observe_global::<crate::keymap::UserKeymap>(|_, cx| cx.notify()),
             cx.subscribe_in(&name, window, |this, _, event, window, cx| match event {
                 InputEvent::Submit => this.save_name(cx),
                 InputEvent::Changed => cx.notify(),
@@ -233,6 +254,7 @@ impl SettingsView {
             signing: None,
             credentials: None,
             _credentials_test: Task::ready(()),
+            recording: None,
             pages_scroll: ScrollHandle::new(),
             cards_scroll: ScrollHandle::new(),
             _subscriptions: subscriptions,
@@ -460,19 +482,20 @@ impl SettingsView {
             ),
             Row::new(
                 "Wrap long lines",
-                crate::ui::keys_text(
-                    "Diff lines wider than the pane continue on the next row. ⌥Z in a diff turns \
-                     it on and off.",
-                ),
+                crate::ui::keys_text(&format!(
+                    "Diff lines wider than the pane continue on the next row.{}",
+                    keys_in_diff(&crate::detail::ToggleWrap, "turns it on and off", cx)
+                )),
                 switch("wrap", prefs.wrap, theme).on_click(cx.listener(|this, _, _, cx| {
                     this.detail.update(cx, |detail, cx| detail.toggle_wrap(cx));
                 })),
             ),
             Row::new(
                 "Side by side",
-                crate::ui::keys_text(
-                    "Diffs show the old lines beside the new ones. ⌘B in a diff switches.",
-                ),
+                crate::ui::keys_text(&format!(
+                    "Diffs show the old lines beside the new ones.{}",
+                    keys_in_diff(&crate::detail::ToggleSplit, "switches", cx)
+                )),
                 switch("split", prefs.split, theme).on_click(cx.listener(|this, _, _, cx| {
                     this.detail.update(cx, |detail, cx| detail.toggle_split(cx));
                 })),
@@ -661,6 +684,7 @@ impl SettingsView {
                 Card::new(Some("Metrics"), self.metrics_rows(cx)),
             ],
             Page::Appearance => self.appearance_cards(cx),
+            Page::Keyboard => self.keyboard_cards(cx),
             Page::Ai => vec![Card::new(None, self.ai_rows(window, cx))],
             Page::Git => vec![Card::new(None, vec![self.fetch_row(cx)])],
             Page::Integrations => self.integration_cards(window, cx),
@@ -715,7 +739,10 @@ impl SettingsView {
                 };
                 let rows: Vec<Row> = (card.rows.into_iter())
                     .filter(|row| {
-                        let text = format!("{heading} {} {}", row.title, row.description);
+                        let text = format!(
+                            "{heading} {} {} {}",
+                            row.title, row.description, row.keywords
+                        );
                         let text = text.to_lowercase();
                         query.split_whitespace().all(|word| text.contains(word))
                     })
@@ -761,6 +788,7 @@ impl SettingsView {
     fn render_row(row: Row, divided: bool, theme: &Theme) -> AnyElement {
         let hint = !row.description.is_empty();
         h_flex()
+            .group(ROW_GROUP)
             .p(dp(16.))
             .gap(dp(16.))
             // Against its name when there's a line under it, else on its line.
@@ -997,6 +1025,15 @@ impl AppView {
 
     pub fn open_settings(&mut self, _: &OpenSettings, window: &mut Window, cx: &mut Context<Self>) {
         self.open_settings_at(None, Page::General, window, cx);
+    }
+
+    pub fn open_keyboard_shortcuts(
+        &mut self,
+        _: &OpenKeyboardShortcuts,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.open_settings_at(None, Page::Keyboard, window, cx);
     }
 
     /// Settings, at `page`, for `project`, or else the selected project or the first.

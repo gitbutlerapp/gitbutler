@@ -1413,13 +1413,15 @@ impl Detail {
             }
             let label = crate::open_in::editor_label(this.store.read(cx));
             items.push(
-                MenuItem {
-                    key: shortcut(&crate::open_in::OpenInEditor, cx),
-                    ..MenuItem::new(label, move |this, _, cx| {
+                MenuItem::keyed(
+                    label,
+                    &crate::open_in::OpenInEditor,
+                    cx,
+                    move |this, _, cx| {
                         let (file, worktree) = (Some(path.clone()), worktree.clone());
                         this.open_in_editor(&project, worktree, file, line, position, cx)
-                    })
-                }
+                    },
+                )
                 .separated(),
             );
             items

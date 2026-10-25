@@ -539,6 +539,17 @@ impl Detail {
         history.operations.iter().find(|op| op.id == id)
     }
 
+    /// Return on the list: restore to before the selected operation, after asking, as its
+    /// menu's Restore does.
+    fn restore_selected_operation(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(Selection::History(project)) = self.store.read(cx).selection.clone() else {
+            return;
+        };
+        if let Some(id) = self.selected_operation(&project).map(|op| op.id) {
+            self.restore_operation(&project, id, window, cx)
+        }
+    }
+
     /// Put the project back to how it was before operation `id`, after asking. The restore
     /// goes in the log too, so it can be undone.
     fn restore_operation(
@@ -585,19 +596,32 @@ impl Detail {
     ) {
         self.select_operation(id, cx);
         let project = project.clone();
-        self.open_menu(at, move |_, _| Self::operation_menu_items(&project, id), cx);
+        self.open_menu(
+            at,
+            move |_, cx| Self::operation_menu_items(&project, id, cx),
+            cx,
+        );
     }
 
     /// What Operations history offers for the operation before snapshot `id`, as
     /// right-clicking it does.
-    pub(crate) fn operation_menu_items(project: &ProjectId, id: SnapshotId) -> Vec<MenuItem> {
+    pub(crate) fn operation_menu_items(
+        project: &ProjectId,
+        id: SnapshotId,
+        cx: &App,
+    ) -> Vec<MenuItem> {
         let project = project.clone();
         vec![
-            MenuItem::new("Restore to before this…", move |app, window, cx| {
-                (app.detail).update(cx, |detail, cx| {
-                    detail.restore_operation(&project, id, window, cx)
-                })
-            }),
+            MenuItem::keyed(
+                "Restore to before this…",
+                &crate::app::Confirm,
+                cx,
+                move |app, window, cx| {
+                    (app.detail).update(cx, |detail, cx| {
+                        detail.restore_operation(&project, id, window, cx)
+                    })
+                },
+            ),
             MenuItem::new("Copy snapshot ID", move |app, _, cx| {
                 app.copy_text(id.0.to_string(), cx)
             })
@@ -957,9 +981,14 @@ impl Detail {
             )
             .into_any_element()
         };
-        self.list_column(Self::step_history, None, cx)
-            .child(bar)
-            .child(list)
-            .into_any_element()
+        self.list_column(
+            Self::step_history,
+            None,
+            Some(Self::restore_selected_operation),
+            cx,
+        )
+        .child(bar)
+        .child(list)
+        .into_any_element()
     }
 }

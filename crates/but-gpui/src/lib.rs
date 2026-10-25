@@ -31,6 +31,7 @@ mod detail;
 mod dev;
 mod edits;
 mod help;
+mod keymap;
 mod navigator;
 mod open_in;
 mod overlays;
@@ -229,63 +230,62 @@ pub fn run(embedded: Option<Embedded>) {
             // GPUI has no alerts of its own on Linux, and its stand-in cuts long text off.
             #[cfg(target_os = "linux")]
             cx.set_prompt_builder(ui::alert::alert);
-            ui::text_input::bind_keys(cx);
-            app::bind_keys(cx);
-            navigator::bind_keys(cx);
-            detail::bind_keys(cx);
-            palette::bind_keys(cx);
-            settings::bind_keys(cx);
-            whats_new::bind_keys(cx);
-            open_in::bind_keys(cx);
             help::register(cx);
             cx.on_action(|_: &app::Hide, cx| cx.hide());
             cx.on_action(|_: &app::HideOthers, cx| cx.hide_other_apps());
             cx.on_action(|_: &app::ShowAll, cx| cx.unhide_other_apps());
             // The standard macOS menus. AppKit fills a menu named "Window" with the window
-            // list and tiling, and "Services" with what other apps offer.
-            let mut app_menu = vec![MenuItem::action("About GitButler", help::About)];
-            if has_update_feed {
-                app_menu.push(MenuItem::action("Check for Updates…", app::CheckForUpdates));
-            }
-            cx.set_menus([
-                Menu::new("GitButler").items(app_menu.into_iter().chain([
-                    MenuItem::separator(),
-                    MenuItem::action("Settings…", settings::OpenSettings),
-                    MenuItem::separator(),
-                    MenuItem::os_submenu("Services", SystemMenuType::Services),
-                    MenuItem::separator(),
-                    MenuItem::action("Hide GitButler", app::Hide),
-                    MenuItem::action("Hide Others", app::HideOthers),
-                    MenuItem::action("Show All", app::ShowAll),
-                    MenuItem::separator(),
-                    MenuItem::action("Quit GitButler", app::Quit),
-                ])),
-                Menu::new("File").items([
-                    MenuItem::action("Add Project…", app::AddProject),
-                    MenuItem::action("Clone Repository…", projects::CloneRepository),
-                ]),
-                Menu::new("View").items([
-                    MenuItem::action("Actual Size", app::ActualSize),
-                    MenuItem::action("Zoom In", app::ZoomIn),
-                    MenuItem::action("Zoom Out", app::ZoomOut),
-                ]),
-                Menu::new("Window").items([
-                    MenuItem::action("Minimize", app::Minimize),
-                    MenuItem::action("Zoom", app::Zoom),
-                ]),
-                Menu::new("Help").items([
-                    MenuItem::action("GitButler Docs", help::OpenDocs),
-                    MenuItem::action("What's New", help::OpenReleaseNotes),
-                    MenuItem::action("Keyboard Shortcuts", app::CommandPalette),
-                    MenuItem::separator(),
-                    MenuItem::action("Report an Issue…", help::ReportIssue),
-                    MenuItem::action("Show Settings Folder", help::ShowConfigFolder),
-                    MenuItem::action("Show Logs Folder", help::ShowLogsFolder),
-                ]),
-            ]);
+            // list and tiling, and "Services" with what other apps offer. Set again whenever
+            // the keys change, as the menu bar takes them when it's set.
+            let set_menus = move |cx: &mut App| {
+                let mut app_menu = vec![MenuItem::action("About GitButler", help::About)];
+                if has_update_feed {
+                    app_menu.push(MenuItem::action("Check for Updates…", app::CheckForUpdates));
+                }
+                cx.set_menus([
+                    Menu::new("GitButler").items(app_menu.into_iter().chain([
+                        MenuItem::separator(),
+                        MenuItem::action("Settings…", settings::OpenSettings),
+                        MenuItem::separator(),
+                        MenuItem::os_submenu("Services", SystemMenuType::Services),
+                        MenuItem::separator(),
+                        MenuItem::action("Hide GitButler", app::Hide),
+                        MenuItem::action("Hide Others", app::HideOthers),
+                        MenuItem::action("Show All", app::ShowAll),
+                        MenuItem::separator(),
+                        MenuItem::action("Quit GitButler", app::Quit),
+                    ])),
+                    Menu::new("File").items([
+                        MenuItem::action("Add Project…", app::AddProject),
+                        MenuItem::action("Clone Repository…", projects::CloneRepository),
+                        MenuItem::separator(),
+                        MenuItem::action("Close Window", app::CloseWindow),
+                    ]),
+                    Menu::new("View").items([
+                        MenuItem::action("Actual Size", app::ActualSize),
+                        MenuItem::action("Zoom In", app::ZoomIn),
+                        MenuItem::action("Zoom Out", app::ZoomOut),
+                    ]),
+                    Menu::new("Window").items([
+                        MenuItem::action("Minimize", app::Minimize),
+                        MenuItem::action("Zoom", app::Zoom),
+                    ]),
+                    Menu::new("Help").items([
+                        MenuItem::action("GitButler Docs", help::OpenDocs),
+                        MenuItem::action("What's New", help::OpenReleaseNotes),
+                        MenuItem::action("Keyboard Shortcuts", settings::OpenKeyboardShortcuts),
+                        MenuItem::action("Open Keymap File", keymap::OpenKeymap),
+                        MenuItem::separator(),
+                        MenuItem::action("Report an Issue…", help::ReportIssue),
+                        MenuItem::action("Show Settings Folder", help::ShowConfigFolder),
+                        MenuItem::action("Show Logs Folder", help::ShowLogsFolder),
+                    ]),
+                ]);
+            };
 
             // Before the window, which opens where the saved state says.
             let store = cx.new(state::Store::new);
+            keymap::watch(store.clone(), set_menus, cx);
             let (display_id, bounds) = match store.read(cx).window_place(cx) {
                 Some((display, bounds)) => (Some(display), bounds),
                 None => (

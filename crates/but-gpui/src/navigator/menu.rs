@@ -1,11 +1,11 @@
 //! The navigator's right-click menus.
 
-use gpui::{Action, App, Context, SharedString, Window};
+use gpui::{Action, App};
 
 use super::{ClickOpened, Navigator};
 use crate::app::{
-    AppView, Collapse, CopySelection, CutSelection, DeleteSelection, Expand, Fetch, MarkAllRead,
-    NewBranch, NewBranchOnTop, OpenPullRequest, Push, RenameSelection, StartCommit, ToggleRead,
+    Collapse, CopySelection, CutSelection, DeleteSelection, Expand, Fetch, MarkAllRead, NewBranch,
+    NewBranchOnTop, OpenPullRequest, Push, RenameSelection, StartCommit, ToggleRead,
     UncommitSelection, UpdateFromTarget,
 };
 use crate::backend::{CommitId, short_ref};
@@ -16,23 +16,7 @@ use crate::edits::{
 };
 use crate::overlays::MenuItem;
 use crate::state::{Cut, ProjectId, Seeable, Selection, Store, WatchedOrder};
-use crate::ui::{commit_title, plural, quoted, shortcut};
-
-/// An item that runs `handler` on the row it opened on, showing the keys of `action`, which
-/// does the same from the navigator. The ⋯ in a page's header opens these menus with the
-/// focus in the detail, where `action` would act on the diff instead, as ⌘C copies the path
-/// of the file under its cursor, or do nothing, as → does there.
-pub(super) fn keyed(
-    label: impl Into<SharedString>,
-    action: &dyn Action,
-    cx: &App,
-    handler: impl Fn(&mut AppView, &mut Window, &mut Context<AppView>) + 'static,
-) -> MenuItem {
-    MenuItem {
-        key: shortcut(action, cx),
-        ..MenuItem::new(label, handler)
-    }
-}
+use crate::ui::{commit_title, plural, quoted};
 
 /// Marking `commits` of `project` read, the ones that aren't, and unread, the ones that
 /// are: one item or the other, or both when some are each. The first is what u does.
@@ -118,7 +102,7 @@ impl Navigator {
                     true => ("Hide commits", &Collapse),
                     false => ("Show commits", &Expand),
                 };
-                view.push(keyed(label, keys, cx, move |this, _, cx| {
+                view.push(MenuItem::keyed(label, keys, cx, move |this, _, cx| {
                     let key = key.clone();
                     (this.navigator).update(cx, |nav, cx| nav.set_open(key, !open, cx))
                 }));
@@ -183,7 +167,7 @@ impl Navigator {
                     MenuItem::new("Cherry-pick", move |app, _, cx| {
                         app.cut(Cut::CherryPick(project.clone(), [id].into()), cx)
                     }),
-                    MenuItem::new("Copy commit ID", move |app, _, cx| {
+                    MenuItem::keyed("Copy commit ID", &CopySelection, cx, move |app, _, cx| {
                         app.copy_text(id.0.to_string(), cx)
                     }),
                 ];
@@ -200,7 +184,7 @@ impl Navigator {
                             .update(cx, |store, cx| store.set_expanded(&id, false, cx))
                     })
                 } else {
-                    keyed("Watch", &Expand, cx, move |this, _, cx| {
+                    MenuItem::keyed("Watch", &Expand, cx, move |this, _, cx| {
                         this.store
                             .update(cx, |store, cx| store.set_expanded(&id, true, cx))
                     })
@@ -289,9 +273,12 @@ impl Navigator {
                             this.open_in_editor(&editor_project, None, None, None, position, cx)
                         })
                         .separated(),
-                        MenuItem::new("Open in terminal", move |this, _, cx| {
-                            this.open_in_terminal(&terminal_project, cx)
-                        }),
+                        MenuItem::keyed(
+                            "Open in terminal",
+                            &crate::open_in::OpenInTerminal,
+                            cx,
+                            move |this, _, cx| this.open_in_terminal(&terminal_project, cx),
+                        ),
                         MenuItem::new(crate::ui::REVEAL, move |_, _, cx| cx.reveal_path(&path)),
                     ]);
                 }
@@ -426,7 +413,7 @@ impl Navigator {
                 let name = short_ref(ref_name).to_owned();
                 items.extend([
                     action("Rename…", &RenameSelection).separated(),
-                    keyed("Copy name", &CopySelection, cx, move |app, _, cx| {
+                    MenuItem::keyed("Copy name", &CopySelection, cx, move |app, _, cx| {
                         app.copy_text(name.clone(), cx)
                     }),
                 ]);
@@ -451,7 +438,7 @@ impl Navigator {
                 };
                 let cut = (project.clone(), ids);
                 let mut items = vec![
-                    keyed(
+                    MenuItem::keyed(
                         format!("Cut {n} commits"),
                         &CutSelection,
                         cx,
@@ -510,7 +497,7 @@ impl Navigator {
                     ));
                 }
                 let (cut_project, id) = (project.clone(), *id);
-                let cut = keyed("Cut", &CutSelection, cx, move |app, _, cx| {
+                let cut = MenuItem::keyed("Cut", &CutSelection, cx, move |app, _, cx| {
                     let ids = app.store.read(cx).with_picks(&cut_project, id);
                     app.cut(Cut::Commit(cut_project.clone(), ids), cx)
                 });
@@ -533,7 +520,7 @@ impl Navigator {
                     items.push(action("Move to a new branch", &MoveToNewBranch).separated());
                 }
                 items.push(
-                    keyed("Copy commit ID", &CopySelection, cx, move |app, _, cx| {
+                    MenuItem::keyed("Copy commit ID", &CopySelection, cx, move |app, _, cx| {
                         app.copy_text(id.0.to_string(), cx)
                     })
                     .separated(),
@@ -574,7 +561,7 @@ impl Navigator {
                 let changes = (!lost.is_empty()).then(|| self.changes_items(&project, linked, cx));
                 let mut items = vec![
                     MenuItem::new(crate::ui::REVEAL, move |_, _, cx| cx.reveal_path(&path)),
-                    MenuItem::new("Copy path", move |this, _, cx| {
+                    MenuItem::keyed("Copy path", &CopySelection, cx, move |this, _, cx| {
                         this.copy_text(copied.clone(), cx)
                     }),
                     // Not Update: it rebases the workspace's stacks, not this worktree's.
@@ -625,7 +612,7 @@ impl Navigator {
                     false => ("Hide branches", &Collapse),
                 };
                 let (fold_project, fold_bottom) = key;
-                let mut items = vec![keyed(label, keys, cx, move |this, window, cx| {
+                let mut items = vec![MenuItem::keyed(label, keys, cx, move |this, window, cx| {
                     (this.navigator).update(cx, |nav, cx| {
                         nav.toggle_stack(&fold_project, &fold_bottom, !folded, window, cx)
                     })

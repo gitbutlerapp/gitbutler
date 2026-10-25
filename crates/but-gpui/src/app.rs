@@ -2,9 +2,9 @@
 //! and the actions that work anywhere in the window. `overlays.rs` draws what opens above.
 
 use gpui::{
-    AnyView, App, ClipboardItem, Context, Entity, FocusHandle, Focusable, FontFeatures, KeyBinding,
-    Pixels, Point, PromptLevel, Role, StyleRefinement, Subscription, WeakEntity, Window, actions,
-    div, prelude::*,
+    AnyView, App, ClipboardItem, Context, Entity, FocusHandle, Focusable, FontFeatures, Pixels,
+    Point, PromptLevel, Role, StyleRefinement, Subscription, WeakEntity, Window, actions, div,
+    prelude::*,
 };
 
 use crate::backend::{self, short_ref};
@@ -18,8 +18,9 @@ use crate::theme::{Theme, UiScale};
 use crate::transfer::{Place, Transfer};
 use crate::ui::{HEADER_HEIGHT, dp, resize_pane};
 
+// Named in the keymap as area::Action, by where they act.
 actions!(
-    gitbutler,
+    app,
     [
         Quit,
         Hide,
@@ -31,15 +32,29 @@ actions!(
         ZoomOut,
         ActualSize,
         AddProject,
-        CopySelection,
-        OpenPullRequest,
-        ToggleRead,
-        MarkAllRead,
         ToggleFileTree,
         Undo,
         Redo,
-        Fetch,
-        UpdateFromTarget,
+        Cancel,
+        FocusNavigator,
+        FocusChanges,
+        FocusDiff,
+        FocusNextPane,
+        FocusPreviousPane,
+        StartCommit,
+        ToggleNavigator,
+        CommandPalette,
+        CheckForUpdates,
+        OperationsHistory,
+        CloseWindow,
+    ]
+);
+actions!(
+    navigator,
+    [
+        CopySelection,
+        ToggleRead,
+        MarkAllRead,
         NewBranch,
         NewBranchOnTop,
         SelectPrevious,
@@ -49,86 +64,13 @@ actions!(
         Confirm,
         CutSelection,
         PasteHere,
-        Cancel,
         DeleteSelection,
         UncommitSelection,
         RenameSelection,
-        Push,
-        FocusNavigator,
-        FocusChanges,
-        FocusDiff,
-        StartCommit,
-        ToggleNavigator,
-        CommandPalette,
-        CheckForUpdates,
     ]
 );
-
-/// Keys follow GitButler Lite where it has one, and Zed's agent review for discarding a hunk.
-pub fn bind_keys(cx: &mut App) {
-    let nav = Some("Navigator && !TextInput");
-    let workspace = Some("Workspace && !TextInput");
-    // Windows' redo, bound first so menus show Ctrl+Shift+Z, as Zed's do.
-    #[cfg(not(target_os = "macos"))]
-    cx.bind_keys([KeyBinding::new("ctrl-y", Redo, workspace)]);
-    cx.bind_keys([
-        KeyBinding::new("secondary-q", Quit, None),
-        // As a browser zooms, and Lite and the desktop app with it.
-        KeyBinding::new("secondary-=", ZoomIn, None),
-        KeyBinding::new("secondary-+", ZoomIn, None),
-        KeyBinding::new("secondary--", ZoomOut, None),
-        KeyBinding::new("secondary-0", ActualSize, None),
-        KeyBinding::new("secondary-o", AddProject, None),
-        // Not while typing, where they're ‰ and Ï.
-        KeyBinding::new("alt-shift-f", Fetch, Some("!TextInput")),
-        KeyBinding::new("alt-shift-r", UpdateFromTarget, Some("!TextInput")),
-        KeyBinding::new("secondary-n", NewBranch, None),
-        // Zed's key works too; ⌘K is the one shown, as the last binding wins.
-        KeyBinding::new("secondary-shift-p", CommandPalette, None),
-        KeyBinding::new("secondary-k", CommandPalette, None),
-        KeyBinding::new("secondary-1", FocusNavigator, None),
-        KeyBinding::new("secondary-2", FocusChanges, None),
-        KeyBinding::new("secondary-3", FocusDiff, None),
-        KeyBinding::new("secondary-enter", StartCommit, workspace),
-        KeyBinding::new("secondary-z", Undo, workspace),
-        KeyBinding::new("secondary-shift-z", Redo, workspace),
-        KeyBinding::new("secondary-x", CutSelection, workspace),
-        // ⌥ turns moving a commit onto another into squashing it, as when dragging. Bound
-        // first, so ⌘V is the key shown.
-        KeyBinding::new("alt-secondary-v", PasteHere, workspace),
-        KeyBinding::new("shift-secondary-v", PasteHere, workspace),
-        KeyBinding::new("secondary-v", PasteHere, workspace),
-        KeyBinding::new("secondary-c", CopySelection, workspace),
-        KeyBinding::new("escape", Cancel, workspace),
-        KeyBinding::new(".", ToggleNavigator, workspace),
-        KeyBinding::new("shift-p", Push, workspace),
-        KeyBinding::new("up", SelectPrevious, nav),
-        KeyBinding::new("k", SelectPrevious, nav),
-        KeyBinding::new("down", SelectNext, nav),
-        KeyBinding::new("j", SelectNext, nav),
-        // The arrows come last, so menus show them.
-        KeyBinding::new("l", Expand, nav),
-        KeyBinding::new("right", Expand, nav),
-        KeyBinding::new("h", Collapse, nav),
-        KeyBinding::new("left", Collapse, nav),
-        KeyBinding::new("enter", Confirm, nav),
-        KeyBinding::new("space", Confirm, nav),
-        KeyBinding::new("r", RenameSelection, nav),
-        KeyBinding::new("b", NewBranchOnTop, nav),
-        KeyBinding::new("o", OpenPullRequest, nav),
-        KeyBinding::new("u", ToggleRead, nav),
-        KeyBinding::new("shift-u", MarkAllRead, nav),
-        KeyBinding::new("secondary-backspace", DeleteSelection, nav),
-        KeyBinding::new("secondary-alt-backspace", UncommitSelection, nav),
-    ]);
-    // Elsewhere the window's buttons do these.
-    #[cfg(target_os = "macos")]
-    cx.bind_keys([
-        KeyBinding::new("cmd-h", Hide, None),
-        KeyBinding::new("alt-cmd-h", HideOthers, None),
-        KeyBinding::new("cmd-m", Minimize, None),
-    ]);
-}
+actions!(remote, [Fetch, UpdateFromTarget, Push]);
+actions!(pr, [OpenPullRequest]);
 
 pub struct AppView {
     pub store: Entity<Store>,
@@ -773,6 +715,50 @@ impl AppView {
 
     /// The file list, or the diff while the list is hidden; a Branches, Operations history or
     /// project page's list.
+    /// Tab, or ⇧Tab going back: the next of the navigator, the file list and the diff that show,
+    /// round again.
+    fn focus_pane(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.covered() {
+            return;
+        }
+        let detail = self.detail.read(cx);
+        let at = if self.navigator.focus_handle(cx).contains_focused(window, cx) {
+            0
+        } else if detail.files_focused(window) || detail.side_list_focused(window) {
+            1
+        } else {
+            2
+        };
+        let shown = [self.navigator_open, detail.files_shown(window, cx), true];
+        let next = |n: usize| (at + if forward { n } else { 3 - n }) % 3;
+        match (1..3)
+            .map(next)
+            .find(|&pane| shown.get(pane) == Some(&true))
+        {
+            Some(0) => window.focus(&self.navigator.focus_handle(cx), cx),
+            Some(1) => (self.detail).update(cx, |detail, cx| detail.focus_files(window, cx)),
+            _ => (self.detail).update(cx, |detail, cx| detail.focus(window, cx)),
+        }
+    }
+
+    fn operations_history(
+        &mut self,
+        _: &OperationsHistory,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(selection) = self.selection(cx) {
+            self.select(Selection::History(selection.project().clone()), window, cx);
+        }
+    }
+
+    /// As the window's close button does: closing it quits, asking first while operations run.
+    fn close_window(&mut self, _: &CloseWindow, window: &mut Window, cx: &mut Context<Self>) {
+        if self.can_quit(window, cx) {
+            cx.quit();
+        }
+    }
+
     fn focus_changes(&mut self, _: &FocusChanges, window: &mut Window, cx: &mut Context<Self>) {
         if self.covered() {
             return;
@@ -1014,6 +1000,7 @@ impl Render for AppView {
                 el.on_action(cx.listener(Self::check_for_updates))
             })
             .on_action(cx.listener(Self::open_settings))
+            .on_action(cx.listener(Self::open_keyboard_shortcuts))
             .on_action(cx.listener(Self::open_whats_new))
             .on_action(cx.listener(Self::clone_repository))
             // Here rather than around the navigator, so the details pane's buttons reach them.
@@ -1057,6 +1044,16 @@ impl Render for AppView {
             .on_action(cx.listener(Self::focus_navigator))
             .on_action(cx.listener(Self::focus_changes))
             .on_action(cx.listener(Self::focus_diff))
+            .on_action(
+                cx.listener(|this, _: &FocusNextPane, window, cx| {
+                    this.focus_pane(true, window, cx)
+                }),
+            )
+            .on_action(cx.listener(|this, _: &FocusPreviousPane, window, cx| {
+                this.focus_pane(false, window, cx)
+            }))
+            .on_action(cx.listener(Self::operations_history))
+            .on_action(cx.listener(Self::close_window))
             .on_action(cx.listener(Self::start_commit))
             .on_action(cx.listener(Self::update_selected_project))
             .on_action(cx.listener(Self::toggle_navigator))
@@ -1072,7 +1069,26 @@ impl Render for AppView {
                     this.in_composer(window, cx, Detail::pick_commit_target)
                 }),
             )
-            // The diff's own keys, pressed with the focus elsewhere, like the navigator.
+            // The diff's own keys, pressed with the focus elsewhere, like the navigator: Space
+            // there reads the diff beside it.
+            .on_action(
+                cx.listener(|this, _: &crate::detail::PageDown, window, cx| {
+                    this.detail.update(cx, |detail, cx| {
+                        detail.page(crate::detail::PAGE, window, cx)
+                    })
+                }),
+            )
+            .on_action(cx.listener(|this, _: &crate::detail::PageUp, window, cx| {
+                this.detail.update(cx, |detail, cx| {
+                    detail.page(-crate::detail::PAGE, window, cx)
+                })
+            }))
+            .on_action(
+                cx.listener(|this, _: &crate::detail::SwitchTab, window, cx| {
+                    this.detail
+                        .update(cx, |detail, cx| detail.switch_tab(window, cx))
+                }),
+            )
             .on_action(cx.listener(|this, _: &crate::detail::ToggleSplit, _, cx| {
                 this.detail.update(cx, |detail, cx| detail.toggle_split(cx))
             }))

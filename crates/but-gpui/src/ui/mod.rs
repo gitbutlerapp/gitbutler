@@ -212,6 +212,8 @@ icons! {
     Warning => "warning";
     // ui-react's FolderIcon, a component with its gradient in CSS.
     own: FolderFill => "folder-fill",
+    // ui-svelte's keyboard, which ui-react doesn't have.
+    Keyboard => "keyboard",
     // ui-react's eye, struck through, for a project not watched.
     EyeOff => "eye-off",
     // ui-react's folders with their top right corner cut away, for a dot there while a
@@ -1051,6 +1053,30 @@ pub fn shortcut(action: &dyn gpui::Action, cx: &App) -> Option<SharedString> {
     Some(keys_of(keymap.bindings_for_action(action).next_back()?))
 }
 
+/// Every key that runs `action`, as [`shortcut`] writes keys, with the context it works in.
+pub fn bindings_of(action: &dyn gpui::Action, cx: &App) -> Vec<(SharedString, Option<String>)> {
+    let keymap = cx.key_bindings();
+    let keymap = keymap.borrow();
+    (keymap.bindings_for_action(action))
+        .map(|binding| (keys_of(binding), binding.predicate().map(|p| p.to_string())))
+        .collect()
+}
+
+/// `keys`, as a keymap writes them (`secondary-shift-p`), as [`shortcut`] writes keys.
+pub fn keys_written(keys: &str, cx: &App) -> Option<SharedString> {
+    let mapper = cx.keyboard_mapper();
+    let binding = (gpui::KeyBinding::load(
+        keys,
+        Box::new(gpui::NoAction),
+        None,
+        false,
+        None,
+        mapper.as_ref(),
+    ))
+    .ok()?;
+    Some(keys_of(&binding))
+}
+
 /// The keys that run `action` where the keys go now, unless the same keys do something else
 /// there, as [`shortcut`] writes them.
 pub fn shortcut_here(action: &dyn gpui::Action, window: &Window, cx: &App) -> Option<SharedString> {
@@ -1088,7 +1114,11 @@ fn keys_of(binding: &gpui::KeyBinding) -> SharedString {
                 "down" => "↓",
                 "left" => "←",
                 "right" => "→",
-                key if key.len() == 1 => {
+                key if key.len() == 1
+                    || key
+                        .strip_prefix('f')
+                        .is_some_and(|n| n.parse::<u8>().is_ok()) =>
+                {
                     return text + &key.to_uppercase();
                 }
                 key => key,

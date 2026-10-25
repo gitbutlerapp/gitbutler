@@ -6,9 +6,9 @@ use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, DragMoveEvent, ElementId, Entity, FocusHandle,
-    Focusable, Hsla, KeyBinding, ListAlignment, ListOffset, ListState, MouseButton, MouseDownEvent,
-    Pixels, Point, ScrollWheelEvent, SharedString, Stateful, Subscription, Task, Window, actions,
-    div, list, prelude::*,
+    Focusable, Hsla, ListAlignment, ListOffset, ListState, MouseButton, MouseDownEvent, Pixels,
+    Point, ScrollWheelEvent, SharedString, Stateful, Subscription, Task, Window, actions, div,
+    list, prelude::*,
 };
 
 use crate::app::{AddProject, AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious};
@@ -69,23 +69,6 @@ actions!(
         FocusFilter
     ]
 );
-
-/// Jumps through the tree: to either end, and between branches and projects. ⇧ with an arrow
-/// picks commits, as ⇧-click does.
-pub fn bind_keys(cx: &mut App) {
-    let nav = Some("Navigator && !TextInput");
-    cx.bind_keys([
-        KeyBinding::new("g g", SelectFirst, nav),
-        KeyBinding::new("home", SelectFirst, nav),
-        KeyBinding::new("shift-g", SelectLast, nav),
-        KeyBinding::new("end", SelectLast, nav),
-        KeyBinding::new("alt-up", PreviousSection, nav),
-        KeyBinding::new("alt-down", NextSection, nav),
-        KeyBinding::new("shift-up", PickPrevious, nav),
-        KeyBinding::new("shift-down", PickNext, nav),
-        KeyBinding::new("/", FocusFilter, nav),
-    ]);
-}
 
 /// A branch, here or on another machine, whose commits a click on its row opens.
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -546,6 +529,32 @@ impl Navigator {
                 _ => None,
             })
             .collect()
+    }
+
+    /// Space at the end of a commit's diff: on to the next unread commit, in any branch or
+    /// project, going on from the top past the end, as a feed reader goes on to the next unread
+    /// article, until there are none.
+    pub fn read_on(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let store = self.store.read(cx);
+        if !matches!(store.selection, Some(Selection::Commit(..))) {
+            return;
+        }
+        let items = self.items();
+        let at = (store.selection.as_ref()).and_then(|s| items.iter().position(|item| *item == s));
+        let unread = |item: &&&Selection| match item {
+            Selection::Commit(project, id) => (store.workspace(project))
+                .and_then(|ws| ws.commits().find(|commit| commit.id == *id))
+                .is_some_and(|commit| store.is_unread(project, commit)),
+            _ => false,
+        };
+        let after = at.map_or(0, |at| at + 1);
+        let next = (items.iter().skip(after).chain(items.iter().take(after)))
+            .find(unread)
+            .map(|item| (*item).clone());
+        match next {
+            Some(next) => self.select(next, window, cx),
+            None => crate::state::snack(&self.store, "All caught up", cx),
+        }
     }
 
     fn step(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {

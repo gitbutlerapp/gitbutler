@@ -7,8 +7,7 @@ use std::ops::Range;
 
 use gpui::{
     AnyElement, App, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable,
-    FontWeight, KeyBinding, ScrollHandle, SharedString, Subscription, Task, Window, actions, div,
-    prelude::*,
+    FontWeight, ScrollHandle, SharedString, Subscription, Task, Window, actions, div, prelude::*,
 };
 
 use crate::app::AppView;
@@ -25,15 +24,6 @@ use crate::ui::{
 };
 
 actions!(whats_new, [PreviousRelease, NextRelease]);
-
-pub fn bind_keys(cx: &mut App) {
-    // Registered after the text field's own keys, so these win in the search field.
-    let c = Some("WhatsNew > TextInput");
-    cx.bind_keys([
-        KeyBinding::new("up", PreviousRelease, c),
-        KeyBinding::new("down", NextRelease, c),
-    ]);
-}
 
 const RELEASES: &str = "https://github.com/gitbutlerapp/gitbutler/releases";
 

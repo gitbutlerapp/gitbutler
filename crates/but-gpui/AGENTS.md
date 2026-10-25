@@ -97,8 +97,8 @@ unseen is what a laptop's battery pays for.
 - `window.context_stack()` panics during render. Read key contexts in an event handler.
 - A binding that a text field could also take needs `&& !TextInput` in its context, or typing
   the letter runs it (P once pushed). Bind shortcuts shared by both halves to
-  `(Navigator || Detail)` rather than `Workspace`, which modals sit inside. `DiffPane` is a
-  sibling of `Detail`, so its find field has its own context.
+  `(Navigator || Diff)` rather than `Workspace`, which modals sit inside. `DiffPane` is a
+  sibling of the detail's `Diff` context, so its find field has its own.
 - GPUI focuses the nearest focusable parent on mouse-down, so clicking a tab inside `Detail`
   takes the keys from a list page. Hand focus back, and never to an element that isn't drawn;
   if a focused one goes anyway, keys reach nothing, so `on_focus_lost` sends them to the navigator,
@@ -320,8 +320,11 @@ The client runs on macOS, Windows and Linux. AppKit code sits behind
 `#[cfg(target_os = "macos")]`. A Mac never compiles the `cfg(windows)` or Linux code; the
 Windows CI job lints and tests the one, the Linux lint and test jobs the other.
 
-- Bind keys with `secondary-`, which is ⌘ on macOS and Ctrl elsewhere. Keys only macOS has, as
-  Hide and the Emacs keys in text fields, go in a `#[cfg(target_os = "macos")]` block.
+- Keys live in `assets/keymaps/default.json`, in Zed's keymap format, written with `secondary-`,
+  which is ⌘ on macOS and Ctrl elsewhere. Keys only some platforms have, as Hide, go in a section
+  with `"os"`. Within a context the later binding wins, and the last binding for an action is the
+  key menus and tooltips show, so add the one to show last. Text fields' own editing keys stay in
+  `ui::text_input`, as their actions take arguments the file can't build.
 - Write keys in copy as macOS does (`⌘↩`) and pass the text through `ui::keys_text`, which
   shows `Ctrl+Enter` on Windows and Linux. `ui::keycap` and the status bar's hints already do.
 - Name platform things through one place: `ui::REVEAL` for the file manager,
@@ -345,7 +348,7 @@ Windows CI job lints and tests the one, the Linux lint and test jobs the other.
   Tauri and but.dev rather than copy them, and leave out what GPUI has no data for.
 - Conflicts are `warn`, never danger red. One accent button per surface. Controls keep the
   arrow cursor, as the desktop does, and a focused field rings in gray (`focus_border`), not
-  pop. A disabled control says why in its tooltip. Tooltips are a few words, with the shortcut in its key slot. Snackbars are
+  pop. A disabled control says why in its tooltip. Tooltips are a few words, with the shortcut in its key slot, and a right-click item that a key also does shows it, built with `MenuItem::keyed` or `MenuItem::action`. Snackbars are
   fragments without a full stop. Misleading copy is a bug.
 - The app is reactive, so no reload buttons. Nothing added may make it slower.
 - Nothing outside tests may panic, as the app runs as GitButler itself: clippy denies unwrap,

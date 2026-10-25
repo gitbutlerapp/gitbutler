@@ -1449,7 +1449,7 @@ impl Detail {
                             )
                         }),
                 );
-                // When it last fetched, which fetches again on a click, as ⌥⇧F does.
+                // When it last fetched, which fetches again on a click, as ⌘R does.
                 el.child(match fetch {
                     Some(None) => item.into_any_element(),
                     _ => {
@@ -1843,7 +1843,7 @@ impl Detail {
                     },
                 );
                 // The activity over the history, which scrolls between it and the people.
-                self.list_column(Self::step_upstream, Some(Self::fold_upstream), cx)
+                self.list_column(Self::step_upstream, Some(Self::fold_upstream), None, cx)
                     .child(self.filter_field(&self.target_filter, window, cx))
                     .children(self.render_activity(project, upstream, theme, cx))
                     .child(list.flex_1().min_h(dp(LIST_MIN_HEIGHT)))

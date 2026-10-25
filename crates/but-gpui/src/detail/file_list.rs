@@ -1035,9 +1035,12 @@ impl Detail {
             (false, false, _) => "files",
         };
         let cut = payload.clone();
-        let mut items = vec![MenuItem::new("Cut", move |this: &mut AppView, _, cx| {
-            this.cut(cut.clone(), cx)
-        })];
+        let mut items = vec![MenuItem::keyed(
+            "Cut",
+            &crate::app::CutSelection,
+            cx,
+            move |this: &mut AppView, _, cx| this.cut(cut.clone(), cx),
+        )];
         match from {
             None => {
                 let conflicted: Vec<String> = (files.iter())
@@ -1085,7 +1088,7 @@ impl Detail {
                     worktree.is_some(),
                 );
                 items.push(
-                    MenuItem::new(discard, move |this, window, cx| {
+                    MenuItem::keyed(discard, &super::DiscardFile, cx, move |this, window, cx| {
                         let (project, worktree) = (project.clone(), worktree.clone());
                         this.discard(project, worktree, files.to_vec(), window, cx)
                     })
@@ -1186,9 +1189,12 @@ impl Detail {
             });
         }
         items.extend([
-            MenuItem::new("Copy path", move |this, _, cx| {
-                this.copy_text(relative.clone(), cx)
-            }),
+            MenuItem::keyed(
+                "Copy path",
+                &crate::app::CopySelection,
+                cx,
+                move |this, _, cx| this.copy_text(relative.clone(), cx),
+            ),
             MenuItem::new("Copy full path", move |this, _, cx| {
                 this.copy_text(full.clone(), cx)
             }),

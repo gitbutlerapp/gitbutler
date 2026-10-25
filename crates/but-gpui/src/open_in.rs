@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use gpui::{App, Context, KeyBinding, Pixels, Point, Window, actions};
+use gpui::{Context, Pixels, Point, Window, actions};
 
 use crate::app::AppView;
 use crate::backend::{self, settings};
@@ -11,14 +11,6 @@ use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Store};
 
 actions!(open_in, [OpenInEditor, OpenInTerminal]);
-
-pub fn bind_keys(cx: &mut App) {
-    cx.bind_keys([KeyBinding::new(
-        "e",
-        OpenInEditor,
-        Some("Detail && !TextInput"),
-    )]);
-}
 
 /// What "Open in …" says for the chosen editor, or that it will ask.
 pub fn editor_label(store: &Store) -> String {

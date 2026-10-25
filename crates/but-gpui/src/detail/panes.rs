@@ -13,7 +13,7 @@ use gpui::{
 };
 
 use super::{Detail, machine};
-use crate::app::{AppHandle, Collapse, Expand, SelectNext, SelectPrevious, StartCommit};
+use crate::app::{AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious, StartCommit};
 use crate::backend::{self, CommitId, CommitState, PushState, short_ref};
 use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Selection};
@@ -286,7 +286,7 @@ impl Detail {
         )
     }
 
-    /// Fetch, as ⌥⇧F does, to go beside a list's filter: nothing for a project whose folder is
+    /// Fetch, as ⌘R does, to go beside a list's filter: nothing for a project whose folder is
     /// gone. Without a remote, a fetch says there's none.
     pub(super) fn fetch_button(&self, project: &ProjectId, cx: &Context<Self>) -> Option<Button> {
         let store = self.store.read(cx);
@@ -1210,23 +1210,29 @@ pub(super) fn back_to_list(
 }
 
 impl Detail {
-    /// A list page's column, whose list takes the focus: ↑ and ↓ `step` through it, and
-    /// → and ← `fold` what's selected, on a page whose rows fold.
+    /// A list page's column, whose list takes the focus: ↑ and ↓ `step` through it, → and ←
+    /// `fold` what's selected, on a page whose rows fold, and Return does `confirm` to it.
     pub(super) fn list_column(
         &self,
         step: fn(&mut Self, isize, &mut Context<Self>),
         fold: Option<fn(&mut Self, bool, &mut Context<Self>)>,
+        confirm: Option<fn(&mut Self, &mut Window, &mut Context<Self>)>,
         cx: &Context<Self>,
     ) -> Div {
         v_flex()
             .size_full()
             .track_focus(&self.side_focus)
-            .key_context("SideList")
+            .key_context("List")
             .on_action(cx.listener(move |this, _: &SelectNext, _, cx| step(this, 1, cx)))
             .on_action(cx.listener(move |this, _: &SelectPrevious, _, cx| step(this, -1, cx)))
             .when_some(fold, |el, fold| {
                 el.on_action(cx.listener(move |this, _: &Expand, _, cx| fold(this, true, cx)))
                     .on_action(cx.listener(move |this, _: &Collapse, _, cx| fold(this, false, cx)))
+            })
+            .when_some(confirm, |el, confirm| {
+                el.on_action(
+                    cx.listener(move |this, _: &Confirm, window, cx| confirm(this, window, cx)),
+                )
             })
     }
 

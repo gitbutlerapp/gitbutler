@@ -902,21 +902,31 @@ impl Detail {
         let (project, ref_name) = (project.clone(), ref_name.to_owned());
         self.open_menu(
             at,
-            move |this, _| this.branch_menu_items(&project, &ref_name),
+            move |this, cx| this.branch_menu_items(&project, &ref_name, cx),
             cx,
         );
     }
 
     /// What the Branches page offers for its branch `ref_name`, as right-clicking it does.
-    pub(crate) fn branch_menu_items(&self, project: &ProjectId, ref_name: &str) -> Vec<MenuItem> {
+    pub(crate) fn branch_menu_items(
+        &self,
+        project: &ProjectId,
+        ref_name: &str,
+        cx: &App,
+    ) -> Vec<MenuItem> {
         // By its name, as the table has none opened.
         let Some(branch) = self.listed_branch(project, ref_name) else {
             return Vec::new();
         };
         let (p, r) = (project.clone(), ref_name.to_owned());
-        let mut items = vec![MenuItem::new("Apply", move |app, window, cx| {
-            (app.detail).update(cx, |detail, cx| detail.apply_branch(&p, &r, window, cx))
-        })];
+        let mut items = vec![MenuItem::keyed(
+            "Apply",
+            &crate::app::Confirm,
+            cx,
+            move |app, window, cx| {
+                (app.detail).update(cx, |detail, cx| detail.apply_branch(&p, &r, window, cx))
+            },
+        )];
         if let Some(url) = (branch.review.as_ref()).and_then(|r| r.url.clone()) {
             items.push(MenuItem::new("Open pull request", move |_, _, cx| {
                 cx.open_url(&url)
@@ -1019,6 +1029,16 @@ impl Detail {
         let cut = Cut::CherryPick(project.clone(), ids);
         self.app
             .update_later(window, cx, move |app, _, cx| app.cut(cut, cx));
+    }
+
+    /// Return on the list: apply the selected branch, as its menu's Apply does.
+    fn apply_selected_branch(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(Selection::Branches(project)) = self.store.read(cx).selection.clone() else {
+            return;
+        };
+        if let Some(ref_name) = (self.selected_other_branch(&project)).map(|b| b.ref_name.clone()) {
+            self.apply_branch(&project, &ref_name, window, cx)
+        }
     }
 
     fn apply_branch(
@@ -1486,18 +1506,23 @@ impl Detail {
             .min_h(dp(LIST_MIN_HEIGHT))
             .into_any_element()
         };
-        self.list_column(Self::step_branches, Some(Self::fold_branches), cx)
-            .when(self.selected_branch_commit(project).is_some(), |el| {
-                let project = project.clone();
-                el.on_action(cx.listener(move |this, _: &CherryPick, window, cx| {
-                    this.copy_branch_commit(&project, window, cx)
-                }))
-            })
-            .child(filter)
-            .children(chips)
-            .child(list)
-            .child(people)
-            .into_any_element()
+        self.list_column(
+            Self::step_branches,
+            Some(Self::fold_branches),
+            Some(Self::apply_selected_branch),
+            cx,
+        )
+        .when(self.selected_branch_commit(project).is_some(), |el| {
+            let project = project.clone();
+            el.on_action(cx.listener(move |this, _: &CherryPick, window, cx| {
+                this.copy_branch_commit(&project, window, cx)
+            }))
+        })
+        .child(filter)
+        .children(chips)
+        .child(list)
+        .child(people)
+        .into_any_element()
     }
 
     /// Whether the filter menu's choices leave some branches out, as they don't at rest.

@@ -7,7 +7,6 @@ use std::sync::Arc;
 
 use gpui::{AnyElement, App, Context, ElementId, MouseButton, Window, div, prelude::*};
 
-use super::menu::keyed;
 use super::rows::{COMMIT_INDENT, Row, Rows, found, matches};
 use super::{
     ClickOpened, NEST, Navigator, RowStyle, change_counts, click_opens, double_click,
@@ -426,9 +425,12 @@ impl Navigator {
         }
         if *pick == MeshPick::Checkout {
             let path = checkout.path.clone();
-            items.push(keyed("Copy path", &CopySelection, cx, move |app, _, cx| {
-                app.copy_text(path.clone(), cx)
-            }));
+            items.push(MenuItem::keyed(
+                "Copy path",
+                &CopySelection,
+                cx,
+                move |app, _, cx| app.copy_text(path.clone(), cx),
+            ));
         }
         items
     }
