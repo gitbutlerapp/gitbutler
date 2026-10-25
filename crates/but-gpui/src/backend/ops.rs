@@ -175,9 +175,24 @@ fn selected_specs(selected: &[Selected]) -> Vec<DiffSpec> {
 pub type LeftOut = Vec<String>;
 
 fn left_out(rejected: &[(RejectionReason, DiffSpec)]) -> LeftOut {
-    rejected
-        .iter()
-        .map(|(reason, spec)| format!("{}: {}", spec.path, why(reason)))
+    // By reason, the first few of each named: a change to thousands of files, as an agent's
+    // move of a folder, can have them all left out for one.
+    let mut by_reason: Vec<(&str, Vec<String>)> = Vec::new();
+    for (reason, spec) in rejected {
+        let (why, path) = (why(reason), spec.path.to_string());
+        match by_reason.iter_mut().find(|(said, _)| *said == why) {
+            Some((_, paths)) => paths.push(path),
+            None => by_reason.push((why, vec![path])),
+        }
+    }
+    (by_reason.into_iter())
+        .map(|(why, paths)| match paths.split_at_checked(3) {
+            Some((named, rest)) if !rest.is_empty() => {
+                let more = crate::ui::plural(rest.len(), "more file");
+                format!("{} and {more}: {why}", named.join(", "))
+            }
+            _ => format!("{}: {why}", paths.join(", ")),
+        })
         .collect()
 }
 
@@ -2591,6 +2606,29 @@ pub(super) mod tests {
                 "a folder the repository doesn't ignore adds the repository"
             );
         })
+    }
+
+    #[test]
+    fn changes_left_out_are_said_by_reason() {
+        use but_core::tree::create_tree::RejectionReason as R;
+        let spec = |path: &str| DiffSpec {
+            previous_path: None,
+            path: path.into(),
+            hunk_headers: Vec::new(),
+        };
+        let mut rejected: Vec<_> = (0..3000)
+            .map(|n| (R::WorkspaceMergeConflict, spec(&format!("lib/{n}.ts"))))
+            .collect();
+        rejected.push((R::WorktreeFileMissingForObjectConversion, spec("gone.ts")));
+        assert_eq!(
+            super::left_out(&rejected),
+            [
+                "lib/0.ts, lib/1.ts, lib/2.ts and 2997 more files: it builds on changes in another \
+                 branch; commit there, or move those first",
+                "gone.ts: the file is gone from disk",
+            ],
+            "a moved folder's thousands of files are one line, not one each"
+        );
     }
 
     #[test]
