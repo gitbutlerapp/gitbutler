@@ -1608,7 +1608,6 @@ impl Navigator {
                 !uncommitted.is_empty(),
                 style,
             ))
-            // Its own width, so the quiet "uncommitted" gives way before the name does.
             .child(
                 div()
                     .id(("worktree-name", ix))
@@ -1619,7 +1618,7 @@ impl Navigator {
                     .tooltip(Tooltip::text(path.display().to_string()))
                     .child(label),
             )
-            .child(uncommitted_counts(tally(&uncommitted), style))
+            .children(change_counts(tally(&uncommitted), style))
             .when(!open, |el| {
                 el.children(style.unpushed(unpushed_n))
                     .when(unread, |el| el.child(dot(style.meta(theme.pop))))
@@ -2448,31 +2447,6 @@ fn worktree_icon(linked: bool, changed: bool, style: RowStyle) -> Div {
         .when(changed, |el| {
             let color = style.meta(style.theme.warn);
             el.child(dot(color).absolute().top_0().right_0().size(dp(5.)))
-        })
-}
-
-/// A checkout heading's [`change_counts`], with a quiet "uncommitted" ahead of them while
-/// there are any, as a branch says it's empty. Laid out from the right, so in a narrow
-/// navigator the word is what wraps out of sight first.
-fn uncommitted_counts(tally: Tally, style: RowStyle) -> Div {
-    let (files, ..) = tally;
-    let counts: Vec<_> = change_counts(tally, style).collect();
-    h_flex()
-        .flex_row_reverse()
-        .flex_wrap()
-        .flex_shrink(1000.)
-        .min_w_0()
-        .h(dp(16.))
-        .overflow_hidden()
-        .gap(dp(8.))
-        .children(counts.into_iter().rev())
-        .when(files > 0, |el| {
-            el.child(
-                div()
-                    .text_size(dp(11.))
-                    .text_color(style.quiet())
-                    .child("uncommitted"),
-            )
         })
 }
 
