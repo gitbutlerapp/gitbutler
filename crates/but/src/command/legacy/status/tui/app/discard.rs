@@ -10,6 +10,7 @@ use crate::{
             self, CommittedDiscardSource, DiscardOperation, DiscardOutcome, UncommittedSelection,
         },
         status::{
+            FilesStatusFlag,
             output::StatusOutputLineData,
             tui::{
                 Message, ReloadCause, SelectAfterReload, Selectable,
@@ -26,7 +27,7 @@ use crate::{
     utils::worktrees,
 };
 
-use super::mark::Marks;
+use super::mark::{CommittedMark, Marks, committed_changes_to_act_on};
 
 impl App {
     pub fn handle_discard(
@@ -350,31 +351,26 @@ impl App {
             Marks::Hunks(hunks) => {
                 DiscardOperation::Uncommitted(UncommittedSelection::changes(hunks.clone()))
             }
-            Marks::CommittedFiles(files) => {
-                let source = CommitId {
-                    commit_id: files.head.commit_id,
-                    change_id: files.head.change_id.clone(),
-                };
-                anyhow::ensure!(
-                    files
-                        .tail
-                        .iter()
-                        .all(|file| file.commit_id == source.commit_id),
-                    "BUG: marked committed files must come from one commit"
-                );
-                let changes = files.clone().map(CommittedDiscardSource::File);
-                DiscardOperation::Committed { source, changes }
-            }
+            Marks::Committed(marks) => committed_discard_operation(marks)?,
         };
 
         self.to_be_discarded = marks
             .iter()
-            .map(|mark| mark.to_owned().into_selectable())
+            .filter_map(|mark| mark.to_owned().into_selectable())
             .collect::<Vec<_>>();
 
         let select_after_reload = self
             .cursor
             .select_after_discarded_marks(&self.status_lines, marks);
+        let file_list_of_marked_commit_is_shown =
+            match (marks.as_committed(), self.flags.show_files) {
+                (Some(marks), FilesStatusFlag::Commit(commit_id)) => {
+                    commit_id == marks.head.committed_file().commit_id
+                }
+                (_, FilesStatusFlag::None | FilesStatusFlag::All | FilesStatusFlag::Commit(_)) => {
+                    false
+                }
+            };
 
         let drop_to_be_discarded =
             message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
@@ -393,6 +389,20 @@ impl App {
                             .copied()
                             .unwrap_or(commit_id)
                     }),
+                    DiscardOutcome::CommittedChanges {
+                        source,
+                        paths: _,
+                        new_commit,
+                    } if file_list_of_marked_commit_is_shown => {
+                        // The file list belongs to the rewritten commit, so it must follow the
+                        // rewrite. Discarding hunks can leave every listed file in place, such as
+                        // a renamed file, so the commit isn't necessarily empty.
+                        Some(SelectAfterReload::RewrittenCommit {
+                            source: source.commit_id,
+                            new_commit: new_commit.commit_id,
+                            details_section: None,
+                        })
+                    }
                     DiscardOutcome::CommittedChanges {
                         source,
                         paths: _,
@@ -427,6 +437,25 @@ impl App {
     }
 }
 
+/// Discards the marked committed files and hunks, which all come from one commit.
+pub(in crate::command::legacy::status::tui) fn committed_discard_operation(
+    marks: &NonEmpty<CommittedMark>,
+) -> anyhow::Result<DiscardOperation> {
+    let source = marks.head.committed_file().to_commit_id();
+    anyhow::ensure!(
+        marks
+            .tail
+            .iter()
+            .all(|mark| mark.committed_file().commit_id == source.commit_id),
+        "BUG: marked committed changes must come from one commit"
+    );
+    let changes = committed_changes_to_act_on(marks).map(|mark| match mark {
+        CommittedMark::File(file) => CommittedDiscardSource::File(file.clone()),
+        CommittedMark::Hunk(hunk) => CommittedDiscardSource::Hunk(hunk.clone()),
+    });
+    Ok(DiscardOperation::Committed { source, changes })
+}
+
 fn map_selected_commits(
     selection: Option<SelectAfterReload>,
     mut map: impl FnMut(ObjectId) -> ObjectId,
@@ -442,6 +471,15 @@ fn map_selected_commits(
         SelectAfterReload::UncommittedDetailsSection { index, direction } => {
             SelectAfterReload::UncommittedDetailsSection { index, direction }
         }
+        SelectAfterReload::RewrittenCommit {
+            source,
+            new_commit,
+            details_section,
+        } => SelectAfterReload::RewrittenCommit {
+            source,
+            new_commit,
+            details_section,
+        },
         SelectAfterReload::CliId(cli_id) => SelectAfterReload::CliId(cli_id),
         SelectAfterReload::Worktree(name) => SelectAfterReload::Worktree(name),
     })

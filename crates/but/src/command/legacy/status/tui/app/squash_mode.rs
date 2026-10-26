@@ -376,10 +376,15 @@ impl App {
                     SquashSource::Marks(SquashMarks::Commits(commits.clone())),
                     ctx,
                 )?,
-                Marks::CommittedFiles(files) => self.squash_start_with_source(
-                    SquashSource::Marks(SquashMarks::CommittedFiles(files.clone())),
-                    ctx,
-                )?,
+                Marks::Committed(..) => {
+                    // Squashing committed hunks isn't supported yet.
+                    if let Some(files) = normal_mode.marks.as_ref().whole_committed_files() {
+                        self.squash_start_with_source(
+                            SquashSource::Marks(SquashMarks::CommittedFiles(files)),
+                            ctx,
+                        )?
+                    }
+                }
                 Marks::Branches(branches) => self.squash_start_with_source(
                     SquashSource::Marks(SquashMarks::Branches(branches.clone())),
                     ctx,
@@ -409,6 +414,7 @@ impl App {
                 }
                 MarksRef::Branches { .. }
                 | MarksRef::Commits { .. }
+                | MarksRef::Committed { .. }
                 | MarksRef::CommittedFiles { .. } => {}
             },
             Mode::Commit(commit_mode) => match &*commit_mode.source {

@@ -596,6 +596,17 @@ pub enum SelectAfterReload {
         index: usize,
         direction: ScrollDirection,
     },
+    /// The same commit, or file in it, after discarding changes rewrote the commit.
+    ///
+    /// A file list of the commit moves to the new commit, or closes when that is empty.
+    RewrittenCommit {
+        /// The commit the changes were discarded from.
+        source: gix::ObjectId,
+        /// The commit that replaced `source`.
+        new_commit: gix::ObjectId,
+        /// The index and scroll direction of the details section to select.
+        details_section: Option<(usize, ScrollDirection)>,
+    },
     Branch(String),
     CliId(Box<CliId>),
     Worktree(BString),

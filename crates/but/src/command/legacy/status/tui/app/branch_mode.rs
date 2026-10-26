@@ -141,7 +141,10 @@ impl App {
     fn handle_branch_start(&mut self, _messages: &mut Vec<Message>) {
         let marks = match self.mode.marks_ref() {
             marks @ (MarksRef::Empty | MarksRef::Branches { .. }) => marks,
-            MarksRef::Hunks { .. } | MarksRef::Commits { .. } | MarksRef::CommittedFiles { .. } => {
+            MarksRef::Hunks { .. }
+            | MarksRef::Commits { .. }
+            | MarksRef::Committed { .. }
+            | MarksRef::CommittedFiles { .. } => {
                 return;
             }
         };

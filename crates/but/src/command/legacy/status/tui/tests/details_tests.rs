@@ -7,12 +7,12 @@ use crate::{
     command::legacy::status::{
         TuiRunOptions,
         tui::{
-            DetailsLayoutMessage, Message, ReloadCause,
+            App, DetailsLayoutMessage, Message, ReloadCause,
             backstack::BackstackEntry,
             tests::utils::{TestTuiOptions, test_status_tui, test_status_tui_with_options},
         },
     },
-    tui::test_utils::Shift,
+    tui::test_utils::{Shift, TestTui},
 };
 
 mod binds {
@@ -1243,7 +1243,7 @@ fn keeps_normal_mode_marks_when_detail_section_cannot_be_marked() {
         BackstackEntry::Mark,
     ]);
 
-    // Committed detail sections cannot be marked, so attempting to mark one preserves normal marks.
+    // The commit header section cannot be marked, so attempting to mark it preserves normal marks.
     tui.input(' ')
         .assert_backstack_eq([
             BackstackEntry::LeaveNormalMode,
@@ -1897,4 +1897,376 @@ fn undo_from_details_mode() {
         .assert_rendered_term_svg_eq(file!["snapshots/undo_from_details_mode_001.svg"]);
     tui.input('u')
         .assert_rendered_term_svg_eq(file!["snapshots/undo_from_details_mode_002.svg"]);
+}
+
+/// Creates a commit on top of `c-branch-1` that changes `file` in two hunks, and selects it.
+fn commit_with_two_hunks_in_file() -> TestTui<App> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("file", "line\n".repeat(10));
+    env.file("other", "line\n".repeat(10));
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('c');
+    tui.input('e');
+    tui.input('b');
+
+    tui.env().prepend_file("file", "top");
+    tui.env().append_file("file", "bottom");
+    tui.env().prepend_file("other", "other top");
+    tui.reload();
+
+    tui.input('c');
+    tui.input('e');
+    tui.input('a');
+    tui.input(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊●   [..] (no commit message)"]);
+
+    tui
+}
+
+#[test]
+fn discard_committed_hunk_from_commit_details() {
+    let mut tui = commit_with_two_hunks_in_file();
+
+    tui.input('d');
+    tui.input('l');
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(binds::SCROLL_DOWN);
+    tui.input('x').assert_rendered_term_svg_eq(file![
+        "snapshots/discard_committed_hunk_from_commit_details_001.svg"
+    ]);
+
+    // the commit is rewritten without the hunk and stays selected
+    tui.input('y')
+        .assert_current_line_eq(str!["┊●   [..] (no commit message)[..]"])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/discard_committed_hunk_from_commit_details_002.svg"
+        ]);
+}
+
+#[test]
+fn discard_committed_hunk_from_committed_file_details() {
+    let mut tui = commit_with_two_hunks_in_file();
+
+    tui.input('f');
+    tui.input('d');
+    tui.input('l');
+    tui.input(binds::SCROLL_DOWN);
+    tui.input('x').assert_rendered_term_svg_eq(file![
+        "snapshots/discard_committed_hunk_from_committed_file_details_001.svg"
+    ]);
+
+    // the file in the rewritten commit stays selected
+    tui.input('y')
+        .assert_current_line_eq(str!["┊│     [..] M file[..]"])
+        .assert_backstack_eq([
+            BackstackEntry::LeaveNormalMode,
+            BackstackEntry::OpenSplitDetailsView,
+            BackstackEntry::ShowFileList,
+        ])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/discard_committed_hunk_from_committed_file_details_002.svg"
+        ]);
+
+    // discarding the last hunk of the file selects the next file in the commit
+    tui.input('x');
+    tui.input('y')
+        .assert_current_line_eq(str!["┊│     [..] M other[..]"])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/discard_committed_hunk_from_committed_file_details_003.svg"
+        ]);
+}
+
+#[test]
+fn marking_committed_hunks_marks_file() {
+    let mut tui = commit_with_two_hunks_in_file();
+
+    tui.input('f');
+    tui.input('d');
+    tui.input('l');
+    tui.input(binds::SCROLL_DOWN);
+
+    // marking one hunk partially marks the file in the status
+    tui.input(' ')
+        .assert_marks_count_eq(1)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marking_committed_hunks_marks_file_001.svg"
+        ]);
+
+    // marking both hunks marks the file in the status
+    tui.input(' ')
+        .assert_marks_count_eq(3)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marking_committed_hunks_marks_file_002.svg"
+        ]);
+
+    // unmarking a hunk partially marks the file again
+    tui.input(' ')
+        .assert_marks_count_eq(1)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marking_committed_hunks_marks_file_003.svg"
+        ]);
+}
+
+#[test]
+fn marking_committed_file_marks_all_hunks() {
+    let mut tui = commit_with_two_hunks_in_file();
+
+    tui.input('f');
+
+    // marking the file in the status marks both hunks in the details
+    tui.input(' ');
+    tui.input('k');
+    tui.input('d')
+        .assert_marks_count_eq(1)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marking_committed_file_marks_all_hunks_001.svg"
+        ]);
+
+    // unmarking a hunk in the details keeps the other hunk marked
+    tui.input('l');
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(' ')
+        .assert_marks_count_eq(1)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marking_committed_file_marks_all_hunks_002.svg"
+        ]);
+
+    // marking the partially marked file marks all of it instead of its hunks
+    tui.input('h');
+    tui.input(' ')
+        .assert_marks_count_eq(1)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marking_committed_file_marks_all_hunks_003.svg"
+        ]);
+
+    // unmarking the file also unmarks its hunks
+    tui.input('k');
+    tui.input(' ')
+        .assert_marks_count_eq(0)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marking_committed_file_marks_all_hunks_004.svg"
+        ]);
+}
+
+#[test]
+fn marking_and_discarding_committed_hunks() {
+    let mut tui = commit_with_two_hunks_in_file();
+
+    // mark the bottom hunk of `file` and the only hunk of `other`, which also marks `other`
+    tui.input('d');
+    tui.input('l');
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(' ');
+    tui.input(' ')
+        .assert_marks_count_eq(3)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marking_and_discarding_committed_hunks_001.svg"
+        ]);
+
+    tui.input('x').assert_rendered_term_svg_eq(file![
+        "snapshots/marking_and_discarding_committed_hunks_002.svg"
+    ]);
+
+    // only the top hunk of `file` is left in the commit
+    tui.input('y')
+        .assert_marks_count_eq(0)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marking_and_discarding_committed_hunks_003.svg"
+        ]);
+}
+
+#[test]
+fn discarding_marked_committed_hunks_from_status() {
+    let mut tui = commit_with_two_hunks_in_file();
+
+    tui.input('d');
+    tui.input('l');
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(' ');
+
+    // the commit whose hunks are marked stays selected and shows that some of it is marked
+    tui.input('h')
+        .assert_current_line_eq(str!["┊—   [..] (no commit message)[..]"])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/discarding_marked_committed_hunks_from_status_001.svg"
+        ]);
+
+    tui.input('x');
+    tui.input('y')
+        .assert_marks_count_eq(0)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/discarding_marked_committed_hunks_from_status_002.svg"
+        ]);
+}
+
+#[test]
+fn discarding_all_marked_hunks_of_renamed_file_keeps_the_rename() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    let original_content = "one\ntwo\nthree\n";
+    env.file("file.txt", original_content);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('c');
+    tui.input('e');
+    tui.input('b');
+
+    tui.env().remove_file("file.txt");
+    tui.env()
+        .file("renamed_file.txt", format!("{original_content}\nnew"));
+    tui.reload();
+
+    tui.input('c');
+    tui.input('e');
+    tui.input('a');
+    tui.input(KeyCode::Enter);
+
+    tui.input('f')
+        .assert_current_line_eq(str!["┊│     [..] R renamed_file.txt"]);
+    tui.input('d');
+    tui.input('l');
+    tui.input(binds::SCROLL_DOWN);
+
+    // marking the only hunk also marks the file
+    tui.input(' ')
+        .assert_marks_count_eq(2)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/discarding_all_marked_hunks_of_renamed_file_keeps_the_rename_001.svg"
+        ]);
+
+    // like `but discard` with the hunk's ID, only the hunk is discarded and the rename stays
+    tui.input('x');
+    tui.input('y')
+        .assert_current_line_eq(str!["┊│     [..] R renamed_file.txt[..]"])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/discarding_all_marked_hunks_of_renamed_file_keeps_the_rename_002.svg"
+        ]);
+}
+
+#[test]
+fn discarding_marked_hunks_from_status_keeps_file_list_on_rewritten_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    let original_content = "one\ntwo\nthree\n";
+    env.file("file.txt", original_content);
+
+    let mut tui = test_status_tui(env);
+
+    tui.input('c');
+    tui.input('e');
+    tui.input('b');
+
+    tui.env().remove_file("file.txt");
+    tui.env()
+        .file("renamed_file.txt", format!("{original_content}\nnew"));
+    tui.reload();
+
+    tui.input('c');
+    tui.input('e');
+    tui.input('a');
+    tui.input(KeyCode::Enter);
+
+    tui.input('f');
+    tui.input('d');
+    tui.input('l');
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(' ');
+    tui.input('h');
+
+    // the rename is left, so the file list moves to the rewritten commit and stays usable
+    tui.input('x');
+    tui.input('y')
+        .assert_current_line_eq(str!["┊│     [..] R renamed_file.txt[..]"])
+        .assert_backstack_eq([
+            BackstackEntry::OpenSplitDetailsView,
+            BackstackEntry::ShowFileList,
+        ])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/discarding_marked_hunks_from_status_keeps_file_list_on_rewritten_commit_001.svg"
+        ]);
+    tui.input('k')
+        .assert_current_line_eq(str!["┊│     [..] R renamed_file.txt[..]"]);
+}
+
+#[test]
+fn marking_partially_marked_commit_marks_the_whole_commit() {
+    let mut tui = commit_with_two_hunks_in_file();
+
+    tui.input('d');
+    tui.input('l');
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(' ');
+    tui.input('h')
+        .assert_current_line_eq(str!["┊—   [..] (no commit message)[..]"]);
+
+    // marking the commit replaces the marks of its hunks
+    tui.input(' ')
+        .assert_marks_count_eq(1)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marking_partially_marked_commit_marks_the_whole_commit_001.svg"
+        ]);
+
+    // unmarking the commit leaves nothing marked
+    tui.input('k')
+        .assert_current_line_eq(str!["┊✔︎   [..] (no commit message)[..]"]);
+    tui.input(' ')
+        .assert_marks_count_eq(0)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marking_partially_marked_commit_marks_the_whole_commit_002.svg"
+        ]);
+}
+
+#[test]
+fn marking_hunk_of_marked_commit_unmarks_only_that_hunk() {
+    let mut tui = commit_with_two_hunks_in_file();
+
+    // marking the commit in the status marks all of its hunks in the details
+    tui.input(' ');
+    tui.input('k');
+    tui.input('d')
+        .assert_marks_count_eq(1)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marking_hunk_of_marked_commit_unmarks_only_that_hunk_001.svg"
+        ]);
+
+    // unmarking a hunk keeps the other hunks of the commit marked, along with `other` since all
+    // of its hunks are
+    tui.input('l');
+    tui.input(binds::SCROLL_DOWN);
+    tui.input(' ')
+        .assert_marks_count_eq(3)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marking_hunk_of_marked_commit_unmarks_only_that_hunk_002.svg"
+        ]);
+
+    // the commit is partially marked
+    tui.input('h')
+        .assert_current_line_eq(str!["┊—   [..] (no commit message)[..]"]);
+}
+
+#[test]
+fn marking_hunk_while_another_commit_is_marked_keeps_the_marks() {
+    let mut tui = commit_with_two_hunks_in_file();
+
+    tui.input('j');
+    tui.input(' ');
+    tui.input('k');
+    tui.input('d');
+    tui.input('l');
+    tui.input(binds::SCROLL_DOWN);
+
+    // hunks can't be marked together with another commit
+    tui.input(' ')
+        .assert_marks_count_eq(1)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/marking_hunk_while_another_commit_is_marked_keeps_the_marks_001.svg"
+        ]);
 }

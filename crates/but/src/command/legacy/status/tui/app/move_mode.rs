@@ -207,6 +207,7 @@ impl App {
             MarksRef::Empty
             | MarksRef::Hunks { .. }
             | MarksRef::Commits { .. }
+            | MarksRef::Committed { .. }
             | MarksRef::CommittedFiles { .. } => {}
         }
 
@@ -236,13 +237,16 @@ impl App {
                     })),
                     insert_side: InsertSide::Above,
                 },
-                MarksRef::CommittedFiles { head, tail } => MoveMode {
-                    source: MoveSource::Marks(MoveMarks::CommittedFiles(NonEmpty {
-                        head: head.clone(),
-                        tail: tail.to_vec(),
-                    })),
-                    insert_side: InsertSide::Above,
-                },
+                marks @ (MarksRef::Committed { .. } | MarksRef::CommittedFiles { .. }) => {
+                    // Moving committed hunks isn't supported yet.
+                    let Some(files) = marks.whole_committed_files() else {
+                        return;
+                    };
+                    MoveMode {
+                        source: MoveSource::Marks(MoveMarks::CommittedFiles(files)),
+                        insert_side: InsertSide::Above,
+                    }
+                }
                 MarksRef::Branches { .. } | MarksRef::Hunks { .. } => return,
             },
             Mode::Squash(squash_mode) => match &squash_mode.source {

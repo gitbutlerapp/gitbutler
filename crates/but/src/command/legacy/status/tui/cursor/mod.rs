@@ -13,7 +13,7 @@ use crate::{
             Mode, NormalMode, PickChangesMode, SelectAfterReload,
             app::{
                 CommitSource, SquashMode,
-                mark::{MarkableRef, Marks, hunk_is_child_of},
+                mark::{CommittedMark, MarkableRef, Marks, hunk_is_child_of},
                 prefix_match,
             },
             mode::ModeRef,
@@ -398,6 +398,24 @@ impl Cursor {
         Some(Self(idx))
     }
 
+    /// Select the line of the file at `path` in the given commit.
+    pub fn select_committed_file(
+        object_id: gix::ObjectId,
+        path: &BStr,
+        lines: &[StatusOutputLine],
+    ) -> Option<Self> {
+        let idx = lines.iter().position(|line| {
+            matches!(
+                line.data.cli_id().map(|id| &**id),
+                Some(CliId::CommittedFile {
+                    committed_file: CommittedFileId { commit_id, path: file_path, .. },
+                    id: _,
+                }) if *commit_id == object_id && file_path == path
+            )
+        })?;
+        Some(Self(idx))
+    }
+
     /// Select the first line that points to the given branch name.
     pub fn select_branch(branch_name: &str, lines: &[StatusOutputLine]) -> Option<Self> {
         let idx = lines.iter().position(|line| {
@@ -682,7 +700,8 @@ impl Cursor {
             ),
             MarkableRef::Uncommitted(..)
             | MarkableRef::Commit(..)
-            | MarkableRef::CommittedFile(..) => (
+            | MarkableRef::CommittedFile(..)
+            | MarkableRef::CommittedHunk(..) => (
                 self.move_down_within_section(lines, mode, show_files),
                 self.move_up_within_section(lines, mode, show_files),
             ),
@@ -1236,23 +1255,39 @@ pub fn is_selectable_in_mode(
                     return false;
                 }
             }
-            Marks::CommittedFiles(files) => {
-                if !matches!(&line.data, StatusOutputLineData::File { .. }) {
-                    return false;
-                }
-                if let FilesStatusFlag::All = show_files_flag {
-                    let Some(id) = line.data.cli_id() else {
+            Marks::Committed(marks) => {
+                let marked_commit_id = marks.head.committed_file().commit_id;
+                let has_hunks = marks
+                    .iter()
+                    .any(|mark| matches!(mark, CommittedMark::Hunk(..)));
+                // Hunks are marked in the detail view of their commit, so that commit stays
+                // selectable.
+                let is_commit_of_marked_hunks = has_hunks
+                    && matches!(
+                        line.data.cli_id().map(|id| &**id),
+                        Some(CliId::Commit {
+                            commit: CommitId { commit_id, .. },
+                            id: _,
+                        }) if *commit_id == marked_commit_id
+                    );
+                if !is_commit_of_marked_hunks {
+                    if !matches!(&line.data, StatusOutputLineData::File { .. }) {
                         return false;
-                    };
-                    let CliId::CommittedFile {
-                        committed_file: CommittedFileId { commit_id, .. },
-                        id: _,
-                    } = &**id
-                    else {
-                        return false;
-                    };
-                    if *commit_id != files.head.commit_id {
-                        return false;
+                    }
+                    if let FilesStatusFlag::All = show_files_flag {
+                        let Some(id) = line.data.cli_id() else {
+                            return false;
+                        };
+                        let CliId::CommittedFile {
+                            committed_file: CommittedFileId { commit_id, .. },
+                            id: _,
+                        } = &**id
+                        else {
+                            return false;
+                        };
+                        if *commit_id != marked_commit_id {
+                            return false;
+                        }
                     }
                 }
             }
