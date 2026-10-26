@@ -1932,8 +1932,25 @@ impl Detail {
         let shown = (self.list.bounds_for_item(row))
             .is_some_and(|item| item.top() >= view.top() && item.bottom() <= view.bottom());
         if !shown {
+            self.scroll_to_row(row.saturating_sub(2));
+        }
+    }
+
+    /// Scroll the diff so `row` starts at its top. With the diff's end on screen, a row below
+    /// the top can't come any higher, so the diff stays put: gpui would take such a scroll back
+    /// only as it lays the list out, after the sticky header was worked out from it, and the
+    /// header went for a frame.
+    fn scroll_to_row(&mut self, row: usize) {
+        let view = self.list.viewport_bounds();
+        let last = (self.diff.as_ref()).map_or(0, |diff| diff.rows.len().saturating_sub(1));
+        // Rows on screen were laid out with the list, so where they are isn't an estimate.
+        let on_screen = |ix| {
+            (self.list.bounds_for_item(ix))
+                .is_some_and(|item| item.top() >= view.top() && item.bottom() <= view.bottom())
+        };
+        if !(on_screen(row) && on_screen(last)) {
             self.list.scroll_to(ListOffset {
-                item_ix: row.saturating_sub(2),
+                item_ix: row,
                 offset_in_item: Pixels::ZERO,
             });
         }
@@ -1947,10 +1964,7 @@ impl Detail {
             hunk: None,
         });
         if let Some(row) = self.row_of(|row| matches!(row, DiffRow::File(ix) if *ix == file_ix)) {
-            self.list.scroll_to(ListOffset {
-                item_ix: row,
-                offset_in_item: Pixels::ZERO,
-            });
+            self.scroll_to_row(row);
             cx.notify();
         }
     }
