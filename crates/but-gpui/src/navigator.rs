@@ -39,6 +39,7 @@ mod drop;
 mod menu;
 mod mesh;
 mod order;
+mod rename;
 mod rows;
 
 use drop::insertion_line;
@@ -339,6 +340,8 @@ pub struct Navigator {
     /// edge, up when negative, and the task that scrolls it.
     edge_scroll: f32,
     edge_scrolling: Option<Task<()>>,
+    /// The branch whose name is being edited in its row.
+    renaming: Option<rename::Renaming>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -450,6 +453,7 @@ impl Navigator {
             hold_still: false,
             edge_scroll: 0.,
             edge_scrolling: None,
+            renaming: None,
             _subscriptions: subscriptions,
         }
     }
@@ -1973,12 +1977,14 @@ impl Navigator {
                     glyph if publishing => pulsing(glyph).into_any_element(),
                     glyph => glyph.into_any_element(),
                 })
-                .child(
-                    branch_name(name, review, unread, &style)
+                .child(match self.rename_field(id, ref_name, theme) {
+                    Some(field) => field,
+                    None => branch_name(name, review, unread, &style)
                         .id(ElementId::Name(format!("name-{id}-{ref_name}").into()))
                         .flex_1()
-                        .tooltip(Tooltip::text(tip)),
-                )
+                        .tooltip(Tooltip::text(tip))
+                        .into_any_element(),
+                })
                 // As ui-react's empty MetaCount, the quietest meta, ahead of any counts.
                 .when(branch.commits.is_empty(), |el| {
                     let quiet = style.quiet();

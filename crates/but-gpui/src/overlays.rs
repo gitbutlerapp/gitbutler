@@ -121,14 +121,64 @@ impl MenuItem {
     }
 }
 
-/// The short name a branch named `name` gets, as the backend normalizes it, or why it
-/// can't have that name.
-fn branch_name(name: &str) -> Result<String, SharedString> {
+/// The short name a branch of `project` named `name` gets, as the backend normalizes it, or
+/// why it can't have that name. `current` is the short name it has now, empty for a new one.
+pub(crate) fn branch_name(
+    store: &Store,
+    project: &ProjectId,
+    name: &str,
+    current: &str,
+) -> Result<String, SharedString> {
     let name = name.trim();
     if name.is_empty() {
         return Err("Enter a name for the branch".into());
     }
-    backend::branch_name(name).ok_or_else(|| "Git doesn't allow that as a branch name".into())
+    let Some(short) = backend::branch_name(name) else {
+        return Err("Git doesn't allow that as a branch name".into());
+    };
+    // Linked worktrees' branches too, which the backend would refuse the name for.
+    let taken = short != current
+        && (store.workspace(project))
+            .is_some_and(|ws| (ws.lanes().flatten()).any(|b| short_ref(&b.ref_name) == short));
+    match taken {
+        true => Err(format!("{short} already exists").into()),
+        false => Ok(short),
+    }
+}
+
+/// Run `op` with `name`, typed for a branch, and hand `done` the full ref name of the branch
+/// it returns. With `renaming`, a full ref, that branch is being renamed; without, a branch
+/// is made or one without a name yet is named.
+pub(crate) fn run_named(
+    store: &mut Store,
+    project: &ProjectId,
+    renaming: Option<String>,
+    name: String,
+    op: impl FnOnce(&Path, &Remap, &str) -> Result<String> + Send + 'static,
+    done: impl FnOnce(&mut Store, String, &mut Context<Store>) + 'static,
+    cx: &mut Context<Store>,
+) {
+    let name = name.trim().to_owned();
+    let short = backend::branch_name(&name).unwrap_or_else(|| name.clone());
+    // Git's rules changed the name, as they do spaces and double dots.
+    if short != name {
+        store.snack(
+            format!("Named it {short}, as Git doesn't allow \"{name}\""),
+            cx,
+        );
+    }
+    let label = match renaming {
+        Some(_) => "Rename branch",
+        None => "Create branch",
+    };
+    // Making or naming a branch only writes refs. An unnamed branch has no ref to tell it
+    // from another unnamed one, so its new name waits for the reload.
+    let overlay = Overlay {
+        renamed: renaming.map(|from| (from, short)),
+        ..Overlay::default()
+    };
+    let op = move |path: &Path, remap: &Remap| op(path, remap, &name);
+    store.run(project, label, overlay, op, done, cx)
 }
 
 /// A small modal asking for one line of text: a branch name, a repository to clone, a pull
@@ -146,9 +196,6 @@ pub struct Prompt {
     check: Option<CheckHandler>,
     /// What `check` said of the text last submitted, until it's edited.
     hint: Option<SharedString>,
-    /// The branch the prompt renames or makes one on top of. Once it's gone, as when an
-    /// agent renamed it, the prompt goes too, as a menu does, rather than fail.
-    pub(crate) on_branch: Option<(ProjectId, String)>,
     /// What had the keys before, as a message being written, to give them back to.
     restore_focus: Option<FocusHandle>,
     /// Its own, around its field and buttons, which Tab keeps to.
@@ -175,17 +222,13 @@ impl AppView {
         cx.notify();
     }
 
-    /// Ask for a branch name, then run `op` with it and hand `done` the full ref name of the
-    /// branch it returns. `at` is what it acts on, the project or a branch or commit in it, for
-    /// the prompt to say where. With the branch it's `renaming`, a full ref, that branch is
-    /// being renamed; without one, or an empty one for a branch without a name yet, it asks
-    /// as for a new branch.
-    #[expect(clippy::too_many_arguments)]
+    /// Ask for a new branch's name, then run `op` with it and hand `done` the full ref name of
+    /// the branch it returns. `at` is what it acts on, the project or a branch or commit in it,
+    /// for the prompt to say where.
     pub(crate) fn prompt_branch(
         &mut self,
         at: Selection,
         title: &str,
-        renaming: Option<String>,
         window: &mut Window,
         cx: &mut Context<Self>,
         op: impl FnOnce(&Path, &Remap, &str) -> Result<String> + Send + 'static,
@@ -193,89 +236,27 @@ impl AppView {
     ) {
         let project = at.project().clone();
         let place = self.store.read(cx).place(&at);
-        let renaming = renaming.filter(|from| !from.is_empty());
-        let initial = renaming.as_deref().map_or("", short_ref);
-        let (confirm, label) = match initial.is_empty() {
-            true => ("Create", "Create branch"),
-            false => ("Rename", "Rename branch"),
-        };
-        let input = cx.new(|cx| {
-            let mut input = TextInput::new("Branch name", false, cx);
-            input.set_text(initial, cx);
-            input.select_all_text(cx);
-            input
-        });
-        let (current, checked) = (initial.to_owned(), project.clone());
+        let input = cx.new(|cx| TextInput::new("Branch name", false, cx));
+        let checked = project.clone();
         let check = move |this: &AppView, name: &str, cx: &App| {
-            let short = match branch_name(name) {
-                Ok(short) => short,
-                Err(hint) => return Some(hint),
-            };
-            // Linked worktrees' branches too, which the backend would refuse the name for.
-            let taken = short != current
-                && (this.store.read(cx).workspace(&checked)).is_some_and(|ws| {
-                    (ws.lanes().flatten()).any(|b| short_ref(&b.ref_name) == short)
-                });
-            taken.then(|| format!("{short} already exists").into())
+            branch_name(this.store.read(cx), &checked, name, "").err()
         };
-        let current = initial.to_owned();
-        // As the desktop app says: a rename doesn't reach the remote.
-        let pushed = (renaming.as_deref())
-            .and_then(|from| self.store.read(cx).workspace(&project)?.find_branch(from))
-            .is_some_and(|branch| branch.push != backend::PushState::NeverPushed);
-        let detail = pushed.then(|| {
-            "It's been pushed. The remote keeps it under its old name, and pushing again \
-             makes a new remote branch, apart from any pull request of the old one."
-                .to_owned()
-        });
-        let renamed = renaming.clone().map(|from| (project.clone(), from));
         self.open_prompt(
             Some(place),
             title,
-            detail,
-            confirm,
+            None,
+            "Create",
             input,
             None,
             Some(Box::new(check)),
             window,
             cx,
             move |this, name, _, cx| {
-                // Renaming to the name it has does nothing.
-                if branch_name(&name).is_ok_and(|short| short == current) {
-                    return;
-                }
-                let name = name.trim().to_owned();
-                let short = branch_name(&name).unwrap_or(name.clone());
-                // Making or naming a branch only writes refs. An unnamed branch has no ref
-                // to tell it from another unnamed one, so its new name waits for the reload.
-                let overlay = Overlay {
-                    renamed: renaming.clone().map(|from| (from, short.clone())),
-                    ..Overlay::default()
-                };
-                this.store.update(cx, |store, cx| {
-                    // Git's rules changed the name, as they do spaces and double dots.
-                    if short != name {
-                        store.snack(
-                            format!("Named it {short}, as Git doesn't allow \"{name}\""),
-                            cx,
-                        );
-                    }
-                    store.run(
-                        &project,
-                        label,
-                        overlay,
-                        move |path, remap| op(path, remap, &name),
-                        done,
-                        cx,
-                    )
-                });
+                (this.store).update(cx, |store, cx| {
+                    run_named(store, &project, None, name, op, done, cx)
+                })
             },
         );
-        // Tied to the branch it renames, so it goes once the branch does; not a prompt Git is
-        // waiting on, which one asked for meanwhile left open.
-        if let Some(prompt) = self.prompt.as_mut().filter(|p| p.on_cancel.is_none()) {
-            prompt.on_branch = renamed;
-        }
     }
 
     #[expect(clippy::too_many_arguments)]
@@ -359,7 +340,6 @@ impl AppView {
             on_cancel,
             check,
             hint: None,
-            on_branch: None,
             restore_focus,
             focus: cx.focus_handle(),
             _subscription: subscription,
