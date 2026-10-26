@@ -1878,7 +1878,7 @@ impl Detail {
         self.rebuild_rows(cx);
     }
 
-    /// ← folds the cursor's file and → unfolds it, as the navigator folds. Not in a diff that
+    /// ⇧← folds the cursor's file and ⇧→ unfolds it, as the navigator folds. Not in a diff that
     /// isn't drawn.
     fn fold_cursor_file(&mut self, fold: bool, cx: &mut Context<Self>) {
         let file = self.cursor.file;

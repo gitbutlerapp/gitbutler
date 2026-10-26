@@ -709,7 +709,7 @@ impl AppView {
     /// The file list, or the diff while the list is hidden; a Branches, Operations history or
     /// project page's list.
     /// Tab, or ⇧Tab going back: the next of the navigator, the file list and the diff that show,
-    /// round again. Without `wrap`, as ⇧→ and ⇧← go, only the panes on that side.
+    /// round again. Without `wrap`, as → and ← go, only the panes on that side.
     fn focus_pane(
         &mut self,
         forward: bool,

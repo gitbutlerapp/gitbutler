@@ -819,8 +819,8 @@ impl Detail {
         }
     }
 
-    /// → in the list: open the selected stack or branch, or step into it when it's open.
-    /// ← folds it, or steps from one of its commits or branches back up to it.
+    /// ⇧→ in the list: open the selected stack or branch, or step into it when it's open.
+    /// ⇧← folds it, or steps from one of its commits or branches back up to it.
     fn fold_branches(&mut self, open: bool, cx: &mut Context<Self>) {
         let Some(branches) = self.page_branches(cx) else {
             return;
@@ -1488,7 +1488,7 @@ impl Detail {
                                 .when(branch.time.is_some() || branch.author.is_some(), |el| {
                                     el.child(quiet(age_column(branch.time, theme), on, theme))
                                 })
-                                // A click selects it; only the chevron, ← and → fold its commits,
+                                // A click selects it; only the chevron, ⇧← and ⇧→ fold its commits,
                                 // which are often not what's wanted.
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.select_other_branch(Some(ref_name.clone()), cx)
