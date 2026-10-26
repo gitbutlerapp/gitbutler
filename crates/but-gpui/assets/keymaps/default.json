@@ -80,9 +80,12 @@
       "shift-r": "remote::UpdateFromTarget",
       "secondary-shift-t": "open_in::OpenInTerminal",
       // Between the navigator, the file list and the diff, as Mail and Xcode move between
-      // their panes.
+      // their panes. ⇧ with an arrow goes to the pane on that side, as from a commit into its
+      // files and back, and stops at the window's edge.
       "tab": "app::FocusNextPane",
-      "shift-tab": "app::FocusPreviousPane"
+      "shift-tab": "app::FocusPreviousPane",
+      "shift-right": "app::FocusPaneRight",
+      "shift-left": "app::FocusPaneLeft"
     }
   },
   // A prompt's or a modal's fields and buttons, from its text fields too, as in a macOS sheet.

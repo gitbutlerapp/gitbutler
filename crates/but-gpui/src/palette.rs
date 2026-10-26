@@ -95,6 +95,8 @@ pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Operations history", &crate::app::OperationsHistory),
     ("Next pane", &crate::app::FocusNextPane),
     ("Previous pane", &crate::app::FocusPreviousPane),
+    ("Pane to the right", &crate::app::FocusPaneRight),
+    ("Pane to the left", &crate::app::FocusPaneLeft),
     (
         "Switch between Changes and Pull request",
         &crate::detail::SwitchTab,
