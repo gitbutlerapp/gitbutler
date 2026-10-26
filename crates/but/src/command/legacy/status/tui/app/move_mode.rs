@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use but_core::DiffSpec;
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
@@ -17,7 +19,7 @@ use crate::{
         status::{
             output::StatusOutputLineData,
             tui::{
-                App, Message, Mode, ReloadCause, SelectAfterReload,
+                App, DetailsLayoutMessage, Message, Mode, ReloadCause, SelectAfterReload,
                 graph_extension::ExtensionDirection,
                 render::{
                     ModeRender, OperationExtension, RenderSingleLineSpans,
@@ -26,14 +28,17 @@ use crate::{
             },
         },
     },
-    id::{BranchId, CommitId, CommittedFileId},
+    id::{BranchId, CommitId},
     utils::{
         diff_specs::DiffSpecBuilder,
         targeting::{self, Side},
     },
 };
 
-use super::{MoveCursorDiration, SquashMarks, SquashSource, mark::MarksRef};
+use super::{
+    MoveCursorDiration, SquashMarks, SquashSource,
+    mark::{CommittedMark, MarksRef, committed_changes_to_act_on},
+};
 
 #[derive(Debug, Clone)]
 pub struct MoveMode {
@@ -46,30 +51,21 @@ pub struct MoveMode {
 pub enum MoveSource {
     Marks(MoveMarks),
     Commit(CommitId),
-    CommittedFile(CommittedFileId),
+    CommittedChange(CommittedMark),
     Branch(BranchId),
 }
 
 #[derive(Debug, Clone)]
 pub enum MoveMarks {
     Commits(NonEmpty<CommitId>),
-    CommittedFiles(NonEmpty<CommittedFileId>),
+    Committed(NonEmpty<CommittedMark>),
 }
 
 impl MoveMarks {
     pub fn as_ref(&self) -> MarksRef<'_> {
         match self {
             MoveMarks::Commits(commits) => MarksRef::from_commits(commits),
-            MoveMarks::CommittedFiles(committed_files) => {
-                MarksRef::from_committed_files(committed_files)
-            }
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        match self {
-            MoveMarks::Commits(commits) => commits.len(),
-            MoveMarks::CommittedFiles(committed_files) => committed_files.len(),
+            MoveMarks::Committed(marks) => MarksRef::from_committed(marks),
         }
     }
 }
@@ -94,7 +90,7 @@ impl ModeRender for MoveMode {
             let source_is_commit = match &self.source {
                 MoveSource::Marks(..)
                 | MoveSource::Commit { .. }
-                | MoveSource::CommittedFile(..) => true,
+                | MoveSource::CommittedChange(..) => true,
                 MoveSource::Branch(..) => false,
             };
             Some(OperationExtension::Move {
@@ -150,8 +146,8 @@ impl MoveSource {
             MoveSource::Commit(lhs) => {
                 matches!(other, CliId::Commit{ commit: rhs, .. } if lhs == rhs)
             }
-            MoveSource::CommittedFile(lhs) => {
-                matches!(other, CliId::CommittedFile{ committed_file: rhs, .. } if lhs == rhs)
+            MoveSource::CommittedChange(change) => {
+                MarksRef::from_committed_ref(change).contains_cli_id(other)
             }
             MoveSource::Branch(lhs) => {
                 matches!(other, CliId::Branch(rhs) if lhs == rhs)
@@ -163,13 +159,15 @@ impl MoveSource {
         match id {
             CliId::Branch(branch) => Some(Self::Branch(branch.clone())),
             CliId::Commit { commit, .. } => Some(Self::Commit(commit.clone())),
-            CliId::CommittedFile { committed_file, .. } => {
-                Some(Self::CommittedFile(committed_file.clone()))
+            CliId::CommittedFile { committed_file, .. } => Some(Self::CommittedChange(
+                CommittedMark::File(committed_file.clone()),
+            )),
+            CliId::CommittedHunk(hunk) => {
+                Some(Self::CommittedChange(CommittedMark::Hunk(hunk.clone())))
             }
             CliId::AnonymousSegment(..)
             | CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
-            | CliId::CommittedHunk { .. }
             | CliId::UncommittedArea { .. }
             | CliId::Stack { .. } => None,
         }
@@ -179,6 +177,7 @@ impl MoveSource {
 #[derive(Debug)]
 pub enum MoveMessage {
     Start,
+    StartWith(Arc<CliId>),
     ToggleInsertSide,
     MoveToNewBranch,
     Confirm,
@@ -192,7 +191,8 @@ impl App {
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
         match move_message {
-            MoveMessage::Start => self.handle_move_start(),
+            MoveMessage::Start => self.handle_move_start(messages),
+            MoveMessage::StartWith(id) => self.handle_move_start_with(&id),
             MoveMessage::ToggleInsertSide => self.handle_move_toggle_insert_side(),
             MoveMessage::MoveToNewBranch => self.handle_move_to_new_branch(ctx, messages)?,
             MoveMessage::Confirm => self.handle_move_confirm(ctx, messages)?,
@@ -201,14 +201,13 @@ impl App {
         Ok(())
     }
 
-    fn handle_move_start(&mut self) {
+    fn handle_move_start(&mut self, messages: &mut Vec<Message>) {
         match self.mode.marks_ref() {
             MarksRef::Branches { .. } => return,
             MarksRef::Empty
             | MarksRef::Hunks { .. }
             | MarksRef::Commits { .. }
-            | MarksRef::Committed { .. }
-            | MarksRef::CommittedFiles { .. } => {}
+            | MarksRef::Committed { .. } => {}
         }
 
         let Some(selection) = self
@@ -237,28 +236,41 @@ impl App {
                     })),
                     insert_side: InsertSide::Above,
                 },
-                marks @ (MarksRef::Committed { .. } | MarksRef::CommittedFiles { .. }) => {
-                    // Moving committed hunks isn't supported yet.
-                    let Some(files) = marks.whole_committed_files() else {
-                        return;
-                    };
-                    MoveMode {
-                        source: MoveSource::Marks(MoveMarks::CommittedFiles(files)),
-                        insert_side: InsertSide::Above,
-                    }
-                }
+                MarksRef::Committed { head, tail } => MoveMode {
+                    source: MoveSource::Marks(MoveMarks::Committed(NonEmpty {
+                        head: head.clone(),
+                        tail: tail.to_vec(),
+                    })),
+                    insert_side: InsertSide::Above,
+                },
                 MarksRef::Branches { .. } | MarksRef::Hunks { .. } => return,
             },
+            Mode::Details(details_mode) => {
+                // The targets are in the status, so leave the details to move what's selected.
+                let message = match details_mode.return_mode.marks() {
+                    MarksRef::Empty => {
+                        let Some(selection) = self.details.selected_section_cli_id() else {
+                            return;
+                        };
+                        MoveMessage::StartWith(Arc::clone(selection))
+                    }
+                    MarksRef::Commits { .. } | MarksRef::Committed { .. } => MoveMessage::Start,
+                    MarksRef::Branches { .. } | MarksRef::Hunks { .. } => return,
+                };
+                if details_mode.full_screen {
+                    messages.push(Message::DetailsLayout(DetailsLayoutMessage::SwitchToSplit));
+                }
+                messages.extend([Message::UnfocusDetails, Message::Move(message)]);
+                return;
+            }
             Mode::Squash(squash_mode) => match &squash_mode.source {
                 SquashSource::Marks(squash_marks) => match squash_marks {
                     SquashMarks::Commits(commits) => MoveMode {
                         source: MoveSource::Marks(MoveMarks::Commits(commits.clone())),
                         insert_side: InsertSide::Above,
                     },
-                    SquashMarks::CommittedFiles(committed_files) => MoveMode {
-                        source: MoveSource::Marks(MoveMarks::CommittedFiles(
-                            committed_files.clone(),
-                        )),
+                    SquashMarks::Committed(marks) => MoveMode {
+                        source: MoveSource::Marks(MoveMarks::Committed(marks.clone())),
                         insert_side: InsertSide::Above,
                     },
                     SquashMarks::Hunks(..) | SquashMarks::Branches(..) => return,
@@ -272,8 +284,8 @@ impl App {
                     insert_side: InsertSide::Above,
                 },
 
-                SquashSource::CommittedFile(committed_file) => MoveMode {
-                    source: MoveSource::CommittedFile(committed_file.clone()),
+                SquashSource::CommittedChange(change) => MoveMode {
+                    source: MoveSource::CommittedChange(change.clone()),
                     insert_side: InsertSide::Above,
                 },
                 SquashSource::UncommittedHunk(..) | SquashSource::Uncommitted(..) => return,
@@ -281,6 +293,20 @@ impl App {
             _ => return,
         };
 
+        self.move_start_with_mode(move_mode);
+    }
+
+    fn handle_move_start_with(&mut self, source: &CliId) {
+        let Some(source) = MoveSource::try_from_cli_id(source) else {
+            return;
+        };
+        self.move_start_with_mode(MoveMode {
+            source,
+            insert_side: InsertSide::Above,
+        });
+    }
+
+    fn move_start_with_mode(&mut self, move_mode: MoveMode) {
         self.mode
             .update_and_push_leave_normal_mode(&mut self.backstack, |mode| {
                 *mode = Mode::Move(move_mode);
@@ -378,19 +404,20 @@ impl App {
                         target,
                     })
                 }
-                MoveMarks::CommittedFiles(committed_files) => {
+                MoveMarks::Committed(marks) => {
+                    let changes = committed_changes_to_act_on(marks);
                     MoveOperation::ChangesRelativeTo(MoveChangesRelativeToOperation {
-                        source_commit: committed_files.head.to_commit_id(),
-                        changes: changes_in_committed_files(ctx, committed_files)?,
+                        source_commit: changes.head.committed_file().to_commit_id(),
+                        changes: changes_in_committed(ctx, changes)?,
                         target,
                         reword: CommitMessageSource::Keep,
                     })
                 }
             },
-            MoveSource::CommittedFile(committed_file) => {
+            MoveSource::CommittedChange(change) => {
                 MoveOperation::ChangesRelativeTo(MoveChangesRelativeToOperation {
-                    source_commit: committed_file.to_commit_id(),
-                    changes: changes_in_committed_files(ctx, [committed_file])?,
+                    source_commit: change.committed_file().to_commit_id(),
+                    changes: changes_in_committed(ctx, [change])?,
                     target,
                     reword: CommitMessageSource::Keep,
                 })
@@ -478,10 +505,9 @@ impl App {
                 MoveMarks::Commits(commits) => {
                     move_commits_operation(commits.clone(), target, *insert_side)?
                 }
-                MoveMarks::CommittedFiles(committed_files) => move_committed_files_operation(
+                MoveMarks::Committed(marks) => move_committed_changes_operation(
                     ctx,
-                    committed_files.head.to_commit_id(),
-                    committed_files,
+                    committed_changes_to_act_on(marks),
                     target,
                     *insert_side,
                 )?,
@@ -501,13 +527,9 @@ impl App {
                     MoveTarget::Commit { .. } => return Ok(()),
                 }
             }
-            MoveSource::CommittedFile(committed_file) => move_committed_files_operation(
-                ctx,
-                committed_file.to_commit_id(),
-                [committed_file],
-                target,
-                *insert_side,
-            )?,
+            MoveSource::CommittedChange(change) => {
+                move_committed_changes_operation(ctx, NonEmpty::new(change), target, *insert_side)?
+            }
         };
 
         let selection_after_reload = move_with(ctx, move_op)?;
@@ -550,14 +572,15 @@ fn move_commits_operation(
     ))
 }
 
-fn move_committed_files_operation<'a>(
+/// Moves `changes`, which all come from one commit.
+fn move_committed_changes_operation(
     ctx: &Context,
-    source_commit: CommitId,
-    committed_files: impl IntoIterator<Item = &'a CommittedFileId>,
+    changes: NonEmpty<&CommittedMark>,
     target: MoveTarget<'_>,
     insert_side: InsertSide,
 ) -> anyhow::Result<MoveOperation> {
-    let changes = changes_in_committed_files(ctx, committed_files)?;
+    let source_commit = changes.head.committed_file().to_commit_id();
+    let changes = changes_in_committed(ctx, changes)?;
     let target = match target {
         MoveTarget::Commit(commit) => r#move::MoveTarget::Commit {
             commit,
@@ -588,17 +611,19 @@ fn move_committed_files_operation<'a>(
     ))
 }
 
-fn changes_in_committed_files<'a>(
+fn changes_in_committed<'a>(
     ctx: &Context,
-    committed_files: impl IntoIterator<Item = &'a CommittedFileId>,
+    changes: impl IntoIterator<Item = &'a CommittedMark>,
 ) -> anyhow::Result<NonEmpty<DiffSpec>> {
     let repo = ctx.repo.get()?;
     let mut builder = DiffSpecBuilder::new(&repo, ctx.settings.context_lines);
-    for committed_file in committed_files {
-        builder.push_changes_from_committed_file(
-            committed_file.commit_id,
-            committed_file.path.as_ref(),
-        )?;
+    for change in changes {
+        match change {
+            CommittedMark::File(file) => {
+                builder.push_changes_from_committed_file(file.commit_id, file.path.as_ref())?
+            }
+            CommittedMark::Hunk(hunk) => builder.push_changes_from_committed_hunk(hunk)?,
+        }
     }
     let changes = NonEmpty::from_vec(builder.into_diff_specs())
         .expect("BUG: Cannot possibly not have any changes here");

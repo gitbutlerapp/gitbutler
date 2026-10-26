@@ -1415,7 +1415,6 @@ pub fn run(
             let context_lines = ctx.settings.context_lines;
             let repo = ctx.repo.get()?;
             let mut builder = DiffSpecBuilder::new(&repo, context_lines);
-            let mut tree_changes = None;
             for change in sources {
                 match change {
                     CommittedChange::File(committed_file) => builder
@@ -1424,25 +1423,7 @@ pub fn run(
                             committed_file.path.as_ref(),
                         )?,
                     CommittedChange::Hunk(hunk) => {
-                        if tree_changes.is_none() {
-                            let commit = repo.find_commit(source.commit_id)?;
-                            tree_changes = Some(
-                                but_core::diff::tree_changes(
-                                    &repo,
-                                    commit.parent_ids().next().map(|id| id.detach()),
-                                    source.commit_id,
-                                )?
-                                .into_iter()
-                                .map(Into::into)
-                                .collect::<Vec<but_core::ui::TreeChange>>(),
-                            );
-                        }
-                        builder.push_hunks_with_changes(
-                            [hunk.hunk],
-                            tree_changes
-                                .as_ref()
-                                .expect("tree changes are initialized for committed hunks"),
-                        )
+                        builder.push_changes_from_committed_hunk(&hunk)?
                     }
                 }
             }
@@ -1485,7 +1466,6 @@ pub fn run(
             let context_lines = ctx.settings.context_lines;
             let repo = ctx.repo.get()?;
             let mut builder = DiffSpecBuilder::new(&repo, context_lines);
-            let mut tree_changes = None;
             for change in sources {
                 match change {
                     CommittedChange::File(committed_file) => builder
@@ -1494,25 +1474,7 @@ pub fn run(
                             committed_file.path.as_ref(),
                         )?,
                     CommittedChange::Hunk(hunk) => {
-                        if tree_changes.is_none() {
-                            let commit = repo.find_commit(source.commit_id)?;
-                            tree_changes = Some(
-                                but_core::diff::tree_changes(
-                                    &repo,
-                                    commit.parent_ids().next().map(|id| id.detach()),
-                                    source.commit_id,
-                                )?
-                                .into_iter()
-                                .map(Into::into)
-                                .collect::<Vec<but_core::ui::TreeChange>>(),
-                            );
-                        }
-                        builder.push_hunks_with_changes(
-                            [hunk.hunk],
-                            tree_changes
-                                .as_ref()
-                                .expect("tree changes are initialized for committed hunks"),
-                        )
+                        builder.push_changes_from_committed_hunk(&hunk)?
                     }
                 }
             }

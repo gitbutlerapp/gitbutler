@@ -270,7 +270,6 @@ impl App {
                 }
                 MarksRef::Commits { .. }
                 | MarksRef::Committed { .. }
-                | MarksRef::CommittedFiles { .. }
                 | MarksRef::Branches { .. } => {}
             },
             Mode::Squash(squash_mode) => match &squash_mode.source {
@@ -285,11 +284,11 @@ impl App {
                         self.handle_commit_start_source(CommitSource::Marks(hunks.clone()));
                     }
                     SquashMarks::Commits(..)
-                    | SquashMarks::CommittedFiles(..)
+                    | SquashMarks::Committed(..)
                     | SquashMarks::Branches(..) => {}
                 },
                 SquashSource::Branch(..)
-                | SquashSource::CommittedFile(..)
+                | SquashSource::CommittedChange(..)
                 | SquashSource::Commit(..) => {}
             },
             _ => {}

@@ -698,7 +698,9 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
             },
             Message::Move(message) => match message {
                 MoveMessage::Confirm | MoveMessage::MoveToNewBranch => true,
-                MoveMessage::Start | MoveMessage::ToggleInsertSide => false,
+                MoveMessage::Start | MoveMessage::StartWith(..) | MoveMessage::ToggleInsertSide => {
+                    false
+                }
             },
             Message::CherryPick(message) => match message {
                 CherryPickMessage::Confirm | CherryPickMessage::CherryPickToNewBranch => true,

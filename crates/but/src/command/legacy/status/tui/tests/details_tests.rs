@@ -7,12 +7,15 @@ use crate::{
     command::legacy::status::{
         TuiRunOptions,
         tui::{
-            App, DetailsLayoutMessage, Message, ReloadCause,
+            DetailsLayoutMessage, Message, ReloadCause,
             backstack::BackstackEntry,
-            tests::utils::{TestTuiOptions, test_status_tui, test_status_tui_with_options},
+            tests::utils::{
+                TestTuiOptions, commit_with_two_hunks_in_file, test_status_tui,
+                test_status_tui_with_options,
+            },
         },
     },
-    tui::test_utils::{Shift, TestTui},
+    tui::test_utils::Shift,
 };
 
 mod binds {
@@ -1897,34 +1900,6 @@ fn undo_from_details_mode() {
         .assert_rendered_term_svg_eq(file!["snapshots/undo_from_details_mode_001.svg"]);
     tui.input('u')
         .assert_rendered_term_svg_eq(file!["snapshots/undo_from_details_mode_002.svg"]);
-}
-
-/// Creates a commit on top of `c-branch-1` that changes `file` in two hunks, and selects it.
-fn commit_with_two_hunks_in_file() -> TestTui<App> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
-    env.setup_metadata(&[]);
-
-    env.file("file", "line\n".repeat(10));
-    env.file("other", "line\n".repeat(10));
-
-    let mut tui = test_status_tui(env);
-
-    tui.input('c');
-    tui.input('e');
-    tui.input('b');
-
-    tui.env().prepend_file("file", "top");
-    tui.env().append_file("file", "bottom");
-    tui.env().prepend_file("other", "other top");
-    tui.reload();
-
-    tui.input('c');
-    tui.input('e');
-    tui.input('a');
-    tui.input(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊●   [..] (no commit message)"]);
-
-    tui
 }
 
 #[test]

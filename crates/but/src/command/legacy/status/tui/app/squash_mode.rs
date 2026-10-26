@@ -25,14 +25,14 @@ use crate::{
             },
         },
     },
-    id::{BranchId, CommitId, CommittedFileId, UncommittedHunkOrFile},
+    id::{BranchId, CommitId, UncommittedHunkOrFile},
     tui::TerminalGuard,
     utils::{change_source::ChangeSourceId, merged_upstream::MergedUpstream},
 };
 
 use super::{
     CommitSource, MoveMarks, MoveSource,
-    mark::{Marks, MarksRef},
+    mark::{CommittedMark, Marks, MarksRef, committed_changes_to_act_on},
 };
 
 #[derive(Debug, Clone)]
@@ -42,14 +42,14 @@ pub enum SquashSource {
     Commit(CommitId),
     UncommittedHunk(UncommittedHunkOrFile),
     Branch(BranchId),
-    CommittedFile(CommittedFileId),
+    CommittedChange(CommittedMark),
 }
 
 #[derive(Debug, Clone)]
 pub enum SquashMarks {
     Hunks(NonEmpty<UncommittedHunkOrFile>),
     Commits(NonEmpty<CommitId>),
-    CommittedFiles(NonEmpty<CommittedFileId>),
+    Committed(NonEmpty<CommittedMark>),
     Branches(NonEmpty<BranchId>),
 }
 
@@ -58,7 +58,7 @@ impl SquashMarks {
         match self {
             Self::Hunks(hunks) => MarksRef::from_hunks(hunks),
             Self::Commits(commits) => MarksRef::from_commits(commits),
-            Self::CommittedFiles(files) => MarksRef::from_committed_files(files),
+            Self::Committed(marks) => MarksRef::from_committed(marks),
             Self::Branches(branches) => MarksRef::from_branches(branches),
         }
     }
@@ -80,9 +80,7 @@ impl SquashSource {
             SquashSource::Branch(branch) => MarksRef::from_branch_ref(branch),
             SquashSource::Commit(commit) => MarksRef::from_commit_ref(commit),
             SquashSource::UncommittedHunk(hunk) => MarksRef::from_hunk_ref(hunk),
-            SquashSource::CommittedFile(committed_file) => {
-                MarksRef::from_committed_file_ref(committed_file)
-            }
+            SquashSource::CommittedChange(change) => MarksRef::from_committed_ref(change),
         };
         marks.contains_cli_id(other) || marks.contains_child_of(other)
     }
@@ -106,10 +104,10 @@ impl SquashSource {
             | SquashRoute::CommitToBranch { .. }
             | SquashRoute::BranchToCommit { .. }
             | SquashRoute::BranchToBranch { .. }
-            | SquashRoute::CommittedFileToCommit { .. }
-            | SquashRoute::CommittedFileToBranch { .. }
+            | SquashRoute::CommittedChangeToCommit { .. }
+            | SquashRoute::CommittedChangeToBranch { .. }
             | SquashRoute::BranchToSelf { .. } => "squash",
-            SquashRoute::CommittedFileToUncommitted { .. }
+            SquashRoute::CommittedChangeToUncommitted { .. }
             | SquashRoute::CommitToUncommitted { .. }
             | SquashRoute::BranchToUncommitted { .. } => "uncommit",
         })
@@ -133,10 +131,11 @@ impl SquashSource {
             SquashSource::Marks(SquashMarks::Commits(commits)) => {
                 commits.iter().map(|commit| commit.commit_id).collect()
             }
-            SquashSource::CommittedFile(file) => vec![file.commit_id],
-            SquashSource::Marks(SquashMarks::CommittedFiles(files)) => {
-                files.iter().map(|file| file.commit_id).collect()
-            }
+            SquashSource::CommittedChange(change) => vec![change.committed_file().commit_id],
+            SquashSource::Marks(SquashMarks::Committed(marks)) => marks
+                .iter()
+                .map(|mark| mark.committed_file().commit_id)
+                .collect(),
         };
         let mut owners = commits
             .into_iter()
@@ -185,11 +184,11 @@ impl SquashSource {
             SquashSource::Marks(SquashMarks::Hunks(source_hunks)) => {
                 squash_route_from_uncommitted_hunk(source_hunks.into(), target)
             }
-            SquashSource::CommittedFile(source_file) => {
-                squash_route_from_committed_file(source_file.into(), target, uncommitted_area)
+            SquashSource::CommittedChange(source_change) => {
+                squash_route_from_committed_change(source_change.into(), target, uncommitted_area)
             }
-            SquashSource::Marks(SquashMarks::CommittedFiles(source_files)) => {
-                squash_route_from_committed_file(source_files.into(), target, uncommitted_area)
+            SquashSource::Marks(SquashMarks::Committed(source_marks)) => {
+                squash_route_from_committed_change(source_marks.into(), target, uncommitted_area)
             }
         }
     }
@@ -237,16 +236,16 @@ enum SquashRoute<'a> {
     BranchToSelf {
         source: &'a BranchId,
     },
-    CommittedFileToCommit {
-        sources: NonEmptyRef<'a, CommittedFileId>,
+    CommittedChangeToCommit {
+        sources: NonEmptyRef<'a, CommittedMark>,
         target: CommitId,
     },
-    CommittedFileToBranch {
-        sources: NonEmptyRef<'a, CommittedFileId>,
+    CommittedChangeToBranch {
+        sources: NonEmptyRef<'a, CommittedMark>,
         target: &'a str,
     },
-    CommittedFileToUncommitted {
-        sources: NonEmptyRef<'a, CommittedFileId>,
+    CommittedChangeToUncommitted {
+        sources: NonEmptyRef<'a, CommittedMark>,
     },
 }
 
@@ -376,15 +375,10 @@ impl App {
                     SquashSource::Marks(SquashMarks::Commits(commits.clone())),
                     ctx,
                 )?,
-                Marks::Committed(..) => {
-                    // Squashing committed hunks isn't supported yet.
-                    if let Some(files) = normal_mode.marks.as_ref().whole_committed_files() {
-                        self.squash_start_with_source(
-                            SquashSource::Marks(SquashMarks::CommittedFiles(files)),
-                            ctx,
-                        )?
-                    }
-                }
+                Marks::Committed(marks) => self.squash_start_with_source(
+                    SquashSource::Marks(SquashMarks::Committed(marks.clone())),
+                    ctx,
+                )?,
                 Marks::Branches(branches) => self.squash_start_with_source(
                     SquashSource::Marks(SquashMarks::Branches(branches.clone())),
                     ctx,
@@ -403,7 +397,11 @@ impl App {
                         Message::Squash(SquashMessage::StartWith(Arc::clone(selection))),
                     ]);
                 }
-                MarksRef::Hunks { .. } => {
+                // Squash the marks from the status, which shows the targets.
+                MarksRef::Hunks { .. }
+                | MarksRef::Commits { .. }
+                | MarksRef::Committed { .. }
+                | MarksRef::Branches { .. } => {
                     if details_mode.full_screen {
                         messages.push(Message::DetailsLayout(DetailsLayoutMessage::SwitchToSplit));
                     }
@@ -412,10 +410,6 @@ impl App {
                         Message::Squash(SquashMessage::Start),
                     ]);
                 }
-                MarksRef::Branches { .. }
-                | MarksRef::Commits { .. }
-                | MarksRef::Committed { .. }
-                | MarksRef::CommittedFiles { .. } => {}
             },
             Mode::Commit(commit_mode) => match &*commit_mode.source {
                 CommitSource::UncommittedArea(source) => {
@@ -442,11 +436,9 @@ impl App {
                             ctx,
                         )?;
                     }
-                    MoveMarks::CommittedFiles(committed_files) => {
+                    MoveMarks::Committed(marks) => {
                         self.squash_start_with_source(
-                            SquashSource::Marks(SquashMarks::CommittedFiles(
-                                committed_files.clone(),
-                            )),
+                            SquashSource::Marks(SquashMarks::Committed(marks.clone())),
                             ctx,
                         )?;
                     }
@@ -454,9 +446,9 @@ impl App {
                 MoveSource::Commit(commit) => {
                     self.squash_start_with_source(SquashSource::Commit(commit.clone()), ctx)?;
                 }
-                MoveSource::CommittedFile(committed_file) => {
+                MoveSource::CommittedChange(change) => {
                     self.squash_start_with_source(
-                        SquashSource::CommittedFile(committed_file.clone()),
+                        SquashSource::CommittedChange(change.clone()),
                         ctx,
                     )?;
                 }
@@ -492,14 +484,17 @@ impl App {
                 id: _,
             } => {
                 self.squash_start_with_source(
-                    SquashSource::CommittedFile(committed_file.clone()),
+                    SquashSource::CommittedChange(CommittedMark::File(committed_file.clone())),
                     ctx,
                 )?;
             }
-            CliId::AnonymousSegment(..)
-            | CliId::CommittedHunk(..)
-            | CliId::PathPrefix { .. }
-            | CliId::Stack { .. } => {}
+            CliId::CommittedHunk(hunk) => {
+                self.squash_start_with_source(
+                    SquashSource::CommittedChange(CommittedMark::Hunk(hunk.clone())),
+                    ctx,
+                )?;
+            }
+            CliId::AnonymousSegment(..) | CliId::PathPrefix { .. } | CliId::Stack { .. } => {}
         }
         Ok(())
     }
@@ -726,11 +721,8 @@ fn resolve_squash_operation<'a>(
                 reword: HowToRewordTarget::UseTargetMessage,
             },
         },
-        SquashRoute::CommittedFileToCommit { sources, target } => ResolvedSquashArgsRef::Normal {
-            sources: sources
-                .iter()
-                .map(ResolvedCliIdArgRef::CommittedFile)
-                .collect(),
+        SquashRoute::CommittedChangeToCommit { sources, target } => ResolvedSquashArgsRef::Normal {
+            sources: committed_change_args(sources),
             target: SquashTarget::Commit {
                 commit: target,
                 reword,
@@ -778,11 +770,8 @@ fn resolve_squash_operation<'a>(
             let target = ResolvedCliIdArgRef::Branch(target);
             resolve_squash_operation_with_branch(sources, target, reword, head_info, repo)?
         }
-        SquashRoute::CommittedFileToBranch { sources, target } => {
-            let sources = sources
-                .iter()
-                .map(ResolvedCliIdArgRef::CommittedFile)
-                .collect();
+        SquashRoute::CommittedChangeToBranch { sources, target } => {
+            let sources = committed_change_args(sources);
             let target = ResolvedCliIdArgRef::Branch(target);
             resolve_squash_operation_with_branch(sources, target, reword, head_info, repo)?
         }
@@ -799,11 +788,8 @@ fn resolve_squash_operation<'a>(
                 .collect(),
             target: SquashTarget::Uncommitted,
         },
-        SquashRoute::CommittedFileToUncommitted { sources } => ResolvedSquashArgsRef::Normal {
-            sources: sources
-                .iter()
-                .map(ResolvedCliIdArgRef::CommittedFile)
-                .collect(),
+        SquashRoute::CommittedChangeToUncommitted { sources } => ResolvedSquashArgsRef::Normal {
+            sources: committed_change_args(sources),
             target: SquashTarget::Uncommitted,
         },
         SquashRoute::BranchToUncommitted { sources } => ResolvedSquashArgsRef::Normal {
@@ -1010,8 +996,8 @@ fn squash_route_from_uncommitted_hunk<'a>(
     }
 }
 
-fn squash_route_from_committed_file<'a>(
-    source_files: NonEmptyRef<'a, CommittedFileId>,
+fn squash_route_from_committed_change<'a>(
+    source_changes: NonEmptyRef<'a, CommittedMark>,
     target: &'a CliId,
     uncommitted_area: Option<&ChangeSourceId>,
 ) -> Option<SquashRoute<'a>> {
@@ -1019,23 +1005,38 @@ fn squash_route_from_committed_file<'a>(
         CliId::Commit {
             commit: target,
             id: _,
-        } => Some(SquashRoute::CommittedFileToCommit {
-            sources: source_files,
+        } => Some(SquashRoute::CommittedChangeToCommit {
+            sources: source_changes,
             target: target.clone(),
         }),
         CliId::Branch(branch) if branch.lane.worktree_name().is_none() => {
-            Some(SquashRoute::CommittedFileToBranch {
-                sources: source_files,
+            Some(SquashRoute::CommittedChangeToBranch {
+                sources: source_changes,
                 target: &branch.name,
             })
         }
         _ if is_uncommit_target(target, uncommitted_area) => {
-            Some(SquashRoute::CommittedFileToUncommitted {
-                sources: source_files,
+            Some(SquashRoute::CommittedChangeToUncommitted {
+                sources: source_changes,
             })
         }
         _ => None,
     }
+}
+
+/// The committed files and hunks to squash, see [`committed_changes_to_act_on`].
+fn committed_change_args(sources: NonEmptyRef<'_, CommittedMark>) -> Vec<ResolvedCliIdArgRef<'_>> {
+    let changes = match sources {
+        NonEmptyRef::Single(change) => NonEmpty::new(change),
+        NonEmptyRef::List(marks) => committed_changes_to_act_on(marks),
+    };
+    changes
+        .into_iter()
+        .map(|change| match change {
+            CommittedMark::File(file) => ResolvedCliIdArgRef::CommittedFile(file),
+            CommittedMark::Hunk(hunk) => ResolvedCliIdArgRef::CommittedHunk(hunk),
+        })
+        .collect()
 }
 
 /// Whether `target` names the uncommitted area of the worktree in `uncommitted_area`.

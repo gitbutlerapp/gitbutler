@@ -984,7 +984,6 @@ fn resolve_sources(
         (None, Some(changes), None) => {
             let mut builder = DiffSpecBuilder::new(repo, context_lines);
             let source_file = changes.head.committed_file().clone();
-            let mut tree_changes = None;
 
             for change in changes {
                 if change.committed_file().commit_id != source_file.commit_id {
@@ -1003,26 +1002,7 @@ fn resolve_sources(
                         )?;
                     }
                     CommittedChange::Hunk(hunk) => {
-                        if tree_changes.is_none() {
-                            let source_commit = repo.find_commit(source_file.commit_id)?;
-                            tree_changes = Some(
-                                but_core::diff::tree_changes(
-                                    repo,
-                                    source_commit.parent_ids().next().map(|id| id.detach()),
-                                    source_file.commit_id,
-                                )?
-                                .into_iter()
-                                .map(Into::into)
-                                .collect::<Vec<but_core::ui::TreeChange>>(),
-                            );
-                        }
-
-                        builder.push_hunks_with_changes(
-                            [hunk.hunk],
-                            tree_changes
-                                .as_ref()
-                                .expect("tree changes are initialized for committed hunks"),
-                        )
+                        builder.push_changes_from_committed_hunk(&hunk)?;
                     }
                 }
             }

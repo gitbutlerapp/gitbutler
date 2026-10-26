@@ -1,5 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="820" height="380" viewBox="0 0 820 380">
   <rect x="0" y="0" width="820" height="380" fill="#000000" />
+  <rect x="18" y="64" width="16" height="18" fill="#0000AA" />
+  <rect x="50" y="64" width="96" height="18" fill="#555555" />
   <rect x="18" y="82" width="16" height="18" fill="#0000AA" />
   <rect x="66" y="82" width="96" height="18" fill="#555555" />
   <rect x="10" y="100" width="8" height="18" fill="#45475A" />
@@ -22,12 +24,16 @@
     <text x="66" y="60" style="fill:#CCCCCC;">[</text>
     <text x="74" y="60" style="fill:#00AA00;">A</text>
     <text x="82" y="60" style="fill:#CCCCCC;">]</text>
-    <text x="10 18" y="78" style="fill:#CCCCCC;">┊●</text>
-    <text x="50" y="78" style="fill:#AA00AA;">r</text>
-    <text x="58 66" y="78" style="fill:#CCCCCC;opacity:0.75;">qz</text>
-    <text x="82 90 98" y="78" style="fill:#CCCCCC;opacity:0.75;">(no</text>
-    <text x="114 122 130 138 146 154" y="78" style="fill:#CCCCCC;opacity:0.75;">commit</text>
-    <text x="170 178 186 194 202 210 218 226" y="78" style="fill:#CCCCCC;opacity:0.75;">message)</text>
+    <text x="10" y="78" style="fill:#CCCCCC;">┊</text>
+    <text x="18" y="78" style="fill:#000000;">—</text>
+    <text x="50 58" y="78" style="fill:#FFFFFF;">&lt;&lt;</text>
+    <text x="74 82 90 98 106 114" y="78" style="fill:#FFFFFF;">source</text>
+    <text x="130 138" y="78" style="fill:#FFFFFF;">&gt;&gt;</text>
+    <text x="154" y="78" style="fill:#AA00AA;">r</text>
+    <text x="162 170" y="78" style="fill:#CCCCCC;opacity:0.75;">qz</text>
+    <text x="186 194 202" y="78" style="fill:#CCCCCC;opacity:0.75;">(no</text>
+    <text x="218 226 234 242 250 258" y="78" style="fill:#CCCCCC;opacity:0.75;">commit</text>
+    <text x="274 282 290 298 306 314 322 330" y="78" style="fill:#CCCCCC;opacity:0.75;">message)</text>
     <text x="10" y="96" style="fill:#CCCCCC;">┊</text>
     <text x="18" y="96" style="fill:#000000;">✔︎</text>
     <text x="66 74" y="96" style="fill:#FFFFFF;">&lt;&lt;</text>

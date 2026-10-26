@@ -1,5 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="820" height="380" viewBox="0 0 820 380">
   <rect x="0" y="0" width="820" height="380" fill="#000000" />
+  <rect x="50" y="64" width="96" height="18" fill="#555555" />
   <rect x="10" y="82" width="56" height="18" fill="#45475A" />
   <rect x="66" y="82" width="96" height="18" fill="#555555" />
   <rect x="162" y="82" width="648" height="18" fill="#45475A" />
@@ -19,10 +20,13 @@
     <text x="74" y="60" style="fill:#00AA00;">A</text>
     <text x="82" y="60" style="fill:#CCCCCC;">]</text>
     <text x="10 18" y="78" style="fill:#CCCCCC;">┊●</text>
-    <text x="50" y="78" style="fill:#AA00AA;">t</text>
-    <text x="58 66" y="78" style="fill:#CCCCCC;opacity:0.75;">pm</text>
-    <text x="82 90 98" y="78" style="fill:#CCCCCC;">add</text>
-    <text x="114" y="78" style="fill:#CCCCCC;">A</text>
+    <text x="50 58" y="78" style="fill:#FFFFFF;">&lt;&lt;</text>
+    <text x="74 82 90 98 106 114" y="78" style="fill:#FFFFFF;">source</text>
+    <text x="130 138" y="78" style="fill:#FFFFFF;">&gt;&gt;</text>
+    <text x="154" y="78" style="fill:#AA00AA;">t</text>
+    <text x="162 170" y="78" style="fill:#CCCCCC;opacity:0.75;">pm</text>
+    <text x="186 194 202" y="78" style="fill:#CCCCCC;">add</text>
+    <text x="218" y="78" style="fill:#CCCCCC;">A</text>
     <text x="10 18" y="96" style="fill:#FFFFFF;font-weight:bold;">┊│</text>
     <text x="66 74" y="96" style="fill:#FFFFFF;font-weight:bold;">&lt;&lt;</text>
     <text x="90 98 106 114 122 130" y="96" style="fill:#FFFFFF;font-weight:bold;">source</text>

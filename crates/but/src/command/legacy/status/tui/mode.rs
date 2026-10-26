@@ -161,7 +161,7 @@ impl<'a> ModeRef<'a> {
                 SquashSource::Uncommitted(..)
                 | SquashSource::Branch(..)
                 | SquashSource::Commit(..)
-                | SquashSource::CommittedFile(..)
+                | SquashSource::CommittedChange(..)
                 | SquashSource::UncommittedHunk(..) => MarksRef::Empty,
             },
             ModeRef::Commit(commit_mode) => match &*commit_mode.source {
@@ -180,7 +180,7 @@ impl<'a> ModeRef<'a> {
                 MoveSource::Marks(marks) => marks.as_ref(),
                 MoveSource::Commit { .. }
                 | MoveSource::Branch(..)
-                | MoveSource::CommittedFile(..) => MarksRef::Empty,
+                | MoveSource::CommittedChange(..) => MarksRef::Empty,
             },
             ModeRef::CherryPick(cherry_pick_mode) => match &cherry_pick_mode.source {
                 CherryPickSource::Marks(marks) => marks.as_ref(),
