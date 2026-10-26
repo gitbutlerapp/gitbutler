@@ -41,3 +41,19 @@ pub(crate) fn workspace(stacks: Vec<Vec<Branch>>, linked: Vec<Branch>) -> Worksp
         ..Workspace::default()
     }
 }
+
+pub(crate) fn describe(workspace: &Workspace) -> String {
+    let names = |branches: &[Branch]| {
+        (branches.iter())
+            .map(|branch| branch.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let stacks =
+        (workspace.stacks.iter()).map(|stack| format!("Main: [{}]", names(&stack.branches)));
+    let mut worktrees: Vec<_> = workspace.worktrees.iter().collect();
+    worktrees.sort_by_key(|worktree| &worktree.name);
+    let worktrees = (worktrees.into_iter())
+        .map(|worktree| format!("{}: [{}]", worktree.name, names(&worktree.branches)));
+    stacks.chain(worktrees).map(|line| line + "\n").collect()
+}

@@ -1411,3 +1411,85 @@ mod failure_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod lane_tests {
+    use std::path::Path;
+
+    use crate::backend::model::build::describe;
+    use crate::backend::ops::tests::{git, repo_with, target_origin_main};
+    use crate::backend::ops::{
+        Destination, create_branch, create_dependent_branch, insert_empty_commit, rename_branch,
+    };
+
+    /// A stack `bottom < middle < top` with a commit each beside an empty `beside`, which keeps
+    /// `top` out of the main checkout, and linked worktrees `wt` on `middle` with a commit of
+    /// its own, `wt-top` with `top` checked out, and `wt-stacked` on `wt`.
+    fn linked_workspace(test: impl FnOnce(&Path)) {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            let mut below = create_branch(path, Some("bottom")).unwrap();
+            insert_empty_commit(path, &Destination::Branch(below.clone())).unwrap();
+            for name in ["middle", "top"] {
+                let new = create_dependent_branch(path, &below).unwrap();
+                below = rename_branch(path, &new, name).unwrap();
+                insert_empty_commit(path, &Destination::Branch(below.clone())).unwrap();
+            }
+            create_branch(path, Some("beside")).unwrap();
+
+            crate::backend::settings::set_worktrees_enabled(true).unwrap();
+            let ctx = super::open(path).unwrap();
+            (ctx.db.get_cache_mut().unwrap())
+                .worktree_meta_mut()
+                .mark_adopted()
+                .unwrap();
+            drop(ctx);
+            let outside = tempfile::tempdir().unwrap();
+            let at = |name: &str| outside.path().join(name).to_str().unwrap().to_owned();
+            git(
+                path,
+                &["worktree", "add", "-q", "-b", "wt", &at("wt"), "middle"],
+            );
+            git(
+                Path::new(&at("wt")),
+                &["commit", "-q", "--allow-empty", "-m", "wt work"],
+            );
+            git(path, &["worktree", "add", "-q", &at("wt-top"), "top"]);
+            git(
+                path,
+                &[
+                    "worktree",
+                    "add",
+                    "-q",
+                    "-b",
+                    "wt-stacked",
+                    &at("wt-stacked"),
+                    "wt",
+                ],
+            );
+            test(path);
+        })
+    }
+
+    #[test]
+    fn a_worktree_lane_loads_its_own_branches() {
+        linked_workspace(|path| {
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            // `top`, checked out in wt-top, names an empty segment in that lane, which leaves
+            // its commit in the stack unnamed.
+            snapbox::assert_data_eq!(
+                describe(&workspace),
+                snapbox::str![[r#"
+Main: [Unnamed branch, middle, bottom]
+Main: [beside]
+wt: [wt]
+wt-stacked: [wt-stacked]
+wt-top: [top]
+
+"#]]
+            );
+        })
+    }
+}

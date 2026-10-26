@@ -1175,7 +1175,7 @@ pub(super) mod tests {
 
     /// Give the repository at `path` a remote whose `main` is at `HEAD`, tracked by the local
     /// `main`, and make that the target.
-    fn target_origin_main(path: &Path) {
+    pub(in crate::backend) fn target_origin_main(path: &Path) {
         git(
             path,
             &["remote", "add", "origin", "https://example.com/repo.git"],
