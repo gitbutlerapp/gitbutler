@@ -45,6 +45,14 @@ pub(super) enum Conflicted {
     Files(Option<Arc<str>>),
 }
 
+/// What picks are kept for: a commit by its change ID, so they last through a rebase or a
+/// reword, or a checkout's uncommitted files.
+#[derive(Clone, PartialEq, Eq, Hash)]
+enum Of {
+    Commit(String),
+    Files(Option<Arc<str>>),
+}
+
 /// What's kept of a conflict until the picks are applied.
 enum Keeping {
     Pick(Pick),
@@ -75,6 +83,10 @@ pub(super) struct Resolving {
     ancestors: HashSet<Key>,
     /// The conflict the keyboard's picks go to.
     current: Option<Key>,
+    /// What the picks are of, and those kept of the others looked at since, for coming back
+    /// to them, as a resolution typed by hand is work.
+    of: Option<(ProjectId, Of)>,
+    others: HashMap<(ProjectId, Of), Resolving>,
 }
 
 impl Detail {
@@ -202,8 +214,32 @@ impl Detail {
         }
     }
 
-    /// Forget what was kept of conflicts no longer shown, as after applying them.
-    pub(super) fn prune_resolving(&mut self) {
+    /// Forget what was kept of conflicts no longer shown, as after applying them. Those of
+    /// another commit or checkout wait for it. Returns whether the conflicts shown are another's
+    /// than before, whose picks the rows built before don't show.
+    pub(super) fn prune_resolving(&mut self, cx: &App) -> bool {
+        let now = self.conflicted().map(|(project, conflicted)| {
+            let of = match conflicted {
+                Conflicted::Commit(id) => Of::Commit(
+                    (self.store.read(cx).key_of(&project, id)).unwrap_or_else(|| id.0.to_string()),
+                ),
+                Conflicted::Files(worktree) => Of::Files(worktree),
+            };
+            (project, of)
+        });
+        let switched = now != self.resolving.of;
+        if switched {
+            let mut others = std::mem::take(&mut self.resolving.others);
+            let left = std::mem::take(&mut self.resolving);
+            if let Some(of) = left.of.clone().filter(|_| !left.keeping.is_empty()) {
+                others.insert(of, left);
+            }
+            self.resolving = (now.as_ref())
+                .and_then(|now| others.remove(now))
+                .unwrap_or_default();
+            self.resolving.of = now;
+            self.resolving.others = others;
+        }
         let shown: HashSet<Key> = (self.conflicts())
             .map(|(_, path, c)| key(path, c))
             .collect();
@@ -213,6 +249,7 @@ impl Detail {
         r.ancestors.retain(|id| shown.contains(id));
         r.editing.take_if(|(id, ..)| !shown.contains(id));
         r.current.take_if(|id| !shown.contains(id));
+        switched && r.of.is_some()
     }
 
     /// The conflict the keyboard acts on: the one picked last, else the first undecided.

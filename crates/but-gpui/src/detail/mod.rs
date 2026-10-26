@@ -1118,7 +1118,9 @@ impl Detail {
         });
         self.settle_line_picks();
         self.refresh_grip();
-        self.prune_resolving();
+        if self.prune_resolving(cx) {
+            self.rebuild_rows(cx);
+        }
         for file in stale {
             self.load_whole(file, cx);
         }
