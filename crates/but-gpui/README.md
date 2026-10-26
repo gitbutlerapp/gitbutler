@@ -144,11 +144,14 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 | On Branches and Operations history | |
 |---|---|
 | ↑ ↓ or j k, ← → or h l | move through the list, fold or unfold a stack |
+| Home End, gg ⇧G | first or last row |
 | ↩ | apply the selected branch; on Operations history, restore to before the selected operation, after asking |
 
 | In the file list | |
 |---|---|
 | ↑ ↓ or j k | previous or next file, which the diff scrolls to |
+| Home End, gg ⇧G | first or last file |
+| ← → or h l | fold or unfold the file in the diff |
 | ⇧↑ ⇧↓, ⌘A | select a run of files, select them all |
 | ]c [c | into the diff, at the next or previous hunk |
 
@@ -158,7 +161,8 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 | Space ⇧Space, PageDown PageUp | a page down or up; at the end of a commit, Space goes on to the next unread commit |
 | ⌃D ⌃U | half a page down or up |
 | j k | next or previous file |
-| z | fold or unfold the file |
+| Home End, gg ⇧G | first or last file |
+| ← → or h l | fold or unfold the file |
 | e | open the file in your editor, at the hunk |
 | ⌥⌘Z, ⌘⌫ | discard the hunk, discard the file (Delete too on Windows and Linux) (either takes the picked lines when there are any); on the diff of a commit in an applied branch they point to Discard from commit in the file's menu |
 | 1, 2, 3 | on a conflicted commit: keep the new base's lines, the commit's, or both |
