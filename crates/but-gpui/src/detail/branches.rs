@@ -1427,13 +1427,17 @@ impl Detail {
                                 None if branch.ahead == Some(0) => theme.text_2,
                                 None => theme.text_1,
                             };
+                            let shown = title(branch);
                             let name = div()
                                 .flex_1()
                                 .min_w_0()
                                 .truncate()
+                                // A branch's name is cut in the middle, as many share a start
+                                // (origin/hotfix/…) and differ at the end; a title at its end.
+                                .when(shown == shown_name(branch), |el| el.text_ellipsis_middle())
                                 .font_weight(gpui::FontWeight::SEMIBOLD)
                                 .text_color(ink(title_color))
-                                .child(title(branch).to_owned());
+                                .child(shown.to_owned());
                             // The target has it all: said, as the navigator says it of a branch
                             // that landed.
                             let merged = (branch.ahead == Some(0)).then(|| {
