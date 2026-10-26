@@ -102,13 +102,6 @@ a.crumb:hover {
 		opacity: 0.7;
 	}
 
-	/* Drawn as strokes in ⚛️ Core, the glyph keeps its weight at 10px where the 16px outline
-	   thins: a hairline stroke, which doesn't scale with it, gives the weight back. */
-	& svg path {
-		stroke: currentColor;
-		stroke-width: 0.3px;
-	}
-
 	&:hover,
 	&[data-popup-open] {
 		background-color: var(--bg-hover);
