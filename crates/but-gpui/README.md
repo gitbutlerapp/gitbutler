@@ -176,6 +176,7 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 | Tab, ⇧Tab | the next or previous field, button, switch or dropdown, round again within it, scrolled into view |
 | ↩, Space | press the button, switch or dropdown that has the keys |
 | Escape | cancel or close it, whichever control has the keys |
+| ↑, ↓ | in Settings, from its search box or a page's link: the previous or next page (also k and j on a link) |
 
 ## How it's built
 

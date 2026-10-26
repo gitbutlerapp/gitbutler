@@ -17,7 +17,7 @@ mod mesh;
 mod metrics;
 mod project;
 
-use crate::app::{AppHandle, AppView};
+use crate::app::{AppHandle, AppView, SelectNext, SelectPrevious};
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::overlays::MenuItem;
 use crate::state::{Prefs, ProjectId, ScopeLines, Store};
@@ -91,6 +91,21 @@ impl Page {
             Page::Integrations => Icon::Plug,
             Page::Experimental => Icon::Lab,
             Page::Project => Icon::Mixer,
+        }
+    }
+}
+
+/// A page's link in the sidebar, which the focus moves along.
+struct Link {
+    page: Page,
+    focus: FocusHandle,
+}
+
+impl Link {
+    fn new(page: Page, cx: &mut App) -> Self {
+        Link {
+            page,
+            focus: cx.focus_handle().tab_stop(true),
         }
     }
 }
@@ -193,6 +208,8 @@ pub struct SettingsView {
     /// its own results show.
     _credentials_test: Task<()>,
     recording: Option<keyboard::Recording>,
+    app_links: [Link; Page::APP.len()],
+    project_links: [Link; Page::PROJECT.len()],
     pages_scroll: ScrollHandle,
     cards_scroll: ScrollHandle,
     _subscriptions: Vec<Subscription>,
@@ -266,6 +283,8 @@ impl SettingsView {
             credentials: None,
             _credentials_test: Task::ready(()),
             recording: None,
+            app_links: Page::APP.map(|page| Link::new(page, cx)),
+            project_links: Page::PROJECT.map(|page| Link::new(page, cx)),
             pages_scroll: ScrollHandle::new(),
             cards_scroll: ScrollHandle::new(),
             _subscriptions: subscriptions,
@@ -720,10 +739,14 @@ impl SettingsView {
             .collect()
     }
 
-    /// The pages there are: the app's, and the project's when there's one.
-    fn pages(&self) -> impl Iterator<Item = Page> + use<> {
+    /// The pages there are, by their links: the app's, and the project's when there's one.
+    fn links(&self) -> impl Iterator<Item = &Link> {
         let project = self.project.is_some();
-        (Page::APP.into_iter()).chain(Page::PROJECT.into_iter().filter(move |_| project))
+        (self.app_links.iter()).chain(self.project_links.iter().filter(move |_| project))
+    }
+
+    fn pages(&self) -> impl Iterator<Item = Page> {
+        self.links().map(|link| link.page)
     }
 
     /// What a page is called where it isn't under its group's heading: a project's by the
@@ -845,11 +868,12 @@ impl SettingsView {
     /// A page's link in the sidebar, filled in while it's the one shown.
     fn page_link(
         &self,
-        page: Page,
+        link: &Link,
         searching: bool,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> impl IntoElement {
+        let page = link.page;
         let selected = !searching && self.page == page;
         // Solid while it's shown, as a side list's is with the focus.
         ui::tab_stop(
@@ -862,23 +886,45 @@ impl SettingsView {
             theme,
         )
         .mx_0()
-        .h(dp(30.))
-        .gap(dp(10.))
-        .rounded(dp(6.))
+        .track_focus(&link.focus)
         .child(icon(page.icon()).text_color(match selected {
             true => theme.muted_on_solid(),
             false => theme.text_2,
         }))
         .child(page.title())
-        .on_click(cx.listener(move |this, _, _, cx| {
-            if page == Page::Ai {
-                this.retry_ai();
-                this.ensure_ai(cx);
+        .on_click(cx.listener(move |this, _, _, cx| this.show_page(page, cx)))
+    }
+
+    fn show_page(&mut self, page: Page, cx: &mut Context<Self>) {
+        if page == Page::Ai {
+            self.retry_ai();
+            self.ensure_ai(cx);
+        }
+        self.page = page;
+        self.search.update(cx, |search, cx| search.set_text("", cx));
+        cx.notify();
+    }
+
+    /// Show the page `delta` steps on in the sidebar from the link with the focus, or else the
+    /// page shown, none past either end. The focus goes along with a link's, scrolled into view
+    /// as Tab scrolls it.
+    fn step_page(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
+        let links: Vec<&Link> = self.links().collect();
+        let focused = links.iter().position(|link| link.focus.is_focused(window));
+        let next = focused
+            .or_else(|| links.iter().position(|link| link.page == self.page))
+            .and_then(|at| at.checked_add_signed(delta))
+            .and_then(|at| links.get(at));
+        let Some(next) = next else { return };
+        let (page, focus) = (next.page, next.focus.clone());
+        self.show_page(page, cx);
+        if focused.is_some() {
+            window.focus(&focus, cx);
+            if cx.has_global::<ui::FocusedAt>() {
+                cx.remove_global::<ui::FocusedAt>();
             }
-            this.page = page;
-            this.search.update(cx, |search, cx| search.set_text("", cx));
-            cx.notify();
-        }))
+            window.dispatch_action(Box::new(ui::ShowFocused), cx);
+        }
     }
 }
 
@@ -889,7 +935,8 @@ impl Render for SettingsView {
         let searching = !query.is_empty();
         let cards = self.cards(&query, window, cx);
         let search_focused = self.search.focus_handle(cx).is_focused(window);
-        let app_links = Page::APP.map(|page| self.page_link(page, searching, &theme, cx));
+        let app_links =
+            (self.app_links.iter()).map(|link| self.page_link(link, searching, &theme, cx));
         // The project's pages, under its name, which picks another when there are more.
         let projects = &self.store.read(cx).projects;
         let project = self.project_name(cx).map(|name| {
@@ -898,7 +945,7 @@ impl Render for SettingsView {
                 .id("settings-project")
                 .px(dp(8.))
                 .pb(dp(8.))
-                .gap(dp(10.))
+                .gap(dp(8.))
                 .text_size(dp(13.))
                 .font_weight(gpui::FontWeight::SEMIBOLD)
                 .text_color(theme.text_3)
@@ -926,11 +973,13 @@ impl Render for SettingsView {
                 .mt(dp(16.))
                 .pt(dp(16.))
                 .px(dp(12.))
-                .gap(dp(3.))
                 .border_t_1()
                 .border_color(theme.border_3)
                 .child(heading)
-                .children(Page::PROJECT.map(|page| self.page_link(page, searching, &theme, cx)))
+                .children(
+                    (self.project_links.iter())
+                        .map(|link| self.page_link(link, searching, &theme, cx)),
+                )
         });
         let empty = cards.is_empty();
         let height = (f32::from(window.viewport_size().height) / theme.scale * 0.76).min(1000.);
@@ -955,7 +1004,7 @@ impl Render for SettingsView {
                     .mx(dp(12.))
                     .mb(dp(10.)),
             )
-            .child(v_flex().px(dp(12.)).gap(dp(3.)).children(app_links))
+            .child(v_flex().px(dp(12.)).children(app_links))
             .children(project);
         let content = v_flex()
             .id("settings-cards")
@@ -994,6 +1043,15 @@ impl Render for SettingsView {
                     .bg(theme.bg_2)
                     // Its ground fills the modal's left corners, which it rounds as the modal does.
                     .rounded_l(dp(MODAL_RADIUS - 1.))
+                    .key_context("SettingsPages")
+                    .on_action(
+                        cx.listener(|this, _: &SelectNext, window, cx| {
+                            this.step_page(1, window, cx)
+                        }),
+                    )
+                    .on_action(cx.listener(|this, _: &SelectPrevious, window, cx| {
+                        this.step_page(-1, window, cx)
+                    }))
                     .child(scrolled(
                         links,
                         "settings-pages-scrollbar",
