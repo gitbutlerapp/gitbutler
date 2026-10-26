@@ -47,13 +47,15 @@ pub const fn fixed(n: f32) -> Pixels {
     gpui::px(n)
 }
 
-/// `el`, a header the window is dragged by, as a title bar is, where the app has none: Windows
-/// drags it itself, and on Linux the app starts the move once the pointer moves with the button
-/// held, so a click there is still a click. A double click maximizes it there, and a right
-/// click opens the window's menu, as GNOME's title bars do.
+/// `el`, a header the window is dragged by, as a title bar is: the app draws its own over
+/// macOS's and has none elsewhere. Windows drags it itself, and on macOS and Linux the app starts
+/// the move once the pointer moves with the button held, so a click there is still a click. A
+/// double click does what the platform's title bars do: on macOS what System Settings says (zoom,
+/// minimize or nothing), elsewhere maximize or restore. On Linux a right click opens the window's
+/// menu, as GNOME's title bars do.
 pub fn drags_window(el: Div) -> Div {
     let el = el.window_control_area(gpui::WindowControlArea::Drag);
-    #[cfg(target_os = "linux")]
+    #[cfg(not(windows))]
     let el = {
         use std::cell::Cell;
         thread_local! {
@@ -62,6 +64,7 @@ pub fn drags_window(el: Div) -> Div {
         }
         el.on_mouse_down(MouseButton::Left, |event, window, _| {
             match event.click_count {
+                2 if cfg!(target_os = "macos") => window.titlebar_double_click(),
                 2 => window.zoom_window(),
                 _ => PRESSED.set(true),
             }
@@ -73,20 +76,18 @@ pub fn drags_window(el: Div) -> Div {
                 window.start_window_move();
             }
         })
-        .on_mouse_down(MouseButton::Right, |event, window, _| {
-            window.show_window_menu(event.position)
-        })
     };
+    #[cfg(target_os = "linux")]
+    let el = el.on_mouse_down(MouseButton::Right, |event, window, _| {
+        window.show_window_menu(event.position)
+    });
     el
 }
 
 /// `el`, in a header the window is dragged by, still taking its own clicks: the drag area under
-/// it would take them. It's as it was on macOS, which drags the window by its title bar only.
+/// it would take them, and a double click there would zoom the window.
 pub fn above_drag<E: InteractiveElement>(el: E) -> E {
-    #[cfg(not(target_os = "macos"))]
-    return el.occlude();
-    #[cfg(target_os = "macos")]
-    el
+    el.occlude()
 }
 
 /// Whether the app draws the window's minimize, maximize and close buttons: on Windows, and on

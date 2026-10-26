@@ -339,8 +339,10 @@ Windows CI job lints and tests the one, the Linux lint and test jobs the other.
   it with `MAIN_SEPARATOR_STR`, as the file list's menu does.
 - A program the app starts gets `CREATE_NO_WINDOW` on Windows, as `backend::mesh` does, so no
   console window opens with it.
-- The window has no title bar off macOS, so the headers drag it (`ui::drags_window`), and the
-  app draws the window's buttons where `ui::draws_window_controls` says: on Windows, and on
+- The headers are the window's title bar: drawn over macOS's, which AppKit leaves to them
+  (`app_owns_titlebar_drag`), and in place of one elsewhere. `ui::drags_window` makes them
+  drag the window and gives a double click the platform's action, and the app draws the
+  window's buttons where `ui::draws_window_controls` says: on Windows, and on
   Linux where the desktop leaves the frame to the app (GNOME on Wayland), where
   `ui::window_frame` also draws the shadow that resizes the window. Wrap anything clickable in
   a header in `ui::above_drag` so it keeps its clicks.
