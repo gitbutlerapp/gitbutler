@@ -370,6 +370,23 @@
   {
     "bindings": { "secondary-,": "settings::OpenSettings" }
   },
+  // Settings' pages, from its search box too, as the palette's list is.
+  {
+    "context": "SettingsPages > TextInput",
+    "bindings": {
+      "up": "navigator::SelectPrevious",
+      "down": "navigator::SelectNext"
+    }
+  },
+  {
+    "context": "SettingsPages && !TextInput",
+    "bindings": {
+      "up": "navigator::SelectPrevious",
+      "k": "navigator::SelectPrevious",
+      "down": "navigator::SelectNext",
+      "j": "navigator::SelectNext"
+    }
+  },
   // After the text field's own keys, so these win in the search field.
   {
     "context": "WhatsNew > TextInput",

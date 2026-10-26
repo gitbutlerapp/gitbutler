@@ -17,7 +17,7 @@ mod mesh;
 mod metrics;
 mod project;
 
-use crate::app::{AppHandle, AppView};
+use crate::app::{AppHandle, AppView, SelectNext, SelectPrevious};
 use crate::backend::settings::{self as backend, Program, ProjectSettings};
 use crate::overlays::MenuItem;
 use crate::state::{Prefs, ProjectId, ScopeLines, Store};
@@ -907,6 +907,28 @@ impl SettingsView {
         self.search.update(cx, |search, cx| search.set_text("", cx));
         cx.notify();
     }
+
+    /// Show the page `delta` steps on in the sidebar from the link with the focus, or else the
+    /// page shown, none past either end. The focus goes along with a link's, scrolled into view
+    /// as Tab scrolls it.
+    fn step_page(&mut self, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
+        let links: Vec<&Link> = self.links().collect();
+        let focused = links.iter().position(|link| link.focus.is_focused(window));
+        let next = focused
+            .or_else(|| links.iter().position(|link| link.page == self.page))
+            .and_then(|at| at.checked_add_signed(delta))
+            .and_then(|at| links.get(at));
+        let Some(next) = next else { return };
+        let (page, focus) = (next.page, next.focus.clone());
+        self.show_page(page, cx);
+        if focused.is_some() {
+            window.focus(&focus, cx);
+            if cx.has_global::<ui::FocusedAt>() {
+                cx.remove_global::<ui::FocusedAt>();
+            }
+            window.dispatch_action(Box::new(ui::ShowFocused), cx);
+        }
+    }
 }
 
 impl Render for SettingsView {
@@ -1025,6 +1047,15 @@ impl Render for SettingsView {
                     .bg(theme.bg_2)
                     // Its ground fills the modal's left corners, which it rounds as the modal does.
                     .rounded_l(dp(MODAL_RADIUS - 1.))
+                    .key_context("SettingsPages")
+                    .on_action(
+                        cx.listener(|this, _: &SelectNext, window, cx| {
+                            this.step_page(1, window, cx)
+                        }),
+                    )
+                    .on_action(cx.listener(|this, _: &SelectPrevious, window, cx| {
+                        this.step_page(-1, window, cx)
+                    }))
                     .child(scrolled(
                         links,
                         "settings-pages-scrollbar",
