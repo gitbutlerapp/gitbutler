@@ -989,18 +989,22 @@ fn render_hot_bar(app: &App, area: Rect, frame: &mut Frame) {
 
     if let Some(started_at) = loading_spinner_started_at {
         let mut line = RenderSingleLineSpans::new(frame, layout[3]);
-        render_spinner(app, &mut line, started_at);
+        render_spinner(app.theme, &mut line, started_at);
     }
 }
 
-fn render_spinner(app: &App, line: &mut RenderSingleLineSpans<'_, '_>, started_at: Instant) {
+pub(crate) fn render_spinner(
+    theme: &Theme,
+    line: &mut RenderSingleLineSpans<'_, '_>,
+    started_at: Instant,
+) {
     const FRAME_DURATION: Duration = Duration::from_millis(80);
 
     static STATES: &[&str] = &["⣾", "⣷", "⣯", "⣟", "⡿", "⢿", "⣽", "⣻"];
     line.render(Span::raw(" "));
     let state = STATES
         [(started_at.elapsed().as_millis() / FRAME_DURATION.as_millis()) as usize % STATES.len()];
-    line.render(Span::raw(state).style(app.theme.hint));
+    line.render(Span::raw(state).style(theme.hint));
     line.render(Span::raw(" "));
 }
 

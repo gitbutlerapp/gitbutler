@@ -220,7 +220,7 @@ pub fn confirm_key_binds() -> KeyBinds {
         .key_bind(
             "no",
             press().code(KeyCode::Char('n')).alt_code(KeyCode::Esc),
-            || Message::Confirm(ConfirmMessage::No),
+            || Message::Confirm(ConfirmMessage::Close),
         )
         .register();
 

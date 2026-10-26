@@ -218,11 +218,21 @@ where
     Ok(())
 }
 
-fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut Vec<Message>) {
+fn event_to_messages(
+    ev: Event,
+    app: &App,
+    terminal_area: Rect,
+    messages: &mut Vec<Message>,
+    ignore_user_inputs: bool,
+) {
     let key_binds = app.active_key_binds();
     let mode = &*app.mode;
     match ev {
         Event::Key(key) => {
+            if ignore_user_inputs {
+                return;
+            }
+
             let mut handled = false;
             let selection = app
                 .cursor
@@ -272,6 +282,10 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
             messages.push(Message::JustRender);
         }
         Event::Paste(_) => {
+            if ignore_user_inputs {
+                return;
+            }
+
             if let Some(message) = app
                 .modal
                 .as_ref()
@@ -312,52 +326,60 @@ fn event_to_messages(ev: Event, app: &App, terminal_area: Rect, messages: &mut V
         Event::FocusLost => {
             messages.push(Message::SetHasFocus(false));
         }
-        Event::Mouse(event) => match event.kind {
-            MouseEventKind::Down(MouseButton::Left) => {
-                if app.modal.is_none() {
-                    messages.push(Message::StatusClick(Position {
-                        x: event.column,
-                        y: event.row,
-                    }));
-                }
+        Event::Mouse(event) => {
+            if ignore_user_inputs {
+                return;
             }
-            MouseEventKind::ScrollDown => {
-                if mouse_is_over_help(app, terminal_area, event.column, event.row) {
-                    messages.push(Message::Help(HelpMessage::ScrollDown(3)));
-                } else if app.modal.is_none() {
-                    if mouse_is_over_debug(app, terminal_area, event.column, event.row) {
-                        messages.push(Message::DebugScrollDown(3));
-                    } else if mouse_is_over_details(app, terminal_area, event.column, event.row) {
-                        messages.push(Message::Details(DetailsMessage::ScrollDown(3)));
-                    } else if render::status_area_for_app(app, terminal_area)
-                        .is_some_and(|area| area.contains((event.column, event.row).into()))
-                    {
-                        messages.push(Message::StatusScroll(1));
+
+            match event.kind {
+                MouseEventKind::Down(MouseButton::Left) => {
+                    if app.modal.is_none() {
+                        messages.push(Message::StatusClick(Position {
+                            x: event.column,
+                            y: event.row,
+                        }));
                     }
                 }
-            }
-            MouseEventKind::ScrollUp => {
-                if mouse_is_over_help(app, terminal_area, event.column, event.row) {
-                    messages.push(Message::Help(HelpMessage::ScrollUp(3)));
-                } else if app.modal.is_none() {
-                    if mouse_is_over_debug(app, terminal_area, event.column, event.row) {
-                        messages.push(Message::DebugScrollUp(3));
-                    } else if mouse_is_over_details(app, terminal_area, event.column, event.row) {
-                        messages.push(Message::Details(DetailsMessage::ScrollUp(3)));
-                    } else if render::status_area_for_app(app, terminal_area)
-                        .is_some_and(|area| area.contains((event.column, event.row).into()))
-                    {
-                        messages.push(Message::StatusScroll(-1));
+                MouseEventKind::ScrollDown => {
+                    if mouse_is_over_help(app, terminal_area, event.column, event.row) {
+                        messages.push(Message::Help(HelpMessage::ScrollDown(3)));
+                    } else if app.modal.is_none() {
+                        if mouse_is_over_debug(app, terminal_area, event.column, event.row) {
+                            messages.push(Message::DebugScrollDown(3));
+                        } else if mouse_is_over_details(app, terminal_area, event.column, event.row)
+                        {
+                            messages.push(Message::Details(DetailsMessage::ScrollDown(3)));
+                        } else if render::status_area_for_app(app, terminal_area)
+                            .is_some_and(|area| area.contains((event.column, event.row).into()))
+                        {
+                            messages.push(Message::StatusScroll(1));
+                        }
                     }
                 }
+                MouseEventKind::ScrollUp => {
+                    if mouse_is_over_help(app, terminal_area, event.column, event.row) {
+                        messages.push(Message::Help(HelpMessage::ScrollUp(3)));
+                    } else if app.modal.is_none() {
+                        if mouse_is_over_debug(app, terminal_area, event.column, event.row) {
+                            messages.push(Message::DebugScrollUp(3));
+                        } else if mouse_is_over_details(app, terminal_area, event.column, event.row)
+                        {
+                            messages.push(Message::Details(DetailsMessage::ScrollUp(3)));
+                        } else if render::status_area_for_app(app, terminal_area)
+                            .is_some_and(|area| area.contains((event.column, event.row).into()))
+                        {
+                            messages.push(Message::StatusScroll(-1));
+                        }
+                    }
+                }
+                MouseEventKind::Moved
+                | MouseEventKind::Down(..)
+                | MouseEventKind::Up(..)
+                | MouseEventKind::Drag(..)
+                | MouseEventKind::ScrollLeft
+                | MouseEventKind::ScrollRight => {}
             }
-            MouseEventKind::Moved
-            | MouseEventKind::Down(..)
-            | MouseEventKind::Up(..)
-            | MouseEventKind::Drag(..)
-            | MouseEventKind::ScrollLeft
-            | MouseEventKind::ScrollRight => {}
-        },
+        }
     }
 }
 
@@ -664,7 +686,7 @@ fn dedup_mutation_messages(messages: &mut Vec<Message>, other_messages: &mut Vec
             },
             Message::Confirm(message) => match message {
                 ConfirmMessage::Confirm | ConfirmMessage::Yes => true,
-                ConfirmMessage::Left | ConfirmMessage::Right | ConfirmMessage::No => false,
+                ConfirmMessage::Left | ConfirmMessage::Right | ConfirmMessage::Close => false,
             },
             Message::Commit(message) => match message {
                 CommitMessage::CreateEmpty
