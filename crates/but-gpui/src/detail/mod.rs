@@ -244,6 +244,9 @@ pub struct Detail {
     picking_lines: bool,
     /// Files whose lines are being read, one read each at a time.
     whole_reading: HashSet<String>,
+    /// The file, by path, and hunk whose header asked for the whole file, and how many rows
+    /// down the diff's scroll it was then, where it stays once the file's lines are in.
+    whole_anchor: Option<(String, usize, usize)>,
     /// What signed each commit previewed, like "an SSH key", or `None` when nothing did or
     /// it's still being read. A commit never changes, so neither does its signature.
     signers: HashMap<backend::CommitId, Option<&'static str>>,
@@ -574,6 +577,7 @@ impl Detail {
             filtering: false,
             whole: HashMap::new(),
             whole_reading: HashSet::new(),
+            whole_anchor: None,
             file_picks: Picks::default(),
             line_picks: None,
             grip_over: None,
