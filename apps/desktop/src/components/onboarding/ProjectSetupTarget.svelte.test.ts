@@ -10,6 +10,7 @@ function renderTarget(
 	onBranchSelected: (branch: [branchName: string, pushRemote: string | undefined]) => Promise<void>,
 	onOpenProject = vi.fn(async () => false),
 	remoteBranches = [{ name: "origin/main" }],
+	notice?: string,
 ) {
 	const context = new Map<any, any>([
 		[
@@ -26,6 +27,8 @@ function renderTarget(
 				isGerritProject: () => ({ result: { data: false, status: "fulfilled" } }),
 				deleteProject: vi.fn(),
 				fetchProjects: vi.fn(),
+				projects: () => ({ response: [{ id: "project-id", title: "Repository" }] }),
+				serverCapabilities: () => ({ response: { canAddProjects: true } }),
 			},
 		],
 		[POSTHOG_WRAPPER._key, { captureOnboarding: vi.fn() }],
@@ -39,10 +42,47 @@ function renderTarget(
 			localBranches: [{ name: "release", refName: "refs/heads/release", isTarget: false }],
 			onBranchSelected,
 			onOpenProject,
+			notice,
 		},
 		context,
 	});
 }
+
+test("says why the target needs choosing again", () => {
+	renderTarget(
+		vi.fn(),
+		vi.fn(async () => false),
+		[{ name: "origin/main" }],
+		"No local branch tracks your current target, upstream/main.",
+	);
+	expect(
+		screen.getByText("No local branch tracks your current target, upstream/main."),
+	).toBeInTheDocument();
+});
+
+test("offers other projects rather than removing this one when replacing a target", () => {
+	renderTarget(
+		vi.fn(),
+		vi.fn(async () => false),
+		[{ name: "origin/main" }],
+		"No local branch tracks your current target, upstream/main.",
+	);
+	expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+	expect(screen.getByText("Switch to another project")).toBeInTheDocument();
+});
+
+test("keeps the push remote when replacing a target", async () => {
+	const onBranchSelected = vi.fn();
+	renderTarget(
+		onBranchSelected,
+		vi.fn(async () => false),
+		[{ name: "origin/main" }, { name: "fork/main" }],
+		"No local branch tracks your current target, upstream/main.",
+	);
+	expect(screen.queryByText(/You have branches from multiple remotes/)).not.toBeInTheDocument();
+	await userEvent.setup().click(screen.getByRole("button", { name: "Let's go" }));
+	expect(onBranchSelected).toHaveBeenCalledWith(["refs/heads/release", undefined]);
+});
 
 test("submits the local ref independently of the publication remote", async () => {
 	const onBranchSelected = vi.fn();
