@@ -307,6 +307,9 @@ pub struct Detail {
     text_selection: Option<(TextPoint, TextPoint)>,
     /// The left button went down on a line and hasn't come up yet.
     selecting: bool,
+    /// Where a drag that selects text went past the edge of the diff, brought back inside it,
+    /// for the line there to take the selection's end.
+    follow: Option<Point<Pixels>>,
     /// Files folded by hand.
     folded: HashSet<String>,
     /// The commit message being written with AI, streaming into the box, and what the box
@@ -614,6 +617,7 @@ impl Detail {
             collapsed_dirs: HashSet::new(),
             text_selection: None,
             selecting: false,
+            follow: None,
             folded: HashSet::new(),
             writing: None,
             find: None,

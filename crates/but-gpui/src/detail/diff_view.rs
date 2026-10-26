@@ -8,9 +8,10 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use gpui::{
-    Action, AnyElement, App, ClickEvent, Context, CursorStyle, Div, Entity, MouseButton,
-    MouseDownEvent, Pixels, Point, SharedString, Stateful, Subscription, WeakEntity, Window,
-    anchored, deferred, div, list, prelude::*,
+    Action, AnyElement, App, Bounds, ClickEvent, Context, CursorStyle, DispatchPhase, Div, Entity,
+    MouseButton, MouseDownEvent, MouseMoveEvent, Pixels, Point, ScrollHandle, SharedString,
+    Stateful, Subscription, WeakEntity, Window, anchored, canvas, deferred, div, list, point,
+    prelude::*,
 };
 
 use super::blame::Blamed;
@@ -95,6 +96,7 @@ impl Render for DiffPane {
         let theme = Theme::get(cx).clone();
         let drawn = self.detail.update(cx, |detail, cx| {
             detail.follow_scroll(cx);
+            detail.follow_drag(window, cx);
             let top = detail.list.logical_scroll_top();
             (
                 (top.item_ix, top.offset_in_item),
@@ -318,6 +320,78 @@ impl Detail {
         }
     }
 
+    /// Where a drag selects text without scrolling: the diff's height, and the width the
+    /// lines of the selection end's file show their text in, with the scroll that moves that
+    /// text sideways unless it wraps.
+    fn drag_area(&self, cx: &App) -> Option<(Bounds<Pixels>, Option<ScrollHandle>)> {
+        let (_, (row, _)) = self.text_selection?;
+        let diff = self.diff.as_ref()?;
+        let path = &diff.files.get(diff.rows.get(row)?.file()?)?.file.path;
+        let mut area = self.list.viewport_bounds();
+        let sideways = (self.sideways.get(path).map(|[_, new]| new.clone()))
+            .filter(|_| !self.store.read(cx).prefs.wrap);
+        if let Some(text) = sideways.as_ref().map(ScrollHandle::bounds) {
+            (area.origin.x, area.size.width) = (text.left(), text.size.width);
+        }
+        Some((area, sideways))
+    }
+
+    /// While a drag selects text past the edge of the diff, scroll toward the pointer, the
+    /// faster the further past it is, and again each frame, so holding still keeps it going.
+    /// The line level with the pointer then takes the selection's end.
+    pub(super) fn follow_drag(&mut self, window: &mut Window, cx: &App) {
+        let pointer = window.mouse_position();
+        let area = self.selecting.then(|| self.drag_area(cx)).flatten();
+        self.follow =
+            (area.filter(|(area, _)| !area.contains(&pointer))).and_then(|(area, sideways)| {
+                let step = |at: Pixels, start: Pixels, end: Pixels| {
+                    let past = if at < start {
+                        at - start
+                    } else {
+                        (at - end).max(Pixels::ZERO)
+                    };
+                    (past / 4.).clamp(-fixed(40.), fixed(40.))
+                };
+                let to = |at: Pixels, max: Pixels, by: Pixels| (at + by).clamp(Pixels::ZERO, max);
+                let y = -self.list.scroll_px_offset_for_scrollbar().y;
+                let max = self.list.max_offset_for_scrollbar().y;
+                let by = to(y, max, step(pointer.y, area.top(), area.bottom())) - y;
+                self.list.scroll_by(by);
+                let mut scrolled = by != Pixels::ZERO;
+                if let Some(handle) = sideways {
+                    let (offset, max) = (handle.offset(), handle.max_offset().x);
+                    let x = to(-offset.x, max, step(pointer.x, area.left(), area.right()));
+                    scrolled |= x != -offset.x;
+                    handle.set_offset(point(-x, offset.y));
+                }
+                if scrolled {
+                    window.request_animation_frame();
+                }
+                let inside = area.bottom_right() - point(fixed(1.), fixed(1.));
+                let at = pointer.clamp(&area.origin, &inside);
+                // The edge can fall on a header, or below the last line, which take no
+                // selection, so the line drawn nearest it does.
+                let rows = self.diff.as_ref()?.rows.iter().enumerate();
+                let top = self.list.logical_scroll_top().item_ix;
+                let off =
+                    |bounds: Bounds<Pixels>| (bounds.top() - at.y).max(at.y - bounds.bottom());
+                let line = (rows.skip(top))
+                    .map_while(|(ix, row)| Some((row, self.list.bounds_for_item(ix)?)))
+                    .take_while(|(_, bounds)| bounds.top() < area.bottom())
+                    .filter(|(row, _)| {
+                        matches!(row, DiffRow::Line { .. } | DiffRow::Context { .. })
+                    })
+                    .map(|(_, bounds)| bounds)
+                    .min_by_key(|bounds| off(*bounds))?;
+                let y = if off(line) <= Pixels::ZERO {
+                    at.y
+                } else {
+                    line.center().y
+                };
+                Some(point(at.x, y))
+            });
+    }
+
     /// Drop the text selection, saying whether there was one.
     pub fn clear_text_selection(&mut self, cx: &mut Context<Self>) -> bool {
         let had = self.text_range().is_some();
@@ -415,6 +489,25 @@ impl Detail {
                 )
         });
         let scrollbar = scrollbar("diff-scrollbar", Scroll::List(self.list.clone()), theme);
+        // A drag that selects past the edge, out of the window too, draws the pane again,
+        // which scrolls toward the pointer.
+        let past_edge = (self.selecting.then(|| self.drag_area(cx)).flatten()).map(|(area, _)| {
+            canvas(
+                |_, _, _| {},
+                move |_, _, window, _| {
+                    let pane = window.current_view();
+                    window.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
+                        if phase == DispatchPhase::Bubble
+                            && event.dragging()
+                            && !area.contains(&event.position)
+                        {
+                            cx.notify(pane);
+                        }
+                    });
+                },
+            )
+            .absolute()
+        });
         ground()
             // With the bar above it, as far down as but.dev starts its first card.
             .pt(dp(7.))
@@ -444,6 +537,7 @@ impl Detail {
                     .children(sticky)
                     .children(scrollbar),
             )
+            .children(past_edge)
             .into_any_element()
     }
 
@@ -906,7 +1000,7 @@ impl Detail {
                     excluded,
                     toggle,
                     gutter: self.line_gutter(place, &entity, cx),
-                    select: Some(line_select(ix, entity)),
+                    select: Some(line_select(ix, entity, self.follow)),
                     selected: self.selected_in_row(ix),
                     found: self.found_on(Spot::Line(place)),
                 };
@@ -969,7 +1063,7 @@ impl Detail {
                 };
                 let menu = line_menu(ix, entity.clone());
                 let decor = LineDecor {
-                    select: Some(line_select(ix, entity)),
+                    select: Some(line_select(ix, entity, self.follow)),
                     selected: self.selected_in_row(ix),
                     found: self.found_on(Spot::Unchanged(file, new)),
                     ..Default::default()
@@ -1467,8 +1561,8 @@ impl Detail {
 }
 
 /// What the pointer does to the text of the line at row `ix`: select from where it's
-/// pressed, and extend as it drags.
-fn line_select(ix: usize, entity: WeakEntity<Detail>) -> LineSelect {
+/// pressed, and extend as it drags, to `follow` too while a drag scrolls past the edge.
+fn line_select(ix: usize, entity: WeakEntity<Detail>, follow: Option<Point<Pixels>>) -> LineSelect {
     let (down, drag) = (entity.clone(), entity);
     LineSelect {
         down: Rc::new(move |at, event, window, cx| {
@@ -1483,6 +1577,7 @@ fn line_select(ix: usize, entity: WeakEntity<Detail>) -> LineSelect {
             drag.update(cx, |detail, cx| detail.drag_text_selection((ix, at), cx))
                 .ok();
         }),
+        follow,
     }
 }
 

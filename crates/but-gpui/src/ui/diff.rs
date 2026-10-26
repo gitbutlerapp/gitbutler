@@ -6,7 +6,7 @@ use std::rc::Rc;
 use gpui::{
     AnyElement, App, Background, CursorStyle, ElementId, HighlightStyle, Hsla, Modifiers,
     MouseButton, MouseDownEvent, Pixels, Point, Role, ScrollHandle, SharedString, StyledText,
-    Window, combine_highlights, div, pattern_slash, prelude::*,
+    Window, canvas, combine_highlights, div, pattern_slash, prelude::*,
 };
 
 use super::conflict::{self, Part};
@@ -427,6 +427,9 @@ pub struct Sideways {
 pub struct LineSelect {
     pub down: OnLineDown,
     pub drag: OnLineDrag,
+    /// Where a drag past the edge of the diff, which the pointer then isn't over, extends
+    /// the selection to on the line level with it.
+    pub follow: Option<Point<Pixels>>,
 }
 
 pub type OnLineDown = Rc<dyn Fn(usize, &MouseDownEvent, &mut Window, &mut App)>;
@@ -1010,7 +1013,7 @@ pub fn line_row(
             el.relative().child(outline_box(edges, theme))
         })
         .when_some(select, |el, select| {
-            let at_down = at.clone();
+            let (at_down, at_follow, drag) = (at.clone(), at.clone(), select.drag.clone());
             el.cursor(CursorStyle::IBeam)
                 .on_mouse_down(MouseButton::Left, move |event, window, cx| {
                     (select.down)(at_down(event.position), event, window, cx)
@@ -1019,6 +1022,23 @@ pub fn line_row(
                     if event.pressed_button == Some(MouseButton::Left) {
                         (select.drag)(at(event.position), window, cx)
                     }
+                })
+                // Where the text is shows only once it's laid out, and a change while
+                // painting is dropped, so the selection moves as the next frame starts.
+                .when_some(select.follow, |el, follow| {
+                    el.child(
+                        canvas(
+                            |_, _, _| {},
+                            move |bounds, _, window, _| {
+                                if (bounds.top()..bounds.bottom()).contains(&follow.y) {
+                                    let (ix, drag) = (at_follow(follow), drag.clone());
+                                    window.on_next_frame(move |window, cx| drag(ix, window, cx));
+                                }
+                            },
+                        )
+                        .absolute()
+                        .size_full(),
+                    )
                 })
         })
         .when(excluded, |el| el.opacity(0.45))
