@@ -859,9 +859,11 @@ impl Store {
                     UpdateOutcome::WouldConflict(found) => {
                         let again = updated.clone();
                         let title = store.card_title(&updated, "Updating leaves conflicts".into());
+                        let detail =
+                            update_conflicts_detail(&target, &found, store.workspace(&updated));
                         store.error_with_retry(
                             title,
-                            update_conflicts_detail(&target, &found),
+                            detail,
                             "Update anyway",
                             move |store, cx| {
                                 store.update_from_target(&again, Some(found.clone()), cx)
@@ -870,9 +872,13 @@ impl Store {
                         )
                     }
                     UpdateOutcome::Updated { conflicted, landed } => {
-                        // Its "Resolve the oldest…" bar is the next step.
-                        if let Some((branch, _)) = conflicted.iter().find(|(b, _)| !b.is_empty()) {
-                            let branch = Selection::Branch(updated, branch.clone());
+                        // Its "Resolve the oldest…" bar is the next step, which a linked
+                        // worktree's branch doesn't have, as its conflicts resolve in it.
+                        let resolvable = (conflicted.iter())
+                            .filter(|(branch, _)| !branch.is_empty())
+                            .map(|(branch, _)| Selection::Branch(updated.clone(), branch.clone()))
+                            .find(|branch| !store.in_linked(branch));
+                        if let Some(branch) = resolvable {
                             store.select(Some(branch), cx);
                         }
                         store.snack_undoable(updated_message(&target, &conflicted, &landed), cx)
@@ -2018,8 +2024,16 @@ impl Store {
     }
 }
 
-/// What an update onto `target` would leave conflicted that isn't now.
-fn update_conflicts_detail(target: &str, found: &UpdateConflicts) -> String {
+/// What an update onto `target` would leave conflicted that isn't now in `workspace`.
+fn update_conflicts_detail(
+    target: &str,
+    found: &UpdateConflicts,
+    workspace: Option<&Workspace>,
+) -> String {
+    let linked = |ref_name: &str| {
+        (workspace.and_then(|ws| ws.lane_of(ref_name)))
+            .is_some_and(|(lane, _)| lane.checkout.is_linked())
+    };
     let mut detail = Vec::new();
     if !found.branches.is_empty() {
         detail.push(format!(
@@ -2034,7 +2048,12 @@ fn update_conflicts_detail(target: &str, found: &UpdateConflicts) -> String {
             found.files.join(", ")
         ));
     }
-    detail.push("You can resolve them afterwards, or undo the update.".into());
+    let resolve = if found.branches.iter().any(|(branch, _)| linked(branch)) {
+        "You can resolve them afterwards, a linked worktree's in that worktree"
+    } else {
+        "You can resolve them afterwards"
+    };
+    detail.push(format!("{resolve}, or undo the update."));
     detail.join(" ")
 }
 
@@ -2121,6 +2140,35 @@ mod tests {
             ),
             "Updated from origin/main, 3 branches landed and were removed",
             "several are counted so the snackbar stays one line"
+        );
+    }
+
+    #[test]
+    fn an_update_card_says_what_a_linked_worktree_keeps_from_it() {
+        use crate::backend::model::build::{branch, workspace, worktree};
+        let found = |names: &[&str]| UpdateConflicts {
+            branches: (names.iter())
+                .map(|name| (format!("refs/heads/{name}"), 1))
+                .collect(),
+            files: Vec::new(),
+        };
+        let alone = workspace(vec![vec![branch("middle", &[2])]], vec![]);
+        assert_eq!(
+            update_conflicts_detail("main", &found(&["middle"]), Some(&alone)),
+            "Rebasing onto main leaves conflicted commits in middle (1 commit). \
+             You can resolve them afterwards, or undo the update.",
+            "nothing rests on the stack"
+        );
+        let rested_on = workspace(
+            vec![vec![branch("middle", &[2])]],
+            vec![worktree("wt", Some(2), vec![branch("wt", &[5])])],
+        );
+        assert_eq!(
+            update_conflicts_detail("main", &found(&["middle", "wt"]), Some(&rested_on)),
+            "Rebasing onto main leaves conflicted commits in middle (1 commit), wt (1 commit). \
+             You can resolve them afterwards, a linked worktree's in that worktree, or undo the \
+             update.",
+            "wt's conflicts resolve in it"
         );
     }
 

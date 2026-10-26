@@ -338,8 +338,8 @@ pub fn publish(
 /// The name of the remote branch `branch` (a full ref) tracks, without its remote.
 fn tracked_name(ctx: &Context, branch: &str) -> Result<Option<String>> {
     let info = but_api::legacy::workspace::head_info(ctx)?;
-    let tracked = (info.stacks.iter())
-        .flat_map(|stack| &stack.segments)
+    let tracked = (info.lanes())
+        .flat_map(|lane| lane.segments)
         .find(|segment| holds(segment, branch))
         .and_then(|segment| segment.remote_tracking_ref_name.as_ref())
         .and_then(|name| {

@@ -18,7 +18,6 @@ pub struct Lane {
     pub checkout: Checkout,
     /// The commit in another lane its bottom branch starts from: `None` for a stack, and for a
     /// linked worktree started outside the workspace.
-    #[cfg_attr(not(test), expect(dead_code, reason = "only tests follow it so far"))]
     pub rests_on: Option<CommitId>,
 }
 

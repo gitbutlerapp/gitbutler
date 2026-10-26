@@ -957,8 +957,8 @@ pub fn update_from_target(
     let updated = integrate_upstream(&mut ctx, &info, DryRun::No, guard.write_permission())?;
     let after = but_api::legacy::workspace::head_info(&ctx)?;
     let names = |info: &but_workspace::RefInfo| -> Vec<String> {
-        (info.stacks.iter())
-            .flat_map(|stack| &stack.segments)
+        (info.lanes())
+            .flat_map(|lane| lane.segments)
             .filter_map(|segment| Some(segment.ref_name()?.to_string()))
             .collect()
     };
@@ -991,8 +991,8 @@ fn newly_conflicted(
         let id = commit.inner.change_id();
         !commit.inner.has_conflicts && conflicted.iter().any(|(_, change)| *change == *id)
     };
-    (info.stacks.iter())
-        .flat_map(|stack| &stack.segments)
+    (info.lanes())
+        .flat_map(|lane| lane.segments)
         .filter_map(|segment| {
             let count = segment.commits.iter().filter(newly).count();
             let name = segment.ref_name().map(ToString::to_string);
@@ -1058,7 +1058,39 @@ pub struct Landed {
 
 #[cfg(test)]
 mod tests {
-    use super::{ACTIVITY_DAYS, DAY, day_of, overview, push_refusal, pushed_with};
+    use super::{
+        ACTIVITY_DAYS, DAY, UpdateOutcome, day_of, overview, push_refusal, pushed_with,
+        update_from_target,
+    };
+
+    #[test]
+    fn an_update_that_would_conflict_a_worktree_branch_names_it() {
+        use crate::backend::ops::tests::git;
+        crate::backend::lane_tests::linked_workspace(|path| {
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            let wt = &(workspace.worktrees.iter())
+                .find(|wt| &*wt.name == "wt")
+                .unwrap()
+                .path;
+            git(wt, &["checkout", "-q", "--detach", "main"]);
+            std::fs::write(wt.join("file"), "target\n").unwrap();
+            git(wt, &["commit", "-q", "-am", "target edit"]);
+            git(wt, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+            git(wt, &["checkout", "-q", "wt"]);
+            std::fs::write(wt.join("file"), "wt\n").unwrap();
+            git(wt, &["commit", "-q", "-am", "wt edit"]);
+
+            let outcome = update_from_target(path, None).unwrap();
+            let UpdateOutcome::WouldConflict(found) = outcome else {
+                panic!("{outcome:?}");
+            };
+            assert_eq!(
+                found.branches,
+                [("refs/heads/wt".to_owned(), 1)],
+                "the update rebases wt with middle, and its edit of `file` meets the target's"
+            );
+        })
+    }
 
     #[test]
     fn a_worktree_branch_pushes_the_stack_branches_it_rests_on() {
