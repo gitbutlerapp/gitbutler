@@ -1802,6 +1802,45 @@ fn contains_target(env: &Sandbox, branch: &str) -> bool {
 }
 
 #[test]
+fn pull_points_worktree_conflicts_at_their_commit_ids() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    // The first read with the flag on archives every worktree already on disk.
+    env.but("status").assert().success();
+    env.invoke_bash(format!(
+        r#"
+        git worktree add -q -b wt-conflict "{wt}" main
+        (cd "{wt}" && echo worktree >upstream.txt && git add upstream.txt && git commit -q -m "add upstream.txt in worktree")
+        "#,
+        wt = env.app_data_dir().join("worktrees/wt-conflict").display()
+    ));
+    add_upstream_commit(&env);
+
+    // Conflicts are looked up by branch in workspace stacks only, so a worktree's conflicted
+    // commit has to be named by its ID.
+    env.but("pull").assert().success().stdout_eq(str![[r#"
+...
+  wt-conflict - conflicted
+
+To resolve conflicts:
+  `wt-conflict` is checked out in a worktree. Take its conflicted commit's ID from `but status`, then run `but resolve conflicts <commit-id>` and `but resolve apply <path>:<N> --commit <commit-id>`
+
+To undo this operation:
+  Run `but undo`
+
+"#]]);
+
+    env.but("resolve conflicts wt-conflict")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Branch "wt-conflict" is checked out in a worktree, where conflicts can't be looked up by branch name yet. Take its conflicted commit's ID from `but status`, then run `but resolve conflicts <commit-id>` and `but resolve apply <path>:<N> --commit <commit-id>`.
+
+"#]]);
+}
+
+#[test]
 fn pull_rebases_worktrees_and_workspace() {
     let env = worktrees_behind_target_scenario();
 

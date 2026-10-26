@@ -597,6 +597,20 @@ async fn handle_pull(
                         tracing::warn!(?err, "could not tell whether a branch is checked out");
                         false
                     });
+                // The lookup above doesn't walk linked worktrees' lanes, so their conflicted
+                // branches get the commit-ID route instead of the steps below.
+                let worktree_conflicts: Vec<&String> = conflicted_rebases
+                    .iter()
+                    .filter(|branch| {
+                        !conflicted_commits.contains_key(*branch)
+                            && crate::command::legacy::resolve::is_worktree_branch(
+                                &current_head_info,
+                                branch,
+                            )
+                    })
+                    .collect();
+                let workspace_conflicts = conflicted_rebases.is_empty()
+                    || worktree_conflicts.len() < conflicted_rebases.len();
 
                 // Populate conflicts info
                 for branch_name in &conflicted_rebases {
@@ -700,46 +714,55 @@ async fn handle_pull(
                     if has_conflicts {
                         writeln!(out)?;
                         writeln!(out, "{}", t.important.paint("To resolve conflicts:"))?;
-                        if single_branch_mode {
-                            // `but resolve <commit>` refuses while a branch is checked
-                            // out; these resolve without changing HEAD.
+                        for branch in &worktree_conflicts {
                             writeln!(
                                 out,
-                                "  1. Run {} to show the conflicts of the oldest conflicted commit",
-                                t.command_suggestion.paint("`but resolve conflicts`")
-                            )?;
-                            writeln!(
-                                out,
-                                "  2. Resolve each conflict with {}, as that output describes",
-                                t.command_suggestion.paint("`but resolve apply`")
-                            )?;
-                        } else if let Some(next_commit) = conflicted_rebases
-                            .iter()
-                            .find_map(|branch| conflicted_commits.get(branch)?.first())
-                        {
-                            writeln!(
-                                out,
-                                "  1. Start with: {}. Worktree files show no conflict markers until this checks the commit out",
-                                t.command_suggestion.paint(format!(
-                                    "`but resolve {}`",
-                                    next_commit.commit_short_id
-                                ))
-                            )?;
-                        } else {
-                            writeln!(
-                                out,
-                                "  1. Run {} to inspect the conflicted commits, then {}. Worktree files show no conflict markers until resolve checks the commit out",
-                                t.command_suggestion.paint("`but status`"),
-                                t.command_suggestion.paint("`but resolve <commit>`")
+                                "  `{branch}` is checked out in a worktree. {}",
+                                crate::command::legacy::resolve::WORKTREE_CONFLICT_ROUTE
                             )?;
                         }
-                        if !single_branch_mode {
-                            writeln!(out, "  2. Edit files to resolve the conflicts")?;
-                            writeln!(
-                                out,
-                                "  3. Run {} to finalize the resolution",
-                                t.command_suggestion.paint("`but resolve finish`")
-                            )?;
+                        if workspace_conflicts {
+                            if single_branch_mode {
+                                // `but resolve <commit>` refuses while a branch is checked
+                                // out; these resolve without changing HEAD.
+                                writeln!(
+                                    out,
+                                    "  1. Run {} to show the conflicts of the oldest conflicted commit",
+                                    t.command_suggestion.paint("`but resolve conflicts`")
+                                )?;
+                                writeln!(
+                                    out,
+                                    "  2. Resolve each conflict with {}, as that output describes",
+                                    t.command_suggestion.paint("`but resolve apply`")
+                                )?;
+                            } else if let Some(next_commit) = conflicted_rebases
+                                .iter()
+                                .find_map(|branch| conflicted_commits.get(branch)?.first())
+                            {
+                                writeln!(
+                                    out,
+                                    "  1. Start with: {}. Worktree files show no conflict markers until this checks the commit out",
+                                    t.command_suggestion.paint(format!(
+                                        "`but resolve {}`",
+                                        next_commit.commit_short_id
+                                    ))
+                                )?;
+                            } else {
+                                writeln!(
+                                    out,
+                                    "  1. Run {} to inspect the conflicted commits, then {}. Worktree files show no conflict markers until resolve checks the commit out",
+                                    t.command_suggestion.paint("`but status`"),
+                                    t.command_suggestion.paint("`but resolve <commit>`")
+                                )?;
+                            }
+                            if !single_branch_mode {
+                                writeln!(out, "  2. Edit files to resolve the conflicts")?;
+                                writeln!(
+                                    out,
+                                    "  3. Run {} to finalize the resolution",
+                                    t.command_suggestion.paint("`but resolve finish`")
+                                )?;
+                            }
                         }
                     }
 
