@@ -425,12 +425,12 @@ fn target(
     let stacks_behind = info.has_lanes_behind_target
         && (info.stacks.iter())
             .any(|stack| stack.base.is_some_and(|base| Some(base) != target_commit));
-    // What's new is what the target branch's upstream has past the stored target commit: what
-    // a pull brings in. Without an upstream, it's what the local target branch itself gained,
-    // as from a land or a `git merge` into it. Without a stored commit, as for a project added
-    // since its target last moved, there's nothing to bring.
+    // What's new is what the target branch's upstream has that what's checked out doesn't:
+    // what a pull brings in. Without an upstream, it's what the local target branch itself
+    // gained, as from a land or a `git merge` into it.
     let repo = ctx.repo.get()?;
-    let Some(source) = meta.and_then(|meta| target_source(&repo, meta)) else {
+    let Some((meta, source)) = meta.and_then(|meta| Some((meta, target_source(&repo, meta)?)))
+    else {
         return Ok((None, None));
     };
     let Some(tip) = ref_tip(&repo, source.as_ref()) else {
@@ -439,12 +439,9 @@ fn target(
         let lost = remote_has_branches(&repo, source.as_ref());
         return Ok((None, lost.then(|| source.shorten().to_string())));
     };
-    // The stored commit is walked once, though most stacks sit on it too.
-    let past = |base| (commits_past(&repo, tip, base), base);
-    let ahead = target_commit.map(past);
-    let stacks = (info.stacks.iter().filter_map(|s| s.base)).filter(|&b| Some(b) != target_commit);
-    let (behind, commits_behind) =
-        behind_oldest(&repo, tip, ahead.into_iter().chain(stacks.map(past)));
+    let ahead = target_commit.map(|base| commits_past(&repo, tip, base));
+    let new = new_commits(&repo, meta, tip);
+    let commits_behind = new.len();
     // The longest remote name that fits, as remote names can hold slashes too.
     let branch =
         but_core::extract_remote_name_and_short_name(source.as_ref(), &repo.remote_names())
@@ -462,9 +459,11 @@ fn target(
         branch,
         local,
         untracked,
-        behind,
+        behind: first_parent_run(&repo, tip, &new),
         commits_behind,
-        needs_update: ahead.is_some_and(|(ahead, _)| ahead > 0) || stacks_behind,
+        // The stored commit can be past what's checked out, as when main is added behind its
+        // upstream, which an update fast-forwards.
+        needs_update: ahead.is_some_and(|ahead| ahead > 0) || commits_behind > 0 || stacks_behind,
         incoming: match commits_behind {
             0 => Vec::new(),
             _ => upstream::incoming(ctx, cached, model::UPSTREAM_SHOWN).unwrap_or_else(|err| {
@@ -675,23 +674,45 @@ fn commits_past(repo: &gix::Repository, tip: gix::ObjectId, base: gix::ObjectId)
     (repo.rev_walk([tip]).with_hidden([base]).all()).map_or(0, |walk| walk.count())
 }
 
-/// How far `tip` is past the oldest of `bases`, each given with its [`commits_past`]: the
-/// commits on its own line of history, each merge once, and all of them. What's new runs down
-/// to the oldest commit a stack still sits on, as the list of new commits does, since a stack
-/// left on an older target commit, as updating only some lanes leaves the others, hasn't the
-/// commits between.
-fn behind_oldest(
+/// What target `tip` has that what's checked out doesn't, as `but status` counts from where
+/// they part: HEAD can be behind the stored target commit, as main added behind its upstream
+/// is, or a branch applied from an older base leaves it, or have more, as a branch the target
+/// was merged into does. Nothing when HEAD shares no history with the target, as an orphan
+/// branch's, and with no HEAD yet, what's past the stored commit.
+fn new_commits(
+    repo: &gix::Repository,
+    meta: &but_core::ref_metadata::ProjectMeta,
+    tip: gix::ObjectId,
+) -> HashSet<gix::ObjectId> {
+    let hidden = match repo.head_id().ok().map(|id| id.detach()) {
+        Some(head) if !matches!(repo.merge_base(head, tip), Ok(Some(_))) => return HashSet::new(),
+        Some(head) => head,
+        None => match meta.target_commit_id {
+            Some(stored) => stored,
+            None => return HashSet::new(),
+        },
+    };
+    (repo.rev_walk([tip]).with_hidden([hidden]).all())
+        .map(|walk| walk.filter_map(Result::ok).map(|info| info.id).collect())
+        .unwrap_or_default()
+}
+
+/// How many of `new` are on `tip`'s own line of history, each merge once, as `but status`
+/// counts them.
+fn first_parent_run(
     repo: &gix::Repository,
     tip: gix::ObjectId,
-    bases: impl IntoIterator<Item = (usize, gix::ObjectId)>,
-) -> (usize, usize) {
-    let Some((all, oldest)) = bases.into_iter().max() else {
-        return (0, 0);
-    };
-    (
-        first_parent_steps(repo, tip, oldest, all).unwrap_or(all),
-        all,
-    )
+    new: &HashSet<gix::ObjectId>,
+) -> usize {
+    let mut run = 0;
+    let mut at = Some(tip);
+    while let Some(id) = at.filter(|id| new.contains(id)) {
+        run += 1;
+        at = (repo.find_commit(id).ok())
+            .and_then(|commit| commit.parent_ids().next())
+            .map(|id| id.detach());
+    }
+    run
 }
 
 /// How many first parents lead back from `tip` to `base`, at most `max`; `None` when `base`
@@ -1197,31 +1218,70 @@ mod message_tests {
 
 #[cfg(test)]
 mod behind_tests {
+    use but_core::ref_metadata::{LocalRefName, ProjectMeta};
+
     use crate::backend::ops::tests::{git, head, repo_with};
 
     #[test]
-    fn whats_new_runs_down_to_the_oldest_base() {
+    fn whats_new_is_what_the_checkout_lacks_past_the_stored_commit() {
         let dir = repo_with("one\n");
         let path = dir.path();
         let commit = |message: &str| {
             git(path, &["commit", "-q", "--allow-empty", "-m", message]);
             head(path).0
         };
-        let old = head(path).0;
+        let stored = head(path).0;
+        git(path, &["checkout", "-q", "-b", "feature"]);
+        commit("feature work");
+        git(path, &["checkout", "-q", "main"]);
         commit("two");
-        let stored = commit("three");
+        commit("three");
+        git(path, &["checkout", "-q", "feature"]);
+        git(path, &["merge", "-q", "--no-edit", "main"]);
+        git(path, &["checkout", "-q", "main"]);
         let tip = commit("four");
-        let repo = gix::open(path).unwrap();
-        let past = |base| (super::commits_past(&repo, tip, base), base);
+        let mut meta = ProjectMeta {
+            target_ref: Some(LocalRefName::new("refs/heads/main".try_into().unwrap()).unwrap()),
+            target_commit_id: Some(stored),
+            ..ProjectMeta::default()
+        };
+        let new = |meta: &ProjectMeta| {
+            let repo = gix::open(path).unwrap();
+            let new = super::new_commits(&repo, meta, tip);
+            (super::first_parent_run(&repo, tip, &new), new.len())
+        };
+
+        git(path, &["checkout", "-q", "feature"]);
         assert_eq!(
-            super::behind_oldest(&repo, tip, [past(stored), past(old)]),
-            (3, 3),
-            "a stack still on an older commit hasn't the ones since, though the stored target has"
-        );
-        assert_eq!(
-            super::behind_oldest(&repo, tip, [past(stored)]),
+            new(&meta),
             (1, 1),
-            "with every stack on the stored target, only what's past it"
+            "a branch that merged main in has two and three already, as `but status` says"
+        );
+        git(path, &["checkout", "-q", "--orphan", "pages"]);
+        commit("pages");
+        assert_eq!(
+            new(&meta),
+            (0, 0),
+            "nothing is new to a checkout that shares no history with the target"
+        );
+        git(path, &["checkout", "-q", "-b", "old", &stored.to_string()]);
+        let past = ProjectMeta {
+            target_commit_id: Some(tip),
+            ..meta.clone()
+        };
+        assert_eq!(
+            new(&past),
+            (3, 3),
+            "a checkout behind the stored commit, as a branch applied from an older base \
+             leaves it, lacks what came after"
+        );
+        git(path, &["checkout", "-q", "-f", "main"]);
+        git(path, &["reset", "-q", "--hard", "HEAD~2"]);
+        meta.target_commit_id = Some(tip);
+        assert_eq!(
+            new(&meta),
+            (2, 2),
+            "main checked out behind the stored commit lacks what it hasn't pulled yet"
         );
     }
 }

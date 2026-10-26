@@ -90,15 +90,19 @@ fn target_page(
     let repo = ctx.repo.get()?;
     let meta = ctx.project_meta()?;
     let source = super::target_source(&repo, &meta);
-    if let Some(local) =
-        (source.as_ref()).filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
-    {
-        let tip = repo.find_reference(local.as_ref())?.peel_to_id()?;
-        return local_target_page(&repo, tip.detach(), meta.target_commit_id, after, limit);
+    let tip = (source.as_ref()).and_then(|name| super::ref_tip(&repo, name.as_ref()));
+    // What's checked out has some already when the target was merged into its branch, as
+    // the count of new commits leaves them out too.
+    let new = (tip.map(|tip| super::new_commits(&repo, &meta, tip))).unwrap_or_default();
+    if let Some(tip) = tip.filter(|_| {
+        (source.as_ref())
+            .is_some_and(|name| name.category() == Some(gix::refs::Category::LocalBranch))
+    }) {
+        return local_target_page(&repo, tip, &new, after, limit);
     }
     // An upstream that isn't there, before a first push or after the remote deleted it, has
     // no history to list; the project's page says which.
-    if source.is_some_and(|name| super::ref_tip(&repo, name.as_ref()).is_none()) {
+    if source.is_some() && tip.is_none() {
         return Ok((Vec::new(), false));
     }
     drop(repo);
@@ -127,7 +131,7 @@ fn target_page(
             });
             Ok(TargetCommit {
                 review,
-                incoming: !target.in_workspace,
+                incoming: !target.in_workspace && new.contains(&target.commit.id),
                 ..target_commit(&repo.find_commit(target.commit.id)?)?
             })
         })
@@ -142,12 +146,12 @@ fn target_page(
 }
 
 /// [`target_page`] for a target with no upstream, which the API lists nothing of: the local
-/// branch's own history from `tip`, along first parents, with those `base`, what the workspace
-/// was last updated to, doesn't have incoming. The first page stops where the workspace is.
+/// branch's own history from `tip`, along first parents, with those among `new` incoming. The
+/// first page stops where the workspace is.
 fn local_target_page(
     repo: &gix::Repository,
     tip: gix::ObjectId,
-    base: Option<gix::ObjectId>,
+    new: &HashSet<gix::ObjectId>,
     after: Option<CommitId>,
     limit: u32,
 ) -> Result<(Vec<TargetCommit>, bool)> {
@@ -160,9 +164,8 @@ fn local_target_page(
     while commits.len() < limit as usize
         && let Some(id) = cursor
     {
-        // Once one is in `base`'s history, so is every commit below it.
-        incoming = incoming
-            && base.is_some_and(|base| !super::is_ancestor(repo, id, base).unwrap_or(false));
+        // Once one is in the workspace's history, so is every commit below it.
+        incoming = incoming && new.contains(&id);
         let commit = repo.find_commit(id)?;
         cursor = present_first_parent(&commit);
         commits.push(TargetCommit {
