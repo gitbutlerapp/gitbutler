@@ -88,6 +88,7 @@ export const apiInvalidates = {
 	withdrawReviewRequest: ["Reviews"],
 	workspaceBranchAndAncestorsPush: ["Workspace", "Reviews", "MergeStatus", "Checks", "ReviewTimeline"],
 	worktreeNew: ["Worktrees", "Workspace"],
+	worktreeNewOnBranch: ["Worktrees", "Workspace"],
 	worktreeRemove: ["Worktrees", "Workspace"],
 	worktreeSetArchived: ["Worktrees", "Workspace"],
 };

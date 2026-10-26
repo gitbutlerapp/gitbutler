@@ -1817,11 +1817,22 @@ export declare function workspaceTargetCommits(projectId: string, from: string |
  * `~/.gitbutler-worktrees/<repo-dir-basename>/<slug>`, where the repository directory is
  * the main worktree. The slug is derived from the short branch name, falling back to `wt`
  * if empty. If the directory is taken, creation retries up to five times with a random ASCII suffix.
- * This fails without a target to base the worktree on, and refuses an existing branch.
+ * This fails without a target to base the worktree on, and refuses an existing branch, see
+ * [`worktree_new_on_branch()`] for that.
  *
  * {@link ../../../../../crates/but-api/src/worktrees.rs}
  */
 export declare function worktreeNew(projectId: string, newRef: MaybeLossyFullNameRef): Promise<NewWorktree>
+
+/**
+ * Create a linked worktree on the existing local branch `ref_name`, placed like [`worktree_new()`].
+ *
+ * This refuses a branch that is part of the workspace, checked out in any worktree, or whose
+ * tip is conflicted.
+ *
+ * {@link ../../../../../crates/but-api/src/worktrees.rs}
+ */
+export declare function worktreeNewOnBranch(projectId: string, refName: FullNameBytes): Promise<NewWorktree>
 
 /**
  * Remove the linked worktree named `name` from disk the way `git worktree remove` does,
@@ -3957,15 +3968,15 @@ export type NewComment = {
   payload: string;
 };
 
-/** A linked worktree freshly created by [`worktree_new()`]. */
+/** A linked worktree freshly created by [`worktree_new()`] or [`worktree_new_on_branch()`]. */
 export type NewWorktree = {
   /** The stable worktree name, i.e. the directory name under `$GIT_COMMON_DIR/worktrees/`. */
   name: string;
   /** The worktree checkout directory. */
   path: string;
-  /** The branch created for and checked out in the worktree. */
+  /** The branch checked out in the worktree. */
   refName: string;
-  /** The commit the branch starts at, the workspace's highest base. */
+  /** The commit the worktree starts at. */
   base: string;
 };
 

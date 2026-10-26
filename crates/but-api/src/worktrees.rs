@@ -295,7 +295,7 @@ pub fn worktree_remove_with_perm(
     ctx.invalidate_workspace_cache()
 }
 
-/// A linked worktree freshly created by [`worktree_new()`].
+/// A linked worktree freshly created by [`worktree_new()`] or [`worktree_new_on_branch()`].
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
@@ -311,14 +311,14 @@ pub struct NewWorktree {
     #[serde(with = "but_serde::path_lossy")]
     #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub path: PathBuf,
-    /// The branch created for and checked out in the worktree.
+    /// The branch checked out in the worktree.
     #[serde(with = "but_serde::fullname_lossy")]
     #[cfg_attr(
         feature = "export-schema",
         schemars(schema_with = "but_schemars::fullname_lossy")
     )]
     pub ref_name: gix::refs::FullName,
-    /// The commit the branch starts at, the workspace's highest base.
+    /// The commit the worktree starts at.
     #[serde(with = "but_serde::object_id")]
     #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub base: gix::ObjectId,
@@ -333,7 +333,8 @@ but_schemars::register_sdk_type!(NewWorktree);
 /// `~/.gitbutler-worktrees/<repo-dir-basename>/<slug>`, where the repository directory is
 /// the main worktree. The slug is derived from the short branch name, falling back to `wt`
 /// if empty. If the directory is taken, creation retries up to five times with a random ASCII suffix.
-/// This fails without a target to base the worktree on, and refuses an existing branch.
+/// This fails without a target to base the worktree on, and refuses an existing branch, see
+/// [`worktree_new_on_branch()`] for that.
 #[but_api(napi, invalidates = [Worktrees, Workspace])]
 #[instrument(err(Debug))]
 pub fn worktree_new(
@@ -361,7 +362,7 @@ pub fn worktree_new_with_perm(
     worktree_new_at_base_with_perm(ctx, new_ref, base, perm)
 }
 
-/// Create a worktree at a given base.
+/// Create a worktree on a new branch at a given base.
 pub fn worktree_new_at_base_with_perm(
     ctx: &but_ctx::Context,
     new_ref: Option<gix::refs::FullName>,
@@ -369,12 +370,82 @@ pub fn worktree_new_at_base_with_perm(
     perm: &mut RepoExclusive,
 ) -> Result<NewWorktree> {
     ensure_worktree_manipulation_enabled(ctx)?;
-    let (repo, ws, db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
     let ref_name = match new_ref {
         Some(ref_name) => ref_name,
-        None => unique_canned_refname(&repo)?,
+        None => unique_canned_refname(&*ctx.repo.get()?)?,
     };
-    let slug = slug(ref_name.shorten());
+    let (name, path) = add_worktree(
+        ctx,
+        WorktreeBranch::New {
+            name: ref_name.as_ref(),
+            base,
+        },
+        perm,
+    )?;
+    Ok(NewWorktree {
+        name,
+        path,
+        ref_name,
+        base,
+    })
+}
+
+/// Create a linked worktree on the existing local branch `ref_name`, placed like [`worktree_new()`].
+///
+/// This refuses a branch that is part of the workspace, checked out in any worktree, or whose
+/// tip is conflicted.
+#[but_api(napi, invalidates = [Worktrees, Workspace])]
+#[instrument(err(Debug))]
+pub fn worktree_new_on_branch(
+    ctx: &mut but_ctx::Context,
+    #[but_api(crate::json::FullNameBytes)] ref_name: gix::refs::FullName,
+) -> Result<NewWorktree> {
+    ensure_worktree_manipulation_enabled(ctx)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    worktree_new_on_branch_with_perm(ctx, ref_name, guard.write_permission())
+}
+
+/// See [`worktree_new_on_branch()`]; this variant is for callers that already hold exclusive
+/// worktree access.
+pub fn worktree_new_on_branch_with_perm(
+    ctx: &but_ctx::Context,
+    ref_name: gix::refs::FullName,
+    perm: &mut RepoExclusive,
+) -> Result<NewWorktree> {
+    ensure_worktree_manipulation_enabled(ctx)?;
+    let base = {
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+        if ws.refname_is_segment(ref_name.as_ref()) {
+            bail!(
+                "Branch '{}' is already in the workspace",
+                ref_name.shorten()
+            );
+        }
+        let tip = repo
+            .find_reference(ref_name.as_ref())
+            .with_context(|| format!("Branch '{}' does not exist", ref_name.shorten()))?
+            .peel_to_commit()?;
+        if but_core::Commit::from_id(tip.id())?.is_conflicted() {
+            bail!("Cannot create a worktree on a conflicted commit");
+        }
+        tip.id
+    };
+    let (name, path) = add_worktree(ctx, WorktreeBranch::Existing(ref_name.as_ref()), perm)?;
+    Ok(NewWorktree {
+        name,
+        path,
+        ref_name,
+        base,
+    })
+}
+
+fn add_worktree(
+    ctx: &but_ctx::Context,
+    branch: WorktreeBranch<'_>,
+    _perm: &mut RepoExclusive,
+) -> Result<(BString, PathBuf)> {
+    let repo = ctx.repo.get()?;
+    let slug = slug(branch.name().shorten());
     let slug = if slug.is_empty() { "wt" } else { &slug };
     let repo_name = repo
         .workdir()
@@ -389,26 +460,12 @@ pub fn worktree_new_at_base_with_perm(
         &root,
         slug,
         || uuid::Uuid::new_v4().simple().to_string()[..8].to_owned(),
-        |path| {
-            but_workspace::worktrees::add(
-                &repo,
-                path,
-                WorktreeBranch::New {
-                    name: ref_name.as_ref(),
-                    base,
-                },
-            )
-        },
+        |path| but_workspace::worktrees::add(&repo, path, branch),
     )?;
     let path = gix::path::realpath(&path)?;
-    drop((repo, ws, db));
+    drop(repo);
     ctx.invalidate_workspace_cache()?;
-    Ok(NewWorktree {
-        name,
-        path,
-        ref_name,
-        base,
-    })
+    Ok((name, path))
 }
 
 const CREATION_RETRIES: usize = 5;

@@ -163,6 +163,7 @@ export const apiParamNames = {
 	workspaceRecreate: ["projectId"],
 	workspaceTargetCommits: ["projectId", "from", "limit"],
 	worktreeNew: ["projectId", "newRef"],
+	worktreeNewOnBranch: ["projectId", "refName"],
 	worktreeRemove: ["projectId", "name", "force"],
 	worktreeSetArchived: ["projectId", "name", "archived"],
 	worktreesList: ["projectId"],
