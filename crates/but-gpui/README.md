@@ -110,7 +110,7 @@ The Help menu's What's New (the palette finds it by "release notes" too) opens G
 | ⌘X, ⌘V | cut the selection (from a diff or its files, the lines, hunk or file under the cursor, or while committing, what's checked), paste it onto the selected row (⌥⌘V squashes a commit instead of moving it, ⇧⌘V puts it below) |
 | ⌘C, y | copy the selection's path, commit ID or branch name, which ⌘V then pastes a copy of |
 | ⌘N | new branch |
-| ⌘R, ⇧R | fetch (F5 too on Windows and Linux), update from the target |
+| ⌘R, ⇧R | fetch (F5 too on Windows and Linux), update from the target, which the Update button's tooltip names |
 | ⌘O | add a project; when the system's folder picker can't open, as on Linux without an xdg-desktop-portal, an error card says why |
 | ⇧⌘O | clone a repository |
 | ⇧⌘T | open the selected checkout in the terminal |

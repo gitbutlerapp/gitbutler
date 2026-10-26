@@ -11,7 +11,9 @@ use gpui::{
     list, prelude::*,
 };
 
-use crate::app::{AddProject, AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious};
+use crate::app::{
+    AddProject, AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious, UpdateFromTarget,
+};
 use crate::backend::{
     Branch, CommitId, CommitState, FileChange, PushState, Review, ReviewState, Target,
 };
@@ -2215,7 +2217,10 @@ impl Navigator {
         .style(ButtonStyle::Gray)
         .inverted(inverted)
         .disabled_because(updating.then_some("Updating already"))
-        .tooltip("Rebase your branches onto the target's new commits")
+        .tooltip_for(
+            "Rebase your branches onto the target's new commits",
+            &UpdateFromTarget,
+        )
         .on_click(cx.listener(move |this, _, window, cx| {
             let project = project.clone();
             this.app.update_later(window, cx, move |app, _, cx| {
