@@ -472,19 +472,27 @@ fn differing(
     old: Option<gix::ObjectId>,
     new: Option<gix::ObjectId>,
 ) -> Vec<(bstr::BString, bool, [Option<gix::ObjectId>; 2])> {
-    let entries = |tree: Option<gix::ObjectId>| -> HashMap<bstr::BString, _> {
-        (tree.and_then(|id| repo.find_tree(id).ok()).iter())
-            .flat_map(|tree| tree.iter())
-            .filter_map(|entry| {
-                let entry = entry.ok()?;
-                Some((
-                    entry.filename().to_owned(),
-                    (entry.mode(), entry.object_id()),
-                ))
-            })
-            .collect()
+    let entries = |tree: Option<gix::ObjectId>| -> Option<HashMap<bstr::BString, _>> {
+        let Some(tree) = tree else {
+            return Some(HashMap::new());
+        };
+        let tree = repo.find_tree(tree).ok()?;
+        Some(
+            (tree.iter())
+                .filter_map(|entry| {
+                    let entry = entry.ok()?;
+                    Some((
+                        entry.filename().to_owned(),
+                        (entry.mode(), entry.object_id()),
+                    ))
+                })
+                .collect(),
+        )
     };
-    let (old, new) = (entries(old), entries(new));
+    // A tree this clone doesn't have, as a treeless one, says nothing of what differs.
+    let (Some(old), Some(new)) = (entries(old), entries(new)) else {
+        return Vec::new();
+    };
     let names: BTreeSet<_> = old.keys().chain(new.keys()).collect();
     (names.into_iter())
         .filter_map(|name| {
@@ -522,13 +530,18 @@ fn landing(
     let by = (own.clone().next())
         .and_then(|c| super::commit_byline(mailmap, c).ok())
         .map(|((_, email), _)| email.to_lowercase());
-    // What it changed from where the line was, which for a merge is all it brought.
+    // What it changed from where the line was, which for a merge is all it brought; nothing
+    // for a commit whose parent this clone doesn't have, as a shallow one's oldest, which
+    // didn't add everything it has.
     let tree = |id: gix::ObjectId| Some(repo.find_commit(id).ok()?.tree_id().ok()?.detach());
-    let areas = areas(
-        repo,
-        first.and_then(tree),
-        landed.tree_id().ok().map(|id| id.detach()),
-    );
+    let areas = match first.is_none() && landed.parent_ids().next().is_some() {
+        true => Vec::new(),
+        false => areas(
+            repo,
+            first.and_then(tree),
+            landed.tree_id().ok().map(|id| id.detach()),
+        ),
+    };
     Landing {
         id: CommitId(landed.id),
         title: (review.as_ref())
