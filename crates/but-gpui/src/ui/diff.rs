@@ -329,7 +329,11 @@ pub fn stats(added: u32, removed: u32, theme: &Theme) -> gpui::Div {
                 text.push(' ');
             }
             let start = text.len();
-            text.push_str(&format!("{sign}{count}"));
+            // In thousands from six figures, which leave a file list's name no room.
+            match count {
+                ..100_000 => text.push_str(&format!("{sign}{count}")),
+                _ => text.push_str(&format!("{sign}{}k", count / 1000)),
+            }
             colors.push((start..text.len(), HighlightStyle::from(color)));
         }
     }
