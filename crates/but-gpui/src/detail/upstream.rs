@@ -1517,18 +1517,13 @@ impl Detail {
                          and no merged or closed pull request",
                     ))
             }));
-        let main = v_flex()
-            .gap(dp(10.))
-            .child(
-                h_flex()
-                    .items_start()
-                    .gap(dp(8.))
-                    .child(trigger)
-                    .child(title_text(entry.project.name.clone())),
-            )
-            .child(meta);
+        let title = h_flex()
+            .items_start()
+            .gap(dp(8.))
+            .child(trigger)
+            .child(title_text(entry.project.name.clone()));
         let target = Selection::Project(project.clone());
-        self.page_header(main, target, None, None, theme, cx)
+        self.page_header(title, meta, target, None, None, theme, cx)
     }
 
     pub(super) fn render_upstream_side(

@@ -352,11 +352,8 @@ impl Detail {
                             .child(folder),
                     )
             }));
-        let main = v_flex()
-            .gap(dp(10.))
-            .child(page_title(Icon::Folder, theme).child(title_text(title)))
-            .child(meta);
-        self.page_header(main, target, None, None, theme, cx)
+        let title = page_title(Icon::Folder, theme).child(title_text(title));
+        self.page_header(title, meta, target, None, None, theme, cx)
     }
 
     /// The overview of `project`'s `checkout`, laid out as the project's and Branches' are: where
