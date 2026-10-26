@@ -4,17 +4,6 @@ Deep dive into GitButler's conceptual model and philosophy.
 
 ## The Workspace Model
 
-### Traditional Git: Serial Branching
-
-```
-main ──┬── feature-a (checkout here, work, commit, checkout back)
-       └── feature-b (checkout here, work, commit, checkout back)
-```
-
-- Work on ONE branch at a time
-- Switch contexts with `git checkout`
-- Changes are isolated by branch
-
 ### GitButler: Parallel Stacks
 
 ```
@@ -28,11 +17,44 @@ workspace (gitbutler/workspace)
 - No context switching - all applied branches merged in working directory
 - Changes are ASSIGNED to branches, not isolated by checkout
 
+### One Stack Applied: Single-Branch Mode
+
+GitButler works in any Git repository, on the branch that is checked out. There is no setup
+command. A repository starts in single-branch mode: `HEAD` is the stack's top branch, as in
+plain Git, and there is no `gitbutler/workspace` branch:
+
+```
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ se [settings-page] [HEAD]
+┊●   wtnt Add settings page
+┊│
+┊├┄ et [settings-model]
+┊●   xyow Add settings model
+├╯
+┊
+┴ a0498e6 (common base, main, origin/main) 2026-10-26 Initial commit
+```
+
+- With the target branch checked out (for example a fresh clone of `main`),
+  `but commit -b <name>` creates that branch and checks it out. A bare `but commit` there
+  checks out a new branch with a generated name.
+- A branch stacked on the checked-out one (`--above`) becomes the new `HEAD`; the repository
+  stays in single-branch mode.
+- A second independent stack (`but apply`, or `but commit -b`/`but branch new` for a new
+  branch while a feature branch is checked out) switches `HEAD` to `gitbutler/workspace`.
+- Unapplying, discarding, or deleting branches down to one stack checks that stack's branch out
+  again. Other ways of dropping to one stack, such as squashing a whole branch into `@`, can
+  leave `HEAD` on `gitbutler/workspace`.
+
+Commands, IDs, and recipes are the same in both modes, so you do not need to track which mode
+the repository is in. `[HEAD]` in `but status` marks the checked-out branch in single-branch mode.
+
 ### Key Implications
 
 1. **No `git checkout`**: You don't switch between branches. All applied branches exist simultaneously in your workspace.
 
-2. **The `gitbutler/workspace` branch**: A merge commit containing all applied stacks. Don't interact with it directly - use `but` commands.
+2. **The `gitbutler/workspace` branch**: With two or more stacks applied, `HEAD` is this branch, a merge commit containing all applied stacks. Don't interact with it directly - use `but` commands.
 
 3. **Applied vs Unapplied**: Control which branches are active:
    - Applied branches: In your working directory
@@ -46,16 +68,16 @@ Every object gets a short, human-readable CLI ID shown in `but status` or `but d
 ```
 Commits:          1, ton, mpq#0       (short change-ID prefix when the commit has one, sha prefix otherwise;
                                    a #N suffix disambiguates commits sharing a change ID)
-Branches:         fe, bu, ui          (unique 2–3 char substring of the branch name, e.g. "fe" from "feature-x";
+Branches:         at, se, et          (unique 2–3 char substring of the branch name that doesn't look like hex,
+                                   e.g. "at" from "feature-x";
                                    falls back to auto-generated ID if no unique substring exists)
 Files:            uvw, qyo            (derived from the file path, long enough to be unique)
 Hunks:            uvw:2e4, uvw:e2c    (<file-id>:<hunk-id>; uncommitted hunks shown by bare `but diff`)
 Committed files:  mzm:uvw             (<commit-id>:<file-id>, shown under each commit in `but status -fv`)
 Committed hunks:  mzm:uvw:2e4         (<commit-id>:<file-id>:<hunk-id>, shown by `but diff <commit-id>`)
-Stacks:           m0, n0              (auto-generated, 2–3 chars)
 ```
 
-**ID lengths:** When an agent is detected, shortened change-ID, file, and hunk prefixes have a four-character minimum; SHA prefixes and branch/worktree IDs can be shorter.
+**ID lengths:** When an agent is detected, shortened change-ID, file, and hunk prefixes have a four-character minimum; SHA prefixes and branch/worktree IDs can be shorter. Mutation results print shorter commit IDs (`Created commit ppy`), which can be ambiguous; take IDs from `but status` or `but diff`.
 
 **Reading status output:** the first token on each line is that line's ID. Verbose commit lines append an informational `(sha …)` after the timestamp — it changes on every amend; do not pass it to commands.
 
@@ -72,10 +94,9 @@ but move <commit-id>:<file-id>:<hunk-id> --above <commit-id> -m "message" # Repo
 but split <commit-id>:<file-id> -m "message"              # Extract a file immediately above its source
 ```
 
-IDs are positional and space-separated. `but help cli-ids` documents every ID kind in detail.
+IDs are positional and space-separated. `but help cli-ids` has more detail on the basic ID kinds.
 
-**Worktrees** (experimental, only with the `worktreeManipulation` feature flag on): each
-active worktree is drawn in `but status` as a lane of its own, nested above the commit the
+**Worktrees**: each active worktree is drawn in `but status` as a lane of its own, nested above the commit the
 worktree rests on — another worktree's commit included, lanes nest recursively — or standing on
 its own below the stacks when it rests outside the workspace. The lane opens with the worktree's
 uncommitted area, `<id>:@ [uncommitted] {<worktree-name>}`, followed by ordinary branch rows
@@ -95,8 +116,8 @@ commit or branch does not have to be the worktree's own. One operation reads fro
 at a time — a selection mixing worktrees is refused. A worktree's branches are also targets:
 `but commit`, `but move`, and `but pick` with `-b <branch>` place the commit on that branch's tip,
 and `--below <checked-out-branch-id>` on the tip of the branch the worktree has checked out
-(`--above` it is refused — that is its uncommitted area). A new branch can't be placed above or
-below a worktree's branch yet, as worktrees can't order branches. `but move <branch> --above <branch>`
+(`--above` it is refused — that is its uncommitted area). `but branch new <name> --above <worktree-branch>`
+creates a branch that becomes the worktree's checked-out branch. `but move <branch> --above <branch>`
 moves an existing branch between a worktree's lane and the workspace, in either direction. A branch
 stacked onto the one a worktree has checked out becomes its checked-out branch; moving the checked-out
 branch away leaves the worktree on the branch below it, or detached on the commit it was based on. A worktree's own commits carry ordinary commit IDs: `reword`, `move`,
@@ -110,7 +131,7 @@ inside a linked worktree, a bare `but commit` and `but diff`, and `but amend`/`b
 with `-t` but no sources, take that worktree's changes, while `but commit --empty` and `but pick`
 without a target go on its branch, and a bare `but discard` discards that worktree's changes.
 `but absorb` and `but branch new` without `--above`/`--below` refuse there instead of acting on
-the main worktree, and every such default is refused in a worktree GitButler doesn't manage (the flag is off, it is archived, or its `HEAD`
+the main worktree, and every such default is refused in a worktree GitButler doesn't manage (it is archived, or its `HEAD`
 is unusable).
 
 ## Parallel vs Stacked Branches
@@ -124,14 +145,6 @@ main ──┬── api-endpoint (independent)
        └── ui-update    (independent)
 ```
 
-Use when:
-
-- Tasks don't depend on each other
-- Can be merged independently
-- No shared code between them
-
-Example: Adding a new API endpoint and updating button styles are independent.
-
 ### Stacked Branches (Dependent Work)
 
 **To stack an existing branch** on top of another: `but move <child-branch-name> --above <parent-branch-name>`.
@@ -141,20 +154,6 @@ Example: Adding a new API endpoint and updating button styles are independent.
 ```
 main ── authentication ── user-profile ── settings-page
         (base)            (stacked)       (stacked)
-```
-
-Use when:
-
-- Feature B needs code from Feature A
-- Building incrementally on previous work
-- Creating a series of related changes
-
-Example: User profile page needs authentication to be implemented first.
-
-**Stacking two existing branches:** If both branches already exist and you need to make one depend on the other, use top-level `move`:
-```bash
-but move feature/frontend --above feature/backend
-# Now frontend is stacked on top of backend — both in the same stack
 ```
 
 To tear off a branch from a stack:
@@ -212,10 +211,11 @@ GitButler tracks dependencies between changes automatically.
 ```
 Commit C1: Added function foo()
 Commit C2: Added function bar()
-Uncommitted: Call to foo() in new code
+Uncommitted: Edit to a line inside foo()
 ```
 
-The uncommitted change **depends on** C1 (because it calls `foo()`).
+The uncommitted change **depends on** C1 because it changes lines that C1 added. Dependencies come
+from overlapping lines only: new code elsewhere that calls `foo()` does not depend on C1.
 
 **Implications:**
 
@@ -227,9 +227,10 @@ The uncommitted change **depends on** C1 (because it calls `foo()`).
 
 Prevents you from creating broken states:
 
-- Can't move dependent code away from its dependencies
+- Can't move dependent lines away from the commits they depend on
 - Can't commit changes to the wrong stack
-- Ensures each branch remains independently functional
+- It does not check that each branch builds on its own: a call to code on another branch is not a
+  dependency
 
 ## Empty Commits as Placeholders
 
@@ -239,11 +240,6 @@ You can create empty commits:
 but commit --empty --below nn -m "TODO: Add error handling"
 but commit --empty --above nn -m "TODO: Add error handling"
 ```
-
-**Use cases:**
-
-1. **Mark future work:** Create empty commit as placeholder for changes you'll make
-2. **Organize history:** Add semantic markers in commit history
 
 Example workflow:
 
@@ -255,14 +251,15 @@ but amend -t <empty-commit-id> <file-id>
 
 ## Operation History (Oplog)
 
-Every operation in GitButler is recorded in the oplog (operation log).
+Most GitButler mutations are recorded in the oplog (operation log). Push and `but worktree`
+commands are not.
 
 ### What Gets Recorded
 
 - Branch creation/deletion
 - Commits
-- Squash/amend/move/uncommit/discard operations
-- Push/pull operations
+- Squash/amend/move/uncommit/discard operations (an amend is listed as `[SQUASH]`)
+- Pull (listed as `[OTHER] Merged upstream`)
 
 ### Using Oplog
 
@@ -276,58 +273,18 @@ but oplog snapshot -m "known good"
 but oplog restore <snapshot-id>  # Restore to specific point
 ```
 
-Think of it as "git reflog" but for all GitButler operations, not just branch movements.
-
-**Safety net:** Made a mistake? `but undo` it. Experimented and want to go back? `but oplog restore` to earlier snapshot.
-
-## Applied vs Unapplied Branches
-
-Branches can be in two states:
-
-### Applied Branches
-
-- Active in your workspace
-- Merged into `gitbutler/workspace`
-- Changes visible in working directory
-- Can make changes and commit
-
-### Unapplied Branches
-
-- Exist but not active
-- Not in working directory
-- Can't make changes (must apply first)
-- Useful for temporarily setting aside work
-
-### Controlling State
-
-```bash
-but apply <branch-name>    # Make branch active
-but unapply <branch-name>  # Make branch inactive
-```
-
-**Use cases:**
-
-- Unapply branches causing conflicts
-- Focus on subset of work (unapply others)
-- Temporarily set aside work without deleting
-
 ## Conflict Resolution Mode
 
-When `but pull` causes conflicts, affected commits are marked as conflicted.
+When `but pull` causes conflicts, affected commits are marked as conflicted. Agents resolve them
+without entering a mode, with `but resolve conflicts` and `but resolve apply` (see `but skill`).
+Resolution mode below is for running code against a resolution, and it needs
+`gitbutler/workspace`: while a single branch is checked out, `but resolve <commit-id>` refuses.
 
-### Resolution Workflow
+Enter it with `but resolve <commit-id>` (oldest conflicted commit first), edit the files, then run
+`but resolve finish`, or `but resolve cancel` to back out; `but skill` has the steps. Run no other
+`but` mutations until you finish or cancel.
 
-1. **Identify:** the `but pull` summary lists each conflicted commit's ID, oldest first (`but status` also shows them)
-2. **Enter mode:** `but resolve <commit-id>` — it prints the conflict regions with line numbers. With several conflicted commits, resolve the oldest first: finishing a lower commit rebases the ones above it
-3. **Fix conflicts:** Edit files, remove conflict markers (`but resolve status` re-lists what remains when several files are conflicted)
-4. **Finalize:** `but resolve finish` or `but resolve cancel` — finish reports leftover markers and the surviving uncommitted changes, so no follow-up check is needed
-
-### During Resolution
-
-- You're in a special mode focused on that commit
-- Other GitButler operations are limited
-- `but status` shows you're in resolution mode
-- Must finish or cancel before continuing normal work
+**Conflicted submodules:** a conflicted submodule has no markers, and `but resolve finish` refuses while it is unresolved, even to keep the commit's own side. Select it explicitly: check out the wanted commit inside the submodule (or write the file that replaces it) and run `git add -- <path>`, or drop it with `git rm -- <path>`. These are the only git write commands allowed during resolution, and only for the paths `finish` names; never `git commit`. If the submodule directory is empty or missing, do not `git add` it (for a missing one that stages its removal): keep any resolution edits you want and report the conflict. `but resolve cancel --force` abandons the resolution and discards its edits; use it only when those edits can be discarded.
 
 ## Read-Only Git Commands
 
@@ -341,12 +298,10 @@ Git commands that don't modify state are safe to use:
 - `git blame` - See line history
 - `git reflog` - View reference log
 
-**Don't use in a GitButler workspace:**
+**Don't use (in either mode):**
 
-- `git status` - Misleading: shows merged workspace state, not individual stacks; missing CLI IDs that agents need
-- `git commit` - Commits to the workspace merge commit, not your branch
+- `git status` - Missing the CLI IDs that agents need; with several stacks applied it shows the merged workspace state, not individual stacks
+- `git commit` - On `gitbutler/workspace`, GitButler's pre-commit hook refuses it; use `but commit`
 - `git checkout` - Breaks workspace model
 - `git rebase` - Conflicts with GitButler's management
-- `git merge` - Use `but merge` instead
-
-**Rule of thumb:** If it reads, it's fine. If it writes, use `but` instead.
+- `git merge` - `but pull` updates branches from the target; `but merge` lands a branch on the target without review

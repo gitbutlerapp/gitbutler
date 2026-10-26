@@ -439,7 +439,8 @@ pub enum Subcommands {
         /// A commit to enter resolution mode for, or one or more conflicted uncommitted
         /// files (as listed by `but status`) to mark as resolved with their current
         /// worktree content. Resolution mode checks the commit out until `finish` or
-        /// `cancel`; the `conflicts` and `apply` subcommands resolve a commit without it.
+        /// `cancel`, and is refused while a single branch is checked out; the `conflicts` and
+        /// `apply` subcommands resolve a commit without it, in either case.
         targets: Vec<String>,
         /// Resolve the conflicts with the configured AI model and apply the result.
         ///

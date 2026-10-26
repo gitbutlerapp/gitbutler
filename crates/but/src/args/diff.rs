@@ -11,8 +11,8 @@ use crate::args::atoms::CliIdArg;
 #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
 pub struct Platform {
     /// What to diff, by CLI ID: a commit, branch, committed file or hunk, uncommitted file or
-    /// hunk, path prefix, or a worktree's uncommitted area. A commit lists its files and hunks
-    /// with their IDs.
+    /// hunk, path prefix ending in `/`, or a worktree's uncommitted area. A commit lists its
+    /// files and hunks with their IDs.
     ///
     /// If omitted shows the diff of all uncommitted changes of the checkout `but` runs in, with file
     /// and hunk IDs.

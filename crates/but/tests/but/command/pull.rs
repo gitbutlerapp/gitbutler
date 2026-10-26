@@ -1539,6 +1539,26 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn single_branch_pull_points_conflicts_at_resolve_apply() {
+    let env = Sandbox::open_scenario_with_target_and_default_settings(
+        "single-branch-conflict-in-bottom-commit",
+    );
+
+    // `but resolve <commit>` refuses while a branch is checked out, so the
+    // instructions use the commands that resolve without changing HEAD.
+    env.but("pull").assert().success().stdout_eq(str![[r#"
+...
+To resolve conflicts:
+  1. Run `but resolve conflicts` to show the conflicts of the oldest conflicted commit
+  2. Resolve each conflict with `but resolve apply`, as that output describes
+
+To undo this operation:
+  Run `but undo`
+
+"#]]);
+}
+
+#[test]
 fn pull_reports_conflict_in_lower_branch_of_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "pull-conflict-in-lower-branch-of-stack",
@@ -1779,6 +1799,45 @@ fn add_upstream_commit(env: &Sandbox) {
 
 fn contains_target(env: &Sandbox, branch: &str) -> bool {
     env.invoke_git(&format!("merge-base origin/main {branch}")) == rev_parse(env, "origin/main")
+}
+
+#[test]
+fn pull_points_worktree_conflicts_at_their_commit_ids() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
+    enable_worktree_manipulation(&env);
+    // The first read with the flag on archives every worktree already on disk.
+    env.but("status").assert().success();
+    env.invoke_bash(format!(
+        r#"
+        git worktree add -q -b wt-conflict "{wt}" main
+        (cd "{wt}" && echo worktree >upstream.txt && git add upstream.txt && git commit -q -m "add upstream.txt in worktree")
+        "#,
+        wt = env.app_data_dir().join("worktrees/wt-conflict").display()
+    ));
+    add_upstream_commit(&env);
+
+    // Conflicts are looked up by branch in workspace stacks only, so a worktree's conflicted
+    // commit has to be named by its ID.
+    env.but("pull").assert().success().stdout_eq(str![[r#"
+...
+  wt-conflict - conflicted
+
+To resolve conflicts:
+  `wt-conflict` is checked out in a worktree. Take its conflicted commit's ID from `but status`, then run `but resolve conflicts <commit-id>` and `but resolve apply <path>:<N> --commit <commit-id>`
+
+To undo this operation:
+  Run `but undo`
+
+"#]]);
+
+    env.but("resolve conflicts wt-conflict")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Branch "wt-conflict" is checked out in a worktree, where conflicts can't be looked up by branch name yet. Take its conflicted commit's ID from `but status`, then run `but resolve conflicts <commit-id>` and `but resolve apply <path>:<N> --commit <commit-id>`.
+
+"#]]);
 }
 
 #[test]

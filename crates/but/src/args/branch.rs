@@ -72,7 +72,8 @@ pub enum Subcommands {
         /// Show only remote branches
         #[clap(long, short = 'r', conflicts_with = "local")]
         remote: bool,
-        /// Show all branches (not just active + 20 most recent)
+        /// Show all branches (not just active + 20 most recent); empty branches also need
+        /// `--empty`
         #[clap(long, short = 'a')]
         all: bool,
         /// Don't calculate and show number of commits ahead of base (faster)

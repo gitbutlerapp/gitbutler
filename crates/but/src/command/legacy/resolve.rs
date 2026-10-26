@@ -721,6 +721,11 @@ fn target_conflicted_commit(
             CommitOrBranch::Commit(commit_oid) => commit_oid,
             CommitOrBranch::Branch(name) => match conflicts_by_branch.get(&name) {
                 Some(commits) => commits[0].commit_oid,
+                None if is_worktree_branch(&but_api::legacy::workspace::head_info(ctx)?, &name) => {
+                    bail!(
+                        "Branch \"{name}\" is checked out in a worktree, where conflicts can't be looked up by branch name yet. {WORKTREE_CONFLICT_ROUTE}."
+                    )
+                }
                 None => bail!("Branch \"{name}\" has no conflicted commits."),
             },
         },
@@ -1475,6 +1480,21 @@ fn unique_conflict_queue(
         .flatten()
         .filter(|commit| seen.insert(commit.commit_oid))
         .collect()
+}
+
+/// How to reach a conflicted commit on a linked worktree's branch, which
+/// [`find_conflicted_commits`] doesn't walk: by the commit's ID.
+pub(crate) const WORKTREE_CONFLICT_ROUTE: &str = "Take its conflicted commit's ID from `but status`, then run `but resolve conflicts <commit-id>` and `but resolve apply <path>:<N> --commit <commit-id>`";
+
+/// Whether the short branch name `branch` belongs to a linked worktree's lane.
+pub(crate) fn is_worktree_branch(head_info: &but_workspace::RefInfo, branch: &str) -> bool {
+    head_info.worktrees.iter().any(|worktree| {
+        worktree.segments.iter().any(|segment| {
+            segment
+                .ref_name()
+                .is_some_and(|name| name.shorten() == branch)
+        })
+    })
 }
 
 /// Find all conflicted commits across all stacks, grouped by branch
