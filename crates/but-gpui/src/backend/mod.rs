@@ -1441,7 +1441,7 @@ mod lane_tests {
     /// A stack `bottom < middle < top` with a commit each beside an empty `beside`, which keeps
     /// `top` out of the main checkout, and linked worktrees `wt` on `middle` with a commit of
     /// its own, `wt-top` with `top` checked out, and `wt-stacked` on `wt`.
-    fn linked_workspace(test: impl FnOnce(&Path)) {
+    pub(super) fn linked_workspace(test: impl FnOnce(&Path)) {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
             let path = dir.path();
