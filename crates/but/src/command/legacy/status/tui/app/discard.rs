@@ -223,7 +223,7 @@ impl App {
                     Confirm::new(
                         NonEmpty::new(Line::from_iter([
                             Span::raw("Discard branch "),
-                            Span::styled(name.to_string(), self.theme.local_branch),
+                            Span::styled(name, self.theme.local_branch),
                             Span::raw("?"),
                         ])),
                         self.theme,

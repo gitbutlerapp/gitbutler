@@ -120,6 +120,15 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<Hoo
     }
     let had_index = match std::fs::copy(&index_path, &backup_tmp_path) {
         Ok(_) => {
+            // Git compares an index entry's file by content only while the index file isn't
+            // newer than the entry, so the restored index keeps its modified time, which a copy
+            // doesn't on every platform. Otherwise a same-size edit looks committed.
+            let modified = std::fs::metadata(&index_path)?.modified()?;
+            std::fs::File::options()
+                .write(true)
+                .open(&backup_tmp_path)?
+                .set_modified(modified)
+                .context("failed to keep the index's modified time in its backup")?;
             std::fs::rename(&backup_tmp_path, &backup_path)
                 .context("failed to finalize pre-commit index backup")?;
             true

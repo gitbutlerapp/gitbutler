@@ -688,7 +688,7 @@ fn branch_details(request: BranchDetailsRequest) -> Result<BranchDetailsView> {
     let last_updated_at = commits.iter().map(|commit| commit.committed_at).max();
     let is_conflicted = commits.iter().any(|commit| commit.has_conflicts);
     let details = BranchSelectionDetails {
-        name: branch_name.to_owned(),
+        name: branch_name,
         reference: request.branch,
         remote_tracking_branch: reference
             .status
@@ -891,6 +891,7 @@ impl ForgeRepository {
                 &self.repository,
                 &self.storage,
                 reference,
+                None,
                 db,
                 Some(but_forge::CacheConfig::NoCache),
             )

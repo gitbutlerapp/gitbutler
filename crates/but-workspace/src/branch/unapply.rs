@@ -132,6 +132,7 @@ pub(crate) mod function {
     use std::borrow::Cow;
 
     use but_core::{ObjectStorageExt as _, RefMetadata, RepositoryExt as _};
+    use but_error::{AnyhowContextExt as _, Code};
     use but_graph::init::Overlay;
     use gix::{
         prelude::ObjectIdExt,
@@ -344,7 +345,7 @@ pub(crate) mod function {
         // Update the workspace *only* after a successful workspace commit merge.
         let overlay = Overlay::default()
             .with_dropped_references([branch.to_owned()])
-            .with_workspace_metadata_override(Some((workspace_ref_name.to_owned(), ws_md.clone())));
+            .with_workspace_metadata_override(Some((workspace_ref_name, ws_md.clone())));
         let ws = ws
             .graph
             .redo_traversal_with_overlay(repo, meta, overlay)?
@@ -361,52 +362,25 @@ pub(crate) mod function {
                 branch.shorten()
             );
         }
-        match ref_to_checkout_after_workspace_deletion(&ws, workspace_disposition)? {
-            Some(ref_to_switch_to) => {
-                // The rebuilt workspace can be discarded entirely, switching to another branch.
-                safe_checkout_ref_to_checkout(
-                    repo,
-                    &ref_to_switch_to,
-                    but_core::worktree::checkout::Options {
-                        // We will be setting the HEAD ourselves.
-                        skip_head_update: true,
-                        ..Default::default()
-                    },
-                )?;
-                switch_head_and_delete_workspace_ref(
-                    repo,
-                    ref_to_switch_to.ref_name.as_ref(),
-                    workspace_ref_name.as_ref(),
-                    ws.tip_commit()
-                        .context("BUG: unborn should be impossible here")?
-                        .id,
-                )?;
-                // Keep the workspace metadata or we lose the target branch.
-                // Currently that's a problem, so deal with it later.
-
-                let overlay = Overlay::default()
-                    .with_entrypoint(
-                        ref_to_switch_to.commit_id,
-                        Some(ref_to_switch_to.ref_name.clone()),
-                    )
-                    .with_dropped_references([branch.to_owned()]);
-                let ws = ws
-                    .graph
-                    .redo_traversal_with_overlay(repo, meta, overlay)?
-                    .into_workspace()?;
-
-                Ok(Outcome {
-                    workspace: Cow::Owned(ws),
-                    checked_out: Some(ref_to_switch_to.ref_name),
-                    workspace_merge: None,
-                })
-            }
-            None => Ok(Outcome {
+        if workspace_disposition.may_delete_workspace_reference()
+            && let Some((ws, checked_out)) = dissolve_unnecessary_workspace(
+                &ws,
+                repo,
+                meta,
+                Overlay::default().with_dropped_references([branch.to_owned()]),
+            )?
+        {
+            return Ok(Outcome {
                 workspace: Cow::Owned(ws),
-                checked_out: None,
-                workspace_merge,
-            }),
+                checked_out: Some(checked_out),
+                workspace_merge: None,
+            });
         }
+        Ok(Outcome {
+            workspace: Cow::Owned(ws),
+            checked_out: None,
+            workspace_merge,
+        })
     }
 
     /// Update the managed workspace reference after metadata has removed the branch.
@@ -760,23 +734,76 @@ pub(crate) mod function {
         Ok(())
     }
 
-    /// Determine whether unapply should delete the workspace reference and switch `HEAD` to a regular ref.
+    /// Check out the only stack of the managed workspace `ws`, or its local target branch if it has
+    /// no stacks, and delete the workspace reference as it serves no purpose anymore.
+    ///
+    /// `ws` is the source of truth for the stack shape, including virtual stacks, so it must be
+    /// projected from the workspace reference as it is now. `overlay` is applied when reprojecting
+    /// from the new checkout. Workspace metadata is kept so the target branch isn't lost.
+    ///
+    /// Return the reprojected workspace and the checked-out ref, or `None` if `ws` isn't managed,
+    /// still needs its reference, or the checkout is refused because the destination is a
+    /// conflicted commit or would overwrite uncommitted changes, in which case nothing changes.
+    pub fn dissolve_unnecessary_workspace(
+        ws: &but_graph::Workspace,
+        repo: &gix::Repository,
+        meta: &impl RefMetadata,
+        overlay: Overlay,
+    ) -> anyhow::Result<Option<(but_graph::Workspace, FullName)>> {
+        let Some(workspace_ref_name) = ws.ref_name().filter(|_| ws.kind.has_managed_ref()) else {
+            return Ok(None);
+        };
+        let Some(ref_to_switch_to) = ref_to_checkout_after_workspace_deletion(ws)? else {
+            return Ok(None);
+        };
+        if let Err(err) = but_core::worktree::safe_checkout_from_head(
+            ref_to_switch_to.commit_id,
+            repo,
+            but_core::worktree::checkout::Options {
+                // We will be setting the HEAD ourselves.
+                skip_head_update: true,
+                ..Default::default()
+            },
+        ) {
+            // A refused checkout changed nothing, so the workspace stays to hold what's in the way.
+            return match err.custom_context().map(|ctx| ctx.code) {
+                Some(Code::PreconditionFailed | Code::ConflictedCommitCheckout) => Ok(None),
+                _ => Err(err),
+            };
+        }
+        switch_head_and_delete_workspace_ref(
+            repo,
+            ref_to_switch_to.ref_name.as_ref(),
+            workspace_ref_name,
+            ws.tip_commit()
+                .context("BUG: unborn should be impossible here")?
+                .id,
+        )?;
+        // Keep the workspace metadata or we lose the target branch.
+        // Currently that's a problem, so deal with it later.
+
+        let overlay = overlay.with_entrypoint(
+            ref_to_switch_to.commit_id,
+            Some(ref_to_switch_to.ref_name.clone()),
+        );
+        let ws = ws
+            .graph
+            .redo_traversal_with_overlay(repo, meta, overlay)?
+            .into_workspace()?;
+        Ok(Some((ws, ref_to_switch_to.ref_name)))
+    }
+
+    /// Determine whether the workspace reference can be deleted, switching `HEAD` to a regular ref.
     ///
     /// `ws` is the current workspace projection after the managed workspace ref was already
     /// updated and re-projected. It is the source of truth for the resulting stack shape, including
-    /// virtual stacks. `disposition` controls whether deleting the workspace reference is allowed
-    /// at all.
+    /// virtual stacks.
     ///
     /// Return the ref to check out after deleting the workspace ref, or `None` if the workspace
     /// reference must remain checked out.
     fn ref_to_checkout_after_workspace_deletion(
         ws: &but_graph::Workspace,
-        disposition: WorkspaceDisposition,
     ) -> anyhow::Result<Option<RefToCheckout>> {
-        if !disposition.may_delete_workspace_reference() {
-            return Ok(None);
-        }
-
         match ws.stacks.first() {
             None => {
                 if let Some(fallback) = local_target_to_checkout(ws)? {

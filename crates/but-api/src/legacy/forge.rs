@@ -723,9 +723,9 @@ mod tests {
     }
 
     fn numbered_targets(
-        groups: Vec<Vec<but_forge::ForgeReviewUpdate>>,
+        groups: Vec<Vec<(gix::refs::FullName, but_forge::ForgeReviewTargetUpdate)>>,
     ) -> Vec<Vec<(i64, Option<String>)>> {
-        groups
+        without_refs(groups)
             .into_iter()
             .map(|group| {
                 group
@@ -847,6 +847,31 @@ mod tests {
             review_creation_target(&ctx, w.as_ref())
                 .is_err_and(|err| err.to_string().contains("remote ancestry does not match")),
             "a pushed worktree missing the commit it rests on has not pushed what it stacks on"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_review_created_alone_is_not_synced_after_creation() -> Result<()> {
+        let (ctx, _tmp) = context_with_worktree_on_reviewed_stack_at("main")?;
+        let after_creation = |branch: &str| {
+            let branch = gix::refs::Category::LocalBranch.to_full_name(branch);
+            sync_review_stack_after_review_creation(ctx.to_sync(), branch.expect("valid name"))
+        };
+
+        assert!(
+            matches!(
+                after_creation("W").await,
+                but_forge::ReviewSyncOutcome::NotNeeded
+            ),
+            "the worktree's review rests on the target alone, so the forge isn't asked"
+        );
+        assert!(
+            matches!(
+                after_creation("B").await,
+                but_forge::ReviewSyncOutcome::Failed { .. }
+            ),
+            "a stack of reviews is still synced, which fails here as the fixture has no forge"
         );
         Ok(())
     }
@@ -1557,6 +1582,17 @@ pub fn list_ci_checks_for_ref(
     reference: &str,
     cache_config: Option<but_forge::CacheConfig>,
 ) -> Result<Vec<but_forge::CiCheck>> {
+    ci_checks(ctx, reference, None, cache_config)
+}
+
+/// [`list_ci_checks_for_ref`], asking the forge about `head_commit` instead of
+/// `reference` when set.
+fn ci_checks(
+    ctx: &Context,
+    reference: &str,
+    head_commit: Option<&str>,
+    cache_config: Option<but_forge::CacheConfig>,
+) -> Result<Vec<but_forge::CiCheck>> {
     let (storage, forge_repo_info, preferred_forge_user) = {
         let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
@@ -1578,6 +1614,7 @@ pub fn list_ci_checks_for_ref(
         &forge_repo_info.context("No forge could be determined for this repository branch")?,
         &storage,
         reference,
+        head_commit,
         db,
         cache_config,
     )
@@ -2167,7 +2204,17 @@ pub async fn sync_review_stack_for_branch(
         let ctx = ctx.clone().into_thread_local();
         review_update_groups_for_branch(&ctx, branch.as_ref())
     };
-    sync_review_update_groups(ctx, update_groups).await
+    sync_review_update_groups(ctx, update_groups.map(without_refs)).await
+}
+
+/// `groups` as the forge takes them, without the branch each update is for.
+fn without_refs(
+    groups: Vec<Vec<(gix::refs::FullName, but_forge::ForgeReviewTargetUpdate)>>,
+) -> Vec<Vec<but_forge::ForgeReviewUpdate>> {
+    groups
+        .into_iter()
+        .map(|group| group.into_iter().map(|(_, update)| update.into()).collect())
+        .collect()
 }
 
 async fn sync_review_update_groups(
@@ -2240,11 +2287,23 @@ pub async fn sync_review_stack_for_review(
 }
 
 /// Synchronize the complete workspace review stack containing a newly-created review.
+///
+/// A review alone in its group has no stack to link or describe, and was created with the
+/// target the group gives it, so `branch`'s review standing alone is left out rather than
+/// asking the forge to change nothing.
 pub async fn sync_review_stack_after_review_creation(
     ctx: ThreadSafeContext,
     branch: gix::refs::FullName,
 ) -> but_forge::ReviewSyncOutcome {
-    sync_review_stack_for_branch(ctx, branch).await
+    let update_groups = {
+        let ctx = ctx.clone().into_thread_local();
+        review_update_groups_for_branch(&ctx, branch.as_ref())
+    };
+    let update_groups = update_groups.map(|groups| {
+        let alone = |group: &Vec<_>| matches!(group.as_slice(), [(name, _)] if *name == branch);
+        without_refs(groups.into_iter().filter(|group| !alone(group)).collect())
+    });
+    sync_review_update_groups(ctx, update_groups).await
 }
 
 fn review_updates_after_push(
@@ -2317,7 +2376,7 @@ fn review_updates_after_push(
 fn review_update_groups_for_branch(
     ctx: &Context,
     branch: &gix::refs::FullNameRef,
-) -> Result<Vec<Vec<but_forge::ForgeReviewUpdate>>> {
+) -> Result<Vec<Vec<(gix::refs::FullName, but_forge::ForgeReviewTargetUpdate)>>> {
     let base_branch = remote_target_short_name(&ctx.project_meta()?, &*ctx.repo.get()?)?;
     let info = crate::legacy::workspace::head_info(ctx)?;
     let chain = lane_chain_for_branch(&info, branch)?;
@@ -2327,7 +2386,6 @@ fn review_update_groups_for_branch(
         .flat_map(|(lane, _)| {
             review_update_groups_for_lane(&info, lane, &base_branch, &open_reviews)
         })
-        .map(|group| group.into_iter().map(|(_, update)| update.into()).collect())
         .collect())
 }
 
@@ -2668,16 +2726,14 @@ pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
 
     // Collect branch references that have CI checks cached
     let mut current_refs = std::collections::HashSet::new();
+    let reviews = but_forge::list_cached_forge_reviews(&*ctx.db.get_cache()?)?;
 
     // Process each branch that has a PR
     for segment in workspace.lanes().flat_map(|lane| lane.segments) {
-        let has_pull_request = segment
-            .metadata
-            .as_ref()
-            .is_some_and(|meta| meta.review.pull_request.is_some());
-        if !has_pull_request {
+        let Some(number) = (segment.metadata.as_ref()).and_then(|meta| meta.review.pull_request)
+        else {
             continue;
-        }
+        };
         let Some(name) = segment
             .ref_info
             .as_ref()
@@ -2685,9 +2741,19 @@ pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
         else {
             continue;
         };
+        // A fork's branch isn't in the base repository, so ask about its review's head commit.
+        let head_commit = (reviews.iter())
+            .find(|review| review.number as usize == number && review.head_repo_is_fork)
+            .map(|review| review.sha.as_str())
+            .filter(|sha| !sha.is_empty());
 
         // Fetch CI checks with NoCache to force refresh
-        let _ = list_ci_checks(ctx, name.clone(), Some(but_forge::CacheConfig::NoCache));
+        let _ = ci_checks(
+            ctx,
+            &name,
+            head_commit,
+            Some(but_forge::CacheConfig::NoCache),
+        );
         // Ignore errors for individual branches to ensure we process all branches
 
         // Track this reference as having CI checks

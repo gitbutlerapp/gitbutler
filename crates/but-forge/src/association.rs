@@ -32,16 +32,40 @@ pub fn review_for_head_ref(
 /// (lowercased hex), absent for open/closed reviews and unreported heads.
 pub type ReviewAssociation = (usize, bool, Option<String>);
 
-/// Build a lookup from a branch's remote/pushed short name to the preferred
-/// cached review's `(number, is open, merged head)`.
+/// Build a lookup from a remote-tracking branch's short name in `repo`, like
+/// `origin/my-feature`, to the preferred cached review's `(number, is open,
+/// merged head)`.
+///
+/// A review from a fork is listed only under remotes that fetch from or push to
+/// that fork, so a branch never picks up a same-named review from someone else's
+/// fork. Every other review is listed under every remote and matches by branch
+/// name alone, as are fork reviews when the forge doesn't report the head
+/// repository or a remote's URLs name no forge repository.
 ///
 /// The merged head is the review's source commit (lowercased hex) when the
 /// review merged, letting the projection recognize a branch whose tip landed
 /// exactly while integration detection still lags a fetch.
 pub fn review_associations_by_head(
     db: &but_db::DbHandle,
+    repo: &gix::Repository,
 ) -> anyhow::Result<HashMap<String, ReviewAssociation>> {
-    Ok(reviews_by_head(db)?
+    let reviews = crate::list_cached_forge_reviews(db)?;
+    let remotes = remote_repos(repo);
+    let mut fork_repos = HashMap::new();
+    let mut by_head: HashMap<String, &ForgeReview> = HashMap::new();
+    for review in &reviews {
+        let fork_repo = fork_repo(review, &mut fork_repos);
+        for (remote, remote_repos) in &remotes {
+            if !remote_may_have(fork_repo.as_ref(), remote_repos) {
+                continue;
+            }
+            let head = format!("{remote}/{}", review.source_branch);
+            if is_preferred(review, by_head.get(&head).copied()) {
+                by_head.insert(head, review);
+            }
+        }
+    }
+    Ok(by_head
         .into_iter()
         .filter_map(|(head, review)| {
             let number = usize::try_from(review.number).ok()?;
@@ -54,6 +78,77 @@ pub fn review_associations_by_head(
         .collect())
 }
 
+/// `reviews` without those from forks that no remote of `repo` fetches from or
+/// pushes to, which are someone else's whatever their branch is called. Use it
+/// before matching reviews to branches by name alone.
+pub fn without_unrelated_forks(
+    mut reviews: Vec<ForgeReview>,
+    repo: &gix::Repository,
+) -> Vec<ForgeReview> {
+    let remotes = remote_repos(repo);
+    let mut fork_repos = HashMap::new();
+    reviews.retain(|review| {
+        let fork_repo = fork_repo(review, &mut fork_repos);
+        fork_repo.is_none()
+            || (remotes.iter())
+                .any(|(_, remote_repos)| remote_may_have(fork_repo.as_ref(), remote_repos))
+    });
+    reviews
+}
+
+/// Each remote of `repo` by name, with the forge repositories it fetches from and
+/// pushes to, as a remote can fetch from one repository and push to a fork.
+fn remote_repos(repo: &gix::Repository) -> Vec<(String, Vec<crate::ForgeRepoInfo>)> {
+    (repo.remote_names().iter())
+        .map(|name| {
+            let remote = repo.find_remote(&**name).ok();
+            let remote_repos = [gix::remote::Direction::Fetch, gix::remote::Direction::Push]
+                .into_iter()
+                .filter_map(|direction| {
+                    let url = remote.as_ref()?.url(direction)?.to_bstring().to_string();
+                    crate::derive_forge_repo_info(&url, None)
+                })
+                .collect();
+            (name.to_string(), remote_repos)
+        })
+        .collect()
+}
+
+/// The fork `review` comes from, if it reports one, parsed once per fork into
+/// `fork_repos` as forks open many reviews each. Base-repository reviews have
+/// none, so a remote whose URL renames the repository, like an old name or an
+/// SSH alias, keeps them.
+fn fork_repo(
+    review: &ForgeReview,
+    fork_repos: &mut HashMap<String, Option<crate::ForgeRepoInfo>>,
+) -> Option<crate::ForgeRepoInfo> {
+    let url = (review.repository_https_url.as_ref())
+        .or(review.repository_ssh_url.as_ref())
+        .filter(|_| review.head_repo_is_fork)?;
+    (fork_repos.entry(url.clone()))
+        .or_insert_with(|| crate::derive_forge_repo_info(url, None))
+        .clone()
+}
+
+/// Whether a branch on a remote with `remote_repos` can have a review from
+/// `fork_repo`. Without a fork, or when the remote's URLs name no forge
+/// repository, it can, and the branch name alone decides.
+fn remote_may_have(
+    fork_repo: Option<&crate::ForgeRepoInfo>,
+    remote_repos: &[crate::ForgeRepoInfo],
+) -> bool {
+    fork_repo.is_none_or(|fork_repo| {
+        remote_repos.is_empty()
+            || (remote_repos.iter()).any(|remote_repo| same_owner_and_name(fork_repo, remote_repo))
+    })
+}
+
+/// Whether `a` and `b` have the same owner and name, ignoring case as the forges
+/// do. Hosts aren't compared, as an SSH alias like `github.com-work` renames them.
+fn same_owner_and_name(a: &crate::ForgeRepoInfo, b: &crate::ForgeRepoInfo) -> bool {
+    a.owner.eq_ignore_ascii_case(&b.owner) && a.repo.eq_ignore_ascii_case(&b.repo)
+}
+
 /// Build a lookup from a branch's remote/pushed short name to its associated
 /// review, so a projection can resolve many branches in one pass without a cache
 /// read per branch.
@@ -64,14 +159,16 @@ pub fn reviews_by_head(db: &but_db::DbHandle) -> anyhow::Result<HashMap<String, 
     let reviews = crate::list_cached_forge_reviews(db)?;
     let mut map: HashMap<String, ForgeReview> = HashMap::new();
     for review in reviews {
-        let replace = map
-            .get(&review.source_branch)
-            .is_none_or(|existing| preference(&review) >= preference(existing));
-        if replace {
+        if is_preferred(&review, map.get(&review.source_branch)) {
             map.insert(review.source_branch.clone(), review);
         }
     }
     Ok(map)
+}
+
+/// Whether `review` should replace `existing` for the same head.
+fn is_preferred(review: &ForgeReview, existing: Option<&ForgeReview>) -> bool {
+    existing.is_none_or(|existing| preference(review) >= preference(existing))
 }
 
 /// Ranking used to pick between multiple cached reviews that share a

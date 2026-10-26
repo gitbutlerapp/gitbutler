@@ -9,64 +9,40 @@ import {
 } from "./entityAvatarChoices.ts";
 import { Dropdown, PopupEmpty, PopupSearch, PopupSection } from "./Popup.tsx";
 import { ScrollArea } from "./ScrollArea.tsx";
-import { useId, useState, type ComponentProps, type FC } from "react";
+import { useState, type ComponentProps, type FC } from "react";
 
 /** `regular` is 38px, an avatar on its own; `title` a 16px glyph on a 24px ground, beside a title. */
 export type EntityAvatarSize = "title" | "regular";
 
 /**
  * The repository glyph an entity wears, as ⚛️ Core draws it: the `repo` icon's outline in the text
- * colour, or its shape filled with one of six hues, a gradient from the hue's 70 step down to its
- * 60 (gray from 60 to 20), the same in light and dark. `size` sets it in pixels where it stands on
- * its own, as in a sidebar row; inside an `EntityAvatar` the avatar's size sets it.
+ * colour, or a book in one of six hues, its cover filled and edged in a deeper shade over a cream
+ * page, the same in light and dark. Its edges keep the icons' 1.5px line at any size. `size` sets it in pixels where it stands on its own, as in a
+ * sidebar row; inside an `EntityAvatar` the avatar's size sets it.
  * @import import { EntityGlyph } from "@gitbutler/ui-react/EntityAvatar.tsx";
  */
 export const EntityGlyph: FC<{ colour: EntityAvatarColour; size?: number }> = ({
 	colour,
 	size,
-}) => {
-	// Many glyphs can share a page, so each gradient needs an id of its own.
-	const gradientId = useId();
-
-	return (
-		<svg
-			className={styles.glyph}
-			viewBox="0 0 16 16"
-			fill="none"
-			aria-hidden
-			{...(size !== undefined ? { width: size, height: size } : undefined)}
-		>
-			{colour === "outline" ? (
-				<path
-					d="M14.75 14.75H4C2.48 14.75 1.25 13.52 1.25 12V4C1.25 2.48 2.48 1.25 4 1.25H14.75V14.75ZM4 2.75C3.31 2.75 2.75 3.31 2.75 4V12C2.75 12.69 3.31 13.25 4 13.25H13.25V2.75H4ZM7 12H5V10H7V12ZM7 9H5V7H7V9ZM7 6H5V4H7V6Z"
-					fill="currentColor"
-				/>
-			) : (
-				<>
-					<path
-						fillRule="evenodd"
-						d="M14.75 14.75H4C2.48 14.75 1.25 13.52 1.25 12V4C1.25 2.48 2.48 1.25 4 1.25H14.75V14.75ZM5 10V12H7V10H5ZM5 9H7V7H5V9ZM5 6H7V4H5V6Z"
-						fill={`url(#${gradientId})`}
-					/>
-					<defs>
-						<linearGradient
-							id={gradientId}
-							className={styles[colour]}
-							x1="8"
-							y1="1.25"
-							x2="8"
-							y2="14.75"
-							gradientUnits="userSpaceOnUse"
-						>
-							<stop className={styles.top} />
-							<stop offset="1" className={styles.bottom} />
-						</linearGradient>
-					</defs>
-				</>
-			)}
-		</svg>
-	);
-};
+}) => (
+	<svg
+		className={classes(styles.glyph, styles[colour])}
+		viewBox="0 0 16 16"
+		fill="none"
+		aria-hidden
+		{...(size !== undefined ? { width: size, height: size } : undefined)}
+	>
+		{colour !== "outline" && (
+			<path className={styles.cover} d="M14 1.5H4C2.89543 1.5 2 2.39543 2 3.5V12.5H14V1.5Z" />
+		)}
+		<path className={styles.edge} d="M14 12.5V1.5H4C2.89543 1.5 2 2.39543 2 3.5V12.5" />
+		<path
+			className={classes(styles.page, styles.edge)}
+			d="M14 10.5H4C2.89543 10.5 2 11.3954 2 12.5C2 13.6046 2.89543 14.5 4 14.5H14V10.5Z"
+		/>
+		<path className={styles.windows} d="M4 3.5H6V4.5H4ZM4 5.5H6V6.5H4ZM4 7.5H6V8.5H4Z" />
+	</svg>
+);
 
 /**
  * What an entity — a project, a machine, a cloud session — wears in place of a photo: the

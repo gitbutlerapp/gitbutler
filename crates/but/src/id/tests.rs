@@ -3530,7 +3530,7 @@ fn uncommitted_selector_is_not_shadowed_by_commit_change_id() -> anyhow::Result<
         .all_ids()
         .into_iter()
         .find_map(|cli_id| match cli_id {
-            CliId::UncommittedHunkOrFile(uncommitted) => Some(uncommitted.id.clone()),
+            CliId::UncommittedHunkOrFile(uncommitted) => Some(uncommitted.id),
             _ => None,
         })
         .expect("one uncommitted file");

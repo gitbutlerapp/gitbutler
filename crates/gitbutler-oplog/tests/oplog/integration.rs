@@ -1086,6 +1086,36 @@ fn restore_keeps_index_stat_of_untouched_files() -> anyhow::Result<()> {
 }
 
 #[test]
+fn restore_keeps_a_sparse_checkout_sparse() -> anyhow::Result<()> {
+    let Test { repo, ctx } = &mut Test::from_scenario("one-stack-two-commits", &["A"]);
+    // As `git sparse-checkout` leaves a file out of the worktree.
+    repo.invoke_git("update-index --skip-worktree first");
+    fs::remove_file(repo.projects_root().join("first"))?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+
+    ctx.restore_snapshot(
+        snapshot,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+
+    // Unmarked, the file would show as deleted, and committing everything would delete it.
+    snapbox::assert_data_eq!(
+        repo.invoke_git("ls-files -v first"),
+        snapbox::str!["S first"]
+    );
+    assert!(
+        !repo.projects_root().join("first").exists(),
+        "the file stays out of the worktree"
+    );
+    Ok(())
+}
+
+#[test]
 fn restore_round_trips_workspace_and_ad_hoc_checkouts() -> anyhow::Result<()> {
     let Test { repo, ctx } = &mut Test::default();
     let repo = repo.open_repo();

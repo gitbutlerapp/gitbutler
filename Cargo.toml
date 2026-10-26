@@ -108,6 +108,7 @@ members = [
     "crates/but-server",
     # Should be reviewed to mostly use `but-api`, to be renamed to `but-tauri` or something.
     "crates/gitbutler-tauri",
+    "crates/but-gpui", # An experimental native client on GPUI.
     # GitButler installation binary
     "crates/but-installer",
     # Documentation binary
@@ -270,6 +271,8 @@ hex = "0.4.3"
 indexmap = "2"
 md5 = "0.8.0"
 sha2 = "0.10"
+# The CLI and the GPUI client share one build, so both get the async client.
+posthog-rs = { version = "0.27.1", default-features = false, features = ["async-client"] }
 base64 = "0.22"
 bitflags = "2.11.1"
 notify = "8.2.0"
@@ -321,6 +324,9 @@ sapling-renderdag = "0.1.0"
 # This is relevant to force `git-meta` to use our version.
 gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "4dc73c31afa936828fca5bbf69ada5a94c480d43" }
 git2 = { git = "https://github.com/gitbutlerapp/git2-rs", rev = "a87a7bb3f6843504339fe7434ee0732a3e968f3e" }
+# GPUI's Linux event loop, as Zed patches it: each turn runs queued tasks for about 10ms, then
+# lets input and frames through, rather than run them all. Only GPUI uses it.
+calloop = { git = "https://github.com/zed-industries/calloop", rev = "3759371fee14c40066d64777e2a36b6ffcc22590" }
 
 [workspace.lints.clippy]
 # Note that `all` doesn't include everything, so extra lints should be added here.
@@ -334,6 +340,9 @@ unnecessary_mut_passed = "warn"
 needless_borrow = "warn"
 explicit_auto_deref = "warn"
 uninlined_format_args = "warn"
+# From `nursery`, so not in `all`: a clone of a value that's never used again, as when one is
+# cloned into a closure that could have taken the value itself.
+redundant_clone = "deny"
 
 [profile.release]
 # There are no overrides here as we optimise for fast release builds,
@@ -380,6 +389,21 @@ sirocco = { opt-level = 3 }
 adler32furious = { opt-level = 3 }
 serde = { opt-level = 3 }
 serde_json = { opt-level = 3 }
+# The GPUI client's layout, drawing, images and diff highlighting are slow unoptimised.
+gpui = { opt-level = 3 }
+gpui_macos = { opt-level = 3 }
+gpui_apple = { opt-level = 3 }
+sum_tree = { opt-level = 3 }
+taffy = { opt-level = 3 }
+resvg = { opt-level = 3 }
+usvg = { opt-level = 3 }
+tiny-skia = { opt-level = 3 }
+image = { opt-level = 3 }
+png = { opt-level = 3 }
+zune-jpeg = { opt-level = 3 }
+syntect = { opt-level = 3 }
+fancy-regex = { opt-level = 3 }
+regex-automata = { opt-level = 3 }
 # This one is special as we can run into debug assertions otherwise.
 # They have a time, but let's chose the time instead of always being hit by it.
 gix-merge = { opt-level = 3, debug-assertions = false }
@@ -387,3 +411,35 @@ gix-merge = { opt-level = 3, debug-assertions = false }
 [profile.release.package.but-installer]
 opt-level = "z" # Optimize for size instead of speed
 strip = true    # Strip symbols from binary
+
+# The GPUI client's frames are drawn by these, and its diffs highlighted and annotated by the
+# last few, so they're built for speed even when the rest is built for size, as the nightly and
+# stable builds are and as Zed builds its UI crates. Of the desktop app's other code, only the
+# CLI's highlighting shares any of them, which only gets faster.
+[profile.release.package]
+but-gpui = { opt-level = 3 }
+gpui = { opt-level = 3 }
+gpui_apple = { opt-level = 3 }
+gpui_macos = { opt-level = 3 }
+gpui_platform = { opt-level = 3 }
+gpui_shared_string = { opt-level = 3 }
+gpui_util = { opt-level = 3 }
+scheduler = { opt-level = 3 }
+sum_tree = { opt-level = 3 }
+collections = { opt-level = 3 }
+refineable = { opt-level = 3 }
+taffy = { opt-level = 3 }
+etagere = { opt-level = 3 }
+rustybuzz = { opt-level = 3 }
+ttf-parser = { opt-level = 3 }
+zed-font-kit = { opt-level = 3 }
+resvg = { opt-level = 3 }
+usvg = { opt-level = 3 }
+tiny-skia = { opt-level = 3 }
+tiny-skia-path = { opt-level = 3 }
+syntect = { opt-level = 3 }
+onig = { opt-level = 3 }
+onig_sys = { opt-level = 3 }
+regex-automata = { opt-level = 3 }
+deltoids = { opt-level = 3 }
+tree-sitter = { opt-level = 3 }

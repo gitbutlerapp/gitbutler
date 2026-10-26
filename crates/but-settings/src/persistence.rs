@@ -153,7 +153,7 @@ mod tests {
         let settings: serde_json::Value =
             serde_json_lenient::from_str(crate::persistence::DEFAULTS).unwrap();
         let app_settings: Result<super::AppSettings, serde_json::Error> =
-            serde_json::from_value(settings.clone());
+            serde_json::from_value(settings);
         if app_settings.is_err() {
             println!(
                 "\n==========================================================================================="

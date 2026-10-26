@@ -47,7 +47,7 @@ impl From<TreeChange> for DiffSpec {
     fn from(change: crate::TreeChange) -> Self {
         Self {
             previous_path: change.previous_path().map(ToOwned::to_owned),
-            path: change.path.to_owned(),
+            path: change.path,
             hunk_headers: vec![],
         }
     }

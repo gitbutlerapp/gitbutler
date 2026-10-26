@@ -43,7 +43,7 @@ fn branch_name_segment_attaches_the_detached_linked_worktree() -> anyhow::Result
     let linked = gix::open(&worktree_path)?;
     assert_eq!(
         linked.head_name()?,
-        Some(result.new_ref.clone()),
+        Some(result.new_ref),
         "the linked worktree is attached to the canned branch"
     );
     assert_eq!(linked.head_id()?, top, "naming moves no commits");

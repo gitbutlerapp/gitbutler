@@ -22,6 +22,25 @@ impl TelemetrySettings {
             .then(|| self.app_distinct_id.clone())
             .flatten()
     }
+
+    /// The ID metrics are sent under: the stored one, or else one derived from the machine,
+    /// which every app on it that hasn't stored one shares.
+    pub fn distinct_id(&self) -> String {
+        self.app_distinct_id
+            .clone()
+            .unwrap_or_else(machine_distinct_id)
+    }
+}
+
+fn machine_distinct_id() -> String {
+    if let Ok(id) = machine_uid::get() {
+        format!(
+            "machine_{:x}",
+            <sha2::Sha256 as sha2::Digest>::digest(format!("{}{}", id, "gitbutler").as_bytes())
+        )
+    } else {
+        "anonymous".to_string()
+    }
 }
 but_schemars::register_sdk_type!(TelemetrySettings);
 
@@ -48,6 +67,9 @@ pub struct FeatureFlags {
     pub tui_file_browser: bool,
     /// Enable experimental worktree manipulation support.
     pub worktree_manipulation: bool,
+    /// Open the experimental native client (GPUI) instead of the web app when GitButler
+    /// starts, on macOS builds that include it.
+    pub gpui: bool,
 }
 but_schemars::register_sdk_type!(FeatureFlags);
 

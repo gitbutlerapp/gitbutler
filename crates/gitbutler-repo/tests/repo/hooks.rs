@@ -73,6 +73,31 @@ fn pre_commit_refuses_a_concurrent_index_swap() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn pre_commit_keeps_the_index_modified_time() -> anyhow::Result<()> {
+    let test_project = RepoWithOrigin::default();
+    let workdir = test_project.local_repo.workdir().expect("non-bare");
+    let ctx = context_for_repo(workdir);
+    let index_path = ctx.gitdir.join("index");
+    let modified =
+        std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000);
+    fs::File::options()
+        .write(true)
+        .open(&index_path)?
+        .set_modified(modified)?;
+    let tree_id = ctx.repo.get()?.head_tree_id_or_empty()?.detach();
+
+    pre_commit_with_tree(&ctx, tree_id)?;
+
+    assert_eq!(
+        fs::metadata(&index_path)?.modified()?,
+        modified,
+        "Git takes a same-size edit made in the same clock tick as its index entry for unchanged \
+         once the index file is newer than the entry"
+    );
+    Ok(())
+}
+
 #[cfg(unix)]
 #[test]
 fn pre_commit_propagates_index_restore_failure() -> anyhow::Result<()> {

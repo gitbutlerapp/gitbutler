@@ -60,7 +60,7 @@ fn construct_new_squashed_commit<'ws, 'meta, M: RefMetadata>(
     let target_parent_ids = parent_commit_ids(&editor, target_selector)?;
 
     let new_commit = {
-        let mut squashed_commit = target_commit.clone();
+        let mut squashed_commit = target_commit;
         squashed_commit.inner.parents = target_parent_ids.into();
         squashed_commit.tree = squashed_tree.tree_id;
         squashed_commit.message = combined_message.into();

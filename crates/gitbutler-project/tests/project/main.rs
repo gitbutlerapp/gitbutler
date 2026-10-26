@@ -128,6 +128,26 @@ mod add {
         }
 
         #[test]
+        fn twice_by_its_path_in_another_case() {
+            let data_dir = support::data_dir();
+            let repo = support::TestProject::default();
+            let path = repo.path();
+            let name = path.file_name().unwrap().to_str().unwrap();
+            let other_case = path.with_file_name(name.to_uppercase());
+            if !other_case.exists() {
+                return; // The filesystem tells case apart, so it's another folder.
+            }
+            gitbutler_project::add_at_app_data_dir(data_dir.path(), path).unwrap();
+
+            let outcome =
+                gitbutler_project::add_at_app_data_dir(data_dir.path(), &other_case).unwrap();
+            assert!(
+                matches!(outcome, AddProjectOutcome::AlreadyExists(_)),
+                "the folder is the same, so a second project would share its repository"
+            );
+        }
+
+        #[test]
         fn bare() {
             let data_dir = support::data_dir();
             let tmp = tempfile::tempdir().unwrap();
@@ -335,6 +355,36 @@ mod delete {
 "#]]
         );
 
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn keeps_what_another_project_of_the_same_repository_uses() -> anyhow::Result<()> {
+        let data_dir = support::data_dir();
+        let repo = support::TestProject::default();
+        let project =
+            gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())?.unwrap_project();
+        let gb_dir = project.open_isolated_repo()?.gitbutler_storage_path()?;
+        // The same repository added again by another spelling of its path, as could happen
+        // before spellings were compared.
+        let elsewhere = tempfile::tempdir()?;
+        let spelled = elsewhere.path().join("same");
+        std::os::unix::fs::symlink(repo.path(), &spelled)?;
+        let projects = data_dir.path().join("projects.json");
+        let mut all: serde_json::Value = serde_json::from_slice(&std::fs::read(&projects)?)?;
+        let mut again = all[0].clone();
+        again["id"] = "00000000-0000-0000-0000-000000000001".into();
+        again["path"] = spelled.to_str().unwrap().into();
+        again["git_dir"] = spelled.join(".git").to_str().unwrap().into();
+        all.as_array_mut().unwrap().push(again);
+        std::fs::write(&projects, serde_json::to_vec(&all)?)?;
+
+        gitbutler_project::delete_with_path(data_dir.path(), project.id)?;
+        assert!(
+            gb_dir.exists(),
+            "the other project still uses its operations history and branches"
+        );
         Ok(())
     }
 

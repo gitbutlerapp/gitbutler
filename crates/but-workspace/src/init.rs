@@ -21,6 +21,7 @@ const FALLBACK_TARGET_BRANCHES: &[&str] = &["main", "master"];
 /// If the repository has an unambiguous default fetch remote, prefer the unique local branch
 /// tracking its symbolic `HEAD`, followed by those tracking its `main` and `master` branches.
 /// Skip remote candidates without a unique local counterpart, then try local `main` and `master`.
+/// A repository without remotes and with a single branch, whatever its name, targets that branch.
 /// Candidates must resolve to a commit. Returns `None` if no suitable local branch is found.
 pub fn infer_default_target_ref(repo: &gix::Repository) -> Result<Option<LocalRefName>> {
     if let Some(remote_name) = repo.remote_default_name(gix::remote::Direction::Fetch) {
@@ -59,7 +60,27 @@ pub fn infer_default_target_ref(repo: &gix::Repository) -> Result<Option<LocalRe
         }
     }
 
+    if repo.remote_names().is_empty() {
+        return only_local_branch(repo);
+    }
     Ok(None)
+}
+
+/// The repository's only local branch, not counting GitButler's own under `gitbutler/`, if it
+/// resolves to a commit.
+fn only_local_branch(repo: &gix::Repository) -> Result<Option<LocalRefName>> {
+    let references = repo.references()?;
+    let mut branches = references
+        .local_branches()?
+        .filter_map(Result::ok)
+        .filter(|branch| !branch.name().shorten().starts_with(b"gitbutler/"));
+    let (Some(mut branch), None) = (branches.next(), branches.next()) else {
+        return Ok(None);
+    };
+    if branch.peel_to_commit().is_err() {
+        return Ok(None);
+    }
+    Ok(Some(LocalRefName::new(branch.name().to_owned())?))
 }
 
 /// Find the unique local branch whose configured upstream is `remote_ref`.
@@ -260,5 +281,79 @@ pub fn set_push_remote(repo: &gix::Repository, push_remote: String) -> Result<()
 
     project_meta.push_remote = Some(push_remote);
     project_meta.persist(repo)?;
+    Ok(())
+}
+
+/// Make `commit`, created without a parent, the first commit of the unborn branch `branch`, as
+/// `git commit` does in a new repository: the index takes the commit's tree, then `branch` is
+/// created. A project without a target then takes the one [`infer_default_target_ref()`] finds
+/// now that there is history.
+///
+/// The caller is expected to hold exclusive worktree access, and to invalidate any cached
+/// workspace projection afterwards.
+pub fn publish_first_commit(
+    repo: &gix::Repository,
+    branch: &gix::refs::FullNameRef,
+    commit: gix::ObjectId,
+) -> Result<()> {
+    let tree_id = repo.find_commit(commit)?.tree_id()?;
+    let tree_index = repo.index_from_tree(&tree_id)?;
+    let mut index = repo.index_or_empty()?.into_owned_or_cloned();
+    let removed_paths: Vec<_> = index
+        .entries()
+        .iter()
+        .filter(|entry| {
+            tree_index
+                .entry_by_path_and_stage(entry.path(&index), gix::index::entry::Stage::Unconflicted)
+                .is_none()
+        })
+        .map(|entry| entry.path(&index).to_owned())
+        .collect();
+    let mut edit = but_core::index::Edit::new(&mut index);
+    for path in removed_paths {
+        edit.remove(path.as_ref());
+    }
+    for entry in tree_index.entries() {
+        edit.upsert(
+            entry.path(&tree_index),
+            entry.id,
+            entry.mode,
+            but_core::index::Stat::Unknown,
+        );
+    }
+    edit.finish();
+
+    // Persist the index before publishing the commit, so an index-write failure leaves HEAD unborn.
+    index.write(Default::default())?;
+
+    repo.reference(
+        branch,
+        commit,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "commit (initial): initial commit",
+    )?;
+
+    // Target inference found nothing while HEAD was unborn. Initialize it now so that
+    // workspace projections built right after can resolve it. Only a target this root commit
+    // starts shares history with it: on an orphan branch beside an existing one, as a new
+    // `gh-pages`, the commit stands and the project keeps no target.
+    let mut project_meta = ProjectMeta::resolve(repo)?;
+    if project_meta.target_ref.is_none()
+        && let Some(target) = infer_default_target_ref(repo)?
+        && target.as_local_full_name_ref() == branch
+    {
+        project_meta.target_ref = Some(target.clone());
+        if project_meta.target_commit_id.is_none()
+            && let Some(upstream) = project_meta.remote_target_ref(repo)?
+            && repo.try_find_reference(upstream.as_ref())?.is_none()
+        {
+            // Empty clones already configure an upstream, but its ref won't exist
+            // until the first push. Use this root commit as the explicit cutoff
+            // without removing upstream configuration or fabricating a remote ref.
+            project_meta.target_commit_id = Some(commit);
+            project_meta.persist(repo)?;
+        }
+        set_target_ref_and_init_project(repo, &target, None)?;
+    }
     Ok(())
 }

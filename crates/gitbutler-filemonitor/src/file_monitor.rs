@@ -25,7 +25,9 @@ use crate::{
 /// We will collect notifications for up to this amount of time at a very
 /// maximum before releasing them. This duration will be hit if e.g. a build
 /// is constantly running and producing a lot of file changes, we will process
-/// them even if the build is still running.
+/// them even if the build is still running. A change to Git's refs, HEAD or
+/// index releases all pending events after FLUSH_AFTER_EMPTY ticks instead,
+/// quiet or not, so a commit made meanwhile shows.
 const DEBOUNCE_TIMEOUT: Duration = Duration::from_secs(60);
 
 // The internal rate at which the debouncer will update its state.
@@ -278,20 +280,27 @@ pub fn spawn(
 ) -> Result<FileMonitorHandle> {
     let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
     let (notify_tx, notify_rx) = std::sync::mpsc::channel();
-    let mut debouncer = new_debouncer(
-        DEBOUNCE_TIMEOUT,
-        Some(TICK_RATE),
-        Some(FLUSH_AFTER_EMPTY),
-        notify_tx,
-    )
-    .context("failed to create debouncer")?;
-
     let worktree_path = gix::path::realpath(worktree_path)?;
     let repo = gix::open_opts(&worktree_path, gix::open::Options::isolated()).context(format!(
         "failed to open project repository to obtain git-dir: {}",
         worktree_path.display()
     ))?;
     let git_dir = repo.path().to_owned();
+    let mut debouncer = new_debouncer(
+        DEBOUNCE_TIMEOUT,
+        Some(TICK_RATE),
+        Some(FLUSH_AFTER_EMPTY),
+        {
+            let git_dir = git_dir.clone();
+            move |event: &notify::Event| {
+                is_interesting_kind(event.kind)
+                    && (event.paths.iter())
+                        .any(|path| classify_file(&git_dir, path) == FileKind::Git)
+            }
+        },
+        notify_tx,
+    )
+    .context("failed to create debouncer")?;
     let mut linked = linked_checkouts(&git_dir, &linked_worktrees).unwrap_or_default();
     let linked_git_dirs: Vec<_> = linked
         .iter()
@@ -658,15 +667,14 @@ fn update_dynamic_watches(
 fn is_interesting_kind(kind: notify::EventKind) -> bool {
     matches!(
         kind,
-        notify::EventKind::Create(
-            notify::event::CreateKind::File | notify::event::CreateKind::Folder
-        ) | notify::EventKind::Modify(notify::event::ModifyKind::Data(_))
+        // Of any kind: FSEvents reports a symlink, hard link or APFS clone (Finder's Duplicate,
+        // `cp -c`) as `Other`, and one it can't tell as `Any`.
+        notify::EventKind::Create(_)
+            | notify::EventKind::Modify(notify::event::ModifyKind::Data(_))
             | notify::EventKind::Modify(notify::event::ModifyKind::Name(_))
             // This makes many more events happen, but we won't miss `touch this && rm this` kind of events.
             | notify::EventKind::Modify(notify::event::ModifyKind::Metadata(_))
-            | notify::EventKind::Remove(
-                notify::event::RemoveKind::File | notify::event::RemoveKind::Folder
-            )
+            | notify::EventKind::Remove(_)
     )
 }
 
@@ -930,6 +938,20 @@ mod tests {
 
     fn git_dir() -> &'static Path {
         Path::new("/repo/.git")
+    }
+
+    #[cfg(target_family = "unix")]
+    #[test]
+    fn links_and_clones_count_as_created_and_removed() {
+        use notify::{EventKind, event::CreateKind, event::RemoveKind};
+        assert!(
+            is_interesting_kind(EventKind::Create(CreateKind::Other)),
+            "FSEvents reports a new symlink or APFS clone as `Other`"
+        );
+        assert!(
+            is_interesting_kind(EventKind::Remove(RemoveKind::Other)),
+            "and a removed symlink too"
+        );
     }
 
     #[test]

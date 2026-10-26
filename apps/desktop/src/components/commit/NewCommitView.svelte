@@ -146,6 +146,7 @@
 					stackId: plan.stackId,
 					selectedBranchName: plan.branchName,
 					message,
+					changes,
 					parentId: commitAction?.parentCommitId,
 					isRichTextMode: input?.isRichTextMode?.() || false,
 				});

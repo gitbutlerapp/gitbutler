@@ -1,6 +1,6 @@
 .count {
 	display: inline-flex;
-	column-gap: 3px;
+	column-gap: 4px;
 	align-items: center;
 	/* A long value (a branch's name) gives way before the counts beside it, down to its glyph. */
 	min-width: 14px;

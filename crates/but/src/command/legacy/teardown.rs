@@ -320,7 +320,7 @@ pub(crate) fn teardown(
         out.write_value(&TeardownResult {
             snapshot_id,
             checked_out_branch: target_branch_name,
-            hook_warnings: hook_warnings.clone(),
+            hook_warnings,
         })?;
     }
 

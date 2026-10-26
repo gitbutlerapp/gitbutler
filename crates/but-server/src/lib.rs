@@ -370,8 +370,8 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
 
     let broadcaster = Arc::new(Mutex::new(Broadcaster::new()));
     let archival = Arc::new(but_feedback::Archival {
-        cache_dir: app_data_dir.join("cache").clone(),
-        logs_dir: app_data_dir.join("logs").clone(),
+        cache_dir: app_data_dir.join("cache"),
+        logs_dir: app_data_dir.join("logs"),
     });
     let extra = Extra {
         active_projects: Arc::new(Mutex::new(ActiveProjects::new())),

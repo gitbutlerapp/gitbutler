@@ -721,7 +721,7 @@ fn find_related_sessions_returns_verified_turn_keys() {
         ObservedTargets::default(),
     );
     let second_turn_key = write_turn_with_targets(repo.path(), "Related work", observed_targets());
-    let expected_turn_keys = vec![first_turn_key.clone(), second_turn_key.clone()];
+    let expected_turn_keys = vec![first_turn_key, second_turn_key];
 
     let branch = only_related(repo.path(), RelatedTarget::Branch(TEST_BRANCH_KEY));
     assert_eq!(branch.session_key, TEST_SESSION_KEY);

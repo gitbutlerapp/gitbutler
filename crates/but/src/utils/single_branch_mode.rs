@@ -164,7 +164,7 @@ impl SingleBranchMode {
         // Non-empty branches may already have been applied by set_base_branch.
         let outcome = but_workspace::branch::apply(
             self.head_reference.as_ref(),
-            ws.clone(),
+            ws,
             &repo,
             meta,
             but_workspace::branch::apply::Options {

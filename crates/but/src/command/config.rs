@@ -422,9 +422,7 @@ fn feature_flag_value(flags: &but_settings::app_settings::FeatureFlags, flag: Fe
 
 #[expect(unreachable_code, unused_variables, unused_mut)]
 fn feature_flag_update(flag: FeatureFlag, enabled: bool) -> FeatureFlagsUpdate {
-    let mut update = FeatureFlagsUpdate {
-        worktree_manipulation: None,
-    };
+    let mut update = FeatureFlagsUpdate::default();
     match flag {}
     update
 }
@@ -1863,7 +1861,7 @@ async fn target_config(
                         )?;
                     } else if let Some(out) = out.for_json() {
                         out.write_value(serde_json::json!({
-                            "branch": target_branch.branch_name.to_string(),
+                            "branch": target_branch.branch_name,
                             "remote_url": target_branch.remote_url,
                             "sha": target_branch.base_sha.to_string(),
                         }))?;

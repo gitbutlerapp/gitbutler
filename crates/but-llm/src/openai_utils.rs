@@ -126,8 +126,8 @@ pub fn tool_calling_blocking(
     model: &str,
 ) -> anyhow::Result<async_openai::types::chat::CreateChatCompletionResponse> {
     let client = provider.client()?;
-    let messages_owned = messages.clone();
-    let tools_owned = tools.clone();
+    let messages_owned = messages;
+    let tools_owned = tools;
     let model = model.to_string();
 
     std::thread::spawn(move || {
@@ -177,8 +177,8 @@ pub fn tool_calling_stream_blocking(
     on_token: impl Fn(&str) + Send + Sync + 'static,
 ) -> anyhow::Result<StreamToolCallResult> {
     let client = provider.client()?;
-    let messages_owned = messages.clone();
-    let tools_owned = tools.clone();
+    let messages_owned = messages;
+    let tools_owned = tools;
     let model = model.to_string();
 
     std::thread::spawn(move || {

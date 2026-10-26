@@ -515,11 +515,17 @@ fn reset_index_to_tree(
     let mut index = repo.index_from_tree(&tree.id())?;
     let stat_options = repo.stat_options()?;
     for (entry, path) in index.entries_mut_with_paths() {
-        if let Some(prev) = previous.entry_by_path_and_stage(path, Stage::Unconflicted)
-            && prev.id == entry.id
-            && prev.mode == entry.mode
-            && !prev.stat.is_racy(previous.timestamp(), stat_options)
-        {
+        let Some(prev) = previous
+            .entry_by_path_and_stage(path, Stage::Unconflicted)
+            .filter(|prev| prev.id == entry.id && prev.mode == entry.mode)
+        else {
+            continue;
+        };
+        // A sparse checkout's files outside it stay marked, or they'd show as deleted.
+        if prev.flags.contains(Flags::SKIP_WORKTREE) {
+            entry.flags |= Flags::EXTENDED | Flags::SKIP_WORKTREE;
+        }
+        if !prev.stat.is_racy(previous.timestamp(), stat_options) {
             entry.stat = prev.stat;
         }
     }

@@ -245,7 +245,7 @@ mod tests {
         std::fs::write(&stale, managed(RETIRED_FAST_PATH_BULLET)).unwrap();
         std::fs::write(&current, managed(&current_bullet())).unwrap();
 
-        let changed = cleanup_files(&[stale.clone(), current.clone(), missing]);
+        let changed = cleanup_files(&[stale.clone(), current, missing]);
 
         assert_eq!(changed, vec![stale.clone()]);
         assert_eq!(

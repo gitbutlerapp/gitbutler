@@ -221,7 +221,7 @@ fn uncommit_changes_no_rebase_inner<M: RefMetadata>(
     }
 
     let new_commit_id = {
-        let mut new_commit = commit.clone();
+        let mut new_commit = commit;
         new_commit.tree = tree_without_changes;
         editor.new_commit(new_commit, DateMode::CommitterUpdateAuthorKeep)?
     };

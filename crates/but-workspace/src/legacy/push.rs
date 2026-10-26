@@ -133,6 +133,9 @@ pub fn workspace_branch_and_ancestors_push(
         )?;
 
         maybe_record_gerrit_push_metadata(repo, db, gerrit_mode, segment, &push_output)?;
+        if !gerrit_mode {
+            track_pushed_branch(repo, ref_name, remote_refname.as_ref());
+        }
         let branch_name = ref_name.shorten().to_str_lossy().to_string();
         result.branch_to_remote.push((
             branch_name.clone(),
@@ -147,6 +150,30 @@ pub fn workspace_branch_and_ancestors_push(
     }
 
     Ok(result)
+}
+
+/// Make `remote_refname`, just pushed, the upstream of `ref_name` where its config names none,
+/// as `git push -u` does, so Git outside GitButler knows where the branch goes. The push
+/// succeeded, so failing to record that only logs.
+fn track_pushed_branch(
+    repo: &gix::Repository,
+    ref_name: &gix::refs::FullNameRef,
+    remote_refname: &gix::refs::FullNameRef,
+) {
+    if repo
+        .branch_remote_tracking_ref_name(ref_name, gix::remote::Direction::Fetch)
+        .is_some()
+    {
+        return;
+    }
+    let tracked = crate::branch::setup_local_tracking_configuration(repo, ref_name, remote_refname)
+        .and_then(|(config, _)| Ok(config.commit()?));
+    if let Err(err) = tracked {
+        tracing::warn!(
+            ?err,
+            "couldn't make {remote_refname} the upstream of {ref_name}"
+        );
+    }
 }
 
 /// Return the segment of the selected local branch and every segment beneath it in top-to-base

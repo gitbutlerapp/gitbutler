@@ -3571,6 +3571,16 @@ fn unapply_workspace_ref_refuses_conflicted_named_stack_checkout() -> anyhow::Re
         unapply_options_with(WorkspaceDisposition::PreventUnnecessaryWorkspaceReferences),
     )
     .expect_err("workspace ref unapply must not check out conflicted stack tips");
+    assert!(
+        but_workspace::branch::dissolve_unnecessary_workspace(
+            &ws,
+            &repo,
+            &meta,
+            Default::default()
+        )?
+        .is_none(),
+        "a workspace whose only stack has a conflicted tip stays, as that tip can't be checked out"
+    );
     assert_eq!(
         err.to_string(),
         "Cannot unapply workspace reference by checking out conflicted commit at 'tip-conflicted'"

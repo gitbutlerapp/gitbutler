@@ -65,10 +65,9 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     // Enrich active associations from the forge cache while keeping durable
     // stored identity for integrated branches.
     let forge_db = ctx.db.get_cache()?;
-    info.apply_forge_review_associations(
-        &repo,
-        &but_forge::review_associations_by_head(&forge_db)?,
-    );
+    info.apply_forge_review_associations(&but_forge::review_associations_by_head(
+        &forge_db, &repo,
+    )?);
 
     Ok(info)
 }

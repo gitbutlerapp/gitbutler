@@ -291,7 +291,7 @@ pub fn set_review_template(
                 .ok_or_else(|| anyhow::anyhow!("Could not determine selected review template"))?
         };
         let message = format!("Set review template path to: {selected_template}");
-        but_api::legacy::forge::set_review_template(ctx, Some(selected_template.clone()))?;
+        but_api::legacy::forge::set_review_template(ctx, Some(selected_template))?;
         if let Some(out) = out.for_human() {
             writeln!(out, "{message}")?;
         }
@@ -1125,7 +1125,10 @@ pub fn get_review_map(
     cache_config: Option<but_forge::CacheConfig>,
 ) -> anyhow::Result<std::collections::HashMap<String, Vec<but_forge::ForgeReview>>> {
     let reviews = but_api::legacy::forge::list_reviews(ctx, cache_config).unwrap_or_default();
-    Ok(review_map_from_reviews(reviews))
+    Ok(review_map_from_reviews(but_forge::without_unrelated_forks(
+        reviews,
+        &*ctx.repo.get()?,
+    )))
 }
 
 fn get_review_map_strict(
@@ -1133,7 +1136,10 @@ fn get_review_map_strict(
     cache_config: Option<but_forge::CacheConfig>,
 ) -> anyhow::Result<std::collections::HashMap<String, Vec<but_forge::ForgeReview>>> {
     let reviews = but_api::legacy::forge::list_reviews(ctx, cache_config)?;
-    Ok(review_map_from_reviews(reviews))
+    Ok(review_map_from_reviews(but_forge::without_unrelated_forks(
+        reviews,
+        &*ctx.repo.get()?,
+    )))
 }
 
 fn review_map_from_reviews(

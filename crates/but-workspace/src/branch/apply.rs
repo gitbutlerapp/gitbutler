@@ -227,7 +227,7 @@ pub fn apply(
         branch = upstream_branch_name;
         branch_ref = try_find_validated_ref(repo, branch.as_ref(), "apply")?;
     }
-    let head_ref_name = repo.head_name()?.map(|name| name.to_owned());
+    let head_ref_name = repo.head_name()?;
     let head_on_managed_workspace_ref = match &ws.kind {
         WorkspaceKind::Managed { ref_info }
         | WorkspaceKind::ManagedMissingWorkspaceCommit { ref_info } => head_ref_name

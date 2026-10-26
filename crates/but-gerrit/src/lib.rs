@@ -328,7 +328,7 @@ mod tests {
         let change_id_line = format!("Change-Id: {change_id}\n");
 
         let msg = BString::from("Initial commit\n");
-        let updated_msg = with_change_id_trailer(msg.clone(), commit_change_id);
+        let updated_msg = with_change_id_trailer(msg, commit_change_id);
         assert!(
             updated_msg
                 .as_slice()
@@ -356,8 +356,7 @@ mod tests {
 
         let msg_with_signed_off =
             BString::from("Initial commit\n\nSigned-off-by: User <alice@example.com>\n");
-        let updated_msg =
-            with_change_id_trailer(msg_with_signed_off.clone(), commit_change_id.clone());
+        let updated_msg = with_change_id_trailer(msg_with_signed_off, commit_change_id.clone());
         let updated_msg_str = updated_msg.as_bstr();
         let change_id_index = updated_msg_str.find(&change_id_line).unwrap();
         let signed_off_index = updated_msg_str.find("Signed-off-by:").unwrap();
@@ -371,8 +370,7 @@ mod tests {
              \n\
              Pick-to: 6.10\n",
         );
-        let updated_msg =
-            with_change_id_trailer(msg_with_pick_to.clone(), commit_change_id.clone());
+        let updated_msg = with_change_id_trailer(msg_with_pick_to, commit_change_id.clone());
         let updated_msg_str = updated_msg.to_string();
 
         assert!(updated_msg_str.contains(&format!("Pick-to: 6.10\n{change_id_line}")));
@@ -390,7 +388,7 @@ mod tests {
              Acked-by: Reviewer <reviewer@example.com>\n\
              Signed-off-by: Author <author@example.com>\n",
         );
-        let updated_msg = with_change_id_trailer(msg_with_multiple.clone(), commit_change_id);
+        let updated_msg = with_change_id_trailer(msg_with_multiple, commit_change_id);
         let updated_msg_str = updated_msg.to_string();
 
         let acked_by_idx = updated_msg_str.find("Acked-by:").unwrap();

@@ -205,7 +205,7 @@ impl NewUnstackedBranchOperation {
             true,
             |mut tx| {
                 let new_ref = if let Some(name) = name {
-                    name.clone()
+                    name
                 } else {
                     but_core::branch::unique_canned_refname(tx.repo())?
                 };
@@ -262,7 +262,7 @@ impl NewStackedBranchOperation {
             false,
             |mut tx| {
                 let new_ref = if let Some(name) = name {
-                    name.clone()
+                    name
                 } else {
                     but_core::branch::unique_canned_refname(tx.repo())?
                 };

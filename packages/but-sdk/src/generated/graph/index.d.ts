@@ -301,8 +301,10 @@ export declare function branchNameSegment(projectId: string, checkout: ChangesSo
  * ad-hoc/single-branch workspace it can also remove the currently checked-out
  * reference: when that reference owns no commits and has another named
  * reference underneath it, `HEAD` is first moved onto the reference below (the
- * reverse of creating an empty branch above the checked-out one). For
- * lower-level implementation details, see
+ * reverse of creating an empty branch above the checked-out one). Like unapply,
+ * leaving a managed workspace with one lane checks out that lane, or with none
+ * the local target branch, and deletes the workspace reference. For lower-level
+ * implementation details, see
  * [`but_workspace::branch::remove_reference()`].
  *
  * {@link ../../../../../crates/but-api/src/branch.rs}
@@ -2976,11 +2978,17 @@ export type FeatureFlags = {
   tuiFileBrowser: boolean;
   /** Enable experimental worktree manipulation support. */
   worktreeManipulation: boolean;
+  /**
+   * Open the experimental native client (GPUI) instead of the web app when GitButler
+   * starts, on macOS builds that include it.
+   */
+  gpui: boolean;
 };
 
 /** Update request for [`crate::app_settings::FeatureFlags`]. */
 export type FeatureFlagsUpdate = {
   worktreeManipulation?: boolean | null;
+  gpui?: boolean | null;
 };
 
 export type Fetch = {

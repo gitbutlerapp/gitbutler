@@ -2363,7 +2363,7 @@ pub fn get_forge_review(
 /// How to merge a review on the forge. GitHub honours all three;
 /// other forges fall back to their default merge strategy when the
 /// caller asks for `Squash`/`Rebase`.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "lowercase")]
 pub enum ReviewMergeMethod {
