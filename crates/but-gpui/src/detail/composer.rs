@@ -804,8 +804,7 @@ impl Detail {
         let store = self.store.read(cx);
         let workspace = store.workspace(project)?;
         if let Some(name) = self.checks_worktree.linked() {
-            let branch = workspace.find_worktree(name)?.branch.as_ref()?;
-            let branch = format!("refs/heads/{branch}");
+            let branch = workspace.find_worktree(name)?.branch.clone()?;
             // Not the default branch, which a worktree can have checked out.
             return (workspace.target_branch.as_ref() != Some(&branch)).then_some(branch);
         }

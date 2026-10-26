@@ -1546,13 +1546,13 @@ mod lane_tests {
                 snapbox::str![[r#"
 Main: [Unnamed branch, middle, bottom]
 Main: [beside]
-agent1: [agent1]
-agent2: [agent2] rests on agent1~2
-wt: [wt] rests on middle
-wt-stacked: [wt-stacked] rests on wt
-wt-top: [top] rests on Unnamed branch
-agent2: [agent2]
-agent1: [agent1] from agent1~2
+agent1: [agent1 (checked out)]
+agent2: [agent2 (checked out)] rests on agent1~2
+wt: [wt (checked out)] rests on middle
+wt-stacked: [wt-stacked (checked out)] rests on wt
+wt-top: [top (checked out)] rests on Unnamed branch
+agent2: [agent2 (checked out)]
+agent1: [agent1 (checked out)] from agent1~2
 history: [agent2, agent1~2]
 
 "#]]

@@ -58,9 +58,12 @@ pub(crate) fn workspace(stacks: Vec<Vec<Branch>>, linked: Vec<Lane>) -> Workspac
     }
 }
 
-fn names(branches: &[Branch]) -> String {
+fn names(workspace: &Workspace, branches: &[Branch]) -> String {
     (branches.iter())
-        .map(|branch| branch.name.as_str())
+        .map(|branch| match workspace.checked_out_in(&branch.ref_name) {
+            Some(_) => format!("{} (checked out)", branch.name),
+            None => branch.name.clone(),
+        })
         .collect::<Vec<_>>()
         .join(", ")
 }
@@ -83,7 +86,7 @@ pub(crate) fn describe(workspace: &Workspace) -> String {
         let rests_on = (lane.and_then(|lane| lane.rests_on)).map_or(String::new(), |id| {
             format!(" rests on {}", commit_name(workspace, id))
         });
-        format!("{checkout}: [{}]{rests_on}\n", names(branches))
+        format!("{checkout}: [{}]{rests_on}\n", names(workspace, branches))
     };
     let stacks = (workspace.lanes_in(&Checkout::Main)).map(|lane| line("Main", Some(lane)));
     let mut worktrees: Vec<_> = workspace.worktrees.iter().collect();
@@ -100,7 +103,10 @@ pub(crate) fn describe_chain(workspace: &Workspace, ref_name: &str) -> String {
         let from = (link.from).map_or(String::new(), |id| {
             format!(" from {}", commit_name(workspace, id))
         });
-        format!("{checkout}: [{}]{from}\n", names(link.branches()))
+        format!(
+            "{checkout}: [{}]{from}\n",
+            names(workspace, link.branches())
+        )
     });
     let history = (chain.iter().flat_map(|link| link.commits()))
         .map(|commit| commit_name(workspace, commit.id))

@@ -603,9 +603,9 @@ impl AppView {
         // says so.
         let store = self.store.read(cx);
         let worktree = (store.selection.as_ref()).and_then(|s| store.worktree_for(s));
-        let checked_out = (store.workspace(&project).and_then(|ws| ws.lane_of(&below)))
-            .is_some_and(|(_, at)| at == 0);
-        let checked_out_in = (worktree.filter(|_| checked_out)).map(|w| w.name.clone());
+        let checked_out_in = (store.workspace(&project))
+            .and_then(|ws| ws.checked_out_in(&below))
+            .map(|w| w.name.clone());
         let here = worktree.is_none();
         let checkout = store.checkout_of(&Selection::Branch(project.clone(), below.clone()));
         let op = move |path: &Path, _: &Remap| backend::create_dependent_branch(path, &below);

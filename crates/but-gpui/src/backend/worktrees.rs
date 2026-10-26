@@ -48,7 +48,7 @@ pub(super) fn linked(
             Some(Worktree {
                 name,
                 path: listed.path,
-                branch: listed.ref_name.map(|name| name.shorten().to_string()),
+                branch: listed.ref_name.map(|name| name.to_string()),
                 uncommitted,
                 git_operation,
                 tree,
@@ -58,7 +58,7 @@ pub(super) fn linked(
         .collect();
     let archived = (listing.archived.iter())
         .map(|listed| {
-            let branch = (listed.ref_name.as_ref()).map(|name| name.shorten().to_string());
+            let branch = (listed.ref_name.as_ref()).map(|name| name.to_string());
             (listed.name.to_str_lossy().into(), branch)
         })
         .collect();

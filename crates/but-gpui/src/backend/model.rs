@@ -126,7 +126,7 @@ pub struct Worktree {
     /// Its stable name, the folder name under `.git/worktrees/`.
     pub name: std::sync::Arc<str>,
     pub path: std::path::PathBuf,
-    /// The branch it has checked out, or `None` for a detached `HEAD`.
+    /// The full ref of the branch it has checked out, or `None` for a detached `HEAD`.
     pub branch: Option<String>,
     pub uncommitted: Vec<FileChange>,
     /// The Git command it's stopped partway through, like `git rebase`.
@@ -207,6 +207,10 @@ impl Workspace {
         self.worktrees
             .iter()
             .find(|worktree| &*worktree.name == name)
+    }
+
+    pub fn checked_out_in(&self, ref_name: &str) -> Option<&Worktree> {
+        (self.worktrees.iter()).find(|worktree| worktree.branch.as_deref() == Some(ref_name))
     }
 
     /// The uncommitted files of `checkout`.

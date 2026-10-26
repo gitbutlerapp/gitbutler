@@ -600,7 +600,7 @@ fn names<'a>(workspaces: impl IntoIterator<Item = &'a Workspace>) -> HashSet<Str
         named.extend(
             worktrees
                 .clone()
-                .filter_map(|worktree| worktree.branch.as_deref()),
+                .filter_map(|worktree| worktree.branch.as_deref().map(super::short_ref)),
         );
         named.extend(workspace.archived_worktrees.iter().map(|(name, _)| &**name));
         for branch in workspace.all_branches() {
