@@ -332,7 +332,7 @@ impl Navigator {
                         }),
                     ]);
                 }
-                if crate::pr::can_create(store, target) {
+                if crate::pr::create_offer(store, target) == Some(Ok(())) {
                     items.push(action(
                         "Create pull request…",
                         &crate::pr::CreatePullRequest,

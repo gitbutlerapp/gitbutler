@@ -842,7 +842,7 @@ impl Detail {
                 .small()
                 .dispatch(&crate::app::Push)
         });
-        let create = crate::pr::can_create(store, &target).then(|| {
+        let create = (crate::pr::create_offer(store, &target) == Some(Ok(()))).then(|| {
             button("header-create-pr", "Create pull request")
                 .small()
                 .style(ButtonStyle::Pop)
