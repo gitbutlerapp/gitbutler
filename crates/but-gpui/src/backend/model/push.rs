@@ -7,6 +7,15 @@ impl Workspace {
         self.chain(ref_name).flat_map(|link| link.branches())
     }
 
+    /// Whether pushing `ref_name` takes GitButler's workspace commit along, which merges every
+    /// applied branch: the lanes it goes down end on a commit no lane holds, as one started
+    /// on the main checkout's `HEAD` does.
+    fn pushes_workspace(&self, ref_name: &str) -> bool {
+        (self.chain(ref_name).last())
+            .and_then(|link| link.lane.rests_on)
+            .is_some_and(|id| self.lane_holding(id).is_none())
+    }
+
     /// Whether pushing `ref_name` has commits to send. An unnamed branch has no ref to push.
     pub fn can_push(&self, ref_name: &str) -> bool {
         !ref_name.is_empty() && self.pushed_with(ref_name).any(Branch::can_push)
@@ -39,6 +48,11 @@ impl Workspace {
             Some("Pick the project's target branch first")
         } else if (self.pushed_with(ref_name)).any(|b| b.commits.iter().any(|c| c.conflicted)) {
             Some("Resolve the conflicted commits first")
+        } else if self.pushes_workspace(ref_name) {
+            Some(
+                "It was started on GitButler's workspace commit, so pushing it would publish \
+                 every applied branch",
+            )
         } else {
             None
         }
