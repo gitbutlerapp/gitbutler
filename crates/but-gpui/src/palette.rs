@@ -327,7 +327,7 @@ impl AppView {
         let choices = open()
             .flat_map(|(entry, workspace)| {
                 workspace
-                    .branches()
+                    .all_branches()
                     .filter(|branch| !branch.ref_name.is_empty())
                     .map(move |branch| {
                         let (id, ref_name) = (entry.id.clone(), branch.ref_name.clone());

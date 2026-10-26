@@ -59,7 +59,7 @@ pub(super) fn shown(workspace: &Workspace) -> impl Iterator<Item = (CommitId, [&
 pub(super) fn lone_commit(workspace: &Workspace, selection: &Selection) -> Option<CommitId> {
     let branches = match selection {
         Selection::Branch(_, ref_name) => std::slice::from_ref(workspace.find_branch(ref_name)?),
-        Selection::Stack(_, bottom) => workspace.lane(bottom)?,
+        Selection::Stack(_, bottom) => &workspace.lane(bottom)?.branches,
         _ => return None,
     };
     let mut commits = branches.iter().flat_map(|branch| &branch.commits);
@@ -210,10 +210,8 @@ impl Store {
         // it stays seen when a rebase by Git changes its key, or a reword its message.
         // Only those in the checkouts it made commits in: an agent's in another are news.
         let before = self.rebaseline.get(id).map(|(before, checkouts)| {
-            let there: HashSet<&str> = (workspace.worktrees.iter())
-                .filter(|worktree| checkouts.contains(&Some(worktree.name.clone())))
-                .flat_map(|worktree| &worktree.branches)
-                .chain(workspace.branches().filter(|_| checkouts.contains(&None)))
+            let there: HashSet<&str> = (checkouts.iter())
+                .flat_map(|checkout| workspace.branches_in(checkout))
                 .flat_map(|branch| &branch.commits)
                 .map(|commit| commit.key.as_str())
                 .collect();
@@ -290,9 +288,9 @@ mod tests {
     use std::collections::HashSet;
 
     use super::{Seeable, amended, amended_since, lone_commit, was_seen};
+    use crate::backend::model::build::{branch, workspace};
     use crate::backend::{Commit, CommitId};
     use crate::state::Selection;
-    use crate::state::load::tests::{branch, workspace};
 
     fn commit(id: u8, parent: u8, tree: u8) -> Commit {
         let oid = |n: u8| gix::ObjectId::from_bytes_or_panic(&[n; 20]);

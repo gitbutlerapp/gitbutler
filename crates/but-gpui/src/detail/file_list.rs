@@ -2,7 +2,6 @@
 //! tree, with what right-clicking them offers.
 
 use std::collections::HashSet;
-use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Div, ElementId, MouseButton, MouseDownEvent, Pixels,
@@ -14,7 +13,7 @@ use super::file_tree::{self, TreeRow};
 use super::panes::side_list;
 use super::{Detail, FilterFiles, keeps_path};
 use crate::app::AppView;
-use crate::backend::{self, DiffSource, FileChange, FileDiff, HunkKey, Selected};
+use crate::backend::{self, Checkout, DiffSource, FileChange, FileDiff, HunkKey, Selected};
 use crate::overlays::MenuItem;
 use crate::state::{Cut, FileSort, OpKind, Overlay, ProjectId, Rereads, Selection};
 use crate::theme::Theme;
@@ -29,8 +28,8 @@ use crate::ui::{
 /// Where a file list's files come from.
 #[derive(Clone)]
 enum FileSource {
-    /// A checkout's uncommitted files: the project's own, or a linked worktree's by name.
-    Uncommitted(ProjectId, Option<Arc<str>>),
+    /// A checkout's uncommitted files.
+    Uncommitted(ProjectId, Checkout),
     /// The loaded diff's files: a commit's or a branch's.
     Diff,
 }
@@ -130,20 +129,20 @@ fn header_row() -> Div {
 }
 
 impl Detail {
-    /// The uncommitted `files` of `project`'s own checkout or of its linked `worktree`, under
-    /// how many there are and their line counts.
+    /// The uncommitted `files` of `project`'s `checkout`, under how many there are and their
+    /// line counts.
     pub(super) fn render_uncommitted_files(
         &self,
         project: &ProjectId,
-        worktree: Option<&Arc<str>>,
+        checkout: &Checkout,
         files: &[FileChange],
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let source = FileSource::Uncommitted(project.clone(), worktree.cloned());
+        let source = FileSource::Uncommitted(project.clone(), checkout.clone());
         let (rows, _) = self.file_list("uncommitted-files", source, cx);
         // Counted as listed: without the files a pending operation is taking.
-        let (store, checkout) = (self.store.read(cx), worktree.map(|w| &**w));
+        let store = self.store.read(cx);
         let shown = |path: &str| !store.hides_file(project, checkout, path);
         let diffs = self.worktree_diff().map_or(&[][..], |diff| &diff.files[..]);
         let header = self.list_header(
@@ -233,7 +232,6 @@ impl Detail {
         // aren't shown.
         let (index, paths): (Vec<usize>, Vec<&str>) = match &source {
             FileSource::Uncommitted(project, worktree) => {
-                let worktree = worktree.as_deref();
                 let files = (store.workspace(project))
                     .and_then(|ws| ws.uncommitted_in(worktree))
                     .unwrap_or_default();
@@ -358,7 +356,7 @@ impl Detail {
             FileSource::Uncommitted(project, worktree) => {
                 let store = self.store.read(cx);
                 let workspace = store.workspace(project)?;
-                let file = workspace.uncommitted_in(worktree.as_deref())?.get(pos)?;
+                let file = workspace.uncommitted_in(worktree)?.get(pos)?;
                 let whole = Selected::whole(file);
                 let extras = FileRow {
                     diff_ix: (self.worktree_diff())
@@ -396,8 +394,8 @@ impl Detail {
     pub(super) fn owned_cut(&self, files: Vec<Selected>, cx: &App) -> Option<Cut> {
         let key = &self.diff.as_ref()?.key;
         let (from, worktree) = match &key.source {
-            DiffSource::Worktree => (None, None),
-            DiffSource::Linked(name) => (None, Some(name.clone())),
+            DiffSource::Worktree => (None, Checkout::Main),
+            DiffSource::Linked(name) => (None, Checkout::Linked(name.clone())),
             // Not a conflicted commit's, which nothing takes from until it's resolved.
             DiffSource::Commit(id)
                 if (self.store.read(cx).workspace(&key.project)).is_some_and(|ws| {
@@ -405,7 +403,7 @@ impl Detail {
                         .any(|commit| commit.id == *id && !commit.conflicted)
                 }) =>
             {
-                (Some(*id), None)
+                (Some(*id), Checkout::Main)
             }
             _ => return None,
         };
@@ -564,15 +562,10 @@ impl Detail {
                 project: project.clone(),
                 from: None,
                 worktree: worktree.clone(),
-                files: (store
-                    .workspace(project)?
-                    .uncommitted_in(worktree.as_deref())?
-                    .iter())
-                .filter(|f| {
-                    under(&f.path) && !store.hides_file(project, worktree.as_deref(), &f.path)
-                })
-                .map(Selected::whole)
-                .collect(),
+                files: (store.workspace(project)?.uncommitted_in(worktree)?.iter())
+                    .filter(|f| under(&f.path) && !store.hides_file(project, worktree, &f.path))
+                    .map(Selected::whole)
+                    .collect(),
             },
             FileSource::Diff => {
                 let diff = self.diff.as_ref()?;
@@ -1018,7 +1011,7 @@ impl Detail {
                 project, worktree, ..
             }) => (project.clone(), worktree.clone()),
             _ => match &self.diff {
-                Some(diff) => (diff.key.project.clone(), diff.key.linked()),
+                Some(diff) => (diff.key.project.clone(), diff.key.files_checkout()),
                 None => return Vec::new(),
             },
         };
@@ -1073,7 +1066,7 @@ impl Detail {
                     let (project, worktree) = (project.clone(), worktree.clone());
                     // Undo can't bring back a linked worktree, or a commit checked out for
                     // editing.
-                    let undoable = worktree.is_none()
+                    let undoable = !worktree.is_linked()
                         && (self.store.read(cx).workspace(&project))
                             .is_some_and(|ws| ws.editing.is_none());
                     items.insert(
@@ -1091,7 +1084,7 @@ impl Detail {
                                         ..Overlay::default()
                                     },
                                     move |path, _| {
-                                        backend::mark_resolved(path, worktree.as_deref(), files)
+                                        backend::mark_resolved(path, worktree.linked(), files)
                                     },
                                     move |store, (), cx| {
                                         store.snack_after(undoable, "Marked resolved", cx)
@@ -1107,7 +1100,7 @@ impl Detail {
                         "lines" | "hunk" => what,
                         _ => "changes",
                     },
-                    worktree.is_some(),
+                    worktree.is_linked(),
                 );
                 items.push(
                     MenuItem::keyed(discard, &super::DiscardFile, cx, move |this, window, cx| {
@@ -1120,7 +1113,7 @@ impl Detail {
             Some(commit) => {
                 // A linked worktree's commit uncommits into that worktree.
                 let uncommitted = match (self.store.read(cx))
-                    .worktree_of(&Selection::Commit(project.clone(), commit))
+                    .worktree_for(&Selection::Commit(project.clone(), commit))
                 {
                     Some(worktree) => Selection::Worktree(project.clone(), worktree.name.clone()),
                     None => Selection::Uncommitted(project.clone()),
@@ -1163,20 +1156,20 @@ impl Detail {
         items
     }
 
-    /// Opening, copying or revealing the path `at` of `project`'s checkout, or of its linked
-    /// `worktree`. What isn't on disk, as a deleted file or one only a branch outside the
-    /// workspace has, can only have its path copied.
+    /// Opening, copying or revealing the path `at` of `project`'s `checkout`. What isn't on disk,
+    /// as a deleted file or one only a branch outside the workspace has, can only have its path
+    /// copied.
     fn path_items(
         &self,
         project: &ProjectId,
-        worktree: Option<Arc<str>>,
+        checkout: Checkout,
         at: At,
         position: Point<Pixels>,
         cx: &App,
     ) -> Vec<MenuItem> {
         // A linked worktree's files are in its own folder.
         let store = self.store.read(cx);
-        let root = match &worktree {
+        let root = match checkout.linked() {
             None => store.path(project),
             Some(name) => (store.workspace(project))
                 .and_then(|ws| ws.find_worktree(name))
@@ -1205,8 +1198,8 @@ impl Detail {
                 key: crate::ui::shortcut(&crate::open_in::OpenInEditor, cx),
                 ..MenuItem::new(label, move |this, _, cx| {
                     let file = Some(open_file.clone());
-                    let worktree = worktree.clone();
-                    this.open_in_editor(&open_project, worktree, file, line, position, cx)
+                    let checkout = checkout.clone();
+                    this.open_in_editor(&open_project, checkout, file, line, position, cx)
                 })
             });
         }

@@ -368,13 +368,15 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     };
 
     let cached = reviews::cached_reviews(&ctx);
-    let stacks: Vec<Stack> = info
+    let mut lanes: Vec<Lane> = info
         .stacks
         .iter()
-        .map(|stack| Stack {
+        .map(|stack| Lane {
             branches: (stack.segments.iter())
                 .map(|segment| branch_from(&ctx, &cached, segment))
                 .collect(),
+            checkout: Checkout::Main,
+            rests_on: stack.lane().rests_on.map(CommitId),
         })
         .collect();
     let meta = ctx.project_meta().ok();
@@ -383,12 +385,20 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         tracing::warn!("couldn't list the linked worktrees: {err:#}");
         None
     });
-    let (mut worktrees, archived_worktrees) = listed.unwrap_or_default();
-    for worktree in &mut worktrees {
-        let lane = (info.worktrees.iter()).find(|lane| lane.name == worktree.name.as_ref());
-        let segments = lane.iter().flat_map(|lane| &lane.segments);
-        worktree.branches = worktree_branches(&ctx, &cached, segments, &stacks);
-    }
+    let (worktrees, archived_worktrees) = listed.unwrap_or_default();
+    let rested_on: Vec<_> = info.lanes().filter_map(|lane| lane.rests_on).collect();
+    let linked_lanes: Vec<Lane> = (worktrees.iter())
+        .filter_map(|worktree| {
+            let lane = (info.lanes())
+                .find(|lane| lane.worktree.is_some_and(|name| *name == *worktree.name))?;
+            Some(Lane {
+                branches: worktree_branches(&ctx, &cached, &lane, &lanes, &rested_on),
+                checkout: Checkout::Linked(worktree.name.clone()),
+                rests_on: lane.rests_on.map(CommitId),
+            })
+        })
+        .collect();
+    lanes.extend(linked_lanes);
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "loaded workspace");
     let target_branch = (meta.and_then(|meta| meta.target_ref)).map(|name| name.to_string());
     // The oplog records a snapshot against the target, so without one set it records none.
@@ -398,7 +408,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         target,
         lost_target,
         forge: reviews::forge_name(&ctx).map(reviews::app_forge),
-        stacks,
+        lanes,
         uncommitted,
         tree,
         managed,
@@ -483,29 +493,34 @@ fn target(
     Ok((Some(target), None))
 }
 
-/// The branches of a linked worktree's lane, from its `segments`, that are the worktree's own
-/// work, with their pull requests as the forge cache, `cached`, has them.
-fn worktree_branches<'a>(
+/// The branches of a linked worktree's `lane` that are the worktree's own work, and what of the
+/// target's commits other lanes rest on, with their pull requests as the forge cache, `cached`,
+/// has them.
+fn worktree_branches(
     ctx: &Context,
     cached: &HashMap<u64, but_forge::ForgeReview>,
-    segments: impl Iterator<Item = &'a but_workspace::ref_info::Segment>,
-    stacks: &[Stack],
+    lane: &but_workspace::ref_info::Lane<'_>,
+    stacks: &[Lane],
+    rested_on: &[gix::ObjectId],
 ) -> Vec<Branch> {
     use but_workspace::ref_info::LocalCommitRelation as R;
     let mut past_theirs = false;
-    segments
+    (lane.segments.iter())
         .filter_map(|segment| {
             // A lane started from a newer target than the workspace's runs on down through
             // the target's own commits, which aren't the worktree's work. The branch the
             // worktree's work starts from shows, even with no commits of its own, but not
-            // the target's branches further down.
+            // the target's commits further down that no lane rests on.
             let theirs = (segment.commits.iter()).position(
                 |commit| matches!(commit.relation, R::Integrated(by) if by == commit.inner.id),
             );
-            if past_theirs {
+            let rested = (segment.commits.iter())
+                .rposition(|commit| rested_on.contains(&commit.inner.id))
+                .map_or(0, |at| at + 1);
+            if past_theirs && rested == 0 {
                 return None;
             }
-            past_theirs = theirs.is_some();
+            past_theirs |= theirs.is_some();
             // A detached run of commits has no ref to tell it apart by, and a branch the
             // workspace has applied is listed there.
             let ref_name = segment.ref_name()?.to_string();
@@ -516,7 +531,7 @@ fn worktree_branches<'a>(
             }
             let mut branch = branch_from(ctx, cached, segment);
             if let Some(theirs) = theirs {
-                branch.commits.truncate(theirs);
+                branch.commits.truncate(theirs.max(rested));
             }
             Some(branch)
         })
@@ -1409,5 +1424,148 @@ mod failure_tests {
             failure_detail(&err).starts_with("Git doesn't know your name and email yet."),
             "what to set, without the engine's code name"
         );
+    }
+}
+
+#[cfg(test)]
+mod lane_tests {
+    use std::path::Path;
+
+    use crate::backend::model::build::{describe, describe_chain};
+    use crate::backend::ops::tests::{git, repo_with, target_origin_main};
+    use crate::backend::ops::{
+        Destination, create_branch, create_branch_at_commit, create_dependent_branch,
+        insert_empty_commit, rename_branch,
+    };
+    use crate::backend::{Checkout, CommitId};
+
+    /// A stack `bottom < middle < top` with a commit each beside an empty `beside`, which keeps
+    /// `top` out of the main checkout, and linked worktrees `wt` on `middle` with a commit of
+    /// its own, `wt-top` with `top` checked out, and `wt-stacked` on `wt`.
+    pub(super) fn linked_workspace(test: impl FnOnce(&Path)) {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            let mut below = create_branch(path, Some("bottom")).unwrap();
+            insert_empty_commit(path, &Destination::Branch(below.clone())).unwrap();
+            for name in ["middle", "top"] {
+                let new = create_dependent_branch(path, &below).unwrap();
+                below = rename_branch(path, &new, name).unwrap();
+                insert_empty_commit(path, &Destination::Branch(below.clone())).unwrap();
+            }
+            create_branch(path, Some("beside")).unwrap();
+
+            crate::backend::settings::set_worktrees_enabled(true).unwrap();
+            let ctx = super::open(path).unwrap();
+            (ctx.db.get_cache_mut().unwrap())
+                .worktree_meta_mut()
+                .mark_adopted()
+                .unwrap();
+            drop(ctx);
+            let outside = tempfile::tempdir().unwrap();
+            let at = |name: &str| outside.path().join(name).to_str().unwrap().to_owned();
+            git(
+                path,
+                &["worktree", "add", "-q", "-b", "wt", &at("wt"), "middle"],
+            );
+            git(
+                Path::new(&at("wt")),
+                &["commit", "-q", "--allow-empty", "-m", "wt work"],
+            );
+            git(path, &["worktree", "add", "-q", &at("wt-top"), "top"]);
+            git(
+                path,
+                &[
+                    "worktree",
+                    "add",
+                    "-q",
+                    "-b",
+                    "wt-stacked",
+                    &at("wt-stacked"),
+                    "wt",
+                ],
+            );
+            test(path);
+        })
+    }
+
+    #[test]
+    fn a_worktree_lane_loads_its_own_branches() {
+        linked_workspace(|path| {
+            let loaded = crate::backend::load_workspace(path, Default::default()).unwrap();
+            let worktree = |name| (loaded.worktrees.iter()).find(|wt| &*wt.name == name);
+            git(
+                &worktree("wt").unwrap().path,
+                &["commit", "-q", "--allow-empty", "-m", "more"],
+            );
+            let wt_work = git(path, &["rev-parse", "wt~"]);
+            let wt_work = CommitId(gix::ObjectId::from_hex(wt_work.trim().as_bytes()).unwrap());
+            create_branch_at_commit(path, wt_work, false).unwrap();
+            let wt_top = worktree("wt-top");
+            let out = std::process::Command::new("git")
+                .current_dir(&wt_top.unwrap().path)
+                .args(["reset", "-q", "--soft", "HEAD"])
+                .env("GIT_COMMITTER_DATE", "2090-01-01 00:00:00 +0000")
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "{out:?}");
+            let tree = git(path, &["rev-parse", "HEAD^{tree}"]);
+            let mut upstream = git(path, &["rev-parse", "origin/main"]);
+            for n in 0..2 {
+                let message = format!("upstream {n}");
+                let parent = upstream.trim().to_owned();
+                upstream = git(
+                    path,
+                    &["commit-tree", tree.trim(), "-p", &parent, "-m", &message],
+                );
+            }
+            git(
+                path,
+                &["update-ref", "refs/remotes/origin/main", upstream.trim()],
+            );
+            let outside = tempfile::tempdir().unwrap();
+            for (name, from) in [("agent1", "origin/main"), ("agent2", "origin/main~1")] {
+                let at = outside.path().join(name);
+                let at = at.to_str().unwrap();
+                git(path, &["worktree", "add", "-q", "-b", name, at, from]);
+                git(
+                    Path::new(at),
+                    &["commit", "-q", "--allow-empty", "-m", name],
+                );
+            }
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            let linked: Vec<_> = (workspace.lanes.iter())
+                .filter_map(|lane| match &lane.checkout {
+                    Checkout::Main => None,
+                    Checkout::Linked(name) => Some(&**name),
+                })
+                .collect();
+            let listed: Vec<_> = (workspace.worktrees.iter()).map(|wt| &*wt.name).collect();
+            assert_eq!(listed[0], "wt-top", "its reflog moved last");
+            assert_eq!(
+                linked, listed,
+                "the lanes are in the order the worktrees list"
+            );
+            // `top`, checked out in wt-top, names an empty segment in that lane, which leaves
+            // its commit in the stack unnamed, and wt-top resting on it.
+            // agent2, started from the target's commit agent1 runs down through, rests on agent1.
+            snapbox::assert_data_eq!(
+                describe(&workspace) + &describe_chain(&workspace, "refs/heads/agent2"),
+                snapbox::str![[r#"
+Main: [Unnamed branch, middle, bottom]
+Main: [beside]
+agent1: [agent1 (checked out)]
+agent2: [agent2 (checked out)] rests on agent1~2
+wt: [wt (checked out), t-branch-1] rests on middle
+wt-stacked: [wt-stacked (checked out)] rests on t-branch-1
+wt-top: [top (checked out)] rests on Unnamed branch
+agent2: [agent2 (checked out)]
+agent1: [agent1 (checked out)] from agent1~2
+history: [agent2, agent1~2]
+
+"#]]
+            );
+        })
     }
 }

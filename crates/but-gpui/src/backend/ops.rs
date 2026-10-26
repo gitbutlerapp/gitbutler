@@ -1132,7 +1132,7 @@ pub(super) mod tests {
     use std::process::Command;
 
     use super::*;
-    use crate::backend::{DiffBody, DiffSource, FileDiff, Kept, Workspace, load_diff};
+    use crate::backend::{Checkout, DiffBody, DiffSource, FileDiff, Kept, Workspace, load_diff};
 
     /// A linked worktree of `path` on a new branch `agent`, in a directory of its own. Dropping
     /// the directory deletes the worktree.
@@ -1175,7 +1175,7 @@ pub(super) mod tests {
 
     /// Give the repository at `path` a remote whose `main` is at `HEAD`, tracked by the local
     /// `main`, and make that the target.
-    fn target_origin_main(path: &Path) {
+    pub(in crate::backend) fn target_origin_main(path: &Path) {
         git(
             path,
             &["remote", "add", "origin", "https://example.com/repo.git"],
@@ -1837,9 +1837,11 @@ pub(super) mod tests {
             let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
             assert!(!workspace.managed, "still outside the workspace");
             assert_eq!(
-                (workspace.stacks.iter().flat_map(|s| &s.branches))
-                    .map(|b| b.ref_name.as_str())
-                    .collect::<Vec<_>>(),
+                (workspace
+                    .lanes_in(&Checkout::Main)
+                    .flat_map(|s| &s.branches))
+                .map(|b| b.ref_name.as_str())
+                .collect::<Vec<_>>(),
                 [new.as_str()],
                 "the branch checked out is listed as the only one"
             );
@@ -1960,7 +1962,7 @@ pub(super) mod tests {
             std::fs::write(path.join("file"), "two\n").unwrap();
             let lanes = |path: &Path| {
                 let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
-                let mut lanes: Vec<Vec<String>> = (workspace.stacks.iter())
+                let mut lanes: Vec<Vec<String>> = (workspace.lanes_in(&Checkout::Main))
                     .map(|s| s.branches.iter().map(|b| b.name.clone()).collect())
                     .collect();
                 lanes.sort();
@@ -2080,9 +2082,11 @@ pub(super) mod tests {
                     Some("refs/heads/main"),
                     "the composer knows which branch not to commit to"
                 );
-                (workspace.stacks.iter().flat_map(|s| &s.branches))
-                    .map(|b| (b.name.clone(), b.commits.len()))
-                    .collect::<Vec<_>>()
+                (workspace
+                    .lanes_in(&Checkout::Main)
+                    .flat_map(|s| &s.branches))
+                .map(|b| (b.name.clone(), b.commits.len()))
+                .collect::<Vec<_>>()
             };
             assert_eq!(
                 branches(path),
@@ -2228,7 +2232,10 @@ pub(super) mod tests {
             // Written after the files were shown, so only reading them again finds it.
             std::fs::write(path.join("new"), "new\n").unwrap();
             let commits = load(Kept::from(&shown, false, &HashSet::new()));
-            let title = (commits.branches().find_map(|b| b.commits.first())).map(|c| &c.title);
+            let title = (commits
+                .branches_in(&Checkout::Main)
+                .find_map(|b| b.commits.first()))
+            .map(|c| &c.title);
             assert_eq!(
                 title.map(String::as_str),
                 Some("reworded"),
@@ -2800,7 +2807,7 @@ pub(super) mod tests {
             let top = head(path);
             let branch_at_top = |path: &Path| {
                 let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
-                (workspace.branches())
+                (workspace.branches_in(&Checkout::Main))
                     .find(|b| b.commits.first().map(|c| c.id) == Some(top))
                     .map(|b| b.ref_name.clone())
             };

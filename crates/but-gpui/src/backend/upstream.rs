@@ -11,7 +11,7 @@ use bstr::ByteSlice;
 use but_core::DryRun;
 use but_core::sync::RepoExclusive;
 
-use super::ops::{full_name, holds};
+use super::ops::full_name;
 use super::reviews::{cached_reviews, from_cache};
 use super::{
     Agent, CommitId, RemoteCommit, Review, ReviewState, open, present_first_parent, runtime,
@@ -650,6 +650,8 @@ pub fn push(
     drops: Option<&[CommitId]>,
     run_hooks: bool,
 ) -> Result<(Option<String>, Option<String>)> {
+    let branch = full_name(ref_name)?;
+    let branch = branch.as_ref();
     let mut ctx = open(path)?;
     // Decided when it runs, as an amend queued before it rewrites the branch.
     let mut info = but_api::legacy::workspace::head_info(&ctx)?;
@@ -657,14 +659,14 @@ pub fn push(
     // drop even the commits only the remote has that were shown. Unless pushing anyway, it
     // fetches again first and stops if the remote moved, as a teammate's amend still matches
     // the commit rewritten here, or has commits that weren't shown.
-    if let Some(shown) = drops.filter(|_| needs_force(&info, ref_name)) {
-        let tips = remote_tips(&ctx, &info, ref_name)?;
+    if let Some(shown) = drops.filter(|_| needs_force(&info, branch)) {
+        let tips = remote_tips(&ctx, &info, branch)?;
         fetch(path)?;
         // Opened again after the fetch, so the remote's tips are read as it left them.
         ctx = open(path)?;
         info = but_api::legacy::workspace::head_info(&ctx)?;
-        let now = remote_tips(&ctx, &info, ref_name)?;
-        // A stack pushes the branches below it too: the refusal names the one it's about.
+        let now = remote_tips(&ctx, &info, branch)?;
+        // A lane pushes the branches below it too: the refusal names the one it's about.
         let name = |segment: Option<&but_workspace::ref_info::Segment>| {
             (segment.and_then(|segment| segment.ref_name())).map_or_else(
                 || short_ref(ref_name).to_owned(),
@@ -673,7 +675,7 @@ pub fn push(
         };
         if now != tips {
             let moved = name(
-                (pushed_with(&info, ref_name).zip(tips.iter().zip(&now)))
+                (pushed_with(&info, branch).zip(tips.iter().zip(&now)))
                     .find(|(_, (before, after))| before != after)
                     .map(|(segment, _)| segment),
             );
@@ -682,7 +684,7 @@ pub fn push(
                  it. Check what's there before pushing again."
             );
         }
-        if let Some(unseen) = pushed_with(&info, ref_name).find(|segment| {
+        if let Some(unseen) = pushed_with(&info, branch).find(|segment| {
             (segment.commits_on_remote.iter()).any(|c| !shown.contains(&CommitId(c.id)))
         }) {
             anyhow::bail!(
@@ -693,7 +695,7 @@ pub fn push(
         }
     }
     // As in the desktop app, a conflicted commit stays here until it's resolved.
-    if pushed_with(&info, ref_name).any(|segment| segment.commits.iter().any(|c| c.has_conflicts)) {
+    if pushed_with(&info, branch).any(|segment| segment.commits.iter().any(|c| c.has_conflicts)) {
         anyhow::bail!("Resolve the conflicted commits first, so they aren't pushed");
     }
     // A branch made with `git checkout -b` on the workspace holds its commit, which merges
@@ -703,7 +705,7 @@ pub fn push(
         use but_workspace::ref_info::LocalCommitRelation as R;
         use gix::prelude::ObjectIdExt as _;
         let repo = ctx.repo.get()?;
-        (pushed_with(&info, ref_name).flat_map(|segment| &segment.commits))
+        (pushed_with(&info, branch).flat_map(|segment| &segment.commits))
             .filter(|c| !matches!(c.relation, R::LocalAndRemote(remote) if remote == c.id))
             .any(|c| {
                 but_workspace::WorkspaceCommit::from_id(c.id.attach(&repo))
@@ -717,7 +719,7 @@ pub fn push(
             short_ref(ref_name)
         );
     }
-    let force = needs_force(&info, ref_name);
+    let force = needs_force(&info, branch);
     let outcome = runtime()
         .handle()
         .block_on(
@@ -764,22 +766,22 @@ pub(super) fn sync_failure(outcome: but_forge::ReviewSyncOutcome) -> Option<Stri
     }
 }
 
-/// Whether pushing `ref_name` has to force: it or a branch below it in its stack was rewritten
-/// since it was pushed.
-fn needs_force(info: &but_workspace::RefInfo, ref_name: &str) -> bool {
+/// Whether pushing `branch` has to force: a segment [`pushed_with()`] yields was rewritten since
+/// it was pushed.
+fn needs_force(info: &but_workspace::RefInfo, branch: &gix::refs::FullNameRef) -> bool {
     use but_core::ui::PushStatus;
-    pushed_with(info, ref_name)
+    pushed_with(info, branch)
         .any(|segment| segment.push_status == PushStatus::UnpushedCommitsRequiringForce)
 }
 
-/// Where the remote-tracking branches of `ref_name` and the ones below it in `info` point.
+/// Where the remote-tracking branches of what pushing `branch` pushes point.
 fn remote_tips(
     ctx: &but_ctx::Context,
     info: &but_workspace::RefInfo,
-    ref_name: &str,
+    branch: &gix::refs::FullNameRef,
 ) -> Result<Vec<Option<gix::ObjectId>>> {
     let repo = ctx.repo.get()?;
-    Ok(pushed_with(info, ref_name)
+    Ok(pushed_with(info, branch)
         .map(|segment| {
             (segment.remote_tracking_ref_name.as_ref())
                 .and_then(|name| super::ref_tip(&repo, name.as_ref()))
@@ -787,14 +789,13 @@ fn remote_tips(
         .collect())
 }
 
-/// `ref_name`'s branch and the ones below it in its stack, which pushing it pushes too.
+/// `branch`'s segment and the ones below it, down the lanes it rests on, which pushing it
+/// pushes too.
 fn pushed_with<'a>(
     info: &'a but_workspace::RefInfo,
-    ref_name: &'a str,
+    branch: &gix::refs::FullNameRef,
 ) -> impl Iterator<Item = &'a but_workspace::ref_info::Segment> {
-    (info.stacks.iter()).flat_map(move |stack| {
-        (stack.segments.iter()).skip_while(move |segment| !holds(segment, ref_name))
-    })
+    but_workspace::legacy::push::branch_and_ancestor_segments(info, branch).into_values()
 }
 
 /// When `err` is force push protection stopping a push, what the remote itself said, if
@@ -956,8 +957,8 @@ pub fn update_from_target(
     let updated = integrate_upstream(&mut ctx, &info, DryRun::No, guard.write_permission())?;
     let after = but_api::legacy::workspace::head_info(&ctx)?;
     let names = |info: &but_workspace::RefInfo| -> Vec<String> {
-        (info.stacks.iter())
-            .flat_map(|stack| &stack.segments)
+        (info.lanes())
+            .flat_map(|lane| lane.segments)
             .filter_map(|segment| Some(segment.ref_name()?.to_string()))
             .collect()
     };
@@ -990,8 +991,8 @@ fn newly_conflicted(
         let id = commit.inner.change_id();
         !commit.inner.has_conflicts && conflicted.iter().any(|(_, change)| *change == *id)
     };
-    (info.stacks.iter())
-        .flat_map(|stack| &stack.segments)
+    (info.lanes())
+        .flat_map(|lane| lane.segments)
         .filter_map(|segment| {
             let count = segment.commits.iter().filter(newly).count();
             let name = segment.ref_name().map(ToString::to_string);
@@ -1057,7 +1058,77 @@ pub struct Landed {
 
 #[cfg(test)]
 mod tests {
-    use super::{ACTIVITY_DAYS, DAY, day_of, overview, push_refusal};
+    use super::{
+        ACTIVITY_DAYS, DAY, UpdateOutcome, day_of, overview, push_refusal, pushed_with,
+        update_from_target,
+    };
+
+    #[test]
+    fn an_update_that_would_conflict_a_worktree_branch_names_it() {
+        use crate::backend::ops::tests::git;
+        crate::backend::lane_tests::linked_workspace(|path| {
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            let wt = &(workspace.worktrees.iter())
+                .find(|wt| &*wt.name == "wt")
+                .unwrap()
+                .path;
+            git(wt, &["checkout", "-q", "--detach", "main"]);
+            std::fs::write(wt.join("file"), "target\n").unwrap();
+            git(wt, &["commit", "-q", "-am", "target edit"]);
+            git(wt, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+            git(wt, &["checkout", "-q", "wt"]);
+            std::fs::write(wt.join("file"), "wt\n").unwrap();
+            git(wt, &["commit", "-q", "-am", "wt edit"]);
+
+            let outcome = update_from_target(path, None).unwrap();
+            let UpdateOutcome::WouldConflict(found) = outcome else {
+                panic!("{outcome:?}");
+            };
+            assert_eq!(
+                found.branches,
+                [("refs/heads/wt".to_owned(), 1)],
+                "the update rebases wt with middle, and its edit of `file` meets the target's"
+            );
+        })
+    }
+
+    #[test]
+    fn a_worktree_branch_pushes_the_stack_branches_it_rests_on() {
+        use crate::backend::ops::tests::git;
+        static ASKPASS: std::sync::Once = std::sync::Once::new();
+        ASKPASS.call_once(but_askpass::disable);
+        crate::backend::lane_tests::linked_workspace(|path| {
+            let remote = tempfile::tempdir().unwrap();
+            git(remote.path(), &["init", "-q", "--bare"]);
+            let url = remote.path().to_str().unwrap();
+            git(path, &["remote", "set-url", "origin", url]);
+            let info = but_api::legacy::workspace::head_info(&super::open(path).unwrap()).unwrap();
+            let branch = super::full_name("refs/heads/wt").unwrap();
+            let mut guarded: Vec<_> = pushed_with(&info, branch.as_ref())
+                .filter_map(|segment| Some(format!("{}\n", segment.ref_name()?)))
+                .collect();
+            guarded.sort();
+
+            super::push(path, "refs/heads/wt", false, None, false).unwrap();
+
+            let arrived = git(remote.path(), &["for-each-ref", "--format=%(refname)"]);
+            assert_eq!(
+                guarded.concat(),
+                arrived,
+                "the guards cover what the push sends"
+            );
+            // wt rests on middle, so the push takes middle and bottom along.
+            snapbox::assert_data_eq!(
+                arrived,
+                snapbox::str![[r#"
+refs/heads/bottom
+refs/heads/middle
+refs/heads/wt
+
+"#]]
+            );
+        })
+    }
 
     #[test]
     fn a_day_goes_by_the_clock_here_on_that_day_not_today() {

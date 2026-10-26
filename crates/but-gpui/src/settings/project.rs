@@ -4,7 +4,7 @@
 use gpui::{App, ClickEvent, Context, DismissEvent, Task, Window, div, prelude::*};
 
 use super::{Card, Page, Row, SettingsView, field_with_save, read_failed};
-use crate::backend::{Forge, settings as backend};
+use crate::backend::{Checkout, Forge, settings as backend};
 use crate::state::ProjectId;
 use crate::theme::Theme;
 use crate::ui::{ButtonStyle, button, dp, error_summary, h_flex, muted, switch};
@@ -187,8 +187,9 @@ impl SettingsView {
         // where the old one forked; GitButler's other apps don't allow it either. Outside
         // the workspace, the branch checked out shows as a stack, but a new target leaves it
         // as it is.
-        let locked =
-            target.is_some() && workspace.is_some_and(|ws| ws.managed && !ws.stacks.is_empty());
+        let locked = target.is_some()
+            && workspace
+                .is_some_and(|ws| ws.managed && ws.lanes_in(&Checkout::Main).next().is_some());
         let target_project = project.clone();
         let change_target = cx.listener(move |this, _: &ClickEvent, window, cx| {
             let project = target_project.clone();

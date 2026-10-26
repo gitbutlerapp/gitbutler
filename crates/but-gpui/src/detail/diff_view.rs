@@ -24,8 +24,8 @@ use super::{
 };
 use crate::app::AppHandle;
 use crate::backend::{
-    self, Branch, ChangeKind, DiffBody, DiffLine, DiffSource, Drawing, FileDiff, HunkKey, LineKind,
-    PushState, Selected,
+    self, Branch, ChangeKind, Checkout, DiffBody, DiffLine, DiffSource, Drawing, FileDiff, HunkKey,
+    LineKind, PushState, Selected, Workspace,
 };
 use crate::overlays::MenuItem;
 use crate::state::{Cut, Prefs, ProjectId, Selection};
@@ -545,28 +545,7 @@ impl Detail {
     fn nothing_committed(&self, cx: &App) -> Option<SharedString> {
         let store = self.store.read(cx);
         let selection = store.selection.as_ref()?;
-        let workspace = store.workspace(selection.project())?;
-        let target = workspace
-            .target
-            .as_ref()
-            .map_or("the target", |t| t.name.as_str());
-        let (branches, what, below): (Vec<&Branch>, _, _) = match selection {
-            Selection::Branch(_, ref_name) => {
-                // A branch stacked on another starts where that one ends.
-                let below = (workspace.lane_of(ref_name)).and_then(|(lane, at)| lane.get(at + 1));
-                let below = below.map(|branch| branch.name.as_str());
-                (vec![workspace.find_branch(ref_name)?], "this branch", below)
-            }
-            Selection::Stack(_, bottom) => (
-                workspace.lane(bottom)?.iter().collect(),
-                "these branches",
-                None,
-            ),
-            _ => return None,
-        };
-        let base = below.unwrap_or(target);
-        (branches.iter().all(|branch| branch.commits.is_empty()))
-            .then(|| format!("No commits above {base} on {what}").into())
+        nothing_committed_in(store.workspace(selection.project())?, selection)
     }
 
     /// What a diff of commits with no changes in it says, as but.dev's branch page does: a
@@ -590,7 +569,7 @@ impl Detail {
             Selection::Commit(..) => return "This commit changes no files".into(),
             // A stack's branches all, as it has no branch of its own.
             Selection::Stack(_, bottom) => (workspace.and_then(|ws| ws.lane(bottom)))
-                .map_or_else(Vec::new, |lane| lane.iter().collect()),
+                .map_or_else(Vec::new, |lane| lane.branches.iter().collect()),
             Selection::Branch(..) => store.branch_for(selection).into_iter().collect(),
             _ => return "No changes".into(),
         };
@@ -941,7 +920,7 @@ impl Detail {
                         ),
                     };
                     let change = file_diff.part(Some(keys));
-                    let checkout = (diff.key.project.clone(), diff.key.linked());
+                    let checkout = (diff.key.project.clone(), diff.key.files_checkout());
                     let app = self.app.clone();
                     discard_button(ix, checkout, change, current && solid, tip, app, cx)
                 });
@@ -1216,7 +1195,7 @@ impl Detail {
             return;
         };
         let (change, fingerprint) = (file.file.clone(), file.fingerprint);
-        let worktree = diff.key.linked();
+        let worktree = diff.key.files_checkout();
         let path = change.path.clone();
         // One read at a time: the one under way reads again when it lands stale.
         if !self.whole_reading.insert(path.clone()) {
@@ -1224,8 +1203,7 @@ impl Detail {
         }
         cx.spawn(async move |this, cx| {
             let lines =
-                backend::run(move || backend::file_lines(&root, worktree.as_deref(), &change))
-                    .await;
+                backend::run(move || backend::file_lines(&root, worktree.linked(), &change)).await;
             this.update(cx, |this, cx| {
                 this.whole_reading.remove(&path);
                 if !this.whole.contains_key(&path) {
@@ -1531,7 +1509,7 @@ impl Detail {
             self.changes_menu(menu, at, blamed, position, cx);
             return;
         };
-        let (project, worktree) = (diff.key.project.clone(), diff.key.linked());
+        let (project, worktree) = (diff.key.project.clone(), diff.key.files_checkout());
         let path = file_diff.file.path.clone();
         // Copy acts where the focus is: on the diff's selection.
         window.focus(&self.focus, cx);
@@ -1590,7 +1568,7 @@ fn line_select(ix: usize, entity: WeakEntity<Detail>, follow: Option<Point<Pixel
 /// which `tip` says.
 fn discard_button(
     ix: usize,
-    (project, linked): (ProjectId, Option<Arc<str>>),
+    (project, checkout): (ProjectId, Checkout),
     change: Selected,
     current: bool,
     tip: &'static str,
@@ -1609,10 +1587,10 @@ fn discard_button(
                 .style(ButtonStyle::Ghost)
                 .tooltip_for(tip, &DiscardHunk)
                 .on_click(move |_, window, cx| {
-                    let (project, linked) = (project.clone(), linked.clone());
+                    let (project, checkout) = (project.clone(), checkout.clone());
                     let changes = vec![change.clone()];
                     app.update_later(window, cx, move |app, window, cx| {
-                        app.discard(project, linked, changes, window, cx)
+                        app.discard(project, checkout, changes, window, cx)
                     });
                 }),
         )
@@ -1659,4 +1637,90 @@ pub(super) fn files_toggle(
             el.child(count_badge(n, theme))
                 .child(diff::stats(added, removed, theme))
         })
+}
+
+fn nothing_committed_in(workspace: &Workspace, selection: &Selection) -> Option<SharedString> {
+    let target = workspace
+        .target
+        .as_ref()
+        .map_or("the target", |t| t.name.as_str());
+    let (branches, what, below): (Vec<&Branch>, _, _) = match selection {
+        Selection::Branch(_, ref_name) => {
+            // A branch stacked on another starts where that one ends, and a lane's bottom
+            // branch where what the lane rests on does.
+            let below = (workspace.lane_of(ref_name)).and_then(|(lane, at)| {
+                workspace
+                    .chain_from(lane, at + 1)
+                    .find_map(|link| link.top())
+            });
+            (vec![workspace.find_branch(ref_name)?], "this branch", below)
+        }
+        Selection::Stack(_, bottom) => {
+            let lane = workspace.lane(bottom)?;
+            let below = workspace.beneath(lane).find_map(|link| link.top());
+            (lane.branches.iter().collect(), "these branches", below)
+        }
+        _ => return None,
+    };
+    let base = below.map_or_else(
+        || target.to_owned(),
+        |(branch, from)| match from {
+            Some(id) => format!("{} at {}", branch.name, id.short()),
+            None => branch.name.clone(),
+        },
+    );
+    (branches.iter().all(|branch| branch.commits.is_empty()))
+        .then(|| format!("No commits above {base} on {what}").into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::nothing_committed_in;
+    use crate::backend::model::build::{branch, workspace, worktree};
+    use crate::state::{ProjectId, Selection};
+
+    #[test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "a test, and snapbox looks for the file its snapshot is in"
+    )]
+    fn an_empty_lane_bottom_starts_on_what_its_lane_rests_on() {
+        let ws = workspace(
+            vec![
+                vec![branch("top", &[1]), branch("middle", &[2, 3])],
+                vec![branch("upper", &[]), branch("lower", &[])],
+            ],
+            vec![
+                worktree("wt", Some(3), vec![branch("wt", &[])]),
+                worktree("outside", None, vec![branch("outside", &[])]),
+                worktree("on-top", Some(1), vec![branch("on-top", &[])]),
+            ],
+        );
+        let said = |kind: &str, of: fn(ProjectId, String) -> Selection, names: &[&str]| {
+            (names.iter())
+                .map(|name| {
+                    let selection = of("project".into(), format!("refs/heads/{name}"));
+                    let said = nothing_committed_in(&ws, &selection);
+                    format!("{kind}({name}): {said:?}\n")
+                })
+                .collect::<String>()
+        };
+        let said = said(
+            "Branch",
+            Selection::Branch,
+            &["upper", "wt", "outside", "on-top"],
+        ) + &said("Stack", Selection::Stack, &["lower", "wt"]);
+        snapbox::assert_data_eq!(
+            said,
+            snapbox::str![[r#"
+Branch(upper): Some("No commits above lower on this branch")
+Branch(wt): Some("No commits above middle at 0303030 on this branch")
+Branch(outside): Some("No commits above the target on this branch")
+Branch(on-top): Some("No commits above top on this branch")
+Stack(lower): Some("No commits above the target on these branches")
+Stack(wt): Some("No commits above middle at 0303030 on these branches")
+
+"#]]
+        );
+    }
 }

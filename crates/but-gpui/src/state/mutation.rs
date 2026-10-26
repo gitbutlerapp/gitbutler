@@ -14,8 +14,8 @@ use super::{Notice, ProjectId, Reload, Selection, Store, StoreEvent};
 use crate::backend::history::Undone;
 use crate::backend::upstream::{UpdateConflicts, UpdateOutcome};
 use crate::backend::{
-    self, Branch, Commit, CommitId, Destination, FileChange, HunkKey, Review, ReviewState,
-    Selected, SnapshotId, Workspace, short_ref,
+    self, Branch, Checkout, Commit, CommitId, Destination, FileChange, HunkKey, Review,
+    ReviewState, Selected, SnapshotId, Workspace, short_ref,
 };
 
 /// How long a mutation runs before the status bar says how long it's taking.
@@ -36,9 +36,8 @@ pub struct Overlay {
     pub files: HashSet<String>,
     /// Hunks leaving uncommitted files that otherwise stay, by path.
     pub hunks: HashMap<String, Vec<HunkKey>>,
-    /// The linked worktree, by name, whose files `files` and `hunks` are; the main
-    /// checkout's without one.
-    pub files_in: Option<Arc<str>>,
+    /// The checkout whose files `files` and `hunks` are.
+    pub files_in: Checkout,
     /// Branches leaving, by full ref, as a stack's do when it's unapplied.
     pub branches: HashSet<String>,
     /// Branches deleted from their stack, by full ref: the ref goes, its commits stay.
@@ -164,30 +163,36 @@ pub enum NewAt {
     Below(String),
 }
 
-/// Checkouts of a project: a linked worktree by name, the main one as `None`.
-pub(super) type Checkouts = HashSet<Option<Arc<str>>>;
+pub(super) type Checkouts = HashSet<Checkout>;
 
 impl Overlay {
     /// The checkouts it makes commits in: the one whose files it takes, the one its new commit
-    /// goes in, and those of the commits it changes. An agent's commits in another, made
-    /// meanwhile, aren't its own.
+    /// goes in, those of the commits it changes, and the linked worktrees resting on them,
+    /// which their rewrite moves. An agent's commits in another, made meanwhile, aren't its
+    /// own.
     pub(super) fn checkouts(&self, ws: &Workspace) -> Checkouts {
-        let worktree_with = |has: &dyn Fn(&Branch) -> bool| {
-            (ws.worktrees.iter())
-                .find(|worktree| worktree.branches.iter().any(has))
-                .map(|worktree| worktree.name.clone())
-        };
-        let of_commit = |key: &str| worktree_with(&|b| b.commits.iter().any(|c| c.key == key));
+        let moved_by =
+            |commit: Option<&Commit>| commit.map_or_else(HashSet::new, |c| ws.moved_by(c.id));
+        let keyed = |key: &str| ws.commits().find(|commit| commit.key == key);
         let landing = (self.new_commit.iter()).map(|(at, _)| match at {
-            NewAt::Top(ref_name) => worktree_with(&|b| b.ref_name == *ref_name),
-            NewAt::Above(key) | NewAt::Below(key) => of_commit(key),
+            NewAt::Top(ref_name) => {
+                let Some((lane, at)) = ws.lane_of(ref_name) else {
+                    return HashSet::new();
+                };
+                let tip = (lane.branches.iter().skip(at)).find_map(|b| b.commits.first());
+                let mut moved = moved_by(tip);
+                moved.insert(lane.checkout.clone());
+                moved
+            }
+            NewAt::Above(key) | NewAt::Below(key) => moved_by(keyed(key)),
         });
         let changed = (self.commits.iter())
             .chain(self.commit_files.keys())
             .chain(self.commit_hunks.keys())
             .chain(self.reworded.iter().map(|(key, _)| key))
-            .map(|key| of_commit(key));
+            .map(|key| moved_by(keyed(key)));
         (landing.chain(changed))
+            .flatten()
             .chain([self.files_in.clone()])
             .collect()
     }
@@ -235,7 +240,7 @@ impl Overlay {
         };
         let worktree = match selection {
             Selection::Worktree(_, name) => Some(name),
-            _ => store.worktree_of(selection).map(|wt| &wt.name),
+            _ => store.worktree_for(selection).map(|wt| &wt.name),
         };
         let deleted = match selection {
             Selection::Branch(_, ref_name) | Selection::Stack(_, ref_name) => {
@@ -319,12 +324,12 @@ impl Remap {
     /// with none), that are gone from `now` followed to the one whose top that commit is now,
     /// as a rename queued before leaves them. Not to a branch `captured` has, as the one below
     /// that took a deleted branch's commits, nor to no name: those aren't renames.
-    fn following(mut self, captured: &[(String, String)], now: &[&Branch]) -> Self {
+    fn following(mut self, captured: &[(String, String)], now: &Workspace) -> Self {
         for (name, top) in captured {
-            if top.is_empty() || now.iter().any(|b| b.ref_name == *name) {
+            if top.is_empty() || now.find_branch(name).is_some() {
                 continue;
             }
-            let top_now = now.iter().find(|b| {
+            let top_now = now.all_branches().find(|b| {
                 b.commits.first().is_some_and(|c| c.key == *top)
                     && !b.ref_name.is_empty()
                     && !captured.iter().any(|(was, _)| *was == b.ref_name)
@@ -859,9 +864,11 @@ impl Store {
                     UpdateOutcome::WouldConflict(found) => {
                         let again = updated.clone();
                         let title = store.card_title(&updated, "Updating leaves conflicts".into());
+                        let detail =
+                            update_conflicts_detail(&target, &found, store.workspace(&updated));
                         store.error_with_retry(
                             title,
-                            update_conflicts_detail(&target, &found),
+                            detail,
                             "Update anyway",
                             move |store, cx| {
                                 store.update_from_target(&again, Some(found.clone()), cx)
@@ -870,9 +877,13 @@ impl Store {
                         )
                     }
                     UpdateOutcome::Updated { conflicted, landed } => {
-                        // Its "Resolve the oldest…" bar is the next step.
-                        if let Some((branch, _)) = conflicted.iter().find(|(b, _)| !b.is_empty()) {
-                            let branch = Selection::Branch(updated, branch.clone());
+                        // Its "Resolve the oldest…" bar is the next step, which a linked
+                        // worktree's branch doesn't have, as its conflicts resolve in it.
+                        let resolvable = (conflicted.iter())
+                            .filter(|(branch, _)| !branch.is_empty())
+                            .map(|(branch, _)| Selection::Branch(updated.clone(), branch.clone()))
+                            .find(|branch| !store.in_linked(branch));
+                        if let Some(branch) = resolvable {
                             store.select(Some(branch), cx);
                         }
                         store.snack_undoable(updated_message(&target, &conflicted, &landed), cx)
@@ -960,10 +971,10 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let name = short_ref(&ref_name).to_owned();
-        // The branches below it in its stack with commits to send go along, which the
-        // snackbar says.
+        // The branches below it with commits to send go along, down the lanes it rests on,
+        // which the snackbar says.
         let below = self.workspace(project).map_or(0, |ws| {
-            (ws.pushed_with(&ref_name).iter().skip(1))
+            (ws.pushed_with(&ref_name).skip(1))
                 .filter(|b| !b.ref_name.is_empty() && b.can_push())
                 .count()
         });
@@ -1171,8 +1182,6 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let shown = project.clone();
-        // Out of a linked worktree, which the oplog can't put them back into.
-        let undoable = !ids.iter().any(|id| self.in_worktree(project, *id));
         let keys = ids.iter().filter_map(|id| self.key_of(project, *id));
         self.run(
             project,
@@ -1181,25 +1190,25 @@ impl Store {
             move |path, remap| backend::move_to_new_branch(path, &remap.all(&ids)?),
             move |store, (_, branch), cx| {
                 store.select(Some(Selection::Branch(shown, branch)), cx);
-                store.snack_after(undoable, "Moved to a new branch", cx)
+                store.snack_undoable("Moved to a new branch", cx)
             },
             cx,
         );
     }
 
-    /// Amend commit `into` with uncommitted `files` of the main checkout, or of the linked
-    /// `worktree`, then call `then` once that worked.
+    /// Amend commit `into` with uncommitted `files` of `worktree`, then call `then` once that
+    /// worked.
     pub fn amend(
         &mut self,
         project: &ProjectId,
         into: CommitId,
         files: Arc<[Selected]>,
-        worktree: Option<Arc<str>>,
+        worktree: Checkout,
         then: impl FnOnce(&mut Store, &mut Context<Store>) + 'static,
         cx: &mut Context<Self>,
     ) {
         let run_hooks = self.runs_hooks(project);
-        let undoable = worktree.is_none() && !self.in_worktree(project, into);
+        let undoable = self.undoable(project, [worktree.clone()]);
         let overlay = Overlay {
             files_in: worktree.clone(),
             ..Overlay::files(files.iter())
@@ -1214,7 +1223,7 @@ impl Store {
             overlay,
             move |path, remap| {
                 let into = remap.get(into)?;
-                backend::amend(path, into, &files, worktree.as_deref(), run_hooks)
+                backend::amend(path, into, &files, worktree.linked(), run_hooks)
             },
             move |store, (rewritten, left_out, hook_failed), cx| {
                 store.follow(&rewritten, cx);
@@ -1241,8 +1250,6 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let overlay = Overlay::commits(ids.iter().filter_map(|id| self.key_of(project, *id)));
-        // A linked worktree's commits, which the oplog can't put back.
-        let undoable = !(ids.iter().chain([&into])).any(|id| self.in_worktree(project, *id));
         self.run(
             project,
             Label::new("Squash", format!("Squash {} commits", ids.len() + 1)),
@@ -1253,7 +1260,7 @@ impl Store {
             },
             move |store, rewritten, cx| {
                 store.follow(&rewritten, cx);
-                store.snack_after(undoable, "Squashed into one commit", cx)
+                store.snack_undoable("Squashed into one commit", cx)
             },
             cx,
         );
@@ -1286,11 +1293,9 @@ impl Store {
             1 => Label::from("Uncommit"),
             n => Label::new("Uncommit", format!("Uncommit {n} commits")),
         };
-        // A linked worktree's commits uncommit into it, which the oplog can't bring back.
-        let undoable = !ids.iter().any(|id| self.in_worktree(project, *id));
         let home = (ids.first())
-            .and_then(|id| self.worktree_of(&Selection::Commit(project.clone(), *id)))
-            .map(|worktree| worktree.name.clone());
+            .and_then(|id| self.checkout_of(&Selection::Commit(project.clone(), *id)))
+            .unwrap_or_default();
         let project = project.clone();
         self.run(
             &project.clone(),
@@ -1305,13 +1310,9 @@ impl Store {
                         .key_of(selected, *id)
                         .is_some_and(|key| keys.contains(&key))
                 {
-                    let shown = match home.clone() {
-                        Some(name) => Selection::Worktree(project, name),
-                        None => Selection::Uncommitted(project),
-                    };
-                    store.select(Some(shown), cx);
+                    store.select(Some(Selection::uncommitted_in(project, home)), cx);
                 }
-                store.snack_after(undoable, "Uncommitted", cx)
+                store.snack_undoable("Uncommitted", cx)
             },
             cx,
         );
@@ -1348,7 +1349,7 @@ impl Store {
         let tops = (self
             .workspace(project)
             .into_iter()
-            .flat_map(|ws| ws.branches()))
+            .flat_map(Workspace::all_branches))
         .map(|b| {
             let top = b
                 .commits
@@ -1407,13 +1408,11 @@ impl Store {
             let remap = Remap::new(
                 &next.captured,
                 now.map(|commit| (commit.key.as_str(), commit.id)),
-            )
-            .following(
-                &next.tops,
-                &ws.into_iter()
-                    .flat_map(|ws| ws.branches())
-                    .collect::<Vec<_>>(),
             );
+            let remap = match ws {
+                Some(ws) => remap.following(&next.tops, ws),
+                None => remap,
+            };
             self.running.insert(
                 next.project,
                 Running {
@@ -1580,7 +1579,7 @@ impl Store {
                         Rereads::Files => Reload::files(overlay.files_in.clone()),
                         Rereads::CommitsAndMain => {
                             let mut reload = Reload::commits();
-                            reload.merge(Reload::files(None));
+                            reload.merge(Reload::files(Checkout::Main));
                             reload
                         }
                     };
@@ -1787,23 +1786,20 @@ impl Store {
         (self.overlays(project)).any(|o| o.new_commit.is_some() && o.commits.contains(key))
     }
 
-    /// Whether the file at `path` is leaving the uncommitted files of the linked worktree
-    /// named `checkout`, or of the main checkout for `None`.
-    pub fn hides_file(&self, project: &ProjectId, checkout: Option<&str>, path: &str) -> bool {
-        (self.overlays(project))
-            .any(|o| o.files_in.as_deref() == checkout && o.files.contains(path))
+    /// Whether the file at `path` is leaving the uncommitted files of `checkout`.
+    pub fn hides_file(&self, project: &ProjectId, checkout: &Checkout, path: &str) -> bool {
+        (self.overlays(project)).any(|o| o.files_in == *checkout && o.files.contains(path))
     }
 
     pub fn hides_hunk(
         &self,
         project: &ProjectId,
-        checkout: Option<&str>,
+        checkout: &Checkout,
         path: &str,
         hunk: HunkKey,
     ) -> bool {
         self.overlays(project).any(|o| {
-            o.files_in.as_deref() == checkout
-                && o.hunks.get(path).is_some_and(|hunks| hunks.contains(&hunk))
+            o.files_in == *checkout && o.hunks.get(path).is_some_and(|hunks| hunks.contains(&hunk))
         })
     }
 
@@ -1812,16 +1808,21 @@ impl Store {
             .any(|o| o.branches.contains(ref_name))
     }
 
+    pub fn deletes_branch(&self, project: &ProjectId, ref_name: &str) -> bool {
+        self.overlays(project)
+            .any(|o| o.deleted_branches.contains(ref_name))
+    }
+
     /// A checkout's uncommitted `files` without those a pending operation is taking.
     pub fn uncommitted_shown<'a>(
         &self,
         project: &ProjectId,
-        checkout: Option<&str>,
+        checkout: &Checkout,
         files: &'a [FileChange],
     ) -> Cow<'a, [FileChange]> {
         // Looked up once rather than for every file: this runs on every frame the row is drawn.
         let taking: Vec<&Overlay> = (self.overlays(project))
-            .filter(|o| o.files_in.as_deref() == checkout && !o.files.is_empty())
+            .filter(|o| o.files_in == *checkout && !o.files.is_empty())
             .collect();
         let hidden = |file: &FileChange| taking.iter().any(|o| o.files.contains(&file.path));
         match !taking.is_empty() && files.iter().any(hidden) {
@@ -1837,8 +1838,7 @@ impl Store {
         project: &ProjectId,
         branches: &'a [Branch],
     ) -> Cow<'a, [Branch]> {
-        let deleted =
-            |b: &Branch| (self.overlays(project)).any(|o| o.deleted_branches.contains(&b.ref_name));
+        let deleted = |b: &Branch| self.deletes_branch(project, &b.ref_name);
         if !branches.iter().any(deleted) {
             return Cow::Borrowed(branches);
         }
@@ -1879,19 +1879,19 @@ impl Store {
     }
 
     /// The hunks, or lines of them, pending mutations take out of files that otherwise stay,
-    /// by path: of the uncommitted files of the linked worktree named `checkout` (the main
-    /// checkout for `None`), or with a `commit` key, of that commit's.
+    /// by path: of the uncommitted files of `checkout`, or with a `commit` key, of that
+    /// commit's.
     pub fn parts_leaving<'a>(
         &'a self,
         project: &'a ProjectId,
-        checkout: Option<&str>,
+        checkout: &Checkout,
         commit: Option<&str>,
     ) -> HashMap<&'a str, Vec<HunkKey>> {
         let mut parts: HashMap<&str, Vec<HunkKey>> = HashMap::new();
         for overlay in self.overlays(project) {
             let found = match commit {
                 Some(commit) => overlay.commit_hunks.get(commit),
-                None => (overlay.files_in.as_deref() == checkout).then_some(&overlay.hunks),
+                None => (overlay.files_in == *checkout).then_some(&overlay.hunks),
             };
             for (path, keys) in found.into_iter().flatten() {
                 parts.entry(path.as_str()).or_default().extend(keys);
@@ -2018,8 +2018,16 @@ impl Store {
     }
 }
 
-/// What an update onto `target` would leave conflicted that isn't now.
-fn update_conflicts_detail(target: &str, found: &UpdateConflicts) -> String {
+/// What an update onto `target` would leave conflicted that isn't now in `workspace`.
+fn update_conflicts_detail(
+    target: &str,
+    found: &UpdateConflicts,
+    workspace: Option<&Workspace>,
+) -> String {
+    let linked = |ref_name: &str| {
+        (workspace.and_then(|ws| ws.lane_of(ref_name)))
+            .is_some_and(|(lane, _)| lane.checkout.is_linked())
+    };
     let mut detail = Vec::new();
     if !found.branches.is_empty() {
         detail.push(format!(
@@ -2034,7 +2042,22 @@ fn update_conflicts_detail(target: &str, found: &UpdateConflicts) -> String {
             found.files.join(", ")
         ));
     }
-    detail.push("You can resolve them afterwards, or undo the update.".into());
+    let resolve = if found.branches.iter().any(|(branch, _)| linked(branch)) {
+        "You can resolve them afterwards, a linked worktree's in that worktree"
+    } else {
+        "You can resolve them afterwards"
+    };
+    let moves_worktrees = workspace.is_some_and(|ws| {
+        (ws.lanes.iter()).any(|lane| ws.beneath(lane).any(|link| !link.lane.checkout.is_linked()))
+    });
+    detail.push(if moves_worktrees {
+        format!(
+            "{resolve}. The update moves the linked worktrees resting on your branches too, \
+             so it can't be undone."
+        )
+    } else {
+        format!("{resolve}, or undo the update.")
+    });
     detail.join(" ")
 }
 
@@ -2091,6 +2114,61 @@ fn branch_name(ref_name: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::backend::model::build::{branch, workspace, worktree};
+
+    #[test]
+    fn an_operation_counts_the_worktrees_its_rewrite_moves_as_its_own() {
+        let ws = workspace(
+            vec![vec![
+                branch("top", &[1]),
+                branch("middle", &[2, 3]),
+                branch("bottom", &[4]),
+            ]],
+            vec![
+                worktree("wt", Some(3), vec![branch("wt", &[5])]),
+                worktree("wt-stacked", Some(5), vec![branch("wt-stacked", &[6])]),
+            ],
+        );
+        let named = |checkouts: Checkouts| {
+            let mut names: Vec<_> = (checkouts.into_iter())
+                .map(|checkout| {
+                    checkout
+                        .linked()
+                        .map_or("Main".to_owned(), |name| name.to_string())
+                })
+                .collect();
+            names.sort();
+            names.join(", ")
+        };
+        let top_of = |ref_name: &str| Overlay {
+            new_commit: Some((NewAt::Top(ref_name.to_owned()), SharedString::default())),
+            ..Overlay::default()
+        };
+        let amending_in = |worktree: &str, key: &str| Overlay {
+            files_in: Checkout::Linked(worktree.into()),
+            ..Overlay::commits([key.to_owned()])
+        };
+        let checkouts = [
+            ("rewriting top", Overlay::commits(["key1".to_owned()])),
+            ("rewriting middle~1", Overlay::commits(["key3".to_owned()])),
+            ("rewriting wt", Overlay::commits(["key5".to_owned()])),
+            ("amending wt in it", amending_in("wt", "key5")),
+            ("committing on middle", top_of("refs/heads/middle")),
+            ("committing on bottom", top_of("refs/heads/bottom")),
+        ]
+        .map(|(what, overlay)| format!("{what}: {}\n", named(overlay.checkouts(&ws))))
+        .concat();
+        assert_eq!(
+            checkouts,
+            "rewriting top: Main\n\
+             rewriting middle~1: Main, wt, wt-stacked\n\
+             rewriting wt: Main, wt, wt-stacked\n\
+             amending wt in it: wt, wt-stacked\n\
+             committing on middle: Main\n\
+             committing on bottom: Main, wt, wt-stacked\n",
+            "wt rests on middle~1, below middle's tip and above bottom, and wt-stacked on wt"
+        );
+    }
 
     #[test]
     fn an_update_says_what_conflicted_and_what_landed() {
@@ -2124,30 +2202,63 @@ mod tests {
         );
     }
 
+    #[test]
+    fn an_update_card_says_what_a_linked_worktree_keeps_from_it() {
+        let found = |names: &[&str]| UpdateConflicts {
+            branches: (names.iter())
+                .map(|name| (format!("refs/heads/{name}"), 1))
+                .collect(),
+            files: Vec::new(),
+        };
+        let alone = workspace(vec![vec![branch("middle", &[2])]], vec![]);
+        assert_eq!(
+            update_conflicts_detail("main", &found(&["middle"]), Some(&alone)),
+            "Rebasing onto main leaves conflicted commits in middle (1 commit). \
+             You can resolve them afterwards, or undo the update.",
+            "nothing rests on the stack"
+        );
+        let rested_on = workspace(
+            vec![vec![branch("middle", &[2])]],
+            vec![worktree("wt", Some(2), vec![branch("wt", &[5])])],
+        );
+        assert_eq!(
+            update_conflicts_detail("main", &found(&["middle", "wt"]), Some(&rested_on)),
+            "Rebasing onto main leaves conflicted commits in middle (1 commit), wt (1 commit). \
+             You can resolve them afterwards, a linked worktree's in that worktree. The update \
+             moves the linked worktrees resting on your branches too, so it can't be undone.",
+            "wt moves with middle, and its conflicts resolve in it"
+        );
+        let on_a_worktree = workspace(
+            vec![vec![branch("middle", &[2])]],
+            vec![
+                worktree("a", None, vec![branch("a", &[5])]),
+                worktree("b", Some(5), vec![branch("b", &[6])]),
+            ],
+        );
+        assert_eq!(
+            update_conflicts_detail("main", &found(&["middle"]), Some(&on_a_worktree)),
+            "Rebasing onto main leaves conflicted commits in middle (1 commit). \
+             You can resolve them afterwards, or undo the update.",
+            "b rests on a, which the update leaves where it is"
+        );
+    }
+
     fn id(n: u8) -> CommitId {
         CommitId(gix::ObjectId::from([n; 20]))
     }
 
     #[test]
     fn remap_follows_a_renamed_branch_by_its_top_commit() {
-        let branch = |name: &str, key: &str| Branch {
-            name: name.into(),
-            ref_name: format!("refs/heads/{name}"),
-            commits: vec![Commit {
-                key: key.into(),
-                ..Commit::bare(id(1).0)
-            }],
-            incoming: Vec::new(),
-            remote: None,
-            push: crate::backend::PushState::NeverPushed,
-            review: None,
-        };
-        let (renamed, other) = (branch("fix-v2", "top"), branch("other", "else"));
+        let now = workspace(
+            vec![vec![branch("fix-v2", &[1]), branch("other", &[2])]],
+            vec![worktree("wt", None, vec![branch("wt-v2", &[3])])],
+        );
         let captured = [
-            ("refs/heads/fix".to_owned(), "top".to_owned()),
+            ("refs/heads/fix".to_owned(), "key1".to_owned()),
             ("refs/heads/gone".to_owned(), "missing".to_owned()),
+            ("refs/heads/wt".to_owned(), "key3".to_owned()),
         ];
-        let remap = Remap::new(&HashMap::new(), []).following(&captured, &[&renamed, &other]);
+        let remap = Remap::new(&HashMap::new(), []).following(&captured, &now);
         let to = |name: &str| match remap.destination(Destination::Branch(name.into())) {
             Ok(Destination::Branch(name)) => name,
             _ => String::new(),
@@ -2163,32 +2274,28 @@ mod tests {
             "nothing to follow, as it was"
         );
         assert_eq!(to("refs/heads/other"), "refs/heads/other", "still there");
+        assert_eq!(
+            to("refs/heads/wt"),
+            "refs/heads/wt-v2",
+            "renamed in a linked worktree"
+        );
     }
 
     #[test]
     fn remap_doesnt_take_the_branch_below_for_a_deleted_one() {
-        let branch = |name: &str, key: &str| Branch {
-            name: name.into(),
-            ref_name: format!("refs/heads/{name}"),
-            commits: vec![Commit {
-                key: key.into(),
-                ..Commit::bare(id(1).0)
-            }],
-            incoming: Vec::new(),
-            remote: None,
-            push: crate::backend::PushState::NeverPushed,
-            review: None,
-        };
         // Deleted from the top of their stacks, their commits joined the branch below, which
         // had commits of its own in one and none in the other.
-        let (below, empty) = (branch("below", "top"), branch("empty", "top2"));
+        let now = workspace(
+            vec![vec![branch("below", &[1])], vec![branch("empty", &[2])]],
+            Vec::new(),
+        );
         let captured = [
-            ("refs/heads/top".to_owned(), "top".to_owned()),
+            ("refs/heads/top".to_owned(), "key1".to_owned()),
             ("refs/heads/below".to_owned(), "own".to_owned()),
-            ("refs/heads/top2".to_owned(), "top2".to_owned()),
+            ("refs/heads/top2".to_owned(), "key2".to_owned()),
             ("refs/heads/empty".to_owned(), String::new()),
         ];
-        let remap = Remap::new(&HashMap::new(), []).following(&captured, &[&below, &empty]);
+        let remap = Remap::new(&HashMap::new(), []).following(&captured, &now);
         for gone in ["refs/heads/top", "refs/heads/top2"] {
             let to = remap.destination(Destination::Branch(gone.into()));
             assert!(

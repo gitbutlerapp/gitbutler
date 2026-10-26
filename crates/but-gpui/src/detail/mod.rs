@@ -39,7 +39,9 @@ use gpui::{
 
 use crate::app::{AddProject, AppHandle};
 use crate::backend::edit::Editing;
-use crate::backend::{self, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected};
+use crate::backend::{
+    self, Checkout, DiffLine, DiffSource, FileChange, FileDiff, HunkKey, Selected,
+};
 use crate::overlays::MenuItem;
 use crate::state::{
     Cut, FileSort, Pane, Picks, Prefs, ProjectId, Section, Selection, Store, StoreEvent, snack,
@@ -107,15 +109,14 @@ impl DiffKey {
     fn uncommitted<'a>(&self, store: &'a Store) -> Option<&'a [FileChange]> {
         store
             .workspace(&self.project)?
-            .uncommitted_in(self.checkout()?)
+            .uncommitted_in(&self.checkout()?)
     }
 
-    /// The checkout whose uncommitted files this diff is: the main one (`Some(None)`) or a
-    /// linked worktree by name. `None` for a diff of commits.
-    fn checkout(&self) -> Option<Option<&str>> {
+    /// The checkout whose uncommitted files this diff is. `None` for a diff of commits.
+    fn checkout(&self) -> Option<Checkout> {
         match &self.source {
-            DiffSource::Worktree => Some(None),
-            DiffSource::Linked(name) => Some(Some(name)),
+            DiffSource::Worktree => Some(Checkout::Main),
+            DiffSource::Linked(name) => Some(Checkout::Linked(name.clone())),
             _ => None,
         }
     }
@@ -129,18 +130,15 @@ impl DiffKey {
         };
         move |path| {
             let project = &self.project;
-            (self.checkout()).is_some_and(|checkout| store.hides_file(project, checkout, path))
+            (self.checkout()).is_some_and(|checkout| store.hides_file(project, &checkout, path))
                 || (commit.as_ref())
                     .is_some_and(|commit| store.hides_commit_file(project, commit, path))
         }
     }
 
-    /// The linked worktree this diff is of, whose files open from its own checkout.
-    fn linked(&self) -> Option<Arc<str>> {
-        match &self.source {
-            DiffSource::Linked(name) => Some(name.clone()),
-            _ => None,
-        }
+    /// The checkout this diff's files open from: a commit's from the main one.
+    fn files_checkout(&self) -> Checkout {
+        self.checkout().unwrap_or_default()
     }
 }
 
@@ -220,9 +218,9 @@ pub struct Detail {
     /// The branch (full ref) new commits go to; `None` creates a branch.
     commit_target: Option<String>,
     checks: composer::Checks,
-    /// The checks of the other checkouts looked at, by project and linked worktree, kept
-    /// for coming back to them.
-    other_checks: HashMap<(Option<ProjectId>, Option<Arc<str>>), composer::Checks>,
+    /// The checks of the other checkouts looked at, by project and checkout, kept for coming
+    /// back to them.
+    other_checks: HashMap<(Option<ProjectId>, Checkout), composer::Checks>,
     /// The `commit_target` picked in the other projects looked at.
     other_targets: HashMap<ProjectId, String>,
     /// Narrows the file list and the diff to the paths it matches, while `filtering`.
@@ -261,8 +259,8 @@ pub struct Detail {
     rewording: Option<(composer::Reworded, Entity<TextInput>, Subscription)>,
     /// The project the checks and commit target above belong to.
     checks_project: Option<ProjectId>,
-    /// The linked worktree whose files the checks are of, or `None` for the project's own.
-    checks_worktree: Option<Arc<str>>,
+    /// The checkout whose files the checks are of.
+    checks_worktree: Checkout,
     /// The commit message box is open; until then there are no checkboxes.
     composing: bool,
     /// The checkout had changes when the composer opened, so it isn't for an empty commit.
@@ -403,7 +401,7 @@ impl Detail {
                         }
                         this.commit_target =
                             (project.as_ref()).and_then(|next| this.other_targets.remove(next));
-                        this.switch_checkout(project, checkout.flatten(), cx);
+                        this.switch_checkout(project, checkout.unwrap_or_default(), cx);
                     } else if let Some(worktree) = checkout
                         && worktree != this.checks_worktree
                     {
@@ -598,7 +596,7 @@ impl Detail {
             sideways: HashMap::new(),
             rewording: None,
             checks_project: None,
-            checks_worktree: None,
+            checks_worktree: Checkout::Main,
             composing: false,
             composing_on_changes: false,
             composing_target: None,
@@ -678,12 +676,11 @@ impl Detail {
         self.app.open_menu(&cx.entity().downgrade(), at, items, cx);
     }
 
-    /// The checkout whose uncommitted changes are shown, which the composer commits: the
-    /// project's own (`None`) or a linked worktree, by name.
-    pub fn selected_checkout(&self, cx: &App) -> Option<(ProjectId, Option<Arc<str>>)> {
+    /// The checkout whose uncommitted changes are shown, which the composer commits.
+    pub fn selected_checkout(&self, cx: &App) -> Option<(ProjectId, Checkout)> {
         match self.selection(cx)? {
-            Selection::Uncommitted(project) => Some((project, None)),
-            Selection::Worktree(project, name) => Some((project, Some(name))),
+            Selection::Uncommitted(project) => Some((project, Checkout::Main)),
+            Selection::Worktree(project, name) => Some((project, Checkout::Linked(name))),
             _ => None,
         }
     }
@@ -746,7 +743,7 @@ impl Detail {
             // Its top branch's newest commit back to its bottom branch's oldest, skipping
             // branches with none yet.
             Selection::Stack(project, bottom) => {
-                let branches = store.workspace(project)?.lane(bottom)?;
+                let branches = &store.workspace(project)?.lane(bottom)?.branches;
                 let newest = branches
                     .iter()
                     .find_map(|branch| branch.commits.first())?
@@ -1118,7 +1115,7 @@ impl Detail {
             self.cursor = self.cursor_in(&files);
         }
         if self.checks_project.as_ref() == Some(&key.project)
-            && key.checkout() == Some(self.checks_worktree.as_deref())
+            && key.checkout().as_ref() == Some(&self.checks_worktree)
         {
             self.checks.reconcile(&files);
         }
@@ -1178,13 +1175,13 @@ impl Detail {
     pub fn files_to_move(
         &self,
         project: &ProjectId,
-        worktree: Option<Arc<str>>,
+        worktree: Checkout,
         cx: &App,
     ) -> Vec<Selected> {
         let files = match self.selected_checkout(cx) == Some((project.clone(), worktree.clone())) {
             true => self.selected_changes(cx),
             false => (self.store.read(cx).workspace(project))
-                .and_then(|ws| ws.uncommitted_in(worktree.as_deref()))
+                .and_then(|ws| ws.uncommitted_in(&worktree))
                 .map_or_else(Vec::new, |files| {
                     files.iter().map(Selected::whole).collect()
                 }),
@@ -1304,8 +1301,10 @@ impl Detail {
             _ => None,
         };
         let parts = match (key.checkout(), &commit) {
-            (Some(checkout), _) => store.parts_leaving(&key.project, checkout, None),
-            (None, Some(commit)) => store.parts_leaving(&key.project, None, Some(commit)),
+            (Some(checkout), _) => store.parts_leaving(&key.project, &checkout, None),
+            (None, Some(commit)) => {
+                store.parts_leaving(&key.project, &Checkout::Main, Some(commit))
+            }
             (None, None) => HashMap::new(),
         };
         let parts_of = |file: &FileDiff| parts.get(file.file.path.as_str());
@@ -1743,7 +1742,7 @@ impl Detail {
             .and_then(|ix| file.hunks().get(ix))
             .map(|h| h.key.0.new_start);
         let (project, path) = (diff.key.project.clone(), file.file.path.clone());
-        let worktree = diff.key.linked();
+        let worktree = diff.key.files_checkout();
         let position = window.mouse_position();
         self.app.update_later(window, cx, move |app, _, cx| {
             app.open_in_editor(&project, worktree, Some(path), line, position, cx)
@@ -1779,7 +1778,7 @@ impl Detail {
                 .selected_checkout(cx)
                 .is_some_and(|(project, worktree)| {
                     (store.workspace(&project))
-                        .and_then(|ws| ws.uncommitted_in(worktree.as_deref()))
+                        .and_then(|ws| ws.uncommitted_in(&worktree))
                         .is_some()
                 })
     }
@@ -1789,12 +1788,12 @@ impl Detail {
         self.composing
     }
 
-    /// Whether the composer is open on `project`'s main checkout, or its linked worktree
-    /// `linked`, whose changes then go by what's checked.
-    pub fn composing_in(&self, project: &ProjectId, linked: Option<&str>) -> bool {
+    /// Whether the composer is open on `project`'s `checkout`, whose changes then go by
+    /// what's checked.
+    pub fn composing_in(&self, project: &ProjectId, checkout: &Checkout) -> bool {
         self.composing
             && self.checks_project.as_ref() == Some(project)
-            && self.checks_worktree.as_deref() == linked
+            && self.checks_worktree == *checkout
     }
 
     /// Whether the diff's cursor is on a hunk, rather than a file's header, for ⌥⌘Z to discard.
@@ -1918,7 +1917,7 @@ impl Detail {
             // Never widen a hunk discard to the whole file.
             Some(None) => return,
         };
-        let (project, worktree) = (diff.key.project.clone(), diff.key.linked());
+        let (project, worktree) = (diff.key.project.clone(), diff.key.files_checkout());
         let change = file.part(hunks);
         self.app.update_later(window, cx, move |app, window, cx| {
             app.discard(project, worktree, vec![change], window, cx)
@@ -1956,7 +1955,7 @@ impl Detail {
         let Some(diff) = (self.diff.as_ref()).filter(|diff| diff.key.source.live()) else {
             return self.not_live(window, cx);
         };
-        let (project, worktree) = (diff.key.project.clone(), diff.key.linked());
+        let (project, worktree) = (diff.key.project.clone(), diff.key.files_checkout());
         let changes = self.picked_changes();
         self.app.update_later(window, cx, move |app, window, cx| {
             app.discard(project, worktree, changes, window, cx)
@@ -2130,7 +2129,7 @@ impl Render for Detail {
             Some(selection) => {
                 let side = match selection {
                     Selection::Uncommitted(project) => {
-                        self.render_uncommitted_side(project, None, &theme, window, cx)
+                        self.render_uncommitted_side(project, &Checkout::Main, &theme, window, cx)
                     }
                     Selection::Commit(project, id) => {
                         self.render_commit_side(project, *id, &theme, cx)
@@ -2142,7 +2141,8 @@ impl Render for Detail {
                         self.render_history_side(project, &theme, window, cx)
                     }
                     Selection::Worktree(project, name) => {
-                        self.render_uncommitted_side(project, Some(name), &theme, window, cx)
+                        let checkout = Checkout::Linked(name.clone());
+                        self.render_uncommitted_side(project, &checkout, &theme, window, cx)
                     }
                     Selection::Stack(project, bottom) => {
                         self.render_stack_side(project, bottom, &theme, cx)
@@ -2200,10 +2200,11 @@ impl Render for Detail {
                         Some(self.render_project_header(project, &theme, cx))
                     }
                     Selection::Uncommitted(project) if self.editing(project, cx).is_none() => {
-                        Some(self.render_checkout_header(project, None, &theme, cx))
+                        Some(self.render_checkout_header(project, &Checkout::Main, &theme, cx))
                     }
                     Selection::Worktree(project, name) => {
-                        Some(self.render_checkout_header(project, Some(name), &theme, cx))
+                        let checkout = Checkout::Linked(name.clone());
+                        Some(self.render_checkout_header(project, &checkout, &theme, cx))
                     }
                     _ => None,
                 };
@@ -2249,10 +2250,10 @@ impl Render for Detail {
                         self.render_operation_header(project, &theme, cx)
                     }
                     Selection::Uncommitted(project) if self.showing_now(cx) => {
-                        Some(self.render_now(project, None, cx))
+                        Some(self.render_now(project, &Checkout::Main, cx))
                     }
                     Selection::Worktree(project, name) if self.showing_now(cx) => {
-                        Some(self.render_now(project, Some(name), cx))
+                        Some(self.render_now(project, &Checkout::Linked(name.clone()), cx))
                     }
                     _ => None,
                 };

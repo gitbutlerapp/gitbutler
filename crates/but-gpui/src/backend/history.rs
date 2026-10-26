@@ -63,7 +63,7 @@ pub type Branches = Vec<(String, Vec<Recorded>)>;
 
 /// The branches of `workspace` now, as a snapshot records them.
 pub fn branches(workspace: &super::Workspace) -> Branches {
-    (workspace.stacks.iter())
+    (workspace.lanes_in(&super::Checkout::Main))
         .flat_map(|stack| &stack.branches)
         .map(|branch| {
             let commits = (branch.commits.iter()).map(|commit| Recorded {

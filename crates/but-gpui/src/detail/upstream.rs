@@ -20,7 +20,7 @@ use super::panes::{
 use super::pull_request::TABS_HEIGHT;
 use super::slots::{SlotGesture, SlotPick, ends_drag, picks_slot};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, Person, TargetCommit};
-use crate::backend::{self, CommitId, DiffSource, Forge};
+use crate::backend::{self, Checkout, CommitId, DiffSource, Forge};
 use crate::overlays::MenuItem;
 use crate::state::{Cut, Pane, ProjectId, Selection};
 use crate::theme::Theme;
@@ -392,7 +392,7 @@ impl Detail {
                 .as_ref()
                 .map(|t| (&t.name, t.behind))
                 .hash(&mut hasher);
-            for branch in workspace.branches() {
+            for branch in workspace.branches_in(&Checkout::Main) {
                 branch.commits.last().map(|c| c.id.0).hash(&mut hasher);
             }
         }
@@ -1473,7 +1473,7 @@ impl Detail {
         // What's going on in it, in counts, after where it is on the same line, which gives
         // way first.
         let workspace = entry.workspace.as_ref();
-        let applied = workspace.map_or(0, |ws| ws.branches().count());
+        let applied = workspace.map_or(0, |ws| ws.branches_in(&Checkout::Main).count());
         let unapplied = self.unapplied(project);
         let worktrees = workspace.map_or(0, |ws| ws.worktrees.len());
         let meta = meta

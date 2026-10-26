@@ -1744,6 +1744,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_json_lenient",
+ "snapbox",
  "syntect",
  "tempfile",
  "tokio",

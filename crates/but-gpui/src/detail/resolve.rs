@@ -4,7 +4,6 @@
 
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
-use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, Context, Entity, Focusable, Subscription, Task, WeakEntity, Window, actions,
@@ -14,7 +13,7 @@ use gpui::{
 use super::{Detail, DiffSource};
 use crate::app::AppView;
 use crate::backend::conflicts::{self, Keep};
-use crate::backend::{self, CommitId, Conflict, Workspace, ai};
+use crate::backend::{self, Branch, Checkout, Commit, CommitId, Conflict, Workspace, ai};
 use crate::state::{OpKind, Overlay, ProjectId, Rereads, Selection, snack};
 use crate::theme::Theme;
 use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
@@ -40,9 +39,8 @@ actions!(
 #[derive(Clone, PartialEq)]
 pub(super) enum Conflicted {
     Commit(CommitId),
-    /// Uncommitted files a merge left conflict markers in, of the main checkout or the
-    /// linked worktree named.
-    Files(Option<Arc<str>>),
+    /// Uncommitted files a merge left conflict markers in, of a checkout.
+    Files(Checkout),
 }
 
 /// What picks are kept for: a commit by its change ID, so they last through a rebase or a
@@ -50,7 +48,7 @@ pub(super) enum Conflicted {
 #[derive(Clone, PartialEq, Eq, Hash)]
 enum Of {
     Commit(String),
-    Files(Option<Arc<str>>),
+    Files(Checkout),
 }
 
 /// What's kept of a conflict until the picks are applied.
@@ -95,9 +93,7 @@ impl Detail {
         let diff = self.diff.as_ref()?;
         let conflicted = match &diff.key.source {
             DiffSource::Commit(id) => Conflicted::Commit(*id),
-            DiffSource::Worktree => Conflicted::Files(None),
-            DiffSource::Linked(name) => Conflicted::Files(Some(name.clone())),
-            _ => return None,
+            _ => Conflicted::Files(diff.key.checkout()?),
         };
         (diff.files.iter())
             .any(|file| file.file.conflicted)
@@ -166,7 +162,7 @@ impl Detail {
     /// Whether the conflicts shown are a commit's checked out for editing: between it and
     /// the commit it now sits on, as a conflicted commit's are, though they're in its files.
     fn editing_commit(&self, cx: &App) -> bool {
-        matches!(self.conflicted(), Some((project, Conflicted::Files(None)))
+        matches!(self.conflicted(), Some((project, Conflicted::Files(Checkout::Main)))
             if (self.store.read(cx).workspace(&project)).is_some_and(|ws| ws.editing.is_some()))
     }
 
@@ -559,9 +555,7 @@ impl Detail {
                         },
                         {
                             let worktree = worktree.clone();
-                            move |path, _| {
-                                conflicts::resolve_markers(path, worktree.as_deref(), keep)
-                            }
+                            move |path, _| conflicts::resolve_markers(path, worktree.linked(), keep)
                         },
                         move |store, files, cx| {
                             forget(cx);
@@ -579,7 +573,7 @@ impl Detail {
                             };
                             // The oplog can't bring back a linked worktree, nor a commit
                             // checked out for editing.
-                            store.snack_after(worktree.is_none() && !editing, message, cx)
+                            store.snack_after(!worktree.is_linked() && !editing, message, cx)
                         },
                         cx,
                     )
@@ -755,8 +749,8 @@ impl Detail {
         let store = self.store.read(cx);
         let workspace = store.workspace(&project)?;
         let no_undo = match conflicted {
-            Conflicted::Files(Some(_)) => Some("A linked worktree can't undo it."),
-            Conflicted::Files(None) if workspace.editing.is_some() => {
+            Conflicted::Files(Checkout::Linked(_)) => Some("A linked worktree can't undo it."),
+            Conflicted::Files(Checkout::Main) if workspace.editing.is_some() => {
                 Some("Finish then commits the result.")
             }
             _ => None,
@@ -880,22 +874,41 @@ fn kept_text(c: &Conflict, pick: Pick) -> String {
     }
 }
 
-/// The commits of `commit`'s stack, oldest first: the order conflicts resolve in, as each
-/// commit is rebuilt on the one below it.
+/// The commits of `commit`'s lane and the lanes it rests on, oldest first: the order conflicts
+/// resolve in, as each commit is rebuilt on the one below it.
 fn oldest_first(workspace: &Workspace, commit: CommitId) -> Vec<CommitId> {
-    let Some((branch, _)) = workspace.find_commit(commit) else {
+    let Some((lane, _)) = workspace.lane_holding(commit) else {
         return Vec::new();
     };
-    let Some((stack, _)) = workspace.stack_of(&branch.ref_name) else {
-        return vec![commit];
-    };
-    (stack.branches.iter().rev())
-        .flat_map(|branch| branch.commits.iter().rev().map(|c| c.id))
-        .collect()
+    let mut order: Vec<CommitId> = (workspace.chain_from(lane, 0))
+        .flat_map(|link| link.commits())
+        .map(|commit| commit.id)
+        .collect();
+    order.reverse();
+    order
 }
 
-/// The commits of `commit`'s stack after it, oldest first and then wrapping around to older
-/// ones, with their titles and whether they're conflicted.
+/// The oldest conflicted commit from branch `ref_name` down the lanes it rests on, and the
+/// branch holding it. None when that's a linked worktree's, as its conflicts resolve in it.
+pub(super) fn oldest_conflict<'a>(
+    workspace: &'a Workspace,
+    ref_name: &str,
+) -> Option<(&'a Branch, &'a Commit)> {
+    let (lane, at) = workspace.lane_of(ref_name)?;
+    let history: Vec<&Commit> = (workspace.chain_from(lane, at))
+        .flat_map(|link| link.commits())
+        .collect();
+    let oldest = history.into_iter().rev().find(|commit| commit.conflicted)?;
+    let (lane, at) = workspace.lane_holding(oldest.id)?;
+    let holder = lane
+        .branches
+        .get(at)
+        .filter(|_| !lane.checkout.is_linked())?;
+    Some((holder, oldest))
+}
+
+/// The commits of `commit`'s lane and those it rests on after it, oldest first and then
+/// wrapping around to older ones, with their titles and whether they're conflicted.
 fn stack_after(workspace: &Workspace, commit: CommitId) -> Vec<(CommitId, String, bool)> {
     let order = oldest_first(workspace, commit);
     let at = order
@@ -981,7 +994,7 @@ impl AppView {
     /// selected branch or commit's stack.
     fn conflict_to_resolve(&self, cx: &App) -> Option<(ProjectId, CommitId)> {
         let store = self.store.read(cx);
-        let selection = (store.selection.as_ref()).filter(|s| store.worktree_of(s).is_none())?;
+        let selection = (store.selection.as_ref()).filter(|s| !store.in_linked(s))?;
         let workspace = store.workspace(selection.project())?;
         let conflicted =
             |id: CommitId| workspace.find_commit(id).is_some_and(|(_, c)| c.conflicted);
@@ -991,8 +1004,8 @@ impl AppView {
             }
             Selection::Commit(_, id) => *id,
             Selection::Branch(_, ref_name) => {
-                let (stack, _) = workspace.stack_of(ref_name)?;
-                stack.branches.first()?.commits.first()?.id
+                let (lane, _) = workspace.lane_of(ref_name)?;
+                lane.branches.first()?.commits.first()?.id
             }
             _ => return None,
         };
@@ -1072,4 +1085,71 @@ fn apply_with(button: crate::ui::Button, kept: usize, entity: WeakEntity<Detail>
             (entity.update(cx, |this, cx| this.apply_resolutions(false, cx))).ok();
         })
         .into_any_element()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{oldest_conflict, oldest_first};
+    use crate::backend::model::build::{branch, commit_name, id, workspace, worktree};
+
+    #[test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "a test, and snapbox looks for the file its snapshot is in"
+    )]
+    fn conflicts_resolve_oldest_first_down_the_lanes_a_lane_rests_on() {
+        let ws = workspace(
+            vec![vec![
+                branch("top", &[1]),
+                branch("middle", &[2, 3]),
+                branch("bottom", &[4]),
+            ]],
+            vec![
+                worktree("wt", Some(3), vec![branch("wt", &[5])]),
+                worktree("wt-stacked", Some(5), vec![branch("wt-stacked", &[6])]),
+            ],
+        );
+        let order = [("top", 1), ("wt-stacked", 6)].map(|(name, n)| {
+            let order: Vec<String> = (oldest_first(&ws, id(n)).into_iter())
+                .map(|id| commit_name(&ws, id))
+                .collect();
+            format!("oldest_first({name}): [{}]\n", order.join(", "))
+        });
+        let oldest = [
+            ("wt-stacked", &[2, 3, 5, 6][..]),
+            ("wt-stacked", &[2, 5, 6]),
+            ("top", &[1, 3]),
+        ]
+        .map(|(name, conflicted)| {
+            let mut ws = ws.clone();
+            for commit in (ws.lanes.iter_mut())
+                .flat_map(|lane| &mut lane.branches)
+                .flat_map(|branch| &mut branch.commits)
+            {
+                commit.conflicted = conflicted.iter().any(|n| id(*n) == commit.id);
+            }
+            let oldest =
+                oldest_conflict(&ws, &format!("refs/heads/{name}")).map(|(holder, commit)| {
+                    format!("{} in {}", commit_name(&ws, commit.id), holder.name)
+                });
+            let conflicted: Vec<String> = (conflicted.iter())
+                .map(|n| commit_name(&ws, id(*n)))
+                .collect();
+            format!(
+                "oldest_conflict({name}) of [{}]: {oldest:?}\n",
+                conflicted.join(", ")
+            )
+        });
+        snapbox::assert_data_eq!(
+            order.into_iter().chain(oldest).collect::<String>(),
+            snapbox::str![[r#"
+oldest_first(top): [bottom, middle~1, middle, top]
+oldest_first(wt-stacked): [bottom, middle~1, wt, wt-stacked]
+oldest_conflict(wt-stacked) of [middle, middle~1, wt, wt-stacked]: Some("middle~1 in middle")
+oldest_conflict(wt-stacked) of [middle, wt, wt-stacked]: None
+oldest_conflict(top) of [top, middle~1]: Some("middle~1 in middle")
+
+"#]]
+        );
+    }
 }

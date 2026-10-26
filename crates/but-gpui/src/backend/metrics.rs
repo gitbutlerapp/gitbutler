@@ -25,7 +25,7 @@ use chrono::{DateTime, Utc};
 use parking_lot::Mutex;
 use serde_json::{Map, Value, json};
 
-use super::Workspace;
+use super::{Checkout, Workspace};
 
 const HOST: &str = "https://eu.i.posthog.com";
 /// Tells this app's events from the desktop app's, the CLI's and Lite's.
@@ -600,12 +600,10 @@ fn names<'a>(workspaces: impl IntoIterator<Item = &'a Workspace>) -> HashSet<Str
         named.extend(
             worktrees
                 .clone()
-                .filter_map(|worktree| worktree.branch.as_deref()),
+                .filter_map(|worktree| worktree.branch.as_deref().map(super::short_ref)),
         );
         named.extend(workspace.archived_worktrees.iter().map(|(name, _)| &**name));
-        let branches = (workspace.stacks.iter().flat_map(|stack| &stack.branches))
-            .chain(worktrees.clone().flat_map(|worktree| &worktree.branches));
-        for branch in branches {
+        for branch in workspace.all_branches() {
             named.push(&branch.name);
             named.extend(branch.remote.as_deref());
         }
@@ -623,14 +621,14 @@ fn names<'a>(workspaces: impl IntoIterator<Item = &'a Workspace>) -> HashSet<Str
 
 /// The workspace's shape, by the names the CLI's and the desktop app's events give it.
 fn shape(workspace: &Workspace, props: &mut Props) {
-    let branches = workspace.stacks.iter().map(|stack| {
+    let branches = workspace.lanes_in(&Checkout::Main).map(|stack| {
         (stack.branches.iter())
             .filter(|branch| !branch.ref_name.is_empty())
             .count()
     });
     props.insert(
         "totalLanesInWorkspace".into(),
-        workspace.stacks.len().into(),
+        workspace.lanes_in(&Checkout::Main).count().into(),
     );
     props.insert(
         "totalBranchesInWorkspace".into(),

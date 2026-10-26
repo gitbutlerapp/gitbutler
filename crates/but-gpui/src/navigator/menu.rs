@@ -8,7 +8,7 @@ use crate::app::{
     NewBranchOnTop, OpenPullRequest, Push, RenameSelection, StartCommit, ToggleRead,
     UncommitSelection, UpdateFromTarget,
 };
-use crate::backend::{CommitId, short_ref};
+use crate::backend::{Checkout, CommitId, short_ref};
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, BranchEdits, CherryPick, CommitEdits, CopyChangeId,
     CopyMessage, MoveToNewBranch, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage,
@@ -118,29 +118,19 @@ impl Navigator {
     }
 
     /// Commit… and discarding the changes the composer has checked, or all of them, for
-    /// `project`'s main checkout or its `linked` worktree with uncommitted changes; a linked
-    /// worktree's discard asks first.
-    fn changes_items(
-        &self,
-        project: &ProjectId,
-        linked: Option<std::sync::Arc<str>>,
-        cx: &App,
-    ) -> [MenuItem; 2] {
+    /// `project`'s `checkout` with uncommitted changes; a linked worktree's discard asks first.
+    fn changes_items(&self, project: &ProjectId, checkout: Checkout, cx: &App) -> [MenuItem; 2] {
         // Only the composer checks files, and only its own checkout's: without it, or for
         // another checkout right-clicked while it's open, discarding takes them all.
         // The composer's own checkout, not the selection's, which a right-click has just moved.
-        let what = match self
-            .detail
-            .read(cx)
-            .composing_in(project, linked.as_deref())
-        {
+        let what = match self.detail.read(cx).composing_in(project, &checkout) {
             true => "checked changes",
             false => "all changes",
         };
         [
             MenuItem::action("Commit…", &StartCommit, cx).separated(),
             MenuItem::action(
-                crate::edits::discard_label(what, linked.is_some()),
+                crate::edits::discard_label(what, checkout.is_linked()),
                 &DeleteSelection,
                 cx,
             )
@@ -269,7 +259,8 @@ impl Navigator {
                     items.extend([
                         MenuItem::new(label, move |this, window, cx| {
                             let position = window.mouse_position();
-                            this.open_in_editor(&editor_project, None, None, None, position, cx)
+                            let main = Checkout::Main;
+                            this.open_in_editor(&editor_project, main, None, None, position, cx)
                         })
                         .separated(),
                         MenuItem::keyed(
@@ -306,7 +297,7 @@ impl Navigator {
                 {
                     return items;
                 }
-                items.extend(self.changes_items(project, None, cx));
+                items.extend(self.changes_items(project, Checkout::Main, cx));
                 items
             }
             Selection::Branch(project, ref_name) => {
@@ -324,10 +315,8 @@ impl Navigator {
                     };
                     items.push(action(label, &Push));
                 }
-                // What reaches past a linked worktree, like its remote or a pull request, is
-                // done in it.
-                let linked = store.worktree_of(target).is_some();
-                if workspace.can_pull(ref_name) && !linked {
+                let linked = store.in_linked(target);
+                if workspace.can_pull(ref_name) {
                     items.extend([
                         MenuItem::action(
                             format!(
@@ -348,7 +337,7 @@ impl Navigator {
                         }),
                     ]);
                 }
-                if crate::pr::on_forge(store, target) && !ref_name.is_empty() && !linked {
+                if crate::pr::on_forge(store, target) && !ref_name.is_empty() {
                     use crate::backend::ReviewState as S;
                     let project = target.project();
                     match (branch.review.as_ref()).map(|r| (r, store.review_state(project, r))) {
@@ -372,7 +361,7 @@ impl Navigator {
                     }
                 }
                 if ref_name.is_empty() {
-                    if !branch.commits.is_empty() && !linked {
+                    if !branch.commits.is_empty() {
                         items.push(action("Name branch…", &RenameSelection).separated());
                     }
                     return items;
@@ -399,7 +388,7 @@ impl Navigator {
                     items.push(MenuItem::action(label, &crate::edits::LandBranch, cx));
                 }
                 // Only the workspace has stacks to take out of it.
-                if workspace.managed && !linked {
+                if workspace.managed && workspace.stack_of(ref_name).is_some() {
                     items.push(action(
                         if edits.stacked {
                             "Unapply stack"
@@ -487,7 +476,7 @@ impl Navigator {
                 };
                 let edits = CommitEdits::of(branch, commit);
                 // A linked worktree's commits stay in it, and their conflicts resolve there.
-                let linked = store.worktree_of(target).is_some();
+                let linked = store.in_linked(target);
                 let mut items = Vec::new();
                 if commit.conflicted && !linked {
                     items.push(action(
@@ -512,7 +501,7 @@ impl Navigator {
                     action("Add empty commit above", &AddEmptyCommitAbove),
                     action("Add empty commit below", &AddEmptyCommitBelow),
                 ]);
-                if edits.new_branch_here && !linked {
+                if edits.new_branch_here {
                     items.push(action("New branch ending here", &NewBranchHere));
                 }
                 if store.workspace(project).is_some_and(|ws| ws.managed) {
@@ -556,7 +545,7 @@ impl Navigator {
                     .collect();
                 let (project, name) = (project.clone(), name.clone());
                 let (deleted_project, deleted) = (project.clone(), name.clone());
-                let linked = Some(name.clone());
+                let linked = Checkout::Linked(name.clone());
                 let changes = (!lost.is_empty()).then(|| self.changes_items(&project, linked, cx));
                 let mut items = vec![
                     MenuItem::new(crate::ui::REVEAL, move |_, _, cx| cx.reveal_path(&path)),
@@ -620,7 +609,10 @@ impl Navigator {
                     return items;
                 };
                 // Through its top branch, which takes the ones below it along.
-                let Some(top) = workspace.lane(bottom).and_then(<[_]>::first) else {
+                let Some(top) = workspace
+                    .lane(bottom)
+                    .and_then(|lane| lane.branches.first())
+                else {
                     return items;
                 };
                 let top = &top.ref_name;
@@ -636,7 +628,9 @@ impl Navigator {
                         .separated(),
                     );
                 }
+                let named = !top.is_empty();
                 if let Some(target) = workspace.target.as_ref()
+                    && named
                     && BranchEdits::of(workspace, top).land == Some(true)
                 {
                     items.push(MenuItem::action(
@@ -647,7 +641,7 @@ impl Navigator {
                 }
                 items.push(action("New branch on top", &NewBranchOnTop).separated());
                 // A linked worktree's lane stays applied while it has it checked out.
-                if store.worktree_of(target).is_none() && workspace.managed {
+                if workspace.managed && named && workspace.stack_of(bottom).is_some() {
                     items.push(action("Unapply stack", &UnapplyStack));
                 }
                 items

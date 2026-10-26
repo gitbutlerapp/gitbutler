@@ -1,6 +1,13 @@
 //! Plain data the UI renders. Nothing in here borrows from a repository, so it can be
 //! built on a background thread and handed to the UI as is.
 
+#[cfg(test)]
+pub(crate) mod build;
+mod lanes;
+mod push;
+
+pub use lanes::{Checkout, Lane};
+
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -56,7 +63,9 @@ pub struct Workspace {
     pub lost_target: Option<String>,
     /// The forge that hosts the target, when there is one to make pull requests on.
     pub forge: Option<Forge>,
-    pub stacks: Vec<Stack>,
+    /// The stacks, each a lane of the main checkout, then the lanes of the linked worktrees
+    /// shown, in `worktrees`' order.
+    pub lanes: Vec<Lane>,
     pub uncommitted: Vec<FileChange>,
     /// The tree of the main checkout's `HEAD` that `uncommitted` was read against. While it's
     /// the same, an operation on commits left the files as they were: see [`super::Kept`].
@@ -117,11 +126,8 @@ pub struct Worktree {
     /// Its stable name, the folder name under `.git/worktrees/`.
     pub name: std::sync::Arc<str>,
     pub path: std::path::PathBuf,
-    /// The branch it has checked out, or `None` for a detached `HEAD`.
+    /// The full ref of the branch it has checked out, or `None` for a detached `HEAD`.
     pub branch: Option<String>,
-    /// The branches of its lane, from the one checked out down to where it started, without
-    /// the commits the target already has: what was committed in it.
-    pub branches: Vec<Branch>,
     pub uncommitted: Vec<FileChange>,
     /// The Git command it's stopped partway through, like `git rebase`.
     pub git_operation: Option<&'static str>,
@@ -133,13 +139,6 @@ pub struct Worktree {
 }
 
 impl Worktree {
-    /// The last commit of the bottom branch of its lane, which a branch moves below to go
-    /// under the worktree's branches. `None` when that branch has no commits of its own.
-    pub fn lane_end(&self) -> Option<CommitId> {
-        let bottom = (self.branches.iter().rev()).find(|branch| !branch.ref_name.is_empty())?;
-        bottom.commits.last().map(|commit| commit.id)
-    }
-
     /// When its uncommitted files were written, and when it last moved, as a commit that
     /// takes them all does, in seconds since the epoch.
     pub fn activity(&self) -> impl Iterator<Item = i64> + '_ {
@@ -161,23 +160,13 @@ impl Worktree {
 const INACTIVE_AFTER: std::time::Duration = std::time::Duration::from_secs(12 * 60 * 60);
 
 impl Workspace {
-    /// The workspace's own branches, its stacks', which commits and moves go to.
-    pub fn branches(&self) -> impl Iterator<Item = &Branch> {
-        self.stacks.iter().flat_map(|stack| &stack.branches)
-    }
-
-    /// Every branch shown: the workspace's, then its linked worktrees'.
-    fn shown_branches(&self) -> impl Iterator<Item = &Branch> {
-        (self.branches()).chain(self.worktrees.iter().flat_map(|wt| &wt.branches))
-    }
-
     /// Every commit shown, its linked worktrees' too.
     pub fn commits(&self) -> impl Iterator<Item = &Commit> {
-        self.shown_branches().flat_map(|branch| &branch.commits)
+        self.all_branches().flat_map(|branch| &branch.commits)
     }
 
     pub fn find_commit(&self, id: CommitId) -> Option<(&Branch, &Commit)> {
-        self.shown_branches().find_map(|branch| {
+        self.all_branches().find_map(|branch| {
             branch
                 .commits
                 .iter()
@@ -188,7 +177,7 @@ impl Workspace {
 
     /// The commits only shown branches' remotes have.
     pub fn remote_commits(&self) -> impl Iterator<Item = &RemoteCommit> {
-        self.shown_branches().flat_map(|branch| &branch.incoming)
+        self.all_branches().flat_map(|branch| &branch.incoming)
     }
 
     /// The target's name: its remote counterpart once there is one, else the branch picked,
@@ -210,7 +199,7 @@ impl Workspace {
     }
 
     pub fn find_branch(&self, ref_name: &str) -> Option<&Branch> {
-        self.shown_branches()
+        self.all_branches()
             .find(|branch| branch.ref_name == ref_name)
     }
 
@@ -220,137 +209,16 @@ impl Workspace {
             .find(|worktree| &*worktree.name == name)
     }
 
-    /// The uncommitted files of the linked worktree `name`, or of the main checkout.
-    pub fn uncommitted_in(&self, name: Option<&str>) -> Option<&[FileChange]> {
-        match name {
-            None => Some(&self.uncommitted),
-            Some(name) => Some(&self.find_worktree(name)?.uncommitted),
+    pub fn checked_out_in(&self, ref_name: &str) -> Option<&Worktree> {
+        (self.worktrees.iter()).find(|worktree| worktree.branch.as_deref() == Some(ref_name))
+    }
+
+    /// The uncommitted files of `checkout`.
+    pub fn uncommitted_in(&self, checkout: &Checkout) -> Option<&[FileChange]> {
+        match checkout {
+            Checkout::Main => Some(&self.uncommitted),
+            Checkout::Linked(name) => Some(&self.find_worktree(name)?.uncommitted),
         }
-    }
-
-    /// The branches of each stack, then of each linked worktree's lane, top first.
-    pub fn lanes(&self) -> impl Iterator<Item = &[Branch]> {
-        (self.stacks.iter().map(|stack| &stack.branches[..]))
-            .chain(self.worktrees.iter().map(|wt| &wt.branches[..]))
-    }
-
-    /// The commits of the lane holding commit `id`, across its branches, newest first.
-    pub fn lane_commits(&self, id: CommitId) -> Option<Vec<CommitId>> {
-        (self.lanes())
-            .map(|lane| lane.iter().flat_map(|b| &b.commits).map(|c| c.id))
-            .map(Vec::from_iter)
-            .find(|lane| lane.contains(&id))
-    }
-
-    /// The newest and oldest of `ids`, when they're two or more and one run of commits in one
-    /// lane, across its branches too, so their changes together are a diff from the oldest's
-    /// parent.
-    pub fn run_of(&self, ids: &[CommitId]) -> Option<(CommitId, CommitId)> {
-        let n = ids.len();
-        let lane = self.lane_commits(*ids.first()?)?;
-        let from = lane.iter().position(|id| ids.contains(id))?;
-        let run = lane.get(from..from + n)?;
-        let [newest, .., oldest] = run else {
-            return None;
-        };
-        (run.iter().all(|id| ids.contains(id))).then_some((*newest, *oldest))
-    }
-
-    /// The branches of the stack, or linked worktree's lane, whose bottom branch is `bottom`.
-    pub fn lane(&self, bottom: &str) -> Option<&[Branch]> {
-        self.lanes().find(|branches| {
-            branches
-                .last()
-                .is_some_and(|branch| branch.ref_name == bottom)
-        })
-    }
-
-    /// The lane holding the branch `ref_name`, a stack's or a linked worktree's, and the
-    /// branch's place in it from the top.
-    pub fn lane_of(&self, ref_name: &str) -> Option<(&[Branch], usize)> {
-        self.lanes().find_map(|lane| {
-            let at = lane.iter().position(|b| b.ref_name == ref_name)?;
-            Some((lane, at))
-        })
-    }
-
-    /// The stack holding the branch `ref_name`, and the branch's place in it from the top.
-    pub fn stack_of(&self, ref_name: &str) -> Option<(&Stack, usize)> {
-        self.stacks.iter().find_map(|stack| {
-            let at = stack.branches.iter().position(|b| b.ref_name == ref_name)?;
-            Some((stack, at))
-        })
-    }
-
-    /// `ref_name`'s branch and the ones below it in its stack, which pushing it pushes too.
-    pub(crate) fn pushed_with(&self, ref_name: &str) -> &[Branch] {
-        (self.stack_of(ref_name))
-            .and_then(|(stack, at)| stack.branches.get(at..))
-            .unwrap_or_default()
-    }
-
-    /// Whether pushing `ref_name` has commits to send. An unnamed branch has no ref to push.
-    pub fn can_push(&self, ref_name: &str) -> bool {
-        !ref_name.is_empty() && self.pushed_with(ref_name).iter().any(Branch::can_push)
-    }
-
-    /// The commits only the remote has that pushing `ref_name` drops: a forced push replaces
-    /// what's there.
-    pub fn push_drops(&self, ref_name: &str) -> Vec<CommitId> {
-        if !self.needs_force(ref_name) {
-            return Vec::new();
-        }
-        (self.pushed_with(ref_name).iter())
-            .flat_map(|b| b.incoming.iter().map(|commit| commit.id))
-            .collect()
-    }
-
-    /// Why `ref_name` can't be pushed yet, though it has commits to send: pushing goes to
-    /// the remote of the target's upstream, and a conflicted commit would go along.
-    pub fn push_refused(&self, ref_name: &str) -> Option<&'static str> {
-        let pushed = self.pushed_with(ref_name);
-        let unpushed = (self.target.as_ref()).map_or(self.target_branch.is_some(), |t| t.local);
-        if self.remoteless {
-            Some("The project has no remote to push to: add one with `git remote add`")
-        } else if (self.target.as_ref()).is_some_and(|t| t.untracked.is_some()) {
-            Some(
-                "The target branch doesn't track the remote's of its name: the project's page says how to",
-            )
-        } else if unpushed {
-            Some("The target branch tracks no remote branch: push it once, with `git push -u`")
-        } else if self.target.is_none() {
-            Some("Pick the project's target branch first")
-        } else if (pushed.iter()).any(|b| b.commits.iter().any(|c| c.conflicted)) {
-            Some("Resolve the conflicted commits first")
-        } else {
-            None
-        }
-    }
-
-    /// The target, when pushing `ref_name` forces the target branch, which others' work builds
-    /// on. What only its remote has counts as the target's incoming commits, not the branch's.
-    pub fn forced_target(&self, ref_name: &str) -> Option<&Target> {
-        (self.pushed_with(ref_name).iter())
-            .any(|b| {
-                b.push == PushState::NeedsForce && self.target_branch.as_ref() == Some(&b.ref_name)
-            })
-            .then_some(self.target.as_ref())
-            .flatten()
-    }
-
-    /// Whether pushing `ref_name` has to force: it or a branch below it was rewritten since
-    /// it was pushed.
-    pub fn needs_force(&self, ref_name: &str) -> bool {
-        (self.pushed_with(ref_name).iter()).any(|branch| branch.push == PushState::NeedsForce)
-    }
-
-    /// Whether `ref_name` can pull the commits only its remote has: it has some, and no
-    /// branches stacked on it. Pulling into a branch with others above moves its reference
-    /// to the top of the stack, so the app doesn't offer it.
-    pub fn can_pull(&self, ref_name: &str) -> bool {
-        self.stack_of(ref_name).is_some_and(|(stack, at)| {
-            at == 0 && (stack.branches.first()).is_some_and(|b| !b.incoming.is_empty())
-        })
     }
 
     /// When anything last happened here, in seconds: a file written or a commit made.
@@ -362,7 +230,7 @@ impl Workspace {
         // Linked worktrees' too, as an agent committing in one clears its uncommitted files.
         // Any commit, not just the top one, which can be an old one cherry-picked.
         let committed =
-            (self.shown_branches()).flat_map(|branch| branch.commits.iter().map(|c| c.time));
+            (self.all_branches()).flat_map(|branch| branch.commits.iter().map(|c| c.time));
         let in_worktrees = self.worktrees.iter().flat_map(Worktree::activity);
         // Nothing dated ahead of the clock, as a machine whose clock is off dates its commits,
         // which would otherwise keep the project active until then.
@@ -406,12 +274,6 @@ pub struct Target {
 
 /// How many of the target's commits the workspace doesn't have yet are read with it.
 pub const UPSTREAM_SHOWN: usize = 8;
-
-#[derive(Debug, Clone)]
-pub struct Stack {
-    /// Branches from the top of the stack down to its base.
-    pub branches: Vec<Branch>,
-}
 
 #[derive(Debug, Clone)]
 pub struct Branch {
@@ -1432,8 +1294,10 @@ mod tests {
             review: None,
         };
         let ws = super::Workspace {
-            stacks: vec![super::Stack {
+            lanes: vec![super::Lane {
                 branches: vec![main],
+                checkout: super::Checkout::Main,
+                rests_on: None,
             }],
             target_branch: Some("refs/heads/main".into()),
             target: Some(super::Target {

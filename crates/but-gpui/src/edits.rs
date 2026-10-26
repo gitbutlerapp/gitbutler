@@ -14,7 +14,8 @@ use crate::app::{
     UncommitSelection,
 };
 use crate::backend::{
-    self, Branch, Commit, CommitId, Destination, Selected, Undiscarded, Workspace, short_ref,
+    self, Branch, Checkout, Commit, CommitId, Destination, Selected, Undiscarded, Workspace,
+    short_ref,
 };
 use crate::overlays::run_named;
 use crate::state::{Cut, Label, Overlay, ProjectId, Remap, Rereads, Selection, Store, snack};
@@ -54,12 +55,6 @@ fn needs_rewrap(message: &str) -> bool {
 pub fn discard_label(what: &str, linked: bool) -> String {
     let more = if linked { "…" } else { "" };
     format!("Discard {what}{more}")
-}
-
-/// Whether GitButler's history records what's done in `project`'s main checkout, so ⌘Z, and
-/// the snackbar's Undo, can take it back. What it can take back is done at once, without asking.
-fn recorded(store: &Store, project: &ProjectId) -> bool {
-    !(store.workspace(project)).is_some_and(|ws| ws.unrecorded)
 }
 
 /// Throw away `changes` of `project`'s main checkout, though undo can't take it back as
@@ -171,8 +166,8 @@ pub struct BranchEdits {
 
 impl BranchEdits {
     pub fn of(workspace: &Workspace, ref_name: &str) -> Self {
-        let Some((lane, branch)) =
-            (workspace.lane_of(ref_name)).and_then(|(lane, at)| Some((lane, lane.get(at)?)))
+        let Some((lane, branch)) = (workspace.lane_of(ref_name))
+            .and_then(|(lane, at)| Some((lane, lane.branches.get(at)?)))
         else {
             return Self::default();
         };
@@ -183,7 +178,7 @@ impl BranchEdits {
         Self {
             new_below: commits > 0,
             squash_all: commits > 1 && !conflicted,
-            stacked: stack && lane.len() > 1,
+            stacked: stack && lane.branches.len() > 1,
             land: land_scope(workspace, ref_name).filter(|_| workspace.target.is_some()),
         }
     }
@@ -217,21 +212,12 @@ impl AppView {
     /// on top and uncommit are always there; the rest only where the selection lets them do
     /// something, which is also what the palette offers.
     pub fn edit_actions(&self, el: Div, cx: &mut Context<Self>) -> Div {
-        // A linked worktree's branches and commits are edited here as yours are, apart from
-        // what reaches past the worktree, like pushing, landing or moving them out of it.
-        let linked = self.in_worktree_lane(cx);
         let store = self.store.read(cx);
         let el = el
             .on_action(cx.listener(Self::delete_selection))
             .on_action(cx.listener(Self::rename_selection))
             .on_action(cx.listener(Self::new_branch_on_top))
-            .on_action(cx.listener(Self::uncommit_selection))
-            .when(linked, |el| {
-                let store = self.store.clone();
-                el.on_action(move |_: &Push, _, cx| {
-                    store.update(cx, |store, cx| store.changes_elsewhere("Push it", cx));
-                })
-            });
+            .on_action(cx.listener(Self::uncommit_selection));
         let picked = store.picked.len() > 1;
         match &store.selection {
             Some(Selection::Commit(project, id)) => {
@@ -262,7 +248,7 @@ impl AppView {
                     }))
                 })
                 .when(picked, |el| el.on_action(cx.listener(Self::squash_picked)))
-                .when(edits.new_branch_here && !linked, |el| {
+                .when(edits.new_branch_here, |el| {
                     el.on_action(cx.listener(Self::new_branch_here))
                 })
                 .when(edits.rewrap, |el| {
@@ -279,7 +265,6 @@ impl AppView {
                 let Some(workspace) = store.workspace(project) else {
                     return el;
                 };
-                // A worktree's lane never can, as pulling reaches past the worktree.
                 let el = el.when(workspace.can_pull(ref_name), |el| {
                     el.on_action(cx.listener(|this, _: &PullRemote, window, cx| {
                         this.pull_remote(false, window, cx)
@@ -304,9 +289,10 @@ impl AppView {
                 })
                 .when(edits.stacked, |el| el.on_action(cx.listener(Self::unstack)))
                 // Outside the workspace there are no stacks to take out of it.
-                .when(workspace.managed && !linked, |el| {
-                    el.on_action(cx.listener(Self::unapply_stack))
-                })
+                .when(
+                    workspace.managed && workspace.stack_of(ref_name).is_some(),
+                    |el| el.on_action(cx.listener(Self::unapply_stack)),
+                )
                 .when(edits.land.is_some(), |el| {
                     el.on_action(cx.listener(Self::land_branch))
                 })
@@ -317,14 +303,17 @@ impl AppView {
                 let Some(workspace) = store.workspace(project) else {
                     return el;
                 };
-                let top = workspace.lane(bottom).and_then(<[_]>::first);
+                let top = (workspace.lane(bottom))
+                    .and_then(|lane| lane.branches.first())
+                    .filter(|top| !top.ref_name.is_empty());
                 let lands = top.is_some_and(|top| {
                     BranchEdits::of(workspace, &top.ref_name).land == Some(true)
                 });
                 el.when(lands, |el| el.on_action(cx.listener(Self::land_branch)))
-                    .when(workspace.managed && !linked, |el| {
-                        el.on_action(cx.listener(Self::unapply_stack))
-                    })
+                    .when(
+                        workspace.managed && top.is_some() && workspace.stack_of(bottom).is_some(),
+                        |el| el.on_action(cx.listener(Self::unapply_stack)),
+                    )
             }
             _ => el,
         }
@@ -376,13 +365,6 @@ impl AppView {
         Some((project.clone(), commit))
     }
 
-    /// Whether the selection is on a linked worktree's branches, whose edits the oplog can't
-    /// take back: it snapshots only the main checkout.
-    fn in_worktree_lane(&self, cx: &App) -> bool {
-        let store = self.store.read(cx);
-        (store.selection.as_ref()).is_some_and(|s| store.worktree_of(s).is_some())
-    }
-
     /// The selected branch, or a selected stack's top one, when it has a name.
     fn selected_named_branch(&self, cx: &App) -> Option<(ProjectId, String)> {
         match self.store.read(cx).selection.as_ref()? {
@@ -399,7 +381,9 @@ impl AppView {
         let selection = self.selection(cx)?;
         let store = self.store.read(cx);
         let branch = match &selection {
-            Selection::Stack(project, bottom) => store.workspace(project)?.lane(bottom)?.first()?,
+            Selection::Stack(project, bottom) => {
+                store.workspace(project)?.lane(bottom)?.branches.first()?
+            }
             _ => store.branch_for(&selection)?,
         };
         Some((selection.project().clone(), branch.ref_name.clone()))
@@ -456,13 +440,26 @@ impl AppView {
                     n => (format!("the {n} commits"), "them"),
                 };
                 // A branch it takes along whose commits only its remote has can't be pulled
-                // first when others are stacked on it.
-                let stuck = (ws.pushed_with(&ref_name).iter())
+                // first when others are stacked on it or a linked worktree rests on it, nor
+                // here when a linked worktree has it.
+                let stuck = (ws.pushed_with(&ref_name))
                     .find(|b| !b.incoming.is_empty() && !ws.can_pull(&b.ref_name));
+                let linked = (stuck.and_then(|b| ws.lane_of(&b.ref_name)))
+                    .is_some_and(|(lane, _)| lane.checkout.is_linked());
                 match stuck {
                     None => {
                         format!("It drops {what} only the remote has. Pull first to keep {them}.")
                     }
+                    Some(stuck) if linked => format!(
+                        "It drops {what} only the remote has. To keep {name}'s, pull it in its \
+                         worktree first.",
+                        name = stuck.name
+                    ),
+                    Some(stuck) if ws.rested_on(&stuck.ref_name) => format!(
+                        "It drops {what} only the remote has. {name}'s can't be pulled first \
+                         while a worktree rests on it.",
+                        name = stuck.name
+                    ),
                     Some(stuck) => format!(
                         "It drops {what} only the remote has. To keep {name}'s, unstack the \
                          branches on it and pull it first.",
@@ -504,11 +501,11 @@ impl AppView {
             }
             Some(Selection::Uncommitted(project)) => {
                 let changes = self.detail.read(cx).selected_changes(cx);
-                self.discard(project, None, changes, window, cx);
+                self.discard(project, Checkout::Main, changes, window, cx);
             }
             Some(Selection::Worktree(project, name)) => {
                 let changes = self.detail.read(cx).selected_changes(cx);
-                self.discard(project, Some(name), changes, window, cx);
+                self.discard(project, Checkout::Linked(name), changes, window, cx);
             }
             _ => {}
         }
@@ -521,18 +518,17 @@ impl AppView {
         cx: &mut Context<Self>,
     ) {
         match self.selection(cx) {
-            // A linked worktree's unnamed branch is named there, where its HEAD is, and one
-            // with no commits has nothing to name.
+            // An unnamed branch with no commits has nothing to name.
             Some(Selection::Branch(project, ref_name))
                 if ref_name.is_empty()
-                    && ((self.store)
-                        .update(cx, |store, cx| store.changes_elsewhere("Name it", cx))
-                        || (self.store.read(cx).workspace(&project))
-                            .and_then(|ws| ws.find_branch(""))
-                            .is_none_or(|b| b.commits.is_empty())) => {}
+                    && (self.store.read(cx).workspace(&project))
+                        .and_then(|ws| ws.find_branch(""))
+                        .is_none_or(|b| b.commits.is_empty()) => {}
             Some(Selection::Branch(project, ref_name)) => {
-                let undoable = !self.in_worktree_lane(cx);
-                let workspace = self.store.read(cx).workspace(&project);
+                let store = self.store.read(cx);
+                let branch = Selection::Branch(project.clone(), ref_name.clone());
+                let undoable = store.undoable(&project, store.checkout_of(&branch));
+                let workspace = store.workspace(&project);
                 // An unnamed branch has no ref to rename, so it gets one at its newest commit.
                 let unnamed_top = (workspace.filter(|_| ref_name.is_empty()))
                     .and_then(|ws| Some(ws.find_branch("")?.commits.first()?.id));
@@ -602,29 +598,33 @@ impl AppView {
         // has checked out, the worktree checks the new one out and commits there, so the title
         // says so.
         let store = self.store.read(cx);
-        let worktree = (store.selection.as_ref()).and_then(|s| store.worktree_of(s));
-        let checked_out = (store.workspace(&project).and_then(|ws| ws.lane_of(&below)))
-            .is_some_and(|(_, at)| at == 0);
-        let checked_out_in = (worktree.filter(|_| checked_out)).map(|w| w.name.clone());
+        let worktree = (store.selection.as_ref()).and_then(|s| store.worktree_for(s));
+        let checked_out_in = (store.workspace(&project))
+            .and_then(|ws| ws.checked_out_in(&below))
+            .map(|w| w.name.clone());
         let here = worktree.is_none();
-        self.new_branch_at(project, here, checked_out_in, window, cx, move |path, _| {
-            backend::create_dependent_branch(path, &below)
-        });
+        let checkout = store.checkout_of(&Selection::Branch(project.clone(), below.clone()));
+        let op = move |path: &Path, _: &Remap| backend::create_dependent_branch(path, &below);
+        self.new_branch_at(project, here, checked_out_in, checkout, window, cx, op);
     }
 
     /// Make a branch with a made-up name with `op` and select it, for r to rename, as the other
     /// apps do. One made on top (`on_top`) is what the next commit goes to; one splitting a
-    /// stack isn't. `checked_out_in` names the linked worktree that checks it out.
+    /// stack isn't. `checked_out_in` names the linked worktree that checks it out, and
+    /// `checkout` is the one whose lane it's made in, `None` for a stack of its own.
+    #[expect(clippy::too_many_arguments)]
     pub(crate) fn new_branch_at(
         &mut self,
         project: ProjectId,
         on_top: bool,
         checked_out_in: Option<Arc<str>>,
+        checkout: Option<Checkout>,
         window: &mut Window,
         cx: &mut Context<Self>,
         op: impl FnOnce(&Path, &Remap) -> anyhow::Result<String> + Send + 'static,
     ) {
         let (selected, detail) = (project.clone(), self.detail.downgrade());
+        let undoable = self.store.read(cx).undoable(&project, checkout);
         let done = move |store: &mut Store, branch: String, cx: &mut Context<Store>| {
             if on_top {
                 (detail.update(cx, |detail, cx| {
@@ -639,7 +639,7 @@ impl AppView {
                 None => format!("Created {}", short_ref(&branch)),
             };
             store.select(Some(Selection::Branch(selected, branch)), cx);
-            store.snack_undoable(message, cx)
+            store.snack_after(undoable, message, cx)
         };
         // The navigator, where it's selected, takes the keys, as r to rename it.
         self.focus_navigator(&FocusNavigator, window, cx);
@@ -683,14 +683,14 @@ impl AppView {
             return;
         };
         // The lane as the deletes already asked for leave it, which this one follows.
-        let lane = store.after_deletes(&project, lane);
+        let lane = store.after_deletes(&project, &lane.branches);
         let Some(at) = lane.iter().position(|branch| branch.ref_name == ref_name) else {
             return;
         };
         // A linked worktree keeps the branch it has checked out; the ones stacked under it
         // can go, their commits joining it.
         let selection = Selection::Branch(project.clone(), ref_name.clone());
-        let linked = store.worktree_of(&selection).is_some();
+        let linked = store.in_linked(&selection);
         if at == 0 && linked {
             let message = format!("{name} is checked out in a worktree, which keeps it");
             return snack(&self.store, message, cx);
@@ -716,7 +716,7 @@ impl AppView {
             return snack(&self.store, message, cx);
         }
         // The oplog doesn't keep a linked worktree's branches, so it can't bring one back.
-        let undoable = !linked && recorded(store, &project);
+        let undoable = store.undoable(&project, store.checkout_of(&selection));
         let above = at.checked_sub(1).and_then(|ix| lane.get(ix));
         let joins = (above.filter(named).or(lane.get(at + 1)))
             .filter(|_| lane.get(at).is_some_and(|b| !b.commits.is_empty()))
@@ -761,8 +761,9 @@ impl AppView {
             return;
         };
         let store = self.store.read(cx);
-        let in_worktree = ids.iter().any(|id| store.in_worktree(&project, *id));
-        let undoable = !in_worktree && recorded(store, &project);
+        let moved = store.moved_by(&project, &ids);
+        let in_worktree = moved.iter().any(Checkout::is_linked);
+        let undoable = store.undoable(&project, moved);
         let overlay = Overlay::commits(ids.iter().filter_map(|id| store.key_of(&project, *id)));
         let (message, done) = match ids.len() {
             1 => (
@@ -800,36 +801,36 @@ impl AppView {
         self.confirm_then(Some(at), message, detail, "Discard", window, cx, run);
     }
 
-    /// Throw away uncommitted changes of the main checkout, or of the linked `worktree`.
+    /// Throw away uncommitted changes of `worktree`.
     /// The main checkout's go at once, with Undo on the snackbar as in Zed's review. A linked
     /// worktree's always ask, as the oplog can't bring them back, and so do the main
     /// checkout's while it can't record them.
     pub fn discard(
         &mut self,
         project: ProjectId,
-        worktree: Option<Arc<str>>,
+        worktree: Checkout,
         mut changes: Vec<Selected>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         // Not what a pending discard or commit already takes, as after a quick second press.
-        let (store, checkout) = (self.store.read(cx), worktree.as_deref());
+        let store = self.store.read(cx);
         changes.retain(|change| {
             let path = &change.file.path;
             match &change.hunks {
-                None => !store.hides_file(&project, checkout, path),
+                None => !store.hides_file(&project, &worktree, path),
                 Some(hunks) => {
-                    !(hunks.iter()).all(|h| store.hides_hunk(&project, checkout, path, *h))
+                    !(hunks.iter()).all(|h| store.hides_hunk(&project, &worktree, path, *h))
                 }
             }
         });
         let lasting = match &worktree {
-            Some(_) => Some("Changes discarded in a linked worktree can't be undone."),
-            None if (store.workspace(&project)).is_some_and(|ws| ws.unrecorded) => Some(
+            Checkout::Linked(_) => Some("Changes discarded in a linked worktree can't be undone."),
+            Checkout::Main if (store.workspace(&project)).is_some_and(|ws| ws.unrecorded) => Some(
                 "With no commits yet, no branch checked out or no target, discarded changes can't \
                  be undone.",
             ),
-            None => None,
+            Checkout::Main => None,
         };
         // A submodule's own work goes with it too, which the oplog doesn't record.
         let why = (changes.iter())
@@ -860,10 +861,7 @@ impl AppView {
             }
         };
         let undoable = lasting.is_none();
-        let at = match &worktree {
-            Some(name) => Selection::Worktree(project.clone(), name.clone()),
-            None => Selection::Uncommitted(project.clone()),
-        };
+        let at = Selection::uncommitted_in(project.clone(), worktree.clone());
         let overlay = Overlay {
             rereads: Rereads::Files,
             files_in: worktree.clone(),
@@ -876,7 +874,7 @@ impl AppView {
             project,
             "Discard",
             overlay,
-            move |path, _| backend::discard(path, worktree.as_deref(), &changes, !undoable),
+            move |path, _| backend::discard(path, worktree.linked(), &changes, !undoable),
             move |store, outcome, cx| match outcome {
                 None => store.snack_after(undoable, "Changes discarded", cx),
                 Some(Undiscarded::Unrecorded(why)) => store.error_with_retry(
@@ -915,7 +913,6 @@ impl AppView {
             _ => return,
         };
         let (project, to) = at;
-        let undoable = !self.in_worktree_lane(cx);
         self.store.update(cx, |store, cx| {
             // It shows where it goes right away, dimmed until it's there.
             let at = store.new_at(&project, &to);
@@ -928,7 +925,7 @@ impl AppView {
                 "Add empty commit",
                 overlay,
                 move |path, remap| backend::insert_empty_commit(path, &remap.destination(to)?),
-                move |store, _, cx| store.snack_after(undoable, "Empty commit added", cx),
+                move |store, _, cx| store.snack_undoable("Empty commit added", cx),
                 cx,
             )
         });
@@ -1028,9 +1025,12 @@ impl AppView {
         let Some(oldest) = oldest else {
             return;
         };
-        self.new_branch_at(project, false, None, window, cx, move |path, remap| {
+        let branch = Selection::Branch(project.clone(), ref_name);
+        let checkout = self.store.read(cx).checkout_of(&branch);
+        let op = move |path: &Path, remap: &Remap| {
             backend::create_branch_at_commit(path, remap.get(oldest)?, true)
-        });
+        };
+        self.new_branch_at(project, false, None, checkout, window, cx, op);
     }
 
     /// Split the selected commit's branch: a new branch ending at it takes it and the
@@ -1040,9 +1040,11 @@ impl AppView {
             return;
         };
         let id = commit.id;
-        self.new_branch_at(project, false, None, window, cx, move |path, remap| {
+        let checkout = (self.store.read(cx)).checkout_of(&Selection::Commit(project.clone(), id));
+        let op = move |path: &Path, remap: &Remap| {
             backend::create_branch_at_commit(path, remap.get(id)?, false)
-        });
+        };
+        self.new_branch_at(project, false, None, checkout, window, cx, op);
     }
 
     fn unstack(&mut self, _: &Unstack, _: &mut Window, cx: &mut Context<Self>) {
@@ -1067,13 +1069,15 @@ impl AppView {
         };
         // The whole stack goes, at once, and the snackbar counts the other branches in it.
         // An unnamed one has no ref to tell it from another stack's.
-        let stack: HashSet<String> = (self.store.read(cx).workspace(&project))
+        let Some(stack): Option<HashSet<String>> = (self.store.read(cx).workspace(&project))
             .and_then(|ws| ws.stack_of(&ref_name))
             .map(|(stack, _)| {
                 let names = stack.branches.iter().map(|b| b.ref_name.clone());
                 names.filter(|name| !name.is_empty()).collect()
             })
-            .unwrap_or_default();
+        else {
+            return;
+        };
         let name = match stack.len().max(1) {
             1 => short_ref(&ref_name).to_owned(),
             2 => format!("{} and the other branch in its stack", short_ref(&ref_name)),
@@ -1212,7 +1216,6 @@ impl AppView {
             return;
         };
         let (id, message) = (commit.id, backend::wrapped_message(&commit.message));
-        let undoable = !self.in_worktree_lane(cx);
         let overlay = Overlay {
             reworded: Some((commit.key.clone(), message.clone())),
             ..Overlay::default()
@@ -1225,7 +1228,7 @@ impl AppView {
                 move |path, remap| backend::reword(path, remap.get(id)?, &message),
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
-                    store.snack_after(undoable, "Message rewrapped", cx)
+                    store.snack_undoable("Message rewrapped", cx)
                 },
                 cx,
             )
@@ -1259,7 +1262,6 @@ impl AppView {
     ) {
         let selected = project.clone();
         self.store.update(cx, |store, cx| {
-            let undoable = !store.in_worktree(&project, commit);
             store.run(
                 &project,
                 "Split commit",
@@ -1269,7 +1271,7 @@ impl AppView {
                 },
                 move |store, (_, new), cx| {
                     store.select(Some(Selection::Commit(selected, new)), cx);
-                    store.snack_after(undoable, "Split into a new commit", cx)
+                    store.snack_undoable("Split into a new commit", cx)
                 },
                 cx,
             )
@@ -1293,8 +1295,9 @@ impl AppView {
         };
         let store = self.store.read(cx);
         // The oplog can't bring back a linked worktree's files.
-        let in_worktree = store.in_worktree(&project, commit);
-        let undoable = !in_worktree && recorded(store, &project);
+        let moved = store.moved_by(&project, &[commit]);
+        let in_worktree = moved.iter().any(Checkout::is_linked);
+        let undoable = store.undoable(&project, moved);
         let overlay = Overlay::commit_files(store.key_of(&project, commit), files.iter());
         let at = Selection::Commit(project.clone(), commit);
         let run = then_run(

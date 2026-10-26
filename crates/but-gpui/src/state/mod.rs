@@ -13,12 +13,13 @@ use parking_lot::Mutex;
 use crate::backend::upstream::TargetCommit;
 use crate::backend::watch::Watcher;
 use crate::backend::{
-    self, Branch, Commit, CommitId, Project, Selected, SnapshotId, Workspace, Worktree, short_ref,
+    self, Branch, Checkout, Commit, CommitId, Project, Selected, SnapshotId, Workspace, short_ref,
 };
 
 mod account;
 mod activity;
 mod background;
+mod checkout;
 mod cli;
 mod load;
 mod mesh;
@@ -77,6 +78,13 @@ pub enum Section {
 }
 
 impl Selection {
+    pub fn uncommitted_in(project: ProjectId, checkout: Checkout) -> Self {
+        match checkout {
+            Checkout::Main => Selection::Uncommitted(project),
+            Checkout::Linked(name) => Selection::Worktree(project, name),
+        }
+    }
+
     pub fn project(&self) -> &ProjectId {
         match self {
             Selection::Project(project)
@@ -127,9 +135,8 @@ pub enum Cut {
     Files {
         project: ProjectId,
         from: Option<CommitId>,
-        /// The linked worktree uncommitted files are in, or `None` for the main checkout's
-        /// and for a commit's.
-        worktree: Option<Arc<str>>,
+        /// The checkout uncommitted files are in, the main one for a commit's.
+        worktree: Checkout,
         /// Shared, since every row a drag passes over works out what a drop would do.
         files: Arc<[Selected]>,
     },
@@ -369,10 +376,10 @@ pub struct Store {
     /// When each commit an agent made showed up, while its rows still glow: see
     /// [`Store::glows`].
     arrived: HashMap<CommitId, Instant>,
-    /// Commit messages being written, by project and linked worktree, for coming back to.
+    /// Commit messages being written, by project and checkout, for coming back to.
     /// Like the composer's checks they last the session, so a message never comes back
     /// without them.
-    pub drafts: HashMap<(ProjectId, Option<Arc<str>>), String>,
+    pub drafts: HashMap<(ProjectId, Checkout), String>,
     /// The commits each merge of a remote brought in, by the merge, as read when its commits
     /// were first shown, and whether it brought more than those; `None` while reading.
     pub merged: HashMap<CommitId, Option<(Vec<TargetCommit>, bool)>>,
@@ -418,9 +425,8 @@ pub struct Store {
     /// What the forge said about whether pull requests can merge, by project and number: see
     /// [`Store::read_merge_status`].
     merge_reads: HashMap<(ProjectId, u64), background::MergeRead>,
-    /// What the file watcher saw written in each checkout lately: a project's main one, or
-    /// its linked worktree with this name.
-    pub activity: HashMap<(ProjectId, Option<Arc<str>>), Activity>,
+    /// What the file watcher saw written in each checkout lately.
+    pub activity: HashMap<(ProjectId, Checkout), Activity>,
 }
 
 impl EventEmitter<StoreEvent> for Store {}
@@ -520,10 +526,9 @@ impl Store {
             merge_reads: HashMap::new(),
             activity: (saved.activity.into_iter())
                 .map(|saved| {
-                    (
-                        (saved.project.into(), saved.worktree.map(Into::into)),
-                        saved.activity,
-                    )
+                    let checkout = (saved.worktree)
+                        .map_or(Checkout::Main, |name| Checkout::Linked(name.into()));
+                    ((saved.project.into(), checkout), saved.activity)
                 })
                 .collect(),
             _forge_poll: Self::poll_forge(cx),
@@ -624,71 +629,6 @@ impl Store {
             }
             ((was, was_picks), now) => was == now && was_picks.len() == picks,
         }
-    }
-
-    /// The linked worktree whose branches `selection`, a branch or a commit, is on, and not
-    /// the workspace's too. Its agent works on them there, so nothing here changes them.
-    pub fn worktree_of(&self, selection: &Selection) -> Option<&Worktree> {
-        // A stack is where its bottom branch is.
-        let bottom;
-        let selection = match selection {
-            Selection::Stack(project, ref_name) => {
-                bottom = Selection::Branch(project.clone(), ref_name.clone());
-                &bottom
-            }
-            _ => selection,
-        };
-        let workspace = self.workspace(selection.project())?;
-        if workspace.branches().any(|branch| selection.on(branch)) {
-            return None;
-        }
-        (workspace.worktrees.iter()).find(|wt| wt.branches.iter().any(|b| selection.on(b)))
-    }
-
-    /// Where an action on `at` happens, for a prompt or a confirmation to say, named as the
-    /// breadcrumbs name it: the project, then the linked worktree or other machine's
-    /// checkout when it isn't the main one, as "shop › agent-x".
-    pub fn place(&self, at: &Selection) -> SharedString {
-        let project = at.project();
-        let name = self
-            .project(project)
-            .map_or("", |entry| &entry.project.name);
-        let elsewhere = match at {
-            Selection::Worktree(_, worktree) => Some(worktree.to_string()),
-            Selection::Mesh(_, id, _) => self.mesh_checkout(project, id).map(|c| c.label()),
-            _ => self
-                .worktree_of(at)
-                .map(|worktree| worktree.name.to_string()),
-        };
-        match elsewhere {
-            Some(elsewhere) => format!("{name} › {elsewhere}").into(),
-            None => name.to_owned().into(),
-        }
-    }
-
-    /// Whether the selection is on a linked worktree's branches, saying to do `what`, as
-    /// "Push it", there instead when it is.
-    pub fn changes_elsewhere(&mut self, what: &str, cx: &mut Context<Self>) -> bool {
-        let selection = self.selection.as_ref();
-        let Some(name) = selection
-            .and_then(|s| self.worktree_of(s))
-            .map(|wt| wt.name.clone())
-        else {
-            return false;
-        };
-        self.snack(
-            format!("{what} in worktree {name}, where it's checked out"),
-            cx,
-        );
-        true
-    }
-
-    /// Project `id`'s linked worktrees with nothing going on lately, but those on their way
-    /// out.
-    pub fn inactive_worktrees(&self, id: &ProjectId) -> Vec<&Worktree> {
-        (self.workspace(id).into_iter().flat_map(|ws| &ws.worktrees))
-            .filter(|wt| !self.hides_worktree(id, &wt.name) && wt.is_inactive())
-            .collect()
     }
 
     /// The branch `selection` is, or the one holding the commit it is.
@@ -796,7 +736,9 @@ impl Store {
             Selection::Branch(_, ref_name) => workspace.find_branch(ref_name).is_some(),
             Selection::Commit(_, id) => workspace.find_commit(*id).is_some(),
             Selection::Worktree(_, name) => workspace.worktrees.iter().any(|w| w.name == *name),
-            Selection::Stack(_, bottom) => workspace.lane(bottom).is_some_and(|b| b.len() > 1),
+            Selection::Stack(_, bottom) => workspace
+                .lane(bottom)
+                .is_some_and(|lane| lane.branches.len() > 1),
             // The mesh's reads keep it current.
             Selection::Mesh(..) | Selection::Section(_, Section::Mesh) => true,
             Selection::Section(_, Section::Upstream(ref_name)) => {
@@ -1045,12 +987,6 @@ impl Store {
     /// Whether commit `id` of `project` is one of several picked.
     pub fn among_picks(&self, project: &ProjectId, id: CommitId) -> bool {
         self.picked.len() > 1 && self.is_picked(project, id)
-    }
-
-    /// Whether `id` of `project` is a linked worktree's commit.
-    pub fn in_worktree(&self, project: &ProjectId, id: CommitId) -> bool {
-        self.worktree_of(&Selection::Commit(project.clone(), id))
-            .is_some()
     }
 
     /// A snackbar offering to undo the mutation that just ran.

@@ -124,4 +124,5 @@ embed-resource = "3.0.9"
 tempfile.workspace = true
 # Tests that open a repository get their own app-data dir, not the user's.
 but-testsupport.workspace = true
+snapbox.workspace = true
 

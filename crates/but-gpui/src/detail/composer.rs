@@ -2,7 +2,6 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::hash::{Hash as _, Hasher as _};
-use std::sync::Arc;
 
 use gpui::{
     AnyElement, AnyWindowHandle, App, Context, Focusable as _, Toggled, WeakEntity, Window, div,
@@ -11,8 +10,8 @@ use gpui::{
 
 use super::{ChecksChanged, Detail, DiffKey, PickCommitTarget};
 use crate::backend::{
-    self, Branch, CommitId, Destination, DiffBody, DiffSource, FileChange, FileDiff, Hunk, HunkKey,
-    LineKind, PushState, Selected, ai, short_ref,
+    self, Branch, Checkout, CommitId, Destination, DiffBody, DiffSource, FileChange, FileDiff,
+    Hunk, HunkKey, LineKind, PushState, Selected, ai, short_ref,
 };
 use crate::palette::Choice;
 use crate::state::{Cut, NewAt, Overlay, ProjectId, Selection, Store, snack};
@@ -197,7 +196,7 @@ fn after_landing(
 fn forget_checks_left(
     detail: &WeakEntity<Detail>,
     project: &ProjectId,
-    worktree: &Option<Arc<str>>,
+    worktree: &Checkout,
     cx: &mut App,
 ) {
     (detail.update(cx, |detail, _| {
@@ -251,10 +250,10 @@ impl Detail {
     pub(super) fn switch_checkout(
         &mut self,
         project: Option<ProjectId>,
-        worktree: Option<Arc<str>>,
+        worktree: Checkout,
         cx: &mut Context<Self>,
     ) {
-        let left = (self.checks_project.take(), self.checks_worktree.take());
+        let left = (self.checks_project.take(), self.checks_worktree.clone());
         let next = (self.other_checks)
             .remove(&(project.clone(), worktree.clone()))
             .unwrap_or_default();
@@ -308,7 +307,7 @@ impl Detail {
         };
         let store = self.store.read(cx);
         let files = (store.workspace(&project))
-            .and_then(|ws| ws.uncommitted_in(worktree.as_deref()))
+            .and_then(|ws| ws.uncommitted_in(&worktree))
             .unwrap_or_default();
         // Only the open composer checks files; the checks of one left, as on coming back from
         // another checkout, wait for it.
@@ -369,7 +368,7 @@ impl Detail {
     /// after a quick second click.
     fn changes_not_pending(&self, project: &ProjectId, cx: &App) -> Vec<Selected> {
         let store = self.store.read(cx);
-        let worktree = self.checks_worktree.as_deref();
+        let worktree = &self.checks_worktree;
         (self.selected_changes(cx).into_iter())
             .filter(|s| !store.hides_file(project, worktree, &s.file.path))
             .filter_map(|mut s| {
@@ -398,10 +397,9 @@ impl Detail {
     /// The loaded diff when it's of the checkout the checks are about: another's stays on
     /// screen until this one's loads, and shares its paths.
     fn checks_diff(&self) -> Option<&super::LoadedDiff> {
-        let worktree = self.checks_worktree.as_deref();
         self.worktree_diff().filter(|diff| {
             self.checks_project.as_ref() == Some(&diff.key.project)
-                && diff.key.checkout() == Some(worktree)
+                && diff.key.checkout().as_ref() == Some(&self.checks_worktree)
         })
     }
 
@@ -517,9 +515,9 @@ impl Detail {
         if let Some((project, worktree)) = self.selected_checkout(cx)
             && let Some(workspace) = self.store.read(cx).workspace(&project)
         {
-            let refused = if worktree.is_none() && workspace.editing.is_some() {
+            let refused = if !worktree.is_linked() && workspace.editing.is_some() {
                 Some("Finish or cancel editing the commit first")
-            } else if worktree.is_some() && self.effective_target(&project, cx).is_none() {
+            } else if worktree.is_linked() && self.effective_target(&project, cx).is_none() {
                 Some("Check out a branch of its own in the worktree to commit")
             } else {
                 None
@@ -561,7 +559,7 @@ impl Detail {
             // of the commit.
             let files = (self.checks_project.as_ref())
                 .and_then(|project| self.store.read(cx).workspace(project))
-                .and_then(|ws| ws.uncommitted_in(self.checks_worktree.as_deref()))
+                .and_then(|ws| ws.uncommitted_in(&self.checks_worktree))
                 .unwrap_or_default();
             let left_out = (files.iter())
                 .filter(|file| file.conflicted || file.nested_repository())
@@ -607,28 +605,27 @@ impl Detail {
         // The checks are the main checkout's from here: switched now, as the selection
         // event that would do it comes after.
         let project = self.selected_project(cx);
-        if (&self.checks_project, &self.checks_worktree) != (&project, &None) {
-            self.switch_checkout(project.clone(), None, cx);
+        if (&self.checks_project, &self.checks_worktree) != (&project, &Checkout::Main) {
+            self.switch_checkout(project.clone(), Checkout::Main, cx);
         }
-        self.check_only(project, None, files, cx);
+        self.check_only(project, Checkout::Main, files, cx);
         // What was dropped is what goes in, not what's picked.
         self.file_picks.clear();
         self.line_picks = None;
         self.compose(false, window, cx);
     }
 
-    /// Check just `files` of `project`'s main checkout, or of its `linked` worktree, down to
-    /// the hunks and lines they name.
+    /// Check just `files` of `project`'s `checkout`, down to the hunks and lines they name.
     fn check_only(
         &mut self,
         project: Option<ProjectId>,
-        linked: Option<Arc<str>>,
+        checkout: Checkout,
         files: &[Selected],
         cx: &mut Context<Self>,
     ) {
         if let Some(project) = project
             && let Some(workspace) = self.store.read(cx).workspace(&project)
-            && let Some(uncommitted) = workspace.uncommitted_in(linked.as_deref())
+            && let Some(uncommitted) = workspace.uncommitted_in(&checkout)
         {
             let keep: HashMap<&str, Option<&[HunkKey]>> = files
                 .iter()
@@ -650,7 +647,10 @@ impl Detail {
             // whose diff stays on screen while this one's loads again.
             let worktree = DiffKey {
                 project,
-                source: linked.map_or(DiffSource::Worktree, DiffSource::Linked),
+                source: match checkout {
+                    Checkout::Main => DiffSource::Worktree,
+                    Checkout::Linked(name) => DiffSource::Linked(name),
+                },
             };
             if let Some(files) = self.recent_files(&worktree) {
                 let mut out = HashSet::new();
@@ -696,8 +696,6 @@ impl Detail {
             return;
         };
         let store = self.store.read(cx);
-        // The oplog can't take back what rewrites a linked worktree's branch.
-        let undoable = !store.in_worktree(&project, id);
         // A rewording still running is where the next one starts.
         let Some((_, commit)) = store.find_commit(&project, id) else {
             return;
@@ -769,7 +767,7 @@ impl Detail {
                             move |path, remap| backend::reword(path, remap.get(id)?, &message),
                             move |store, rewritten, cx| {
                                 store.follow(&rewritten, cx);
-                                store.snack_after(undoable, "Message updated", cx);
+                                store.snack_undoable("Message updated", cx);
                                 // Open until it lands, so a reword that fails keeps what was
                                 // written, and so does one written on meanwhile.
                                 (detail.update(cx, |detail, cx| {
@@ -805,20 +803,19 @@ impl Detail {
     pub fn effective_target(&self, project: &ProjectId, cx: &App) -> Option<String> {
         let store = self.store.read(cx);
         let workspace = store.workspace(project)?;
-        if let Some(name) = &self.checks_worktree {
-            let branch = workspace.find_worktree(name)?.branch.as_ref()?;
-            let branch = format!("refs/heads/{branch}");
+        if let Some(name) = self.checks_worktree.linked() {
+            let branch = workspace.find_worktree(name)?.branch.clone()?;
             // Not the default branch, which a worktree can have checked out.
             return (workspace.target_branch.as_ref() != Some(&branch)).then_some(branch);
         }
         // One of its own branches: a linked worktree's are committed to there.
         if let Some(target) = &self.commit_target
-            && (workspace.branches())
+            && (workspace.branches_in(&Checkout::Main))
                 .any(|branch| branch.ref_name == *target && takes_commits(store, project, branch))
         {
             return Some(target.clone());
         }
-        (workspace.stacks.iter())
+        (workspace.lanes_in(&Checkout::Main))
             .filter_map(|stack| stack.branches.first())
             .find(|branch| takes_commits(store, project, branch))
             .map(|branch| branch.ref_name.clone())
@@ -848,7 +845,7 @@ impl Detail {
         let files = self.changes_not_pending(&project, cx);
         // A checkout with no changes at all commits an empty commit.
         let nothing_changed = (self.store.read(cx).workspace(&project))
-            .and_then(|ws| ws.uncommitted_in(worktree.as_deref()))
+            .and_then(|ws| ws.uncommitted_in(&worktree))
             .is_none_or(<[_]>::is_empty);
         // Opened on changes that all went meanwhile, as an agent committed them, an empty
         // commit isn't what was being written.
@@ -872,7 +869,7 @@ impl Detail {
         }
         // A linked worktree's commit goes on its own branch, so the next one in the main
         // checkout still goes where it would have.
-        let linked = worktree.is_some();
+        let linked = worktree.is_linked();
         let picked = (!linked).then(|| self.commit_target.clone());
         let run_hooks = self.store.read(cx).runs_hooks(&project);
         let detail = cx.entity().downgrade();
@@ -908,7 +905,7 @@ impl Detail {
                         path,
                         &Destination::Branch(branch.clone()),
                         &files,
-                        worktree.as_deref(),
+                        worktree.linked(),
                         &message,
                         run_hooks,
                     );
@@ -962,7 +959,7 @@ impl Detail {
     /// goes away.
     fn finish_composing(
         &mut self,
-        worktree: &Option<Arc<str>>,
+        worktree: &Checkout,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -1038,11 +1035,10 @@ impl Detail {
         if checks.unchecked_hunks.is_empty() && checks.line_picks.is_empty() {
             return false;
         }
-        let worktree = self.checks_worktree.as_deref();
         let current = self.loading.is_none()
             && (self.checks_diff()).is_some_and(|diff| diff.key.project == *project)
             && (self.store.read(cx).workspace(project))
-                .and_then(|ws| ws.uncommitted_in(worktree))
+                .and_then(|ws| ws.uncommitted_in(&self.checks_worktree))
                 .is_some_and(|files| self.shows_worktree(files));
         if !current {
             let why = "Still loading the diff, try again in a moment";
@@ -1388,7 +1384,7 @@ impl Detail {
             .text_color(theme.blue)
             .child(small_icon(Icon::Branch).text_color(theme.blue))
             .child(div().min_w_0().truncate().child(label))
-            .when(self.checks_worktree.is_none(), |el| {
+            .when(!self.checks_worktree.is_linked(), |el| {
                 el.hover(|el| el.bg(theme.fill_gray.opacity(0.14)))
                     .child(small_icon(Icon::ChevronDown).text_color(theme.text_2))
                     .tooltip(Tooltip::keyed("Pick the branch to commit to", key))
@@ -1410,7 +1406,7 @@ impl Detail {
         };
         let store = self.store.read(cx);
         let place = store.place(&Selection::Uncommitted(project.clone()));
-        let mut choices: Vec<Choice> = (workspace.branches())
+        let mut choices: Vec<Choice> = (workspace.branches_in(&Checkout::Main))
             .filter(|branch| takes_commits(store, &project, branch))
             .map(|branch| {
                 let (detail, ref_name) = (detail.clone(), branch.ref_name.clone());

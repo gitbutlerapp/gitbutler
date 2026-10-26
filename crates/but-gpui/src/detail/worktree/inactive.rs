@@ -4,7 +4,7 @@
 use gpui::{AnyElement, Context, prelude::*};
 
 use super::span_said;
-use crate::backend::{self, CommitState, PushState, Worktree};
+use crate::backend::{self, Branch, CommitState, PushState};
 use crate::detail::Detail;
 use crate::detail::panes::{
     Lane, grouped, overview_split, overview_tiles, overview_title, worktree_lanes,
@@ -26,12 +26,12 @@ enum Left {
 }
 
 impl Left {
-    fn of(worktree: &Worktree) -> Left {
-        let commits = || worktree.branches.iter().flat_map(|b| &b.commits);
+    fn of(branches: &[Branch]) -> Left {
+        let commits = || branches.iter().flat_map(|b| &b.commits);
         let unpushed = commits().filter(|c| c.state == CommitState::Local).count();
         if unpushed > 0 {
             Left::Unpushed(unpushed)
-        } else if (worktree.branches.iter()).any(|b| b.push == PushState::Integrated) {
+        } else if (branches.iter()).any(|b| b.push == PushState::Integrated) {
             Left::Landed
         } else if commits().next().is_some() {
             Left::Pushed
@@ -51,11 +51,17 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let mut worktrees = self.store.read(cx).inactive_worktrees(project);
+        let store = self.store.read(cx);
+        let mut worktrees = store.inactive_worktrees(project);
         worktrees.sort_by_key(|wt| std::cmp::Reverse(wt.updated_at));
+        let ws = store.workspace(project);
+        let branches: Vec<&[Branch]> = (worktrees.iter())
+            .map(|wt| ws.and_then(|ws| ws.worktree_lane(&wt.name)))
+            .map(|lane| lane.map_or(&[][..], |lane| &lane.branches))
+            .collect();
         let now = crate::ui::now();
-        let lefts: Vec<Left> = worktrees.iter().map(|wt| Left::of(wt)).collect();
-        let commits: usize = (worktrees.iter().flat_map(|wt| &wt.branches))
+        let lefts: Vec<Left> = branches.iter().map(|branches| Left::of(branches)).collect();
+        let commits: usize = (branches.iter().copied().flatten())
             .map(|b| b.commits.len())
             .sum();
         let unpushed: usize = (lefts.iter())
@@ -119,7 +125,8 @@ impl Detail {
             ),
         ]
         .map(|(glyph, color, fill, said, n)| (glyph, color, fill, said.to_owned(), n));
-        let lanes = worktrees.iter().zip(&lefts).map(|(wt, left)| Lane {
+        let shown = worktrees.iter().zip(&lefts).zip(&branches);
+        let lanes = shown.map(|((wt, left), branches)| Lane {
             at: Selection::Worktree(project.clone(), wt.name.clone()),
             glyph: Icon::FolderCopy,
             name: wt.name.to_string(),
@@ -132,7 +139,7 @@ impl Detail {
             branches: (wt.branch.as_deref())
                 .map_or("detached", backend::short_ref)
                 .to_owned(),
-            commits: (wt.branches.iter().flat_map(|b| &b.commits))
+            commits: (branches.iter().flat_map(|b| &b.commits))
                 .map(|c| c.time)
                 .collect(),
             changed: wt.updated_at,

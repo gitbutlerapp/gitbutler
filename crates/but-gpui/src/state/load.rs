@@ -10,11 +10,11 @@ use gpui::{Context, SharedString, Task};
 
 use super::{Cut, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
 use crate::backend::watch::Watcher;
-use crate::backend::{self, CommitId, FileChange, Project, Selected, Workspace};
+use crate::backend::{self, Checkout, CommitId, FileChange, Project, Selected, Workspace};
 
-/// A watcher's event: the project, whether its git directory changed, the linked worktree
-/// whose files changed, if one did, and which of its files.
-pub(super) type Change = (ProjectId, bool, Option<Arc<str>>, Vec<Arc<str>>);
+/// A watcher's event: the project, whether its git directory changed, the checkout whose
+/// files changed, and which of its files.
+pub(super) type Change = (ProjectId, bool, Checkout, Vec<Arc<str>>);
 
 /// What a reload reads again: everything, the commits and branches, or just the uncommitted
 /// files of the checkouts that changed.
@@ -47,25 +47,21 @@ impl Reload {
         }
     }
 
-    /// The uncommitted files of linked worktree `checkout`, or of the main checkout for
-    /// `None`, after an operation that changed only them.
-    pub(super) fn files(checkout: Option<Arc<str>>) -> Self {
-        Self {
-            main: checkout.is_none(),
-            linked: checkout.into_iter().collect(),
-            ..Self::default()
-        }
+    /// The uncommitted files of `checkout`, after an operation that changed only them.
+    pub(super) fn files(checkout: Checkout) -> Self {
+        let mut reload = Self::default();
+        reload.add(false, checkout);
+        reload
     }
 
-    /// Add what a watcher saw: a change in a git directory, or files of a linked worktree
-    /// (by name) or of the main checkout.
-    fn add(&mut self, git: bool, linked: Option<Arc<str>>) {
-        match linked {
+    /// Add what a watcher saw: a change in a git directory, or files of a checkout.
+    fn add(&mut self, git: bool, checkout: Checkout) {
+        match checkout {
             _ if git => self.full = true,
-            Some(name) => {
+            Checkout::Linked(name) => {
                 self.linked.insert(name);
             }
-            None => self.main = true,
+            Checkout::Main => self.main = true,
         }
     }
 
@@ -105,7 +101,7 @@ impl Store {
                 let Ok(()) = this.update(cx, |store, cx| {
                     let mut reloads: HashMap<ProjectId, Reload> = HashMap::new();
                     let now = crate::ui::now();
-                    for (id, git, linked, paths) in events {
+                    for (id, git, checkout, paths) in events {
                         // What the app's own operations write isn't activity in the checkout,
                         // nor is what a repository cloned inside it writes to its own .git.
                         let own = store.running.contains_key(&id) || store.own_write(&id, now);
@@ -113,14 +109,13 @@ impl Store {
                             .filter(|path| !path.split('/').any(|part| part == ".git"))
                             .count();
                         if saved > 0 && !own {
-                            let checkout = (id.clone(), linked.clone());
                             store
                                 .activity
-                                .entry(checkout)
+                                .entry((id.clone(), checkout.clone()))
                                 .or_default()
                                 .record(now, saved as u32);
                         }
-                        reloads.entry(id).or_default().add(git, linked);
+                        reloads.entry(id).or_default().add(git, checkout);
                     }
                     for (id, reload) in reloads {
                         // An operation under way reads these with its own reload, which the
@@ -727,7 +722,7 @@ impl Store {
                 Selection::Commit(_, commit) => workspace.find_commit(*commit).is_none(),
                 _ => false,
             })
-            .and_then(|s| self.worktree_of(s))
+            .and_then(|s| self.worktree_for(s))
             .map(|worktree| worktree.name.clone())
             .filter(|name| workspace.worktrees.iter().any(|w| w.name == *name));
         // Picks follow rewritten commits the same way, and go when a commit is gone.
@@ -813,7 +808,7 @@ impl Store {
 /// stack isn't renamed to the branch that was there before and took its commits, nor to no
 /// name, as its commits left unnamed.
 fn renamed(old: Option<&Workspace>, new: &Workspace) -> Vec<(String, String)> {
-    (old.iter().flat_map(|old| old.lanes().flatten()))
+    (old.iter().flat_map(|old| old.all_branches()))
         .filter(|branch| new.find_branch(&branch.ref_name).is_none())
         .filter_map(|branch| {
             let newest = follow_by_key(old, new, branch.commits.first()?.id)?;
@@ -859,9 +854,9 @@ fn follow_cut(cut: &mut Cut, old: Option<&Workspace>, new: &Workspace) -> bool {
             files,
             ..
         } => {
-            let uncommitted = new.uncommitted_in(worktree.as_deref());
+            let uncommitted = new.uncommitted_in(worktree);
             let same = |f: &Selected, u: &FileChange| {
-                (f.hunks.is_none() && worktree.is_none())
+                (f.hunks.is_none() && !worktree.is_linked())
                     || (u.modified, u.size, u.lines) == (f.file.modified, f.file.size, f.file.lines)
             };
             uncommitted.is_some_and(|uncommitted| {
@@ -909,58 +904,17 @@ fn watch(
     id: ProjectId,
     changes: mpsc::UnboundedSender<Change>,
 ) -> anyhow::Result<Watcher> {
-    backend::watch::watch(project, move |git, linked, paths| {
+    backend::watch::watch(project, move |git, checkout, paths| {
         changes
-            .unbounded_send((id.clone(), git, linked, paths))
+            .unbounded_send((id.clone(), git, checkout, paths))
             .ok();
     })
 }
 
 #[cfg(test)]
-pub(super) mod tests {
-    use crate::backend::{Branch, Commit, CommitId, PushState, Stack, Workspace, Worktree};
-
-    pub(in crate::state) fn branch(name: &str, commits: &[u8]) -> Branch {
-        let id = |n: u8| gix::ObjectId::from_bytes_or_panic(&[n; 20]);
-        Branch {
-            name: name.into(),
-            ref_name: if name.is_empty() {
-                String::new()
-            } else {
-                format!("refs/heads/{name}")
-            },
-            commits: (commits.iter())
-                .map(|&n| Commit {
-                    key: format!("key{n}"),
-                    ..Commit::bare(id(n))
-                })
-                .collect(),
-            incoming: Vec::new(),
-            remote: None,
-            push: PushState::NeverPushed,
-            review: None,
-        }
-    }
-
-    pub(in crate::state) fn workspace(stacks: Vec<Vec<Branch>>, linked: Vec<Branch>) -> Workspace {
-        Workspace {
-            stacks: stacks
-                .into_iter()
-                .map(|branches| Stack { branches })
-                .collect(),
-            worktrees: vec![Worktree {
-                name: "agent".into(),
-                path: "/agent".into(),
-                branch: None,
-                branches: linked,
-                uncommitted: Vec::new(),
-                git_operation: None,
-                tree: None,
-                updated_at: None,
-            }],
-            ..Workspace::default()
-        }
-    }
+mod tests {
+    use crate::backend::CommitId;
+    use crate::backend::model::build::{branch, workspace, worktree};
 
     #[test]
     fn picks_show_together_only_as_one_run_in_one_lane() {
@@ -969,7 +923,7 @@ pub(super) mod tests {
                 vec![branch("top", &[1, 2]), branch("bottom", &[3, 4])],
                 vec![branch("other", &[5])],
             ],
-            vec![branch("linked", &[6, 7])],
+            vec![worktree("agent", None, vec![branch("linked", &[6, 7])])],
         );
         let id = |n: u8| CommitId(gix::ObjectId::from_bytes_or_panic(&[n; 20]));
         let ids = |ns: &[u8]| ns.iter().map(|&n| id(n)).collect::<Vec<_>>();
@@ -995,7 +949,7 @@ pub(super) mod tests {
                 vec![branch("top", &[1, 2]), branch("bottom", &[3])],
                 vec![branch("other", &[4])],
             ],
-            vec![branch("linked", &[5, 6])],
+            vec![worktree("agent", None, vec![branch("linked", &[5, 6])])],
         );
         let id = |n: u8| CommitId(gix::ObjectId::from_bytes_or_panic(&[n; 20]));
         let ids = |ns: &[u8]| ns.iter().map(|&n| id(n)).collect::<Vec<_>>();
@@ -1016,11 +970,11 @@ pub(super) mod tests {
     fn renames_are_new_named_branches_holding_a_gone_branchs_commits() {
         let old = workspace(
             vec![vec![branch("a", &[1]), branch("c", &[2])]],
-            vec![branch("y", &[3])],
+            vec![worktree("agent", None, vec![branch("y", &[3])])],
         );
         let new = workspace(
             vec![vec![branch("b", &[1]), branch("c", &[2])]],
-            vec![branch("yy", &[3])],
+            vec![worktree("agent", None, vec![branch("yy", &[3])])],
         );
         let renamed =
             |from: &str, to: &str| (format!("refs/heads/{from}"), format!("refs/heads/{to}"));
@@ -1029,7 +983,10 @@ pub(super) mod tests {
             [renamed("a", "b"), renamed("y", "yy")],
             "in the workspace and in a linked worktree alike"
         );
-        let deleted = workspace(vec![vec![branch("c", &[1, 2])]], vec![branch("", &[3])]);
+        let deleted = workspace(
+            vec![vec![branch("c", &[1, 2])]],
+            vec![worktree("agent", None, vec![branch("", &[3])])],
+        );
         assert!(
             super::renamed(Some(&old), &deleted).is_empty(),
             "a branch whose commits went to one already there, or to no name, was deleted"

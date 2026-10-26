@@ -298,8 +298,7 @@ impl Detail {
                 // as applied ones are in the workspace.
                 if let Some(ws) = this.store.read(cx).workspace(&project) {
                     for b in all.iter_mut().filter(|b| b.local) {
-                        b.applied |=
-                            (ws.worktrees.iter()).any(|w| w.branch.as_deref() == Some(&b.name));
+                        b.applied |= ws.checked_out_in(&b.ref_name).is_some();
                     }
                 }
                 let previous = this.branches.remove(&project);
@@ -1057,7 +1056,7 @@ impl Detail {
         let archived = (self.store.read(cx).workspace(project))
             .and_then(|ws| {
                 (ws.archived_worktrees.iter())
-                    .find(|(_, checked_out)| checked_out.as_deref() == Some(&branch.name))
+                    .find(|(_, checked_out)| checked_out.as_ref() == Some(&branch.ref_name))
             })
             .map(|(worktree, _)| worktree.clone());
         let (ref_name, name) = (branch.ref_name.clone(), branch.name.clone());
