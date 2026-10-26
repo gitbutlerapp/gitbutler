@@ -660,6 +660,22 @@ pub fn on_forge(store: &Store, selection: &Selection) -> bool {
         .is_some_and(|ws| ws.forge.is_some())
 }
 
+/// Whether the selected branch can start a pull request: a named one on a forge, with commits
+/// and none yet, that could push first.
+pub fn can_create(store: &Store, selection: &Selection) -> bool {
+    let Selection::Branch(project, ref_name) = selection else {
+        return false;
+    };
+    let (Some(ws), Some(branch)) = (store.workspace(project), store.branch_for(selection)) else {
+        return false;
+    };
+    on_forge(store, selection)
+        && !ref_name.is_empty()
+        && branch.review.is_none()
+        && !branch.commits.is_empty()
+        && ws.push_refused(ref_name).is_none()
+}
+
 #[cfg(test)]
 mod tests {
     use super::{MergeStatus, Mergeability, Offer};

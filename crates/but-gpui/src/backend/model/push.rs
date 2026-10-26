@@ -61,6 +61,17 @@ impl Workspace {
         (self.pushed_with(ref_name)).any(|branch| branch.push == PushState::NeedsForce)
     }
 
+    /// What pushing `ref_name` is called, when it can be pushed now.
+    pub fn push_label(&self, ref_name: &str) -> Option<&'static str> {
+        if !self.can_push(ref_name) || self.push_refused(ref_name).is_some() {
+            return None;
+        }
+        Some(match self.needs_force(ref_name) {
+            true => "Force push",
+            false => "Push",
+        })
+    }
+
     /// Whether `ref_name` can pull the commits only its remote has: it has some, it's the top
     /// of a stack, and no linked worktree rests on it. Pulling into a branch with others above
     /// moves its reference to the top of the stack, pulling under a worktree moves what it
