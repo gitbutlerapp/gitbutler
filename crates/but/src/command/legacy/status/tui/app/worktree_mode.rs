@@ -207,7 +207,7 @@ impl App {
         };
 
         let operation = match &selection.data {
-            StatusOutputLineData::MergeBase => NewOperation {
+            StatusOutputLineData::MergeBase => NewOperation::NewBranch {
                 ref_name: None,
                 base: None,
             },
@@ -226,7 +226,7 @@ impl App {
                     return Ok(());
                 }
 
-                NewOperation {
+                NewOperation::NewBranch {
                     ref_name: None,
                     base: Some(commit.commit_id),
                 }

@@ -23,10 +23,13 @@ pub fn new(
     Ok(run(ctx, guard.write_permission(), op)?)
 }
 
-pub(crate) struct NewOperation {
-    /// The branch to create, or `None` for a canned name.
-    pub ref_name: Option<FullName>,
-    pub base: Option<ObjectId>,
+pub(crate) enum NewOperation {
+    NewBranch {
+        /// The branch to create, or `None` for a canned name.
+        ref_name: Option<FullName>,
+        base: Option<ObjectId>,
+    },
+    ExistingBranch(FullName),
 }
 
 impl NewOperation {
@@ -37,6 +40,20 @@ impl NewOperation {
         above: Option<&CliIdArg>,
     ) -> CliResult<Self> {
         but_api::worktrees::ensure_worktree_manipulation_enabled(ctx)?;
+        if let Some(name) = name {
+            let existing = name.resolve_local_branch_name()?;
+            if ctx.repo.get()?.try_find_reference(&existing)?.is_some() {
+                if let Some(above) = above {
+                    return Err(bad_input(format!(
+                        "Cannot place the existing branch '{name}' above a commit"
+                    ))
+                    .arg_name("--above")
+                    .arg_value(&above.0)
+                    .into());
+                }
+                return Ok(NewOperation::ExistingBranch(existing));
+            }
+        }
         let ref_name = match name {
             Some(name) => {
                 let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
@@ -61,15 +78,23 @@ impl NewOperation {
             }
             None => None,
         };
-        Ok(NewOperation { ref_name, base })
+        Ok(NewOperation::NewBranch { ref_name, base })
     }
 }
 
 pub fn run(ctx: &Context, perm: &mut RepoExclusive, op: NewOperation) -> Result<NewOutcome> {
-    let created = if let Some(base) = op.base {
-        but_api::worktrees::worktree_new_at_base_with_perm(ctx, op.ref_name, base, perm)?
-    } else {
-        but_api::worktrees::worktree_new_with_perm(ctx, op.ref_name, perm)?
+    let created = match op {
+        NewOperation::NewBranch {
+            ref_name,
+            base: Some(base),
+        } => but_api::worktrees::worktree_new_at_base_with_perm(ctx, ref_name, base, perm)?,
+        NewOperation::NewBranch {
+            ref_name,
+            base: None,
+        } => but_api::worktrees::worktree_new_with_perm(ctx, ref_name, perm)?,
+        NewOperation::ExistingBranch(ref_name) => {
+            but_api::worktrees::worktree_new_on_branch_with_perm(ctx, ref_name, perm)?
+        }
     };
     Ok(NewOutcome { created })
 }
