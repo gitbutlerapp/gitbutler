@@ -180,7 +180,7 @@ impl<'a> ModeRef<'a> {
                 MoveSource::Marks(marks) => marks.as_ref(),
                 MoveSource::Commit { .. }
                 | MoveSource::Branch(..)
-                | MoveSource::CommittedFile(..) => MarksRef::Empty,
+                | MoveSource::CommittedChange(..) => MarksRef::Empty,
             },
             ModeRef::CherryPick(cherry_pick_mode) => match &cherry_pick_mode.source {
                 CherryPickSource::Marks(marks) => marks.as_ref(),

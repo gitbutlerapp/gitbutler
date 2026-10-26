@@ -1200,7 +1200,6 @@ impl App {
         let should_clear_marks = matches!(
             self.marks_ref(),
             mark::MarksRef::Committed { head: _, tail: _ }
-                | mark::MarksRef::CommittedFiles { head: _, tail: _ }
         );
 
         self.flags.show_files = FilesStatusFlag::None;
@@ -1947,12 +1946,6 @@ impl App {
                 std::iter::once(head)
                     .chain(tail)
                     .map(|mark| mark.committed_file().path.as_bstr()),
-            ),
-            mark::MarksRef::CommittedFiles { head, tail } => openable_from_paths(
-                ctx,
-                std::iter::once(head)
-                    .chain(tail)
-                    .map(|file| file.path.as_bstr()),
             ),
             mark::MarksRef::Commits { .. } | mark::MarksRef::Branches { .. } => Ok(None),
         }

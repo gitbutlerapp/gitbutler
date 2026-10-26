@@ -4,6 +4,7 @@ use std::{
 };
 
 use but_rebase::graph_rebase::mutate::InsertSide;
+use nonempty::NonEmpty;
 use ratatui::{
     Frame,
     prelude::*,
@@ -24,6 +25,7 @@ use crate::{
             BranchMode, CherryPickMode, CommitMessageComposer, CommitMode, JumpMode, MoveMarks,
             MoveMode, MoveSource, MoveStackMode, StackMode, WorktreeMode,
             lines_part_of_current_stack,
+            mark::{CommittedMark, committed_changes_to_act_on},
         },
     },
     id::{CommitId, LaneId},
@@ -1197,56 +1199,24 @@ pub fn move_operation_display(
             | StatusOutputLineData::Hint
             | StatusOutputLineData::NoAssignmentsUnstaged => None,
         },
-        MoveSource::CommittedFile { .. } => match data {
-            StatusOutputLineData::Commit { .. } => match insert_side {
-                InsertSide::Above => Some("move file above"),
-                InsertSide::Below => Some("move file below"),
+        MoveSource::CommittedChange(change) => {
+            move_committed_changes_display(data, *insert_side, &NonEmpty::new(change))
+        }
+        MoveSource::Marks(MoveMarks::Commits(commits)) => match data {
+            StatusOutputLineData::Commit { .. } => match (insert_side, commits.len() == 1) {
+                (InsertSide::Above, true) => Some("move commit above"),
+                (InsertSide::Above, false) => Some("move commits above"),
+                (InsertSide::Below, true) => Some("move commit below"),
+                (InsertSide::Below, false) => Some("move commits below"),
             },
-            StatusOutputLineData::Branch { .. } => Some("move file to branch"),
-            StatusOutputLineData::WorktreeUncommitted { .. } => None,
-            StatusOutputLineData::MergeBase => Some("move file to new branch"),
-            StatusOutputLineData::UpdateNotice
-            | StatusOutputLineData::Connector
-            | StatusOutputLineData::BetweenStacks
-            | StatusOutputLineData::StagedChanges { .. }
-            | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UncommittedChanges { .. }
-            | StatusOutputLineData::UncommittedFile { .. }
-            | StatusOutputLineData::CommitMessage
-            | StatusOutputLineData::EmptyCommitMessage
-            | StatusOutputLineData::File { .. }
-            | StatusOutputLineData::UpstreamChanges
-            | StatusOutputLineData::Warning
-            | StatusOutputLineData::Hint
-            | StatusOutputLineData::NoAssignmentsUnstaged => None,
-        },
-        MoveSource::Marks(marks) => match data {
-            StatusOutputLineData::Commit { .. } => match (marks, insert_side, marks.len() == 1) {
-                (MoveMarks::Commits(_), InsertSide::Above, true) => Some("move commit above"),
-                (MoveMarks::Commits(_), InsertSide::Above, false) => Some("move commits above"),
-                (MoveMarks::Commits(_), InsertSide::Below, true) => Some("move commit below"),
-                (MoveMarks::Commits(_), InsertSide::Below, false) => Some("move commits below"),
-                (MoveMarks::CommittedFiles(_), InsertSide::Above, true) => Some("move file above"),
-                (MoveMarks::CommittedFiles(_), InsertSide::Above, false) => {
-                    Some("move files above")
-                }
-                (MoveMarks::CommittedFiles(_), InsertSide::Below, true) => Some("move file below"),
-                (MoveMarks::CommittedFiles(_), InsertSide::Below, false) => {
-                    Some("move files below")
-                }
-            },
-            StatusOutputLineData::Branch { .. } => match (marks, marks.len() == 1) {
-                (MoveMarks::Commits(_), true) => Some("move commit to branch"),
-                (MoveMarks::Commits(_), false) => Some("move commits to branch"),
-                (MoveMarks::CommittedFiles(_), true) => Some("move file to branch"),
-                (MoveMarks::CommittedFiles(_), false) => Some("move files to branch"),
+            StatusOutputLineData::Branch { .. } => match commits.len() == 1 {
+                true => Some("move commit to branch"),
+                false => Some("move commits to branch"),
             },
             StatusOutputLineData::WorktreeUncommitted { .. } => None,
-            StatusOutputLineData::MergeBase => match (marks, marks.len() == 1) {
-                (MoveMarks::Commits(_), true) => Some("move commit to new branch"),
-                (MoveMarks::Commits(_), false) => Some("move commits to new branch"),
-                (MoveMarks::CommittedFiles(_), true) => Some("move file to new branch"),
-                (MoveMarks::CommittedFiles(_), false) => Some("move files to new branch"),
+            StatusOutputLineData::MergeBase => match commits.len() == 1 {
+                true => Some("move commit to new branch"),
+                false => Some("move commits to new branch"),
             },
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
@@ -1263,6 +1233,9 @@ pub fn move_operation_display(
             | StatusOutputLineData::Hint
             | StatusOutputLineData::NoAssignmentsUnstaged => None,
         },
+        MoveSource::Marks(MoveMarks::Committed(marks)) => {
+            move_committed_changes_display(data, *insert_side, &committed_changes_to_act_on(marks))
+        }
         MoveSource::Branch(..) => match data {
             StatusOutputLineData::Branch { .. } => Some("stack branch"),
             StatusOutputLineData::MergeBase => Some("unstack branch"),
@@ -1283,6 +1256,74 @@ pub fn move_operation_display(
             | StatusOutputLineData::Hint
             | StatusOutputLineData::NoAssignmentsUnstaged => None,
         },
+    }
+}
+
+/// The move target marker for committed `changes`, named after whether they're files, hunks or
+/// both.
+fn move_committed_changes_display(
+    data: &StatusOutputLineData,
+    insert_side: InsertSide,
+    changes: &NonEmpty<&CommittedMark>,
+) -> Option<&'static str> {
+    let file_count = changes
+        .iter()
+        .filter(|change| matches!(change, CommittedMark::File(..)))
+        .count();
+    let [above, below, to_branch, to_new_branch] = match (file_count, changes.len()) {
+        (1, 1) => [
+            "move file above",
+            "move file below",
+            "move file to branch",
+            "move file to new branch",
+        ],
+        (0, 1) => [
+            "move hunk above",
+            "move hunk below",
+            "move hunk to branch",
+            "move hunk to new branch",
+        ],
+        (file_count, change_count) if file_count == change_count => [
+            "move files above",
+            "move files below",
+            "move files to branch",
+            "move files to new branch",
+        ],
+        (0, _) => [
+            "move hunks above",
+            "move hunks below",
+            "move hunks to branch",
+            "move hunks to new branch",
+        ],
+        _ => [
+            "move changes above",
+            "move changes below",
+            "move changes to branch",
+            "move changes to new branch",
+        ],
+    };
+    match data {
+        StatusOutputLineData::Commit { .. } => match insert_side {
+            InsertSide::Above => Some(above),
+            InsertSide::Below => Some(below),
+        },
+        StatusOutputLineData::Branch { .. } => Some(to_branch),
+        StatusOutputLineData::WorktreeUncommitted { .. } => None,
+        StatusOutputLineData::MergeBase => Some(to_new_branch),
+        StatusOutputLineData::UpdateNotice
+        | StatusOutputLineData::Connector
+        | StatusOutputLineData::BetweenStacks
+        | StatusOutputLineData::StagedChanges { .. }
+        | StatusOutputLineData::StagedFile { .. }
+        | StatusOutputLineData::UncommittedChanges { .. }
+        | StatusOutputLineData::UncommittedFile { .. }
+        | StatusOutputLineData::CommitMessage
+        | StatusOutputLineData::EmptyCommitMessage
+        | StatusOutputLineData::File { .. }
+        | StatusOutputLineData::UpstreamChanges
+        | StatusOutputLineData::Warning
+        | StatusOutputLineData::Hint
+        | StatusOutputLineData::NoAssignmentsUnstaged => None,
     }
 }
 

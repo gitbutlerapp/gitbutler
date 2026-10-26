@@ -175,10 +175,6 @@ pub enum MarksRef<'a> {
         head: &'a CommittedMark,
         tail: &'a [CommittedMark],
     },
-    CommittedFiles {
-        head: &'a CommittedFileId,
-        tail: &'a [CommittedFileId],
-    },
     Branches {
         head: &'a BranchId,
         tail: &'a [BranchId],
@@ -228,13 +224,6 @@ impl<'a> MarksRef<'a> {
         }
     }
 
-    pub fn from_committed_files(commits: &'a NonEmpty<CommittedFileId>) -> Self {
-        Self::CommittedFiles {
-            head: &commits.head,
-            tail: &commits.tail,
-        }
-    }
-
     pub fn from_branches(branches: &'a NonEmpty<BranchId>) -> Self {
         Self::Branches {
             head: &branches.head,
@@ -260,29 +249,7 @@ impl<'a> MarksRef<'a> {
             Self::Hunks { head: _, tail } => 1 + tail.len(),
             Self::Commits { head: _, tail } => 1 + tail.len(),
             Self::Committed { head: _, tail } => 1 + tail.len(),
-            Self::CommittedFiles { head: _, tail } => 1 + tail.len(),
             Self::Branches { head: _, tail } => 1 + tail.len(),
-        }
-    }
-
-    /// The marked committed files, if no committed hunks are marked.
-    pub fn whole_committed_files(self) -> Option<NonEmpty<CommittedFileId>> {
-        match self {
-            Self::Committed { head, tail } => {
-                let files = std::iter::once(head)
-                    .chain(tail)
-                    .map(|mark| match mark {
-                        CommittedMark::File(file) => Some(file.clone()),
-                        CommittedMark::Hunk(..) => None,
-                    })
-                    .collect::<Option<Vec<_>>>()?;
-                NonEmpty::from_vec(files)
-            }
-            Self::CommittedFiles { head, tail } => Some(NonEmpty {
-                head: head.clone(),
-                tail: tail.to_vec(),
-            }),
-            Self::Empty | Self::Hunks { .. } | Self::Commits { .. } | Self::Branches { .. } => None,
         }
     }
 
@@ -340,16 +307,6 @@ impl<'a> MarksRef<'a> {
                     | CliId::Stack { .. } => false,
                 }
             }
-            MarksRef::CommittedFiles { head, tail } => {
-                let CliId::CommittedFile {
-                    committed_file: other,
-                    id: _,
-                } = cli_id
-                else {
-                    return false;
-                };
-                std::iter::once(head).chain(tail).any(|file| other == file)
-            }
             MarksRef::Branches { head, tail } => {
                 let CliId::Branch(other) = cli_id else {
                     return false;
@@ -376,13 +333,6 @@ impl<'a> MarksRef<'a> {
                 head: head.clone(),
                 tail: tail.to_vec(),
             }),
-            MarksRef::CommittedFiles { head, tail } => Marks::Committed(
-                NonEmpty {
-                    head: head.clone(),
-                    tail: tail.to_vec(),
-                }
-                .map(CommittedMark::File),
-            ),
             MarksRef::Branches { head, tail } => Marks::Branches(NonEmpty {
                 head: head.clone(),
                 tail: tail.to_vec(),
@@ -411,13 +361,6 @@ impl<'a> MarksRef<'a> {
                     CommittedMark::File(file) => MarkableRef::CommittedFile(file.as_ref()),
                     CommittedMark::Hunk(hunk) => MarkableRef::CommittedHunk(hunk),
                 });
-                Box::new(iter)
-            }
-            MarksRef::CommittedFiles { head, tail } => {
-                let iter = std::iter::once(head)
-                    .chain(tail)
-                    .map(|file| file.as_ref())
-                    .map(MarkableRef::CommittedFile);
                 Box::new(iter)
             }
             MarksRef::Branches { head, tail } => {
@@ -467,7 +410,6 @@ impl<'a> MarksRef<'a> {
                 MarksRef::Empty
                 | MarksRef::Hunks { .. }
                 | MarksRef::Commits { .. }
-                | MarksRef::CommittedFiles { .. }
                 | MarksRef::Branches { .. } => false,
             },
             CliId::PathPrefix { .. }

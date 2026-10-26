@@ -128,6 +128,14 @@ pub fn default_key_binds(feature_flags: &FeatureFlags) -> KeyBinds {
                         )),
                     )
                     .register();
+                builder
+                    .move_mode()
+                    .condition(
+                        KeyBindCondition::SelectionIsCommitted.and(&KeyBindCondition::Not(
+                            &KeyBindCondition::DetailsReturnModeIsPickChanges,
+                        )),
+                    )
+                    .register();
                 builder.details_discard().register();
 
                 builder.details_mark().register();
@@ -1653,6 +1661,8 @@ pub enum KeyBindCondition {
     SelectionIsUncommitted,
     /// The selection shows hunks that can be marked, discarded and squashed.
     SelectionHasHunks,
+    /// The selection shows committed hunks, which can also be moved.
+    SelectionIsCommitted,
     DetailsReturnModeIsPickChanges,
     And {
         lhs: &'static Self,
@@ -1715,6 +1725,21 @@ impl KeyBindCondition {
                         source: ChangeSourceId::Worktree(_),
                         ..
                     }
+                    | CliId::Stack { .. } => false,
+                }
+            }
+            KeyBindCondition::SelectionIsCommitted => {
+                let Some(selection) = selection else {
+                    return false;
+                };
+                match selection {
+                    CliId::CommittedFile { .. } | CliId::Commit { .. } => true,
+                    CliId::UncommittedHunkOrFile(..)
+                    | CliId::UncommittedArea { .. }
+                    | CliId::AnonymousSegment(..)
+                    | CliId::PathPrefix { .. }
+                    | CliId::CommittedHunk { .. }
+                    | CliId::Branch(..)
                     | CliId::Stack { .. } => false,
                 }
             }

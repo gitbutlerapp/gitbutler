@@ -24,7 +24,7 @@
     <text x="434 442" y="78" style="fill:#CCCCCC;opacity:0.75;">or</text>
     <text x="458 466 474 482" y="78" style="fill:#CCCCCC;opacity:0.75;">undo</text>
     <text x="498 506 514 522 530 538 546" y="78" style="fill:#CCCCCC;opacity:0.75;">commits</text>
-    <text x="802" y="78" style="fill:#555555;">║</text>
+    <text x="802" y="78" style="fill:#555555;">█</text>
     <text x="10" y="96" style="fill:#555555;">│</text>
     <text x="66 74 82 90 98 106 114" y="96" style="fill:#0000AA;">shift+r</text>
     <text x="130 138 146 154 162 170 178" y="96" style="fill:#CCCCCC;">reverse</text>
@@ -32,7 +32,7 @@
     <text x="314 322 330 338 346 354" y="96" style="fill:#CCCCCC;opacity:0.75;">Squash</text>
     <text x="370 378 386 394" y="96" style="fill:#CCCCCC;opacity:0.75;">into</text>
     <text x="410 418 426 434 442 450 458 466 474" y="96" style="fill:#CCCCCC;opacity:0.75;">selection</text>
-    <text x="802" y="96" style="fill:#555555;">█</text>
+    <text x="802" y="96" style="fill:#555555;">║</text>
     <text x="10" y="114" style="fill:#555555;">│</text>
     <text x="114" y="114" style="fill:#0000AA;">n</text>
     <text x="130 138 146 154 162" y="114" style="fill:#CCCCCC;">empty</text>

@@ -270,7 +270,6 @@ impl App {
                 }
                 MarksRef::Commits { .. }
                 | MarksRef::Committed { .. }
-                | MarksRef::CommittedFiles { .. }
                 | MarksRef::Branches { .. } => {}
             },
             Mode::Squash(squash_mode) => match &squash_mode.source {

@@ -401,7 +401,6 @@ impl App {
                 MarksRef::Hunks { .. }
                 | MarksRef::Commits { .. }
                 | MarksRef::Committed { .. }
-                | MarksRef::CommittedFiles { .. }
                 | MarksRef::Branches { .. } => {
                     if details_mode.full_screen {
                         messages.push(Message::DetailsLayout(DetailsLayoutMessage::SwitchToSplit));
@@ -437,11 +436,9 @@ impl App {
                             ctx,
                         )?;
                     }
-                    MoveMarks::CommittedFiles(committed_files) => {
+                    MoveMarks::Committed(marks) => {
                         self.squash_start_with_source(
-                            SquashSource::Marks(SquashMarks::Committed(
-                                committed_files.clone().map(CommittedMark::File),
-                            )),
+                            SquashSource::Marks(SquashMarks::Committed(marks.clone())),
                             ctx,
                         )?;
                     }
@@ -449,9 +446,9 @@ impl App {
                 MoveSource::Commit(commit) => {
                     self.squash_start_with_source(SquashSource::Commit(commit.clone()), ctx)?;
                 }
-                MoveSource::CommittedFile(committed_file) => {
+                MoveSource::CommittedChange(change) => {
                     self.squash_start_with_source(
-                        SquashSource::CommittedChange(CommittedMark::File(committed_file.clone())),
+                        SquashSource::CommittedChange(change.clone()),
                         ctx,
                     )?;
                 }
