@@ -891,9 +891,8 @@ fn file_label(path: &str, on: bool, theme: &Theme, cx: &App) -> Div {
         .child(file_icon(path, cx).flex_none())
         // The folder gives way first, then the name, in a narrow column.
         .child(
-            div()
-                .min_w_0()
-                .truncate()
+            (div().min_w_0().overflow_hidden().whitespace_nowrap())
+                .text_ellipsis_middle()
                 .when(!on, |el| el.text_color(theme.text_2))
                 .child(name.to_owned()),
         )
