@@ -174,6 +174,8 @@ impl Store {
         match pane {
             Pane::Files => list_fit,
             Pane::Navigator => (nav - (over - (list - list_fit))).max(MIN_NAVIGATOR.min(nav)),
+            // Fitted to what the list page leaves it, by `Detail::beside_files_width`.
+            Pane::BesideFiles => self.width(pane),
         }
     }
 
@@ -250,6 +252,8 @@ pub enum Pane {
     Navigator,
     /// The file list beside a diff.
     Files,
+    /// The files between a list page's list and the diff.
+    BesideFiles,
 }
 
 impl Pane {
@@ -257,14 +261,16 @@ impl Pane {
         match self {
             Pane::Navigator => 340.,
             Pane::Files => 300.,
+            Pane::BesideFiles => 260.,
         }
     }
 
-    fn limits(self) -> (f32, f32) {
+    pub(crate) fn limits(self) -> (f32, f32) {
         match self {
             Pane::Navigator => (220., 640.),
             // Wide enough for the composer's Cancel, Amend and Commit.
             Pane::Files => (240., 560.),
+            Pane::BesideFiles => (200., 560.),
         }
     }
 }

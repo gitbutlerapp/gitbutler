@@ -647,8 +647,8 @@ impl Detail {
 
     /// The bar over the diff, as but.dev's: the file list's toggle, which counts the files and
     /// their lines while the list isn't beside the diff and lists them on hover, then how
-    /// long lines show and where the sides go. A page whose column is its own list has no
-    /// toggle, only the count and the list on hover.
+    /// long lines show and where the sides go. A page whose column is its own list toggles the
+    /// files beside it, when it has any; else it has only the count and the list on hover.
     fn render_diff_tools(
         &self,
         window: &Window,
@@ -665,9 +665,13 @@ impl Detail {
                 focus.dispatch_action(action, window, cx)
             }
         };
-        let toggles = !self.list_page(cx);
-        // The files aren't beside the diff: hidden, or a list page's own list is there.
-        let hidden = !toggles || !self.files_shown(window, cx);
+        let list_page = self.list_page(cx);
+        let toggles = !list_page || self.has_files_beside(cx);
+        // The files aren't beside the diff: hidden, left out for room, or a list page has none.
+        let hidden = match list_page {
+            true => self.beside_offset(cx) == 0.,
+            false => !self.files_shown(window, cx),
+        };
         let files_key = shortcut(&ToggleFiles, cx);
         let glyph = match (toggles, hidden) {
             (false, _) => Icon::FileDiff,

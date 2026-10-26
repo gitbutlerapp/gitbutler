@@ -22,15 +22,15 @@ use super::slots::{SlotGesture, SlotPick, ends_drag, picks_slot};
 use crate::backend::upstream::{self, ACTIVITY_DAYS, Overview, Person, TargetCommit};
 use crate::backend::{self, CommitId, DiffSource, Forge};
 use crate::overlays::MenuItem;
-use crate::state::{Cut, ProjectId, Selection};
+use crate::state::{Cut, Pane, ProjectId, Selection};
 use crate::theme::Theme;
 use crate::ui::emoji::ProjectIcon;
 use crate::ui::markdown;
 use crate::ui::person::{byline, byline_avatar};
 use crate::ui::{
     ButtonStyle, Icon, Tooltip, age_column, button, dp, error_summary, faint, fixed, fold_button,
-    guide, h_flex, icon, list_row, muted, plural, quiet, section_label, shortcut, side_row,
-    small_icon, v_flex,
+    guide, h_flex, icon, list_row, muted, plural, quiet, resize_handle, resize_pane, section_label,
+    shortcut, side_row, small_icon, v_flex,
 };
 
 /// Where the middle of a merge's chevron sits in its row: the row's padding and half the
@@ -60,9 +60,8 @@ const PAGE: u32 = 50;
 /// fetch time.
 const STALE_AFTER: Duration = Duration::from_secs(60);
 
-/// How wide the files beside a target commit's diff are, and how wide the diff has to stay
-/// for them to show there rather than behind the button over the diff.
-const BESIDE_FILES: f32 = 260.;
+/// How wide the diff has to stay for the files beside a list page's list to show there
+/// rather than behind the button over the diff.
 const MIN_DIFF: f32 = 560.;
 
 /// What's picked on the page: what landed lately, or a commit of the target.
@@ -488,19 +487,32 @@ impl Detail {
         }
     }
 
-    /// How far right of a list page's list the diff starts: past the files, when there's room
-    /// for them; 0 when they're left to the button over the diff.
-    pub fn beside_offset(&self, cx: &gpui::App) -> f32 {
+    /// Whether a list page shows a commit's or a branch's files between its list and the diff.
+    pub(super) fn has_files_beside(&self, cx: &gpui::App) -> bool {
         let shows = match &self.selection(cx) {
             Some(Selection::Project(project)) => self.showing_target_commit(project, cx),
             Some(Selection::Branches(project)) => self.selected_other_branch(project).is_some(),
             _ => false,
         };
-        match shows
-            && !self.showing_review(cx)
-            && self.beside_width.get() >= BESIDE_FILES + MIN_DIFF
-        {
-            true => BESIDE_FILES,
+        shows && !self.showing_review(cx)
+    }
+
+    /// How wide the files beside a list page's list are drawn: as dragged, narrowed to leave
+    /// the diff its room, or 0 when even their narrowest doesn't.
+    pub(super) fn beside_files_width(&self, cx: &gpui::App) -> f32 {
+        let room = self.beside_width.get() - MIN_DIFF;
+        let width = self.store.read(cx).width(Pane::BesideFiles).min(room);
+        match width >= Pane::BesideFiles.limits().0 {
+            true => width,
+            false => 0.,
+        }
+    }
+
+    /// How far right of a list page's list the diff starts: past the files, when they're shown
+    /// and there's room for them; 0 when they're left to the button over the diff.
+    pub fn beside_offset(&self, cx: &gpui::App) -> f32 {
+        match self.has_files_beside(cx) && !self.files_hidden {
+            true => self.beside_files_width(cx),
             false => 0.,
         }
     }
@@ -582,11 +594,13 @@ impl Detail {
             .flex_1()
             .min_h_0()
             .items_start()
+            .on_drag_move(resize_pane(Pane::BesideFiles, self.store.clone()))
             .when(offset > 0., |el| {
                 el.child(
                     v_flex()
                         .w(dp(offset))
                         .flex_none()
+                        .relative()
                         .h_full()
                         .border_r_1()
                         .border_color(theme.border_3)
@@ -594,7 +608,8 @@ impl Detail {
                         // through the files, as in a checkout's file list.
                         .track_focus(&self.files_focus)
                         .key_context("Files")
-                        .child(self.render_diff_file_list(theme, cx)),
+                        .child(self.render_diff_file_list(theme, cx))
+                        .child(resize_handle(Pane::BesideFiles, self.store.clone(), theme)),
                 )
             })
             .into_any_element()

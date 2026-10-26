@@ -2059,7 +2059,7 @@ impl Detail {
 
     /// Show or hide the file list beside the diff or a checkout's overview, as `f` does.
     pub(super) fn toggle_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.list_page(cx) || self.overview_only(cx) {
+        if self.overview_only(cx) || (self.list_page(cx) && !self.has_files_beside(cx)) {
             return;
         }
         if !self.files_fit(window, cx) {
@@ -2082,6 +2082,10 @@ impl Detail {
     /// Whether the window leaves the diff room beside the file list, or the list holds what
     /// it can't do without.
     fn files_fit(&self, window: &Window, cx: &App) -> bool {
+        // A list page's files go between its list and the diff.
+        if self.list_page(cx) {
+            return self.beside_files_width(cx) > 0.;
+        }
         let viewport = f32::from(window.viewport_size().width) / Theme::get(cx).scale;
         let navigator = (!self.beside_traffic_lights)
             .then(|| (self.store.read(cx)).fitted_width(Pane::Navigator, viewport, true, true));
