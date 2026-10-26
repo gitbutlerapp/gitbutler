@@ -525,9 +525,10 @@ impl ProjectMeta {
     /// Malformed target ref names, refs that aren't local or remote-tracking branches, and
     /// invalid target commit IDs are ignored with a warning.
     ///
-    /// Legacy remote targets are resolved to the local branch configured to track them,
-    /// preserving the stored target commit ID. Returns an error if no local branch or multiple
-    /// local branches track the remote target, or if repository lookup or upstream resolution fails.
+    /// Legacy remote targets are resolved to the local branch configured to track them, as
+    /// [`find_local_tracking_branch`] picks it, preserving the stored target commit ID. Returns an
+    /// [`UnresolvedLegacyTargetRefError`] if no local branch or multiple local branches match, or
+    /// another error if repository lookup or upstream resolution fails.
     pub fn try_from_config(
         config: &gix::config::File,
         repo: &gix::Repository,
@@ -608,7 +609,7 @@ impl ProjectMeta {
 
     /// Port project metadata, loading the legacy fallback only if Git config has no metadata.
     ///
-    /// If the legacy fallback fails with [`AmbiguousLegacyTargetRefError`], its remote target is
+    /// If the legacy fallback fails with [`UnresolvedLegacyTargetRefError`], its remote target is
     /// ported as is, along with its cutoff and push remote, so reading project metadata keeps
     /// failing with that error until a target is chosen.
     pub fn port_if_needed(
@@ -624,20 +625,20 @@ impl ProjectMeta {
                 match legacy_fallback() {
                     Ok(project_meta) => project_meta,
                     Err(err) => {
-                        let Some(ambiguous) = err.downcast_ref::<AmbiguousLegacyTargetRefError>()
+                        let Some(unresolved) = err.downcast_ref::<UnresolvedLegacyTargetRefError>()
                         else {
                             return Err(err);
                         };
                         ProjectMeta {
                             target_ref: None,
-                            target_commit_id: ambiguous.target_commit_id,
-                            push_remote: ambiguous.push_remote.clone(),
+                            target_commit_id: unresolved.target_commit_id,
+                            push_remote: unresolved.push_remote.clone(),
                         }
                         .write_to_config(config)?;
                         return git_config::set_config_value(
                             config,
                             PROJECT_TARGET_REF,
-                            &ambiguous.target_ref.to_string(),
+                            &unresolved.target_ref.to_string(),
                         );
                     }
                 }
@@ -1099,9 +1100,10 @@ pub trait ValueInfo {
     fn is_default(&self) -> bool;
 }
 
-/// Return a local target name directly, or resolve a remote target to its unique local tracking branch.
-/// Local names need not exist. Remote resolution fails if no branch or multiple branches match,
-/// or upstream lookup fails. Other reference categories are rejected.
+/// Return a local target name directly, or resolve a remote target to its local tracking branch as
+/// [`find_local_tracking_branch`] picks it. Local names need not exist. Remote resolution fails with
+/// [`UnresolvedLegacyTargetRefError`] if no branch or multiple branches match, and fails if upstream
+/// lookup fails. Other reference categories are rejected.
 pub fn resolve_local_target(
     target_ref: &FullNameRef,
     repo: &gix::Repository,
@@ -1112,21 +1114,28 @@ pub fn resolve_local_target(
     if target_ref.category() != Some(gix::refs::Category::RemoteBranch) {
         bail!("target ref '{target_ref}' must be a local or remote-tracking branch");
     }
-    match find_local_tracking_branch(target_ref, repo)? {
-        LocalTrackingBranchMatch::None => {
-            bail!("no local branch tracks {target_ref}; configure a local target branch")
-        }
-        LocalTrackingBranchMatch::Unique(name) => Ok(name),
-        LocalTrackingBranchMatch::Ambiguous { first, second } => Err(anyhow::format_err!(
-            "multiple local branches track {target_ref}: \
+    let (err, reason) = match find_local_tracking_branch(target_ref, repo)? {
+        LocalTrackingBranchMatch::Unique(name) => return Ok(name),
+        LocalTrackingBranchMatch::None => (
+            anyhow::format_err!(
+                "no local branch tracks {target_ref}; choose a local target branch"
+            ),
+            UnresolvedLegacyTargetReason::NoTrackingBranch,
+        ),
+        LocalTrackingBranchMatch::Ambiguous { first, second } => (
+            anyhow::format_err!(
+                "multiple local branches track {target_ref}: \
                     {first} and {second}; choose a local target branch"
-        )
-        .context(AmbiguousLegacyTargetRefError {
-            target_ref: target_ref.to_owned(),
-            target_commit_id: None,
-            push_remote: None,
-        })),
-    }
+            ),
+            UnresolvedLegacyTargetReason::MultipleTrackingBranches,
+        ),
+    };
+    Err(err.context(UnresolvedLegacyTargetRefError {
+        target_ref: target_ref.to_owned(),
+        reason,
+        target_commit_id: None,
+        push_remote: None,
+    }))
 }
 
 /// Local branches configured to track a particular upstream ref.
@@ -1134,9 +1143,11 @@ pub fn resolve_local_target(
 pub enum LocalTrackingBranchMatch {
     /// No local branch has the requested upstream.
     None,
-    /// Exactly one local branch has the requested upstream.
+    /// The only local branch with the requested upstream, or of several, the one named as the
+    /// branch on the remote, like main for origin/main.
     Unique(LocalRefName),
-    /// At least two local branches have the requested upstream.
+    /// At least two local branches have the requested upstream, and none is named as the branch on
+    /// the remote.
     Ambiguous {
         /// The first matching branch.
         first: LocalRefName,
@@ -1146,13 +1157,16 @@ pub enum LocalTrackingBranchMatch {
 }
 
 /// Find local branches whose configured upstream is `remote_ref`, without checking their tips.
+/// Of several, the one named as the branch on the remote is picked, as branches made from the
+/// remote branch, like with `git worktree add -b <name> origin/main`, track it too.
 /// Repository and upstream-configuration errors propagate independently of the match result.
 pub fn find_local_tracking_branch(
     remote_ref: &FullNameRef,
     repo: &gix::Repository,
 ) -> Result<LocalTrackingBranchMatch> {
     let references = repo.references()?;
-    let mut matching_local_ref = None;
+    let mut first = None;
+    let mut second = None;
     for reference in references.local_branches()? {
         let reference = reference?;
         let local_ref = reference.name();
@@ -1162,19 +1176,25 @@ pub fn find_local_tracking_branch(
         if upstream.as_ref().map(AsRef::as_ref) != Some(remote_ref) {
             continue;
         }
+        let ref_on_remote = repo
+            .branch_remote_ref_name(local_ref, gix::remote::Direction::Fetch)
+            .transpose()?;
+        let named_as_on_remote = ref_on_remote.as_ref().map(AsRef::as_ref) == Some(local_ref);
         let local_ref = LocalRefName::new(local_ref.to_owned())?;
-        if let Some(first) = matching_local_ref {
-            return Ok(LocalTrackingBranchMatch::Ambiguous {
-                first,
-                second: local_ref,
-            });
+        if named_as_on_remote {
+            return Ok(LocalTrackingBranchMatch::Unique(local_ref));
         }
-        matching_local_ref = Some(local_ref);
+        if first.is_none() {
+            first = Some(local_ref);
+        } else if second.is_none() {
+            second = Some(local_ref);
+        }
     }
 
-    Ok(match matching_local_ref {
-        Some(name) => LocalTrackingBranchMatch::Unique(name),
-        None => LocalTrackingBranchMatch::None,
+    Ok(match (first, second) {
+        (Some(first), Some(second)) => LocalTrackingBranchMatch::Ambiguous { first, second },
+        (Some(name), None) => LocalTrackingBranchMatch::Unique(name),
+        (None, _) => LocalTrackingBranchMatch::None,
     })
 }
 
@@ -1184,16 +1204,16 @@ pub fn find_local_tracking_branch(
 ///
 /// As part of that transition we have to migrate users from origin/main to main. Doing that
 /// requires finding the local branch thats tracking origin/main and making that the target.
-/// `but_core::ref_metadata::find_local_tracking_branch` does that. However if there are two
-/// local branches that both track origin/main then we need the user to pick.
+/// `but_core::ref_metadata::find_local_tracking_branch` does that. However if no local branch
+/// or several local branches track origin/main then we need the user to pick.
 ///
 /// This error identifies that situation.
 #[derive(Debug)]
-pub struct AmbiguousLegacyTargetRefError {
-    /// The legacy target that is ambiguous.
-    ///
-    /// For example will be origin/main if there are multiple branches tracking that.
+pub struct UnresolvedLegacyTargetRefError {
+    /// The legacy target that couldn't be resolved, for example origin/main.
     pub target_ref: gix::refs::FullName,
+    /// Why [`Self::target_ref`] doesn't identify a single local branch.
+    pub reason: UnresolvedLegacyTargetReason,
     /// The cutoff stored with the legacy target.
     ///
     /// Only set when the legacy target was read from `virtual_branches.toml`, so porting can keep
@@ -1206,8 +1226,18 @@ pub struct AmbiguousLegacyTargetRefError {
     pub push_remote: Option<String>,
 }
 
-impl std::fmt::Display for AmbiguousLegacyTargetRefError {
+impl std::fmt::Display for UnresolvedLegacyTargetRefError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("AmbiguousLegacyTargetRef")
+        f.write_str("UnresolvedLegacyTargetRef")
     }
+}
+
+/// Why a legacy remote target doesn't identify a single local branch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnresolvedLegacyTargetReason {
+    /// No local branch has the legacy target as its upstream.
+    NoTrackingBranch,
+    /// At least two local branches have the legacy target as their upstream, and none is named as
+    /// the branch on the remote.
+    MultipleTrackingBranches,
 }

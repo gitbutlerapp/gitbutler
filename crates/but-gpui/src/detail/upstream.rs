@@ -848,10 +848,9 @@ impl Detail {
         rows
     }
 
-    /// What a project whose target several local branches track asks, `choice`: whether the
-    /// one named as the remote's branch is it, as main is for origin/main, which it nearly
-    /// always is; else which of them, a row each. Choose another… offers every local branch.
-    /// The branches not picked stay as they are.
+    /// What a project whose target several local branches track asks, `choice`: which of them,
+    /// a row each. None is named as the remote's branch, as the engine picks that one by itself.
+    /// Choose another… offers every local branch. The branches not picked stay as they are.
     pub(super) fn target_chooser(
         &self,
         project: &ProjectId,
@@ -882,50 +881,29 @@ impl Detail {
                 }))
         };
         let remote = &choice.remote;
-        let (asked, said, answers) = match choice.branches.first().filter(|_| choice.named) {
-            Some(name) => (
-                format!("Use {name} as the target?"),
-                format!("Several branches track {remote}; the others stay as they are."),
-                h_flex()
-                    .gap(dp(8.))
-                    .child(
-                        button("target-use", format!("Use {name}"))
-                            .style(ButtonStyle::Pop)
-                            .on_click(pick(name)),
-                    )
-                    .child(another),
-            ),
-            // Nothing's named as the remote's branch: those tracking it, a row each.
-            None => {
-                let rows = (choice.branches.iter().enumerate()).map(|(ix, name)| {
-                    list_row(("target-choice", ix), false, theme)
-                        .cursor_pointer()
-                        .child(small_icon(Icon::Branch).text_color(theme.text_3))
-                        .child(div().flex_1().min_w_0().truncate().child(name.clone()))
-                        .on_click(pick(name))
-                });
-                (
-                    "Which branch is the target?".to_owned(),
-                    format!(
-                        "Several branches track {remote}. Pick the one your branches build on."
-                    ),
-                    v_flex()
-                        .items_center()
-                        .gap(dp(8.))
-                        .child(
-                            v_flex()
-                                .w(dp(260.))
-                                .py(dp(4.))
-                                .rounded(dp(8.))
-                                .border_1()
-                                .border_color(theme.border_3)
-                                .text_left()
-                                .children(rows),
-                        )
-                        .child(another),
-                )
-            }
-        };
+        let rows = (choice.branches.iter().enumerate()).map(|(ix, name)| {
+            list_row(("target-choice", ix), false, theme)
+                .cursor_pointer()
+                .child(small_icon(Icon::Branch).text_color(theme.text_3))
+                .child(div().flex_1().min_w_0().truncate().child(name.clone()))
+                .on_click(pick(name))
+        });
+        let asked = "Which branch is the target?";
+        let said = format!("Several branches track {remote}. Pick the one your branches build on.");
+        let answers = v_flex()
+            .items_center()
+            .gap(dp(8.))
+            .child(
+                v_flex()
+                    .w(dp(260.))
+                    .py(dp(4.))
+                    .rounded(dp(8.))
+                    .border_1()
+                    .border_color(theme.border_3)
+                    .text_left()
+                    .children(rows),
+            )
+            .child(another);
         v_flex()
             .size_full()
             .items_center()

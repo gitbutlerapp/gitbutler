@@ -758,7 +758,9 @@ Workspace {
 }
 
 mod project_meta {
-    use but_core::ref_metadata::{LocalRefName, ProjectMeta};
+    use but_core::ref_metadata::{
+        LocalRefName, ProjectMeta, UnresolvedLegacyTargetReason, UnresolvedLegacyTargetRefError,
+    };
     use but_testsupport::read_only_in_memory_scenario;
 
     fn repo() -> anyhow::Result<gix::Repository> {
@@ -931,6 +933,30 @@ mod project_meta {
     }
 
     #[test]
+    fn tracking_lookup_prefers_branch_named_as_on_remote() -> anyhow::Result<()> {
+        let mut repo = repo()?;
+        {
+            let mut config = repo.config_snapshot_mut();
+            config.set_raw_value("branch.main.merge", "refs/heads/other")?;
+            config.set_raw_value("branch.other.remote", "origin")?;
+            config.set_raw_value("branch.other.merge", "refs/heads/other")?;
+        }
+        let actual = but_core::ref_metadata::find_local_tracking_branch(
+            "refs/remotes/origin/other".try_into()?,
+            &repo,
+        )?;
+        assert_eq!(
+            actual,
+            but_core::ref_metadata::LocalTrackingBranchMatch::Unique(LocalRefName::new(
+                "refs/heads/other".try_into()?
+            )?),
+            "of the branches tracking origin/other, local other is its counterpart, \
+             even though main is found first"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn resolve_local_target_accepts_local_name_without_lookup() -> anyhow::Result<()> {
         let repo = repo()?;
         let name: &gix::refs::FullNameRef = "refs/heads/not-created".try_into()?;
@@ -991,10 +1017,11 @@ mod project_meta {
             "[gitbutler \"project\"]\n\ttargetRef = refs/remotes/origin/missing\n",
         )?;
         let err = ProjectMeta::try_from_config(&config, &repo()?).unwrap_err();
-        assert!(
-            err.to_string()
-                .contains("no local branch tracks refs/remotes/origin/missing"),
-            "missing local counterparts require an explicit choice: {err}"
+        assert_eq!(
+            err.downcast_ref::<UnresolvedLegacyTargetRefError>()
+                .map(|err| err.reason),
+            Some(UnresolvedLegacyTargetReason::NoTrackingBranch),
+            "missing local counterparts require an explicit choice: {err:#}"
         );
         Ok(())
     }
@@ -1008,8 +1035,10 @@ mod project_meta {
             config.set_raw_value("branch.other.merge", "refs/heads/trunk")?;
         }
         let err = ProjectMeta::try_from_config(&legacy_config()?, &repo).unwrap_err();
-        assert!(
-            err.is::<but_core::ref_metadata::AmbiguousLegacyTargetRefError>(),
+        assert_eq!(
+            err.downcast_ref::<UnresolvedLegacyTargetRefError>()
+                .map(|err| err.reason),
+            Some(UnresolvedLegacyTargetReason::MultipleTrackingBranches),
             "ambiguous local counterparts must not be guessed: {err:#}"
         );
         Ok(())
