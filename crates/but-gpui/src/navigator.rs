@@ -2015,21 +2015,6 @@ impl Navigator {
                         .tooltip(Tooltip::text(tip))
                         .into_any_element(),
                 })
-                // As ui-react's empty MetaCount, the quietest meta, ahead of any counts.
-                .when(branch.commits.is_empty(), |el| {
-                    let quiet = style.quiet();
-                    el.child(
-                        h_flex()
-                            .id(ElementId::Name(format!("empty-{id}-{ref_name}").into()))
-                            .flex_none()
-                            .gap(dp(3.))
-                            .text_size(dp(11.))
-                            .text_color(quiet)
-                            .child(small_icon(Icon::Commit).text_color(quiet).opacity(0.7))
-                            .child("empty")
-                            .tooltip(Tooltip::text("No commits yet")),
-                    )
-                })
                 // CI only while it runs or after it failed: passing is the usual state.
                 .when_some(
                     checks.filter(|c| c.running > 0 || c.failed > 0),
