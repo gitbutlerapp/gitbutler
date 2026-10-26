@@ -6,7 +6,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{Context as _, Result};
-use bstr::ByteSlice;
+use bstr::{BStr, ByteSlice};
 
 use super::{
     CommitId, Conflict, DiffBody, DiffLine, FileChange, FileDiff, Hunk, HunkKey, LineKind, Picture,
@@ -180,10 +180,10 @@ pub fn load_diff(
         }
     };
     let context_lines = ctx.settings.context_lines;
-    let previous: HashMap<&str, &FileDiff> = previous
+    let previous: HashMap<&BStr, &FileDiff> = previous
         .iter()
         .flat_map(|files| files.iter())
-        .map(|file| (file.file.path.as_str(), file))
+        .map(|file| (file.file.change.path.as_bstr(), file))
         .collect();
     // Files past the first stay plain unless reused, and a long one among the first waits too.
     let (first, limit) = match annotate_first {
@@ -198,7 +198,7 @@ pub fn load_diff(
         changes,
         || repo.to_thread_local(),
         |repo, index, file| {
-            let previous = previous.get(file.path.as_str()).copied();
+            let previous = previous.get(file.change.path.as_bstr()).copied();
             load_file(
                 repo,
                 file,
@@ -763,18 +763,15 @@ fn svg_drawing(repo: &gix::Repository, file: &FileChange) -> Option<super::Drawi
 /// makes nothing.
 fn both_sides<T>(
     file: &FileChange,
-    side: impl Fn(but_core::ChangeState, &str) -> Option<T>,
+    side: impl Fn(but_core::ChangeState, &BStr) -> Option<T>,
 ) -> Option<(Option<T>, Option<T>)> {
-    let status = &file.change.status;
+    let (status, path) = (&file.change.status, file.change.path.as_bstr());
     let before = match status.previous_state_and_path() {
-        Some((state, old_path)) => {
-            let path = old_path.map_or_else(|| file.path.clone(), |p| p.to_string());
-            Some(side(state, &path)?)
-        }
+        Some((state, old_path)) => Some(side(state, old_path.unwrap_or(path))?),
         None => None,
     };
     let after = match status.state() {
-        Some(state) => Some(side(state, &file.path)?),
+        Some(state) => Some(side(state, path)?),
         None => None,
     };
     Some((before, after))
@@ -819,7 +816,7 @@ pub fn file_lines(
         return Ok(None);
     };
     let repo = checkout(&open(path)?, worktree)?;
-    let bytes = read_side(&repo, state, &file.path)?;
+    let bytes = read_side(&repo, state, file.change.path.as_bstr())?;
     if bytes.contains(&0) {
         return Ok(None);
     }
@@ -851,10 +848,10 @@ const WHOLE_HIGHLIGHT_LIMIT: usize = 512 * 1024;
 
 /// The contents of one side of a change at `path`: a side that isn't in the object database
 /// is the file in the worktree.
-fn read_side(repo: &gix::Repository, state: but_core::ChangeState, path: &str) -> Result<Vec<u8>> {
+fn read_side(repo: &gix::Repository, state: but_core::ChangeState, path: &BStr) -> Result<Vec<u8>> {
     if state.id.is_null() {
         let workdir = repo.workdir().context("the repository has no worktree")?;
-        Ok(std::fs::read(workdir.join(path))?)
+        Ok(std::fs::read(workdir.join(gix::path::from_bstr(path)?))?)
     } else {
         Ok(repo.find_blob(state.id)?.data.clone())
     }

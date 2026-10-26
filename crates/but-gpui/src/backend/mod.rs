@@ -931,12 +931,12 @@ fn worktree_files(repo: &gix::Repository, previous: &[FileChange]) -> Result<Vec
     // Status leaves out files with unresolved index conflicts; they're changes too.
     let conflicted = conflicted_changes(repo, &changes.ignored_changes)?;
     let count = conflicted.len() + changes.changes.len() <= COUNT_LINES_UP_TO;
-    let counted: HashMap<&str, &FileChange> = (previous.iter())
+    let counted: HashMap<&bstr::BStr, &FileChange> = (previous.iter())
         .filter(|file| file.lines.is_some())
-        .map(|file| (file.path.as_str(), file))
+        .map(|file| (file.change.path.as_bstr(), file))
         .collect();
     let lines = |change: &but_core::TreeChange, modified: Option<i64>, size: Option<u64>| {
-        let kept = counted.get(&*change.path.to_str_lossy()).filter(|old| {
+        let kept = counted.get(change.path.as_bstr()).filter(|old| {
             (old.modified, old.size) == (modified, size)
                 && same_change(&old.change.status, &change.status)
         });

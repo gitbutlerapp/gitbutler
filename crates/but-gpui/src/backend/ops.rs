@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::{Context as _, Result, bail};
-use bstr::ByteSlice as _;
+use bstr::{BStr, ByteSlice as _};
 use but_api::commit::json::ChangesSource;
 use but_core::tree::create_tree::RejectionReason;
 use but_core::{DiffSpec, DryRun};
@@ -58,12 +58,12 @@ pub(super) fn rewritten(workspace: &but_api::WorkspaceState) -> Rewritten {
 
 /// The `selected` files a merge left conflicted, as the index has them now: what the UI
 /// asks for may predate the merge.
-fn unmerged<'a>(repo: &gix::Repository, selected: &'a [Selected]) -> Result<Vec<&'a str>> {
+fn unmerged<'a>(repo: &gix::Repository, selected: &'a [Selected]) -> Result<Vec<&'a BStr>> {
     let index = repo.index_or_empty()?;
     Ok((selected.iter())
-        .map(|part| part.file.path.as_str())
+        .map(|part| part.file.change.path.as_bstr())
         .filter(|path| {
-            (index.entry_index_by_path(path.as_bytes().as_bstr()).ok())
+            (index.entry_index_by_path(path).ok())
                 .and_then(|ix| index.entries().get(ix))
                 .is_some_and(|entry| entry.stage() != gix::index::entry::Stage::Unconflicted)
         })
@@ -91,19 +91,22 @@ fn refuse_conflicted(
 fn refuse_changed(repo: &gix::Repository, selected: &[Selected], whole: bool) -> Result<()> {
     let head = repo.head_tree().ok();
     let base_now = |part: &Selected| {
-        let path = part
-            .file
-            .previous_path
-            .as_deref()
-            .unwrap_or(&part.file.path);
-        let entry = head.as_ref()?.lookup_entry_by_path(path).ok()??;
+        let change = &part.file.change;
+        let path = (change.status.previous_state_and_path())
+            .and_then(|(_, previous)| previous)
+            .unwrap_or(change.path.as_bstr());
+        let entry = head
+            .as_ref()?
+            .lookup_entry(path.split(|b| *b == b'/'))
+            .ok()??;
         Some(entry.object_id())
     };
     // A whole file goes back to its base whatever that is, so only being written to counts.
     let changed = (selected.iter()).find(|part| {
         let picked = part.hunks.is_some();
         (whole || picked)
-            && (stamp(repo, part.file.path.as_str().into()) != (part.file.modified, part.file.size)
+            && (stamp(repo, part.file.change.path.as_bstr())
+                != (part.file.modified, part.file.size)
                 || (picked && base_now(part) != part.file.base()))
     });
     if let Some(part) = changed {
@@ -969,7 +972,7 @@ pub fn discard(
     // as resolved, markers and all.
     let conflicted = unmerged(repo, selected)?;
     if let Some(part) = (selected.iter())
-        .find(|part| part.hunks.is_some() && conflicted.contains(&part.file.path.as_str()))
+        .find(|part| part.hunks.is_some() && conflicted.contains(&part.file.change.path.as_bstr()))
     {
         bail!(
             "{} has conflicts: discard all of it, or mark it resolved first",
