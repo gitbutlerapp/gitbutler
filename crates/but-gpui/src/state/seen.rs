@@ -59,9 +59,9 @@ pub(super) fn shown(workspace: &Workspace) -> impl Iterator<Item = (CommitId, [&
 pub(super) fn lone_commit(workspace: &Workspace, selection: &Selection) -> Option<CommitId> {
     let branches = match selection {
         Selection::Branch(_, ref_name) => {
-            std::slice::from_ref(workspace.find_branch(ref_name.as_deref())?)
+            std::slice::from_ref(workspace.find_branch(ref_name.as_ref())?)
         }
-        Selection::Stack(_, bottom) => &workspace.lane(bottom.as_deref())?.branches,
+        Selection::Stack(_, bottom) => &workspace.lane(bottom.as_ref())?.branches,
         _ => return None,
     };
     let mut commits = branches.iter().flat_map(|branch| &branch.commits);
@@ -290,7 +290,7 @@ mod tests {
     use std::collections::HashSet;
 
     use super::{Seeable, amended, amended_since, lone_commit, was_seen};
-    use crate::backend::model::build::{branch, workspace};
+    use crate::backend::model::build::{branch, full, workspace};
     use crate::backend::{Commit, CommitId};
     use crate::state::Selection;
 
@@ -357,10 +357,17 @@ mod tests {
             vec![],
         );
         let lone = |selection| lone_commit(&ws, &selection);
-        let branch = |name: &str| Selection::Branch("p".into(), Some(format!("refs/heads/{name}")));
-        let stack =
-            |bottom: &str| Selection::Stack("p".into(), Some(format!("refs/heads/{bottom}")));
-        let one = Some(ws.find_branch(Some("refs/heads/lone")).unwrap().commits[0].id);
+        let branch =
+            |name: &str| Selection::Branch("p".into(), Some(full(&format!("refs/heads/{name}"))));
+        let stack = |bottom: &str| {
+            Selection::Stack("p".into(), Some(full(&format!("refs/heads/{bottom}"))))
+        };
+        let one = Some(
+            ws.find_branch(Some(&full("refs/heads/lone")))
+                .unwrap()
+                .commits[0]
+                .id,
+        );
         assert_eq!(lone(branch("lone")), one, "its diff is that commit's");
         assert_eq!(lone(stack("lone")), one, "a branch with none adds nothing");
         assert_eq!(

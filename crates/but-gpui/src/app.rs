@@ -829,7 +829,7 @@ impl AppView {
         let text = file.or_else(|| match self.selection(cx)? {
             Selection::Commit(_, id) | Selection::Upstream(_, _, id) => Some(id.0.to_string()),
             Selection::Branch(_, ref_name) => {
-                ref_name.map(|ref_name| short_ref(&ref_name).to_owned())
+                ref_name.map(|ref_name| short_ref(&ref_name).into_owned())
             }
             Selection::Project(project) => {
                 Some(self.store.read(cx).path(&project)?.display().to_string())

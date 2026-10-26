@@ -280,9 +280,9 @@ pub struct NewReview {
     pub template: Option<String>,
 }
 
-pub fn new_review(path: &Path, branch: &str) -> Result<NewReview> {
+pub fn new_review(path: &Path, branch: &super::FullName) -> Result<NewReview> {
     let ctx = open(path)?;
-    let target = forge::new_review_target(&ctx, branch.to_owned())?;
+    let target = forge::new_review_target(&ctx, branch.to_string())?;
     let template = match forge::review_template(&ctx).ok().flatten() {
         Some(template) => Some(template.content),
         None => forge::list_available_review_templates(&ctx)
@@ -304,7 +304,7 @@ pub struct Published {
 /// then open a pull request for it. `run_hooks` runs the pre-push hook first.
 pub fn publish(
     path: &Path,
-    branch: &str,
+    branch: &super::FullName,
     title: String,
     body: String,
     draft: bool,
@@ -313,7 +313,7 @@ pub fn publish(
     // The pull request's head is the branch as the remote names it: what a push reports,
     // or for a branch pushed before, the remote branch it tracks.
     let (pushed, push_sync_failed) = push(path, branch, true, Some(&[]), run_hooks)?;
-    let short = short_ref(branch).to_owned();
+    let short = short_ref(branch).into_owned();
     let ctx = open(path)?;
     let pushed = match pushed {
         Some(name) => Some(name),
@@ -336,7 +336,7 @@ pub fn publish(
 }
 
 /// The name of the remote branch `branch` (a full ref) tracks, without its remote.
-fn tracked_name(ctx: &Context, branch: &str) -> Result<Option<String>> {
+fn tracked_name(ctx: &Context, branch: &super::FullName) -> Result<Option<String>> {
     let info = but_api::legacy::workspace::head_info(ctx)?;
     let tracked = (info.lanes())
         .flat_map(|lane| lane.segments)

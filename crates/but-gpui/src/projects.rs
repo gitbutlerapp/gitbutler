@@ -97,12 +97,17 @@ impl AppView {
 
     /// Make the local branch `name`, as refs/heads/main, `project`'s target, then read the
     /// project again and say so.
-    pub fn set_target(&mut self, project: ProjectId, name: String, cx: &mut Context<Self>) {
+    pub fn set_target(
+        &mut self,
+        project: ProjectId,
+        name: backend::FullName,
+        cx: &mut Context<Self>,
+    ) {
         let Some(path) = self.store.read(cx).path(&project) else {
             return;
         };
         let store = self.store.clone();
-        let short = backend::short_ref(&name).to_owned();
+        let short = backend::short_ref(&name).into_owned();
         cx.spawn(async move |_, cx| {
             let set = backend::run(move || settings::set_target(&path, &name)).await;
             store.update(cx, |store, cx| match set {
@@ -151,7 +156,7 @@ impl AppView {
             let choices = names
                 .into_iter()
                 .map(|name| {
-                    let short = backend::short_ref(&name).to_owned();
+                    let short = backend::short_ref(&name).into_owned();
                     let project = project.clone();
                     Choice::new(short, move |app, _, cx| app.set_target(project, name, cx))
                 })

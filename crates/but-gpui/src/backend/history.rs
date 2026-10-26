@@ -13,7 +13,7 @@ use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use gix::bstr::ByteSlice as _;
 use serde::Deserialize;
 
-use super::{CommitId, SnapshotId, open, short_ref};
+use super::{CommitId, SnapshotId, open, short_ref, short_text};
 use but_core::WORKSPACE_REF_NAME;
 
 /// One operation in the log.
@@ -202,7 +202,7 @@ pub fn list(
                             let trailer = details.trailers.iter().find(|t| t.key() == *key)?;
                             let value = trailer.value();
                             let line = value.lines().next()?;
-                            Some(short_ref(line).to_owned())
+                            Some(short_text(line).to_owned())
                         });
                     let body = details.body.filter(|b| !b.trim().is_empty());
                     (
@@ -353,7 +353,7 @@ fn checkout_branches(
             refs.insert(at, name);
         }
     }
-    let mut branches = vec![(short_ref(&checkout).to_owned(), Vec::new())];
+    let mut branches = vec![(short_text(&checkout).to_owned(), Vec::new())];
     let walk = (repo.rev_walk([tip]).first_parent_only())
         .with_hidden([target])
         .all()
@@ -366,7 +366,7 @@ fn checkout_branches(
         if commit != tip
             && let Some(name) = refs.get(&commit)
         {
-            branches.push((short_ref(name).to_owned(), Vec::new()));
+            branches.push((short_text(name).to_owned(), Vec::new()));
         }
         // Keyed by the commit itself, where a stack's entries are keyed by their subtree.
         let entry = match read.entry(commit) {
@@ -657,23 +657,27 @@ fn moved_since(ctx: &but_ctx::Context, after: i64, spans: &[(i64, i64)]) -> Resu
     let repo = ctx.repo.get()?;
     let workspace: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
     // As the workspace's metadata has them: one moved off the workspace no longer shows in it.
-    let applied: Vec<String> = (ctx.meta()?.workspace(workspace.as_ref())?.stacks.iter())
-        .filter(|stack| stack.is_in_workspace())
-        .flat_map(|stack| &stack.branches)
-        .map(|branch| branch.ref_name.to_string())
-        .collect();
-    let checked_out = repo.head_name()?.map(|name| name.to_string());
-    let names = ["HEAD", WORKSPACE_REF_NAME].map(String::from);
-    let names = names.into_iter().chain(applied).chain(checked_out);
+    let applied: Vec<gix::refs::FullName> =
+        (ctx.meta()?.workspace(workspace.as_ref())?.stacks.iter())
+            .filter(|stack| stack.is_in_workspace())
+            .flat_map(|stack| &stack.branches)
+            .map(|branch| branch.ref_name.clone())
+            .collect();
+    let checked_out = repo.head_name()?;
+    let head: gix::refs::FullName = "HEAD".try_into()?;
+    let names = [head.clone(), workspace]
+        .into_iter()
+        .chain(applied)
+        .chain(checked_out);
     let mut newest: Option<(i64, String)> = None;
     for name in names {
-        let Some(reference) = repo.try_find_reference(name.as_str())? else {
+        let Some(reference) = repo.try_find_reference(name.as_ref())? else {
             continue;
         };
         let mut log = reference.log_iter();
         let Some(lines) = log.rev()? else {
             // HEAD always has a log while Git keeps them: without, nothing here can tell.
-            if name == "HEAD" {
+            if name == head {
                 anyhow::bail!(
                     "Git keeps no log of what moved HEAD here, as with core.logAllRefUpdates \
                      off, so undo can't tell what happened since. Operations history can still \

@@ -14,8 +14,8 @@ use crate::app::{
     UncommitSelection,
 };
 use crate::backend::{
-    self, Branch, Checkout, Commit, CommitId, Destination, Selected, Undiscarded, Workspace,
-    short_ref,
+    self, Branch, Checkout, Commit, CommitId, Destination, FullName, Selected, Undiscarded,
+    Workspace, short_ref,
 };
 use crate::overlays::run_named;
 use crate::state::{Cut, Label, Overlay, ProjectId, Remap, Rereads, Selection, Store, snack};
@@ -132,7 +132,7 @@ fn target_force_detail(target: &backend::Target) -> String {
 /// Whether `ref_name` can land, and if so whether with the branches below it: the bottom
 /// branch of a stack lands alone, the top one of a taller stack lands the whole stack. What
 /// lands needs commits, and none conflicted, which the engine won't land.
-fn land_scope(workspace: &Workspace, ref_name: &str) -> Option<bool> {
+fn land_scope(workspace: &Workspace, ref_name: &FullName) -> Option<bool> {
     let (stack, at) = workspace.stack_of(Some(ref_name))?;
     let whole = match (at, at + 1 == stack.branches.len()) {
         (_, true) => false,
@@ -165,7 +165,7 @@ pub struct BranchEdits {
 }
 
 impl BranchEdits {
-    pub fn of(workspace: &Workspace, ref_name: &str) -> Self {
+    pub fn of(workspace: &Workspace, ref_name: &FullName) -> Self {
         let Some((lane, branch)) = (workspace.lane_of(Some(ref_name)))
             .and_then(|(lane, at)| Some((lane, lane.branches.get(at)?)))
         else {
@@ -265,7 +265,7 @@ impl AppView {
                 let Some(workspace) = store.workspace(project) else {
                     return el;
                 };
-                let can_pull = (ref_name.as_deref()).is_some_and(|r| workspace.can_pull(r));
+                let can_pull = (ref_name.as_ref()).is_some_and(|r| workspace.can_pull(r));
                 let el = el.when(can_pull, |el| {
                     el.on_action(cx.listener(|this, _: &PullRemote, window, cx| {
                         this.pull_remote(false, window, cx)
@@ -275,7 +275,7 @@ impl AppView {
                     ))
                 });
                 // The rest work on a named branch only, as its menu says.
-                let Some(ref_name) = ref_name.as_deref() else {
+                let Some(ref_name) = ref_name.as_ref() else {
                     return el;
                 };
                 let edits = BranchEdits::of(workspace, ref_name);
@@ -304,16 +304,16 @@ impl AppView {
                 let Some(workspace) = store.workspace(project) else {
                     return el;
                 };
-                let top = (workspace.lane(bottom.as_deref()))
+                let top = (workspace.lane(bottom.as_ref()))
                     .and_then(|lane| lane.branches.first())
-                    .and_then(|top| top.ref_name.as_deref());
+                    .and_then(|top| top.ref_name.as_ref());
                 let lands =
                     top.is_some_and(|top| BranchEdits::of(workspace, top).land == Some(true));
                 el.when(lands, |el| el.on_action(cx.listener(Self::land_branch)))
                     .when(
                         workspace.managed
                             && top.is_some()
-                            && workspace.stack_of(bottom.as_deref()).is_some(),
+                            && workspace.stack_of(bottom.as_ref()).is_some(),
                         |el| el.on_action(cx.listener(Self::unapply_stack)),
                     )
             }
@@ -335,7 +335,7 @@ impl AppView {
                 store.pull_remote(&project, ref_name, None, cx)
             });
         }
-        let name = short_ref(&ref_name).to_owned();
+        let name = short_ref(&ref_name).into_owned();
         self.confirm_then(
             Some(Selection::Branch(project.clone(), Some(ref_name.clone()))),
             format!("Replace {name} with the remote's version?"),
@@ -368,7 +368,7 @@ impl AppView {
     }
 
     /// The selected branch, or a selected stack's top one, when it has a name.
-    fn selected_named_branch(&self, cx: &App) -> Option<(ProjectId, String)> {
+    fn selected_named_branch(&self, cx: &App) -> Option<(ProjectId, FullName)> {
         match self.store.read(cx).selection.as_ref()? {
             Selection::Branch(..) | Selection::Stack(..) => (self.branch_of_selection(cx))
                 .and_then(|(project, ref_name)| Some((project, ref_name?))),
@@ -378,13 +378,13 @@ impl AppView {
 
     /// The selected branch, or the branch holding the selected commit, named or not. A
     /// stack acts through its top branch, which takes the ones below it along.
-    fn branch_of_selection(&self, cx: &App) -> Option<(ProjectId, Option<String>)> {
+    fn branch_of_selection(&self, cx: &App) -> Option<(ProjectId, Option<FullName>)> {
         let selection = self.selection(cx)?;
         let store = self.store.read(cx);
         let branch = match &selection {
             Selection::Stack(project, bottom) => store
                 .workspace(project)?
-                .lane(bottom.as_deref())?
+                .lane(bottom.as_ref())?
                 .branches
                 .first()?,
             _ => store.branch_for(&selection)?,
@@ -419,7 +419,7 @@ impl AppView {
         let Some(ws) = self.store.read(cx).workspace(&project) else {
             return;
         };
-        if let Some(refused) = ws.push_blocked(ref_name.as_deref()) {
+        if let Some(refused) = ws.push_blocked(ref_name.as_ref()) {
             return snack(&self.store, refused, cx);
         }
         let Some(ref_name) = ref_name else {
@@ -443,10 +443,9 @@ impl AppView {
                 // first when others are stacked on it or a linked worktree rests on it, nor
                 // here when a linked worktree has it.
                 let stuck = (ws.pushed_with(&ref_name)).find(|b| {
-                    !b.incoming.is_empty()
-                        && !(b.ref_name.as_deref()).is_some_and(|r| ws.can_pull(r))
+                    !b.incoming.is_empty() && !(b.ref_name.as_ref()).is_some_and(|r| ws.can_pull(r))
                 });
-                let linked = (stuck.and_then(|b| ws.lane_of(b.ref_name.as_deref())))
+                let linked = (stuck.and_then(|b| ws.lane_of(b.ref_name.as_ref())))
                     .is_some_and(|(lane, _)| lane.checkout.is_linked());
                 match stuck {
                     None => {
@@ -457,7 +456,7 @@ impl AppView {
                          worktree first.",
                         name = stuck.name
                     ),
-                    Some(stuck) if (stuck.ref_name.as_deref()).is_some_and(|r| ws.rested_on(r)) => {
+                    Some(stuck) if (stuck.ref_name.as_ref()).is_some_and(|r| ws.rested_on(r)) => {
                         format!(
                             "It drops {what} only the remote has. {name}'s can't be pulled first \
                          while a worktree rests on it.",
@@ -537,7 +536,7 @@ impl AppView {
                 let unnamed_top = (workspace.filter(|_| ref_name.is_none()))
                     .and_then(|ws| Some(ws.find_branch(None)?.commits.first()?.id));
                 // As the desktop app says: a rename doesn't reach the remote.
-                let pushed = (workspace.and_then(|ws| ws.find_branch(ref_name.as_deref())))
+                let pushed = (workspace.and_then(|ws| ws.find_branch(ref_name.as_ref())))
                     .is_some_and(|branch| branch.push != backend::PushState::NeverPushed);
                 let renaming = ref_name.clone();
                 let (store, detail) = (self.store.clone(), self.detail.downgrade());
@@ -551,9 +550,9 @@ impl AppView {
                             (None, Some(top)) => backend::name_branch(path, remap.get(top)?, name),
                             (None, None) => anyhow::bail!("The branch has no commit to name it at"),
                         };
-                    let done = move |store: &mut Store, to: String, cx: &mut Context<Store>| {
+                    let done = move |store: &mut Store, to: FullName, cx: &mut Context<Store>| {
                         (detail.update(cx, |detail, cx| {
-                            detail.branch_renamed(&selected, from.as_deref(), &to, cx)
+                            detail.branch_renamed(&selected, from.as_ref(), &to, cx)
                         }))
                         .ok();
                         if !undoable {
@@ -628,11 +627,11 @@ impl AppView {
         checkout: Option<Checkout>,
         window: &mut Window,
         cx: &mut Context<Self>,
-        op: impl FnOnce(&Path, &Remap) -> anyhow::Result<String> + Send + 'static,
+        op: impl FnOnce(&Path, &Remap) -> anyhow::Result<FullName> + Send + 'static,
     ) {
         let (selected, detail) = (project.clone(), self.detail.downgrade());
         let undoable = self.store.read(cx).undoable(&project, checkout);
-        let done = move |store: &mut Store, branch: String, cx: &mut Context<Store>| {
+        let done = move |store: &mut Store, branch: FullName, cx: &mut Context<Store>| {
             if on_top {
                 (detail.update(cx, |detail, cx| {
                     detail.branch_created(&selected, branch.clone(), cx)
@@ -676,11 +675,11 @@ impl AppView {
     fn remove_branch(
         &mut self,
         project: ProjectId,
-        ref_name: String,
+        ref_name: FullName,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let name = short_ref(&ref_name).to_owned();
+        let name = short_ref(&ref_name).into_owned();
         let store = self.store.read(cx);
         let Some((lane, _)) =
             (store.workspace(&project)).and_then(|ws| ws.lane_of(Some(&ref_name)))
@@ -709,7 +708,7 @@ impl AppView {
         if lane.iter().filter(named).count() < 2 && lane.iter().any(|b| !b.commits.is_empty()) {
             // Checked out on its own, it can't be unapplied, only switched away from.
             let target = (store.workspace(&project).filter(|ws| !ws.managed))
-                .and_then(|ws| ws.target_branch.as_deref())
+                .and_then(|ws| ws.target_branch.as_ref())
                 .map(short_ref)
                 .filter(|target| *target != name);
             let message = match target {
@@ -1077,7 +1076,7 @@ impl AppView {
         };
         // The whole stack goes, at once, and the snackbar counts the other branches in it.
         // An unnamed one has no ref to tell it from another stack's.
-        let Some(stack): Option<HashSet<String>> = (self.store.read(cx).workspace(&project))
+        let Some(stack): Option<HashSet<FullName>> = (self.store.read(cx).workspace(&project))
             .and_then(|ws| ws.stack_of(Some(&ref_name)))
             .map(|(stack, _)| {
                 (stack.branches.iter())
@@ -1088,7 +1087,7 @@ impl AppView {
             return;
         };
         let name = match stack.len().max(1) {
-            1 => short_ref(&ref_name).to_owned(),
+            1 => short_ref(&ref_name).into_owned(),
             2 => format!("{} and the other branch in its stack", short_ref(&ref_name)),
             n => format!(
                 "{} and the {} other branches in its stack",
@@ -1159,7 +1158,7 @@ impl AppView {
         let tip = tip.id;
         // Commits only the landing branches' remotes have, as a teammate's not pulled yet.
         let remote_only: usize = landing.iter().map(|branch| branch.incoming.len()).sum();
-        let (name, landed) = (short_ref(&ref_name).to_owned(), project.clone());
+        let (name, landed) = (short_ref(&ref_name).into_owned(), project.clone());
         let (what, whose, remotes) = match whole_stack {
             true => (
                 match landing.len() {
@@ -1201,7 +1200,10 @@ impl AppView {
                 project,
                 Label::new("Land", format!("Land {name}")),
                 overlay,
-                move |path, _| backend::land(path, &name, tip, whole_stack),
+                {
+                    let ref_name = ref_name.clone();
+                    move |path, _| backend::land(path, &ref_name, tip, whole_stack)
+                },
                 move |store, left: backend::Landed, cx| {
                     // Undo would bring the branch back here while the target keeps it.
                     store.drop_last_step();

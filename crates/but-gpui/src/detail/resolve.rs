@@ -14,7 +14,7 @@ use gpui::{
 use super::{Detail, DiffSource};
 use crate::app::AppView;
 use crate::backend::conflicts::{self, Keep};
-use crate::backend::{self, Branch, Checkout, Commit, CommitId, Conflict, Workspace, ai};
+use crate::backend::{self, Branch, Checkout, Commit, CommitId, Conflict, FullName, Workspace, ai};
 use crate::state::{OpKind, Overlay, ProjectId, Rereads, Selection, snack};
 use crate::theme::Theme;
 use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
@@ -899,7 +899,7 @@ fn oldest_first(workspace: &Workspace, commit: CommitId) -> Vec<CommitId> {
 /// branch holding it. None when that's a linked worktree's, as its conflicts resolve in it.
 pub(super) fn oldest_conflict<'a>(
     workspace: &'a Workspace,
-    ref_name: &str,
+    ref_name: &FullName,
 ) -> Option<(&'a Branch, &'a Commit)> {
     let (lane, at) = workspace.lane_of(Some(ref_name))?;
     let history: Vec<&Commit> = (workspace.chain_from(lane, at))
@@ -1011,7 +1011,7 @@ impl AppView {
             }
             Selection::Commit(_, id) => *id,
             Selection::Branch(_, ref_name) => {
-                let (lane, _) = workspace.lane_of(ref_name.as_deref())?;
+                let (lane, _) = workspace.lane_of(ref_name.as_ref())?;
                 lane.branches.first()?.commits.first()?.id
             }
             _ => return None,
@@ -1135,10 +1135,11 @@ mod tests {
             {
                 commit.conflicted = conflicted.iter().any(|n| id(*n) == commit.id);
             }
-            let oldest =
-                oldest_conflict(&ws, &format!("refs/heads/{name}")).map(|(holder, commit)| {
-                    format!("{} in {}", commit_name(&ws, commit.id), holder.name)
-                });
+            let oldest = oldest_conflict(
+                &ws,
+                &crate::backend::model::build::full(&format!("refs/heads/{name}")),
+            )
+            .map(|(holder, commit)| format!("{} in {}", commit_name(&ws, commit.id), holder.name));
             let conflicted: Vec<String> = (conflicted.iter())
                 .map(|n| commit_name(&ws, id(*n)))
                 .collect();

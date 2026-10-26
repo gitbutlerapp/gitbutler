@@ -10,7 +10,9 @@ use gpui::{Context, SharedString, Task};
 
 use super::{Cut, ProjectEntry, ProjectId, Selection, Store, StoreEvent};
 use crate::backend::watch::Watcher;
-use crate::backend::{self, Checkout, CommitId, FileChange, Project, Selected, Workspace};
+use crate::backend::{
+    self, Checkout, CommitId, FileChange, FullName, Project, Selected, Workspace,
+};
 
 /// A watcher's event: the project, whether its git directory changed, the checkout whose
 /// files changed, and which of its files.
@@ -717,7 +719,7 @@ impl Store {
         let home = (self.selection.as_ref())
             .filter(|s| s.project() == id && rewritten.is_none() && gone_from.is_none())
             .filter(|s| match s {
-                Selection::Branch(_, branch) => workspace.find_branch(branch.as_deref()).is_none(),
+                Selection::Branch(_, branch) => workspace.find_branch(branch.as_ref()).is_none(),
                 Selection::Commit(_, commit) => workspace.find_commit(*commit).is_none(),
                 _ => false,
             })
@@ -806,9 +808,9 @@ impl Store {
 /// newest commit is on a branch `new` named, in a linked worktree too. One deleted from a
 /// stack isn't renamed to the branch that was there before and took its commits, nor to no
 /// name, as its commits left unnamed.
-fn renamed(old: Option<&Workspace>, new: &Workspace) -> Vec<(Option<String>, String)> {
+fn renamed(old: Option<&Workspace>, new: &Workspace) -> Vec<(Option<FullName>, FullName)> {
     (old.iter().flat_map(|old| old.all_branches()))
-        .filter(|branch| new.find_branch(branch.ref_name.as_deref()).is_none())
+        .filter(|branch| new.find_branch(branch.ref_name.as_ref()).is_none())
         .filter_map(|branch| {
             let newest = follow_by_key(old, new, branch.commits.first()?.id)?;
             let (now, _) = new.find_commit(newest)?;
@@ -913,7 +915,7 @@ fn watch(
 #[cfg(test)]
 mod tests {
     use crate::backend::CommitId;
-    use crate::backend::model::build::{branch, workspace, worktree};
+    use crate::backend::model::build::{branch, full, workspace, worktree};
 
     #[test]
     fn picks_show_together_only_as_one_run_in_one_lane() {
@@ -977,8 +979,8 @@ mod tests {
         );
         let renamed = |from: &str, to: &str| {
             (
-                Some(format!("refs/heads/{from}")),
-                format!("refs/heads/{to}"),
+                Some(full(&format!("refs/heads/{from}"))),
+                full(&format!("refs/heads/{to}")),
             )
         };
         assert_eq!(

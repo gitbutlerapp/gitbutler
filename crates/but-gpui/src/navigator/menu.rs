@@ -144,7 +144,7 @@ impl Navigator {
             // A remote's commit can be copied into a branch here, or its ID copied, and a
             // branch's marked read or unread.
             Selection::Upstream(project, ref_name, id) => {
-                let commit = (ref_name.as_deref()).and_then(|ref_name| {
+                let commit = (ref_name.as_ref()).and_then(|ref_name| {
                     let commits = store.workspace(project)?.upstream(Some(ref_name));
                     commits.iter().find(|commit| commit.id == *id)
                 });
@@ -305,7 +305,7 @@ impl Navigator {
                 else {
                     return items;
                 };
-                let named = ref_name.as_deref();
+                let named = ref_name.as_ref();
                 if let Some(ref_name) = named
                     && workspace.push_blocked(Some(ref_name)).is_none()
                 {
@@ -388,7 +388,7 @@ impl Navigator {
                         &UnapplyStack,
                     ));
                 }
-                let name = short_ref(ref_name).to_owned();
+                let name = short_ref(ref_name).into_owned();
                 items.extend([
                     action("Rename…", &RenameSelection).separated(),
                     MenuItem::keyed("Copy name", &CopySelection, cx, move |app, _, cx| {
@@ -594,7 +594,7 @@ impl Navigator {
                 let (fold_project, fold_bottom) = key;
                 let mut items = vec![MenuItem::keyed(label, keys, cx, move |this, window, cx| {
                     (this.navigator).update(cx, |nav, cx| {
-                        nav.toggle_stack(&fold_project, fold_bottom.as_deref(), !folded, window, cx)
+                        nav.toggle_stack(&fold_project, fold_bottom.as_ref(), !folded, window, cx)
                     })
                 })];
                 let Some(workspace) = store.workspace(project) else {
@@ -602,12 +602,12 @@ impl Navigator {
                 };
                 // Through its top branch, which takes the ones below it along.
                 let Some(top) = workspace
-                    .lane(bottom.as_deref())
+                    .lane(bottom.as_ref())
                     .and_then(|lane| lane.branches.first())
                 else {
                     return items;
                 };
-                let top = top.ref_name.as_deref();
+                let top = top.ref_name.as_ref();
                 if let Some(top) = top
                     && workspace.push_blocked(Some(top)).is_none()
                 {
@@ -635,7 +635,7 @@ impl Navigator {
                 }
                 items.push(action("New branch on top", &NewBranchOnTop).separated());
                 // A linked worktree's lane stays applied while it has it checked out.
-                if workspace.managed && named && workspace.stack_of(bottom.as_deref()).is_some() {
+                if workspace.managed && named && workspace.stack_of(bottom.as_ref()).is_some() {
                     items.push(action("Unapply stack", &UnapplyStack));
                 }
                 items

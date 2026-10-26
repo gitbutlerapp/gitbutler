@@ -3,27 +3,27 @@ use super::{Branch, CommitId, PushState, Target, Workspace};
 impl Workspace {
     /// `ref_name`'s branch and the ones below it, down the lanes it rests on, which pushing it
     /// pushes too.
-    pub(crate) fn pushed_with(&self, ref_name: &str) -> impl Iterator<Item = &Branch> {
+    pub(crate) fn pushed_with(&self, ref_name: &super::FullName) -> impl Iterator<Item = &Branch> {
         self.chain(ref_name).flat_map(|link| link.branches())
     }
 
     /// Whether pushing `ref_name` takes GitButler's workspace commit along, which merges every
     /// applied branch: the lanes it goes down end on a commit no lane holds, as one started
     /// on the main checkout's `HEAD` does.
-    fn pushes_workspace(&self, ref_name: &str) -> bool {
+    fn pushes_workspace(&self, ref_name: &super::FullName) -> bool {
         (self.chain(ref_name).last())
             .and_then(|link| link.lane.rests_on)
             .is_some_and(|id| self.lane_holding(id).is_none())
     }
 
     /// Whether pushing `ref_name` has commits to send.
-    pub fn can_push(&self, ref_name: &str) -> bool {
+    pub fn can_push(&self, ref_name: &super::FullName) -> bool {
         self.pushed_with(ref_name).any(Branch::can_push)
     }
 
     /// The commits only the remote has that pushing `ref_name` drops: a forced push replaces
     /// what's there.
-    pub fn push_drops(&self, ref_name: &str) -> Vec<CommitId> {
+    pub fn push_drops(&self, ref_name: &super::FullName) -> Vec<CommitId> {
         if !self.needs_force(ref_name) {
             return Vec::new();
         }
@@ -34,7 +34,7 @@ impl Workspace {
 
     /// Why `ref_name` can't be pushed yet, though it has commits to send: pushing goes to
     /// the remote of the target's upstream, and a conflicted commit would go along.
-    pub fn push_refused(&self, ref_name: &str) -> Option<&'static str> {
+    pub fn push_refused(&self, ref_name: &super::FullName) -> Option<&'static str> {
         let unpushed = (self.target.as_ref()).map_or(self.target_branch.is_some(), |t| t.local);
         if self.remoteless {
             Some("The project has no remote to push to: add one with `git remote add`")
@@ -60,7 +60,7 @@ impl Workspace {
 
     /// The target, when pushing `ref_name` forces the target branch, which others' work builds
     /// on. What only its remote has counts as the target's incoming commits, not the branch's.
-    pub fn forced_target(&self, ref_name: &str) -> Option<&Target> {
+    pub fn forced_target(&self, ref_name: &super::FullName) -> Option<&Target> {
         (self.pushed_with(ref_name))
             .any(|b| {
                 b.push == PushState::NeedsForce
@@ -73,13 +73,13 @@ impl Workspace {
 
     /// Whether pushing `ref_name` has to force: it or a branch below it was rewritten since
     /// it was pushed.
-    pub fn needs_force(&self, ref_name: &str) -> bool {
+    pub fn needs_force(&self, ref_name: &super::FullName) -> bool {
         (self.pushed_with(ref_name)).any(|branch| branch.push == PushState::NeedsForce)
     }
 
     /// Why `ref_name` can't be pushed now: it has no name, nothing to send, or
     /// [`Self::push_refused`] says why not.
-    pub fn push_blocked(&self, ref_name: Option<&str>) -> Option<&'static str> {
+    pub fn push_blocked(&self, ref_name: Option<&super::FullName>) -> Option<&'static str> {
         // A branch whose ref was deleted, as by `git branch -D`, has commits but no name.
         let Some(ref_name) = ref_name else {
             return Some("Name the branch first, then push it");
@@ -91,7 +91,7 @@ impl Workspace {
     }
 
     /// What pushing `ref_name` is called.
-    pub fn push_label(&self, ref_name: &str) -> &'static str {
+    pub fn push_label(&self, ref_name: &super::FullName) -> &'static str {
         match self.needs_force(ref_name) {
             true => "Force push",
             false => "Push",
@@ -103,7 +103,7 @@ impl Workspace {
     /// moves its reference to the top of the stack, pulling under a worktree moves what it
     /// rests on, and pulling a worktree's own branch reaches past the worktree, so the app
     /// doesn't offer them.
-    pub fn can_pull(&self, ref_name: &str) -> bool {
+    pub fn can_pull(&self, ref_name: &super::FullName) -> bool {
         self.stack_of(Some(ref_name)).is_some_and(|(stack, at)| {
             at == 0
                 && (stack.branches.first()).is_some_and(|b| !b.incoming.is_empty())
@@ -114,7 +114,7 @@ impl Workspace {
 
 #[cfg(test)]
 mod tests {
-    use super::super::build::{branch, id, workspace, worktree};
+    use super::super::build::{branch, full, id, workspace, worktree};
     use super::super::{Branch, CommitState, PushState, RemoteCommit, Target, Workspace};
 
     #[test]
@@ -162,7 +162,7 @@ mod tests {
                     vec![worktree("wt", Some(3), vec![standing("wt", &[5], wt)])],
                 )
             };
-            let ref_name = format!("refs/heads/{pushed}");
+            let ref_name = full(&format!("refs/heads/{pushed}"));
             let does = match (ws.can_push(&ref_name), ws.push_refused(&ref_name)) {
                 (false, _) => "nothing to push",
                 (true, Some(refused)) => refused,
@@ -219,7 +219,7 @@ middle with wt new, middle pushed, bottom pushed: nothing to push
         );
         let pulls: String = ["top", "middle", "under-tip", "wt"]
             .map(|name| {
-                let ref_name = format!("refs/heads/{name}");
+                let ref_name = full(&format!("refs/heads/{name}"));
                 let (rested_on, can_pull) = (ws.rested_on(&ref_name), ws.can_pull(&ref_name));
                 format!("{name}: rested_on {rested_on}, can_pull {can_pull}\n")
             })

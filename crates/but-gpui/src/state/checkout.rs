@@ -12,7 +12,7 @@ impl Store {
         let workspace = self.workspace(selection.project())?;
         match selection {
             Selection::Branch(_, ref_name) | Selection::Stack(_, ref_name) => {
-                workspace.lane_of(ref_name.as_deref())
+                workspace.lane_of(ref_name.as_ref())
             }
             Selection::Upstream(_, Some(ref_name), _)
             | Selection::Section(_, Section::Upstream(Some(ref_name))) => {

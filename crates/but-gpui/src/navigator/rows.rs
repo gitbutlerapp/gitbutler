@@ -6,7 +6,7 @@ use std::time::Duration;
 use gpui::{App, SharedString};
 
 use super::{ClickOpened, NEST, Navigator, STACK_STEP, upstream_chevrons};
-use crate::backend::{Branch, Checkout, Lane, Workspace, Worktree};
+use crate::backend::{Branch, Checkout, FullName, Lane, Workspace, Worktree};
 use crate::state::{Cut, NewAt, ProjectEntry, ProjectId, Section, Selection, Store};
 
 /// Commits shown per branch before folding the rest into "N more".
@@ -32,9 +32,9 @@ pub(super) enum Row {
     /// The end of the projects unfolded, which folds them again.
     FewerProjects,
     /// A branch's commits folded away, and how many.
-    More(ProjectId, Option<String>, usize),
+    More(ProjectId, Option<FullName>, usize),
     /// The end of a branch's commits unfolded, which folds them again.
-    Fewer(ProjectId, Option<String>),
+    Fewer(ProjectId, Option<FullName>),
     /// A commit a mutation is making, by its title, and whether it's been long enough to
     /// show it's still on its way.
     Pending(SharedString, bool),
@@ -199,7 +199,7 @@ impl Navigator {
                 // A stack being unapplied leaves at once.
                 let stacks = workspace.lanes_in(&Checkout::Main).filter(|stack| {
                     !(stack.branches.iter())
-                        .any(|b| (b.ref_name.as_deref()).is_some_and(|r| store.hides_branch(id, r)))
+                        .any(|b| (b.ref_name.as_ref()).is_some_and(|r| store.hides_branch(id, r)))
                 });
                 // Whether a branch is checked out on its own or several share the workspace,
                 // they're listed alike; with none, as on the default branch, there's nothing to
@@ -398,7 +398,7 @@ impl Navigator {
     ) {
         // A stack being unapplied leaves at once.
         if (branches.iter())
-            .any(|b| (b.ref_name.as_deref()).is_some_and(|r| store.hides_branch(id, r)))
+            .any(|b| (b.ref_name.as_ref()).is_some_and(|r| store.hides_branch(id, r)))
         {
             return;
         }
@@ -562,7 +562,7 @@ impl Navigator {
             self.lane_rows(store, id, lane.map_or(&[][..], |lane| &lane.branches), rows);
             if let Some((workspace, lane)) = workspace.zip(lane) {
                 let listed = |branch: &Branch| {
-                    !(branch.ref_name.as_deref())
+                    !(branch.ref_name.as_ref())
                         .is_some_and(|r| store.hides_branch(id, r) || store.deletes_branch(id, r))
                 };
                 rows.extend(
@@ -583,14 +583,14 @@ impl Navigator {
         store: &Store,
         workspace: &Workspace,
         id: &ProjectId,
-        ref_name: Option<&str>,
+        ref_name: Option<&FullName>,
         rows: &mut Rows,
     ) {
         let commits = workspace.upstream(ref_name);
         if commits.is_empty() {
             return;
         }
-        let owner = ref_name.map(str::to_owned);
+        let owner = ref_name.cloned();
         rows.push(Row::Item(Selection::Section(
             id.clone(),
             Section::Upstream(owner.clone()),
@@ -750,6 +750,7 @@ mod filter_tests {
 #[cfg(test)]
 mod within_tests {
     use super::within;
+    use crate::backend::model::build::full;
     use crate::backend::{Branch, CommitId, PushState};
     use crate::state::{Section, Selection};
 
@@ -757,7 +758,7 @@ mod within_tests {
     fn a_commit_only_the_remote_has_is_within_its_branch() {
         let branch = Branch {
             name: "feature".into(),
-            ref_name: Some("refs/heads/feature".into()),
+            ref_name: Some(full("refs/heads/feature")),
             commits: Vec::new(),
             incoming: Vec::new(),
             remote: Some("origin/feature".into()),
@@ -766,7 +767,7 @@ mod within_tests {
         };
         let upstream = |ref_name: Option<&str>| {
             let id = CommitId(gix::ObjectId::from([1; 20]));
-            Selection::Upstream("p".into(), ref_name.map(str::to_owned), id)
+            Selection::Upstream("p".into(), ref_name.map(full), id)
         };
         assert!(
             within(&upstream(Some("refs/heads/feature")), [&branch].into_iter()),
@@ -781,7 +782,7 @@ mod within_tests {
             "the target's new commits sit above every worktree"
         );
         let heading = |ref_name: Option<&str>| {
-            Selection::Section("p".into(), Section::Upstream(ref_name.map(str::to_owned)))
+            Selection::Section("p".into(), Section::Upstream(ref_name.map(full)))
         };
         assert!(
             within(&heading(Some("refs/heads/feature")), [&branch].into_iter()),
@@ -808,8 +809,8 @@ mod rests_on_tests {
     )]
     fn a_worktree_lists_each_branch_beneath_it_once() {
         let unnamed = Branch {
-            ref_name: None,
-            ..branch("Unnamed branch", &[9])
+            name: "Unnamed branch".into(),
+            ..branch("", &[9])
         };
         let ws = workspace(
             vec![
@@ -834,7 +835,13 @@ mod rests_on_tests {
                     .map(|(row, checkout)| {
                         let row = match row {
                             Selection::Branch(_, ref_name) => {
-                                format!("Branch({})", ref_name.as_deref().unwrap_or_default())
+                                format!(
+                                    "Branch({})",
+                                    ref_name
+                                        .as_ref()
+                                        .map(ToString::to_string)
+                                        .unwrap_or_default()
+                                )
                             }
                             Selection::Commit(_, at) => {
                                 format!("Commit({})", commit_name(&ws, at))

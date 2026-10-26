@@ -7,7 +7,7 @@ use gpui::{
     App, Context, Div, Entity, Modifiers, Pixels, Point, SharedString, Window, div, prelude::*,
 };
 
-use crate::backend::{self, Checkout, CommitId, Destination, Selected, short_ref};
+use crate::backend::{self, Checkout, CommitId, Destination, FullName, Selected, short_ref};
 use crate::state::{Cut, Label, NewAt, Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::{Icon, dp, popover, small_icon};
@@ -45,23 +45,23 @@ pub enum Transfer {
     },
     /// Stack a branch, and those above it, on another.
     StackBranch {
-        branch: String,
-        onto: String,
+        branch: FullName,
+        onto: FullName,
     },
     /// Put a branch under another, right below that one's last commit.
     BranchBelow {
-        branch: String,
+        branch: FullName,
         commit: CommitId,
     },
     /// Uncommitted files dropped on a branch: get them ready to commit there.
     StageOnBranch {
-        branch: String,
+        branch: FullName,
         files: Arc<[Selected]>,
     },
     /// Uncommitted files the composer can't take, a linked worktree's or bound for one,
     /// committed on a branch with no message yet, as Lite does.
     CommitOnBranch {
-        branch: String,
+        branch: FullName,
         files: Arc<[Selected]>,
         worktree: Checkout,
     },
@@ -350,7 +350,7 @@ impl Transfer {
         project: &SharedString,
         store: &mut Store,
         cx: &mut Context<Store>,
-    ) -> Option<(String, Arc<[Selected]>)> {
+    ) -> Option<(FullName, Arc<[Selected]>)> {
         // The pill's verb names it without a branch or commit.
         let label = Label::new(self.verb(), self.describe());
         // Picked commits that moved, or went into one, are no longer what's picked.

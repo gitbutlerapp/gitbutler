@@ -15,13 +15,13 @@ use but_core::tree::create_tree::RejectionReason;
 use but_core::{DiffSpec, DryRun};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 
-use super::{ChangeKind, CommitId, Selected, checkout, open, short_ref, stamp};
+use super::{ChangeKind, CommitId, FullName, Selected, checkout, open, short_ref, stamp};
 
 /// Where a commit or a set of changes lands.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Destination {
-    /// The top of this branch (a full ref name).
-    Branch(String),
+    /// The top of this branch.
+    Branch(super::FullName),
     /// Right above this commit, in its branch.
     AboveCommit(CommitId),
     /// Right below this commit, in its branch.
@@ -31,18 +31,13 @@ pub enum Destination {
 impl Destination {
     fn relative_to(&self) -> Result<(RelativeTo, InsertSide)> {
         Ok(match self {
-            Destination::Branch(ref_name) => (
-                RelativeTo::Reference(full_name(ref_name)?),
-                InsertSide::Below,
-            ),
+            Destination::Branch(ref_name) => {
+                (RelativeTo::Reference(ref_name.clone()), InsertSide::Below)
+            }
             Destination::AboveCommit(id) => (RelativeTo::Commit(id.0), InsertSide::Above),
             Destination::BelowCommit(id) => (RelativeTo::Commit(id.0), InsertSide::Below),
         })
     }
-}
-
-pub(super) fn full_name(ref_name: &str) -> Result<gix::refs::FullName> {
-    gix::refs::FullName::try_from(ref_name).with_context(|| format!("Invalid ref {ref_name}"))
 }
 
 /// Commits an operation rewrote, old id to new id, so the UI can keep pointing at them.
@@ -239,7 +234,8 @@ fn why(reason: &RejectionReason) -> &'static str {
 /// A branch name as GitButler would store it, like `my branch` → `refs/heads/my-branch`.
 pub(super) fn branch_ref(name: &str) -> Result<gix::refs::FullName> {
     let name = but_core::branch::normalize_short_name(name.trim())?;
-    full_name(&format!("refs/heads/{name}"))
+    let name = format!("refs/heads/{name}");
+    FullName::try_from(name.as_str()).with_context(|| format!("Invalid ref {name}"))
 }
 
 /// What a hook printed, as an error card shows it: its last lines first, where a linter or
@@ -323,7 +319,7 @@ fn commit_first(
 ) -> Result<but_workspace::commit_engine::CreateCommitOutcome> {
     let repo = ctx.repo.get()?;
     let branch = repo.head_name()?.context("HEAD names no branch")?;
-    if !matches!(destination, Destination::Branch(name) if branch.as_bstr() == name.as_str()) {
+    if !matches!(destination, Destination::Branch(name) if branch == *name) {
         bail!(
             "The first commit goes on {}, the branch checked out.",
             branch.shorten()
@@ -420,7 +416,7 @@ pub fn commit(
 /// With the default branch checked out on its own, the new branch goes on top of it and is
 /// checked out, as `git checkout -b` would. Beside another branch, both go in GitButler's
 /// workspace, as `but branch new` does.
-pub fn create_branch(path: &Path, name: Option<&str>) -> Result<String> {
+pub fn create_branch(path: &Path, name: Option<&str>) -> Result<FullName> {
     use but_api::branch::json::BranchCreatePlacement as Placement;
     let new_ref = name.map(branch_ref).transpose()?;
     let mut ctx = open(path)?;
@@ -448,7 +444,7 @@ pub fn create_branch(path: &Path, name: Option<&str>) -> Result<String> {
         None => Placement::Independent { order: None },
     };
     let created = but_api::branch::branch_create(&mut ctx, new_ref, placement)?;
-    Ok(created.new_ref.to_string())
+    Ok(created.new_ref)
 }
 
 /// Make a branch, `new_ref` or with a made-up name, where `head`, the branch checked out,
@@ -463,7 +459,7 @@ fn create_beside_checkout(
     ctx: &mut but_ctx::Context,
     head: &gix::refs::FullName,
     new_ref: Option<gix::refs::FullName>,
-) -> Result<String> {
+) -> Result<FullName> {
     use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
@@ -512,18 +508,18 @@ fn create_beside_checkout(
     if let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(ctx, perm)) {
         tracing::warn!(?err, "couldn't record the new branch for undo");
     }
-    Ok(new_ref.to_string())
+    Ok(new_ref)
 }
 
 /// Stack a new branch with a made-up name on top of `below` (a full ref name).
-pub fn create_dependent_branch(path: &Path, below: &str) -> Result<String> {
-    let relative_to = but_api::commit::json::RelativeTo::Reference(full_name(below)?);
+pub fn create_dependent_branch(path: &Path, below: &FullName) -> Result<FullName> {
+    let relative_to = but_api::commit::json::RelativeTo::Reference(below.clone());
     create_branch_at(path, relative_to, InsertSide::Above)
 }
 
 /// Make a new branch, with a made-up name, whose newest commit is `commit`, taking it and the
 /// commits below it in its branch; or with `below`, one that ends just under `commit`.
-pub fn create_branch_at_commit(path: &Path, commit: CommitId, below: bool) -> Result<String> {
+pub fn create_branch_at_commit(path: &Path, commit: CommitId, below: bool) -> Result<FullName> {
     let side = if below {
         InsertSide::Below
     } else {
@@ -537,23 +533,23 @@ fn create_branch_at(
     path: &Path,
     relative_to: but_api::commit::json::RelativeTo,
     side: InsertSide,
-) -> Result<String> {
+) -> Result<FullName> {
     let mut ctx = open(path)?;
     let created = but_api::branch::branch_create(
         &mut ctx,
         None,
         but_api::branch::json::BranchCreatePlacement::Dependent { relative_to, side },
     )?;
-    Ok(created.new_ref.to_string())
+    Ok(created.new_ref)
 }
 
 /// Stack `branch` (a full ref name) on top of `onto`, with the branches above it.
-pub fn stack_branch(path: &Path, branch: &str, onto: &str) -> Result<()> {
+pub fn stack_branch(path: &Path, branch: &FullName, onto: &FullName) -> Result<()> {
     let mut ctx = open(path)?;
     but_api::branch::move_branch(
         &mut ctx,
-        full_name(branch)?.as_ref(),
-        RelativeTo::Reference(full_name(onto)?),
+        branch.as_ref(),
+        RelativeTo::Reference(onto.clone()),
         InsertSide::Above,
         DryRun::No,
     )?;
@@ -562,11 +558,11 @@ pub fn stack_branch(path: &Path, branch: &str, onto: &str) -> Result<()> {
 
 /// Move `branch` right below `commit`, the last commit of the branch it then sits under.
 /// Below that branch's reference instead, `branch` would take over its commits.
-pub fn move_branch_below(path: &Path, branch: &str, commit: CommitId) -> Result<()> {
+pub fn move_branch_below(path: &Path, branch: &FullName, commit: CommitId) -> Result<()> {
     let mut ctx = open(path)?;
     but_api::branch::move_branch(
         &mut ctx,
-        full_name(branch)?.as_ref(),
+        branch.as_ref(),
         RelativeTo::Commit(commit.0),
         InsertSide::Below,
         DryRun::No,
@@ -575,14 +571,14 @@ pub fn move_branch_below(path: &Path, branch: &str, commit: CommitId) -> Result<
 }
 
 /// Take `branch` out of its stack into a stack of its own.
-pub fn tear_off_branch(path: &Path, branch: &str) -> Result<()> {
+pub fn tear_off_branch(path: &Path, branch: &FullName) -> Result<()> {
     let mut ctx = open(path)?;
-    but_api::branch::tear_off_branch(&mut ctx, full_name(branch)?.as_ref(), DryRun::No)?;
+    but_api::branch::tear_off_branch(&mut ctx, branch.as_ref(), DryRun::No)?;
     Ok(())
 }
 
 /// Take the stack holding `branch` out of the workspace. Its branches stay in the repository.
-pub fn unapply_stack(path: &Path, branch: &str) -> Result<()> {
+pub fn unapply_stack(path: &Path, branch: &FullName) -> Result<()> {
     let mut ctx = open(path)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
     let stack_id = info
@@ -594,10 +590,8 @@ pub fn unapply_stack(path: &Path, branch: &str) -> Result<()> {
     but_api::legacy::virtual_branches::unapply_stack(&mut ctx, stack_id)
 }
 
-pub(super) fn holds(segment: &but_workspace::ref_info::Segment, branch: &str) -> bool {
-    segment
-        .ref_name()
-        .is_some_and(|name| name.as_bstr() == branch)
+pub(super) fn holds(segment: &but_workspace::ref_info::Segment, branch: &FullName) -> bool {
+    segment.ref_name() == Some(branch.as_ref())
 }
 
 /// An empty commit at `at`, to move changes into later.
@@ -629,9 +623,9 @@ pub fn cherry_pick(path: &Path, commits: &[CommitId], to: &Destination) -> Resul
 }
 
 /// Rename a branch and return its new full ref name.
-pub fn rename_branch(path: &Path, ref_name: &str, new_name: &str) -> Result<String> {
+pub fn rename_branch(path: &Path, ref_name: &FullName, new_name: &str) -> Result<FullName> {
     let mut ctx = open(path)?;
-    let from = full_name(ref_name)?;
+    let from = ref_name;
     let outcome =
         but_api::branch::branch_rename(&mut ctx, from.clone(), new_name.trim().to_owned())?;
     // Its description goes with it, as Git keeps it by the name.
@@ -643,22 +637,22 @@ pub fn rename_branch(path: &Path, ref_name: &str, new_name: &str) -> Result<Stri
     if let Err(err) = moved {
         tracing::warn!(?err, "couldn't move the renamed branch's description");
     }
-    Ok(outcome.new_ref.to_string())
+    Ok(outcome.new_ref)
 }
 
 /// Name the main checkout's unnamed branch whose newest commit is `top`, putting a `HEAD`
 /// detached there on it, and return its full ref name.
-pub fn name_branch(path: &Path, top: CommitId, name: &str) -> Result<String> {
+pub fn name_branch(path: &Path, top: CommitId, name: &str) -> Result<FullName> {
     let mut ctx = open(path)?;
     let new_ref = branch_ref(name)?;
     let outcome =
         but_api::branch::branch_name_segment(&mut ctx, ChangesSource::Head, top.0, Some(new_ref))?;
-    Ok(outcome.new_ref.to_string())
+    Ok(outcome.new_ref)
 }
 
-pub fn remove_branch(path: &Path, ref_name: &str, tip: Option<CommitId>) -> Result<()> {
+pub fn remove_branch(path: &Path, ref_name: &FullName, tip: Option<CommitId>) -> Result<()> {
     let mut ctx = open(path)?;
-    let name = full_name(ref_name)?;
+    let name = ref_name;
     // Removing a ref that's gone does nothing, so say so rather than that it went, as after
     // an agent renamed the branch while the confirmation was up. With `tip`, one that moved
     // since stays: its new commits would go with it.
@@ -888,7 +882,7 @@ pub fn split_off(
 
 /// Move `commits` into a new branch of their own, beside the other stacks, as one operation
 /// to undo. Returns what moved, and the new branch's full name.
-pub fn move_to_new_branch(path: &Path, commits: &[CommitId]) -> Result<(Rewritten, String)> {
+pub fn move_to_new_branch(path: &Path, commits: &[CommitId]) -> Result<(Rewritten, FullName)> {
     use but_oplog::legacy::{OperationKind, SnapshotDetails};
     let mut ctx = open(path)?;
     let name = branch_ref(&but_api::branch::branch_canned_name(&ctx)?)?;
@@ -921,7 +915,7 @@ pub fn move_to_new_branch(path: &Path, commits: &[CommitId]) -> Result<(Rewritte
     if !rolled_back && let Some(Err(err)) = snapshot.map(|snapshot| snapshot.commit(&ctx, perm)) {
         tracing::warn!(?err, "couldn't record the new branch for undo");
     }
-    Ok((rewritten(&workspace), name.to_string()))
+    Ok((rewritten(&workspace), name))
 }
 
 pub fn reword(path: &Path, commit: CommitId, message: &str) -> Result<Rewritten> {
@@ -1133,6 +1127,7 @@ pub fn mark_resolved(
 
 #[cfg(test)]
 pub(super) mod tests {
+    use crate::backend::model::build::full;
     use std::collections::HashSet;
     use std::path::PathBuf;
     use std::process::Command;
@@ -1188,7 +1183,7 @@ pub(super) mod tests {
         );
         git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
         git(path, &["branch", "--set-upstream-to=origin/main", "main"]);
-        crate::backend::settings::set_target(path, "refs/heads/main").unwrap();
+        crate::backend::settings::set_target(path, &full("refs/heads/main")).unwrap();
     }
 
     /// A repository on `main` with one commit of `file` holding `content`. It signs nothing,
@@ -1225,7 +1220,7 @@ pub(super) mod tests {
             git(path, &["commit", "-q", "--allow-empty", "-m", "Topic"]);
             git(path, &["checkout", "-q", "main"]);
 
-            set_branch_description(path, "refs/heads/topic", "  Why it's there \n").unwrap();
+            set_branch_description(path, &full("refs/heads/topic"), "  Why it's there \n").unwrap();
             let listed = (all_branches(path).unwrap().into_iter())
                 .find(|branch| branch.name == "topic")
                 .and_then(|branch| branch.description);
@@ -1256,7 +1251,7 @@ pub(super) mod tests {
                 "and goes with the branch, as `git branch -d` drops it"
             );
             assert!(
-                set_branch_description(path, "refs/heads/renamed", "Lost?").is_err(),
+                set_branch_description(path, &full("refs/heads/renamed"), "Lost?").is_err(),
                 "a branch that's gone isn't given one, for a later branch by its name to take up"
             );
         })
@@ -1676,7 +1671,7 @@ pub(super) mod tests {
 
             let diff = load_diff(path, DiffSource::Worktree, None, None, None, None).unwrap();
             let first_hunk = diff[0].part(Some(vec![diff[0].hunks()[0].key]));
-            let branch = Destination::Branch("refs/heads/main".into());
+            let branch = Destination::Branch(full("refs/heads/main"));
             let err = commit(
                 path,
                 &branch,
@@ -1741,7 +1736,7 @@ pub(super) mod tests {
                 std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755)).unwrap();
             };
             let changes = || vec![Selected::whole(&uncommitted(path)[0])];
-            let main = Destination::Branch("refs/heads/main".into());
+            let main = Destination::Branch(full("refs/heads/main"));
             let first = git(path, &["rev-parse", "HEAD"]);
 
             hook("pre-commit", "echo 'lint failed'; exit 1");
@@ -1783,7 +1778,7 @@ pub(super) mod tests {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
             let path = dir.path();
-            let main = Destination::Branch("refs/heads/main".into());
+            let main = Destination::Branch(full("refs/heads/main"));
             let first = git(path, &["rev-parse", "HEAD"]);
             for (state, says) in [("MERGE_HEAD", "git merge"), ("BISECT_LOG", "git bisect")] {
                 std::fs::write(path.join(".git").join(state), format!("{first}\n")).unwrap();
@@ -1807,7 +1802,7 @@ pub(super) mod tests {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
             let path = dir.path();
-            let main = Destination::Branch("refs/heads/main".into());
+            let main = Destination::Branch(full("refs/heads/main"));
             let first = git(path, &["rev-parse", "HEAD"]);
             commit(path, &main, &[], None, "Mark it reviewed", false).unwrap();
             assert_eq!(
@@ -1851,9 +1846,9 @@ pub(super) mod tests {
                 (workspace
                     .lanes_in(&Checkout::Main)
                     .flat_map(|s| &s.branches))
-                .map(|b| b.ref_name.as_deref())
+                .map(|b| b.ref_name.as_ref())
                 .collect::<Vec<_>>(),
-                [Some(new.as_str())],
+                [Some(&new)],
                 "the branch checked out is listed as the only one"
             );
         })
@@ -1908,7 +1903,7 @@ pub(super) mod tests {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
             let path = dir.path();
-            crate::backend::settings::set_target(path, "refs/heads/main").unwrap();
+            crate::backend::settings::set_target(path, &full("refs/heads/main")).unwrap();
             git(path, &["checkout", "-q", "-b", "feature"]);
             git(path, &["commit", "-q", "--allow-empty", "-m", "Feature"]);
             // A commit `main` gains while it isn't checked out, as from a `git merge` into it.
@@ -1934,11 +1929,11 @@ pub(super) mod tests {
             );
 
             let tip = workspace
-                .find_branch(Some("refs/heads/feature"))
+                .find_branch(Some(&full("refs/heads/feature")))
                 .unwrap()
                 .commits[0]
                 .id;
-            crate::backend::upstream::land(path, "feature", tip, false).unwrap();
+            crate::backend::upstream::land(path, &full("refs/heads/feature"), tip, false).unwrap();
             assert!(
                 git(path, &["log", "--format=%s", "main"])
                     .lines()
@@ -1994,8 +1989,8 @@ pub(super) mod tests {
                 "fix is taken, so nothing changes"
             );
             let new = create_branch(path, Some("second")).unwrap();
-            let second = new.strip_prefix("refs/heads/").unwrap();
-            let mut both = vec![vec!["feature".to_owned()], vec![second.to_owned()]];
+            let second = short_ref(&new).into_owned();
+            let mut both = vec![vec!["feature".to_owned()], vec![second.clone()]];
             both.sort();
             assert_eq!(
                 lanes(path),
@@ -2017,7 +2012,7 @@ pub(super) mod tests {
                 "one undo goes back to the branch on its own"
             );
             assert!(
-                git(path, &["branch", "--list", second]).trim().is_empty(),
+                git(path, &["branch", "--list", &second]).trim().is_empty(),
                 "and takes the new branch away"
             );
             assert_eq!(
@@ -2072,7 +2067,7 @@ pub(super) mod tests {
 
             let new = create_branch(path, None).unwrap();
             assert_eq!(
-                git(path, &["rev-parse", &new]),
+                git(path, &["rev-parse", &new.to_string()]),
                 fork,
                 "where feature leaves the target, so the two merge without conflicts"
             );
@@ -2093,8 +2088,8 @@ pub(super) mod tests {
             let branches = |path: &Path| {
                 let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
                 assert_eq!(
-                    workspace.target_branch.as_deref(),
-                    Some("refs/heads/main"),
+                    workspace.target_branch.as_ref(),
+                    Some(&full("refs/heads/main")),
                     "the composer knows which branch not to commit to"
                 );
                 (workspace
@@ -2110,7 +2105,7 @@ pub(super) mod tests {
             );
 
             let new = create_branch(path, None).unwrap();
-            let name = new.strip_prefix("refs/heads/").unwrap().to_owned();
+            let name = short_ref(&new).into_owned();
             assert_eq!(
                 branches(path),
                 [(name, 0), ("main".to_owned(), 1)],
@@ -2291,7 +2286,7 @@ pub(super) mod tests {
                 undo_snapshot(path, moved, None).unwrap(),
                 Undone::Done(_)
             ));
-            let left = git(path, &["branch", "--list", short_ref(&name)]);
+            let left = git(path, &["branch", "--list", &short_ref(&name)]);
             assert_eq!(
                 left, "",
                 "{name} would be listed beside the commit back in place"
@@ -2319,7 +2314,7 @@ pub(super) mod tests {
             // Git logs moves in whole seconds.
             std::thread::sleep(std::time::Duration::from_millis(1100));
             let started = now();
-            insert_empty_commit(path, &Destination::Branch("refs/heads/named".into())).unwrap();
+            insert_empty_commit(path, &Destination::Branch(full("refs/heads/named"))).unwrap();
             ran.push((started, now()));
             let inserted = oplog_head(path).unwrap();
             let started = now();
@@ -2676,9 +2671,9 @@ pub(super) mod tests {
             let theirs = head(&linked);
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
 
-            let applied = apply(path, "refs/heads/agent", Some("agent".into())).unwrap();
+            let applied = apply(path, &full("refs/heads/agent"), Some("agent".into())).unwrap();
             assert!(
-                matches!(applied, ApplyOutcome::Applied),
+                matches!(applied, ApplyOutcome::Applied(_)),
                 "the branch is applied"
             );
             assert_eq!(
@@ -2709,7 +2704,7 @@ pub(super) mod tests {
             git(path, &["commit", "-q", "-am", "ours"]);
             name_branch(path, head(path), "ours").unwrap();
 
-            let applied = apply(path, "refs/heads/agent", Some("agent".into())).unwrap();
+            let applied = apply(path, &full("refs/heads/agent"), Some("agent".into())).unwrap();
             assert!(
                 matches!(applied, ApplyOutcome::Conflicts(_)),
                 "both change the same line"
@@ -2798,7 +2793,7 @@ pub(super) mod tests {
             git(path, &["commit", "-q", "--allow-empty", "-m", "an agent's"]);
             git(path, &["branch", "-f", "side", "HEAD"]);
 
-            let refused = remove_branch(path, "refs/heads/side", Some(asked)).unwrap_err();
+            let refused = remove_branch(path, &full("refs/heads/side"), Some(asked)).unwrap_err();
             assert!(
                 format!("{refused:#}").contains("changed since you asked"),
                 "it says why it stays: {refused:#}"
@@ -2829,7 +2824,7 @@ pub(super) mod tests {
             assert_eq!(branch_at_top(path), Some(None), "it shows unnamed");
 
             assert_eq!(name_branch(path, top, "named").unwrap(), "refs/heads/named");
-            assert_eq!(branch_at_top(path), Some(Some("refs/heads/named".into())));
+            assert_eq!(branch_at_top(path), Some(Some(full("refs/heads/named"))));
 
             let last = crate::backend::history::oplog_head(path).unwrap();
             crate::backend::history::undo_snapshot(path, last, None).unwrap();
@@ -2984,10 +2979,10 @@ pub(super) mod tests {
             git(path, &["reset", "-q", "--hard", "main"]);
             commit("uno\n", "One");
 
-            let found = crate::backend::pull_conflicts(path, "refs/heads/feature").unwrap();
+            let found = crate::backend::pull_conflicts(path, &full("refs/heads/feature")).unwrap();
             assert_eq!(
                 found,
-                [(Some("refs/heads/feature".to_owned()), 1)],
+                [(Some(full("refs/heads/feature")), 1)],
                 "the remote's commit would land conflicted"
             );
         })

@@ -858,8 +858,8 @@ impl Detail {
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
-        let pick = |name: &str| {
-            let (project, full) = (project.clone(), format!("refs/heads/{name}"));
+        let pick = |name: &backend::FullName| {
+            let (project, full) = (project.clone(), name.clone());
             cx.listener(
                 move |this: &mut Self, _: &gpui::ClickEvent, window: &mut gpui::Window, cx| {
                     let (project, full) = (project.clone(), full.clone());
@@ -885,7 +885,13 @@ impl Detail {
             list_row(("target-choice", ix), false, theme)
                 .cursor_pointer()
                 .child(small_icon(Icon::Branch).text_color(theme.text_3))
-                .child(div().flex_1().min_w_0().truncate().child(name.clone()))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .truncate()
+                        .child(backend::short_ref(name).into_owned()),
+                )
                 .on_click(pick(name))
         });
         let asked = "Which branch is the target?";
@@ -1074,14 +1080,17 @@ impl Detail {
         // Over what landed lately, the target names the page, last.
         let target = (self.store.read(cx).workspace(project)).and_then(|ws| ws.target_name());
         if upstream.selected == Some(Picked::Shipped) {
-            return crumbs.push((target.unwrap_or("Target").to_owned().into(), None));
+            return crumbs.push((target.unwrap_or("Target".into()).into_owned().into(), None));
         }
         let Some(picked) = (self.selected_target_commit(project)).map(|c| c.id.short()) else {
             return;
         };
         // The target goes back to how the page opens, as the project's crumb does.
         let page = Selection::Project(project.clone()).into();
-        crumbs.push((target.unwrap_or("Target").to_owned().into(), Some(page)));
+        crumbs.push((
+            target.unwrap_or("Target".into()).into_owned().into(),
+            Some(page),
+        ));
         let merged = self.merged_commit(project, cx);
         // A merge's commit shown in its place goes back to the merge.
         let merge = match upstream.selected {

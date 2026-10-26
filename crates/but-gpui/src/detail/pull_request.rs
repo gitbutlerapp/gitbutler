@@ -13,7 +13,7 @@ use super::Detail;
 use super::panes::measured;
 use super::resolve::{banner_action, warn_banner};
 use crate::backend::reviews::MergeMethod;
-use crate::backend::{CheckRun, Forge, Review, ReviewState};
+use crate::backend::{CheckRun, Forge, FullName, Review, ReviewState};
 use crate::overlays::MenuItem;
 use crate::pr::{Mergeability, Offer};
 use crate::state::{ProjectId, Selection, snack};
@@ -44,7 +44,7 @@ impl Detail {
         match &self.selection(cx)? {
             Selection::Branch(project, ref_name) => store
                 .workspace(project)?
-                .find_branch(ref_name.as_deref())?
+                .find_branch(ref_name.as_ref())?
                 .review
                 .as_ref(),
             Selection::Branches(project) => self.selected_other_branch(project)?.review.as_ref(),
@@ -52,7 +52,7 @@ impl Detail {
                 self.selected_target_commit(project)?.review.as_ref()
             }
             Selection::Upstream(project, ref_name, id) => (store.workspace(project)?)
-                .upstream(ref_name.as_deref())
+                .upstream(ref_name.as_ref())
                 .iter()
                 .find(|commit| commit.id == *id)?
                 .review
@@ -85,7 +85,10 @@ impl Detail {
 
     /// The selected branch and its pull request, while the tab shows it open: what the merge
     /// box is for, as the pull request actions are.
-    fn merge_box_review<'a>(&'a self, cx: &'a App) -> Option<(&'a ProjectId, &'a str, &'a Review)> {
+    fn merge_box_review<'a>(
+        &'a self,
+        cx: &'a App,
+    ) -> Option<(&'a ProjectId, &'a FullName, &'a Review)> {
         let store = self.store.read(cx);
         let selection = store.selection.as_ref()?;
         let Selection::Branch(project, Some(ref_name)) = selection else {
@@ -95,7 +98,7 @@ impl Detail {
         let applies = self.review_tab
             && crate::pr::on_forge(store, selection)
             && store.review_state(project, review) == ReviewState::Open;
-        applies.then_some((project, ref_name.as_str(), review))
+        applies.then_some((project, ref_name, review))
     }
 
     /// Have the store ask the forge whether the pull request the tab shows can merge, for its

@@ -15,7 +15,7 @@ use super::{
 
 /// The active linked worktrees with their uncommitted changes, and the names of the
 /// archived ones with the branch each has checked out.
-type Listing = (Vec<Worktree>, Vec<(BString, Option<String>)>);
+type Listing = (Vec<Worktree>, Vec<(BString, Option<super::FullName>)>);
 
 /// The project's [`Listing`]; `None` with GitButler's worktree support off. A worktree's
 /// files in `kept` are shown again rather than read, while its `HEAD` has the tree they
@@ -47,7 +47,7 @@ pub(super) fn linked(
             Some(Worktree {
                 name,
                 path: listed.path,
-                branch: listed.ref_name.map(|name| name.to_string()),
+                branch: listed.ref_name,
                 uncommitted,
                 git_operation,
                 tree,
@@ -57,7 +57,7 @@ pub(super) fn linked(
         .collect();
     let archived = (listing.archived.iter())
         .map(|listed| {
-            let branch = (listed.ref_name.as_ref()).map(|name| name.to_string());
+            let branch = listed.ref_name.clone();
             (listed.name.clone(), branch)
         })
         .collect();

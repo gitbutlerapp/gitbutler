@@ -397,7 +397,8 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         .collect();
     lanes.extend(linked_lanes);
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "loaded workspace");
-    let target_branch = (meta.and_then(|meta| meta.target_ref)).map(|name| name.to_string());
+    let target_branch = (meta.and_then(|meta| meta.target_ref))
+        .map(|name| name.as_local_full_name_ref().to_owned());
     // The oplog records a snapshot against the target, so without one set it records none.
     // One whose upstream went, or isn't there yet, still records, against its stored commit.
     let unrecorded = head.is_none() || tree.is_none() || target_branch.is_none();
@@ -467,8 +468,14 @@ fn target(
     let local = source.category() == Some(gix::refs::Category::LocalBranch);
     let untracked = (repo.remote_default_name(gix::remote::Direction::Fetch))
         .filter(|_| local)
-        .map(|remote| format!("{remote}/{}", source.shorten()))
-        .filter(|name| (repo.find_reference(format!("refs/remotes/{name}").as_str())).is_ok());
+        .filter(|remote| {
+            let mut name = bstr::BString::from("refs/remotes/");
+            name.extend_from_slice(remote);
+            name.push(b'/');
+            name.extend_from_slice(source.shorten());
+            repo.find_reference(name.as_bstr()).is_ok()
+        })
+        .map(|remote| format!("{remote}/{}", source.shorten()));
     let target = Target {
         name: source.shorten().to_string(),
         branch,
@@ -502,7 +509,7 @@ fn worktree_branches(
         .filter_map(|segment| {
             // A detached run of commits has no ref to tell it apart by, and a branch the
             // workspace has applied is listed there.
-            let ref_name = segment.ref_name()?.to_string();
+            let ref_name = segment.ref_name()?.to_owned();
             if (stacks.iter().flat_map(|stack| &stack.branches))
                 .any(|stacked| stacked.ref_name.as_ref() == Some(&ref_name))
             {
@@ -570,7 +577,7 @@ fn branch_from(
     segment: &but_workspace::ref_info::Segment,
 ) -> Branch {
     let (name, ref_name) = match segment.ref_name() {
-        Some(name) => (name.shorten().to_string(), Some(name.to_string())),
+        Some(name) => (name.shorten().to_string(), Some(name.to_owned())),
         None => ("Unnamed branch".into(), None),
     };
     use but_core::ui::PushStatus as P;
@@ -1109,7 +1116,7 @@ fn ambiguous_target(err: &anyhow::Error) -> Option<&gix::refs::FullName> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TargetChoice {
     pub remote: String,
-    pub branches: Vec<String>,
+    pub branches: Vec<FullName>,
 }
 
 /// What to choose when the project at `path` has `target`, a target several local branches
@@ -1125,7 +1132,7 @@ fn target_choice(path: &Path, target: &gix::refs::FullName) -> Option<TargetChoi
     let branches = (references.local_branches().ok()?)
         .filter_map(Result::ok)
         .filter(|branch| tracks(branch.name()))
-        .map(|branch| branch.name().shorten().to_string())
+        .map(|branch| branch.name().to_owned())
         .collect();
     Some(TargetChoice {
         remote: target.shorten().to_string(),
@@ -1528,7 +1535,11 @@ mod lane_tests {
             // its commit in the stack unnamed, and wt-top resting on it.
             // agent2, started from the target's commit agent1 runs down through, rests on agent1.
             snapbox::assert_data_eq!(
-                describe(&workspace) + &describe_chain(&workspace, "refs/heads/agent2"),
+                describe(&workspace)
+                    + &describe_chain(
+                        &workspace,
+                        &crate::backend::model::build::full("refs/heads/agent2")
+                    ),
                 snapbox::str![[r#"
 Main: [Unnamed branch, middle, bottom]
 Main: [beside]

@@ -136,9 +136,9 @@ impl Detail {
                 Left::Pushed => ("pushed".to_owned(), theme.text_3),
                 Left::Nothing => ("no commits".to_owned(), theme.text_3),
             }),
-            branches: (wt.branch.as_deref())
-                .map_or("detached", backend::short_ref)
-                .to_owned(),
+            branches: (wt.branch.as_ref())
+                .map_or("detached".into(), backend::short_ref)
+                .into_owned(),
             commits: (branches.iter().flat_map(|b| &b.commits))
                 .map(|c| c.time)
                 .collect(),

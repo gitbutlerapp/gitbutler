@@ -56,13 +56,15 @@ impl Activity {
     /// gone since, as merged or unapplied, as last seen, but for any one of `branches` has
     /// now by either of what it goes by, as one renamed does.
     pub fn gone(&self, branches: &[&Branch]) -> Vec<&SeenCommit> {
-        let refs: HashSet<Option<&str>> = branches.iter().map(|b| b.ref_name.as_deref()).collect();
+        let refs: HashSet<Option<String>> = (branches.iter())
+            .map(|b| b.ref_name.as_ref().map(ToString::to_string))
+            .collect();
         let keys: HashSet<&str> = (branches.iter().flat_map(|b| &b.commits))
             .flat_map(|c| [c.key.as_str(), c.authored.as_str()])
             .collect();
         let here = |c: &SeenCommit| keys.contains(&*c.key) || keys.contains(&*c.authored);
         (self.commits.iter())
-            .filter(|c| !refs.contains(&c.branch.as_deref()) && !here(c))
+            .filter(|c| !refs.contains(&c.branch) && !here(c))
             .collect()
     }
 }
@@ -89,7 +91,7 @@ fn remembered(kept: Option<&Activity>, now: i64, branches: &[&Branch]) -> Vec<Se
             } else {
                 c.state
             },
-            branch: branch.ref_name.clone(),
+            branch: branch.ref_name.as_ref().map(ToString::to_string),
             pull: branch.review.as_ref().map(|r| r.number),
         })
     }));
@@ -164,7 +166,9 @@ mod tests {
     fn branch(name: &str, commits: &[(u8, i64)], review: Option<ReviewState>) -> Branch {
         Branch {
             name: name.to_owned(),
-            ref_name: Some(format!("refs/heads/{name}")),
+            ref_name: Some(crate::backend::model::build::full(&format!(
+                "refs/heads/{name}"
+            ))),
             commits: (commits.iter())
                 .map(|&(n, time)| Commit {
                     key: format!("change-{n}"),

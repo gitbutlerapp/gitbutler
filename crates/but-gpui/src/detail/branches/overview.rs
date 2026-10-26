@@ -357,7 +357,7 @@ fn lane_row(
                     div()
                         .min_w(dp(40.))
                         .truncate()
-                        .child(title(branch).to_owned()),
+                        .child(title(branch).into_owned()),
                 )
                 // Whole, as a cut-off tag reads as a stray glyph; the title gives way.
                 .when(branch.applied, |el| {
@@ -419,7 +419,7 @@ mod tests {
             })
             .collect();
         OtherBranch {
-            ref_name: format!("refs/heads/{name}"),
+            ref_name: crate::backend::model::build::full(&format!("refs/heads/{name}")),
             name: name.to_owned(),
             local: true,
             applied: false,

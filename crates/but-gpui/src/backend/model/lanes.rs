@@ -101,17 +101,17 @@ impl Workspace {
     }
 
     /// The stack, or linked worktree's lane, whose bottom branch is `bottom`.
-    pub fn lane(&self, bottom: Option<&str>) -> Option<&Lane> {
+    pub fn lane(&self, bottom: Option<&super::FullName>) -> Option<&Lane> {
         (self.lanes.iter()).find(|lane| {
-            (lane.branches.last()).is_some_and(|branch| branch.ref_name.as_deref() == bottom)
+            (lane.branches.last()).is_some_and(|branch| branch.ref_name.as_ref() == bottom)
         })
     }
 
     /// The lane holding the branch `ref_name`, a stack's or a linked worktree's, and the
     /// branch's place in it from the top.
-    pub fn lane_of(&self, ref_name: Option<&str>) -> Option<(&Lane, usize)> {
+    pub fn lane_of(&self, ref_name: Option<&super::FullName>) -> Option<(&Lane, usize)> {
         self.lanes.iter().find_map(|lane| {
-            let at = (lane.branches.iter()).position(|b| b.ref_name.as_deref() == ref_name)?;
+            let at = (lane.branches.iter()).position(|b| b.ref_name.as_ref() == ref_name)?;
             Some((lane, at))
         })
     }
@@ -143,7 +143,7 @@ impl Workspace {
 
     /// The lane of the branch `ref_name` from it down, then the lanes beneath. Empty for one
     /// no lane holds.
-    pub fn chain(&self, ref_name: &str) -> impl Iterator<Item = Link<'_>> {
+    pub fn chain(&self, ref_name: &super::FullName) -> impl Iterator<Item = Link<'_>> {
         let found = self.lane_of(Some(ref_name));
         found
             .into_iter()
@@ -161,7 +161,7 @@ impl Workspace {
     }
 
     /// Whether another lane rests on a commit of the branch `ref_name`.
-    pub fn rested_on(&self, ref_name: &str) -> bool {
+    pub fn rested_on(&self, ref_name: &super::FullName) -> bool {
         let Some(branch) = self.find_branch(Some(ref_name)) else {
             return false;
         };
@@ -201,9 +201,9 @@ impl Workspace {
     }
 
     /// The stack holding the branch `ref_name`, and the branch's place in it from the top.
-    pub fn stack_of(&self, ref_name: Option<&str>) -> Option<(&Lane, usize)> {
+    pub fn stack_of(&self, ref_name: Option<&super::FullName>) -> Option<(&Lane, usize)> {
         self.lanes_in(&Checkout::Main).find_map(|stack| {
-            let at = (stack.branches.iter()).position(|b| b.ref_name.as_deref() == ref_name)?;
+            let at = (stack.branches.iter()).position(|b| b.ref_name.as_ref() == ref_name)?;
             Some((stack, at))
         })
     }
@@ -211,7 +211,7 @@ impl Workspace {
 
 #[cfg(test)]
 mod tests {
-    use super::super::build::{branch, describe_chain, workspace, worktree};
+    use super::super::build::{branch, describe_chain, full, workspace, worktree};
 
     #[test]
     fn a_chain_follows_each_lane_down_to_what_it_rests_on() {
@@ -244,7 +244,7 @@ mod tests {
             (&cycle, "a"),
         ]
         .map(|(ws, name)| {
-            let chain = describe_chain(ws, &format!("refs/heads/{name}"));
+            let chain = describe_chain(ws, &full(&format!("refs/heads/{name}")));
             format!("chain({name})\n{chain}\n")
         })
         .concat();
