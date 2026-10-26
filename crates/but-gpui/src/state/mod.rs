@@ -942,7 +942,8 @@ impl Store {
     /// ⌘-click picks `id` along with the selected commit, or drops it from the picks;
     /// ⇧-click and ⇧-arrows pick the run of commits to `id` in `range`, the commits as
     /// they're shown, from where the last other click left off. The clicked commit becomes
-    /// the selection while it's picked.
+    /// the selection while it's picked. Picks stay in one stack, or linked worktree's lane, so
+    /// their changes show as one diff: a commit in another is selected alone.
     pub fn pick(
         &mut self,
         project: &ProjectId,
@@ -950,8 +951,11 @@ impl Store {
         range: Option<Vec<CommitId>>,
         cx: &mut Context<Self>,
     ) {
+        let lane = (self.workspace(project))
+            .and_then(|ws| ws.lane_commits(id))
+            .unwrap_or_default();
         let at = match &self.selection {
-            Some(Selection::Commit(p, at)) if p == project => *at,
+            Some(Selection::Commit(p, at)) if p == project && lane.contains(at) => *at,
             _ => return self.select(Some(Selection::Commit(project.clone(), id)), cx),
         };
         // Taken out while selecting, which lets picks go.

@@ -234,15 +234,20 @@ impl Workspace {
             .chain(self.worktrees.iter().map(|wt| &wt.branches[..]))
     }
 
+    /// The commits of the lane holding commit `id`, across its branches, newest first.
+    pub fn lane_commits(&self, id: CommitId) -> Option<Vec<CommitId>> {
+        (self.lanes())
+            .map(|lane| lane.iter().flat_map(|b| &b.commits).map(|c| c.id))
+            .map(Vec::from_iter)
+            .find(|lane| lane.contains(&id))
+    }
+
     /// The newest and oldest of `ids`, when they're two or more and one run of commits in one
     /// lane, across its branches too, so their changes together are a diff from the oldest's
     /// parent.
     pub fn run_of(&self, ids: &[CommitId]) -> Option<(CommitId, CommitId)> {
         let n = ids.len();
-        let lane = (self.lanes())
-            .map(|lane| lane.iter().flat_map(|b| &b.commits).map(|c| c.id))
-            .map(Vec::from_iter)
-            .find(|lane| lane.iter().any(|id| ids.contains(id)))?;
+        let lane = self.lane_commits(*ids.first()?)?;
         let from = lane.iter().position(|id| ids.contains(id))?;
         let run = lane.get(from..from + n)?;
         let [newest, .., oldest] = run else {

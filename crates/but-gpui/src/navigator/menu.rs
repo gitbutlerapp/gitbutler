@@ -431,7 +431,7 @@ impl Navigator {
                 let picked: Vec<_> = (ids.iter())
                     .filter_map(|id| store.find_commit(project, *id).map(|(_, commit)| commit))
                     .collect();
-                // Commits list newest first. The oldest can be in another stack or worktree
+                // Commits list newest first. The oldest can be in another branch of the stack
                 // than the one clicked, so it's named.
                 let Some(&oldest) = picked.last() else {
                     return Vec::new();

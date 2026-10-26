@@ -614,7 +614,7 @@ impl Navigator {
             Some(Selection::Commit(project, id)) => (project.clone(), *id),
             _ => return self.step(delta, window, cx),
         };
-        let order = self.commit_order(&project);
+        let order = self.commit_order(&project, id, cx);
         let next = (order.iter().position(|commit| *commit == id))
             .and_then(|at| order.get(at.checked_add_signed(delta)?).copied());
         if let Some(next) = next {
@@ -622,14 +622,18 @@ impl Navigator {
         }
     }
 
-    /// The commits of `project` that can be picked together, as shown: not those folded
-    /// away.
-    fn commit_order(&self, project: &ProjectId) -> Vec<CommitId> {
+    /// The commits of `project` that can be picked along with commit `id`, as shown: its
+    /// stack's, or linked worktree's, not those folded away.
+    fn commit_order(&self, project: &ProjectId, id: CommitId, cx: &App) -> Vec<CommitId> {
+        let lane = (self.store.read(cx).workspace(project))
+            .and_then(|ws| ws.lane_commits(id))
+            .unwrap_or_default();
         (self.rows.iter())
             .filter_map(|row| match row {
                 Row::Item(Selection::Commit(p, commit)) if p == project => Some(*commit),
                 _ => None,
             })
+            .filter(|commit| lane.contains(commit))
             .collect()
     }
 
@@ -1263,7 +1267,7 @@ impl Navigator {
             let (toggle, shift) = (event.modifiers.secondary(), event.modifiers.shift);
             match &item {
                 Selection::Commit(project, id) if toggle || shift => {
-                    let range = shift.then(|| this.commit_order(project));
+                    let range = shift.then(|| this.commit_order(project, *id, cx));
                     this.store
                         .update(cx, |store, cx| store.pick(project, *id, range, cx));
                     window.focus(&this.focus, cx);
