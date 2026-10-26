@@ -388,7 +388,7 @@ impl Navigator {
                     items.push(MenuItem::action(label, &crate::edits::LandBranch, cx));
                 }
                 // Only the workspace has stacks to take out of it.
-                if workspace.managed && !linked {
+                if workspace.managed && workspace.stack_of(ref_name).is_some() {
                     items.push(action(
                         if edits.stacked {
                             "Unapply stack"
@@ -628,7 +628,9 @@ impl Navigator {
                         .separated(),
                     );
                 }
+                let named = !top.is_empty();
                 if let Some(target) = workspace.target.as_ref()
+                    && named
                     && BranchEdits::of(workspace, top).land == Some(true)
                 {
                     items.push(MenuItem::action(
@@ -639,7 +641,7 @@ impl Navigator {
                 }
                 items.push(action("New branch on top", &NewBranchOnTop).separated());
                 // A linked worktree's lane stays applied while it has it checked out.
-                if !store.in_linked(target) && workspace.managed {
+                if workspace.managed && named && workspace.stack_of(bottom).is_some() {
                     items.push(action("Unapply stack", &UnapplyStack));
                 }
                 items

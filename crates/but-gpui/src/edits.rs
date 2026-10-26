@@ -212,10 +212,7 @@ impl AppView {
     /// on top and uncommit are always there; the rest only where the selection lets them do
     /// something, which is also what the palette offers.
     pub fn edit_actions(&self, el: Div, cx: &mut Context<Self>) -> Div {
-        // A linked worktree's branches and commits are edited here as yours are, apart from
-        // what reaches past the worktree, like landing or moving them out of it.
         let store = self.store.read(cx);
-        let linked = (store.selection.as_ref()).is_some_and(|s| store.in_linked(s));
         let el = el
             .on_action(cx.listener(Self::delete_selection))
             .on_action(cx.listener(Self::rename_selection))
@@ -292,9 +289,10 @@ impl AppView {
                 })
                 .when(edits.stacked, |el| el.on_action(cx.listener(Self::unstack)))
                 // Outside the workspace there are no stacks to take out of it.
-                .when(workspace.managed && !linked, |el| {
-                    el.on_action(cx.listener(Self::unapply_stack))
-                })
+                .when(
+                    workspace.managed && workspace.stack_of(ref_name).is_some(),
+                    |el| el.on_action(cx.listener(Self::unapply_stack)),
+                )
                 .when(edits.land.is_some(), |el| {
                     el.on_action(cx.listener(Self::land_branch))
                 })
@@ -305,16 +303,17 @@ impl AppView {
                 let Some(workspace) = store.workspace(project) else {
                     return el;
                 };
-                let top = workspace
-                    .lane(bottom)
-                    .and_then(|lane| lane.branches.first());
+                let top = (workspace.lane(bottom))
+                    .and_then(|lane| lane.branches.first())
+                    .filter(|top| !top.ref_name.is_empty());
                 let lands = top.is_some_and(|top| {
                     BranchEdits::of(workspace, &top.ref_name).land == Some(true)
                 });
                 el.when(lands, |el| el.on_action(cx.listener(Self::land_branch)))
-                    .when(workspace.managed && !linked, |el| {
-                        el.on_action(cx.listener(Self::unapply_stack))
-                    })
+                    .when(
+                        workspace.managed && top.is_some() && workspace.stack_of(bottom).is_some(),
+                        |el| el.on_action(cx.listener(Self::unapply_stack)),
+                    )
             }
             _ => el,
         }
@@ -1073,13 +1072,15 @@ impl AppView {
         };
         // The whole stack goes, at once, and the snackbar counts the other branches in it.
         // An unnamed one has no ref to tell it from another stack's.
-        let stack: HashSet<String> = (self.store.read(cx).workspace(&project))
+        let Some(stack): Option<HashSet<String>> = (self.store.read(cx).workspace(&project))
             .and_then(|ws| ws.stack_of(&ref_name))
             .map(|(stack, _)| {
                 let names = stack.branches.iter().map(|b| b.ref_name.clone());
                 names.filter(|name| !name.is_empty()).collect()
             })
-            .unwrap_or_default();
+        else {
+            return;
+        };
         let name = match stack.len().max(1) {
             1 => short_ref(&ref_name).to_owned(),
             2 => format!("{} and the other branch in its stack", short_ref(&ref_name)),
