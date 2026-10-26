@@ -498,8 +498,8 @@ impl Store {
             let watcher = backend::run(move || {
                 backend::activate(&project.path)?;
                 // Asked before the first commit fails for it, as the desktop app does.
-                let author_missing =
-                    backend::settings::author_missing(&project.path).unwrap_or(false);
+                let author_missing = backend::settings::author_missing(&project.path)
+                    .is_ok_and(|missing| missing.is_some());
                 Ok((watch(&project, watch_id, changes)?, author_missing))
             })
             .await;

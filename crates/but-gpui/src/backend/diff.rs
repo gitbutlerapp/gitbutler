@@ -246,7 +246,13 @@ fn add_conflicts(
         let ix = row(diffs, &manual.path, scope_lines, change);
         if let Some(diff) = ix.and_then(|ix| diffs.get_mut(ix)) {
             diff.file.conflicted = true;
-            diff.body = DiffBody::Unresolvable(manual.reason);
+            // The reason is a sentence of its own; the command names the commit, as the
+            // branch it's on may hold several.
+            diff.body = DiffBody::Unresolvable(format!(
+                "{}. Resolve it in a terminal, with `but resolve {}`.",
+                manual.reason.trim_end_matches('.'),
+                commit.short()
+            ));
         }
     }
     diffs.sort_by_key(|diff| !diff.file.conflicted);
@@ -499,7 +505,10 @@ fn load_file(
     // Annotated as this load would, its scopes no wider or narrower.
     let up_to_date = |old: &FileDiff| old.annotated && old.scope_lines == scope_lines;
     let reuse = |old: &FileDiff, file| FileDiff {
-        file,
+        file: FileChange {
+            converted: old.file.converted,
+            ..file
+        },
         body: old.body.clone(),
         fingerprint: old.fingerprint,
         annotated: up_to_date(old),
@@ -531,6 +540,13 @@ fn load_file(
         .change
         .unified_patch_with_filter(repo, context_lines, &mut filter)?;
     let fingerprint = fingerprint(&file, &patch);
+    let converted = matches!(
+        patch,
+        Some(but_core::UnifiedPatch::Patch {
+            is_result_of_binary_to_text_conversion: true,
+            ..
+        })
+    );
     if let Some(old) = (previous.filter(|old| old.fingerprint == fingerprint && up_to_date(old)))
         .filter(|old| !old.file.conflicted)
     {
@@ -610,7 +626,7 @@ fn load_file(
         .then(|| svg_drawing(repo, &file))
         .flatten();
     Ok(FileDiff {
-        file,
+        file: FileChange { converted, ..file },
         body,
         fingerprint,
         annotated,
@@ -959,7 +975,15 @@ pub(super) fn context_line(new: u32, text: &str) -> DiffLine {
 
 /// A diff line as shown: tabs as spaces, no carriage return, and cut at [`LINE_LIMIT`].
 pub(super) fn display_text(raw: &str) -> String {
-    let mut text = raw.trim_end_matches('\r').replace('\t', "    ");
+    cut(raw.trim_end_matches('\r').replace('\t', "    "), 0)
+}
+
+/// `text` from byte `from` on, cut at [`LINE_LIMIT`], each cut marked with an ellipsis.
+fn cut(text: String, from: usize) -> String {
+    let mut text = match text.get(text.floor_char_boundary(from)..) {
+        Some(rest) if from > 0 => format!("…{rest}"),
+        _ => text,
+    };
     if text.len() > LINE_LIMIT {
         text.truncate(text.floor_char_boundary(LINE_LIMIT));
         text.push('…');
@@ -967,10 +991,47 @@ pub(super) fn display_text(raw: &str) -> String {
     text
 }
 
+/// Where to cut each of `lines` from: a removed line and the added one in its place that
+/// first differ past [`LINE_LIMIT`], deep in a minified file or a paragraph, from a little
+/// before that, so the change shows rather than two sides that look the same.
+fn cut_starts(lines: &[(LineKind, String)]) -> Vec<usize> {
+    let mut starts = vec![0; lines.len()];
+    let mut at = 0;
+    while at < lines.len() {
+        let kind_at = |ix: usize| lines.get(ix).map(|(kind, _)| *kind);
+        let removed = (at..)
+            .take_while(|ix| kind_at(*ix) == Some(LineKind::Removed))
+            .count();
+        let added = (at + removed..)
+            .take_while(|ix| kind_at(*ix) == Some(LineKind::Added))
+            .count();
+        for pair in 0..removed.min(added) {
+            let (old, new) = (at + pair, at + removed + pair);
+            let (Some((_, a)), Some((_, b))) = (lines.get(old), lines.get(new)) else {
+                continue;
+            };
+            let same = (a.bytes().zip(b.bytes()))
+                .take_while(|(x, y)| x == y)
+                .count();
+            if a.len().max(b.len()) > LINE_LIMIT && same > LINE_LIMIT - LINE_LIMIT / 4 {
+                let from = same - LINE_LIMIT / 4;
+                for ix in [old, new] {
+                    if let Some(start) = starts.get_mut(ix) {
+                        *start = from;
+                    }
+                }
+            }
+        }
+        at += (removed + added).max(1);
+    }
+    starts
+}
+
 fn parse_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
     let mut old = hunk.old_start;
     let mut new = hunk.new_start;
     let mut lines = Vec::new();
+    let mut texts = Vec::new();
     let mut header = String::new();
     for raw in hunk.diff.lines() {
         let text = raw.to_str_lossy();
@@ -993,8 +1054,15 @@ fn parse_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
         };
         old += u32::from(old_no.is_some());
         new += u32::from(new_no.is_some());
-        lines.push(DiffLine::new(kind, old_no, new_no, &display_text(rest)));
+        lines.push((old_no, new_no));
+        texts.push((kind, rest.trim_end_matches('\r').replace('\t', "    ")));
     }
+    let starts = cut_starts(&texts);
+    let lines = (lines.into_iter().zip(texts).zip(starts))
+        .map(|(((old_no, new_no), (kind, text)), from)| {
+            DiffLine::new(kind, old_no, new_no, &cut(text, from))
+        })
+        .collect();
     Hunk {
         key: HunkKey(hunk.into()),
         header,
@@ -1008,6 +1076,43 @@ fn parse_hunk(hunk: &but_core::unified_diff::DiffHunk) -> Hunk {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+
+    #[test]
+    fn a_change_deep_in_a_long_line_shows_on_both_sides() {
+        use crate::backend::LineKind;
+        let paragraph = "word ".repeat(1000);
+        let lines = [
+            (LineKind::Context, "# Title".to_owned()),
+            (LineKind::Removed, format!("{paragraph}Tokyo court")),
+            (LineKind::Added, format!("{paragraph}Osaka court")),
+            (LineKind::Removed, format!("Tokyo {paragraph}")),
+            (LineKind::Added, format!("Osaka {paragraph}")),
+        ];
+        let starts = super::cut_starts(&lines);
+        let shown = |ix: usize| super::cut(lines[ix].1.clone(), starts[ix]);
+        assert!(
+            shown(1).starts_with('…') && shown(1).ends_with("Tokyo court"),
+            "cut from before where the two sides differ, past 2000 bytes: {}",
+            shown(1)
+        );
+        assert!(
+            shown(2).ends_with("Osaka court"),
+            "its pair is cut the same"
+        );
+        assert!(
+            shown(3).starts_with("Tokyo") && shown(3).ends_with('…'),
+            "a change the head shows keeps the head"
+        );
+        let fits = [
+            (LineKind::Removed, format!("{}Tokyo", "word ".repeat(340))),
+            (LineKind::Added, format!("{}Osaka", "word ".repeat(340))),
+        ];
+        assert_eq!(
+            super::cut_starts(&fits),
+            [0, 0],
+            "lines that fit whole are shown whole, however late they differ"
+        );
+    }
 
     use crate::backend::ops::tests::{git, head, repo_with};
 

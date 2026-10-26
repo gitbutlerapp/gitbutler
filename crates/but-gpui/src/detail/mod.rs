@@ -244,6 +244,9 @@ pub struct Detail {
     picking_lines: bool,
     /// Files whose lines are being read, one read each at a time.
     whole_reading: HashSet<String>,
+    /// The file, by path, and hunk whose header asked for the whole file, and how many rows
+    /// down the diff's scroll it was then, where it stays once the file's lines are in.
+    whole_anchor: Option<(String, usize, usize)>,
     /// What signed each commit previewed, like "an SSH key", or `None` when nothing did or
     /// it's still being read. A commit never changes, so neither does its signature.
     signers: HashMap<backend::CommitId, Option<&'static str>>,
@@ -574,6 +577,7 @@ impl Detail {
             filtering: false,
             whole: HashMap::new(),
             whole_reading: HashSet::new(),
+            whole_anchor: None,
             file_picks: Picks::default(),
             line_picks: None,
             grip_over: None,
@@ -1114,7 +1118,9 @@ impl Detail {
         });
         self.settle_line_picks();
         self.refresh_grip();
-        self.prune_resolving();
+        if self.prune_resolving(cx) {
+            self.rebuild_rows(cx);
+        }
         for file in stale {
             self.load_whole(file, cx);
         }
@@ -1136,7 +1142,8 @@ impl Detail {
 
     /// What dragging or cutting the uncommitted changes of `project`'s checkout `worktree`
     /// carries: the checked files and hunks when they're shown here, otherwise all of them, but
-    /// not conflicted files, which a commit refuses until they're resolved.
+    /// not conflicted files, which a commit refuses until they're resolved, nor a repository
+    /// cloned inside, which isn't a submodule yet.
     pub fn files_to_move(
         &self,
         project: &ProjectId,
@@ -1151,7 +1158,9 @@ impl Detail {
                     files.iter().map(Selected::whole).collect()
                 }),
         };
-        files.into_iter().filter(|s| !s.file.conflicted).collect()
+        (files.into_iter())
+            .filter(|s| !s.file.conflicted && !s.file.nested_repository())
+            .collect()
     }
 
     /// Focus the diff.
@@ -1639,15 +1648,8 @@ impl Detail {
 
     /// Whether the loaded diff is the worktree's and shows exactly `files` as they are now.
     fn shows_worktree(&self, files: &[FileChange]) -> bool {
-        self.worktree_diff().is_some_and(|diff| {
-            diff.files.len() == files.len()
-                && diff.files.iter().zip(files).all(|(shown, now)| {
-                    shown.file.path == now.path
-                        && (shown.file.modified, shown.file.size) == (now.modified, now.size)
-                        && shown.file.base() == now.base()
-                        && shown.file.conflicted == now.conflicted
-                })
-        })
+        (self.worktree_diff())
+            .is_some_and(|diff| same_files(diff.files.iter().map(|shown| &shown.file), files))
     }
 
     /// Open the file under the cursor in the editor, at its hunk.
@@ -1737,7 +1739,8 @@ impl Detail {
         }
     }
 
-    /// Commit to `branch` of `project` next: a branch just made is where its commits go.
+    /// Commit to `branch` of `project` next: a branch just made is where its commits go, as
+    /// are those started from a branch.
     pub fn branch_created(&mut self, project: &ProjectId, branch: String, cx: &mut Context<Self>) {
         if self.checks_project.as_ref() == Some(project) {
             self.commit_target = Some(branch);
@@ -2189,21 +2192,22 @@ impl Render for Detail {
             .on_action(cx.listener(|this, _: &PickAllFiles, _, cx| this.pick_all_files(cx)))
             .on_action(cx.listener(|this, _: &NextHunk, _, cx| this.move_hunk(true, cx)))
             .on_action(cx.listener(|this, _: &PreviousHunk, _, cx| this.move_hunk(false, cx)))
-            // Picked lines go first, as ⌘X takes them first.
+            // Picked lines go first, as ⌘X takes them first. The cursor's file only while it's
+            // shown, not under a checkout's overview, where no row says which it is.
             .on_action(cx.listener(|this, _: &DiscardHunk, window, cx| {
                 if this.line_picks.is_some() {
                     this.discard_picked_lines(window, cx)
-                } else if let Some(hunk) = this.cursor.hunk {
+                } else if let Some(hunk) = this.cursor.hunk.filter(|_| !this.showing_now(cx)) {
                     this.discard(this.cursor.file, Some(hunk), window, cx)
                 }
             }))
             .on_action(cx.listener(|this, _: &DiscardFile, window, cx| {
                 if this.line_picks.is_some() {
                     this.discard_picked_lines(window, cx)
-                } else if this.file_picks.is_empty() {
-                    this.discard(this.cursor.file, None, window, cx)
-                } else {
+                } else if !this.file_picks.is_empty() {
                     this.discard_picked(window, cx)
+                } else if !this.showing_now(cx) {
+                    this.discard(this.cursor.file, None, window, cx)
                 }
             }))
             .on_action(
@@ -2435,11 +2439,54 @@ fn code_line(cx: &App) -> Pixels {
     theme.scaled(theme.code_line)
 }
 
+/// Whether `shown`, a diff's files in the order its list draws them, are `files` as they are
+/// now, in the order the workspace lists them: a tree puts folders first, and status puts
+/// conflicted files first.
+fn same_files<'a>(
+    shown: impl ExactSizeIterator<Item = &'a FileChange>,
+    files: &[FileChange],
+) -> bool {
+    if shown.len() != files.len() {
+        return false;
+    }
+    let shown: HashMap<&str, &FileChange> = shown.map(|file| (file.path.as_str(), file)).collect();
+    files.iter().all(|now| {
+        shown.get(now.path.as_str()).is_some_and(|shown| {
+            (shown.modified, shown.size) == (now.modified, now.size)
+                && shown.base() == now.base()
+                && shown.conflicted == now.conflicted
+        })
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
 
-    use super::{follow_hunk, unfolded};
+    use super::{follow_hunk, same_files, unfolded};
+    use crate::backend::FileChange;
+
+    #[test]
+    fn a_diff_in_tree_order_shows_the_files_status_lists_by_path() {
+        let files = [FileChange::bare("src/a.rs"), FileChange::bare("src/b/x.rs")];
+        let tree = [FileChange::bare("src/b/x.rs"), FileChange::bare("src/a.rs")];
+        assert!(
+            same_files(tree.iter(), &files),
+            "a tree draws the folder before the file beside it, which sorts first by path"
+        );
+        let written = FileChange {
+            modified: Some(1),
+            ..FileChange::bare("src/a.rs")
+        };
+        assert!(
+            !same_files(tree.iter(), &[written, FileChange::bare("src/b/x.rs")]),
+            "a file written since the diff was read isn't shown as it is"
+        );
+        assert!(
+            !same_files(tree.iter().take(1), &files),
+            "nor is a file the diff doesn't have"
+        );
+    }
     use crate::backend::HunkKey;
 
     #[test]

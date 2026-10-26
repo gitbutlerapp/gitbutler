@@ -53,6 +53,12 @@
   {
     "bindings": { "secondary-r": "remote::Fetch" }
   },
+  // From the file filter too, which the commit then takes the files of. Before the
+  // window's binding, which keys the user gives Commit follow.
+  {
+    "context": "Files && !Composer > TextInput",
+    "bindings": { "secondary-enter": "app::StartCommit" }
+  },
   {
     "context": "Workspace && !TextInput",
     "bindings": {

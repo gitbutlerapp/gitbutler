@@ -972,6 +972,11 @@ impl Store {
             1 => format!("{name} and the branch below it"),
             n => format!("{name} and the {n} branches below it"),
         };
+        // The branches below go up first, so one refused or failing partway may have sent
+        // them: undo asks first all the same.
+        if below > 0 {
+            self.pushed(project);
+        }
         let pushed = project.clone();
         let run_hooks = self.runs_hooks(project);
         self.run(
@@ -1093,6 +1098,8 @@ impl Store {
                         }
                     }
                     Err(failed) => {
+                        // The branches may have gone up before the forge said no.
+                        store.pushed(&published);
                         let said = "Couldn't create the pull request".to_owned();
                         let said = store.card_title(&published, said);
                         store.error_with_retry(said, failed, "Try again", again, cx);

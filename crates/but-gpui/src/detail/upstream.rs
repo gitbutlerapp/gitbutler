@@ -46,10 +46,11 @@ fn opening(summary: Option<&Overview>, commits: &[TargetCommit]) -> Option<Picke
 
 /// What a target commit is called: the pull request it landed, by its title, as Lite names
 /// it, or else the commit's own title.
-fn label(commit: &TargetCommit) -> &str {
-    (commit.review.as_ref())
-        .filter(|review| !review.title.is_empty())
-        .map_or(&commit.title, |review| &review.title)
+fn label(commit: &TargetCommit) -> SharedString {
+    match (commit.review.as_ref()).filter(|review| !review.title.is_empty()) {
+        Some(review) => review.title.clone().into(),
+        None => crate::ui::commit_title(&commit.title),
+    }
 }
 
 /// How many target commits a page holds.
@@ -176,11 +177,15 @@ impl Detail {
             .and_then(|u| u.commits.last())
             .map(|commit| commit.id);
         // Reading back for a commit picked off Shipped or for a filter, a few pages at once
-        // rather than a frame's wait between each.
-        let reading_back = current.is_some_and(|u| {
-            u.pending.is_some() || u.view.area.is_some() || u.view.person.is_some()
-        }) || !self.target_filter.read(cx).text().trim().is_empty();
+        // rather than a frame's wait between each, and for words, which can be years back on
+        // a click, many more.
+        let words = !self.target_filter.read(cx).text().trim().is_empty();
+        let reading_back = words
+            || current.is_some_and(|u| {
+                u.pending.is_some() || u.view.area.is_some() || u.view.person.is_some()
+            });
         let limit = match more {
+            true if words => PAGE * 100,
             true if reading_back => PAGE * 8,
             true => PAGE,
             false => current.map_or(PAGE, |u| (u.commits.len() as u32).max(PAGE)),
@@ -632,7 +637,7 @@ impl Detail {
             .collect::<Vec<_>>()
             .join("\n");
         let shown = shown.trim().to_owned();
-        let title = label(commit).to_owned();
+        let title = label(commit).to_string();
         let open = self.message_open;
         let toggle = (!shown.is_empty()).then(|| {
             let label = match open {
@@ -1046,9 +1051,10 @@ impl Detail {
             .map(|(p, n)| (p.email.clone(), p.name.clone(), p.email.clone(), n))
             .collect();
         people.sort_by_key(|(.., n)| std::cmp::Reverse(*n));
+        // Landings, as a merge bringing in several of someone's commits counts once.
         let counted = match days {
-            None => format!("commits · {ACTIVITY_DAYS} days"),
-            Some(_) => "commits · days picked".to_owned(),
+            None => format!("landings · {ACTIVITY_DAYS} days"),
+            Some(_) => "landings · days picked".to_owned(),
         };
         let project = project.clone();
         Some(self.people_card(
@@ -1490,6 +1496,22 @@ impl Detail {
                 )
             })
             .children(self.mesh_meta(project, theme, cx))
+            .children(workspace.and_then(|ws| {
+                let target = ws.target.as_ref()?;
+                let remote = target.untracked.as_ref()?;
+                Some(
+                    meta_item(Icon::Warning, theme)
+                        .flex_none()
+                        .id("untracked-target")
+                        .text_color(theme.warn)
+                        .child(format!("{} doesn't track {remote}", target.name))
+                        .tooltip(Tooltip::text(format!(
+                            "What's pushed to {remote} doesn't show here, nor can branches be \
+                             pushed. Track it with `git branch -u {remote} {}`",
+                            target.name
+                        ))),
+                )
+            }))
             // Last, as it's read after the rest, so nothing moves when it shows.
             .children(unapplied.map(|n| {
                 meta_item(Icon::Branch, theme)
@@ -1652,7 +1674,9 @@ impl Detail {
                 let (title, detail) = match lost {
                     Some(name) => (
                         format!("{name} is gone"),
-                        "The remote no longer has it. Pick the branch your work goes into now",
+                        "The remote no longer has it. Pick the branch your work goes into now; \
+                         one only the remote has needs a local branch first, as \
+                         `git switch -c main --track origin/main` makes",
                     ),
                     // A loaded project without a target needs one picked first, remote or not.
                     None if untargeted => (
@@ -1752,7 +1776,7 @@ impl Detail {
                                         .min_w_0()
                                         .truncate()
                                         .when(!incoming && !on, |el| el.text_color(theme.text_2))
-                                        .child(SharedString::from(label(commit).to_owned()))
+                                        .child(label(commit))
                                         .when_some(tip, |el, tip| el.tooltip(Tooltip::text(tip))),
                                 )
                                 // Who wrote it, as on the Branches page.
@@ -1800,11 +1824,17 @@ impl Detail {
                                     .child("Loading…")
                                     .into_any_element()
                             }
+                            // Saying how far back it has read, as a filter can find nothing
+                            // in years of history.
                             Row::Older => {
                                 let project = shown.clone();
+                                let read_to = (upstream.commits.last()).map_or_else(
+                                    || "Show older".to_owned(),
+                                    |c| format!("Show older than {}", crate::ui::day_label(c.time)),
+                                );
                                 list_row("target-older", false, theme)
                                     .text_color(theme.text_2)
-                                    .child("Show older")
+                                    .child(read_to)
                                     .on_click(cx.listener(move |this, _, _, cx| {
                                         this.load_upstream(&project, true, false, cx);
                                         cx.notify();

@@ -64,6 +64,7 @@ pub fn all_branches(path: &Path) -> Result<Vec<OtherBranch>> {
     let ctx = open(path)?;
     let repo = ctx.repo.get()?;
     let descriptions = descriptions(&repo);
+    let mailmap = repo.open_mailmap();
     Ok(but_api::branch::branch_list(&ctx)?
         .into_iter()
         .filter(|stack| stack.status != ListedStackStatus::Target)
@@ -74,12 +75,16 @@ pub fn all_branches(path: &Path) -> Result<Vec<OtherBranch>> {
         })
         .map(|(stack, applied, listed)| {
             let branch = listed.branch;
-            let byline =
-                (repo.find_commit(branch.tip).ok()).and_then(|tip| super::commit_byline(&tip).ok());
+            let byline = (repo.find_commit(branch.tip).ok())
+                .and_then(|tip| super::commit_byline(&mailmap, &tip).ok());
             let (person, agent) = byline.unzip();
             let (author, email) = person.unzip();
-            let (people, commits) =
-                own_commits(&repo, branch.tip, branch.commit_count.unwrap_or(1));
+            let (people, commits) = own_commits(
+                &repo,
+                &mailmap,
+                branch.tip,
+                branch.commit_count.unwrap_or(1),
+            );
             OtherBranch {
                 ref_name: branch.ref_name.to_string(),
                 name: branch.display_name.to_str_lossy().into_owned(),
@@ -110,6 +115,7 @@ pub fn all_branches(path: &Path) -> Result<Vec<OtherBranch>> {
 /// shown by, each once.
 fn own_commits(
     repo: &gix::Repository,
+    mailmap: &gix::mailmap::Snapshot,
     tip: gix::ObjectId,
     count: usize,
 ) -> (Vec<String>, Vec<OwnCommit>) {
@@ -120,7 +126,7 @@ fn own_commits(
             break;
         };
         next = commit.parent_ids().next().map(|id| id.detach());
-        let Ok(((name, _), _)) = super::commit_byline(&commit) else {
+        let Ok(((name, _), _)) = super::commit_byline(mailmap, &commit) else {
             continue;
         };
         let person = match people.iter().position(|known| *known == name) {
@@ -232,8 +238,9 @@ pub fn branch_commits(path: &Path, ref_name: &str) -> Result<Vec<TargetCommit>> 
         None => (name.shorten().to_string(), None),
     };
     let details = but_api::legacy::workspace::branch_details(&ctx, short, remote)?;
+    let mailmap = repo.open_mailmap();
     (details.commits.iter())
-        .map(|commit| target_commit(&repo.find_commit(commit.id)?))
+        .map(|commit| target_commit(&mailmap, &repo.find_commit(commit.id)?))
         .collect()
 }
 

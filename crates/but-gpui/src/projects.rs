@@ -10,7 +10,8 @@ use gpui::{
 };
 
 use crate::app::AppView;
-use crate::backend::{self, settings};
+use crate::backend;
+use crate::backend::settings::{self, MissingAuthor};
 use crate::overlays::floating;
 use crate::palette::Choice;
 use crate::state::{ProjectId, Selection, Store};
@@ -176,32 +177,67 @@ impl AppView {
 }
 
 impl AppView {
-    /// Ask for the name, then the email, Git records commits with, and save them to the user's
-    /// global Git config, as the desktop app asks when Git has none.
+    /// Ask for the name, then the email, Git records commits with, of those it lacks, and save
+    /// them to the user's global Git config, as the desktop app asks when Git has none.
     pub fn ask_author(&mut self, project: ProjectId, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(path) = self.store.read(cx).path(&project) else {
+            return;
+        };
+        cx.spawn_in(window, async move |this, cx| {
+            let missing = backend::run(move || settings::author_missing(&path)).await;
+            let Ok(Some(missing)) = missing else {
+                return;
+            };
+            this.update_in(cx, |this, window, cx| match missing.name {
+                true => this.ask_author_name(project, missing, window, cx),
+                false => this.ask_author_email(project, String::new(), missing, window, cx),
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    fn ask_author_name(
+        &mut self,
+        project: ProjectId,
+        missing: MissingAuthor,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let input = cx.new(|cx| TextInput::new("Your full name", false, cx));
         let check = |_: &AppView, name: &str, _: &App| {
             name.trim().is_empty().then(|| "Enter your name".into())
         };
+        let goes = match (missing.here, missing.email) {
+            (true, true) => format!(
+                "Commits record who made them. Your name goes in your global Git config, and \
+                 your email next in {}.",
+                saved_in(missing)
+            ),
+            (true, false) => {
+                "Commits record who made them. Your name goes in your global Git config.".into()
+            }
+            (false, _) => format!(
+                "Commits record who made them. What you enter goes in {}.",
+                saved_in(missing)
+            ),
+        };
         self.open_prompt(
             None,
             "Set up your Git author",
-            Some(
-                "Commits record who made them. Your name and email go in your global Git \
-                 config, for every repository."
-                    .into(),
-            ),
-            "Next",
+            Some(goes),
+            if missing.email { "Next" } else { "Save" },
             input,
             None,
             Some(Box::new(check)),
             window,
             cx,
             // After this prompt gives the keys back, so the next one keeps them.
-            move |_, name, window, cx| {
-                cx.defer_in(window, move |this, window, cx| {
-                    this.ask_author_email(project, name, window, cx)
-                })
+            move |this, name, window, cx| match missing.email {
+                true => cx.defer_in(window, move |this, window, cx| {
+                    this.ask_author_email(project, name, missing, window, cx)
+                }),
+                false => this.save_author(project, name, String::new(), missing, cx),
             },
         );
     }
@@ -210,6 +246,7 @@ impl AppView {
         &mut self,
         project: ProjectId,
         name: String,
+        missing: MissingAuthor,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -224,32 +261,57 @@ impl AppView {
             });
             (!looks_right).then(|| "Enter an email address".into())
         };
+        let goes = match missing.name {
+            true => "Next, the email address commits record with your name.".to_owned(),
+            false => format!(
+                "Commits record who made them. Git has your name, and your email goes in {}.",
+                saved_in(missing)
+            ),
+        };
         self.open_prompt(
             None,
             "Set up your Git author",
-            Some("Next, the email address commits record with your name.".into()),
+            Some(goes),
             "Save",
             input,
             None,
             Some(Box::new(check)),
             window,
             cx,
-            move |this, email, _, cx| {
-                let Some(path) = this.store.read(cx).path(&project) else {
-                    return;
-                };
-                let store = this.store.clone();
-                cx.spawn(async move |_, cx| {
-                    let set =
-                        backend::run(move || settings::set_author(&path, &name, &email)).await;
-                    store.update(cx, |store, cx| match set {
-                        Ok(()) => store.snack("Saved your name and email for Git", cx),
-                        Err(err) => store.failed("Couldn't save your name and email", &err, cx),
-                    });
-                })
-                .detach();
-            },
+            move |this, email, _, cx| this.save_author(project, name, email, missing, cx),
         );
+    }
+
+    fn save_author(
+        &mut self,
+        project: ProjectId,
+        name: String,
+        email: String,
+        missing: MissingAuthor,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(path) = self.store.read(cx).path(&project) else {
+            return;
+        };
+        let store = self.store.clone();
+        cx.spawn(async move |_, cx| {
+            let set =
+                backend::run(move || settings::set_author(&path, &name, &email, missing.here))
+                    .await;
+            store.update(cx, |store, cx| match set {
+                Ok(()) => store.snack("Git has your name and email now", cx),
+                Err(err) => store.failed("Couldn't save your name and email", &err, cx),
+            });
+        })
+        .detach();
+    }
+}
+
+/// Where the author asked for is saved, in words.
+fn saved_in(missing: MissingAuthor) -> &'static str {
+    match missing.here {
+        true => "this repository's Git config, as your user.useConfigOnly asks",
+        false => "your global Git config, for every repository",
     }
 }
 

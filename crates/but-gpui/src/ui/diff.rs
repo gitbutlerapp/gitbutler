@@ -329,7 +329,11 @@ pub fn stats(added: u32, removed: u32, theme: &Theme) -> gpui::Div {
                 text.push(' ');
             }
             let start = text.len();
-            text.push_str(&format!("{sign}{count}"));
+            // In thousands from six figures, which leave a file list's name no room.
+            match count {
+                ..100_000 => text.push_str(&format!("{sign}{count}")),
+                _ => text.push_str(&format!("{sign}{}k", count / 1000)),
+            }
             colors.push((start..text.len(), HighlightStyle::from(color)));
         }
     }
@@ -664,15 +668,17 @@ pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
         DiffBody::Image { before, after } => {
             return drawing(before.clone(), after.clone(), theme);
         }
-        DiffBody::Binary => "Binary file".to_owned(),
+        // How big, where it's known, as a server's limit on what it takes goes by it.
+        DiffBody::Binary => match file.file.size {
+            Some(bytes) if bytes >= 1_000_000 => {
+                format!("Binary file ({:.1} MB)", bytes as f64 / 1_000_000.)
+            }
+            _ => "Binary file".to_owned(),
+        },
         DiffBody::TooLarge { bytes } => {
             format!("Too large to show ({:.1} MB)", *bytes as f64 / 1_000_000.)
         }
-        // The reason is a sentence of its own.
-        DiffBody::Unresolvable(reason) => format!(
-            "{}. Resolve it in a terminal, with `but resolve`.",
-            reason.trim_end_matches('.')
-        ),
+        DiffBody::Unresolvable(why) => why.clone(),
         DiffBody::Empty | DiffBody::Hunks { .. } => match file.file.kind {
             ChangeKind::Renamed => "Renamed without changes".to_owned(),
             _ if let Some(submodule) = file.file.submodule() => submodule,

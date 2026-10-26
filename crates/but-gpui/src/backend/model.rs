@@ -296,8 +296,12 @@ impl Workspace {
         let unpushed = (self.target.as_ref()).map_or(self.target_branch.is_some(), |t| t.local);
         if self.remoteless {
             Some("The project has no remote to push to: add one with `git remote add`")
+        } else if (self.target.as_ref()).is_some_and(|t| t.untracked.is_some()) {
+            Some(
+                "The target branch doesn't track the remote's of its name: the project's page says how to",
+            )
         } else if unpushed {
-            Some("The target branch isn't on the remote yet: push it once, with `git push -u`")
+            Some("The target branch tracks no remote branch: push it once, with `git push -u`")
         } else if self.target.is_none() {
             Some("Pick the project's target branch first")
         } else if (pushed.iter()).any(|b| b.commits.iter().any(|c| c.conflicted)) {
@@ -369,6 +373,9 @@ pub struct Target {
     /// It's the local target branch itself, like `main`, as it has no upstream, as in a
     /// repository with no remote: a land moves it rather than pushing it.
     pub local: bool,
+    /// The remote branch of its name a `local` one doesn't track, like `origin/main` after
+    /// `git push origin main` without `-u`: what others push there doesn't count here.
+    pub untracked: Option<String>,
     /// Commits on the target's own line of history the workspace doesn't have yet: each pull
     /// request merged counts once, as the project's page lists them.
     pub behind: usize,
@@ -669,46 +676,67 @@ pub struct FileChange {
     /// The lines it adds and removes, counted for uncommitted files while there are few
     /// enough to read them all.
     pub lines: Option<(u32, u32)>,
+    /// Its diff, as read, is a copy a `textconv` filter made for reading, as of an encrypted or
+    /// binary file: its hunks aren't the file's own lines, so it's taken whole or not at all.
+    pub converted: bool,
     /// What the backend needs to diff or move this change again.
     pub(crate) change: but_core::TreeChange,
 }
 
 impl FileChange {
     /// Whether it can only be taken whole, as GitButler can't take some of its hunks: it's
-    /// added or deleted, or a side of it isn't a plain file, as a link isn't.
+    /// added or deleted, a side of it isn't a plain file, as a link isn't, or it's `converted`.
     pub fn whole_only(&self) -> bool {
         use gix::object::tree::EntryKind as K;
         let plain =
             |state: &but_core::ChangeState| matches!(state.kind, K::Blob | K::BlobExecutable);
-        match &self.change.status {
-            but_core::TreeStatus::Modification {
-                previous_state,
-                state,
-                ..
+        self.converted
+            || match &self.change.status {
+                but_core::TreeStatus::Modification {
+                    previous_state,
+                    state,
+                    ..
+                }
+                | but_core::TreeStatus::Rename {
+                    previous_state,
+                    state,
+                    ..
+                } => !plain(previous_state) || !plain(state),
+                _ => true,
             }
-            | but_core::TreeStatus::Rename {
-                previous_state,
-                state,
-                ..
-            } => !plain(previous_state) || !plain(state),
-            _ => true,
-        }
     }
 
     /// What changed about the file other than its lines: its executable bit, or whether
     /// it's a link.
     pub fn mode_change(&self) -> Option<&'static str> {
         use but_core::{ModeFlags as F, TreeStatus as S};
-        let (S::Modification { flags, .. } | S::Rename { flags, .. }) = &self.change.status else {
-            return None;
+        let status = &self.change.status;
+        let flags = match status {
+            S::Modification { flags, .. } | S::Rename { flags, .. } => *flags,
+            _ => None,
         };
-        Some(match (*flags)? {
-            F::ExecutableBitAdded => "Made executable",
-            F::ExecutableBitRemoved => "No longer executable",
-            F::TypeChangeFileToLink => "Turned into a symbolic link",
-            F::TypeChangeLinkToFile => "Turned from a symbolic link into a file",
-            F::TypeChange => "Changed type",
+        // A link's one line is where it points, which reads like a file's content otherwise.
+        let link = (status
+            .state()
+            .or(status.previous_state_and_path().map(|(state, _)| state)))
+        .is_some_and(|state| state.kind == gix::object::tree::EntryKind::Link);
+        Some(match flags {
+            Some(F::ExecutableBitAdded) => "Made executable",
+            Some(F::ExecutableBitRemoved) => "No longer executable",
+            Some(F::TypeChangeFileToLink) => "Turned into a symbolic link",
+            Some(F::TypeChangeLinkToFile) => "Turned from a symbolic link into a file",
+            Some(F::TypeChange) => "Changed type",
+            None if link => "Symbolic link",
+            None => return None,
         })
+    }
+
+    /// A repository cloned into the worktree and not yet recorded, which has no commit read
+    /// for it: committed, it would go in as a submodule with nowhere to clone it from, as
+    /// `git add` warns.
+    pub fn nested_repository(&self) -> bool {
+        matches!(&self.change.status, but_core::TreeStatus::Addition { state, .. }
+            if state.id.is_null() && state.kind == gix::object::tree::EntryKind::Commit)
     }
 
     /// Where a submodule points now and pointed before, which is all there is to show of one.
@@ -717,11 +745,10 @@ impl FileChange {
         let at = |state: &but_core::ChangeState| {
             (state.kind == gix::object::tree::EntryKind::Commit).then(|| CommitId(state.id).short())
         };
+        if self.nested_repository() {
+            return Some("A repository of its own, not a submodule".to_owned());
+        }
         Some(match &self.change.status {
-            // A repository added in the worktree, not yet recorded, has no commit read for it.
-            S::Addition { state, .. } if state.id.is_null() => {
-                at(state).map(|_| "New submodule".to_owned())?
-            }
             S::Addition { state, .. } => format!("Submodule at {}", at(state)?),
             S::Deletion { previous_state } => {
                 format!("Removed submodule at {}", at(previous_state)?)
@@ -891,7 +918,7 @@ pub enum DiffBody {
     /// Mode changes and the like, with no lines to show.
     Empty,
     /// A conflict the app can't split into lines to pick between, like a file one side
-    /// deleted, and why.
+    /// deleted: why, and the command that resolves it.
     Unresolvable(String),
 }
 
@@ -1080,6 +1107,50 @@ mod tests {
         Branch, Commit, CommitId, CommitState, DiffLine, Hunk, HunkKey, LineKind, PushState,
         RemoteCommit,
     };
+
+    #[test]
+    fn a_symbolic_link_says_so_where_its_target_reads_like_content() {
+        let link = but_core::ChangeState {
+            id: gix::ObjectId::null(gix::hash::Kind::Sha1),
+            kind: gix::object::tree::EntryKind::Link,
+        };
+        let retargeted = crate::backend::file_change(but_core::TreeChange {
+            path: "assets/current".into(),
+            status: but_core::TreeStatus::Modification {
+                previous_state: link,
+                state: link,
+                flags: None,
+            },
+        });
+        assert_eq!(retargeted.mode_change(), Some("Symbolic link"));
+    }
+
+    #[test]
+    fn a_repository_cloned_inside_is_told_apart_from_a_submodule() {
+        let added = |id| {
+            crate::backend::file_change(but_core::TreeChange {
+                path: "scratch/sim".into(),
+                status: but_core::TreeStatus::Addition {
+                    state: but_core::ChangeState {
+                        id,
+                        kind: gix::object::tree::EntryKind::Commit,
+                    },
+                    is_untracked: true,
+                },
+            })
+        };
+        let cloned = added(gix::ObjectId::null(gix::hash::Kind::Sha1));
+        assert!(cloned.nested_repository(), "status reads no commit for it");
+        assert_eq!(
+            cloned.submodule().as_deref(),
+            Some("A repository of its own, not a submodule")
+        );
+        let added_as_submodule = added(gix::ObjectId::empty_tree(gix::hash::Kind::Sha1));
+        assert!(
+            !added_as_submodule.nested_repository(),
+            "`git submodule add` records its commit"
+        );
+    }
 
     fn header(old_start: u32, old_lines: u32, new_start: u32, new_lines: u32) -> HunkHeader {
         HunkHeader {
@@ -1335,6 +1406,7 @@ mod tests {
                 name: "origin/main".into(),
                 branch: "main".into(),
                 local: false,
+                untracked: None,
                 behind: 1,
                 commits_behind: 1,
                 needs_update: true,

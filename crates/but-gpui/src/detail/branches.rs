@@ -1323,7 +1323,7 @@ impl Detail {
                             let (_, commits) = branches.commits.get(&ref_name)?;
                             let commit = commits.get(*commit_ix)?;
                             let id = commit.id;
-                            let label: SharedString = commit.title.clone().into();
+                            let label = crate::ui::commit_title(&commit.title);
                             let project = branches.project.clone();
                             // A picked one takes the others picked along.
                             let ids = branches.cherry_picks(id);
@@ -1427,13 +1427,17 @@ impl Detail {
                                 None if branch.ahead == Some(0) => theme.text_2,
                                 None => theme.text_1,
                             };
+                            let shown = title(branch);
                             let name = div()
                                 .flex_1()
                                 .min_w_0()
                                 .truncate()
+                                // A branch's name is cut in the middle, as many share a start
+                                // (origin/hotfix/…) and differ at the end; a title at its end.
+                                .when(shown == shown_name(branch), |el| el.text_ellipsis_middle())
                                 .font_weight(gpui::FontWeight::SEMIBOLD)
                                 .text_color(ink(title_color))
-                                .child(title(branch).to_owned());
+                                .child(shown.to_owned());
                             // The target has it all: said, as the navigator says it of a branch
                             // that landed.
                             let merged = (branch.ahead == Some(0)).then(|| {
@@ -1756,8 +1760,15 @@ impl Detail {
             });
         let commits = match (branch.ahead, branches.stack) {
             (Some(0), false) => format!("in {target}"),
-            (_, true) => plural(stack.iter().filter_map(|b| b.own_commits).sum(), "commit"),
-            (_, false) => plural(branch.own_commits.unwrap_or(0), "commit"),
+            (_, true) => (stack.iter().map(|b| b.own_commits).sum::<Option<usize>>()).map_or_else(
+                || "commits uncounted".to_owned(),
+                |own| plural(own, "commit"),
+            ),
+            // The history read ends before where it forked, as in a shallow clone.
+            (_, false) => (branch.own_commits).map_or_else(
+                || "commits uncounted".to_owned(),
+                |own| plural(own, "commit"),
+            ),
         };
         let byline = (branch.author.as_ref())
             .zip(branch.time)

@@ -174,6 +174,8 @@ impl Detail {
         let back = self.selected_checkout(cx).is_some() && !self.composing && !self.showing_now(cx);
         if back {
             self.now_open = true;
+            // Lines picked in the diff go with it, rather than stay for keys to act on unseen.
+            self.line_picks = None;
             cx.notify();
         }
         back
@@ -565,8 +567,10 @@ impl Detail {
             let on = picked == Some(path);
             let label = file_label(path, on, theme, cx);
             let path = path.clone();
-            let bar = div().flex_none().w(dp(72.));
+            let bar = div().flex_none().w(dp(48.));
             share_row(("now-hot", ix), label, bar, (*n, most), (on, true), theme)
+                // In full, as a long name can leave its folder no room.
+                .tooltip(Tooltip::text(path.to_string()))
                 .on_mouse_down(MouseButton::Left, keep_focus_on_press)
                 .on_click(
                     cx.listener(move |this, _, _, cx| this.pick_hot_file(Some(path.clone()), cx)),
@@ -875,9 +879,9 @@ fn scrolling(
         .children(scrollbar(ids.1, Scroll::Div(scroll.clone()), theme))
 }
 
-/// A file's icon and name, then its folder fainter and cut in the middle, as the file list
-/// draws one, but quieter, as an overview lists files beside what they belong to; `on` a
-/// solid selection, as the row's text is.
+/// A file's icon and name, then its folder fainter and cut from the start, as its nearest
+/// folders tell apart the `page.tsx` files a web app has in every route, but quieter, as an
+/// overview lists files beside what they belong to; `on` a solid selection, as the row's text is.
 fn file_label(path: &str, on: bool, theme: &Theme, cx: &App) -> Div {
     let (name, dir) = diff::split_path(path);
     let muted = match on {
@@ -891,9 +895,8 @@ fn file_label(path: &str, on: bool, theme: &Theme, cx: &App) -> Div {
         .child(file_icon(path, cx).flex_none())
         // The folder gives way first, then the name, in a narrow column.
         .child(
-            div()
-                .min_w_0()
-                .truncate()
+            (div().min_w_0().overflow_hidden().whitespace_nowrap())
+                .text_ellipsis_middle()
                 .when(!on, |el| el.text_color(theme.text_2))
                 .child(name.to_owned()),
         )
@@ -904,7 +907,7 @@ fn file_label(path: &str, on: bool, theme: &Theme, cx: &App) -> Div {
                     .min_w_0()
                     .overflow_hidden()
                     .whitespace_nowrap()
-                    .text_ellipsis_middle()
+                    .text_ellipsis_start()
                     .text_color(muted)
                     .child(dir.to_owned()),
             )

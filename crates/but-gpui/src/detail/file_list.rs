@@ -432,7 +432,8 @@ impl Detail {
         if !self.file_picks.is_empty() {
             return self.owned_cut(self.picked_changes(), cx);
         }
-        if !self.shown_files().contains(&self.cursor.file) {
+        // Not the cursor's file under a checkout's overview, where no row says which it is.
+        if !self.shown_files().contains(&self.cursor.file) || self.showing_now(cx) {
             return None;
         }
         let file = self.diff.as_ref()?.files.get(self.cursor.file)?;
@@ -453,13 +454,19 @@ impl Detail {
 
     /// The loaded diff's picked files, whole, in its order: not those it doesn't show.
     pub(super) fn picked_changes(&self) -> Vec<Selected> {
+        let picks: HashSet<&str> = self.file_picks.iter().map(String::as_str).collect();
+        (self.shown_changes().into_iter())
+            .filter(|s| picks.contains(s.file.path.as_str()))
+            .collect()
+    }
+
+    /// The whole of each file the diff shows, as a filter leaves them.
+    pub(super) fn shown_changes(&self) -> Vec<Selected> {
         let Some(diff) = &self.diff else {
             return Vec::new();
         };
-        let picks: HashSet<&str> = self.file_picks.iter().map(String::as_str).collect();
         (self.shown_files().into_iter())
             .filter_map(|ix| diff.files.get(ix))
-            .filter(|f| picks.contains(f.file.path.as_str()))
             .map(|f| Selected::whole(&f.file))
             .collect()
     }
@@ -634,7 +641,17 @@ impl Detail {
                 .size(dp(14.))
                 .child(img(Icon::FolderFill.path()).w(dp(17.)).h(dp(14.))),
         )
-        .child(div().flex_1().min_w_0().truncate().child(name))
+        // Cut in the middle: a chain of folders, `ios/App/Resources/de.lproj`, ends in the one
+        // that tells it from its siblings.
+        .child(
+            (div()
+                .flex_1()
+                .min_w_0()
+                .overflow_hidden()
+                .whitespace_nowrap())
+            .text_ellipsis_middle()
+            .child(name),
+        )
         .when(added + removed > 0, |el| {
             el.child(
                 diff::stats(added, removed, theme)
@@ -850,7 +867,9 @@ impl Detail {
                         div()
                             .flex_shrink_0()
                             .max_w_full()
-                            .truncate()
+                            .overflow_hidden()
+                            .whitespace_nowrap()
+                            .text_ellipsis_middle()
                             .child(name.to_owned()),
                     )
                     .when(!dir.is_empty(), |el| {
@@ -974,6 +993,9 @@ impl Detail {
             return None;
         }
         let path = self.diff_path(self.cursor.file)?;
+        if self.showing_now(cx) && !self.file_picks.contains(&path) {
+            return None;
+        }
         // A picked file's menu is all the picks', as on its row.
         let payload = match self.file_picks.contains(&path) {
             true => self.owned_cut(self.picked_changes(), cx),

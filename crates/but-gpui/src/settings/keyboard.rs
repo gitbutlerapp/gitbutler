@@ -345,10 +345,10 @@ fn place(context: &str) -> Option<&'static str> {
     })
 }
 
-/// The key contexts a binding's `context` names, but the text field it's kept out of.
+/// The key contexts a binding's `context` names, but the text field and those it's kept out of.
 fn identifiers(context: &str) -> Vec<String> {
-    (context.split(|c: char| !c.is_alphanumeric() && c != '_'))
-        .filter(|id| !id.is_empty() && *id != "TextInput")
+    (context.split(|c: char| !c.is_alphanumeric() && c != '_' && c != '!'))
+        .filter(|id| !id.is_empty() && !id.starts_with('!') && *id != "TextInput")
         .map(str::to_owned)
         .collect()
 }
@@ -424,11 +424,12 @@ mod tests {
             Some("(Navigator || Diff) && !TextInput"),
             None,
             Some("Diff"),
+            Some("Files && !Composer > TextInput"),
         ];
         assert_eq!(
             places(contexts.into_iter()),
-            "Navigator, Diff, Anywhere",
-            "each place once, the text field left out"
+            "Navigator, Diff, Anywhere, File list",
+            "each place once, the text field and places kept out of left out"
         );
     }
 }

@@ -41,14 +41,32 @@ pub struct TargetCommit {
 }
 
 /// Up to `limit` of the target's commits, newest first, after `after` or from its tip;
-/// and whether there are older ones.
+/// and whether there are older ones. From the tip, the first page stops where the workspace
+/// forked off.
 pub fn target_commits(
     path: &Path,
     after: Option<CommitId>,
     limit: u32,
 ) -> Result<(Vec<TargetCommit>, bool)> {
     let ctx = open(path)?;
-    target_page(&ctx, &cached_reviews(&ctx), after, limit)
+    let cached = cached_reviews(&ctx);
+    let (mut commits, mut more) = target_page(&ctx, &cached, after, limit)?;
+    // The API reads a thousand at most at a time.
+    while after.is_some()
+        && more
+        && let Some(last) = commits.last().map(|c| c.id)
+        && let Some(left) = limit
+            .checked_sub(commits.len() as u32)
+            .filter(|left| *left > 0)
+    {
+        let (older, older_more) = target_page(&ctx, &cached, Some(last), left)?;
+        if older.is_empty() {
+            break;
+        }
+        more = older_more;
+        commits.extend(older);
+    }
+    Ok((commits, more))
 }
 
 /// The newest `limit` of the target's commits the workspace doesn't have yet, each named by
@@ -90,15 +108,19 @@ fn target_page(
     let repo = ctx.repo.get()?;
     let meta = ctx.project_meta()?;
     let source = super::target_source(&repo, &meta);
-    if let Some(local) =
-        (source.as_ref()).filter(|name| name.category() == Some(gix::refs::Category::LocalBranch))
-    {
-        let tip = repo.find_reference(local.as_ref())?.peel_to_id()?;
-        return local_target_page(&repo, tip.detach(), meta.target_commit_id, after, limit);
+    let tip = (source.as_ref()).and_then(|name| super::ref_tip(&repo, name.as_ref()));
+    // What's checked out has some already when the target was merged into its branch, as
+    // the count of new commits leaves them out too.
+    let new = (tip.map(|tip| super::new_commits(&repo, &meta, tip))).unwrap_or_default();
+    if let Some(tip) = tip.filter(|_| {
+        (source.as_ref())
+            .is_some_and(|name| name.category() == Some(gix::refs::Category::LocalBranch))
+    }) {
+        return local_target_page(&repo, tip, &new, after, limit);
     }
     // An upstream that isn't there, before a first push or after the remote deleted it, has
     // no history to list; the project's page says which.
-    if source.is_some_and(|name| super::ref_tip(&repo, name.as_ref()).is_none()) {
+    if source.is_some() && tip.is_none() {
         return Ok((Vec::new(), false));
     }
     drop(repo);
@@ -108,6 +130,7 @@ fn target_page(
         Some(limit),
     )?;
     let repo = ctx.repo.get()?;
+    let mailmap = repo.open_mailmap();
     let commits = (page.commits.into_iter())
         .map(|target| {
             let review = target.review.map(|review| {
@@ -127,8 +150,8 @@ fn target_page(
             });
             Ok(TargetCommit {
                 review,
-                incoming: !target.in_workspace,
-                ..target_commit(&repo.find_commit(target.commit.id)?)?
+                incoming: !target.in_workspace && new.contains(&target.commit.id),
+                ..target_commit(&mailmap, &repo.find_commit(target.commit.id)?)?
             })
         })
         .collect::<Result<Vec<TargetCommit>>>()?;
@@ -142,12 +165,12 @@ fn target_page(
 }
 
 /// [`target_page`] for a target with no upstream, which the API lists nothing of: the local
-/// branch's own history from `tip`, along first parents, with those `base`, what the workspace
-/// was last updated to, doesn't have incoming. The first page stops where the workspace is.
+/// branch's own history from `tip`, along first parents, with those among `new` incoming. The
+/// first page stops where the workspace is.
 fn local_target_page(
     repo: &gix::Repository,
     tip: gix::ObjectId,
-    base: Option<gix::ObjectId>,
+    new: &HashSet<gix::ObjectId>,
     after: Option<CommitId>,
     limit: u32,
 ) -> Result<(Vec<TargetCommit>, bool)> {
@@ -157,17 +180,17 @@ fn local_target_page(
     };
     let mut incoming = true;
     let mut commits = Vec::new();
+    let mailmap = repo.open_mailmap();
     while commits.len() < limit as usize
         && let Some(id) = cursor
     {
-        // Once one is in `base`'s history, so is every commit below it.
-        incoming = incoming
-            && base.is_some_and(|base| !super::is_ancestor(repo, id, base).unwrap_or(false));
+        // Once one is in the workspace's history, so is every commit below it.
+        incoming = incoming && new.contains(&id);
         let commit = repo.find_commit(id)?;
         cursor = present_first_parent(&commit);
         commits.push(TargetCommit {
             incoming,
-            ..target_commit(&commit)?
+            ..target_commit(&mailmap, &commit)?
         });
         if after.is_none() && !incoming {
             break;
@@ -178,9 +201,12 @@ fn local_target_page(
 
 /// `commit` as a target's history lists it. Whether it's incoming, and the pull request it
 /// landed, are for the caller to set.
-pub(super) fn target_commit(commit: &gix::Commit<'_>) -> Result<TargetCommit> {
+pub(super) fn target_commit(
+    mailmap: &gix::mailmap::Snapshot,
+    commit: &gix::Commit<'_>,
+) -> Result<TargetCommit> {
     let (title, body) = super::subject_and_body(&commit.message_raw_sloppy().to_str_lossy());
-    let ((author, email), agent) = super::commit_byline(commit)?;
+    let ((author, email), agent) = super::commit_byline(mailmap, commit)?;
     Ok(TargetCommit {
         id: CommitId(commit.id),
         title,
@@ -301,6 +327,9 @@ pub fn overview(path: &Path, now: i64) -> Result<Option<Overview>> {
     let mut daily = vec![0; ACTIVITY_DAYS];
     let mut people: Vec<Person> = Vec::new();
     let mut landings = Vec::new();
+    // People go by the names and emails `.mailmap` gives them, as one with a work and a
+    // personal email is one person.
+    let mailmap = repo.open_mailmap();
     // A walk of first parents only ignores a time cutoff, so it stops at the first commit
     // from before the window itself rather than reading the whole history.
     let line: Vec<_> = (repo.rev_walk([tip.id]).first_parent_only().all()?)
@@ -322,7 +351,7 @@ pub fn overview(path: &Path, now: i64) -> Result<Option<Overview>> {
             false => vec![landed.clone()],
         };
         for commit in brought.iter().filter(|c| c.parent_ids().count() < 2) {
-            let Ok(((name, email), _)) = super::commit_byline(commit) else {
+            let Ok(((name, email), _)) = super::commit_byline(&mailmap, commit) else {
                 continue;
             };
             let email = email.to_lowercase();
@@ -351,6 +380,7 @@ pub fn overview(path: &Path, now: i64) -> Result<Option<Overview>> {
         }
         landings.push(landing(
             &repo,
+            &mailmap,
             landed,
             first,
             &brought,
@@ -442,19 +472,27 @@ fn differing(
     old: Option<gix::ObjectId>,
     new: Option<gix::ObjectId>,
 ) -> Vec<(bstr::BString, bool, [Option<gix::ObjectId>; 2])> {
-    let entries = |tree: Option<gix::ObjectId>| -> HashMap<bstr::BString, _> {
-        (tree.and_then(|id| repo.find_tree(id).ok()).iter())
-            .flat_map(|tree| tree.iter())
-            .filter_map(|entry| {
-                let entry = entry.ok()?;
-                Some((
-                    entry.filename().to_owned(),
-                    (entry.mode(), entry.object_id()),
-                ))
-            })
-            .collect()
+    let entries = |tree: Option<gix::ObjectId>| -> Option<HashMap<bstr::BString, _>> {
+        let Some(tree) = tree else {
+            return Some(HashMap::new());
+        };
+        let tree = repo.find_tree(tree).ok()?;
+        Some(
+            (tree.iter())
+                .filter_map(|entry| {
+                    let entry = entry.ok()?;
+                    Some((
+                        entry.filename().to_owned(),
+                        (entry.mode(), entry.object_id()),
+                    ))
+                })
+                .collect(),
+        )
     };
-    let (old, new) = (entries(old), entries(new));
+    // A tree this clone doesn't have, as a treeless one, says nothing of what differs.
+    let (Some(old), Some(new)) = (entries(old), entries(new)) else {
+        return Vec::new();
+    };
     let names: BTreeSet<_> = old.keys().chain(new.keys()).collect();
     (names.into_iter())
         .filter_map(|name| {
@@ -472,6 +510,7 @@ fn differing(
 /// `landed` summed up as it landed on `day`: from its `first` parent, `brought` in.
 fn landing(
     repo: &gix::Repository,
+    mailmap: &gix::mailmap::Snapshot,
     landed: &gix::Commit<'_>,
     first: Option<gix::ObjectId>,
     brought: &[gix::Commit<'_>],
@@ -489,15 +528,20 @@ fn landing(
         .filter(|_| merge)
         .map(|(t, w)| t.seconds - w);
     let by = (own.clone().next())
-        .and_then(|c| super::commit_byline(c).ok())
+        .and_then(|c| super::commit_byline(mailmap, c).ok())
         .map(|((_, email), _)| email.to_lowercase());
-    // What it changed from where the line was, which for a merge is all it brought.
+    // What it changed from where the line was, which for a merge is all it brought; nothing
+    // for a commit whose parent this clone doesn't have, as a shallow one's oldest, which
+    // didn't add everything it has.
     let tree = |id: gix::ObjectId| Some(repo.find_commit(id).ok()?.tree_id().ok()?.detach());
-    let areas = areas(
-        repo,
-        first.and_then(tree),
-        landed.tree_id().ok().map(|id| id.detach()),
-    );
+    let areas = match first.is_none() && landed.parent_ids().next().is_some() {
+        true => Vec::new(),
+        false => areas(
+            repo,
+            first.and_then(tree),
+            landed.tree_id().ok().map(|id| id.detach()),
+        ),
+    };
     Landing {
         id: CommitId(landed.id),
         title: (review.as_ref())
@@ -559,12 +603,13 @@ pub fn merged_commits(
         !others.is_empty(),
         "this clone doesn't have the commits it merged"
     );
+    let mailmap = repo.open_mailmap();
     let walk = (repo.rev_walk(others))
         .with_hidden([first])
         .sorting(Sorting::ByCommitTime(CommitTimeOrder::NewestFirst))
         .all()?;
     let mut commits = (walk.take(limit + 1))
-        .map(|info| target_commit(&info?.object()?))
+        .map(|info| target_commit(&mailmap, &info?.object()?))
         .collect::<Result<Vec<_>>>()?;
     let more = commits.len() > limit;
     commits.truncate(limit);
@@ -1165,6 +1210,35 @@ mod tests {
                 ],
                 "newest first, each with the commits it brought and where it changed things: the \
                  first two folders of a file, its folder when one deep, the top level for one there"
+            );
+        })
+    }
+
+    #[test]
+    fn people_are_named_as_the_mailmap_has_them() {
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::ops::tests::{git, repo_with};
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            for (email, message) in [("ama@gmail.com", "home"), ("ama@acme.io", "work")] {
+                let author = format!("--author=Ama Silva <{email}>");
+                git(path, &["commit", "--allow-empty", &author, "-qm", message]);
+            }
+            std::fs::write(path.join(".mailmap"), "<ama@acme.io> <ama@gmail.com>\n").unwrap();
+
+            crate::backend::settings::set_target(path, "refs/heads/main").unwrap();
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64;
+            let summed = overview(path, now).unwrap().expect("a target");
+            let people: Vec<(&str, u32)> = (summed.people.iter())
+                .map(|p| (p.email.as_str(), p.daily.iter().sum()))
+                .collect();
+            assert_eq!(
+                people,
+                [("ama@acme.io", 2), ("t@example.com", 1)],
+                "one person with a work and a personal email counts once, as `git shortlog` does"
             );
         })
     }

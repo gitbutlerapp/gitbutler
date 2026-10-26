@@ -367,8 +367,9 @@ impl Detail {
                     "No uncommitted changes",
                     "Edits show up here as soon as they're saved".into(),
                 ),
-                // The header above says what it did instead.
-                DiffSource::Snapshot { .. } => (None, "", "It changed no files".into()),
+                // The header above says what it did instead. History compares what's
+                // committed, so a discard's files, which restoring brings back, aren't listed.
+                DiffSource::Snapshot { .. } => (None, "", "It changed no committed files".into()),
                 _ => (Some(Illustration::Cactus), "", self.changes_nothing(cx)),
             };
             return ground()
@@ -874,7 +875,9 @@ impl Detail {
                         el.tooltip(Tooltip::text("Show the whole file")).on_click(
                             move |_, _, cx| {
                                 whole
-                                    .update(cx, |detail, cx| detail.toggle_whole(file, cx))
+                                    .update(cx, |detail, cx| {
+                                        detail.toggle_whole(file, Some(hunk), cx)
+                                    })
                                     .ok();
                             },
                         )
@@ -1030,7 +1033,7 @@ impl Detail {
                 .tooltip(tip)
                 .on_click(move |_, _, cx| {
                     entity
-                        .update(cx, |detail, cx| detail.toggle_whole(file, cx))
+                        .update(cx, |detail, cx| detail.toggle_whole(file, None, cx))
                         .ok();
                 })
                 .into_any_element(),
@@ -1079,12 +1082,19 @@ impl Detail {
         self.rebuild_rows(cx);
     }
 
-    /// Show every line of `file`, or only its hunks again.
-    fn toggle_whole(&mut self, file: usize, cx: &mut Context<Self>) {
+    /// Show every line of `file`, or only its hunks again. Asked by the header of its `hunk`,
+    /// that hunk stays where it is on screen, the lines above it coming in above.
+    fn toggle_whole(&mut self, file: usize, hunk: Option<usize>, cx: &mut Context<Self>) {
         let Some(path) = self.diff_path(file) else {
             return;
         };
+        self.whole_anchor = None;
         if self.whole.remove(&path).is_none() {
+            let top = self.list.logical_scroll_top().item_ix;
+            self.whole_anchor = (hunk.zip(self.diff.as_ref())).and_then(|(hunk, diff)| {
+                let at = (diff.rows.iter()).position(|r| *r == DiffRow::Hunk { file, hunk })?;
+                Some((path.clone(), hunk, at.checked_sub(top)?))
+            });
             self.whole.insert(path, None);
             self.load_whole(file, cx);
         }
@@ -1123,12 +1133,13 @@ impl Detail {
                         .find(|(_, f)| f.file.path == path)
                         .map(|(ix, f)| (ix, f.fingerprint))
                 });
-                match now {
-                    Some((_, now)) if now == fingerprint => {}
+                let file = match now {
+                    Some((ix, now)) if now == fingerprint => ix,
                     // The file changed while it was read: read it again as it is now.
                     Some((ix, _)) => return this.load_whole(ix, cx),
                     None => return,
-                }
+                };
+                let anchor = this.whole_anchor.take_if(|(asked, ..)| *asked == path);
                 match lines {
                     Ok(Some((lines, widest))) => {
                         this.whole
@@ -1145,6 +1156,17 @@ impl Detail {
                     }
                 }
                 this.rebuild_rows(cx);
+                if let Some((_, hunk, down)) = anchor
+                    && let Some(at) = (this.diff.as_ref()).and_then(|diff| {
+                        (diff.rows.iter()).position(|r| *r == DiffRow::Hunk { file, hunk })
+                    })
+                {
+                    let top = this.list.logical_scroll_top();
+                    (this.list).scroll_to(gpui::ListOffset {
+                        item_ix: at.saturating_sub(down),
+                        ..top
+                    });
+                }
             })
             .ok();
         })

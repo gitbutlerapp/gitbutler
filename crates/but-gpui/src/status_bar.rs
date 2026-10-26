@@ -147,9 +147,10 @@ impl AppView {
                 let target = entry.workspace.as_ref()?.target.as_ref()?;
                 // A target with no upstream stands where it is whatever a fetch brings. After
                 // a failed fetch, what the remote has now is anyone's guess.
-                let fetched = match store.fetch_failed_at(&entry.id) {
-                    Some(_) if !target.local => Some(" · couldn't fetch".to_owned()),
-                    _ => (store.fetched_at(&entry.id))
+                let failed = store.fetch_failed_at(&entry.id).is_some() && !target.local;
+                let fetched = match failed {
+                    true => Some(" · couldn't fetch".to_owned()),
+                    false => (store.fetched_at(&entry.id))
                         .filter(|_| !target.local)
                         .and_then(|at| at.duration_since(std::time::UNIX_EPOCH).ok())
                         .map(|at| format!(" · fetched {}", crate::ui::ago(at.as_secs() as i64))),
@@ -162,7 +163,19 @@ impl AppView {
                             entry.project.name, target.name
                         )
                     }
-                    0 => format!("{} · up to date with {}", entry.project.name, target.name),
+                    0 => match &target.untracked {
+                        Some(remote) => format!(
+                            "{} · {} doesn't track {remote}",
+                            entry.project.name, target.name
+                        ),
+                        // Not up to date for all it knows.
+                        None if failed => {
+                            let said =
+                                format!("{} · couldn't fetch {}", entry.project.name, target.name);
+                            return Some(said);
+                        }
+                        None => format!("{} · up to date with {}", entry.project.name, target.name),
+                    },
                     n => format!(
                         "{} · {} behind {}{}",
                         entry.project.name,

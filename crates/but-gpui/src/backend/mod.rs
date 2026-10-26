@@ -252,7 +252,15 @@ pub fn activate(path: &Path) -> Result<()> {
         let inferred = but_workspace::init::infer_default_target_ref(&*ctx.repo.get()?)?;
         if let Some(target) = inferred {
             let target = target.as_local_full_name_ref();
-            but_api::workspace::set_target_ref_and_init_project(&mut ctx, target, None)?;
+            // A checkout with no commits yet, as a new orphan branch is, can't take one until
+            // it has some, and is still watched meanwhile: the next activation tries again.
+            let unborn = ctx.repo.get()?.head()?.is_unborn();
+            match but_api::workspace::set_target_ref_and_init_project(&mut ctx, target, None) {
+                Err(err) if unborn => {
+                    tracing::warn!("couldn't make {} the target: {err:#}", target.shorten())
+                }
+                set => set?,
+            }
         }
     }
     Ok(())
@@ -425,12 +433,12 @@ fn target(
     let stacks_behind = info.has_lanes_behind_target
         && (info.stacks.iter())
             .any(|stack| stack.base.is_some_and(|base| Some(base) != target_commit));
-    // What's new is what the target branch's upstream has past the stored target commit: what
-    // a pull brings in. Without an upstream, it's what the local target branch itself gained,
-    // as from a land or a `git merge` into it. Without a stored commit, as for a project added
-    // since its target last moved, there's nothing to bring.
+    // What's new is what the target branch's upstream has that what's checked out doesn't:
+    // what a pull brings in. Without an upstream, it's what the local target branch itself
+    // gained, as from a land or a `git merge` into it.
     let repo = ctx.repo.get()?;
-    let Some(source) = meta.and_then(|meta| target_source(&repo, meta)) else {
+    let Some((meta, source)) = meta.and_then(|meta| Some((meta, target_source(&repo, meta)?)))
+    else {
         return Ok((None, None));
     };
     let Some(tip) = ref_tip(&repo, source.as_ref()) else {
@@ -439,12 +447,9 @@ fn target(
         let lost = remote_has_branches(&repo, source.as_ref());
         return Ok((None, lost.then(|| source.shorten().to_string())));
     };
-    // The stored commit is walked once, though most stacks sit on it too.
-    let past = |base| (commits_past(&repo, tip, base), base);
-    let ahead = target_commit.map(past);
-    let stacks = (info.stacks.iter().filter_map(|s| s.base)).filter(|&b| Some(b) != target_commit);
-    let (behind, commits_behind) =
-        behind_oldest(&repo, tip, ahead.into_iter().chain(stacks.map(past)));
+    let ahead = target_commit.map(|base| commits_past(&repo, tip, base));
+    let new = new_commits(&repo, meta, tip);
+    let commits_behind = new.len();
     // The longest remote name that fits, as remote names can hold slashes too.
     let branch =
         but_core::extract_remote_name_and_short_name(source.as_ref(), &repo.remote_names())
@@ -452,13 +457,21 @@ fn target(
                 || source.shorten().to_string(),
                 |(_, branch)| branch.to_string(),
             );
+    let local = source.category() == Some(gix::refs::Category::LocalBranch);
+    let untracked = (repo.remote_default_name(gix::remote::Direction::Fetch))
+        .filter(|_| local)
+        .map(|remote| format!("{remote}/{}", source.shorten()))
+        .filter(|name| (repo.find_reference(format!("refs/remotes/{name}").as_str())).is_ok());
     let target = Target {
         name: source.shorten().to_string(),
         branch,
-        local: source.category() == Some(gix::refs::Category::LocalBranch),
-        behind,
+        local,
+        untracked,
+        behind: first_parent_run(&repo, tip, &new),
         commits_behind,
-        needs_update: ahead.is_some_and(|(ahead, _)| ahead > 0) || stacks_behind,
+        // The stored commit can be past what's checked out, as when main is added behind its
+        // upstream, which an update fast-forwards.
+        needs_update: ahead.is_some_and(|ahead| ahead > 0) || commits_behind > 0 || stacks_behind,
         incoming: match commits_behind {
             0 => Vec::new(),
             _ => upstream::incoming(ctx, cached, model::UPSTREAM_SHOWN).unwrap_or_else(|err| {
@@ -669,23 +682,45 @@ fn commits_past(repo: &gix::Repository, tip: gix::ObjectId, base: gix::ObjectId)
     (repo.rev_walk([tip]).with_hidden([base]).all()).map_or(0, |walk| walk.count())
 }
 
-/// How far `tip` is past the oldest of `bases`, each given with its [`commits_past`]: the
-/// commits on its own line of history, each merge once, and all of them. What's new runs down
-/// to the oldest commit a stack still sits on, as the list of new commits does, since a stack
-/// left on an older target commit, as updating only some lanes leaves the others, hasn't the
-/// commits between.
-fn behind_oldest(
+/// What target `tip` has that what's checked out doesn't, as `but status` counts from where
+/// they part: HEAD can be behind the stored target commit, as main added behind its upstream
+/// is, or a branch applied from an older base leaves it, or have more, as a branch the target
+/// was merged into does. Nothing when HEAD shares no history with the target, as an orphan
+/// branch's, and with no HEAD yet, what's past the stored commit.
+fn new_commits(
+    repo: &gix::Repository,
+    meta: &but_core::ref_metadata::ProjectMeta,
+    tip: gix::ObjectId,
+) -> HashSet<gix::ObjectId> {
+    let hidden = match repo.head_id().ok().map(|id| id.detach()) {
+        Some(head) if !matches!(repo.merge_base(head, tip), Ok(Some(_))) => return HashSet::new(),
+        Some(head) => head,
+        None => match meta.target_commit_id {
+            Some(stored) => stored,
+            None => return HashSet::new(),
+        },
+    };
+    (repo.rev_walk([tip]).with_hidden([hidden]).all())
+        .map(|walk| walk.filter_map(Result::ok).map(|info| info.id).collect())
+        .unwrap_or_default()
+}
+
+/// How many of `new` are on `tip`'s own line of history, each merge once, as `but status`
+/// counts them.
+fn first_parent_run(
     repo: &gix::Repository,
     tip: gix::ObjectId,
-    bases: impl IntoIterator<Item = (usize, gix::ObjectId)>,
-) -> (usize, usize) {
-    let Some((all, oldest)) = bases.into_iter().max() else {
-        return (0, 0);
-    };
-    (
-        first_parent_steps(repo, tip, oldest, all).unwrap_or(all),
-        all,
-    )
+    new: &HashSet<gix::ObjectId>,
+) -> usize {
+    let mut run = 0;
+    let mut at = Some(tip);
+    while let Some(id) = at.filter(|id| new.contains(id)) {
+        run += 1;
+        at = (repo.find_commit(id).ok())
+            .and_then(|commit| commit.parent_ids().next())
+            .map(|id| id.detach());
+    }
+    run
 }
 
 /// How many first parents lead back from `tip` to `base`, at most `max`; `None` when `base`
@@ -719,11 +754,15 @@ fn byline_of(
     byline(owned(author), owned(committer))
 }
 
-/// Who `commit` is shown by: see [`byline`].
-fn commit_byline(commit: &gix::Commit<'_>) -> Result<((String, String), Option<Agent>)> {
+/// Who `commit` is shown by, as the repository's `mailmap` names them, as `git log` does: see
+/// [`byline`].
+fn commit_byline(
+    mailmap: &gix::mailmap::Snapshot,
+    commit: &gix::Commit<'_>,
+) -> Result<((String, String), Option<Agent>)> {
     Ok(byline_of(
-        &commit.author()?.into(),
-        &commit.committer()?.into(),
+        &mailmap.resolve(commit.author()?),
+        &mailmap.resolve(commit.committer()?),
     ))
 }
 
@@ -782,7 +821,9 @@ pub fn commit_signer(path: &Path, id: CommitId) -> Result<Option<&'static str>> 
 /// A commit message's subject and body as Git and GitHub split them: the subject is its first
 /// paragraph, its lines joined, so a title that runs on to a second line without a blank one
 /// is all of it; the body is the rest, as written, as a pull request description takes it.
+/// Without the codes a terminal colours text with, as test output pasted into one brings.
 pub fn subject_and_body(message: &str) -> (String, String) {
+    let message = printable(message);
     let blank = |line: &&str| line.trim().is_empty();
     let mut lines = message.lines().skip_while(blank);
     let subject: Vec<&str> = (lines.by_ref().take_while(|line| !blank(line)))
@@ -790,6 +831,26 @@ pub fn subject_and_body(message: &str) -> (String, String) {
         .collect();
     let body: Vec<&str> = lines.skip_while(blank).collect();
     (subject.join(" "), body.join("\n").trim_end().to_owned())
+}
+
+/// `text` without a terminal's escape sequences, `ESC [`, its parameters and its final letter,
+/// nor other control characters but line breaks and tabs.
+fn printable(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut chars = text.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '\u{1b}' if chars.as_str().starts_with('[') => {
+                chars.next();
+                // Parameters sort below `@`, the final letter from it.
+                chars.by_ref().find(|c| ('@'..='~').contains(c));
+            }
+            '\n' | '\t' => out.push(c),
+            c if c.is_control() => {}
+            c => out.push(c),
+        }
+    }
+    out
 }
 
 /// A commit message or comment's subject, as [`subject_and_body`] has it.
@@ -816,6 +877,7 @@ fn file_change(change: but_core::TreeChange) -> FileChange {
         size: None,
         conflicted: false,
         lines: None,
+        converted: false,
         change,
     }
 }
@@ -1186,36 +1248,80 @@ mod message_tests {
             "    cargo run -- --flag\n- a\n  - nested",
             "the body keeps its indentation, as Markdown's code blocks and nested lists need it"
         );
+        assert_eq!(
+            subject_and_body("\u{1b}[31;1mFAIL\u{1b}[0m fix flaky test\r\n\r\nSee \u{7}run.\n").0,
+            "FAIL fix flaky test",
+            "a terminal's colour codes and control characters don't show"
+        );
     }
 }
 
 #[cfg(test)]
 mod behind_tests {
+    use but_core::ref_metadata::{LocalRefName, ProjectMeta};
+
     use crate::backend::ops::tests::{git, head, repo_with};
 
     #[test]
-    fn whats_new_runs_down_to_the_oldest_base() {
+    fn whats_new_is_what_the_checkout_lacks_past_the_stored_commit() {
         let dir = repo_with("one\n");
         let path = dir.path();
         let commit = |message: &str| {
             git(path, &["commit", "-q", "--allow-empty", "-m", message]);
             head(path).0
         };
-        let old = head(path).0;
+        let stored = head(path).0;
+        git(path, &["checkout", "-q", "-b", "feature"]);
+        commit("feature work");
+        git(path, &["checkout", "-q", "main"]);
         commit("two");
-        let stored = commit("three");
+        commit("three");
+        git(path, &["checkout", "-q", "feature"]);
+        git(path, &["merge", "-q", "--no-edit", "main"]);
+        git(path, &["checkout", "-q", "main"]);
         let tip = commit("four");
-        let repo = gix::open(path).unwrap();
-        let past = |base| (super::commits_past(&repo, tip, base), base);
+        let mut meta = ProjectMeta {
+            target_ref: Some(LocalRefName::new("refs/heads/main".try_into().unwrap()).unwrap()),
+            target_commit_id: Some(stored),
+            ..ProjectMeta::default()
+        };
+        let new = |meta: &ProjectMeta| {
+            let repo = gix::open(path).unwrap();
+            let new = super::new_commits(&repo, meta, tip);
+            (super::first_parent_run(&repo, tip, &new), new.len())
+        };
+
+        git(path, &["checkout", "-q", "feature"]);
         assert_eq!(
-            super::behind_oldest(&repo, tip, [past(stored), past(old)]),
-            (3, 3),
-            "a stack still on an older commit hasn't the ones since, though the stored target has"
-        );
-        assert_eq!(
-            super::behind_oldest(&repo, tip, [past(stored)]),
+            new(&meta),
             (1, 1),
-            "with every stack on the stored target, only what's past it"
+            "a branch that merged main in has two and three already, as `but status` says"
+        );
+        git(path, &["checkout", "-q", "--orphan", "pages"]);
+        commit("pages");
+        assert_eq!(
+            new(&meta),
+            (0, 0),
+            "nothing is new to a checkout that shares no history with the target"
+        );
+        git(path, &["checkout", "-q", "-b", "old", &stored.to_string()]);
+        let past = ProjectMeta {
+            target_commit_id: Some(tip),
+            ..meta.clone()
+        };
+        assert_eq!(
+            new(&past),
+            (3, 3),
+            "a checkout behind the stored commit, as a branch applied from an older base \
+             leaves it, lacks what came after"
+        );
+        git(path, &["checkout", "-q", "-f", "main"]);
+        git(path, &["reset", "-q", "--hard", "HEAD~2"]);
+        meta.target_commit_id = Some(tip);
+        assert_eq!(
+            new(&meta),
+            (2, 2),
+            "main checked out behind the stored commit lacks what it hasn't pulled yet"
         );
     }
 }
