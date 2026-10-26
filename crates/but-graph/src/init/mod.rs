@@ -11,7 +11,6 @@ use gix::{
     prelude::{ObjectIdExt, ReferenceExt},
     refs::Category,
 };
-use petgraph::Direction;
 use tracing::instrument;
 
 use crate::{
@@ -22,9 +21,12 @@ mod walk;
 use walk::*;
 
 pub(crate) mod types;
-use types::{EdgeOwned, Goals, Instruction, Limit, Queue};
+use types::{Goals, Instruction, Limit, Queue};
 
 use crate::init::overlay::{OverlayMetadata, OverlayRepo};
+
+mod traversal_order;
+pub(crate) use traversal_order::TraversalOrderedGraph;
 
 mod remotes;
 
@@ -2407,7 +2409,7 @@ impl Graph {
     ) {
         let src_commit = src_commit.into();
         let dst_commit = dst_commit.into();
-        let new_edge_id = self.inner.add_edge(
+        self.inner.add_edge(
             src,
             dst,
             Edge {
@@ -2419,41 +2421,5 @@ impl Graph {
                 workspace_parent_order: None,
             },
         );
-        self.rebuild_outgoing_edges_for_traversal_order(src, new_edge_id);
-    }
-
-    fn rebuild_outgoing_edges_for_traversal_order(
-        &mut self,
-        src: SegmentIndex,
-        new_edge_id: petgraph::stable_graph::EdgeIndex,
-    ) {
-        let mut new_edge = None;
-        let mut outgoing_edges = Vec::new();
-        for edge in self.inner.edges_directed(src, Direction::Outgoing) {
-            let edge = EdgeOwned::from(edge);
-            if edge.id == new_edge_id {
-                new_edge = Some(edge);
-            } else {
-                outgoing_edges.push(edge);
-            }
-        }
-
-        let Some(new_edge) = new_edge else {
-            return;
-        };
-        if outgoing_edges.is_empty() {
-            return;
-        }
-
-        let insert_at = outgoing_edges
-            .partition_point(|edge| edge.weight.parent_order <= new_edge.weight.parent_order);
-        outgoing_edges.insert(insert_at, new_edge);
-
-        for edge in &outgoing_edges {
-            self.inner.remove_edge(edge.id);
-        }
-        for edge in outgoing_edges.into_iter().rev() {
-            self.inner.add_edge(edge.source, edge.target, edge.weight);
-        }
     }
 }
