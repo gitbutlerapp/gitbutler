@@ -6,6 +6,8 @@ pub(crate) mod build;
 mod lanes;
 mod push;
 
+pub use lanes::{Checkout, Lane};
+
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -61,7 +63,8 @@ pub struct Workspace {
     pub lost_target: Option<String>,
     /// The forge that hosts the target, when there is one to make pull requests on.
     pub forge: Option<Forge>,
-    pub stacks: Vec<Stack>,
+    /// The stacks, each a lane of the main checkout.
+    pub lanes: Vec<Lane>,
     pub uncommitted: Vec<FileChange>,
     /// The tree of the main checkout's `HEAD` that `uncommitted` was read against. While it's
     /// the same, an operation on commits left the files as they were: see [`super::Kept`].
@@ -168,7 +171,8 @@ const INACTIVE_AFTER: std::time::Duration = std::time::Duration::from_secs(12 * 
 impl Workspace {
     /// The workspace's own branches, its stacks', which commits and moves go to.
     pub fn branches(&self) -> impl Iterator<Item = &Branch> {
-        self.stacks.iter().flat_map(|stack| &stack.branches)
+        self.lanes_in(&Checkout::Main)
+            .flat_map(|lane| &lane.branches)
     }
 
     /// Every branch shown: the workspace's, then its linked worktrees'.
@@ -286,12 +290,6 @@ pub struct Target {
 
 /// How many of the target's commits the workspace doesn't have yet are read with it.
 pub const UPSTREAM_SHOWN: usize = 8;
-
-#[derive(Debug, Clone)]
-pub struct Stack {
-    /// Branches from the top of the stack down to its base.
-    pub branches: Vec<Branch>,
-}
 
 #[derive(Debug, Clone)]
 pub struct Branch {
@@ -1312,8 +1310,9 @@ mod tests {
             review: None,
         };
         let ws = super::Workspace {
-            stacks: vec![super::Stack {
+            lanes: vec![super::Lane {
                 branches: vec![main],
+                checkout: super::Checkout::Main,
             }],
             target_branch: Some("refs/heads/main".into()),
             target: Some(super::Target {

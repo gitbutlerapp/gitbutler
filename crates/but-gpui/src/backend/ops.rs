@@ -1132,7 +1132,7 @@ pub(super) mod tests {
     use std::process::Command;
 
     use super::*;
-    use crate::backend::{DiffBody, DiffSource, FileDiff, Kept, Workspace, load_diff};
+    use crate::backend::{Checkout, DiffBody, DiffSource, FileDiff, Kept, Workspace, load_diff};
 
     /// A linked worktree of `path` on a new branch `agent`, in a directory of its own. Dropping
     /// the directory deletes the worktree.
@@ -1837,9 +1837,11 @@ pub(super) mod tests {
             let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
             assert!(!workspace.managed, "still outside the workspace");
             assert_eq!(
-                (workspace.stacks.iter().flat_map(|s| &s.branches))
-                    .map(|b| b.ref_name.as_str())
-                    .collect::<Vec<_>>(),
+                (workspace
+                    .lanes_in(&Checkout::Main)
+                    .flat_map(|s| &s.branches))
+                .map(|b| b.ref_name.as_str())
+                .collect::<Vec<_>>(),
                 [new.as_str()],
                 "the branch checked out is listed as the only one"
             );
@@ -1960,7 +1962,7 @@ pub(super) mod tests {
             std::fs::write(path.join("file"), "two\n").unwrap();
             let lanes = |path: &Path| {
                 let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
-                let mut lanes: Vec<Vec<String>> = (workspace.stacks.iter())
+                let mut lanes: Vec<Vec<String>> = (workspace.lanes_in(&Checkout::Main))
                     .map(|s| s.branches.iter().map(|b| b.name.clone()).collect())
                     .collect();
                 lanes.sort();
@@ -2080,9 +2082,11 @@ pub(super) mod tests {
                     Some("refs/heads/main"),
                     "the composer knows which branch not to commit to"
                 );
-                (workspace.stacks.iter().flat_map(|s| &s.branches))
-                    .map(|b| (b.name.clone(), b.commits.len()))
-                    .collect::<Vec<_>>()
+                (workspace
+                    .lanes_in(&Checkout::Main)
+                    .flat_map(|s| &s.branches))
+                .map(|b| (b.name.clone(), b.commits.len()))
+                .collect::<Vec<_>>()
             };
             assert_eq!(
                 branches(path),

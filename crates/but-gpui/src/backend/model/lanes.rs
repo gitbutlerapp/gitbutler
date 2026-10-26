@@ -1,9 +1,22 @@
-use super::{Branch, CommitId, Stack, Workspace};
+use super::{Branch, CommitId, Workspace};
+
+/// The checkout a lane's branches are worked on in.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Checkout {
+    Main,
+}
+
+#[derive(Debug, Clone)]
+pub struct Lane {
+    /// Branches from the top of the lane down to its base.
+    pub branches: Vec<Branch>,
+    pub checkout: Checkout,
+}
 
 impl Workspace {
     /// The branches of each stack, then of each linked worktree's lane, top first.
     pub fn lanes(&self) -> impl Iterator<Item = &[Branch]> {
-        (self.stacks.iter().map(|stack| &stack.branches[..]))
+        (self.lanes.iter().map(|lane| &lane.branches[..]))
             .chain(self.worktrees.iter().map(|wt| &wt.branches[..]))
     }
 
@@ -47,9 +60,17 @@ impl Workspace {
         })
     }
 
+    /// The lanes worked on in `checkout`.
+    pub fn lanes_in<'a>(
+        &'a self,
+        checkout: &'a Checkout,
+    ) -> impl Iterator<Item = &'a Lane> + Clone {
+        (self.lanes.iter()).filter(move |lane| lane.checkout == *checkout)
+    }
+
     /// The stack holding the branch `ref_name`, and the branch's place in it from the top.
-    pub fn stack_of(&self, ref_name: &str) -> Option<(&Stack, usize)> {
-        self.stacks.iter().find_map(|stack| {
+    pub fn stack_of(&self, ref_name: &str) -> Option<(&Lane, usize)> {
+        self.lanes_in(&Checkout::Main).find_map(|stack| {
             let at = stack.branches.iter().position(|b| b.ref_name == ref_name)?;
             Some((stack, at))
         })

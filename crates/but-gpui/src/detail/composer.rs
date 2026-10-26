@@ -11,8 +11,8 @@ use gpui::{
 
 use super::{ChecksChanged, Detail, DiffKey, PickCommitTarget};
 use crate::backend::{
-    self, Branch, CommitId, Destination, DiffBody, DiffSource, FileChange, FileDiff, Hunk, HunkKey,
-    LineKind, PushState, Selected, ai, short_ref,
+    self, Branch, Checkout, CommitId, Destination, DiffBody, DiffSource, FileChange, FileDiff,
+    Hunk, HunkKey, LineKind, PushState, Selected, ai, short_ref,
 };
 use crate::palette::Choice;
 use crate::state::{Cut, NewAt, Overlay, ProjectId, Selection, Store, snack};
@@ -818,7 +818,7 @@ impl Detail {
         {
             return Some(target.clone());
         }
-        (workspace.stacks.iter())
+        (workspace.lanes_in(&Checkout::Main))
             .filter_map(|stack| stack.branches.first())
             .find(|branch| takes_commits(store, project, branch))
             .map(|branch| branch.ref_name.clone())

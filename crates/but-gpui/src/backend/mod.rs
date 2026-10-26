@@ -368,13 +368,14 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     };
 
     let cached = reviews::cached_reviews(&ctx);
-    let stacks: Vec<Stack> = info
+    let lanes: Vec<Lane> = info
         .stacks
         .iter()
-        .map(|stack| Stack {
+        .map(|stack| Lane {
             branches: (stack.segments.iter())
                 .map(|segment| branch_from(&ctx, &cached, segment))
                 .collect(),
+            checkout: Checkout::Main,
         })
         .collect();
     let meta = ctx.project_meta().ok();
@@ -387,7 +388,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     for worktree in &mut worktrees {
         let lane = (info.worktrees.iter()).find(|lane| lane.name == worktree.name.as_ref());
         let segments = lane.iter().flat_map(|lane| &lane.segments);
-        worktree.branches = worktree_branches(&ctx, &cached, segments, &stacks);
+        worktree.branches = worktree_branches(&ctx, &cached, segments, &lanes);
     }
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "loaded workspace");
     let target_branch = (meta.and_then(|meta| meta.target_ref)).map(|name| name.to_string());
@@ -398,7 +399,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         target,
         lost_target,
         forge: reviews::forge_name(&ctx).map(reviews::app_forge),
-        stacks,
+        lanes,
         uncommitted,
         tree,
         managed,
@@ -489,7 +490,7 @@ fn worktree_branches<'a>(
     ctx: &Context,
     cached: &HashMap<u64, but_forge::ForgeReview>,
     segments: impl Iterator<Item = &'a but_workspace::ref_info::Segment>,
-    stacks: &[Stack],
+    stacks: &[Lane],
 ) -> Vec<Branch> {
     use but_workspace::ref_info::LocalCommitRelation as R;
     let mut past_theirs = false;

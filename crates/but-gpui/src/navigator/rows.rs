@@ -7,7 +7,7 @@ use std::time::Duration;
 use gpui::{App, SharedString};
 
 use super::{ClickOpened, NEST, Navigator, STACK_STEP, upstream_chevrons};
-use crate::backend::{Branch, Workspace, Worktree};
+use crate::backend::{Branch, Checkout, Workspace, Worktree};
 use crate::state::{Cut, NewAt, ProjectEntry, ProjectId, Section, Selection, Store};
 
 /// Commits shown per branch before folding the rest into "N more".
@@ -194,7 +194,7 @@ impl Navigator {
             }
             if main_open {
                 // A stack being unapplied leaves at once.
-                let stacks = (workspace.stacks.iter()).filter(|stack| {
+                let stacks = workspace.lanes_in(&Checkout::Main).filter(|stack| {
                     !(stack.branches.iter()).any(|b| store.hides_branch(id, &b.ref_name))
                 });
                 // Whether a branch is checked out on its own or several share the workspace,
@@ -323,7 +323,7 @@ impl Navigator {
                     rows.open_in(NEST);
                 }
                 let heading_end = rows.rows.len();
-                for stack in &workspace.stacks {
+                for stack in workspace.lanes_in(&Checkout::Main) {
                     self.filtered_lane(store, id, &stack.branches, terms, own, &mut rows);
                 }
                 if headed {

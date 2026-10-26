@@ -1,4 +1,4 @@
-use super::{Branch, Commit, PushState, Stack, Workspace, Worktree};
+use super::{Branch, Checkout, Commit, Lane, PushState, Workspace, Worktree};
 
 pub(crate) fn branch(name: &str, commits: &[u8]) -> Branch {
     let id = |n: u8| gix::ObjectId::from_bytes_or_panic(&[n; 20]);
@@ -24,9 +24,12 @@ pub(crate) fn branch(name: &str, commits: &[u8]) -> Branch {
 
 pub(crate) fn workspace(stacks: Vec<Vec<Branch>>, linked: Vec<Branch>) -> Workspace {
     Workspace {
-        stacks: stacks
+        lanes: stacks
             .into_iter()
-            .map(|branches| Stack { branches })
+            .map(|branches| Lane {
+                branches,
+                checkout: Checkout::Main,
+            })
             .collect(),
         worktrees: vec![Worktree {
             name: "agent".into(),
@@ -49,8 +52,8 @@ pub(crate) fn describe(workspace: &Workspace) -> String {
             .collect::<Vec<_>>()
             .join(", ")
     };
-    let stacks =
-        (workspace.stacks.iter()).map(|stack| format!("Main: [{}]", names(&stack.branches)));
+    let stacks = (workspace.lanes_in(&Checkout::Main))
+        .map(|lane| format!("Main: [{}]", names(&lane.branches)));
     let mut worktrees: Vec<_> = workspace.worktrees.iter().collect();
     worktrees.sort_by_key(|worktree| &worktree.name);
     let worktrees = (worktrees.into_iter())
