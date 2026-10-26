@@ -74,24 +74,14 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 - Always pass `-m "<msg>"` (or `-F -` with a heredoc, `-F <file>` with a file outside the repository, or `--no-message`) to `but commit`, and to `but squash` whenever its sources are commits or branches unless the target is `@` — those compose a new message; without a flag an agent run keeps whatever the command composed (empty for `but commit`, the joined source messages for `but squash`) and a terminal opens an editor. Squash sources that are uncommitted or committed changes reuse the target's message and need no flag; squashing into `@` rejects message flags outright.
 - Amend: `but amend -t <commit-or-branch> <file-or-hunk-id> <file-or-hunk-id>` — a branch target resolves to its newest commit
 - Uncommit: `but uncommit <commit-id>` (whole commit), `but uncommit <branch>` (all commits and remove branch), `but uncommit <commit-id>:<file-id>` (committed file), or `but uncommit <commit-id>:<file-id>:<hunk-id>` (committed hunk); committed files and hunks may be mixed, but all must come from one commit
-- Insert empty commit: `but commit --empty -b <branch> -m "<msg>"`
-- Pick onto a new named branch: `but pick <commit-sha> --above <branch> -b <new-name>` (`--below` also works). The name must not exist; `-b` cannot be combined with commit/worktree targets.
-- Squash commits: `but squash <source-commit-id> [<source-commit-id>...] -t <target-commit-id> -m "<msg>"`
+- Pick onto a new named branch: `but pick <commit-sha> --above <branch> -b <new-name>` (`--below` also works), with the same `-b` rules.
 - Move committed changes into an existing commit or `@`: `but squash <commit-id>:<file-id> -t <commit-id-or-@>` for a committed file; `but squash <commit-id>:<file-id>:<hunk-id> -t <commit-id-or-@>` for a committed hunk; all sources must come from one commit
 - Move committed changes into a new commit at a chosen position: `but move <commit-id>:<file-id> --above <commit-or-branch> -m "<msg>"` for a committed file; `but move <commit-id>:<file-id>:<hunk-id> --above <commit-or-branch> -m "<msg>"` for a committed hunk (`--below`, `--branch`, and `--unstack` also work)
-- Split selected committed changes into a new commit immediately above their source: `but split <committed-file-or-hunk-id> [<committed-file-or-hunk-id>...] -m "<msg>"`
-- For `but split` and committed-change `but move`, use `-m/--message` to name the new commit directly; repeated `-m` values are joined with blank lines. For a multiline message, pass `-F -` with a heredoc, or `-F <file>` with a file outside the repository, instead of `-m`. Omitting both creates an empty-message commit without opening an editor. `but move -m` and `-F` reject whole-commit and branch sources.
-- Squash a whole branch into one commit: `but squash <branch> -m "<msg>"` (no `-t`)
-- Uncommit and remove a branch: `but uncommit <branch>`
-- Reorder commits: `but move <commit-id> --below <commit-id>` (`--above` for the other direction; **commit IDs**, not branch names)
-- Reorder a block: `but move <commit-id> <commit-id> --below <following-commit-id>` or `--above <preceding-commit-id>` (both anchors accept multiple space-separated sources)
+- `but split` and a `but move` of committed changes name their new commit with `-m` or `-F` too; without either the commit gets an empty message. `but move` rejects `-m`/`-F` for whole-commit and branch sources.
 - Move commit to branch top: `but move <commit-id> -b <branch>`
 - Move commits or committed changes onto a new named branch: `but move <source> --above <branch> -b <new-name>` (`--below` also works); use `but move <source> --unstack -b <new-name>` for an independent branch. Omit `-b` for a generated name. Naming is not supported when stacking or unstacking a branch source.
-- Stack branches: `but move <branch-name> --above <target-branch-name>` (**use full branch names**)
-- Tear off a branch: `but move <branch> --unstack`
 - Discard: `but discard <id> [<id>...]` — accepts branches, commits, committed changes, uncommitted changes, or `@` for all uncommitted changes
 - Push: `but push <top-branch>` — pushes the selected branch and its ancestors; to update a stack, select its top branch once and never loop. Bare `but push` pushes all unpushed work when run non-interactively — one push per stack (its topmost unpushed branch, ancestors included), and the output lists every branch it pushed. It exits non-zero if any stack failed; stacks that already pushed stay pushed, and rerunning after fixing the failure is safe (up-to-date stacks are skipped). `but push` and `but pr new` replace the remote branch: if others may have pushed to it, `but pull` first, and when `but status` then shows `(upstream: on origin/<branch>)` under the branch, run `but branch update <branch>` before pushing.
-- Pull (update workspace from the target): `but pull` — the output reports the result; `but pull --check` previews without updating when a preview is actually needed
 - Create PR: `but pr new <branch-name> [-m "Title..."] [-F - | -F <file>] [-t] [--draft]` — auto-pushes first; do not run `but push` before it
 
 ## Task Recipes
@@ -211,7 +201,7 @@ A wrong resolution is reverted with `but undo`.
 
 1. `but resolve <commit-id>` — enters resolution mode and prints the conflict regions.
 2. **Edit the files** to remove every conflict marker — `<<<<<<<`, `|||||||` (the common-ancestor section), `=======` and `>>>>>>>` — and keep the correct content. Do NOT skip this; do NOT use `but amend` on conflicted commits.
-   - A conflicted submodule has no markers, and `but resolve finish` refuses while it is unresolved, even to keep the commit's own side. Select it explicitly: check out the wanted commit inside the submodule (or write the file that replaces it) and run `git add -- <path>`, or drop it with `git rm -- <path>`. These are the only git write commands allowed during resolution, and only for the paths `finish` names; never `git commit`. If the submodule directory is empty or missing, do not `git add` it (for a missing one that stages its removal): keep any resolution edits you want and report the conflict. `but resolve cancel --force` abandons the resolution and discards its edits; use it only when those edits can be discarded.
+   - A conflicted submodule has no markers and `finish` refuses until you select its side: see Conflict Resolution Mode in `but skill concepts`.
 3. `but resolve finish` reports leftover markers, surviving uncommitted changes, every remaining conflicted commit, and the exact current `but resolve <id>` command. Add `--status-after` to the finish you expect to clear the last conflict only when the task needs the complete resulting workspace. When it says no conflicted commits remain, stop; do not run a verification status. Cancel instead with `but resolve cancel`.
 4. Repeat for remaining conflicted commits, oldest first — finishing a lower commit rebases the ones above it.
 
