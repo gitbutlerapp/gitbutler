@@ -1824,7 +1824,7 @@ To undo this operation:
 ┊
 ┊╭┄ i0:@ [uncommitted] {wt-detached} (no changes)
 ┊├┄ i0 (no commits)
-├╯
+├╯ 0dc3733 (1 commit behind origin/main)
 ┊
 ┊╭┄ ou:@ [uncommitted] {wt-outside} (no changes)
 ┊├┄ ou [wt-outside]
@@ -1885,6 +1885,50 @@ To undo this operation:
     assert!(
         !contains_target(&env, "wt-outside"),
         "a worktree resting on the target is not part of the workspace"
+    );
+
+    // The workspace is current, so only the lanes of the worktrees left on the old target say
+    // how far behind they are, and the hint names the one a pull would move.
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ g0 [A]
+┊┊
+┊┊╭┄ wt:@ [uncommitted] {wt-inside} (no changes)
+┊┊├┄ wt [wt-inside]
+┊┊●   nsn add W
+┊├╯
+┊●   tpm add A
+├╯
+┊
+┊╭┄ h0 [B]
+┊●   lrm add B
+├╯
+┊
+┊╭┄ i0:@ [uncommitted] {wt-detached} (no changes)
+┊├┄ i0 (no commits)
+├╯ 0dc3733 (1 commit behind origin/main)
+┊
+┊╭┄ ou:@ [uncommitted] {wt-outside} (no changes)
+┊├┄ ou [wt-outside]
+┊●   swk add W
+├╯ 0dc3733 (1 commit behind origin/main)
+┊
+┴ 526bb83 (common base, main, origin/main) 2000-01-02 upstream-change
+
+Hint: wt-outside is behind origin/main; run `but pull` to update it
+
+"#]]);
+    let wt_outside_base = status_json(&env)["worktrees"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|wt| wt["name"] == "wt-outside")
+        .unwrap()["base"]
+        .clone();
+    assert_eq!(
+        wt_outside_base["behind"], 1,
+        "the worktree's base lacks the one upstream commit"
     );
 
     env.but("pull --update=worktrees")
@@ -1977,7 +2021,7 @@ To undo this operation:
 ┊╭┄ ou:@ [uncommitted] {wt-outside} (no changes)
 ┊├┄ ou [wt-outside]
 ┊●   swk add W
-├╯
+├╯ 526bb83 (origin/main)
 ┊
 ┊● 526bb83 (main, upstream: origin/main) 1 new commit[..]
 ├╯ 0dc3733 (common base) 2000-01-02 add M
