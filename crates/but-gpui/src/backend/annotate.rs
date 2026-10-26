@@ -8,9 +8,10 @@ use deltoids::{EmphKind, LineEmphasis};
 use super::model::{DiffLine, Hunk, LineKind};
 
 /// Change runs whose removed bytes × added bytes exceed this are left plain: pairing lines
-/// up costs about that much time and memory, so one changed line of minified code could
-/// otherwise take seconds and gigabytes.
-const EMPHASIS_BUDGET: usize = 1 << 21;
+/// up costs about that much time and memory, so a rewrite of hundreds of lines could
+/// otherwise take seconds and gigabytes. A pair of lines at the diff's 2000-byte cut, as a
+/// paragraph written on one line is, still fits, at about 15ms at worst.
+const EMPHASIS_BUDGET: usize = 1 << 22;
 
 /// Mark the changed words of each removed line that pairs up with an added one.
 pub fn emphasize(hunk: &mut Hunk) {
@@ -186,6 +187,19 @@ mod tests {
     use crate::backend::HunkKey;
 
     const LIMIT: usize = 20;
+
+    #[test]
+    fn a_paragraph_on_one_line_gets_its_changed_word_marked() {
+        let paragraph = "word ".repeat(400);
+        let (old, new) = (format!("START {paragraph}"), format!("CHANGED {paragraph}"));
+        let mut hunk = changed_line(&old, &new, 1);
+        emphasize(&mut hunk);
+        assert_eq!(
+            hunk.lines[1].emph.first(),
+            Some(&(0..7)),
+            "a 2000-byte line, as the diff cuts one, marks the word that changed"
+        );
+    }
 
     /// The hunk Git makes, with 3 lines of context, for line `at` of `old` changed to
     /// `new`'s, the two having as many lines.
