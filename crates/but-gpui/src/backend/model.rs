@@ -837,8 +837,8 @@ pub struct Conflict {
     pub ancestor: Option<Vec<DiffLine>>,
     pub after: Vec<DiffLine>,
     /// Each side as the file has it, to keep both or edit from.
-    pub new_base_text: String,
-    pub commit_text: String,
+    pub new_base_text: bstr::BString,
+    pub commit_text: bstr::BString,
     /// What a merge's markers call the two sides, for conflicts it left in a file.
     pub labels: [String; 2],
 }

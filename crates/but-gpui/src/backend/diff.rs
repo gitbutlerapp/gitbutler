@@ -334,7 +334,10 @@ fn commit_side(
 /// would only show the markers as added lines.
 fn add_marker_conflicts(workdir: &Path, diffs: &mut [FileDiff]) {
     for diff in diffs.iter_mut().filter(|diff| diff.file.conflicted) {
-        let Ok(text) = std::fs::read_to_string(workdir.join(&diff.file.path)) else {
+        let Ok(path) = gix::path::from_bstr(diff.file.change.path.as_bstr()) else {
+            continue;
+        };
+        let Ok(text) = std::fs::read(workdir.join(path)) else {
             continue;
         };
         let conflicts = marker_conflicts(&diff.file.path, &text);
@@ -376,7 +379,7 @@ fn set_conflicts(diff: &mut FileDiff, conflicts: Vec<Conflict>) {
 
 /// The conflicts a merge left in `text`, the file at `path`, numbered by its lines: each
 /// side from the line its markers start at, with up to three lines around it.
-fn marker_conflicts(path: &str, text: &str) -> Vec<Conflict> {
+fn marker_conflicts(path: &str, text: &[u8]) -> Vec<Conflict> {
     let lines = markers::lines(text);
     let blocks = markers::blocks(&lines);
     let ids = markers::ids(&lines, &blocks);
@@ -386,7 +389,12 @@ fn marker_conflicts(path: &str, text: &str) -> Vec<Conflict> {
             .unwrap_or_default()
             .iter()
             .zip(from as u32..))
-        .map(|(raw, new)| context_line(new, &display_text(raw.trim_end_matches('\n'))))
+        .map(|(raw, new)| {
+            context_line(
+                new,
+                &display_text(raw.to_str_lossy().trim_end_matches('\n')),
+            )
+        })
         .collect()
     };
     (blocks.iter().enumerate().zip(ids))
@@ -445,8 +453,8 @@ fn conflicts_of(file: &but_api::resolve::ConflictedFile) -> Vec<Conflict> {
                 commit: lines(&hunk.theirs, at),
                 ancestor: hunk.base.as_deref().map(|base| lines(base, at)),
                 after: lines(&hunk.context_after, at + count(&hunk.ours)),
-                new_base_text: hunk.ours.clone(),
-                commit_text: hunk.theirs.clone(),
+                new_base_text: hunk.ours.as_str().into(),
+                commit_text: hunk.theirs.as_str().into(),
                 labels: Default::default(),
             };
             annotate_conflict(&file.path, &mut conflict);
