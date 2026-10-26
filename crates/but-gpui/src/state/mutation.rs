@@ -324,12 +324,12 @@ impl Remap {
     /// with none), that are gone from `now` followed to the one whose top that commit is now,
     /// as a rename queued before leaves them. Not to a branch `captured` has, as the one below
     /// that took a deleted branch's commits, nor to no name: those aren't renames.
-    fn following(mut self, captured: &[(String, String)], now: &[&Branch]) -> Self {
+    fn following(mut self, captured: &[(String, String)], now: &Workspace) -> Self {
         for (name, top) in captured {
-            if top.is_empty() || now.iter().any(|b| b.ref_name == *name) {
+            if top.is_empty() || now.find_branch(name).is_some() {
                 continue;
             }
-            let top_now = now.iter().find(|b| {
+            let top_now = now.all_branches().find(|b| {
                 b.commits.first().is_some_and(|c| c.key == *top)
                     && !b.ref_name.is_empty()
                     && !captured.iter().any(|(was, _)| *was == b.ref_name)
@@ -1349,7 +1349,7 @@ impl Store {
         let tops = (self
             .workspace(project)
             .into_iter()
-            .flat_map(|ws| ws.branches_in(&Checkout::Main)))
+            .flat_map(Workspace::all_branches))
         .map(|b| {
             let top = b
                 .commits
@@ -1408,13 +1408,11 @@ impl Store {
             let remap = Remap::new(
                 &next.captured,
                 now.map(|commit| (commit.key.as_str(), commit.id)),
-            )
-            .following(
-                &next.tops,
-                &ws.into_iter()
-                    .flat_map(|ws| ws.branches_in(&Checkout::Main))
-                    .collect::<Vec<_>>(),
             );
+            let remap = match ws {
+                Some(ws) => remap.following(&next.tops, ws),
+                None => remap,
+            };
             self.running.insert(
                 next.project,
                 Running {
@@ -2224,24 +2222,16 @@ mod tests {
 
     #[test]
     fn remap_follows_a_renamed_branch_by_its_top_commit() {
-        let branch = |name: &str, key: &str| Branch {
-            name: name.into(),
-            ref_name: format!("refs/heads/{name}"),
-            commits: vec![Commit {
-                key: key.into(),
-                ..Commit::bare(id(1).0)
-            }],
-            incoming: Vec::new(),
-            remote: None,
-            push: crate::backend::PushState::NeverPushed,
-            review: None,
-        };
-        let (renamed, other) = (branch("fix-v2", "top"), branch("other", "else"));
+        let now = workspace(
+            vec![vec![branch("fix-v2", &[1]), branch("other", &[2])]],
+            vec![worktree("wt", None, vec![branch("wt-v2", &[3])])],
+        );
         let captured = [
-            ("refs/heads/fix".to_owned(), "top".to_owned()),
+            ("refs/heads/fix".to_owned(), "key1".to_owned()),
             ("refs/heads/gone".to_owned(), "missing".to_owned()),
+            ("refs/heads/wt".to_owned(), "key3".to_owned()),
         ];
-        let remap = Remap::new(&HashMap::new(), []).following(&captured, &[&renamed, &other]);
+        let remap = Remap::new(&HashMap::new(), []).following(&captured, &now);
         let to = |name: &str| match remap.destination(Destination::Branch(name.into())) {
             Ok(Destination::Branch(name)) => name,
             _ => String::new(),
@@ -2257,32 +2247,28 @@ mod tests {
             "nothing to follow, as it was"
         );
         assert_eq!(to("refs/heads/other"), "refs/heads/other", "still there");
+        assert_eq!(
+            to("refs/heads/wt"),
+            "refs/heads/wt-v2",
+            "renamed in a linked worktree"
+        );
     }
 
     #[test]
     fn remap_doesnt_take_the_branch_below_for_a_deleted_one() {
-        let branch = |name: &str, key: &str| Branch {
-            name: name.into(),
-            ref_name: format!("refs/heads/{name}"),
-            commits: vec![Commit {
-                key: key.into(),
-                ..Commit::bare(id(1).0)
-            }],
-            incoming: Vec::new(),
-            remote: None,
-            push: crate::backend::PushState::NeverPushed,
-            review: None,
-        };
         // Deleted from the top of their stacks, their commits joined the branch below, which
         // had commits of its own in one and none in the other.
-        let (below, empty) = (branch("below", "top"), branch("empty", "top2"));
+        let now = workspace(
+            vec![vec![branch("below", &[1])], vec![branch("empty", &[2])]],
+            Vec::new(),
+        );
         let captured = [
-            ("refs/heads/top".to_owned(), "top".to_owned()),
+            ("refs/heads/top".to_owned(), "key1".to_owned()),
             ("refs/heads/below".to_owned(), "own".to_owned()),
-            ("refs/heads/top2".to_owned(), "top2".to_owned()),
+            ("refs/heads/top2".to_owned(), "key2".to_owned()),
             ("refs/heads/empty".to_owned(), String::new()),
         ];
-        let remap = Remap::new(&HashMap::new(), []).following(&captured, &[&below, &empty]);
+        let remap = Remap::new(&HashMap::new(), []).following(&captured, &now);
         for gone in ["refs/heads/top", "refs/heads/top2"] {
             let to = remap.destination(Destination::Branch(gone.into()));
             assert!(
