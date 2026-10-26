@@ -2,6 +2,7 @@
 
 use crate::commit::DateMode;
 use anyhow::{Context as _, Result, bail};
+use bstr::BString;
 use but_core::{
     ChangeId, RepositoryExt as _,
     commit::{
@@ -43,6 +44,8 @@ pub enum CherryPickOutcome {
         onto_merge_failed: bool,
         /// The shas of the commits that we were trying to cherry pick onto.
         ontos: Option<Vec<gix::ObjectId>>,
+        /// The paths of the unresolved conflicts, as far as the merges got before stopping.
+        conflicting_paths: Vec<BString>,
     },
 }
 
@@ -167,21 +170,32 @@ pub fn cherry_pick(
                 conflicted: target.is_conflicted(),
             })
         }
-        (MergeOutcome::Conflict { commits: bases }, MergeOutcome::Conflict { commits: ontos }) => {
+        (
+            MergeOutcome::Conflict {
+                commits: bases,
+                paths: base_paths,
+            },
+            MergeOutcome::Conflict {
+                commits: ontos,
+                paths: onto_paths,
+            },
+        ) => Ok(CherryPickOutcome::FailedToMergeBases {
+            base_merge_failed: true,
+            bases: Some(bases.to_vec()),
+            onto_merge_failed: true,
+            ontos: Some(ontos.to_vec()),
+            conflicting_paths: base_paths.iter().chain(onto_paths).cloned().collect(),
+        }),
+        (MergeOutcome::Conflict { commits, paths }, _) => {
             Ok(CherryPickOutcome::FailedToMergeBases {
                 base_merge_failed: true,
-                bases: Some(bases.to_vec()),
-                onto_merge_failed: true,
-                ontos: Some(ontos.to_vec()),
+                bases: Some(commits.to_vec()),
+                onto_merge_failed: false,
+                ontos: None,
+                conflicting_paths: paths.to_vec(),
             })
         }
-        (MergeOutcome::Conflict { commits }, _) => Ok(CherryPickOutcome::FailedToMergeBases {
-            base_merge_failed: true,
-            bases: Some(commits.to_vec()),
-            onto_merge_failed: false,
-            ontos: None,
-        }),
-        (_, MergeOutcome::Conflict { commits }) => {
+        (_, MergeOutcome::Conflict { commits, paths }) => {
             if let Some(outcome) = maybe_materialize_conflicted_onto_merge(
                 repo,
                 &target,
@@ -198,6 +212,7 @@ pub fn cherry_pick(
                     bases: None,
                     onto_merge_failed: true,
                     ontos: Some(commits.to_vec()),
+                    conflicting_paths: paths.to_vec(),
                 })
             }
         }
@@ -349,6 +364,8 @@ enum MergeOutcome {
     Conflict {
         /// The commits that we were trying to merge together
         commits: Vec<gix::ObjectId>,
+        /// The paths of the unresolved conflicts of the merge that stopped.
+        paths: Vec<BString>,
     },
 }
 
@@ -428,6 +445,12 @@ fn merged_tree_from_commits(
         if output.has_unresolved_conflicts(conflicts) {
             return Ok(MergeOutcome::Conflict {
                 commits: commits.into(),
+                paths: output
+                    .conflicts
+                    .iter()
+                    .filter(|conflict| conflict.is_unresolved(conflicts))
+                    .map(|conflict| conflict.ours.location().to_owned())
+                    .collect(),
             });
         }
 

@@ -321,6 +321,9 @@ FailedToMergeBases {
             Sha1(16cfd2c3707e064337a80ba66fc0f6d2171d6ddb),
         ],
     ),
+    conflicting_paths: [
+        "target-f",
+    ],
 }
 
 "#]]
@@ -640,6 +643,9 @@ FailedToMergeBases {
     ),
     onto_merge_failed: false,
     ontos: None,
+    conflicting_paths: [
+        "clean-f",
+    ],
 }
 
 "#]]
@@ -808,6 +814,9 @@ FailedToMergeBases {
     ),
     onto_merge_failed: false,
     ontos: None,
+    conflicting_paths: [
+        "clean-f",
+    ],
 }
 
 "#]]
@@ -846,6 +855,9 @@ FailedToMergeBases {
             Sha1(16cfd2c3707e064337a80ba66fc0f6d2171d6ddb),
         ],
     ),
+    conflicting_paths: [
+        "target-f",
+    ],
 }
 
 "#]]
