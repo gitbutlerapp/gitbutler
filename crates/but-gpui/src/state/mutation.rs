@@ -2047,7 +2047,17 @@ fn update_conflicts_detail(
     } else {
         "You can resolve them afterwards"
     };
-    detail.push(format!("{resolve}, or undo the update."));
+    let moves_worktrees = workspace.is_some_and(|ws| {
+        (ws.lanes.iter()).any(|lane| ws.beneath(lane).any(|link| !link.lane.checkout.is_linked()))
+    });
+    detail.push(if moves_worktrees {
+        format!(
+            "{resolve}. The update moves the linked worktrees resting on your branches too, \
+             so it can't be undone."
+        )
+    } else {
+        format!("{resolve}, or undo the update.")
+    });
     detail.join(" ")
 }
 
@@ -2214,9 +2224,22 @@ mod tests {
         assert_eq!(
             update_conflicts_detail("main", &found(&["middle", "wt"]), Some(&rested_on)),
             "Rebasing onto main leaves conflicted commits in middle (1 commit), wt (1 commit). \
-             You can resolve them afterwards, a linked worktree's in that worktree, or undo the \
-             update.",
-            "wt's conflicts resolve in it"
+             You can resolve them afterwards, a linked worktree's in that worktree. The update \
+             moves the linked worktrees resting on your branches too, so it can't be undone.",
+            "wt moves with middle, and its conflicts resolve in it"
+        );
+        let on_a_worktree = workspace(
+            vec![vec![branch("middle", &[2])]],
+            vec![
+                worktree("a", None, vec![branch("a", &[5])]),
+                worktree("b", Some(5), vec![branch("b", &[6])]),
+            ],
+        );
+        assert_eq!(
+            update_conflicts_detail("main", &found(&["middle"]), Some(&on_a_worktree)),
+            "Rebasing onto main leaves conflicted commits in middle (1 commit). \
+             You can resolve them afterwards, or undo the update.",
+            "b rests on a, which the update leaves where it is"
         );
     }
 
