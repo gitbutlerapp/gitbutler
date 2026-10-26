@@ -176,7 +176,7 @@ impl Overlay {
         let keyed = |key: &str| ws.commits().find(|commit| commit.key == key);
         let landing = (self.new_commit.iter()).map(|(at, _)| match at {
             NewAt::Top(ref_name) => {
-                let Some((lane, at)) = ws.lane_of(ref_name) else {
+                let Some((lane, at)) = ws.lane_of(Some(ref_name)) else {
                     return HashSet::new();
                 };
                 let tip = (lane.branches.iter().skip(at)).find_map(|b| b.commits.first());
@@ -233,10 +233,10 @@ impl Overlay {
     /// Whether `selection` is on a branch or in a linked worktree this takes away.
     fn takes_away(&self, selection: &Selection, store: &Store) -> bool {
         let branch = match selection {
-            Selection::Stack(_, bottom) => Some(bottom.as_str()),
+            Selection::Stack(_, bottom) => bottom.as_deref(),
             _ => store
                 .branch_for(selection)
-                .map(|branch| branch.ref_name.as_str()),
+                .and_then(|branch| branch.ref_name.as_deref()),
         };
         let worktree = match selection {
             Selection::Worktree(_, name) => Some(name),
@@ -244,7 +244,7 @@ impl Overlay {
         };
         let deleted = match selection {
             Selection::Branch(_, ref_name) | Selection::Stack(_, ref_name) => {
-                self.deleted_branches.contains(ref_name)
+                (ref_name.as_ref()).is_some_and(|ref_name| self.deleted_branches.contains(ref_name))
             }
             _ => false,
         };
@@ -326,16 +326,17 @@ impl Remap {
     /// that took a deleted branch's commits, nor to no name: those aren't renames.
     fn following(mut self, captured: &[(String, String)], now: &Workspace) -> Self {
         for (name, top) in captured {
-            if top.is_empty() || now.find_branch(name).is_some() {
+            if top.is_empty() || now.find_branch(Some(name)).is_some() {
                 continue;
             }
-            let top_now = now.all_branches().find(|b| {
-                b.commits.first().is_some_and(|c| c.key == *top)
-                    && !b.ref_name.is_empty()
-                    && !captured.iter().any(|(was, _)| *was == b.ref_name)
+            let top_now = now.all_branches().find_map(|b| {
+                let ref_name = b.ref_name.as_ref()?;
+                (b.commits.first().is_some_and(|c| c.key == *top)
+                    && !captured.iter().any(|(was, _)| was == ref_name))
+                .then_some(ref_name)
             });
-            if let Some(b) = top_now {
-                self.branches.insert(name.clone(), b.ref_name.clone());
+            if let Some(ref_name) = top_now {
+                self.branches.insert(name.clone(), ref_name.clone());
             }
         }
         self
@@ -880,7 +881,7 @@ impl Store {
                         // Its "Resolve the oldest…" bar is the next step, which a linked
                         // worktree's branch doesn't have, as its conflicts resolve in it.
                         let resolvable = (conflicted.iter())
-                            .filter(|(branch, _)| !branch.is_empty())
+                            .filter(|(branch, _)| branch.is_some())
                             .map(|(branch, _)| Selection::Branch(updated.clone(), branch.clone()))
                             .find(|branch| !store.in_linked(branch));
                         if let Some(branch) = resolvable {
@@ -902,7 +903,7 @@ impl Store {
         &mut self,
         project: &ProjectId,
         ref_name: String,
-        accepted: Option<Vec<(String, usize)>>,
+        accepted: Option<Vec<(Option<String>, usize)>>,
         cx: &mut Context<Self>,
     ) {
         let name = short_ref(&ref_name).to_owned();
@@ -930,7 +931,7 @@ impl Store {
                     backend::pull_remote(path, &ref_name, false).map(|()| None)
                 }
             },
-            move |store, found: Option<Vec<(String, usize)>>, cx| {
+            move |store, found: Option<Vec<(Option<String>, usize)>>, cx| {
                 let Some(found) = found else {
                     return store.snack_undoable(format!("Pulled into {name}"), cx);
                 };
@@ -975,7 +976,7 @@ impl Store {
         // which the snackbar says.
         let below = self.workspace(project).map_or(0, |ws| {
             (ws.pushed_with(&ref_name).skip(1))
-                .filter(|b| !b.ref_name.is_empty() && b.can_push())
+                .filter(|b| b.ref_name.is_some() && b.can_push())
                 .count()
         });
         let all = match below {
@@ -1189,7 +1190,7 @@ impl Store {
             Overlay::commits(keys.collect::<Vec<_>>()),
             move |path, remap| backend::move_to_new_branch(path, &remap.all(&ids)?),
             move |store, (_, branch), cx| {
-                store.select(Some(Selection::Branch(shown, branch)), cx);
+                store.select(Some(Selection::Branch(shown, Some(branch))), cx);
                 store.snack_undoable("Moved to a new branch", cx)
             },
             cx,
@@ -1350,12 +1351,12 @@ impl Store {
             .workspace(project)
             .into_iter()
             .flat_map(Workspace::all_branches))
-        .map(|b| {
+        .filter_map(|b| {
             let top = b
                 .commits
                 .first()
                 .map_or_else(String::new, |c| c.key.clone());
-            (b.ref_name.clone(), top)
+            Some((b.ref_name.clone()?, top))
         })
         .collect();
         // What's selected leaving with its branch or worktree, the selection goes now where
@@ -1838,7 +1839,8 @@ impl Store {
         project: &ProjectId,
         branches: &'a [Branch],
     ) -> Cow<'a, [Branch]> {
-        let deleted = |b: &Branch| self.deletes_branch(project, &b.ref_name);
+        let deleted =
+            |b: &Branch| (b.ref_name.as_deref()).is_some_and(|r| self.deletes_branch(project, r));
         if !branches.iter().any(deleted) {
             return Cow::Borrowed(branches);
         }
@@ -1848,7 +1850,7 @@ impl Store {
                 let mut branch = branch.clone();
                 branch.commits.splice(0..0, carried.drain(..));
                 kept.push(branch);
-            } else if let Some(above) = kept.last_mut().filter(|b| !b.ref_name.is_empty()) {
+            } else if let Some(above) = kept.last_mut().filter(|b| b.ref_name.is_some()) {
                 above.commits.extend(branch.commits.iter().cloned());
             } else {
                 carried.extend(branch.commits.iter().cloned());
@@ -1963,7 +1965,7 @@ impl Store {
     /// `branch`'s name, as the last pending mutation to rename it leaves it.
     pub fn name_of<'a>(&'a self, project: &'a ProjectId, branch: &'a Branch) -> &'a str {
         let renamed = (self.overlays(project).filter_map(|o| o.renamed.as_ref()))
-            .filter(|(ref_name, _)| *ref_name == branch.ref_name)
+            .filter(|(ref_name, _)| branch.ref_name.as_ref() == Some(ref_name))
             .last();
         renamed.map_or(&branch.name, |(_, name)| name)
     }
@@ -2024,7 +2026,7 @@ fn update_conflicts_detail(
     found: &UpdateConflicts,
     workspace: Option<&Workspace>,
 ) -> String {
-    let linked = |ref_name: &str| {
+    let linked = |ref_name: Option<&str>| {
         (workspace.and_then(|ws| ws.lane_of(ref_name)))
             .is_some_and(|(lane, _)| lane.checkout.is_linked())
     };
@@ -2042,7 +2044,11 @@ fn update_conflicts_detail(
             found.files.join(", ")
         ));
     }
-    let resolve = if found.branches.iter().any(|(branch, _)| linked(branch)) {
+    let resolve = if found
+        .branches
+        .iter()
+        .any(|(branch, _)| linked(branch.as_deref()))
+    {
         "You can resolve them afterwards, a linked worktree's in that worktree"
     } else {
         "You can resolve them afterwards"
@@ -2064,7 +2070,11 @@ fn update_conflicts_detail(
 /// What an update from `target` did: the branches (full refs) it left `conflicted`, and
 /// the ones that `landed` and went. Several landed branches are counted, not named, to
 /// keep the snackbar to one line.
-fn updated_message(target: &str, conflicted: &[(String, usize)], landed: &[String]) -> String {
+fn updated_message(
+    target: &str,
+    conflicted: &[(Option<String>, usize)],
+    landed: &[String],
+) -> String {
     let mut said = vec![format!("Updated from {target}")];
     said.extend(conflicted_parts(conflicted));
     match landed {
@@ -2079,24 +2089,24 @@ fn updated_message(target: &str, conflicted: &[(String, usize)], landed: &[Strin
     said.join(", ")
 }
 
-/// "feature/a has 2 conflicted commits" for each of `conflicted`, full refs (empty for an
+/// "feature/a has 2 conflicted commits" for each of `conflicted`, full refs (`None` for an
 /// unnamed branch) with how many.
-pub fn conflicted_parts(conflicted: &[(String, usize)]) -> impl Iterator<Item = String> {
+pub fn conflicted_parts(conflicted: &[(Option<String>, usize)]) -> impl Iterator<Item = String> {
     conflicted.iter().map(|(branch, count)| {
         format!(
             "{} has {}",
-            branch_name(branch),
+            branch_name(branch.as_deref()),
             crate::ui::plural(*count, "conflicted commit")
         )
     })
 }
 
-/// Branches (full refs, empty for an unnamed one) with how many of their commits:
+/// Branches (full refs, `None` for an unnamed one) with how many of their commits:
 /// "feature/a (2 commits), feature/b (1 commit)".
-fn commit_counts(branches: &[(String, usize)]) -> String {
+fn commit_counts(branches: &[(Option<String>, usize)]) -> String {
     let counts: Vec<String> = (branches.iter())
         .map(|(ref_name, count)| {
-            let name = branch_name(ref_name);
+            let name = branch_name(ref_name.as_deref());
             format!("{name} ({})", crate::ui::plural(*count, "commit"))
         })
         .collect();
@@ -2104,11 +2114,8 @@ fn commit_counts(branches: &[(String, usize)]) -> String {
 }
 
 /// `ref_name`'s short name, or "an unnamed branch" when it's empty.
-fn branch_name(ref_name: &str) -> &str {
-    match short_ref(ref_name) {
-        "" => "an unnamed branch",
-        name => name,
-    }
+fn branch_name(ref_name: Option<&str>) -> &str {
+    ref_name.map_or("an unnamed branch", short_ref)
 }
 
 #[cfg(test)]
@@ -2175,7 +2182,7 @@ mod tests {
         assert_eq!(
             updated_message(
                 "origin/main",
-                &[("refs/heads/feature-a".into(), 2)],
+                &[(Some("refs/heads/feature-a".into()), 2)],
                 &["refs/heads/feature-b".into()]
             ),
             "Updated from origin/main, feature-a has 2 conflicted commits, \
@@ -2206,7 +2213,7 @@ mod tests {
     fn an_update_card_says_what_a_linked_worktree_keeps_from_it() {
         let found = |names: &[&str]| UpdateConflicts {
             branches: (names.iter())
-                .map(|name| (format!("refs/heads/{name}"), 1))
+                .map(|name| (Some(format!("refs/heads/{name}")), 1))
                 .collect(),
             files: Vec::new(),
         };

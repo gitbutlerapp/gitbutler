@@ -78,11 +78,11 @@ impl Detail {
                     )),
                 },
                 Selection::Branch(project, ref_name) => {
-                    let branch = workspace.and_then(|ws| ws.find_branch(ref_name));
-                    let name = match branch {
-                        Some(branch) => store.name_of(project, branch),
-                        None if ref_name.is_empty() => "Unnamed branch",
-                        None => short_ref(ref_name),
+                    let branch = workspace.and_then(|ws| ws.find_branch(ref_name.as_deref()));
+                    let name = match (branch, ref_name) {
+                        (Some(branch), _) => store.name_of(project, branch),
+                        (None, None) => "Unnamed branch",
+                        (None, Some(ref_name)) => short_ref(ref_name),
                     };
                     crumbs.push(heading(selection));
                     crumbs.push((name.to_owned().into(), None));
@@ -100,7 +100,7 @@ impl Detail {
                 }
                 Selection::Stack(_, bottom) => {
                     let n = workspace
-                        .and_then(|ws| ws.lane(bottom))
+                        .and_then(|ws| ws.lane(bottom.as_deref()))
                         .map_or(0, |lane| lane.branches.len());
                     crumbs.push(heading(selection));
                     crumbs.push((format!("Stack of {n}").into(), None));
@@ -122,11 +122,11 @@ impl Detail {
                         // project.
                         Section::Upstream(ref_name) => match ref_name
                             .as_ref()
-                            .and_then(|r| Some((r, workspace?.find_branch(r)?)))
+                            .and_then(|r| Some((r, workspace?.find_branch(Some(r))?)))
                         {
                             Some((ref_name, branch)) => {
                                 let branch_selection =
-                                    Selection::Branch(project.clone(), ref_name.clone());
+                                    Selection::Branch(project.clone(), Some(ref_name.clone()));
                                 crumbs.push(heading(&branch_selection));
                                 let name = store.name_of(project, branch).to_owned();
                                 crumbs.push((name.into(), Some(branch_selection.into())));
@@ -145,11 +145,11 @@ impl Detail {
                 Selection::Upstream(project, ref_name, id) => {
                     match ref_name
                         .as_ref()
-                        .and_then(|r| Some((r, workspace?.find_branch(r)?)))
+                        .and_then(|r| Some((r, workspace?.find_branch(Some(r))?)))
                     {
                         Some((ref_name, branch)) => {
                             let branch_selection =
-                                Selection::Branch(project.clone(), ref_name.clone());
+                                Selection::Branch(project.clone(), Some(ref_name.clone()));
                             crumbs.push(heading(&branch_selection));
                             let name = store.name_of(project, branch).to_owned();
                             crumbs.push((name.into(), Some(branch_selection.into())));
@@ -172,11 +172,12 @@ impl Detail {
                 }
                 Selection::Commit(project, id) => {
                     if let Some((branch, commit)) = workspace.and_then(|ws| ws.find_commit(*id)) {
-                        let branch_selection =
-                            Selection::Branch(project.clone(), branch.ref_name.clone());
+                        let branch_selection = (branch.ref_name.clone()).map(|ref_name| {
+                            Selection::Branch(project.clone(), Some(ref_name)).into()
+                        });
                         crumbs.push(heading(selection));
                         let name = store.name_of(project, branch).to_owned();
-                        crumbs.push((name.into(), Some(branch_selection.into())));
+                        crumbs.push((name.into(), branch_selection));
                         let last = match store.among_picks(project, *id) {
                             true => plural(store.picked.len(), "commit"),
                             false => commit.id.short(),
@@ -715,7 +716,9 @@ impl Detail {
             }
         };
         let remote = match ref_name {
-            Some(ref_name) => ws.find_branch(ref_name).and_then(|b| b.remote.clone()),
+            Some(ref_name) => ws
+                .find_branch(Some(ref_name))
+                .and_then(|b| b.remote.clone()),
             None => ws.target.as_ref().map(|target| target.name.clone()),
         };
         let title = page_title(Icon::ArrowDown, theme).child(self.message_title(title, body, cx));
@@ -804,7 +807,7 @@ impl Detail {
     pub(super) fn render_branch_header(
         &self,
         project: &ProjectId,
-        ref_name: &str,
+        ref_name: Option<&str>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
@@ -835,7 +838,7 @@ impl Detail {
                 .child(div().text_color(color).child(state))
                 .children(conflicted_note(conflicted, theme)),
         });
-        let target = Selection::Branch(project.clone(), ref_name.to_owned());
+        let target = Selection::Branch(project.clone(), ref_name.map(str::to_owned));
         let create = crate::pr::create_offer(store, &target).map(|offer| {
             button("header-create-pr", "Create pull request")
                 .small()
@@ -843,7 +846,7 @@ impl Detail {
                 .dispatch(&crate::pr::CreatePullRequest)
                 .disabled_because(offer.err())
         });
-        let push = button("header-push", ws.push_label(ref_name))
+        let push = button("header-push", ref_name.map_or("Push", |r| ws.push_label(r)))
             .small()
             .dispatch(&crate::app::Push)
             .disabled_because(ws.push_blocked(ref_name));
@@ -859,7 +862,7 @@ impl Detail {
     pub(super) fn render_stack_header(
         &self,
         project: &ProjectId,
-        bottom: &str,
+        bottom: Option<&str>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
@@ -884,7 +887,7 @@ impl Detail {
             );
         let title = format!("Stack of {}", names.len());
         let title = page_title(Icon::Stack, theme).child(title_text(title));
-        let target = Selection::Stack(project.clone(), bottom.to_owned());
+        let target = Selection::Stack(project.clone(), bottom.map(str::to_owned));
         self.page_header(title, meta, target, None, None, theme, cx)
     }
 
@@ -939,7 +942,7 @@ impl Detail {
     pub(super) fn render_branch_side(
         &self,
         project: &ProjectId,
-        ref_name: &str,
+        ref_name: Option<&str>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
@@ -953,15 +956,14 @@ impl Detail {
         // Resolving the oldest conflict first, even in a branch below or one the lane rests on,
         // rebases the rest onto its result.
         let conflicted = branch.commits.iter().filter(|c| c.conflicted).count();
-        let oldest = (conflicted > 0)
-            .then(|| super::resolve::oldest_conflict(ws, ref_name))
-            .flatten();
+        let oldest = (ref_name.filter(|_| conflicted > 0))
+            .and_then(|ref_name| super::resolve::oldest_conflict(ws, ref_name));
         let resolve_oldest = oldest.map(|(holder, commit)| {
             let app = self.app.clone();
             let (project, id) = (project.clone(), commit.id);
             super::resolve::warn_banner(
                 plural(conflicted, "conflicted commit"),
-                match holder.ref_name == ref_name {
+                match holder.ref_name.as_deref() == ref_name {
                     true if conflicted == 1 => "Resolve opens it to pick what it keeps.".to_owned(),
                     true => {
                         "Start with the oldest: the ones above it are rebuilt on it.".to_owned()
@@ -993,7 +995,7 @@ impl Detail {
     pub(super) fn render_stack_side(
         &self,
         project: &ProjectId,
-        bottom: &str,
+        bottom: Option<&str>,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {

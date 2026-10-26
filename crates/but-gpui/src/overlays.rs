@@ -139,8 +139,10 @@ pub(crate) fn branch_name(
     };
     // Linked worktrees' branches too, which the backend would refuse the name for.
     let taken = short != current
-        && (store.workspace(project))
-            .is_some_and(|ws| (ws.all_branches()).any(|b| short_ref(&b.ref_name) == short));
+        && (store.workspace(project)).is_some_and(|ws| {
+            (ws.all_branches())
+                .any(|b| b.ref_name.as_deref().is_some_and(|r| short_ref(r) == short))
+        });
     match taken {
         true => Err(format!("{short} already exists").into()),
         false => Ok(short),

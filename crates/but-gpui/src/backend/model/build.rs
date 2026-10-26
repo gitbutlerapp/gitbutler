@@ -9,11 +9,7 @@ pub(crate) fn id(n: u8) -> CommitId {
 pub(crate) fn branch(name: &str, commits: &[u8]) -> Branch {
     Branch {
         name: name.into(),
-        ref_name: if name.is_empty() {
-            String::new()
-        } else {
-            format!("refs/heads/{name}")
-        },
+        ref_name: (!name.is_empty()).then(|| format!("refs/heads/{name}")),
         commits: (commits.iter())
             .map(|&n| Commit {
                 key: format!("key{n}"),
@@ -62,9 +58,11 @@ pub(crate) fn workspace(stacks: Vec<Vec<Branch>>, linked: Vec<Lane>) -> Workspac
 
 fn names(workspace: &Workspace, branches: &[Branch]) -> String {
     (branches.iter())
-        .map(|branch| match workspace.checked_out_in(&branch.ref_name) {
-            Some(_) => format!("{} (checked out)", branch.name),
-            None => branch.name.clone(),
+        .map(|branch| {
+            match (branch.ref_name.as_deref()).and_then(|r| workspace.checked_out_in(r)) {
+                Some(_) => format!("{} (checked out)", branch.name),
+                None => branch.name.clone(),
+            }
         })
         .collect::<Vec<_>>()
         .join(", ")

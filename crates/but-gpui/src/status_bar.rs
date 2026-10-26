@@ -251,8 +251,9 @@ impl AppView {
                 }
                 Some(Selection::Branch(project, ref_name)) => {
                     let workspace = store.workspace(project);
-                    let push = workspace.is_some_and(|ws| ws.push_blocked(ref_name).is_none());
-                    let review = (workspace.and_then(|ws| ws.find_branch(ref_name)))
+                    let push =
+                        workspace.is_some_and(|ws| ws.push_blocked(ref_name.as_deref()).is_none());
+                    let review = (workspace.and_then(|ws| ws.find_branch(ref_name.as_deref())))
                         .is_some_and(|branch| branch.review.is_some());
                     (push.then_some((&Push as &dyn Action, "push")).into_iter())
                         .chain(review.then_some((&OpenPullRequest as &dyn Action, "pull request")))

@@ -605,9 +605,11 @@ impl Detail {
                     || (read && !self.read_back_to(project, seen.time, cx))
             }
             Selection::Branches(project) => {
-                let listed = self.listed_branch(project, &seen.branch).is_some();
+                let listed = (seen.branch.as_deref())
+                    .and_then(|branch| self.listed_branch(project, branch))
+                    .is_some();
                 if listed {
-                    self.select_other_branch(Some(seen.branch.clone()), cx);
+                    self.select_other_branch(seen.branch.clone(), cx);
                 }
                 listed || read
             }
@@ -913,7 +915,9 @@ fn file_label(path: &str, on: bool, theme: &Theme, cx: &App) -> Div {
 /// What names the branch `commit` left the checkout on: its name, with the glyph of a merged
 /// pull request for one that landed, and where it is now for a hover.
 fn left_said(commit: &SeenCommit, theme: &Theme) -> ((Icon, gpui::Hsla), String, String) {
-    let name = backend::short_ref(&commit.branch).to_owned();
+    let name = (commit.branch.as_deref())
+        .map_or("Unnamed branch", backend::short_ref)
+        .to_owned();
     match commit.state {
         CommitState::Integrated => (
             state_glyph(ReviewState::Merged, theme),

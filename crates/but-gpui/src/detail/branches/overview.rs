@@ -338,8 +338,8 @@ fn lane_row(
             })
     });
     let ref_name = branch.ref_name.clone();
-    let applied =
-        (branch.applied).then(|| Selection::Branch(branches.project.clone(), ref_name.clone()));
+    let applied = (branch.applied)
+        .then(|| Selection::Branch(branches.project.clone(), Some(ref_name.clone())));
     // The title and the cells share the room, the title most of it when it's tight, giving
     // up "applied" before its name, the cells no wider than a cell a day needs.
     list_row(id, false, theme)

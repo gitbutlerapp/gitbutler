@@ -101,7 +101,7 @@ impl Transfer {
             return None;
         }
         // An unnamed branch has no ref to put things on or stack onto.
-        if matches!(target, Selection::Branch(_, branch) if branch.is_empty()) {
+        if matches!(target, Selection::Branch(_, None)) {
             return None;
         }
         // Only a commit, or a copy of one, goes above or below another; the rest go into it.
@@ -117,7 +117,7 @@ impl Transfer {
         // come along.
         if let Cut::Branch(project, branch) = payload {
             let side = |s: &Selection| store.worktree_for(s).map(|wt| wt.name.clone());
-            let from = side(&Selection::Branch(project.clone(), branch.clone()));
+            let from = side(&Selection::Branch(project.clone(), Some(branch.clone())));
             let stays = match target {
                 Selection::Worktree(..) => from.is_none(),
                 _ => from == side(target),
@@ -129,7 +129,7 @@ impl Transfer {
         let workspace = store.workspace(target.project())?;
         // Work goes on a branch of its own, not the default branch a linked worktree can have
         // checked out: commits there would leave it apart from its upstream.
-        if let Selection::Branch(_, branch) = target
+        if let Selection::Branch(_, Some(branch)) = target
             && workspace.target_branch.as_ref() == Some(branch)
         {
             return None;
@@ -144,12 +144,12 @@ impl Transfer {
             {
                 Transfer::Uncommit(ids.clone())
             }
-            (Cut::Commit(_, ids), Selection::Branch(_, branch)) => {
+            (Cut::Commit(_, ids), Selection::Branch(_, Some(branch))) => {
                 // Already the top of that branch.
                 if let [id] = ids[..] {
                     let (current, _) = workspace.find_commit(id)?;
                     let top = current.commits.first().map(|c| c.id);
-                    if current.ref_name == *branch && top == Some(id) {
+                    if current.ref_name.as_ref() == Some(branch) && top == Some(id) {
                         return None;
                     }
                 }
@@ -197,7 +197,7 @@ impl Transfer {
                     to,
                 }
             }
-            (Cut::CherryPick(_, ids), Selection::Branch(_, branch)) => Transfer::CherryPick {
+            (Cut::CherryPick(_, ids), Selection::Branch(_, Some(branch))) => Transfer::CherryPick {
                 ids: ids.clone(),
                 to: Destination::Branch(branch.clone()),
             },
@@ -213,15 +213,15 @@ impl Transfer {
                     },
                 }
             }
-            (Cut::Branch(_, branch), Selection::Branch(_, above))
+            (Cut::Branch(_, branch), Selection::Branch(_, Some(above)))
                 if place == Place::Below && branch != above =>
             {
-                let (lane, at) = workspace.lane_of(above)?;
+                let (lane, at) = workspace.lane_of(Some(above))?;
                 // Already right below it.
                 if lane
                     .branches
                     .get(at + 1)
-                    .is_some_and(|b| b.ref_name == *branch)
+                    .is_some_and(|b| b.ref_name.as_ref() == Some(branch))
                 {
                     return None;
                 }
@@ -234,13 +234,13 @@ impl Transfer {
                 branch: branch.clone(),
                 commit: workspace.worktree_lane(name.as_ref())?.end()?,
             },
-            (Cut::Branch(_, branch), Selection::Branch(_, onto)) if branch != onto => {
+            (Cut::Branch(_, branch), Selection::Branch(_, Some(onto))) if branch != onto => {
                 // Already right on top of it.
-                let (lane, at) = workspace.lane_of(branch)?;
+                let (lane, at) = workspace.lane_of(Some(branch))?;
                 if lane
                     .branches
                     .get(at + 1)
-                    .is_some_and(|b| b.ref_name == *onto)
+                    .is_some_and(|b| b.ref_name.as_ref() == Some(onto))
                 {
                     return None;
                 }
@@ -266,7 +266,7 @@ impl Transfer {
                     worktree: worktree.clone(),
                 },
                 // The composer commits the main checkout's files to the workspace's branches.
-                (None, Selection::Branch(_, branch))
+                (None, Selection::Branch(_, Some(branch)))
                     if !worktree.is_linked() && !store.in_linked(target) =>
                 {
                     Transfer::StageOnBranch {
@@ -274,7 +274,7 @@ impl Transfer {
                         files: files.clone(),
                     }
                 }
-                (None, Selection::Branch(_, branch)) => Transfer::CommitOnBranch {
+                (None, Selection::Branch(_, Some(branch))) => Transfer::CommitOnBranch {
                     branch: branch.clone(),
                     files: files.clone(),
                     worktree: worktree.clone(),

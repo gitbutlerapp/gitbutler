@@ -568,7 +568,7 @@ impl Detail {
             }
             Selection::Commit(..) => return "This commit changes no files".into(),
             // A stack's branches all, as it has no branch of its own.
-            Selection::Stack(_, bottom) => (workspace.and_then(|ws| ws.lane(bottom)))
+            Selection::Stack(_, bottom) => (workspace.and_then(|ws| ws.lane(bottom.as_deref())))
                 .map_or_else(Vec::new, |lane| lane.branches.iter().collect()),
             Selection::Branch(..) => store.branch_for(selection).into_iter().collect(),
             _ => return "No changes".into(),
@@ -1648,15 +1648,19 @@ fn nothing_committed_in(workspace: &Workspace, selection: &Selection) -> Option<
         Selection::Branch(_, ref_name) => {
             // A branch stacked on another starts where that one ends, and a lane's bottom
             // branch where what the lane rests on does.
-            let below = (workspace.lane_of(ref_name)).and_then(|(lane, at)| {
+            let below = (workspace.lane_of(ref_name.as_deref())).and_then(|(lane, at)| {
                 workspace
                     .chain_from(lane, at + 1)
                     .find_map(|link| link.top())
             });
-            (vec![workspace.find_branch(ref_name)?], "this branch", below)
+            (
+                vec![workspace.find_branch(ref_name.as_deref())?],
+                "this branch",
+                below,
+            )
         }
         Selection::Stack(_, bottom) => {
-            let lane = workspace.lane(bottom)?;
+            let lane = workspace.lane(bottom.as_deref())?;
             let below = workspace.beneath(lane).find_map(|link| link.top());
             (lane.branches.iter().collect(), "these branches", below)
         }
@@ -1696,10 +1700,10 @@ mod tests {
                 worktree("on-top", Some(1), vec![branch("on-top", &[])]),
             ],
         );
-        let said = |kind: &str, of: fn(ProjectId, String) -> Selection, names: &[&str]| {
+        let said = |kind: &str, of: fn(ProjectId, Option<String>) -> Selection, names: &[&str]| {
             (names.iter())
                 .map(|name| {
-                    let selection = of("project".into(), format!("refs/heads/{name}"));
+                    let selection = of("project".into(), Some(format!("refs/heads/{name}")));
                     let said = nothing_committed_in(&ws, &selection);
                     format!("{kind}({name}): {said:?}\n")
                 })

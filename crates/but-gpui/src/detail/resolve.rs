@@ -901,7 +901,7 @@ pub(super) fn oldest_conflict<'a>(
     workspace: &'a Workspace,
     ref_name: &str,
 ) -> Option<(&'a Branch, &'a Commit)> {
-    let (lane, at) = workspace.lane_of(ref_name)?;
+    let (lane, at) = workspace.lane_of(Some(ref_name))?;
     let history: Vec<&Commit> = (workspace.chain_from(lane, at))
         .flat_map(|link| link.commits())
         .collect();
@@ -1011,7 +1011,7 @@ impl AppView {
             }
             Selection::Commit(_, id) => *id,
             Selection::Branch(_, ref_name) => {
-                let (lane, _) = workspace.lane_of(ref_name)?;
+                let (lane, _) = workspace.lane_of(ref_name.as_deref())?;
                 lane.branches.first()?.commits.first()?.id
             }
             _ => return None,

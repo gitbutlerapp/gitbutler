@@ -47,7 +47,7 @@ impl Lane {
     /// The last commit of its bottom named branch, which a branch moves below to go under the
     /// lane's branches. `None` when that branch has no commits of its own.
     pub fn end(&self) -> Option<CommitId> {
-        let bottom = (self.branches.iter().rev()).find(|branch| !branch.ref_name.is_empty())?;
+        let bottom = (self.branches.iter().rev()).find(|branch| branch.ref_name.is_some())?;
         bottom.commits.last().map(|commit| commit.id)
     }
 }
@@ -101,16 +101,17 @@ impl Workspace {
     }
 
     /// The stack, or linked worktree's lane, whose bottom branch is `bottom`.
-    pub fn lane(&self, bottom: &str) -> Option<&Lane> {
-        (self.lanes.iter())
-            .find(|lane| (lane.branches.last()).is_some_and(|branch| branch.ref_name == bottom))
+    pub fn lane(&self, bottom: Option<&str>) -> Option<&Lane> {
+        (self.lanes.iter()).find(|lane| {
+            (lane.branches.last()).is_some_and(|branch| branch.ref_name.as_deref() == bottom)
+        })
     }
 
     /// The lane holding the branch `ref_name`, a stack's or a linked worktree's, and the
     /// branch's place in it from the top.
-    pub fn lane_of(&self, ref_name: &str) -> Option<(&Lane, usize)> {
+    pub fn lane_of(&self, ref_name: Option<&str>) -> Option<(&Lane, usize)> {
         self.lanes.iter().find_map(|lane| {
-            let at = lane.branches.iter().position(|b| b.ref_name == ref_name)?;
+            let at = (lane.branches.iter()).position(|b| b.ref_name.as_deref() == ref_name)?;
             Some((lane, at))
         })
     }
@@ -140,10 +141,10 @@ impl Workspace {
         links.take(self.lanes.len())
     }
 
-    /// The lane of the branch `ref_name` from it down, then the lanes beneath. Empty for an
-    /// unnamed branch, or one no lane holds.
+    /// The lane of the branch `ref_name` from it down, then the lanes beneath. Empty for one
+    /// no lane holds.
     pub fn chain(&self, ref_name: &str) -> impl Iterator<Item = Link<'_>> {
-        let found = self.lane_of(ref_name).filter(|_| !ref_name.is_empty());
+        let found = self.lane_of(Some(ref_name));
         found
             .into_iter()
             .flat_map(|(lane, at)| self.chain_from(lane, at))
@@ -161,7 +162,7 @@ impl Workspace {
 
     /// Whether another lane rests on a commit of the branch `ref_name`.
     pub fn rested_on(&self, ref_name: &str) -> bool {
-        let Some(branch) = self.find_branch(ref_name).filter(|_| !ref_name.is_empty()) else {
+        let Some(branch) = self.find_branch(Some(ref_name)) else {
             return false;
         };
         (self.lanes.iter())
@@ -200,9 +201,9 @@ impl Workspace {
     }
 
     /// The stack holding the branch `ref_name`, and the branch's place in it from the top.
-    pub fn stack_of(&self, ref_name: &str) -> Option<(&Lane, usize)> {
+    pub fn stack_of(&self, ref_name: Option<&str>) -> Option<(&Lane, usize)> {
         self.lanes_in(&Checkout::Main).find_map(|stack| {
-            let at = stack.branches.iter().position(|b| b.ref_name == ref_name)?;
+            let at = (stack.branches.iter()).position(|b| b.ref_name.as_deref() == ref_name)?;
             Some((stack, at))
         })
     }

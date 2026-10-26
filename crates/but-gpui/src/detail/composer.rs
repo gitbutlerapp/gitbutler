@@ -810,15 +810,16 @@ impl Detail {
         }
         // One of its own branches: a linked worktree's are committed to there.
         if let Some(target) = &self.commit_target
-            && (workspace.branches_in(&Checkout::Main))
-                .any(|branch| branch.ref_name == *target && takes_commits(store, project, branch))
+            && (workspace.branches_in(&Checkout::Main)).any(|branch| {
+                branch.ref_name.as_ref() == Some(target) && takes_commits(store, project, branch)
+            })
         {
             return Some(target.clone());
         }
         (workspace.lanes_in(&Checkout::Main))
             .filter_map(|stack| stack.branches.first())
             .find(|branch| takes_commits(store, project, branch))
-            .map(|branch| branch.ref_name.clone())
+            .and_then(|branch| branch.ref_name.clone())
     }
 
     pub(super) fn commit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -1002,7 +1003,7 @@ impl Detail {
             Some(shown) != target.as_ref()
                 && self.commit_target != *target
                 && (self.store.read(cx).workspace(project))
-                    .is_none_or(|ws| ws.find_branch(shown).is_none())
+                    .is_none_or(|ws| ws.find_branch(Some(shown)).is_none())
         }) else {
             return false;
         };
@@ -1023,7 +1024,8 @@ impl Detail {
         let target = self.effective_target(project, cx)?;
         let workspace = self.store.read(cx).workspace(project)?;
         // The engine won't amend a conflicted commit.
-        let top = (workspace.find_branch(&target)?.commits.first()).filter(|c| !c.conflicted)?;
+        let top =
+            (workspace.find_branch(Some(&target))?.commits.first()).filter(|c| !c.conflicted)?;
         Some((top.id, top.title.clone()))
     }
 
@@ -1408,8 +1410,8 @@ impl Detail {
         let place = store.place(&Selection::Uncommitted(project.clone()));
         let mut choices: Vec<Choice> = (workspace.branches_in(&Checkout::Main))
             .filter(|branch| takes_commits(store, &project, branch))
-            .map(|branch| {
-                let (detail, ref_name) = (detail.clone(), branch.ref_name.clone());
+            .filter_map(|branch| {
+                let (detail, ref_name) = (detail.clone(), branch.ref_name.clone()?);
                 let (picked, name) = (project.clone(), branch.name.clone());
                 let choice = Choice::new(branch.name.clone(), move |_, _, cx| {
                     (detail.update(cx, |detail, cx| {
@@ -1417,7 +1419,7 @@ impl Detail {
                         // would go to another branch.
                         let store = detail.store.read(cx);
                         if (store.workspace(&picked))
-                            .is_none_or(|ws| ws.find_branch(&ref_name).is_none())
+                            .is_none_or(|ws| ws.find_branch(Some(&ref_name)).is_none())
                         {
                             let gone =
                                 format!("{name} was renamed or left the workspace meanwhile");
@@ -1428,11 +1430,11 @@ impl Detail {
                     }))
                     .ok();
                 });
-                if current.as_ref() == Some(&branch.ref_name) {
+                Some(if current == branch.ref_name {
                     choice.detail("Current")
                 } else {
                     choice
-                }
+                })
             })
             .collect();
         choices.push(Choice::naming("New branch", move |this, name, _, cx| {
@@ -1476,11 +1478,12 @@ impl Detail {
 /// branch of its own, as `but commit` does; nor to one merged upstream, even before an update
 /// takes it out, or being unapplied.
 fn takes_commits(store: &Store, project: &ProjectId, branch: &Branch) -> bool {
-    !branch.ref_name.is_empty()
-        && branch.push != PushState::Integrated
-        && !store.hides_branch(project, &branch.ref_name)
-        && (store.workspace(project))
-            .is_none_or(|ws| ws.target_branch.as_ref() != Some(&branch.ref_name))
+    let Some(ref_name) = &branch.ref_name else {
+        return false;
+    };
+    branch.push != PushState::Integrated
+        && !store.hides_branch(project, ref_name)
+        && (store.workspace(project)).is_none_or(|ws| ws.target_branch.as_ref() != Some(ref_name))
 }
 
 #[cfg(test)]

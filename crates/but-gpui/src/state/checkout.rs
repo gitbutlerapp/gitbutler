@@ -11,11 +11,12 @@ impl Store {
     pub fn lane_for(&self, selection: &Selection) -> Option<(&Lane, usize)> {
         let workspace = self.workspace(selection.project())?;
         match selection {
-            Selection::Branch(_, ref_name)
-            | Selection::Stack(_, ref_name)
-            | Selection::Upstream(_, Some(ref_name), _)
+            Selection::Branch(_, ref_name) | Selection::Stack(_, ref_name) => {
+                workspace.lane_of(ref_name.as_deref())
+            }
+            Selection::Upstream(_, Some(ref_name), _)
             | Selection::Section(_, Section::Upstream(Some(ref_name))) => {
-                workspace.lane_of(ref_name)
+                workspace.lane_of(Some(ref_name))
             }
             Selection::Commit(_, id) => workspace.lane_holding(*id),
             Selection::Project(_)

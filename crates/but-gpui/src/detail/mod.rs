@@ -453,7 +453,7 @@ impl Detail {
                 }
                 // What's picked to commit to follows a branch an agent renames.
                 StoreEvent::Renamed(project, from, to) => {
-                    this.branch_renamed(project, from, to, cx)
+                    this.branch_renamed(project, from.as_deref(), to, cx)
                 }
                 StoreEvent::MeshRead(project) => {
                     if let Some(Selection::Mesh(p, ..)) = this.selection(cx)
@@ -722,7 +722,7 @@ impl Detail {
             // commit matches are left out of them, so a range from the oldest could bring them
             // back.
             Selection::Section(project, Section::Upstream(Some(ref_name))) => {
-                let branch = store.workspace(project)?.find_branch(ref_name)?;
+                let branch = store.workspace(project)?.find_branch(Some(ref_name))?;
                 DiffSource::Commits(branch.incoming.iter().rev().map(|c| c.id).collect())
             }
             // What a pull would bring in from the target, at its newest commit.
@@ -735,7 +735,7 @@ impl Detail {
             }
             Selection::Section(..) => return None,
             Selection::Branch(project, ref_name) => {
-                let branch = store.workspace(project)?.find_branch(ref_name)?;
+                let branch = store.workspace(project)?.find_branch(ref_name.as_deref())?;
                 let newest = branch.commits.first()?.id;
                 let oldest = branch.commits.last()?.id;
                 DiffSource::Range { oldest, newest }
@@ -743,7 +743,7 @@ impl Detail {
             // Its top branch's newest commit back to its bottom branch's oldest, skipping
             // branches with none yet.
             Selection::Stack(project, bottom) => {
-                let branches = &store.workspace(project)?.lane(bottom)?.branches;
+                let branches = &store.workspace(project)?.lane(bottom.as_deref())?.branches;
                 let newest = branches
                     .iter()
                     .find_map(|branch| branch.commits.first())?
@@ -1754,7 +1754,7 @@ impl Detail {
     pub fn branch_renamed(
         &mut self,
         project: &ProjectId,
-        from: &str,
+        from: Option<&str>,
         to: &str,
         cx: &mut Context<Self>,
     ) {
@@ -1762,7 +1762,7 @@ impl Detail {
             true => self.commit_target.as_mut(),
             false => self.other_targets.get_mut(project),
         };
-        if let Some(target) = target.filter(|target| *target == from) {
+        if let Some(target) = target.filter(|target| Some(target.as_str()) == from) {
             *target = to.to_owned();
             cx.notify();
         }
@@ -2135,7 +2135,7 @@ impl Render for Detail {
                         self.render_commit_side(project, *id, &theme, cx)
                     }
                     Selection::Branch(project, ref_name) => {
-                        self.render_branch_side(project, ref_name, &theme, cx)
+                        self.render_branch_side(project, ref_name.as_deref(), &theme, cx)
                     }
                     Selection::History(project) => {
                         self.render_history_side(project, &theme, window, cx)
@@ -2145,7 +2145,7 @@ impl Render for Detail {
                         self.render_uncommitted_side(project, &checkout, &theme, window, cx)
                     }
                     Selection::Stack(project, bottom) => {
-                        self.render_stack_side(project, bottom, &theme, cx)
+                        self.render_stack_side(project, bottom.as_deref(), &theme, cx)
                     }
                     Selection::Upstream(..) | Selection::Section(_, Section::Upstream(_)) => {
                         self.render_diff_file_list(&theme, cx)
@@ -2188,10 +2188,10 @@ impl Render for Detail {
                         Some(self.render_commit_header(project, *id, &theme, window, cx))
                     }
                     Selection::Branch(project, ref_name) => {
-                        Some(self.render_branch_header(project, ref_name, &theme, cx))
+                        Some(self.render_branch_header(project, ref_name.as_deref(), &theme, cx))
                     }
                     Selection::Stack(project, bottom) => {
-                        Some(self.render_stack_header(project, bottom, &theme, cx))
+                        Some(self.render_stack_header(project, bottom.as_deref(), &theme, cx))
                     }
                     Selection::Upstream(project, ref_name, id) => Some(
                         self.render_upstream_header(project, ref_name.as_deref(), *id, &theme, cx),

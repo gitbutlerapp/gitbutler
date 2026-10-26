@@ -193,14 +193,16 @@ impl Workspace {
     /// target's that the workspace doesn't have yet, newest first.
     pub fn upstream(&self, ref_name: Option<&str>) -> &[RemoteCommit] {
         match ref_name {
-            Some(ref_name) => self.find_branch(ref_name).map_or(&[], |b| &b.incoming),
+            Some(ref_name) => self
+                .find_branch(Some(ref_name))
+                .map_or(&[], |b| &b.incoming),
             None => self.target.as_ref().map_or(&[], |t| &t.incoming),
         }
     }
 
-    pub fn find_branch(&self, ref_name: &str) -> Option<&Branch> {
+    pub fn find_branch(&self, ref_name: Option<&str>) -> Option<&Branch> {
         self.all_branches()
-            .find(|branch| branch.ref_name == ref_name)
+            .find(|branch| branch.ref_name.as_deref() == ref_name)
     }
 
     pub fn find_worktree(&self, name: &bstr::BStr) -> Option<&Worktree> {
@@ -277,8 +279,8 @@ pub const UPSTREAM_SHOWN: usize = 8;
 pub struct Branch {
     /// Short name, like `feature-x`.
     pub name: String,
-    /// Full ref name, like `refs/heads/feature-x`. Empty for an anonymous segment.
-    pub ref_name: String,
+    /// Full ref name, like `refs/heads/feature-x`. `None` for an anonymous segment.
+    pub ref_name: Option<String>,
     /// Newest first.
     pub commits: Vec<Commit>,
     /// The commits only the branch's remote has, newest first.
@@ -1132,7 +1134,7 @@ mod tests {
         let id = gix::ObjectId::from_bytes_or_panic(&[1; 20]);
         let branch = |push: PushState, states: &[CommitState], incoming: usize| Branch {
             name: "feat".into(),
-            ref_name: "refs/heads/feat".into(),
+            ref_name: Some("refs/heads/feat".into()),
             commits: (states.iter())
                 .map(|state| Commit {
                     state: *state,
@@ -1281,7 +1283,7 @@ mod tests {
         let id = gix::ObjectId::from_bytes_or_panic(&[1; 20]);
         let main = Branch {
             name: "main".into(),
-            ref_name: "refs/heads/main".into(),
+            ref_name: Some("refs/heads/main".into()),
             commits: vec![Commit {
                 state: CommitState::Local,
                 ..Commit::bare(id)

@@ -1085,7 +1085,7 @@ impl Detail {
                 move |store, applied, cx| match applied {
                     ApplyOutcome::Applied | ApplyOutcome::AlreadyApplied => {
                         let local = format!("refs/heads/{name}");
-                        store.select(Some(Selection::Branch(selected, local)), cx);
+                        store.select(Some(Selection::Branch(selected, Some(local))), cx);
                         // As when an agent applied it meanwhile.
                         if matches!(applied, ApplyOutcome::AlreadyApplied) {
                             return store.snack(format!("{name} is already applied"), cx);

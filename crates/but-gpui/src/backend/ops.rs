@@ -1851,9 +1851,9 @@ pub(super) mod tests {
                 (workspace
                     .lanes_in(&Checkout::Main)
                     .flat_map(|s| &s.branches))
-                .map(|b| b.ref_name.as_str())
+                .map(|b| b.ref_name.as_deref())
                 .collect::<Vec<_>>(),
-                [new.as_str()],
+                [Some(new.as_str())],
                 "the branch checked out is listed as the only one"
             );
         })
@@ -1933,7 +1933,11 @@ pub(super) mod tests {
                 "what main gained is listed as new on it"
             );
 
-            let tip = workspace.find_branch("refs/heads/feature").unwrap().commits[0].id;
+            let tip = workspace
+                .find_branch(Some("refs/heads/feature"))
+                .unwrap()
+                .commits[0]
+                .id;
             crate::backend::upstream::land(path, "feature", tip, false).unwrap();
             assert!(
                 git(path, &["log", "--format=%s", "main"])
@@ -2822,18 +2826,14 @@ pub(super) mod tests {
                     .find(|b| b.commits.first().map(|c| c.id) == Some(top))
                     .map(|b| b.ref_name.clone())
             };
-            assert_eq!(branch_at_top(path).as_deref(), Some(""), "it shows unnamed");
+            assert_eq!(branch_at_top(path), Some(None), "it shows unnamed");
 
             assert_eq!(name_branch(path, top, "named").unwrap(), "refs/heads/named");
-            assert_eq!(branch_at_top(path).as_deref(), Some("refs/heads/named"));
+            assert_eq!(branch_at_top(path), Some(Some("refs/heads/named".into())));
 
             let last = crate::backend::history::oplog_head(path).unwrap();
             crate::backend::history::undo_snapshot(path, last, None).unwrap();
-            assert_eq!(
-                branch_at_top(path).as_deref(),
-                Some(""),
-                "undo takes the name away"
-            );
+            assert_eq!(branch_at_top(path), Some(None), "undo takes the name away");
         })
     }
 
@@ -2987,7 +2987,7 @@ pub(super) mod tests {
             let found = crate::backend::pull_conflicts(path, "refs/heads/feature").unwrap();
             assert_eq!(
                 found,
-                [("refs/heads/feature".to_owned(), 1)],
+                [(Some("refs/heads/feature".to_owned()), 1)],
                 "the remote's commit would land conflicted"
             );
         })

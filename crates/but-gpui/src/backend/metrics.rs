@@ -633,7 +633,7 @@ fn names<'a>(workspaces: impl IntoIterator<Item = &'a Workspace>) -> HashSet<Str
 fn shape(workspace: &Workspace, props: &mut Props) {
     let branches = workspace.lanes_in(&Checkout::Main).map(|stack| {
         (stack.branches.iter())
-            .filter(|branch| !branch.ref_name.is_empty())
+            .filter(|branch| branch.ref_name.is_some())
             .count()
     });
     props.insert(

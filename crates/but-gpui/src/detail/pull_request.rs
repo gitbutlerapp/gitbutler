@@ -44,7 +44,7 @@ impl Detail {
         match &self.selection(cx)? {
             Selection::Branch(project, ref_name) => store
                 .workspace(project)?
-                .find_branch(ref_name)?
+                .find_branch(ref_name.as_deref())?
                 .review
                 .as_ref(),
             Selection::Branches(project) => self.selected_other_branch(project)?.review.as_ref(),
@@ -88,7 +88,7 @@ impl Detail {
     fn merge_box_review<'a>(&'a self, cx: &'a App) -> Option<(&'a ProjectId, &'a str, &'a Review)> {
         let store = self.store.read(cx);
         let selection = store.selection.as_ref()?;
-        let Selection::Branch(project, ref_name) = selection else {
+        let Selection::Branch(project, Some(ref_name)) = selection else {
             return None;
         };
         let review = self.selected_review(cx)?;

@@ -16,9 +16,9 @@ impl Workspace {
             .is_some_and(|id| self.lane_holding(id).is_none())
     }
 
-    /// Whether pushing `ref_name` has commits to send. An unnamed branch has no ref to push.
+    /// Whether pushing `ref_name` has commits to send.
     pub fn can_push(&self, ref_name: &str) -> bool {
-        !ref_name.is_empty() && self.pushed_with(ref_name).any(Branch::can_push)
+        self.pushed_with(ref_name).any(Branch::can_push)
     }
 
     /// The commits only the remote has that pushing `ref_name` drops: a forced push replaces
@@ -63,7 +63,9 @@ impl Workspace {
     pub fn forced_target(&self, ref_name: &str) -> Option<&Target> {
         (self.pushed_with(ref_name))
             .any(|b| {
-                b.push == PushState::NeedsForce && self.target_branch.as_ref() == Some(&b.ref_name)
+                b.push == PushState::NeedsForce
+                    && b.ref_name.is_some()
+                    && self.target_branch == b.ref_name
             })
             .then_some(self.target.as_ref())
             .flatten()
@@ -77,11 +79,13 @@ impl Workspace {
 
     /// Why `ref_name` can't be pushed now: it has no name, nothing to send, or
     /// [`Self::push_refused`] says why not.
-    pub fn push_blocked(&self, ref_name: &str) -> Option<&'static str> {
+    pub fn push_blocked(&self, ref_name: Option<&str>) -> Option<&'static str> {
+        // A branch whose ref was deleted, as by `git branch -D`, has commits but no name.
+        let Some(ref_name) = ref_name else {
+            return Some("Name the branch first, then push it");
+        };
         match self.can_push(ref_name) {
             true => self.push_refused(ref_name),
-            // A branch whose ref was deleted, as by `git branch -D`, has commits but no name.
-            false if ref_name.is_empty() => Some("Name the branch first, then push it"),
             false => Some("Nothing to push yet"),
         }
     }
@@ -100,7 +104,7 @@ impl Workspace {
     /// rests on, and pulling a worktree's own branch reaches past the worktree, so the app
     /// doesn't offer them.
     pub fn can_pull(&self, ref_name: &str) -> bool {
-        self.stack_of(ref_name).is_some_and(|(stack, at)| {
+        self.stack_of(Some(ref_name)).is_some_and(|(stack, at)| {
             at == 0
                 && (stack.branches.first()).is_some_and(|b| !b.incoming.is_empty())
                 && !self.rested_on(ref_name)

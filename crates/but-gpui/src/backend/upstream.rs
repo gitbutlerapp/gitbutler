@@ -826,7 +826,7 @@ pub fn pull_remote(path: &Path, branch: &str, theirs: bool) -> Result<()> {
 
 /// A dry run of pulling into `branch`: the branches (full refs) it would leave with
 /// conflicted commits they don't have now, each with how many.
-pub fn pull_conflicts(path: &Path, branch: &str) -> Result<Vec<(String, usize)>> {
+pub fn pull_conflicts(path: &Path, branch: &str) -> Result<Vec<(Option<String>, usize)>> {
     let mut ctx = open(path)?;
     let info = but_api::legacy::workspace::head_info(&ctx)?;
     let (preview, incoming) = integrate_remote(&mut ctx, branch, false, DryRun::Yes)?;
@@ -838,7 +838,7 @@ pub fn pull_conflicts(path: &Path, branch: &str) -> Result<Vec<(String, usize)>>
         .filter(|(_, change)| incoming.contains(&change.to_string()))
         .count();
     if incoming > 0 {
-        let name = full_name(branch)?.to_string();
+        let name = Some(full_name(branch)?.to_string());
         match found.iter_mut().find(|(ref_name, _)| *ref_name == name) {
             Some((_, count)) => *count += incoming,
             None => found.push((name, incoming)),
@@ -930,7 +930,7 @@ pub enum UpdateOutcome {
     Updated {
         /// Branches (full refs) left with conflicted commits they didn't have, each with
         /// how many.
-        conflicted: Vec<(String, usize)>,
+        conflicted: Vec<(Option<String>, usize)>,
         /// Branches (full refs) that landed on the target, which the update removed.
         landed: Vec<String>,
     },
@@ -978,17 +978,17 @@ pub fn update_from_target(
 #[derive(Debug, Clone, PartialEq)]
 pub struct UpdateConflicts {
     /// Branches (full refs), each with how many of its commits.
-    pub branches: Vec<(String, usize)>,
+    pub branches: Vec<(Option<String>, usize)>,
     /// Uncommitted files the target changed too, which get conflict markers.
     pub files: Vec<String>,
 }
 
-/// The branches (full refs, empty for an unnamed one) in `info` with commits among
+/// The branches (full refs, `None` for an unnamed one) in `info` with commits among
 /// `conflicted` that aren't conflicted yet, each with how many.
 fn newly_conflicted(
     info: &but_workspace::RefInfo,
     conflicted: &[(gix::ObjectId, but_core::ChangeId)],
-) -> Vec<(String, usize)> {
+) -> Vec<(Option<String>, usize)> {
     // A commit made without a change ID gets one from its commit ID, as the rebase does.
     let newly = |commit: &&but_workspace::ref_info::LocalCommit| {
         let id = commit.inner.change_id();
@@ -999,7 +999,7 @@ fn newly_conflicted(
         .filter_map(|segment| {
             let count = segment.commits.iter().filter(newly).count();
             let name = segment.ref_name().map(ToString::to_string);
-            (count > 0).then(|| (name.unwrap_or_default(), count))
+            (count > 0).then_some((name, count))
         })
         .collect()
 }
@@ -1054,7 +1054,7 @@ pub struct Landed {
     pub update_needed: bool,
     /// Branches (full refs) the update after it left with conflicted commits they didn't
     /// have, each with how many.
-    pub conflicted: Vec<(String, usize)>,
+    pub conflicted: Vec<(Option<String>, usize)>,
     /// The update gave uncommitted changes conflict markers.
     pub marked: bool,
 }
@@ -1089,7 +1089,7 @@ mod tests {
             };
             assert_eq!(
                 found.branches,
-                [("refs/heads/wt".to_owned(), 1)],
+                [(Some("refs/heads/wt".to_owned()), 1)],
                 "the update rebases wt with middle, and its edit of `file` meets the target's"
             );
         })

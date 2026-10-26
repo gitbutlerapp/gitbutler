@@ -504,7 +504,7 @@ fn worktree_branches(
             // workspace has applied is listed there.
             let ref_name = segment.ref_name()?.to_string();
             if (stacks.iter().flat_map(|stack| &stack.branches))
-                .any(|stacked| stacked.ref_name == ref_name)
+                .any(|stacked| stacked.ref_name.as_ref() == Some(&ref_name))
             {
                 return None;
             }
@@ -570,8 +570,8 @@ fn branch_from(
     segment: &but_workspace::ref_info::Segment,
 ) -> Branch {
     let (name, ref_name) = match segment.ref_name() {
-        Some(name) => (name.shorten().to_string(), name.to_string()),
-        None => ("Unnamed branch".into(), String::new()),
+        Some(name) => (name.shorten().to_string(), Some(name.to_string())),
+        None => ("Unnamed branch".into(), None),
     };
     use but_core::ui::PushStatus as P;
     let push = match segment.push_status {

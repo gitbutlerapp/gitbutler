@@ -74,7 +74,7 @@ impl ReviewView {
         // What's written stays for the branch under its new name, as an agent renamed it.
         cx.subscribe(&store, |this, _, event, cx| match event {
             StoreEvent::Renamed(project, from, to)
-                if *project == this.project && *from == this.branch =>
+                if *project == this.project && from.as_ref() == Some(&this.branch) =>
             {
                 this.branch = to.clone();
                 cx.notify();
@@ -87,7 +87,7 @@ impl ReviewView {
         let (subject, description) = store
             .read(cx)
             .workspace(&project)
-            .and_then(|ws| ws.find_branch(&branch))
+            .and_then(|ws| ws.find_branch(Some(&branch)))
             .and_then(|b| match b.commits.as_slice() {
                 [commit] => Some(&commit.message),
                 _ => None,
@@ -146,7 +146,7 @@ impl ReviewView {
             .store
             .read(cx)
             .workspace(&self.project)
-            .and_then(|ws| ws.find_branch(&self.branch))
+            .and_then(|ws| ws.find_branch(Some(&self.branch)))
             .map(|b| b.commits.iter().rev().map(|c| c.message.clone()).collect())
             .unwrap_or_default();
         let (title, body) = (
@@ -256,7 +256,7 @@ impl Render for ReviewView {
                     .child(muted(
                         (self.store.read(cx)).place(&Selection::Branch(
                             self.project.clone(),
-                            self.branch.clone(),
+                            Some(self.branch.clone()),
                         )),
                         &theme,
                     ))
@@ -364,7 +364,7 @@ impl AppView {
         let Some((selection, branch)) = (store.selection.as_ref())
             .filter(|s| on_forge(store, s))
             .and_then(|s| Some((s, store.branch_for(s)?)))
-            .filter(|(_, b)| !b.ref_name.is_empty())
+            .filter(|(_, b)| b.ref_name.is_some())
         else {
             return el;
         };
@@ -396,7 +396,11 @@ impl AppView {
             state: store.review_state(selection.project(), &review),
             ..review
         });
-        Some((selection.project().clone(), branch.ref_name.clone(), review))
+        Some((
+            selection.project().clone(),
+            branch.ref_name.clone()?,
+            review,
+        ))
     }
 
     pub fn create_pull_request(
@@ -666,12 +670,12 @@ pub fn on_forge(store: &Store, selection: &Selection) -> bool {
 /// without one yet, and if so why it can't be created now: it has no commits, or can't push
 /// them first.
 pub fn create_offer(store: &Store, selection: &Selection) -> Option<Result<(), &'static str>> {
-    let Selection::Branch(project, ref_name) = selection else {
+    let Selection::Branch(project, Some(ref_name)) = selection else {
         return None;
     };
     let ws = store.workspace(project)?;
     let branch = store.branch_for(selection)?;
-    if !on_forge(store, selection) || ref_name.is_empty() || branch.review.is_some() {
+    if !on_forge(store, selection) || branch.review.is_some() {
         return None;
     }
     Some(match ws.push_refused(ref_name) {
