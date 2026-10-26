@@ -1002,11 +1002,6 @@ impl Store {
         self.picked.len() > 1 && self.is_picked(project, id)
     }
 
-    /// Whether `id` of `project` is a linked worktree's commit.
-    pub fn in_worktree(&self, project: &ProjectId, id: CommitId) -> bool {
-        self.in_linked(&Selection::Commit(project.clone(), id))
-    }
-
     /// A snackbar offering to undo the mutation that just ran.
     pub fn snack_undoable(&mut self, message: impl Into<SharedString>, cx: &mut Context<Self>) {
         let undo = self.last_snapshot.clone();

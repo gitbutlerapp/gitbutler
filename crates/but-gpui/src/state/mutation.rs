@@ -1177,8 +1177,6 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let shown = project.clone();
-        // Out of a linked worktree, which the oplog can't put them back into.
-        let undoable = !ids.iter().any(|id| self.in_worktree(project, *id));
         let keys = ids.iter().filter_map(|id| self.key_of(project, *id));
         self.run(
             project,
@@ -1187,7 +1185,7 @@ impl Store {
             move |path, remap| backend::move_to_new_branch(path, &remap.all(&ids)?),
             move |store, (_, branch), cx| {
                 store.select(Some(Selection::Branch(shown, branch)), cx);
-                store.snack_after(undoable, "Moved to a new branch", cx)
+                store.snack_undoable("Moved to a new branch", cx)
             },
             cx,
         );
@@ -1205,7 +1203,7 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let run_hooks = self.runs_hooks(project);
-        let undoable = worktree.is_none() && !self.in_worktree(project, into);
+        let undoable = self.undoable(project, [Checkout::from(worktree.clone())]);
         let overlay = Overlay {
             files_in: worktree.clone(),
             ..Overlay::files(files.iter())
@@ -1247,8 +1245,6 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let overlay = Overlay::commits(ids.iter().filter_map(|id| self.key_of(project, *id)));
-        // A linked worktree's commits, which the oplog can't put back.
-        let undoable = !(ids.iter().chain([&into])).any(|id| self.in_worktree(project, *id));
         self.run(
             project,
             Label::new("Squash", format!("Squash {} commits", ids.len() + 1)),
@@ -1259,7 +1255,7 @@ impl Store {
             },
             move |store, rewritten, cx| {
                 store.follow(&rewritten, cx);
-                store.snack_after(undoable, "Squashed into one commit", cx)
+                store.snack_undoable("Squashed into one commit", cx)
             },
             cx,
         );
@@ -1292,8 +1288,6 @@ impl Store {
             1 => Label::from("Uncommit"),
             n => Label::new("Uncommit", format!("Uncommit {n} commits")),
         };
-        // A linked worktree's commits uncommit into it, which the oplog can't bring back.
-        let undoable = !ids.iter().any(|id| self.in_worktree(project, *id));
         let home = (ids.first())
             .and_then(|id| self.worktree_for(&Selection::Commit(project.clone(), *id)))
             .map(|worktree| worktree.name.clone());
@@ -1317,7 +1311,7 @@ impl Store {
                     };
                     store.select(Some(shown), cx);
                 }
-                store.snack_after(undoable, "Uncommitted", cx)
+                store.snack_undoable("Uncommitted", cx)
             },
             cx,
         );

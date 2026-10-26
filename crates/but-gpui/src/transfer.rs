@@ -359,35 +359,6 @@ impl Transfer {
         {
             store.picked.clear();
         }
-        // The oplog snapshots only the main checkout, so undoing what moves a linked
-        // worktree's changes, or rewrites the branches it has checked out, would lose them.
-        let in_worktree = |id| store.in_worktree(project, id);
-        let branch_in_worktree =
-            |branch: &str| store.in_linked(&Selection::Branch(project.clone(), branch.to_owned()));
-        let lands_in_worktree = |to: &Destination| match to {
-            Destination::Branch(branch) => branch_in_worktree(branch),
-            Destination::AboveCommit(id) | Destination::BelowCommit(id) => in_worktree(*id),
-        };
-        let undoable = match &self {
-            Transfer::UncommitFiles { from, .. } => !in_worktree(*from),
-            Transfer::MoveFiles { from, to, .. } => !in_worktree(*from) && !in_worktree(*to),
-            Transfer::MoveCommit { ids, to } => {
-                !ids.iter().any(|id| in_worktree(*id)) && !lands_in_worktree(to)
-            }
-            Transfer::CherryPick { to, .. } => !lands_in_worktree(to),
-            Transfer::StackBranch { branch, onto } => {
-                !branch_in_worktree(branch) && !branch_in_worktree(onto)
-            }
-            Transfer::BranchBelow { branch, commit } => {
-                !branch_in_worktree(branch) && !in_worktree(*commit)
-            }
-            Transfer::CommitOnBranch { .. } => false,
-            // Uncommitting, squashing and amending say for themselves.
-            Transfer::Uncommit(_)
-            | Transfer::Squash { .. }
-            | Transfer::Amend { .. }
-            | Transfer::StageOnBranch { .. } => true,
-        };
         match self {
             Transfer::Uncommit(ids) => store.uncommit(project, ids.to_vec(), cx),
             Transfer::UncommitFiles { from, files } => store.run(
@@ -399,7 +370,7 @@ impl Transfer {
                 },
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
-                    store.snack_after(undoable, "Moved to uncommitted changes", cx)
+                    store.snack_undoable("Moved to uncommitted changes", cx)
                 },
                 cx,
             ),
@@ -416,7 +387,7 @@ impl Transfer {
                 },
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
-                    store.snack_after(undoable, "Moved", cx)
+                    store.snack_undoable("Moved", cx)
                 },
                 cx,
             ),
@@ -436,7 +407,7 @@ impl Transfer {
                 },
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
-                    store.snack_after(undoable, "Cherry-picked", cx)
+                    store.snack_undoable("Cherry-picked", cx)
                 },
                 cx,
             ),
@@ -445,7 +416,7 @@ impl Transfer {
                 label,
                 Overlay::default(),
                 move |path, _| backend::stack_branch(path, &branch, &onto),
-                move |store, (), cx| store.snack_after(undoable, "Branch moved", cx),
+                move |store, (), cx| store.snack_undoable("Branch moved", cx),
                 cx,
             ),
             Transfer::BranchBelow { branch, commit } => store.run(
@@ -453,7 +424,7 @@ impl Transfer {
                 label,
                 Overlay::default(),
                 move |path, remap| backend::move_branch_below(path, &branch, remap.get(commit)?),
-                move |store, (), cx| store.snack_after(undoable, "Branch moved", cx),
+                move |store, (), cx| store.snack_undoable("Branch moved", cx),
                 cx,
             ),
             Transfer::Squash { ids, into } => store.squash(project, ids.to_vec(), into, cx),
@@ -476,7 +447,7 @@ impl Transfer {
                 },
                 move |store, rewritten, cx| {
                     store.follow(&rewritten, cx);
-                    store.snack_after(undoable, "Changes moved", cx)
+                    store.snack_undoable("Changes moved", cx)
                 },
                 cx,
             ),

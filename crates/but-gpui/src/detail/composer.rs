@@ -696,8 +696,6 @@ impl Detail {
             return;
         };
         let store = self.store.read(cx);
-        // The oplog can't take back what rewrites a linked worktree's branch.
-        let undoable = !store.in_worktree(&project, id);
         // A rewording still running is where the next one starts.
         let Some((_, commit)) = store.find_commit(&project, id) else {
             return;
@@ -769,7 +767,7 @@ impl Detail {
                             move |path, remap| backend::reword(path, remap.get(id)?, &message),
                             move |store, rewritten, cx| {
                                 store.follow(&rewritten, cx);
-                                store.snack_after(undoable, "Message updated", cx);
+                                store.snack_undoable("Message updated", cx);
                                 // Open until it lands, so a reword that fails keeps what was
                                 // written, and so does one written on meanwhile.
                                 (detail.update(cx, |detail, cx| {
