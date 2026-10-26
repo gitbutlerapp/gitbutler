@@ -112,6 +112,7 @@ fn target_page(
         Some(limit),
     )?;
     let repo = ctx.repo.get()?;
+    let mailmap = repo.open_mailmap();
     let commits = (page.commits.into_iter())
         .map(|target| {
             let review = target.review.map(|review| {
@@ -132,7 +133,7 @@ fn target_page(
             Ok(TargetCommit {
                 review,
                 incoming: !target.in_workspace && new.contains(&target.commit.id),
-                ..target_commit(&repo.find_commit(target.commit.id)?)?
+                ..target_commit(&mailmap, &repo.find_commit(target.commit.id)?)?
             })
         })
         .collect::<Result<Vec<TargetCommit>>>()?;
@@ -161,6 +162,7 @@ fn local_target_page(
     };
     let mut incoming = true;
     let mut commits = Vec::new();
+    let mailmap = repo.open_mailmap();
     while commits.len() < limit as usize
         && let Some(id) = cursor
     {
@@ -170,7 +172,7 @@ fn local_target_page(
         cursor = present_first_parent(&commit);
         commits.push(TargetCommit {
             incoming,
-            ..target_commit(&commit)?
+            ..target_commit(&mailmap, &commit)?
         });
         if after.is_none() && !incoming {
             break;
@@ -181,9 +183,12 @@ fn local_target_page(
 
 /// `commit` as a target's history lists it. Whether it's incoming, and the pull request it
 /// landed, are for the caller to set.
-pub(super) fn target_commit(commit: &gix::Commit<'_>) -> Result<TargetCommit> {
+pub(super) fn target_commit(
+    mailmap: &gix::mailmap::Snapshot,
+    commit: &gix::Commit<'_>,
+) -> Result<TargetCommit> {
     let (title, body) = super::subject_and_body(&commit.message_raw_sloppy().to_str_lossy());
-    let ((author, email), agent) = super::commit_byline(commit)?;
+    let ((author, email), agent) = super::commit_byline(mailmap, commit)?;
     Ok(TargetCommit {
         id: CommitId(commit.id),
         title,
@@ -304,6 +309,9 @@ pub fn overview(path: &Path, now: i64) -> Result<Option<Overview>> {
     let mut daily = vec![0; ACTIVITY_DAYS];
     let mut people: Vec<Person> = Vec::new();
     let mut landings = Vec::new();
+    // People go by the names and emails `.mailmap` gives them, as one with a work and a
+    // personal email is one person.
+    let mailmap = repo.open_mailmap();
     // A walk of first parents only ignores a time cutoff, so it stops at the first commit
     // from before the window itself rather than reading the whole history.
     let line: Vec<_> = (repo.rev_walk([tip.id]).first_parent_only().all()?)
@@ -325,7 +333,7 @@ pub fn overview(path: &Path, now: i64) -> Result<Option<Overview>> {
             false => vec![landed.clone()],
         };
         for commit in brought.iter().filter(|c| c.parent_ids().count() < 2) {
-            let Ok(((name, email), _)) = super::commit_byline(commit) else {
+            let Ok(((name, email), _)) = super::commit_byline(&mailmap, commit) else {
                 continue;
             };
             let email = email.to_lowercase();
@@ -354,6 +362,7 @@ pub fn overview(path: &Path, now: i64) -> Result<Option<Overview>> {
         }
         landings.push(landing(
             &repo,
+            &mailmap,
             landed,
             first,
             &brought,
@@ -475,6 +484,7 @@ fn differing(
 /// `landed` summed up as it landed on `day`: from its `first` parent, `brought` in.
 fn landing(
     repo: &gix::Repository,
+    mailmap: &gix::mailmap::Snapshot,
     landed: &gix::Commit<'_>,
     first: Option<gix::ObjectId>,
     brought: &[gix::Commit<'_>],
@@ -492,7 +502,7 @@ fn landing(
         .filter(|_| merge)
         .map(|(t, w)| t.seconds - w);
     let by = (own.clone().next())
-        .and_then(|c| super::commit_byline(c).ok())
+        .and_then(|c| super::commit_byline(mailmap, c).ok())
         .map(|((_, email), _)| email.to_lowercase());
     // What it changed from where the line was, which for a merge is all it brought.
     let tree = |id: gix::ObjectId| Some(repo.find_commit(id).ok()?.tree_id().ok()?.detach());
@@ -562,12 +572,13 @@ pub fn merged_commits(
         !others.is_empty(),
         "this clone doesn't have the commits it merged"
     );
+    let mailmap = repo.open_mailmap();
     let walk = (repo.rev_walk(others))
         .with_hidden([first])
         .sorting(Sorting::ByCommitTime(CommitTimeOrder::NewestFirst))
         .all()?;
     let mut commits = (walk.take(limit + 1))
-        .map(|info| target_commit(&info?.object()?))
+        .map(|info| target_commit(&mailmap, &info?.object()?))
         .collect::<Result<Vec<_>>>()?;
     let more = commits.len() > limit;
     commits.truncate(limit);
@@ -1168,6 +1179,35 @@ mod tests {
                 ],
                 "newest first, each with the commits it brought and where it changed things: the \
                  first two folders of a file, its folder when one deep, the top level for one there"
+            );
+        })
+    }
+
+    #[test]
+    fn people_are_named_as_the_mailmap_has_them() {
+        but_testsupport::isolated_app_data_dir(|| {
+            use crate::backend::ops::tests::{git, repo_with};
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            for (email, message) in [("ama@gmail.com", "home"), ("ama@acme.io", "work")] {
+                let author = format!("--author=Ama Silva <{email}>");
+                git(path, &["commit", "--allow-empty", &author, "-qm", message]);
+            }
+            std::fs::write(path.join(".mailmap"), "<ama@acme.io> <ama@gmail.com>\n").unwrap();
+
+            crate::backend::settings::set_target(path, "refs/heads/main").unwrap();
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64;
+            let summed = overview(path, now).unwrap().expect("a target");
+            let people: Vec<(&str, u32)> = (summed.people.iter())
+                .map(|p| (p.email.as_str(), p.daily.iter().sum()))
+                .collect();
+            assert_eq!(
+                people,
+                [("ama@acme.io", 2), ("t@example.com", 1)],
+                "one person with a work and a personal email counts once, as `git shortlog` does"
             );
         })
     }

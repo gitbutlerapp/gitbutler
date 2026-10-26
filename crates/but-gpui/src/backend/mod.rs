@@ -746,11 +746,15 @@ fn byline_of(
     byline(owned(author), owned(committer))
 }
 
-/// Who `commit` is shown by: see [`byline`].
-fn commit_byline(commit: &gix::Commit<'_>) -> Result<((String, String), Option<Agent>)> {
+/// Who `commit` is shown by, as the repository's `mailmap` names them, as `git log` does: see
+/// [`byline`].
+fn commit_byline(
+    mailmap: &gix::mailmap::Snapshot,
+    commit: &gix::Commit<'_>,
+) -> Result<((String, String), Option<Agent>)> {
     Ok(byline_of(
-        &commit.author()?.into(),
-        &commit.committer()?.into(),
+        &mailmap.resolve(commit.author()?),
+        &mailmap.resolve(commit.committer()?),
     ))
 }
 
