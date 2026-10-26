@@ -290,6 +290,8 @@ pub struct Detail {
     /// Whether the pull request's checks that passed are listed, not just counted.
     passed_checks_open: bool,
     review_scroll: ScrollHandle,
+    /// The pull request's side panel, which scrolls apart from its description beside it.
+    review_side_scroll: ScrollHandle,
     /// How wide the pull request tab was drawn, for whether its side panel fits beside it.
     review_width: Rc<Cell<f32>>,
     /// How tall the selected target commit's message is drawn over its diff, and how wide
@@ -609,6 +611,7 @@ impl Detail {
             opening: None,
             passed_checks_open: false,
             review_scroll: ScrollHandle::new(),
+            review_side_scroll: ScrollHandle::new(),
             review_width: Rc::new(Cell::new(pull_request::TWO_COLUMNS)),
             target_message_height: Rc::new(Cell::new(0.)),
             beside_width: Rc::new(Cell::new(0.)),
@@ -763,6 +766,7 @@ impl Detail {
         self.cursor = Cursor::default();
         self.folded.clear();
         self.review_scroll.set_offset(Default::default());
+        self.review_side_scroll.set_offset(Default::default());
     }
 
     /// Show the diff of what was just picked on the selected page, from its top.
