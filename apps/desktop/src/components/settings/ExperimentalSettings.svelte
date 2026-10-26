@@ -44,7 +44,8 @@
 			Worktree manipulation
 		{/snippet}
 		{#snippet caption()}
-			Enable experimental support for working with linked git worktrees.
+			Shows the repository's other worktrees in the workspace. Existing ones start out archived;
+			bring them back under Project settings → Worktrees.
 		{/snippet}
 		{#snippet actions()}
 			<Toggle

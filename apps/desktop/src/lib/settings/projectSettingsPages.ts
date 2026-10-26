@@ -19,6 +19,11 @@ export const projectSettingsPages = [
 		icon: "git",
 	},
 	{
+		id: "worktrees",
+		label: "Worktrees",
+		icon: "folder-tree",
+	},
+	{
 		id: "ai",
 		label: "AI options",
 		icon: "ai",

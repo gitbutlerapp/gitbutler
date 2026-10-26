@@ -394,6 +394,7 @@ fn main() -> anyhow::Result<()> {
                 diff::tauri_tree_change_diffs::tree_change_diffs,
                 diff::tauri_tree_change_diffs_from_source::tree_change_diffs_from_source,
                 diff::tauri_assign_hunk::assign_hunk,
+                worktrees::tauri_worktrees_list::worktrees_list,
                 worktrees::tauri_worktree_set_archived::worktree_set_archived,
                 worktrees::tauri_worktree_remove::worktree_remove,
                 worktrees::tauri_worktree_new::worktree_new,
