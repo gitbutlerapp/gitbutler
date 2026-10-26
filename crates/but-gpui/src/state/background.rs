@@ -11,6 +11,10 @@ use super::{ProjectId, Reload, Store};
 use crate::backend::reviews::{self, MergeStatus};
 use crate::backend::{self, Checks, Review};
 
+/// How long Later puts the update card off. It comes back after, as updates shouldn't wait
+/// for good.
+const UPDATE_LATER: Duration = Duration::from_secs(4 * 60 * 60);
+
 /// What the forge said about whether a pull request can merge, and what it was asked for:
 /// when the forge was last asked about the project, and the request's last change and
 /// checks then.
@@ -104,6 +108,30 @@ impl Store {
                 }
                 cx.background_executor().timer(check_every).await;
             }
+        })
+    }
+
+    /// Put the update card off for [`UPDATE_LATER`], leaving the navigator's New version.
+    pub fn put_off_update(&mut self, cx: &mut Context<Self>) {
+        self.update_put_off = Some(cx.spawn(async |this, cx| {
+            cx.background_executor().timer(UPDATE_LATER).await;
+            this.update(cx, |store, cx| store.show_update(cx)).ok();
+        }));
+        cx.notify();
+    }
+
+    /// Show the update card again, now.
+    pub fn show_update(&mut self, cx: &mut Context<Self>) {
+        self.update_put_off = None;
+        cx.notify();
+    }
+
+    /// How far installing the newer version has got, while it installs.
+    pub fn update_progress(&self) -> Option<String> {
+        Some(match self.updating? {
+            0 => "Downloading…".to_owned(),
+            100.. => "Installing…".to_owned(),
+            percent => format!("Downloading {percent}%"),
         })
     }
 

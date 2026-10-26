@@ -357,30 +357,22 @@ impl AppView {
         });
     }
 
-    /// Ask the desktop app's update feed now: offer the newer version it has, or say this one
-    /// is the latest.
-    fn check_for_updates(
-        &mut self,
-        _: &CheckForUpdates,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    /// Ask the desktop app's update feed now: show the update card for the newer version it
+    /// has, or say this one is the latest.
+    fn check_for_updates(&mut self, _: &CheckForUpdates, _: &mut Window, cx: &mut Context<Self>) {
         let Some(feed) = cx
             .try_global::<crate::Embedded>()
             .and_then(|e| e.update_feed.clone())
         else {
             return;
         };
-        cx.spawn_in(window, async move |this, cx| {
+        cx.spawn(async move |this, cx| {
             let newer = backend::run(move || backend::settings::newer_version(&feed)).await;
-            this.update_in(cx, |app, window, cx| match newer {
-                Ok(Some(version)) => {
-                    app.store.update(cx, |store, cx| {
-                        store.newer_version = Some(version);
-                        cx.notify();
-                    });
-                    app.install_update(window, cx);
-                }
+            this.update(cx, |app, cx| match newer {
+                Ok(Some(version)) => app.store.update(cx, |store, cx| {
+                    store.newer_version = Some(version);
+                    store.show_update(cx);
+                }),
                 Ok(None) => snack(&app.store, "GitButler is up to date", cx),
                 Err(err) => app.store.update(cx, |store, cx| {
                     store.failed("Couldn't check for updates", &err, cx)
@@ -392,79 +384,66 @@ impl AppView {
     }
 
     /// Install the version the desktop app's update feed offers, with a run of the desktop
-    /// app's binary that shows its progress here, then start again on it.
-    pub fn install_update(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// app's binary that shows its progress here, then start again on it. The update card
+    /// that asks says it restarts, so nothing asks again.
+    pub fn install_update(&mut self, cx: &mut Context<Self>) {
+        use futures::StreamExt as _;
+
         let store = self.store.read(cx);
-        let Some(version) = store.newer_version.clone() else {
-            return;
-        };
-        if store.updating.is_some() {
+        if store.newer_version.is_none() || store.updating.is_some() {
             return;
         }
         if store.unfinished() > 0 {
             snack(&self.store, "Wait for the running operations to finish", cx);
             return;
         }
-        self.confirm_then(
-            None,
-            format!("Update to GitButler {version}?"),
-            "GitButler downloads and installs it, then restarts.",
-            "Update",
-            window,
-            cx,
-            |app, cx| {
-                use futures::StreamExt as _;
-
-                let store = app.store.clone();
-                let (sender, mut progress) = futures::channel::mpsc::unbounded();
-                store.update(cx, |store, cx| {
-                    store.updating = Some(0);
-                    cx.notify();
-                });
-                cx.spawn(async move |_, cx| {
-                    // Off the UI thread: on Windows, starting a process can run the window's
-                    // message loop, which would enter the app again while this holds it.
-                    let installed = backend::run(move || {
-                        crate::install_update(|percent| _ = sender.unbounded_send(percent))
+        let store = self.store.clone();
+        let (sender, mut progress) = futures::channel::mpsc::unbounded();
+        store.update(cx, |store, cx| {
+            store.updating = Some(0);
+            cx.notify();
+        });
+        cx.spawn(async move |_, cx| {
+            // Off the UI thread: on Windows, starting a process can run the window's
+            // message loop, which would enter the app again while this holds it.
+            let installed = backend::run(move || {
+                crate::install_update(|percent| _ = sender.unbounded_send(percent))
+            });
+            let shown = async {
+                while let Some(percent) = progress.next().await {
+                    store.update(cx, |store, cx| {
+                        store.updating = Some(percent);
+                        cx.notify();
                     });
-                    let shown = async {
-                        while let Some(percent) = progress.next().await {
-                            store.update(cx, |store, cx| {
-                                store.updating = Some(percent);
-                                cx.notify();
-                            });
-                        }
-                    };
-                    let (installed, ()) = futures::join!(installed, shown);
-                    if let Err(err) = installed {
-                        store.update(cx, |store, cx| {
-                            store.updating = None;
-                            store.failed("Couldn't update GitButler", &err, cx)
-                        });
-                        return;
-                    }
-                    // What was started while it downloaded finishes first.
-                    while store.update(cx, |store, _| store.unfinished() > 0) {
-                        cx.background_executor()
-                            .timer(std::time::Duration::from_millis(100))
-                            .await;
-                    }
-                    // The Windows installer it started closes this app and starts the new one
-                    // itself.
-                    if !cfg!(windows)
-                        && let Err(err) = backend::run(|| Ok(crate::relaunch(false)?)).await
-                    {
-                        store.update(cx, |store, cx| {
-                            store.updating = None;
-                            store.failed("Couldn't restart GitButler", &err, cx)
-                        });
-                        return;
-                    }
-                    cx.update(|cx| cx.quit());
-                })
-                .detach();
-            },
-        );
+                }
+            };
+            let (installed, ()) = futures::join!(installed, shown);
+            if let Err(err) = installed {
+                store.update(cx, |store, cx| {
+                    store.updating = None;
+                    store.failed("Couldn't update GitButler", &err, cx)
+                });
+                return;
+            }
+            // What was started while it downloaded finishes first.
+            while store.update(cx, |store, _| store.unfinished() > 0) {
+                cx.background_executor()
+                    .timer(std::time::Duration::from_millis(100))
+                    .await;
+            }
+            // The Windows installer it started closes this app and starts the new one itself.
+            if !cfg!(windows)
+                && let Err(err) = backend::run(|| Ok(crate::relaunch(false)?)).await
+            {
+                store.update(cx, |store, cx| {
+                    store.updating = None;
+                    store.failed("Couldn't restart GitButler", &err, cx)
+                });
+                return;
+            }
+            cx.update(|cx| cx.quit());
+        })
+        .detach();
     }
 
     /// Ask with a native dialog before doing something destructive. Acting on something in a

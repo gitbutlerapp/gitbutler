@@ -13,6 +13,7 @@ use gpui::{
 
 use crate::app::{AppView, Cancel, FocusNextPane, FocusPreviousPane};
 use crate::backend::{self, short_ref};
+use crate::help::OpenReleaseNotes;
 use crate::state::{Notice, Overlay, ProjectId, Remap, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::text_input::{InputEvent, TextInput};
@@ -577,7 +578,8 @@ impl AppView {
         Some(backdrop.items_start().pt(dp(120.)).into_any_element())
     }
 
-    /// Snackbars at the bottom centre, error cards at the bottom right.
+    /// Snackbars at the bottom centre, error cards at the bottom right, the update card under
+    /// them.
     pub(crate) fn render_toasts(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = Theme::get(cx);
         let store = self.store.read(cx);
@@ -724,7 +726,8 @@ impl AppView {
                     .bottom(dp(STATUS_BAR_HEIGHT + 12.))
                     .right(dp(16.))
                     .gap(dp(8.))
-                    .children(errors),
+                    .children(errors)
+                    .children(self.render_update_card(cx)),
             )
             .children(snackbar.map(|snackbar| {
                 // Lifted above the commit footer's buttons, as the design system's hosts do.
@@ -740,6 +743,84 @@ impl AppView {
                     .justify_center()
                     .child(snackbar)
             }))
+    }
+
+    /// The update card, while the desktop app's update feed offers a newer version and Later
+    /// hasn't put it off. Not over a modal, as What's new, which it opens, is one.
+    fn render_update_card(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let theme = Theme::get(cx);
+        let store = self.store.read(cx);
+        let version = store.newer_version.clone()?;
+        if store.update_put_off.is_some() || self.modal.is_some() {
+            return None;
+        }
+        let progress = store.update_progress();
+        let installing = progress.is_some().then(|| format!("Installing {version}"));
+        let status = progress.unwrap_or_else(|| "The app restarts once it's installed.".into());
+        let title = format!("GitButler {version} is here");
+        // Lite's update icon on a tile of the accent, the card's one touch of colour beside its
+        // Update button.
+        let tile = div()
+            .flex()
+            .flex_none()
+            .items_center()
+            .justify_center()
+            .size(dp(32.))
+            .rounded(dp(8.))
+            .bg(theme.pop.opacity(0.12))
+            .child(icon(Icon::ArrowInBox).text_color(theme.pop));
+        Some(
+            popover(theme)
+                .id("update-card")
+                .role(Role::Alert)
+                .aria_label(title.clone())
+                .w(dp(320.))
+                .p(dp(16.))
+                .gap(dp(16.))
+                .occlude()
+                .child(
+                    h_flex().items_start().gap(dp(12.)).child(tile).child(
+                        v_flex()
+                            .flex_1()
+                            .min_w_0()
+                            .gap(dp(2.))
+                            .child(
+                                div()
+                                    .text_size(dp(14.))
+                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .child(title),
+                            )
+                            .child(muted(status, theme)),
+                    ),
+                )
+                .child(
+                    h_flex()
+                        .gap(dp(6.))
+                        .child(button("update-notes", "Release notes").small().on_click(
+                            cx.listener(|this, _, window, cx| {
+                                this.open_whats_new(&OpenReleaseNotes, window, cx)
+                            }),
+                        ))
+                        .child(div().flex_1())
+                        .child(
+                            button("update-later", "Later")
+                                .small()
+                                .style(ButtonStyle::Ghost)
+                                .tooltip("Hide for 4 hours")
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.store.update(cx, |store, cx| store.put_off_update(cx))
+                                })),
+                        )
+                        .child(
+                            button("update-app", "Update")
+                                .small()
+                                .style(ButtonStyle::Pop)
+                                .disabled_because(installing)
+                                .on_click(cx.listener(|this, _, _, cx| this.install_update(cx))),
+                        ),
+                )
+                .into_any_element(),
+        )
     }
 }
 

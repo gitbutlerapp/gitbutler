@@ -335,6 +335,8 @@ pub struct Store {
     pub newer_version: Option<String>,
     /// How much of it has downloaded, in percent, while it installs.
     pub updating: Option<u8>,
+    /// While Later puts the update card off, the timer that brings it back.
+    pub update_put_off: Option<Task<()>>,
     /// The user's other machines, and what they have of the watched projects. Everything the
     /// mesh does lives in `state/mesh.rs`; see the crate's AGENTS.md for its rules.
     pub mesh: mesh::Mesh,
@@ -468,6 +470,7 @@ impl Store {
             installing_cli: false,
             newer_version: None,
             updating: None,
+            update_put_off: None,
             mesh: mesh::Mesh::start(cx),
             running: HashMap::new(),
             own_writes: HashMap::new(),

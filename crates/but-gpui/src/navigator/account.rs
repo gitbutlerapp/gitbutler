@@ -1,5 +1,5 @@
-//! The top of the navigator's right end: New version, when the app has an update, and the
-//! GitButler account's picture and menu, or Sign in.
+//! The top of the navigator's right end: New version, while the update card is put off, and
+//! the GitButler account's picture and menu, or Sign in.
 
 use gpui::{AnyElement, Context, MouseButton, MouseDownEvent, div, img, prelude::*};
 
@@ -10,32 +10,25 @@ use crate::ui::person::person_avatar;
 use crate::ui::{ButtonStyle, button, dp};
 
 impl Navigator {
-    /// New version, when the desktop app's update feed offers one, and how far installing it
-    /// has got once it installs. Not "Update", which a project's row says for bringing in its
-    /// target's new commits.
+    /// New version, standing in for the update card while Later puts it off, and how far
+    /// installing it has got once it installs; a click brings the card back. Not "Update",
+    /// which a project's row says for bringing in its target's new commits.
     pub(super) fn update_button(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let store = self.store.read(cx);
-        let version = store.newer_version.clone()?;
-        let updating = store.updating;
-        let label = match updating {
-            None => "New version".to_owned(),
-            Some(0) => "Downloading…".to_owned(),
-            Some(100..) => "Installing…".to_owned(),
-            Some(percent) => format!("Downloading {percent}%"),
-        };
-        let installing = updating.map(|_| format!("Installing {version}"));
+        let put_off = store.update_put_off.is_some();
+        let version = store.newer_version.clone().filter(|_| put_off)?;
+        let progress = store.update_progress();
+        let updating = progress.is_some();
+        let label = progress.unwrap_or_else(|| "New version".to_owned());
         let update = button("update-app", label)
             .small()
             .style(ButtonStyle::Gray)
             .tooltip(format!("Update to {version}"))
-            .disabled_because(installing)
-            .on_click(cx.listener(|this, _, window, cx| {
-                this.app.update_later(window, cx, move |app, window, cx| {
-                    app.install_update(window, cx)
-                });
+            .on_click(cx.listener(|this, _, _, cx| {
+                this.store.update(cx, |store, cx| store.show_update(cx))
             }))
             .into_any_element();
-        if updating.is_none() {
+        if !updating {
             return Some(update);
         }
         // The percent changes its width as it counts, which would shift the filter beside it,
