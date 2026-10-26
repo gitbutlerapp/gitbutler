@@ -2,9 +2,9 @@
 
 - IDs for commits, branches, files, and hunks: `but help cli-ids`.
 - Terms (workspace, applied, stack, target, `@`): `but skill concepts`.
-- Every command accepts `--json`. Mutations accept `--status-after` to append the resulting workspace status.
-- History edits refuse branches and commits already merged upstream; `--allow-merged` overrides that.
-- Mutations are recorded in the operation log; `but undo` reverts the last one.
+- Workspace edits such as `commit`, `amend`, `squash`, `move`, `discard` and `undo` accept `--status-after` to append the resulting workspace status; `push`, `pull`, `merge`, `oplog` and `worktree` ignore it.
+- History edits and `push` refuse branches and commits already merged upstream; `--allow-merged` overrides that. `discard` and `branch delete` don't check.
+- Most mutations are recorded in the operation log, and `but undo` reverts the last one recorded; `push` and `worktree` commands are not recorded.
 - To run against another directory, put `-C <path>` before the command: `but -C <path> <cmd>`.
 - Examples and details: `but <cmd> --help`.
 
@@ -18,7 +18,7 @@ Show an overview of the workspace state
 
 ### but diff [TARGET]
 Show the diff of changes in the repo
-- `[TARGET]` What to diff, by CLI ID: a commit, branch, committed file or hunk, uncommitted file or hunk, path prefix, or a worktree's uncommitted area. A commit lists its files and hunks with their IDs. If omitted shows the diff of all uncommitted changes of the checkout but runs in, with file and hunk IDs. For more details about CLI IDs, see but help cli-ids.
+- `[TARGET]` What to diff, by CLI ID: a commit, branch, committed file or hunk, uncommitted file or hunk, path prefix ending in /, or a worktree's uncommitted area. A commit lists its files and hunks with their IDs. If omitted shows the diff of all uncommitted changes of the checkout but runs in, with file and hunk IDs. For more details about CLI IDs, see but help cli-ids.
 
 ### but show <COMMIT_OR_BRANCH>
 Show details of a commit or branch
@@ -54,7 +54,7 @@ List the branches in the repository
 - `[FILTER]` Filter branches by name (case-insensitive substring match)
 - `-l, --local` Show only local branches
 - `-r, --remote` Show only remote branches
-- `-a, --all` Show all branches (not just active + 20 most recent)
+- `-a, --all` Show all branches (not just active + 20 most recent); empty branches also need --empty
 
 ### but branch show <BRANCH>
 Show commits ahead of base for a specific branch
@@ -98,7 +98,7 @@ Discard branches, commits, or changes
 
 ### but resolve [TARGETS]...
 Resolve conflicts in a commit or in uncommitted files
-- `[TARGETS]...` A commit to enter resolution mode for, or one or more conflicted uncommitted files (as listed by but status) to mark as resolved with their current worktree content. Resolution mode checks the commit out until finish or cancel; the conflicts and apply subcommands resolve a commit without it
+- `[TARGETS]...` A commit to enter resolution mode for, or one or more conflicted uncommitted files (as listed by but status) to mark as resolved with their current worktree content. Resolution mode checks the commit out until finish or cancel, and is refused while a single branch is checked out; the conflicts and apply subcommands resolve a commit without it, in either case
 - `--ai` Resolve the conflicts with the configured AI model and apply the result. With a commit ID this resolves only that commit; without one it resolves all conflicted commits in the workspace, oldest first. Undo the result with but undo.
 
 ### but resolve conflicts [COMMIT]
@@ -125,7 +125,7 @@ Cancel conflict resolution and return to workspace mode
 - `-f, --force` Discard any changes made during resolution
 
 ### but unapply <BRANCH_OR_STACK>
-Remove a branch from the workspace, keeping it to apply again later
+Remove a branch and the rest of its stack from the workspace, keeping them to apply again later
 - `<BRANCH_OR_STACK>` The branch or stack to unapply
 
 ### but apply <BRANCH>
@@ -188,12 +188,12 @@ Edit the commit message of the specified commit
 
 ### but uncommit <SOURCES>...
 Move commits, branches, or committed changes back into the uncommitted area
-- `<SOURCES>...` One or more commits, branches, or committed changes to uncommit. Sources must all be the same category.
+- `<SOURCES>...` One or more commits, branches, or committed changes to uncommit. Sources must all be the same category. Uncommitting a branch also deletes it.
 
 ### but amend [SOURCES]...
 Amend uncommitted changes into a commit or branch
 - `[SOURCES]...` One or more uncommitted files or hunks to amend. If omitted, all uncommitted changes of the checkout but runs in are amended: @, or a linked worktree's.
-- `-t, --target <COMMIT_OR_BRANCH>` The commit to amend into; a branch means its newest commit
+- `-t, --target <COMMIT_OR_BRANCH>` The commit to amend into; a branch means its newest commit [required]
 
 ## Operation History
 
@@ -229,7 +229,6 @@ Merge a branch directly onto the target branch, bypassing review
 ### but push [BRANCH]
 Push changes in a branch to remote
 - `[BRANCH]` Branch name or CLI ID to push; the branches below it in its stack are pushed with it. If omitted, a terminal prompts for a selection and a non-interactive run pushes every stack with unpushed commits
-- `-f, --with-force` Force push even if it's not fast-forward
 - `-s, --skip-force-push-protection` Skip force push protection checks
 - `--no-hooks` Bypass pre-push hooks
 - `-d, --dry-run` Show what would be pushed without actually pushing

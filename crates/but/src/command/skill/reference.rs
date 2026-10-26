@@ -59,11 +59,13 @@ pub(super) fn render() -> String {
         "# but command reference\n\n\
          - IDs for commits, branches, files, and hunks: `but help cli-ids`.\n\
          - Terms (workspace, applied, stack, target, `@`): `but skill concepts`.\n\
-         - Every command accepts `--json`. Mutations accept `--status-after` to append the \
-         resulting workspace status.\n\
-         - History edits refuse branches and commits already merged upstream; \
-         `--allow-merged` overrides that.\n\
-         - Mutations are recorded in the operation log; `but undo` reverts the last one.\n\
+         - Workspace edits such as `commit`, `amend`, `squash`, `move`, `discard` and `undo` \
+         accept `--status-after` to append the resulting workspace status; `push`, `pull`, \
+         `merge`, `oplog` and `worktree` ignore it.\n\
+         - History edits and `push` refuse branches and commits already merged upstream; \
+         `--allow-merged` overrides that. `discard` and `branch delete` don't check.\n\
+         - Most mutations are recorded in the operation log, and `but undo` reverts the last \
+         one recorded; `push` and `worktree` commands are not recorded.\n\
          - To run against another directory, put `-C <path>` before the command: \
          `but -C <path> <cmd>`.\n\
          - Examples and details: `but <cmd> --help`.\n",
@@ -143,6 +145,9 @@ fn description(arg: &Arg) -> String {
                 .join(" ")
         })
         .unwrap_or_default();
+    if arg.is_required_set() && !arg.is_positional() {
+        text.push_str(" [required]");
+    }
     if !arg.get_action().takes_values() {
         return text;
     }

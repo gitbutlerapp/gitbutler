@@ -4,7 +4,8 @@
 
 use crate::args::atoms::CliIdArg;
 
-/// Remove a branch from the workspace, keeping it to apply again later.
+/// Remove a branch and the rest of its stack from the workspace, keeping them to apply again
+/// later.
 ///
 /// If you want to unapply an applied branch from your workspace
 /// (effectively stashing it) so you can work on other branches,
@@ -14,9 +15,9 @@ use crate::args::atoms::CliIdArg;
 /// directory and you can re-apply it later when needed. You will then
 /// see the branch as unapplied in `but branch list`.
 ///
-/// With the single-branch feature enabled, unapplying the last branch safely checks out
-/// the target's local tracking branch, if available. The unapplied branch is preserved
-/// and stays unapplied when switching back with `but switch --workspace`.
+/// Unapplying the last branch checks out the target's local tracking branch, if available.
+/// The unapplied branch is preserved and stays unapplied when switching back with
+/// `but switch --workspace`.
 ///
 /// The identifier can be:
 /// - A CLI ID pointing to a stack or branch (e.g., "bu" from `but status`)
