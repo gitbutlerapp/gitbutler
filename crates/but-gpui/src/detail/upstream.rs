@@ -1674,7 +1674,9 @@ impl Detail {
                 let (title, detail) = match lost {
                     Some(name) => (
                         format!("{name} is gone"),
-                        "The remote no longer has it. Pick the branch your work goes into now",
+                        "The remote no longer has it. Pick the branch your work goes into now; \
+                         one only the remote has needs a local branch first, as \
+                         `git switch -c main --track origin/main` makes",
                     ),
                     // A loaded project without a target needs one picked first, remote or not.
                     None if untargeted => (
