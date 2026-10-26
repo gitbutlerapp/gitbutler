@@ -1737,7 +1737,8 @@ impl Detail {
         }
     }
 
-    /// Commit to `branch` of `project` next: a branch just made is where its commits go.
+    /// Commit to `branch` of `project` next: a branch just made is where its commits go, as
+    /// are those started from a branch.
     pub fn branch_created(&mut self, project: &ProjectId, branch: String, cx: &mut Context<Self>) {
         if self.checks_project.as_ref() == Some(project) {
             self.commit_target = Some(branch);

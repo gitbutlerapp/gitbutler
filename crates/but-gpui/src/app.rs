@@ -799,13 +799,22 @@ impl AppView {
                 .detail
                 .update(cx, |detail, cx| detail.commit_or_write(window, cx));
         }
+        // From a branch, or one of its commits, the commit goes on that branch.
+        let branch = (self.store.read(cx).branch_for(&selection))
+            .map(|branch| branch.ref_name.clone())
+            .filter(|_| matches!(checkout, Selection::Uncommitted(_)));
         self.store
-            .update(cx, |store, cx| store.select(Some(checkout), cx));
+            .update(cx, |store, cx| store.select(Some(checkout.clone()), cx));
         // Once the detail has taken the new selection's checks, which it does as this update
         // ends: opened before, the composer would be of the checkout left, and close.
         let detail = self.detail.clone();
         window.defer(cx, move |window, cx| {
-            detail.update(cx, |detail, cx| detail.focus_message(window, cx))
+            detail.update(cx, |detail, cx| {
+                if let Some(branch) = branch {
+                    detail.branch_created(checkout.project(), branch, cx);
+                }
+                detail.focus_message(window, cx)
+            })
         });
     }
 
