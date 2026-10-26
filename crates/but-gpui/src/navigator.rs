@@ -223,9 +223,9 @@ impl RowStyle<'_> {
             .child(relative_time(at))
     }
 
-    /// A commit's row, `indent` in: `glyph`, its title, a dot while it's unread, and how old
-    /// it is when that's known. The title is quieter once read, so branch names and unread
-    /// commits stand out, but in full on a solid selection.
+    /// A commit's row, `indent` in: `glyph`, its title, and a dot while it's unread. The title
+    /// is quieter once read, so branch names and unread commits stand out, but in full on a
+    /// solid selection.
     fn commit_line(
         &self,
         id: String,
@@ -233,7 +233,6 @@ impl RowStyle<'_> {
         glyph: impl IntoElement,
         title: SharedString,
         unread: bool,
-        at: Option<i64>,
     ) -> Stateful<Div> {
         let quiet = title.is_empty() || !(unread || self.solid);
         self.row(id, indent)
@@ -254,7 +253,6 @@ impl RowStyle<'_> {
                     .child(commit_title(&title)),
             )
             .when(unread, |el| el.child(dot(self.meta(self.theme.pop))))
-            .children(at.map(|at| self.age(at)))
     }
 }
 
@@ -2137,7 +2135,6 @@ impl Navigator {
                     small_icon(glyph).text_color(style.meta(color)),
                     label,
                     store.is_unread(id, commit),
-                    Some(commit.time),
                 )
                 // Selected but on its way out.
                 .when(store.hides_commit(id, &commit.key), |el| el.opacity(0.5))
@@ -2172,11 +2169,11 @@ impl Navigator {
         let workspace = store.workspace(id)?;
         let listed = (workspace.upstream(ref_name).iter()).find(|c| c.id == *commit_id);
         // One a merge listed brought in sits a step in under it.
-        let (title, time, merge, nested) = match listed {
-            Some(commit) => (commit.title.clone(), commit.time, commit.merge, false),
+        let (title, merge, nested) = match listed {
+            Some(commit) => (commit.title.clone(), commit.merge, false),
             None => {
                 let (_, commit) = store.merged_upstream(id, ref_name, *commit_id)?;
-                (commit.title.clone(), commit.time, false, true)
+                (commit.title.clone(), false, true)
             }
         };
         let title: SharedString = title.into();
@@ -2213,7 +2210,6 @@ impl Navigator {
                     glyph,
                     title,
                     unread,
-                    Some(time),
                 )
                 .on_mouse_down(MouseButton::Left, self.select_on_press(item, cx))
                 .when_some(toggle, |el, toggle| el.on_click(double_click(toggle, cx)))
