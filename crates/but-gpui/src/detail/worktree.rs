@@ -73,7 +73,7 @@ pub(super) struct Now {
 /// A checkout's branches, as listed: linked worktree `worktree`'s, or the main checkout's.
 fn checkout_branches<'a>(ws: &'a Workspace, worktree: Option<&str>) -> Vec<&'a Branch> {
     match worktree {
-        Some(name) => (ws.find_worktree(name)).map_or(Vec::new(), |w| w.branches.iter().collect()),
+        Some(name) => (ws.worktree_lane(name)).map_or(Vec::new(), |l| l.branches.iter().collect()),
         None => ws.branches().collect(),
     }
 }
@@ -216,13 +216,12 @@ impl Detail {
             return;
         };
         let linked = (checkout.1.as_deref()).and_then(|name| {
-            self.store
-                .read(cx)
-                .workspace(&checkout.0)?
-                .find_worktree(name)
+            let ws = self.store.read(cx).workspace(&checkout.0)?;
+            Some((ws.find_worktree(name)?, ws.worktree_lane(name)))
         });
-        let head = linked.map(|w| {
-            let tip = w.branches.first().and_then(|b| b.commits.first());
+        let head = linked.map(|(w, lane)| {
+            let top = lane.and_then(|lane| lane.branches.first());
+            let tip = top.and_then(|b| b.commits.first());
             (w.branch.clone(), tip.map(|commit| commit.id))
         });
         if let Some(name) = checkout.1.clone().filter(|_| head != self.now.events_at) {

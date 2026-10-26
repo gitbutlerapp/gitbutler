@@ -174,7 +174,10 @@ impl Overlay {
     pub(super) fn checkouts(&self, ws: &Workspace) -> Checkouts {
         let worktree_with = |has: &dyn Fn(&Branch) -> bool| {
             (ws.worktrees.iter())
-                .find(|worktree| worktree.branches.iter().any(has))
+                .find(|worktree| {
+                    (ws.worktree_lane(&worktree.name))
+                        .is_some_and(|lane| lane.branches.iter().any(has))
+                })
                 .map(|worktree| worktree.name.clone())
         };
         let of_commit = |key: &str| worktree_with(&|b| b.commits.iter().any(|c| c.key == key));

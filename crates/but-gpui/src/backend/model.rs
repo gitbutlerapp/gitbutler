@@ -63,7 +63,8 @@ pub struct Workspace {
     pub lost_target: Option<String>,
     /// The forge that hosts the target, when there is one to make pull requests on.
     pub forge: Option<Forge>,
-    /// The stacks, each a lane of the main checkout.
+    /// The stacks, each a lane of the main checkout, then the lanes of the linked worktrees
+    /// shown, in `worktrees`' order.
     pub lanes: Vec<Lane>,
     pub uncommitted: Vec<FileChange>,
     /// The tree of the main checkout's `HEAD` that `uncommitted` was read against. While it's
@@ -127,9 +128,6 @@ pub struct Worktree {
     pub path: std::path::PathBuf,
     /// The branch it has checked out, or `None` for a detached `HEAD`.
     pub branch: Option<String>,
-    /// The branches of its lane, from the one checked out down to where it started, without
-    /// the commits the target already has: what was committed in it.
-    pub branches: Vec<Branch>,
     pub uncommitted: Vec<FileChange>,
     /// The Git command it's stopped partway through, like `git rebase`.
     pub git_operation: Option<&'static str>,
@@ -141,13 +139,6 @@ pub struct Worktree {
 }
 
 impl Worktree {
-    /// The last commit of the bottom branch of its lane, which a branch moves below to go
-    /// under the worktree's branches. `None` when that branch has no commits of its own.
-    pub fn lane_end(&self) -> Option<CommitId> {
-        let bottom = (self.branches.iter().rev()).find(|branch| !branch.ref_name.is_empty())?;
-        bottom.commits.last().map(|commit| commit.id)
-    }
-
     /// When its uncommitted files were written, and when it last moved, as a commit that
     /// takes them all does, in seconds since the epoch.
     pub fn activity(&self) -> impl Iterator<Item = i64> + '_ {
@@ -177,7 +168,7 @@ impl Workspace {
 
     /// Every branch shown: the workspace's, then its linked worktrees'.
     fn shown_branches(&self) -> impl Iterator<Item = &Branch> {
-        (self.branches()).chain(self.worktrees.iter().flat_map(|wt| &wt.branches))
+        self.lanes().flatten()
     }
 
     /// Every commit shown, its linked worktrees' too.

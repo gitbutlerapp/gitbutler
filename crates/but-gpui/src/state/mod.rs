@@ -642,7 +642,10 @@ impl Store {
         if workspace.branches().any(|branch| selection.on(branch)) {
             return None;
         }
-        (workspace.worktrees.iter()).find(|wt| wt.branches.iter().any(|b| selection.on(b)))
+        (workspace.worktrees.iter()).find(|wt| {
+            (workspace.worktree_lane(&wt.name))
+                .is_some_and(|lane| lane.branches.iter().any(|b| selection.on(b)))
+        })
     }
 
     /// Where an action on `at` happens, for a prompt or a confirmation to say, named as the

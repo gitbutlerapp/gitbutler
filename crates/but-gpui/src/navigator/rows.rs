@@ -207,8 +207,10 @@ impl Navigator {
             if headed {
                 rows.close();
                 rows.push(Row::WorktreeDivider);
-                let on_branches =
-                    |wt: &Worktree| selection.is_some_and(|s| within(s, wt.branches.iter()));
+                let on_branches = |wt: &Worktree| {
+                    let lane = workspace.worktree_lane(&wt.name);
+                    selection.is_some_and(|s| within(s, lane.iter().flat_map(|l| &l.branches)))
+                };
                 // The inactive ones wait under a heading of their own, folded unless opened or
                 // the selection's in one.
                 let (inactive, active): (Vec<_>, Vec<_>) = (self.worktrees(id, workspace))
@@ -340,7 +342,9 @@ impl Navigator {
                     let item = Selection::Worktree(id.clone(), wt.name.clone());
                     rows.push_found(item, hit(own, wt_own));
                     rows.open_in(NEST);
-                    self.filtered_lane(store, id, &wt.branches, terms, own | wt_own, &mut rows);
+                    let lane = workspace.worktree_lane(&wt.name);
+                    let branches = lane.map_or(&[][..], |lane| &lane.branches);
+                    self.filtered_lane(store, id, branches, terms, own | wt_own, &mut rows);
                     rows.close();
                     if rows.rows.len() == wt_start + 1 && !hit(own, wt_own) {
                         rows.truncate(wt_start);
@@ -547,7 +551,8 @@ impl Navigator {
         rows.push(Row::Item(Selection::Worktree(id.clone(), name.clone())));
         if self.worktree_open(id, Some(&name), selected) {
             rows.open_in(NEST);
-            self.lane_rows(store, id, &worktree.branches, rows);
+            let lane = (store.workspace(id)).and_then(|ws| ws.worktree_lane(&name));
+            self.lane_rows(store, id, lane.map_or(&[][..], |lane| &lane.branches), rows);
             rows.close();
         }
         rows.push(Row::WorktreeDivider);
@@ -626,9 +631,11 @@ pub(super) fn in_inactive(store: &Store, id: &ProjectId, inactive: &[&Worktree])
     (store.selection.as_ref())
         .filter(|s| s.project() == id)
         .is_some_and(|s| {
+            let workspace = store.workspace(id);
             (inactive.iter()).any(|wt| {
+                let lane = workspace.and_then(|ws| ws.worktree_lane(&wt.name));
                 matches!(s, Selection::Worktree(_, name) if *name == wt.name)
-                    || within(s, wt.branches.iter())
+                    || within(s, lane.iter().flat_map(|lane| &lane.branches))
             })
         })
 }
@@ -657,9 +664,8 @@ pub(super) fn section_branches<'a>(
 ) -> Vec<&'a Branch> {
     match name {
         None => workspace.branches().collect(),
-        Some(name) => {
-            (workspace.find_worktree(name)).map_or_else(Vec::new, |wt| wt.branches.iter().collect())
-        }
+        Some(name) => (workspace.worktree_lane(name))
+            .map_or_else(Vec::new, |lane| lane.branches.iter().collect()),
     }
 }
 

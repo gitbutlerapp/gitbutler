@@ -24,18 +24,20 @@ pub(crate) fn branch(name: &str, commits: &[u8]) -> Branch {
 
 pub(crate) fn workspace(stacks: Vec<Vec<Branch>>, linked: Vec<Branch>) -> Workspace {
     Workspace {
-        lanes: stacks
-            .into_iter()
+        lanes: (stacks.into_iter())
             .map(|branches| Lane {
                 branches,
                 checkout: Checkout::Main,
             })
+            .chain([Lane {
+                branches: linked,
+                checkout: Checkout::Linked("agent".into()),
+            }])
             .collect(),
         worktrees: vec![Worktree {
             name: "agent".into(),
             path: "/agent".into(),
             branch: None,
-            branches: linked,
             uncommitted: Vec::new(),
             git_operation: None,
             tree: None,
@@ -56,7 +58,10 @@ pub(crate) fn describe(workspace: &Workspace) -> String {
         .map(|lane| format!("Main: [{}]", names(&lane.branches)));
     let mut worktrees: Vec<_> = workspace.worktrees.iter().collect();
     worktrees.sort_by_key(|worktree| &worktree.name);
-    let worktrees = (worktrees.into_iter())
-        .map(|worktree| format!("{}: [{}]", worktree.name, names(&worktree.branches)));
+    let worktrees = (worktrees.into_iter()).map(|worktree| {
+        let lane = workspace.worktree_lane(&worktree.name);
+        let branches = lane.map_or(&[][..], |lane| &lane.branches);
+        format!("{}: [{}]", worktree.name, names(branches))
+    });
     stacks.chain(worktrees).map(|line| line + "\n").collect()
 }

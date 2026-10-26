@@ -606,7 +606,12 @@ fn names<'a>(workspaces: impl IntoIterator<Item = &'a Workspace>) -> HashSet<Str
         let branches = (workspace
             .lanes_in(&Checkout::Main)
             .flat_map(|stack| &stack.branches))
-        .chain(worktrees.clone().flat_map(|worktree| &worktree.branches));
+        .chain(
+            worktrees
+                .clone()
+                .filter_map(|worktree| workspace.worktree_lane(&worktree.name))
+                .flat_map(|lane| &lane.branches),
+        );
         for branch in branches {
             named.push(&branch.name);
             named.extend(branch.remote.as_deref());

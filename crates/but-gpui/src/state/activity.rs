@@ -107,8 +107,13 @@ impl Store {
     ) {
         let now = crate::ui::now();
         let main = (None, workspace.branches().collect::<Vec<_>>());
-        let linked = (workspace.worktrees.iter())
-            .map(|w| (Some(w.name.clone()), w.branches.iter().collect()));
+        let linked = (workspace.worktrees.iter()).map(|w| {
+            let lane = workspace.worktree_lane(&w.name);
+            (
+                Some(w.name.clone()),
+                lane.iter().flat_map(|l| &l.branches).collect(),
+            )
+        });
         let mut changed = false;
         for (worktree, branches) in std::iter::once(main).chain(linked) {
             let checkout: (ProjectId, Option<Arc<str>>) = (id.clone(), worktree);

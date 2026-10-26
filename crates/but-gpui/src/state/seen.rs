@@ -212,7 +212,8 @@ impl Store {
         let before = self.rebaseline.get(id).map(|(before, checkouts)| {
             let there: HashSet<&str> = (workspace.worktrees.iter())
                 .filter(|worktree| checkouts.contains(&Some(worktree.name.clone())))
-                .flat_map(|worktree| &worktree.branches)
+                .filter_map(|worktree| workspace.worktree_lane(&worktree.name))
+                .flat_map(|lane| &lane.branches)
                 .chain(workspace.branches().filter(|_| checkouts.contains(&None)))
                 .flat_map(|branch| &branch.commits)
                 .map(|commit| commit.key.as_str())

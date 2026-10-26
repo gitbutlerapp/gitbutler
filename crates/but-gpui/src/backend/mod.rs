@@ -368,7 +368,7 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
     };
 
     let cached = reviews::cached_reviews(&ctx);
-    let lanes: Vec<Lane> = info
+    let mut lanes: Vec<Lane> = info
         .stacks
         .iter()
         .map(|stack| Lane {
@@ -384,12 +384,18 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         tracing::warn!("couldn't list the linked worktrees: {err:#}");
         None
     });
-    let (mut worktrees, archived_worktrees) = listed.unwrap_or_default();
-    for worktree in &mut worktrees {
-        let lane = (info.worktrees.iter()).find(|lane| lane.name == worktree.name.as_ref());
-        let segments = lane.iter().flat_map(|lane| &lane.segments);
-        worktree.branches = worktree_branches(&ctx, &cached, segments, &lanes);
-    }
+    let (worktrees, archived_worktrees) = listed.unwrap_or_default();
+    let linked_lanes: Vec<Lane> = (worktrees.iter())
+        .filter_map(|worktree| {
+            let lane = (info.lanes())
+                .find(|lane| lane.worktree.is_some_and(|name| *name == *worktree.name))?;
+            Some(Lane {
+                branches: worktree_branches(&ctx, &cached, lane.segments.iter(), &lanes),
+                checkout: Checkout::Linked(worktree.name.clone()),
+            })
+        })
+        .collect();
+    lanes.extend(linked_lanes);
     tracing::debug!(elapsed = ?started.elapsed(), path = %path.display(), "loaded workspace");
     let target_branch = (meta.and_then(|meta| meta.target_ref)).map(|name| name.to_string());
     // The oplog records a snapshot against the target, so without one set it records none.
@@ -1417,6 +1423,7 @@ mod failure_tests {
 mod lane_tests {
     use std::path::Path;
 
+    use crate::backend::Checkout;
     use crate::backend::model::build::describe;
     use crate::backend::ops::tests::{git, repo_with, target_origin_main};
     use crate::backend::ops::{
@@ -1477,7 +1484,28 @@ mod lane_tests {
     #[test]
     fn a_worktree_lane_loads_its_own_branches() {
         linked_workspace(|path| {
+            let loaded = crate::backend::load_workspace(path, Default::default()).unwrap();
+            let wt_top = (loaded.worktrees.iter()).find(|wt| &*wt.name == "wt-top");
+            let out = std::process::Command::new("git")
+                .current_dir(&wt_top.unwrap().path)
+                .args(["reset", "-q", "--soft", "HEAD"])
+                .env("GIT_COMMITTER_DATE", "2090-01-01 00:00:00 +0000")
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "{out:?}");
             let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            let linked: Vec<_> = (workspace.lanes.iter())
+                .filter_map(|lane| match &lane.checkout {
+                    Checkout::Main => None,
+                    Checkout::Linked(name) => Some(&**name),
+                })
+                .collect();
+            let listed: Vec<_> = (workspace.worktrees.iter()).map(|wt| &*wt.name).collect();
+            assert_eq!(listed[0], "wt-top", "its reflog moved last");
+            assert_eq!(
+                linked, listed,
+                "the lanes are in the order the worktrees list"
+            );
             // `top`, checked out in wt-top, names an empty segment in that lane, which leaves
             // its commit in the stack unnamed.
             snapbox::assert_data_eq!(

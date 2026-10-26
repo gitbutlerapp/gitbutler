@@ -1,23 +1,42 @@
+use std::sync::Arc;
+
 use super::{Branch, CommitId, Workspace};
 
 /// The checkout a lane's branches are worked on in.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Checkout {
     Main,
+    Linked(Arc<str>),
 }
 
 #[derive(Debug, Clone)]
 pub struct Lane {
-    /// Branches from the top of the lane down to its base.
+    /// Branches from the top of the lane down to its base. A linked worktree's run from the
+    /// one checked out down to where it started, without the commits the target already has:
+    /// what was committed in it.
     pub branches: Vec<Branch>,
     pub checkout: Checkout,
+}
+
+impl Lane {
+    /// The last commit of its bottom named branch, which a branch moves below to go under the
+    /// lane's branches. `None` when that branch has no commits of its own.
+    pub fn end(&self) -> Option<CommitId> {
+        let bottom = (self.branches.iter().rev()).find(|branch| !branch.ref_name.is_empty())?;
+        bottom.commits.last().map(|commit| commit.id)
+    }
 }
 
 impl Workspace {
     /// The branches of each stack, then of each linked worktree's lane, top first.
     pub fn lanes(&self) -> impl Iterator<Item = &[Branch]> {
-        (self.lanes.iter().map(|lane| &lane.branches[..]))
-            .chain(self.worktrees.iter().map(|wt| &wt.branches[..]))
+        self.lanes.iter().map(|lane| &lane.branches[..])
+    }
+
+    /// The lane of the linked worktree `name`.
+    pub fn worktree_lane(&self, name: &str) -> Option<&Lane> {
+        (self.lanes.iter())
+            .find(|lane| matches!(&lane.checkout, Checkout::Linked(linked) if **linked == *name))
     }
 
     /// The commits of the lane holding commit `id`, across its branches, newest first.
