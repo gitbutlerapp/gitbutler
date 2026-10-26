@@ -689,9 +689,10 @@ impl AppView {
                                             .child(title.clone()),
                                     ),
                             )
+                            // Room for what a server or hook says to do, under what failed.
                             .child(
                                 muted(error_summary(detail), theme)
-                                    .line_clamp(4)
+                                    .line_clamp(8)
                                     .text_ellipsis(),
                             )
                             .child(
