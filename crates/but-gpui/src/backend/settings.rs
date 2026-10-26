@@ -33,7 +33,7 @@ pub fn terminals() -> Vec<Program> {
 /// Open `file` of the project at `path`, or of its linked `worktree`, in `editor` at `line`.
 pub fn open_in_editor(
     path: &Path,
-    worktree: Option<&str>,
+    worktree: Option<&bstr::BStr>,
     editor: &str,
     file: &str,
     line: Option<u32>,

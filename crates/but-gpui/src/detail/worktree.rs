@@ -220,7 +220,8 @@ impl Detail {
             self.now.events_at = head.clone();
             let since = window_start(crate::ui::now());
             let (read_from, read_for) = (path.clone(), checkout.clone());
-            let events = backend::run(move || backend::worktrees::events(&read_from, &name, since));
+            let events =
+                backend::run(move || backend::worktrees::events(&read_from, name.as_ref(), since));
             cx.spawn(async move |this, cx| {
                 let events = events.await;
                 this.update(cx, |this, cx| {
@@ -306,7 +307,7 @@ impl Detail {
         let ws = entry.workspace.as_ref();
         let (title, branch, folder, target) = match checkout {
             Checkout::Linked(name) => {
-                let linked = ws.and_then(|ws| ws.find_worktree(name));
+                let linked = ws.and_then(|ws| ws.find_worktree(name.as_ref()));
                 (
                     name.to_string(),
                     (linked.and_then(|w| w.branch.as_deref()))

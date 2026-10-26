@@ -254,7 +254,7 @@ pub enum ApplyOutcome {
 
 /// Apply `ref_name` to the workspace, once the archived worktree `freeing`, if any, let go of
 /// it. A remote branch gets a local branch to apply.
-pub fn apply(path: &Path, ref_name: &str, freeing: Option<&str>) -> Result<ApplyOutcome> {
+pub fn apply(path: &Path, ref_name: &str, freeing: Option<&BStr>) -> Result<ApplyOutcome> {
     use but_workspace::branch::apply::OutcomeStatus;
     let mut ctx = open(path)?;
     let name = full_name(ref_name)?;

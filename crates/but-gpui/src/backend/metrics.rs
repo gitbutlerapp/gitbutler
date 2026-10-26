@@ -20,6 +20,7 @@ use std::sync::{OnceLock, mpsc};
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
+use bstr::ByteSlice as _;
 use but_error::AnyhowContextExt as _;
 use chrono::{DateTime, Utc};
 use parking_lot::Mutex;
@@ -591,18 +592,24 @@ fn report_error(kind: String, err: &anyhow::Error, key: &str, names: &HashSet<St
 /// and each part of their paths, in lower case.
 fn names<'a>(workspaces: impl IntoIterator<Item = &'a Workspace>) -> HashSet<String> {
     let mut named: Vec<&str> = Vec::new();
+    let mut worktree_names = Vec::new();
     for workspace in workspaces {
         named.extend(workspace.target.iter().map(|target| target.name.as_str()));
         named.extend(workspace.target_branch.as_deref());
         named.extend(workspace.lost_target.as_deref());
         let worktrees = workspace.worktrees.iter();
-        named.extend(worktrees.clone().map(|worktree| &*worktree.name));
+        worktree_names.extend(
+            worktrees
+                .clone()
+                .map(|worktree| worktree.name.to_str_lossy()),
+        );
         named.extend(
             worktrees
                 .clone()
                 .filter_map(|worktree| worktree.branch.as_deref().map(super::short_ref)),
         );
-        named.extend(workspace.archived_worktrees.iter().map(|(name, _)| &**name));
+        worktree_names
+            .extend((workspace.archived_worktrees.iter()).map(|(name, _)| name.to_str_lossy()));
         for branch in workspace.all_branches() {
             named.push(&branch.name);
             named.extend(branch.remote.as_deref());
@@ -614,9 +621,12 @@ fn names<'a>(workspaces: impl IntoIterator<Item = &'a Workspace>) -> HashSet<Str
             named.extend(file.previous_path.as_deref());
         }
     }
-    (named.into_iter().flat_map(|name| name.split('/')))
-        .map(str::to_lowercase)
-        .collect()
+    (named
+        .into_iter()
+        .chain(worktree_names.iter().map(|name| &**name)))
+    .flat_map(|name| name.split('/'))
+    .map(str::to_lowercase)
+    .collect()
 }
 
 /// The workspace's shape, by the names the CLI's and the desktop app's events give it.

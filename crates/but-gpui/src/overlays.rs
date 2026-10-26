@@ -150,13 +150,13 @@ pub(crate) fn branch_name(
 /// Run `op` with `name`, typed for a branch, and hand `done` the full ref name of the branch
 /// it returns. With `renaming`, a full ref, that branch is being renamed; without, a branch
 /// is made or one without a name yet is named.
-pub(crate) fn run_named(
+pub(crate) fn run_named<T: Send + 'static>(
     store: &mut Store,
     project: &ProjectId,
     renaming: Option<String>,
     name: String,
-    op: impl FnOnce(&Path, &Remap, &str) -> Result<String> + Send + 'static,
-    done: impl FnOnce(&mut Store, String, &mut Context<Store>) + 'static,
+    op: impl FnOnce(&Path, &Remap, &str) -> Result<T> + Send + 'static,
+    done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
     cx: &mut Context<Store>,
 ) {
     let name = name.trim().to_owned();
@@ -226,14 +226,14 @@ impl AppView {
     /// Ask for a new branch's name, then run `op` with it and hand `done` the full ref name of
     /// the branch it returns. `at` is what it acts on, the project or a branch or commit in it,
     /// for the prompt to say where.
-    pub(crate) fn prompt_branch(
+    pub(crate) fn prompt_branch<T: Send + 'static>(
         &mut self,
         at: Selection,
         title: &str,
         window: &mut Window,
         cx: &mut Context<Self>,
-        op: impl FnOnce(&Path, &Remap, &str) -> Result<String> + Send + 'static,
-        done: impl FnOnce(&mut Store, String, &mut Context<Store>) + 'static,
+        op: impl FnOnce(&Path, &Remap, &str) -> Result<T> + Send + 'static,
+        done: impl FnOnce(&mut Store, T, &mut Context<Store>) + 'static,
     ) {
         let project = at.project().clone();
         let place = self.store.read(cx).place(&at);

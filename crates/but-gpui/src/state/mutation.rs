@@ -43,7 +43,7 @@ pub struct Overlay {
     /// Branches deleted from their stack, by full ref: the ref goes, its commits stay.
     pub deleted_branches: HashSet<String>,
     /// Linked worktrees leaving, by name.
-    pub worktrees: HashSet<Arc<str>>,
+    pub worktrees: HashSet<bstr::BString>,
     /// Files leaving a commit whole, by path, under the commit's key.
     pub commit_files: HashMap<String, HashSet<String>>,
     /// Hunks, or lines of them, leaving a commit's files that otherwise stay: by path, under
@@ -1126,7 +1126,7 @@ impl Store {
     pub fn set_worktree_archived(
         &mut self,
         project: &ProjectId,
-        name: Arc<str>,
+        name: bstr::BString,
         archived: bool,
         cx: &mut Context<Self>,
     ) {
@@ -1143,7 +1143,7 @@ impl Store {
             project,
             label,
             overlay,
-            move |path, _| backend::worktrees::set_archived(path, &name, archived),
+            move |path, _| backend::worktrees::set_archived(path, name.as_ref(), archived),
             move |store, (), cx| store.snack(done, cx),
             cx,
         );
@@ -1155,7 +1155,7 @@ impl Store {
     pub fn delete_worktree(
         &mut self,
         project: &ProjectId,
-        name: Arc<str>,
+        name: bstr::BString,
         lost: Vec<(String, Option<i64>, Option<u64>)>,
         cx: &mut Context<Self>,
     ) {
@@ -1168,7 +1168,7 @@ impl Store {
             project,
             "Delete worktree",
             overlay,
-            move |path, _| backend::worktrees::remove(path, &name, &lost),
+            move |path, _| backend::worktrees::remove(path, name.as_ref(), &lost),
             move |store, (), cx| store.snack(done, cx),
             cx,
         );
@@ -1874,7 +1874,7 @@ impl Store {
             .map_or(review.auto_merge, |(_, on)| on)
     }
 
-    pub fn hides_worktree(&self, project: &ProjectId, name: &str) -> bool {
+    pub fn hides_worktree(&self, project: &ProjectId, name: &bstr::BStr) -> bool {
         self.overlays(project).any(|o| o.worktrees.contains(name))
     }
 

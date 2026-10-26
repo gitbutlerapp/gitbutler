@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::sync::Arc;
 
 use super::{Branch, Commit, CommitId, Workspace};
 
@@ -8,7 +7,7 @@ use super::{Branch, Commit, CommitId, Workspace};
 pub enum Checkout {
     #[default]
     Main,
-    Linked(Arc<str>),
+    Linked(bstr::BString),
 }
 
 #[derive(Debug, Clone)]
@@ -32,10 +31,10 @@ pub struct Link<'a> {
 }
 
 impl Checkout {
-    pub fn linked(&self) -> Option<&str> {
+    pub fn linked(&self) -> Option<&bstr::BStr> {
         match self {
             Checkout::Main => None,
-            Checkout::Linked(name) => Some(name),
+            Checkout::Linked(name) => Some(name.as_ref()),
         }
     }
 
@@ -74,9 +73,9 @@ impl<'a> Link<'a> {
 
 impl Workspace {
     /// The lane of the linked worktree `name`.
-    pub fn worktree_lane(&self, name: &str) -> Option<&Lane> {
+    pub fn worktree_lane(&self, name: &bstr::BStr) -> Option<&Lane> {
         (self.lanes.iter())
-            .find(|lane| matches!(&lane.checkout, Checkout::Linked(linked) if **linked == *name))
+            .find(|lane| matches!(&lane.checkout, Checkout::Linked(linked) if linked == name))
     }
 
     /// The commits of the lane holding commit `id`, across its branches, newest first.

@@ -315,7 +315,7 @@ pub struct Navigator {
     held_order: Option<Vec<ProjectId>>,
     /// Each project's linked worktrees in the order they had then, most recently used first,
     /// which an agent committing in one would change under the pointer as well.
-    held_worktrees: HashMap<ProjectId, Vec<Arc<str>>>,
+    held_worktrees: HashMap<ProjectId, Vec<bstr::BString>>,
     /// The project whose watch button the pointer is on, which shows what a click makes it.
     watch_hovered: Option<ProjectId>,
     /// Where a dragged project card would go, while one is over a card's heading.
@@ -851,7 +851,7 @@ impl Navigator {
             }
             Some(Selection::Worktree(project, name))
                 if (store.workspace(&project))
-                    .and_then(|ws| ws.find_worktree(&name))
+                    .and_then(|ws| ws.find_worktree(name.as_ref()))
                     .is_some_and(|wt| wt.is_inactive()) =>
             {
                 let heading = Selection::Section(project, Section::Inactive);
@@ -1658,7 +1658,10 @@ impl Navigator {
             _ => String::new(),
         };
         let checkout = checkout.map_or(String::new(), |checkout| {
-            format!(" in {}", checkout.linked().unwrap_or("Main worktree"))
+            format!(
+                " in {}",
+                checkout.linked().unwrap_or("Main worktree".into())
+            )
         });
         Some(format!("{name}{below_tip}{checkout}"))
     }
@@ -1716,7 +1719,7 @@ impl Navigator {
         // In as far as a branch is, so its chevron and icon line up with theirs.
         let row = style
             .row(
-                format!("worktree-{id}-{}", checkout.linked().unwrap_or("")),
+                format!("worktree-{id}-{}", checkout.linked().unwrap_or_default()),
                 6.,
             )
             .aria_label(label.clone())

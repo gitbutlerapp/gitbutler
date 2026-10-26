@@ -56,7 +56,7 @@ impl Detail {
         worktrees.sort_by_key(|wt| std::cmp::Reverse(wt.updated_at));
         let ws = store.workspace(project);
         let branches: Vec<&[Branch]> = (worktrees.iter())
-            .map(|wt| ws.and_then(|ws| ws.worktree_lane(&wt.name)))
+            .map(|wt| ws.and_then(|ws| ws.worktree_lane(wt.name.as_ref())))
             .map(|lane| lane.map_or(&[][..], |lane| &lane.branches))
             .collect();
         let now = crate::ui::now();

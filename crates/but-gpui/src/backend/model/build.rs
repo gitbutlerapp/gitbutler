@@ -1,3 +1,5 @@
+use bstr::ByteSlice as _;
+
 use super::{Branch, Checkout, Commit, CommitId, Lane, PushState, Workspace, Worktree};
 
 pub(crate) fn id(n: u8) -> CommitId {
@@ -91,15 +93,20 @@ pub(crate) fn describe(workspace: &Workspace) -> String {
     let stacks = (workspace.lanes_in(&Checkout::Main)).map(|lane| line("Main", Some(lane)));
     let mut worktrees: Vec<_> = workspace.worktrees.iter().collect();
     worktrees.sort_by_key(|worktree| &worktree.name);
-    let worktrees = (worktrees.into_iter())
-        .map(|worktree| line(&worktree.name, workspace.worktree_lane(&worktree.name)));
+    let worktrees = (worktrees.into_iter()).map(|worktree| {
+        line(
+            &worktree.name.to_str_lossy(),
+            workspace.worktree_lane(worktree.name.as_ref()),
+        )
+    });
     stacks.chain(worktrees).collect()
 }
 
 pub(crate) fn describe_chain(workspace: &Workspace, ref_name: &str) -> String {
     let chain: Vec<_> = workspace.chain(ref_name).collect();
     let links = chain.iter().map(|link| {
-        let checkout = link.lane.checkout.linked().map_or("Main", |name| name);
+        let checkout =
+            (link.lane.checkout.linked()).map_or("Main".into(), |name| name.to_str_lossy());
         let from = (link.from).map_or(String::new(), |id| {
             format!(" from {}", commit_name(workspace, id))
         });

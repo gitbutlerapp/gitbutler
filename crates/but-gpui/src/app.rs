@@ -834,7 +834,7 @@ impl AppView {
             }
             Selection::Worktree(project, name) => {
                 let workspace = self.store.read(cx).workspace(&project)?;
-                let worktree = workspace.find_worktree(&name)?;
+                let worktree = workspace.find_worktree(name.as_ref())?;
                 Some(worktree.path.display().to_string())
             }
             Selection::Mesh(project, id, MeshPick::Checkout) => Some(

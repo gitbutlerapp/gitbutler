@@ -93,7 +93,7 @@ pub struct Workspace {
     pub worktrees: Vec<Worktree>,
     /// The names of the worktrees archived, to bring back, with the branch each has checked
     /// out.
-    pub archived_worktrees: Vec<(std::sync::Arc<str>, Option<String>)>,
+    pub archived_worktrees: Vec<(bstr::BString, Option<String>)>,
     /// A fingerprint of the repository's local and remote branches, of the pull requests the
     /// forge cache knows and of the branches linked worktrees shown have checked out, which
     /// the Branches page lists again when it changes.
@@ -124,7 +124,7 @@ impl Forge {
 #[derive(Debug, Clone)]
 pub struct Worktree {
     /// Its stable name, the folder name under `.git/worktrees/`.
-    pub name: std::sync::Arc<str>,
+    pub name: bstr::BString,
     pub path: std::path::PathBuf,
     /// The full ref of the branch it has checked out, or `None` for a detached `HEAD`.
     pub branch: Option<String>,
@@ -203,10 +203,8 @@ impl Workspace {
             .find(|branch| branch.ref_name == ref_name)
     }
 
-    pub fn find_worktree(&self, name: &str) -> Option<&Worktree> {
-        self.worktrees
-            .iter()
-            .find(|worktree| &*worktree.name == name)
+    pub fn find_worktree(&self, name: &bstr::BStr) -> Option<&Worktree> {
+        self.worktrees.iter().find(|worktree| worktree.name == name)
     }
 
     pub fn checked_out_in(&self, ref_name: &str) -> Option<&Worktree> {
@@ -217,7 +215,7 @@ impl Workspace {
     pub fn uncommitted_in(&self, checkout: &Checkout) -> Option<&[FileChange]> {
         match checkout {
             Checkout::Main => Some(&self.uncommitted),
-            Checkout::Linked(name) => Some(&self.find_worktree(name)?.uncommitted),
+            Checkout::Linked(name) => Some(&self.find_worktree(name.as_ref())?.uncommitted),
         }
     }
 

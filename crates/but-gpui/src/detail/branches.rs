@@ -1079,7 +1079,9 @@ impl Detail {
                 &project,
                 Label::new("Apply", format!("Apply {name}")),
                 Overlay::default(),
-                move |path, _| branches::apply(path, &ref_name, freeing.as_deref()),
+                move |path, _| {
+                    branches::apply(path, &ref_name, freeing.as_ref().map(AsRef::as_ref))
+                },
                 move |store, applied, cx| match applied {
                     ApplyOutcome::Applied | ApplyOutcome::AlreadyApplied => {
                         let local = format!("refs/heads/{name}");

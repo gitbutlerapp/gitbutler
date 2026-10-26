@@ -6,7 +6,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{Context as _, Result};
-use bstr::{BStr, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
 
 use super::{
     CommitId, Conflict, DiffBody, DiffLine, FileChange, FileDiff, Hunk, HunkKey, LineKind, Picture,
@@ -68,7 +68,7 @@ pub fn blame_lines(
 pub enum DiffSource {
     Worktree,
     /// The uncommitted changes of the linked worktree with this name, like an agent's.
-    Linked(std::sync::Arc<str>),
+    Linked(BString),
     Commit(CommitId),
     /// Everything from `oldest` (inclusive) up to `newest`, like a whole branch.
     Range {
@@ -817,7 +817,7 @@ fn image_body(repo: &gix::Repository, file: &FileChange) -> Option<DiffBody> {
 /// `worktree` when there is one.
 pub fn file_lines(
     path: &Path,
-    worktree: Option<&str>,
+    worktree: Option<&bstr::BStr>,
     file: &FileChange,
 ) -> Result<Option<(Vec<DiffLine>, u32)>> {
     let Some(state) = file.change.status.state() else {

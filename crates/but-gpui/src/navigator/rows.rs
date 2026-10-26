@@ -218,7 +218,7 @@ impl Navigator {
                 // the selection's in one.
                 let (inactive, active): (Vec<_>, Vec<_>) = (self.worktrees(id, workspace))
                     .into_iter()
-                    .filter(|wt| !store.hides_worktree(id, &wt.name))
+                    .filter(|wt| !store.hides_worktree(id, wt.name.as_ref()))
                     .partition(|wt| wt.is_inactive());
                 for wt in active {
                     self.worktree_rows(store, id, wt, on_branches(wt), &mut rows);
@@ -338,14 +338,14 @@ impl Navigator {
                     }
                 }
                 let worktrees = (self.worktrees(id, workspace).into_iter())
-                    .filter(|wt| !store.hides_worktree(id, &wt.name));
+                    .filter(|wt| !store.hides_worktree(id, wt.name.as_ref()));
                 for wt in worktrees {
                     let wt_start = rows.rows.len();
-                    let wt_own = found(terms, &[&wt.name]);
+                    let wt_own = found(terms, &[wt.name.to_string().as_str()]);
                     let item = Selection::Worktree(id.clone(), wt.name.clone());
                     rows.push_found(item, hit(own, wt_own));
                     rows.open_in(NEST);
-                    let lane = workspace.worktree_lane(&wt.name);
+                    let lane = workspace.worktree_lane(wt.name.as_ref());
                     let branches = lane.map_or(&[][..], |lane| &lane.branches);
                     self.filtered_lane(store, id, branches, terms, own | wt_own, &mut rows);
                     rows.close();
@@ -555,7 +555,7 @@ impl Navigator {
         if self.worktree_open(id, Checkout::Linked(name.clone()), selected) {
             rows.open_in(NEST);
             let workspace = store.workspace(id);
-            let lane = workspace.and_then(|ws| ws.worktree_lane(&name));
+            let lane = workspace.and_then(|ws| ws.worktree_lane(name.as_ref()));
             self.lane_rows(store, id, lane.map_or(&[][..], |lane| &lane.branches), rows);
             if let Some((workspace, lane)) = workspace.zip(lane) {
                 let listed = |branch: &Branch| {
@@ -837,7 +837,7 @@ mod rests_on_tests {
                             other => format!("{other:?}"),
                         };
                         let checkout = checkout.map_or(String::new(), |checkout| {
-                            format!(" in {}", checkout.linked().unwrap_or("Main"))
+                            format!(" in {}", checkout.linked().unwrap_or("Main".into()))
                         });
                         format!("{row}{checkout}")
                     })

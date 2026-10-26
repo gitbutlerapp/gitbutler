@@ -27,7 +27,7 @@ pub(super) struct Reload {
     /// The main checkout's files.
     main: bool,
     /// These linked worktrees' files.
-    linked: HashSet<Arc<str>>,
+    linked: HashSet<bstr::BString>,
 }
 
 impl Reload {
@@ -762,7 +762,7 @@ impl Store {
         // shown again or archived starts it over. Edit mode lists none, so going in and out
         // of it doesn't count.
         let unwatched = self.workspace(id).is_some_and(|old| {
-            let names = |ws: &Workspace| -> HashSet<Arc<str>> {
+            let names = |ws: &Workspace| -> HashSet<bstr::BString> {
                 ws.worktrees.iter().map(|w| w.name.clone()).collect()
             };
             old.editing.is_none() && names(old) != names(&workspace)

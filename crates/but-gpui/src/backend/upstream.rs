@@ -1072,7 +1072,7 @@ mod tests {
         crate::backend::lane_tests::linked_workspace(|path| {
             let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
             let wt = &(workspace.worktrees.iter())
-                .find(|wt| &*wt.name == "wt")
+                .find(|wt| wt.name == "wt")
                 .unwrap()
                 .path;
             git(wt, &["checkout", "-q", "--detach", "main"]);

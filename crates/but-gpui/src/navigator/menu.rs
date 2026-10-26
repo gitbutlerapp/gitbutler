@@ -64,9 +64,7 @@ fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuIte
                 window,
                 cx,
                 |path, _, name| crate::backend::worktrees::create(path, name),
-                move |store, name, cx| {
-                    store.select(Some(Selection::Worktree(selected, name.into())), cx)
-                },
+                move |store, name, cx| store.select(Some(Selection::Worktree(selected, name)), cx),
             )
         }));
     }
@@ -517,7 +515,7 @@ impl Navigator {
             }
             Selection::Worktree(project, name) => {
                 let Some(worktree) =
-                    (store.workspace(project)).and_then(|ws| ws.find_worktree(name))
+                    (store.workspace(project)).and_then(|ws| ws.find_worktree(name.as_ref()))
                 else {
                     return Vec::new();
                 };

@@ -611,7 +611,7 @@ impl AppView {
         &mut self,
         project: ProjectId,
         on_top: bool,
-        checked_out_in: Option<Arc<str>>,
+        checked_out_in: Option<bstr::BString>,
         checkout: Option<Checkout>,
         window: &mut Window,
         cx: &mut Context<Self>,

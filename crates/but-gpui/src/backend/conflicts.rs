@@ -97,7 +97,7 @@ pub fn resolve(
 /// nor a commit checked out for editing.
 pub fn resolve_markers(
     path: &Path,
-    worktree: Option<&str>,
+    worktree: Option<&bstr::BStr>,
     keep: Vec<(BString, String, Keep)>,
 ) -> Result<usize> {
     use but_oplog::legacy::OperationKind;

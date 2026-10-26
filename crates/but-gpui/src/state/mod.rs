@@ -52,7 +52,7 @@ pub enum Selection {
     /// The operation log, to look back at and restore.
     History(ProjectId),
     /// A linked worktree, by name, and its uncommitted changes.
-    Worktree(ProjectId, Arc<str>),
+    Worktree(ProjectId, bstr::BString),
     /// A stack of two or more branches, by its bottom branch, and what they change together.
     Stack(ProjectId, String),
     /// A checkout of the project on one of the user's other machines, by the mesh's id for

@@ -28,7 +28,7 @@ pub mod worktrees;
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::sync::{Arc, OnceLock};
+use std::sync::OnceLock;
 
 use anyhow::{Context as _, Result};
 use bstr::ByteSlice;
@@ -271,12 +271,10 @@ pub(crate) fn open(path: &Path) -> Result<Context> {
 }
 
 /// The project's main checkout, or its linked `worktree` with that name.
-fn checkout(ctx: &Context, worktree: Option<&str>) -> Result<gix::Repository> {
+fn checkout(ctx: &Context, worktree: Option<&bstr::BStr>) -> Result<gix::Repository> {
     let main = ctx.repo.get()?;
     match worktree {
-        Some(name) => {
-            but_workspace::worktrees::open_worktree_repo(&main, name.as_bytes().as_bstr())
-        }
+        Some(name) => but_workspace::worktrees::open_worktree_repo(&main, name),
         None => Ok(main.clone()),
     }
 }
@@ -288,7 +286,7 @@ pub struct Kept {
     /// The main checkout's, with the tree of its `HEAD` they were read against.
     pub main: Option<(Vec<FileChange>, Option<gix::ObjectId>)>,
     /// Linked worktrees' by name.
-    pub linked: HashMap<Arc<str>, KeptWorktree>,
+    pub linked: HashMap<bstr::BString, KeptWorktree>,
 }
 
 /// A linked worktree's uncommitted files as shown, and the tree of its `HEAD` they were read
@@ -300,7 +298,7 @@ impl Kept {
     /// worktrees' files, which are read again. A checkout's files are read again too when
     /// its `HEAD` has another tree by now: an operation on commits writes a checkout's
     /// files only where it changes that tree, so the rest stay as they were.
-    pub fn from(shown: &Workspace, main: bool, linked: &HashSet<Arc<str>>) -> Self {
+    pub fn from(shown: &Workspace, main: bool, linked: &HashSet<bstr::BString>) -> Self {
         Self {
             main: (!main).then(|| (shown.uncommitted.clone(), shown.tree)),
             linked: (shown.worktrees.iter())
@@ -1471,7 +1469,7 @@ mod lane_tests {
     fn a_worktree_lane_loads_its_own_branches() {
         linked_workspace(|path| {
             let loaded = crate::backend::load_workspace(path, Default::default()).unwrap();
-            let worktree = |name| (loaded.worktrees.iter()).find(|wt| &*wt.name == name);
+            let worktree = |name: &str| (loaded.worktrees.iter()).find(|wt| wt.name == name);
             git(
                 &worktree("wt").unwrap().path,
                 &["commit", "-q", "--allow-empty", "-m", "more"],
@@ -1515,10 +1513,12 @@ mod lane_tests {
             let linked: Vec<_> = (workspace.lanes.iter())
                 .filter_map(|lane| match &lane.checkout {
                     Checkout::Main => None,
-                    Checkout::Linked(name) => Some(&**name),
+                    Checkout::Linked(name) => Some(name.to_string()),
                 })
                 .collect();
-            let listed: Vec<_> = (workspace.worktrees.iter()).map(|wt| &*wt.name).collect();
+            let listed: Vec<_> = (workspace.worktrees.iter())
+                .map(|wt| wt.name.to_string())
+                .collect();
             assert_eq!(listed[0], "wt-top", "its reflog moved last");
             assert_eq!(
                 linked, listed,
@@ -1571,7 +1571,7 @@ history: [agent2, agent1~2]
             }
             let titles = || {
                 let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
-                let lane = workspace.worktree_lane("agent").unwrap();
+                let lane = workspace.worktree_lane("agent".into()).unwrap();
                 (lane.branches.iter())
                     .flat_map(|branch| &branch.commits)
                     .map(|commit| commit.title.clone())

@@ -74,7 +74,7 @@ fn unmerged<'a>(repo: &gix::Repository, selected: &'a [Selected]) -> Result<Vec<
 /// in markers and all.
 fn refuse_conflicted(
     ctx: &but_ctx::Context,
-    worktree: Option<&str>,
+    worktree: Option<&bstr::BStr>,
     selected: &[Selected],
 ) -> Result<()> {
     let repo = checkout(ctx, worktree)?;
@@ -138,9 +138,9 @@ pub(super) fn record_undo(
 }
 
 /// Where changes are read from: the main checkout, or the linked `worktree`.
-pub(super) fn changes_source(worktree: Option<&str>) -> ChangesSource {
+pub(super) fn changes_source(worktree: Option<&bstr::BStr>) -> ChangesSource {
     worktree.map_or(ChangesSource::Head, |name| {
-        ChangesSource::Worktree(name.to_owned())
+        ChangesSource::Worktree(name.to_string())
     })
 }
 
@@ -357,7 +357,7 @@ pub fn commit(
     path: &Path,
     destination: &Destination,
     selected: &[Selected],
-    worktree: Option<&str>,
+    worktree: Option<&bstr::BStr>,
     message: &str,
     run_hooks: bool,
 ) -> Result<(CommitId, LeftOut, Option<String>)> {
@@ -688,7 +688,7 @@ pub fn amend(
     path: &Path,
     commit: CommitId,
     selected: &[Selected],
-    worktree: Option<&str>,
+    worktree: Option<&bstr::BStr>,
     run_hooks: bool,
 ) -> Result<(Rewritten, LeftOut, Option<String>)> {
     let mut ctx = open(path)?;
@@ -957,7 +957,7 @@ pub enum Undiscarded {
 /// `unrecorded` says they did.
 pub fn discard(
     path: &Path,
-    worktree: Option<&str>,
+    worktree: Option<&bstr::BStr>,
     selected: &[Selected],
     unrecorded: bool,
 ) -> Result<Option<Undiscarded>> {
@@ -1116,7 +1116,11 @@ fn current_hunks(
 }
 
 /// Take the conflicted uncommitted `files` as they are on disk, markers or not.
-pub fn mark_resolved(path: &Path, worktree: Option<&str>, paths: Vec<bstr::BString>) -> Result<()> {
+pub fn mark_resolved(
+    path: &Path,
+    worktree: Option<&bstr::BStr>,
+    paths: Vec<bstr::BString>,
+) -> Result<()> {
     let mut ctx = open(path)?;
     // Undo can't restore a linked worktree, or a commit checked out for editing, so neither
     // is recorded.
@@ -1490,7 +1494,7 @@ pub(super) mod tests {
             };
             let whole = read();
             std::fs::write(linked.join("file"), "agent, more\n").unwrap();
-            let refused = discard(path, Some("agent"), &[whole], true).unwrap_err();
+            let refused = discard(path, Some("agent".into()), &[whole], true).unwrap_err();
             assert!(
                 refused
                     .to_string()
@@ -1498,7 +1502,7 @@ pub(super) mod tests {
                 "what was written after the diff was read isn't thrown away unseen, as nothing \
                  brings a linked worktree's discard back: {refused}"
             );
-            discard(path, Some("agent"), &[read()], true).unwrap();
+            discard(path, Some("agent".into()), &[read()], true).unwrap();
             assert_eq!(
                 std::fs::read_to_string(linked.join("file")).unwrap(),
                 "one\n",
@@ -1516,8 +1520,13 @@ pub(super) mod tests {
             let source = DiffSource::Linked("agent".into());
             let diff = load_diff(path, source, None, None, None, None).unwrap();
             let added = diff.iter().find(|f| f.file.path == "added").unwrap();
-            discard(path, Some("agent"), &[Selected::whole(&added.file)], true)
-                .expect("a whole file's base, here the index's, isn't what was shown to compare");
+            discard(
+                path,
+                Some("agent".into()),
+                &[Selected::whole(&added.file)],
+                true,
+            )
+            .expect("a whole file's base, here the index's, isn't what was shown to compare");
         })
     }
 
@@ -1535,7 +1544,7 @@ pub(super) mod tests {
             std::fs::write(linked.join("fresh"), "new\n").unwrap();
 
             let remove = crate::backend::worktrees::remove;
-            let err = remove(path, "agent", &asked).unwrap_err();
+            let err = remove(path, "agent".into(), &asked).unwrap_err();
             assert!(
                 format!("{err:#}").contains("fresh"),
                 "it names the change nobody agreed to lose: {err:#}"
@@ -1551,7 +1560,7 @@ pub(super) mod tests {
                 .write(true)
                 .open(linked.join("file"));
             file.unwrap().set_modified(later).unwrap();
-            let err = remove(path, "agent", &asked).unwrap_err();
+            let err = remove(path, "agent".into(), &asked).unwrap_err();
             assert!(
                 format!("{err:#}").contains("file"),
                 "nor what was written to a file named since: {err:#}"
@@ -1559,7 +1568,7 @@ pub(super) mod tests {
 
             let moved = outside.path().join("moved");
             std::fs::rename(&linked, &moved).unwrap();
-            let err = remove(path, "agent", &asked).unwrap_err();
+            let err = remove(path, "agent".into(), &asked).unwrap_err();
             assert!(
                 format!("{err:#}").starts_with("Couldn't check agent's files"),
                 "a worktree it can't read, it can't check, so it refuses: {err:#}"
@@ -1604,13 +1613,13 @@ pub(super) mod tests {
             assert_eq!(selected.len(), 2, "the conflicted file and the edit");
             // Deleted since the diff was shown, so its hunk can't be discarded alone.
             std::fs::remove_file(linked.join("gone")).unwrap();
-            discard(path, Some("agent"), &selected, true).unwrap_err();
+            discard(path, Some("agent".into()), &selected, true).unwrap_err();
             assert_eq!(
                 git(&linked, &["ls-files", "-u", "file"]).lines().count(),
                 3,
                 "with no snapshot to undo from, the conflict is still there to resolve"
             );
-            mark_resolved(path, Some("agent"), vec!["file".into()]).unwrap();
+            mark_resolved(path, Some("agent".into()), vec!["file".into()]).unwrap();
             assert!(
                 git(&linked, &["ls-files", "-u"]).is_empty(),
                 "marked resolved in the worktree's own index, not the main checkout's"
@@ -2663,7 +2672,7 @@ pub(super) mod tests {
             let theirs = head(&linked);
             git(path, &["checkout", "-q", "-b", "gitbutler/workspace"]);
 
-            let applied = apply(path, "refs/heads/agent", Some("agent")).unwrap();
+            let applied = apply(path, "refs/heads/agent", Some("agent".into())).unwrap();
             assert!(
                 matches!(applied, ApplyOutcome::Applied),
                 "the branch is applied"
@@ -2696,7 +2705,7 @@ pub(super) mod tests {
             git(path, &["commit", "-q", "-am", "ours"]);
             name_branch(path, head(path), "ours").unwrap();
 
-            let applied = apply(path, "refs/heads/agent", Some("agent")).unwrap();
+            let applied = apply(path, "refs/heads/agent", Some("agent".into())).unwrap();
             assert!(
                 matches!(applied, ApplyOutcome::Conflicts(_)),
                 "both change the same line"

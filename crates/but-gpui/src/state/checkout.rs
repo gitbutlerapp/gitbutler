@@ -92,7 +92,7 @@ impl Store {
     /// out.
     pub fn inactive_worktrees(&self, id: &ProjectId) -> Vec<&Worktree> {
         (self.workspace(id).into_iter().flat_map(|ws| &ws.worktrees))
-            .filter(|wt| !self.hides_worktree(id, &wt.name) && wt.is_inactive())
+            .filter(|wt| !self.hides_worktree(id, wt.name.as_ref()) && wt.is_inactive())
             .collect()
     }
 }
