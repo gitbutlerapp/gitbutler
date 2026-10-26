@@ -22,6 +22,7 @@ jobs:
     outputs:
       node: ${{ steps.filter.outputs.node }}
       rust: ${{ steps.filter.outputs.rust }}
+      rust_core: ${{ steps.filter.outputs.rust_core }}
       ui: ${{ steps.filter.outputs.ui }}
       but_sdk: ${{ steps.filter.outputs.but_sdk }}
       docs: ${{ steps.filter.outputs.docs }}
@@ -51,7 +52,7 @@ jobs:
             ui:
               - 'packages/ui-svelte/**'
             but_sdk:
-              - 'crates/**'
+              - 'crates/!(but-gpui)/**'
               - *workflows
               - 'Cargo.lock'
               - 'Cargo.toml'
@@ -65,10 +66,16 @@ jobs:
             rust: &any-rust
               - *rust
               - 'crates/**'
+            # Only gitbutler-tauri's `builtin-gpui` feature links the GPUI client, and only
+            # check-rust-windows builds with it. A change to just the GPUI client can't affect
+            # any other crate, so jobs that never build it can skip it.
+            rust_core:
+              - *rust
+              - 'crates/!(but-gpui)/**'
             lite_e2e:
               - *workflows
               - 'apps/lite/**'
-              - 'crates/**'
+              - 'crates/!(but-gpui)/**'
               - 'e2e/playwright/fixtures/**'
               - 'e2e/playwright/scripts/**'
               - 'packages/but-sdk/**'
@@ -321,6 +328,8 @@ jobs:
       # The final step asserts nothing did - see 'Assert test hermeticity'.
       # (a literal path - the `runner` context is not available in job-level `env`)
       E2E_TEST_APP_DATA_DIR: /tmp/hermeticity-guard
+      # A change to just the GPUI client only needs its own tests.
+      PACKAGES: ${{ needs.changes.outputs.rust_core == 'true' && '--workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly' || '-p but-gpui' }}
     defaults:
       run:
         shell: bash
@@ -363,9 +372,9 @@ jobs:
           tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
           rm cargo-nextest.tar.gz
       - name: Run workspace tests
-        run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly --profile ci -E "$NEXTEST_FILTER"
+        run: cargo nextest run $PACKAGES --profile ci -E "$NEXTEST_FILTER"
       - name: Run doctests
-        run: cargo test --doc --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --features but/nightly
+        run: cargo test --doc $PACKAGES
       - name: Upload results to tests.but.dev
         if: ${{ always() && !cancelled() && runner.os == 'Linux' }}
         continue-on-error: true
@@ -396,7 +405,9 @@ jobs:
         run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci -E "$NEXTEST_FILTER"
       # It's intentional to use 'name equals run-script' so it's easy to re-run locally on failure.
       - run: make test-modern-but
+        if: needs.changes.outputs.rust_core == 'true'
       - name: test vendored
+        if: needs.changes.outputs.rust_core == 'true'
         run: |
           set -x
           (cd crates/gitbutler-filemonitor/vendor/debouncer && cargo test)
@@ -410,7 +421,7 @@ jobs:
 
   rust-test-but-api-macros:
     needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
+    if: ${{ needs.changes.outputs.rust_core == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -448,7 +459,7 @@ jobs:
 
   rust-test-tauri:
     needs: changes
-    if: ${{ needs.changes.outputs.rust == 'true' }}
+    if: ${{ needs.changes.outputs.rust_core == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
