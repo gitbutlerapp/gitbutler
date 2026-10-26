@@ -557,15 +557,16 @@ impl Detail {
                 self.file_picks.clear();
             }
             // A file a merge left conflicted can't be committed until it's marked resolved,
-            // so it starts out of the commit.
+            // and a repository cloned inside this one isn't a submodule yet, so they start out
+            // of the commit.
             let files = (self.checks_project.as_ref())
                 .and_then(|project| self.store.read(cx).workspace(project))
                 .and_then(|ws| ws.uncommitted_in(self.checks_worktree.as_deref()))
                 .unwrap_or_default();
-            let conflicted = (files.iter())
-                .filter(|file| file.conflicted)
+            let left_out = (files.iter())
+                .filter(|file| file.conflicted || file.nested_repository())
                 .map(|file| file.path.clone());
-            self.checks.unchecked.extend(conflicted.collect::<Vec<_>>());
+            self.checks.unchecked.extend(left_out.collect::<Vec<_>>());
             self.checks.known = Some(files.iter().map(|file| file.path.clone()).collect());
             self.composing_on_changes = !files.is_empty();
             self.composing_target = (self.checks_project.clone())

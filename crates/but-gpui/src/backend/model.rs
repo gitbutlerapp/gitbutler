@@ -731,17 +731,24 @@ impl FileChange {
         })
     }
 
+    /// A repository cloned into the worktree and not yet recorded, which has no commit read
+    /// for it: committed, it would go in as a submodule with nowhere to clone it from, as
+    /// `git add` warns.
+    pub fn nested_repository(&self) -> bool {
+        matches!(&self.change.status, but_core::TreeStatus::Addition { state, .. }
+            if state.id.is_null() && state.kind == gix::object::tree::EntryKind::Commit)
+    }
+
     /// Where a submodule points now and pointed before, which is all there is to show of one.
     pub fn submodule(&self) -> Option<String> {
         use but_core::TreeStatus as S;
         let at = |state: &but_core::ChangeState| {
             (state.kind == gix::object::tree::EntryKind::Commit).then(|| CommitId(state.id).short())
         };
+        if self.nested_repository() {
+            return Some("A repository of its own, not a submodule".to_owned());
+        }
         Some(match &self.change.status {
-            // A repository added in the worktree, not yet recorded, has no commit read for it.
-            S::Addition { state, .. } if state.id.is_null() => {
-                at(state).map(|_| "New submodule".to_owned())?
-            }
             S::Addition { state, .. } => format!("Submodule at {}", at(state)?),
             S::Deletion { previous_state } => {
                 format!("Removed submodule at {}", at(previous_state)?)
@@ -1116,6 +1123,33 @@ mod tests {
             },
         });
         assert_eq!(retargeted.mode_change(), Some("Symbolic link"));
+    }
+
+    #[test]
+    fn a_repository_cloned_inside_is_told_apart_from_a_submodule() {
+        let added = |id| {
+            crate::backend::file_change(but_core::TreeChange {
+                path: "scratch/sim".into(),
+                status: but_core::TreeStatus::Addition {
+                    state: but_core::ChangeState {
+                        id,
+                        kind: gix::object::tree::EntryKind::Commit,
+                    },
+                    is_untracked: true,
+                },
+            })
+        };
+        let cloned = added(gix::ObjectId::null(gix::hash::Kind::Sha1));
+        assert!(cloned.nested_repository(), "status reads no commit for it");
+        assert_eq!(
+            cloned.submodule().as_deref(),
+            Some("A repository of its own, not a submodule")
+        );
+        let added_as_submodule = added(gix::ObjectId::empty_tree(gix::hash::Kind::Sha1));
+        assert!(
+            !added_as_submodule.nested_repository(),
+            "`git submodule add` records its commit"
+        );
     }
 
     fn header(old_start: u32, old_lines: u32, new_start: u32, new_lines: u32) -> HunkHeader {
