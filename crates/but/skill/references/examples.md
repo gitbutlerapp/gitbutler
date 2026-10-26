@@ -9,21 +9,13 @@ Real-world examples of common workflows.
 **Scenario:** Need to work on two independent features: a new API endpoint and UI styling updates.
 
 ```bash
-# 1. Check current state
-but status -fv
-
-# 2. Create two independent (parallel) branches
-but branch new api-endpoint
-but branch new ui-styling
-
-# 3. Make changes to multiple files
+# 1. Make changes to multiple files
 # (edit api/users.js and components/Button.svelte)
 
-# 4. Check what's uncommitted
-but status -fv
+# 2. Read the file IDs of the uncommitted changes
+but diff
 
-# 5. Commit specific files by passing their CLI IDs (recommended for agents)
-# Use full branch names plus file IDs from but status -fv output
+# 3. Commit each file to its own branch; -b creates a branch that does not exist yet.
 # Multiple IDs are space-separated positional arguments.
 but commit -b api-endpoint -m "Add user details endpoint" <api-file-id>
 but commit -b ui-styling -m "Update button hover styles" <ui-file-id>
@@ -32,7 +24,7 @@ but commit -b ui-styling -m "Update button hover styles" <ui-file-id>
 # Add --status-after only when the next step needs resulting workspace IDs or details.
 # but amend -t <api-commit-id> <api-fix-file-id> <api-fix-hunk-id>
 
-# 6. Create pull requests (auto-pushes the branches; -m sets the PR title so no editor opens)
+# 4. Create pull requests (auto-pushes the branches; -m sets the PR title so no editor opens)
 but pr new api-endpoint -m "Add user details endpoint"
 but pr new ui-styling -m "Update button hover styles"
 ```
@@ -44,27 +36,23 @@ but pr new ui-styling -m "Update button hover styles"
 **Scenario:** Need to add authentication, then build a user profile page that requires auth.
 
 ```bash
-# 1. Check current state and update
+# 1. Update
 but pull
-but status -fv
 
-# 2. Create base branch for authentication
-but branch new add-authentication
-
-# 3. Implement auth and commit
+# 2. Implement auth and commit it on a new branch
 # (edit auth/login.js, auth/middleware.js)
-but status -fv
+but diff
 but commit -b add-authentication -m "Add JWT authentication" <file-ids>
 
-# 4. Create stacked branch anchored on authentication
+# 3. Create stacked branch anchored on authentication
 but branch new user-profile --above add-authentication
 
-# 5. Implement profile page (depends on auth)
+# 4. Implement profile page (depends on auth)
 # (edit pages/profile.js)
-but status -fv
+but diff
 but commit -b user-profile -m "Add user profile page" <file-ids>
 
-# 6. Create stacked pull requests from the top branch once (auto-pushes its ancestors)
+# 5. Create stacked pull requests from the top branch once (auto-pushes its ancestors)
 but pr new user-profile -t
 ```
 
@@ -154,17 +142,14 @@ but squash nn:a2:5 -t @
 
 ```bash
 # 1. Check current state
-but status -fv
+but status
 
 # Output (abridged):
 # ┊╭┄ at [feature-a]
 # ┊●   nn This should be in feature-b!
 # ┊●   mm Correct commit
 
-# 2. Create or identify target branch
-but branch new feature-b
-
-# 3. Move the commit
+# 2. Move the commit (-b creates feature-b if it does not exist)
 but move nn -b feature-b    # Move nn to top of feature-b
 
 # Alternatively, move onto a new named branch above feature-a
@@ -180,7 +165,7 @@ but move nn --unstack -b independent-work
 
 ```bash
 # 1. Check current state — two independent branches in separate stacks
-but status -fv
+but status
 
 # Two lanes: feature/backend (2 commits) and feature/frontend (1 commit)
 
@@ -191,7 +176,7 @@ but move feature/frontend --above feature/backend
 # Result: one lane, with feature/frontend stacked on feature/backend
 
 # 3. Continue working — commits go to the right branch
-but status -fv
+but diff
 but commit -b feature/backend -m "Add caching layer" <id>
 but commit -b feature/frontend -m "Add dialog component" <id>
 ```
@@ -279,7 +264,8 @@ but unapply feature-b
 but unapply feature-c
 
 # 3. Focus on feature-a
-# (make changes, commit)
+# (make changes, then read their IDs and commit)
+but diff
 but commit -b feature-a -m "Complete feature-a" <file-ids>
 
 # 4. Create PR for feature-a (auto-pushes)
@@ -297,7 +283,7 @@ but apply feature-c
 
 ```bash
 # 1. Current state
-but status -fv
+but status
 
 # Commits on feature-x, newest first:
 #   rr final commit

@@ -17,7 +17,7 @@ workspace (gitbutler/workspace)
 - No context switching - all applied branches merged in working directory
 - Changes are ASSIGNED to branches, not isolated by checkout
 
-### One Stack Applied: Single-Branch Mode
+### Single-Branch Mode
 
 GitButler works in any Git repository, on the branch that is checked out. There is no setup
 command. A repository starts in single-branch mode: `HEAD` is the stack's top branch, as in
@@ -43,18 +43,20 @@ plain Git, and there is no `gitbutler/workspace` branch:
   stays in single-branch mode.
 - A second independent stack (`but apply`, or `but commit -b`/`but branch new` for a new
   branch while a feature branch is checked out) switches `HEAD` to `gitbutler/workspace`.
+- `but apply` while the target branch is checked out also switches to `gitbutler/workspace`,
+  even for a single stack.
 - Unapplying, discarding, or deleting branches down to one stack checks that stack's branch out
   again. Other ways of dropping to one stack, such as squashing a whole branch into `@`, can
   leave `HEAD` on `gitbutler/workspace`.
 
 Commands, IDs, and recipes are the same in both modes, so you do not need to track which mode
-the repository is in. `[HEAD]` in `but status` marks the checked-out branch in single-branch mode.
+the repository is in. The exception is edit mode (`but resolve <commit-id>`), which needs `gitbutler/workspace`. `[HEAD]` in `but status` marks the checked-out branch in single-branch mode.
 
 ### Key Implications
 
 1. **No `git checkout`**: You don't switch between branches. All applied branches exist simultaneously in your workspace.
 
-2. **The `gitbutler/workspace` branch**: With two or more stacks applied, `HEAD` is this branch, a merge commit containing all applied stacks. Don't interact with it directly - use `but` commands.
+2. **The `gitbutler/workspace` branch**: With two or more stacks applied, or after `but apply` from the target branch, `HEAD` is this branch, a merge commit containing all applied stacks. Don't interact with it directly - use `but` commands.
 
 3. **Applied vs Unapplied**: Control which branches are active:
    - Applied branches: In your working directory
@@ -281,7 +283,7 @@ Resolution mode below is for running code against a resolution, and it needs
 `gitbutler/workspace`: while a single branch is checked out, `but resolve <commit-id>` refuses.
 
 Enter it with `but resolve <commit-id>` (oldest conflicted commit first), edit the files, then run
-`but resolve finish`, or `but resolve cancel` to back out; `but skill` has the steps. Run no other
+`but resolve finish`, or `but resolve cancel --force` to back out and drop the edits; `but skill` has the steps. Run no other
 `but` mutations until you finish or cancel.
 
 **Conflicted submodules:** a conflicted submodule has no markers, and `but resolve finish` refuses while it is unresolved, even to keep the commit's own side. Select it explicitly: check out the wanted commit inside the submodule (or write the file that replaces it) and run `git add -- <path>`, or drop it with `git rm -- <path>`. These are the only git write commands allowed during resolution, and only for the paths `finish` names; never `git commit`. If the submodule directory is empty or missing, do not `git add` it (for a missing one that stages its removal): keep any resolution edits you want and report the conflict. `but resolve cancel --force` abandons the resolution and discards its edits; use it only when those edits can be discarded.
