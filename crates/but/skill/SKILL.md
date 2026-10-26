@@ -1,7 +1,7 @@
 ---
 name: but
 version: 0.0.0
-description: "Commit, push, branch, and manage version control with GitButler. Use for commits, selective dirty-file or hunk commits, branches, diffs, PRs, history edits, squashes, amends, undo, merge, apply, unapply, and linked worktrees. For selected dirty files or hunks, inspect with `but diff`; use compact `but status` for commit order, branch/stack placement, or conflict overview; use `but status -fv` when file IDs or per-commit file details matter. Replaces git write commands."
+description: "Commit, push, branch, and manage version control with GitButler. Use for commits, selective dirty-file or hunk commits, branches, diffs, PRs, history edits, squashes, amends, undo, merge, apply, unapply, and linked worktrees. For selected dirty files or hunks, inspect with `but diff`; use compact `but status` for commit order, branch/stack placement, or conflict overview; use `but status -fv` when file IDs or per-commit file details matter. Replaces git write commands. Applies in every checkout of the repository, including linked worktrees such as `.claude/worktrees/*`, and to git writes made while testing or cleaning up (stash, checkout -- <file>, restore, reset)."
 author: GitButler Team
 ---
 
@@ -49,7 +49,7 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 - Branch short IDs are snapshot-local selectors. Use full branch names for branch-targeting mutations; short IDs are safe only for immediate read-only inspection.
 - File/hunk IDs copied from one diff read generally remain usable across chained commits. If one stops resolving, re-read `but diff` and retry.
 
-**Chaining:** mutation output is concise by default, so you may chain mutations with `&&` off one inspection read. Do not chain branch short IDs through mutations; use full branch names. Add `--status-after` only when the next step needs workspace IDs or details that the mutation result does not provide. Chained `but commit` calls stack in the order written — the first is oldest, each later one goes on top. History edits may run in sequence when every commit ref involved is a change-ID ref; run them one at a time with `--status-after` when a ref is sha-based or `#N`-suffixed, or when the next command needs freshly issued IDs. Chaining `but uncommit <id> && but diff` is safe because bare `diff` needs no ID from the uncommit output.
+**Chaining:** mutation output is concise by default, so you may chain mutations with `&&` off one inspection read. Do not chain branch short IDs through mutations; use full branch names. Add `--status-after` only when the next step needs workspace IDs or details that the mutation result does not provide. Chained `but commit` calls stack in the order written — the first is oldest, each later one goes on top. History edits may run in sequence when every commit ref involved is a change-ID ref; run them one at a time with `--status-after` when a ref is sha-based or `#N`-suffixed, or when the next command needs freshly issued IDs. Chaining `but uncommit <id> && but diff` is safe because bare `diff` needs no ID from the uncommit output. Never pipe a mutation through `tail` or `head`: the pipeline then exits with their status, so the next `&&` runs even when the mutation failed.
 
 ## Non-Negotiable Rules
 
@@ -58,6 +58,7 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 3. Branches marked `(merged upstream)` have landed; start new work on another branch. That marker alone does not mean `but pull` removes them: run `but pull --check` first. `but pull` removes only branches listed `[integrated]` ("has been integrated upstream and removed locally", or "has been merged into <target> and removed" when the target has no upstream) and rebases the rest, which stay applied. To clear a landed branch that stays applied, use `but unapply <branch>` (acts on its whole stack) rather than `but discard`. `push` and mutations (`commit`, `amend`, `squash`, `uncommit`, `reword`, `move`) refuse landed branches and commits, `absorb` skips them with a notice, and `commit` skips them when picking a default target.
 4. Keep going between routine `but` commands. Put any status note in the same message as the next command, and don't end a turn on a summary that announces the next `but` step without running it. Finish with a concise summary.
 5. Prefer this skill and `but skill reference` over exploratory help calls. Use `<command> --help` when required syntax is missing or a command fails; use top-level help only when you genuinely need to discover an undocumented command.
+6. Other agents may share this checkout, so `@` can hold their edits. Commit, amend, and discard only the IDs or paths you changed. Bare `but commit`, `but absorb`, `but discard @`, and `git stash` take their work too, and a refusal naming files you didn't edit means you selected theirs.
 
 ## Command Patterns
 
@@ -67,6 +68,7 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 - Commit everything uncommitted: `but commit -b <branch> -m "<msg>"` (omit the IDs)
 - Several commits from one diff: chain `but commit` calls with `&&` (commits stack oldest-first)
 - Never pass `-s` to `commit`, `move`, or `pick`: it is `--switch`, not git's `--signoff`, and it unapplies every other stack.
+- The branch is never positional (`but commit <branch>` fails; use `-b`), `but amend` always needs `-t`, and `but diff` takes one target (use a shared `dir/` or one call each).
 - Commit at a specific history position: `--above <commit-or-branch>` or `--below <commit-or-branch>` (mutually exclusive). With a branch target, add `-b <new-name>` to name the new branch; otherwise its name is generated. The name must not already exist. Do not combine `-b` (even without a name) with commit/worktree targets.
 - Targeting is **required** when more than one **stack** is applied; without it `but commit` fails with "Unclear where to commit. Found more than one stack". Several branches stacked together count as one stack — an untargeted commit then silently lands on the stack's top branch, so pass `-b` whenever the branch matters.
 - Always pass `-m "<msg>"` (or `-F -` with a heredoc, `-F <file>` with a file outside the repository, or `--no-message`) to `but commit`, and to `but squash` whenever its sources are commits or branches unless the target is `@` — those compose a new message; without a flag an agent run keeps whatever the command composed (empty for `but commit`, the joined source messages for `but squash`) and a terminal opens an editor. Squash sources that are uncommitted or committed changes reuse the target's message and need no flag; squashing into `@` rejects message flags outright.
@@ -110,7 +112,7 @@ Rebasing applied branches onto the latest target IS `but pull` — never `move`,
 ### Commit selected files or hunks
 
 1. `but diff` — shows file and hunk IDs for uncommitted changes. Do not run plain `but status` first.
-2. Use file IDs when whole files belong in the commit; use hunk IDs (`<file-id>:<hunk-id>`) when only part of a file belongs. Omit IDs you don't want committed.
+2. Use file IDs when whole files belong in the commit; use hunk IDs (`<file-id>:<hunk-id>`) when only part of a file belongs. Omit IDs you don't want committed. For whole files, repo-root paths or a `dir/` prefix work too (`but commit -b feat -m "msg" src/ui/ README.md`; no `./` or globs), so don't build ID lists by piping `but diff` through grep.
 3. `but commit -b <branch> -m "<msg>" <id1> <id2>` — the branch is created if it does not exist, so no prior `but branch new` is needed.
 4. When the task requires knowing which changes remain, add `--status-after`; otherwise the created-commit result is sufficient.
 
@@ -181,6 +183,8 @@ If you do create a PR for a stacked branch, use `but pr` — not `gh pr create` 
 
 Changes that build on another branch's commits cannot land on an independent branch. `but commit` and `but amend` fail atomically ("Cannot commit: N changes could not be applied"), naming the branch and commit each rejected change depends on — nothing is committed and no `-b` branch is created.
 
+Stack only when your change builds on that branch's code. A refusal can also mean your hunk only borders lines that branch changed (a doc line, a lockfile): then leave one unchanged line between your edit and theirs, or keep that hunk uncommitted until that branch lands, and commit the rest. Never drop or rewrite real work to get past a refusal; ask the user.
+
 When there is a single dependency branch, the error's Hint gives the exact recovery command: `but move <your-branch> --above <dependency-branch>` to stack an existing branch on its dependency, or `but branch new <name> --above <dependency-branch>` when the target branch didn't exist yet. Run it, then retry the original command. When the error names dependencies without a Hint (several dependency branches, or the dependency is on the target branch itself), run `but status -fv` to see where the dependent commits live before choosing a placement.
 
 If that recovery command fails, do NOT try `uncommit`, `squash`, or `undo` as a workaround — re-run `but status -fv` to confirm both branches exist and are applied, then retry with exact branch names.
@@ -225,7 +229,7 @@ A wrong resolution is reverted with `but undo`.
 | `git push` | `but push <branch-name>` |
 | `git rebase -i` | `but move`, `but squash`, `but reword` |
 | `git rebase --onto` | `but move <branch> --above <new-base>` |
-| `git checkout -- <file>` / `git restore` | `but discard <id>` |
+| `git checkout -- <file>` / `git restore` | `but discard <path>`, or a hunk ID from `but diff` |
 | `git cherry-pick` | `but pick` |
 | `git worktree add -b <branch>` | `but worktree new <branch>` |
 | `git worktree remove` | `but worktree remove <name>` |
