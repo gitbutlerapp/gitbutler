@@ -226,6 +226,10 @@ pub enum Code {
     /// exists with a non-zero status code. Allows callers to detect that and show a different
     /// error message.
     EditorExitedWithNonZeroStatus,
+    /// The project's target is a remote branch, as an older GitButler stored it, and no single
+    /// local branch tracks it. Choosing a local target branch replaces it; the message says why
+    /// it didn't resolve.
+    UnresolvedLegacyTarget,
 }
 
 #[cfg(feature = "export-schema")]

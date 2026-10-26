@@ -5,7 +5,7 @@ use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
     DiffSpec, RefMetadata,
-    ref_metadata::{StackId, StackKind, WorkspaceStack},
+    ref_metadata::{StackId, StackKind, UnresolvedLegacyTargetRefError, WorkspaceStack},
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::Context;
@@ -198,18 +198,20 @@ pub fn switch_back_to_workspace_with_perm(
     Ok(base_branch)
 }
 
+/// The project's base branch, or `None` if it has none or it can't be read.
+///
+/// A legacy remote target that no single local branch tracks fails with
+/// [`UnresolvedLegacyTargetRefError`] instead, so apps can ask which local branch replaces it.
 #[but_api]
 #[instrument(skip(perm), err(Debug))]
 pub fn get_base_branch_data(
     ctx: &but_ctx::Context,
     perm: &mut RepoExclusive,
 ) -> Result<Option<BaseBranch>> {
-    if let Ok(base_branch) =
-        gitbutler_branch_actions::base::get_base_branch_data(ctx, perm.read_permission())
-    {
-        Ok(Some(base_branch))
-    } else {
-        Ok(None)
+    match gitbutler_branch_actions::base::get_base_branch_data(ctx, perm.read_permission()) {
+        Ok(base_branch) => Ok(Some(base_branch)),
+        Err(err) if err.is::<UnresolvedLegacyTargetRefError>() => Err(err),
+        Err(_) => Ok(None),
     }
 }
 

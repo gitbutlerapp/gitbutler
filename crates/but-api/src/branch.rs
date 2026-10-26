@@ -7,6 +7,7 @@ use but_api_macros::but_api;
 use but_core::{
     DryRun, RefMetadata, WORKSPACE_REF_NAME,
     branch::{refuse_colliding_refname, unique_canned_refname},
+    ref_metadata::{ProjectMeta, UnresolvedLegacyTargetRefError},
     sync::{RepoExclusive, RepoShared},
     ui::TreeChanges,
     update_head_reference,
@@ -1727,7 +1728,13 @@ pub fn branch_list_with_perm(
     _perm: &RepoShared,
 ) -> anyhow::Result<Vec<ListedStack>> {
     let meta = ctx.meta()?;
-    let project_meta = ctx.project_meta()?;
+    let project_meta = match ctx.project_meta() {
+        Ok(project_meta) => project_meta,
+        // Listing needs no target, and the listed branches are what one is chosen from to
+        // replace a legacy target that doesn't resolve.
+        Err(err) if err.is::<UnresolvedLegacyTargetRefError>() => ProjectMeta::default(),
+        Err(err) => return Err(err),
+    };
     let listing = {
         let repo = ctx.repo.get()?;
         let mut db = ctx.db.get_cache_mut()?;
