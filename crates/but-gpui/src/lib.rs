@@ -307,6 +307,10 @@ pub fn run(embedded: Option<Embedded>) {
                         traffic_light_position: Some(point(fixed(14.), fixed(15.))),
                     }),
                     window_min_size: Some(size(fixed(900.), fixed(500.))),
+                    // macOS only. The headers drag the window and take its title bar's double
+                    // click (`ui::drags_window`), so AppKit leaves the title bar to them, and
+                    // doesn't hold each click there back to see whether a second one follows.
+                    app_owns_titlebar_drag: true,
                     // Linux only. The app draws the frame itself, as it has no title bar
                     // elsewhere either, and the window goes with the desktop app's launcher,
                     // which names the executable as its window class.
