@@ -886,9 +886,6 @@ impl SettingsView {
             theme,
         )
         .mx_0()
-        .h(dp(30.))
-        .gap(dp(10.))
-        .rounded(dp(6.))
         .track_focus(&link.focus)
         .child(icon(page.icon()).text_color(match selected {
             true => theme.muted_on_solid(),
@@ -948,7 +945,7 @@ impl Render for SettingsView {
                 .id("settings-project")
                 .px(dp(8.))
                 .pb(dp(8.))
-                .gap(dp(10.))
+                .gap(dp(8.))
                 .text_size(dp(13.))
                 .font_weight(gpui::FontWeight::SEMIBOLD)
                 .text_color(theme.text_3)
@@ -976,7 +973,6 @@ impl Render for SettingsView {
                 .mt(dp(16.))
                 .pt(dp(16.))
                 .px(dp(12.))
-                .gap(dp(3.))
                 .border_t_1()
                 .border_color(theme.border_3)
                 .child(heading)
@@ -1008,7 +1004,7 @@ impl Render for SettingsView {
                     .mx(dp(12.))
                     .mb(dp(10.)),
             )
-            .child(v_flex().px(dp(12.)).gap(dp(3.)).children(app_links))
+            .child(v_flex().px(dp(12.)).children(app_links))
             .children(project);
         let content = v_flex()
             .id("settings-cards")
