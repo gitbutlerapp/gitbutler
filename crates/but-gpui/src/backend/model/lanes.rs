@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::{Branch, CommitId, Workspace};
+use super::{Branch, Commit, CommitId, Workspace};
 
 /// The checkout a lane's branches are worked on in.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -20,6 +20,19 @@ pub struct Lane {
     /// linked worktree started outside the workspace.
     #[cfg_attr(not(test), expect(dead_code, reason = "only tests follow it so far"))]
     pub rests_on: Option<CommitId>,
+}
+
+/// A lane from its branch `at` down, entered at `from` when what rests on it starts below that
+/// branch's tip.
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "only tests follow chains so far")
+)]
+pub struct Link<'a> {
+    pub lane: &'a Lane,
+    pub at: usize,
+    pub from: Option<CommitId>,
 }
 
 impl Checkout {
@@ -47,6 +60,25 @@ impl Lane {
     pub fn end(&self) -> Option<CommitId> {
         let bottom = (self.branches.iter().rev()).find(|branch| !branch.ref_name.is_empty())?;
         bottom.commits.last().map(|commit| commit.id)
+    }
+}
+
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "only tests follow chains so far")
+)]
+impl<'a> Link<'a> {
+    /// Its branches from `at` down, whole.
+    pub fn branches(self) -> &'a [Branch] {
+        self.lane.branches.get(self.at..).unwrap_or_default()
+    }
+
+    /// Its commits from `from` down, newest first.
+    pub fn commits(self) -> impl Iterator<Item = &'a Commit> {
+        let from = self.from;
+        (self.branches().iter())
+            .flat_map(|branch| &branch.commits)
+            .skip_while(move |commit| from.is_some_and(|from| commit.id != from))
     }
 }
 
@@ -103,6 +135,44 @@ impl Workspace {
         })
     }
 
+    /// The lanes `lane` rests on, nearest first. A commit no lane holds ends it, and so does
+    /// going down more lanes than there are.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "only tests follow chains so far")
+    )]
+    pub fn beneath<'a>(&'a self, lane: &'a Lane) -> impl Iterator<Item = Link<'a>> {
+        let entered = move |rests_on: Option<CommitId>| {
+            let id = rests_on?;
+            let (lane, at) = self.lane_holding(id)?;
+            let tip = lane.branches.get(at)?.commits.first()?.id;
+            let from = (tip != id).then_some(id);
+            Some(Link { lane, at, from })
+        };
+        let links = std::iter::successors(entered(lane.rests_on), move |link| {
+            entered(link.lane.rests_on)
+        });
+        links.take(self.lanes.len())
+    }
+
+    /// The lane of the branch `ref_name` from it down, then the lanes beneath. Empty for an
+    /// unnamed branch, or one no lane holds.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "only tests follow chains so far")
+    )]
+    pub fn chain(&self, ref_name: &str) -> impl Iterator<Item = Link<'_>> {
+        let found = self.lane_of(ref_name).filter(|_| !ref_name.is_empty());
+        found.into_iter().flat_map(|(lane, at)| {
+            let own = Link {
+                lane,
+                at,
+                from: None,
+            };
+            std::iter::once(own).chain(self.beneath(lane))
+        })
+    }
+
     /// The lanes worked on in `checkout`.
     pub fn lanes_in(&self, checkout: &Checkout) -> impl Iterator<Item = &Lane> + Clone + use<'_> {
         let checkout = checkout.clone();
@@ -128,5 +198,82 @@ impl Workspace {
             let at = stack.branches.iter().position(|b| b.ref_name == ref_name)?;
             Some((stack, at))
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::build::{branch, describe_chain, workspace, worktree};
+
+    #[test]
+    fn a_chain_follows_each_lane_down_to_what_it_rests_on() {
+        let ws = workspace(
+            vec![vec![
+                branch("top", &[1]),
+                branch("middle", &[2, 3]),
+                branch("bottom", &[4]),
+            ]],
+            vec![
+                worktree("wt", Some(3), vec![branch("wt", &[5])]),
+                worktree("wt-stacked", Some(5), vec![branch("wt-stacked", &[6])]),
+                worktree("outside", None, vec![branch("outside", &[7])]),
+                worktree("dangling", Some(42), vec![branch("dangling", &[8])]),
+            ],
+        );
+        let cycle = workspace(
+            vec![],
+            vec![
+                worktree("a", Some(2), vec![branch("a", &[1])]),
+                worktree("b", Some(1), vec![branch("b", &[2])]),
+            ],
+        );
+        let chains: String = [
+            (&ws, "wt"),
+            (&ws, "wt-stacked"),
+            (&ws, "outside"),
+            (&ws, "dangling"),
+            (&ws, "middle"),
+            (&cycle, "a"),
+        ]
+        .map(|(ws, name)| {
+            let chain = describe_chain(ws, &format!("refs/heads/{name}"));
+            format!("chain({name})\n{chain}\n")
+        })
+        .concat();
+        snapbox::assert_data_eq!(
+            chains,
+            snapbox::str![[r#"
+chain(wt)
+wt: [wt]
+Main: [middle, bottom] from middle~1
+history: [wt, middle~1, bottom]
+
+chain(wt-stacked)
+wt-stacked: [wt-stacked]
+wt: [wt]
+Main: [middle, bottom] from middle~1
+history: [wt-stacked, wt, middle~1, bottom]
+
+chain(outside)
+outside: [outside]
+history: [outside]
+
+chain(dangling)
+dangling: [dangling]
+history: [dangling]
+
+chain(middle)
+Main: [middle, bottom]
+history: [middle, middle~1, bottom]
+
+chain(a)
+a: [a]
+b: [b]
+a: [a]
+history: [a, b, a]
+
+
+"#]]
+        );
     }
 }

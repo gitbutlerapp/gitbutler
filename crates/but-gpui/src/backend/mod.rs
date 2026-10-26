@@ -386,12 +386,13 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         None
     });
     let (worktrees, archived_worktrees) = listed.unwrap_or_default();
+    let rested_on: Vec<_> = info.lanes().filter_map(|lane| lane.rests_on).collect();
     let linked_lanes: Vec<Lane> = (worktrees.iter())
         .filter_map(|worktree| {
             let lane = (info.lanes())
                 .find(|lane| lane.worktree.is_some_and(|name| *name == *worktree.name))?;
             Some(Lane {
-                branches: worktree_branches(&ctx, &cached, lane.segments.iter(), &lanes),
+                branches: worktree_branches(&ctx, &cached, &lane, &lanes, &rested_on),
                 checkout: Checkout::Linked(worktree.name.clone()),
                 rests_on: lane.rests_on.map(CommitId),
             })
@@ -492,29 +493,34 @@ fn target(
     Ok((Some(target), None))
 }
 
-/// The branches of a linked worktree's lane, from its `segments`, that are the worktree's own
-/// work, with their pull requests as the forge cache, `cached`, has them.
-fn worktree_branches<'a>(
+/// The branches of a linked worktree's `lane` that are the worktree's own work, and what of the
+/// target's commits other lanes rest on, with their pull requests as the forge cache, `cached`,
+/// has them.
+fn worktree_branches(
     ctx: &Context,
     cached: &HashMap<u64, but_forge::ForgeReview>,
-    segments: impl Iterator<Item = &'a but_workspace::ref_info::Segment>,
+    lane: &but_workspace::ref_info::Lane<'_>,
     stacks: &[Lane],
+    rested_on: &[gix::ObjectId],
 ) -> Vec<Branch> {
     use but_workspace::ref_info::LocalCommitRelation as R;
     let mut past_theirs = false;
-    segments
+    (lane.segments.iter())
         .filter_map(|segment| {
             // A lane started from a newer target than the workspace's runs on down through
             // the target's own commits, which aren't the worktree's work. The branch the
             // worktree's work starts from shows, even with no commits of its own, but not
-            // the target's branches further down.
+            // the target's commits further down that no lane rests on.
             let theirs = (segment.commits.iter()).position(
                 |commit| matches!(commit.relation, R::Integrated(by) if by == commit.inner.id),
             );
-            if past_theirs {
+            let rested = (segment.commits.iter())
+                .rposition(|commit| rested_on.contains(&commit.inner.id))
+                .map_or(0, |at| at + 1);
+            if past_theirs && rested == 0 {
                 return None;
             }
-            past_theirs = theirs.is_some();
+            past_theirs |= theirs.is_some();
             // A detached run of commits has no ref to tell it apart by, and a branch the
             // workspace has applied is listed there.
             let ref_name = segment.ref_name()?.to_string();
@@ -525,7 +531,7 @@ fn worktree_branches<'a>(
             }
             let mut branch = branch_from(ctx, cached, segment);
             if let Some(theirs) = theirs {
-                branch.commits.truncate(theirs);
+                branch.commits.truncate(theirs.max(rested));
             }
             Some(branch)
         })
@@ -1426,7 +1432,7 @@ mod lane_tests {
     use std::path::Path;
 
     use crate::backend::Checkout;
-    use crate::backend::model::build::describe;
+    use crate::backend::model::build::{describe, describe_chain};
     use crate::backend::ops::tests::{git, repo_with, target_origin_main};
     use crate::backend::ops::{
         Destination, create_branch, create_dependent_branch, insert_empty_commit, rename_branch,
@@ -1495,6 +1501,30 @@ mod lane_tests {
                 .output()
                 .unwrap();
             assert!(out.status.success(), "{out:?}");
+            let tree = git(path, &["rev-parse", "HEAD^{tree}"]);
+            let mut upstream = git(path, &["rev-parse", "origin/main"]);
+            for n in 0..2 {
+                let message = format!("upstream {n}");
+                let parent = upstream.trim().to_owned();
+                upstream = git(
+                    path,
+                    &["commit-tree", tree.trim(), "-p", &parent, "-m", &message],
+                );
+            }
+            git(
+                path,
+                &["update-ref", "refs/remotes/origin/main", upstream.trim()],
+            );
+            let outside = tempfile::tempdir().unwrap();
+            for (name, from) in [("agent1", "origin/main"), ("agent2", "origin/main~1")] {
+                let at = outside.path().join(name);
+                let at = at.to_str().unwrap();
+                git(path, &["worktree", "add", "-q", "-b", name, at, from]);
+                git(
+                    Path::new(at),
+                    &["commit", "-q", "--allow-empty", "-m", name],
+                );
+            }
             let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
             let linked: Vec<_> = (workspace.lanes.iter())
                 .filter_map(|lane| match &lane.checkout {
@@ -1510,14 +1540,20 @@ mod lane_tests {
             );
             // `top`, checked out in wt-top, names an empty segment in that lane, which leaves
             // its commit in the stack unnamed, and wt-top resting on it.
+            // agent2, started from the target's commit agent1 runs down through, rests on agent1.
             snapbox::assert_data_eq!(
-                describe(&workspace),
+                describe(&workspace) + &describe_chain(&workspace, "refs/heads/agent2"),
                 snapbox::str![[r#"
 Main: [Unnamed branch, middle, bottom]
 Main: [beside]
+agent1: [agent1]
+agent2: [agent2] rests on agent1~2
 wt: [wt] rests on middle
 wt-stacked: [wt-stacked] rests on wt
 wt-top: [top] rests on Unnamed branch
+agent2: [agent2]
+agent1: [agent1] from agent1~2
+history: [agent2, agent1~2]
 
 "#]]
             );

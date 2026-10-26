@@ -919,7 +919,7 @@ fn watch(
 #[cfg(test)]
 mod tests {
     use crate::backend::CommitId;
-    use crate::backend::model::build::{branch, workspace};
+    use crate::backend::model::build::{branch, workspace, worktree};
 
     #[test]
     fn picks_show_together_only_as_one_run_in_one_lane() {
@@ -928,7 +928,7 @@ mod tests {
                 vec![branch("top", &[1, 2]), branch("bottom", &[3, 4])],
                 vec![branch("other", &[5])],
             ],
-            vec![branch("linked", &[6, 7])],
+            vec![worktree("agent", None, vec![branch("linked", &[6, 7])])],
         );
         let id = |n: u8| CommitId(gix::ObjectId::from_bytes_or_panic(&[n; 20]));
         let ids = |ns: &[u8]| ns.iter().map(|&n| id(n)).collect::<Vec<_>>();
@@ -954,7 +954,7 @@ mod tests {
                 vec![branch("top", &[1, 2]), branch("bottom", &[3])],
                 vec![branch("other", &[4])],
             ],
-            vec![branch("linked", &[5, 6])],
+            vec![worktree("agent", None, vec![branch("linked", &[5, 6])])],
         );
         let id = |n: u8| CommitId(gix::ObjectId::from_bytes_or_panic(&[n; 20]));
         let ids = |ns: &[u8]| ns.iter().map(|&n| id(n)).collect::<Vec<_>>();
@@ -975,11 +975,11 @@ mod tests {
     fn renames_are_new_named_branches_holding_a_gone_branchs_commits() {
         let old = workspace(
             vec![vec![branch("a", &[1]), branch("c", &[2])]],
-            vec![branch("y", &[3])],
+            vec![worktree("agent", None, vec![branch("y", &[3])])],
         );
         let new = workspace(
             vec![vec![branch("b", &[1]), branch("c", &[2])]],
-            vec![branch("yy", &[3])],
+            vec![worktree("agent", None, vec![branch("yy", &[3])])],
         );
         let renamed =
             |from: &str, to: &str| (format!("refs/heads/{from}"), format!("refs/heads/{to}"));
@@ -988,7 +988,10 @@ mod tests {
             [renamed("a", "b"), renamed("y", "yy")],
             "in the workspace and in a linked worktree alike"
         );
-        let deleted = workspace(vec![vec![branch("c", &[1, 2])]], vec![branch("", &[3])]);
+        let deleted = workspace(
+            vec![vec![branch("c", &[1, 2])]],
+            vec![worktree("agent", None, vec![branch("", &[3])])],
+        );
         assert!(
             super::renamed(Some(&old), &deleted).is_empty(),
             "a branch whose commits went to one already there, or to no name, was deleted"
