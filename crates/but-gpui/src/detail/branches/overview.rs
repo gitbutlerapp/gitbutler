@@ -5,7 +5,7 @@
 
 use std::collections::HashSet;
 
-use gpui::{AnyElement, Context, div, prelude::*};
+use gpui::{AnyElement, Context, div, prelude::*, relative};
 
 use super::{Branches, Recency, email_of, title};
 use crate::backend::ReviewState;
@@ -311,6 +311,9 @@ fn lane_row(
             .when(at > 0, |el| el.ml(dp(-4.)))
     });
     let first_day = today - (ACTIVITY_DAYS as i64 - 1);
+    let days = lane.daily.len() as f32;
+    // Each cell is placed at its share of the strip rather than laid out in a flex row, which
+    // halves what the cells cost the page's layout, and its tip is worded only on hover.
     let cells = lane.daily.iter().enumerate().map(|(day_ix, &n)| {
         let day = first_day + day_ix as i64;
         let dim = day < since;
@@ -319,18 +322,20 @@ fn lane_row(
             0 => theme.border_3.opacity(0.6),
             _ => theme.pop.opacity(0.3 + 0.7 * shade),
         };
-        let tip = format!(
-            "{}: {}",
-            crate::ui::local_weekday(noon(day)),
-            plural(n as usize, "commit")
-        );
         div()
             .id(("lane-day", day_ix))
-            .flex_1()
-            .h(dp(14.))
+            .absolute()
+            .top_0()
+            .bottom_0()
+            .left(relative(day_ix as f32 / days))
+            .right(relative((days - 1. - day_ix as f32) / days))
+            .mx(dp(1.))
             .rounded(dp(2.))
             .bg(if dim { color.opacity(0.3) } else { color })
-            .tooltip(Tooltip::text(tip))
+            .tooltip(move |window, cx| {
+                let day = crate::ui::local_weekday(noon(day));
+                Tooltip::text(format!("{day}: {}", plural(n as usize, "commit")))(window, cx)
+            })
     });
     let ref_name = branch.ref_name.clone();
     let applied =
@@ -371,12 +376,12 @@ fn lane_row(
         )
         .child(h_flex().flex_none().w(dp(40.)).children(avatars))
         .child(
-            h_flex()
+            div()
+                .relative()
                 .flex_1()
                 .min_w_0()
-                .overflow_hidden()
                 .max_w(dp(360.))
-                .gap(dp(2.))
+                .h(dp(14.))
                 .children(cells),
         )
         .child(
