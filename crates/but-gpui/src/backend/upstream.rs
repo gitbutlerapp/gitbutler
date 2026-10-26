@@ -41,14 +41,32 @@ pub struct TargetCommit {
 }
 
 /// Up to `limit` of the target's commits, newest first, after `after` or from its tip;
-/// and whether there are older ones.
+/// and whether there are older ones. From the tip, the first page stops where the workspace
+/// forked off.
 pub fn target_commits(
     path: &Path,
     after: Option<CommitId>,
     limit: u32,
 ) -> Result<(Vec<TargetCommit>, bool)> {
     let ctx = open(path)?;
-    target_page(&ctx, &cached_reviews(&ctx), after, limit)
+    let cached = cached_reviews(&ctx);
+    let (mut commits, mut more) = target_page(&ctx, &cached, after, limit)?;
+    // The API reads a thousand at most at a time.
+    while after.is_some()
+        && more
+        && let Some(last) = commits.last().map(|c| c.id)
+        && let Some(left) = limit
+            .checked_sub(commits.len() as u32)
+            .filter(|left| *left > 0)
+    {
+        let (older, older_more) = target_page(&ctx, &cached, Some(last), left)?;
+        if older.is_empty() {
+            break;
+        }
+        more = older_more;
+        commits.extend(older);
+    }
+    Ok((commits, more))
 }
 
 /// The newest `limit` of the target's commits the workspace doesn't have yet, each named by

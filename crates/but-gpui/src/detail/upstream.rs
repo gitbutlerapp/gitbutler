@@ -177,11 +177,15 @@ impl Detail {
             .and_then(|u| u.commits.last())
             .map(|commit| commit.id);
         // Reading back for a commit picked off Shipped or for a filter, a few pages at once
-        // rather than a frame's wait between each.
-        let reading_back = current.is_some_and(|u| {
-            u.pending.is_some() || u.view.area.is_some() || u.view.person.is_some()
-        }) || !self.target_filter.read(cx).text().trim().is_empty();
+        // rather than a frame's wait between each, and for words, which can be years back on
+        // a click, many more.
+        let words = !self.target_filter.read(cx).text().trim().is_empty();
+        let reading_back = words
+            || current.is_some_and(|u| {
+                u.pending.is_some() || u.view.area.is_some() || u.view.person.is_some()
+            });
         let limit = match more {
+            true if words => PAGE * 100,
             true if reading_back => PAGE * 8,
             true => PAGE,
             false => current.map_or(PAGE, |u| (u.commits.len() as u32).max(PAGE)),
@@ -1817,11 +1821,17 @@ impl Detail {
                                     .child("Loading…")
                                     .into_any_element()
                             }
+                            // Saying how far back it has read, as a filter can find nothing
+                            // in years of history.
                             Row::Older => {
                                 let project = shown.clone();
+                                let read_to = (upstream.commits.last()).map_or_else(
+                                    || "Show older".to_owned(),
+                                    |c| format!("Show older than {}", crate::ui::day_label(c.time)),
+                                );
                                 list_row("target-older", false, theme)
                                     .text_color(theme.text_2)
-                                    .child("Show older")
+                                    .child(read_to)
                                     .on_click(cx.listener(move |this, _, _, cx| {
                                         this.load_upstream(&project, true, false, cx);
                                         cx.notify();
