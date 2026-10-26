@@ -659,10 +659,9 @@ impl Detail {
         detail
     }
 
-    /// The page shown: what's selected, or for a section's heading whose rows another page
-    /// lists, that page (see [`Selection::page`]).
+    /// The page shown: what's selected.
     fn selection(&self, cx: &App) -> Option<Selection> {
-        self.store.read(cx).selection.clone().map(Selection::page)
+        self.store.read(cx).selection.clone()
     }
 
     fn selected_project(&self, cx: &App) -> Option<ProjectId> {
@@ -728,6 +727,14 @@ impl Detail {
             Selection::Section(project, Section::Upstream(Some(ref_name))) => {
                 let branch = store.workspace(project)?.find_branch(ref_name)?;
                 DiffSource::Commits(branch.incoming.iter().rev().map(|c| c.id).collect())
+            }
+            // What a pull would bring in from the target, at its newest commit.
+            Selection::Section(project, Section::Upstream(None)) => {
+                let target = store.workspace(project)?.target.as_ref()?;
+                DiffSource::Incoming {
+                    tip: target.incoming.first()?.id,
+                    behind: target.commits_behind,
+                }
             }
             Selection::Section(..) => return None,
             Selection::Branch(project, ref_name) => {

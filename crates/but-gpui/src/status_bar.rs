@@ -9,7 +9,7 @@ use crate::app::{
 };
 use crate::backend::CommitId;
 use crate::detail::{AmendTop, DiscardHunk, NextFile, NextHunk};
-use crate::state::{Cut, SLOW, Selection};
+use crate::state::{Cut, SLOW, Section, Selection};
 use crate::theme::Theme;
 use crate::ui::{Icon, STATUS_BAR_HEIGHT, dp, duration, h_flex, shortcut, small_icon};
 
@@ -236,12 +236,11 @@ impl AppView {
             vec![(&NextFile, "next file"), (&NextHunk, "next hunk")]
         } else {
             // In the navigator, the keys for what's selected; what's cut says its own.
-            let mut hints: Vec<(&dyn Action, &str)> = match &store
-                .selection
-                .clone()
-                .map(Selection::page)
-            {
-                Some(Selection::Project(project)) => {
+            let mut hints: Vec<(&dyn Action, &str)> = match &store.selection {
+                Some(
+                    Selection::Project(project)
+                    | Selection::Section(project, Section::Upstream(None)),
+                ) => {
                     let behind = (store.workspace(project))
                         .and_then(|ws| ws.target.as_ref())
                         .is_some_and(|target| target.needs_update);
