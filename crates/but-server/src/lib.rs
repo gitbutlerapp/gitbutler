@@ -521,6 +521,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             "/stash_into_branch",
             but_post(legacy::workspace::stash_into_branch_cmd),
         )
+        .route("/worktrees_list", but_post(worktrees::worktrees_list_cmd))
         .route(
             "/worktree_set_archived",
             but_post(worktrees::worktree_set_archived_cmd),
