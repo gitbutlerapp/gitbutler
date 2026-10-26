@@ -355,6 +355,9 @@ pub struct HeaderDecor {
     pub excluded: bool,
     /// The hunk or file the keyboard is on.
     pub current: bool,
+    /// The diff has the keys, so they act on the current one: it's marked solid, and faint
+    /// while they're elsewhere, as a list's selection is.
+    pub solid: bool,
     /// The file shows only its header.
     pub folded: bool,
 }
@@ -495,19 +498,7 @@ pub fn file_header(
         .border_b_1()
         .rounded_t(dp(6.))
         .when(decor.folded, |el| el.rounded_b(dp(6.)))
-        // The file the cursor is in: a tab on the card's edge.
-        .when(decor.current, |el| {
-            el.child(
-                div()
-                    .absolute()
-                    .left_0()
-                    .top(dp(5.))
-                    .bottom(dp(5.))
-                    .w(dp(4.))
-                    .rounded_r(dp(6.))
-                    .bg(theme.fill_gray),
-            )
-        })
+        .when(decor.current, |el| el.child(cursor_tab(decor.solid, theme)))
         .child(small_icon(chevron).text_color(theme.text_2))
         .child(
             h_flex()
@@ -575,6 +566,22 @@ pub fn unmodified_before(hunks: &[Hunk], ix: usize) -> u32 {
         .saturating_sub(from)
 }
 
+/// The tab on a card's edge that marks the file or hunk the cursor is on, `solid` while the
+/// diff has the keys.
+fn cursor_tab(solid: bool, theme: &Theme) -> gpui::Div {
+    div()
+        .absolute()
+        .left_0()
+        .top(dp(5.))
+        .bottom(dp(5.))
+        .w(dp(4.))
+        .rounded_r(dp(6.))
+        .bg(match solid {
+            true => theme.fill_gray,
+            false => theme.fill_gray.opacity(0.25),
+        })
+}
+
 /// Above a hunk's lines, as @pierre/diffs parts hunks: a grey box saying how many
 /// `unmodified` lines before it aren't shown, with the scopes the hunk changes.
 pub fn hunk_header(hunk: &Hunk, unmodified: u32, theme: &Theme, decor: HeaderDecor) -> AnyElement {
@@ -606,6 +613,7 @@ pub fn hunk_header(hunk: &Hunk, unmodified: u32, theme: &Theme, decor: HeaderDec
     card(h_flex(), theme)
         .px(dp(8.))
         .py(dp(6.))
+        .when(decor.current, |el| el.child(cursor_tab(decor.solid, theme)))
         .child(
             h_flex()
                 .flex_1()
@@ -615,7 +623,7 @@ pub fn hunk_header(hunk: &Hunk, unmodified: u32, theme: &Theme, decor: HeaderDec
                 .pr(dp(3.))
                 .gap(dp(8.))
                 .rounded(dp(6.))
-                .bg(if decor.current {
+                .bg(if decor.current && decor.solid {
                     theme.pop.opacity(0.1)
                 } else {
                     theme.diff_separator
