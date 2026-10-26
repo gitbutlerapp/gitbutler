@@ -57,6 +57,10 @@ so update it, shortcuts table included, with every change in behaviour.
 - Text shaping dominates frames with new content: GPUI's CoreText layout creates a sized font
   copy per text run, so fewer text elements per row is the lever, and a new diff draws a frame
   after the rest of the detail (`DiffPane`) so the two don't share one frame.
+- Layout costs per element, and a flex row of many small ones costs most. The Branches
+  overview's thirty day cells a lane were a quarter of that page's frame; placing them with
+  `absolute` and `relative` insets halved that, and wording their tooltips in the tooltip's
+  builder rather than in render saved a little more.
 - Put any list that can grow in `uniform_list` or `list`. A thousand plain rows cost 36ms a
   frame, against 1.6ms in `uniform_list`. Don't derive per-row state for every row each frame:
   a 20,000-line diff stalled until the line grip was worked out only for the row under the
