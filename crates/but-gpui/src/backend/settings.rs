@@ -165,18 +165,57 @@ pub fn rename_project(id: &str, name: String) -> Result<()> {
     )
 }
 
-/// Whether Git has no author for the project at `path` to record commits with, as on a
-/// machine where `user.name` and `user.email` were never set.
-pub fn author_missing(path: &Path) -> Result<bool> {
-    let author = config::get_author_info(&open(path)?)?;
-    Ok(author.name.is_none() || author.email.is_none())
+/// What Git lacks of the author it records commits with for the project at `path`, as on a
+/// machine where `user.name` and `user.email` were never set; `None` when it has both.
+pub fn author_missing(path: &Path) -> Result<Option<MissingAuthor>> {
+    let ctx = open(path)?;
+    let author = config::get_author_info(&ctx)?;
+    if author.name.is_some() && author.email.is_some() {
+        return Ok(None);
+    }
+    let repo = ctx.repo.get()?;
+    let config = repo.config_snapshot();
+    Ok(Some(MissingAuthor {
+        name: config.string(gix::config::tree::User::NAME).is_none(),
+        email: config.string(gix::config::tree::User::EMAIL).is_none(),
+        here: config.boolean("user.useConfigOnly") == Some(true),
+    }))
 }
 
-/// Make `name` and `email` the author in the user's global Git config where it has none, as
-/// GitButler's desktop app does.
-pub fn set_author(path: &Path, name: &str, email: &str) -> Result<()> {
-    let (name, email) = (name.trim().to_owned(), email.trim().to_owned());
-    config::store_author_globally_if_unset(&open(path)?, name, email)
+/// Which of the author's fields Git lacks, and where they go.
+#[derive(Clone, Copy)]
+pub struct MissingAuthor {
+    pub name: bool,
+    pub email: bool,
+    /// In the repository's own config, rather than the user's global one: `user.useConfigOnly`
+    /// is how Git is told to ask for an email in each new clone, for an email per repository.
+    pub here: bool,
+}
+
+/// Make `name` and `email` the author where Git has none, in the user's global Git config, as
+/// GitButler's desktop app does, or with `here` the email in the repository's, where
+/// `user.useConfigOnly` keeps it, and a missing name globally still.
+pub fn set_author(path: &Path, name: &str, email: &str, here: bool) -> Result<()> {
+    use gix::config::{Source, tree::User};
+    let ctx = open(path)?;
+    let (name, email) = (name.trim(), email.trim());
+    if !here {
+        return config::store_author_globally_if_unset(&ctx, name.to_owned(), email.to_owned());
+    }
+    let repo = ctx.repo.get()?;
+    let set = |source, key, value: &str| {
+        let edit =
+            |config: &mut gix::config::File| Ok(config.set_raw_value(key, value).map(drop)?);
+        but_core::git_config::edit_config(Some(&repo), source, edit)
+    };
+    if repo.config_snapshot().string(User::NAME).is_none() {
+        set(Source::User, User::NAME, name)?;
+    }
+    // Asked for only when missing: an empty one leaves the repository's own alone.
+    if !email.is_empty() {
+        set(Source::Local, User::EMAIL, email)?;
+    }
+    Ok(())
 }
 
 /// Only the fields set are written to the repository's own config; what it reads from the
