@@ -16,6 +16,7 @@ use crate::app::{
 use crate::backend::{
     self, Branch, Commit, CommitId, Destination, Selected, Undiscarded, Workspace, short_ref,
 };
+use crate::overlays::run_named;
 use crate::state::{Cut, Label, Overlay, ProjectId, Remap, Rereads, Selection, Store, snack};
 
 actions!(
@@ -531,27 +532,23 @@ impl AppView {
                             .is_none_or(|b| b.commits.is_empty())) => {}
             Some(Selection::Branch(project, ref_name)) => {
                 let undoable = !self.in_worktree_lane(cx);
+                let workspace = self.store.read(cx).workspace(&project);
                 // An unnamed branch has no ref to rename, so it gets one at its newest commit.
-                let unnamed_top = (self.store.read(cx).workspace(&project))
-                    .filter(|_| ref_name.is_empty())
+                let unnamed_top = (workspace.filter(|_| ref_name.is_empty()))
                     .and_then(|ws| Some(ws.find_branch("")?.commits.first()?.id));
-                let title = match unnamed_top {
-                    Some(_) => "Name branch",
-                    None => "Rename branch",
-                };
-                let (selected, detail, from) =
-                    (project.clone(), self.detail.downgrade(), ref_name.clone());
-                self.prompt_branch(
-                    Selection::Branch(project, ref_name.clone()),
-                    title,
-                    Some(ref_name.clone()),
-                    window,
-                    cx,
-                    move |path, remap, name| match unnamed_top {
+                // As the desktop app says: a rename doesn't reach the remote.
+                let pushed = (workspace.and_then(|ws| ws.find_branch(&ref_name)))
+                    .is_some_and(|branch| branch.push != backend::PushState::NeverPushed);
+                let renaming = unnamed_top.is_none().then(|| ref_name.clone());
+                let (store, detail) = (self.store.clone(), self.detail.downgrade());
+                let (at, selected, from) = (project.clone(), project.clone(), ref_name.clone());
+                let submit = move |name: String, cx: &mut App| {
+                    let renamed = from.clone();
+                    let op = move |path: &Path, remap: &Remap, name: &str| match unnamed_top {
                         Some(top) => backend::name_branch(path, remap.get(top)?, name),
-                        None => backend::rename_branch(path, &ref_name, name),
-                    },
-                    move |store, to, cx| {
+                        None => backend::rename_branch(path, &renamed, name),
+                    };
+                    let done = move |store: &mut Store, to: String, cx: &mut Context<Store>| {
                         (detail.update(cx, |detail, cx| {
                             detail.branch_renamed(&selected, &from, &to, cx)
                         }))
@@ -559,9 +556,28 @@ impl AppView {
                         if !undoable {
                             store.keep_last_snapshot(cx);
                         }
+                        if pushed {
+                            let message = format!(
+                                "Renamed to {}. The remote keeps the old name, and pushing \
+                                 again makes a new remote branch, apart from any pull request \
+                                 of the old one",
+                                short_ref(&to)
+                            );
+                            store.snack_after(undoable, message, cx);
+                        }
                         store.select(Some(Selection::Branch(selected, to)), cx)
-                    },
-                )
+                    };
+                    store.update(cx, |store, cx| {
+                        run_named(store, &at, renaming, name, op, done, cx)
+                    })
+                };
+                // The name is edited in its row there.
+                if !self.navigator_open {
+                    self.set_navigator(true, window, cx);
+                }
+                (self.navigator).update(cx, |navigator, cx| {
+                    navigator.rename(project, ref_name, window, cx, submit)
+                })
             }
             Some(Selection::Commit(..)) => self
                 .detail

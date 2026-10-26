@@ -61,7 +61,6 @@ fn new_branch_items(store: &Store, project: &ProjectId, cx: &App) -> Vec<MenuIte
             app.prompt_branch(
                 Selection::Project(project.clone()),
                 "New worktree",
-                None,
                 window,
                 cx,
                 |path, _, name| crate::backend::worktrees::create(path, name),

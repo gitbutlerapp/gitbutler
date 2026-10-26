@@ -165,9 +165,9 @@ impl AppView {
         let subscriptions = vec![
             // A menu's items and the palette's commands act on the selection and the picks, so
             // when an agent's change moves them off what they opened on, they go rather than
-            // act on something else; a prompt on a branch goes with the branch. Menu items can
-            // hold the commit they opened on, so a menu goes when an agent only rewrote it too,
-            // as does M's list of them; the palette's commands read the selection when run.
+            // act on something else. Menu items can hold the commit they opened on, so a menu
+            // goes when an agent only rewrote it too, as does M's list of them; the palette's
+            // commands read the selection when run.
             cx.observe_in(&store, window, |this, store, window, cx| {
                 let store = store.read(cx);
                 let menu_gone =
@@ -176,27 +176,11 @@ impl AppView {
                     true => p.acting_on != store.acting_on(),
                     false => !store.still_acting_on(&p.acting_on),
                 });
-                let prompt_gone = (this.prompt.as_ref())
-                    .and_then(|prompt| prompt.on_branch.as_ref())
-                    .filter(|(project, from)| {
-                        (store.workspace(project)).is_some_and(|ws| ws.find_branch(from).is_none())
-                    })
-                    .map(|(_, from)| {
-                        format!(
-                            "{} was renamed or left the workspace meanwhile",
-                            short_ref(from)
-                        )
-                    });
                 if menu_gone {
                     this.menu = None;
                 }
                 if palette_gone {
                     this.close_palette(window, cx);
-                }
-                // Saying why, as it went from under what was being typed.
-                if let Some(why) = prompt_gone {
-                    this.cancel_prompt(window, cx);
-                    snack(&this.store, why, cx);
                 }
                 cx.notify()
             }),
@@ -974,7 +958,12 @@ impl AppView {
     /// Show or hide the navigator. The details pane draws its own header, so it's told
     /// what's around it. When the navigator goes, focus moves off it, and it comes back with
     /// it, as hiding it took it away.
-    fn set_navigator(&mut self, navigator_open: bool, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn set_navigator(
+        &mut self,
+        navigator_open: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.navigator_open = navigator_open;
         self.detail.update(cx, |detail, cx| {
             detail.beside_traffic_lights = !navigator_open;
