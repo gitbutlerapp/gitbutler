@@ -269,6 +269,7 @@ impl App {
                     ]);
                 }
                 MarksRef::Commits { .. }
+                | MarksRef::Committed { .. }
                 | MarksRef::CommittedFiles { .. }
                 | MarksRef::Branches { .. } => {}
             },

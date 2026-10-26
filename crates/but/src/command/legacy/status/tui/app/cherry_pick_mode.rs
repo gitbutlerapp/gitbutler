@@ -174,7 +174,7 @@ impl App {
 
                     self.cherry_pick_start_with_source(source);
                 }
-                Marks::Hunks(..) | Marks::CommittedFiles(..) | Marks::Branches(..) => {}
+                Marks::Hunks(..) | Marks::Committed(..) | Marks::Branches(..) => {}
             },
             _ => {}
         }

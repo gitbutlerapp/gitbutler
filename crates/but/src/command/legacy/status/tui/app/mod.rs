@@ -68,7 +68,7 @@ use super::{
 
 mod details_layout;
 mod discard;
-pub(super) use discard::run_discard;
+pub(super) use discard::{committed_discard_operation, run_discard};
 
 pub mod mark;
 mod undo_redo;
@@ -991,7 +991,7 @@ impl App {
                 Mode::PickChanges(PickChangesMode { marks }) => marks.as_ref(),
             }
             .iter()
-            .map(|mark| mark.to_owned().into_selectable())
+            .filter_map(|mark| mark.to_owned().into_selectable())
             .collect(),
         ));
     }
@@ -1199,7 +1199,8 @@ impl App {
     fn close_file_list(&mut self) {
         let should_clear_marks = matches!(
             self.marks_ref(),
-            mark::MarksRef::CommittedFiles { head: _, tail: _ }
+            mark::MarksRef::Committed { head: _, tail: _ }
+                | mark::MarksRef::CommittedFiles { head: _, tail: _ }
         );
 
         self.flags.show_files = FilesStatusFlag::None;
@@ -1468,11 +1469,14 @@ impl App {
         let details_selection_before_reload =
             self.details.selected_section_cli_id().map(Arc::clone);
 
-        let select_details_section_after_reload = select_after_reload.as_ref().and_then(
+        let mut select_details_section_after_reload = select_after_reload.as_ref().and_then(
             |select_after_reload| match select_after_reload {
                 SelectAfterReload::UncommittedDetailsSection { index, direction } => {
                     Some((*index, *direction))
                 }
+                SelectAfterReload::RewrittenCommit {
+                    details_section, ..
+                } => *details_section,
                 SelectAfterReload::Commit(_)
                 | SelectAfterReload::FirstFileInCommit(_)
                 | SelectAfterReload::UncommittedFile { .. }
@@ -1498,6 +1502,23 @@ impl App {
                     {
                         self.flags.show_files = FilesStatusFlag::None;
                         self.backstack.remove_show_file_list();
+                    }
+                }
+                SelectAfterReload::RewrittenCommit {
+                    source,
+                    new_commit,
+                    details_section: _,
+                } => {
+                    // The file list belongs to the rewritten commit, so move it to the new one.
+                    if let FilesStatusFlag::Commit(commit_shown) = self.flags.show_files
+                        && commit_shown == *source
+                    {
+                        if operations::commit_is_empty(ctx, *new_commit)? {
+                            self.flags.show_files = FilesStatusFlag::None;
+                            self.backstack.remove_show_file_list();
+                        } else {
+                            self.flags.show_files = FilesStatusFlag::Commit(*new_commit);
+                        }
                     }
                 }
                 SelectAfterReload::Branch(_)
@@ -1537,6 +1558,36 @@ impl App {
             }
             Some(SelectAfterReload::Commit(commit_id)) => {
                 Cursor::select_commit(commit_id, &new_lines)
+            }
+            Some(SelectAfterReload::RewrittenCommit {
+                source,
+                new_commit,
+                details_section: _,
+            }) => {
+                // Select the same file in the new commit. If the file no longer has changes, select
+                // the first file in the new commit like discarding a whole file does, or the new
+                // commit if that has no files either.
+                let file_cursor = match selection_before_reload.as_deref() {
+                    Some(CliId::CommittedFile {
+                        committed_file:
+                            CommittedFileId {
+                                commit_id, path, ..
+                            },
+                        id: _,
+                    }) if *commit_id == source => {
+                        let cursor =
+                            Cursor::select_committed_file(new_commit, path.as_ref(), &new_lines);
+                        if cursor.is_none() {
+                            // The details now show something else, so the section no longer
+                            // applies.
+                            select_details_section_after_reload = None;
+                        }
+                        cursor
+                            .or_else(|| Cursor::select_first_file_in_commit(new_commit, &new_lines))
+                    }
+                    _ => None,
+                };
+                file_cursor.or_else(|| Cursor::select_commit(new_commit, &new_lines))
             }
             Some(SelectAfterReload::Branch(branch)) => Cursor::select_branch(&branch, &new_lines),
             Some(SelectAfterReload::Worktree(worktree)) => {
@@ -1890,6 +1941,12 @@ impl App {
                 std::iter::once(head)
                     .chain(tail)
                     .map(|hunk| hunk.hunks.head.hunk.path.as_bstr()),
+            ),
+            mark::MarksRef::Committed { head, tail } => openable_from_paths(
+                ctx,
+                std::iter::once(head)
+                    .chain(tail)
+                    .map(|mark| mark.committed_file().path.as_bstr()),
             ),
             mark::MarksRef::CommittedFiles { head, tail } => openable_from_paths(
                 ctx,

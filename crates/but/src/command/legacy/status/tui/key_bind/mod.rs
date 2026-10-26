@@ -1144,7 +1144,7 @@ impl KeyBindsBuilder<'_> {
         self.key_bind("mark", press().code(KeyCode::Char(' ')), || {
             Message::Details(DetailsMessage::Mark)
         })
-        .condition(KeyBindCondition::SelectionIsUncommitted)
+        .condition(KeyBindCondition::SelectionHasHunks)
     }
 
     fn details_discard(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -1152,7 +1152,7 @@ impl KeyBindsBuilder<'_> {
             Message::Details(DetailsMessage::Discard)
         })
         .condition(
-            KeyBindCondition::SelectionIsUncommitted.and(&KeyBindCondition::Not(
+            KeyBindCondition::SelectionHasHunks.and(&KeyBindCondition::Not(
                 &KeyBindCondition::DetailsReturnModeIsPickChanges,
             )),
         )
@@ -1649,6 +1649,8 @@ fn normalize_char_for_display(ch: char, shifted: bool) -> char {
 #[derive(Debug, Copy, Clone)]
 pub enum KeyBindCondition {
     SelectionIsUncommitted,
+    /// The selection shows hunks that can be marked and discarded.
+    SelectionHasHunks,
     DetailsReturnModeIsPickChanges,
     And {
         lhs: &'static Self,
@@ -1684,6 +1686,29 @@ impl KeyBindCondition {
                     | CliId::CommittedHunk { .. }
                     | CliId::Branch(..)
                     | CliId::Commit { .. }
+                    | CliId::UncommittedArea {
+                        source: ChangeSourceId::Worktree(_),
+                        ..
+                    }
+                    | CliId::Stack { .. } => false,
+                }
+            }
+            KeyBindCondition::SelectionHasHunks => {
+                let Some(selection) = selection else {
+                    return false;
+                };
+                match selection {
+                    CliId::UncommittedHunkOrFile(..)
+                    | CliId::UncommittedArea {
+                        source: ChangeSourceId::Head,
+                        ..
+                    }
+                    | CliId::CommittedFile { .. }
+                    | CliId::Commit { .. } => true,
+                    CliId::AnonymousSegment(..)
+                    | CliId::PathPrefix { .. }
+                    | CliId::CommittedHunk { .. }
+                    | CliId::Branch(..)
                     | CliId::UncommittedArea {
                         source: ChangeSourceId::Worktree(_),
                         ..

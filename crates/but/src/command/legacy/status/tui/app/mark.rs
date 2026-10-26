@@ -18,7 +18,7 @@ use crate::{
     },
     id::{
         BranchId, BranchIdRef, CommitId, CommitIdRef, CommittedFileId, CommittedFileIdRef,
-        IdAndHunk, UncommittedHunkOrFile,
+        CommittedHunk, IdAndHunk, UncommittedHunkOrFile,
     },
     utils::change_source::ChangeSourceId,
 };
@@ -29,8 +29,52 @@ pub enum Marks {
     Empty,
     Hunks(NonEmpty<UncommittedHunkOrFile>),
     Commits(NonEmpty<CommitId>),
-    CommittedFiles(NonEmpty<CommittedFileId>),
+    Committed(NonEmpty<CommittedMark>),
     Branches(NonEmpty<BranchId>),
+}
+
+/// A marked file or hunk in a commit.
+///
+/// Marking a file in the status selects the whole file, including changes that aren't hunks such
+/// as a rename, and unmarks its hunks. The status doesn't know a committed file's hunks, so a
+/// marked file counts as marking all of its hunks in the detail view.
+///
+/// Marking every hunk of a file in the detail view also marks the file, but only to show that all
+/// of its hunks are marked. Like the CLI given the hunks' IDs, it still selects just those hunks,
+/// see [`committed_changes_to_act_on`].
+#[derive(Debug, Clone, PartialEq)]
+pub enum CommittedMark {
+    File(CommittedFileId),
+    Hunk(CommittedHunk),
+}
+
+impl CommittedMark {
+    pub fn committed_file(&self) -> &CommittedFileId {
+        match self {
+            CommittedMark::File(file) => file,
+            CommittedMark::Hunk(hunk) => &hunk.committed_file,
+        }
+    }
+}
+
+/// The marked committed files and hunks to operate on.
+///
+/// A file marked alongside its hunks is left out, since it's only marked to show that all of its
+/// hunks are.
+pub fn committed_changes_to_act_on(marks: &NonEmpty<CommittedMark>) -> NonEmpty<&CommittedMark> {
+    let has_marked_hunks = |file: &CommittedFileId| {
+        marks
+            .iter()
+            .any(|mark| matches!(mark, CommittedMark::Hunk(hunk) if hunk.committed_file == *file))
+    };
+    let changes = marks
+        .iter()
+        .filter(|mark| match mark {
+            CommittedMark::File(file) => !has_marked_hunks(file),
+            CommittedMark::Hunk(..) => true,
+        })
+        .collect::<Vec<_>>();
+    NonEmpty::from_vec(changes).expect("a file is only left out when some of its hunks are marked")
 }
 
 impl Marks {
@@ -52,9 +96,9 @@ impl Marks {
         }
     }
 
-    pub fn as_committed_files(&self) -> Option<&NonEmpty<CommittedFileId>> {
+    pub fn as_committed(&self) -> Option<&NonEmpty<CommittedMark>> {
         match self {
-            Self::CommittedFiles(files) => Some(files),
+            Self::Committed(marks) => Some(marks),
             _ => None,
         }
     }
@@ -71,7 +115,7 @@ impl Marks {
     }
 
     pub fn contains_cli_id(&self, cli_id: &CliId) -> bool {
-        self.iter().any(|mark| mark.matches_cli_id(cli_id))
+        self.as_ref().contains_cli_id(cli_id)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = MarkableRef<'_>> {
@@ -83,9 +127,33 @@ impl Marks {
             Self::Empty => MarksRef::Empty,
             Self::Hunks(hunks) => MarksRef::from_hunks(hunks),
             Self::Commits(commits) => MarksRef::from_commits(commits),
-            Self::CommittedFiles(files) => MarksRef::from_committed_files(files),
+            Self::Committed(marks) => MarksRef::from_committed(marks),
             Self::Branches(branches) => MarksRef::from_branches(branches),
         }
+    }
+
+    fn remove_committed_changes_of(&mut self, commit: &CommitId) {
+        if let Self::Committed(marks) = self
+            && marks.head.committed_file().commit_id == commit.commit_id
+        {
+            // All committed marks come from one commit.
+            *self = Self::Empty;
+        }
+    }
+
+    fn remove_committed_hunks_of(&mut self, file: &CommittedFileId) {
+        let Self::Committed(marks) = self else {
+            return;
+        };
+        let remaining = marks
+            .iter()
+            .filter(|mark| match mark {
+                CommittedMark::File(..) => true,
+                CommittedMark::Hunk(hunk) => hunk.committed_file != *file,
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        *self = NonEmpty::from_vec(remaining).map_or(Self::Empty, Self::Committed);
     }
 }
 
@@ -99,6 +167,10 @@ pub enum MarksRef<'a> {
     Commits {
         head: &'a CommitId,
         tail: &'a [CommitId],
+    },
+    Committed {
+        head: &'a CommittedMark,
+        tail: &'a [CommittedMark],
     },
     CommittedFiles {
         head: &'a CommittedFileId,
@@ -136,6 +208,13 @@ impl<'a> MarksRef<'a> {
         Self::Commits {
             head: commit,
             tail: &[],
+        }
+    }
+
+    pub fn from_committed(marks: &'a NonEmpty<CommittedMark>) -> Self {
+        Self::Committed {
+            head: &marks.head,
+            tail: &marks.tail,
         }
     }
 
@@ -177,8 +256,30 @@ impl<'a> MarksRef<'a> {
             Self::Empty => 0,
             Self::Hunks { head: _, tail } => 1 + tail.len(),
             Self::Commits { head: _, tail } => 1 + tail.len(),
+            Self::Committed { head: _, tail } => 1 + tail.len(),
             Self::CommittedFiles { head: _, tail } => 1 + tail.len(),
             Self::Branches { head: _, tail } => 1 + tail.len(),
+        }
+    }
+
+    /// The marked committed files, if no committed hunks are marked.
+    pub fn whole_committed_files(self) -> Option<NonEmpty<CommittedFileId>> {
+        match self {
+            Self::Committed { head, tail } => {
+                let files = std::iter::once(head)
+                    .chain(tail)
+                    .map(|mark| match mark {
+                        CommittedMark::File(file) => Some(file.clone()),
+                        CommittedMark::Hunk(..) => None,
+                    })
+                    .collect::<Option<Vec<_>>>()?;
+                NonEmpty::from_vec(files)
+            }
+            Self::CommittedFiles { head, tail } => Some(NonEmpty {
+                head: head.clone(),
+                tail: tail.to_vec(),
+            }),
+            Self::Empty | Self::Hunks { .. } | Self::Commits { .. } | Self::Branches { .. } => None,
         }
     }
 
@@ -194,16 +295,47 @@ impl<'a> MarksRef<'a> {
                     .any(|hunk| hunk == uncommitted)
             }
             MarksRef::Commits { head, tail } => {
-                let CliId::Commit {
-                    commit: other,
-                    id: _,
-                } = cli_id
-                else {
-                    return false;
-                };
-                std::iter::once(head)
-                    .chain(tail)
-                    .any(|commit| other == commit)
+                let mut commits = std::iter::once(head).chain(tail);
+                match cli_id {
+                    CliId::Commit {
+                        commit: other,
+                        id: _,
+                    } => commits.any(|commit| other == commit),
+                    // A marked commit marks all of its hunks.
+                    CliId::CommittedHunk(hunk) => {
+                        commits.any(|commit| commit.commit_id == hunk.committed_file.commit_id)
+                    }
+                    CliId::UncommittedHunkOrFile(..)
+                    | CliId::PathPrefix { .. }
+                    | CliId::CommittedFile { .. }
+                    | CliId::Branch(..)
+                    | CliId::AnonymousSegment(..)
+                    | CliId::UncommittedArea { .. }
+                    | CliId::Stack { .. } => false,
+                }
+            }
+            MarksRef::Committed { head, tail } => {
+                let mut marks = std::iter::once(head).chain(tail);
+                match cli_id {
+                    CliId::CommittedFile {
+                        committed_file: other,
+                        id: _,
+                    } => {
+                        marks.any(|mark| matches!(mark, CommittedMark::File(file) if file == other))
+                    }
+                    // A marked file marks all of its hunks.
+                    CliId::CommittedHunk(other) => marks.any(|mark| match mark {
+                        CommittedMark::File(file) => *file == other.committed_file,
+                        CommittedMark::Hunk(hunk) => hunk == other,
+                    }),
+                    CliId::UncommittedHunkOrFile(..)
+                    | CliId::PathPrefix { .. }
+                    | CliId::Branch(..)
+                    | CliId::AnonymousSegment(..)
+                    | CliId::Commit { .. }
+                    | CliId::UncommittedArea { .. }
+                    | CliId::Stack { .. } => false,
+                }
             }
             MarksRef::CommittedFiles { head, tail } => {
                 let CliId::CommittedFile {
@@ -237,10 +369,17 @@ impl<'a> MarksRef<'a> {
                 head: head.clone(),
                 tail: tail.to_vec(),
             }),
-            MarksRef::CommittedFiles { head, tail } => Marks::CommittedFiles(NonEmpty {
+            MarksRef::Committed { head, tail } => Marks::Committed(NonEmpty {
                 head: head.clone(),
                 tail: tail.to_vec(),
             }),
+            MarksRef::CommittedFiles { head, tail } => Marks::Committed(
+                NonEmpty {
+                    head: head.clone(),
+                    tail: tail.to_vec(),
+                }
+                .map(CommittedMark::File),
+            ),
             MarksRef::Branches { head, tail } => Marks::Branches(NonEmpty {
                 head: head.clone(),
                 tail: tail.to_vec(),
@@ -264,6 +403,13 @@ impl<'a> MarksRef<'a> {
                     .map(MarkableRef::Commit);
                 Box::new(iter)
             }
+            MarksRef::Committed { head, tail } => {
+                let iter = std::iter::once(head).chain(tail).map(|mark| match mark {
+                    CommittedMark::File(file) => MarkableRef::CommittedFile(file.as_ref()),
+                    CommittedMark::Hunk(hunk) => MarkableRef::CommittedHunk(hunk),
+                });
+                Box::new(iter)
+            }
             MarksRef::CommittedFiles { head, tail } => {
                 let iter = std::iter::once(head)
                     .chain(tail)
@@ -282,20 +428,52 @@ impl<'a> MarksRef<'a> {
     }
 
     pub fn contains_child_of(self, cli_id: &CliId) -> bool {
-        let CliId::UncommittedHunkOrFile(parent) = cli_id else {
-            return false;
-        };
-        if !parent.is_entire_file {
-            return false;
+        match cli_id {
+            CliId::UncommittedHunkOrFile(parent) => {
+                if !parent.is_entire_file {
+                    return false;
+                }
+
+                self.iter().any(|mark| {
+                    let MarkableRef::Uncommitted(child) = mark else {
+                        return false;
+                    };
+
+                    hunk_is_child_of(parent, child)
+                })
+            }
+            CliId::CommittedFile {
+                committed_file: parent,
+                id: _,
+            } => self.iter().any(|mark| {
+                let MarkableRef::CommittedHunk(child) = mark else {
+                    return false;
+                };
+
+                child.committed_file == *parent
+            }),
+            // Hunks are marked in the detail view of a commit, so the commit shows that something
+            // in it is marked even when its files aren't listed.
+            CliId::Commit {
+                commit: parent,
+                id: _,
+            } => match self {
+                MarksRef::Committed { head, tail } => std::iter::once(head)
+                    .chain(tail)
+                    .any(|mark| mark.committed_file().commit_id == parent.commit_id),
+                MarksRef::Empty
+                | MarksRef::Hunks { .. }
+                | MarksRef::Commits { .. }
+                | MarksRef::CommittedFiles { .. }
+                | MarksRef::Branches { .. } => false,
+            },
+            CliId::PathPrefix { .. }
+            | CliId::CommittedHunk(..)
+            | CliId::Branch(..)
+            | CliId::AnonymousSegment(..)
+            | CliId::UncommittedArea { .. }
+            | CliId::Stack { .. } => false,
         }
-
-        self.iter().any(|mark| {
-            let MarkableRef::Uncommitted(child) = mark else {
-                return false;
-            };
-
-            hunk_is_child_of(parent, child)
-        })
     }
 }
 
@@ -326,6 +504,7 @@ impl MarkStore<Markable> for Marks {
             Markable::Uncommitted(hunk) => self.contains_mark(hunk),
             Markable::Commit(commit) => self.contains_mark(commit),
             Markable::CommittedFile(file) => self.contains_mark(file),
+            Markable::CommittedHunk(hunk) => self.contains_mark(&CommittedMark::Hunk(hunk.clone())),
             Markable::Branch(branch) => self.contains_mark(branch),
         }
     }
@@ -335,6 +514,7 @@ impl MarkStore<Markable> for Marks {
             Markable::Uncommitted(hunk) => self.insert_mark(hunk),
             Markable::Commit(commit) => self.insert_mark(commit),
             Markable::CommittedFile(file) => self.insert_mark(file),
+            Markable::CommittedHunk(hunk) => self.insert_mark(CommittedMark::Hunk(hunk)),
             Markable::Branch(branch) => self.insert_mark(branch),
         }
     }
@@ -344,6 +524,7 @@ impl MarkStore<Markable> for Marks {
             Markable::Uncommitted(hunk) => self.remove_mark(hunk),
             Markable::Commit(commit) => self.remove_mark(commit),
             Markable::CommittedFile(file) => self.remove_mark(file),
+            Markable::CommittedHunk(hunk) => self.remove_mark(&CommittedMark::Hunk(hunk.clone())),
             Markable::Branch(branch) => self.remove_mark(branch),
         }
     }
@@ -411,39 +592,55 @@ impl MarkStore<CommitId> for Marks {
     }
 }
 
-impl MarkStore<CommittedFileId> for Marks {
+impl MarkStore<CommittedMark> for Marks {
     type Error = anyhow::Error;
 
-    fn contains_mark(&self, mark: &CommittedFileId) -> bool {
-        self.as_committed_files()
-            .is_some_and(|files| files.iter().any(|file| file == mark))
+    fn contains_mark(&self, mark: &CommittedMark) -> bool {
+        self.as_committed()
+            .is_some_and(|marks| marks.iter().any(|marked| marked == mark))
     }
 
-    fn insert_mark(&mut self, mark: CommittedFileId) -> Result<(), Self::Error> {
+    fn insert_mark(&mut self, mark: CommittedMark) -> Result<(), Self::Error> {
         if self.contains_mark(&mark) {
             return Ok(());
         }
         match self {
-            Self::Empty => *self = Self::CommittedFiles(NonEmpty::new(mark)),
-            Self::CommittedFiles(files) => {
-                if files.head.commit_id != mark.commit_id {
+            Self::Empty => *self = Self::Committed(NonEmpty::new(mark)),
+            Self::Committed(marks) => {
+                if marks.head.committed_file().commit_id != mark.committed_file().commit_id {
                     anyhow::bail!("cannot mark files from multiple commits");
                 }
-                files.push(mark);
+                marks.push(mark);
             }
             _ => anyhow::bail!("cannot mix mark sources"),
         }
         Ok(())
     }
 
-    fn remove_mark(&mut self, mark: &CommittedFileId) {
-        let Self::CommittedFiles(files) = self else {
+    fn remove_mark(&mut self, mark: &CommittedMark) {
+        let Self::Committed(marks) = self else {
             return;
         };
 
-        if remove_from_non_empty(files, |marked| marked == mark) {
+        if remove_from_non_empty(marks, |marked| marked == mark) {
             *self = Self::Empty;
         }
+    }
+}
+
+impl MarkStore<CommittedFileId> for Marks {
+    type Error = anyhow::Error;
+
+    fn contains_mark(&self, mark: &CommittedFileId) -> bool {
+        self.contains_mark(&CommittedMark::File(mark.clone()))
+    }
+
+    fn insert_mark(&mut self, mark: CommittedFileId) -> Result<(), Self::Error> {
+        self.insert_mark(CommittedMark::File(mark))
+    }
+
+    fn remove_mark(&mut self, mark: &CommittedFileId) {
+        self.remove_mark(&CommittedMark::File(mark.clone()))
     }
 }
 
@@ -552,18 +749,22 @@ pub enum Markable {
     Uncommitted(UncommittedHunkOrFile),
     Commit(CommitId),
     CommittedFile(CommittedFileId),
+    CommittedHunk(CommittedHunk),
     Branch(BranchId),
 }
 
 impl Markable {
-    pub fn into_selectable(self) -> Selectable {
+    /// The status line this mark is shown on, if it has its own.
+    pub fn into_selectable(self) -> Option<Selectable> {
         match self {
             Markable::Uncommitted(uncommitted_cli_id) => {
-                Selectable::UncommittedHunkOrFile(uncommitted_cli_id)
+                Some(Selectable::UncommittedHunkOrFile(uncommitted_cli_id))
             }
-            Markable::Commit(commit) => Selectable::Commit(commit),
-            Markable::CommittedFile(file) => Selectable::CommittedFile(file),
-            Markable::Branch(branch) => Selectable::Branch(branch),
+            Markable::Commit(commit) => Some(Selectable::Commit(commit)),
+            Markable::CommittedFile(file) => Some(Selectable::CommittedFile(file)),
+            // Committed hunks are only shown in the detail view.
+            Markable::CommittedHunk(..) => None,
+            Markable::Branch(branch) => Some(Selectable::Branch(branch)),
         }
     }
 
@@ -572,6 +773,7 @@ impl Markable {
             Markable::Uncommitted(hunk) => MarkableRef::Uncommitted(hunk),
             Markable::Commit(inner) => MarkableRef::Commit(inner.as_ref()),
             Markable::CommittedFile(inner) => MarkableRef::CommittedFile(inner.as_ref()),
+            Markable::CommittedHunk(hunk) => MarkableRef::CommittedHunk(hunk),
             Markable::Branch(inner) => MarkableRef::Branch(inner.as_ref()),
         }
     }
@@ -583,6 +785,7 @@ pub enum MarkableRef<'a> {
     Uncommitted(&'a UncommittedHunkOrFile),
     Commit(CommitIdRef<'a>),
     CommittedFile(CommittedFileIdRef<'a>),
+    CommittedHunk(&'a CommittedHunk),
     Branch(BranchIdRef<'a>),
 }
 
@@ -609,6 +812,11 @@ impl<'a> MarkableRef<'a> {
                         return Some(Self::CommittedFile(file.as_ref()));
                     }
                 }
+                MarkableRefDiscriminants::CommittedHunk => {
+                    if let CliId::CommittedHunk(hunk) = cli_id {
+                        return Some(Self::CommittedHunk(hunk));
+                    }
+                }
                 MarkableRefDiscriminants::Branch => {
                     if let CliId::Branch(branch) = cli_id {
                         return Some(Self::Branch(branch.as_ref()));
@@ -620,15 +828,12 @@ impl<'a> MarkableRef<'a> {
         None
     }
 
-    pub fn matches_cli_id(&self, cli_id: &CliId) -> bool {
-        MarkableRef::try_from_cli_id(cli_id).is_some_and(|id| self == &id)
-    }
-
     pub fn to_owned(self) -> Markable {
         match self {
             MarkableRef::Uncommitted(hunk) => Markable::Uncommitted(hunk.clone()),
             MarkableRef::Commit(inner) => Markable::Commit(inner.to_owned()),
             MarkableRef::CommittedFile(inner) => Markable::CommittedFile(inner.to_owned()),
+            MarkableRef::CommittedHunk(hunk) => Markable::CommittedHunk(hunk.clone()),
             MarkableRef::Branch(inner) => Markable::Branch(inner.to_owned()),
         }
     }
@@ -912,6 +1117,14 @@ pub fn toggle_markables(
     let mut marked = Vec::new();
     let mut saw_unmarked = false;
 
+    // Marking a commit selects all of it, so it replaces the marks of its files and hunks, like
+    // marking a committed file replaces the marks of its hunks.
+    for markable in &markables {
+        if let Markable::Commit(commit) = markable {
+            marks.remove_committed_changes_of(commit);
+        }
+    }
+
     for markable in &markables {
         if marks.contains_mark(markable) {
             if !saw_unmarked {
@@ -946,8 +1159,22 @@ fn propagate_marks_from_parent_to_children(
     outcome: ToggleMarkablesOutcome,
 ) -> anyhow::Result<()> {
     for markable in markables {
-        let Markable::Uncommitted(hunk) = markable else {
-            continue;
+        let hunk = match markable {
+            Markable::Uncommitted(hunk) => hunk,
+            // The hunks of a committed file aren't known here, so marking the file can't mark
+            // them. A marked file counts as marking its hunks instead. Its hunks marked in the
+            // detail view are unmarked either way: marking the file selects all of it, see
+            // `CommittedMark`.
+            Markable::CommittedFile(file) => {
+                match outcome {
+                    ToggleMarkablesOutcome::Marked | ToggleMarkablesOutcome::Unmarked => {
+                        marks.remove_committed_hunks_of(file)
+                    }
+                    ToggleMarkablesOutcome::NoMarkables => {}
+                }
+                continue;
+            }
+            Markable::Commit(..) | Markable::CommittedHunk(..) | Markable::Branch(..) => continue,
         };
         if !hunk.is_entire_file {
             continue;

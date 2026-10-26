@@ -26,14 +26,14 @@ use syntect::{easy::HighlightLines, highlighting, parsing::SyntaxSet};
 use crate::{
     ChangeSourceId, CliId,
     command::legacy::{
-        discard::{DiscardOperation, DiscardOutcome, UncommittedSelection},
+        discard::{CommittedDiscardSource, DiscardOperation, DiscardOutcome, UncommittedSelection},
         status::tui::{
             Message, ReloadCause, SelectAfterReload,
             app::{
-                Modal,
+                Modal, committed_discard_operation,
                 mark::{
-                    MarkStore, MarkableRef, Marks, MarksRef, synthetic_parent_hunk,
-                    toggle_markables,
+                    CommittedMark, MarkStore, Markable, MarkableRef, Marks, MarksRef,
+                    synthetic_parent_hunk, toggle_markables,
                 },
                 run_discard,
             },
@@ -47,7 +47,7 @@ use crate::{
             render::{RenderSingleLineSpans, available_lines_in_area},
         },
     },
-    id::{CommitId, CommittedFileId},
+    id::{CommitId, CommittedFileId, CommittedHunk, UncommittedHunkOrFile},
     theme::{Rgb, Theme},
     tui::Clipboard,
     utils::{
@@ -872,7 +872,7 @@ impl Details {
                 let Some(marks) = marks else {
                     return Ok(());
                 };
-                self.handle_discard(messages, marks.as_ref());
+                self.handle_discard(messages, marks.as_ref())?;
             }
             DetailsMessage::DropToBeDiscarded => {
                 self.to_be_discarded.clear();
@@ -1273,7 +1273,8 @@ impl Details {
         Ok(())
     }
 
-    fn selected_uncommitted(&self) -> bool {
+    /// Whether the status selection shows hunks that can be marked and discarded.
+    fn selection_has_hunks(&self) -> bool {
         let Some(status_selection) = &self.selection else {
             return false;
         };
@@ -1282,13 +1283,13 @@ impl Details {
             | CliId::UncommittedArea {
                 source: ChangeSourceId::Head,
                 ..
-            } => true,
+            }
+            | CliId::CommittedFile { .. }
+            | CliId::Commit { .. } => true,
             CliId::AnonymousSegment(..)
             | CliId::PathPrefix { .. }
-            | CliId::CommittedFile { .. }
             | CliId::CommittedHunk { .. }
             | CliId::Branch(..)
-            | CliId::Commit { .. }
             | CliId::UncommittedArea {
                 source: ChangeSourceId::Worktree(_),
                 ..
@@ -1297,16 +1298,21 @@ impl Details {
         }
     }
 
-    fn handle_discard(&mut self, messages: &mut Vec<Message>, marks: MarksRef<'_>) {
+    fn handle_discard(
+        &mut self,
+        messages: &mut Vec<Message>,
+        marks: MarksRef<'_>,
+    ) -> anyhow::Result<()> {
         if marks.is_empty() {
             self.handle_discard_selection(messages);
+            Ok(())
         } else {
-            self.handle_discard_marks(messages, marks);
+            self.handle_discard_marks(messages, marks)
         }
     }
 
     fn handle_discard_selection(&mut self, messages: &mut Vec<Message>) {
-        if !self.selected_uncommitted() {
+        if !self.selection_has_hunks() {
             return;
         }
         let SelectedSection::Selected(selected_section_idx) = self.selected_section.get() else {
@@ -1316,16 +1322,32 @@ impl Details {
         let Some(section_cli_id) = section.cli_id.as_ref().map(Arc::clone) else {
             return;
         };
+        let (path, operation) = match &*section_cli_id {
+            CliId::UncommittedHunkOrFile(hunk) => (
+                hunk.hunks.head.hunk.path.clone(),
+                DiscardOperation::Uncommitted(UncommittedSelection::changes(NonEmpty::new(
+                    hunk.clone(),
+                ))),
+            ),
+            CliId::CommittedHunk(hunk) => (
+                hunk.committed_file.path.clone(),
+                DiscardOperation::Committed {
+                    source: hunk.committed_file.to_commit_id(),
+                    changes: NonEmpty::new(CommittedDiscardSource::Hunk(hunk.clone())),
+                },
+            ),
+            CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Branch(..)
+            | CliId::AnonymousSegment(..)
+            | CliId::Commit { .. }
+            | CliId::UncommittedArea { .. }
+            | CliId::Stack { .. } => return,
+        };
         let select_after_discard = if self.sections.get(selected_section_idx + 1).is_some() {
-            PendingSectionSelection::Section {
-                index: selected_section_idx,
-                direction: ScrollDirection::Down,
-            }
+            (selected_section_idx, ScrollDirection::Down)
         } else {
-            PendingSectionSelection::Section {
-                index: selected_section_idx.saturating_sub(1),
-                direction: ScrollDirection::Up,
-            }
+            (selected_section_idx.saturating_sub(1), ScrollDirection::Up)
         };
 
         self.to_be_discarded = Vec::from([section.id]);
@@ -1335,39 +1357,19 @@ impl Details {
             messages,
         );
 
-        let (formatted_cli_id, formatted_path, operation) =
-            if let CliId::UncommittedHunkOrFile(hunk) = &*section_cli_id {
-                (
-                    Span::raw(section_cli_id.to_short_string()).style(self.theme.cli_id),
-                    Span::raw(hunk.hunks.head.hunk.path.to_str_lossy().into_owned()),
-                    DiscardOperation::Uncommitted(UncommittedSelection::changes(NonEmpty::new(
-                        hunk.clone(),
-                    ))),
-                )
-            } else {
-                return;
-            };
-
         let confirm = Confirm::new(
             NonEmpty::new(Line::from_iter([
                 Span::raw("Discard hunk "),
-                formatted_cli_id,
+                Span::raw(section_cli_id.to_short_string()).style(self.theme.cli_id),
                 Span::raw(" "),
-                formatted_path,
+                Span::raw(path.to_str_lossy().into_owned()),
                 Span::raw("?"),
             ])),
             self.theme,
             move |ctx, messages| {
-                let DiscardOutcome::Uncommitted { paths: _ } = run_discard(ctx, operation)? else {
-                    anyhow::bail!("BUG: uncommitted discard returned an unexpected outcome")
-                };
-
-                let PendingSectionSelection::Section { index, direction } = select_after_discard
-                else {
-                    anyhow::bail!("BUG: discard selection must be a specific details section")
-                };
+                let outcome = run_discard(ctx, operation)?;
                 messages.push(Message::Reload(
-                    Some(SelectAfterReload::UncommittedDetailsSection { index, direction }),
+                    select_after_hunk_discard(outcome, Some(select_after_discard))?,
                     ReloadCause::Mutation,
                 ));
 
@@ -1380,14 +1382,18 @@ impl Details {
         messages.push(Message::ShowModal(Modal::Confirm { confirm }));
     }
 
-    fn handle_discard_marks(&mut self, messages: &mut Vec<Message>, marks: MarksRef<'_>) {
-        match marks {
-            MarksRef::Hunks { .. } => {}
-            MarksRef::Empty
-            | MarksRef::Commits { .. }
-            | MarksRef::CommittedFiles { .. }
-            | MarksRef::Branches { .. } => return,
-        }
+    fn handle_discard_marks(
+        &mut self,
+        messages: &mut Vec<Message>,
+        marks: MarksRef<'_>,
+    ) -> anyhow::Result<()> {
+        let operation = match marks.to_owned() {
+            Marks::Hunks(hunks) => {
+                DiscardOperation::Uncommitted(UncommittedSelection::changes(hunks))
+            }
+            Marks::Committed(marks) => committed_discard_operation(&marks)?,
+            Marks::Empty | Marks::Commits(..) | Marks::Branches(..) => return Ok(()),
+        };
 
         self.to_be_discarded = self
             .sections
@@ -1441,7 +1447,7 @@ impl Details {
                 } else {
                     ScrollDirection::Up
                 };
-                Some(PendingSectionSelection::Section { index, direction })
+                Some((index, direction))
             });
 
         let drop_to_be_discarded = message_on_drop(
@@ -1449,32 +1455,16 @@ impl Details {
             messages,
         );
 
-        let Marks::Hunks(hunks) = marks.to_owned() else {
-            return;
-        };
-        let operation = DiscardOperation::Uncommitted(UncommittedSelection::changes(hunks));
-
         let confirm = Confirm::new(
             NonEmpty::new(Span::raw("Discard?").into()),
             self.theme,
             move |ctx, messages| {
-                let DiscardOutcome::Uncommitted { paths: _ } = run_discard(ctx, operation)? else {
-                    anyhow::bail!("BUG: uncommitted discard returned an unexpected outcome")
-                };
-
-                let select_after_reload = match select_after_discard {
-                    Some(PendingSectionSelection::Section { index, direction }) => {
-                        Some(SelectAfterReload::UncommittedDetailsSection { index, direction })
-                    }
-                    Some(PendingSectionSelection::None | PendingSectionSelection::First) => {
-                        anyhow::bail!(
-                            "BUG: discard marks selection must be a specific details section"
-                        )
-                    }
-                    None => None,
-                };
+                let outcome = run_discard(ctx, operation)?;
                 messages.extend([
-                    Message::Reload(select_after_reload, ReloadCause::Mutation),
+                    Message::Reload(
+                        select_after_hunk_discard(outcome, select_after_discard)?,
+                        ReloadCause::Mutation,
+                    ),
                     Message::ClearMarks,
                 ]);
 
@@ -1485,6 +1475,8 @@ impl Details {
         );
 
         messages.push(Message::ShowModal(Modal::Confirm { confirm }));
+
+        Ok(())
     }
 
     fn handle_mark(
@@ -1499,7 +1491,7 @@ impl Details {
             return Ok(());
         }
 
-        if !self.selected_uncommitted() {
+        if !self.selection_has_hunks() {
             return Ok(());
         }
         let SelectedSection::Selected(selected_section_idx) = self.selected_section.get() else {
@@ -1509,13 +1501,36 @@ impl Details {
         let Some(section_cli_id) = section.cli_id.as_ref().map(Arc::clone) else {
             return Ok(());
         };
-        let Some(markable @ MarkableRef::Uncommitted(hunk)) =
-            MarkableRef::try_from_cli_id(section_cli_id.as_ref())
-        else {
-            return Ok(());
-        };
+        match MarkableRef::try_from_cli_id(section_cli_id.as_ref()) {
+            Some(MarkableRef::Uncommitted(hunk)) => {
+                self.toggle_uncommitted_hunk_mark(marks, hunk)?
+            }
+            Some(MarkableRef::CommittedHunk(hunk)) => {
+                self.toggle_committed_hunk_mark(marks, hunk)?
+            }
+            Some(
+                MarkableRef::Commit(..) | MarkableRef::CommittedFile(..) | MarkableRef::Branch(..),
+            )
+            | None => return Ok(()),
+        }
 
-        toggle_markables(marks, [markable.to_owned()])?;
+        if marks.is_empty() {
+            backstack.remove_mark();
+        } else {
+            backstack.push_mark();
+        }
+
+        messages.push(Message::Details(DetailsMessage::SelectNextSection));
+
+        Ok(())
+    }
+
+    fn toggle_uncommitted_hunk_mark(
+        &self,
+        marks: &mut Marks,
+        hunk: &UncommittedHunkOrFile,
+    ) -> anyhow::Result<()> {
+        toggle_markables(marks, [Markable::Uncommitted(hunk.clone())])?;
 
         let sections_for_file_cli_ids = self
             .sections
@@ -1552,15 +1567,114 @@ impl Details {
             }
         }
 
-        if marks.is_empty() {
-            backstack.remove_mark();
-        } else {
-            backstack.push_mark();
+        Ok(())
+    }
+
+    /// Toggles the mark of a committed hunk.
+    ///
+    /// Marking a committed file or a commit in the status stores no marks for its hunks, since the
+    /// status doesn't know them. Its hunks still show as marked because `MarksRef::contains_cli_id`
+    /// counts a hunk as marked when its file or commit is. Toggling one of those hunks therefore
+    /// first replaces the file or commit mark with a mark for each of its hunks.
+    ///
+    /// Marking every hunk of a file also marks the file, like for uncommitted files.
+    fn toggle_committed_hunk_mark(
+        &self,
+        marks: &mut Marks,
+        hunk: &CommittedHunk,
+    ) -> anyhow::Result<()> {
+        let commit_hunks = self
+            .sections
+            .iter()
+            .filter_map(|section| match section.cli_id.as_deref()? {
+                CliId::CommittedHunk(section_hunk)
+                    if section_hunk.committed_file.commit_id == hunk.committed_file.commit_id =>
+                {
+                    Some(section_hunk)
+                }
+                CliId::CommittedHunk(..)
+                | CliId::UncommittedHunkOrFile(..)
+                | CliId::PathPrefix { .. }
+                | CliId::CommittedFile { .. }
+                | CliId::Branch(..)
+                | CliId::AnonymousSegment(..)
+                | CliId::Commit { .. }
+                | CliId::UncommittedArea { .. }
+                | CliId::Stack { .. } => None,
+            })
+            .collect::<Vec<_>>();
+
+        if let Marks::Commits(commits) = &*marks {
+            // Hunks can't be marked together with other commits.
+            if !commits.tail.is_empty() || commits.head.commit_id != hunk.committed_file.commit_id {
+                return Ok(());
+            }
+            // Changes that have no hunks, such as binary files, can't be marked here so they are
+            // left out.
+            marks.clear();
+            for commit_hunk in &commit_hunks {
+                marks.insert_mark(CommittedMark::Hunk((*commit_hunk).clone()))?;
+                marks.insert_mark(CommittedMark::File(commit_hunk.committed_file.clone()))?;
+            }
         }
 
-        messages.push(Message::Details(DetailsMessage::SelectNextSection));
+        let file_hunks = commit_hunks
+            .iter()
+            .filter(|commit_hunk| commit_hunk.committed_file == hunk.committed_file)
+            .map(|file_hunk| CommittedMark::Hunk((*file_hunk).clone()))
+            .collect::<Vec<_>>();
+        let file = CommittedMark::File(hunk.committed_file.clone());
+
+        if marks.contains_mark(&file) {
+            for file_hunk in &file_hunks {
+                marks.insert_mark(file_hunk.clone())?;
+            }
+        }
+
+        toggle_markables(marks, [Markable::CommittedHunk(hunk.clone())])?;
+
+        if file_hunks
+            .iter()
+            .all(|file_hunk| marks.contains_mark(file_hunk))
+        {
+            marks.insert_mark(file)?;
+        } else {
+            marks.remove_mark(&file);
+        }
 
         Ok(())
+    }
+}
+
+/// What to select after discarding hunks, given the index of the details section to select once
+/// they are gone.
+fn select_after_hunk_discard(
+    outcome: DiscardOutcome,
+    section: Option<(usize, ScrollDirection)>,
+) -> anyhow::Result<Option<SelectAfterReload>> {
+    match outcome {
+        DiscardOutcome::Uncommitted { paths: _ } => {
+            Ok(section.map(
+                |(index, direction)| SelectAfterReload::UncommittedDetailsSection {
+                    index,
+                    direction,
+                },
+            ))
+        }
+        DiscardOutcome::CommittedChanges {
+            source,
+            paths: _,
+            new_commit,
+        } => Ok(Some(SelectAfterReload::RewrittenCommit {
+            source: source.commit_id,
+            new_commit: new_commit.commit_id,
+            details_section: section,
+        })),
+        DiscardOutcome::Branches(..)
+        | DiscardOutcome::Commits { .. }
+        | DiscardOutcome::Worktree(..) => {
+            anyhow::bail!("BUG: hunk discard returned an unexpected outcome")
+        }
     }
 }
 
