@@ -252,7 +252,15 @@ pub fn activate(path: &Path) -> Result<()> {
         let inferred = but_workspace::init::infer_default_target_ref(&*ctx.repo.get()?)?;
         if let Some(target) = inferred {
             let target = target.as_local_full_name_ref();
-            but_api::workspace::set_target_ref_and_init_project(&mut ctx, target, None)?;
+            // A checkout with no commits yet, as a new orphan branch is, can't take one until
+            // it has some, and is still watched meanwhile: the next activation tries again.
+            let unborn = ctx.repo.get()?.head()?.is_unborn();
+            match but_api::workspace::set_target_ref_and_init_project(&mut ctx, target, None) {
+                Err(err) if unborn => {
+                    tracing::warn!("couldn't make {} the target: {err:#}", target.shorten())
+                }
+                set => set?,
+            }
         }
     }
     Ok(())
