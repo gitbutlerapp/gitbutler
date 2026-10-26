@@ -115,6 +115,33 @@ Hint: run `but branch new` to create a new branch to work on
 }
 
 #[test]
+fn first_commit_on_an_orphan_branch_stands_without_a_target() {
+    let env = Sandbox::empty();
+    env.invoke_bash(
+        "git init --bare --initial-branch=main remote.git\n\
+         git clone remote.git repo\n\
+         git -C repo commit --allow-empty -m first\n\
+         git -C repo push origin main\n\
+         git -C repo checkout --orphan gh-pages\n\
+         echo hi >repo/index.html",
+    );
+
+    // main is the target it would infer, but a root commit shares no history with it.
+    env.but("-C repo commit -m docs")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created commit [..] on branch 'gh-pages'
+
+"#]]);
+    snapbox::assert_data_eq!(
+        env.invoke_git("-C repo log --format=%s gh-pages"),
+        snapbox::str!["docs"]
+    );
+}
+
+#[test]
 fn initial_commit_synchronizes_the_index() {
     let env = Sandbox::open_with_default_settings("unborn");
     env.file("hello.txt", "hello");

@@ -334,14 +334,16 @@ pub fn publish_first_commit(
     )?;
 
     // Target inference found nothing while HEAD was unborn. Initialize it now so that
-    // workspace projections built right after can resolve it.
+    // workspace projections built right after can resolve it. Only a target this root commit
+    // starts shares history with it: on an orphan branch beside an existing one, as a new
+    // `gh-pages`, the commit stands and the project keeps no target.
     let mut project_meta = ProjectMeta::resolve(repo)?;
     if project_meta.target_ref.is_none()
         && let Some(target) = infer_default_target_ref(repo)?
+        && target.as_local_full_name_ref() == branch
     {
         project_meta.target_ref = Some(target.clone());
         if project_meta.target_commit_id.is_none()
-            && target.as_local_full_name_ref() == branch
             && let Some(upstream) = project_meta.remote_target_ref(repo)?
             && repo.try_find_reference(upstream.as_ref())?.is_none()
         {
