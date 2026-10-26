@@ -95,6 +95,21 @@ impl Page {
     }
 }
 
+/// A page's link in the sidebar, which the focus moves along.
+struct Link {
+    page: Page,
+    focus: FocusHandle,
+}
+
+impl Link {
+    fn new(page: Page, cx: &mut App) -> Self {
+        Link {
+            page,
+            focus: cx.focus_handle().tab_stop(true),
+        }
+    }
+}
+
 /// A card of rows, one setting each, under a heading unless it's the page's first.
 struct Card {
     heading: Option<SharedString>,
@@ -193,6 +208,8 @@ pub struct SettingsView {
     /// its own results show.
     _credentials_test: Task<()>,
     recording: Option<keyboard::Recording>,
+    app_links: [Link; Page::APP.len()],
+    project_links: [Link; Page::PROJECT.len()],
     pages_scroll: ScrollHandle,
     cards_scroll: ScrollHandle,
     _subscriptions: Vec<Subscription>,
@@ -266,6 +283,8 @@ impl SettingsView {
             credentials: None,
             _credentials_test: Task::ready(()),
             recording: None,
+            app_links: Page::APP.map(|page| Link::new(page, cx)),
+            project_links: Page::PROJECT.map(|page| Link::new(page, cx)),
             pages_scroll: ScrollHandle::new(),
             cards_scroll: ScrollHandle::new(),
             _subscriptions: subscriptions,
@@ -720,10 +739,14 @@ impl SettingsView {
             .collect()
     }
 
-    /// The pages there are: the app's, and the project's when there's one.
-    fn pages(&self) -> impl Iterator<Item = Page> + use<> {
+    /// The pages there are, by their links: the app's, and the project's when there's one.
+    fn links(&self) -> impl Iterator<Item = &Link> {
         let project = self.project.is_some();
-        (Page::APP.into_iter()).chain(Page::PROJECT.into_iter().filter(move |_| project))
+        (self.app_links.iter()).chain(self.project_links.iter().filter(move |_| project))
+    }
+
+    fn pages(&self) -> impl Iterator<Item = Page> {
+        self.links().map(|link| link.page)
     }
 
     /// What a page is called where it isn't under its group's heading: a project's by the
@@ -845,11 +868,12 @@ impl SettingsView {
     /// A page's link in the sidebar, filled in while it's the one shown.
     fn page_link(
         &self,
-        page: Page,
+        link: &Link,
         searching: bool,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> impl IntoElement {
+        let page = link.page;
         let selected = !searching && self.page == page;
         // Solid while it's shown, as a side list's is with the focus.
         ui::tab_stop(
@@ -865,6 +889,7 @@ impl SettingsView {
         .h(dp(30.))
         .gap(dp(10.))
         .rounded(dp(6.))
+        .track_focus(&link.focus)
         .child(icon(page.icon()).text_color(match selected {
             true => theme.muted_on_solid(),
             false => theme.text_2,
@@ -891,7 +916,8 @@ impl Render for SettingsView {
         let searching = !query.is_empty();
         let cards = self.cards(&query, window, cx);
         let search_focused = self.search.focus_handle(cx).is_focused(window);
-        let app_links = Page::APP.map(|page| self.page_link(page, searching, &theme, cx));
+        let app_links =
+            (self.app_links.iter()).map(|link| self.page_link(link, searching, &theme, cx));
         // The project's pages, under its name, which picks another when there are more.
         let projects = &self.store.read(cx).projects;
         let project = self.project_name(cx).map(|name| {
@@ -932,7 +958,10 @@ impl Render for SettingsView {
                 .border_t_1()
                 .border_color(theme.border_3)
                 .child(heading)
-                .children(Page::PROJECT.map(|page| self.page_link(page, searching, &theme, cx)))
+                .children(
+                    (self.project_links.iter())
+                        .map(|link| self.page_link(link, searching, &theme, cx)),
+                )
         });
         let empty = cards.is_empty();
         let height = (f32::from(window.viewport_size().height) / theme.scale * 0.76).min(1000.);
