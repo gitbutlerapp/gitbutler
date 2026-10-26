@@ -46,8 +46,8 @@ impl SettingsView {
             .unwrap_or_default();
         let file = Row::new(
             "keymap.json",
-            "Your keys, over the app's own, in the settings folder. It's written as Zed's keymap \
-             is, and the app reads it again each time it's saved.",
+            "Your keys, over the app's own, in the settings folder. The app reads it again each \
+             time it's saved.",
             h_flex()
                 .gap(dp(8.))
                 .when(!changed.is_empty(), |el| {

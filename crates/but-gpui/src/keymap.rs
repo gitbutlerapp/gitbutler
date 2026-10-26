@@ -13,7 +13,7 @@ use gpui::{
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-use crate::backend::{self, keymap};
+use crate::backend::{self, keymap, settings};
 use crate::state::{Notice, Store};
 
 actions!(app, [OpenKeymap, OpenDefaultKeymap]);
@@ -323,8 +323,18 @@ fn open(
     file: impl FnOnce() -> Result<PathBuf> + Send + 'static,
     cx: &mut App,
 ) {
-    cx.spawn(async move |cx| match backend::run(file).await {
-        Ok(path) => cx.update(|cx| cx.open_with_system(&path)),
+    let editor = store.read(cx).prefs.editor.clone();
+    // In the editor chosen for files, or with none chosen, the system's app for JSON.
+    let open = move || {
+        let path = file()?;
+        match editor {
+            Some(editor) => settings::open_file_in_editor(&editor, &path).map(|()| None),
+            None => Ok(Some(path)),
+        }
+    };
+    cx.spawn(async move |cx| match backend::run(open).await {
+        Ok(Some(path)) => cx.update(|cx| cx.open_with_system(&path)),
+        Ok(None) => {}
         Err(err) => store.update(cx, |store, cx| {
             store.failed("Couldn't open the keymap", &err, cx)
         }),

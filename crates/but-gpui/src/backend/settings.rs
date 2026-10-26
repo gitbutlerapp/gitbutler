@@ -43,6 +43,15 @@ pub fn open_in_editor(
     but_api::open::open_in_program(&mut ctx, editor.to_owned(), source, file.to_owned(), line)
 }
 
+/// Open `file`, one of the app's own rather than a project's, in `editor`.
+pub fn open_file_in_editor(editor: &str, file: &Path) -> Result<()> {
+    let program = (but_api::open::list_program_specs().into_iter())
+        .find(|program| program.id == editor && program.is_gui_editor())
+        .with_context(|| format!("found no editor '{editor}'"))?;
+    let file = but_api::open::program::OpenSpec::File(file.to_owned());
+    but_api::open::program::open_in_program_unchecked(&program, file)
+}
+
 /// Open the project at `path` in `terminal`, or with none chosen, in the one the platform has.
 pub fn open_in_terminal(path: &Path, terminal: Option<String>) -> Result<()> {
     let terminal = match terminal {
