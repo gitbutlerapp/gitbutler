@@ -27,6 +27,8 @@ mod discard;
 mod expand;
 #[cfg(unix)]
 mod external;
+#[cfg(feature = "legacy")]
+mod filters;
 mod format;
 mod gui;
 mod help;
