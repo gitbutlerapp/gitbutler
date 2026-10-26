@@ -26,9 +26,10 @@ pub enum Subcommands {
         #[clap(long)]
         active: bool,
     },
-    /// Create a worktree on a new branch at the workspace base or above a commit.
+    /// Create a worktree on a new branch at the workspace base or above a commit, or on an
+    /// existing branch that isn't in the workspace.
     ///
-    /// By default, the branch starts at the child-most commit any applied stack rests on, and is
+    /// By default, a new branch starts at the child-most commit any applied stack rests on, and is
     /// checked out under `~/.gitbutler-worktrees/<repo-dir-basename>/` in a directory
     /// named by a slug of the branch name (or `wt` if the slug is empty). If that
     /// directory is taken, retries up to five times with a random ASCII suffix.
@@ -43,7 +44,7 @@ pub enum Subcommands {
         /// Accepts a commit SHA or CLI ID, not a branch. Conflicted commits are refused.
         #[clap(short = 'A', long, value_name = "COMMIT")]
         above: Option<CliIdArg>,
-        /// The name of the branch to create, or a generated one.
+        /// The branch to check out, created if it doesn't exist, or a generated one.
         name: Option<BranchArg>,
     },
     /// Hide a worktree from the workspace.

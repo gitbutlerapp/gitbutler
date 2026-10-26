@@ -599,6 +599,7 @@ Manage linked git worktrees (experimental worktree flag). `but wt` is a default 
 
 ```bash
 but worktree new [name]           # New branch and checkout at the workspace base
+but worktree new <branch>         # Check out an existing branch that isn't in the workspace
 but worktree new [name] -A <commit> # Start at a commit SHA or CLI ID (--above)
 but worktree list                 # Active worktrees with IDs, plus the 3 most recent archived ones
 but worktree list --archived      # All archived worktrees (`--active` for all active ones)

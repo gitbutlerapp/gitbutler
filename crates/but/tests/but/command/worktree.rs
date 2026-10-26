@@ -531,13 +531,48 @@ Hint: run `but help` for all commands
         "the branch starts where the applied stacks rest"
     );
 
-    // Names are validated like `but branch new`, and git refuses what already exists.
+    // A branch in the workspace stays there.
     env.but("worktree new A")
         .assert()
         .failure()
         .stdout_eq(snapbox::str![])
         .stderr_eq(snapbox::str![[r#"
-Error: A branch named 'A' is already applied
+Error: Branch 'A' is already in the workspace
+
+"#]]);
+}
+
+#[test]
+fn new_checks_out_an_existing_branch_outside_the_workspace() {
+    let env = flag_on_sandbox();
+    env.invoke_git("branch loose main");
+    env.but("worktree new loose")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Created worktree loose on 'loose' from 0dc3733 at [..]/home/.gitbutler-worktrees/[..]/loose
+
+"#]]);
+
+    // A branch checked out in a worktree is part of the workspace too.
+    env.but("worktree new loose")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Branch 'loose' is already in the workspace
+
+"#]]);
+    // An existing branch keeps its own history, so it can't be placed.
+    env.but("worktree new loose --above 0dc3733")
+        .assert()
+        .failure()
+        .stdout_eq(snapbox::str![])
+        .stderr_eq(snapbox::str![[r#"
+Error: Bad input '0dc3733' for '--above'
+
+Cannot place the existing branch 'loose' above a commit
 
 "#]]);
 }

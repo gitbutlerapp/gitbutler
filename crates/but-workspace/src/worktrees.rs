@@ -171,16 +171,37 @@ impl std::fmt::Display for DestinationExists {
 
 impl std::error::Error for DestinationExists {}
 
-/// Create a linked worktree at `path` on the new branch `branch` starting at `base`, the way
-/// `git worktree add -b` does, which refuses an existing branch.
+/// The branch a new linked worktree checks out.
+#[derive(Debug, Clone, Copy)]
+pub enum WorktreeBranch<'a> {
+    /// Create a branch the way `git worktree add -b` does, which refuses an existing branch.
+    New {
+        /// The branch to create.
+        name: &'a gix::refs::FullNameRef,
+        /// The commit the branch starts at.
+        base: gix::ObjectId,
+    },
+    /// Check out the existing branch, which git refuses if any worktree has it checked out.
+    Existing(&'a gix::refs::FullNameRef),
+}
+
+impl WorktreeBranch<'_> {
+    /// The branch the worktree checks out.
+    pub fn name(&self) -> &gix::refs::FullNameRef {
+        match self {
+            WorktreeBranch::New { name, .. } | WorktreeBranch::Existing(name) => name,
+        }
+    }
+}
+
+/// Create a linked worktree at `path` on `branch`.
 ///
 /// An existing `path` is refused up front, as git would only notice it after creating the branch.
 /// Returns the stable name git gave the worktree, normally the last component of `path`.
 pub fn add(
     repo: &gix::Repository,
     path: &Path,
-    branch: &gix::refs::FullNameRef,
-    base: gix::ObjectId,
+    branch: WorktreeBranch<'_>,
 ) -> anyhow::Result<BString> {
     match path.symlink_metadata() {
         Ok(_) => return Err(DestinationExists(path.to_owned()).into()),
@@ -188,23 +209,25 @@ pub fn add(
         Err(err) => return Err(err.into()),
     }
     anyhow::ensure!(
-        branch.category() == Some(gix::refs::Category::LocalBranch),
+        branch.name().category() == Some(gix::refs::Category::LocalBranch),
         "Worktree branch must be a local branch"
     );
     let mut source = repo.clone();
     source.clear_namespace();
-    source
-        .find_commit(base)
-        .context("Worktree base must be an existing commit")?;
-    source.reference(
-        branch,
-        base,
-        gix::refs::transaction::PreviousValue::MustNotExist,
-        "branch: Created for linked worktree",
-    )?;
+    if let WorktreeBranch::New { name, base } = branch {
+        source
+            .find_commit(base)
+            .context("Worktree base must be an existing commit")?;
+        source.reference(
+            name,
+            base,
+            gix::refs::transaction::PreviousValue::MustNotExist,
+            "branch: Created for linked worktree",
+        )?;
+    }
     let prepared = source.prepare_add_worktree(
         path,
-        gix::worktree::add::Head::Attached(branch.to_owned()),
+        gix::worktree::add::Head::Attached(branch.name().to_owned()),
         &AtomicBool::default(),
     )?;
     let (created, outcome) = prepared.checkout(gix::progress::Discard, &AtomicBool::default())?;
@@ -224,7 +247,7 @@ pub fn add(
         };
     }
     // Git's post-checkout hook runs after registration succeeds, and failure retains the worktree.
-    but_core::hooks::post_checkout(path, repo.object_hash().null(), base)?;
+    but_core::hooks::post_checkout(path, repo.object_hash().null(), created.head_id()?.detach())?;
     if let Err(err) = handle_worktreeinclude(repo, &created) {
         // This is most likely not a fatal issue, the worktree checkout is almost certainly still
         // usable. So we only log the error.

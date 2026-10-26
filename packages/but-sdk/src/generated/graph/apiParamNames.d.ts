@@ -163,6 +163,7 @@ export declare const apiParamNames: {
 	readonly workspaceRecreate: readonly ["projectId"];
 	readonly workspaceTargetCommits: readonly ["projectId", "from", "limit"];
 	readonly worktreeNew: readonly ["projectId", "newRef"];
+	readonly worktreeNewOnBranch: readonly ["projectId", "refName"];
 	readonly worktreeRemove: readonly ["projectId", "name", "force"];
 	readonly worktreeSetArchived: readonly ["projectId", "name", "archived"];
 	readonly worktreesList: readonly ["projectId"];
