@@ -218,12 +218,16 @@ impl Transfer {
             {
                 let (lane, at) = workspace.lane_of(above)?;
                 // Already right below it.
-                if lane.get(at + 1).is_some_and(|b| b.ref_name == *branch) {
+                if lane
+                    .branches
+                    .get(at + 1)
+                    .is_some_and(|b| b.ref_name == *branch)
+                {
                     return None;
                 }
                 Transfer::BranchBelow {
                     branch: branch.clone(),
-                    commit: lane.get(at)?.commits.last()?.id,
+                    commit: lane.branches.get(at)?.commits.last()?.id,
                 }
             }
             (Cut::Branch(_, branch), Selection::Worktree(_, name)) => Transfer::BranchBelow {
@@ -233,7 +237,11 @@ impl Transfer {
             (Cut::Branch(_, branch), Selection::Branch(_, onto)) if branch != onto => {
                 // Already right on top of it.
                 let (lane, at) = workspace.lane_of(branch)?;
-                if lane.get(at + 1).is_some_and(|b| b.ref_name == *onto) {
+                if lane
+                    .branches
+                    .get(at + 1)
+                    .is_some_and(|b| b.ref_name == *onto)
+                {
                     return None;
                 }
                 Transfer::StackBranch {

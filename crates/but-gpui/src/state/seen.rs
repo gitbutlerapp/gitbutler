@@ -59,7 +59,7 @@ pub(super) fn shown(workspace: &Workspace) -> impl Iterator<Item = (CommitId, [&
 pub(super) fn lone_commit(workspace: &Workspace, selection: &Selection) -> Option<CommitId> {
     let branches = match selection {
         Selection::Branch(_, ref_name) => std::slice::from_ref(workspace.find_branch(ref_name)?),
-        Selection::Stack(_, bottom) => workspace.lane(bottom)?,
+        Selection::Stack(_, bottom) => &workspace.lane(bottom)?.branches,
         _ => return None,
     };
     let mut commits = branches.iter().flat_map(|branch| &branch.commits);

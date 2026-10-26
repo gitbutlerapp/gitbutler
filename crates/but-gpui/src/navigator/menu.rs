@@ -620,7 +620,10 @@ impl Navigator {
                     return items;
                 };
                 // Through its top branch, which takes the ones below it along.
-                let Some(top) = workspace.lane(bottom).and_then(<[_]>::first) else {
+                let Some(top) = workspace
+                    .lane(bottom)
+                    .and_then(|lane| lane.branches.first())
+                else {
                     return items;
                 };
                 let top = &top.ref_name;

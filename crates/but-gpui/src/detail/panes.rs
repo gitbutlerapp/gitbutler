@@ -102,7 +102,7 @@ impl Detail {
                 Selection::Stack(_, bottom) => {
                     let n = workspace
                         .and_then(|ws| ws.lane(bottom))
-                        .map_or(0, <[_]>::len);
+                        .map_or(0, |lane| lane.branches.len());
                     crumbs.push(heading(selection));
                     crumbs.push((format!("Stack of {n}").into(), None));
                 }
@@ -859,9 +859,10 @@ impl Detail {
         cx: &Context<Self>,
     ) -> AnyElement {
         let store = self.store.read(cx);
-        let Some(branches) = store.workspace(project).and_then(|ws| ws.lane(bottom)) else {
+        let Some(lane) = store.workspace(project).and_then(|ws| ws.lane(bottom)) else {
             return div().into_any_element();
         };
+        let branches = &lane.branches;
         let names: Vec<&str> = (branches.iter())
             .map(|branch| store.name_of(project, branch))
             .collect();

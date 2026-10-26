@@ -746,7 +746,7 @@ impl Detail {
             // Its top branch's newest commit back to its bottom branch's oldest, skipping
             // branches with none yet.
             Selection::Stack(project, bottom) => {
-                let branches = store.workspace(project)?.lane(bottom)?;
+                let branches = &store.workspace(project)?.lane(bottom)?.branches;
                 let newest = branches
                     .iter()
                     .find_map(|branch| branch.commits.first())?

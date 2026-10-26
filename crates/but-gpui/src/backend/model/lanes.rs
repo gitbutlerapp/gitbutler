@@ -43,11 +43,6 @@ impl Lane {
 }
 
 impl Workspace {
-    /// The branches of each stack, then of each linked worktree's lane, top first.
-    pub fn lanes(&self) -> impl Iterator<Item = &[Branch]> {
-        self.lanes.iter().map(|lane| &lane.branches[..])
-    }
-
     /// The lane of the linked worktree `name`.
     pub fn worktree_lane(&self, name: &str) -> Option<&Lane> {
         (self.lanes.iter())
@@ -56,8 +51,8 @@ impl Workspace {
 
     /// The commits of the lane holding commit `id`, across its branches, newest first.
     pub fn lane_commits(&self, id: CommitId) -> Option<Vec<CommitId>> {
-        (self.lanes())
-            .map(|lane| lane.iter().flat_map(|b| &b.commits).map(|c| c.id))
+        (self.lanes.iter())
+            .map(|lane| lane.branches.iter().flat_map(|b| &b.commits).map(|c| c.id))
             .map(Vec::from_iter)
             .find(|lane| lane.contains(&id))
     }
@@ -76,20 +71,17 @@ impl Workspace {
         (run.iter().all(|id| ids.contains(id))).then_some((*newest, *oldest))
     }
 
-    /// The branches of the stack, or linked worktree's lane, whose bottom branch is `bottom`.
-    pub fn lane(&self, bottom: &str) -> Option<&[Branch]> {
-        self.lanes().find(|branches| {
-            branches
-                .last()
-                .is_some_and(|branch| branch.ref_name == bottom)
-        })
+    /// The stack, or linked worktree's lane, whose bottom branch is `bottom`.
+    pub fn lane(&self, bottom: &str) -> Option<&Lane> {
+        (self.lanes.iter())
+            .find(|lane| (lane.branches.last()).is_some_and(|branch| branch.ref_name == bottom))
     }
 
     /// The lane holding the branch `ref_name`, a stack's or a linked worktree's, and the
     /// branch's place in it from the top.
-    pub fn lane_of(&self, ref_name: &str) -> Option<(&[Branch], usize)> {
-        self.lanes().find_map(|lane| {
-            let at = lane.iter().position(|b| b.ref_name == ref_name)?;
+    pub fn lane_of(&self, ref_name: &str) -> Option<(&Lane, usize)> {
+        self.lanes.iter().find_map(|lane| {
+            let at = lane.branches.iter().position(|b| b.ref_name == ref_name)?;
             Some((lane, at))
         })
     }

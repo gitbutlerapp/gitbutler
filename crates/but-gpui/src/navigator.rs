@@ -1795,8 +1795,8 @@ impl Navigator {
         let store = self.store.read(cx);
         let theme = style.theme;
         // Find the stack by its bottom branch as drawn, after pending deletes.
-        let branches = (store.workspace(id)?.lanes())
-            .map(|lane| store.after_deletes(id, lane))
+        let branches = (store.workspace(id)?.lanes.iter())
+            .map(|lane| store.after_deletes(id, &lane.branches))
             .find(|lane| lane.last().is_some_and(|branch| branch.ref_name == bottom))?;
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
@@ -1887,7 +1887,9 @@ impl Navigator {
         let store = self.store.read(cx);
         let inside = (store.selection.as_ref())
             .zip(store.workspace(project).and_then(|ws| ws.lane(bottom)))
-            .is_some_and(|(s, lane)| s.project() == project && lane.iter().any(|b| s.on(b)));
+            .is_some_and(|(s, lane)| {
+                s.project() == project && lane.branches.iter().any(|b| s.on(b))
+            });
         self.folded_stacks.insert(key);
         match inside {
             true => self.select(
@@ -2511,7 +2513,7 @@ fn parent(store: &Store, selection: &Selection) -> Option<Selection> {
     let bottom = match selection {
         Selection::Branch(_, ref_name) => {
             let (lane, _) = workspace.lane_of(ref_name)?;
-            match lane {
+            match &lane.branches[..] {
                 [_, .., bottom] => {
                     return Some(Selection::Stack(project, bottom.ref_name.clone()));
                 }

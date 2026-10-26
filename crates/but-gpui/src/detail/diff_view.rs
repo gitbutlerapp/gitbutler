@@ -553,12 +553,13 @@ impl Detail {
         let (branches, what, below): (Vec<&Branch>, _, _) = match selection {
             Selection::Branch(_, ref_name) => {
                 // A branch stacked on another starts where that one ends.
-                let below = (workspace.lane_of(ref_name)).and_then(|(lane, at)| lane.get(at + 1));
+                let below =
+                    (workspace.lane_of(ref_name)).and_then(|(lane, at)| lane.branches.get(at + 1));
                 let below = below.map(|branch| branch.name.as_str());
                 (vec![workspace.find_branch(ref_name)?], "this branch", below)
             }
             Selection::Stack(_, bottom) => (
-                workspace.lane(bottom)?.iter().collect(),
+                workspace.lane(bottom)?.branches.iter().collect(),
                 "these branches",
                 None,
             ),
@@ -590,7 +591,7 @@ impl Detail {
             Selection::Commit(..) => return "This commit changes no files".into(),
             // A stack's branches all, as it has no branch of its own.
             Selection::Stack(_, bottom) => (workspace.and_then(|ws| ws.lane(bottom)))
-                .map_or_else(Vec::new, |lane| lane.iter().collect()),
+                .map_or_else(Vec::new, |lane| lane.branches.iter().collect()),
             Selection::Branch(..) => store.branch_for(selection).into_iter().collect(),
             _ => return "No changes".into(),
         };

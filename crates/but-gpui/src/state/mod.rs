@@ -803,7 +803,9 @@ impl Store {
             Selection::Branch(_, ref_name) => workspace.find_branch(ref_name).is_some(),
             Selection::Commit(_, id) => workspace.find_commit(*id).is_some(),
             Selection::Worktree(_, name) => workspace.worktrees.iter().any(|w| w.name == *name),
-            Selection::Stack(_, bottom) => workspace.lane(bottom).is_some_and(|b| b.len() > 1),
+            Selection::Stack(_, bottom) => workspace
+                .lane(bottom)
+                .is_some_and(|lane| lane.branches.len() > 1),
             // The mesh's reads keep it current.
             Selection::Mesh(..) | Selection::Section(_, Section::Mesh) => true,
             Selection::Section(_, Section::Upstream(ref_name)) => {

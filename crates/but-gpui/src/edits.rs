@@ -171,8 +171,8 @@ pub struct BranchEdits {
 
 impl BranchEdits {
     pub fn of(workspace: &Workspace, ref_name: &str) -> Self {
-        let Some((lane, branch)) =
-            (workspace.lane_of(ref_name)).and_then(|(lane, at)| Some((lane, lane.get(at)?)))
+        let Some((lane, branch)) = (workspace.lane_of(ref_name))
+            .and_then(|(lane, at)| Some((lane, lane.branches.get(at)?)))
         else {
             return Self::default();
         };
@@ -183,7 +183,7 @@ impl BranchEdits {
         Self {
             new_below: commits > 0,
             squash_all: commits > 1 && !conflicted,
-            stacked: stack && lane.len() > 1,
+            stacked: stack && lane.branches.len() > 1,
             land: land_scope(workspace, ref_name).filter(|_| workspace.target.is_some()),
         }
     }
@@ -317,7 +317,9 @@ impl AppView {
                 let Some(workspace) = store.workspace(project) else {
                     return el;
                 };
-                let top = workspace.lane(bottom).and_then(<[_]>::first);
+                let top = workspace
+                    .lane(bottom)
+                    .and_then(|lane| lane.branches.first());
                 let lands = top.is_some_and(|top| {
                     BranchEdits::of(workspace, &top.ref_name).land == Some(true)
                 });
@@ -399,7 +401,9 @@ impl AppView {
         let selection = self.selection(cx)?;
         let store = self.store.read(cx);
         let branch = match &selection {
-            Selection::Stack(project, bottom) => store.workspace(project)?.lane(bottom)?.first()?,
+            Selection::Stack(project, bottom) => {
+                store.workspace(project)?.lane(bottom)?.branches.first()?
+            }
             _ => store.branch_for(&selection)?,
         };
         Some((selection.project().clone(), branch.ref_name.clone()))
@@ -683,7 +687,7 @@ impl AppView {
             return;
         };
         // The lane as the deletes already asked for leave it, which this one follows.
-        let lane = store.after_deletes(&project, lane);
+        let lane = store.after_deletes(&project, &lane.branches);
         let Some(at) = lane.iter().position(|branch| branch.ref_name == ref_name) else {
             return;
         };
