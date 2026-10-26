@@ -1110,6 +1110,20 @@ impl Navigator {
                     }))
                     .into_any_element()
             }
+            Some(Row::RestsOn(item, checkout)) => {
+                match self.rests_on_label(item, checkout.as_ref(), cx) {
+                    Some(label) => {
+                        let item = item.clone();
+                        under_commits("rests-on", Icon::Branch)
+                            .child(div().min_w_0().truncate().child(label))
+                            .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| {
+                                this.select(item.clone(), window, cx)
+                            }))
+                            .into_any_element()
+                    }
+                    None => div().into_any_element(),
+                }
+            }
             Some(Row::More(project, ref_name, hidden)) => {
                 let key = (project.clone(), ref_name.clone());
                 under_commits("more", Icon::Kebab)
@@ -1629,6 +1643,28 @@ impl Navigator {
             .into_any_element()
     }
 
+    fn rests_on_label(
+        &self,
+        item: &Selection,
+        checkout: Option<&Checkout>,
+        cx: &App,
+    ) -> Option<String> {
+        let store = self.store.read(cx);
+        let (lane, at) = store.lane_for(item)?;
+        let branch = lane.branches.get(at)?;
+        let name = store.name_of(item.project(), branch);
+        let below_tip = match item {
+            Selection::Commit(_, id) if branch.commits.first()?.id != *id => {
+                format!(" at {}", id.short())
+            }
+            _ => String::new(),
+        };
+        let checkout = checkout.map_or(String::new(), |checkout| {
+            format!(" in {}", checkout.linked().unwrap_or("Main worktree"))
+        });
+        Some(format!("{name}{below_tip}{checkout}"))
+    }
+
     /// A worktree's heading, which selects its uncommitted changes: the main one's for
     /// [`Selection::Uncommitted`], a linked one's for [`Selection::Worktree`]. With linked
     /// worktrees, its chevron or a double-click folds its branches; folded, it also counts
@@ -1669,7 +1705,9 @@ impl Navigator {
                 this.toggle_section(&project, checkout.clone(), open, window, cx)
             }
         };
-        let folds = !branches.is_empty();
+        let lane = (checkout.linked()).and_then(|name| workspace.worktree_lane(name));
+        let rests = lane.is_some_and(|lane| workspace.beneath(lane).next().is_some());
+        let folds = !branches.is_empty() || rests;
         let step = self.fold(
             ("worktree-fold", ix),
             folds.then_some(open),

@@ -6,7 +6,7 @@ use std::time::Duration;
 use gpui::{App, SharedString};
 
 use super::{ClickOpened, NEST, Navigator, STACK_STEP, upstream_chevrons};
-use crate::backend::{Branch, Checkout, Workspace, Worktree};
+use crate::backend::{Branch, Checkout, Lane, Workspace, Worktree};
 use crate::state::{Cut, NewAt, ProjectEntry, ProjectId, Section, Selection, Store};
 
 /// Commits shown per branch before folding the rest into "N more".
@@ -44,6 +44,9 @@ pub(super) enum Row {
     WorktreeDivider,
     /// After the target's new commits listed, how many more its page lists.
     UpstreamMore(ProjectId, usize),
+    /// In a linked worktree's section, a branch its lane rests on, by the row it selects, with
+    /// the checkout it's in on the first of each lane.
+    RestsOn(Selection, Option<Checkout>),
 }
 
 /// The rows as they're built, each with how far in it sits: a worktree's section and a
@@ -551,8 +554,19 @@ impl Navigator {
         rows.push(Row::Item(Selection::Worktree(id.clone(), name.clone())));
         if self.worktree_open(id, Checkout::Linked(name.clone()), selected) {
             rows.open_in(NEST);
-            let lane = (store.workspace(id)).and_then(|ws| ws.worktree_lane(&name));
+            let workspace = store.workspace(id);
+            let lane = workspace.and_then(|ws| ws.worktree_lane(&name));
             self.lane_rows(store, id, lane.map_or(&[][..], |lane| &lane.branches), rows);
+            if let Some((workspace, lane)) = workspace.zip(lane) {
+                let listed = |branch: &Branch| {
+                    !store.hides_branch(id, &branch.ref_name)
+                        && !store.deletes_branch(id, &branch.ref_name)
+                };
+                rows.extend(
+                    rests_on(id, workspace, lane, listed)
+                        .map(|(item, checkout)| Row::RestsOn(item, checkout)),
+                );
+            }
             rows.close();
         }
         rows.push(Row::WorktreeDivider);
@@ -613,6 +627,27 @@ impl Navigator {
         }
         rows.close();
     }
+}
+
+fn rests_on<'a>(
+    id: &'a ProjectId,
+    workspace: &'a Workspace,
+    lane: &'a Lane,
+    listed: impl Fn(&Branch) -> bool + Copy + 'a,
+) -> impl Iterator<Item = (Selection, Option<Checkout>)> + 'a {
+    workspace.beneath(lane).flat_map(move |link| {
+        let mut checkout = Some(link.lane.checkout.clone());
+        (link.branches().iter().enumerate())
+            .filter(move |(_, branch)| listed(branch))
+            .filter_map(move |(at, branch)| {
+                let item = match (link.from.filter(|_| at == 0), branch.ref_name.is_empty()) {
+                    (Some(from), _) => Selection::Commit(id.clone(), from),
+                    (None, false) => Selection::Branch(id.clone(), branch.ref_name.clone()),
+                    (None, true) => Selection::Commit(id.clone(), branch.commits.first()?.id),
+                };
+                Some((item, checkout.take()))
+            })
+    })
 }
 
 /// When `entry` was last active: what Git last recorded in it, or what its loaded workspace
@@ -752,6 +787,74 @@ mod within_tests {
         assert!(
             !within(&heading(None), [&branch].into_iter()),
             "the target's heading sits above every worktree"
+        );
+    }
+}
+
+#[cfg(test)]
+mod rests_on_tests {
+    use super::rests_on;
+    use crate::backend::Branch;
+    use crate::backend::model::build::{branch, commit_name, workspace, worktree};
+    use crate::state::Selection;
+
+    #[test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "a test, and snapbox looks for the file its snapshot is in"
+    )]
+    fn a_worktree_lists_each_branch_beneath_it_once() {
+        let unnamed = Branch {
+            ref_name: String::new(),
+            ..branch("Unnamed branch", &[9])
+        };
+        let ws = workspace(
+            vec![
+                vec![
+                    branch("top", &[1]),
+                    branch("middle", &[2, 3]),
+                    branch("bottom", &[4]),
+                ],
+                vec![unnamed, branch("base", &[10])],
+            ],
+            vec![
+                worktree("wt", Some(3), vec![branch("wt", &[5])]),
+                worktree("wt-stacked", Some(5), vec![branch("wt-stacked", &[6])]),
+                worktree("on-unnamed", Some(9), vec![]),
+                worktree("outside", None, vec![branch("outside", &[7])]),
+            ],
+        );
+        let id = "p".into();
+        let rows: String = (ws.lanes.iter().filter(|lane| lane.checkout.is_linked()))
+            .map(|lane| {
+                let rows = (rests_on(&id, &ws, lane, |b| b.name != "base"))
+                    .map(|(row, checkout)| {
+                        let row = match row {
+                            Selection::Branch(_, ref_name) => format!("Branch({ref_name})"),
+                            Selection::Commit(_, at) => {
+                                format!("Commit({})", commit_name(&ws, at))
+                            }
+                            other => format!("{other:?}"),
+                        };
+                        let checkout = checkout.map_or(String::new(), |checkout| {
+                            format!(" in {}", checkout.linked().unwrap_or("Main"))
+                        });
+                        format!("{row}{checkout}")
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{}: [{rows}]\n", lane.checkout.linked().unwrap_or_default())
+            })
+            .collect();
+        snapbox::assert_data_eq!(
+            rows,
+            snapbox::str![[r#"
+wt: [Commit(middle~1) in Main, Branch(refs/heads/bottom)]
+wt-stacked: [Branch(refs/heads/wt) in wt, Commit(middle~1) in Main, Branch(refs/heads/bottom)]
+on-unnamed: [Commit(Unnamed branch) in Main]
+outside: []
+
+"#]]
         );
     }
 }

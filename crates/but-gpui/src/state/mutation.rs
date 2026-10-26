@@ -1808,6 +1808,11 @@ impl Store {
             .any(|o| o.branches.contains(ref_name))
     }
 
+    pub fn deletes_branch(&self, project: &ProjectId, ref_name: &str) -> bool {
+        self.overlays(project)
+            .any(|o| o.deleted_branches.contains(ref_name))
+    }
+
     /// A checkout's uncommitted `files` without those a pending operation is taking.
     pub fn uncommitted_shown<'a>(
         &self,
@@ -1833,8 +1838,7 @@ impl Store {
         project: &ProjectId,
         branches: &'a [Branch],
     ) -> Cow<'a, [Branch]> {
-        let deleted =
-            |b: &Branch| (self.overlays(project)).any(|o| o.deleted_branches.contains(&b.ref_name));
+        let deleted = |b: &Branch| self.deletes_branch(project, &b.ref_name);
         if !branches.iter().any(deleted) {
             return Cow::Borrowed(branches);
         }
