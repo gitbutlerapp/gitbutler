@@ -461,7 +461,7 @@ impl Navigator {
                 }
                 _ => None,
             };
-            let unfolded = self.unfolded_branches.contains(&key);
+            let unfolded = self.unfolded(&key);
             let fold_at = FOLD_AFTER.max(selected_at.map_or(0, |at| at + 1));
             let shown = match unfolded {
                 true => branch.commits.len(),
