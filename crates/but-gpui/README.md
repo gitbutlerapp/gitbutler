@@ -130,6 +130,7 @@ Text fields take the keys of the platform's own: on macOS the Cocoa text system'
 | ↑ ↓ or j k | move through the tree |
 | ]c [c | into the diff beside it, at the next or previous hunk |
 | Space ⇧Space | scroll the diff beside it; at the end of a commit, go on to the next unread commit, from the top again past the end, until All caught up |
+| ⌃D ⌃U | scroll the diff beside it half a page |
 | ⇧↑ ⇧↓ | select a run of commits in one stack |
 | ⌥↑ ⌥↓, { } | previous or next branch or project |
 | Home End, gg ⇧G | first or last row |

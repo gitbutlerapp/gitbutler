@@ -1107,6 +1107,18 @@ impl Render for AppView {
                 })
             }))
             .on_action(
+                cx.listener(|this, _: &crate::detail::HalfPageDown, window, cx| {
+                    this.detail
+                        .update(cx, |detail, cx| detail.page(0.5, window, cx))
+                }),
+            )
+            .on_action(
+                cx.listener(|this, _: &crate::detail::HalfPageUp, window, cx| {
+                    this.detail
+                        .update(cx, |detail, cx| detail.page(-0.5, window, cx))
+                }),
+            )
+            .on_action(
                 cx.listener(|this, _: &crate::detail::SwitchTab, window, cx| {
                     this.detail
                         .update(cx, |detail, cx| detail.switch_tab(window, cx))

@@ -125,9 +125,12 @@
       "left": "navigator::Collapse",
       "enter": "navigator::Confirm",
       // Reading the diff beside it, as a mail client's message list scrolls the message. At
-      // the end of a commit, Space goes on to the next unread one.
+      // the end of a commit, Space goes on to the next unread one. ⌃D and ⌃U go half a page, as
+      // in the diff.
       "space": "diff::PageDown",
       "shift-space": "diff::PageUp",
+      "ctrl-d": "diff::HalfPageDown",
+      "ctrl-u": "diff::HalfPageUp",
       // F2 is the rename key on Windows and Linux, and Lite's; r is the one shown.
       "f2": "navigator::RenameSelection",
       "r": "navigator::RenameSelection",
