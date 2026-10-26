@@ -13,7 +13,9 @@ fn switch_to_workspace(
         but_graph::Graph::from_head(repo, &*meta, project_meta(repo)?, db, Options::limited())?;
     let mut ws = graph.into_workspace()?;
     let editor = but_rebase::graph_rebase::Editor::create(&mut ws, meta, repo, db)?;
-    but_workspace::editor_workspace::switch_to_workspace(editor)?.materialize(Default::default())?;
+    but_workspace::editor_workspace::switch_to_workspace(editor)?
+        .0
+        .materialize(Default::default())?;
     Ok(ws)
 }
 
@@ -92,7 +94,9 @@ fn switch_from_removed_head_reference() -> anyhow::Result<()> {
     let head = editor.head().expect("HEAD is on A");
     editor.replace_with_none(head)?;
 
-    but_workspace::editor_workspace::switch_to_workspace(editor)?.materialize(Default::default())?;
+    but_workspace::editor_workspace::switch_to_workspace(editor)?
+        .0
+        .materialize(Default::default())?;
 
     // A is gone, and the workspace commit sits on the commit A pointed to.
     snapbox::assert_data_eq!(

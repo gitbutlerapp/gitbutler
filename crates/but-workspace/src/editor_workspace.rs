@@ -29,13 +29,14 @@ pub fn ensure_workspace_commit<'ws, 'meta, M: RefMetadata>(
     Ok((editor.rebase()?, workspace_commit))
 }
 
-/// Check out a new workspace reference whose workspace commit sits on top of what `HEAD`
-/// checks out, replacing any workspace reference already known to the editor.
+/// Return a [SuccessfulRebase] that contains a newly created workspace commit with the current
+/// `HEAD` as its parent and the workspace reference pointing to said workspace commit, together
+/// with a selector pointing to the workspace commit.
 ///
 /// Fail if `HEAD` is already on the workspace reference.
 pub fn switch_to_workspace<'ws, 'meta, M: RefMetadata>(
     mut editor: Editor<'ws, 'meta, M>,
-) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+) -> anyhow::Result<(SuccessfulRebase<'ws, 'meta, M>, Selector)> {
     if editor.workspace_reference().is_some() {
         bail_precondition!("HEAD is already on the workspace reference");
     }
@@ -53,7 +54,7 @@ pub fn switch_to_workspace<'ws, 'meta, M: RefMetadata>(
     let workspace_reference = editor.add_step(Step::new_reference(workspace_ref))?;
     editor.add_edge(workspace_reference, workspace_commit, 0)?;
     editor.set_head_checkout(workspace_reference)?;
-    editor.rebase()
+    Ok((editor.rebase()?, workspace_commit))
 }
 
 fn write_workspace_commit(
