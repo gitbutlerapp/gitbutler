@@ -72,6 +72,10 @@ impl<'a> Link<'a> {
             .flat_map(|branch| &branch.commits)
             .skip_while(move |commit| from.is_some_and(|from| commit.id != from))
     }
+
+    pub fn top(self) -> Option<(&'a Branch, Option<CommitId>)> {
+        Some((self.branches().first()?, self.from))
+    }
 }
 
 impl Workspace {

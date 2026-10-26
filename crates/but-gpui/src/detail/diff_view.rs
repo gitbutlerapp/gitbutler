@@ -25,7 +25,7 @@ use super::{
 use crate::app::AppHandle;
 use crate::backend::{
     self, Branch, ChangeKind, DiffBody, DiffLine, DiffSource, Drawing, FileDiff, HunkKey, LineKind,
-    PushState, Selected,
+    PushState, Selected, Workspace,
 };
 use crate::overlays::MenuItem;
 use crate::state::{Cut, Prefs, ProjectId, Selection};
@@ -545,29 +545,7 @@ impl Detail {
     fn nothing_committed(&self, cx: &App) -> Option<SharedString> {
         let store = self.store.read(cx);
         let selection = store.selection.as_ref()?;
-        let workspace = store.workspace(selection.project())?;
-        let target = workspace
-            .target
-            .as_ref()
-            .map_or("the target", |t| t.name.as_str());
-        let (branches, what, below): (Vec<&Branch>, _, _) = match selection {
-            Selection::Branch(_, ref_name) => {
-                // A branch stacked on another starts where that one ends.
-                let below =
-                    (workspace.lane_of(ref_name)).and_then(|(lane, at)| lane.branches.get(at + 1));
-                let below = below.map(|branch| branch.name.as_str());
-                (vec![workspace.find_branch(ref_name)?], "this branch", below)
-            }
-            Selection::Stack(_, bottom) => (
-                workspace.lane(bottom)?.branches.iter().collect(),
-                "these branches",
-                None,
-            ),
-            _ => return None,
-        };
-        let base = below.unwrap_or(target);
-        (branches.iter().all(|branch| branch.commits.is_empty()))
-            .then(|| format!("No commits above {base} on {what}").into())
+        nothing_committed_in(store.workspace(selection.project())?, selection)
     }
 
     /// What a diff of commits with no changes in it says, as but.dev's branch page does: a
@@ -1660,4 +1638,90 @@ pub(super) fn files_toggle(
             el.child(count_badge(n, theme))
                 .child(diff::stats(added, removed, theme))
         })
+}
+
+fn nothing_committed_in(workspace: &Workspace, selection: &Selection) -> Option<SharedString> {
+    let target = workspace
+        .target
+        .as_ref()
+        .map_or("the target", |t| t.name.as_str());
+    let (branches, what, below): (Vec<&Branch>, _, _) = match selection {
+        Selection::Branch(_, ref_name) => {
+            // A branch stacked on another starts where that one ends, and a lane's bottom
+            // branch where what the lane rests on does.
+            let below = (workspace.lane_of(ref_name)).and_then(|(lane, at)| {
+                workspace
+                    .chain_from(lane, at + 1)
+                    .find_map(|link| link.top())
+            });
+            (vec![workspace.find_branch(ref_name)?], "this branch", below)
+        }
+        Selection::Stack(_, bottom) => {
+            let lane = workspace.lane(bottom)?;
+            let below = workspace.beneath(lane).find_map(|link| link.top());
+            (lane.branches.iter().collect(), "these branches", below)
+        }
+        _ => return None,
+    };
+    let base = below.map_or_else(
+        || target.to_owned(),
+        |(branch, from)| match from {
+            Some(id) => format!("{} at {}", branch.name, id.short()),
+            None => branch.name.clone(),
+        },
+    );
+    (branches.iter().all(|branch| branch.commits.is_empty()))
+        .then(|| format!("No commits above {base} on {what}").into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::nothing_committed_in;
+    use crate::backend::model::build::{branch, workspace, worktree};
+    use crate::state::{ProjectId, Selection};
+
+    #[test]
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "a test, and snapbox looks for the file its snapshot is in"
+    )]
+    fn an_empty_lane_bottom_starts_on_what_its_lane_rests_on() {
+        let ws = workspace(
+            vec![
+                vec![branch("top", &[1]), branch("middle", &[2, 3])],
+                vec![branch("upper", &[]), branch("lower", &[])],
+            ],
+            vec![
+                worktree("wt", Some(3), vec![branch("wt", &[])]),
+                worktree("outside", None, vec![branch("outside", &[])]),
+                worktree("on-top", Some(1), vec![branch("on-top", &[])]),
+            ],
+        );
+        let said = |kind: &str, of: fn(ProjectId, String) -> Selection, names: &[&str]| {
+            (names.iter())
+                .map(|name| {
+                    let selection = of("project".into(), format!("refs/heads/{name}"));
+                    let said = nothing_committed_in(&ws, &selection);
+                    format!("{kind}({name}): {said:?}\n")
+                })
+                .collect::<String>()
+        };
+        let said = said(
+            "Branch",
+            Selection::Branch,
+            &["upper", "wt", "outside", "on-top"],
+        ) + &said("Stack", Selection::Stack, &["lower", "wt"]);
+        snapbox::assert_data_eq!(
+            said,
+            snapbox::str![[r#"
+Branch(upper): Some("No commits above lower on this branch")
+Branch(wt): Some("No commits above middle at 0303030 on this branch")
+Branch(outside): Some("No commits above the target on this branch")
+Branch(on-top): Some("No commits above top on this branch")
+Stack(lower): Some("No commits above the target on these branches")
+Stack(wt): Some("No commits above middle at 0303030 on these branches")
+
+"#]]
+        );
+    }
 }
