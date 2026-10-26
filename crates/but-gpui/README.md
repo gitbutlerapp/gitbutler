@@ -118,6 +118,7 @@ The Help menu's What's New (the palette finds it by "release notes" too) opens G
 | ⌘F, ⌘G, ⇧⌘G | find in the diff, then, from the diff or the find bar, the next or previous match (n and N in the diff too) |
 | ⌥Z, s | wrap long lines in diffs or stop, show them side by side or one above the other |
 | Tab, ⇧Tab | the next or previous of the navigator, the file list and the diff (F6 and ⇧F6 too on Windows and Linux) |
+| ⇧←, ⇧→ | the pane to the left or right of the navigator, the file list and the diff: from a commit into its files and back |
 | ⌃Tab | a branch's other tab, Changes or its pull request |
 | ⇧⌘H | the selected project's Operations history |
 | ⌘W | close the window, which quits, asking first as ⌘Q does (macOS) |

@@ -41,6 +41,8 @@ actions!(
         FocusDiff,
         FocusNextPane,
         FocusPreviousPane,
+        FocusPaneLeft,
+        FocusPaneRight,
         StartCommit,
         ToggleNavigator,
         CommandPalette,
@@ -723,8 +725,14 @@ impl AppView {
     /// The file list, or the diff while the list is hidden; a Branches, Operations history or
     /// project page's list.
     /// Tab, or ⇧Tab going back: the next of the navigator, the file list and the diff that show,
-    /// round again.
-    fn focus_pane(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
+    /// round again. Without `wrap`, as ⇧→ and ⇧← go, only the panes on that side.
+    fn focus_pane(
+        &mut self,
+        forward: bool,
+        wrap: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.covered() {
             return;
         }
@@ -745,6 +753,7 @@ impl AppView {
         let next = |n: usize| (at + if forward { n } else { 3 - n }) % 3;
         match (1..3)
             .map(next)
+            .filter(|&pane| wrap || (pane > at) == forward)
             .find(|&pane| shown.get(pane) == Some(&true))
         {
             Some(0) => window.focus(&self.navigator.focus_handle(cx), cx),
@@ -1067,13 +1076,17 @@ impl Render for AppView {
             .on_action(cx.listener(Self::focus_navigator))
             .on_action(cx.listener(Self::focus_changes))
             .on_action(cx.listener(Self::focus_diff))
-            .on_action(
-                cx.listener(|this, _: &FocusNextPane, window, cx| {
-                    this.focus_pane(true, window, cx)
-                }),
-            )
+            .on_action(cx.listener(|this, _: &FocusNextPane, window, cx| {
+                this.focus_pane(true, true, window, cx)
+            }))
             .on_action(cx.listener(|this, _: &FocusPreviousPane, window, cx| {
-                this.focus_pane(false, window, cx)
+                this.focus_pane(false, true, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &FocusPaneLeft, window, cx| {
+                this.focus_pane(false, false, window, cx)
+            }))
+            .on_action(cx.listener(|this, _: &FocusPaneRight, window, cx| {
+                this.focus_pane(true, false, window, cx)
             }))
             .on_action(cx.listener(Self::operations_history))
             .on_action(cx.listener(Self::close_window))
