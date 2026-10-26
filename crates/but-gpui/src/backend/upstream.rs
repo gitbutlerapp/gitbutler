@@ -700,17 +700,20 @@ pub fn push(
     }
     // A branch made with `git checkout -b` on the workspace holds its commit, which merges
     // every applied branch: pushing it would publish them all at once. One the remote has as
-    // it is already publishes nothing new.
+    // it is already publishes nothing new. A linked worktree started on the workspace, or on
+    // one that was, holds it below the lanes the push goes down.
     let holds_workspace = {
         use but_workspace::ref_info::LocalCommitRelation as R;
         use gix::prelude::ObjectIdExt as _;
         let repo = ctx.repo.get()?;
+        let managed = |id: gix::ObjectId| {
+            but_workspace::WorkspaceCommit::from_id(id.attach(&repo))
+                .is_ok_and(|commit| commit.is_managed())
+        };
         (pushed_with(&info, branch).flat_map(|segment| &segment.commits))
             .filter(|c| !matches!(c.relation, R::LocalAndRemote(remote) if remote == c.id))
-            .any(|c| {
-                but_workspace::WorkspaceCommit::from_id(c.id.attach(&repo))
-                    .is_ok_and(|commit| commit.is_managed())
-            })
+            .any(|c| managed(c.id))
+            || (info.lane_chain(branch).iter()).any(|(lane, _)| lane.rests_on.is_some_and(managed))
     };
     if holds_workspace {
         anyhow::bail!(
@@ -1092,11 +1095,16 @@ mod tests {
         })
     }
 
+    /// Pushes go without the app's askpass broker, which a process can turn off only once.
+    fn without_askpass() {
+        static ASKPASS: std::sync::Once = std::sync::Once::new();
+        ASKPASS.call_once(but_askpass::disable);
+    }
+
     #[test]
     fn a_worktree_branch_pushes_the_stack_branches_it_rests_on() {
         use crate::backend::ops::tests::git;
-        static ASKPASS: std::sync::Once = std::sync::Once::new();
-        ASKPASS.call_once(but_askpass::disable);
+        without_askpass();
         crate::backend::lane_tests::linked_workspace(|path| {
             let remote = tempfile::tempdir().unwrap();
             git(remote.path(), &["init", "-q", "--bare"]);
@@ -1126,6 +1134,57 @@ refs/heads/middle
 refs/heads/wt
 
 "#]]
+            );
+        })
+    }
+
+    #[test]
+    fn a_worktree_started_on_the_workspace_commit_isnt_pushed() {
+        use crate::backend::ops::tests::git;
+        without_askpass();
+        crate::backend::lane_tests::linked_workspace(|path| {
+            let remote = tempfile::tempdir().unwrap();
+            git(remote.path(), &["init", "-q", "--bare"]);
+            let url = remote.path().to_str().unwrap();
+            git(path, &["remote", "set-url", "origin", url]);
+            // As an agent makes one from the main checkout, on its `HEAD`, and one on that.
+            let outside = tempfile::tempdir().unwrap();
+            let at = |name: &str| outside.path().join(name);
+            let on_head = at("on-head");
+            let on_head_dir = on_head.to_str().unwrap();
+            git(
+                path,
+                &["worktree", "add", "-q", "-b", "on-head", on_head_dir],
+            );
+            git(
+                &on_head,
+                &["commit", "-q", "--allow-empty", "-m", "on HEAD"],
+            );
+            let on_it = at("on-it");
+            let on_it_dir = on_it.to_str().unwrap();
+            git(
+                path,
+                &["worktree", "add", "-q", "-b", "on-it", on_it_dir, "on-head"],
+            );
+            git(&on_it, &["commit", "-q", "--allow-empty", "-m", "on it"]);
+
+            let loaded = crate::backend::load_workspace(path, Default::default()).unwrap();
+            for branch in ["refs/heads/on-head", "refs/heads/on-it"] {
+                assert!(
+                    (loaded.push_refused(branch)).is_some_and(|why| why.contains("workspace")),
+                    "{branch} isn't offered a push, as it would publish every applied branch"
+                );
+                let err = super::push(path, branch, false, None, false)
+                    .expect_err("nor does the push go ahead");
+                assert!(
+                    err.to_string().contains("GitButler's workspace commit"),
+                    "{branch}: {err:#}"
+                );
+            }
+            assert_eq!(
+                git(remote.path(), &["for-each-ref"]),
+                "",
+                "nothing reached the remote"
             );
         })
     }
