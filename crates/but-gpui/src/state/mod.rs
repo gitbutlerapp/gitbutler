@@ -60,6 +60,20 @@ pub enum Selection {
     /// A commit only a remote has: one of a branch's (by its full ref) its remote has, or
     /// with `None` one of the target's the workspace doesn't have yet.
     Upstream(ProjectId, Option<String>, CommitId),
+    /// The heading over a section of a project's card, whose page shows what it folds away.
+    Section(ProjectId, Section),
+}
+
+/// A section of a project's card that folds away under its heading.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Section {
+    /// The commits only a remote has: branch `String`'s (by its full ref), or with `None` the
+    /// target's new ones.
+    Upstream(Option<String>),
+    /// The linked worktrees with nothing going on lately.
+    Inactive,
+    /// The checkouts on the user's other machines.
+    Mesh,
 }
 
 impl Selection {
@@ -74,16 +88,35 @@ impl Selection {
             | Selection::Worktree(project, _)
             | Selection::Stack(project, _)
             | Selection::Mesh(project, ..)
-            | Selection::Upstream(project, ..) => project,
+            | Selection::Upstream(project, ..)
+            | Selection::Section(project, _) => project,
         }
     }
 
-    /// Whether it's `branch`, one of its commits, or one only its remote has.
-    pub fn on(&self, branch: &Branch) -> bool {
+    /// The page the detail pane shows for it: the target's new commits show on the project's
+    /// page, which lists them first.
+    pub fn page(self) -> Selection {
         match self {
-            Selection::Branch(_, ref_name) => branch.ref_name == *ref_name,
+            Selection::Section(project, Section::Upstream(None)) => Selection::Project(project),
+            selection => selection,
+        }
+    }
+
+    /// Whether it's `branch`, or under it.
+    pub fn on(&self, branch: &Branch) -> bool {
+        matches!(self, Selection::Branch(_, ref_name) if branch.ref_name == *ref_name)
+            || self.under(branch)
+    }
+
+    /// Whether it's what folding `branch` hides: one of its commits, one only its remote has,
+    /// or the heading over those.
+    pub fn under(&self, branch: &Branch) -> bool {
+        match self {
             Selection::Commit(_, id) => branch.commits.iter().any(|commit| commit.id == *id),
-            Selection::Upstream(_, Some(ref_name), _) => branch.ref_name == *ref_name,
+            Selection::Upstream(_, Some(ref_name), _)
+            | Selection::Section(_, Section::Upstream(Some(ref_name))) => {
+                branch.ref_name == *ref_name
+            }
             _ => false,
         }
     }
@@ -659,6 +692,14 @@ impl Store {
         true
     }
 
+    /// Project `id`'s linked worktrees with nothing going on lately, but those on their way
+    /// out.
+    pub fn inactive_worktrees(&self, id: &ProjectId) -> Vec<&Worktree> {
+        (self.workspace(id).into_iter().flat_map(|ws| &ws.worktrees))
+            .filter(|wt| !self.hides_worktree(id, &wt.name) && wt.is_inactive())
+            .collect()
+    }
+
     /// The branch `selection` is, or the one holding the commit it is.
     pub fn branch_for(&self, selection: &Selection) -> Option<&Branch> {
         let workspace = self.workspace(selection.project())?;
@@ -672,7 +713,8 @@ impl Store {
             | Selection::Worktree(..)
             | Selection::Stack(..)
             | Selection::Mesh(..)
-            | Selection::Upstream(..) => None,
+            | Selection::Upstream(..)
+            | Selection::Section(..) => None,
         }
     }
 
@@ -765,7 +807,13 @@ impl Store {
             Selection::Worktree(_, name) => workspace.worktrees.iter().any(|w| w.name == *name),
             Selection::Stack(_, bottom) => workspace.lane(bottom).is_some_and(|b| b.len() > 1),
             // The mesh's reads keep it current.
-            Selection::Mesh(..) => true,
+            Selection::Mesh(..) | Selection::Section(_, Section::Mesh) => true,
+            Selection::Section(_, Section::Upstream(ref_name)) => {
+                !workspace.upstream(ref_name.as_deref()).is_empty()
+            }
+            Selection::Section(_, Section::Inactive) => {
+                workspace.worktrees.iter().any(|wt| wt.is_inactive())
+            }
             Selection::Upstream(project, ref_name, id) => {
                 (workspace.upstream(ref_name.as_deref()).iter()).any(|c| c.id == *id)
                     || self
@@ -775,15 +823,18 @@ impl Store {
         };
         if !still_there {
             // A remote's commit, pulled or brought in by an update, goes up to its branch, or
-            // the target's to the project's page.
+            // the target's to the project's page, as does a section emptied.
             let project = selection.project().clone();
             let home = match selection {
                 Selection::Upstream(_, Some(ref_name), _)
+                | Selection::Section(_, Section::Upstream(Some(ref_name)))
                     if workspace.find_branch(&ref_name).is_some() =>
                 {
                     Selection::Branch(project, ref_name)
                 }
-                Selection::Upstream(_, None, _) => Selection::Project(project),
+                Selection::Upstream(_, None, _) | Selection::Section(..) => {
+                    Selection::Project(project)
+                }
                 _ => Selection::Uncommitted(project),
             };
             self.select(Some(home), cx);
@@ -863,6 +914,7 @@ impl Store {
             Selection::Stack(..) => "stack",
             Selection::Mesh(..) => "mesh",
             Selection::Upstream(..) => "upstream",
+            Selection::Section(..) => "section",
         };
         backend::metrics::viewed(view, || backend::metrics::State {
             theme: match self.prefs.appearance {

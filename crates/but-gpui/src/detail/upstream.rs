@@ -351,7 +351,7 @@ impl Detail {
                 this.load_selected_merge(&project, cx);
                 // Left since, the page keeps the pick for later rather than taking over what's
                 // shown now, as a composer opened meanwhile.
-                let shown = matches!(&this.store.read(cx).selection,
+                let shown = matches!(&this.selection(cx),
                     Some(Selection::Project(p)) if *p == project);
                 match found {
                     Some(id) if shown => {
@@ -474,14 +474,15 @@ impl Detail {
             || self.showing_branches_overview(cx)
             || self.showing_now(cx)
             || self.choosing_target(cx)
+            || self.overview_only(cx)
     }
 
     /// Whether the project's page asks which of the local branches tracking its target is it.
     pub fn choosing_target(&self, cx: &gpui::App) -> bool {
         let store = self.store.read(cx);
-        match store.selection.as_ref() {
+        match self.selection(cx) {
             Some(Selection::Project(project)) => {
-                (store.project(project)).is_some_and(|entry| entry.target_choice.is_some())
+                (store.project(&project)).is_some_and(|entry| entry.target_choice.is_some())
             }
             _ => false,
         }
@@ -490,7 +491,7 @@ impl Detail {
     /// How far right of a list page's list the diff starts: past the files, when there's room
     /// for them; 0 when they're left to the button over the diff.
     pub fn beside_offset(&self, cx: &gpui::App) -> f32 {
-        let shows = match self.store.read(cx).selection.as_ref() {
+        let shows = match &self.selection(cx) {
             Some(Selection::Project(project)) => self.showing_target_commit(project, cx),
             Some(Selection::Branches(project)) => self.selected_other_branch(project).is_some(),
             _ => false,
@@ -708,7 +709,7 @@ impl Detail {
 
     /// Whether the project's page shows what landed lately, in place of a diff.
     pub fn showing_shipped(&self, cx: &gpui::App) -> bool {
-        match self.store.read(cx).selection.as_ref() {
+        match &self.selection(cx) {
             Some(Selection::Project(project)) => {
                 self.editing(project, cx).is_none()
                     && (self.upstream_for(project))
@@ -721,7 +722,7 @@ impl Detail {
     /// Esc on the project's page with a commit shown: back to what landed
     /// lately, whether it did.
     pub fn close_opened_target(&mut self, cx: &mut Context<Self>) -> bool {
-        let Some(Selection::Project(project)) = self.store.read(cx).selection.clone() else {
+        let Some(Selection::Project(project)) = self.selection(cx) else {
             return false;
         };
         let opened = self.editing(&project, cx).is_none()

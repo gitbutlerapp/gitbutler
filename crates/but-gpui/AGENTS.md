@@ -228,7 +228,7 @@ anything else.
   `state/mesh.rs` holds `Mesh` with its poll, sign-in and apply, `navigator/mesh.rs` draws
   each card's checkouts elsewhere and folds them, `detail/machine.rs` fetches and shows what's
   selected there, and `settings/mesh.rs` is the Mesh row in Settings. Everything else reaches
-  it through a `Selection::Mesh` or `Row::MeshHeading` arm, `store.mesh`, the `Store::mesh_*`
+  it through a `Selection::Mesh` or `Section::Mesh` arm, `store.mesh`, the `Store::mesh_*`
   methods or `StoreEvent::MeshRead`. New mesh behaviour goes in those files, with at most a
   dispatch arm elsewhere.
 - There's no mesh library: the mesh lives in a private repository, so the app only calls the

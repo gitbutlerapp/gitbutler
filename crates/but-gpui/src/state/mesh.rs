@@ -12,7 +12,7 @@ use futures::{FutureExt as _, StreamExt as _, channel::mpsc};
 use gpui::{Context, Task};
 
 use super::mutation::{Label, Overlay};
-use super::{ProjectId, Selection, Store, StoreEvent};
+use super::{ProjectId, Section, Selection, Store, StoreEvent};
 use crate::backend::{
     self, CommitId,
     mesh::{self, Checkout, Connection},
@@ -204,7 +204,9 @@ impl Store {
             }
             self.mesh.ids.clear();
             // Signed out, the navigator lists no other machines to be on.
-            if let Some(Selection::Mesh(project, ..)) = self.selection.clone() {
+            if let Some(Selection::Mesh(project, ..) | Selection::Section(project, Section::Mesh)) =
+                self.selection.clone()
+            {
                 self.select(Some(Selection::Project(project)), cx);
             }
             return Vec::new();
@@ -244,8 +246,12 @@ impl Store {
             .checkouts
             .insert(project.clone(), checkouts.into());
         // What was selected there may be gone, finished or pushed: it goes up to what's still
-        // there, a commit rewritten to its branch, a branch gone to its checkout, and a checkout
-        // gone to the project.
+        // there, a commit rewritten to its branch, a branch gone to its checkout, a checkout
+        // gone to their heading, and the last one to the project.
+        let none_left = self.mesh_checkouts(&project).is_empty();
+        if none_left && self.selection == Some(Selection::Section(project.clone(), Section::Mesh)) {
+            self.select(Some(Selection::Project(project.clone())), cx);
+        }
         if let Some(Selection::Mesh(p, id, pick)) = &self.selection
             && *p == project
         {
@@ -254,7 +260,8 @@ impl Store {
                 .and_then(|(checkout, name)| checkout.branches.iter().find(|b| b.name == name));
             let mesh = |pick| Selection::Mesh(p.clone(), id.clone(), pick);
             let up = match pick {
-                _ if checkout.is_none() => Some(Selection::Project(p.clone())),
+                _ if none_left => Some(Selection::Project(p.clone())),
+                _ if checkout.is_none() => Some(Selection::Section(p.clone(), Section::Mesh)),
                 MeshPick::Checkout => None,
                 MeshPick::Branch(_) => branch.is_none().then(|| mesh(MeshPick::Checkout)),
                 MeshPick::Commit(name, commit) => match branch {

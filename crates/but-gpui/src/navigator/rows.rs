@@ -8,13 +8,10 @@ use gpui::{App, SharedString};
 
 use super::{ClickOpened, NEST, Navigator, STACK_STEP, upstream_chevrons};
 use crate::backend::{Branch, Workspace, Worktree};
-use crate::state::{Cut, NewAt, ProjectEntry, ProjectId, Selection, Store};
+use crate::state::{Cut, NewAt, ProjectEntry, ProjectId, Section, Selection, Store};
 
 /// Commits shown per branch before folding the rest into "N more".
 const FOLD_AFTER: usize = 8;
-
-/// How long a worktree with nothing uncommitted stays listed after it last moved.
-const INACTIVE_AFTER: Duration = Duration::from_secs(12 * 60 * 60);
 
 /// How recently a project was last active for "Active in the last 7 days" to keep it.
 const ACTIVE_WITHIN: Duration = Duration::from_secs(7 * 24 * 60 * 60);
@@ -25,7 +22,7 @@ pub(super) enum Row {
     /// The space between two cards.
     Gap,
     /// Whatever the [`Selection`] names: a project, a worktree, a stack, a branch, a commit,
-    /// one of a project's pages, or one of these on another machine.
+    /// one of a project's pages, a section's heading, or one of these on another machine.
     Item(Selection),
     Note(SharedString, bool),
     /// Over the projects not expanded: what it calls them, how many it lists, and how many
@@ -44,16 +41,8 @@ pub(super) enum Row {
     Pending(SharedString, bool),
     /// Where a commit of the project being dragged lands in a new branch of its own.
     NewBranch(ProjectId),
-    /// After a project's active worktrees, the heading over its inactive ones: how many, and
-    /// whether the selection's in one, which keeps them listed.
-    Inactive(ProjectId, usize, bool),
     /// The line after a worktree's section.
     WorktreeDivider,
-    /// Over a project's checkouts on other machines, which folds them all away.
-    MeshHeading(ProjectId),
-    /// Over the commits only a remote has, branch `String`'s or with `None` the target's,
-    /// which folds them away.
-    UpstreamHeading(ProjectId, Option<String>),
     /// After the target's new commits listed, how many more its page lists.
     UpstreamMore(ProjectId, usize),
 }
@@ -220,20 +209,18 @@ impl Navigator {
                 rows.push(Row::WorktreeDivider);
                 let on_branches =
                     |wt: &Worktree| selection.is_some_and(|s| within(s, wt.branches.iter()));
-                let heads = |wt: &Worktree| matches!(selection, Some(Selection::Worktree(_, name)) if *name == wt.name);
                 // The inactive ones wait under a heading of their own, folded unless opened or
                 // the selection's in one.
                 let (inactive, active): (Vec<_>, Vec<_>) = (self.worktrees(id, workspace))
                     .into_iter()
                     .filter(|wt| !store.hides_worktree(id, &wt.name))
-                    .partition(|wt| is_inactive(wt));
+                    .partition(|wt| wt.is_inactive());
                 for wt in active {
                     self.worktree_rows(store, id, wt, on_branches(wt), &mut rows);
                 }
                 if !inactive.is_empty() {
-                    let inside = (inactive.iter()).any(|wt| heads(wt) || on_branches(wt));
-                    rows.push(Row::Inactive(id.clone(), inactive.len(), inside));
-                    if inside || store.prefs.shown_inactive.contains(id.as_ref()) {
+                    rows.push(Row::Item(Selection::Section(id.clone(), Section::Inactive)));
+                    if inactive_open(store, id, &inactive) {
                         for wt in inactive {
                             self.worktree_rows(store, id, wt, on_branches(wt), &mut rows);
                         }
@@ -482,8 +469,8 @@ impl Navigator {
             };
             let upstream = Some(branch.ref_name.as_str());
             let closed = !branch.commits.is_empty()
-                && selected_at.is_none()
-                && !Self::upstream_selected(store, id, upstream)
+                && !(store.selection.as_ref())
+                    .is_some_and(|s| s.project() == id && s.under(branch))
                 && !self.is_open(&ClickOpened::Here(key.clone()));
             rows.push(Row::Item(Selection::Branch(key.0, key.1)));
             if closed {
@@ -582,7 +569,10 @@ impl Navigator {
             return;
         }
         let owner = ref_name.map(str::to_owned);
-        rows.push(Row::UpstreamHeading(id.clone(), owner.clone()));
+        rows.push(Row::Item(Selection::Section(
+            id.clone(),
+            Section::Upstream(owner.clone()),
+        )));
         if !self.upstream_open(store, id, ref_name) {
             return;
         }
@@ -631,6 +621,24 @@ fn active_lately(at: i64) -> bool {
     crate::ui::now() - at <= ACTIVE_WITHIN.as_secs() as i64
 }
 
+/// Whether the selection's in one of project `id`'s `inactive` worktrees.
+pub(super) fn in_inactive(store: &Store, id: &ProjectId, inactive: &[&Worktree]) -> bool {
+    (store.selection.as_ref())
+        .filter(|s| s.project() == id)
+        .is_some_and(|s| {
+            (inactive.iter()).any(|wt| {
+                matches!(s, Selection::Worktree(_, name) if *name == wt.name)
+                    || within(s, wt.branches.iter())
+            })
+        })
+}
+
+/// Whether project `id`'s `inactive` worktrees are listed under their heading: once it's
+/// opened, and while the selection's in one.
+pub(super) fn inactive_open(store: &Store, id: &ProjectId, inactive: &[&Worktree]) -> bool {
+    in_inactive(store, id, inactive) || store.prefs.shown_inactive.contains(id.as_ref())
+}
+
 /// Whether `selection` is one of `branches`, a commit on one, or a stack of them.
 pub(super) fn within<'a>(
     selection: &Selection,
@@ -653,14 +661,6 @@ pub(super) fn section_branches<'a>(
             (workspace.find_worktree(name)).map_or_else(Vec::new, |wt| wt.branches.iter().collect())
         }
     }
-}
-
-/// A worktree with nothing uncommitted, so not active either, that hasn't moved in
-/// [`INACTIVE_AFTER`]. One with no reflog to date it stays listed.
-fn is_inactive(worktree: &Worktree) -> bool {
-    worktree.uncommitted.is_empty()
-        && (worktree.updated_at)
-            .is_some_and(|at| crate::ui::now() - at > INACTIVE_AFTER.as_secs() as i64)
 }
 
 /// Which of `terms`, lowercase, any of `texts` holds, as bits by the term's place.
@@ -719,7 +719,7 @@ mod filter_tests {
 mod within_tests {
     use super::within;
     use crate::backend::{Branch, CommitId, PushState};
-    use crate::state::Selection;
+    use crate::state::{Section, Selection};
 
     #[test]
     fn a_commit_only_the_remote_has_is_within_its_branch() {
@@ -747,6 +747,17 @@ mod within_tests {
         assert!(
             !within(&upstream(None), [&branch].into_iter()),
             "the target's new commits sit above every worktree"
+        );
+        let heading = |ref_name: Option<&str>| {
+            Selection::Section("p".into(), Section::Upstream(ref_name.map(str::to_owned)))
+        };
+        assert!(
+            within(&heading(Some("refs/heads/feature")), [&branch].into_iter()),
+            "and so must the heading over its remote's commits"
+        );
+        assert!(
+            !within(&heading(None), [&branch].into_iter()),
+            "the target's heading sits above every worktree"
         );
     }
 }

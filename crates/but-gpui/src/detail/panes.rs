@@ -12,11 +12,13 @@ use gpui::{
     prelude::*, uniform_list,
 };
 
+use super::upstream::noon;
 use super::{Detail, machine};
 use crate::app::{AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious, StartCommit};
+use crate::backend::upstream::{self, ACTIVITY_DAYS};
 use crate::backend::{self, CommitId, CommitState, PushState, short_ref};
 use crate::overlays::MenuItem;
-use crate::state::{ProjectId, Selection};
+use crate::state::{ProjectId, Section, Selection};
 use crate::theme::Theme;
 use crate::ui::illustration::Illustration;
 use crate::ui::person::{author_avatar, byline};
@@ -24,8 +26,9 @@ use crate::ui::scrollbar::{Scroll, scrollbar, scrolled};
 use crate::ui::text_input::{InputEvent, TextInput};
 use crate::ui::{
     Button, ButtonStyle, HEADER_HEIGHT, Icon, ROW_HEIGHT, Tooltip, WINDOW_CONTROLS_WIDTH,
-    above_drag, button, commit_title, dp, empty_state, faint, field, fixed, fold_row, h_flex, icon,
-    icon_button, plural, quiet, section_label, side_row, small_icon, v_flex,
+    above_drag, age_column, button, commit_title, dp, empty_state, faint, field, fixed, fold_row,
+    h_flex, icon, icon_button, list_row, plural, quiet, section_label, side_row, small_icon,
+    v_flex,
 };
 
 impl Detail {
@@ -110,6 +113,30 @@ impl Detail {
                     if let Some(operation) = operation {
                         crumbs.push((operation.title.clone().into(), None));
                     }
+                }
+                Selection::Section(project, section) => {
+                    let label = match section {
+                        Section::Inactive => "Inactive worktrees".to_owned(),
+                        Section::Mesh => "Network worktrees".to_owned(),
+                        // After the branch, as its commits have it; the target's show on the
+                        // project's page.
+                        Section::Upstream(ref_name) => match ref_name
+                            .as_ref()
+                            .and_then(|r| Some((r, workspace?.find_branch(r)?)))
+                        {
+                            Some((ref_name, branch)) => {
+                                let branch_selection =
+                                    Selection::Branch(project.clone(), ref_name.clone());
+                                crumbs.push(heading(&branch_selection));
+                                let name = store.name_of(project, branch).to_owned();
+                                crumbs.push((name.into(), Some(branch_selection.into())));
+                                (branch.remote.as_ref())
+                                    .map_or("On the remote".to_owned(), |r| format!("On {r}"))
+                            }
+                            None => "New on the target".to_owned(),
+                        },
+                    };
+                    crumbs.push((label.into(), None));
                 }
                 // After what has it, the branch or the target, which go to their pages.
                 Selection::Upstream(project, ref_name, id) => {
@@ -1040,6 +1067,148 @@ pub(super) fn meta_item(glyph: Icon, theme: &Theme) -> Div {
             .size(dp(14.))
             .text_color(theme.text_2.opacity(0.7)),
     )
+}
+
+/// A row of an overview, which opens `at` in the navigator, the navigator taking the keys, as a
+/// crumb does.
+pub(super) fn overview_row(
+    id: impl Into<gpui::ElementId>,
+    at: Selection,
+    cx: &Context<Detail>,
+) -> Stateful<Div> {
+    let theme = Theme::get(cx);
+    list_row(id, false, theme).on_click(cx.listener(move |this, _, window, cx| {
+        let at = at.clone();
+        (this.app).update_later(window, cx, move |app, window, cx| {
+            app.select(at, window, cx)
+        })
+    }))
+}
+
+/// How many lanes an overview draws before saying how many more: the navigator lists them all.
+const LANES_SHOWN: usize = 12;
+
+/// A worktree on an overview, drawn as the Branches page draws a branch's lane.
+pub(super) struct Lane {
+    /// What a click on it opens.
+    pub(super) at: Selection,
+    pub(super) glyph: Icon,
+    pub(super) name: String,
+    /// A word on where it stands, in its colour.
+    pub(super) tag: Option<(String, gpui::Hsla)>,
+    /// Its branches, faint.
+    pub(super) branches: String,
+    /// When its commits were made, in seconds since the epoch.
+    pub(super) commits: Vec<i64>,
+    /// When it last changed.
+    pub(super) changed: Option<i64>,
+}
+
+/// An overview's worktrees, `total` of them: the first of `lanes` each with a strip of its
+/// commits a day, shaded against the busiest day of any, and when it last changed; then how
+/// many more there are.
+pub(super) fn worktree_lanes(
+    lanes: impl Iterator<Item = Lane>,
+    total: usize,
+    theme: &Theme,
+    cx: &Context<Detail>,
+) -> Div {
+    let today = upstream::day_of(crate::ui::now());
+    let lanes: Vec<(Lane, Vec<u32>)> = (lanes.take(LANES_SHOWN))
+        .map(|lane| {
+            let days = daily(&lane.commits, today);
+            (lane, days)
+        })
+        .collect();
+    let most = (lanes.iter().flat_map(|(_, days)| days.iter().copied()))
+        .max()
+        .unwrap_or(1)
+        .max(1);
+    let rows = (lanes.into_iter().enumerate()).map(|(ix, (lane, days))| {
+        overview_row(("lane", ix), lane.at, cx)
+            .h_auto()
+            .py(dp(4.))
+            .child(icon(lane.glyph).text_color(theme.text_2))
+            .child(
+                h_flex()
+                    .flex_1()
+                    .flex_grow(2.)
+                    .min_w_0()
+                    .overflow_hidden()
+                    .gap(dp(6.))
+                    .child(div().min_w(dp(40.)).truncate().child(lane.name))
+                    .children(lane.tag.map(|(said, color)| {
+                        div()
+                            .flex_none()
+                            .text_size(dp(11.))
+                            .text_color(color)
+                            .child(said)
+                    }))
+                    .child(faint(lane.branches, theme).min_w_0().truncate()),
+            )
+            .child(day_strip(&days, most, today, theme))
+            .child(age_column(lane.changed, theme))
+    });
+    let said = format!("commits a day, last {ACTIVITY_DAYS} days · last change");
+    v_flex()
+        .gap(dp(6.))
+        .child(overview_heading("Worktrees", faint(said, theme), theme))
+        .children(rows)
+        .children(and_more(total.saturating_sub(LANES_SHOWN), theme))
+}
+
+/// Commits a day over the activity's days up to `today`, oldest first, from their `times` in
+/// seconds; one dated ahead of this machine's clock counts as today.
+fn daily(times: &[i64], today: i64) -> Vec<u32> {
+    let first_day = today - (ACTIVITY_DAYS as i64 - 1);
+    let mut days = vec![0; ACTIVITY_DAYS];
+    for at in times {
+        let day = upstream::day_of(*at).min(today);
+        if let Some(n) = usize::try_from(day - first_day)
+            .ok()
+            .and_then(|ix| days.get_mut(ix))
+        {
+            *n += 1;
+        }
+    }
+    days
+}
+
+/// A lane's strip, as the Branches page draws one: a cell for each of `days` up to `today`,
+/// shaded by how many commits it had against the `most` any lane had, worded on hover.
+/// The cells sit at their share of the strip rather than in a flex row, which costs the
+/// page's layout half as much.
+fn day_strip(days: &[u32], most: u32, today: i64, theme: &Theme) -> Div {
+    let first_day = today - (days.len() as i64 - 1);
+    let count = days.len() as f32;
+    let cells = days.iter().enumerate().map(|(ix, &n)| {
+        let day = first_day + ix as i64;
+        let shade = (n as f32 / most.max(1) as f32).sqrt();
+        div()
+            .id(("lane-day", ix))
+            .absolute()
+            .top_0()
+            .bottom_0()
+            .left(gpui::relative(ix as f32 / count))
+            .right(gpui::relative((count - 1. - ix as f32) / count))
+            .mx(dp(1.))
+            .rounded(dp(2.))
+            .bg(match n {
+                0 => theme.border_3.opacity(0.6),
+                _ => theme.pop.opacity(0.3 + 0.7 * shade),
+            })
+            .tooltip(move |window, cx| {
+                let day = crate::ui::local_weekday(noon(day));
+                Tooltip::text(format!("{day}: {}", plural(n as usize, "commit")))(window, cx)
+            })
+    });
+    div()
+        .relative()
+        .flex_1()
+        .min_w_0()
+        .max_w(dp(360.))
+        .h(dp(14.))
+        .children(cells)
 }
 
 /// The block at the top of a side panel, saying what's selected.

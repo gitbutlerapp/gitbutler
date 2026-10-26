@@ -736,7 +736,12 @@ impl AppView {
         } else {
             2
         };
-        let shown = [self.navigator_open, detail.files_shown(window, cx), true];
+        // A page that's an overview alone has no pane past the navigator to take the keys.
+        let shown = [
+            self.navigator_open,
+            detail.files_shown(window, cx),
+            !detail.overview_only(cx),
+        ];
         let next = |n: usize| (at + if forward { n } else { 3 - n }) % 3;
         match (1..3)
             .map(next)
@@ -744,7 +749,8 @@ impl AppView {
         {
             Some(0) => window.focus(&self.navigator.focus_handle(cx), cx),
             Some(1) => (self.detail).update(cx, |detail, cx| detail.focus_files(window, cx)),
-            _ => (self.detail).update(cx, |detail, cx| detail.focus(window, cx)),
+            Some(_) => (self.detail).update(cx, |detail, cx| detail.focus(window, cx)),
+            None => {}
         }
     }
 
@@ -870,7 +876,8 @@ impl AppView {
             | Selection::Mesh(..)
             | Selection::Branches(_)
             | Selection::History(_)
-            | Selection::Stack(..) => None,
+            | Selection::Stack(..)
+            | Selection::Section(..) => None,
         });
         if let Some(text) = text {
             self.copy_text(text, cx);
