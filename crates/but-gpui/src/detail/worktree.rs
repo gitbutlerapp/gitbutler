@@ -334,8 +334,14 @@ impl Detail {
                 Selection::Uncommitted(project.clone()),
             ),
         };
+        let rests_on = ws.zip(checkout.linked()).and_then(|(ws, name)| {
+            let (branch, from) = ws.beneath(ws.worktree_lane(name)?).next()?.top()?;
+            let at = from.map_or(String::new(), |id| format!(" at {}", id.short()));
+            Some(format!("On {}{at}", store.name_of(project, branch)))
+        });
         let meta = meta_row(theme)
             .child(meta_item(Icon::Branch, theme).child(branch))
+            .children(rests_on.map(|on| meta_item(Icon::Stack, theme).child(on)))
             .children(folder.map(|folder| {
                 meta_item(Icon::Folder, theme)
                     .min_w_0()
