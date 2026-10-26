@@ -386,13 +386,12 @@ pub fn load_workspace(path: &Path, kept: Kept) -> Result<Workspace> {
         None
     });
     let (worktrees, archived_worktrees) = listed.unwrap_or_default();
-    let rested_on: Vec<_> = info.lanes().filter_map(|lane| lane.rests_on).collect();
     let linked_lanes: Vec<Lane> = (worktrees.iter())
         .filter_map(|worktree| {
             let lane = (info.lanes())
                 .find(|lane| lane.worktree.is_some_and(|name| *name == *worktree.name))?;
             Some(Lane {
-                branches: worktree_branches(&ctx, &cached, &lane, &lanes, &rested_on),
+                branches: worktree_branches(&ctx, &cached, &lane, &lanes),
                 checkout: Checkout::Linked(worktree.name.clone()),
                 rests_on: lane.rests_on.map(CommitId),
             })
@@ -493,34 +492,16 @@ fn target(
     Ok((Some(target), None))
 }
 
-/// The branches of a linked worktree's `lane` that are the worktree's own work, and what of the
-/// target's commits other lanes rest on, with their pull requests as the forge cache, `cached`,
-/// has them.
+/// The branches of a linked worktree's `lane` the workspace hasn't applied, with their pull
+/// requests as the forge cache, `cached`, has them.
 fn worktree_branches(
     ctx: &Context,
     cached: &HashMap<u64, but_forge::ForgeReview>,
     lane: &but_workspace::ref_info::Lane<'_>,
     stacks: &[Lane],
-    rested_on: &[gix::ObjectId],
 ) -> Vec<Branch> {
-    use but_workspace::ref_info::LocalCommitRelation as R;
-    let mut past_theirs = false;
     (lane.segments.iter())
         .filter_map(|segment| {
-            // A lane started from a newer target than the workspace's runs on down through
-            // the target's own commits, which aren't the worktree's work. The branch the
-            // worktree's work starts from shows, even with no commits of its own, but not
-            // the target's commits further down that no lane rests on.
-            let theirs = (segment.commits.iter()).position(
-                |commit| matches!(commit.relation, R::Integrated(by) if by == commit.inner.id),
-            );
-            let rested = (segment.commits.iter())
-                .rposition(|commit| rested_on.contains(&commit.inner.id))
-                .map_or(0, |at| at + 1);
-            if past_theirs && rested == 0 {
-                return None;
-            }
-            past_theirs |= theirs.is_some();
             // A detached run of commits has no ref to tell it apart by, and a branch the
             // workspace has applied is listed there.
             let ref_name = segment.ref_name()?.to_string();
@@ -529,11 +510,7 @@ fn worktree_branches(
             {
                 return None;
             }
-            let mut branch = branch_from(ctx, cached, segment);
-            if let Some(theirs) = theirs {
-                branch.commits.truncate(theirs.max(rested));
-            }
-            Some(branch)
+            Some(branch_from(ctx, cached, segment))
         })
         .collect()
 }
@@ -1566,6 +1543,61 @@ history: [agent2, agent1~2]
 
 "#]]
             );
+        })
+    }
+
+    #[test]
+    fn a_worktrees_commits_stay_once_the_target_has_them() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            target_origin_main(path);
+            create_branch(path, Some("beside")).unwrap();
+            crate::backend::settings::set_worktrees_enabled(true).unwrap();
+            let ctx = super::open(path).unwrap();
+            (ctx.db.get_cache_mut().unwrap())
+                .worktree_meta_mut()
+                .mark_adopted()
+                .unwrap();
+            drop(ctx);
+            let outside = tempfile::tempdir().unwrap();
+            let at = outside.path().join("agent");
+            git(
+                path,
+                &["worktree", "add", "-q", "-b", "agent", at.to_str().unwrap()],
+            );
+            for message in ["one", "two"] {
+                git(&at, &["commit", "-q", "--allow-empty", "-m", message]);
+            }
+            let titles = || {
+                let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+                let lane = workspace.worktree_lane("agent").unwrap();
+                (lane.branches.iter())
+                    .flat_map(|branch| &branch.commits)
+                    .map(|commit| commit.title.clone())
+                    .collect::<Vec<_>>()
+            };
+            let tree = git(path, &["rev-parse", "agent^{tree}"]);
+            let merge = git(
+                path,
+                &[
+                    "commit-tree",
+                    tree.trim(),
+                    "-p",
+                    "main",
+                    "-p",
+                    "agent",
+                    "-m",
+                    "Merge",
+                ],
+            );
+            git(
+                path,
+                &["update-ref", "refs/remotes/origin/main", merge.trim()],
+            );
+            assert_eq!(titles(), ["two", "one"], "merged in, as a pull request is");
+            git(path, &["update-ref", "refs/remotes/origin/main", "agent"]);
+            assert_eq!(titles(), ["two", "one"], "fast-forwarded onto");
         })
     }
 }

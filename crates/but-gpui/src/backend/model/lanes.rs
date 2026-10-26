@@ -14,8 +14,7 @@ pub enum Checkout {
 #[derive(Debug, Clone)]
 pub struct Lane {
     /// Branches from the top of the lane down to its base. A linked worktree's run from the
-    /// one checked out down to where it started, without the commits the target already has:
-    /// what was committed in it.
+    /// one checked out down to the workspace's target commit or another lane's commit.
     pub branches: Vec<Branch>,
     pub checkout: Checkout,
     /// The commit in another lane its bottom branch starts from: `None` for a stack, and for a
