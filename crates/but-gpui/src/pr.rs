@@ -542,10 +542,10 @@ pub enum Mergeability {
     AutoMerging,
     /// It can merge now, with a note when checks that aren't required haven't passed.
     Ready(Option<&'static str>),
-    /// It waits on what auto-merge can wait for: required checks or reviews, or catching up
-    /// with the branch it merges into.
-    Waiting(&'static str),
-    /// It can't merge until someone fixes something, like its conflicts.
+    /// It can't merge yet, but auto-merge can wait for it to: for required checks or reviews,
+    /// catching up with the branch it merges into, or its conflicts being resolved.
+    Waiting(String),
+    /// Not even auto-merge can merge it, as a draft or one stacked on another.
     Blocked(String),
     /// The forge hasn't said yet, or couldn't say why, so merging is left to it to refuse.
     Unknown(Option<String>),
@@ -610,14 +610,16 @@ impl Mergeability {
                 Self::Ready(Some("Checks that aren't required haven't passed"))
             }
             (true, _) => Self::Ready(None),
-            (false, Some("blocked")) => Self::Waiting("Waiting on required checks or reviews"),
-            (false, Some("behind")) => Self::Waiting("Behind the branch it merges into"),
+            (false, Some("blocked")) => {
+                Self::Waiting("Waiting on required checks or reviews".into())
+            }
+            (false, Some("behind")) => Self::Waiting("Behind the branch it merges into".into()),
             (false, Some("dirty" | "cannot_be_merged")) => {
-                Self::Blocked("Has conflicts with the branch it merges into".into())
+                Self::Waiting("Has conflicts with the branch it merges into".into())
             }
             (false, Some("draft")) => Self::Blocked("A draft can't merge".into()),
             (false, None | Some("unknown" | "checking" | "unchecked")) => Self::Unknown(None),
-            (false, Some(state)) => Self::Blocked(format!("Can't merge yet ({state})")),
+            (false, Some(state)) => Self::Waiting(format!("Can't merge yet ({state})")),
         }
     }
 
@@ -702,6 +704,8 @@ mod tests {
                 offer(false, status(Some("blocked"), false)),
                 offer(false, status(Some("behind"), false)),
                 offer(false, status(Some("dirty"), false)),
+                offer(false, status(Some("ci_must_pass"), false)),
+                offer(false, status(Some("draft"), false)),
                 offer(false, status(Some("unknown"), false)),
                 offer(false, None),
                 offer(true, status(Some("blocked"), false)),
@@ -712,14 +716,16 @@ mod tests {
                 Some(Offer::Merge),
                 Some(Offer::EnableAutoMerge),
                 Some(Offer::EnableAutoMerge),
+                Some(Offer::EnableAutoMerge),
+                Some(Offer::EnableAutoMerge),
                 None,
                 Some(Offer::Merge),
                 Some(Offer::Merge),
                 Some(Offer::DisableAutoMerge),
                 Some(Offer::DisableAutoMerge),
             ],
-            "merge once it can, auto-merge while it waits on requirements, nothing over \
-             conflicts, and with auto-merge on only turning it off"
+            "merge once it can, auto-merge while it can't however checks or conflicts stand, \
+             nothing for a draft, and with auto-merge on only turning it off"
         );
     }
 

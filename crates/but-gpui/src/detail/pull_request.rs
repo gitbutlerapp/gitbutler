@@ -710,8 +710,7 @@ fn headline(merge: &Mergeability, theme: &Theme) -> (SharedString, Hsla, Option<
             Some("It merges once its required checks and reviews pass".into()),
         ),
         Mergeability::Ready(note) => ("Ready to merge".into(), theme.safe, note.map(Into::into)),
-        Mergeability::Waiting(why) => ((*why).into(), theme.warn, None),
-        // Conflicts among them, which the app draws in warn, never danger.
+        Mergeability::Waiting(why) => (why.clone().into(), theme.warn, None),
         Mergeability::Blocked(why) => (why.clone().into(), theme.warn, None),
         Mergeability::Unknown(None) => {
             ("Checking whether it can merge…".into(), theme.text_3, None)
