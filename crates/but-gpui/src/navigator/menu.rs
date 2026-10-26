@@ -307,8 +307,8 @@ impl Navigator {
                 else {
                     return items;
                 };
-                if let Some(label) = workspace.push_label(ref_name) {
-                    items.push(action(label, &Push));
+                if workspace.push_blocked(ref_name).is_none() {
+                    items.push(action(workspace.push_label(ref_name), &Push));
                 }
                 let linked = store.in_linked(target);
                 if workspace.can_pull(ref_name) {
@@ -605,7 +605,7 @@ impl Navigator {
                     return items;
                 };
                 let top = &top.ref_name;
-                if workspace.can_push(top) && workspace.push_refused(top).is_none() {
+                if workspace.push_blocked(top).is_none() {
                     items.push(
                         action(
                             match workspace.needs_force(top) {

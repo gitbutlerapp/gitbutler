@@ -416,13 +416,7 @@ impl AppView {
         let Some(ws) = self.store.read(cx).workspace(&project) else {
             return;
         };
-        let refused = match ws.can_push(&ref_name) {
-            true => ws.push_refused(&ref_name),
-            // A branch whose ref was deleted, as by `git branch -D`, has commits but no name.
-            false if ref_name.is_empty() => Some("Name the branch first, then push it"),
-            false => Some("Nothing to push yet"),
-        };
-        if let Some(refused) = refused {
+        if let Some(refused) = ws.push_blocked(&ref_name) {
             return snack(&self.store, refused, cx);
         }
         let drops = ws.push_drops(&ref_name);

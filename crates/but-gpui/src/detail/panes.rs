@@ -836,7 +836,8 @@ impl Detail {
                 .children(conflicted_note(conflicted, theme)),
         });
         let target = Selection::Branch(project.clone(), ref_name.to_owned());
-        let push = (ws.push_label(ref_name)).map(|label| {
+        let push = (ws.push_blocked(ref_name).is_none()).then(|| {
+            let label = ws.push_label(ref_name);
             button("header-push", label)
                 .small()
                 .dispatch(&crate::app::Push)

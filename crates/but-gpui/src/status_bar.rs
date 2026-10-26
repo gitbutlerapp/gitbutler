@@ -251,9 +251,7 @@ impl AppView {
                 }
                 Some(Selection::Branch(project, ref_name)) => {
                     let workspace = store.workspace(project);
-                    let push = workspace.is_some_and(|ws| {
-                        ws.can_push(ref_name) && ws.push_refused(ref_name).is_none()
-                    });
+                    let push = workspace.is_some_and(|ws| ws.push_blocked(ref_name).is_none());
                     let review = (workspace.and_then(|ws| ws.find_branch(ref_name)))
                         .is_some_and(|branch| branch.review.is_some());
                     (push.then_some((&Push as &dyn Action, "push")).into_iter())
