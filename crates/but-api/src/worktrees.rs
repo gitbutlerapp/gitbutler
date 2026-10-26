@@ -18,7 +18,7 @@ use but_core::{
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::worktrees::WorktreeEntry;
-use but_workspace::worktrees::open_worktree_repo;
+use but_workspace::worktrees::{WorktreeBranch, open_worktree_repo};
 use gix::bstr::{BStr, BString, ByteSlice};
 use serde::Serialize;
 use tracing::instrument;
@@ -389,7 +389,16 @@ pub fn worktree_new_at_base_with_perm(
         &root,
         slug,
         || uuid::Uuid::new_v4().simple().to_string()[..8].to_owned(),
-        |path| but_workspace::worktrees::add(&repo, path, ref_name.as_ref(), base),
+        |path| {
+            but_workspace::worktrees::add(
+                &repo,
+                path,
+                WorktreeBranch::New {
+                    name: ref_name.as_ref(),
+                    base,
+                },
+            )
+        },
     )?;
     let path = gix::path::realpath(&path)?;
     drop((repo, ws, db));
