@@ -190,7 +190,7 @@ pub enum SchemaVersion {
     ///
     /// Branch-order names are BLOBs. Earlier binaries read them as UTF-8 strings and must
     /// reject the database rather than fail while loading or changing reference metadata.
-    /// 
+    ///
     /// *Note:* that this is just to keep commits standalone, as it's very likely that this
     /// gets released with `One`. The effect is the same.
     Two = 2,

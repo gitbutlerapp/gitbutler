@@ -98,7 +98,7 @@ fn chains_preserve_terminal_parents_without_rows_and_sort_by_tip() -> anyhow::Re
             .collect::<Vec<_>>(),
         "restored chains preserve terminal parents and singletons and are sorted by tip"
     );
-    let mut expected = snapshot.clone();
+    let mut expected = snapshot;
     expected
         .entries
         .sort_by(|left, right| left.branch_ref_name.cmp(&right.branch_ref_name));
