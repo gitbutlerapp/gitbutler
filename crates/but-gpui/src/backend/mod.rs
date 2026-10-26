@@ -1119,10 +1119,7 @@ fn ambiguous_target(err: &anyhow::Error) -> Option<&gix::refs::FullName> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TargetChoice {
     pub remote: String,
-    /// The one named as the remote's branch first, as main is for origin/main.
     pub branches: Vec<String>,
-    /// Whether the first of `branches` is named as the remote's branch.
-    pub named: bool,
 }
 
 /// What to choose when the project at `path` has `target`, a target several local branches
@@ -1135,21 +1132,14 @@ fn target_choice(path: &Path, target: &gix::refs::FullName) -> Option<TargetChoi
             .and_then(Result::ok)
             .is_some_and(|upstream| upstream.as_ref() == target.as_ref())
     };
-    let mut branches: Vec<String> = (references.local_branches().ok()?)
+    let branches = (references.local_branches().ok()?)
         .filter_map(Result::ok)
         .filter(|branch| tracks(branch.name()))
         .map(|branch| branch.name().shorten().to_string())
         .collect();
-    let remote = target.shorten().to_string();
-    let own = remote
-        .split_once('/')
-        .map_or(remote.as_str(), |(_, name)| name);
-    branches.sort_by_key(|name| (name != own, name.clone()));
-    let named = branches.first().is_some_and(|name| name == own);
     Some(TargetChoice {
-        remote,
+        remote: target.shorten().to_string(),
         branches,
-        named,
     })
 }
 

@@ -933,6 +933,30 @@ mod project_meta {
     }
 
     #[test]
+    fn tracking_lookup_prefers_branch_named_as_on_remote() -> anyhow::Result<()> {
+        let mut repo = repo()?;
+        {
+            let mut config = repo.config_snapshot_mut();
+            config.set_raw_value("branch.main.merge", "refs/heads/other")?;
+            config.set_raw_value("branch.other.remote", "origin")?;
+            config.set_raw_value("branch.other.merge", "refs/heads/other")?;
+        }
+        let actual = but_core::ref_metadata::find_local_tracking_branch(
+            "refs/remotes/origin/other".try_into()?,
+            &repo,
+        )?;
+        assert_eq!(
+            actual,
+            but_core::ref_metadata::LocalTrackingBranchMatch::Unique(LocalRefName::new(
+                "refs/heads/other".try_into()?
+            )?),
+            "of the branches tracking origin/other, local other is its counterpart, \
+             even though main is found first"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn resolve_local_target_accepts_local_name_without_lookup() -> anyhow::Result<()> {
         let repo = repo()?;
         let name: &gix::refs::FullNameRef = "refs/heads/not-created".try_into()?;

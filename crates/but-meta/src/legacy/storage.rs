@@ -28,9 +28,9 @@ struct LegacyTarget {
 
 /// Read the project metadata that older versions stored in `virtual_branches.toml` without
 /// opening or migrating the project database.
-/// Legacy remote targets must resolve to exactly one local tracking branch in `repo`.
-/// If no local branch or multiple local branches track it, the [`UnresolvedLegacyTargetRefError`]
-/// carries the stored cutoff and push remote.
+/// Legacy remote targets must resolve to a local tracking branch in `repo`, as
+/// [`but_core::ref_metadata::resolve_local_target`] does. If no local branch or multiple local
+/// branches match, the [`UnresolvedLegacyTargetRefError`] carries the stored cutoff and push remote.
 pub fn read_legacy_project_meta(
     path: &Path,
     repo: &gix::Repository,

@@ -67,6 +67,86 @@ fn json_mode_is_silent_but_marks_complete() {
         .stdout_eq(snapbox::str![]);
 }
 
+// Branches made from origin/main, like with `git worktree add -b <name> <path> origin/main`, track
+// it too, but main is named as the branch on the remote, so it's the one to migrate to.
+#[cfg(feature = "legacy")]
+#[test]
+fn migration_to_local_target_ref_picks_tracking_branch_named_as_on_remote() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    // you cannot set the target ref to origin/main with `but config target origin/main`
+    // so to emulate a legacy project we have to write the git config values directly
+    env.invoke_git("config gitbutler.project.targetRef refs/remotes/origin/main");
+    let target_commit_id = env.invoke_git("rev-parse origin/main");
+    env.invoke_git(&format!(
+        "config gitbutler.project.targetCommitId {target_commit_id}"
+    ));
+    env.invoke_git("config gitbutler.project.portedMeta true");
+
+    // found before main, as it sorts first
+    env.invoke_git("branch --track agent-worktree origin/main");
+
+    // main is the target, so it isn't listed as a branch in the workspace
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn migration_from_virtual_branches_toml_picks_tracking_branch_named_as_on_remote() {
+    let env = Sandbox::open_with_default_settings("single-branch-mode");
+
+    let target_commit_id = env.invoke_git("rev-parse origin/main");
+    let gitbutler_dir = env.projects_root().join(".git/gitbutler");
+    std::fs::create_dir_all(&gitbutler_dir).unwrap();
+    std::fs::write(
+        gitbutler_dir.join("virtual_branches.toml"),
+        format!(
+            "[default_target]\nremoteName = 'origin'\nbranchName = 'main'\nsha = '{target_commit_id}'\n"
+        ),
+    )
+    .unwrap();
+
+    // found before main, as it sorts first
+    env.invoke_git("branch --track agent-worktree origin/main");
+
+    // main is the target, so it isn't listed as a branch in the workspace
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄ @ [uncommitted] (no changes)
+┊
+┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
+
+Hint: run `but branch new` to create a new branch to work on
+
+"#]]);
+
+    assert_eq!(
+        env.invoke_git("config gitbutler.project.targetRef"),
+        "refs/heads/main",
+        "porting picks the branch named as on the remote over another tracking it"
+    );
+}
+
+/// Make `trunk` and `agent-worktree` track `origin/main`, so none of the branches tracking it is
+/// named as the branch on the remote.
+#[cfg(feature = "legacy")]
+fn tracking_branches_not_named_as_on_remote(env: &Sandbox) {
+    env.invoke_git("branch -m main trunk");
+    env.invoke_git("branch --track agent-worktree origin/main");
+}
+
 #[cfg(feature = "legacy")]
 #[test]
 fn migration_to_local_target_ref_with_multiple_tracking_branches() {
@@ -81,8 +161,7 @@ fn migration_to_local_target_ref_with_multiple_tracking_branches() {
     ));
     env.invoke_git("config gitbutler.project.portedMeta true");
 
-    // create a second branch that also tracks origin/main
-    env.invoke_git("branch --track main-tracking origin/main");
+    tracking_branches_not_named_as_on_remote(&env);
 
     env.but("status")
         .assert()
@@ -94,7 +173,7 @@ Hint: Choose a local target branch with `but config target <branch>`
 
 "#]]);
 
-    env.but("config target main").assert().success();
+    env.but("config target trunk").assert().success();
 
     env.but("status")
         .assert()
@@ -102,7 +181,7 @@ Hint: Choose a local target branch with `but config target <branch>`
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
+┴ b1540e5 (common base, origin/main) 2000-01-02 M
 
 Hint: run `but branch new` to create a new branch to work on
 
@@ -127,8 +206,7 @@ fn migration_from_virtual_branches_toml_with_multiple_tracking_branches() {
     )
     .unwrap();
 
-    // create a second branch that also tracks origin/main
-    env.invoke_git("branch --track main-tracking origin/main");
+    tracking_branches_not_named_as_on_remote(&env);
 
     env.but("status")
         .assert()
@@ -140,7 +218,7 @@ Hint: Choose a local target branch with `but config target <branch>`
 
 "#]]);
 
-    env.but("config target main").assert().success();
+    env.but("config target trunk").assert().success();
 
     env.but("status")
         .assert()
@@ -148,7 +226,7 @@ Hint: Choose a local target branch with `but config target <branch>`
         .stdout_eq(snapbox::str![[r#"
 ╭┄ @ [uncommitted] (no changes)
 ┊
-┴ b1540e5 (common base, main, origin/main, HEAD) 2000-01-02 M
+┴ b1540e5 (common base, origin/main) 2000-01-02 M
 
 Hint: run `but branch new` to create a new branch to work on
 
