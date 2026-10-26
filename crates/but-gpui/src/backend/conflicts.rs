@@ -47,7 +47,23 @@ pub fn resolve(
             },
         })
         .collect();
-    let outcome = resolve::resolve_commit_conflict_hunks(&mut open(path)?, commit.0, specs)?;
+    let mut ctx = open(path)?;
+    // Rewriting the commit checks the workspace out again, which Git can't do over a file a
+    // merge left conflicted, and Git's own words for that name none.
+    {
+        let repo = ctx.repo.get()?;
+        let index = repo.index_or_empty()?;
+        if let Some(entry) = (index.entries().iter())
+            .find(|entry| entry.stage() != gix::index::entry::Stage::Unconflicted)
+        {
+            anyhow::bail!(
+                "Resolve the conflicts in {} first: applying checks the workspace out again, \
+                 which Git can't do over a conflicted file",
+                entry.path(&index)
+            );
+        }
+    }
+    let outcome = resolve::resolve_commit_conflict_hunks(&mut ctx, commit.0, specs)?;
     let mut rewrites = rewritten(&outcome.workspace);
     rewrites.insert(commit, CommitId(outcome.new_commit));
     let remaining = (outcome.remaining.iter())
