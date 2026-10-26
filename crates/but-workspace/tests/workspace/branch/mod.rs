@@ -1,5 +1,6 @@
 /// Various journeys with apply and unapply operations.
 mod apply_unapply;
+mod apply_unapply_stack;
 mod create_reference;
 mod integrate_branch_upstream;
 mod move_branch;

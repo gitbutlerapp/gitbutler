@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use anyhow::{Context as _, bail};
 use but_core::{
     ObjectStorageExt, RefMetadata, RepositoryExt, ref_metadata,
@@ -10,7 +12,9 @@ use but_core::{
     WORKSPACE_REF_NAME,
     ref_metadata::{StackId, StackKind},
 };
+use but_error::bail_precondition;
 use but_graph::{SegmentIndex, init::Overlay, petgraph::Direction, workspace::WorkspaceKind};
+use but_rebase::graph_rebase::{Editor, LookupStep as _, Pick, Step};
 use gix::{
     prelude::ObjectIdExt,
     reference::Category,
@@ -26,6 +30,7 @@ use crate::{
     WorkspaceCommit,
     branch::{anon_stacks, ensure_no_missing_stacks},
     commit::merge::Tip,
+    editor_workspace::{ensure_workspace_commit, switch_to_workspace},
     ref_info::WorkspaceExt,
 };
 
@@ -159,6 +164,219 @@ pub struct Options {
     /// into a workspace with only `foo` applied, regardless which branches were previously
     /// applied.
     pub allow_applying_already_applied_branch_when_outside_workspace: bool,
+}
+
+/// Ensure that `branch` is a parent of the workspace commit.
+///
+/// If there is no workspace commit, one is first created with `HEAD` as its parent.
+///
+/// For each parent of the workspace commit P, `target..branch` must have no commits in common with
+/// `target..P`.
+///
+/// If `branch` is a remote-tracking branch, its local tracking branch is applied instead. If that
+/// doesn't exist, it's created at the remote-tracking commit along with its tracking configuration,
+/// but only once the workspace was changed.
+#[instrument(skip(workspace, repo, meta, db), err(Debug))]
+pub fn apply_stack(
+    branch: &FullNameRef,
+    mut workspace: but_graph::Workspace,
+    repo: &gix::Repository,
+    meta: &mut impl RefMetadata,
+    db: &mut but_db::DbHandle,
+) -> anyhow::Result<Outcome> {
+    let (branch, remote_tracking_branch) = if branch.category() == Some(Category::RemoteBranch) {
+        // Symbolic ones, `origin/HEAD` say, would make a local branch of the name they point through.
+        if try_find_validated_ref(repo, branch, "apply")?.is_none() {
+            bail!("Cannot apply non-existing branch '{}'", branch.shorten());
+        }
+        let Some((local_tracking_branch, _remote)) =
+            repo.upstream_branch_and_remote_for_tracking_branch(branch)?
+        else {
+            bail_precondition!("Couldn't find remote refspecs that would match '{branch}'");
+        };
+        (local_tracking_branch, Some(branch))
+    } else if branch.category() == Some(Category::LocalBranch) {
+        (branch.to_owned(), None)
+    } else {
+        bail_precondition!("Can only apply local or remote-tracking branches, got '{branch}'");
+    };
+    let branch = branch.as_ref();
+
+    let target = workspace
+        .target_commit
+        .as_ref()
+        .map(|target_commit| target_commit.commit_id);
+
+    let editor = Editor::create(&mut workspace, meta, repo, db)?;
+    // If HEAD was not a parent of the workspace commit, it needs to be reported as applied. This
+    // duplicates some of the work in ensure_workspace_commit/switch_to_workspace. Figure out if
+    // this can be moved there.
+    let mut applied_branches: Vec<gix::refs::FullName> = repo
+        .head_name()?
+        .filter(|head| {
+            head.as_bstr() != WORKSPACE_REF_NAME
+                && Some(head.as_ref()) != editor.target_ref()
+                && head.as_ref() != branch
+        })
+        .iter()
+        .cloned()
+        .collect();
+
+    let ((rebase, workspace_commit), workspace_commit_created) = match editor.workspace_reference()
+    {
+        Some(workspace_reference) => {
+            let workspace_commit_was_missing =
+                editor.workspace_commit(workspace_reference).is_none();
+            (
+                ensure_workspace_commit(editor, workspace_reference)?,
+                workspace_commit_was_missing,
+            )
+        }
+        None => (switch_to_workspace(editor)?, true),
+    };
+    let mut editor = rebase.into_editor();
+
+    // Written once materializing created the local tracking branch it configures.
+    let mut tracking_config = None;
+
+    // `branch_selector` needs to be Option because until we know that we are actually applying
+    // something, we don't want to create one if it doesn't already exists.
+    let (branch_selector, branch_commit_selector, branch_commit_id) = match editor
+        .try_select_reference(branch)
+    {
+        Some(branch_selector) => {
+            let (branch_commit_selector, branch_commit) =
+                editor.find_commit_target(branch_selector)?;
+            (
+                Some(branch_selector),
+                branch_commit_selector,
+                branch_commit.id,
+            )
+        }
+        None => {
+            let branch_commit_id = match (repo.try_find_reference(branch)?, remote_tracking_branch)
+            {
+                (Some(mut reference), _) => reference.peel_to_commit()?.id,
+                (None, Some(remote_tracking_branch)) => {
+                    let (config, remote_tracking_commit_id) =
+                        setup_local_tracking_configuration(repo, branch, remote_tracking_branch)?;
+                    tracking_config = Some(config);
+                    remote_tracking_commit_id
+                }
+                (None, None) => {
+                    bail!("Cannot apply non-existing branch '{}'", branch.shorten())
+                }
+            };
+            let branch_commit_selector = match editor.try_select_commit(branch_commit_id) {
+                Some(branch_commit_selector) => branch_commit_selector,
+                None => {
+                    // The branch is outside of the graph the editor knows, so keep its history as is.
+                    let mut pick = Pick::new_pick(branch_commit_id);
+                    pick.preserved_parents =
+                        Some(editor.find_commit(branch_commit_id)?.parents.to_vec());
+                    pick.mutable = false;
+                    editor.add_step(Step::Pick(pick))?
+                }
+            };
+            // The reference is only added once the branch becomes a lane, so a local tracking
+            // branch isn't created for nothing.
+            (None, branch_commit_selector, branch_commit_id)
+        }
+    };
+    let commits_in_branch = commits_in(editor.repo(), branch_commit_id, target)?;
+    let already_applied = 'already_applied: {
+        if commits_in_branch.is_empty() {
+            break 'already_applied true;
+        }
+        for (parent_selector, _order) in editor.direct_parents(workspace_commit)? {
+            if editor.find_commit_target(parent_selector)?.0 == branch_commit_selector {
+                break 'already_applied true;
+            }
+        }
+        false
+    };
+    if already_applied {
+        // Branch is already applied, perhaps through ensure_workspace_commit() or
+        // switch_to_workspace() (or even before this function was invoked)
+        if workspace_commit_created {
+            editor.rebase()?.materialize(Default::default())?;
+        }
+        return Ok(Outcome {
+            workspace,
+            status: if workspace_commit_created {
+                OutcomeStatus::Applied
+            } else {
+                OutcomeStatus::AlreadyApplied
+            },
+            applied_branches,
+            conflicting_stacks: Vec::new(),
+        });
+    }
+
+    // Check for empty branches and overlaps
+    let mut empty_parents = Vec::new();
+    for (parent_selector, _order) in editor.direct_parents(workspace_commit)? {
+        let parent_commit_id = editor.find_commit_target(parent_selector)?.1.id;
+        if Some(parent_commit_id) == target {
+            empty_parents.push(parent_selector);
+            continue;
+        }
+        let overlap: Vec<gix::ObjectId> = commits_in_branch
+            .intersection(&commits_in(editor.repo(), parent_commit_id, target)?)
+            .copied()
+            .collect();
+        if !overlap.is_empty() {
+            let parent_label = match editor.lookup_step(parent_selector)? {
+                Step::Reference { refname, .. } => format!("'{}'", refname.shorten()),
+                Step::Pick(_) | Step::None => {
+                    let (_, commit) = editor.find_commit_target(parent_selector)?;
+                    commit.id.to_hex_with_len(7).to_string()
+                }
+            };
+            bail_precondition!(
+                "Cannot apply '{}' as it overlaps with {parent_label}",
+                branch.shorten()
+            );
+        }
+    }
+
+    let branch_selector = match branch_selector {
+        Some(branch_selector) => branch_selector,
+        None => {
+            let branch_selector = editor.add_step(Step::new_reference(branch.to_owned()))?;
+            editor.add_edge(branch_selector, branch_commit_selector, 0)?;
+            branch_selector
+        }
+    };
+    editor.insert_parent(workspace_commit, branch_selector, None)?;
+    for empty_parent in empty_parents {
+        editor.remove_edges(workspace_commit, empty_parent)?;
+    }
+    editor.rebase()?.materialize(Default::default())?;
+    if let Some(config) = tracking_config {
+        config.commit()?;
+    }
+    applied_branches.push(branch.to_owned());
+
+    Ok(Outcome {
+        workspace,
+        status: OutcomeStatus::Applied,
+        applied_branches,
+        conflicting_stacks: Vec::new(),
+    })
+}
+
+/// The commits reachable from `tip` but not from `target` (if specified).
+fn commits_in(
+    repo: &gix::Repository,
+    tip: gix::ObjectId,
+    target: Option<gix::ObjectId>,
+) -> anyhow::Result<BTreeSet<gix::ObjectId>> {
+    let mut revwalk = tip.attach(repo).ancestors();
+    if target.is_some() {
+        revwalk = revwalk.with_hidden(target);
+    }
+    revwalk.all()?.map(|info| Ok(info?.id)).collect()
 }
 
 /// Apply `branch` to the given `workspace`, and possibly create the workspace reference in `repo`
