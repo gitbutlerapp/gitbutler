@@ -1058,9 +1058,9 @@ impl Detail {
         )];
         match from {
             None => {
-                let conflicted: Vec<String> = (files.iter())
+                let conflicted: Vec<bstr::BString> = (files.iter())
                     .filter(|f| f.file.conflicted)
-                    .map(|f| f.file.path.clone())
+                    .map(|f| f.file.change.path.clone())
                     .collect();
                 if !conflicted.is_empty() {
                     let (project, worktree) = (project.clone(), worktree.clone());

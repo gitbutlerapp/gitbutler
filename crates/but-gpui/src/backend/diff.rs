@@ -39,7 +39,7 @@ pub fn commit_paths(path: &Path, commits: &[CommitId]) -> Result<Vec<(CommitId, 
 pub fn blame_lines(
     path: &Path,
     tip: CommitId,
-    file: &str,
+    file: &BStr,
     lines: &[u32],
 ) -> Result<HashMap<CommitId, String>> {
     let ctx = open(path)?;
@@ -51,13 +51,13 @@ pub fn blame_lines(
         rewrites: Some(Default::default()),
         ..Default::default()
     };
-    let blame = repo.blame_file(file.as_bytes().as_bstr(), tip.0, options)?;
+    let blame = repo.blame_file(file, tip.0, options)?;
     Ok((blame.entries.iter())
         .map(|e| {
             let named = e.source_file_name.as_ref().map(|name| name.to_string());
             (
                 CommitId(e.commit_id),
-                named.unwrap_or_else(|| file.to_owned()),
+                named.unwrap_or_else(|| file.to_string()),
             )
         })
         .collect())
@@ -1137,7 +1137,8 @@ mod tests {
             git(path, &["commit", "-q", "-am", "edit"]);
             let edit = head(path);
 
-            let blame = |lines: &[u32]| super::blame_lines(path, edit, "moved", lines).unwrap();
+            let blame =
+                |lines: &[u32]| super::blame_lines(path, edit, "moved".into(), lines).unwrap();
             assert_eq!(
                 blame(&[2]),
                 HashMap::from([(edit, "moved".to_owned())]),

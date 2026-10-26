@@ -29,10 +29,10 @@ impl Detail {
         let DiffSource::Range { newest, .. } = diff.key.source else {
             return None;
         };
+        let file = diff.files.iter().find(|f| f.file.path == path)?;
         let (label, lines) = match blamed {
             Blamed::Line(line) => ("Show line's last commit", vec![line]),
             Blamed::Hunk(key) => {
-                let file = diff.files.iter().find(|f| f.file.path == path)?;
                 let hunk = file.hunks().iter().find(|h| h.key == key)?;
                 let added = (hunk.lines.iter())
                     .filter(|line| line.kind == LineKind::Added)
@@ -45,7 +45,7 @@ impl Detail {
         }
         let (project, path, entity) = (
             diff.key.project.clone(),
-            path.to_owned(),
+            file.file.change.path.clone(),
             cx.entity().downgrade(),
         );
         Some(MenuItem::new(label, move |_, _, cx| {
@@ -65,7 +65,7 @@ impl Detail {
         &mut self,
         project: ProjectId,
         tip: CommitId,
-        path: String,
+        path: bstr::BString,
         lines: Vec<u32>,
         cx: &mut Context<Self>,
     ) {
@@ -73,7 +73,7 @@ impl Detail {
             return;
         };
         let asked = self.selection(cx);
-        let blamed = backend::run(move || backend::blame_lines(&repo, tip, &path, &lines));
+        let blamed = backend::run(move || backend::blame_lines(&repo, tip, path.as_ref(), &lines));
         cx.spawn(async move |this, cx| {
             let blamed = blamed.await;
             this.update(cx, |this, cx| {

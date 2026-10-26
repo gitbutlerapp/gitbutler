@@ -1116,9 +1116,8 @@ fn current_hunks(
 }
 
 /// Take the conflicted uncommitted `files` as they are on disk, markers or not.
-pub fn mark_resolved(path: &Path, worktree: Option<&str>, files: Vec<String>) -> Result<()> {
+pub fn mark_resolved(path: &Path, worktree: Option<&str>, paths: Vec<bstr::BString>) -> Result<()> {
     let mut ctx = open(path)?;
-    let paths = files.into_iter().map(Into::into).collect();
     // Undo can't restore a linked worktree, or a commit checked out for editing, so neither
     // is recorded.
     if worktree.is_some() || super::edit::editing(&ctx)?.is_some() {
