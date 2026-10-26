@@ -2052,7 +2052,8 @@ off the target
     "reference": "refs/heads/wt-outside",
     "base": {
       "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
-      "inWorkspace": false
+      "inWorkspace": false,
+      "behind": 0
     },
     "uncommittedChanges": [],
     "branches": [

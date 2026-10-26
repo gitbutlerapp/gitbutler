@@ -73,6 +73,10 @@ pub struct WorktreeBase {
     /// Whether that commit belongs to one of the workspace stacks, as opposed to being at or
     /// below the target
     pub in_workspace: bool,
+    /// How many commits of the target tip that commit lacks, omitted when it is inside the
+    /// workspace
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub behind: Option<usize>,
 }
 
 /// Represents the state of the upstream branch compared to the merge base
@@ -653,6 +657,10 @@ fn build_worktrees_json(
                     base,
                     but_workspace::worktrees::WorktreeBase::InWorkspace(_)
                 ),
+                behind: status_ctx
+                    .worktrees_behind_target
+                    .get(&worktree.name)
+                    .copied(),
             }),
             uncommitted_changes: convert_uncommitted_files(
                 &files,

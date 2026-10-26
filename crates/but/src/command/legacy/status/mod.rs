@@ -15,6 +15,7 @@ use but_graph::SegmentIndex;
 use but_workspace::{
     ref_info::{Commit, LocalCommit, LocalCommitRelation, Segment},
     ui::PushStatus,
+    worktrees::WorktreeBase,
 };
 use gitbutler_operating_modes::OperatingMode;
 use gix::date::time::CustomFormat;
@@ -269,6 +270,9 @@ struct StatusContext {
     /// The active linked worktrees with the commits they own, empty unless the
     /// `worktreeManipulation` flag is on.
     worktrees: Vec<but_workspace::worktrees::WorktreeInfo>,
+    /// How many commits of the target tip each worktree resting outside the workspace lacks,
+    /// by worktree name.
+    worktrees_behind_target: HashMap<BString, usize>,
     /// Symbolic HEAD of the checkout where status was invoked.
     head_ref: Option<gix::refs::FullName>,
     /// Uncommitted files with unresolved merge conflicts in the index; not committable until resolved.
@@ -753,6 +757,13 @@ fn build_status_context(
         .as_ref()
         .filter(|base_branch| base_branch.remote_name.is_some())
         .and_then(|base_branch| base_branch.current_sha);
+    let worktrees_behind_target = worktrees_behind_target(
+        &*ctx.repo.get()?,
+        &worktrees,
+        base_branch
+            .as_ref()
+            .and_then(|base_branch| base_branch.current_sha),
+    )?;
 
     let is_paged = out.is_paged();
     let should_truncate_for_terminal = truncation_policy(format, &render_mode, is_paged);
@@ -763,6 +774,7 @@ fn build_status_context(
         worktree_changes: worktree_changes.worktree_changes.changes,
         changes_by_source,
         worktrees,
+        worktrees_behind_target,
         conflicted_paths,
         common_merge_base_data,
         target_cutoff_id: resolved_target.as_ref().map(|target| target.oid()),
@@ -787,6 +799,34 @@ fn build_status_context(
         remote_commits_by_id,
         base_branch,
     })
+}
+
+/// How many commits of `target_tip` each of `worktrees` resting outside the workspace lacks, by
+/// worktree name, measured against the tip `but pull` rebases them onto.
+fn worktrees_behind_target(
+    repo: &gix::Repository,
+    worktrees: &[but_workspace::worktrees::WorktreeInfo],
+    target_tip: Option<gix::ObjectId>,
+) -> anyhow::Result<HashMap<BString, usize>> {
+    let Some(target_tip) = target_tip else {
+        return Ok(HashMap::new());
+    };
+    worktrees
+        .iter()
+        .filter_map(|worktree| match worktree.base? {
+            WorktreeBase::Outside(base) => Some((worktree, base)),
+            WorktreeBase::InWorkspace(_) => None,
+        })
+        .map(|(worktree, base)| {
+            let behind = repo
+                .rev_walk([target_tip])
+                .with_hidden([base])
+                .all()?
+                .collect::<Result<Vec<_>, _>>()?
+                .len();
+            Ok((worktree.name.clone(), behind))
+        })
+        .collect()
 }
 
 /// Decide if status text should be pre-truncated for terminal output.
@@ -890,6 +930,11 @@ fn print_hint(
         shown_situational_hint = true;
     }
 
+    if let Some(hint) = worktrees_behind_hint(status_ctx) {
+        output.hint(Vec::from([Span::styled(hint, crate::theme::get().hint)]))?;
+        shown_situational_hint = true;
+    }
+
     let hint_text = if status_ctx.common_merge_base_data.is_none() {
         Some("Hint: run `but commit` to create the initial commit")
     } else if has_merged_upstream_branch {
@@ -918,6 +963,33 @@ fn print_hint(
     }
 
     Ok(())
+}
+
+/// Name the worktrees `but pull` would rebase onto the target tip they lack commits of.
+fn worktrees_behind_hint(status_ctx: &StatusContext) -> Option<String> {
+    let base_branch = status_ctx.base_branch.as_ref()?;
+    let names: Vec<_> = status_ctx
+        .worktrees
+        .iter()
+        .filter(|worktree| {
+            worktree.rebasable_base().is_some()
+                && status_ctx
+                    .worktrees_behind_target
+                    .get(&worktree.name)
+                    .is_some_and(|behind| *behind > 0)
+        })
+        .map(|worktree| worktree.name.to_string())
+        .collect();
+    let (verb, object) = match names.len() {
+        0 => return None,
+        1 => ("is", "it"),
+        _ => ("are", "them"),
+    };
+    Some(format!(
+        "Hint: {} {verb} behind {}; run `but pull` to update {object}",
+        names.join(", "),
+        base_branch.branch_name
+    ))
 }
 
 fn should_explain_rewritten_commit_marker(status_ctx: &StatusContext) -> bool {
@@ -1430,11 +1502,48 @@ fn print_worktree_lane(
         LaneOpening::RowAbove,
         output,
     )?;
-    output.connector(in_lane(depth, [Span::raw("├╯")]))?;
+    output.connector(in_lane(
+        depth,
+        std::iter::once(Span::raw("├╯")).chain(worktree_base_label(status_ctx, &repo, worktree)),
+    ))?;
     if separator == Some(LaneSeparator::Below) {
         output.between_stacks(in_lane(depth, [Span::raw("┊")]))?;
     }
     Ok(())
+}
+
+/// The commit a worktree lane rests on and how it relates to the target tip, empty when that
+/// commit is the common base the lane appears to join.
+fn worktree_base_label(
+    status_ctx: &StatusContext,
+    repo: &gix::Repository,
+    worktree: &but_workspace::worktrees::WorktreeInfo,
+) -> Vec<Span<'static>> {
+    let (Some(WorktreeBase::Outside(base)), Some(behind), Some(base_branch)) = (
+        worktree.base,
+        status_ctx.worktrees_behind_target.get(&worktree.name),
+        &status_ctx.base_branch,
+    ) else {
+        return Vec::new();
+    };
+    if status_ctx
+        .common_merge_base_data
+        .as_ref()
+        .is_some_and(|common_base| common_base.commit_id == base)
+    {
+        return Vec::new();
+    }
+    let target = &base_branch.branch_name;
+    let relation = match behind {
+        0 => target.clone(),
+        1 => format!("1 commit behind {target}"),
+        n => format!("{n} commits behind {target}"),
+    };
+    Vec::from([
+        Span::raw(" "),
+        Span::styled(shorten_object_id(repo, base), crate::theme::get().hint),
+        Span::raw(format!(" ({relation})")),
+    ])
 }
 
 /// The extra `┊` lanes drawn to the left of a line, one per enclosing linked-worktree lane.
