@@ -256,42 +256,11 @@ To build or test against a resolution, use edit mode instead (`but resolve <comm
 files, `but resolve finish`). Edit mode needs `gitbutler/workspace` and is refused while a single
 branch is checked out.
 
-## Example 7: Complete Feature Development Workflow
+## Example 7: After a Pull Request Is Merged
 
-**Scenario:** Building a complete feature from start to finish.
+**Scenario:** The PR for `user-dashboard` was merged on the forge.
 
 ```bash
-# 1. Update to latest
-but pull
-
-# 2. Create branch for feature
-but branch new user-dashboard
-
-# 3. Make initial changes
-# (create dashboard.js, add routes)
-
-# 4. Check status and gather file IDs
-but status -fv
-
-# 5. First commit
-but commit -b user-dashboard -m "Add dashboard route and basic layout" <file-ids>
-
-# 6. Continue iterating
-# (add widgets, styling)
-but commit -b user-dashboard -m "Add dashboard widgets" <file-ids>
-but commit -b user-dashboard -m "Style dashboard components" <file-ids>
-
-# 7. Make small fix
-# (fix typo in widget)
-but amend -t <commit-id> a1    # Amend fix into the commit it belongs to
-
-# 8. Clean up if needed
-but squash user-dashboard -m "Add user dashboard"    # Combine all commits (optional)
-
-# 9. Create pull request (auto-pushes the branch)
-but pr new user-dashboard -m "Add user dashboard"
-
-# 10. After PR is merged, update
 but pull --check                # is user-dashboard listed as [integrated]?
 but unapply user-dashboard      # only if it is not: `but pull` would rebase it instead
 but pull
@@ -359,47 +328,7 @@ but squash mm -t nn -u    # Combine error handling commits; -u keeps nn's messag
 but push feature-x
 ```
 
-## Example 10: Daily Development Workflow
-
-**Typical day working with GitButler:**
-
-```bash
-# Morning: Start day
-but pull    # Get latest from team
-
-# Start new task
-but branch new fix-auth-bug  # Create branch for today's work
-
-# Work and commit iteratively
-# (make changes)
-but status -fv              # Check changes
-but commit -b fix-auth-bug -m "Identify auth bug source" <file-ids>
-# (make more changes)
-but commit -b fix-auth-bug -m "Fix token expiration handling" <file-ids>
-# (small fix to existing code)
-but amend -t <commit-id> a1  # Amend fix into the commit it belongs to
-
-# Mid-day: Start urgent fix on different branch
-but branch new hotfix-login  # Parallel branch for urgent work
-# (make fix)
-but commit -b hotfix-login -m "Fix login redirect loop" <file-ids>
-but pr new hotfix-login -m "Fix login redirect loop"    # Push and create PR immediately
-
-# Back to original work
-# (continue working on fix-auth-bug)
-but commit -b fix-auth-bug -m "Add tests for token handling" <file-ids>
-
-# End of day: Clean up and create PR
-but squash fix-auth-bug -m "Fix auth bug"    # Combine into clean history
-but pr new fix-auth-bug -m "Fix auth bug"    # Push and create PR
-
-# After PR review: Make requested changes
-# (make changes based on feedback)
-but amend -t <commit-id> <file-id>  # Amend each fix into the commit it belongs to
-but push fix-auth-bug   # Push updated history
-```
-
-## Example 11: Recovering from Mistakes
+## Example 10: Recovering from Mistakes
 
 **Scenario:** Made changes you didn't mean to, need to undo.
 
@@ -447,12 +376,6 @@ but discard a1
 
 ## Tips and Tricks
 
-### Quick Status Check
-
-```bash
-but status -fv    # File-centric view for quick overview
-```
-
 ### Preview Before Doing
 
 ```bash
@@ -461,9 +384,7 @@ but push my-feature --dry-run   # See what would be pushed
 
 ### Multiple Commits From One Diff
 
-File/hunk IDs copied from the original output generally remain usable across
-commits. Chain `but commit` calls to split a dirty diff into several commits in
-one go:
+Chain `but commit` calls to split a dirty diff into several commits off one `but diff` read:
 
 ```bash
 but diff   # read the file/hunk IDs once
@@ -473,23 +394,7 @@ but commit -b my-branch -m "Add parser" qs:5 qs:2 \
 ```
 
 The commits stack in the order you write them, so `Add parser` ends up below (older
-than) `Add tests`. Chain these commit commands when each references uncommitted IDs
-and a full branch name. If an ID stops resolving, re-read the diff and continue.
-Mutation output is concise by default. Add `--status-after` only when the next
-step needs workspace IDs or details that the mutation result does not provide.
-History edits — `amend`, `squash`, `move`, `uncommit`, `reword` — may also run in
-sequence off one status read when every commit ref involved is a change-ID ref;
-those stay stable across the edits. Run them one at a time when a ref is sha-based
-or `#N`-suffixed, or when the next command needs freshly issued IDs, and add
-`--status-after` to get them.
-
-
-### Auto-completion
-
-```bash
-eval "$(but completions zsh)"     # Add to ~/.zshrc
-eval "$(but completions bash)"    # Add to ~/.bashrc
-```
+than) `Add tests`.
 
 ### Viewing History
 
