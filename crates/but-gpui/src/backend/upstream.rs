@@ -698,30 +698,6 @@ pub fn push(
     if pushed_with(&info, branch).any(|segment| segment.commits.iter().any(|c| c.has_conflicts)) {
         anyhow::bail!("Resolve the conflicted commits first, so they aren't pushed");
     }
-    // A branch made with `git checkout -b` on the workspace holds its commit, which merges
-    // every applied branch: pushing it would publish them all at once. One the remote has as
-    // it is already publishes nothing new. A linked worktree started on the workspace, or on
-    // one that was, holds it below the lanes the push goes down.
-    let holds_workspace = {
-        use but_workspace::ref_info::LocalCommitRelation as R;
-        use gix::prelude::ObjectIdExt as _;
-        let repo = ctx.repo.get()?;
-        let managed = |id: gix::ObjectId| {
-            but_workspace::WorkspaceCommit::from_id(id.attach(&repo))
-                .is_ok_and(|commit| commit.is_managed())
-        };
-        (pushed_with(&info, branch).flat_map(|segment| &segment.commits))
-            .filter(|c| !matches!(c.relation, R::LocalAndRemote(remote) if remote == c.id))
-            .any(|c| managed(c.id))
-            || (info.lane_chain(branch).iter()).any(|(lane, _)| lane.rests_on.is_some_and(managed))
-    };
-    if holds_workspace {
-        anyhow::bail!(
-            "{} holds GitButler's workspace commit, which merges every applied branch, so \
-             pushing it would publish them all. Put its own commits on a branch of their own.",
-            short_ref(ref_name)
-        );
-    }
     let force = needs_force(&info, branch);
     let outcome = runtime()
         .handle()

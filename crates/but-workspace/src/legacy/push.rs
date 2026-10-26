@@ -13,12 +13,18 @@ use but_db::DbHandle;
 use gitbutler_git::{PushResult, push_with_askpass};
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::hooks;
-use gix::refs::Category;
+use gix::{prelude::ObjectIdExt as _, refs::Category};
 use indexmap::IndexMap;
 
-use crate::{RefInfo, ref_info::Segment, ui::PushStatus};
+use crate::{
+    RefInfo, WorkspaceCommit,
+    ref_info::{LocalCommitRelation, Segment},
+    ui::PushStatus,
+};
 
-/// Push a given branch and its ancestors
+/// Push a given branch and its ancestors.
+///
+/// Refuses before pushing anything when that would publish GitButler's workspace commit.
 #[allow(clippy::too_many_arguments)]
 pub fn workspace_branch_and_ancestors_push(
     repo: &gix::Repository,
@@ -36,6 +42,14 @@ pub fn workspace_branch_and_ancestors_push(
 ) -> Result<PushResult> {
     let graph = &ws.graph;
     let to_push = branch_and_ancestor_segments(ref_info, branch);
+    if pushes_workspace_commit(repo, ref_info, branch) {
+        anyhow::bail!(
+            "{} is built on GitButler's workspace commit, which merges every applied branch, so \
+             pushing it would publish all of them. Rebase its own commits onto the target branch \
+             first.",
+            branch.shorten()
+        );
+    }
 
     let remote_names = repo.remote_names();
     let target_branch_name = if gerrit_mode {
@@ -193,6 +207,30 @@ pub fn branch_and_ancestor_segments<'a>(
         .flat_map(|(lane, index)| lane.segments_from(index))
         .map(|segment| (segment.id, segment))
         .collect()
+}
+
+/// Whether pushing `branch` sends GitButler's workspace commit, which merges every applied
+/// branch. A branch made with `git checkout -b` on the workspace holds it, and a worktree made
+/// from the main checkout's `HEAD`, or one stacked on such a worktree, rests on it. A workspace
+/// commit the remote already has publishes nothing new.
+fn pushes_workspace_commit(
+    repo: &gix::Repository,
+    ref_info: &RefInfo,
+    branch: &gix::refs::FullNameRef,
+) -> bool {
+    let managed = |id: gix::ObjectId| {
+        WorkspaceCommit::from_id(id.attach(repo)).is_ok_and(|commit| commit.is_managed())
+    };
+    let chain = ref_info.lane_chain(branch);
+    let mut unpushed = chain
+        .iter()
+        .flat_map(|(lane, index)| lane.segments_from(*index))
+        .flat_map(|segment| &segment.commits)
+        .filter(|c| !matches!(c.relation, LocalCommitRelation::LocalAndRemote(remote) if remote == c.id));
+    unpushed.any(|c| managed(c.id))
+        || chain
+            .iter()
+            .any(|(lane, _)| lane.rests_on.is_some_and(managed))
 }
 
 struct GerritPushArgs {
