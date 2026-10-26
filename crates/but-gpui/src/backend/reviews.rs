@@ -13,7 +13,8 @@ use but_forge::ForgeName;
 use super::ops::holds;
 use super::upstream::sync_failure;
 use super::{
-    CheckRun, Checks, Forge, PushState, Review, ReviewState, open, push, runtime, short_ref,
+    CheckRun, Checks, Forge, ForgeUser, PushState, Review, ReviewLabel, ReviewState, open, push,
+    runtime, short_ref,
 };
 
 /// Which forge hosts the project: the one its target's remote, or a forge account with a
@@ -106,24 +107,43 @@ pub(super) fn from_cache(found: &but_forge::ForgeReview) -> Review {
         checks: None,
         check_runs: Vec::new(),
         labels: (found.labels.iter())
-            .map(|label| label.name.clone())
+            .map(|label| ReviewLabel {
+                name: label.name.clone(),
+                // GitHub sends "d73a4a", others may send "#d73a4a".
+                color: (label.color.as_deref())
+                    .and_then(|hex| u32::from_str_radix(hex.trim_start_matches('#'), 16).ok()),
+            })
             .collect(),
         reviewers: (found.reviewers.iter())
             .filter(|user| !user.is_bot)
-            .map(|user| user.login.clone())
+            .map(forge_user)
             .collect(),
-        author: found.author.as_ref().map(|user| user.login.clone()),
+        author: found.author.as_ref().map(forge_user),
+        source_branch: found.source_branch.clone(),
         target_branch: found.target_branch.clone(),
         body: found.body.clone().unwrap_or_default(),
-        updated_at: (found.modified_at.as_deref())
-            .and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok())
-            .map(|at| at.timestamp()),
+        created_at: timestamp(found.created_at.as_deref()),
+        updated_at: timestamp(found.modified_at.as_deref()),
         synced_at: (found
             .last_sync_at
             .and_local_timezone(chrono::Local)
             .single())
         .map(|at| at.timestamp()),
     }
+}
+
+fn forge_user(user: &but_forge::ForgeReviewUser) -> ForgeUser {
+    ForgeUser {
+        login: user.login.clone(),
+        avatar_url: user.avatar_url.clone(),
+    }
+}
+
+/// An RFC 3339 time from the forge, in seconds since the epoch.
+fn timestamp(at: Option<&str>) -> Option<i64> {
+    chrono::DateTime::parse_from_rfc3339(at?)
+        .ok()
+        .map(|at| at.timestamp())
 }
 
 /// Each check, those that failed first, then those still running, then the rest, each
@@ -140,18 +160,18 @@ fn check_runs(checks: &[but_forge::CiCheck]) -> Vec<CheckRun> {
             failed: check_failed(check),
             status: match &check.status {
                 S::Complete { conclusion, .. } => match conclusion {
-                    C::Success => "success",
-                    C::Neutral => "neutral",
-                    C::Skipped => "skipped",
-                    C::Failure => "failure",
-                    C::TimedOut => "timed out",
-                    C::Cancelled => "cancelled",
-                    C::ActionRequired => "action required",
-                    C::Unknown => "finished",
+                    C::Success => "Succeeded",
+                    C::Neutral => "Neutral",
+                    C::Skipped => "Skipped",
+                    C::Failure => "Failed",
+                    C::TimedOut => "Timed out",
+                    C::Cancelled => "Cancelled",
+                    C::ActionRequired => "Action required",
+                    C::Unknown => "Finished",
                 },
-                S::InProgress => "in progress",
-                S::Queued => "queued",
-                S::Unknown => "waiting",
+                S::InProgress => "In progress",
+                S::Queued => "Queued",
+                S::Unknown => "Waiting",
             }
             .to_owned(),
             started_at: check.started_at.map(|at| at.timestamp()),

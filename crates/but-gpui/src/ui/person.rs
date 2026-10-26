@@ -43,12 +43,28 @@ pub fn person_avatar(seed: &str, size: f32, theme: &Theme) -> Div {
 /// without one, or offline, keeps the pattern.
 pub fn author_avatar(name: &str, email: &str, size: f32, theme: &Theme) -> Div {
     let email = SharedString::from(email.trim().to_lowercase());
-    let photo =
-        move |window: &mut Window, cx: &mut App| match window.use_asset::<Photo>(&email, cx)? {
-            Some(photo) => photo.use_render_image(window, cx).map(Ok),
-            None => Some(Err(ImageCacheError::Asset("No photo".into()))),
-        };
-    person_avatar(name, size, theme).relative().child(
+    with_photo::<Photo>(person_avatar(name, size, theme), email)
+}
+
+/// A forge user's picture: the one at `url` over their pattern once it loads.
+pub fn forge_avatar(login: &str, url: Option<&str>, size: f32, theme: &Theme) -> Div {
+    let pattern = person_avatar(login, size, theme);
+    match url {
+        Some(url) => with_photo::<Picture>(pattern, url.to_owned().into()),
+        None => pattern,
+    }
+}
+
+/// `pattern` with the photo `A` loads for `key` over it, once there is one.
+fn with_photo<A>(pattern: Div, key: SharedString) -> Div
+where
+    A: Asset<Source = SharedString, Output = Option<Arc<gpui::Image>>>,
+{
+    let photo = move |window: &mut Window, cx: &mut App| match window.use_asset::<A>(&key, cx)? {
+        Some(photo) => photo.use_render_image(window, cx).map(Ok),
+        None => Some(Err(ImageCacheError::Asset("No photo".into()))),
+    };
+    pattern.relative().child(
         img(ImageSource::Custom(Arc::new(photo)))
             .absolute()
             .top_0()
@@ -108,6 +124,19 @@ impl Asset for Photo {
         _: &mut App,
     ) -> impl Future<Output = Self::Output> + Send + 'static {
         let photo = crate::backend::run(move || Ok(github(&email).or_else(|| gravatar(&email))));
+        async move { photo.await.ok().flatten() }
+    }
+}
+
+/// The picture at a URL, fetched once a run, off the UI thread.
+struct Picture;
+
+impl Asset for Picture {
+    type Source = SharedString;
+    type Output = Option<Arc<gpui::Image>>;
+
+    fn load(url: SharedString, _: &mut App) -> impl Future<Output = Self::Output> + Send + 'static {
+        let photo = crate::backend::run(move || Ok(crate::backend::accounts::avatar(&url).ok()));
         async move { photo.await.ok().flatten() }
     }
 }
