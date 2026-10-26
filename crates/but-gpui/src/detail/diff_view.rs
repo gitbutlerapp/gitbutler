@@ -367,8 +367,9 @@ impl Detail {
                     "No uncommitted changes",
                     "Edits show up here as soon as they're saved".into(),
                 ),
-                // The header above says what it did instead.
-                DiffSource::Snapshot { .. } => (None, "", "It changed no files".into()),
+                // The header above says what it did instead. History compares what's
+                // committed, so a discard's files, which restoring brings back, aren't listed.
+                DiffSource::Snapshot { .. } => (None, "", "It changed no committed files".into()),
                 _ => (Some(Illustration::Cactus), "", self.changes_nothing(cx)),
             };
             return ground()
