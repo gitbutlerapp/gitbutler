@@ -53,7 +53,7 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 
 ## Non-Negotiable Rules
 
-1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`. The only exceptions are selecting a side of a conflicted submodule in resolution mode (see Resolve conflicted commits) and creating a missing target branch (see Notes). If the user says a `git` write command, translate it to `but` and run that.
+1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git fetch`, `git pull`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`; `but pull --check` fetches. The only exceptions are selecting a side of a conflicted submodule in resolution mode (see Resolve conflicted commits) and creating a missing target branch (see Notes). If the user says a `git` write command, translate it to `but` and run that.
 2. Mutation commands print their result without appending workspace status. Add `--status-after` only when the next step needs resulting workspace IDs or details; otherwise trust the mutation result and do not run a verification status/diff.
 3. Branches marked `(merged upstream)` have landed; start new work on another branch. That marker alone does not mean `but pull` removes them: run `but pull --check` first. `but pull` removes only branches listed `[integrated]` ("has been integrated upstream and removed locally", or "has been merged into <target> and removed" when the target has no upstream) and rebases the rest, which stay applied. To clear a landed branch that stays applied, use `but unapply <branch>` (acts on its whole stack) rather than `but discard`. `push` and mutations (`commit`, `amend`, `squash`, `uncommit`, `reword`, `move`) refuse landed branches and commits, `absorb` skips them with a notice, and `commit` skips them when picking a default target.
 4. Keep going between routine `but` commands. Put any status note in the same message as the next command, and don't end a turn on a summary that announces the next `but` step without running it. Finish with a concise summary.
@@ -81,7 +81,7 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 - Move commit to branch top: `but move <commit-id> -b <branch>`
 - Move commits or committed changes onto a new named branch: `but move <source> --above <branch> -b <new-name>` (`--below` also works); use `but move <source> --unstack -b <new-name>` for an independent branch. Omit `-b` for a generated name. Naming is not supported when stacking or unstacking a branch source.
 - Discard: `but discard <id> [<id>...]` — accepts branches, commits, committed changes, uncommitted changes, or `@` for all uncommitted changes
-- Push: `but push <top-branch>` — pushes the selected branch and its ancestors; to update a stack, select its top branch once and never loop. Bare `but push` pushes all unpushed work when run non-interactively — one push per stack (its topmost unpushed branch, ancestors included), and the output lists every branch it pushed. It exits non-zero if any stack failed; stacks that already pushed stay pushed, and rerunning after fixing the failure is safe (up-to-date stacks are skipped). `but push` and `but pr new` replace the remote branch: if others may have pushed to it, `but pull` first, and when `but status` then shows `(upstream: on origin/<branch>)` under the branch, run `but branch update <branch>` before pushing.
+- Push: `but push <top-branch>` — pushes the selected branch and its ancestors; to update a stack, select its top branch once and never loop. Bare `but push` pushes all unpushed work when run non-interactively — one push per stack (its topmost unpushed branch, ancestors included), and the output lists every branch it pushed. It exits non-zero if any stack failed; stacks that already pushed stay pushed, and rerunning after fixing the failure is safe (up-to-date stacks are skipped). `but push` and `but pr new` replace the remote branch: if others may have pushed to it, bring their commits in first (see Bring in commits pushed to a branch's own remote).
 - Create PR: `but pr new <branch-name> [-m "Title..."] [-F - | -F <file>] [-t] [--draft]` — auto-pushes first; do not run `but push` before it
 
 ## Task Recipes
@@ -94,10 +94,17 @@ For "get latest from main", "update/sync this workspace", "rebase onto main", or
 2. If commits come back conflicted, resolve them with the `but resolve conflicts <branch>` and `but resolve apply` loop in Resolve conflicted commits, one branch at a time. When `HEAD` is `gitbutler/workspace`, `but pull` prints `but resolve <commit>` as the next step; that is edit mode, which is only for running code against a resolution.
 
 `but pull --check` answers "would this conflict?" without updating. Do not use it as a routine
-preflight; use it when the user asks for a preview, repository policy requires one, other agents'
+preflight; use it when the user asks for a preview, you need a fetch, repository policy requires one, other agents'
 branches may move, or an applied branch was just merged upstream (see rule 3).
 
 Rebasing applied branches onto the latest target IS `but pull` — never `move`, `config target`, `unapply`, or raw `git pull`/`git rebase`. The base shown in status is the last FETCHED state: when `git log` shows the remote target (for example `origin/main`) ahead of it, that is exactly the update `but pull` fetches and applies — the target setting is not stale and repointing it is never the fix. Pull carries uncommitted changes along; there is no stash, so do not hand-revert files.
+
+### Bring in commits pushed to a branch's own remote
+
+`but pull` only rebases onto the target. Commits someone pushed to your branch's remote show in `but status` under `(upstream: on <remote>/<branch>)`, above the branch's own commits; if status may be stale, run `but pull --check` to fetch.
+
+1. `but branch update <branch>`, once, on the branch they pushed to.
+2. Then `but pull` if the target moved too. Update before pulling. If the branch was rebased since its last push (for example by an earlier `but pull`), the update leaves an empty `(no changes)` copy of a shared commit. On a single branch, `but discard` that copy by its `#N` ref. In a stack, `but undo` the update and tell the user, because the update can also move commits into the lower branch. Do not update a second time, even if `(upstream: …)` still lists commits, because a second update duplicates commits.
 
 ### Commit selected files or hunks
 
@@ -221,6 +228,8 @@ A wrong resolution is reverted with `but undo`.
 | `git rebase --onto` | `but move <branch> --above <new-base>` |
 | `git checkout -- <file>` / `git restore` | `but discard <path>`, or a hunk ID from `but diff` |
 | `git cherry-pick` | `but pick` |
+| `git fetch` | `but pull --check` (fetches; changes no branch) |
+| `git pull` on a branch others pushed to | `but branch update <branch>`, then `but pull` |
 | `git worktree add -b <branch>` | `but worktree new <branch>` |
 | `git worktree remove` | `but worktree remove <name>` |
 | `gh pr create` | `but pr new <branch-name> -m "Title..."` |
