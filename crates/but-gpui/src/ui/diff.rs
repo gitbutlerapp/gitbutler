@@ -664,7 +664,13 @@ pub fn note(file: &FileDiff, theme: &Theme) -> AnyElement {
         DiffBody::Image { before, after } => {
             return drawing(before.clone(), after.clone(), theme);
         }
-        DiffBody::Binary => "Binary file".to_owned(),
+        // How big, where it's known, as a server's limit on what it takes goes by it.
+        DiffBody::Binary => match file.file.size {
+            Some(bytes) if bytes >= 1_000_000 => {
+                format!("Binary file ({:.1} MB)", bytes as f64 / 1_000_000.)
+            }
+            _ => "Binary file".to_owned(),
+        },
         DiffBody::TooLarge { bytes } => {
             format!("Too large to show ({:.1} MB)", *bytes as f64 / 1_000_000.)
         }
