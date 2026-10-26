@@ -217,7 +217,11 @@
       "up": "diff::PreviousHunk",
       "secondary-alt-z": "diff::DiscardHunk",
       "secondary-backspace": "diff::DiscardFile",
-      "z": "diff::ToggleFold",
+      // As the navigator folds, the arrows last so menus show them.
+      "h": "diff::FoldFile",
+      "left": "diff::FoldFile",
+      "l": "diff::UnfoldFile",
+      "right": "diff::UnfoldFile",
       "pagedown": "diff::PageDown",
       "space": "diff::PageDown",
       "pageup": "diff::PageUp",

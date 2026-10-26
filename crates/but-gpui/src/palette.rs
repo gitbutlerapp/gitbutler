@@ -13,7 +13,7 @@ use crate::app::{
     UncommitSelection, Undo, UpdateFromTarget, ZoomIn, ZoomOut,
 };
 use crate::detail::{
-    DiscardFile, DiscardHunk, NextFile, NextHunk, PreviousFile, PreviousHunk, ToggleFold,
+    DiscardFile, DiscardHunk, FoldFile, NextFile, NextHunk, PreviousFile, PreviousHunk, UnfoldFile,
 };
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, CherryPick, CopyChangeId, CopyMessage,
@@ -36,7 +36,8 @@ pub(crate) const COMMANDS: &[(&str, &dyn Action)] = &[
     ("Previous hunk", &PreviousHunk),
     ("Next file", &NextFile),
     ("Previous file", &PreviousFile),
-    ("Fold or unfold file", &ToggleFold),
+    ("Fold file", &FoldFile),
+    ("Unfold file", &UnfoldFile),
     ("Show files as a tree or a list", &ToggleFileTree),
     ("Discard hunk", &DiscardHunk),
     ("Discard file", &DiscardFile),

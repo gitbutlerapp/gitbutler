@@ -65,7 +65,8 @@ actions!(
         PreviousHunk,
         DiscardHunk,
         DiscardFile,
-        ToggleFold,
+        FoldFile,
+        UnfoldFile,
         PageDown,
         PageUp,
         HalfPageDown,
@@ -1868,6 +1869,16 @@ impl Detail {
         self.rebuild_rows(cx);
     }
 
+    /// ← folds the cursor's file and → unfolds it, as the navigator folds. Not in a diff that
+    /// isn't drawn.
+    fn fold_cursor_file(&mut self, fold: bool, cx: &mut Context<Self>) {
+        let file = self.cursor.file;
+        let folded = self.diff_path(file).map(|path| self.folded.contains(&path));
+        if folded == Some(!fold) && !self.diff_hidden(cx) {
+            self.toggle_fold(file, cx);
+        }
+    }
+
     /// Throw away one hunk of the uncommitted file at `file_ix`, or the whole file when `hunk`
     /// is `None`. Never a file the diff doesn't show, as one the filter hides.
     pub fn discard(
@@ -2322,9 +2333,8 @@ impl Render for Detail {
                     this.discard(this.cursor.file, None, window, cx)
                 }
             }))
-            .on_action(
-                cx.listener(|this, _: &ToggleFold, _, cx| this.toggle_fold(this.cursor.file, cx)),
-            )
+            .on_action(cx.listener(|this, _: &FoldFile, _, cx| this.fold_cursor_file(true, cx)))
+            .on_action(cx.listener(|this, _: &UnfoldFile, _, cx| this.fold_cursor_file(false, cx)))
             .on_action(cx.listener(|this, _: &PageDown, window, cx| this.page(PAGE, window, cx)))
             .on_action(cx.listener(|this, _: &PageUp, window, cx| this.page(-PAGE, window, cx)))
             .on_action(cx.listener(|this, _: &HalfPageDown, window, cx| this.page(0.5, window, cx)))
