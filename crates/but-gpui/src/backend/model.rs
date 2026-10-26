@@ -424,19 +424,37 @@ pub struct Review {
     pub checks: Option<Checks>,
     /// Each check, failed ones first, then those still running.
     pub check_runs: Vec<CheckRun>,
-    pub labels: Vec<String>,
+    pub labels: Vec<ReviewLabel>,
     /// Who's been asked to review it, bots left out. GitHub lists only those who haven't
     /// reviewed yet; GitLab and Bitbucket keep the others.
-    pub reviewers: Vec<String>,
-    pub author: Option<String>,
+    pub reviewers: Vec<ForgeUser>,
+    pub author: Option<ForgeUser>,
+    /// The branch it merges from, as the forge names it.
+    pub source_branch: String,
     /// The branch it merges into, as the forge names it.
     pub target_branch: String,
     /// Its description, as written.
     pub body: String,
+    /// When it was opened, in seconds since the epoch.
+    pub created_at: Option<i64>,
     /// When it last changed on the forge, in seconds since the epoch.
     pub updated_at: Option<i64>,
     /// When the forge was last asked about it, in seconds since the epoch.
     pub synced_at: Option<i64>,
+}
+
+/// A pull request's label, with its colour as `0xRRGGBB` when the forge gives one.
+#[derive(Debug, Clone)]
+pub struct ReviewLabel {
+    pub name: String,
+    pub color: Option<u32>,
+}
+
+/// Someone on the forge, with where their picture is when it has one.
+#[derive(Debug, Clone)]
+pub struct ForgeUser {
+    pub login: String,
+    pub avatar_url: Option<String>,
 }
 
 /// A CI check on a pull request's branch.
@@ -447,7 +465,7 @@ pub struct CheckRun {
     pub url: String,
     /// Whether it failed, once it finished.
     pub failed: Option<bool>,
-    /// How it finished or how far it got, as the forge says: "success", "in progress".
+    /// How it finished or how far it got, as the forge says: "Succeeded", "In progress".
     pub status: String,
     pub started_at: Option<i64>,
     pub completed_at: Option<i64>,

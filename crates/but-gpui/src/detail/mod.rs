@@ -287,6 +287,8 @@ pub struct Detail {
     /// Whether the pull request's checks that passed are listed, not just counted.
     passed_checks_open: bool,
     review_scroll: ScrollHandle,
+    /// How wide the pull request tab was drawn, for whether its side panel fits beside it.
+    review_width: Rc<Cell<f32>>,
     /// How tall the selected target commit's message is drawn over its diff, and how wide
     /// the space beside the project page's list is, measured as they're drawn.
     target_message_height: Rc<Cell<f32>>,
@@ -600,6 +602,7 @@ impl Detail {
             opening: None,
             passed_checks_open: false,
             review_scroll: ScrollHandle::new(),
+            review_width: Rc::new(Cell::new(pull_request::TWO_COLUMNS)),
             target_message_height: Rc::new(Cell::new(0.)),
             beside_width: Rc::new(Cell::new(0.)),
             shipped_focus: cx.focus_handle(),

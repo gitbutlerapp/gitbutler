@@ -157,6 +157,7 @@ icons! {
     ArrowDown => "arrow-down",
     ArrowLineDown => "arrow-line-down",
     ArrowUp => "arrow-up",
+    ArrowUpRight => "arrow-up-right",
     Bin => "bin",
     Branch => "branch",
     BranchMerge => "branch-merge",
