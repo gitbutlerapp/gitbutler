@@ -660,6 +660,25 @@ pub fn on_forge(store: &Store, selection: &Selection) -> bool {
         .is_some_and(|ws| ws.forge.is_some())
 }
 
+/// Whether the selected branch is offered a pull request to create, a named one on a forge
+/// without one yet, and if so why it can't be created now: it has no commits, or can't push
+/// them first.
+pub fn create_offer(store: &Store, selection: &Selection) -> Option<Result<(), &'static str>> {
+    let Selection::Branch(project, ref_name) = selection else {
+        return None;
+    };
+    let ws = store.workspace(project)?;
+    let branch = store.branch_for(selection)?;
+    if !on_forge(store, selection) || ref_name.is_empty() || branch.review.is_some() {
+        return None;
+    }
+    Some(match ws.push_refused(ref_name) {
+        _ if branch.commits.is_empty() => Err("Commit something first"),
+        Some(refused) => Err(refused),
+        None => Ok(()),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::{MergeStatus, Mergeability, Offer};

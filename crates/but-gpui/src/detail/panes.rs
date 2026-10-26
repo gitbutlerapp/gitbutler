@@ -533,23 +533,20 @@ impl Detail {
             });
         let rewording = (self.rewording.as_ref())
             .filter(|(reworded, ..)| super::composer::rewords(reworded, project, commit, store));
-        let main = v_flex()
-            .gap(dp(10.))
-            .map(|el| match rewording {
-                Some((_, input, _)) => el.child(self.reword_editor(input, theme, window, cx)),
-                // A double-click on its title or body edits the message.
-                None => el.child(self.message(title, body, theme).on_click(cx.listener(
-                    |this, event: &ClickEvent, window, cx| {
-                        if event.click_count() == 2 {
-                            this.start_reword(window, cx)
-                        }
-                    },
-                ))),
-            })
-            .child(meta);
+        let title = match rewording {
+            Some((_, input, _)) => self.reword_editor(input, theme, window, cx),
+            // A double-click on its title or body edits the message.
+            None => (self.message(title, body, theme))
+                .on_click(cx.listener(|this, event: &ClickEvent, window, cx| {
+                    if event.click_count() == 2 {
+                        this.start_reword(window, cx)
+                    }
+                }))
+                .into_any_element(),
+        };
         let target = Selection::Commit(project.clone(), id);
         let apply = super::resolve::apply_button(self, cx.entity().downgrade());
-        self.page_header(main, target, apply, None, theme, cx)
+        self.page_header(title, meta, target, apply, None, theme, cx)
     }
 
     /// A commit's title, with a button that shows the rest of its message, `body`, if any.
@@ -643,14 +640,10 @@ impl Detail {
                         .child("With others between them, so each one's changes show in turn"),
                 )
             });
-        let main = v_flex()
-            .gap(dp(10.))
-            .child(
-                page_title(Icon::Commit, theme).child(title_text(plural(picked.len(), "commit"))),
-            )
-            .child(meta);
+        let title =
+            page_title(Icon::Commit, theme).child(title_text(plural(picked.len(), "commit")));
         let target = Selection::Commit(project.clone(), id);
-        self.page_header(main, target, None, None, theme, cx)
+        self.page_header(title, meta, target, None, None, theme, cx)
     }
 
     /// A commit's short ID in its line's ink, as ui-react's `CopyableId`, which copies the
@@ -733,21 +726,21 @@ impl Detail {
                 Some(remote) => format!("only on {remote}"),
                 None => "only on the remote".to_owned(),
             }));
-        let main = (v_flex().gap(dp(10.)))
-            .child(self.message(title, body.clone(), theme))
-            .child(meta);
+        let message = self.message(title, body.clone(), theme);
         let target = Selection::Upstream(project.clone(), ref_name.map(str::to_owned), id);
         let tabs = (self.selected_review(cx)).map(|review| self.review_tabs(review, theme, cx));
-        self.page_header(main, target, None, tabs, theme, cx)
+        self.page_header(message, meta, target, None, tabs, theme, cx)
     }
 
-    /// The header across a page, over its files and its diff: `main` beside `extra`, if
+    /// The header across a page, over its files and its diff: `title` beside `extra`, if
     /// any, and a ⋯ with what right-clicking `target`'s row offers, for when the navigator is
-    /// out of reach; as but.dev lays them out, so stepping between pages moves nothing below.
-    /// `tabs`, if any, run along its bottom edge.
+    /// out of reach, over `body` across the page; as but.dev lays them out, so stepping between
+    /// pages moves nothing below. `tabs`, if any, run along its bottom edge.
+    #[expect(clippy::too_many_arguments)]
     pub(super) fn page_header(
         &self,
-        main: Div,
+        title: impl IntoElement,
+        body: Div,
         target: Selection,
         extra: Option<AnyElement>,
         tabs: Option<AnyElement>,
@@ -764,14 +757,15 @@ impl Detail {
                 });
             },
         ));
-        self.header_frame(main, menu, extra, tabs, theme)
+        self.header_frame(title, body, menu, extra, tabs, theme)
     }
 
     /// [`Self::page_header`]'s frame, with `menu` for its ⋯: also the header beside a list,
     /// over the diff of what's selected in it.
     pub(super) fn header_frame(
         &self,
-        main: Div,
+        title: impl IntoElement,
+        body: Div,
         menu: impl IntoElement,
         extra: Option<AnyElement>,
         tabs: Option<AnyElement>,
@@ -796,9 +790,10 @@ impl Detail {
                 h_flex()
                     .items_start()
                     .gap(dp(16.))
-                    .child(main.flex_1().min_w_0())
+                    .child(div().flex_1().min_w_0().child(title))
                     .child(menu),
             )
+            .child(body)
             .children(tabs)
             .child(measure)
             .into_any_element()
@@ -840,13 +835,24 @@ impl Detail {
                 .child(div().text_color(color).child(state))
                 .children(conflicted_note(conflicted, theme)),
         });
-        let main = v_flex()
-            .gap(dp(10.))
-            .child(page_title(Icon::Branch, theme).child(title_text(name.to_owned())))
-            .child(meta);
         let target = Selection::Branch(project.clone(), ref_name.to_owned());
+        let create = crate::pr::create_offer(store, &target).map(|offer| {
+            button("header-create-pr", "Create pull request")
+                .small()
+                .style(ButtonStyle::Pop)
+                .dispatch(&crate::pr::CreatePullRequest)
+                .disabled_because(offer.err())
+        });
+        let push = button("header-push", ws.push_label(ref_name))
+            .small()
+            .dispatch(&crate::app::Push)
+            .disabled_because(ws.push_blocked(ref_name));
+        let meta = meta
+            .child(div().flex_1())
+            .child(h_flex().gap(dp(8.)).children(create).child(push));
+        let title = page_title(Icon::Branch, theme).child(title_text(name.to_owned()));
         let tabs = (branch.review.as_ref()).map(|review| self.review_tabs(review, theme, cx));
-        self.page_header(main, target, None, tabs, theme, cx)
+        self.page_header(title, meta, target, None, tabs, theme, cx)
     }
 
     /// A stack's header: how many branches it has, which, and their commits.
@@ -877,12 +883,9 @@ impl Detail {
                     .child(div().min_w_0().truncate().child(names.join(" ← "))),
             );
         let title = format!("Stack of {}", names.len());
-        let main = v_flex()
-            .gap(dp(10.))
-            .child(page_title(Icon::Stack, theme).child(title_text(title)))
-            .child(meta);
+        let title = page_title(Icon::Stack, theme).child(title_text(title));
         let target = Selection::Stack(project.clone(), bottom.to_owned());
-        self.page_header(main, target, None, None, theme, cx)
+        self.page_header(title, meta, target, None, None, theme, cx)
     }
 
     /// The box editing a commit's message, with how to save or leave it.

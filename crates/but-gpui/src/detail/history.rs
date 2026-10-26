@@ -673,12 +673,10 @@ impl Detail {
         let more = operation.changes.len().saturating_sub(LISTED);
         let lines = (operation.changes.iter().take(LISTED).enumerate())
             .map(|(ix, change)| self.change_line(ix, project, operation.kind, change, theme, cx));
-        let main = v_flex()
+        let title = page_title(describe(operation.kind).0, theme)
+            .child(title_text(operation.title.clone()));
+        let body = v_flex()
             .gap(dp(10.))
-            .child(
-                page_title(describe(operation.kind).0, theme)
-                    .child(title_text(operation.title.clone())),
-            )
             .child(meta)
             .when(!operation.changes.is_empty(), |el| {
                 el.child(v_flex().gap(dp(4.)).children(lines).when(more > 0, |el| {
@@ -696,7 +694,7 @@ impl Detail {
                 .flex_1()
                 .h_full()
                 .min_w_0()
-                .child(self.header_frame(main, menu, None, None, theme))
+                .child(self.header_frame(title, body, menu, None, None, theme))
                 .into_any_element(),
         )
     }

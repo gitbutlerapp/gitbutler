@@ -61,6 +61,25 @@ impl Workspace {
         (self.pushed_with(ref_name)).any(|branch| branch.push == PushState::NeedsForce)
     }
 
+    /// Why `ref_name` can't be pushed now: it has no name, nothing to send, or
+    /// [`Self::push_refused`] says why not.
+    pub fn push_blocked(&self, ref_name: &str) -> Option<&'static str> {
+        match self.can_push(ref_name) {
+            true => self.push_refused(ref_name),
+            // A branch whose ref was deleted, as by `git branch -D`, has commits but no name.
+            false if ref_name.is_empty() => Some("Name the branch first, then push it"),
+            false => Some("Nothing to push yet"),
+        }
+    }
+
+    /// What pushing `ref_name` is called.
+    pub fn push_label(&self, ref_name: &str) -> &'static str {
+        match self.needs_force(ref_name) {
+            true => "Force push",
+            false => "Push",
+        }
+    }
+
     /// Whether `ref_name` can pull the commits only its remote has: it has some, it's the top
     /// of a stack, and no linked worktree rests on it. Pulling into a branch with others above
     /// moves its reference to the top of the stack, pulling under a worktree moves what it

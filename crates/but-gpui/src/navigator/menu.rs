@@ -307,13 +307,8 @@ impl Navigator {
                 else {
                     return items;
                 };
-                if workspace.can_push(ref_name) && workspace.push_refused(ref_name).is_none() {
-                    let label = if workspace.needs_force(ref_name) {
-                        "Force push"
-                    } else {
-                        "Push"
-                    };
-                    items.push(action(label, &Push));
+                if workspace.push_blocked(ref_name).is_none() {
+                    items.push(action(workspace.push_label(ref_name), &Push));
                 }
                 let linked = store.in_linked(target);
                 if workspace.can_pull(ref_name) {
@@ -337,27 +332,21 @@ impl Navigator {
                         }),
                     ]);
                 }
+                if crate::pr::create_offer(store, target) == Some(Ok(())) {
+                    items.push(action(
+                        "Create pull request…",
+                        &crate::pr::CreatePullRequest,
+                    ))
+                }
                 if crate::pr::on_forge(store, target) && !ref_name.is_empty() {
-                    use crate::backend::ReviewState as S;
                     let project = target.project();
-                    match (branch.review.as_ref()).map(|r| (r, store.review_state(project, r))) {
-                        // Creating one pushes first.
-                        None if !branch.commits.is_empty()
-                            && workspace.push_refused(ref_name).is_none() =>
-                        {
-                            items.push(action(
-                                "Create pull request…",
-                                &crate::pr::CreatePullRequest,
-                            ))
-                        }
-                        Some((review, S::Open)) => {
-                            let offer = crate::pr::mergeability(store, project, review).offer();
-                            let method = crate::pr::merge_method(store, project);
-                            items.extend(
-                                offer.map(|offer| action(offer.label(method), offer.action())),
-                            )
-                        }
-                        _ => {}
+                    let open = (branch.review.as_ref()).filter(|r| {
+                        store.review_state(project, r) == crate::backend::ReviewState::Open
+                    });
+                    if let Some(review) = open {
+                        let offer = crate::pr::mergeability(store, project, review).offer();
+                        let method = crate::pr::merge_method(store, project);
+                        items.extend(offer.map(|offer| action(offer.label(method), offer.action())))
                     }
                 }
                 if ref_name.is_empty() {
@@ -616,7 +605,7 @@ impl Navigator {
                     return items;
                 };
                 let top = &top.ref_name;
-                if workspace.can_push(top) && workspace.push_refused(top).is_none() {
+                if workspace.push_blocked(top).is_none() {
                     items.push(
                         action(
                             match workspace.needs_force(top) {
