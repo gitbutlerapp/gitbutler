@@ -12,7 +12,7 @@ pub struct Watcher {
 }
 
 /// Call `on_change` whenever files change in `project`'s worktree or git directory, with
-/// whether the git directory was among them, for a linked worktree's files its name, and the
+/// whether the git directory was among them, the checkout whose files changed, and the
 /// worktree's files that changed, by their path in it. It runs on a background task, so it
 /// should only signal.
 ///
@@ -22,10 +22,7 @@ pub struct Watcher {
 /// agent keeps saving.
 pub fn watch(
     project: &Project,
-    on_change: impl Fn(bool, Option<std::sync::Arc<str>>, Vec<std::sync::Arc<str>>)
-    + Send
-    + Sync
-    + 'static,
+    on_change: impl Fn(bool, super::Checkout, Vec<std::sync::Arc<str>>) + Send + Sync + 'static,
 ) -> Result<Watcher> {
     let settings = app_settings()?;
     let watch_mode = gitbutler_filemonitor::WatchMode::from_env_or_settings(
@@ -54,11 +51,11 @@ pub fn watch(
             let paths = (paths.iter())
                 .map(|path| path.to_string_lossy().into())
                 .collect();
-            let linked = match checkout {
-                Checkout::Main => None,
-                Checkout::Linked(name) => Some(name.to_str_lossy().into()),
+            let checkout = match checkout {
+                Checkout::Main => super::Checkout::Main,
+                Checkout::Linked(name) => super::Checkout::Linked(name.to_str_lossy().into()),
             };
-            on_change(git, linked, paths);
+            on_change(git, checkout, paths);
         }
     });
     Ok(Watcher { _monitor: monitor })

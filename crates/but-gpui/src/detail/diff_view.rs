@@ -24,8 +24,8 @@ use super::{
 };
 use crate::app::AppHandle;
 use crate::backend::{
-    self, Branch, ChangeKind, DiffBody, DiffLine, DiffSource, Drawing, FileDiff, HunkKey, LineKind,
-    PushState, Selected, Workspace,
+    self, Branch, ChangeKind, Checkout, DiffBody, DiffLine, DiffSource, Drawing, FileDiff, HunkKey,
+    LineKind, PushState, Selected, Workspace,
 };
 use crate::overlays::MenuItem;
 use crate::state::{Cut, Prefs, ProjectId, Selection};
@@ -920,7 +920,7 @@ impl Detail {
                         ),
                     };
                     let change = file_diff.part(Some(keys));
-                    let checkout = (diff.key.project.clone(), diff.key.linked());
+                    let checkout = (diff.key.project.clone(), diff.key.files_checkout());
                     let app = self.app.clone();
                     discard_button(ix, checkout, change, current && solid, tip, app, cx)
                 });
@@ -1195,7 +1195,7 @@ impl Detail {
             return;
         };
         let (change, fingerprint) = (file.file.clone(), file.fingerprint);
-        let worktree = diff.key.linked();
+        let worktree = diff.key.files_checkout();
         let path = change.path.clone();
         // One read at a time: the one under way reads again when it lands stale.
         if !self.whole_reading.insert(path.clone()) {
@@ -1203,8 +1203,7 @@ impl Detail {
         }
         cx.spawn(async move |this, cx| {
             let lines =
-                backend::run(move || backend::file_lines(&root, worktree.as_deref(), &change))
-                    .await;
+                backend::run(move || backend::file_lines(&root, worktree.linked(), &change)).await;
             this.update(cx, |this, cx| {
                 this.whole_reading.remove(&path);
                 if !this.whole.contains_key(&path) {
@@ -1510,7 +1509,7 @@ impl Detail {
             self.changes_menu(menu, at, blamed, position, cx);
             return;
         };
-        let (project, worktree) = (diff.key.project.clone(), diff.key.linked());
+        let (project, worktree) = (diff.key.project.clone(), diff.key.files_checkout());
         let path = file_diff.file.path.clone();
         // Copy acts where the focus is: on the diff's selection.
         window.focus(&self.focus, cx);
@@ -1569,7 +1568,7 @@ fn line_select(ix: usize, entity: WeakEntity<Detail>, follow: Option<Point<Pixel
 /// which `tip` says.
 fn discard_button(
     ix: usize,
-    (project, linked): (ProjectId, Option<Arc<str>>),
+    (project, checkout): (ProjectId, Checkout),
     change: Selected,
     current: bool,
     tip: &'static str,
@@ -1588,10 +1587,10 @@ fn discard_button(
                 .style(ButtonStyle::Ghost)
                 .tooltip_for(tip, &DiscardHunk)
                 .on_click(move |_, window, cx| {
-                    let (project, linked) = (project.clone(), linked.clone());
+                    let (project, checkout) = (project.clone(), checkout.clone());
                     let changes = vec![change.clone()];
                     app.update_later(window, cx, move |app, window, cx| {
-                        app.discard(project, linked, changes, window, cx)
+                        app.discard(project, checkout, changes, window, cx)
                     });
                 }),
         )

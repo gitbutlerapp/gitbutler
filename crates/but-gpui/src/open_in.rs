@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use gpui::{Context, Pixels, Point, Window, actions};
 
 use crate::app::AppView;
-use crate::backend::{self, settings};
+use crate::backend::{self, Checkout, settings};
 use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Store};
 
@@ -23,13 +23,13 @@ pub fn editor_label(store: &Store) -> String {
 }
 
 impl AppView {
-    /// Open `file` (relative to the project, or to its linked `worktree`; the project itself
-    /// with `None`) in the chosen editor at `line`. With none chosen yet, offer the editors
+    /// Open `file` (relative to the project's `checkout`; the checkout itself with `None`) in
+    /// the chosen editor at `line`. With none chosen yet, offer the editors
     /// as a menu at `position`.
     pub fn open_in_editor(
         &mut self,
         project: &ProjectId,
-        worktree: Option<std::sync::Arc<str>>,
+        checkout: Checkout,
         file: Option<String>,
         line: Option<u32>,
         position: Point<Pixels>,
@@ -40,12 +40,12 @@ impl AppView {
         };
         let file = file.unwrap_or_else(|| ".".to_owned());
         match self.store.read(cx).prefs.editor.clone() {
-            Some(editor) => self.run_editor(path, worktree, editor, file, line, cx),
+            Some(editor) => self.run_editor(path, checkout, editor, file, line, cx),
             None => {
                 let items = settings::editors()
                     .into_iter()
                     .map(|(id, name)| {
-                        let (path, worktree, file) = (path.clone(), worktree.clone(), file.clone());
+                        let (path, checkout, file) = (path.clone(), checkout.clone(), file.clone());
                         MenuItem::new(name.clone(), move |this, _, cx| {
                             this.store.update(cx, |store, cx| {
                                 store.set_prefs(|prefs| prefs.editor = Some(id.clone()), cx);
@@ -56,7 +56,7 @@ impl AppView {
                             });
                             this.run_editor(
                                 path.clone(),
-                                worktree.clone(),
+                                checkout.clone(),
                                 id.clone(),
                                 file.clone(),
                                 line,
@@ -73,14 +73,13 @@ impl AppView {
     fn run_editor(
         &mut self,
         path: PathBuf,
-        worktree: Option<std::sync::Arc<str>>,
+        checkout: Checkout,
         editor: String,
         file: String,
         line: Option<u32>,
         cx: &mut Context<Self>,
     ) {
-        let open =
-            move || settings::open_in_editor(&path, worktree.as_deref(), &editor, &file, line);
+        let open = move || settings::open_in_editor(&path, checkout.linked(), &editor, &file, line);
         self.open_with("Couldn't open the editor", open, cx);
     }
 

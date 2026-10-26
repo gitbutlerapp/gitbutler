@@ -7,7 +7,7 @@ use gpui::{
     App, Context, Div, Entity, Modifiers, Pixels, Point, SharedString, Window, div, prelude::*,
 };
 
-use crate::backend::{self, CommitId, Destination, Selected, short_ref};
+use crate::backend::{self, Checkout, CommitId, Destination, Selected, short_ref};
 use crate::state::{Cut, Label, NewAt, Overlay, ProjectId, Selection, Store};
 use crate::theme::Theme;
 use crate::ui::{Icon, dp, popover, small_icon};
@@ -27,11 +27,11 @@ pub enum Transfer {
         ids: Arc<[CommitId]>,
         into: CommitId,
     },
-    /// Uncommitted files of the main checkout, or of the linked `worktree`, into a commit.
+    /// Uncommitted files of `worktree` into a commit.
     Amend {
         into: CommitId,
         files: Arc<[Selected]>,
-        worktree: Option<Arc<str>>,
+        worktree: Checkout,
     },
     MoveFiles {
         from: CommitId,
@@ -63,7 +63,7 @@ pub enum Transfer {
     CommitOnBranch {
         branch: String,
         files: Arc<[Selected]>,
-        worktree: Option<Arc<str>>,
+        worktree: Checkout,
     },
 }
 
@@ -267,7 +267,7 @@ impl Transfer {
                 },
                 // The composer commits the main checkout's files to the workspace's branches.
                 (None, Selection::Branch(_, branch))
-                    if worktree.is_none() && !store.in_linked(target) =>
+                    if !worktree.is_linked() && !store.in_linked(target) =>
                 {
                     Transfer::StageOnBranch {
                         branch: branch.clone(),
@@ -469,7 +469,7 @@ impl Transfer {
                     overlay,
                     move |path, _| {
                         let to = Destination::Branch(branch);
-                        backend::commit(path, &to, &files, worktree.as_deref(), "", false)
+                        backend::commit(path, &to, &files, worktree.linked(), "", false)
                     },
                     move |store, (id, left_out, _), cx| {
                         store.select(Some(Selection::Commit(selected, id)), cx);
@@ -611,7 +611,7 @@ mod tests {
         let files = Cut::Files {
             project: project.clone(),
             from: None,
-            worktree: None,
+            worktree: Checkout::Main,
             files: Arc::from([]),
         };
         let held = Modifiers::default();

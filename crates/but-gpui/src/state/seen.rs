@@ -211,7 +211,7 @@ impl Store {
         // Only those in the checkouts it made commits in: an agent's in another are news.
         let before = self.rebaseline.get(id).map(|(before, checkouts)| {
             let there: HashSet<&str> = (checkouts.iter())
-                .flat_map(|checkout| workspace.branches_in(&checkout.clone().into()))
+                .flat_map(|checkout| workspace.branches_in(checkout))
                 .flat_map(|branch| &branch.commits)
                 .map(|commit| commit.key.as_str())
                 .collect();

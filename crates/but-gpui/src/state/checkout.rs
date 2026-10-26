@@ -64,7 +64,7 @@ impl Store {
         let checkout = self.checkout_of(selection)?;
         let name = checkout.linked()?;
         let workspace = self.workspace(selection.project())?;
-        workspace.worktrees.iter().find(|wt| wt.name == *name)
+        workspace.worktrees.iter().find(|wt| *wt.name == *name)
     }
 
     /// Where an action on `at` happens, for a prompt or a confirmation to say, named as the

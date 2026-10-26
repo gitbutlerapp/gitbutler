@@ -46,8 +46,8 @@ const HOT_SHOWN: usize = 50;
 /// What the overview reads beyond the workspace, for the checkout it was read for.
 #[derive(Default)]
 pub(super) struct Now {
-    /// The project, and the linked worktree or `None` for the main checkout, it's read for.
-    checkout: Option<(ProjectId, Option<Arc<str>>)>,
+    /// The project and checkout it's read for.
+    checkout: Option<(ProjectId, Checkout)>,
     /// What moved a linked worktree's `HEAD` lately other than its commits, newest first, and
     /// the branch and commit it was read at, as the reflog changes only when they do.
     events: Vec<(i64, String)>,
@@ -154,7 +154,7 @@ impl Detail {
             return false;
         }
         let none = (self.store.read(cx).workspace(&project))
-            .and_then(|ws| ws.uncommitted_in(worktree.as_deref()))
+            .and_then(|ws| ws.uncommitted_in(&worktree))
             .is_none_or(<[_]>::is_empty);
         none || (self.now_open && !self.composing)
     }
@@ -181,7 +181,7 @@ impl Detail {
         // With its changes gone, as committed, the page settles on the overview, so changes
         // showing up again don't bring a diff over it.
         let none = (self.store.read(cx).workspace(&checkout.0))
-            .and_then(|ws| ws.uncommitted_in(checkout.1.as_deref()))
+            .and_then(|ws| ws.uncommitted_in(&checkout.1))
             .is_some_and(<[_]>::is_empty);
         if none && !self.composing {
             self.now_open = true;
@@ -197,7 +197,7 @@ impl Detail {
         // while another page was picked.
         if opened {
             self.now.known = (self.store.read(cx).workspace(&checkout.0)).map(|ws| {
-                (checkout_commits(ws, &checkout.1.clone().into()).iter())
+                (checkout_commits(ws, &checkout.1).iter())
                     .map(|commit| commit.id)
                     .collect()
             });
@@ -205,7 +205,7 @@ impl Detail {
         let Some(path) = self.store.read(cx).path(&checkout.0) else {
             return;
         };
-        let linked = (checkout.1.as_deref()).and_then(|name| {
+        let linked = (checkout.1.linked()).and_then(|name| {
             let ws = self.store.read(cx).workspace(&checkout.0)?;
             Some((ws.find_worktree(name)?, ws.worktree_lane(name)))
         });
@@ -214,7 +214,9 @@ impl Detail {
             let tip = top.and_then(|b| b.commits.first());
             (w.branch.clone(), tip.map(|commit| commit.id))
         });
-        if let Some(name) = checkout.1.clone().filter(|_| head != self.now.events_at) {
+        if let Checkout::Linked(name) = checkout.1.clone()
+            && head != self.now.events_at
+        {
             self.now.events_at = head.clone();
             let since = window_start(crate::ui::now());
             let (read_from, read_for) = (path.clone(), checkout.clone());
@@ -255,14 +257,14 @@ impl Detail {
         let Some(ws) = store.workspace(project) else {
             return;
         };
-        let commits = checkout_commits(ws, &worktree.clone().into());
+        let commits = checkout_commits(ws, &worktree);
         let ids = commits.iter().map(|commit| commit.id).collect();
         let Some(known) = self.now.known.replace(ids) else {
             return;
         };
         let reading = (self.diff.as_ref())
             .filter(|diff| diff.key.project == *project)
-            .is_some_and(|diff| diff.key.checkout() == Some(worktree.as_deref()));
+            .is_some_and(|diff| diff.key.checkout().as_ref() == Some(&worktree));
         let Some(path) = self.cursor_path().filter(|_| reading) else {
             return;
         };
@@ -270,7 +272,7 @@ impl Detail {
         if self.composing || self.now_open {
             return;
         }
-        let still = (ws.uncommitted_in(worktree.as_deref()))
+        let still = (ws.uncommitted_in(&worktree))
             .is_some_and(|files| files.iter().any(|file| file.path == path));
         let mut made = (commits.iter())
             .filter(|commit| !known.contains(&commit.id) && store.is_unread(project, **commit));
@@ -293,7 +295,7 @@ impl Detail {
     pub(super) fn render_checkout_header(
         &self,
         project: &ProjectId,
-        worktree: Option<&Arc<str>>,
+        checkout: &Checkout,
         theme: &Theme,
         cx: &Context<Self>,
     ) -> AnyElement {
@@ -302,8 +304,8 @@ impl Detail {
             return div().into_any_element();
         };
         let ws = entry.workspace.as_ref();
-        let (title, branch, folder, target) = match worktree {
-            Some(name) => {
+        let (title, branch, folder, target) = match checkout {
+            Checkout::Linked(name) => {
                 let linked = ws.and_then(|ws| ws.find_worktree(name));
                 (
                     name.to_string(),
@@ -315,7 +317,7 @@ impl Detail {
                     Selection::Worktree(project.clone(), name.clone()),
                 )
             }
-            None => (
+            Checkout::Main => (
                 "Main worktree".to_owned(),
                 match ws {
                     // Checked out on its own, as in Git, the branch is named.
@@ -351,15 +353,15 @@ impl Detail {
         self.page_header(main, target, None, None, theme, cx)
     }
 
-    /// The overview of the checkout of `project`, linked worktree `worktree` or the main one,
-    /// laid out as the project's and Branches' are: where it is (whether it's being written,
-    /// its uncommitted files and unread commits), then what happened over the last 12 hours
-    /// or the quarters picked off its activity (how busy it's been, the files committed most
-    /// and the commits, side by side, so a file picked filters the commits beside it).
+    /// The overview of `project`'s `checkout`, laid out as the project's and Branches' are: where
+    /// it is (whether it's being written, its uncommitted files and unread commits), then what
+    /// happened over the last 12 hours or the quarters picked off its activity (how busy it's been,
+    /// the files committed most and the commits, side by side, so a file picked filters the commits
+    /// beside it).
     pub(super) fn render_now(
         &self,
         project: &ProjectId,
-        worktree: Option<&Arc<str>>,
+        checkout: &Checkout,
         cx: &Context<Self>,
     ) -> AnyElement {
         let theme = Theme::get(cx);
@@ -371,22 +373,21 @@ impl Detail {
                 None => div().flex_1().into_any_element(),
             };
         };
-        let name = worktree.map(|w| &**w);
         let now = crate::ui::now();
         // Everything under the activity is of the 12 hours it covers, or the quarters picked,
         // the commits of branches that left since too.
         let span = &self.now.span;
         let start = window_start(now);
         let inside = |at: i64| at >= start && span.keeps(at.div_euclid(QUARTER));
-        let activity = store.activity.get(&(project.clone(), worktree.cloned()));
-        let all = made(ws, &worktree.cloned().into(), activity);
+        let activity = store.activity.get(&(project.clone(), checkout.clone()));
+        let all = made(ws, checkout, activity);
         let scoped: Vec<Made> = (all.iter().copied())
             .filter(|commit| inside(commit.time()))
             .collect();
         let events = (self.now.events.iter())
             .filter(|(at, _)| inside(*at))
             .collect::<Vec<_>>();
-        let files = ws.uncommitted_in(name).unwrap_or_default();
+        let files = ws.uncommitted_in(checkout).unwrap_or_default();
         // Of all its commits, not only those listed, so marking them read leaves it caught up.
         let unread: Vec<CommitId> = (all.iter())
             .filter_map(|c| match c {
@@ -624,7 +625,7 @@ impl Detail {
     /// unless read already or being read, for Hot files and its filter.
     fn read_commit_paths(
         &mut self,
-        checkout: &(ProjectId, Option<Arc<str>>),
+        checkout: &(ProjectId, Checkout),
         path: &Path,
         cx: &mut Context<Self>,
     ) {
@@ -636,7 +637,7 @@ impl Detail {
         let since = window_start(now);
         let known =
             |id: &CommitId| self.now.paths.contains_key(id) || self.now.reading.contains(id);
-        let made = made(ws, &checkout.1.clone().into(), store.activity.get(checkout));
+        let made = made(ws, &checkout.1, store.activity.get(checkout));
         let unread: Vec<CommitId> = (made.into_iter())
             .filter(|commit| commit.time() >= since && !known(&commit.id()))
             .map(Made::id)

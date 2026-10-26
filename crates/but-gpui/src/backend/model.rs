@@ -209,11 +209,11 @@ impl Workspace {
             .find(|worktree| &*worktree.name == name)
     }
 
-    /// The uncommitted files of the linked worktree `name`, or of the main checkout.
-    pub fn uncommitted_in(&self, name: Option<&str>) -> Option<&[FileChange]> {
-        match name {
-            None => Some(&self.uncommitted),
-            Some(name) => Some(&self.find_worktree(name)?.uncommitted),
+    /// The uncommitted files of `checkout`.
+    pub fn uncommitted_in(&self, checkout: &Checkout) -> Option<&[FileChange]> {
+        match checkout {
+            Checkout::Main => Some(&self.uncommitted),
+            Checkout::Linked(name) => Some(&self.find_worktree(name)?.uncommitted),
         }
     }
 

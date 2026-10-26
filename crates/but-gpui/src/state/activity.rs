@@ -4,13 +4,12 @@
 //! count.
 
 use std::collections::{HashSet, VecDeque};
-use std::sync::Arc;
 
 use gpui::Context;
 use serde::{Deserialize, Serialize};
 
 use super::{ProjectId, Store};
-use crate::backend::{Branch, CommitId, CommitState, ReviewState, Workspace};
+use crate::backend::{Branch, Checkout, CommitId, CommitState, ReviewState, Workspace};
 
 /// How long one bar of activity covers, in seconds.
 pub const QUARTER: i64 = 15 * 60;
@@ -106,11 +105,11 @@ impl Store {
         cx: &mut Context<Self>,
     ) {
         let now = crate::ui::now();
-        let linked = (workspace.worktrees.iter()).map(|w| Some(w.name.clone()));
+        let linked = (workspace.worktrees.iter()).map(|w| Checkout::Linked(w.name.clone()));
         let mut changed = false;
-        for worktree in std::iter::once(None).chain(linked) {
-            let branches: Vec<&Branch> = workspace.branches_in(&worktree.clone().into()).collect();
-            let checkout: (ProjectId, Option<Arc<str>>) = (id.clone(), worktree);
+        for checkout in std::iter::once(Checkout::Main).chain(linked) {
+            let branches: Vec<&Branch> = workspace.branches_in(&checkout).collect();
+            let checkout = (id.clone(), checkout);
             let kept = self.activity.get(&checkout);
             let commits = remembered(kept, now, &branches);
             if commits != kept.map_or(&[][..], |a| &a.commits) {

@@ -36,9 +36,8 @@ pub struct Overlay {
     pub files: HashSet<String>,
     /// Hunks leaving uncommitted files that otherwise stay, by path.
     pub hunks: HashMap<String, Vec<HunkKey>>,
-    /// The linked worktree, by name, whose files `files` and `hunks` are; the main
-    /// checkout's without one.
-    pub files_in: Option<Arc<str>>,
+    /// The checkout whose files `files` and `hunks` are.
+    pub files_in: Checkout,
     /// Branches leaving, by full ref, as a stack's do when it's unapplied.
     pub branches: HashSet<String>,
     /// Branches deleted from their stack, by full ref: the ref goes, its commits stay.
@@ -164,8 +163,7 @@ pub enum NewAt {
     Below(String),
 }
 
-/// Checkouts of a project: a linked worktree by name, the main one as `None`.
-pub(super) type Checkouts = HashSet<Option<Arc<str>>>;
+pub(super) type Checkouts = HashSet<Checkout>;
 
 impl Overlay {
     /// The checkouts it makes commits in: the one whose files it takes, the one its new commit
@@ -195,7 +193,6 @@ impl Overlay {
             .map(|key| moved_by(keyed(key)));
         (landing.chain(changed))
             .flatten()
-            .map(|checkout| checkout.linked().cloned())
             .chain([self.files_in.clone()])
             .collect()
     }
@@ -1199,19 +1196,19 @@ impl Store {
         );
     }
 
-    /// Amend commit `into` with uncommitted `files` of the main checkout, or of the linked
-    /// `worktree`, then call `then` once that worked.
+    /// Amend commit `into` with uncommitted `files` of `worktree`, then call `then` once that
+    /// worked.
     pub fn amend(
         &mut self,
         project: &ProjectId,
         into: CommitId,
         files: Arc<[Selected]>,
-        worktree: Option<Arc<str>>,
+        worktree: Checkout,
         then: impl FnOnce(&mut Store, &mut Context<Store>) + 'static,
         cx: &mut Context<Self>,
     ) {
         let run_hooks = self.runs_hooks(project);
-        let undoable = self.undoable(project, [Checkout::from(worktree.clone())]);
+        let undoable = self.undoable(project, [worktree.clone()]);
         let overlay = Overlay {
             files_in: worktree.clone(),
             ..Overlay::files(files.iter())
@@ -1226,7 +1223,7 @@ impl Store {
             overlay,
             move |path, remap| {
                 let into = remap.get(into)?;
-                backend::amend(path, into, &files, worktree.as_deref(), run_hooks)
+                backend::amend(path, into, &files, worktree.linked(), run_hooks)
             },
             move |store, (rewritten, left_out, hook_failed), cx| {
                 store.follow(&rewritten, cx);
@@ -1297,8 +1294,8 @@ impl Store {
             n => Label::new("Uncommit", format!("Uncommit {n} commits")),
         };
         let home = (ids.first())
-            .and_then(|id| self.worktree_for(&Selection::Commit(project.clone(), *id)))
-            .map(|worktree| worktree.name.clone());
+            .and_then(|id| self.checkout_of(&Selection::Commit(project.clone(), *id)))
+            .unwrap_or_default();
         let project = project.clone();
         self.run(
             &project.clone(),
@@ -1313,11 +1310,7 @@ impl Store {
                         .key_of(selected, *id)
                         .is_some_and(|key| keys.contains(&key))
                 {
-                    let shown = match home.clone() {
-                        Some(name) => Selection::Worktree(project, name),
-                        None => Selection::Uncommitted(project),
-                    };
-                    store.select(Some(shown), cx);
+                    store.select(Some(Selection::uncommitted_in(project, home)), cx);
                 }
                 store.snack_undoable("Uncommitted", cx)
             },
@@ -1588,7 +1581,7 @@ impl Store {
                         Rereads::Files => Reload::files(overlay.files_in.clone()),
                         Rereads::CommitsAndMain => {
                             let mut reload = Reload::commits();
-                            reload.merge(Reload::files(None));
+                            reload.merge(Reload::files(Checkout::Main));
                             reload
                         }
                     };
@@ -1795,23 +1788,20 @@ impl Store {
         (self.overlays(project)).any(|o| o.new_commit.is_some() && o.commits.contains(key))
     }
 
-    /// Whether the file at `path` is leaving the uncommitted files of the linked worktree
-    /// named `checkout`, or of the main checkout for `None`.
-    pub fn hides_file(&self, project: &ProjectId, checkout: Option<&str>, path: &str) -> bool {
-        (self.overlays(project))
-            .any(|o| o.files_in.as_deref() == checkout && o.files.contains(path))
+    /// Whether the file at `path` is leaving the uncommitted files of `checkout`.
+    pub fn hides_file(&self, project: &ProjectId, checkout: &Checkout, path: &str) -> bool {
+        (self.overlays(project)).any(|o| o.files_in == *checkout && o.files.contains(path))
     }
 
     pub fn hides_hunk(
         &self,
         project: &ProjectId,
-        checkout: Option<&str>,
+        checkout: &Checkout,
         path: &str,
         hunk: HunkKey,
     ) -> bool {
         self.overlays(project).any(|o| {
-            o.files_in.as_deref() == checkout
-                && o.hunks.get(path).is_some_and(|hunks| hunks.contains(&hunk))
+            o.files_in == *checkout && o.hunks.get(path).is_some_and(|hunks| hunks.contains(&hunk))
         })
     }
 
@@ -1824,12 +1814,12 @@ impl Store {
     pub fn uncommitted_shown<'a>(
         &self,
         project: &ProjectId,
-        checkout: Option<&str>,
+        checkout: &Checkout,
         files: &'a [FileChange],
     ) -> Cow<'a, [FileChange]> {
         // Looked up once rather than for every file: this runs on every frame the row is drawn.
         let taking: Vec<&Overlay> = (self.overlays(project))
-            .filter(|o| o.files_in.as_deref() == checkout && !o.files.is_empty())
+            .filter(|o| o.files_in == *checkout && !o.files.is_empty())
             .collect();
         let hidden = |file: &FileChange| taking.iter().any(|o| o.files.contains(&file.path));
         match !taking.is_empty() && files.iter().any(hidden) {
@@ -1887,19 +1877,19 @@ impl Store {
     }
 
     /// The hunks, or lines of them, pending mutations take out of files that otherwise stay,
-    /// by path: of the uncommitted files of the linked worktree named `checkout` (the main
-    /// checkout for `None`), or with a `commit` key, of that commit's.
+    /// by path: of the uncommitted files of `checkout`, or with a `commit` key, of that
+    /// commit's.
     pub fn parts_leaving<'a>(
         &'a self,
         project: &'a ProjectId,
-        checkout: Option<&str>,
+        checkout: &Checkout,
         commit: Option<&str>,
     ) -> HashMap<&'a str, Vec<HunkKey>> {
         let mut parts: HashMap<&str, Vec<HunkKey>> = HashMap::new();
         for overlay in self.overlays(project) {
             let found = match commit {
                 Some(commit) => overlay.commit_hunks.get(commit),
-                None => (overlay.files_in.as_deref() == checkout).then_some(&overlay.hunks),
+                None => (overlay.files_in == *checkout).then_some(&overlay.hunks),
             };
             for (path, keys) in found.into_iter().flatten() {
                 parts.entry(path.as_str()).or_default().extend(keys);
@@ -2129,7 +2119,11 @@ mod tests {
         );
         let named = |checkouts: Checkouts| {
             let mut names: Vec<_> = (checkouts.into_iter())
-                .map(|checkout| checkout.map_or("Main".to_owned(), |name| name.to_string()))
+                .map(|checkout| {
+                    checkout
+                        .linked()
+                        .map_or("Main".to_owned(), |name| name.to_string())
+                })
                 .collect();
             names.sort();
             names.join(", ")
@@ -2139,7 +2133,7 @@ mod tests {
             ..Overlay::default()
         };
         let amending_in = |worktree: &str, key: &str| Overlay {
-            files_in: Some(worktree.into()),
+            files_in: Checkout::Linked(worktree.into()),
             ..Overlay::commits([key.to_owned()])
         };
         let checkouts = [

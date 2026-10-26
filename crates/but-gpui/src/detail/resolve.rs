@@ -4,7 +4,6 @@
 
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
-use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, Context, Entity, Focusable, Subscription, Task, WeakEntity, Window, actions,
@@ -14,7 +13,7 @@ use gpui::{
 use super::{Detail, DiffSource};
 use crate::app::AppView;
 use crate::backend::conflicts::{self, Keep};
-use crate::backend::{self, Branch, Commit, CommitId, Conflict, Workspace, ai};
+use crate::backend::{self, Branch, Checkout, Commit, CommitId, Conflict, Workspace, ai};
 use crate::state::{OpKind, Overlay, ProjectId, Rereads, Selection, snack};
 use crate::theme::Theme;
 use crate::ui::conflict::{self, Actions, Kept, Name, Part, Pick};
@@ -40,9 +39,8 @@ actions!(
 #[derive(Clone, PartialEq)]
 pub(super) enum Conflicted {
     Commit(CommitId),
-    /// Uncommitted files a merge left conflict markers in, of the main checkout or the
-    /// linked worktree named.
-    Files(Option<Arc<str>>),
+    /// Uncommitted files a merge left conflict markers in, of a checkout.
+    Files(Checkout),
 }
 
 /// What picks are kept for: a commit by its change ID, so they last through a rebase or a
@@ -50,7 +48,7 @@ pub(super) enum Conflicted {
 #[derive(Clone, PartialEq, Eq, Hash)]
 enum Of {
     Commit(String),
-    Files(Option<Arc<str>>),
+    Files(Checkout),
 }
 
 /// What's kept of a conflict until the picks are applied.
@@ -95,9 +93,7 @@ impl Detail {
         let diff = self.diff.as_ref()?;
         let conflicted = match &diff.key.source {
             DiffSource::Commit(id) => Conflicted::Commit(*id),
-            DiffSource::Worktree => Conflicted::Files(None),
-            DiffSource::Linked(name) => Conflicted::Files(Some(name.clone())),
-            _ => return None,
+            _ => Conflicted::Files(diff.key.checkout()?),
         };
         (diff.files.iter())
             .any(|file| file.file.conflicted)
@@ -166,7 +162,7 @@ impl Detail {
     /// Whether the conflicts shown are a commit's checked out for editing: between it and
     /// the commit it now sits on, as a conflicted commit's are, though they're in its files.
     fn editing_commit(&self, cx: &App) -> bool {
-        matches!(self.conflicted(), Some((project, Conflicted::Files(None)))
+        matches!(self.conflicted(), Some((project, Conflicted::Files(Checkout::Main)))
             if (self.store.read(cx).workspace(&project)).is_some_and(|ws| ws.editing.is_some()))
     }
 
@@ -559,9 +555,7 @@ impl Detail {
                         },
                         {
                             let worktree = worktree.clone();
-                            move |path, _| {
-                                conflicts::resolve_markers(path, worktree.as_deref(), keep)
-                            }
+                            move |path, _| conflicts::resolve_markers(path, worktree.linked(), keep)
                         },
                         move |store, files, cx| {
                             forget(cx);
@@ -579,7 +573,7 @@ impl Detail {
                             };
                             // The oplog can't bring back a linked worktree, nor a commit
                             // checked out for editing.
-                            store.snack_after(worktree.is_none() && !editing, message, cx)
+                            store.snack_after(!worktree.is_linked() && !editing, message, cx)
                         },
                         cx,
                     )
@@ -755,8 +749,8 @@ impl Detail {
         let store = self.store.read(cx);
         let workspace = store.workspace(&project)?;
         let no_undo = match conflicted {
-            Conflicted::Files(Some(_)) => Some("A linked worktree can't undo it."),
-            Conflicted::Files(None) if workspace.editing.is_some() => {
+            Conflicted::Files(Checkout::Linked(_)) => Some("A linked worktree can't undo it."),
+            Conflicted::Files(Checkout::Main) if workspace.editing.is_some() => {
                 Some("Finish then commits the result.")
             }
             _ => None,

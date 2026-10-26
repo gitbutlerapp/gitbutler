@@ -4,8 +4,9 @@ use std::sync::Arc;
 use super::{Branch, Commit, CommitId, Workspace};
 
 /// The checkout a lane's branches are worked on in.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub enum Checkout {
+    #[default]
     Main,
     Linked(Arc<str>),
 }
@@ -32,7 +33,7 @@ pub struct Link<'a> {
 }
 
 impl Checkout {
-    pub fn linked(&self) -> Option<&Arc<str>> {
+    pub fn linked(&self) -> Option<&str> {
         match self {
             Checkout::Main => None,
             Checkout::Linked(name) => Some(name),
@@ -41,12 +42,6 @@ impl Checkout {
 
     pub fn is_linked(&self) -> bool {
         matches!(self, Checkout::Linked(_))
-    }
-}
-
-impl From<Option<Arc<str>>> for Checkout {
-    fn from(linked: Option<Arc<str>>) -> Self {
-        linked.map_or(Checkout::Main, Checkout::Linked)
     }
 }
 

@@ -13,7 +13,7 @@ use parking_lot::Mutex;
 use crate::backend::upstream::TargetCommit;
 use crate::backend::watch::Watcher;
 use crate::backend::{
-    self, Branch, Commit, CommitId, Project, Selected, SnapshotId, Workspace, short_ref,
+    self, Branch, Checkout, Commit, CommitId, Project, Selected, SnapshotId, Workspace, short_ref,
 };
 
 mod account;
@@ -78,6 +78,13 @@ pub enum Section {
 }
 
 impl Selection {
+    pub fn uncommitted_in(project: ProjectId, checkout: Checkout) -> Self {
+        match checkout {
+            Checkout::Main => Selection::Uncommitted(project),
+            Checkout::Linked(name) => Selection::Worktree(project, name),
+        }
+    }
+
     pub fn project(&self) -> &ProjectId {
         match self {
             Selection::Project(project)
@@ -128,9 +135,8 @@ pub enum Cut {
     Files {
         project: ProjectId,
         from: Option<CommitId>,
-        /// The linked worktree uncommitted files are in, or `None` for the main checkout's
-        /// and for a commit's.
-        worktree: Option<Arc<str>>,
+        /// The checkout uncommitted files are in, the main one for a commit's.
+        worktree: Checkout,
         /// Shared, since every row a drag passes over works out what a drop would do.
         files: Arc<[Selected]>,
     },
@@ -370,10 +376,10 @@ pub struct Store {
     /// When each commit an agent made showed up, while its rows still glow: see
     /// [`Store::glows`].
     arrived: HashMap<CommitId, Instant>,
-    /// Commit messages being written, by project and linked worktree, for coming back to.
+    /// Commit messages being written, by project and checkout, for coming back to.
     /// Like the composer's checks they last the session, so a message never comes back
     /// without them.
-    pub drafts: HashMap<(ProjectId, Option<Arc<str>>), String>,
+    pub drafts: HashMap<(ProjectId, Checkout), String>,
     /// The commits each merge of a remote brought in, by the merge, as read when its commits
     /// were first shown, and whether it brought more than those; `None` while reading.
     pub merged: HashMap<CommitId, Option<(Vec<TargetCommit>, bool)>>,
@@ -419,9 +425,8 @@ pub struct Store {
     /// What the forge said about whether pull requests can merge, by project and number: see
     /// [`Store::read_merge_status`].
     merge_reads: HashMap<(ProjectId, u64), background::MergeRead>,
-    /// What the file watcher saw written in each checkout lately: a project's main one, or
-    /// its linked worktree with this name.
-    pub activity: HashMap<(ProjectId, Option<Arc<str>>), Activity>,
+    /// What the file watcher saw written in each checkout lately.
+    pub activity: HashMap<(ProjectId, Checkout), Activity>,
 }
 
 impl EventEmitter<StoreEvent> for Store {}
@@ -521,10 +526,9 @@ impl Store {
             merge_reads: HashMap::new(),
             activity: (saved.activity.into_iter())
                 .map(|saved| {
-                    (
-                        (saved.project.into(), saved.worktree.map(Into::into)),
-                        saved.activity,
-                    )
+                    let checkout = (saved.worktree)
+                        .map_or(Checkout::Main, |name| Checkout::Linked(name.into()));
+                    ((saved.project.into(), checkout), saved.activity)
                 })
                 .collect(),
             _forge_poll: Self::poll_forge(cx),

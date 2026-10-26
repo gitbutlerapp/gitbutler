@@ -37,7 +37,7 @@ pub(crate) fn workspace(stacks: Vec<Vec<Branch>>, linked: Vec<Lane>) -> Workspac
     let worktrees = (linked.iter())
         .filter_map(|lane| lane.checkout.linked())
         .map(|name| Worktree {
-            name: name.clone(),
+            name: name.into(),
             path: format!("/{name}").into(),
             branch: None,
             uncommitted: Vec::new(),

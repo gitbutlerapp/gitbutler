@@ -186,7 +186,7 @@ impl Navigator {
             let selection = store.selection.as_ref().filter(|s| s.project() == id);
             let main_selected =
                 selection.is_some_and(|s| within(s, workspace.branches_in(&Checkout::Main)));
-            let main_open = self.worktree_open(id, None, main_selected);
+            let main_open = self.worktree_open(id, Checkout::Main, main_selected);
             // Always listed, with nothing uncommitted too, so where to commit is always there.
             rows.push(Row::Item(Selection::Uncommitted(id.clone())));
             if headed {
@@ -549,7 +549,7 @@ impl Navigator {
     ) {
         let name = worktree.name.clone();
         rows.push(Row::Item(Selection::Worktree(id.clone(), name.clone())));
-        if self.worktree_open(id, Some(&name), selected) {
+        if self.worktree_open(id, Checkout::Linked(name.clone()), selected) {
             rows.open_in(NEST);
             let lane = (store.workspace(id)).and_then(|ws| ws.worktree_lane(&name));
             self.lane_rows(store, id, lane.map_or(&[][..], |lane| &lane.branches), rows);

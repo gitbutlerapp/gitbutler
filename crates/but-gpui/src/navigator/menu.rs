@@ -8,7 +8,7 @@ use crate::app::{
     NewBranchOnTop, OpenPullRequest, Push, RenameSelection, StartCommit, ToggleRead,
     UncommitSelection, UpdateFromTarget,
 };
-use crate::backend::{CommitId, short_ref};
+use crate::backend::{Checkout, CommitId, short_ref};
 use crate::edits::{
     AddEmptyCommitAbove, AddEmptyCommitBelow, BranchEdits, CherryPick, CommitEdits, CopyChangeId,
     CopyMessage, MoveToNewBranch, NewBranchBelow, NewBranchHere, PullRemote, RewrapMessage,
@@ -118,29 +118,19 @@ impl Navigator {
     }
 
     /// Commit… and discarding the changes the composer has checked, or all of them, for
-    /// `project`'s main checkout or its `linked` worktree with uncommitted changes; a linked
-    /// worktree's discard asks first.
-    fn changes_items(
-        &self,
-        project: &ProjectId,
-        linked: Option<std::sync::Arc<str>>,
-        cx: &App,
-    ) -> [MenuItem; 2] {
+    /// `project`'s `checkout` with uncommitted changes; a linked worktree's discard asks first.
+    fn changes_items(&self, project: &ProjectId, checkout: Checkout, cx: &App) -> [MenuItem; 2] {
         // Only the composer checks files, and only its own checkout's: without it, or for
         // another checkout right-clicked while it's open, discarding takes them all.
         // The composer's own checkout, not the selection's, which a right-click has just moved.
-        let what = match self
-            .detail
-            .read(cx)
-            .composing_in(project, linked.as_deref())
-        {
+        let what = match self.detail.read(cx).composing_in(project, &checkout) {
             true => "checked changes",
             false => "all changes",
         };
         [
             MenuItem::action("Commit…", &StartCommit, cx).separated(),
             MenuItem::action(
-                crate::edits::discard_label(what, linked.is_some()),
+                crate::edits::discard_label(what, checkout.is_linked()),
                 &DeleteSelection,
                 cx,
             )
@@ -269,7 +259,8 @@ impl Navigator {
                     items.extend([
                         MenuItem::new(label, move |this, window, cx| {
                             let position = window.mouse_position();
-                            this.open_in_editor(&editor_project, None, None, None, position, cx)
+                            let main = Checkout::Main;
+                            this.open_in_editor(&editor_project, main, None, None, position, cx)
                         })
                         .separated(),
                         MenuItem::keyed(
@@ -306,7 +297,7 @@ impl Navigator {
                 {
                     return items;
                 }
-                items.extend(self.changes_items(project, None, cx));
+                items.extend(self.changes_items(project, Checkout::Main, cx));
                 items
             }
             Selection::Branch(project, ref_name) => {
@@ -554,7 +545,7 @@ impl Navigator {
                     .collect();
                 let (project, name) = (project.clone(), name.clone());
                 let (deleted_project, deleted) = (project.clone(), name.clone());
-                let linked = Some(name.clone());
+                let linked = Checkout::Linked(name.clone());
                 let changes = (!lost.is_empty()).then(|| self.changes_items(&project, linked, cx));
                 let mut items = vec![
                     MenuItem::new(crate::ui::REVEAL, move |_, _, cx| cx.reveal_path(&path)),

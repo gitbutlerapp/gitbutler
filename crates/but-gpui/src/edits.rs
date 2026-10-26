@@ -502,11 +502,11 @@ impl AppView {
             }
             Some(Selection::Uncommitted(project)) => {
                 let changes = self.detail.read(cx).selected_changes(cx);
-                self.discard(project, None, changes, window, cx);
+                self.discard(project, Checkout::Main, changes, window, cx);
             }
             Some(Selection::Worktree(project, name)) => {
                 let changes = self.detail.read(cx).selected_changes(cx);
-                self.discard(project, Some(name), changes, window, cx);
+                self.discard(project, Checkout::Linked(name), changes, window, cx);
             }
             _ => {}
         }
@@ -805,36 +805,36 @@ impl AppView {
         self.confirm_then(Some(at), message, detail, "Discard", window, cx, run);
     }
 
-    /// Throw away uncommitted changes of the main checkout, or of the linked `worktree`.
+    /// Throw away uncommitted changes of `worktree`.
     /// The main checkout's go at once, with Undo on the snackbar as in Zed's review. A linked
     /// worktree's always ask, as the oplog can't bring them back, and so do the main
     /// checkout's while it can't record them.
     pub fn discard(
         &mut self,
         project: ProjectId,
-        worktree: Option<Arc<str>>,
+        worktree: Checkout,
         mut changes: Vec<Selected>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         // Not what a pending discard or commit already takes, as after a quick second press.
-        let (store, checkout) = (self.store.read(cx), worktree.as_deref());
+        let store = self.store.read(cx);
         changes.retain(|change| {
             let path = &change.file.path;
             match &change.hunks {
-                None => !store.hides_file(&project, checkout, path),
+                None => !store.hides_file(&project, &worktree, path),
                 Some(hunks) => {
-                    !(hunks.iter()).all(|h| store.hides_hunk(&project, checkout, path, *h))
+                    !(hunks.iter()).all(|h| store.hides_hunk(&project, &worktree, path, *h))
                 }
             }
         });
         let lasting = match &worktree {
-            Some(_) => Some("Changes discarded in a linked worktree can't be undone."),
-            None if (store.workspace(&project)).is_some_and(|ws| ws.unrecorded) => Some(
+            Checkout::Linked(_) => Some("Changes discarded in a linked worktree can't be undone."),
+            Checkout::Main if (store.workspace(&project)).is_some_and(|ws| ws.unrecorded) => Some(
                 "With no commits yet, no branch checked out or no target, discarded changes can't \
                  be undone.",
             ),
-            None => None,
+            Checkout::Main => None,
         };
         // A submodule's own work goes with it too, which the oplog doesn't record.
         let why = (changes.iter())
@@ -865,10 +865,7 @@ impl AppView {
             }
         };
         let undoable = lasting.is_none();
-        let at = match &worktree {
-            Some(name) => Selection::Worktree(project.clone(), name.clone()),
-            None => Selection::Uncommitted(project.clone()),
-        };
+        let at = Selection::uncommitted_in(project.clone(), worktree.clone());
         let overlay = Overlay {
             rereads: Rereads::Files,
             files_in: worktree.clone(),
@@ -881,7 +878,7 @@ impl AppView {
             project,
             "Discard",
             overlay,
-            move |path, _| backend::discard(path, worktree.as_deref(), &changes, !undoable),
+            move |path, _| backend::discard(path, worktree.linked(), &changes, !undoable),
             move |store, outcome, cx| match outcome {
                 None => store.snack_after(undoable, "Changes discarded", cx),
                 Some(Undiscarded::Unrecorded(why)) => store.error_with_retry(

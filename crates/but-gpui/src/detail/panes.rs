@@ -4,7 +4,6 @@
 use std::cell::Cell;
 use std::ops::Range;
 use std::rc::Rc;
-use std::sync::Arc;
 
 use gpui::{
     AnyElement, App, Bounds, ClickEvent, Context, Div, Entity, FocusHandle, Focusable as _,
@@ -16,7 +15,7 @@ use super::upstream::noon;
 use super::{Detail, machine};
 use crate::app::{AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious, StartCommit};
 use crate::backend::upstream::{self, ACTIVITY_DAYS};
-use crate::backend::{self, CommitId, CommitState, PushState, short_ref};
+use crate::backend::{self, Checkout, CommitId, CommitState, PushState, short_ref};
 use crate::navigator::{SelectFirst, SelectLast};
 use crate::overlays::MenuItem;
 use crate::state::{ProjectId, Section, Selection};
@@ -392,13 +391,12 @@ impl Detail {
         ]
     }
 
-    /// What an agent left uncommitted in the project's own checkout or the linked
-    /// `worktree`, laid out to read first. The commit box stays closed until asked for, and
-    /// only then do checkboxes appear.
+    /// What an agent left uncommitted in the project's `checkout`, laid out to read first. The
+    /// commit box stays closed until asked for, and only then do checkboxes appear.
     pub(super) fn render_uncommitted_side(
         &self,
         project: &ProjectId,
-        worktree: Option<&Arc<str>>,
+        checkout: &Checkout,
         theme: &Theme,
         window: &mut Window,
         cx: &Context<Self>,
@@ -417,14 +415,15 @@ impl Detail {
                 None => crate::ui::loading_state("Loading…", theme, cx),
             };
         };
-        let (files, git_operation) = match worktree.map(|name| workspace.find_worktree(name)) {
-            None => (&workspace.uncommitted, workspace.git_operation),
-            Some(Some(worktree)) => (&worktree.uncommitted, worktree.git_operation),
-            Some(None) => return not_found("Worktree not found", theme, cx),
-        };
+        let (files, git_operation) =
+            match checkout.linked().map(|name| workspace.find_worktree(name)) {
+                None => (&workspace.uncommitted, workspace.git_operation),
+                Some(Some(worktree)) => (&worktree.uncommitted, worktree.git_operation),
+                Some(None) => return not_found("Worktree not found", theme, cx),
+            };
         // A commit being edited, in the main checkout, is finished or cancelled where a commit
         // would be made.
-        let editing = worktree.is_none() && workspace.editing.is_some();
+        let editing = !checkout.is_linked() && workspace.editing.is_some();
         let footer = if editing {
             footer(
                 "Editing the commit",
@@ -433,10 +432,10 @@ impl Detail {
             )
         } else if !self.composing {
             let target = self.effective_target(project, cx);
-            let target = match (target.as_deref(), worktree) {
+            let target = match (target.as_deref(), checkout) {
                 (Some(target), _) => format!("Commit to {}", short_ref(target)),
-                (None, None) => "Commit to a new branch".to_owned(),
-                (None, Some(_)) => "No branch of its own checked out".to_owned(),
+                (None, Checkout::Main) => "Commit to a new branch".to_owned(),
+                (None, Checkout::Linked(_)) => "No branch of its own checked out".to_owned(),
             };
             let open = button("open-composer", "Commit…")
                 .small()
@@ -454,7 +453,7 @@ impl Detail {
             .size_full()
             .children(unfinished)
             .children(banner.map(|banner| side_header(theme).child(banner)))
-            .child(self.render_uncommitted_files(project, worktree, files, theme, cx))
+            .child(self.render_uncommitted_files(project, checkout, files, theme, cx))
             .child(footer)
             .into_any_element()
     }

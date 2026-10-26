@@ -15,7 +15,7 @@ use crate::app::{
     AddProject, AppHandle, Collapse, Confirm, Expand, SelectNext, SelectPrevious, UpdateFromTarget,
 };
 use crate::backend::{
-    Branch, CommitId, CommitState, FileChange, PushState, Review, ReviewState, Target,
+    Branch, Checkout, CommitId, CommitState, FileChange, PushState, Review, ReviewState, Target,
 };
 use crate::detail::{ChecksChanged, Detail};
 use crate::overlays::MenuItem;
@@ -285,8 +285,8 @@ pub struct Navigator {
     /// Whether branches start open, as the flips were made against. When Settings change
     /// it, the flips go and every branch starts over.
     branches_start_open: bool,
-    /// Worktrees showing only their heading, the main one by `None`.
-    folded_worktrees: HashSet<(ProjectId, Option<Arc<str>>)>,
+    /// Checkouts showing only their heading.
+    folded_worktrees: HashSet<(ProjectId, Checkout)>,
     /// Stacks showing only their caption, by their bottom branch.
     folded_stacks: HashSet<(ProjectId, String)>,
     /// Checkouts on other machines showing only their heading, by the mesh's id.
@@ -456,13 +456,10 @@ impl Navigator {
         }
     }
 
-    /// Whether worktree `name` of `project`, the main one for `None`, shows what's in it: it
-    /// isn't folded, or `selected` is in it.
-    fn worktree_open(&self, project: &ProjectId, name: Option<&Arc<str>>, selected: bool) -> bool {
-        selected
-            || !self
-                .folded_worktrees
-                .contains(&(project.clone(), name.cloned()))
+    /// Whether `checkout` of `project` shows what's in it: it isn't folded, or `selected` is
+    /// in it.
+    fn worktree_open(&self, project: &ProjectId, checkout: Checkout, selected: bool) -> bool {
+        selected || !self.folded_worktrees.contains(&(project.clone(), checkout))
     }
 
     /// The words the filter looks for, up to as many as [`found`] can tell apart.
@@ -765,11 +762,12 @@ impl Navigator {
                 self.set_open(ClickOpened::Here((project, ref_name)), true, cx)
             }
             Some(Selection::Uncommitted(project)) => {
-                self.folded_worktrees.remove(&(project, None));
+                self.folded_worktrees.remove(&(project, Checkout::Main));
                 cx.notify();
             }
             Some(Selection::Worktree(project, name)) => {
-                self.folded_worktrees.remove(&(project, Some(name)));
+                self.folded_worktrees
+                    .remove(&(project, Checkout::Linked(name)));
                 cx.notify();
             }
             Some(Selection::Stack(project, bottom)) => {
@@ -848,10 +846,10 @@ impl Navigator {
                 self.select(heading, window, cx)
             }
             Some(Selection::Uncommitted(project)) if folds => {
-                self.toggle_section(&project, None, true, window, cx)
+                self.toggle_section(&project, Checkout::Main, true, window, cx)
             }
             Some(Selection::Worktree(project, name)) if folds => {
-                self.toggle_section(&project, Some(name), true, window, cx)
+                self.toggle_section(&project, Checkout::Linked(name), true, window, cx)
             }
             Some(Selection::Worktree(project, name))
                 if (store.workspace(&project))
@@ -1386,10 +1384,11 @@ impl Navigator {
         // say: their uncommitted files, unpushed commits and worktrees.
         let summary = workspace.filter(|ws| ws.editing.is_none()).map(|ws| {
             let folded = |n: usize| if expanded && !card_folded { 0 } else { n };
-            let shown = |name: Option<&str>, files| store.uncommitted_shown(id, name, files).len();
-            let in_worktrees = (ws.worktrees.iter()).map(|w| shown(Some(&w.name), &w.uncommitted));
+            let shown = |checkout, files| store.uncommitted_shown(id, &checkout, files).len();
+            let in_worktrees = (ws.worktrees.iter())
+                .map(|w| shown(Checkout::Linked(w.name.clone()), &w.uncommitted));
             (
-                folded(shown(None, &ws.uncommitted) + in_worktrees.sum::<usize>()),
+                folded(shown(Checkout::Main, &ws.uncommitted) + in_worktrees.sum::<usize>()),
                 folded(ws.unpushed_commits()),
                 ws.target.as_ref().filter(|_| !new_on),
                 folded(ws.worktrees.len()),
@@ -1645,11 +1644,11 @@ impl Navigator {
         let theme = style.theme;
         let id = item.project();
         let (entry, workspace) = (store.project(id)?, store.workspace(id)?);
-        let name = match item {
-            Selection::Worktree(_, name) => Some(name.clone()),
-            _ => None,
+        let checkout = match item {
+            Selection::Worktree(_, name) => Checkout::Linked(name.clone()),
+            _ => Checkout::Main,
         };
-        let worktree = (name.as_ref()).and_then(|name| workspace.find_worktree(name));
+        let worktree = (checkout.linked()).and_then(|name| workspace.find_worktree(name));
         let (label, path, uncommitted) = match worktree {
             Some(wt) => (wt.name.to_string(), &wt.path, &wt.uncommitted),
             None => (
@@ -1658,16 +1657,16 @@ impl Navigator {
                 &workspace.uncommitted,
             ),
         };
-        let uncommitted = store.uncommitted_shown(id, name.as_deref(), uncommitted);
-        let branches: Vec<_> = workspace.branches_in(&name.clone().into()).collect();
+        let uncommitted = store.uncommitted_shown(id, &checkout, uncommitted);
+        let branches: Vec<_> = workspace.branches_in(&checkout).collect();
         let unpushed_n = unpushed(branches.iter().copied());
         let unread = (branches.iter()).any(|branch| store.branch_unread(id, branch));
         // Open even when folded while the selection's in it.
         let open = self.section_open(ix);
         let toggle = {
-            let (project, name) = (id.clone(), name.clone());
+            let (project, checkout) = (id.clone(), checkout.clone());
             move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>| {
-                this.toggle_section(&project, name.clone(), open, window, cx)
+                this.toggle_section(&project, checkout.clone(), open, window, cx)
             }
         };
         let folds = !branches.is_empty();
@@ -1681,14 +1680,14 @@ impl Navigator {
         // In as far as a branch is, so its chevron and icon line up with theirs.
         let row = style
             .row(
-                format!("worktree-{id}-{}", name.as_deref().unwrap_or("")),
+                format!("worktree-{id}-{}", checkout.linked().unwrap_or("")),
                 6.,
             )
             .aria_label(label.clone())
             .aria_expanded(open)
             .child(step)
             .child(worktree_icon(
-                name.is_some(),
+                checkout.is_linked(),
                 !uncommitted.is_empty(),
                 style,
             ))
@@ -1713,7 +1712,7 @@ impl Navigator {
         // ones: with only those, there's nothing to drag.
         let files = match uncommitted.is_empty() {
             true => Vec::new(),
-            false => self.detail.read(cx).files_to_move(id, name.clone(), cx),
+            false => self.detail.read(cx).files_to_move(id, checkout.clone(), cx),
         };
         Some(
             row.when(!files.is_empty(), |el| {
@@ -1724,7 +1723,7 @@ impl Navigator {
                 let payload = Cut::Files {
                     project: id.clone(),
                     from: None,
-                    worktree: name.clone(),
+                    worktree: checkout,
                     files: files.into(),
                 };
                 el.on_drag(payload, drag_preview(self.store.clone(), label))
@@ -1733,17 +1732,17 @@ impl Navigator {
         )
     }
 
-    /// Fold worktree `name`'s branches, the main one's for `None`, or unfold them. Folding
-    /// them over the selection takes it up to the worktree's heading, as a tree does.
+    /// Fold `checkout`'s branches, or unfold them. Folding them over the selection takes it
+    /// up to the worktree's heading, as a tree does.
     fn toggle_section(
         &mut self,
         project: &ProjectId,
-        name: Option<Arc<str>>,
+        checkout: Checkout,
         open: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let key = (project.clone(), name);
+        let key = (project.clone(), checkout);
         if !open {
             self.folded_worktrees.remove(&key);
             return cx.notify();
@@ -1751,13 +1750,8 @@ impl Navigator {
         let store = self.store.read(cx);
         let inside = (store.selection.as_ref())
             .zip(store.workspace(project))
-            .is_some_and(|(s, ws)| {
-                s.project() == project && within(s, ws.branches_in(&key.1.clone().into()))
-            });
-        let heading = match &key.1 {
-            Some(name) => Selection::Worktree(project.clone(), name.clone()),
-            None => Selection::Uncommitted(project.clone()),
-        };
+            .is_some_and(|(s, ws)| s.project() == project && within(s, ws.branches_in(&key.1)));
+        let heading = Selection::uncommitted_in(project.clone(), key.1.clone());
         self.folded_worktrees.insert(key);
         match inside {
             true => self.select(heading, window, cx),
