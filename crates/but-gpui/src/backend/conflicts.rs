@@ -133,12 +133,23 @@ pub fn resolve_markers(
             kept.insert(ix, text);
         }
         let whole = kept.len() == blocks.len();
-        writes.push((
-            file,
-            on_disk,
-            markers::replace(&lines, &blocks, &kept),
-            whole,
-        ));
+        let text = markers::replace(&lines, &blocks, &kept);
+        // JSON, as a notebook is, that keeps both sides of a conflict can stop parsing, which
+        // nothing shows until it's opened: refused, while the file parses with one side kept.
+        if whole && (file.ends_with(".json") || file.ends_with(".ipynb")) {
+            let parses = |text: &str| serde_json::from_str::<serde_json::Value>(text);
+            let ours = (blocks.iter().enumerate())
+                .map(|(ix, block)| (ix, markers::text(&lines, block.ours.clone())))
+                .collect();
+            if parses(&markers::replace(&lines, &blocks, &ours)).is_ok()
+                && let Err(err) = parses(&text)
+            {
+                anyhow::bail!(
+                    "That leaves {file} not valid JSON ({err}). Keep one side, or edit it."
+                );
+            }
+        }
+        writes.push((file, on_disk, text, whole));
     }
     // Recorded once the picks are found, so a refused Apply leaves nothing to undo.
     if worktree.is_none() && !editing {
@@ -156,4 +167,62 @@ pub fn resolve_markers(
         but_workspace::resolve_worktree_conflicts(&repo, resolved)?;
     }
     Ok(count)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::process::Command;
+
+    use super::{Keep, markers, resolve_markers};
+    use crate::backend::ops::tests::{git, repo_with};
+
+    #[test]
+    fn keeping_both_sides_of_a_json_conflict_is_refused_when_it_stops_parsing() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            let write = |side: &str| {
+                std::fs::write(path.join("cell.json"), format!("[\n  \"{side}\"\n]\n")).unwrap()
+            };
+            write("a");
+            git(path, &["add", "cell.json"]);
+            git(path, &["commit", "-qm", "cell"]);
+            git(path, &["checkout", "-qb", "theirs"]);
+            write("b");
+            git(path, &["commit", "-qam", "b"]);
+            git(path, &["checkout", "-q", "main"]);
+            write("c");
+            git(path, &["commit", "-qam", "c"]);
+            let merged = (Command::new("git").current_dir(path))
+                .args(["merge", "-q", "theirs"])
+                .output()
+                .unwrap();
+            assert!(!merged.status.success(), "the merge conflicts");
+
+            let text = std::fs::read_to_string(path.join("cell.json")).unwrap();
+            let lines = markers::lines(&text);
+            let blocks = markers::blocks(&lines);
+            let id = markers::ids(&lines, &blocks)[0].clone();
+            let both = markers::text(&lines, blocks[0].ours.clone())
+                + &markers::text(&lines, blocks[0].theirs.clone());
+            let err = resolve_markers(
+                path,
+                None,
+                vec![("cell.json".into(), id.clone(), Keep::Text(both))],
+            )
+            .expect_err("two array items with no comma between them");
+            assert!(err.to_string().contains("not valid JSON"), "{err}");
+            assert_eq!(
+                std::fs::read_to_string(path.join("cell.json")).unwrap(),
+                text,
+                "nothing is written"
+            );
+            let kept = resolve_markers(path, None, vec![("cell.json".into(), id, Keep::NewBase)]);
+            assert_eq!(
+                kept.unwrap(),
+                1,
+                "one side parses, and the file is resolved"
+            );
+        })
+    }
 }
