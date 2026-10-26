@@ -205,6 +205,15 @@ impl Tui for App {
 
         self.updates += 1;
 
+        let ignore_user_inputs = self.modal.as_ref().is_some_and(|modal| match modal {
+            Modal::Confirm { confirm } => confirm.waiting_on_callback(),
+            _ => false,
+        });
+
+        if ignore_user_inputs {
+            self.should_render = true;
+        }
+
         // update at full speed while we're rendering the diff
         let event_poll_timeout = if self.details.is_polling_thread() {
             Duration::from_millis(0)
@@ -216,7 +225,7 @@ impl Tui for App {
         event_polling.poll_into(event_poll_timeout, events)?;
         for event in events.drain(..) {
             let terminal_area: Rect = terminal_guard.terminal_mut().size()?.into();
-            event_to_messages(event, self, terminal_area, messages);
+            event_to_messages(event, self, terminal_area, messages, ignore_user_inputs);
         }
         dedup_mutation_messages(messages, other_messages);
 
