@@ -452,10 +452,16 @@ fn target(
                 || source.shorten().to_string(),
                 |(_, branch)| branch.to_string(),
             );
+    let local = source.category() == Some(gix::refs::Category::LocalBranch);
+    let untracked = (repo.remote_default_name(gix::remote::Direction::Fetch))
+        .filter(|_| local)
+        .map(|remote| format!("{remote}/{}", source.shorten()))
+        .filter(|name| (repo.find_reference(format!("refs/remotes/{name}").as_str())).is_ok());
     let target = Target {
         name: source.shorten().to_string(),
         branch,
-        local: source.category() == Some(gix::refs::Category::LocalBranch),
+        local,
+        untracked,
         behind,
         commits_behind,
         needs_update: ahead.is_some_and(|(ahead, _)| ahead > 0) || stacks_behind,

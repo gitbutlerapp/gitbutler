@@ -296,6 +296,10 @@ impl Workspace {
         let unpushed = (self.target.as_ref()).map_or(self.target_branch.is_some(), |t| t.local);
         if self.remoteless {
             Some("The project has no remote to push to: add one with `git remote add`")
+        } else if (self.target.as_ref()).is_some_and(|t| t.untracked.is_some()) {
+            Some(
+                "The target branch doesn't track the remote's of its name: the project's page says how to",
+            )
         } else if unpushed {
             Some("The target branch tracks no remote branch: push it once, with `git push -u`")
         } else if self.target.is_none() {
@@ -369,6 +373,9 @@ pub struct Target {
     /// It's the local target branch itself, like `main`, as it has no upstream, as in a
     /// repository with no remote: a land moves it rather than pushing it.
     pub local: bool,
+    /// The remote branch of its name a `local` one doesn't track, like `origin/main` after
+    /// `git push origin main` without `-u`: what others push there doesn't count here.
+    pub untracked: Option<String>,
     /// Commits on the target's own line of history the workspace doesn't have yet: each pull
     /// request merged counts once, as the project's page lists them.
     pub behind: usize,
@@ -1335,6 +1342,7 @@ mod tests {
                 name: "origin/main".into(),
                 branch: "main".into(),
                 local: false,
+                untracked: None,
                 behind: 1,
                 commits_behind: 1,
                 needs_update: true,

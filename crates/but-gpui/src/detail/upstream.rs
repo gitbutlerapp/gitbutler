@@ -1490,6 +1490,22 @@ impl Detail {
                 )
             })
             .children(self.mesh_meta(project, theme, cx))
+            .children(workspace.and_then(|ws| {
+                let target = ws.target.as_ref()?;
+                let remote = target.untracked.as_ref()?;
+                Some(
+                    meta_item(Icon::Warning, theme)
+                        .flex_none()
+                        .id("untracked-target")
+                        .text_color(theme.warn)
+                        .child(format!("{} doesn't track {remote}", target.name))
+                        .tooltip(Tooltip::text(format!(
+                            "What's pushed to {remote} doesn't show here, nor can branches be \
+                             pushed. Track it with `git branch -u {remote} {}`",
+                            target.name
+                        ))),
+                )
+            }))
             // Last, as it's read after the rest, so nothing moves when it shows.
             .children(unapplied.map(|n| {
                 meta_item(Icon::Branch, theme)

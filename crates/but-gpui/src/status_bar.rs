@@ -162,7 +162,13 @@ impl AppView {
                             entry.project.name, target.name
                         )
                     }
-                    0 => format!("{} · up to date with {}", entry.project.name, target.name),
+                    0 => match &target.untracked {
+                        Some(remote) => format!(
+                            "{} · {} doesn't track {remote}",
+                            entry.project.name, target.name
+                        ),
+                        None => format!("{} · up to date with {}", entry.project.name, target.name),
+                    },
                     n => format!(
                         "{} · {} behind {}{}",
                         entry.project.name,

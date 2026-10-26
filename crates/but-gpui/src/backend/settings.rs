@@ -427,6 +427,30 @@ mod tests {
     }
 
     #[test]
+    fn a_main_pushed_without_tracking_says_what_it_doesnt_track() {
+        but_testsupport::isolated_app_data_dir(|| {
+            let dir = repo_with("one\n");
+            let path = dir.path();
+            // As `git push origin main` leaves it, without `-u`.
+            git(
+                path,
+                &["remote", "add", "origin", "https://example.com/r.git"],
+            );
+            git(path, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+            super::set_target(path, "refs/heads/main").unwrap();
+            let workspace = crate::backend::load_workspace(path, Default::default()).unwrap();
+            assert_eq!(
+                workspace
+                    .target
+                    .and_then(|target| target.untracked)
+                    .as_deref(),
+                Some("origin/main"),
+                "what's pushed to origin/main doesn't count, so it's said why"
+            );
+        })
+    }
+
+    #[test]
     fn a_fork_targeting_the_original_repository_keeps_pushing_to_the_fork() {
         but_testsupport::isolated_app_data_dir(|| {
             let dir = repo_with("one\n");
