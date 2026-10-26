@@ -28,11 +28,42 @@ workspace (gitbutler/workspace)
 - No context switching - all applied branches merged in working directory
 - Changes are ASSIGNED to branches, not isolated by checkout
 
+### One Stack Applied: Single-Branch Mode
+
+GitButler works in any Git repository, on the branch that is checked out. There is no setup
+command. While only one stack is applied, `HEAD` stays on that stack's top branch, as in plain
+Git, and there is no `gitbutler/workspace` branch:
+
+```
+╭┄ @ [uncommitted] (no changes)
+┊
+┊╭┄ to [top] [HEAD]
+┊●   yxvm Add settings page
+┊│
+┊├┄ br [base]
+┊●   sozw Add settings model
+├╯
+┊
+┴ 3c6bac1 (common base, main, origin/main) 2026-10-26 Initial commit
+```
+
+- With the target branch checked out (for example a fresh clone of `main`),
+  `but commit -b <name>` creates that branch and checks it out. A bare `but commit` there
+  checks out a new branch with a generated name.
+- A branch stacked on the checked-out one (`--above`) becomes the new `HEAD`; the repository
+  stays in single-branch mode.
+- A second independent stack (`but apply`, or `but commit -b`/`but branch new` for a new
+  branch while a feature branch is checked out) switches `HEAD` to `gitbutler/workspace`.
+- Unapplying back to one stack checks that stack's branch out again.
+
+Commands, IDs, and recipes are the same in both modes, so you do not need to track which mode
+the repository is in. `[HEAD]` in `but status` marks the checked-out branch in single-branch mode.
+
 ### Key Implications
 
 1. **No `git checkout`**: You don't switch between branches. All applied branches exist simultaneously in your workspace.
 
-2. **The `gitbutler/workspace` branch**: A merge commit containing all applied stacks. Don't interact with it directly - use `but` commands.
+2. **The `gitbutler/workspace` branch**: With two or more stacks applied, `HEAD` is this branch, a merge commit containing all applied stacks. Don't interact with it directly - use `but` commands.
 
 3. **Applied vs Unapplied**: Control which branches are active:
    - Applied branches: In your working directory
@@ -286,7 +317,7 @@ Branches can be in two states:
 ### Applied Branches
 
 - Active in your workspace
-- Merged into `gitbutler/workspace`
+- Checked out directly when it is the only applied stack, otherwise merged into `gitbutler/workspace`
 - Changes visible in working directory
 - Can make changes and commit
 
@@ -312,7 +343,10 @@ but unapply <branch-name>  # Make branch inactive
 
 ## Conflict Resolution Mode
 
-When `but pull` causes conflicts, affected commits are marked as conflicted.
+When `but pull` causes conflicts, affected commits are marked as conflicted. Agents resolve them
+without entering a mode, with `but resolve conflicts` and `but resolve apply` (see `but skill`).
+Resolution mode below is for running code against a resolution, and it needs
+`gitbutler/workspace`: while a single branch is checked out, `but resolve <commit-id>` refuses.
 
 ### Resolution Workflow
 
@@ -340,10 +374,10 @@ Git commands that don't modify state are safe to use:
 - `git blame` - See line history
 - `git reflog` - View reference log
 
-**Don't use in a GitButler workspace:**
+**Don't use (in either mode):**
 
-- `git status` - Misleading: shows merged workspace state, not individual stacks; missing CLI IDs that agents need
-- `git commit` - Commits to the workspace merge commit, not your branch
+- `git status` - Missing the CLI IDs that agents need; with several stacks applied it shows the merged workspace state, not individual stacks
+- `git commit` - With several stacks applied, commits on top of the workspace merge commit, not your branch
 - `git checkout` - Breaks workspace model
 - `git rebase` - Conflicts with GitButler's management
 - `git merge` - Use `but merge` instead

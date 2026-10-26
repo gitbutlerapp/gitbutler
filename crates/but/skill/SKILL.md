@@ -98,7 +98,7 @@ The first token on each `but diff` / `but status` line is that line's ID. When a
 For "get latest from main", "update/sync this workspace", "rebase onto main", or "pull main":
 
 1. `but pull` — one command; no preflight needed. Its output reports the resulting state, it refuses safely when uncommitted changes conflict, and `but undo` reverts it.
-2. If commits come back conflicted, resolve them oldest-first following the printed instructions: `but resolve <commit>`, edit the files, then `but resolve finish`. Its result gives the current ID of the next conflict. Add `--status-after` to the finish you expect to clear the last conflict only when the task needs the complete resulting workspace. When it says no conflicted commits remain, stop; do not run a verification status. Finishing a lower commit rebases the ones above it, so always work bottom-up.
+2. If commits come back conflicted, resolve them with the `but resolve conflicts <branch>` and `but resolve apply` loop in Resolve conflicted commits, one branch at a time. With several stacks applied, `but pull` prints `but resolve <commit>` as the next step; that is edit mode, which is only for running code against a resolution.
 
 `but pull --check` answers "would this conflict?" without updating. Do not use it as a routine
 preflight; use it when the user asks for a preview, repository policy requires one, other agents'
@@ -202,7 +202,7 @@ A wrong resolution is reverted with `but undo`.
 
 `but resolve <commit-id> --ai` resolves a whole commit with the configured AI model in one shot, and `but resolve --ai` without a commit resolves every conflicted commit, oldest first — acceptable as a fallback, but you usually have better context than that model does, so prefer resolving the conflicts yourself with `apply`.
 
-**Use edit mode only when you must run code against the resolution** (build/tests at that commit):
+**Use edit mode only when you must run code against the resolution** (build/tests at that commit). Edit mode needs `gitbutler/workspace`: while a single branch is checked out, `but resolve <commit-id>` refuses, so use `apply`.
 
 1. `but resolve <commit-id>` — enters resolution mode and prints the conflict regions.
 2. **Edit the files** to remove every conflict marker — `<<<<<<<`, `|||||||` (the common-ancestor section), `=======` and `>>>>>>>` — and keep the correct content. Do NOT skip this; do NOT use `but amend` on conflicted commits.
@@ -232,6 +232,7 @@ A wrong resolution is reverted with `but undo`.
 
 ## Notes
 
+- `but` needs no setup in a Git repository. While one stack is applied, `HEAD` stays on its top branch as in plain Git; a second applied stack switches `HEAD` to `gitbutler/workspace`, and unapplying back to one stack checks that branch out again. Commands and IDs are the same either way.
 - Read-only git inspection (`git log`, `git blame`, `git show --stat`) is allowed.
 - If `but` prints an `AGENT ACTION REQUIRED` skill warning, run the suggested command once, then reload/use the GitButler skill. If it repeats, report it instead of retrying.
 - For command syntax and flags: `but skill reference`
