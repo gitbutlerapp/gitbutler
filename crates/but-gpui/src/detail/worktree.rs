@@ -567,6 +567,8 @@ impl Detail {
             let path = path.clone();
             let bar = div().flex_none().w(dp(48.));
             share_row(("now-hot", ix), label, bar, (*n, most), (on, true), theme)
+                // In full, as a long name can leave its folder no room.
+                .tooltip(Tooltip::text(path.to_string()))
                 .on_mouse_down(MouseButton::Left, keep_focus_on_press)
                 .on_click(
                     cx.listener(move |this, _, _, cx| this.pick_hot_file(Some(path.clone()), cx)),
