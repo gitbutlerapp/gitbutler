@@ -439,7 +439,127 @@ fn racily_clean_edits_after_moving_the_index_forward() -> anyhow::Result<()> {
         Ok(String::from_utf8(out.stdout)?.trim_end().to_owned())
     };
     assert_eq!(status()?, " M r", "the fixture hides nothing yet");
-    check_out(tmp.path())?;
-    snapbox::assert_data_eq!(status()?, snapbox::str![""]);
+    let outcome = check_out(tmp.path())?;
+    assert!(
+        outcome.starts_with("done"),
+        "the index moves forward: {outcome}"
+    );
+    snapbox::assert_data_eq!(status()?, snapbox::str![" M r"]);
+    Ok(())
+}
+
+/// Check out in `dir` on another thread, failing if it doesn't finish in time.
+fn check_out_in_time(dir: &Path) -> anyhow::Result<String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let dir = dir.to_owned();
+    std::thread::spawn(move || tx.send(check_out(&dir).map_err(|err| err.to_string())));
+    rx.recv_timeout(std::time::Duration::from_secs(20))
+        .map_err(|_| anyhow::anyhow!("checkout didn't finish"))?
+        .map_err(anyhow::Error::msg)
+}
+
+/// A racy entry whose file was replaced by a FIFO isn't read: its stat is cleared instead, even
+/// when the stat comparison is too coarse to notice the replacement.
+#[test]
+fn racy_entries_replaced_by_a_fifo_are_not_read() -> anyhow::Result<()> {
+    let (change, index) = (Change::ModifyText, Index::LikeHead);
+    let staged = change.staged(index).expect("a covered case");
+    let tmp = but_testsupport::gix_testtools::tempfile::tempdir()?;
+    invoke_bash_at_dir(
+        &format!(
+            "{}git config core.checkStat minimal\ngit config core.trustctime false\n: >e\ntouch -t 200001010000 e\ngit add e\nrm e\nmkfifo e\ntouch -t 200001010000 e .git/index\n",
+            script(change, index, staged)
+        ),
+        tmp.path(),
+    );
+    snapbox::assert_data_eq!(
+        check_out_in_time(tmp.path())?,
+        snapbox::str!["done, p [Mode(FILE) 1|C|3|4|5|], q q staged|, stats cleared"]
+    );
+    Ok(())
+}
+
+/// A racy entry whose file can't be cleaned loses its stat instead of stopping the index from
+/// moving forward.
+#[test]
+fn racy_entries_that_fail_to_clean_lose_their_stat() -> anyhow::Result<()> {
+    let (change, index) = (Change::ModifyText, Index::LikeHead);
+    let staged = change.staged(index).expect("a covered case");
+    let tmp = but_testsupport::gix_testtools::tempfile::tempdir()?;
+    invoke_bash_at_dir(
+        &format!(
+            "{}git config filter.failing.clean false\ngit config filter.failing.required true\nprintf 'r filter=failing\\n' >.git/info/attributes\ntouch -t 200001010000 .git/index\n",
+            script(change, index, staged)
+        ),
+        tmp.path(),
+    );
+    snapbox::assert_data_eq!(
+        check_out(tmp.path())?,
+        snapbox::str!["done, p [Mode(FILE) 1|C|3|4|5|], q q staged|, stats cleared"]
+    );
+    Ok(())
+}
+
+/// A racy entry whose metadata can't be read loses its stat, so an edit beneath a directory that
+/// is inaccessible during checkout still shows once access returns.
+#[cfg(unix)]
+#[test]
+fn racy_entries_that_cannot_be_inspected_lose_their_stat() -> anyhow::Result<()> {
+    use std::os::unix::fs::PermissionsExt as _;
+    let (change, index) = (Change::ModifyText, Index::LikeHead);
+    let staged = change.staged(index).expect("a covered case");
+    let tmp = but_testsupport::gix_testtools::tempfile::tempdir()?;
+    invoke_bash_at_dir(
+        &format!(
+            "{}git config core.trustctime false\nmkdir d\nprintf 'x\\n' >d/x\ntouch -t 200001010000 d/x\ngit add d/x\ngit update-index --really-refresh >/dev/null || true\nprintf 'X\\n' >d/x\ntouch -t 200001010000 d/x .git/index\n",
+            script(change, index, staged)
+        ),
+        tmp.path(),
+    );
+    let status = || -> anyhow::Result<String> {
+        let out = std::process::Command::new("git")
+            .args(["status", "--porcelain", "--", "d/x"])
+            .env("GIT_OPTIONAL_LOCKS", "0")
+            .current_dir(tmp.path())
+            .output()?;
+        Ok(String::from_utf8(out.stdout)?.trim_end().to_owned())
+    };
+    assert_eq!(status()?, "AM d/x", "the fixture hides nothing yet");
+    let dir = tmp.path().join("d");
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o000))?;
+    let outcome = check_out(tmp.path());
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755))?;
+    let outcome = outcome?;
+    assert!(
+        outcome.starts_with("done"),
+        "the index moves forward: {outcome}"
+    );
+    snapbox::assert_data_eq!(status()?, snapbox::str!["AM d/x"]);
+    Ok(())
+}
+
+/// A racy entry beneath a directory replaced by a symlink loses its stat without its file being
+/// read, so nothing outside the worktree reaches a clean filter.
+#[cfg(unix)]
+#[test]
+fn racy_entries_beneath_a_symlinked_directory_are_not_read() -> anyhow::Result<()> {
+    let (change, index) = (Change::ModifyText, Index::LikeHead);
+    let staged = change.staged(index).expect("a covered case");
+    let tmp = but_testsupport::gix_testtools::tempfile::tempdir()?;
+    invoke_bash_at_dir(
+        &format!(
+            "{}mkdir d\nprintf 'x\\n' >d/x\ntouch -t 200001010000 d/x\ngit add d/x\ngit update-index --really-refresh >/dev/null || true\ngit config filter.logging.clean 'echo called >>\"$GIT_DIR/clean-calls\"; cat'\nprintf 'x filter=logging\\n' >.git/info/attributes\nmv d .git/outside\nln -s \"$PWD/.git/outside\" d\ntouch -t 200001010000 .git/index\n",
+            script(change, index, staged)
+        ),
+        tmp.path(),
+    );
+    snapbox::assert_data_eq!(
+        check_out(tmp.path())?,
+        snapbox::str!["done, p [Mode(FILE) 1|C|3|4|5|], q q staged|, stats cleared"]
+    );
+    assert!(
+        !tmp.path().join(".git/clean-calls").exists(),
+        "the file outside the worktree must not be cleaned"
+    );
     Ok(())
 }
